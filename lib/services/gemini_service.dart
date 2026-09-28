@@ -62,10 +62,10 @@ class GeminiService {
   final StorageService _storageService = StorageService();
 
   static const List<String> _candidateImageModels = [
-    'gemini-2.5-flash-image',
     'gemini-3.1-flash-image',
     'gemini-3-pro-image',
     'gemini-3.1-flash-lite-image',
+    'gemini-2.5-flash-image',
   ];
 
   static const List<String> _candidateModels = [
@@ -73,19 +73,101 @@ class GeminiService {
     'gemini-flash-latest',
     'gemini-3.7-flash',
     'gemini-3.5-flash',
-    'gemini-2.5-flash',
-    'gemini-1.5-flash',
+    'gemini-3.1-pro-preview',
+    'gemini-pro-latest',
   ];
 
+  static bool _isValidGenerationModel(String m) {
+    final lower = m.toLowerCase();
+    if (lower.contains('image') ||
+        lower.contains('tts') ||
+        lower.contains('lyria') ||
+        lower.contains('embedding') ||
+        lower.contains('deep-research') ||
+        lower.contains('robotics') ||
+        lower.contains('computer-use') ||
+        lower.contains('transcribe') ||
+        lower.contains('banana') ||
+        lower.contains('2.5-flash') ||
+        lower.contains('2.5-pro') ||
+        lower.contains('1.5-') ||
+        lower.contains('aqa')) {
+      return false;
+    }
+    return lower.contains('flash') || lower.contains('pro');
+  }
+
   static int _modelPriorityScore(String name) {
-    if (name.contains('3.8-flash')) return 100;
-    if (name.contains('flash-latest')) return 90;
-    if (name.contains('3.7-flash')) return 80;
-    if (name.contains('3.5-flash')) return 70;
-    if (name.contains('2.5-flash')) return 60;
-    if (name.contains('1.5-flash')) return 50;
-    if (name.contains('flash')) return 40;
+    if (name == 'gemini-3.8-flash') return 100;
+    if (name == 'gemini-flash-latest') return 95;
+    if (name == 'gemini-3.7-flash') return 90;
+    if (name == 'gemini-3.5-flash') return 80;
+    if (name == 'gemini-3.1-pro-preview') return 70;
+    if (name == 'gemini-pro-latest') return 60;
+    if (name.contains('flash')) return 50;
+    if (name.contains('pro')) return 40;
     return 10;
+  }
+
+  static bool _isNetworkError(dynamic e) {
+    final s = e.toString().toLowerCase();
+    return s.contains('socketexception') ||
+        s.contains('failed host lookup') ||
+        s.contains('no address associated with hostname') ||
+        s.contains('network is unreachable') ||
+        s.contains('connection refused') ||
+        s.contains('clientexception') ||
+        s.contains('handshakeexception');
+  }
+
+  static String _formatUserFriendlyError(String rawError) {
+    if (rawError.isEmpty) return 'Analysis could not be completed. Please try again.';
+    final lower = rawError.toLowerCase();
+    if (lower.contains('socketexception') ||
+        lower.contains('failed host lookup') ||
+        lower.contains('no address associated with hostname') ||
+        lower.contains('network is unreachable') ||
+        lower.contains('clientexception')) {
+      return 'Network connection error: Unable to reach Google AI servers. Please check your phone\'s Wi-Fi or mobile data.';
+    }
+    if (lower.contains('timeoutexception') || lower.contains('timed out')) {
+      return 'Request timed out while connecting to Google AI. Please try again.';
+    }
+    if (lower.contains('429') || lower.contains('resource_exhausted')) {
+      return 'Google Gemini rate limit reached. Please wait a moment and try again.';
+    }
+    if (lower.contains('401') || lower.contains('403') || lower.contains('api_key_invalid')) {
+      return 'Invalid Gemini API key. Please check your key in Settings.';
+    }
+    // Remove internal secrets, URLs, and exception brackets for privacy and readability
+    String cleaned = rawError.replaceAll(RegExp(r'key=[A-Za-z0-9_\-\.]+'), 'key=[REDACTED]');
+    cleaned = cleaned.replaceAll(RegExp(r'https?://[^\s]+'), '');
+    cleaned = cleaned.replaceAll(RegExp(r'\[.*?exception\]:?'), '').trim();
+    cleaned = cleaned.replaceAll(RegExp(r'ClientException with '), '').trim();
+    return cleaned.isNotEmpty ? cleaned : 'Unable to complete analysis. Please try again.';
+  }
+
+  Future<http.Response> _postWithRetry(
+    Uri uri, {
+    required Map<String, String> headers,
+    required String body,
+    Duration timeout = const Duration(seconds: 40),
+    int maxRetries = 1,
+  }) async {
+    int attempts = 0;
+    while (true) {
+      attempts++;
+      try {
+        return await http.post(uri, headers: headers, body: body).timeout(timeout);
+      } catch (e) {
+        if (_isNetworkError(e) && attempts <= maxRetries) {
+          debugPrint('Network hiccup encountered, waiting 1.5s before retry (attempt $attempts/$maxRetries)...');
+          await Future.delayed(const Duration(milliseconds: 1500));
+          continue;
+        }
+        rethrow;
+      }
+    }
   }
 
   Future<List<String>> _getAvailableModels(String apiKey) async {
@@ -93,13 +175,13 @@ class GeminiService {
       final uri = Uri.parse(
         'https://generativelanguage.googleapis.com/v1beta/models?key=$apiKey',
       );
-      final response = await http.get(uri).timeout(const Duration(seconds: 6));
+      final response = await http.get(uri).timeout(const Duration(seconds: 8));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final models = (data['models'] as List?)
                 ?.map((m) => m['name']?.toString().replaceFirst('models/', ''))
                 .whereType<String>()
-                .where((m) => m.contains('flash') || m.contains('pro'))
+                .where(_isValidGenerationModel)
                 .toList() ??
             [];
         if (models.isNotEmpty) {
@@ -108,14 +190,16 @@ class GeminiService {
             final scoreB = _modelPriorityScore(b);
             return scoreB.compareTo(scoreA);
           });
-          debugPrint('Discovered models for API key: $models');
-          return models;
+          // Pick top 3 verified generation models
+          final topModels = models.take(3).toList();
+          debugPrint('Discovered verified models for API key: $topModels');
+          return topModels;
         }
       }
     } catch (e) {
       debugPrint('Dynamic model listing error: $e');
     }
-    return _candidateModels;
+    return _candidateModels.take(3).toList();
   }
 
   /// Validates the API key by listing available models
@@ -234,13 +318,12 @@ Return ONLY a valid JSON object matching:
         }
       };
 
-      final scanResp = await http
-          .post(
-            uri,
-            headers: {'Content-Type': 'application/json'},
-            body: json.encode(scanBody),
-          )
-          .timeout(const Duration(seconds: 15));
+      final scanResp = await _postWithRetry(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode(scanBody),
+        timeout: const Duration(seconds: 25),
+      );
 
       if (scanResp.statusCode == 200) {
         final decoded = json.decode(scanResp.body);
@@ -309,13 +392,12 @@ Return JSON:
           }
         };
 
-        final searchResp = await http
-            .post(
-              uri,
-              headers: {'Content-Type': 'application/json'},
-              body: json.encode(searchBody),
-            )
-            .timeout(const Duration(seconds: 25));
+        final searchResp = await _postWithRetry(
+          uri,
+          headers: {'Content-Type': 'application/json'},
+          body: json.encode(searchBody),
+          timeout: const Duration(seconds: 35),
+        );
 
         if (searchResp.statusCode == 200) {
           final decoded = json.decode(searchResp.body);
@@ -512,13 +594,12 @@ Return ONLY a valid JSON object matching this schema:
           }
         };
 
-        final response = await http
-            .post(
-              uri,
-              headers: {'Content-Type': 'application/json'},
-              body: json.encode(requestBody),
-            )
-            .timeout(const Duration(seconds: 45));
+        final response = await _postWithRetry(
+          uri,
+          headers: {'Content-Type': 'application/json'},
+          body: json.encode(requestBody),
+          timeout: const Duration(seconds: 40),
+        );
 
         debugPrint('Gemini [$model] response code: ${response.statusCode}');
 
@@ -598,10 +679,14 @@ Return ONLY a valid JSON object matching this schema:
       } catch (e) {
         lastError = '[$model exception]: $e';
         debugPrint('Gemini model $model exception: $e');
+        if (_isNetworkError(e)) {
+          debugPrint('Network offline detected, halting model loop');
+          break;
+        }
       }
     }
 
-    // If all models failed, return Smart Demo with the exact error message for user visibility
+    // If all models failed, return Smart Demo with a clean user-friendly message
     debugPrint('All Gemini models failed. Last error: $lastError');
     return _generateSmartDemoResult(
       targetAudience: targetAudience,
@@ -610,7 +695,7 @@ Return ONLY a valid JSON object matching this schema:
       fallbackTitle: fallbackTitle,
       fallbackBody: fallbackBody,
       visualArtRatio: visualArtRatio,
-      errorMessage: 'Gemini API call failed: $lastError',
+      errorMessage: _formatUserFriendlyError(lastError),
     );
   }
 
@@ -725,7 +810,7 @@ Return ONLY a valid JSON object matching this schema:
           'https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey',
         );
 
-        Map<String, dynamic> requestBody = {
+        final requestBody = {
           "contents": [
             {
               "parts": [
@@ -735,47 +820,18 @@ Return ONLY a valid JSON object matching this schema:
               ]
             }
           ],
-          "tools": [
-            {"googleSearch": {}}
-          ],
           "generationConfig": {
+            "responseMimeType": "application/json",
             "temperature": 0.35,
           }
         };
 
-        var response = await http
-            .post(
-              uri,
-              headers: {'Content-Type': 'application/json'},
-              body: json.encode(requestBody),
-            )
-            .timeout(const Duration(seconds: 45));
-
-        // If the specific model does not support tools or fails, retry with standard JSON response mode
-        if (response.statusCode != 200) {
-          final fallbackBody = {
-            "contents": [
-              {
-                "parts": [
-                  {
-                    "text": prompt,
-                  }
-                ]
-              }
-            ],
-            "generationConfig": {
-              "responseMimeType": "application/json",
-              "temperature": 0.35,
-            }
-          };
-          response = await http
-              .post(
-                uri,
-                headers: {'Content-Type': 'application/json'},
-                body: json.encode(fallbackBody),
-              )
-              .timeout(const Duration(seconds: 45));
-        }
+        final response = await _postWithRetry(
+          uri,
+          headers: {'Content-Type': 'application/json'},
+          body: json.encode(requestBody),
+          timeout: const Duration(seconds: 40),
+        );
 
         if (response.statusCode == 200) {
           final decoded = json.decode(response.body);
@@ -851,6 +907,11 @@ Return ONLY a valid JSON object matching this schema:
         }
       } catch (e) {
         lastError = '[$model exception]: $e';
+        debugPrint('Gemini digital article model $model exception: $e');
+        if (_isNetworkError(e)) {
+          debugPrint('Network offline detected, halting model loop');
+          break;
+        }
       }
     }
 
@@ -861,7 +922,7 @@ Return ONLY a valid JSON object matching this schema:
       fallbackTitle: articleTitle.isNotEmpty ? articleTitle : 'Digital News Story',
       fallbackBody: articleBody,
       visualArtRatio: visualArtRatio,
-      errorMessage: 'Gemini API call failed: $lastError',
+      errorMessage: _formatUserFriendlyError(lastError),
     );
   }
 
@@ -1013,13 +1074,12 @@ Return ONLY a valid JSON object matching this schema:
           }
         };
 
-        final response = await http
-            .post(
-              uri,
-              headers: {'Content-Type': 'application/json'},
-              body: json.encode(requestBody),
-            )
-            .timeout(const Duration(seconds: 45));
+        final response = await _postWithRetry(
+          uri,
+          headers: {'Content-Type': 'application/json'},
+          body: json.encode(requestBody),
+          timeout: const Duration(seconds: 40),
+        );
 
         if (response.statusCode == 200) {
           final decoded = json.decode(response.body);
@@ -1081,10 +1141,15 @@ Return ONLY a valid JSON object matching this schema:
             }
           }
         } else {
-          lastError = 'HTTP ${response.statusCode}: ${response.body}';
+          lastError = '[$model error ${response.statusCode}]: ${_extractErrorMessage(response.body)}';
         }
       } catch (e) {
-        lastError = e.toString();
+        lastError = '[$model exception]: $e';
+        debugPrint('Gemini book excerpt model $model exception: $e');
+        if (_isNetworkError(e)) {
+          debugPrint('Network offline detected, halting model loop');
+          break;
+        }
       }
     }
 
@@ -1096,7 +1161,7 @@ Return ONLY a valid JSON object matching this schema:
       targetAudience: targetAudience,
       tone: tone,
       visualArtRatio: visualArtRatio,
-      errorMessage: 'Gemini API call failed: $lastError',
+      errorMessage: _formatUserFriendlyError(lastError),
     );
   }
 
