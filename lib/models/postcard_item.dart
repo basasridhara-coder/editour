@@ -259,6 +259,7 @@ class PostCardItem {
       'postFormat': postFormat,
       'receiptHighlightQuote': receiptHighlightQuote,
       'articleExcerpts': articleExcerpts,
+      'resolvedArticleExcerpts': resolvedArticleExcerpts,
     };
   }
 
