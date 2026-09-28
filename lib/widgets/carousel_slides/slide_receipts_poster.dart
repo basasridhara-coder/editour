@@ -29,42 +29,35 @@ class SlideReceiptsPoster extends StatelessWidget {
             ? item.pullQuote!
             : (item.keyTakeaways.isNotEmpty ? item.keyTakeaways.first : 'Verbatim evidentiary highlight from the source text.'));
 
-    // Construct a continuous, cohesive broadsheet newspaper article
+    // Construct a single, cohesive, summarized broadsheet article that flows without gaps or collisions
     final leadText = item.hook.isNotEmpty
         ? item.hook
         : (item.summary.isNotEmpty
             ? item.summary
             : 'According to primary reporting and official correspondence released during the latest coverage cycle, analytical observers established direct confirmation of the recorded developments.');
 
-    final corroboratingLeft = (item.whyItMatters != null && item.whyItMatters!.trim().isNotEmpty)
+    // Concluding summary synthesis (clean single paragraph that completes properly)
+    final summaryConclusion = (item.whyItMatters != null && item.whyItMatters!.trim().isNotEmpty)
         ? item.whyItMatters!
-        : (item.creatorOpinion != null && item.creatorOpinion!.trim().isNotEmpty
-            ? item.creatorOpinion!
+        : (item.summary.isNotEmpty && item.summary != leadText
+            ? item.summary
             : (item.keyTakeaways.isNotEmpty
-                ? item.keyTakeaways.first
-                : 'Observers emphasized that documented structural impacts were corroborated across primary administrative channels.'));
-
-    final corroboratingRight = item.keyTakeaways.length > 1
-        ? item.keyTakeaways[1]
-        : (item.keyTakeaways.isNotEmpty
-            ? item.keyTakeaways.first
-            : (item.keyMetric != null && item.keyMetric!.isNotEmpty
-                ? 'Official records validated a signal metric of ${item.keyMetric}, confirming persistent trendlines diverging from initial forecasts.'
-                : 'Subsequent disclosures maintained that recorded indicators diverged sharply from initial forecasts, establishing a decisive historical baseline.'));
+                ? item.keyTakeaways.join(' ')
+                : 'Observers emphasized that documented structural impacts were corroborated across primary administrative channels, establishing a decisive historical baseline.'));
 
     final hasPhysicalPhoto = item.originalPhotoPath.isNotEmpty &&
         !item.originalPhotoPath.startsWith('http') &&
         item.originalPhotoPath != 'digital_article_link' &&
         File(item.originalPhotoPath).existsSync();
 
-    // Dynamic responsive font sizes to guarantee complete statements with zero empty gaps
-    final double headlineSize = headline.length > 80
+    // Responsive font sizes to ensure complete statements and elegant newspaper layout
+    final double headlineSize = headline.length > 70
         ? 15.0
-        : (headline.length > 50 ? 16.5 : 18.0);
+        : (headline.length > 45 ? 16.5 : 18.0);
 
-    final double leadFontSize = leadText.length > 160 ? 10.0 : 11.0;
-    final double quoteFontSize = receiptQuote.length > 180 ? 11.5 : (receiptQuote.length > 120 ? 12.5 : 13.5);
-    final double bodyFontSize = (corroboratingLeft.length + corroboratingRight.length) > 260 ? 9.0 : 9.8;
+    final double leadFontSize = leadText.length > 150 ? 10.5 : 11.5;
+    final double quoteFontSize = receiptQuote.length > 180 ? 11.5 : (receiptQuote.length > 110 ? 12.5 : 13.5);
+    final double conclusionFontSize = summaryConclusion.length > 180 ? 10.0 : 11.0;
 
     return AspectRatio(
       aspectRatio: 4 / 5,
@@ -86,7 +79,7 @@ class SlideReceiptsPoster extends StatelessWidget {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              // Main Broadsheet Newspaper Layout (Continuous Article with ZERO Gaps)
+              // Main Broadsheet Newspaper Article (Continuous Story Flow with ZERO Gaps & NO Overlap)
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
                 child: Column(
@@ -155,9 +148,9 @@ class SlideReceiptsPoster extends StatelessWidget {
                       ],
                     ),
 
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 7),
 
-                    // 2. Original Article Headline & Wire Byline (Complete Headline)
+                    // 2. Original Article Headline & Wire Byline (Complete, Bold Headline)
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -202,26 +195,26 @@ class SlideReceiptsPoster extends StatelessWidget {
                       ],
                     ),
 
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 8),
 
-                    // 3. The Continuous Summarized Newspaper Article (Zero Empty Spaces!)
+                    // 3. The Continuous Summarized Newspaper Article (Zero Empty Spaces & Zero Overlap!)
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
-                          // Lead Paragraph of the Story (Full statement, no truncation)
+                          // Lead Paragraph of the Story (Full statement, completed thought)
                           Text(
                             leadText,
                             style: TextStyle(
                               fontFamily: 'serif',
                               fontSize: leadFontSize,
                               color: const Color(0xFF1E293B),
-                              height: 1.35,
+                              height: 1.38,
                             ),
                           ),
 
-                          // The Yellow Highlighter "Receipt" Box (The Core Smoking Gun)
+                          // The Yellow Highlighter "Receipt" Box (The Core In-Line Evidence)
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
                             decoration: BoxDecoration(
@@ -276,42 +269,23 @@ class SlideReceiptsPoster extends StatelessWidget {
                             ),
                           ),
 
-                          // Corroborating Evidence Columns (Full completed statements, zero truncation)
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  corroboratingLeft,
-                                  style: TextStyle(
-                                    fontFamily: 'serif',
-                                    fontSize: bodyFontSize,
-                                    color: const Color(0xFF334155),
-                                    height: 1.30,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  corroboratingRight,
-                                  style: TextStyle(
-                                    fontFamily: 'serif',
-                                    fontSize: bodyFontSize,
-                                    color: const Color(0xFF334155),
-                                    height: 1.30,
-                                  ),
-                                ),
-                              ),
-                            ],
+                          // Concluding Summary & Impact Paragraph (Complete, flows naturally, NO overlap!)
+                          Text(
+                            summaryConclusion,
+                            style: TextStyle(
+                              fontFamily: 'serif',
+                              fontSize: conclusionFontSize,
+                              color: const Color(0xFF334155),
+                              height: 1.36,
+                            ),
                           ),
                         ],
                       ),
                     ),
 
-                    const SizedBox(height: 5),
+                    const SizedBox(height: 6),
 
-                    // 4. Broadsheet Archival Bottom Folio
+                    // 4. Broadsheet Archival Bottom Folio (Cleanly separated from article text!)
                     Column(
                       children: [
                         Container(height: 0.8, color: const Color(0xFF0F172A)),

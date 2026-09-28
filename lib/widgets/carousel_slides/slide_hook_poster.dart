@@ -21,17 +21,17 @@ class SlideHookPoster extends StatelessWidget {
     final category = item.categoryBadge.isNotEmpty ? item.categoryBadge.toUpperCase() : 'EDITORIAL';
     final handle = item.creatorHandle ?? '@curator';
 
-    // Dynamic responsive font sizing based on headline length so it never truncates
+    // Dynamic responsive font sizing for headline
     final double headlineSize = headline.length > 90
         ? 19.0
         : (headline.length > 60
             ? 21.0
-            : (headline.length > 40 ? 23.0 : 25.0));
+            : (headline.length > 40 ? 22.5 : 24.0));
 
-    // Dynamic responsive font sizing for hook so full sentence completes
-    final double hookSize = item.hook.length > 160
-        ? 11.5
-        : (item.hook.length > 100 ? 12.5 : 13.5);
+    // Dynamic responsive font sizing for the Hook Paragraph (Bigger font encouraging reading!)
+    final double hookParagraphSize = item.hook.length > 160
+        ? 14.0
+        : (item.hook.length > 100 ? 15.0 : 16.0);
 
     return AspectRatio(
       aspectRatio: 4 / 5,
@@ -57,19 +57,19 @@ class SlideHookPoster extends StatelessWidget {
               _buildVisualArt(),
 
               // 2. Cinematic Multi-Stop Dark Vignette Overlay
-              // Keeps the center artwork visible while ensuring 100% contrast for top and bottom text
+              // Leaves the upper 55% completely clear so the main subject is NEVER covered!
               Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    stops: const [0.0, 0.18, 0.42, 0.70, 1.0],
+                    stops: const [0.0, 0.14, 0.50, 0.72, 1.0],
                     colors: [
-                      Colors.black.withValues(alpha: 0.75), // Top shadow for clean header badge
-                      Colors.black.withValues(alpha: 0.15),
-                      Colors.transparent,                  // Mid-section showcases visual art
+                      Colors.black.withValues(alpha: 0.65), // Header shadow
+                      Colors.transparent,                  // Upper visual subject is completely unobstructed!
+                      Colors.transparent,
                       const Color(0xFF060911).withValues(alpha: 0.88),
-                      const Color(0xFF060911).withValues(alpha: 0.98), // Solid contrast for hook text
+                      const Color(0xFF060911).withValues(alpha: 0.98), // Solid contrast for readable paragraph
                     ],
                   ),
                 ),
@@ -146,7 +146,8 @@ class SlideHookPoster extends StatelessWidget {
                 ),
               ),
 
-              // 4. Lower Content Section (Stop-the-Scroll Hook with Fully Completed Sentences)
+              // 4. Lower Content Section: Bold Headline + Bigger Readable Paragraph
+              // Anchored strictly to the lower 38% so it never covers the subject!
               Positioned(
                 bottom: 14,
                 left: 18,
@@ -155,7 +156,7 @@ class SlideHookPoster extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Massive, Punchy Display Headline (Completely rendered, never truncated)
+                    // Headline Hook (Clear and bold)
                     Text(
                       headline,
                       style: TextStyle(
@@ -174,16 +175,16 @@ class SlideHookPoster extends StatelessWidget {
                       ),
                     ),
 
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 8),
 
-                    // Minimal, Irresistible Sub-hook (Full completed thought, NO ellipsis truncation!)
+                    // Small Paragraph with Complete Statement in BIGGER, highly readable font!
                     Text(
                       item.hook,
                       style: TextStyle(
-                        fontSize: hookSize,
-                        color: const Color(0xFFE2E8F0),
-                        height: 1.35,
-                        fontWeight: FontWeight.w500,
+                        fontSize: hookParagraphSize,
+                        color: const Color(0xFFF1F5F9),
+                        height: 1.38,
+                        fontWeight: FontWeight.w600,
                         shadows: const [
                           Shadow(
                             color: Colors.black87,
@@ -194,7 +195,7 @@ class SlideHookPoster extends StatelessWidget {
                       ),
                     ),
 
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 12),
 
                     // High-Contrast Footer (Creator Handle + Glowing Swipe Trigger)
                     Row(

@@ -142,24 +142,24 @@ class _CarouselPosterStudioState extends State<CarouselPosterStudio> {
             child: Column(
               children: [
                 SizedBox(
-                  width: 720,
-                  height: 900,
+                  width: 360,
+                  height: 450,
                   child: RepaintBoundary(
                     key: _captureKey1,
                     child: SlideHookPoster(item: widget.item, config: config),
                   ),
                 ),
                 SizedBox(
-                  width: 720,
-                  height: 900,
+                  width: 360,
+                  height: 450,
                   child: RepaintBoundary(
                     key: _captureKey2,
                     child: SlideCritiquePoster(item: widget.item, config: config),
                   ),
                 ),
                 SizedBox(
-                  width: 720,
-                  height: 900,
+                  width: 360,
+                  height: 450,
                   child: RepaintBoundary(
                     key: _captureKey3,
                     child: SlideReceiptsPoster(item: widget.item, config: config),
