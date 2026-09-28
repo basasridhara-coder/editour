@@ -1319,13 +1319,14 @@ class WebFeedServer {
       const p2 = (excerpts.length > 1 && excerpts[1]) ? excerpts[1] : (post.receiptHighlightQuote && post.receiptHighlightQuote !== p1 ? post.receiptHighlightQuote : 'Official records corroborated the recorded developments across primary administrative and field channels.');
       const p3 = (excerpts.length > 2 && excerpts[2]) ? excerpts[2] : null;
 
-      // Slide 1 Background Artwork
+      // Slide 1 Background Artwork (AI Generated Curated Angle Photo)
       let slide1ArtSrc = '';
       if (post.illustrationBase64) {
         slide1ArtSrc = 'data:image/jpeg;base64,' + post.illustrationBase64;
-      } else if (post.originalPhotoPath && !post.originalPhotoPath.startsWith('http') && post.originalPhotoPath !== 'digital_article_link') {
-        slide1ArtSrc = '/image/' + encodeURIComponent(post.originalPhotoPath);
+      } else if (post.renderedPosterPath && !post.renderedPosterPath.startsWith('http')) {
+        slide1ArtSrc = '/image/' + encodeURIComponent(post.renderedPosterPath);
       }
+      // NOTE: We NEVER display the raw paper cut clipping (originalPhotoPath) on Slide 1!
 
       // Slide 2 Background Artwork (Curator illustration or blurred main art)
       let slide2ArtSrc = '';

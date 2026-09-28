@@ -63,13 +63,6 @@ class GeminiAnalysisResult {
 class GeminiService {
   final StorageService _storageService = StorageService();
 
-  static const List<String> _candidateImageModels = [
-    'gemini-3.1-flash-image',
-    'gemini-3-pro-image',
-    'gemini-3.1-flash-lite-image',
-    'gemini-2.5-flash-image',
-  ];
-
   static const List<String> _candidateModels = [
     'gemini-3.8-flash',
     'gemini-flash-latest',
@@ -264,7 +257,7 @@ class GeminiService {
 
     if (apiKey == null || apiKey.trim().isEmpty) {
       debugPrint('No API Key configured, using Smart Demo mode.');
-      return _generateSmartDemoResult(
+      return await _generateSmartDemoResult(
         targetAudience: targetAudience,
         tone: tone,
         userContext: userContext,
@@ -468,7 +461,7 @@ Return JSON:
 
     if (apiKey == null || apiKey.trim().isEmpty) {
       debugPrint('No API Key configured, using Smart Demo mode.');
-      return _generateSmartDemoResult(
+      return await _generateSmartDemoResult(
         targetAudience: targetAudience,
         tone: tone,
         userContext: userContext,
@@ -563,26 +556,7 @@ Return ONLY a valid JSON object matching this schema:
 }
 ''';
 
-    // 1. First attempt: Generate full visual Infographic Poster Image directly using Gemini Image Model
-    try {
-      final imageResult = await _generatePosterWithImageModel(
-        apiKey: apiKey,
-        base64Image: base64Image,
-        targetAudience: targetAudience,
-        tone: tone,
-        userContext: userContext,
-        hookCues: hookCues,
-        visualArtRatio: visualArtRatio,
-      );
-      if (imageResult != null) {
-        debugPrint('Successfully generated AI Infographic Poster with image model!');
-        return imageResult;
-      }
-    } catch (e) {
-      debugPrint('AI image model attempt failed, falling back to text models: $e');
-    }
-
-    // 2. Second attempt: Fallback to Text LLMs for extraction
+    // Step 1: Text LLM extraction & synthesis with vision OCR
     final candidateModels = await _getAvailableModels(apiKey);
     String lastError = '';
     for (final model in candidateModels) {
@@ -653,13 +627,23 @@ Return ONLY a valid JSON object matching this schema:
                       .toList() ??
                   [];
 
-              // Attempt to generate visual AI artwork illustration via Gemini Image model
+              // Attempt to generate visual AI artwork illustration representing curated angle
               Uint8List? illustrationBytes;
-              if (illustrationPrompt != null && illustrationPrompt.isNotEmpty) {
+              final effectiveIllustrationPrompt = (hookCues != null && hookCues.trim().isNotEmpty)
+                  ? '${hookCues.trim()}. ${illustrationPrompt ?? ""}'.trim()
+                  : ((illustrationPrompt != null && illustrationPrompt.isNotEmpty)
+                      ? illustrationPrompt
+                      : (userContext != null && userContext.trim().isNotEmpty
+                          ? '${userContext.trim()}, ${data['adapted_headline'] ?? data['original_headline'] ?? ""}'
+                          : '${data['adapted_headline'] ?? data['original_headline'] ?? "News investigation"}, editorial concept art'));
+
+              try {
                 illustrationBytes = await generatePosterIllustration(
                   apiKey: apiKey,
-                  prompt: illustrationPrompt,
+                  prompt: effectiveIllustrationPrompt,
                 );
+              } catch (e) {
+                debugPrint('Poster illustration generation exception: $e');
               }
 
               final parsedExcerpts = (data['article_excerpts'] as List?)
@@ -717,10 +701,11 @@ Return ONLY a valid JSON object matching this schema:
 
     // If all models failed, return Smart Demo with a clean user-friendly message
     debugPrint('All Gemini models failed. Last error: $lastError');
-    return _generateSmartDemoResult(
+    return await _generateSmartDemoResult(
       targetAudience: targetAudience,
       tone: tone,
       userContext: userContext,
+      hookCues: hookCues,
       fallbackTitle: fallbackTitle,
       fallbackBody: fallbackBody,
       visualArtRatio: visualArtRatio,
@@ -744,7 +729,7 @@ Return ONLY a valid JSON object matching this schema:
 
     if (apiKey == null || apiKey.trim().isEmpty) {
       debugPrint('No API Key configured, using Smart Demo mode for digital article.');
-      return _generateSmartDemoResult(
+      return await _generateSmartDemoResult(
         targetAudience: targetAudience,
         tone: tone,
         userContext: userContext,
@@ -900,11 +885,14 @@ Return ONLY a valid JSON object matching this schema:
 
                 Uint8List? illustrationBytes;
                 final illPrompt = parsed['illustration_prompt']?.toString();
-                if (illPrompt != null && illPrompt.isNotEmpty && visualArtRatio >= 0.3) {
+                final effectiveDigitalPrompt = (hookCues != null && hookCues.trim().isNotEmpty)
+                    ? '${hookCues.trim()}. ${illPrompt ?? ""}'.trim()
+                    : (illPrompt ?? '');
+                if (effectiveDigitalPrompt.isNotEmpty && visualArtRatio >= 0.3) {
                   try {
                     illustrationBytes = await generatePosterIllustration(
                       apiKey: apiKey,
-                      prompt: illPrompt,
+                      prompt: effectiveDigitalPrompt,
                     );
                   } catch (e) {
                     debugPrint('Digital article illustration generation failed: $e');
@@ -966,10 +954,11 @@ Return ONLY a valid JSON object matching this schema:
       }
     }
 
-    return _generateSmartDemoResult(
+    return await _generateSmartDemoResult(
       targetAudience: targetAudience,
       tone: tone,
       userContext: userContext,
+      hookCues: hookCues,
       fallbackTitle: articleTitle.isNotEmpty ? articleTitle : 'Digital News Story',
       fallbackBody: articleBody,
       visualArtRatio: visualArtRatio,
@@ -1240,219 +1229,96 @@ Return ONLY a valid JSON object matching this schema:
     }
   }
 
-  /// Generates a full visual Infographic Poster Image directly using Gemini Image Generation
-  Future<GeminiAnalysisResult?> _generatePosterWithImageModel({
-    required String apiKey,
-    required String base64Image,
-    required String targetAudience,
-    required String tone,
-    String? userContext,
-    String? hookCues,
-    required double visualArtRatio,
-  }) async {
-    final int artPct = (visualArtRatio * 100).round();
-    final prompt = '''
-You are an expert graphic designer and infographic poster artist.
-The user took a photo of a physical newspaper or magazine article and wants a shareable infographic poster summarizing it.
 
-AUDIENCE & FOCUS:
-- Target Audience: "$targetAudience"
-- Tone: "$tone"
-- Angle / Creator Focus: "${userContext ?? 'Thought-provoking discovery'}"
-${hookCues != null && hookCues.trim().isNotEmpty ? '- Hook Poster Specific Cues: "$hookCues" (Incorporate these specific hints/cues into the visual scene and focal metaphor)\n' : ''}- Visual Composition: $artPct% Picture Art & Infographics.
 
-CRITICAL TYPOGRAPHY & TEXT RESTRICTION:
-- DO NOT generate small paragraphs, fake body sentences, or tiny bullet points in the image. Diffusion/image generation models create garbled pseudo-words when attempting paragraphs.
-- Keep ANY text inside the image strictly minimal, bold, and punchy: maximum 3 to 5 large bold words total (e.g. a bold title or 1 key statistic like "\$2.6B COST" or "PATIENTS vs PROFIT").
-- Focus 95% of the visual on the central metaphor, illustrations, icons, characters, clean visual hierarchy, and atmospheric colors.
-- All detailed body paragraphs, summary sentences, and bullet points will be rendered separately by the app. Do not draw fake illegible text lines!
-
-YOUR INSTRUCTIONS:
-1. Generate an illustrated, high-impact poster artwork or infographic visual representing the core metaphor and themes of this article for $targetAudience.
-2. In the text portion of your response, also provide a clean JSON block in ```json ... ``` with:
-{
-  "original_headline": "Detected original headline",
-  "publication_name": "Publication name if visible (e.g. The Times of India, The Speaking Tree, Lokmat Times)",
-  "adapted_headline": "Punchy rewritten headline for $targetAudience",
-  "hook": "1-2 sentence compelling hook",
-  "summary": "2 short sentences summarizing the story",
-  "why_it_matters": "Why this story matters specifically to $targetAudience",
-  "key_takeaways": [
-    "Takeaway point 1",
-    "Takeaway point 2",
-    "Takeaway point 3"
-  ],
-  "pull_quote": "A memorable quote from the article",
-  "key_metric": "Key stat or metric (e.g. 13.8B Years)",
-  "category_badge": "1-2 uppercase words (e.g. SCIENCE, COSMOLOGY, PHILOSOPHY)",
-  "suggested_style": "editorial | modernCyber | boldSocial | minimalist",
-  "visual_mood": "Visual aesthetic description (e.g. Cosmic Tree of Life Infographic)",
-  "infographic_type": "metric_spotlight",
-  "infographic_stats": ["Stat 1", "Stat 2", "Stat 3"],
-  "digital_link_query": "Search query to find this article online"
-}
-''';
-
-    for (final model in _candidateImageModels) {
-      try {
-        debugPrint('Attempting Gemini Image Model: $model');
-        final uri = Uri.parse(
-          'https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey',
-        );
-
-        final requestBody = {
-          "contents": [
-            {
-              "parts": [
-                {
-                  "inlineData": {
-                    "mimeType": "image/jpeg",
-                    "data": base64Image,
-                  }
-                },
-                {
-                  "text": prompt,
-                }
-              ]
-            }
-          ]
-        };
-
-        final response = await http
-            .post(
-              uri,
-              headers: {'Content-Type': 'application/json'},
-              body: json.encode(requestBody),
-            )
-            .timeout(const Duration(seconds: 45));
-
-        if (response.statusCode == 200) {
-          final decoded = json.decode(response.body);
-          final candidates = decoded['candidates'] as List?;
-          if (candidates != null && candidates.isNotEmpty) {
-            final parts = candidates[0]['content']?['parts'] as List?;
-            if (parts != null && parts.isNotEmpty) {
-              Uint8List? illustrationBytes;
-              String combinedText = '';
-
-              for (final p in parts) {
-                if (p is Map) {
-                  if (p.containsKey('inlineData')) {
-                    final b64 = p['inlineData']?['data'] as String?;
-                    if (b64 != null && b64.isNotEmpty) {
-                      try {
-                        illustrationBytes = base64Decode(b64);
-                      } catch (e) {
-                        debugPrint('Failed to decode inlineData: $e');
-                      }
-                    }
-                  }
-                  if (p.containsKey('text')) {
-                    combinedText += '${p['text']}\n';
-                  }
-                }
-              }
-
-              // Parse JSON metadata from text
-              Map<String, dynamic> data = {};
-              final jsonMatch = RegExp(r'```(?:json)?\s*(\{.*?\})\s*```', dotAll: true).firstMatch(combinedText);
-              if (jsonMatch != null) {
-                try {
-                  data = json.decode(jsonMatch.group(1)!);
-                } catch (e) {
-                  debugPrint('JSON decode from image model text failed: $e');
-                }
-              } else {
-                try {
-                  final clean = _cleanJsonString(combinedText);
-                  if (clean.startsWith('{') && clean.endsWith('}')) {
-                    data = json.decode(clean);
-                  }
-                } catch (_) {}
-              }
-
-              PosterStyleType style = PosterStyleType.editorial;
-              final styleStr = data['suggested_style']?.toString().toLowerCase();
-              if (styleStr == 'moderncyber' || styleStr == 'modern_cyber') {
-                style = PosterStyleType.modernCyber;
-              } else if (styleStr == 'boldsocial' || styleStr == 'bold_social') {
-                style = PosterStyleType.boldSocial;
-              } else if (styleStr == 'minimalist') {
-                style = PosterStyleType.minimalist;
-              }
-
-              final headline = data['adapted_headline'] ?? data['original_headline'] ?? 'Visual Infographic Poster';
-              final searchQ = data['digital_link_query'] ?? headline;
-
-              return GeminiAnalysisResult(
-                originalHeadline: data['original_headline'] ?? 'Physical Print Article',
-                publicationName: data['publication_name'] ?? 'Print Publication',
-                adaptedHeadline: headline,
-                hook: data['hook'] ?? 'A physical print story distilled into visual poster art.',
-                summary: data['summary'] ?? 'Summary synthesized from physical print clipping.',
-                whyItMatters: data['why_it_matters'],
-                keyTakeaways: (data['key_takeaways'] as List?)
-                        ?.map((e) => e.toString())
-                        .toList() ??
-                    ['High-signal insight from physical print'],
-                pullQuote: data['pull_quote'] ?? 'A memorable story from print.',
-                keyMetric: data['key_metric'] ?? 'Report',
-                categoryBadge: data['category_badge'] ?? 'DISCOVERY',
-                digitalLink: data['digital_link'] ??
-                    'https://news.google.com/search?q=${Uri.encodeComponent(searchQ)}',
-                suggestedStyle: style,
-                illustrationPrompt: prompt,
-                generatedIllustrationBytes: illustrationBytes,
-                visualArtRatio: visualArtRatio,
-                infographicType: data['infographic_type']?.toString() ?? 'metric_spotlight',
-                infographicStats: (data['infographic_stats'] as List?)
-                        ?.map((e) => e.toString())
-                        .toList() ??
-                    [],
-                visualMood: data['visual_mood']?.toString() ?? 'Infographic Poster Art',
-                isDemoMode: false,
-                rawGeminiResponse: combinedText,
-              );
-            }
-          }
-        }
-      } catch (e) {
-        debugPrint('Gemini image model $model error: $e');
-      }
-    }
-    return null;
-  }
-
-  /// Generates visual AI illustration using Google Gemini Image API
+  /// Generates visual AI illustration using Google Imagen 3, Gemini multimodal, and AI generative fallback
   Future<Uint8List?> generatePosterIllustration({
-    required String apiKey,
+    String? apiKey,
     required String prompt,
   }) async {
-    for (final model in _candidateImageModels) {
-      try {
-        final uri = Uri.parse(
-          'https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey',
-        );
+    final cleanPrompt = prompt.trim();
+    if (cleanPrompt.isEmpty) return null;
 
+    if (apiKey != null && apiKey.trim().isNotEmpty) {
+      // 1. Google Imagen 3 models via official predict endpoint
+      const imagenModels = ['imagen-3.0-generate-002', 'imagen-3.0-generate-001'];
+      for (final model in imagenModels) {
+        try {
+          debugPrint('Generating artwork with Imagen 3 model: $model');
+          final uri = Uri.parse(
+            'https://generativelanguage.googleapis.com/v1beta/models/$model:predict?key=$apiKey',
+          );
+
+          final requestBody = {
+            "instances": [
+              {
+                "prompt": "Modern editorial artwork illustration, 4:5 vertical poster format, cinematic lighting, conceptual graphic art, high aesthetic, vivid colors, no text, no letters: $cleanPrompt",
+              }
+            ],
+            "parameters": {
+              "sampleCount": 1,
+              "aspectRatio": "4:5",
+              "outputMimeType": "image/jpeg",
+            }
+          };
+
+          final response = await http
+              .post(
+                uri,
+                headers: {
+                  'Content-Type': 'application/json',
+                  'x-goog-api-key': apiKey,
+                },
+                body: json.encode(requestBody),
+              )
+              .timeout(const Duration(seconds: 35));
+
+          if (response.statusCode == 200) {
+            final data = json.decode(response.body);
+            final predictions = data['predictions'] as List?;
+            if (predictions != null && predictions.isNotEmpty) {
+              final b64 = predictions[0]['bytesBase64Encoded'] as String?;
+              if (b64 != null && b64.isNotEmpty) {
+                debugPrint('Successfully generated illustration with Imagen 3 ($model)!');
+                return base64Decode(b64);
+              }
+            }
+          } else {
+            debugPrint('Imagen 3 $model returned ${response.statusCode}: ${response.body}');
+          }
+        } catch (e) {
+          debugPrint('Imagen 3 $model exception: $e');
+        }
+      }
+
+      // 2. Multimodal image generation fallback with gemini-2.0-flash-exp
+      try {
+        debugPrint('Attempting multimodal image fallback with gemini-2.0-flash-exp');
+        final uri = Uri.parse(
+          'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=$apiKey',
+        );
         final requestBody = {
           "contents": [
             {
               "parts": [
                 {
-                  "text": "Generate a shareable, high-definition graphic design poster illustration: $prompt. Crisp visual metaphor, vibrant conceptual art, bold graphic icons, stunning color palette. Do NOT include small body paragraphs or fake text blocks."
+                  "text": "Generate a modern editorial conceptual artwork illustration poster with 4:5 vertical aspect ratio and NO text: $cleanPrompt"
                 }
               ]
             }
-          ]
+          ],
+          "generationConfig": {
+            "responseModalities": ["IMAGE"]
+          }
         };
-
-        final response = await http
-            .post(
-              uri,
-              headers: {'Content-Type': 'application/json'},
-              body: json.encode(requestBody),
-            )
-            .timeout(const Duration(seconds: 30));
+        final response = await http.post(
+          uri,
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': apiKey,
+          },
+          body: json.encode(requestBody),
+        ).timeout(const Duration(seconds: 25));
 
         if (response.statusCode == 200) {
           final data = json.decode(response.body);
@@ -1464,6 +1330,7 @@ YOUR INSTRUCTIONS:
                 if (p is Map && p.containsKey('inlineData')) {
                   final b64 = p['inlineData']?['data'] as String?;
                   if (b64 != null && b64.isNotEmpty) {
+                    debugPrint('Successfully generated illustration with gemini-2.0-flash-exp!');
                     return base64Decode(b64);
                   }
                 }
@@ -1472,9 +1339,28 @@ YOUR INSTRUCTIONS:
           }
         }
       } catch (e) {
-        debugPrint('Image illustration generation attempt with $model failed: $e');
+        debugPrint('Multimodal image fallback error: $e');
       }
     }
+
+    // 3. Reliable high-definition AI generative fallback via Pollinations AI
+    try {
+      debugPrint('Attempting high-definition AI generative fallback via Pollinations...');
+      final encodedPrompt = Uri.encodeComponent(
+        'editorial magazine illustration, dramatic graphic poster, cinematic lighting, vivid artistic visual: $cleanPrompt',
+      );
+      final pollUri = Uri.parse(
+        'https://image.pollinations.ai/prompt/$encodedPrompt?width=800&height=1000&nologo=true',
+      );
+      final pollResponse = await http.get(pollUri).timeout(const Duration(seconds: 20));
+      if (pollResponse.statusCode == 200 && pollResponse.bodyBytes.isNotEmpty) {
+        debugPrint('Successfully generated illustration via AI generative fallback (${pollResponse.bodyBytes.length} bytes)!');
+        return pollResponse.bodyBytes;
+      }
+    } catch (e) {
+      debugPrint('AI generative fallback exception: $e');
+    }
+
     return null;
   }
 
@@ -1510,7 +1396,7 @@ YOUR INSTRUCTIONS:
     return text;
   }
 
-  GeminiAnalysisResult _generateSmartDemoResult({
+  Future<GeminiAnalysisResult> _generateSmartDemoResult({
     required String targetAudience,
     required String tone,
     String? userContext,
@@ -1519,7 +1405,7 @@ YOUR INSTRUCTIONS:
     String? fallbackBody,
     double visualArtRatio = 0.6,
     String? errorMessage,
-  }) {
+  }) async {
     final title = fallbackTitle ?? 'Physical Newspaper Discovery';
     final hasContext = userContext != null && userContext.trim().isNotEmpty;
 
@@ -1631,6 +1517,21 @@ YOUR INSTRUCTIONS:
       ];
     }
 
+    // Generate AI illustration for Slide 1 based on curated cues & angle
+    final illPrompt = (hookCues != null && hookCues.trim().isNotEmpty)
+        ? hookCues.trim()
+        : (hasContext ? userContext : adaptedHeadline);
+
+    Uint8List? demoIllustrationBytes;
+    try {
+      demoIllustrationBytes = await generatePosterIllustration(
+        apiKey: '',
+        prompt: '$illPrompt, artistic modern editorial illustration, dramatic lighting',
+      );
+    } catch (e) {
+      debugPrint('Demo illustration generation failed: $e');
+    }
+
     return GeminiAnalysisResult(
       originalHeadline: title,
       publicationName: 'The Morning Press Gazette',
@@ -1646,9 +1547,8 @@ YOUR INSTRUCTIONS:
       categoryBadge: category,
       digitalLink: 'https://news.google.com/search?q=${Uri.encodeComponent(title)}',
       suggestedStyle: style,
-      illustrationPrompt: (hookCues != null && hookCues.trim().isNotEmpty)
-          ? '${hookCues.trim()}, artistic modern editorial illustration, dramatic lighting'
-          : null,
+      illustrationPrompt: '$illPrompt, artistic modern editorial illustration, dramatic lighting',
+      generatedIllustrationBytes: demoIllustrationBytes,
       visualArtRatio: visualArtRatio,
       infographicType: 'metric_spotlight',
       infographicStats: [metric, 'Verified Print', category],

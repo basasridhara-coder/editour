@@ -263,48 +263,182 @@ class SlideHookPoster extends StatelessWidget {
   }
 
   Widget _buildVisualArt() {
+    // 1. High-resolution rendered AI illustration file
     if (item.renderedPosterPath != null && item.renderedPosterPath!.isNotEmpty) {
       final file = File(item.renderedPosterPath!);
       if (file.existsSync()) {
         return Image.file(file, fit: BoxFit.cover);
       }
     }
+    // 2. In-memory decoded AI illustration bytes
     if (item.illustrationBase64 != null && item.illustrationBase64!.isNotEmpty) {
       try {
         return Image.memory(base64Decode(item.illustrationBase64!), fit: BoxFit.cover);
       } catch (_) {}
     }
-    if (item.originalPhotoPath.isNotEmpty &&
-        !item.originalPhotoPath.startsWith('http') &&
-        item.originalPhotoPath != 'digital_article_link') {
-      final photoFile = File(item.originalPhotoPath);
-      if (photoFile.existsSync()) {
-        return Image.file(photoFile, fit: BoxFit.cover);
-      }
-    }
-    return _buildFallbackAtmosphericGraphic();
+    // NOTE: We NEVER display the raw paper cut camera photo on Slide 1!
+    // Slide 1 is the conceptual visual hook. The raw newspaper clipping belongs exclusively to Slide 3.
+    return _buildStylizedConceptArt();
   }
 
-  Widget _buildFallbackAtmosphericGraphic() {
+  Widget _buildStylizedConceptArt() {
+    final heroIcon = _resolveHeroIcon();
+    final hasCues = item.hookCues != null && item.hookCues!.trim().isNotEmpty;
+
     return Container(
       decoration: BoxDecoration(
         gradient: RadialGradient(
-          center: const Alignment(0.2, -0.3),
-          radius: 1.2,
+          center: const Alignment(0.0, -0.25),
+          radius: 1.35,
           colors: [
-            config.primaryColor.withValues(alpha: 0.45),
-            const Color(0xFF0F172A),
-            const Color(0xFF020617),
+            config.primaryColor.withValues(alpha: 0.50),
+            const Color(0xFF1E293B),
+            const Color(0xFF090D16),
+            const Color(0xFF030712),
           ],
+          stops: const [0.0, 0.45, 0.78, 1.0],
         ),
       ),
-      child: Center(
-        child: Icon(
-          Icons.auto_awesome,
-          size: 72,
-          color: Colors.white.withValues(alpha: 0.25),
-        ),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Background ambient grid & ring motifs
+          Positioned(
+            top: 60,
+            child: Container(
+              width: 260,
+              height: 260,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: config.primaryColor.withValues(alpha: 0.12),
+                  width: 1.0,
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 85,
+            child: Container(
+              width: 210,
+              height: 210,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: config.primaryColor.withValues(alpha: 0.20),
+                  width: 1.2,
+                ),
+              ),
+            ),
+          ),
+
+          // Central Glowing Hero Emblem
+          Positioned(
+            top: 110,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 100,
+                  height: 100,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [
+                        config.primaryColor.withValues(alpha: 0.85),
+                        config.primaryColor.withValues(alpha: 0.35),
+                      ],
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: config.primaryColor.withValues(alpha: 0.55),
+                        blurRadius: 40,
+                        spreadRadius: 4,
+                      ),
+                    ],
+                  ),
+                  child: Center(
+                    child: Icon(
+                      heroIcon,
+                      size: 46,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+                if (hasCues) ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 24),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.70),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: config.primaryColor.withValues(alpha: 0.75),
+                        width: 1.2,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: config.primaryColor.withValues(alpha: 0.30),
+                          blurRadius: 18,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.auto_awesome, size: 13, color: config.primaryColor),
+                        const SizedBox(width: 7),
+                        Flexible(
+                          child: Text(
+                            item.hookCues!.trim(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.2,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
       ),
     );
+  }
+
+  IconData _resolveHeroIcon() {
+    final text = '${item.hookCues ?? ""} ${item.categoryBadge} ${item.adaptedHeadline}'.toLowerCase();
+    if (text.contains('clock') || text.contains('time') || text.contains('hour') || text.contains('watch')) {
+      return Icons.access_time_filled_rounded;
+    }
+    if (text.contains('light') || text.contains('spotlight') || text.contains('sun') || text.contains('fire')) {
+      return Icons.light_mode_rounded;
+    }
+    if (text.contains('tech') || text.contains('ai') || text.contains('chip') || text.contains('quantum') || text.contains('code') || text.contains('computer')) {
+      return Icons.memory_rounded;
+    }
+    if (text.contains('money') || text.contains('market') || text.contains('dollar') || text.contains('economy') || text.contains('cost') || text.contains('trade')) {
+      return Icons.trending_up_rounded;
+    }
+    if (text.contains('climate') || text.contains('earth') || text.contains('green') || text.contains('nature') || text.contains('planet') || text.contains('energy')) {
+      return Icons.eco_rounded;
+    }
+    if (text.contains('health') || text.contains('doctor') || text.contains('bio') || text.contains('medical') || text.contains('cure')) {
+      return Icons.biotech_rounded;
+    }
+    if (text.contains('whistleblower') || text.contains('secret') || text.contains('crime') || text.contains('law') || text.contains('court') || text.contains('justice')) {
+      return Icons.gavel_rounded;
+    }
+    return Icons.auto_awesome_rounded;
   }
 }
