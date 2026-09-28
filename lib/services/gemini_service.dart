@@ -254,6 +254,7 @@ class GeminiService {
     required String targetAudience,
     required String tone,
     String? userContext,
+    String? hookCues,
     String? fallbackTitle,
     String? fallbackBody,
     double visualArtRatio = 0.6,
@@ -267,6 +268,7 @@ class GeminiService {
         targetAudience: targetAudience,
         tone: tone,
         userContext: userContext,
+        hookCues: hookCues,
         fallbackTitle: fallbackTitle,
         fallbackBody: fallbackBody,
         visualArtRatio: visualArtRatio,
@@ -424,6 +426,7 @@ Return JSON:
                 targetAudience: targetAudience,
                 tone: tone,
                 userContext: userContext,
+                hookCues: hookCues,
                 visualArtRatio: visualArtRatio,
               );
 
@@ -443,6 +446,7 @@ Return JSON:
       targetAudience: targetAudience,
       tone: tone,
       userContext: userContext,
+      hookCues: hookCues,
       fallbackTitle: detectedHeadline ?? fallbackTitle,
       fallbackBody: fallbackBody,
       visualArtRatio: visualArtRatio,
@@ -455,6 +459,7 @@ Return JSON:
     required String targetAudience,
     required String tone,
     String? userContext,
+    String? hookCues,
     String? fallbackTitle,
     String? fallbackBody,
     double visualArtRatio = 0.6,
@@ -467,6 +472,7 @@ Return JSON:
         targetAudience: targetAudience,
         tone: tone,
         userContext: userContext,
+        hookCues: hookCues,
         fallbackTitle: fallbackTitle,
         fallbackBody: fallbackBody,
         visualArtRatio: visualArtRatio,
@@ -500,6 +506,13 @@ CURATOR'S EDITORIAL GOAL:
 Distill the print story with sharp high-signal takeaways specifically for "$targetAudience" in a "$tone" tone.
 - Frame the headline, hook, and takeaways around what matters to "$targetAudience" and their unique stakes.
 '''}
+
+${hookCues != null && hookCues.trim().isNotEmpty ? '''
+🎨 SPECIFIC HINTS / CUES FOR HOOK POSTER (SLIDE 1):
+- The Curator specifically requested these visual and conceptual cues for the Hook Poster:
+  "$hookCues"
+- Factor these exact hints and cues into "adapted_headline", "hook", and especially "illustration_prompt" so the hero artwork and headline reflect these cues directly!
+''' : ''}
 
 VISUAL ARTWORK & INFOGRAPHIC RATIO:
 The user selected a visual ratio of $artPct% Picture Art & Infographics and $textPct% Editorial Text.
@@ -558,6 +571,7 @@ Return ONLY a valid JSON object matching this schema:
         targetAudience: targetAudience,
         tone: tone,
         userContext: userContext,
+        hookCues: hookCues,
         visualArtRatio: visualArtRatio,
       );
       if (imageResult != null) {
@@ -723,6 +737,7 @@ Return ONLY a valid JSON object matching this schema:
     required String targetAudience,
     required String tone,
     String? userContext,
+    String? hookCues,
     double visualArtRatio = 0.6,
   }) async {
     final apiKey = await _storageService.getApiKey();
@@ -733,6 +748,7 @@ Return ONLY a valid JSON object matching this schema:
         targetAudience: targetAudience,
         tone: tone,
         userContext: userContext,
+        hookCues: hookCues,
         fallbackTitle: articleTitle.isNotEmpty ? articleTitle : 'Digital News Discovery',
         fallbackBody: articleBody.isNotEmpty ? articleBody : 'Digital news article summary.',
         visualArtRatio: visualArtRatio,
@@ -768,6 +784,13 @@ CURATOR'S EDITORIAL GOAL:
 Distill the digital story with sharp high-signal takeaways specifically for "$targetAudience" in a "$tone" tone.
 - Frame the headline, hook, and takeaways around what matters to "$targetAudience" and their unique stakes.
 '''}
+
+${hookCues != null && hookCues.trim().isNotEmpty ? '''
+🎨 SPECIFIC HINTS / CUES FOR HOOK POSTER (SLIDE 1):
+- The Curator specifically requested these visual and conceptual cues for the Hook Poster:
+  "$hookCues"
+- Factor these exact hints and cues into "adapted_headline", "hook", and especially "illustration_prompt" so the hero artwork and headline reflect these cues directly!
+''' : ''}
 
 ARTICLE TITLE: $articleTitle
 ARTICLE CONTENT / EXCERPT:
@@ -1224,6 +1247,7 @@ Return ONLY a valid JSON object matching this schema:
     required String targetAudience,
     required String tone,
     String? userContext,
+    String? hookCues,
     required double visualArtRatio,
   }) async {
     final int artPct = (visualArtRatio * 100).round();
@@ -1235,7 +1259,7 @@ AUDIENCE & FOCUS:
 - Target Audience: "$targetAudience"
 - Tone: "$tone"
 - Angle / Creator Focus: "${userContext ?? 'Thought-provoking discovery'}"
-- Visual Composition: $artPct% Picture Art & Infographics.
+${hookCues != null && hookCues.trim().isNotEmpty ? '- Hook Poster Specific Cues: "$hookCues" (Incorporate these specific hints/cues into the visual scene and focal metaphor)\n' : ''}- Visual Composition: $artPct% Picture Art & Infographics.
 
 CRITICAL TYPOGRAPHY & TEXT RESTRICTION:
 - DO NOT generate small paragraphs, fake body sentences, or tiny bullet points in the image. Diffusion/image generation models create garbled pseudo-words when attempting paragraphs.
@@ -1490,6 +1514,7 @@ YOUR INSTRUCTIONS:
     required String targetAudience,
     required String tone,
     String? userContext,
+    String? hookCues,
     String? fallbackTitle,
     String? fallbackBody,
     double visualArtRatio = 0.6,
@@ -1621,6 +1646,9 @@ YOUR INSTRUCTIONS:
       categoryBadge: category,
       digitalLink: 'https://news.google.com/search?q=${Uri.encodeComponent(title)}',
       suggestedStyle: style,
+      illustrationPrompt: (hookCues != null && hookCues.trim().isNotEmpty)
+          ? '${hookCues.trim()}, artistic modern editorial illustration, dramatic lighting'
+          : null,
       visualArtRatio: visualArtRatio,
       infographicType: 'metric_spotlight',
       infographicStats: [metric, 'Verified Print', category],

@@ -155,11 +155,141 @@ class AudienceChipSelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isCustom = !AudiencePreset.isPreset(selectedAudience);
+    final isCustom = !AudiencePreset.isPreset(selectedAudience) && selectedAudience.isNotEmpty;
+
+    // Build audience options list
+    const customTriggerKey = '__custom_audience_trigger__';
+    final List<DropdownMenuItem<String>> audienceItems = [];
+
+    for (final preset in AudiencePreset.presets) {
+      audienceItems.add(
+        DropdownMenuItem<String>(
+          value: preset.label,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(preset.icon, size: 18, color: theme.colorScheme.primary),
+              const SizedBox(width: 10),
+              Flexible(
+                child: Text(
+                  preset.label,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (isCustom) {
+      audienceItems.add(
+        DropdownMenuItem<String>(
+          value: selectedAudience,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.stars, size: 18, color: theme.colorScheme.primary),
+              const SizedBox(width: 10),
+              Flexible(
+                child: Text(
+                  selectedAudience,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    audienceItems.add(
+      DropdownMenuItem<String>(
+        value: customTriggerKey,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isCustom ? Icons.edit_outlined : Icons.add_circle_outline,
+              size: 18,
+              color: theme.colorScheme.primary,
+            ),
+            const SizedBox(width: 10),
+            Text(
+              isCustom ? 'Edit Custom Audience...' : '+ Custom Audience...',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.primary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    final String currentAudienceValue = (isCustom || AudiencePreset.isPreset(selectedAudience))
+        ? selectedAudience
+        : (AudiencePreset.presets.isNotEmpty ? AudiencePreset.presets.first.label : selectedAudience);
+
+    // Build tone options list
+    final List<DropdownMenuItem<String>> toneItems = [];
+    bool toneMatched = false;
+    for (final tone in ToneOption.options) {
+      if (tone.label == selectedTone) toneMatched = true;
+      toneItems.add(
+        DropdownMenuItem<String>(
+          value: tone.label,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(tone.emoji, style: const TextStyle(fontSize: 16)),
+              const SizedBox(width: 10),
+              Flexible(
+                child: Text(
+                  tone.label,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (!toneMatched && selectedTone.isNotEmpty) {
+      toneItems.add(
+        DropdownMenuItem<String>(
+          value: selectedTone,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('✨', style: TextStyle(fontSize: 16)),
+              const SizedBox(width: 10),
+              Flexible(
+                child: Text(
+                  selectedTone,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final String currentToneValue = toneMatched
+        ? selectedTone
+        : (toneItems.isNotEmpty ? toneItems.first.value ?? selectedTone : selectedTone);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // 1. Target Audience Dropdown Section
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -200,64 +330,34 @@ class AudienceChipSelector extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            ...AudiencePreset.presets.map((preset) {
-              final isSelected = selectedAudience == preset.label;
-              return FilterChip(
-                avatar: Icon(
-                  preset.icon,
-                  size: 16,
-                  color: isSelected ? Colors.white : theme.colorScheme.onSurfaceVariant,
-                ),
-                label: Text(preset.label),
-                selected: isSelected,
-                onSelected: (val) {
-                  if (val) {
-                    onAudienceSelected(preset.label);
-                    // auto-select suggested tone
-                    onToneSelected(preset.defaultTone);
-                  }
-                },
-                selectedColor: theme.colorScheme.primary,
-                labelStyle: TextStyle(
-                  fontSize: 12,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                  color: isSelected ? Colors.white : theme.colorScheme.onSurface,
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-              );
-            }),
-            if (isCustom)
-              FilterChip(
-                avatar: const Icon(
-                  Icons.stars,
-                  size: 16,
-                  color: Colors.white,
-                ),
-                label: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(selectedAudience),
-                    const SizedBox(width: 4),
-                    const Icon(Icons.edit, size: 12, color: Colors.white70),
-                  ],
-                ),
-                selected: true,
-                onSelected: (_) => _showCustomAudienceSheet(context),
-                selectedColor: theme.colorScheme.primary,
-                labelStyle: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-              ),
-          ],
+        DropdownButtonFormField<String>(
+          key: ValueKey('audience_$currentAudienceValue'),
+          initialValue: currentAudienceValue,
+          isExpanded: true,
+          icon: const Icon(Icons.arrow_drop_down),
+          decoration: InputDecoration(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            filled: true,
+            fillColor: theme.colorScheme.surface,
+          ),
+          items: audienceItems,
+          onChanged: (val) {
+            if (val == null) return;
+            if (val == customTriggerKey) {
+              _showCustomAudienceSheet(context);
+              return;
+            }
+            onAudienceSelected(val);
+            final matchedPreset = AudiencePreset.presets.where((p) => p.label == val).firstOrNull;
+            if (matchedPreset != null) {
+              onToneSelected(matchedPreset.defaultTone);
+            }
+          },
         ),
         const SizedBox(height: 16),
+
+        // 2. Tone & Vibe Dropdown Section
         Row(
           children: [
             Icon(Icons.tune_outlined, size: 18, color: theme.colorScheme.primary),
@@ -269,31 +369,23 @@ class AudienceChipSelector extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 8),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: ToneOption.options.map((tone) {
-              final isSelected = selectedTone == tone.label;
-              return Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: FilterChip(
-                  label: Text('${tone.emoji} ${tone.label}'),
-                  selected: isSelected,
-                  onSelected: (val) {
-                    if (val) {
-                      onToneSelected(tone.label);
-                    }
-                  },
-                  selectedColor: theme.colorScheme.secondary,
-                  labelStyle: TextStyle(
-                    fontSize: 12,
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                    color: isSelected ? Colors.white : theme.colorScheme.onSurface,
-                  ),
-                ),
-              );
-            }).toList(),
+        DropdownButtonFormField<String>(
+          key: ValueKey('tone_$currentToneValue'),
+          initialValue: currentToneValue,
+          isExpanded: true,
+          icon: const Icon(Icons.arrow_drop_down),
+          decoration: InputDecoration(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            filled: true,
+            fillColor: theme.colorScheme.surface,
           ),
+          items: toneItems,
+          onChanged: (val) {
+            if (val != null) {
+              onToneSelected(val);
+            }
+          },
         ),
       ],
     );

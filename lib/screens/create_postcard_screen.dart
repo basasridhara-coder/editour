@@ -105,6 +105,7 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
   String _targetAudience = 'Tech Enthusiasts';
   String _selectedTone = 'Deep-dive & Analytical';
   final TextEditingController _contextController = TextEditingController();
+  final TextEditingController _hookCuesController = TextEditingController();
   final TextEditingController _opinionController = TextEditingController();
   final TextEditingController _linkController = TextEditingController();
   final TextEditingController _headlineController = TextEditingController();
@@ -134,6 +135,9 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
   @override
   void initState() {
     super.initState();
+    if (_sourceMode == InputSourceMode.bookExcerpt) {
+      _sourceMode = InputSourceMode.physicalPhoto;
+    }
     _loadCreatorHandle();
     if (widget.preloadedSample != null) {
       _applySample(widget.preloadedSample!);
@@ -150,6 +154,7 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
     _curatorAngleController.dispose();
     _bookExcerptTextController.dispose();
     _contextController.dispose();
+    _hookCuesController.dispose();
     _opinionController.dispose();
     _linkController.dispose();
     _headlineController.dispose();
@@ -174,6 +179,7 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
       _targetAudience = sample.suggestedAudience;
       _selectedTone = sample.suggestedTone;
       _contextController.text = sample.defaultContext;
+      _hookCuesController.clear();
       _linkController.text = sample.webLink;
     });
   }
@@ -573,6 +579,9 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
           userContext: _contextController.text.trim().isNotEmpty
               ? _contextController.text.trim()
               : null,
+          hookCues: _hookCuesController.text.trim().isNotEmpty
+              ? _hookCuesController.text.trim()
+              : null,
           fallbackTitle: _activeSample?.title,
           fallbackBody: _activeSample?.rawArticleText,
           visualArtRatio: _visualArtRatio,
@@ -625,6 +634,9 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
           tone: _selectedTone,
           userContext: _contextController.text.trim().isNotEmpty
               ? _contextController.text.trim()
+              : null,
+          hookCues: _hookCuesController.text.trim().isNotEmpty
+              ? _hookCuesController.text.trim()
               : null,
           visualArtRatio: _visualArtRatio,
         );
@@ -701,6 +713,9 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
         userContext: isBook
             ? (_curatorAngleController.text.trim().isNotEmpty ? _curatorAngleController.text.trim() : 'Curator Reflection')
             : (_contextController.text.trim().isNotEmpty ? _contextController.text.trim() : null),
+        hookCues: _hookCuesController.text.trim().isNotEmpty
+            ? _hookCuesController.text.trim()
+            : null,
         adaptedHeadline: result.adaptedHeadline,
         hook: result.hook,
         summary: result.summary,
@@ -924,8 +939,10 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
                     _buildPhotoSection(theme)
                   else if (_sourceMode == InputSourceMode.digitalLink)
                     _buildDigitalLinkSection(theme)
+                  else if (_sourceMode == InputSourceMode.bookExcerpt)
+                    _buildBookExcerptSection(theme)
                   else
-                    _buildBookExcerptSection(theme),
+                    _buildPhotoSection(theme),
                   const SizedBox(height: 20),
 
                   // Step 2: Audience & Tone configuration
@@ -954,6 +971,19 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
                             labelText: 'Specific Angle or Context (Optional)',
                             hintText: 'e.g. Focus on climate impact, or explain for kids',
                             prefixIcon: const Icon(Icons.lightbulb_outline),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                            filled: true,
+                            fillColor: theme.colorScheme.surface,
+                          ),
+                          maxLines: 2,
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: _hookCuesController,
+                          decoration: InputDecoration(
+                            labelText: 'Hints or Cues for Hook Poster (Optional)',
+                            hintText: 'e.g. Dramatic spotlight on an old clock, surrealist style, focus on the whistleblower',
+                            prefixIcon: const Icon(Icons.auto_awesome_outlined),
                             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                             filled: true,
                             fillColor: theme.colorScheme.surface,
@@ -1256,63 +1286,6 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
                           fontWeight: FontWeight.bold,
                           fontSize: 12,
                           color: _sourceMode == InputSourceMode.digitalLink
-                              ? Colors.white
-                              : theme.colorScheme.onSurface,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 4),
-          Expanded(
-            child: InkWell(
-              onTap: () {
-                if (_sourceMode != InputSourceMode.bookExcerpt) {
-                  setState(() => _sourceMode = InputSourceMode.bookExcerpt);
-                }
-              },
-              borderRadius: BorderRadius.circular(10),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(vertical: 9),
-                decoration: BoxDecoration(
-                  color: _sourceMode == InputSourceMode.bookExcerpt
-                      ? Colors.amber.shade800
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(10),
-                  boxShadow: _sourceMode == InputSourceMode.bookExcerpt
-                      ? [
-                          BoxShadow(
-                            color: Colors.amber.shade800.withValues(alpha: 0.3),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          )
-                        ]
-                      : null,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.auto_stories,
-                      size: 15,
-                      color: _sourceMode == InputSourceMode.bookExcerpt
-                          ? Colors.white
-                          : theme.colorScheme.onSurface,
-                    ),
-                    const SizedBox(width: 5),
-                    Flexible(
-                      child: Text(
-                        'Book Reading',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                          color: _sourceMode == InputSourceMode.bookExcerpt
                               ? Colors.white
                               : theme.colorScheme.onSurface,
                         ),

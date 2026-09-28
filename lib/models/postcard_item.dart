@@ -38,6 +38,7 @@ class PostCardItem {
   final String? bookTitle;
   final String? bookAuthor;
   final String? curatorAngle;
+  final String? hookCues;
   final String? bookCoverBase64;
   final String postFormat; // 'editorial_briefing' | 'carousel_trio'
   final String? receiptHighlightQuote;
@@ -125,6 +126,7 @@ class PostCardItem {
     this.bookTitle,
     this.bookAuthor,
     this.curatorAngle,
+    this.hookCues,
     this.bookCoverBase64,
     this.postFormat = 'editorial_briefing',
     this.receiptHighlightQuote,
@@ -168,6 +170,7 @@ class PostCardItem {
     String? bookTitle,
     String? bookAuthor,
     String? curatorAngle,
+    String? hookCues,
     String? bookCoverBase64,
     String? postFormat,
     String? receiptHighlightQuote,
@@ -210,6 +213,7 @@ class PostCardItem {
       bookTitle: bookTitle ?? this.bookTitle,
       bookAuthor: bookAuthor ?? this.bookAuthor,
       curatorAngle: curatorAngle ?? this.curatorAngle,
+      hookCues: hookCues ?? this.hookCues,
       bookCoverBase64: bookCoverBase64 ?? this.bookCoverBase64,
       postFormat: postFormat ?? this.postFormat,
       receiptHighlightQuote: receiptHighlightQuote ?? this.receiptHighlightQuote,
@@ -255,6 +259,7 @@ class PostCardItem {
       'bookTitle': bookTitle,
       'bookAuthor': bookAuthor,
       'curatorAngle': curatorAngle,
+      'hookCues': hookCues,
       'bookCoverBase64': bookCoverBase64,
       'postFormat': postFormat,
       'receiptHighlightQuote': receiptHighlightQuote,
@@ -312,6 +317,7 @@ class PostCardItem {
       bookTitle: map['bookTitle'],
       bookAuthor: map['bookAuthor'],
       curatorAngle: map['curatorAngle'],
+      hookCues: map['hookCues'],
       bookCoverBase64: map['bookCoverBase64'],
       postFormat: map['postFormat'] ?? 'editorial_briefing',
       receiptHighlightQuote: map['receiptHighlightQuote'],

@@ -147,8 +147,8 @@ class ShareService {
     if (kIsWeb) {
       await SharePlus.instance.share(
         ShareParams(
-          text: '${item.adaptedHeadline}\n\nSwipe through the 3-poster carousel on https://editour.app',
-          subject: item.adaptedHeadline,
+          text: 'Opinion curated in editour.app',
+          subject: 'Opinion curated in editour.app',
         ),
       );
       return;
@@ -164,16 +164,12 @@ class ShareService {
         xFiles.add(XFile(filePath, mimeType: 'image/png'));
       }
 
-      final shareText = '🎨 3-Poster Editorial Carousel: ${item.adaptedHeadline}\n\n'
-          'Slide 1: Visual Hook & Story\n'
-          'Slide 2: Curator Critique\n'
-          'Slide 3: Verbatim Press Evidence ("The Receipt")\n\n'
-          'Curated via editour.app';
+      const shareText = 'Opinion curated in editour.app';
 
       await SharePlus.instance.share(
         ShareParams(
           text: shareText,
-          subject: item.adaptedHeadline,
+          subject: 'Opinion curated in editour.app',
           files: xFiles,
           sharePositionOrigin: sharePositionOrigin,
         ),
