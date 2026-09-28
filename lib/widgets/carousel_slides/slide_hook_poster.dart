@@ -7,11 +7,13 @@ import '../../models/poster_style_config.dart';
 class SlideHookPoster extends StatelessWidget {
   final PostCardItem item;
   final PosterStyleConfig config;
+  final BorderRadius? borderRadius;
 
   const SlideHookPoster({
     super.key,
     required this.item,
     required this.config,
+    this.borderRadius,
   });
 
   @override
@@ -28,23 +30,35 @@ class SlideHookPoster extends StatelessWidget {
             ? 23.5
             : (headline.length > 30 ? 25.5 : 27.5));
 
+    final effectiveRadius = borderRadius ?? BorderRadius.circular(16);
+    final isFlush = borderRadius == BorderRadius.zero;
+
     return AspectRatio(
       aspectRatio: 4 / 5,
       child: Container(
         decoration: BoxDecoration(
           color: const Color(0xFF060911),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.16), width: 1.5),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.6),
-              blurRadius: 24,
-              offset: const Offset(0, 10),
-            ),
-          ],
+          borderRadius: effectiveRadius,
+          border: isFlush
+              ? Border.symmetric(
+                  horizontal: BorderSide(
+                    color: Colors.white.withValues(alpha: 0.1),
+                    width: 0.8,
+                  ),
+                )
+              : Border.all(color: Colors.white.withValues(alpha: 0.16), width: 1.5),
+          boxShadow: isFlush
+              ? null
+              : [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.6),
+                    blurRadius: 24,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(15),
+          borderRadius: isFlush ? BorderRadius.zero : BorderRadius.circular(15),
           child: Stack(
             fit: StackFit.expand,
             children: [
@@ -259,6 +273,14 @@ class SlideHookPoster extends StatelessWidget {
       try {
         return Image.memory(base64Decode(item.illustrationBase64!), fit: BoxFit.cover);
       } catch (_) {}
+    }
+    if (item.originalPhotoPath.isNotEmpty &&
+        !item.originalPhotoPath.startsWith('http') &&
+        item.originalPhotoPath != 'digital_article_link') {
+      final photoFile = File(item.originalPhotoPath);
+      if (photoFile.existsSync()) {
+        return Image.file(photoFile, fit: BoxFit.cover);
+      }
     }
     return _buildFallbackAtmosphericGraphic();
   }

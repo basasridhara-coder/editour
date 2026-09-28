@@ -33,6 +33,7 @@ class InstagramPostCardWidget extends StatefulWidget {
 
 class _InstagramPostCardWidgetState extends State<InstagramPostCardWidget> {
   bool _isLiked = false;
+  int _carouselIndex = 0;
 
   Future<void> _launchDigitalLink(BuildContext context, String url) async {
     try {
@@ -89,13 +90,16 @@ class _InstagramPostCardWidgetState extends State<InstagramPostCardWidget> {
           // 1. Post Header: Creator Info + Audience + Options Menu
           _buildPostHeader(context, theme, styleConfig),
 
-          // 2. ITEM 1: COMPLETE INFOGRAPHIC ART IMAGE
+          // 2. ITEM 1: COMPLETE 4:5 POSTER VISUAL (ZERO PILLARBOXING GAPS)
           RepaintBoundary(
             key: widget.posterKey,
             child: CompleteInfographicVisual(
               item: widget.item,
               config: styleConfig,
               onOpenDetail: widget.onTap,
+              onPageChanged: (idx) {
+                setState(() => _carouselIndex = idx);
+              },
             ),
           ),
 
@@ -254,6 +258,29 @@ class _InstagramPostCardWidgetState extends State<InstagramPostCardWidget> {
             constraints: const BoxConstraints(),
             onPressed: widget.onShare,
           ),
+
+          // Native Instagram-style pagination dots for carousel posts
+          if (widget.item.isCarouselTrio) ...[
+            const SizedBox(width: 8),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: List.generate(3, (idx) {
+                final isSelected = _carouselIndex == idx;
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  margin: const EdgeInsets.symmetric(horizontal: 2.5),
+                  width: isSelected ? 6.5 : 4.5,
+                  height: isSelected ? 6.5 : 4.5,
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? const Color(0xFF38BDF8)
+                        : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.35),
+                    shape: BoxShape.circle,
+                  ),
+                );
+              }),
+            ),
+          ],
           const SizedBox(width: 8),
 
           // Trailing action chips auto-adjusting without overflow

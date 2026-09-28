@@ -6,11 +6,13 @@ import '../../models/poster_style_config.dart';
 class SlideReceiptsPoster extends StatelessWidget {
   final PostCardItem item;
   final PosterStyleConfig config;
+  final BorderRadius? borderRadius;
 
   const SlideReceiptsPoster({
     super.key,
     required this.item,
     required this.config,
+    this.borderRadius,
   });
 
   @override
@@ -64,23 +66,35 @@ class SlideReceiptsPoster extends StatelessWidget {
         ? (p3.length > 160 ? 9.8 : 10.5)
         : 10.5;
 
+    final effectiveRadius = borderRadius ?? BorderRadius.circular(16);
+    final isFlush = borderRadius == BorderRadius.zero;
+
     return AspectRatio(
       aspectRatio: 4 / 5,
       child: Container(
         decoration: BoxDecoration(
           color: const Color(0xFFF7F5EE), // Authentic vintage newsprint broadsheet paper
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFD6CEBE), width: 2),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.5),
-              blurRadius: 22,
-              offset: const Offset(0, 10),
-            ),
-          ],
+          borderRadius: effectiveRadius,
+          border: isFlush
+              ? Border.symmetric(
+                  horizontal: BorderSide(
+                    color: const Color(0xFFD6CEBE),
+                    width: 1.2,
+                  ),
+                )
+              : Border.all(color: const Color(0xFFD6CEBE), width: 2),
+          boxShadow: isFlush
+              ? null
+              : [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.5),
+                    blurRadius: 22,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: isFlush ? BorderRadius.zero : BorderRadius.circular(14),
           child: Stack(
             fit: StackFit.expand,
             children: [
