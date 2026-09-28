@@ -731,9 +731,17 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
         bookExcerptPhotoPaths: _bookExcerptImages.map((f) => f.path).toList(),
         bookTitle: _bookTitleController.text.trim().isNotEmpty ? _bookTitleController.text.trim() : result.originalHeadline,
         bookAuthor: _bookAuthorController.text.trim().isNotEmpty ? _bookAuthorController.text.trim() : 'Curated Author',
-        curatorAngle: _curatorAngleController.text.trim().isNotEmpty ? _curatorAngleController.text.trim() : 'Curator Reflection',
         postFormat: _selectedPostFormat,
         receiptHighlightQuote: result.receiptHighlightQuote ?? result.pullQuote,
+        articleExcerpts: (_activeSample != null && _activeSample!.rawArticleText.trim().isNotEmpty)
+            ? _activeSample!.rawArticleText
+                .trim()
+                .split(RegExp(r'\n\s*\n'))
+                .map((p) => p.trim())
+                .where((p) => p.length > 25)
+                .take(3)
+                .toList()
+            : result.articleExcerpts,
         curatorIllustrationPrompt: result.curatorIllustrationPrompt,
         curatorIllustrationBase64: result.generatedCuratorIllustrationBytes != null
             ? base64Encode(result.generatedCuratorIllustrationBytes!)

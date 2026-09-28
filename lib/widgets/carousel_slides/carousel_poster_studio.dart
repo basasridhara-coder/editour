@@ -251,7 +251,7 @@ class _CarouselPosterStudioState extends State<CarouselPosterStudio> {
                 const SizedBox(width: 6),
                 _buildSlideTab(1, '02 Curator Take', Icons.bolt_outlined),
                 const SizedBox(width: 6),
-                _buildSlideTab(2, '03 The "Receipt"', Icons.verified_outlined),
+                _buildSlideTab(2, '03 Paper Excerpts', Icons.newspaper_rounded),
               ],
             ),
 

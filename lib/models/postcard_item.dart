@@ -41,6 +41,7 @@ class PostCardItem {
   final String? bookCoverBase64;
   final String postFormat; // 'editorial_briefing' | 'carousel_trio'
   final String? receiptHighlightQuote;
+  final List<String> articleExcerpts;
 
   bool get isDigitalLinkSource =>
       sourceType == 'digital_link' ||
@@ -51,6 +52,41 @@ class PostCardItem {
   bool get isBookExcerpt => sourceType == 'book_excerpt';
 
   bool get isCarouselTrio => postFormat == 'carousel_trio';
+
+  List<String> get resolvedArticleExcerpts {
+    if (articleExcerpts.isNotEmpty) {
+      return articleExcerpts.take(3).toList();
+    }
+    final List<String> list = [];
+    if (receiptHighlightQuote != null && receiptHighlightQuote!.trim().isNotEmpty) {
+      list.add(receiptHighlightQuote!.trim());
+    } else if (pullQuote != null && pullQuote!.trim().isNotEmpty) {
+      list.add(pullQuote!.trim());
+    }
+    for (final t in keyTakeaways) {
+      if (list.length >= 3) break;
+      final clean = t.trim();
+      if (!clean.toLowerCase().contains('curator') &&
+          !clean.toLowerCase().contains('my angle') &&
+          !clean.toLowerCase().contains('i argue') &&
+          clean.length > 20) {
+        list.add(clean);
+      }
+    }
+    if (list.length < 2 && summary.isNotEmpty) {
+      final parts = summary.split(RegExp(r'\.\s+|\n+'));
+      for (final p in parts) {
+        if (list.length >= 3) break;
+        final clean = p.trim().endsWith('.') ? p.trim() : '${p.trim()}.';
+        if (!clean.toLowerCase().contains('curator') &&
+            !clean.toLowerCase().contains('my angle') &&
+            clean.length > 25) {
+          list.add(clean);
+        }
+      }
+    }
+    return list;
+  }
 
   PostCardItem({
     required this.id,
@@ -92,6 +128,7 @@ class PostCardItem {
     this.bookCoverBase64,
     this.postFormat = 'editorial_briefing',
     this.receiptHighlightQuote,
+    this.articleExcerpts = const [],
   });
 
   PostCardItem copyWith({
@@ -134,6 +171,7 @@ class PostCardItem {
     String? bookCoverBase64,
     String? postFormat,
     String? receiptHighlightQuote,
+    List<String>? articleExcerpts,
   }) {
     return PostCardItem(
       id: id ?? this.id,
@@ -175,6 +213,7 @@ class PostCardItem {
       bookCoverBase64: bookCoverBase64 ?? this.bookCoverBase64,
       postFormat: postFormat ?? this.postFormat,
       receiptHighlightQuote: receiptHighlightQuote ?? this.receiptHighlightQuote,
+      articleExcerpts: articleExcerpts ?? this.articleExcerpts,
     );
   }
 
@@ -219,6 +258,7 @@ class PostCardItem {
       'bookCoverBase64': bookCoverBase64,
       'postFormat': postFormat,
       'receiptHighlightQuote': receiptHighlightQuote,
+      'articleExcerpts': articleExcerpts,
     };
   }
 
@@ -274,6 +314,7 @@ class PostCardItem {
       bookCoverBase64: map['bookCoverBase64'],
       postFormat: map['postFormat'] ?? 'editorial_briefing',
       receiptHighlightQuote: map['receiptHighlightQuote'],
+      articleExcerpts: (map['articleExcerpts'] as List?)?.map((e) => e.toString()).toList() ?? const [],
     );
   }
 

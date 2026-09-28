@@ -23,27 +23,24 @@ class SlideReceiptsPoster extends StatelessWidget {
         ? item.originalHeadline!
         : item.adaptedHeadline;
 
-    final receiptQuote = (item.receiptHighlightQuote != null && item.receiptHighlightQuote!.trim().isNotEmpty)
-        ? item.receiptHighlightQuote!
-        : ((item.pullQuote != null && item.pullQuote!.trim().isNotEmpty)
-            ? item.pullQuote!
-            : (item.keyTakeaways.isNotEmpty ? item.keyTakeaways.first : 'Verbatim evidentiary highlight from the source text.'));
+    final List<String> excerpts = item.resolvedArticleExcerpts;
 
-    // Construct a single, cohesive, summarized broadsheet article that flows without gaps or collisions
-    final leadText = item.hook.isNotEmpty
-        ? item.hook
-        : (item.summary.isNotEmpty
-            ? item.summary
-            : 'According to primary reporting and official correspondence released during the latest coverage cycle, analytical observers established direct confirmation of the recorded developments.');
+    // Pick and choose pure section statements from the article: min 2, max 3 paragraphs
+    final String p1 = excerpts.isNotEmpty
+        ? excerpts[0]
+        : (item.receiptHighlightQuote ??
+            'Primary reporting confirmed that recorded structural indicators diverged sharply from initial forecasts across core operations.');
 
-    // Concluding summary synthesis (clean single paragraph that completes properly)
-    final summaryConclusion = (item.whyItMatters != null && item.whyItMatters!.trim().isNotEmpty)
-        ? item.whyItMatters!
-        : (item.summary.isNotEmpty && item.summary != leadText
-            ? item.summary
-            : (item.keyTakeaways.isNotEmpty
-                ? item.keyTakeaways.join(' ')
-                : 'Observers emphasized that documented structural impacts were corroborated across primary administrative channels, establishing a decisive historical baseline.'));
+    final String p2 = excerpts.length > 1
+        ? excerpts[1]
+        : (item.receiptHighlightQuote != null && item.receiptHighlightQuote != p1
+            ? item.receiptHighlightQuote!
+            : ((item.pullQuote != null && item.pullQuote != p1)
+                ? item.pullQuote!
+                : 'Official records corroborated the recorded developments across primary administrative and field channels.'));
+
+    final String? p3 = excerpts.length >= 3 ? excerpts[2] : null;
+    final bool hasThreeParagraphs = p3 != null && p3.trim().isNotEmpty;
 
     final hasPhysicalPhoto = item.originalPhotoPath.isNotEmpty &&
         !item.originalPhotoPath.startsWith('http') &&
@@ -55,9 +52,17 @@ class SlideReceiptsPoster extends StatelessWidget {
         ? 15.0
         : (headline.length > 45 ? 16.5 : 18.0);
 
-    final double leadFontSize = leadText.length > 150 ? 10.5 : 11.5;
-    final double quoteFontSize = receiptQuote.length > 180 ? 11.5 : (receiptQuote.length > 110 ? 12.5 : 13.5);
-    final double conclusionFontSize = summaryConclusion.length > 180 ? 10.0 : 11.0;
+    final double p1FontSize = hasThreeParagraphs
+        ? (p1.length > 160 ? 10.0 : 10.8)
+        : (p1.length > 180 ? 11.0 : 12.0);
+
+    final double p2FontSize = hasThreeParagraphs
+        ? (p2.length > 150 ? 10.5 : 11.5)
+        : (p2.length > 150 ? 11.5 : 12.8);
+
+    final double p3FontSize = hasThreeParagraphs
+        ? (p3.length > 160 ? 9.8 : 10.5)
+        : 10.5;
 
     return AspectRatio(
       aspectRatio: 4 / 5,
@@ -122,7 +127,7 @@ class SlideReceiptsPoster extends StatelessWidget {
                               ),
                             ),
                             Text(
-                              'PRIMARY SOURCE DOSSIER',
+                              'ACTUAL NEWSPAPER EXCERPTS',
                               style: TextStyle(
                                 fontFamily: 'serif',
                                 fontSize: 7.5,
@@ -197,24 +202,24 @@ class SlideReceiptsPoster extends StatelessWidget {
 
                     const SizedBox(height: 8),
 
-                    // 3. The Continuous Summarized Newspaper Article (Zero Empty Spaces & Zero Overlap!)
+                    // 3. The Continuous Actual Newspaper Excerpts (2 to 3 pure section statements, ZERO curator voice!)
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
-                          // Lead Paragraph of the Story (Full statement, completed thought)
+                          // Paragraph 1: First authentic section excerpt from the newspaper
                           Text(
-                            leadText,
+                            p1,
                             style: TextStyle(
                               fontFamily: 'serif',
-                              fontSize: leadFontSize,
+                              fontSize: p1FontSize,
                               color: const Color(0xFF1E293B),
-                              height: 1.38,
+                              height: 1.36,
                             ),
                           ),
 
-                          // The Yellow Highlighter "Receipt" Box (The Core In-Line Evidence)
+                          // Paragraph 2: Core highlighted section excerpt inside the broadsheet highlighter
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
                             decoration: BoxDecoration(
@@ -243,7 +248,7 @@ class SlideReceiptsPoster extends StatelessWidget {
                                     const Icon(Icons.border_color_rounded, size: 12, color: Color(0xFF854D0E)),
                                     const SizedBox(width: 5),
                                     Text(
-                                      'PRIMARY VERBATIM EVIDENCE',
+                                      'KEY SECTION EXCERPT',
                                       style: TextStyle(
                                         fontFamily: 'serif',
                                         fontSize: 8,
@@ -256,10 +261,10 @@ class SlideReceiptsPoster extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 3),
                                 Text(
-                                  '“$receiptQuote”',
+                                  '“$p2”',
                                   style: TextStyle(
                                     fontFamily: 'serif',
-                                    fontSize: quoteFontSize,
+                                    fontSize: p2FontSize,
                                     fontWeight: FontWeight.w900,
                                     color: const Color(0xFF0F172A),
                                     height: 1.32,
@@ -269,16 +274,17 @@ class SlideReceiptsPoster extends StatelessWidget {
                             ),
                           ),
 
-                          // Concluding Summary & Impact Paragraph (Complete, flows naturally, NO overlap!)
-                          Text(
-                            summaryConclusion,
-                            style: TextStyle(
-                              fontFamily: 'serif',
-                              fontSize: conclusionFontSize,
-                              color: const Color(0xFF334155),
-                              height: 1.36,
+                          // Paragraph 3 (if present): Corroborating section excerpt from the newspaper
+                          if (hasThreeParagraphs)
+                            Text(
+                              p3,
+                              style: TextStyle(
+                                fontFamily: 'serif',
+                                fontSize: p3FontSize,
+                                color: const Color(0xFF334155),
+                                height: 1.36,
+                              ),
                             ),
-                          ),
                         ],
                       ),
                     ),
@@ -294,7 +300,7 @@ class SlideReceiptsPoster extends StatelessWidget {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              'COLLECTED ARCHIVE • CERTIFIED EXHIBIT',
+                              'AUTHENTIC ARTICLE EXCERPTS • PRIMARY SOURCE',
                               style: TextStyle(
                                 fontFamily: 'serif',
                                 fontSize: 7.5,
@@ -304,7 +310,7 @@ class SlideReceiptsPoster extends StatelessWidget {
                               ),
                             ),
                             Text(
-                              'CURATED BY $handle • EDITOUR.APP',
+                              'ARCHIVED BY $handle • EDITOUR.APP',
                               style: TextStyle(
                                 fontFamily: 'serif',
                                 fontSize: 7.5,

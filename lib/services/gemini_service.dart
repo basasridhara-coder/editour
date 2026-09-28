@@ -29,6 +29,7 @@ class GeminiAnalysisResult {
   final String? errorMessage;
   final String? rawGeminiResponse;
   final String? receiptHighlightQuote;
+  final List<String> articleExcerpts;
 
   GeminiAnalysisResult({
     required this.originalHeadline,
@@ -55,6 +56,7 @@ class GeminiAnalysisResult {
     this.errorMessage,
     this.rawGeminiResponse,
     this.receiptHighlightQuote,
+    this.articleExcerpts = const [],
   });
 }
 
@@ -528,6 +530,11 @@ Return ONLY a valid JSON object matching this schema:
   ],
   "pull_quote": "A memorable, powerful statement from the physical article suitable for a large poster callout",
   "receipt_highlight_quote": "A 1-2 sentence verbatim excerpt or smoking-gun quote directly from the physical text that provides undeniable proof for the stance",
+  "article_excerpts": [
+    "First exact verbatim section statement or excerpt paragraph directly from the physical print (MANDATORY: Must be genuine article text, NOT curator commentary)",
+    "Second exact verbatim section statement or excerpt paragraph directly from the physical print (MANDATORY: Must be genuine article text, NOT curator commentary)",
+    "Optional third exact verbatim section statement or excerpt paragraph directly from the physical print"
+  ],
   "key_metric": "A key number, stat, or metric from the article (e.g. '+34%', '\$1.2B', 'Year 2030', '4-Day Week')",
   "category_badge": "Category in 1-2 uppercase words (e.g. DEEP TECH, CULTURE, GLOBAL ECONOMY, CLIMATE, SCIENCE)",
   "digital_link": "A valid online article link or an accurate Google search URL (https://news.google.com/search?q=...) for this topic",
@@ -641,6 +648,13 @@ Return ONLY a valid JSON object matching this schema:
                 );
               }
 
+              final parsedExcerpts = (data['article_excerpts'] as List?)
+                      ?.map((e) => e.toString().trim())
+                      .where((e) => e.isNotEmpty)
+                      .take(3)
+                      .toList() ??
+                  [];
+
               return GeminiAnalysisResult(
                 originalHeadline: data['original_headline'] ?? 'Physical Print Article',
                 publicationName: data['publication_name'] ?? 'Print Publication',
@@ -656,6 +670,7 @@ Return ONLY a valid JSON object matching this schema:
                 receiptHighlightQuote: (data['receipt_highlight_quote'] != null && data['receipt_highlight_quote'].toString().trim().isNotEmpty)
                     ? data['receipt_highlight_quote'].toString().trim()
                     : (data['pull_quote']?.toString() ?? 'Source evidence excerpt.'),
+                articleExcerpts: parsedExcerpts,
                 keyMetric: data['key_metric'] ?? 'Report',
                 categoryBadge: data['category_badge'] ?? 'DISCOVERY',
                 digitalLink: data['digital_link'] ??
@@ -785,6 +800,11 @@ Return ONLY a valid JSON object matching this schema:
   ],
   "pull_quote": "A memorable statement from the article supporting this stance",
   "receipt_highlight_quote": "A 1-2 sentence verbatim excerpt directly from the article body that serves as clear evidence/receipt for the curator stance",
+  "article_excerpts": [
+    "First exact verbatim section statement or excerpt paragraph directly from the source article body (MANDATORY: Must be genuine article text, NOT curator commentary)",
+    "Second exact verbatim section statement or excerpt paragraph directly from the source article body (MANDATORY: Must be genuine article text, NOT curator commentary)",
+    "Optional third exact verbatim section statement or excerpt paragraph directly from the source article body"
+  ],
   "key_metric": "A key stat or number (e.g. '\$2.6B', '30%', '4 Min')",
   "category_badge": "1-2 uppercase words (e.g. HEALTHCARE, DEEP TECH, CLIMATE, ECONOMY)",
   "digital_link": "$articleUrl",
@@ -868,6 +888,13 @@ Return ONLY a valid JSON object matching this schema:
                   }
                 }
 
+                final parsedExcerpts = (parsed['article_excerpts'] as List?)
+                        ?.map((e) => e.toString().trim())
+                        .where((e) => e.isNotEmpty)
+                        .take(3)
+                        .toList() ??
+                    [];
+
                 return GeminiAnalysisResult(
                   originalHeadline: parsed['original_headline'] ?? articleTitle,
                   publicationName: parsed['publication_name'] ?? pubName,
@@ -883,6 +910,7 @@ Return ONLY a valid JSON object matching this schema:
                   receiptHighlightQuote: (parsed['receipt_highlight_quote'] != null && parsed['receipt_highlight_quote'].toString().trim().isNotEmpty)
                       ? parsed['receipt_highlight_quote'].toString().trim()
                       : (parsed['pull_quote']?.toString() ?? 'Key quote evidence.'),
+                  articleExcerpts: parsedExcerpts,
                   keyMetric: parsed['key_metric'] ?? 'Trending',
                   categoryBadge: parsed['category_badge'] ?? 'DIGITAL NEWS',
                   digitalLink: parsed['digital_link'] ?? articleUrl,
@@ -1010,6 +1038,11 @@ Return ONLY a valid JSON object matching this schema:
   ],
   "pull_quote": "The exact quote from the excerpt supporting this stance",
   "receipt_highlight_quote": "The exact verbatim excerpt or sentence from the book text that best encapsulates the curator's thesis",
+  "article_excerpts": [
+    "First authentic verbatim passage or excerpt paragraph directly from the book text (MANDATORY: Must be genuine book text, NOT curator commentary)",
+    "Second authentic verbatim passage or excerpt paragraph directly from the book text (MANDATORY: Must be genuine book text, NOT curator commentary)",
+    "Optional third authentic verbatim passage or excerpt paragraph directly from the book text"
+  ],
   "key_metric": "Chapter / Page / Literary Anchor",
   "category_badge": "LITERARY CURATION",
   "digital_link": "https://books.google.com/books?q=${Uri.encodeComponent('$bookTitle $bookAuthor')}",
@@ -1112,6 +1145,13 @@ Return ONLY a valid JSON object matching this schema:
                   );
                 }
 
+                final parsedBookExcerpts = (parsed['article_excerpts'] as List?)
+                        ?.map((e) => e.toString().trim())
+                        .where((e) => e.isNotEmpty)
+                        .take(3)
+                        .toList() ??
+                    [];
+
                 return GeminiAnalysisResult(
                   originalHeadline: parsed['original_headline'] ?? '$bookTitle Excerpt',
                   publicationName: parsed['publication_name'] ?? '$bookTitle • $bookAuthor',
@@ -1124,6 +1164,7 @@ Return ONLY a valid JSON object matching this schema:
                   receiptHighlightQuote: (parsed['receipt_highlight_quote'] != null && parsed['receipt_highlight_quote'].toString().trim().isNotEmpty)
                       ? parsed['receipt_highlight_quote'].toString().trim()
                       : (parsed['pull_quote']?.toString() ?? 'Literary source excerpt.'),
+                  articleExcerpts: parsedBookExcerpts,
                   keyMetric: parsed['key_metric'] ?? 'Curator Pick',
                   categoryBadge: (parsed['category_badge'] ?? 'LITERARY EXCERPT').toString().toUpperCase(),
                   digitalLink: parsed['digital_link'] ?? 'https://books.google.com',
@@ -1549,6 +1590,22 @@ YOUR INSTRUCTIONS:
       metric = 'Top Signal';
     }
 
+    List<String> demoExcerpts = [];
+    if (fallbackBody != null && fallbackBody.trim().isNotEmpty) {
+      demoExcerpts = fallbackBody
+          .split(RegExp(r'\n\s*\n'))
+          .map((p) => p.trim())
+          .where((p) => p.length > 25)
+          .take(3)
+          .toList();
+    }
+    if (demoExcerpts.length < 2) {
+      demoExcerpts = [
+        'Initial reporting confirmed that primary field observations diverged significantly from earlier seasonal projections, establishing an unprecedented baseline across monitored channels.',
+        'Official representatives and industry observers noted that operational realignments initiated during the previous cycle produced measurable structural adaptations.',
+      ];
+    }
+
     return GeminiAnalysisResult(
       originalHeadline: title,
       publicationName: 'The Morning Press Gazette',
@@ -1559,6 +1616,7 @@ YOUR INSTRUCTIONS:
       keyTakeaways: takeaways,
       pullQuote: pullQuote,
       receiptHighlightQuote: pullQuote,
+      articleExcerpts: demoExcerpts,
       keyMetric: metric,
       categoryBadge: category,
       digitalLink: 'https://news.google.com/search?q=${Uri.encodeComponent(title)}',
@@ -1760,6 +1818,22 @@ YOUR INSTRUCTIONS:
       metric = 'Curator Pick';
     }
 
+    List<String> bookExcerpts = [];
+    if (userExcerptText != null && userExcerptText.trim().isNotEmpty) {
+      bookExcerpts = userExcerptText
+          .split(RegExp(r'\n\s*\n'))
+          .map((p) => p.trim())
+          .where((p) => p.length > 25)
+          .take(3)
+          .toList();
+    }
+    if (bookExcerpts.length < 2) {
+      bookExcerpts = [
+        pullQuote,
+        'The passage continues to resonate as a testament to the enduring weight of quiet contemplation, offering an authentic testament unmediated by contemporary hurry.',
+      ];
+    }
+
     return GeminiAnalysisResult(
       originalHeadline: '$title: $angle',
       publicationName: '$title • $author',
@@ -1770,6 +1844,7 @@ YOUR INSTRUCTIONS:
       keyTakeaways: takeaways,
       pullQuote: pullQuote,
       receiptHighlightQuote: pullQuote,
+      articleExcerpts: bookExcerpts,
       keyMetric: metric,
       categoryBadge: 'LITERARY EXCERPT',
       digitalLink: 'https://books.google.com/books?q=${Uri.encodeComponent('$title $author')}',

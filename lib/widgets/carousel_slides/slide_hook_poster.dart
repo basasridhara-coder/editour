@@ -21,17 +21,12 @@ class SlideHookPoster extends StatelessWidget {
     final category = item.categoryBadge.isNotEmpty ? item.categoryBadge.toUpperCase() : 'EDITORIAL';
     final handle = item.creatorHandle ?? '@curator';
 
-    // Dynamic responsive font sizing for headline
-    final double headlineSize = headline.length > 90
-        ? 19.0
-        : (headline.length > 60
-            ? 21.0
-            : (headline.length > 40 ? 22.5 : 24.0));
-
-    // Dynamic responsive font sizing for the Hook Paragraph (Bigger font encouraging reading!)
-    final double hookParagraphSize = item.hook.length > 160
-        ? 14.0
-        : (item.hook.length > 100 ? 15.0 : 16.0);
+    // Dynamic responsive font sizing for the bold display headline
+    final double headlineSize = headline.length > 80
+        ? 21.0
+        : (headline.length > 50
+            ? 23.5
+            : (headline.length > 30 ? 25.5 : 27.5));
 
     return AspectRatio(
       aspectRatio: 4 / 5,
@@ -57,19 +52,19 @@ class SlideHookPoster extends StatelessWidget {
               _buildVisualArt(),
 
               // 2. Cinematic Multi-Stop Dark Vignette Overlay
-              // Leaves the upper 55% completely clear so the main subject is NEVER covered!
+              // Leaves 70%+ of the poster completely clear so the main artwork subject is pristine!
               Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    stops: const [0.0, 0.14, 0.50, 0.72, 1.0],
+                    stops: const [0.0, 0.12, 0.65, 0.82, 1.0],
                     colors: [
-                      Colors.black.withValues(alpha: 0.65), // Header shadow
-                      Colors.transparent,                  // Upper visual subject is completely unobstructed!
+                      Colors.black.withValues(alpha: 0.60), // Header shadow
+                      Colors.transparent,                  // Visual subject is completely unobstructed!
                       Colors.transparent,
-                      const Color(0xFF060911).withValues(alpha: 0.88),
-                      const Color(0xFF060911).withValues(alpha: 0.98), // Solid contrast for readable paragraph
+                      const Color(0xFF060911).withValues(alpha: 0.82),
+                      const Color(0xFF060911).withValues(alpha: 0.98), // High-contrast anchor for bold headline
                     ],
                   ),
                 ),
@@ -146,56 +141,41 @@ class SlideHookPoster extends StatelessWidget {
                 ),
               ),
 
-              // 4. Lower Content Section: Bold Headline + Bigger Readable Paragraph
-              // Anchored strictly to the lower 38% so it never covers the subject!
+              // 4. Lower Content Section: Bold Headline Only (No sub-hook)
+              // Anchored cleanly at the bottom without covering the visual art subject
               Positioned(
-                bottom: 14,
+                bottom: 16,
                 left: 18,
                 right: 18,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Headline Hook (Clear and bold)
+                    // Massive, Punchy Display Headline
                     Text(
                       headline,
                       style: TextStyle(
                         fontSize: headlineSize,
                         fontWeight: FontWeight.w900,
                         color: Colors.white,
-                        height: 1.18,
-                        letterSpacing: -0.5,
+                        height: 1.15,
+                        letterSpacing: -0.6,
                         shadows: const [
                           Shadow(
-                            color: Colors.black87,
-                            blurRadius: 12,
+                            color: Colors.black,
+                            blurRadius: 16,
                             offset: Offset(0, 3),
                           ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 8),
-
-                    // Small Paragraph with Complete Statement in BIGGER, highly readable font!
-                    Text(
-                      item.hook,
-                      style: TextStyle(
-                        fontSize: hookParagraphSize,
-                        color: const Color(0xFFF1F5F9),
-                        height: 1.38,
-                        fontWeight: FontWeight.w600,
-                        shadows: const [
                           Shadow(
                             color: Colors.black87,
                             blurRadius: 8,
-                            offset: Offset(0, 2),
+                            offset: Offset(0, 1),
                           ),
                         ],
                       ),
                     ),
 
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 14),
 
                     // High-Contrast Footer (Creator Handle + Glowing Swipe Trigger)
                     Row(
