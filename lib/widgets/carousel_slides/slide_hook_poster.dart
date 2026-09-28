@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import '../../models/postcard_item.dart';
 import '../../models/poster_style_config.dart';
@@ -18,78 +19,109 @@ class SlideHookPoster extends StatelessWidget {
     final headline = item.adaptedHeadline.isNotEmpty ? item.adaptedHeadline : (item.originalHeadline ?? 'Story Overview');
     final pubName = item.publicationName ?? 'Press Wire';
     final category = item.categoryBadge.isNotEmpty ? item.categoryBadge.toUpperCase() : 'EDITORIAL';
-    final audience = item.targetAudience;
     final handle = item.creatorHandle ?? '@curator';
-    final hasIllustration = item.illustrationBase64 != null && item.illustrationBase64!.isNotEmpty;
-    final hasMetric = item.keyMetric != null && item.keyMetric!.trim().isNotEmpty;
 
     return AspectRatio(
       aspectRatio: 4 / 5,
       child: Container(
         decoration: BoxDecoration(
-          color: const Color(0xFF090D16),
+          color: const Color(0xFF060911),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.12), width: 1.5),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.14), width: 1.5),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.5),
-              blurRadius: 20,
-              offset: const Offset(0, 8),
+              color: Colors.black.withValues(alpha: 0.6),
+              blurRadius: 24,
+              offset: const Offset(0, 10),
             ),
           ],
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(15),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+          child: Stack(
+            fit: StackFit.expand,
             children: [
-              // Top Header Bar
+              // 1. Full-Bleed Background Visual Art (100% Canvas Coverage)
+              _buildVisualArt(),
+
+              // 2. Cinematic Multi-Stop Dark Vignette Overlay
+              // Ensures high-contrast typography while letting the visual shine through
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.04),
-                  border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.08))),
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    stops: const [0.0, 0.20, 0.45, 0.78, 1.0],
+                    colors: [
+                      Colors.black.withValues(alpha: 0.65), // Top shadow for clean header badge
+                      Colors.black.withValues(alpha: 0.15),
+                      Colors.transparent,                  // Mid-section showcases visual art
+                      const Color(0xFF060911).withValues(alpha: 0.88),
+                      const Color(0xFF060911).withValues(alpha: 0.98), // Solid contrast for hook text
+                    ],
+                  ),
                 ),
+              ),
+
+              // 3. Top Minimal Header Pill
+              Positioned(
+                top: 14,
+                left: 16,
+                right: 16,
                 child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(
-                        color: config.primaryColor.withValues(alpha: 0.25),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: config.primaryColor.withValues(alpha: 0.5)),
+                        color: Colors.black.withValues(alpha: 0.6),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
                       ),
-                      child: Text(
-                        category,
-                        style: TextStyle(
-                          fontSize: 9.5,
-                          fontWeight: FontWeight.w800,
-                          color: config.primaryColor,
-                          letterSpacing: 0.8,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        pubName,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF94A3B8),
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 6,
+                            height: 6,
+                            decoration: BoxDecoration(
+                              color: config.primaryColor,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            category,
+                            style: TextStyle(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w800,
+                              color: config.primaryColor,
+                              letterSpacing: 0.8,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            '•  $pubName',
+                            style: const TextStyle(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFFCBD5E1),
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(12),
+                        color: Colors.black.withValues(alpha: 0.6),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
                       ),
                       child: const Text(
-                        'SLIDE 01 / 03',
+                        '01 / 03',
                         style: TextStyle(
                           fontSize: 9.5,
                           fontWeight: FontWeight.w800,
@@ -102,217 +134,122 @@ class SlideHookPoster extends StatelessWidget {
                 ),
               ),
 
-              // Visual Hero Art (Takes 58% of height)
-              Expanded(
-                flex: 12,
-                child: Container(
-                  color: const Color(0xFF020617),
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      if (hasIllustration)
-                        Image.memory(
-                          base64Decode(item.illustrationBase64!),
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => _buildFallbackGraphic(),
-                        )
-                      else
-                        _buildFallbackGraphic(),
-
-                      // Cinematic bottom shadow gradient
-                      Positioned(
-                        bottom: 0,
-                        left: 0,
-                        right: 0,
-                        height: 70,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [
-                                Colors.transparent,
-                                const Color(0xFF090D16).withValues(alpha: 0.95),
-                              ],
-                            ),
+              // 4. Lower Content Section (Stop-the-Scroll Hook with Minimal Sub-text)
+              Positioned(
+                bottom: 14,
+                left: 18,
+                right: 18,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Massive, Punchy Display Headline
+                    Text(
+                      headline,
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                        height: 1.18,
+                        letterSpacing: -0.6,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black87,
+                            blurRadius: 12,
+                            offset: Offset(0, 3),
                           ),
-                        ),
+                        ],
                       ),
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                    ),
 
-                      // Audience Target Chip
-                      Positioned(
-                        top: 10,
-                        left: 12,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.75),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: Colors.white24),
+                    const SizedBox(height: 10),
+
+                    // Minimal, Irresistible Sub-hook (1-2 lines max)
+                    Text(
+                      item.hook,
+                      style: const TextStyle(
+                        fontSize: 13.5,
+                        color: Color(0xFFE2E8F0),
+                        height: 1.35,
+                        fontWeight: FontWeight.w500,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black87,
+                            blurRadius: 8,
+                            offset: Offset(0, 2),
                           ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.public, size: 12, color: Color(0xFF38BDF8)),
-                              const SizedBox(width: 4),
-                              Text(
-                                audience,
-                                style: const TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                        ],
                       ),
-                    ],
-                  ),
-                ),
-              ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
 
-              // Bottom Content Section (Takes 42% of height, completely filled!)
-              Expanded(
-                flex: 10,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      // Bold Headline
-                      Text(
-                        headline,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w900,
-                          color: Colors.white,
-                          height: 1.25,
-                          letterSpacing: -0.4,
-                        ),
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                    const SizedBox(height: 16),
 
-                      // Compelling Hook
-                      Text(
-                        item.hook,
-                        style: const TextStyle(
-                          fontSize: 12.5,
-                          color: Color(0xFFCBD5E1),
-                          height: 1.35,
-                          fontWeight: FontWeight.w500,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-
-                      // Key Signal Banner (Fills the space meaningfully with high-signal data)
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                        decoration: BoxDecoration(
-                          color: config.primaryColor.withValues(alpha: 0.16),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: config.primaryColor.withValues(alpha: 0.35)),
-                        ),
-                        child: Row(
+                    // Minimalist Footer (Creator Handle + Swipe Loop Trigger)
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
                           children: [
-                            const Icon(Icons.bolt, size: 14, color: Color(0xFFF59E0B)),
-                            const SizedBox(width: 6),
-                            if (hasMetric) ...[
-                              Text(
-                                item.keyMetric!,
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w900,
-                                  color: Colors.white,
+                            Container(
+                              width: 20,
+                              height: 20,
+                              decoration: BoxDecoration(
+                                color: config.primaryColor,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Center(
+                                child: Text(
+                                  handle.replaceFirst('@', '').substring(0, 1).toUpperCase(),
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
                                 ),
                               ),
-                              const SizedBox(width: 6),
-                              Container(width: 1, height: 12, color: Colors.white24),
-                              const SizedBox(width: 6),
-                            ],
-                            Expanded(
-                              child: Text(
-                                hasMetric
-                                    ? 'Critical signal from official reporting'
-                                    : (item.keyTakeaways.isNotEmpty ? item.keyTakeaways.first : 'Key development spotted in print'),
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: Color(0xFFE2E8F0),
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(width: 7),
+                            Text(
+                              handle,
+                              style: const TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFFCBD5E1),
                               ),
                             ),
                           ],
                         ),
-                      ),
-
-                      // Footer Bar
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: config.primaryColor.withValues(alpha: 0.25),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: config.primaryColor.withValues(alpha: 0.6)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              Container(
-                                width: 22,
-                                height: 22,
-                                decoration: BoxDecoration(
-                                  color: config.primaryColor,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    handle.replaceFirst('@', '').substring(0, 1).toUpperCase(),
-                                    style: const TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 6),
                               Text(
-                                handle,
-                                style: const TextStyle(
-                                  fontSize: 11.5,
-                                  fontWeight: FontWeight.w600,
-                                  color: Color(0xFF94A3B8),
+                                'SWIPE',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w900,
+                                  color: config.primaryColor,
+                                  letterSpacing: 0.8,
                                 ),
                               ),
+                              const SizedBox(width: 4),
+                              Icon(Icons.arrow_forward_rounded, size: 12, color: config.primaryColor),
                             ],
                           ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: config.primaryColor.withValues(alpha: 0.22),
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: config.primaryColor.withValues(alpha: 0.45)),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  'Curator Take',
-                                  style: TextStyle(
-                                    fontSize: 10.5,
-                                    fontWeight: FontWeight.w800,
-                                    color: config.primaryColor,
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                Icon(Icons.arrow_forward_rounded, size: 12, color: config.primaryColor),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -322,20 +259,40 @@ class SlideHookPoster extends StatelessWidget {
     );
   }
 
-  Widget _buildFallbackGraphic() {
+  Widget _buildVisualArt() {
+    if (item.renderedPosterPath != null && item.renderedPosterPath!.isNotEmpty) {
+      final file = File(item.renderedPosterPath!);
+      if (file.existsSync()) {
+        return Image.file(file, fit: BoxFit.cover);
+      }
+    }
+    if (item.illustrationBase64 != null && item.illustrationBase64!.isNotEmpty) {
+      try {
+        return Image.memory(base64Decode(item.illustrationBase64!), fit: BoxFit.cover);
+      } catch (_) {}
+    }
+    return _buildFallbackAtmosphericGraphic();
+  }
+
+  Widget _buildFallbackAtmosphericGraphic() {
     return Container(
       decoration: BoxDecoration(
-        gradient: LinearGradient(
+        gradient: RadialGradient(
+          center: const Alignment(0.2, -0.3),
+          radius: 1.2,
           colors: [
-            config.primaryColor.withValues(alpha: 0.3),
+            config.primaryColor.withValues(alpha: 0.45),
             const Color(0xFF0F172A),
+            const Color(0xFF020617),
           ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
         ),
       ),
       child: Center(
-        child: Icon(Icons.newspaper_rounded, size: 64, color: Colors.white.withValues(alpha: 0.4)),
+        child: Icon(
+          Icons.auto_awesome,
+          size: 72,
+          color: Colors.white.withValues(alpha: 0.25),
+        ),
       ),
     );
   }

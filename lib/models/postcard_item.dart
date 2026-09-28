@@ -25,6 +25,8 @@ class PostCardItem {
   final String? renderedPosterPath;
   final String? illustrationPrompt;
   final String? illustrationBase64;
+  final String? curatorIllustrationPrompt;
+  final String? curatorIllustrationBase64;
   final double visualArtRatio;
   final String? infographicType;
   final List<String> infographicStats;
@@ -74,6 +76,8 @@ class PostCardItem {
     this.renderedPosterPath,
     this.illustrationPrompt,
     this.illustrationBase64,
+    this.curatorIllustrationPrompt,
+    this.curatorIllustrationBase64,
     this.visualArtRatio = 0.6,
     this.infographicType,
     this.infographicStats = const [],
@@ -114,6 +118,8 @@ class PostCardItem {
     String? renderedPosterPath,
     String? illustrationPrompt,
     String? illustrationBase64,
+    String? curatorIllustrationPrompt,
+    String? curatorIllustrationBase64,
     double? visualArtRatio,
     String? infographicType,
     List<String>? infographicStats,
@@ -153,6 +159,8 @@ class PostCardItem {
       renderedPosterPath: renderedPosterPath ?? this.renderedPosterPath,
       illustrationPrompt: illustrationPrompt ?? this.illustrationPrompt,
       illustrationBase64: illustrationBase64 ?? this.illustrationBase64,
+      curatorIllustrationPrompt: curatorIllustrationPrompt ?? this.curatorIllustrationPrompt,
+      curatorIllustrationBase64: curatorIllustrationBase64 ?? this.curatorIllustrationBase64,
       visualArtRatio: visualArtRatio ?? this.visualArtRatio,
       infographicType: infographicType ?? this.infographicType,
       infographicStats: infographicStats ?? this.infographicStats,
@@ -195,6 +203,8 @@ class PostCardItem {
       'renderedPosterPath': renderedPosterPath,
       'illustrationPrompt': illustrationPrompt,
       'illustrationBase64': illustrationBase64,
+      'curatorIllustrationPrompt': curatorIllustrationPrompt,
+      'curatorIllustrationBase64': curatorIllustrationBase64,
       'visualArtRatio': visualArtRatio,
       'infographicType': infographicType,
       'infographicStats': infographicStats,
@@ -248,6 +258,8 @@ class PostCardItem {
       renderedPosterPath: map['renderedPosterPath'],
       illustrationPrompt: map['illustrationPrompt'],
       illustrationBase64: map['illustrationBase64'],
+      curatorIllustrationPrompt: map['curatorIllustrationPrompt'],
+      curatorIllustrationBase64: map['curatorIllustrationBase64'],
       visualArtRatio: (map['visualArtRatio'] as num?)?.toDouble() ?? 0.6,
       infographicType: map['infographicType'],
       infographicStats: List<String>.from(map['infographicStats'] ?? []),

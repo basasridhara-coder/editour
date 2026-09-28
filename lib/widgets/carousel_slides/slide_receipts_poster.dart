@@ -17,7 +17,7 @@ class SlideReceiptsPoster extends StatelessWidget {
   Widget build(BuildContext context) {
     final pubName = (item.publicationName != null && item.publicationName!.trim().isNotEmpty)
         ? item.publicationName!.trim()
-        : 'PRIMARY SOURCE PRESS';
+        : 'THE FINANCIAL CHRONICLE';
     final handle = item.creatorHandle ?? '@curator';
     final headline = (item.originalHeadline != null && item.originalHeadline!.trim().isNotEmpty)
         ? item.originalHeadline!
@@ -54,9 +54,9 @@ class SlideReceiptsPoster extends StatelessWidget {
       aspectRatio: 4 / 5,
       child: Container(
         decoration: BoxDecoration(
-          color: const Color(0xFF080C14),
+          color: const Color(0xFFF7F5EE), // Authentic vintage newsprint broadsheet paper
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.12), width: 1.5),
+          border: Border.all(color: const Color(0xFFD6CEBE), width: 2),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.5),
@@ -66,501 +66,350 @@ class SlideReceiptsPoster extends StatelessWidget {
           ],
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(15),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+          borderRadius: BorderRadius.circular(14),
+          child: Stack(
+            fit: StackFit.expand,
             children: [
-              // Top Header Bar
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.04),
-                  border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.08))),
-                ),
-                child: Row(
+              // Main Broadsheet Newspaper Content (Fills the entire 4:5 Poster!)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFDC2626).withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.6)),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.verified_rounded, size: 12, color: Color(0xFFF87171)),
-                          SizedBox(width: 4),
-                          Text(
-                            'THE "RECEIPT"',
-                            style: TextStyle(
-                              fontSize: 9.5,
-                              fontWeight: FontWeight.w800,
-                              color: Color(0xFFF87171),
-                              letterSpacing: 0.8,
+                    // 1. Classic Broadsheet Masthead Header
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Container(height: 2.2, color: const Color(0xFF0F172A)),
+                        const SizedBox(height: 2),
+                        Container(height: 0.7, color: const Color(0xFF475569)),
+                        const SizedBox(height: 6),
+                        Center(
+                          child: Text(
+                            pubName.toUpperCase(),
+                            style: const TextStyle(
+                              fontFamily: 'serif',
+                              fontSize: 20,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 2.5,
+                              color: Color(0xFF0F172A),
                             ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        pubName,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF94A3B8),
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Text(
-                        'SLIDE 03 / 03',
-                        style: TextStyle(
-                          fontSize: 9.5,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white70,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Middle: Dense Broadsheet Newspaper Evidence Dossier
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      // Main Physical Broadsheet Paper Card (Fills entire available space!)
-                      Container(
-                        width: double.infinity,
-                        height: double.infinity,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF7F5EE), // Authentic aged newsprint paper
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: const Color(0xFFD6CEBE), width: 1.5),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.4),
-                              blurRadius: 14,
-                              offset: const Offset(0, 5),
+                        const SizedBox(height: 4),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'VOL. CLXXIV • NO. 48,210',
+                              style: TextStyle(
+                                fontFamily: 'serif',
+                                fontSize: 7.5,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.6,
+                                color: Colors.grey.shade800,
+                              ),
+                            ),
+                            Text(
+                              'PRIMARY SOURCE DOSSIER',
+                              style: TextStyle(
+                                fontFamily: 'serif',
+                                fontSize: 7.5,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 1.0,
+                                color: Colors.grey.shade900,
+                              ),
+                            ),
+                            Text(
+                              'SLIDE 03 / 03',
+                              style: TextStyle(
+                                fontFamily: 'serif',
+                                fontSize: 7.5,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.6,
+                                color: Colors.grey.shade800,
+                              ),
                             ),
                           ],
                         ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              // 1. Newspaper Masthead Header
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  Container(height: 1.8, color: const Color(0xFF1E293B)),
-                                  const SizedBox(height: 1.5),
-                                  Container(height: 0.6, color: const Color(0xFF64748B)),
-                                  const SizedBox(height: 4),
-                                  Center(
-                                    child: Text(
-                                      pubName.toUpperCase(),
-                                      style: const TextStyle(
-                                        fontFamily: 'serif',
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w900,
-                                        letterSpacing: 2.2,
-                                        color: Color(0xFF0F172A),
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 3),
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        'VOL. CLXXIV • NO. 482',
-                                        style: TextStyle(
-                                          fontFamily: 'serif',
-                                          fontSize: 7.5,
-                                          fontWeight: FontWeight.bold,
-                                          letterSpacing: 0.6,
-                                          color: Colors.grey.shade700,
-                                        ),
-                                      ),
-                                      Text(
-                                        'ORIGINAL REPORTING ARCHIVE',
-                                        style: TextStyle(
-                                          fontFamily: 'serif',
-                                          fontSize: 7.5,
-                                          fontWeight: FontWeight.w800,
-                                          letterSpacing: 0.8,
-                                          color: Colors.grey.shade800,
-                                        ),
-                                      ),
-                                      Text(
-                                        'EVIDENCE CLIPPING',
-                                        style: TextStyle(
-                                          fontFamily: 'serif',
-                                          fontSize: 7.5,
-                                          fontWeight: FontWeight.bold,
-                                          letterSpacing: 0.6,
-                                          color: Colors.grey.shade700,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 3),
-                                  Container(height: 0.8, color: const Color(0xFF1E293B)),
-                                ],
+                        const SizedBox(height: 4),
+                        Container(height: 1.2, color: const Color(0xFF0F172A)),
+                      ],
+                    ),
+
+                    const SizedBox(height: 8),
+
+                    // 2. Original Article Headline & Wire Byline
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          headline,
+                          style: const TextStyle(
+                            fontFamily: 'serif',
+                            fontSize: 16,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF0F172A),
+                            height: 1.22,
+                          ),
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Text(
+                              'BY SPECIAL CORRESPONDENT & WIRE BUREAU',
+                              style: TextStyle(
+                                fontFamily: 'serif',
+                                fontSize: 7.5,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.5,
+                                color: Colors.grey.shade700,
                               ),
-
-                              const SizedBox(height: 6),
-
-                              // 2. Headline & Wire Byline
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    headline,
-                                    style: const TextStyle(
-                                      fontFamily: 'serif',
-                                      fontSize: 13.5,
-                                      fontWeight: FontWeight.w900,
-                                      color: Color(0xFF0F172A),
-                                      height: 1.25,
-                                    ),
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  const SizedBox(height: 3),
-                                  Text(
-                                    'PRESS WIRE BUREAU • SPECIAL CORRESPONDENT • VERIFIED RECORD',
-                                    style: TextStyle(
-                                      fontFamily: 'serif',
-                                      fontSize: 7.5,
-                                      fontWeight: FontWeight.w700,
-                                      letterSpacing: 0.5,
-                                      color: Colors.grey.shade600,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 5),
-                                  Container(height: 0.5, color: const Color(0xFFCBD5E1)),
-                                ],
+                            ),
+                            const Spacer(),
+                            Text(
+                              'VERIFIED ARCHIVE',
+                              style: TextStyle(
+                                fontFamily: 'serif',
+                                fontSize: 7.5,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.5,
+                                color: Colors.red.shade900,
                               ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Container(height: 0.6, color: const Color(0xFF94A3B8)),
+                      ],
+                    ),
 
-                              const SizedBox(height: 4),
+                    const SizedBox(height: 6),
 
-                              // 3. Broadsheet Body Content with Yellow Highlighter Focus
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    // 3. Broadsheet Columns with Yellow Highlighter Focus
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          // Lead-in news reporting text
+                          Text(
+                            leadText,
+                            style: TextStyle(
+                              fontFamily: 'serif',
+                              fontSize: 9.5,
+                              color: Colors.grey.shade800,
+                              height: 1.35,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+
+                          // The Vibrant Yellow Highlighter "Receipt" Box (The Smoking Gun Evidence)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFEF08A), // Vibrant Canary Yellow Highlighter
+                              borderRadius: BorderRadius.circular(4),
+                              border: const Border(
+                                left: BorderSide(color: Color(0xFFCA8A04), width: 5), // Marker edge
+                                top: BorderSide(color: Color(0xFFFDE047)),
+                                right: BorderSide(color: Color(0xFFFDE047)),
+                                bottom: BorderSide(color: Color(0xFFFDE047)),
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFFEAB308).withValues(alpha: 0.35),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Row(
                                   children: [
-                                    // Lead-in paragraph
+                                    const Icon(Icons.border_color_rounded, size: 12, color: Color(0xFF854D0E)),
+                                    const SizedBox(width: 5),
                                     Text(
-                                      leadText,
+                                      'PRIMARY VERBATIM EVIDENCE',
                                       style: TextStyle(
                                         fontFamily: 'serif',
-                                        fontSize: 8.5,
-                                        color: Colors.grey.shade800,
-                                        height: 1.3,
+                                        fontSize: 8,
+                                        fontWeight: FontWeight.w900,
+                                        letterSpacing: 0.9,
+                                        color: Colors.yellow.shade900,
                                       ),
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-
-                                    // The Vibrant Highlighter "Receipt" Box (The Smoking Gun)
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFFEF08A), // Fluorescent Highlighter Yellow
-                                        borderRadius: BorderRadius.circular(4),
-                                        border: const Border(
-                                          left: BorderSide(color: Color(0xFFCA8A04), width: 4), // Highlighter pen edge
-                                          top: BorderSide(color: Color(0xFFFDE047)),
-                                          right: BorderSide(color: Color(0xFFFDE047)),
-                                          bottom: BorderSide(color: Color(0xFFFDE047)),
-                                        ),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: const Color(0xFFEAB308).withValues(alpha: 0.35),
-                                            blurRadius: 6,
-                                            offset: const Offset(0, 2),
-                                          ),
-                                        ],
-                                      ),
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Row(
-                                            children: [
-                                              const Icon(Icons.border_color_rounded, size: 11, color: Color(0xFF854D0E)),
-                                              const SizedBox(width: 4),
-                                              Text(
-                                                'PRIMARY VERBATIM EVIDENCE',
-                                                style: TextStyle(
-                                                  fontFamily: 'serif',
-                                                  fontSize: 7.5,
-                                                  fontWeight: FontWeight.w900,
-                                                  letterSpacing: 0.8,
-                                                  color: Colors.yellow.shade900,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 3),
-                                          Text(
-                                            '“$receiptQuote”',
-                                            style: const TextStyle(
-                                              fontFamily: 'serif',
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w800,
-                                              color: Color(0xFF0F172A),
-                                              height: 1.3,
-                                            ),
-                                            maxLines: 3,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-
-                                    // Corroborating Evidence Columns
-                                    Row(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Expanded(
-                                          child: Text(
-                                            corroboratingLeft,
-                                            style: TextStyle(
-                                              fontFamily: 'serif',
-                                              fontSize: 8,
-                                              color: Colors.grey.shade800,
-                                              height: 1.25,
-                                            ),
-                                            maxLines: 3,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 10),
-                                        Expanded(
-                                          child: Text(
-                                            corroboratingRight,
-                                            style: TextStyle(
-                                              fontFamily: 'serif',
-                                              fontSize: 8,
-                                              color: Colors.grey.shade800,
-                                              height: 1.25,
-                                            ),
-                                            maxLines: 3,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ),
-                                      ],
                                     ),
                                   ],
                                 ),
-                              ),
-
-                              const SizedBox(height: 4),
-
-                              // 4. Broadsheet Archival Bottom Row
-                              Column(
-                                children: [
-                                  Container(height: 0.6, color: const Color(0xFF94A3B8)),
-                                  const SizedBox(height: 3),
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        'COLLECTED ARCHIVE • CERTIFIED EXHIBIT',
-                                        style: TextStyle(
-                                          fontFamily: 'serif',
-                                          fontSize: 7,
-                                          fontWeight: FontWeight.w800,
-                                          color: Colors.grey.shade700,
-                                          letterSpacing: 0.5,
-                                        ),
-                                      ),
-                                      Text(
-                                        'EDITOUR ARCHIVE • PAGE 1 / C2',
-                                        style: TextStyle(
-                                          fontFamily: 'serif',
-                                          fontSize: 7,
-                                          fontWeight: FontWeight.w800,
-                                          color: Colors.grey.shade700,
-                                          letterSpacing: 0.5,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-
-                      // If physical camera photo exists, show a taped photographic evidence snap in corner
-                      if (hasPhysicalPhoto)
-                        Positioned(
-                          bottom: 12,
-                          right: 12,
-                          child: Transform.rotate(
-                            angle: 0.08,
-                            child: Container(
-                              width: 78,
-                              height: 78,
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(4),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.45),
-                                    blurRadius: 8,
-                                    offset: const Offset(2, 4),
-                                  ),
-                                ],
-                                border: Border.all(color: Colors.white, width: 3),
-                              ),
-                              child: Image.file(
-                                File(item.originalPhotoPath),
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, _, _) => const SizedBox.shrink(),
-                              ),
-                            ),
-                          ),
-                        ),
-
-                      // Forensic "VERIFIED PRESS EVIDENCE" Weathered Red Rubber Stamp
-                      Positioned(
-                        top: 6,
-                        right: 8,
-                        child: Transform.rotate(
-                          angle: -0.20, // Authentic tilted rubber stamp
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                            decoration: BoxDecoration(
-                              border: Border.all(color: const Color(0xFFDC2626), width: 1.8),
-                              borderRadius: BorderRadius.circular(5),
-                              color: const Color(0xFFDC2626).withValues(alpha: 0.08),
-                            ),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Text(
-                                  '★ VERIFIED ★',
-                                  style: TextStyle(
-                                    fontSize: 6.5,
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: 1.0,
-                                    color: Color(0xFFDC2626),
-                                  ),
-                                ),
+                                const SizedBox(height: 4),
                                 Text(
-                                  'PRESS EVIDENCE',
-                                  style: TextStyle(
-                                    fontSize: 8,
+                                  '“$receiptQuote”',
+                                  style: const TextStyle(
+                                    fontFamily: 'serif',
+                                    fontSize: 13.5,
                                     fontWeight: FontWeight.w900,
-                                    letterSpacing: 0.8,
-                                    color: const Color(0xFFDC2626).withValues(alpha: 0.95),
+                                    color: Color(0xFF0F172A),
+                                    height: 1.35,
                                   ),
+                                  maxLines: 4,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ],
                             ),
                           ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
 
-              // Bottom Curation Seal & Handle
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.4),
-                  border: Border(top: BorderSide(color: Colors.white.withValues(alpha: 0.08))),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 22,
-                          height: 22,
-                          decoration: BoxDecoration(
-                            color: config.primaryColor,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Center(
-                            child: Text(
-                              handle.replaceFirst('@', '').substring(0, 1).toUpperCase(),
-                              style: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
+                          // Corroborating Evidence Columns
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  corroboratingLeft,
+                                  style: TextStyle(
+                                    fontFamily: 'serif',
+                                    fontSize: 8.5,
+                                    color: Colors.grey.shade800,
+                                    height: 1.3,
+                                  ),
+                                  maxLines: 3,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
-                            ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  corroboratingRight,
+                                  style: TextStyle(
+                                    fontFamily: 'serif',
+                                    fontSize: 8.5,
+                                    color: Colors.grey.shade800,
+                                    height: 1.3,
+                                  ),
+                                  maxLines: 3,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 6),
+
+                    // 4. Broadsheet Archival Bottom Folio
+                    Column(
+                      children: [
+                        Container(height: 0.8, color: const Color(0xFF0F172A)),
+                        const SizedBox(height: 4),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              handle,
-                              style: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.white,
+                              'COLLECTED ARCHIVE • CERTIFIED EXHIBIT',
+                              style: TextStyle(
+                                fontFamily: 'serif',
+                                fontSize: 7.5,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.grey.shade800,
+                                letterSpacing: 0.5,
                               ),
                             ),
-                            const Text(
-                              'Primary Source Verification',
+                            Text(
+                              'CURATED BY $handle • EDITOUR.APP',
                               style: TextStyle(
-                                fontSize: 8.5,
-                                color: Color(0xFF94A3B8),
+                                fontFamily: 'serif',
+                                fontSize: 7.5,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.grey.shade800,
+                                letterSpacing: 0.5,
                               ),
                             ),
                           ],
                         ),
                       ],
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  ],
+                ),
+              ),
+
+              // Photographic Paper Snap (if physical photo exists)
+              if (hasPhysicalPhoto)
+                Positioned(
+                  bottom: 24,
+                  right: 18,
+                  child: Transform.rotate(
+                    angle: 0.08,
+                    child: Container(
+                      width: 82,
+                      height: 82,
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.08),
+                        color: Colors.white,
                         borderRadius: BorderRadius.circular(4),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.45),
+                            blurRadius: 8,
+                            offset: const Offset(2, 4),
+                          ),
+                        ],
+                        border: Border.all(color: Colors.white, width: 3),
                       ),
-                      child: const Text(
-                        'editour.app',
-                        style: TextStyle(
-                          fontSize: 9.5,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF38BDF8),
-                          letterSpacing: 0.5,
-                        ),
+                      child: Image.file(
+                        File(item.originalPhotoPath),
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => const SizedBox.shrink(),
                       ),
                     ),
-                  ],
+                  ),
+                ),
+
+              // Forensic "VERIFIED PRESS EVIDENCE" Weathered Red Rubber Stamp
+              Positioned(
+                top: 10,
+                right: 14,
+                child: Transform.rotate(
+                  angle: -0.18, // Tilted authentic rubber stamp
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: const Color(0xFFDC2626), width: 2),
+                      borderRadius: BorderRadius.circular(6),
+                      color: const Color(0xFFDC2626).withValues(alpha: 0.07),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text(
+                          '★ VERIFIED ★',
+                          style: TextStyle(
+                            fontSize: 7,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 1.0,
+                            color: Color(0xFFDC2626),
+                          ),
+                        ),
+                        Text(
+                          'PRESS EVIDENCE',
+                          style: TextStyle(
+                            fontSize: 8.5,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.8,
+                            color: const Color(0xFFDC2626).withValues(alpha: 0.95),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ],

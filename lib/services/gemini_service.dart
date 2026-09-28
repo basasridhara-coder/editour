@@ -19,6 +19,8 @@ class GeminiAnalysisResult {
   final PosterStyleType suggestedStyle;
   final String? illustrationPrompt;
   final Uint8List? generatedIllustrationBytes;
+  final String? curatorIllustrationPrompt;
+  final Uint8List? generatedCuratorIllustrationBytes;
   final double visualArtRatio;
   final String? infographicType;
   final List<String> infographicStats;
@@ -43,6 +45,8 @@ class GeminiAnalysisResult {
     required this.suggestedStyle,
     this.illustrationPrompt,
     this.generatedIllustrationBytes,
+    this.curatorIllustrationPrompt,
+    this.generatedCuratorIllustrationBytes,
     this.visualArtRatio = 0.6,
     this.infographicType,
     this.infographicStats = const [],

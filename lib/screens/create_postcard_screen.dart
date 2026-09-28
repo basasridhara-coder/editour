@@ -734,6 +734,10 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
         curatorAngle: _curatorAngleController.text.trim().isNotEmpty ? _curatorAngleController.text.trim() : 'Curator Reflection',
         postFormat: _selectedPostFormat,
         receiptHighlightQuote: result.receiptHighlightQuote ?? result.pullQuote,
+        curatorIllustrationPrompt: result.curatorIllustrationPrompt,
+        curatorIllustrationBase64: result.generatedCuratorIllustrationBytes != null
+            ? base64Encode(result.generatedCuratorIllustrationBytes!)
+            : null,
       );
 
       _headlineController.text = newItem.adaptedHeadline;
