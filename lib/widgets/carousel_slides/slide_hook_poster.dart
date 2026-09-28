@@ -21,13 +21,25 @@ class SlideHookPoster extends StatelessWidget {
     final category = item.categoryBadge.isNotEmpty ? item.categoryBadge.toUpperCase() : 'EDITORIAL';
     final handle = item.creatorHandle ?? '@curator';
 
+    // Dynamic responsive font sizing based on headline length so it never truncates
+    final double headlineSize = headline.length > 90
+        ? 19.0
+        : (headline.length > 60
+            ? 21.0
+            : (headline.length > 40 ? 23.0 : 25.0));
+
+    // Dynamic responsive font sizing for hook so full sentence completes
+    final double hookSize = item.hook.length > 160
+        ? 11.5
+        : (item.hook.length > 100 ? 12.5 : 13.5);
+
     return AspectRatio(
       aspectRatio: 4 / 5,
       child: Container(
         decoration: BoxDecoration(
           color: const Color(0xFF060911),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.14), width: 1.5),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.16), width: 1.5),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.6),
@@ -45,15 +57,15 @@ class SlideHookPoster extends StatelessWidget {
               _buildVisualArt(),
 
               // 2. Cinematic Multi-Stop Dark Vignette Overlay
-              // Ensures high-contrast typography while letting the visual shine through
+              // Keeps the center artwork visible while ensuring 100% contrast for top and bottom text
               Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    stops: const [0.0, 0.20, 0.45, 0.78, 1.0],
+                    stops: const [0.0, 0.18, 0.42, 0.70, 1.0],
                     colors: [
-                      Colors.black.withValues(alpha: 0.65), // Top shadow for clean header badge
+                      Colors.black.withValues(alpha: 0.75), // Top shadow for clean header badge
                       Colors.black.withValues(alpha: 0.15),
                       Colors.transparent,                  // Mid-section showcases visual art
                       const Color(0xFF060911).withValues(alpha: 0.88),
@@ -63,7 +75,7 @@ class SlideHookPoster extends StatelessWidget {
                 ),
               ),
 
-              // 3. Top Minimal Header Pill
+              // 3. Top Minimal Header Pill (High-Contrast White & Accent)
               Positioned(
                 top: 14,
                 left: 16,
@@ -74,9 +86,9 @@ class SlideHookPoster extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.6),
+                        color: Colors.black.withValues(alpha: 0.75),
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -104,8 +116,8 @@ class SlideHookPoster extends StatelessWidget {
                             '•  $pubName',
                             style: const TextStyle(
                               fontSize: 9.5,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFFCBD5E1),
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -116,9 +128,9 @@ class SlideHookPoster extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                       decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.6),
+                        color: Colors.black.withValues(alpha: 0.75),
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
                       ),
                       child: const Text(
                         '01 / 03',
@@ -134,7 +146,7 @@ class SlideHookPoster extends StatelessWidget {
                 ),
               ),
 
-              // 4. Lower Content Section (Stop-the-Scroll Hook with Minimal Sub-text)
+              // 4. Lower Content Section (Stop-the-Scroll Hook with Fully Completed Sentences)
               Positioned(
                 bottom: 14,
                 left: 18,
@@ -143,16 +155,16 @@ class SlideHookPoster extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Massive, Punchy Display Headline
+                    // Massive, Punchy Display Headline (Completely rendered, never truncated)
                     Text(
                       headline,
-                      style: const TextStyle(
-                        fontSize: 24,
+                      style: TextStyle(
+                        fontSize: headlineSize,
                         fontWeight: FontWeight.w900,
                         color: Colors.white,
                         height: 1.18,
-                        letterSpacing: -0.6,
-                        shadows: [
+                        letterSpacing: -0.5,
+                        shadows: const [
                           Shadow(
                             color: Colors.black87,
                             blurRadius: 12,
@@ -160,21 +172,19 @@ class SlideHookPoster extends StatelessWidget {
                           ),
                         ],
                       ),
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
                     ),
 
                     const SizedBox(height: 10),
 
-                    // Minimal, Irresistible Sub-hook (1-2 lines max)
+                    // Minimal, Irresistible Sub-hook (Full completed thought, NO ellipsis truncation!)
                     Text(
                       item.hook,
-                      style: const TextStyle(
-                        fontSize: 13.5,
-                        color: Color(0xFFE2E8F0),
+                      style: TextStyle(
+                        fontSize: hookSize,
+                        color: const Color(0xFFE2E8F0),
                         height: 1.35,
                         fontWeight: FontWeight.w500,
-                        shadows: [
+                        shadows: const [
                           Shadow(
                             color: Colors.black87,
                             blurRadius: 8,
@@ -182,13 +192,11 @@ class SlideHookPoster extends StatelessWidget {
                           ),
                         ],
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
                     ),
 
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 14),
 
-                    // Minimalist Footer (Creator Handle + Swipe Loop Trigger)
+                    // High-Contrast Footer (Creator Handle + Glowing Swipe Trigger)
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -224,26 +232,26 @@ class SlideHookPoster extends StatelessWidget {
                           ],
                         ),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
                           decoration: BoxDecoration(
-                            color: config.primaryColor.withValues(alpha: 0.25),
+                            color: config.primaryColor.withValues(alpha: 0.3),
                             borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: config.primaryColor.withValues(alpha: 0.6)),
+                            border: Border.all(color: config.primaryColor.withValues(alpha: 0.8), width: 1.2),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Text(
+                              const Text(
                                 'SWIPE',
                                 style: TextStyle(
-                                  fontSize: 10,
+                                  fontSize: 10.5,
                                   fontWeight: FontWeight.w900,
-                                  color: config.primaryColor,
+                                  color: Colors.white,
                                   letterSpacing: 0.8,
                                 ),
                               ),
-                              const SizedBox(width: 4),
-                              Icon(Icons.arrow_forward_rounded, size: 12, color: config.primaryColor),
+                              const SizedBox(width: 5),
+                              Icon(Icons.arrow_forward_rounded, size: 13, color: config.primaryColor),
                             ],
                           ),
                         ),

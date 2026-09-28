@@ -29,26 +29,42 @@ class SlideReceiptsPoster extends StatelessWidget {
             ? item.pullQuote!
             : (item.keyTakeaways.isNotEmpty ? item.keyTakeaways.first : 'Verbatim evidentiary highlight from the source text.'));
 
+    // Construct a continuous, cohesive broadsheet newspaper article
     final leadText = item.hook.isNotEmpty
         ? item.hook
-        : 'According to primary reporting and official correspondence released during the latest coverage cycle, analytical observers established direct confirmation of the recorded developments.';
+        : (item.summary.isNotEmpty
+            ? item.summary
+            : 'According to primary reporting and official correspondence released during the latest coverage cycle, analytical observers established direct confirmation of the recorded developments.');
 
     final corroboratingLeft = (item.whyItMatters != null && item.whyItMatters!.trim().isNotEmpty)
         ? item.whyItMatters!
-        : (item.keyTakeaways.isNotEmpty
-            ? item.keyTakeaways.first
-            : 'Observers emphasized that documented structural impacts were corroborated across primary administrative channels.');
+        : (item.creatorOpinion != null && item.creatorOpinion!.trim().isNotEmpty
+            ? item.creatorOpinion!
+            : (item.keyTakeaways.isNotEmpty
+                ? item.keyTakeaways.first
+                : 'Observers emphasized that documented structural impacts were corroborated across primary administrative channels.'));
 
     final corroboratingRight = item.keyTakeaways.length > 1
         ? item.keyTakeaways[1]
-        : (item.keyMetric != null && item.keyMetric!.isNotEmpty
-            ? 'Official records validated a signal metric of ${item.keyMetric}, confirming persistent trendlines diverging from initial forecasts.'
-            : 'Subsequent disclosures maintained that recorded indicators diverged sharply from initial forecasts, establishing a decisive historical baseline.');
+        : (item.keyTakeaways.isNotEmpty
+            ? item.keyTakeaways.first
+            : (item.keyMetric != null && item.keyMetric!.isNotEmpty
+                ? 'Official records validated a signal metric of ${item.keyMetric}, confirming persistent trendlines diverging from initial forecasts.'
+                : 'Subsequent disclosures maintained that recorded indicators diverged sharply from initial forecasts, establishing a decisive historical baseline.'));
 
     final hasPhysicalPhoto = item.originalPhotoPath.isNotEmpty &&
         !item.originalPhotoPath.startsWith('http') &&
         item.originalPhotoPath != 'digital_article_link' &&
         File(item.originalPhotoPath).existsSync();
+
+    // Dynamic responsive font sizes to guarantee complete statements with zero empty gaps
+    final double headlineSize = headline.length > 80
+        ? 15.0
+        : (headline.length > 50 ? 16.5 : 18.0);
+
+    final double leadFontSize = leadText.length > 160 ? 10.0 : 11.0;
+    final double quoteFontSize = receiptQuote.length > 180 ? 11.5 : (receiptQuote.length > 120 ? 12.5 : 13.5);
+    final double bodyFontSize = (corroboratingLeft.length + corroboratingRight.length) > 260 ? 9.0 : 9.8;
 
     return AspectRatio(
       aspectRatio: 4 / 5,
@@ -70,12 +86,11 @@ class SlideReceiptsPoster extends StatelessWidget {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              // Main Broadsheet Newspaper Content (Fills the entire 4:5 Poster!)
+              // Main Broadsheet Newspaper Layout (Continuous Article with ZERO Gaps)
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     // 1. Classic Broadsheet Masthead Header
                     Column(
@@ -84,13 +99,13 @@ class SlideReceiptsPoster extends StatelessWidget {
                         Container(height: 2.2, color: const Color(0xFF0F172A)),
                         const SizedBox(height: 2),
                         Container(height: 0.7, color: const Color(0xFF475569)),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 5),
                         Center(
                           child: Text(
                             pubName.toUpperCase(),
                             style: const TextStyle(
                               fontFamily: 'serif',
-                              fontSize: 20,
+                              fontSize: 19,
                               fontWeight: FontWeight.w900,
                               letterSpacing: 2.5,
                               color: Color(0xFF0F172A),
@@ -99,7 +114,7 @@ class SlideReceiptsPoster extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 3),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
@@ -140,25 +155,23 @@ class SlideReceiptsPoster extends StatelessWidget {
                       ],
                     ),
 
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 6),
 
-                    // 2. Original Article Headline & Wire Byline
+                    // 2. Original Article Headline & Wire Byline (Complete Headline)
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           headline,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontFamily: 'serif',
-                            fontSize: 16,
+                            fontSize: headlineSize,
                             fontWeight: FontWeight.w900,
-                            color: Color(0xFF0F172A),
-                            height: 1.22,
+                            color: const Color(0xFF0F172A),
+                            height: 1.2,
                           ),
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 3),
                         Row(
                           children: [
                             Text(
@@ -184,40 +197,38 @@ class SlideReceiptsPoster extends StatelessWidget {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 5),
                         Container(height: 0.6, color: const Color(0xFF94A3B8)),
                       ],
                     ),
 
                     const SizedBox(height: 6),
 
-                    // 3. Broadsheet Columns with Yellow Highlighter Focus
+                    // 3. The Continuous Summarized Newspaper Article (Zero Empty Spaces!)
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
                         children: [
-                          // Lead-in news reporting text
+                          // Lead Paragraph of the Story (Full statement, no truncation)
                           Text(
                             leadText,
                             style: TextStyle(
                               fontFamily: 'serif',
-                              fontSize: 9.5,
-                              color: Colors.grey.shade800,
+                              fontSize: leadFontSize,
+                              color: const Color(0xFF1E293B),
                               height: 1.35,
                             ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
                           ),
 
-                          // The Vibrant Yellow Highlighter "Receipt" Box (The Smoking Gun Evidence)
+                          // The Yellow Highlighter "Receipt" Box (The Core Smoking Gun)
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
                             decoration: BoxDecoration(
                               color: const Color(0xFFFEF08A), // Vibrant Canary Yellow Highlighter
                               borderRadius: BorderRadius.circular(4),
                               border: const Border(
-                                left: BorderSide(color: Color(0xFFCA8A04), width: 5), // Marker edge
+                                left: BorderSide(color: Color(0xFFCA8A04), width: 5), // Marker pen edge
                                 top: BorderSide(color: Color(0xFFFDE047)),
                                 right: BorderSide(color: Color(0xFFFDE047)),
                                 bottom: BorderSide(color: Color(0xFFFDE047)),
@@ -250,24 +261,22 @@ class SlideReceiptsPoster extends StatelessWidget {
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 4),
+                                const SizedBox(height: 3),
                                 Text(
                                   '“$receiptQuote”',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontFamily: 'serif',
-                                    fontSize: 13.5,
+                                    fontSize: quoteFontSize,
                                     fontWeight: FontWeight.w900,
-                                    color: Color(0xFF0F172A),
-                                    height: 1.35,
+                                    color: const Color(0xFF0F172A),
+                                    height: 1.32,
                                   ),
-                                  maxLines: 4,
-                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ],
                             ),
                           ),
 
-                          // Corroborating Evidence Columns
+                          // Corroborating Evidence Columns (Full completed statements, zero truncation)
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -276,12 +285,10 @@ class SlideReceiptsPoster extends StatelessWidget {
                                   corroboratingLeft,
                                   style: TextStyle(
                                     fontFamily: 'serif',
-                                    fontSize: 8.5,
-                                    color: Colors.grey.shade800,
-                                    height: 1.3,
+                                    fontSize: bodyFontSize,
+                                    color: const Color(0xFF334155),
+                                    height: 1.30,
                                   ),
-                                  maxLines: 3,
-                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                               const SizedBox(width: 12),
@@ -290,12 +297,10 @@ class SlideReceiptsPoster extends StatelessWidget {
                                   corroboratingRight,
                                   style: TextStyle(
                                     fontFamily: 'serif',
-                                    fontSize: 8.5,
-                                    color: Colors.grey.shade800,
-                                    height: 1.3,
+                                    fontSize: bodyFontSize,
+                                    color: const Color(0xFF334155),
+                                    height: 1.30,
                                   ),
-                                  maxLines: 3,
-                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                             ],
@@ -304,13 +309,13 @@ class SlideReceiptsPoster extends StatelessWidget {
                       ),
                     ),
 
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 5),
 
                     // 4. Broadsheet Archival Bottom Folio
                     Column(
                       children: [
                         Container(height: 0.8, color: const Color(0xFF0F172A)),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 3),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
@@ -345,13 +350,13 @@ class SlideReceiptsPoster extends StatelessWidget {
               // Photographic Paper Snap (if physical photo exists)
               if (hasPhysicalPhoto)
                 Positioned(
-                  bottom: 24,
-                  right: 18,
+                  bottom: 22,
+                  right: 16,
                   child: Transform.rotate(
                     angle: 0.08,
                     child: Container(
-                      width: 82,
-                      height: 82,
+                      width: 76,
+                      height: 76,
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(4),
@@ -375,15 +380,15 @@ class SlideReceiptsPoster extends StatelessWidget {
 
               // Forensic "VERIFIED PRESS EVIDENCE" Weathered Red Rubber Stamp
               Positioned(
-                top: 10,
-                right: 14,
+                top: 8,
+                right: 12,
                 child: Transform.rotate(
                   angle: -0.18, // Tilted authentic rubber stamp
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                     decoration: BoxDecoration(
-                      border: Border.all(color: const Color(0xFFDC2626), width: 2),
-                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: const Color(0xFFDC2626), width: 1.8),
+                      borderRadius: BorderRadius.circular(5),
                       color: const Color(0xFFDC2626).withValues(alpha: 0.07),
                     ),
                     child: Column(
@@ -392,7 +397,7 @@ class SlideReceiptsPoster extends StatelessWidget {
                         const Text(
                           '★ VERIFIED ★',
                           style: TextStyle(
-                            fontSize: 7,
+                            fontSize: 6.5,
                             fontWeight: FontWeight.w900,
                             letterSpacing: 1.0,
                             color: Color(0xFFDC2626),
@@ -401,7 +406,7 @@ class SlideReceiptsPoster extends StatelessWidget {
                         Text(
                           'PRESS EVIDENCE',
                           style: TextStyle(
-                            fontSize: 8.5,
+                            fontSize: 8,
                             fontWeight: FontWeight.w900,
                             letterSpacing: 0.8,
                             color: const Color(0xFFDC2626).withValues(alpha: 0.95),

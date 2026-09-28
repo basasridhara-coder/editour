@@ -32,13 +32,22 @@ class SlideCritiquePoster extends StatelessWidget {
         ? item.whyItMatters!
         : '';
 
+    // Dynamic responsive font sizing based on opinion text length so statements complete without truncation
+    final double opinionSize = opinionText.length > 220
+        ? 13.0
+        : (opinionText.length > 150
+            ? 14.0
+            : (opinionText.length > 80 ? 15.0 : 16.0));
+
+    final double pullQuoteSize = pullQuote.length > 120 ? 11.0 : 12.0;
+
     return AspectRatio(
       aspectRatio: 4 / 5,
       child: Container(
         decoration: BoxDecoration(
           color: const Color(0xFF070B12),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.14), width: 1.5),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.16), width: 1.5),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.6),
@@ -56,16 +65,15 @@ class SlideCritiquePoster extends StatelessWidget {
               _buildVisualArt(),
 
               // 2. Dark Atmospheric Scrim / Glassmorphic Backdrop
-              // Darkens the background so the paragraph writing is crisp, elegant, and effortless to read
               Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    stops: const [0.0, 0.25, 0.60, 1.0],
+                    stops: const [0.0, 0.22, 0.55, 1.0],
                     colors: [
-                      Colors.black.withValues(alpha: 0.70),
-                      const Color(0xFF090D16).withValues(alpha: 0.78),
+                      Colors.black.withValues(alpha: 0.75),
+                      const Color(0xFF090D16).withValues(alpha: 0.80),
                       const Color(0xFF070B12).withValues(alpha: 0.92),
                       const Color(0xFF070B12).withValues(alpha: 0.98),
                     ],
@@ -73,7 +81,7 @@ class SlideCritiquePoster extends StatelessWidget {
                 ),
               ),
 
-              // 3. Top Header Bar (Curator's Take Pill)
+              // 3. Top Header Bar (High-Contrast Curator's Take Pill)
               Positioned(
                 top: 14,
                 left: 16,
@@ -84,9 +92,9 @@ class SlideCritiquePoster extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.6),
+                        color: Colors.black.withValues(alpha: 0.75),
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.35)),
+                        border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.4)),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -107,8 +115,8 @@ class SlideCritiquePoster extends StatelessWidget {
                             '•  $pubName',
                             style: const TextStyle(
                               fontSize: 9.5,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFFCBD5E1),
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -119,9 +127,9 @@ class SlideCritiquePoster extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                       decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.6),
+                        color: Colors.black.withValues(alpha: 0.75),
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
                       ),
                       child: const Text(
                         '02 / 03',
@@ -137,7 +145,7 @@ class SlideCritiquePoster extends StatelessWidget {
                 ),
               ),
 
-              // 4. Main Editorial Content Area (Paragraph-Style Writing)
+              // 4. Main Editorial Content Area (Complete Paragraph-Style Writing)
               Positioned(
                 bottom: 14,
                 left: 18,
@@ -172,16 +180,16 @@ class SlideCritiquePoster extends StatelessWidget {
 
                     const SizedBox(height: 10),
 
-                    // Paragraph 1: The Core Curator Stance & Elaboration
+                    // Paragraph: The Core Curator Stance & Elaboration (Complete Statement, Never Truncated)
                     Text(
                       opinionText,
-                      style: const TextStyle(
-                        fontSize: 15.5,
+                      style: TextStyle(
+                        fontSize: opinionSize,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFFF8FAFC),
+                        color: const Color(0xFFF8FAFC),
                         height: 1.45,
                         letterSpacing: -0.2,
-                        shadows: [
+                        shadows: const [
                           Shadow(
                             color: Colors.black87,
                             blurRadius: 8,
@@ -189,20 +197,18 @@ class SlideCritiquePoster extends StatelessWidget {
                           ),
                         ],
                       ),
-                      maxLines: 4,
-                      overflow: TextOverflow.ellipsis,
                     ),
 
                     if (rationaleText.isNotEmpty) ...[
                       const SizedBox(height: 8),
-                      // Paragraph 2: Contextual Why It Matters
+                      // Paragraph 2: Contextual Why It Matters (Complete Statement)
                       Text(
                         rationaleText,
                         style: const TextStyle(
-                          fontSize: 12.5,
+                          fontSize: 12.0,
                           fontWeight: FontWeight.w400,
                           color: Color(0xFFCBD5E1),
-                          height: 1.40,
+                          height: 1.38,
                           fontStyle: FontStyle.italic,
                           shadows: [
                             Shadow(
@@ -212,20 +218,18 @@ class SlideCritiquePoster extends StatelessWidget {
                             ),
                           ],
                         ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
 
                     const SizedBox(height: 12),
 
-                    // Subtle Frosted Pull Quote Strip
+                    // Subtle Frosted Pull Quote Strip (Complete Thought)
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.4),
+                        color: Colors.black.withValues(alpha: 0.5),
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
                       ),
                       child: Row(
                         children: [
@@ -242,15 +246,13 @@ class SlideCritiquePoster extends StatelessWidget {
                           Expanded(
                             child: Text(
                               pullQuote,
-                              style: const TextStyle(
-                                fontSize: 11.5,
+                              style: TextStyle(
+                                fontSize: pullQuoteSize,
                                 fontWeight: FontWeight.w600,
-                                color: Color(0xFFE2E8F0),
+                                color: const Color(0xFFE2E8F0),
                                 fontStyle: FontStyle.italic,
                                 height: 1.3,
                               ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ],
@@ -259,7 +261,7 @@ class SlideCritiquePoster extends StatelessWidget {
 
                     const SizedBox(height: 14),
 
-                    // Minimalist Footer (Creator Attribution + Next Slide Trigger)
+                    // High-Contrast Footer (Creator Attribution + Next Slide Trigger)
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -295,11 +297,11 @@ class SlideCritiquePoster extends StatelessWidget {
                           ],
                         ),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFDC2626).withValues(alpha: 0.22),
+                            color: const Color(0xFFDC2626).withValues(alpha: 0.28),
                             borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.5)),
+                            border: Border.all(color: const Color(0xFFEF4444), width: 1.2),
                           ),
                           child: const Row(
                             mainAxisSize: MainAxisSize.min,
@@ -307,14 +309,14 @@ class SlideCritiquePoster extends StatelessWidget {
                               Text(
                                 'THE RECEIPTS',
                                 style: TextStyle(
-                                  fontSize: 10,
+                                  fontSize: 10.5,
                                   fontWeight: FontWeight.w900,
-                                  color: Color(0xFFF87171),
+                                  color: Color(0xFFFCA5A5),
                                   letterSpacing: 0.8,
                                 ),
                               ),
-                              SizedBox(width: 4),
-                              Icon(Icons.arrow_forward_rounded, size: 12, color: Color(0xFFF87171)),
+                              SizedBox(width: 5),
+                              Icon(Icons.arrow_forward_rounded, size: 13, color: Color(0xFFFCA5A5)),
                             ],
                           ),
                         ),
