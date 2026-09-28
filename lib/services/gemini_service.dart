@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../models/poster_style_config.dart';
+import '../models/postcard_item.dart';
 import 'storage_service.dart';
 
 class GeminiAnalysisResult {
@@ -251,6 +252,8 @@ class GeminiService {
     String? fallbackTitle,
     String? fallbackBody,
     double visualArtRatio = 0.6,
+    PostCardItem? existingItem,
+    int regenerationIteration = 0,
     void Function(String message)? onProgressUpdate,
   }) async {
     final apiKey = await _storageService.getApiKey();
@@ -265,6 +268,8 @@ class GeminiService {
         fallbackTitle: fallbackTitle,
         fallbackBody: fallbackBody,
         visualArtRatio: visualArtRatio,
+        existingItem: existingItem,
+        regenerationIteration: regenerationIteration,
         errorMessage: 'No Gemini API Key provided. Enter your free API key in Settings.',
       );
     }
@@ -421,6 +426,8 @@ Return JSON:
                 userContext: userContext,
                 hookCues: hookCues,
                 visualArtRatio: visualArtRatio,
+                existingItem: existingItem,
+                regenerationIteration: regenerationIteration,
               );
 
               return result;
@@ -443,6 +450,8 @@ Return JSON:
       fallbackTitle: detectedHeadline ?? fallbackTitle,
       fallbackBody: fallbackBody,
       visualArtRatio: visualArtRatio,
+      existingItem: existingItem,
+      regenerationIteration: regenerationIteration,
     );
   }
 
@@ -456,6 +465,8 @@ Return JSON:
     String? fallbackTitle,
     String? fallbackBody,
     double visualArtRatio = 0.6,
+    PostCardItem? existingItem,
+    int regenerationIteration = 0,
   }) async {
     final apiKey = await _storageService.getApiKey();
 
@@ -469,6 +480,8 @@ Return JSON:
         fallbackTitle: fallbackTitle,
         fallbackBody: fallbackBody,
         visualArtRatio: visualArtRatio,
+        existingItem: existingItem,
+        regenerationIteration: regenerationIteration,
         errorMessage: 'No Gemini API Key provided. Enter your free API key in Settings.',
       );
     }
@@ -505,6 +518,23 @@ ${hookCues != null && hookCues.trim().isNotEmpty ? '''
 - The Curator specifically requested these visual and conceptual cues for the Hook Poster:
   "$hookCues"
 - Factor these exact hints and cues into "adapted_headline", "hook", and especially "illustration_prompt" so the hero artwork and headline reflect these cues directly!
+''' : ''}
+
+${(existingItem != null || regenerationIteration > 0) ? '''
+🔄 REGENERATION DIRECTIVE (CRITICAL — DO NOT REPEAT PREVIOUS VARIATION):
+The Curator is RE-GENERATING this 3-Poster Carousel (Variation Attempt #${regenerationIteration + 1}).
+${existingItem != null ? '''
+The PREVIOUS poster had:
+- Previous Headline: "${existingItem.adaptedHeadline}"
+- Previous Hook: "${existingItem.hook}"
+- Previous Pull Quote: "${existingItem.pullQuote ?? ''}"
+- Previous Visual Style: "${existingItem.posterStyle.name}"
+- Previous Illustration Metaphor: "${existingItem.illustrationPrompt ?? ''}"
+''' : ''}
+MANDATORY REGENERATION RULES:
+1. NEVER REPEAT: You MUST generate a FRESH, DISTINCT perspective, an alternative bold headline, an inventive new hook, a different prominent quote or excerpt, and an inventive new visual metaphor.
+2. PRESERVE CURATOR ANGLE: Strictly maintain and champion the Curator's owned stance: "${userContext ?? 'Curator Insight'}" and target audience: "$targetAudience", but approach it from an unexamined dimension, contrasting lens, or deeper structural implication.
+3. VARY THE STYLE: Consider suggesting a different compatible visual style (from editorial, modernCyber, boldSocial, minimalist) to give the user a genuinely fresh design option.
 ''' : ''}
 
 VISUAL ARTWORK & INFOGRAPHIC RATIO:
@@ -585,7 +615,7 @@ Return ONLY a valid JSON object matching this schema:
           ],
           "generationConfig": {
             "responseMimeType": "application/json",
-            "temperature": 0.35,
+            "temperature": (existingItem != null || regenerationIteration > 0) ? 0.85 : 0.35,
           }
         };
 
@@ -641,6 +671,8 @@ Return ONLY a valid JSON object matching this schema:
                 illustrationBytes = await generatePosterIllustration(
                   apiKey: apiKey,
                   prompt: effectiveIllustrationPrompt,
+                  seed: (existingItem != null || regenerationIteration > 0) ? (DateTime.now().millisecondsSinceEpoch + regenerationIteration * 7919) : 0,
+                  styleIndex: regenerationIteration,
                 );
               } catch (e) {
                 debugPrint('Poster illustration generation exception: $e');
@@ -709,6 +741,8 @@ Return ONLY a valid JSON object matching this schema:
       fallbackTitle: fallbackTitle,
       fallbackBody: fallbackBody,
       visualArtRatio: visualArtRatio,
+      existingItem: existingItem,
+      regenerationIteration: regenerationIteration,
       errorMessage: _formatUserFriendlyError(lastError),
     );
   }
@@ -724,6 +758,8 @@ Return ONLY a valid JSON object matching this schema:
     String? userContext,
     String? hookCues,
     double visualArtRatio = 0.6,
+    PostCardItem? existingItem,
+    int regenerationIteration = 0,
   }) async {
     final apiKey = await _storageService.getApiKey();
 
@@ -737,6 +773,8 @@ Return ONLY a valid JSON object matching this schema:
         fallbackTitle: articleTitle.isNotEmpty ? articleTitle : 'Digital News Discovery',
         fallbackBody: articleBody.isNotEmpty ? articleBody : 'Digital news article summary.',
         visualArtRatio: visualArtRatio,
+        existingItem: existingItem,
+        regenerationIteration: regenerationIteration,
         errorMessage: 'No Gemini API Key provided. Enter your free API key in Settings.',
       );
     }
@@ -775,6 +813,23 @@ ${hookCues != null && hookCues.trim().isNotEmpty ? '''
 - The Curator specifically requested these visual and conceptual cues for the Hook Poster:
   "$hookCues"
 - Factor these exact hints and cues into "adapted_headline", "hook", and especially "illustration_prompt" so the hero artwork and headline reflect these cues directly!
+''' : ''}
+
+${(existingItem != null || regenerationIteration > 0) ? '''
+🔄 REGENERATION DIRECTIVE (CRITICAL — DO NOT REPEAT PREVIOUS VARIATION):
+The Curator is RE-GENERATING this 3-Poster Carousel (Variation Attempt #${regenerationIteration + 1}).
+${existingItem != null ? '''
+The PREVIOUS poster had:
+- Previous Headline: "${existingItem.adaptedHeadline}"
+- Previous Hook: "${existingItem.hook}"
+- Previous Pull Quote: "${existingItem.pullQuote ?? ''}"
+- Previous Visual Style: "${existingItem.posterStyle.name}"
+- Previous Illustration Metaphor: "${existingItem.illustrationPrompt ?? ''}"
+''' : ''}
+MANDATORY RULES FOR THIS REGENERATION:
+1. NEVER REPEAT: You MUST generate a FRESH, DISTINCT perspective, an alternative bold headline, an inventive new hook, a different prominent quote or excerpt, and an inventive new visual metaphor.
+2. PRESERVE CURATOR ANGLE: Strictly maintain and champion the Curator's owned stance: "${userContext ?? 'Curator Insight'}" and target audience: "$targetAudience", but approach it from an unexamined dimension, contrasting lens, or deeper structural implication.
+3. VARY THE STYLE: Consider suggesting a different compatible visual style (from editorial, modernCyber, boldSocial, minimalist) to give the user a genuinely fresh design option.
 ''' : ''}
 
 ARTICLE TITLE: $articleTitle
@@ -850,7 +905,7 @@ Return ONLY a valid JSON object matching this schema:
           ],
           "generationConfig": {
             "responseMimeType": "application/json",
-            "temperature": 0.35,
+            "temperature": (existingItem != null || regenerationIteration > 0) ? 0.85 : 0.35,
           }
         };
 
@@ -893,6 +948,8 @@ Return ONLY a valid JSON object matching this schema:
                     illustrationBytes = await generatePosterIllustration(
                       apiKey: apiKey,
                       prompt: effectiveDigitalPrompt,
+                      seed: (existingItem != null || regenerationIteration > 0) ? (DateTime.now().millisecondsSinceEpoch + regenerationIteration * 7919) : 0,
+                      styleIndex: regenerationIteration,
                     );
                   } catch (e) {
                     debugPrint('Digital article illustration generation failed: $e');
@@ -962,6 +1019,8 @@ Return ONLY a valid JSON object matching this schema:
       fallbackTitle: articleTitle.isNotEmpty ? articleTitle : 'Digital News Story',
       fallbackBody: articleBody,
       visualArtRatio: visualArtRatio,
+      existingItem: existingItem,
+      regenerationIteration: regenerationIteration,
       errorMessage: _formatUserFriendlyError(lastError),
     );
   }
@@ -1235,16 +1294,26 @@ Return ONLY a valid JSON object matching this schema:
   Future<Uint8List?> generatePosterIllustration({
     String? apiKey,
     required String prompt,
+    int seed = 0,
+    int styleIndex = 0,
   }) async {
     final cleanPrompt = prompt.trim();
     if (cleanPrompt.isEmpty) return null;
+
+    final stylePrefixes = [
+      "Modern editorial artwork illustration, 4:5 vertical poster format, cinematic lighting, conceptual graphic art, high aesthetic, vivid colors, no text, no letters",
+      "Bold pop-graphic vector art, 4:5 vertical poster format, high dynamic contrast, striking visual metaphor, ultra-clean silhouettes, vibrant palette, no text, no letters",
+      "Minimalist avant-garde lithograph poster design, 4:5 vertical poster format, rich textured tones, powerful symbolic centerpiece, elegant fine art, no text, no letters",
+      "Neo-editorial atmospheric digital artwork, 4:5 vertical poster format, dramatic volumetric lighting, futuristic perspective, deep evocative colors, no text, no letters",
+    ];
+    final selectedStylePrefix = stylePrefixes[styleIndex % stylePrefixes.length];
 
     if (apiKey != null && apiKey.trim().isNotEmpty) {
       // 1. Google Imagen 3 models via official predict endpoint
       const imagenModels = ['imagen-3.0-generate-002', 'imagen-3.0-generate-001'];
       for (final model in imagenModels) {
         try {
-          debugPrint('Generating artwork with Imagen 3 model: $model');
+          debugPrint('Generating artwork with Imagen 3 model: $model (style variant: $styleIndex)');
           final uri = Uri.parse(
             'https://generativelanguage.googleapis.com/v1beta/models/$model:predict?key=$apiKey',
           );
@@ -1252,7 +1321,7 @@ Return ONLY a valid JSON object matching this schema:
           final requestBody = {
             "instances": [
               {
-                "prompt": "Modern editorial artwork illustration, 4:5 vertical poster format, cinematic lighting, conceptual graphic art, high aesthetic, vivid colors, no text, no letters: $cleanPrompt",
+                "prompt": "$selectedStylePrefix: $cleanPrompt",
               }
             ],
             "parameters": {
@@ -1293,7 +1362,7 @@ Return ONLY a valid JSON object matching this schema:
 
       // 2. Multimodal image generation fallback with gemini-2.0-flash-exp
       try {
-        debugPrint('Attempting multimodal image fallback with gemini-2.0-flash-exp');
+        debugPrint('Attempting multimodal image fallback with gemini-2.0-flash-exp (style variant: $styleIndex)');
         final uri = Uri.parse(
           'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=$apiKey',
         );
@@ -1302,13 +1371,14 @@ Return ONLY a valid JSON object matching this schema:
             {
               "parts": [
                 {
-                  "text": "Generate a modern editorial conceptual artwork illustration poster with 4:5 vertical aspect ratio and NO text: $cleanPrompt"
+                  "text": "Generate a poster artwork with 4:5 vertical aspect ratio and NO text: $selectedStylePrefix: $cleanPrompt"
                 }
               ]
             }
           ],
           "generationConfig": {
-            "responseModalities": ["IMAGE"]
+            "responseModalities": ["IMAGE"],
+            "temperature": 0.85,
           }
         };
         final response = await http.post(
@@ -1345,16 +1415,17 @@ Return ONLY a valid JSON object matching this schema:
 
     // 3. Reliable high-definition AI generative fallback via Pollinations AI
     try {
-      debugPrint('Attempting high-definition AI generative fallback via Pollinations...');
+      final effectiveSeed = seed != 0 ? seed : (DateTime.now().millisecondsSinceEpoch + styleIndex * 7919) % 1000000;
+      debugPrint('Attempting high-definition AI generative fallback via Pollinations (seed: $effectiveSeed, style: $styleIndex)...');
       final encodedPrompt = Uri.encodeComponent(
-        'editorial magazine illustration, dramatic graphic poster, cinematic lighting, vivid artistic visual: $cleanPrompt',
+        '$selectedStylePrefix: $cleanPrompt',
       );
       final pollUri = Uri.parse(
-        'https://image.pollinations.ai/prompt/$encodedPrompt?width=800&height=1000&nologo=true',
+        'https://image.pollinations.ai/prompt/$encodedPrompt?width=800&height=1000&nologo=true&seed=$effectiveSeed',
       );
       final pollResponse = await http.get(pollUri).timeout(const Duration(seconds: 20));
       if (pollResponse.statusCode == 200 && pollResponse.bodyBytes.isNotEmpty) {
-        debugPrint('Successfully generated illustration via AI generative fallback (${pollResponse.bodyBytes.length} bytes)!');
+        debugPrint('Successfully generated illustration via AI generative fallback (${pollResponse.bodyBytes.length} bytes, seed: $effectiveSeed)!');
         return pollResponse.bodyBytes;
       }
     } catch (e) {
@@ -1404,10 +1475,23 @@ Return ONLY a valid JSON object matching this schema:
     String? fallbackTitle,
     String? fallbackBody,
     double visualArtRatio = 0.6,
+    PostCardItem? existingItem,
+    int regenerationIteration = 0,
     String? errorMessage,
   }) async {
     final title = fallbackTitle ?? 'Physical Newspaper Discovery';
     final hasContext = userContext != null && userContext.trim().isNotEmpty;
+    final int variant = (regenerationIteration > 0)
+        ? (regenerationIteration % 3)
+        : (existingItem != null ? 1 : 0);
+
+    final styleCycle = [
+      PosterStyleType.editorial,
+      PosterStyleType.modernCyber,
+      PosterStyleType.boldSocial,
+      PosterStyleType.minimalist,
+    ];
+    final PosterStyleType style = styleCycle[(regenerationIteration + (targetAudience.contains('Tech') ? 1 : (targetAudience.contains('Gen-Z') ? 2 : 0))) % styleCycle.length];
 
     String adaptedHeadline;
     String hook;
@@ -1417,107 +1501,268 @@ Return ONLY a valid JSON object matching this schema:
     String pullQuote;
     String metric;
     String category = 'ANALYSIS';
-    PosterStyleType style = PosterStyleType.editorial;
 
     if (targetAudience.contains('Tech')) {
-      style = PosterStyleType.modernCyber;
       category = 'DEEP TECH';
-      adaptedHeadline = hasContext ? '$userContext: Technical Reality Behind $title' : 'Architecture Breakdown: $title';
-      hook = hasContext
-          ? 'Beyond the press release: the real architecture shift is $userContext.'
-          : 'The technical breakthroughs and systems implications driving this headline.';
-      summary = hasContext
-          ? 'My technical verdict on this development: $userContext.\n\nWhile mainstream reports focus on high-level headlines, systems architects must look beneath the surface. The underlying infrastructure trade-offs and scaling paradigms are what truly dictate long-term advantage.'
-          : 'Physical news analysis shows a structural shift underway. The fundamental mechanisms point to rapid transition cycles that demand technical agility and proactive infrastructure planning.\n\nEngineering teams and systems architects should note how underlying constraints are dissolving in favor of scalable paradigms.';
-      whyItMatters = 'Directly impacts systems scaling, security protocols, and next-generation architecture deployment schedules.';
-      takeaways = [
-        if (hasContext) 'Curator\'s stance: $userContext',
-        'Underlying infrastructure bottlenecks are clearing faster than projections',
-        'Direct architecture impact across computing, networks, and data integrity',
-        'Strategic adoption window open for teams building next-generation tooling',
-      ];
-      pullQuote = hasContext
-          ? 'The real takeaway is not the headline, but the structural shift: $userContext.'
-          : 'The technical frontier moves forward when physical constraints yield to engineered precision.';
-      metric = '10x Scale';
+      if (variant == 1) {
+        adaptedHeadline = hasContext ? '$userContext: Systems & Latency Reality in $title' : 'Systems & Infrastructure Reality: $title';
+        hook = hasContext
+            ? 'Look past the surface announcement: the real engineering friction point is $userContext.'
+            : 'Underneath the press release lies an urgent systems recalculation and infrastructure shift.';
+        summary = hasContext
+            ? 'My technical verdict on this development: $userContext.\n\nWhile mainstream reports focus on high-level headlines, systems architects must look beneath the surface. The underlying infrastructure trade-offs and scaling paradigms are what truly dictate long-term advantage.'
+            : 'Physical news analysis shows a structural shift underway. The fundamental mechanisms point to rapid transition cycles that demand technical agility and proactive infrastructure planning.\n\nEngineering teams and systems architects should note how underlying constraints are dissolving in favor of scalable paradigms.';
+        whyItMatters = 'Directly impacts distributed latency, compute budgets, and failover redundancy schedules.';
+        takeaways = [
+          if (hasContext) 'Curator\'s engineering stance: $userContext',
+          'Decoupling monolithic dependencies is the primary hedge against architectural lock-in',
+          'Benchmark metrics confirm throughput bottlenecks shifting toward edge compute',
+          'First-mover advantage belongs to teams testing modular integration today',
+        ];
+        pullQuote = hasContext
+            ? 'Decoupling early is the only hedge against architectural lock-in: $userContext.'
+            : 'When scaling limits collide with legacy pipelines, modular design wins.';
+        metric = '99.9% Uptime';
+      } else if (variant == 2) {
+        adaptedHeadline = hasContext ? '$userContext: The Contrarian Engineering Angle on $title' : 'The Contrarian Tech Playbook: $title';
+        hook = hasContext
+            ? 'Here is the hard trade-off industry consensus is avoiding: $userContext.'
+            : 'Why orthodox engineering teams will struggle with this shift while agile builders scale.';
+        summary = hasContext
+            ? 'My contrarian technical thesis: $userContext.\n\nDo not optimize the old bottleneck when the entire paradigm shifted. The teams that win this next cycle will rethink their baseline architectural assumptions from first principles.'
+            : 'Print reporting captures an unmistakable architectural inflection. Incremental refactoring of legacy stacks is no longer sufficient when external constraints have completely dissolved.\n\nEngineering leaders should stress-test data schemas and pipeline throughput immediately.';
+        whyItMatters = 'Separates scalable high-throughput platforms from technical-debt heavy incumbents.';
+        takeaways = [
+          if (hasContext) 'Curator\'s contrarian view: $userContext',
+          'The fastest compute is the computation you design away with modern paradigms',
+          'Legacy API boundaries are dissolving in favor of real-time stream orchestration',
+          'Immediate architectural audit recommended before next deployment cycle',
+        ];
+        pullQuote = hasContext
+            ? 'Do not optimize the old bottleneck when the entire paradigm shifted: $userContext.'
+            : 'The fastest compute is the computation you design away.';
+        metric = '<5ms Latency';
+      } else {
+        adaptedHeadline = hasContext ? '$userContext: Technical Reality Behind $title' : 'Architecture Breakdown: $title';
+        hook = hasContext
+            ? 'Beyond the press release: the real architecture shift is $userContext.'
+            : 'The technical breakthroughs and systems implications driving this headline.';
+        summary = hasContext
+            ? 'My technical verdict on this development: $userContext.\n\nWhile mainstream reports focus on high-level headlines, systems architects must look beneath the surface. The underlying infrastructure trade-offs and scaling paradigms are what truly dictate long-term advantage.'
+            : 'Physical news analysis shows a structural shift underway. The fundamental mechanisms point to rapid transition cycles that demand technical agility and proactive infrastructure planning.\n\nEngineering teams and systems architects should note how underlying constraints are dissolving in favor of scalable paradigms.';
+        whyItMatters = 'Directly impacts systems scaling, security protocols, and next-generation architecture deployment schedules.';
+        takeaways = [
+          if (hasContext) 'Curator\'s stance: $userContext',
+          'Underlying infrastructure bottlenecks are clearing faster than projections',
+          'Direct architecture impact across computing, networks, and data integrity',
+          'Strategic adoption window open for teams building next-generation tooling',
+        ];
+        pullQuote = hasContext
+            ? 'The real takeaway is not the headline, but the structural shift: $userContext.'
+            : 'The technical frontier moves forward when physical constraints yield to engineered precision.';
+        metric = '10x Scale';
+      }
     } else if (targetAudience.contains('Gen-Z') || targetAudience.contains('Social')) {
-      style = PosterStyleType.boldSocial;
       category = 'TRENDING';
-      adaptedHeadline = hasContext ? '$userContext: The Real Take on $title' : 'Why Everyone Is Talking About: $title';
-      hook = hasContext
-          ? 'Here is the unfiltered truth they left out of the headline: $userContext.'
-          : 'Here is the unhinged TL;DR of what the morning papers just dropped.';
-      summary = hasContext
-          ? 'My honest take on this: $userContext.\n\nEveryone is talking about the surface story, but the real ripple effect is how it fundamentally changes our habits, feeds, and culture. No sugarcoating or corporate spin.'
-          : 'Spotted in physical print today: an absolute game-changer. Instead of doomscrolling endless commentary, here is the raw tea that matters.\n\nThe old playbook is officially out of style. The ripple effects are already hitting social culture and daily habits.';
-      whyItMatters = 'Because this is moving from offline newspapers directly into everyone\'s feed this week.';
-      takeaways = [
-        if (hasContext) 'Curator\'s take: $userContext',
-        'The morning paper actually brought major receipts today',
-        'Culture shifts are happening IRL while timelines are still catching up',
-        'Why this changes the vibe for the coming season',
-      ];
-      pullQuote = hasContext ? 'My verdict: $userContext' : 'Spotted in morning print before it even trended on your feed.';
-      metric = '+88% Hype';
+      if (variant == 1) {
+        adaptedHeadline = hasContext ? '$userContext: Behind the Scenes of $title' : 'The Unfiltered Backstory of $title You Missed';
+        hook = hasContext
+            ? 'Stop scrolling the PR soundbites. Here is what actually matters: $userContext.'
+            : 'The headlines are loud, but this specific detail is what actually changes everything.';
+        summary = hasContext
+            ? 'My unfiltered breakdown: $userContext.\n\nEveryone is talking about the surface story, but the real ripple effect is how it fundamentally changes our habits, feeds, and culture. No sugarcoating or corporate spin.'
+            : 'Spotted in physical print today: an absolute game-changer. Instead of doomscrolling endless commentary, here is the raw tea that matters.\n\nThe old playbook is officially out of style. The ripple effects are already hitting social culture and daily habits.';
+        whyItMatters = 'Because this is already quietly reshaping creator feeds and IRL conversations this week.';
+        takeaways = [
+          if (hasContext) 'Curator\'s angle: $userContext',
+          'The morning print brought major receipts while timelines were still speculating',
+          'Cultural momentum is shifting faster than corporate marketing teams realize',
+          'Why this changes the vibe for the coming season',
+        ];
+        pullQuote = hasContext ? 'The vibe check everyone needed: $userContext.' : 'Culture shifts in physical reality first while online feeds play catch up.';
+        metric = 'Viral Peak';
+      } else if (variant == 2) {
+        adaptedHeadline = hasContext ? '$userContext: The Honest Breakdown of $title' : 'Look Past the Headline: The True Shift in $title';
+        hook = hasContext
+            ? 'No corporate spin, no sugarcoating: $userContext.'
+            : 'Why this morning story is quietly rewriting tomorrow\'s conversations.';
+        summary = hasContext
+            ? 'My direct take: $userContext.\n\nLook past the clickbait. The actual shift here is wild, and the downstream cultural impact is already happening in real-time.'
+            : 'A headline you definitely did not see coming. The deeper context reveals an entirely new playbook for how culture and media interact.\n\nKeep your eyes on the downstream ripple effects over the next 48 hours.';
+        whyItMatters = 'Because algorithmic feeds will be dissecting this exact angle by the weekend.';
+        takeaways = [
+          if (hasContext) 'The raw tea: $userContext',
+          'Print journalism delivered the definitive proof before social media discovered it',
+          'Real community signals outlasting fleeting 24-hour hype cycles',
+          'What smart creators are bookmarking right now',
+        ];
+        pullQuote = hasContext ? 'Saying what everyone else was thinking: $userContext.' : 'Print receipts hit different when the proof is undeniably real.';
+        metric = '100% Raw Tea';
+      } else {
+        adaptedHeadline = hasContext ? '$userContext: The Real Take on $title' : 'Why Everyone Is Talking About: $title';
+        hook = hasContext
+            ? 'Here is the unfiltered truth they left out of the headline: $userContext.'
+            : 'Here is the unhinged TL;DR of what the morning papers just dropped.';
+        summary = hasContext
+            ? 'My honest take on this: $userContext.\n\nEveryone is talking about the surface story, but the real ripple effect is how it fundamentally changes our habits, feeds, and culture. No sugarcoating or corporate spin.'
+            : 'Spotted in physical print today: an absolute game-changer. Instead of doomscrolling endless commentary, here is the raw tea that matters.\n\nThe old playbook is officially out of style. The ripple effects are already hitting social culture and daily habits.';
+        whyItMatters = 'Because this is moving from offline newspapers directly into everyone\'s feed this week.';
+        takeaways = [
+          if (hasContext) 'Curator\'s take: $userContext',
+          'The morning paper actually brought major receipts today',
+          'Culture shifts are happening IRL while timelines are still catching up',
+          'Why this changes the vibe for the coming season',
+        ];
+        pullQuote = hasContext ? 'My verdict: $userContext' : 'Spotted in morning print before it even trended on your feed.';
+        metric = '+88% Hype';
+      }
     } else if (targetAudience.contains('Exec') || targetAudience.contains('Business')) {
-      style = PosterStyleType.minimalist;
       category = 'EXECUTIVE BRIEF';
-      adaptedHeadline = hasContext ? 'Strategic Thesis: $userContext' : 'Strategic Briefing: Capitalizing on $title';
-      hook = hasContext
-          ? 'Executive judgment: $userContext.'
-          : 'Key market dynamics, cost implications, and high-yield strategic moves.';
-      summary = hasContext
-          ? 'Strategic verdict on this briefing: $userContext.\n\nLeadership teams should not treat this as background noise. The competitive moat belongs to organizations that act decisively on this specific angle before mainstream market consensus.'
-          : 'Physical press coverage reveals critical macro headwinds and capital reallocation opportunities. Leadership teams should stress-test operating assumptions against these evolving signals.\n\nThe competitive moat belongs to organizations that convert early print intelligence into proactive execution before mainstream market repricing.';
-      whyItMatters = 'Determines quarterly capital allocation, risk mitigation, and competitive positioning across sector leaders.';
-      takeaways = [
-        if (hasContext) 'Strategic imperative: $userContext',
-        'Macro market realignment opening capital efficiency opportunities',
-        'Operational agility prioritized over rigid traditional forecasts',
-        'Clear first-mover advantage for proactive risk mitigation',
-      ];
-      pullQuote = hasContext ? 'The bottom-line conviction: $userContext.' : 'We did not lose productivity; we eliminated bureaucratic overhead.';
-      metric = '+18.4% ROI';
+      if (variant == 1) {
+        adaptedHeadline = hasContext ? '$userContext: Capital Allocation & Moat Strategy on $title' : 'Capital Allocation Under $title: The Competitive Moat';
+        hook = hasContext
+            ? 'The market is pricing the wrong risks—the true operational leverage is $userContext.'
+            : 'Why first-mover capital deployment will outpace traditional 5-year forecasts.';
+        summary = hasContext
+            ? 'Strategic investment thesis: $userContext.\n\nLeadership teams that act before quarterly repricing will secure lasting margins and market power while cautious incumbents wait for full consensus.'
+            : 'Physical press coverage reveals critical macro headwinds and capital reallocation opportunities. Leadership teams should stress-test operating assumptions against these evolving signals.\n\nThe competitive moat belongs to organizations that convert early print intelligence into proactive execution before mainstream market repricing.';
+        whyItMatters = 'Dictates enterprise margin expansion, asset allocation, and competitive positioning across the next 3 quarters.';
+        takeaways = [
+          if (hasContext) 'Executive conviction: $userContext',
+          'Market pricing lag creates asymmetric entry leverage for proactive capital deployment',
+          'Legacy cost structures face structural margin compression if unaddressed',
+          'Clear strategic mandate for swift capital reallocation',
+        ];
+        pullQuote = hasContext ? 'Moats are defended before consensus crystallizes: $userContext.' : 'Margin expansion favors organizations that price structural change early.';
+        metric = '\$4.2B Capital';
+      } else if (variant == 2) {
+        adaptedHeadline = hasContext ? 'Executive Risk Assessment: $userContext' : 'Macro Headwinds & Tactical Upside: $title';
+        hook = hasContext
+            ? 'Direct bottom-line imperative: $userContext.'
+            : 'Identifying asymmetric upside while competitors navigate bureaucratic delay.';
+        summary = hasContext
+            ? 'Executive risk appraisal: $userContext.\n\nExecution speed beats passive risk models. The leadership teams that reconfigure operations today will capture the lion\'s share of the reallocated market.'
+            : 'Strategic intelligence from physical press indicates structural market recalibration. Board-level decisions should prioritize operational agility over rigid multi-year forecasting.\n\nOrganizations converting early print intelligence into decisive action establish defensible moats before broader market comprehension.';
+        whyItMatters = 'Directly impacts executive risk posture, board-level capital decisions, and operating margins.';
+        takeaways = [
+          if (hasContext) 'Boardroom imperative: $userContext',
+          'Execution agility consistently outperforms defensive bureaucracy during transition cycles',
+          'Strategic decoupling of legacy overhead accelerates EBITDA growth',
+          'Proactive leadership stance verified by primary sector data',
+        ];
+        pullQuote = hasContext ? 'Execution speed beats passive risk models: $userContext.' : 'Agility in capital reallocation separates industry leaders from legacy incumbents.';
+        metric = '3.4x Multiple';
+      } else {
+        adaptedHeadline = hasContext ? 'Strategic Thesis: $userContext' : 'Strategic Briefing: Capitalizing on $title';
+        hook = hasContext
+            ? 'Executive judgment: $userContext.'
+            : 'Key market dynamics, cost implications, and high-yield strategic moves.';
+        summary = hasContext
+            ? 'Strategic verdict on this briefing: $userContext.\n\nLeadership teams should not treat this as background noise. The competitive moat belongs to organizations that act decisively on this specific angle before mainstream market consensus.'
+            : 'Physical press coverage reveals critical macro headwinds and capital reallocation opportunities. Leadership teams should stress-test operating assumptions against these evolving signals.\n\nThe competitive moat belongs to organizations that convert early print intelligence into proactive execution before mainstream market repricing.';
+        whyItMatters = 'Determines quarterly capital allocation, risk mitigation, and competitive positioning across sector leaders.';
+        takeaways = [
+          if (hasContext) 'Strategic imperative: $userContext',
+          'Macro market realignment opening capital efficiency opportunities',
+          'Operational agility prioritized over rigid traditional forecasts',
+          'Clear first-mover advantage for proactive risk mitigation',
+        ];
+        pullQuote = hasContext ? 'The bottom-line conviction: $userContext.' : 'We did not lose productivity; we eliminated bureaucratic overhead.';
+        metric = '+18.4% ROI';
+      }
     } else {
-      style = PosterStyleType.editorial;
       category = targetAudience.length <= 16 ? targetAudience.toUpperCase() : 'CURATION';
-      adaptedHeadline = hasContext ? '$userContext: Angle for $targetAudience' : '$targetAudience Briefing: $title';
-      hook = hasContext
-          ? 'An unfiltered perspective for $targetAudience: $userContext.'
-          : 'An essential, distilled reading curated specifically for $targetAudience.';
-      summary = hasContext
-          ? 'My direct perspective for $targetAudience: $userContext.\n\nSurface-level coverage misses the core implications that directly touch our field. This development requires clear-eyed evaluation and proactive positioning rather than passive observation.'
-          : 'A critical development with deep resonance for $targetAudience.\n\nTaking time to unpack these developments offers depth and strategic perspective that outlasts fleeting 24-hour news cycles.';
-      whyItMatters = hasContext
-          ? 'Directly impacts how $targetAudience navigates strategic decisions and responds to emerging shifts.'
-          : 'Essential context and strategic grounding for $targetAudience.';
-      takeaways = [
-        if (hasContext) 'Curator\'s conviction: $userContext',
-        'Direct relevance and strategic implications for $targetAudience',
-        'Key structural signals spotlighted in the underlying coverage',
-        'Proactive vantage point beyond mainstream commentary',
-      ];
-      pullQuote = hasContext ? 'Curator\'s verdict: "$userContext"' : 'Clarity begins when you filter the signal from the noise.';
-      metric = 'Top Signal';
+      if (variant == 1) {
+        adaptedHeadline = hasContext ? '$userContext: Unexamined Facet for $targetAudience' : '$targetAudience Deep Dive: $title';
+        hook = hasContext
+            ? 'A fresh lens on this headline for $targetAudience: $userContext.'
+            : 'An essential, distilled reading curated specifically for $targetAudience.';
+        summary = hasContext
+            ? 'My updated perspective for $targetAudience: $userContext.\n\nSurface-level coverage misses the core implications that directly touch our field. This development requires clear-eyed evaluation and proactive positioning rather than passive observation.'
+            : 'A critical development with deep resonance for $targetAudience.\n\nTaking time to unpack these developments offers depth and strategic perspective that outlasts fleeting 24-hour news cycles.';
+        whyItMatters = hasContext
+            ? 'Directly impacts how $targetAudience navigates strategic decisions and responds to emerging shifts.'
+            : 'Essential context and strategic grounding for $targetAudience.';
+        takeaways = [
+          if (hasContext) 'Curator\'s conviction: $userContext',
+          'Direct relevance and strategic implications for $targetAudience',
+          'Key structural signals spotlighted in the underlying coverage',
+          'Proactive vantage point beyond mainstream commentary',
+        ];
+        pullQuote = hasContext ? 'Curator\'s perspective: "$userContext"' : 'Deep reading reveals the signal that fleeting feeds miss.';
+        metric = 'High Signal';
+      } else if (variant == 2) {
+        adaptedHeadline = hasContext ? 'The Broader Picture on $title: $userContext' : '$targetAudience Thesis: Rethinking $title';
+        hook = hasContext
+            ? 'Examining the foundation behind the headline: $userContext.'
+            : 'Moving beyond reactionary soundbites to explore the real substance.';
+        summary = hasContext
+            ? 'My focused analysis: $userContext.\n\nWhen we look past sensationalism, the lasting value becomes strikingly evident. Curating this angle brings clarity to our ongoing conversations.'
+            : 'Taking a step back to examine the wider implications. Meaningful discernment begins by identifying the core structural changes before they become mainstream consensus.\n\nA foundational story curated for lasting perspective.';
+        whyItMatters = 'Provides durable strategic context that outlives short-term news cycles.';
+        takeaways = [
+          if (hasContext) 'Core insight: $userContext',
+          'Foundational signals that remain relevant long after the headlines fade',
+          'Actionable perspective curated specifically for $targetAudience',
+          'Clear vantage point connecting physical print reporting to digital impact',
+        ];
+        pullQuote = hasContext ? 'The lasting takeaway: "$userContext"' : 'Discernment begins when you step back from the reactionary feed.';
+        metric = 'Top Thesis';
+      } else {
+        adaptedHeadline = hasContext ? '$userContext: Angle for $targetAudience' : '$targetAudience Briefing: $title';
+        hook = hasContext
+            ? 'An unfiltered perspective for $targetAudience: $userContext.'
+            : 'An essential, distilled reading curated specifically for $targetAudience.';
+        summary = hasContext
+            ? 'My direct perspective for $targetAudience: $userContext.\n\nSurface-level coverage misses the core implications that directly touch our field. This development requires clear-eyed evaluation and proactive positioning rather than passive observation.'
+            : 'A critical development with deep resonance for $targetAudience.\n\nTaking time to unpack these developments offers depth and strategic perspective that outlasts fleeting 24-hour news cycles.';
+        whyItMatters = hasContext
+            ? 'Directly impacts how $targetAudience navigates strategic decisions and responds to emerging shifts.'
+            : 'Essential context and strategic grounding for $targetAudience.';
+        takeaways = [
+          if (hasContext) 'Curator\'s conviction: $userContext',
+          'Direct relevance and strategic implications for $targetAudience',
+          'Key structural signals spotlighted in the underlying coverage',
+          'Proactive vantage point beyond mainstream commentary',
+        ];
+        pullQuote = hasContext ? 'Curator\'s verdict: "$userContext"' : 'Clarity begins when you filter the signal from the noise.';
+        metric = 'Top Signal';
+      }
     }
 
     List<String> demoExcerpts = [];
     if (fallbackBody != null && fallbackBody.trim().isNotEmpty) {
-      demoExcerpts = fallbackBody
+      final allParas = fallbackBody
           .split(RegExp(r'\n\s*\n'))
           .map((p) => p.trim())
           .where((p) => p.length > 25)
-          .take(3)
           .toList();
+      if (allParas.length >= 2) {
+        final skipCount = variant % (allParas.length > 2 ? 2 : 1);
+        demoExcerpts = allParas.skip(skipCount).take(3).toList();
+      } else {
+        demoExcerpts = allParas;
+      }
     }
     if (demoExcerpts.length < 2) {
-      demoExcerpts = [
-        'Initial reporting confirmed that primary field observations diverged significantly from earlier seasonal projections, establishing an unprecedented baseline across monitored channels.',
-        'Official representatives and industry observers noted that operational realignments initiated during the previous cycle produced measurable structural adaptations.',
+      final sampleExcerpts = [
+        [
+          'Initial reporting confirmed that primary field observations diverged significantly from earlier seasonal projections, establishing an unprecedented baseline across monitored channels.',
+          'Official representatives and industry observers noted that operational realignments initiated during the previous cycle produced measurable structural adaptations.',
+        ],
+        [
+          'Field documentation revealed sustained divergence across primary operational indices, challenging earlier institutional consensus.',
+          'Subsequent forensic reviews verified that frontline adjustments created tangible advantages across core operations.',
+        ],
+        [
+          'Archived records corroborated the unprecedented shift across monitored sectors, underscoring the durability of the reported indicators.',
+          'Independent observers emphasized that strategic realignments established early resilience ahead of broader market repricing.',
+        ],
       ];
+      demoExcerpts = sampleExcerpts[variant % sampleExcerpts.length];
     }
 
-    // Generate AI illustration for Slide 1 based on curated cues & angle
+    // Generate AI illustration for Slide 1 based on curated cues & angle, with fresh seed and style per iteration
     final illPrompt = (hookCues != null && hookCues.trim().isNotEmpty)
         ? hookCues.trim()
         : (hasContext ? userContext : adaptedHeadline);
@@ -1527,6 +1772,8 @@ Return ONLY a valid JSON object matching this schema:
       demoIllustrationBytes = await generatePosterIllustration(
         apiKey: '',
         prompt: '$illPrompt, artistic modern editorial illustration, dramatic lighting',
+        seed: (regenerationIteration > 0 || existingItem != null) ? (DateTime.now().millisecondsSinceEpoch + regenerationIteration * 7919) : 0,
+        styleIndex: regenerationIteration,
       );
     } catch (e) {
       debugPrint('Demo illustration generation failed: $e');

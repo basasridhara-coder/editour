@@ -118,6 +118,7 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
   bool _isAnalyzing = false;
   String _analysisStatus = '';
   PostCardItem? _generatedItem;
+  int _regenerationCount = 0;
   PosterStyleType _currentStyle = PosterStyleType.editorial;
   double _visualArtRatio = 0.65;
 
@@ -181,6 +182,7 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
       _contextController.text = sample.defaultContext;
       _hookCuesController.clear();
       _linkController.text = sample.webLink;
+      _regenerationCount = 0;
     });
   }
 
@@ -201,6 +203,7 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
           _imageRotationTurns = 0;
           _activeSample = null;
           _isCropped = false;
+          _regenerationCount = 0;
         });
 
         // Launch cropping tool to cut out the exact article section
@@ -544,13 +547,20 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
       }
     }
 
+    final isRegenerating = _generatedItem != null;
+    if (isRegenerating) {
+      _regenerationCount++;
+    }
+
     setState(() {
       _isAnalyzing = true;
-      _analysisStatus = _sourceMode == InputSourceMode.physicalPhoto
-          ? 'Scanning physical print typography & OCR...'
-          : (_sourceMode == InputSourceMode.digitalLink
-              ? 'Extracting digital article context & key themes...'
-              : 'Reading excerpt pages & synthesizing Curator\'s emotional angle...');
+      _analysisStatus = isRegenerating
+          ? 'Exploring new creative angle & fresh visual artwork (Attempt #$_regenerationCount)...'
+          : (_sourceMode == InputSourceMode.physicalPhoto
+              ? 'Scanning physical print typography & OCR...'
+              : (_sourceMode == InputSourceMode.digitalLink
+                  ? 'Extracting digital article context & key themes...'
+                  : 'Reading excerpt pages & synthesizing Curator\'s emotional angle...'));
     });
 
     try {
@@ -585,6 +595,8 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
           fallbackTitle: _activeSample?.title,
           fallbackBody: _activeSample?.rawArticleText,
           visualArtRatio: _visualArtRatio,
+          existingItem: _generatedItem,
+          regenerationIteration: _regenerationCount,
           onProgressUpdate: (msg) {
             if (mounted) {
               setState(() {
@@ -639,6 +651,8 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
               ? _hookCuesController.text.trim()
               : null,
           visualArtRatio: _visualArtRatio,
+          existingItem: _generatedItem,
+          regenerationIteration: _regenerationCount,
         );
       } else {
         // Book Excerpt pipeline
@@ -721,9 +735,17 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
         summary: result.summary,
         whyItMatters: result.whyItMatters,
         keyTakeaways: result.keyTakeaways,
-        pullQuote: _activeSample?.pullQuote ?? result.pullQuote,
-        keyMetric: _activeSample?.metric ?? result.keyMetric,
-        categoryBadge: isBook ? 'LITERARY EXCERPT' : (_activeSample?.category ?? result.categoryBadge),
+        pullQuote: result.pullQuote.trim().isNotEmpty
+            ? result.pullQuote
+            : _activeSample?.pullQuote,
+        keyMetric: result.keyMetric.trim().isNotEmpty
+            ? result.keyMetric
+            : _activeSample?.metric,
+        categoryBadge: isBook
+            ? 'LITERARY EXCERPT'
+            : (result.categoryBadge.trim().isNotEmpty
+                ? result.categoryBadge
+                : (_activeSample?.category ?? 'CURATED DIGEST')),
         digitalLink: digitalUrl,
         creatorOpinion: _opinionController.text.trim().isNotEmpty
             ? _opinionController.text.trim()
@@ -748,15 +770,17 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
         bookAuthor: _bookAuthorController.text.trim().isNotEmpty ? _bookAuthorController.text.trim() : 'Curated Author',
         postFormat: _selectedPostFormat,
         receiptHighlightQuote: result.receiptHighlightQuote ?? result.pullQuote,
-        articleExcerpts: (_activeSample != null && _activeSample!.rawArticleText.trim().isNotEmpty)
-            ? _activeSample!.rawArticleText
-                .trim()
-                .split(RegExp(r'\n\s*\n'))
-                .map((p) => p.trim())
-                .where((p) => p.length > 25)
-                .take(3)
-                .toList()
-            : result.articleExcerpts,
+        articleExcerpts: result.articleExcerpts.isNotEmpty
+            ? result.articleExcerpts
+            : ((_activeSample != null && _activeSample!.rawArticleText.trim().isNotEmpty)
+                ? _activeSample!.rawArticleText
+                    .trim()
+                    .split(RegExp(r'\n\s*\n'))
+                    .map((p) => p.trim())
+                    .where((p) => p.length > 25)
+                    .take(3)
+                    .toList()
+                : result.articleExcerpts),
         curatorIllustrationPrompt: result.curatorIllustrationPrompt,
         curatorIllustrationBase64: result.generatedCuratorIllustrationBytes != null
             ? base64Encode(result.generatedCuratorIllustrationBytes!)
@@ -768,8 +792,10 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
       _receiptQuoteController.text = newItem.receiptHighlightQuote ?? '';
       _metricController.text = newItem.keyMetric ?? '';
       _linkController.text = newItem.digitalLink ?? '';
-      if (_opinionController.text.trim().isEmpty && newItem.curatorAngle != null && newItem.curatorAngle!.isNotEmpty) {
-        _opinionController.text = newItem.curatorAngle!;
+      if ((isRegenerating || _opinionController.text.trim().isEmpty) &&
+          newItem.creatorOpinion != null &&
+          newItem.creatorOpinion!.isNotEmpty) {
+        _opinionController.text = newItem.creatorOpinion!;
       }
 
       setState(() {
@@ -2547,6 +2573,15 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
+              OutlinedButton.icon(
+                onPressed: _isAnalyzing ? null : _runAnalysis,
+                icon: const Icon(Icons.autorenew_rounded, size: 16),
+                label: const Text('Try Another', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  visualDensity: VisualDensity.compact,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 4),
@@ -2610,6 +2645,15 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
                 style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            OutlinedButton.icon(
+              onPressed: _isAnalyzing ? null : _runAnalysis,
+              icon: const Icon(Icons.autorenew_rounded, size: 16),
+              label: const Text('Try Another', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                visualDensity: VisualDensity.compact,
               ),
             ),
           ],
