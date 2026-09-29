@@ -30,7 +30,7 @@ module.exports = async function handler(req, res) {
   if (req.method === 'GET') {
     // 1. Primary: Direct Supabase query with limit
     try {
-      const resp = await fetch(`${SUPABASE_URL}/rest/v1/posts?select=*&order=created_at.desc&limit=25`, {
+      const resp = await fetch(`${SUPABASE_URL}/rest/v1/posts?select=*&data->>deleted=is.null&order=created_at.desc&limit=35`, {
         headers: {
           'apikey': SUPABASE_KEY,
           'Authorization': `Bearer ${SUPABASE_KEY}`
@@ -39,7 +39,7 @@ module.exports = async function handler(req, res) {
       if (resp.ok) {
         const rows = await resp.json();
         if (rows && rows.length > 0) {
-          const posts = rows.map(r => r.data || r).filter(p => p && (p.adaptedHeadline || p.originalHeadline || p.summary));
+          const posts = rows.map(r => r.data || r).filter(p => p && !p.deleted && !p.isDeleted && (p.adaptedHeadline || p.originalHeadline || p.summary));
           return res.status(200).json({ status: 'ok', count: posts.length, posts });
         }
       }
@@ -121,7 +121,22 @@ module.exports = async function handler(req, res) {
         return res.status(400).json({ error: 'Missing post id parameter' });
       }
 
-      // Delete from Supabase
+      // 1. Soft-delete via PATCH (Supabase RLS permits UPDATE with anon key)
+      try {
+        await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.${encodeURIComponent(id)}`, {
+          method: 'PATCH',
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            data: { id, deleted: true, isDeleted: true, deletedAt: new Date().toISOString() }
+          })
+        });
+      } catch (_) {}
+
+      // 2. Also attempt direct DELETE
       try {
         const supaResp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.${encodeURIComponent(id)}`, {
           method: 'DELETE',

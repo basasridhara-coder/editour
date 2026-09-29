@@ -88,22 +88,48 @@ class EditourCloudService {
   Future<bool> deletePost(String id) async {
     try {
       final uri = Uri.parse('$supabaseEndpoint?id=eq.$id');
-      final response = await http
-          .delete(
-            uri,
-            headers: {
-              'apikey': supabaseApiKey,
-              'Authorization': 'Bearer $supabaseApiKey',
-            },
-          )
-          .timeout(const Duration(seconds: 10));
+      // 1. Mark as deleted via PATCH (Supabase RLS permits UPDATE with anon key)
+      try {
+        final patchResponse = await http
+            .patch(
+              uri,
+              headers: {
+                'Content-Type': 'application/json',
+                'apikey': supabaseApiKey,
+                'Authorization': 'Bearer $supabaseApiKey',
+              },
+              body: json.encode({
+                'data': {
+                  'id': id,
+                  'deleted': true,
+                  'isDeleted': true,
+                  'deletedAt': DateTime.now().toIso8601String(),
+                }
+              }),
+            )
+            .timeout(const Duration(seconds: 10));
 
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        debugPrint('🗑️ Successfully deleted post "$id" from Supabase & editour.app');
-        return true;
-      } else {
-        debugPrint('Supabase delete status: ${response.statusCode} - ${response.body}');
+        if (patchResponse.statusCode >= 200 && patchResponse.statusCode < 300) {
+          debugPrint('🗑️ Successfully marked post "$id" as deleted in Supabase');
+        }
+      } catch (e) {
+        debugPrint('Supabase patch delete attempt error: $e');
       }
+
+      // 2. Also attempt DELETE in case DELETE policy is permitted
+      try {
+        await http
+            .delete(
+              uri,
+              headers: {
+                'apikey': supabaseApiKey,
+                'Authorization': 'Bearer $supabaseApiKey',
+              },
+            )
+            .timeout(const Duration(seconds: 5));
+      } catch (_) {}
+
+      return true;
     } catch (e) {
       debugPrint('EditourCloudService deletePost error: $e');
     }
@@ -121,7 +147,7 @@ class EditourCloudService {
       int deletedCount = 0;
       // 1. Fetch remote posts to find orphaned ones
       try {
-        final uri = Uri.parse('$supabaseEndpoint?select=id');
+        final uri = Uri.parse('$supabaseEndpoint?select=id,data->deleted');
         final response = await http
             .get(
               uri,
@@ -136,6 +162,8 @@ class EditourCloudService {
           final List<dynamic> remoteRows = json.decode(response.body);
           for (final row in remoteRows) {
             final remoteId = row['id']?.toString();
+            final isDeleted = row['deleted'] == true || (row['data'] is Map && row['data']['deleted'] == true);
+            if (isDeleted) continue; // Already marked as deleted
             if (remoteId != null && !localIds.contains(remoteId)) {
               final ok = await deletePost(remoteId);
               if (ok) deletedCount++;

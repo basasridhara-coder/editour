@@ -16,7 +16,7 @@ const SUPABASE_KEY = 'sb_publishable_n90rXQfEukf2gdisKe_jGg_Cybk2r-m';
 async function loadPosts() {
   // 1. Primary: Direct Supabase Cloud Database with limit for high performance
   try {
-    const resp = await fetch(`${SUPABASE_URL}/rest/v1/posts?select=*&order=created_at.desc&limit=25`, {
+    const resp = await fetch(`${SUPABASE_URL}/rest/v1/posts?select=*&data->>deleted=is.null&order=created_at.desc&limit=35`, {
       headers: {
         'apikey': SUPABASE_KEY,
         'Authorization': `Bearer ${SUPABASE_KEY}`
@@ -25,7 +25,7 @@ async function loadPosts() {
     if (resp.ok) {
       const rows = await resp.json();
       if (rows && rows.length > 0) {
-        allPosts = rows.map(r => r.data || r).filter(p => p && (p.adaptedHeadline || p.originalHeadline || p.summary));
+        allPosts = rows.map(r => r.data || r).filter(p => p && !p.deleted && !p.isDeleted && (p.adaptedHeadline || p.originalHeadline || p.summary));
         updateBadge(true, `Live Feed (${allPosts.length} posts)`);
         renderFeed();
         return;
@@ -657,7 +657,7 @@ async function syncFeed() {
 function setupAutoRefresh() {
   setInterval(async () => {
     try {
-      const resp = await fetch(`${SUPABASE_URL}/rest/v1/posts?select=*&order=created_at.desc&limit=25`, {
+      const resp = await fetch(`${SUPABASE_URL}/rest/v1/posts?select=*&data->>deleted=is.null&order=created_at.desc&limit=35`, {
         headers: {
           'apikey': SUPABASE_KEY,
           'Authorization': `Bearer ${SUPABASE_KEY}`
@@ -665,8 +665,9 @@ function setupAutoRefresh() {
       });
       if (resp.ok) {
         const rows = await resp.json();
-        if (rows && rows.length !== allPosts.length) {
-          allPosts = rows.map(r => r.data || r).filter(p => p && (p.adaptedHeadline || p.originalHeadline || p.summary));
+        const activePosts = rows.map(r => r.data || r).filter(p => p && !p.deleted && !p.isDeleted && (p.adaptedHeadline || p.originalHeadline || p.summary));
+        if (rows && activePosts.length !== allPosts.length) {
+          allPosts = activePosts;
           renderFeed();
           updateBadge(true, `Live Feed (${allPosts.length} posts)`);
         }
