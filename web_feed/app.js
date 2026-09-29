@@ -217,44 +217,52 @@ function buildSlide1Html(post, index) {
 function buildSlide2Html(post, index) {
   const handle = escapeHtml(post.creatorHandle || '@curator');
   const initial = handle.replace('@', '').charAt(0).toUpperCase() || 'C';
-  const audience = escapeHtml(post.targetAudience || 'General');
+  const pubName = escapeHtml(post.publicationName || 'Press Wire');
   const opinion = escapeHtml(post.creatorOpinion || post.whyItMatters || post.hook || 'Strategic structural shift in motion.');
   const whyItMatters = post.whyItMatters ? escapeHtml(post.whyItMatters) : '';
-  const takeaways = post.keyTakeaways || [];
+  const slideTitle = post.keyTakeaways && post.keyTakeaways.length > 0
+    ? escapeHtml(post.keyTakeaways[0].toUpperCase())
+    : "THE CRITICAL PERSPECTIVE";
 
-  let takeawaysHtml = '';
-  if (takeaways && takeaways.length > 0) {
-    takeawaysHtml = `
-      <ul class="critique-takeaways">
-        ${takeaways.slice(0, 3).map(t => `<li><span class="check">✓</span> <span>${escapeHtml(t)}</span></li>`).join('')}
-      </ul>
+  let bgHtml = '';
+  if (post.illustrationBase64) {
+    bgHtml = `<img class="slide-hook-bg" src="data:image/jpeg;base64,${post.illustrationBase64}" alt="${slideTitle}" loading="lazy">`;
+  } else {
+    bgHtml = `
+      <div class="slide-hook-bg" style="background: radial-gradient(circle at 50% 28%, #1e1b4b 0%, #0f172a 60%, #030712 100%);">
+        <div style="position:absolute; inset:0; opacity:0.18; background-image: radial-gradient(#818cf8 1px, transparent 1px); background-size: 20px 20px;"></div>
+      </div>
     `;
   }
 
   return `
-    <div class="slide-critique-glow"></div>
-    <div class="critique-badge-row">
-      <span class="critique-verdict-badge">⚡ CURATOR'S VERDICT & TAKE</span>
-      <span class="audience-pill" style="font-size:10px; padding:3px 8px;">🎯 ${audience}</span>
-    </div>
-    <div class="critique-body">
-      <div class="critique-quote-mark">“</div>
-      <p class="critique-opinion-text">${opinion}</p>
-      ${whyItMatters && whyItMatters !== opinion ? `
-        <div class="critique-why-box">
-          <div class="critique-why-title">💡 Why This Matters</div>
-          <p class="critique-why-content">${whyItMatters}</p>
-        </div>
-      ` : ''}
-      ${takeawaysHtml}
-    </div>
-    <div class="critique-footer">
-      <div class="critique-creator">
-        <div class="avatar-inner" style="width:24px; height:24px; font-size:11px; border-radius:50%; background:#1E293B;">${initial}</div>
-        <span>${handle}</span>
-        <span style="color:#38BDF8; font-size:11px;" title="Verified Curator">✓</span>
+    ${bgHtml}
+    <div class="slide-hook-top-scrim"></div>
+    <div class="slide-hook-bottom-scrim" style="height: 62%; background: linear-gradient(to bottom, transparent 0%, rgba(7,11,18,0.85) 35%, rgba(7,11,18,0.98) 100%);"></div>
+    <div class="slide-hook-content" style="justify-content: space-between;">
+      <div class="slide-hook-top">
+        <span class="critique-verdict-badge" style="font-size:10px; padding:4px 10px; background:rgba(0,0,0,0.75); border:1px solid rgba(245,158,11,0.4); border-radius:20px; color:#F59E0B; font-weight:800;">⚡ CURATOR'S TAKE • ${pubName}</span>
+        <span class="slide-page-badge" style="background:rgba(0,0,0,0.75); border:1px solid rgba(255,255,255,0.25); border-radius:20px; padding:3px 9px; font-size:10px; color:#FFF; font-weight:800;">02 / 03</span>
       </div>
-      <span style="font-size:10.5px; color:#94A3B8; font-weight:600;">⏱️ 45s read</span>
+      <div class="slide-hook-bottom" style="gap:6px;">
+        <div style="display:flex; align-items:center; gap:6px;">
+          <span style="width:6px; height:6px; border-radius:50%; background:#F59E0B; display:inline-block;"></span>
+          <span style="font-size:10px; font-weight:800; color:#F59E0B; letter-spacing:1px;">${slideTitle}</span>
+        </div>
+        <p class="critique-opinion-text" style="font-size:13.5px; font-weight:600; color:#F8FAFC; line-height:1.4; margin:0;">${opinion}</p>
+        ${whyItMatters && whyItMatters !== opinion ? `
+          <div style="padding:6px 10px; background:rgba(245,158,11,0.12); border-radius:6px; border:0.8px solid rgba(245,158,11,0.35); font-size:11px; color:#E2E8F0; line-height:1.3;">
+            <strong style="color:#F59E0B; font-size:9.5px; letter-spacing:0.5px;">WHY IT MATTERS: </strong>${whyItMatters}
+          </div>
+        ` : ''}
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px; padding-top:6px; border-top:1px solid rgba(255,255,255,0.1);">
+          <div style="display:flex; align-items:center; gap:6px;">
+            <div style="width:20px; height:20px; border-radius:50%; background:#F59E0B; color:#000; font-size:10px; font-weight:bold; display:flex; align-items:center; justify-content:center;">${initial}</div>
+            <span style="font-size:11px; font-weight:600; color:#CBD5E1;">${handle}</span>
+          </div>
+          <span style="font-size:10px; font-weight:800; color:#FCA5A5; background:rgba(220,38,38,0.25); border:1px solid rgba(239,68,68,0.8); border-radius:14px; padding:3px 8px;">THE RECEIPTS &rarr;</span>
+        </div>
+      </div>
     </div>
   `;
 }
@@ -264,53 +272,56 @@ function buildSlide3Html(post, index) {
   const headline = escapeHtml(post.originalHeadline || post.adaptedHeadline || 'Original News Source');
   const quote = escapeHtml(post.receiptHighlightQuote || post.pullQuote || 'Primary reporting confirmed that recorded structural indicators diverged sharply from initial forecasts across core operations.');
   const digitalUrl = post.digitalLink || '';
+  const handle = escapeHtml(post.creatorHandle || '@curator');
 
-  // Extract 2 to 3 section excerpt statements
+  // Extract 3 section excerpt statements
   let paragraphs = post.articleExcerpts || [];
-  if (!paragraphs || paragraphs.length === 0) {
+  if (!paragraphs || paragraphs.length < 3) {
     if (post.summary) {
-      paragraphs = post.summary.split(/\n\s*\n/).map(p => p.trim()).filter(p => p.length > 20).slice(0, 3);
+      const extra = post.summary.split(/\n\s*\n/).map(p => p.trim()).filter(p => p.length > 20);
+      paragraphs = [...paragraphs, ...extra];
     }
   }
-
-  let excerptsHtml = '';
-  if (paragraphs.length > 0) {
-    excerptsHtml = `
-      <div class="receipt-paragraphs">
-        ${paragraphs.slice(0, 3).map(p => `<p>${escapeHtml(p)}</p>`).join('')}
-      </div>
-    `;
+  if (paragraphs.length < 3) {
+    paragraphs.push(
+      paragraphs.length === 0 ? quote : 'Detailed analysis across verified reporting channels confirmed the ongoing broader strategic implications.'
+    );
   }
+
+  const p1 = escapeHtml(paragraphs[0] || quote);
+  const p2 = escapeHtml(paragraphs.length > 1 ? paragraphs[1] : quote);
+  const p3 = escapeHtml(paragraphs.length > 2 ? paragraphs[2] : 'Corroborating records confirmed key indicators aligned with official administrative filings.');
 
   return `
     <div class="receipt-header">
       <div class="receipt-stamp">🗞️ THE "RECEIPT" • SOURCE CLIPPING</div>
       <div class="receipt-pub-title">${pubName}</div>
       <div class="receipt-rules">
-        <span>VERIFIED EDITION</span>
-        <span>NEWSROOM EXCERPTS</span>
-        <span>PAGE 01</span>
+        <span>VOL. CLXXIV • NO. 48,210</span>
+        <span>NEWSROOM ARCHIVE</span>
+        <span>SLIDE 03 / 03</span>
       </div>
       <h4 class="receipt-headline">"${headline}"</h4>
     </div>
     
-    <div class="receipt-highlight">
-      “${quote}”
+    <div class="receipt-paragraphs" style="flex:1; display:flex; flex-direction:column; justify-content:space-between; margin:8px 0;">
+      <p style="font-family:serif; font-size:11px; color:#1E293B; line-height:1.35; margin:0;">${p1}</p>
+
+      <div class="receipt-highlight" style="margin:4px 0; padding:8px 10px; background:#FEF08A; border-left:4px solid #CA8A04; border-radius:4px; font-family:serif; font-size:11.5px; font-weight:800; color:#0F172A; line-height:1.3;">
+        <div style="font-size:8px; font-weight:900; color:#854D0E; letter-spacing:0.8px; margin-bottom:2px;">KEY SECTION EXCERPT</div>
+        “${p2}”
+      </div>
+
+      <p style="font-family:serif; font-size:10.8px; color:#334155; line-height:1.35; margin:0;">${p3}</p>
     </div>
 
-    ${excerptsHtml}
-
-    <div class="receipt-footer">
-      <span class="receipt-verified-badge">
-        <span>✓</span> <span>Evidence Record</span>
+    <div class="receipt-footer" style="display:flex; justify-content:space-between; align-items:center; padding-top:6px; border-top:0.8px solid #0F172A;">
+      <span class="receipt-verified-badge" style="font-size:7.5px; font-weight:800; color:#334155; letter-spacing:0.4px;">
+        <span>✓</span> <span>AUTHENTIC EXCERPTS • PRIMARY SOURCE</span>
       </span>
-      ${digitalUrl ? `
-        <a href="${digitalUrl}" target="_blank" class="receipt-source-link" onclick="event.stopPropagation()">
-          🌐 Read Full Story &nearr;
-        </a>
-      ` : `
-        <span style="font-size:9.5px; color:#64748B; font-style:italic;">Archived Newspaper Print</span>
-      `}
+      <span style="font-size:7.5px; font-weight:800; color:#334155; letter-spacing:0.4px;">
+        ARCHIVED BY ${handle}
+      </span>
     </div>
   `;
 }

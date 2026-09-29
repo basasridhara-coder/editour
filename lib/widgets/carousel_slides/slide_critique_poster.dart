@@ -26,14 +26,6 @@ class SlideCritiquePoster extends StatelessWidget {
             ? item.whyItMatters!
             : item.hook);
 
-    final pullQuote = (item.receiptHighlightQuote != null && item.receiptHighlightQuote!.trim().isNotEmpty)
-        ? item.receiptHighlightQuote!.trim()
-        : ((item.pullQuote != null && item.pullQuote!.trim().isNotEmpty)
-            ? item.pullQuote!.trim()
-            : (item.keyTakeaways.length > 1
-                ? item.keyTakeaways[1]
-                : (item.keyTakeaways.isNotEmpty ? item.keyTakeaways.first : 'A structural shift the mainstream missed.')));
-
     final rationaleText = (item.whyItMatters != null && item.whyItMatters!.trim().isNotEmpty && item.whyItMatters != opinionText)
         ? item.whyItMatters!
         : '';
@@ -50,8 +42,6 @@ class SlideCritiquePoster extends StatelessWidget {
         : (opinionText.length > 150
             ? 14.0
             : (opinionText.length > 80 ? 15.0 : 16.0));
-
-    final double pullQuoteSize = pullQuote.length > 120 ? 11.0 : 12.0;
 
     final effectiveRadius = borderRadius ?? BorderRadius.circular(16);
     final isFlush = borderRadius == BorderRadius.zero;
@@ -88,18 +78,19 @@ class SlideCritiquePoster extends StatelessWidget {
               // 1. Full-Bleed Thematic AI Art Backdrop
               _buildVisualArt(),
 
-              // 2. Dark Atmospheric Scrim / Glassmorphic Backdrop
+              // 2. Multi-Stop Vignette: First half (top 46%) is transparent so artwork is clearly relatable to Slide 1
               Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    stops: const [0.0, 0.22, 0.55, 1.0],
+                    stops: const [0.0, 0.12, 0.46, 0.70, 1.0],
                     colors: [
-                      Colors.black.withValues(alpha: 0.75),
-                      const Color(0xFF090D16).withValues(alpha: 0.80),
-                      const Color(0xFF070B12).withValues(alpha: 0.92),
-                      const Color(0xFF070B12).withValues(alpha: 0.98),
+                      Colors.black.withValues(alpha: 0.55), // Subtle header shadow for top pill readability
+                      Colors.transparent,                  // Unobstructed hero artwork matching Slide 1!
+                      Colors.transparent,
+                      const Color(0xFF070B12).withValues(alpha: 0.85),
+                      const Color(0xFF070B12).withValues(alpha: 0.98), // High-contrast anchor for curator's take
                     ],
                   ),
                 ),
@@ -169,7 +160,7 @@ class SlideCritiquePoster extends StatelessWidget {
                 ),
               ),
 
-              // 4. Main Editorial Content Area (Complete Paragraph-Style Writing)
+              // 4. Main Editorial Content Area: Compact Bottom Anchoring (Top Half Shows Hero Art!)
               Positioned(
                 bottom: 14,
                 left: 18,
@@ -206,7 +197,7 @@ class SlideCritiquePoster extends StatelessWidget {
                       ],
                     ),
 
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 7),
 
                     // Paragraph: The Core Curator Stance & Elaboration (Complete Statement, Never Truncated)
                     Text(
@@ -215,7 +206,7 @@ class SlideCritiquePoster extends StatelessWidget {
                         fontSize: opinionSize,
                         fontWeight: FontWeight.w600,
                         color: const Color(0xFFF8FAFC),
-                        height: 1.45,
+                        height: 1.40,
                         letterSpacing: -0.2,
                         shadows: const [
                           Shadow(
@@ -225,15 +216,17 @@ class SlideCritiquePoster extends StatelessWidget {
                           ),
                         ],
                       ),
+                      maxLines: 4,
+                      overflow: TextOverflow.ellipsis,
                     ),
 
                     if (rationaleText.isNotEmpty) ...[
                       const SizedBox(height: 8),
-                      // Paragraph 2: Contextual Why It Matters (Complete Statement)
+                      // Paragraph 2: Contextual Why It Matters (Compact Callout)
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF59E0B).withValues(alpha: 0.10),
+                          color: const Color(0xFFF59E0B).withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(6),
                           border: Border.all(
                             color: const Color(0xFFF59E0B).withValues(alpha: 0.35),
@@ -256,11 +249,13 @@ class SlideCritiquePoster extends StatelessWidget {
                               child: Text(
                                 rationaleText,
                                 style: const TextStyle(
-                                  fontSize: 11.5,
+                                  fontSize: 11.0,
                                   fontWeight: FontWeight.w600,
                                   color: Color(0xFFE2E8F0),
-                                  height: 1.3,
+                                  height: 1.25,
                                 ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                           ],
@@ -269,44 +264,6 @@ class SlideCritiquePoster extends StatelessWidget {
                     ],
 
                     const SizedBox(height: 12),
-
-                    // Subtle Frosted Pull Quote Strip (Complete Thought)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.5),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
-                      ),
-                      child: Row(
-                        children: [
-                          Text(
-                            '“',
-                            style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.w900,
-                              height: 0.8,
-                              color: config.accentColor,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              pullQuote,
-                              style: TextStyle(
-                                fontSize: pullQuoteSize,
-                                fontWeight: FontWeight.w600,
-                                color: const Color(0xFFE2E8F0),
-                                fontStyle: FontStyle.italic,
-                                height: 1.3,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 14),
 
                     // High-Contrast Footer (Creator Attribution + Next Slide Trigger)
                     Row(
@@ -380,23 +337,23 @@ class SlideCritiquePoster extends StatelessWidget {
   }
 
   Widget _buildVisualArt() {
-    // 1. Check if dedicated curator illustration exists
-    if (item.curatorIllustrationBase64 != null && item.curatorIllustrationBase64!.isNotEmpty) {
-      try {
-        return Image.memory(base64Decode(item.curatorIllustrationBase64!), fit: BoxFit.cover);
-      } catch (_) {}
-    }
-    // 2. Check if primary rendered poster path exists
+    // 1. Primary rendered poster image file (shares exact hero art with Slide 1)
     if (item.renderedPosterPath != null && item.renderedPosterPath!.isNotEmpty) {
       final file = File(item.renderedPosterPath!);
       if (file.existsSync()) {
         return Image.file(file, fit: BoxFit.cover);
       }
     }
-    // 3. Check if primary illustration exists
+    // 2. Primary illustration bytes (shares exact hero art with Slide 1)
     if (item.illustrationBase64 != null && item.illustrationBase64!.isNotEmpty) {
       try {
         return Image.memory(base64Decode(item.illustrationBase64!), fit: BoxFit.cover);
+      } catch (_) {}
+    }
+    // 3. Dedicated curator illustration if generated
+    if (item.curatorIllustrationBase64 != null && item.curatorIllustrationBase64!.isNotEmpty) {
+      try {
+        return Image.memory(base64Decode(item.curatorIllustrationBase64!), fit: BoxFit.cover);
       } catch (_) {}
     }
     return _buildFallbackArtisticGraphic();

@@ -55,14 +55,18 @@ class PostCardItem {
   bool get isCarouselTrio => postFormat == 'carousel_trio';
 
   List<String> get resolvedArticleExcerpts {
-    if (articleExcerpts.isNotEmpty) {
-      return articleExcerpts.take(3).toList();
+    final List<String> list = List<String>.from(
+      articleExcerpts.map((e) => e.trim()).where((e) => e.isNotEmpty),
+    );
+    if (list.length >= 3) {
+      return list.take(3).toList();
     }
-    final List<String> list = [];
-    if (receiptHighlightQuote != null && receiptHighlightQuote!.trim().isNotEmpty) {
-      list.add(receiptHighlightQuote!.trim());
-    } else if (pullQuote != null && pullQuote!.trim().isNotEmpty) {
-      list.add(pullQuote!.trim());
+    if (list.isEmpty) {
+      if (receiptHighlightQuote != null && receiptHighlightQuote!.trim().isNotEmpty) {
+        list.add(receiptHighlightQuote!.trim());
+      } else if (pullQuote != null && pullQuote!.trim().isNotEmpty) {
+        list.add(pullQuote!.trim());
+      }
     }
     for (final t in keyTakeaways) {
       if (list.length >= 3) break;
@@ -70,18 +74,20 @@ class PostCardItem {
       if (!clean.toLowerCase().contains('curator') &&
           !clean.toLowerCase().contains('my angle') &&
           !clean.toLowerCase().contains('i argue') &&
-          clean.length > 20) {
+          clean.length > 20 &&
+          !list.contains(clean)) {
         list.add(clean);
       }
     }
-    if (list.length < 2 && summary.isNotEmpty) {
+    if (list.length < 3 && summary.isNotEmpty) {
       final parts = summary.split(RegExp(r'\.\s+|\n+'));
       for (final p in parts) {
         if (list.length >= 3) break;
         final clean = p.trim().endsWith('.') ? p.trim() : '${p.trim()}.';
         if (!clean.toLowerCase().contains('curator') &&
             !clean.toLowerCase().contains('my angle') &&
-            clean.length > 25) {
+            clean.length > 25 &&
+            !list.contains(clean)) {
           list.add(clean);
         }
       }
