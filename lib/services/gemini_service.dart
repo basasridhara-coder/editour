@@ -254,6 +254,7 @@ class GeminiService {
     double visualArtRatio = 0.6,
     PostCardItem? existingItem,
     int regenerationIteration = 0,
+    bool skipImageGeneration = false,
     void Function(String message)? onProgressUpdate,
   }) async {
     final apiKey = await _storageService.getApiKey();
@@ -270,6 +271,7 @@ class GeminiService {
         visualArtRatio: visualArtRatio,
         existingItem: existingItem,
         regenerationIteration: regenerationIteration,
+        skipImageGeneration: skipImageGeneration,
         errorMessage: 'No Gemini API Key provided. Enter your free API key in Settings.',
       );
     }
@@ -428,6 +430,7 @@ Return JSON:
                 visualArtRatio: visualArtRatio,
                 existingItem: existingItem,
                 regenerationIteration: regenerationIteration,
+                skipImageGeneration: skipImageGeneration,
               );
 
               return result;
@@ -452,6 +455,7 @@ Return JSON:
       visualArtRatio: visualArtRatio,
       existingItem: existingItem,
       regenerationIteration: regenerationIteration,
+      skipImageGeneration: skipImageGeneration,
     );
   }
 
@@ -467,6 +471,7 @@ Return JSON:
     double visualArtRatio = 0.6,
     PostCardItem? existingItem,
     int regenerationIteration = 0,
+    bool skipImageGeneration = false,
   }) async {
     final apiKey = await _storageService.getApiKey();
 
@@ -482,6 +487,7 @@ Return JSON:
         visualArtRatio: visualArtRatio,
         existingItem: existingItem,
         regenerationIteration: regenerationIteration,
+        skipImageGeneration: skipImageGeneration,
         errorMessage: 'No Gemini API Key provided. Enter your free API key in Settings.',
       );
     }
@@ -667,15 +673,17 @@ Return ONLY a valid JSON object matching this schema:
                           ? '${userContext.trim()}, ${data['adapted_headline'] ?? data['original_headline'] ?? ""}'
                           : '${data['adapted_headline'] ?? data['original_headline'] ?? "News investigation"}, editorial concept art'));
 
-              try {
-                illustrationBytes = await generatePosterIllustration(
-                  apiKey: apiKey,
-                  prompt: effectiveIllustrationPrompt,
-                  seed: (existingItem != null || regenerationIteration > 0) ? (DateTime.now().millisecondsSinceEpoch + regenerationIteration * 7919) : 0,
-                  styleIndex: regenerationIteration,
-                );
-              } catch (e) {
-                debugPrint('Poster illustration generation exception: $e');
+              if (!skipImageGeneration) {
+                try {
+                  illustrationBytes = await generatePosterIllustration(
+                    apiKey: apiKey,
+                    prompt: effectiveIllustrationPrompt,
+                    seed: (existingItem != null || regenerationIteration > 0) ? (DateTime.now().millisecondsSinceEpoch + regenerationIteration * 7919) : 0,
+                    styleIndex: regenerationIteration,
+                  );
+                } catch (e) {
+                  debugPrint('Poster illustration generation exception: $e');
+                }
               }
 
               final parsedExcerpts = (data['article_excerpts'] as List?)
@@ -760,6 +768,7 @@ Return ONLY a valid JSON object matching this schema:
     double visualArtRatio = 0.6,
     PostCardItem? existingItem,
     int regenerationIteration = 0,
+    bool skipImageGeneration = false,
   }) async {
     final apiKey = await _storageService.getApiKey();
 
@@ -775,6 +784,7 @@ Return ONLY a valid JSON object matching this schema:
         visualArtRatio: visualArtRatio,
         existingItem: existingItem,
         regenerationIteration: regenerationIteration,
+        skipImageGeneration: skipImageGeneration,
         errorMessage: 'No Gemini API Key provided. Enter your free API key in Settings.',
       );
     }
@@ -943,7 +953,7 @@ Return ONLY a valid JSON object matching this schema:
                 final effectiveDigitalPrompt = (hookCues != null && hookCues.trim().isNotEmpty)
                     ? '${hookCues.trim()}. ${illPrompt ?? ""}'.trim()
                     : (illPrompt ?? '');
-                if (effectiveDigitalPrompt.isNotEmpty && visualArtRatio >= 0.3) {
+                if (!skipImageGeneration && effectiveDigitalPrompt.isNotEmpty && visualArtRatio >= 0.3) {
                   try {
                     illustrationBytes = await generatePosterIllustration(
                       apiKey: apiKey,
@@ -1301,12 +1311,15 @@ Return ONLY a valid JSON object matching this schema:
     if (cleanPrompt.isEmpty) return null;
 
     final stylePrefixes = [
-      "Modern editorial artwork illustration, 4:5 vertical poster format, cinematic lighting, conceptual graphic art, high aesthetic, vivid colors, no text, no letters",
+      "Modern cinematic editorial artwork illustration, 4:5 vertical poster format, volumetric rim lighting, high aesthetic, vivid color grading, bold visual metaphor, no text, no letters",
       "Bold pop-graphic vector art, 4:5 vertical poster format, high dynamic contrast, striking visual metaphor, ultra-clean silhouettes, vibrant palette, no text, no letters",
-      "Minimalist avant-garde lithograph poster design, 4:5 vertical poster format, rich textured tones, powerful symbolic centerpiece, elegant fine art, no text, no letters",
-      "Neo-editorial atmospheric digital artwork, 4:5 vertical poster format, dramatic volumetric lighting, futuristic perspective, deep evocative colors, no text, no letters",
+      "Surrealist editorial oil painting masterpiece, 4:5 vertical poster format, richly textured canvas, dramatic chiaroscuro lighting, powerful symbolic centerpiece, no text, no letters",
+      "Neo-cyber geometric editorial illustration, 4:5 vertical poster format, futuristic depth, glowing isometric contours, deep dark background with neon accents, no text, no letters",
+      "Dramatic cinematic documentary photography, 4:5 vertical poster format, evocative storytelling composition, atmospheric natural lighting, award-winning visual journalism, no text, no letters",
+      "Vibrant silkscreen screenprint poster, 4:5 vertical poster format, dynamic graphic duotone and tritone textures, iconic conceptual visual, no text, no letters",
     ];
     final selectedStylePrefix = stylePrefixes[styleIndex % stylePrefixes.length];
+    final effectiveSeed = (seed != 0 ? seed.abs() : (DateTime.now().millisecondsSinceEpoch + styleIndex * 7919).abs()) % 1000000;
 
     if (apiKey != null && apiKey.trim().isNotEmpty) {
       // 1. Google Imagen 3 models via official predict endpoint
@@ -1415,16 +1428,15 @@ Return ONLY a valid JSON object matching this schema:
 
     // 3. Reliable high-definition AI generative fallback via Pollinations AI
     try {
-      final effectiveSeed = seed != 0 ? seed : (DateTime.now().millisecondsSinceEpoch + styleIndex * 7919) % 1000000;
       debugPrint('Attempting high-definition AI generative fallback via Pollinations (seed: $effectiveSeed, style: $styleIndex)...');
       final encodedPrompt = Uri.encodeComponent(
         '$selectedStylePrefix: $cleanPrompt',
       );
       final pollUri = Uri.parse(
-        'https://image.pollinations.ai/prompt/$encodedPrompt?width=800&height=1000&nologo=true&seed=$effectiveSeed',
+        'https://image.pollinations.ai/prompt/$encodedPrompt?width=720&height=900&nologo=true&seed=$effectiveSeed',
       );
-      final pollResponse = await http.get(pollUri).timeout(const Duration(seconds: 20));
-      if (pollResponse.statusCode == 200 && pollResponse.bodyBytes.isNotEmpty) {
+      final pollResponse = await http.get(pollUri).timeout(const Duration(seconds: 12));
+      if (pollResponse.statusCode == 200 && pollResponse.bodyBytes.length > 5000) {
         debugPrint('Successfully generated illustration via AI generative fallback (${pollResponse.bodyBytes.length} bytes, seed: $effectiveSeed)!');
         return pollResponse.bodyBytes;
       }
@@ -1432,7 +1444,94 @@ Return ONLY a valid JSON object matching this schema:
       debugPrint('AI generative fallback exception: $e');
     }
 
+    // 4. Reliable high-resolution Curated Editorial Concept Artwork fallback via Picsum
+    try {
+      final words = cleanPrompt
+          .replaceAll(RegExp(r'[^a-zA-Z0-9\s]'), '')
+          .split(RegExp(r'\s+'))
+          .where((w) => w.length >= 3 && !['with', 'from', 'that', 'this', 'into'].contains(w.toLowerCase()))
+          .take(3)
+          .join('_');
+      final seedSlug = words.isNotEmpty
+          ? '${words.toLowerCase()}_v$effectiveSeed'
+          : 'editorial_poster_$effectiveSeed';
+      debugPrint('Fetching high-resolution curated editorial artwork via Picsum (seed: $seedSlug)...');
+      final picsumUri = Uri.parse('https://picsum.photos/seed/$seedSlug/720/900');
+      final picsumResp = await http.get(picsumUri).timeout(const Duration(seconds: 10));
+      if (picsumResp.statusCode == 200 && picsumResp.bodyBytes.length > 5000) {
+        debugPrint('Successfully retrieved curated editorial artwork (${picsumResp.bodyBytes.length} bytes)!');
+        return picsumResp.bodyBytes;
+      }
+    } catch (e) {
+      debugPrint('Curated editorial art fallback exception: $e');
+    }
+
     return null;
+  }
+
+  /// Specifically re-generates only the Hook Poster Artwork (Slide 1 Visual)
+  /// considering the Curate Angle, Hook Cues, and Headline with non-repeating artistic metaphors.
+  Future<Map<String, dynamic>> regenerateHookPosterArt({
+    String? apiKey,
+    required String headline,
+    String? userContext,
+    String? hookCues,
+    required String targetAudience,
+    required String tone,
+    int iteration = 0,
+    PosterStyleType? currentStyle,
+  }) async {
+    final cueText = (hookCues != null && hookCues.trim().isNotEmpty) ? hookCues.trim() : null;
+    final contextText = (userContext != null && userContext.trim().isNotEmpty) ? userContext.trim() : null;
+
+    final distinctMetaphors = [
+      cueText != null
+          ? '$cueText, dynamic dramatic perspective, vibrant cinematic lighting, concept art'
+          : (contextText != null
+              ? '$contextText, conceptual visual metaphor, dramatic tension'
+              : '$headline, powerful narrative imagery, high aesthetic'),
+      cueText != null
+          ? 'Symbolic centerpiece of $cueText, bold pop-graphic contrast, striking composition'
+          : (contextText != null
+              ? 'Unexamined facet of $contextText, vibrant silhouettes, editorial masterpiece'
+              : 'Future vantage point on $headline, cinematic volumetric lighting'),
+      cueText != null
+          ? 'Surrealist artistic embodiment of $cueText, rich painterly textures, atmospheric gallery art'
+          : (contextText != null
+              ? 'Core dilemma behind $contextText, dramatic chiaroscuro, fine art'
+              : 'Turning point of $headline, high-contrast expressive artwork'),
+      cueText != null
+          ? 'Futuristic neon isometric interpretation of $cueText, deep dark architectural perspective'
+          : (contextText != null
+              ? 'Structural shifts in $contextText, neo-cyber geometric depth'
+              : 'Investigative lens on $headline, modern editorial illustration'),
+    ];
+
+    final selectedMetaphor = distinctMetaphors[iteration % distinctMetaphors.length];
+    final seed = (DateTime.now().millisecondsSinceEpoch + iteration * 9743).abs() % 1000000;
+
+    // Cycle through vibrant poster styles so the accent color and typography shift too
+    final availableStyles = [
+      PosterStyleType.editorial,
+      PosterStyleType.modernCyber,
+      PosterStyleType.boldSocial,
+      PosterStyleType.aiInfographic,
+    ];
+    final nextStyle = availableStyles[(iteration + 1) % availableStyles.length];
+
+    final bytes = await generatePosterIllustration(
+      apiKey: apiKey,
+      prompt: selectedMetaphor,
+      seed: seed,
+      styleIndex: iteration,
+    );
+
+    return {
+      'bytes': bytes,
+      'prompt': selectedMetaphor,
+      'suggestedStyle': nextStyle,
+      'seed': seed,
+    };
   }
 
   String _extractErrorMessage(String responseBody) {
@@ -1477,6 +1576,7 @@ Return ONLY a valid JSON object matching this schema:
     double visualArtRatio = 0.6,
     PostCardItem? existingItem,
     int regenerationIteration = 0,
+    bool skipImageGeneration = false,
     String? errorMessage,
   }) async {
     final title = fallbackTitle ?? 'Physical Newspaper Discovery';
@@ -1489,7 +1589,7 @@ Return ONLY a valid JSON object matching this schema:
       PosterStyleType.editorial,
       PosterStyleType.modernCyber,
       PosterStyleType.boldSocial,
-      PosterStyleType.minimalist,
+      PosterStyleType.aiInfographic,
     ];
     final PosterStyleType style = styleCycle[(regenerationIteration + (targetAudience.contains('Tech') ? 1 : (targetAudience.contains('Gen-Z') ? 2 : 0))) % styleCycle.length];
 
@@ -1768,15 +1868,17 @@ Return ONLY a valid JSON object matching this schema:
         : (hasContext ? userContext : adaptedHeadline);
 
     Uint8List? demoIllustrationBytes;
-    try {
-      demoIllustrationBytes = await generatePosterIllustration(
-        apiKey: '',
-        prompt: '$illPrompt, artistic modern editorial illustration, dramatic lighting',
-        seed: (regenerationIteration > 0 || existingItem != null) ? (DateTime.now().millisecondsSinceEpoch + regenerationIteration * 7919) : 0,
-        styleIndex: regenerationIteration,
-      );
-    } catch (e) {
-      debugPrint('Demo illustration generation failed: $e');
+    if (!skipImageGeneration) {
+      try {
+        demoIllustrationBytes = await generatePosterIllustration(
+          apiKey: '',
+          prompt: '$illPrompt, artistic modern editorial illustration, dramatic lighting',
+          seed: (regenerationIteration > 0 || existingItem != null) ? (DateTime.now().millisecondsSinceEpoch + regenerationIteration * 7919) : 0,
+          styleIndex: regenerationIteration,
+        );
+      } catch (e) {
+        debugPrint('Demo illustration generation failed: $e');
+      }
     }
 
     return GeminiAnalysisResult(

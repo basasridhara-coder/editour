@@ -284,131 +284,197 @@ class SlideHookPoster extends StatelessWidget {
   Widget _buildStylizedConceptArt() {
     final heroIcon = _resolveHeroIcon();
     final hasCues = item.hookCues != null && item.hookCues!.trim().isNotEmpty;
+    final hasContext = item.userContext != null && item.userContext!.trim().isNotEmpty;
+    final primary = config.primaryColor;
+    final isCyber = item.posterStyle == PosterStyleType.modernCyber;
+    final isBold = item.posterStyle == PosterStyleType.boldSocial;
 
     return Container(
       decoration: BoxDecoration(
-        gradient: RadialGradient(
-          center: const Alignment(0.0, -0.25),
-          radius: 1.35,
-          colors: [
-            config.primaryColor.withValues(alpha: 0.50),
-            const Color(0xFF1E293B),
-            const Color(0xFF090D16),
-            const Color(0xFF030712),
-          ],
-          stops: const [0.0, 0.45, 0.78, 1.0],
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isCyber
+              ? [
+                  const Color(0xFF030712),
+                  const Color(0xFF0A1528),
+                  const Color(0xFF021B3A),
+                  const Color(0xFF020617),
+                ]
+              : (isBold
+                  ? [
+                      const Color(0xFF180A2E),
+                      const Color(0xFF2E1065),
+                      const Color(0xFF0F172A),
+                      const Color(0xFF020617),
+                    ]
+                  : [
+                      const Color(0xFF0F172A),
+                      const Color(0xFF1E293B),
+                      const Color(0xFF090D16),
+                      const Color(0xFF020617),
+                    ]),
+          stops: const [0.0, 0.35, 0.70, 1.0],
         ),
       ),
       child: Stack(
-        alignment: Alignment.center,
+        fit: StackFit.expand,
         children: [
-          // Background ambient grid & ring motifs
+          // 1. Dynamic Ambient Diagonal Light Flares
           Positioned(
-            top: 60,
+            top: -40,
+            right: -30,
+            child: Container(
+              width: 240,
+              height: 240,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    primary.withValues(alpha: 0.45),
+                    primary.withValues(alpha: 0.10),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: 80,
+            left: -50,
             child: Container(
               width: 260,
               height: 260,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                border: Border.all(
-                  color: config.primaryColor.withValues(alpha: 0.12),
-                  width: 1.0,
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            top: 85,
-            child: Container(
-              width: 210,
-              height: 210,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: config.primaryColor.withValues(alpha: 0.20),
-                  width: 1.2,
+                gradient: RadialGradient(
+                  colors: [
+                    (isCyber ? const Color(0xFF06B6D4) : (isBold ? const Color(0xFFF43F5E) : primary))
+                        .withValues(alpha: 0.30),
+                    Colors.transparent,
+                  ],
                 ),
               ),
             ),
           ),
 
-          // Central Glowing Hero Emblem
-          Positioned(
-            top: 110,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 100,
-                  height: 100,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: RadialGradient(
-                      colors: [
-                        config.primaryColor.withValues(alpha: 0.85),
-                        config.primaryColor.withValues(alpha: 0.35),
-                      ],
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: config.primaryColor.withValues(alpha: 0.55),
-                        blurRadius: 40,
-                        spreadRadius: 4,
-                      ),
-                    ],
-                  ),
-                  child: Center(
-                    child: Icon(
-                      heroIcon,
-                      size: 46,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-                if (hasCues) ...[
-                  const SizedBox(height: 16),
+          // 2. Architectural Grid / Technical Geometry
+          Positioned.fill(
+            child: CustomPaint(
+              painter: _EditorialGridPainter(
+                accentColor: primary.withValues(alpha: 0.14),
+                isCyber: isCyber,
+              ),
+            ),
+          ),
+
+          // 3. Central Multi-layered Editorial Hero Feature
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.only(top: 20, bottom: 90, left: 24, right: 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Illuminated Emblem with Dimensional Shadow
                   Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 24),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                    width: 104,
+                    height: 104,
                     decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.70),
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(28),
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          primary.withValues(alpha: 0.95),
+                          primary.withValues(alpha: 0.40),
+                        ],
+                      ),
                       border: Border.all(
-                        color: config.primaryColor.withValues(alpha: 0.75),
-                        width: 1.2,
+                        color: Colors.white.withValues(alpha: 0.45),
+                        width: 1.8,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: config.primaryColor.withValues(alpha: 0.30),
-                          blurRadius: 18,
-                          offset: const Offset(0, 3),
+                          color: primary.withValues(alpha: 0.55),
+                          blurRadius: 36,
+                          spreadRadius: 4,
+                          offset: const Offset(0, 8),
                         ),
                       ],
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.auto_awesome, size: 13, color: config.primaryColor),
-                        const SizedBox(width: 7),
-                        Flexible(
-                          child: Text(
-                            item.hookCues!.trim(),
+                    child: Center(
+                      child: Icon(
+                        heroIcon,
+                        size: 52,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // Prominent Curated Stance / Hook Cue Showcase Card
+                  if (hasCues || hasContext) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF020617).withValues(alpha: 0.88),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: primary.withValues(alpha: 0.80),
+                          width: 1.4,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.60),
+                            blurRadius: 20,
+                            offset: const Offset(0, 6),
+                          ),
+                          BoxShadow(
+                            color: primary.withValues(alpha: 0.25),
+                            blurRadius: 16,
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.auto_awesome, size: 13, color: primary),
+                              const SizedBox(width: 6),
+                              Text(
+                                (hasCues ? 'CURATOR HOOK CUE' : 'CURATORIAL ANGLE').toUpperCase(),
+                                style: TextStyle(
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.w900,
+                                  color: primary,
+                                  letterSpacing: 1.1,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            (hasCues ? item.hookCues! : item.userContext!).trim(),
                             style: const TextStyle(
                               color: Colors.white,
-                              fontSize: 11.5,
+                              fontSize: 12.5,
                               fontWeight: FontWeight.w700,
-                              letterSpacing: 0.2,
+                              height: 1.3,
+                              letterSpacing: 0.1,
                             ),
-                            maxLines: 2,
+                            maxLines: 3,
                             overflow: TextOverflow.ellipsis,
                             textAlign: TextAlign.center,
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ],
@@ -441,4 +507,49 @@ class SlideHookPoster extends StatelessWidget {
     }
     return Icons.auto_awesome_rounded;
   }
+}
+
+class _EditorialGridPainter extends CustomPainter {
+  final Color accentColor;
+  final bool isCyber;
+
+  const _EditorialGridPainter({
+    required this.accentColor,
+    required this.isCyber,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = accentColor
+      ..strokeWidth = 0.8
+      ..style = PaintingStyle.stroke;
+
+    // Subtle technical framing crosshairs and grid lines
+    const spacing = 48.0;
+    for (double x = spacing; x < size.width; x += spacing) {
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
+    }
+    for (double y = spacing; y < size.height; y += spacing) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
+    }
+
+    // Corner brackets
+    final cornerPaint = Paint()
+      ..color = accentColor.withValues(alpha: 0.35)
+      ..strokeWidth = 1.8
+      ..style = PaintingStyle.stroke;
+
+    const cLen = 14.0;
+    // Top-left
+    canvas.drawLine(const Offset(16, 16), const Offset(16 + cLen, 16), cornerPaint);
+    canvas.drawLine(const Offset(16, 16), const Offset(16, 16 + cLen), cornerPaint);
+    // Top-right
+    canvas.drawLine(Offset(size.width - 16, 16), Offset(size.width - 16 - cLen, 16), cornerPaint);
+    canvas.drawLine(Offset(size.width - 16, 16), Offset(size.width - 16, 16 + cLen), cornerPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _EditorialGridPainter oldDelegate) =>
+      oldDelegate.accentColor != accentColor || oldDelegate.isCyber != isCyber;
 }

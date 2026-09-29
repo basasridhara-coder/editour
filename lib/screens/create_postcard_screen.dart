@@ -23,6 +23,12 @@ import 'postcard_detail_screen.dart';
 
 enum InputSourceMode { physicalPhoto, digitalLink, bookExcerpt }
 
+enum RegenerationTarget {
+  all,
+  hookPosterArt,
+  headlineAndHook,
+}
+
 class CreatePostcardScreen extends StatefulWidget {
   final SampleArticle? preloadedSample;
 
@@ -502,7 +508,12 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
     );
   }
 
-  Future<void> _runAnalysis() async {
+  Future<void> _runAnalysis({RegenerationTarget target = RegenerationTarget.all}) async {
+    if (target == RegenerationTarget.hookPosterArt) {
+      await _regenerateHookPosterOnly();
+      return;
+    }
+
     if (_sourceMode == InputSourceMode.physicalPhoto) {
       if (_selectedImage == null && _activeSample == null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -552,15 +563,19 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
       _regenerationCount++;
     }
 
+    final isHeadlineOnly = target == RegenerationTarget.headlineAndHook;
+
     setState(() {
       _isAnalyzing = true;
-      _analysisStatus = isRegenerating
-          ? 'Exploring new creative angle & fresh visual artwork (Attempt #$_regenerationCount)...'
-          : (_sourceMode == InputSourceMode.physicalPhoto
-              ? 'Scanning physical print typography & OCR...'
-              : (_sourceMode == InputSourceMode.digitalLink
-                  ? 'Extracting digital article context & key themes...'
-                  : 'Reading excerpt pages & synthesizing Curator\'s emotional angle...'));
+      _analysisStatus = isHeadlineOnly
+          ? 'Synthesizing fresh bold headline & curated takes (Attempt #$_regenerationCount)...'
+          : (isRegenerating
+              ? 'Exploring new creative angle & fresh visual artwork (Attempt #$_regenerationCount)...'
+              : (_sourceMode == InputSourceMode.physicalPhoto
+                  ? 'Scanning physical print typography & OCR...'
+                  : (_sourceMode == InputSourceMode.digitalLink
+                      ? 'Extracting digital article context & key themes...'
+                      : 'Reading excerpt pages & synthesizing Curator\'s emotional angle...')));
     });
 
     try {
@@ -597,6 +612,7 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
           visualArtRatio: _visualArtRatio,
           existingItem: _generatedItem,
           regenerationIteration: _regenerationCount,
+          skipImageGeneration: isHeadlineOnly,
           onProgressUpdate: (msg) {
             if (mounted) {
               setState(() {
@@ -653,6 +669,7 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
           visualArtRatio: _visualArtRatio,
           existingItem: _generatedItem,
           regenerationIteration: _regenerationCount,
+          skipImageGeneration: isHeadlineOnly,
         );
       } else {
         // Book Excerpt pipeline
@@ -686,10 +703,10 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
         });
       }
 
-      String? illustrationB64;
-      String? savedPosterPath;
+      String? illustrationB64 = isHeadlineOnly ? _generatedItem?.illustrationBase64 : null;
+      String? savedPosterPath = isHeadlineOnly ? _generatedItem?.renderedPosterPath : null;
       final itemId = const Uuid().v4();
-      if (result.generatedIllustrationBytes != null) {
+      if (!isHeadlineOnly && result.generatedIllustrationBytes != null) {
         illustrationB64 = base64Encode(result.generatedIllustrationBytes!);
         savedPosterPath = await _shareService.savePosterToFile(
           result.generatedIllustrationBytes!,
@@ -755,8 +772,8 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
         creatorHandle: _creatorHandleController.text.trim().isNotEmpty
             ? _creatorHandleController.text.trim()
             : '@curator',
-        posterStyle: result.suggestedStyle,
-        illustrationPrompt: result.illustrationPrompt,
+        posterStyle: isHeadlineOnly ? (_generatedItem?.posterStyle ?? result.suggestedStyle) : result.suggestedStyle,
+        illustrationPrompt: isHeadlineOnly ? _generatedItem?.illustrationPrompt : result.illustrationPrompt,
         illustrationBase64: illustrationB64,
         visualArtRatio: _visualArtRatio,
         infographicType: result.infographicType,
@@ -823,12 +840,14 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
         );
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text(
-              '✨ Gemini Multimodal AI successfully analyzed physical print & crafted poster!',
+              isHeadlineOnly
+                  ? '✍️ New bold headline & editorial hook synthesized!'
+                  : '✨ Gemini Multimodal AI successfully analyzed print & crafted poster!',
             ),
             backgroundColor: Colors.green,
-            duration: Duration(seconds: 4),
+            duration: const Duration(seconds: 4),
           ),
         );
       }
@@ -842,6 +861,284 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
         );
       }
     }
+  }
+
+  Future<void> _regenerateHookPosterOnly() async {
+    if (_generatedItem == null || _isAnalyzing) return;
+
+    setState(() {
+      _isAnalyzing = true;
+      _regenerationCount++;
+      _analysisStatus =
+          'Generating diverse visual artwork (Attempt #$_regenerationCount)...';
+    });
+
+    try {
+      final artResult = await _geminiService.regenerateHookPosterArt(
+        headline: _headlineController.text.trim().isNotEmpty
+            ? _headlineController.text.trim()
+            : _generatedItem!.adaptedHeadline,
+        userContext: _contextController.text.trim().isNotEmpty
+            ? _contextController.text.trim()
+            : _generatedItem!.userContext,
+        hookCues: _hookCuesController.text.trim().isNotEmpty
+            ? _hookCuesController.text.trim()
+            : _generatedItem!.hookCues,
+        targetAudience: _targetAudience,
+        tone: _selectedTone,
+        iteration: _regenerationCount,
+        currentStyle: _currentStyle,
+      );
+
+      final Uint8List? newArtBytes = artResult['bytes'] as Uint8List?;
+      final String? newPrompt = artResult['prompt'] as String?;
+      final PosterStyleType? nextStyle = artResult['suggestedStyle'] as PosterStyleType?;
+
+      if (newArtBytes != null) {
+        final b64 = base64Encode(newArtBytes);
+        final itemId = _generatedItem!.id;
+        final savedPath = await _shareService.savePosterToFile(newArtBytes, itemId);
+
+        if (mounted) {
+          setState(() {
+            _generatedItem = _generatedItem!.copyWith(
+              illustrationBase64: b64,
+              renderedPosterPath: savedPath,
+              illustrationPrompt: newPrompt ?? _generatedItem!.illustrationPrompt,
+              posterStyle: nextStyle ?? _generatedItem!.posterStyle,
+            );
+            if (nextStyle != null) {
+              _currentStyle = nextStyle;
+            }
+            _isAnalyzing = false;
+          });
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('🎨 Fresh Curated Hook Poster artwork generated!'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _isAnalyzing = false;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('⚠️ Could not generate alternate artwork right now. Please try again.'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isAnalyzing = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Art generation error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  void _showRegenerationOptionsSheet() {
+    if (_isAnalyzing) return;
+    final isCarousel = _selectedPostFormat == 'carousel_trio';
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.withValues(alpha: 0.4),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primaryContainer,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(
+                        Icons.auto_awesome,
+                        size: 20,
+                        color: Theme.of(context).colorScheme.onPrimaryContainer,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'What would you like to re-generate?',
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                          ),
+                          Text(
+                            'Select which part of your curation to refresh',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                _buildRegenChoiceCard(
+                  context: ctx,
+                  icon: Icons.palette_rounded,
+                  iconColor: Colors.deepPurple,
+                  title: isCarousel ? 'Hook Poster Artwork (Slide 1)' : 'Poster Visual Artwork',
+                  description:
+                      'Generates a new conceptual visual considering your curated angle while keeping current headline & text intact.',
+                  badge: 'Visual Only',
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _regenerateHookPosterOnly();
+                  },
+                ),
+                const SizedBox(height: 10),
+                _buildRegenChoiceCard(
+                  context: ctx,
+                  icon: Icons.edit_note_rounded,
+                  iconColor: Colors.blueAccent,
+                  title: isCarousel ? 'Headline & Editorial Copy' : 'Headline & Summary Copy',
+                  description:
+                      'Re-crafts the adapted headline, hook, and curated takes while preserving the current artwork.',
+                  badge: 'Copy Only',
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _runAnalysis(target: RegenerationTarget.headlineAndHook);
+                  },
+                ),
+                const SizedBox(height: 10),
+                _buildRegenChoiceCard(
+                  context: ctx,
+                  icon: Icons.refresh_rounded,
+                  iconColor: Colors.amber.shade800,
+                  title: isCarousel ? 'Entire Carousel Trio' : 'Entire Poster & Synthesis',
+                  description:
+                      'Re-analyzes and regenerates fresh visuals, a new headline, and all takes from scratch.',
+                  badge: 'Full Refresh',
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _runAnalysis(target: RegenerationTarget.all);
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildRegenChoiceCard({
+    required BuildContext context,
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String description,
+    required String badge,
+    required VoidCallback onTap,
+  }) {
+    final theme = Theme.of(context);
+    return Material(
+      color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 2),
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: iconColor.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, size: 18, color: iconColor),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            title,
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: iconColor.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            badge,
+                            style: TextStyle(
+                              color: iconColor,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      description,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        fontSize: 11.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 6),
+              const Icon(Icons.chevron_right, size: 18, color: Colors.grey),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   void _syncEditedFields() {
@@ -1137,7 +1434,11 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
 
                   // Generate Button
                   FilledButton.icon(
-                    onPressed: _runAnalysis,
+                    onPressed: _isAnalyzing
+                        ? null
+                        : (_generatedItem != null
+                            ? _showRegenerationOptionsSheet
+                            : _runAnalysis),
                     icon: Icon(_selectedPostFormat == 'carousel_trio' ? Icons.view_carousel_rounded : Icons.auto_awesome),
                     label: Text(
                       _generatedItem == null
@@ -2574,7 +2875,7 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
                 ),
               ),
               OutlinedButton.icon(
-                onPressed: _isAnalyzing ? null : _runAnalysis,
+                onPressed: _isAnalyzing ? null : _showRegenerationOptionsSheet,
                 icon: const Icon(Icons.autorenew_rounded, size: 16),
                 label: const Text('Try Another', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                 style: OutlinedButton.styleFrom(
@@ -2596,6 +2897,9 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
             item: _generatedItem!,
             config: PosterStyleConfig.getPreset(_currentStyle),
             showShareActions: true,
+            onRegeneratePosterArt: _regenerateHookPosterOnly,
+            onRegenerateHeadline: () => _runAnalysis(target: RegenerationTarget.headlineAndHook),
+            onRegenerateAll: () => _runAnalysis(target: RegenerationTarget.all),
           ),
 
           const SizedBox(height: 12),
@@ -2648,7 +2952,7 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
               ),
             ),
             OutlinedButton.icon(
-              onPressed: _isAnalyzing ? null : _runAnalysis,
+              onPressed: _isAnalyzing ? null : _showRegenerationOptionsSheet,
               icon: const Icon(Icons.autorenew_rounded, size: 16),
               label: const Text('Try Another', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
               style: OutlinedButton.styleFrom(
@@ -2748,6 +3052,13 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
               decoration: InputDecoration(
                 labelText: isCarousel ? 'Slide 1: Poster Headline' : 'Adapted Headline',
                 prefixIcon: const Icon(Icons.title),
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.auto_awesome, color: Colors.blueAccent, size: 20),
+                  tooltip: 'Re-craft Headline & Hook with AI',
+                  onPressed: _isAnalyzing
+                      ? null
+                      : () => _runAnalysis(target: RegenerationTarget.headlineAndHook),
+                ),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 filled: true,
                 fillColor: theme.colorScheme.surface,

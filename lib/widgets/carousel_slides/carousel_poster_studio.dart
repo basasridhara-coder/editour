@@ -11,12 +11,18 @@ class CarouselPosterStudio extends StatefulWidget {
   final PostCardItem item;
   final PosterStyleConfig? config;
   final bool showShareActions;
+  final VoidCallback? onRegeneratePosterArt;
+  final VoidCallback? onRegenerateHeadline;
+  final VoidCallback? onRegenerateAll;
 
   const CarouselPosterStudio({
     super.key,
     required this.item,
     this.config,
     this.showShareActions = true,
+    this.onRegeneratePosterArt,
+    this.onRegenerateHeadline,
+    this.onRegenerateAll,
   });
 
   @override
@@ -254,6 +260,67 @@ class _CarouselPosterStudioState extends State<CarouselPosterStudio> {
                 _buildSlideTab(2, '03 Paper Excerpts', Icons.newspaper_rounded),
               ],
             ),
+
+            // Specific Re-generation Quick Bar (Hook Art vs Headline Copy)
+            if (widget.onRegeneratePosterArt != null || widget.onRegenerateHeadline != null) ...[
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E293B).withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+                ),
+                child: Row(
+                  children: [
+                    if (widget.onRegeneratePosterArt != null)
+                      Expanded(
+                        child: TextButton.icon(
+                          onPressed: widget.onRegeneratePosterArt,
+                          icon: const Icon(Icons.palette_outlined, size: 15, color: Color(0xFF38BDF8)),
+                          label: const Text(
+                            'Re-roll Hook Art',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF38BDF8),
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 6),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        ),
+                      ),
+                    if (widget.onRegeneratePosterArt != null && widget.onRegenerateHeadline != null)
+                      Container(width: 1, height: 18, color: Colors.white24, margin: const EdgeInsets.symmetric(horizontal: 4)),
+                    if (widget.onRegenerateHeadline != null)
+                      Expanded(
+                        child: TextButton.icon(
+                          onPressed: widget.onRegenerateHeadline,
+                          icon: const Icon(Icons.edit_note_rounded, size: 16, color: Color(0xFFA855F7)),
+                          label: const Text(
+                            'Re-craft Headline',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFFA855F7),
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 6),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
 
             if (widget.showShareActions) ...[
               const SizedBox(height: 16),
