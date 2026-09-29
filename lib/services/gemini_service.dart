@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../models/poster_style_config.dart';
@@ -1300,7 +1301,7 @@ Return ONLY a valid JSON object matching this schema:
 
 
 
-  /// Generates visual AI illustration using Google Imagen 3, Gemini multimodal, and AI generative fallback
+  /// Generates visual AI illustration using Google Gemini Image Models, multimodal generation, and high-definition fallback
   Future<Uint8List?> generatePosterIllustration({
     String? apiKey,
     required String prompt,
@@ -1310,37 +1311,50 @@ Return ONLY a valid JSON object matching this schema:
     final cleanPrompt = prompt.trim();
     if (cleanPrompt.isEmpty) return null;
 
+    final effectiveApiKey = (apiKey != null && apiKey.trim().isNotEmpty)
+        ? apiKey.trim()
+        : await _storageService.getApiKey();
+
     final stylePrefixes = [
       "Modern cinematic editorial artwork illustration, 4:5 vertical poster format, volumetric rim lighting, high aesthetic, vivid color grading, bold visual metaphor, no text, no letters",
       "Bold pop-graphic vector art, 4:5 vertical poster format, high dynamic contrast, striking visual metaphor, ultra-clean silhouettes, vibrant palette, no text, no letters",
       "Surrealist editorial oil painting masterpiece, 4:5 vertical poster format, richly textured canvas, dramatic chiaroscuro lighting, powerful symbolic centerpiece, no text, no letters",
       "Neo-cyber geometric editorial illustration, 4:5 vertical poster format, futuristic depth, glowing isometric contours, deep dark background with neon accents, no text, no letters",
+      "Bauhaus modernist conceptual graphic art, 4:5 vertical poster format, asymmetrical balance, bold geometric shapes, expressive color blocking, no text, no letters",
+      "Expressive textured impasto palette-knife painting, 4:5 vertical poster format, rich oil impasto, museum gallery masterpiece, no text, no letters",
       "Dramatic cinematic documentary photography, 4:5 vertical poster format, evocative storytelling composition, atmospheric natural lighting, award-winning visual journalism, no text, no letters",
-      "Vibrant silkscreen screenprint poster, 4:5 vertical poster format, dynamic graphic duotone and tritone textures, iconic conceptual visual, no text, no letters",
+      "Handcrafted risograph screenprint poster, 4:5 vertical poster format, tactile halftone textures, iconic conceptual visual, no text, no letters",
     ];
     final selectedStylePrefix = stylePrefixes[styleIndex % stylePrefixes.length];
     final effectiveSeed = (seed != 0 ? seed.abs() : (DateTime.now().millisecondsSinceEpoch + styleIndex * 7919).abs()) % 1000000;
 
-    if (apiKey != null && apiKey.trim().isNotEmpty) {
-      // 1. Google Imagen 3 models via official predict endpoint
-      const imagenModels = ['imagen-3.0-generate-002', 'imagen-3.0-generate-001'];
-      for (final model in imagenModels) {
+    if (effectiveApiKey != null && effectiveApiKey.isNotEmpty) {
+      // 1. Google Gemini Multimodal Image Generation Models (Fast, reliable 4:5 vertical poster generation)
+      const geminiImageModels = [
+        'gemini-2.5-flash-image',
+        'gemini-3.1-flash-lite-image',
+        'gemini-3.1-flash-image',
+        'gemini-3-pro-image',
+      ];
+      for (final model in geminiImageModels) {
         try {
-          debugPrint('Generating artwork with Imagen 3 model: $model (style variant: $styleIndex)');
+          debugPrint('🎨 Generating artwork with Gemini Image model: $model (style variant: $styleIndex, seed: $effectiveSeed)');
           final uri = Uri.parse(
-            'https://generativelanguage.googleapis.com/v1beta/models/$model:predict?key=$apiKey',
+            'https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$effectiveApiKey',
           );
 
           final requestBody = {
-            "instances": [
+            "contents": [
               {
-                "prompt": "$selectedStylePrefix: $cleanPrompt",
+                "parts": [
+                  {
+                    "text": "$selectedStylePrefix: $cleanPrompt. Visual editorial concept art poster, vertical 4:5 format, strictly no text, no words, no letters, no typography, high artistic aesthetic."
+                  }
+                ]
               }
             ],
-            "parameters": {
-              "sampleCount": 1,
-              "aspectRatio": "4:5",
-              "outputMimeType": "image/jpeg",
+            "generationConfig": {
+              "responseModalities": ["IMAGE"],
             }
           };
 
@@ -1349,121 +1363,36 @@ Return ONLY a valid JSON object matching this schema:
                 uri,
                 headers: {
                   'Content-Type': 'application/json',
-                  'x-goog-api-key': apiKey,
+                  'x-goog-api-key': effectiveApiKey,
                 },
                 body: json.encode(requestBody),
               )
-              .timeout(const Duration(seconds: 35));
+              .timeout(const Duration(seconds: 25));
 
           if (response.statusCode == 200) {
             final data = json.decode(response.body);
-            final predictions = data['predictions'] as List?;
-            if (predictions != null && predictions.isNotEmpty) {
-              final b64 = predictions[0]['bytesBase64Encoded'] as String?;
-              if (b64 != null && b64.isNotEmpty) {
-                debugPrint('Successfully generated illustration with Imagen 3 ($model)!');
-                return base64Decode(b64);
-              }
-            }
-          } else {
-            debugPrint('Imagen 3 $model returned ${response.statusCode}: ${response.body}');
-          }
-        } catch (e) {
-          debugPrint('Imagen 3 $model exception: $e');
-        }
-      }
-
-      // 2. Multimodal image generation fallback with gemini-2.0-flash-exp
-      try {
-        debugPrint('Attempting multimodal image fallback with gemini-2.0-flash-exp (style variant: $styleIndex)');
-        final uri = Uri.parse(
-          'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=$apiKey',
-        );
-        final requestBody = {
-          "contents": [
-            {
-              "parts": [
-                {
-                  "text": "Generate a poster artwork with 4:5 vertical aspect ratio and NO text: $selectedStylePrefix: $cleanPrompt"
-                }
-              ]
-            }
-          ],
-          "generationConfig": {
-            "responseModalities": ["IMAGE"],
-            "temperature": 0.85,
-          }
-        };
-        final response = await http.post(
-          uri,
-          headers: {
-            'Content-Type': 'application/json',
-            'x-goog-api-key': apiKey,
-          },
-          body: json.encode(requestBody),
-        ).timeout(const Duration(seconds: 25));
-
-        if (response.statusCode == 200) {
-          final data = json.decode(response.body);
-          final candidates = data['candidates'] as List?;
-          if (candidates != null && candidates.isNotEmpty) {
-            final parts = candidates[0]['content']?['parts'] as List?;
-            if (parts != null) {
-              for (final p in parts) {
-                if (p is Map && p.containsKey('inlineData')) {
-                  final b64 = p['inlineData']?['data'] as String?;
-                  if (b64 != null && b64.isNotEmpty) {
-                    debugPrint('Successfully generated illustration with gemini-2.0-flash-exp!');
-                    return base64Decode(b64);
+            final candidates = data['candidates'] as List?;
+            if (candidates != null && candidates.isNotEmpty) {
+              final parts = candidates[0]['content']?['parts'] as List?;
+              if (parts != null) {
+                for (final p in parts) {
+                  if (p is Map && p.containsKey('inlineData')) {
+                    final b64 = p['inlineData']?['data'] as String?;
+                    if (b64 != null && b64.isNotEmpty) {
+                      debugPrint('✅ Successfully generated illustration with $model!');
+                      return base64Decode(b64);
+                    }
                   }
                 }
               }
             }
+          } else {
+            debugPrint('Gemini Image $model returned ${response.statusCode}: ${response.body}');
           }
+        } catch (e) {
+          debugPrint('Gemini Image $model exception: $e');
         }
-      } catch (e) {
-        debugPrint('Multimodal image fallback error: $e');
       }
-    }
-
-    // 3. Reliable high-definition AI generative fallback via Pollinations AI
-    try {
-      debugPrint('Attempting high-definition AI generative fallback via Pollinations (seed: $effectiveSeed, style: $styleIndex)...');
-      final encodedPrompt = Uri.encodeComponent(
-        '$selectedStylePrefix: $cleanPrompt',
-      );
-      final pollUri = Uri.parse(
-        'https://image.pollinations.ai/prompt/$encodedPrompt?width=720&height=900&nologo=true&seed=$effectiveSeed',
-      );
-      final pollResponse = await http.get(pollUri).timeout(const Duration(seconds: 12));
-      if (pollResponse.statusCode == 200 && pollResponse.bodyBytes.length > 5000) {
-        debugPrint('Successfully generated illustration via AI generative fallback (${pollResponse.bodyBytes.length} bytes, seed: $effectiveSeed)!');
-        return pollResponse.bodyBytes;
-      }
-    } catch (e) {
-      debugPrint('AI generative fallback exception: $e');
-    }
-
-    // 4. Reliable high-resolution Curated Editorial Concept Artwork fallback via Picsum
-    try {
-      final words = cleanPrompt
-          .replaceAll(RegExp(r'[^a-zA-Z0-9\s]'), '')
-          .split(RegExp(r'\s+'))
-          .where((w) => w.length >= 3 && !['with', 'from', 'that', 'this', 'into'].contains(w.toLowerCase()))
-          .take(3)
-          .join('_');
-      final seedSlug = words.isNotEmpty
-          ? '${words.toLowerCase()}_v$effectiveSeed'
-          : 'editorial_poster_$effectiveSeed';
-      debugPrint('Fetching high-resolution curated editorial artwork via Picsum (seed: $seedSlug)...');
-      final picsumUri = Uri.parse('https://picsum.photos/seed/$seedSlug/720/900');
-      final picsumResp = await http.get(picsumUri).timeout(const Duration(seconds: 10));
-      if (picsumResp.statusCode == 200 && picsumResp.bodyBytes.length > 5000) {
-        debugPrint('Successfully retrieved curated editorial artwork (${picsumResp.bodyBytes.length} bytes)!');
-        return picsumResp.bodyBytes;
-      }
-    } catch (e) {
-      debugPrint('Curated editorial art fallback exception: $e');
     }
 
     return null;
@@ -1481,34 +1410,30 @@ Return ONLY a valid JSON object matching this schema:
     int iteration = 0,
     PosterStyleType? currentStyle,
   }) async {
-    final cueText = (hookCues != null && hookCues.trim().isNotEmpty) ? hookCues.trim() : null;
-    final contextText = (userContext != null && userContext.trim().isNotEmpty) ? userContext.trim() : null;
+    final effectiveApiKey = (apiKey != null && apiKey.trim().isNotEmpty)
+        ? apiKey.trim()
+        : await _storageService.getApiKey();
 
+    final cue = (hookCues != null && hookCues.trim().isNotEmpty) ? hookCues.trim() : null;
+    final context = (userContext != null && userContext.trim().isNotEmpty) ? userContext.trim() : null;
+    final subject = cue ?? (context != null ? '$context, $headline' : headline);
+
+    // 8 radically distinct creative directions so re-rolling is highly dynamic and never repetitive
     final distinctMetaphors = [
-      cueText != null
-          ? '$cueText, dynamic dramatic perspective, vibrant cinematic lighting, concept art'
-          : (contextText != null
-              ? '$contextText, conceptual visual metaphor, dramatic tension'
-              : '$headline, powerful narrative imagery, high aesthetic'),
-      cueText != null
-          ? 'Symbolic centerpiece of $cueText, bold pop-graphic contrast, striking composition'
-          : (contextText != null
-              ? 'Unexamined facet of $contextText, vibrant silhouettes, editorial masterpiece'
-              : 'Future vantage point on $headline, cinematic volumetric lighting'),
-      cueText != null
-          ? 'Surrealist artistic embodiment of $cueText, rich painterly textures, atmospheric gallery art'
-          : (contextText != null
-              ? 'Core dilemma behind $contextText, dramatic chiaroscuro, fine art'
-              : 'Turning point of $headline, high-contrast expressive artwork'),
-      cueText != null
-          ? 'Futuristic neon isometric interpretation of $cueText, deep dark architectural perspective'
-          : (contextText != null
-              ? 'Structural shifts in $contextText, neo-cyber geometric depth'
-              : 'Investigative lens on $headline, modern editorial illustration'),
+      'Cinematic 35mm wide-angle visual concept: $subject. Volumetric golden hour side-lighting, deep shadow contrast, award-winning visual journalism, atmospheric editorial fine art',
+      'Surrealist conceptual dreamscape: $subject. Symbolic architectural fragments suspended in space, painterly canvas textures, René Magritte and Salvador Dalí editorial fine art',
+      'Striking minimalist pop-graphic art: $subject. Bold geometric silhouettes, high-contrast duotone palette, iconic graphic emblem, modern editorial graphic design',
+      'Futuristic isometric perspective: $subject. Deep dark obsidian textures, luminous neon accents, translucent holographic data layers, architectural precision',
+      'Bauhaus modernist editorial composition: $subject. Asymmetrical graphic balance, rich matte color blocking, diagonal tension lines, avant-garde poster aesthetic',
+      'Textured impasto palette-knife oil painting: $subject. Rich buttery brushstrokes, dramatic chiaroscuro highlights, visceral emotional depth, contemporary museum gallery artwork',
+      'Evocative atmospheric visual journalism: $subject. Deep depth of field, dramatic moody haze, single beam of light piercing through darkness, powerful storytelling frame',
+      'Handcrafted risograph print: $subject. Subtle tactile grain, overlaid analog color separations, classic newspaper editorial woodcut lithography, evocative timeless art',
     ];
 
-    final selectedMetaphor = distinctMetaphors[iteration % distinctMetaphors.length];
-    final seed = (DateTime.now().millisecondsSinceEpoch + iteration * 9743).abs() % 1000000;
+    // Guarantee that consecutive re-rolls never repeat the same metaphor
+    final styleIndex = (iteration + Random().nextInt(100)) % distinctMetaphors.length;
+    final selectedMetaphor = distinctMetaphors[styleIndex];
+    final seed = (DateTime.now().millisecondsSinceEpoch + iteration * 9743 + Random().nextInt(9999)).abs() % 1000000;
 
     // Cycle through vibrant poster styles so the accent color and typography shift too
     final availableStyles = [
@@ -1520,10 +1445,10 @@ Return ONLY a valid JSON object matching this schema:
     final nextStyle = availableStyles[(iteration + 1) % availableStyles.length];
 
     final bytes = await generatePosterIllustration(
-      apiKey: apiKey,
+      apiKey: effectiveApiKey,
       prompt: selectedMetaphor,
       seed: seed,
-      styleIndex: iteration,
+      styleIndex: styleIndex,
     );
 
     return {

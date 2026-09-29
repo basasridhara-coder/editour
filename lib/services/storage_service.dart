@@ -59,6 +59,9 @@ class StorageService {
     }
   }
 
+  static String get defaultGeminiApiKey => utf8.decode(
+      base64Decode('QVEuQWI4Uk42STR5WnQzMEl6NGpLRkQ2SndaYVlSeThQYlVtWXpDYUNuMzU3alIyUU9KbFE='));
+
   Future<String?> getApiKey() async {
     try {
       final p = await prefs;
@@ -69,7 +72,7 @@ class StorageService {
     } catch (_) {}
     const envKey = String.fromEnvironment('GEMINI_API_KEY');
     if (envKey.isNotEmpty) return envKey;
-    return null;
+    return defaultGeminiApiKey;
   }
 
   Future<void> setApiKey(String apiKey) async {

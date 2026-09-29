@@ -899,14 +899,18 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
         final itemId = _generatedItem!.id;
         final savedPath = await _shareService.savePosterToFile(newArtBytes, itemId);
 
+        final updatedItem = _generatedItem!.copyWith(
+          illustrationBase64: b64,
+          renderedPosterPath: savedPath,
+          illustrationPrompt: newPrompt ?? _generatedItem!.illustrationPrompt,
+          posterStyle: nextStyle ?? _generatedItem!.posterStyle,
+        );
+        await _storageService.savePostCard(updatedItem);
+        EditourCloudService().publishPost(updatedItem);
+
         if (mounted) {
           setState(() {
-            _generatedItem = _generatedItem!.copyWith(
-              illustrationBase64: b64,
-              renderedPosterPath: savedPath,
-              illustrationPrompt: newPrompt ?? _generatedItem!.illustrationPrompt,
-              posterStyle: nextStyle ?? _generatedItem!.posterStyle,
-            );
+            _generatedItem = updatedItem;
             if (nextStyle != null) {
               _currentStyle = nextStyle;
             }
@@ -915,7 +919,7 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
 
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('🎨 Fresh Curated Hook Poster artwork generated!'),
+              content: Text('🎨 Fresh Curated Hook Poster artwork generated & saved!'),
               backgroundColor: Colors.green,
               duration: Duration(seconds: 3),
             ),
