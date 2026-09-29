@@ -932,6 +932,36 @@ header {
   text-transform: uppercase;
 }
 
+.slide-context-anchor {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 6px;
+  padding: 4px 8px;
+  max-width: 95%;
+  margin-bottom: 2px;
+}
+
+.anchor-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #6366F1;
+  flex-shrink: 0;
+}
+
+.anchor-text {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.95);
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .slide-hook-headline {
   font-family: 'Space Grotesk', 'Inter', sans-serif;
   font-size: 19px;

@@ -26,13 +26,23 @@ class SlideCritiquePoster extends StatelessWidget {
             ? item.whyItMatters!
             : item.hook);
 
-    final pullQuote = (item.pullQuote != null && item.pullQuote!.trim().isNotEmpty)
-        ? item.pullQuote!
-        : (item.keyTakeaways.isNotEmpty ? item.keyTakeaways.first : 'A structural shift the mainstream missed.');
+    final pullQuote = (item.receiptHighlightQuote != null && item.receiptHighlightQuote!.trim().isNotEmpty)
+        ? item.receiptHighlightQuote!.trim()
+        : ((item.pullQuote != null && item.pullQuote!.trim().isNotEmpty)
+            ? item.pullQuote!.trim()
+            : (item.keyTakeaways.length > 1
+                ? item.keyTakeaways[1]
+                : (item.keyTakeaways.isNotEmpty ? item.keyTakeaways.first : 'A structural shift the mainstream missed.')));
 
     final rationaleText = (item.whyItMatters != null && item.whyItMatters!.trim().isNotEmpty && item.whyItMatters != opinionText)
         ? item.whyItMatters!
         : '';
+
+    final String slideTitle = (item.keyTakeaways.isNotEmpty &&
+            item.keyTakeaways.first.trim().split(' ').length <= 12 &&
+            !item.keyTakeaways.first.toLowerCase().contains('http'))
+        ? item.keyTakeaways.first.trim().toUpperCase()
+        : 'THE CRITICAL PERSPECTIVE';
 
     // Dynamic responsive font sizing based on opinion text length so statements complete without truncation
     final double opinionSize = opinionText.length > 220
@@ -180,13 +190,17 @@ class SlideCritiquePoster extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 6),
-                        const Text(
-                          'THE CRITICAL PERSPECTIVE',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w800,
-                            color: Color(0xFFF59E0B),
-                            letterSpacing: 1.1,
+                        Expanded(
+                          child: Text(
+                            slideTitle,
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFFF59E0B),
+                              letterSpacing: 1.1,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
@@ -216,19 +230,38 @@ class SlideCritiquePoster extends StatelessWidget {
                     if (rationaleText.isNotEmpty) ...[
                       const SizedBox(height: 8),
                       // Paragraph 2: Contextual Why It Matters (Complete Statement)
-                      Text(
-                        rationaleText,
-                        style: const TextStyle(
-                          fontSize: 12.0,
-                          fontWeight: FontWeight.w400,
-                          color: Color(0xFFCBD5E1),
-                          height: 1.38,
-                          fontStyle: FontStyle.italic,
-                          shadows: [
-                            Shadow(
-                              color: Colors.black87,
-                              blurRadius: 6,
-                              offset: Offset(0, 1),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF59E0B).withValues(alpha: 0.10),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: const Color(0xFFF59E0B).withValues(alpha: 0.35),
+                            width: 0.8,
+                          ),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'WHY IT MATTERS: ',
+                              style: TextStyle(
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFFF59E0B),
+                                letterSpacing: 0.6,
+                              ),
+                            ),
+                            Expanded(
+                              child: Text(
+                                rationaleText,
+                                style: const TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFFE2E8F0),
+                                  height: 1.3,
+                                ),
+                              ),
                             ),
                           ],
                         ),

@@ -23,6 +23,16 @@ class SlideHookPoster extends StatelessWidget {
     final category = item.categoryBadge.isNotEmpty ? item.categoryBadge.toUpperCase() : 'EDITORIAL';
     final handle = item.creatorHandle ?? '@curator';
 
+    String displayCategory = category;
+    String displayPub = pubName;
+    if (category.contains('•')) {
+      final parts = category.split('•');
+      displayCategory = parts[0].trim();
+      if (parts.length > 1 && parts[1].trim().isNotEmpty) {
+        displayPub = parts[1].trim();
+      }
+    }
+
     // Dynamic responsive font sizing for the bold display headline
     final double headlineSize = headline.length > 80
         ? 21.0
@@ -112,7 +122,7 @@ class SlideHookPoster extends StatelessWidget {
                           ),
                           const SizedBox(width: 6),
                           Text(
-                            category,
+                            displayCategory,
                             style: TextStyle(
                               fontSize: 9.5,
                               fontWeight: FontWeight.w800,
@@ -122,7 +132,7 @@ class SlideHookPoster extends StatelessWidget {
                           ),
                           const SizedBox(width: 6),
                           Text(
-                            '•  $pubName',
+                            '•  $displayPub',
                             style: const TextStyle(
                               fontSize: 9.5,
                               fontWeight: FontWeight.w700,
@@ -155,8 +165,7 @@ class SlideHookPoster extends StatelessWidget {
                 ),
               ),
 
-              // 4. Lower Content Section: Bold Headline Only (No sub-hook)
-              // Anchored cleanly at the bottom without covering the visual art subject
+              // 4. Lower Content Section: Context Anchor (The Fact) + Bold Headline (The Angle)
               Positioned(
                 bottom: 16,
                 left: 18,
@@ -165,7 +174,51 @@ class SlideHookPoster extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Massive, Punchy Display Headline
+                    // Context Anchor (The Fact): Crisp real-world event naming who/what happened
+                    if (item.hook.trim().isNotEmpty && item.hook.trim() != headline.trim()) ...[
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.60),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.18),
+                            width: 0.8,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 5,
+                              height: 5,
+                              decoration: BoxDecoration(
+                                color: config.primaryColor,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                item.hook.trim(),
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white.withValues(alpha: 0.95),
+                                  height: 1.25,
+                                  letterSpacing: 0.1,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+
+                    // Massive, Punchy Display Headline (The Angle)
                     Text(
                       headline,
                       style: TextStyle(

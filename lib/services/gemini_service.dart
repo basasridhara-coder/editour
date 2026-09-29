@@ -32,6 +32,7 @@ class GeminiAnalysisResult {
   final String? rawGeminiResponse;
   final String? receiptHighlightQuote;
   final List<String> articleExcerpts;
+  final String? creatorOpinion;
 
   GeminiAnalysisResult({
     required this.originalHeadline,
@@ -50,6 +51,7 @@ class GeminiAnalysisResult {
     this.generatedIllustrationBytes,
     this.curatorIllustrationPrompt,
     this.generatedCuratorIllustrationBytes,
+    this.creatorOpinion,
     this.visualArtRatio = 0.6,
     this.infographicType,
     this.infographicStats = const [],
@@ -460,6 +462,285 @@ Return JSON:
     );
   }
 
+  /// Builds the Elite Editorial "Fact vs. Angle" prompt for Gemini
+  String _buildEditorialPrompt({
+    required String sourceDescription,
+    required String targetAudience,
+    required String tone,
+    String? userContext,
+    String? hookCues,
+    PostCardItem? existingItem,
+    int regenerationIteration = 0,
+    required int artPct,
+    required int textPct,
+  }) {
+    return '''
+You are an elite editorial director and visual design curator for a high-signal social publication studio.
+
+Your task is to take:
+1. Source Content (article text, OCR capture from newsprint, or digital link excerpt):
+$sourceDescription
+
+2. Curator's Unhedged Take:
+${userContext != null && userContext.trim().isNotEmpty ? '"${userContext.trim()}"\nRepresent and amplify this exact unhedged stance without diluting, softening, or balancing it.' : 'Distill the most provocative, high-signal angle for the audience.'}
+
+3. Target Audience: "$targetAudience" (Tone: "$tone")
+
+And transform them into a cohesive, structured 3-Slide Social Poster Series (4:5 vertical portrait format, 1080x1350) following the "Fact vs. Angle" architecture.
+
+EDITORIAL & COPYWRITING GUARDRAILS:
+
+SLIDE 1 ARCHITECTURE ("FACT VS. ANGLE"):
+- TOP PILL BADGE: Must contain the specific topic/entity and source publication.
+  Format: "[SPECIFIC TOPIC/ENTITY] • [SOURCE NAME]"
+  (e.g., "ECI ROW • Hindustan Times", NOT "SYSTEM GOVERNANCE • Hindustan Times").
+- CONTEXT ANCHOR (The Fact): Exactly 1 crisp sentence (≤ 14 words) establishing the real-world event, naming the primary person, organization, or action directly.
+- MAIN HOOK (The Angle): 1 punchy, provocative headline (≤ 10 words) that injects the Curator's unhedged critique, stance, or thesis on that event.
+- FOOTER HINT: "SWIPE FOR TAKE →"
+- IMAGE PROMPT:
+  Dramatic editorial hero art, visual metaphor, or symbolic iconography embodying the conflict or theme.
+  STRICT NEGATIVE CONSTRAINT: Absolutely NO text, NO typography, NO alphabets, NO labels, NO words, NO letters. Clean negative space in the bottom 35% to allow overlaid typography.
+
+SLIDE 2 ARCHITECTURE ("CURATOR'S TAKE"):
+- SLIDE TITLE: "[THE CORE VERDICT / THESIS]" (≤ 8 words)
+- CURATOR OPINION BODY: The distilled unhedged take translated specifically for "$targetAudience". High signal, sharp tone, zero corporate fluff, zero hedging. Length: 35–50 words (tight, readable in 8 seconds).
+- "WHY IT MATTERS" CALLOUT: 1 punchy takeaway line (≤ 15 words) framing the practical implication or stakes for the reader.
+
+SLIDE 3 ARCHITECTURE ("THE RECEIPT / SOURCE PROOF"):
+- MASTHEAD: Source Publication Name (e.g., "The Economist", "Hindustan Times", "Bloomberg") + Volume / Date / Edition.
+- ORIGINAL ARTICLE HEADLINE: Verbatim or clean journalistic headline from source.
+- VERBATIM HIGHLIGHT QUOTE: The single most damning, revealing, or pivotal sentence/phrase from the source text (highlighted in a distinct quote callout).
+- SURROUNDING CONTEXT: 1–2 authentic sentences from the source providing surrounding context.
+- FOOTER: "VERIFIED SOURCE EVIDENCE • READ FULL ARTICLE"
+
+STRICT JARGON BAN:
+- NEVER use pseudo-intellectual buzzwords like:
+  "epistemic paradigms", "systemic vectors", "ontological", "vectoring", "institutional ossification", "paradigmatic", "structural dialectic", "legacy operators".
+- Write like an elite investigative journalist or senior editor (clear, potent, direct, intelligent, accessible).
+
+${hookCues != null && hookCues.trim().isNotEmpty ? '''
+CURATOR'S SPECIFIC VISUAL & CONCEPTUAL CUES:
+"${hookCues.trim()}"
+Directly incorporate these cues into the hook headline and visual image prompt.
+''' : ''}
+
+${(existingItem != null || regenerationIteration > 0) ? '''
+🔄 REGENERATION DIRECTIVE (Attempt #${regenerationIteration + 1}):
+MANDATORY: DO NOT repeat previous headline ("${existingItem?.adaptedHeadline ?? ''}"), previous hook ("${existingItem?.hook ?? ''}"), or previous visual metaphor.
+Explore a fresh unexamined facet or deeper implication while fiercely preserving the curator's stance.
+''' : ''}
+
+JSON OUTPUT SCHEMA:
+Return ONLY valid JSON matching this exact structure:
+{
+  "editorial_metadata": {
+    "primary_entity": "Specific entity/topic (e.g., 'ECI ROW', 'NVIDIA CHIPS')",
+    "source_outlet": "Source publication name (e.g., 'Hindustan Times', 'Bloomberg')",
+    "theme_palette": {
+      "accent_color": "#HEX",
+      "background_tone": "dark | light | warm_parchment",
+      "style_name": "editorial | modernCyber | boldSocial | minimalist"
+    }
+  },
+  "slide_1_anchor_hook": {
+    "pill_badge": "[SPECIFIC TOPIC/ENTITY] • [SOURCE NAME]",
+    "context_anchor": "Crisp 1-sentence real-world fact naming who/what happened (<= 14 words)",
+    "hook_headline": "Punchy provocative headline delivering Curator's unhedged take (<= 10 words)",
+    "footer_hint": "SWIPE FOR TAKE →",
+    "image_prompt": "Editorial art prompt, visual metaphor, cinematic lighting. Strictly no text, no letters, no words, clean negative space in bottom 35%."
+  },
+  "slide_2_curator_take": {
+    "take_headline": "Core verdict headline (<= 8 words)",
+    "take_body": "Sharp, unhedged perspective for target audience, zero fluff, zero hedging (35-50 words)",
+    "why_it_matters_callout": "Stakes or practical implication (<= 15 words)"
+  },
+  "slide_3_source_proof": {
+    "masthead_title": "Source publication name",
+    "article_headline": "Original print or digital headline",
+    "key_excerpt_highlight": "Most pivotal verbatim sentence from source text",
+    "surrounding_context": "1-2 authentic context sentences from the source article",
+    "publication_date_or_volume": "Date, Edition, or Section (e.g., 'Vol. 182 • City Edition' or 'October 2026')"
+  }
+}
+''';
+  }
+
+  /// Robust Dual-Schema Parser: handles both the new nested "Fact vs. Angle"
+  /// architecture and the legacy flat format seamlessly.
+  static GeminiAnalysisResult _parseAnalysisResult({
+    required Map<String, dynamic> data,
+    required String rawText,
+    required String targetAudience,
+    required String tone,
+    String? userContext,
+    String? fallbackTitle,
+    String? fallbackPub,
+    String? fallbackBody,
+    String? digitalLink,
+    Uint8List? generatedIllustrationBytes,
+    double visualArtRatio = 0.6,
+  }) {
+    final bool isNested = data.containsKey('slide_1_anchor_hook');
+
+    final s1 = isNested && data['slide_1_anchor_hook'] is Map<String, dynamic>
+        ? data['slide_1_anchor_hook'] as Map<String, dynamic>
+        : <String, dynamic>{};
+    final s2 = isNested && data['slide_2_curator_take'] is Map<String, dynamic>
+        ? data['slide_2_curator_take'] as Map<String, dynamic>
+        : <String, dynamic>{};
+    final s3 = isNested && data['slide_3_source_proof'] is Map<String, dynamic>
+        ? data['slide_3_source_proof'] as Map<String, dynamic>
+        : <String, dynamic>{};
+    final meta = isNested && data['editorial_metadata'] is Map<String, dynamic>
+        ? data['editorial_metadata'] as Map<String, dynamic>
+        : <String, dynamic>{};
+    final theme = meta['theme_palette'] is Map<String, dynamic>
+        ? meta['theme_palette'] as Map<String, dynamic>
+        : <String, dynamic>{};
+
+    final pub = meta['source_outlet']?.toString().trim() ??
+        s3['masthead_title']?.toString().trim() ??
+        data['publication_name']?.toString().trim() ??
+        fallbackPub ??
+        'Press Wire';
+
+    String entity = meta['primary_entity']?.toString().trim() ??
+        data['category_badge']?.toString().trim() ??
+        '';
+    if (entity.isEmpty && s1['pill_badge'] != null) {
+      final pill = s1['pill_badge'].toString();
+      if (pill.contains('•')) {
+        entity = pill.split('•').first.trim().replaceAll(RegExp(r'^\[|\]$'), '');
+      } else {
+        entity = pill.replaceAll(RegExp(r'^\[|\]$'), '').trim();
+      }
+    }
+    if (entity.isEmpty) entity = 'EDITORIAL';
+
+    final origHeadline = s3['article_headline']?.toString().trim() ??
+        data['original_headline']?.toString().trim() ??
+        fallbackTitle ??
+        'Original Report';
+
+    final adaptedHeadline = s1['hook_headline']?.toString().trim() ??
+        data['adapted_headline']?.toString().trim() ??
+        origHeadline;
+
+    final contextAnchor = s1['context_anchor']?.toString().trim() ??
+        data['hook']?.toString().trim() ??
+        'Verified real-world event.';
+
+    final takeBody = s2['take_body']?.toString().trim() ??
+        data['creator_opinion']?.toString().trim() ??
+        data['summary']?.toString().trim() ??
+        'The unhedged curator stance.';
+
+    final whyItMatters = s2['why_it_matters_callout']?.toString().trim() ??
+        data['why_it_matters']?.toString().trim();
+
+    final highlightQuote = s3['key_excerpt_highlight']?.toString().trim() ??
+        data['receipt_highlight_quote']?.toString().trim() ??
+        data['pull_quote']?.toString().trim() ??
+        'Pivotal verified source excerpt.';
+
+    List<String> excerpts = [];
+    if (s3['key_excerpt_highlight'] != null && s3['key_excerpt_highlight'].toString().trim().isNotEmpty) {
+      excerpts.add(s3['key_excerpt_highlight'].toString().trim());
+    }
+    if (s3['surrounding_context'] != null && s3['surrounding_context'].toString().trim().isNotEmpty) {
+      excerpts.add(s3['surrounding_context'].toString().trim());
+    }
+    if (excerpts.isEmpty && data['article_excerpts'] is List) {
+      excerpts = (data['article_excerpts'] as List)
+          .map((e) => e.toString().trim())
+          .where((e) => e.isNotEmpty)
+          .take(3)
+          .toList();
+    }
+    if (excerpts.isEmpty && fallbackBody != null && fallbackBody.trim().isNotEmpty) {
+      excerpts = fallbackBody
+          .split(RegExp(r'\n\s*\n'))
+          .map((p) => p.trim())
+          .where((p) => p.length > 25)
+          .take(3)
+          .toList();
+    }
+
+    List<String> takeaways = [];
+    if (s2['take_headline'] != null && s2['take_headline'].toString().trim().isNotEmpty) {
+      takeaways.add(s2['take_headline'].toString().trim());
+    }
+    if (whyItMatters != null && whyItMatters.isNotEmpty && !takeaways.contains(whyItMatters)) {
+      takeaways.add(whyItMatters);
+    }
+    if (data['key_takeaways'] is List) {
+      for (final t in data['key_takeaways'] as List) {
+        final str = t.toString().trim();
+        if (str.isNotEmpty && !takeaways.contains(str)) {
+          takeaways.add(str);
+        }
+      }
+    }
+    if (takeaways.isEmpty) {
+      takeaways.add(adaptedHeadline);
+    }
+
+    PosterStyleType style = PosterStyleType.editorial;
+    final styleStr = (theme['style_name'] ?? data['suggested_style'])?.toString().toLowerCase();
+    if (styleStr == 'moderncyber' || styleStr == 'modern_cyber') {
+      style = PosterStyleType.modernCyber;
+    } else if (styleStr == 'boldsocial' || styleStr == 'bold_social') {
+      style = PosterStyleType.boldSocial;
+    } else if (styleStr == 'minimalist') {
+      style = PosterStyleType.minimalist;
+    }
+
+    final illPrompt = s1['image_prompt']?.toString().trim() ??
+        data['illustration_prompt']?.toString().trim();
+
+    final summaryText = isNested
+        ? '$contextAnchor\n\n$takeBody'.trim()
+        : (data['summary']?.toString() ?? '$contextAnchor\n\n$takeBody'.trim());
+
+    final metric = s3['publication_date_or_volume']?.toString().trim() ??
+        data['key_metric']?.toString().trim() ??
+        'Verified';
+
+    final link = digitalLink ??
+        data['digital_link']?.toString() ??
+        'https://news.google.com/search?q=${Uri.encodeComponent(adaptedHeadline)}';
+
+    return GeminiAnalysisResult(
+      originalHeadline: origHeadline,
+      publicationName: pub,
+      adaptedHeadline: adaptedHeadline,
+      hook: contextAnchor,
+      summary: summaryText,
+      whyItMatters: whyItMatters,
+      keyTakeaways: takeaways,
+      pullQuote: highlightQuote,
+      receiptHighlightQuote: highlightQuote,
+      articleExcerpts: excerpts,
+      keyMetric: metric,
+      categoryBadge: entity.toUpperCase(),
+      digitalLink: link,
+      suggestedStyle: style,
+      illustrationPrompt: illPrompt,
+      generatedIllustrationBytes: generatedIllustrationBytes,
+      curatorIllustrationPrompt: takeBody,
+      creatorOpinion: takeBody,
+      visualArtRatio: visualArtRatio,
+      infographicType: data['infographic_type']?.toString() ?? 'metric_spotlight',
+      infographicStats: (data['infographic_stats'] as List?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [entity, pub, metric],
+      visualMood: data['visual_mood']?.toString() ?? theme['background_tone']?.toString() ?? 'Editorial Fine Art',
+      isDemoMode: false,
+      rawGeminiResponse: rawText,
+    );
+  }
+
   /// Multimodal analysis of physical newspaper / magazine photos
   Future<GeminiAnalysisResult> analyzeAndSummarizeArticle({
     required Uint8List imageBytes,
@@ -497,101 +778,17 @@ Return JSON:
     final int artPct = (visualArtRatio * 100).round();
     final int textPct = 100 - artPct;
 
-    final prompt = '''
-You are the ghostwriter and museum-grade visual poster designer for the CURATOR of PostCard.
-Analyze this photo of a physical newspaper or magazine article in extreme detail.
-
-${userContext != null && userContext.trim().isNotEmpty ? '''
-⚠️ ABSOLUTE DIRECTIVE ON CURATOR OWNERSHIP & TARGET AUDIENCE TRANSLATION:
-CURATOR'S OWNED ANGLE & TARGET AUDIENCE TRANSLATION PROTOCOL:
-- Curator's Owned Stance: "$userContext"
-- Target Audience: "$targetAudience" (Tone: "$tone")
-
-The Curator is NOT asking for a neutral, detached press summary. The Curator is TAKING FULL PERSONAL OWNERSHIP of this post.
-HOW TO TRANSLATE THE CURATOR'S VOICE FOR THIS AUDIENCE:
-1. UNCOMPROMISING CONVICTION: Represent and amplify the Curator's angle—good or bad, critical, contrarian, skeptical, or enthusiastic. DO NOT soften or balance it out with "while some argue" or "on the other hand".
-2. AUDIENCE RESONANCE & MENTAL MODELS: Translate the Curator's stance into the specific stakes, daily realities, and native vocabulary of "$targetAudience". Address what matters to them (risks, rewards, leverage, efficiency, or foundational truths).
-3. ADAPTED HEADLINE: Frame the Curator's thesis so it commands immediate attention from "$targetAudience".
-4. HOOK: A bold opening sentence connecting the Curator's angle directly to "$targetAudience"'s immediate world.
-5. WHY IT MATTERS: A dedicated 2-sentence callout answering: "Why should someone in $targetAudience care about this specific Curator angle right now?"
-''' : '''
-CURATOR'S EDITORIAL GOAL:
-Distill the print story with sharp high-signal takeaways specifically for "$targetAudience" in a "$tone" tone.
-- Frame the headline, hook, and takeaways around what matters to "$targetAudience" and their unique stakes.
-'''}
-
-${hookCues != null && hookCues.trim().isNotEmpty ? '''
-🎨 SPECIFIC HINTS / CUES FOR HOOK POSTER (SLIDE 1):
-- The Curator specifically requested these visual and conceptual cues for the Hook Poster:
-  "$hookCues"
-- Factor these exact hints and cues into "adapted_headline", "hook", and especially "illustration_prompt" so the hero artwork and headline reflect these cues directly!
-''' : ''}
-
-${(existingItem != null || regenerationIteration > 0) ? '''
-🔄 REGENERATION DIRECTIVE (CRITICAL — DO NOT REPEAT PREVIOUS VARIATION):
-The Curator is RE-GENERATING this 3-Poster Carousel (Variation Attempt #${regenerationIteration + 1}).
-${existingItem != null ? '''
-The PREVIOUS poster had:
-- Previous Headline: "${existingItem.adaptedHeadline}"
-- Previous Hook: "${existingItem.hook}"
-- Previous Pull Quote: "${existingItem.pullQuote ?? ''}"
-- Previous Visual Style: "${existingItem.posterStyle.name}"
-- Previous Illustration Metaphor: "${existingItem.illustrationPrompt ?? ''}"
-''' : ''}
-MANDATORY REGENERATION RULES:
-1. NEVER REPEAT: You MUST generate a FRESH, DISTINCT perspective, an alternative bold headline, an inventive new hook, a different prominent quote or excerpt, and an inventive new visual metaphor.
-2. PRESERVE CURATOR ANGLE: Strictly maintain and champion the Curator's owned stance: "${userContext ?? 'Curator Insight'}" and target audience: "$targetAudience", but approach it from an unexamined dimension, contrasting lens, or deeper structural implication.
-3. VARY THE STYLE: Consider suggesting a different compatible visual style (from editorial, modernCyber, boldSocial, minimalist) to give the user a genuinely fresh design option.
-''' : ''}
-
-VISUAL ARTWORK & INFOGRAPHIC RATIO:
-The user selected a visual ratio of $artPct% Picture Art & Infographics and $textPct% Editorial Text.
-- Because $artPct% is dedicated to Visual Art and Infographics:
-  - If $artPct >= 70%: Design a picture-art dominant poster. The visual illustration and infographic data should take primary focus. Keep headlines punchy and bold.
-  - If $artPct between 40% and 69%: Balanced magazine poster layout (50/50 hero art/infographic + structured takeaways).
-  - If $artPct <= 39%: Text-heavy editorial analysis with a visual art header banner and metric badges.
-
-Your task:
-1. Optical Character Recognition (OCR): Read all visible printed headlines, subheadings, bylines, publication name, dates, and column body text.
-2. Audience Adaptation & Curator Voice: Synthesize the story for $targetAudience in the $tone tone, boldly championing the Curator's angle.
-3. ⚡️ STRICT 1-MINUTE READ CONSTRAINT (MANDATORY): The summary MUST be strictly readable in 60 seconds or less. Word count: 100 to 140 words maximum. Do NOT write long, elaborated essays or multi-paragraph dissertations. Cut straight to the core: high signal, zero filler, immediate punch across 1-2 tight paragraphs.
-4. Visual Art & Poster Composition: Design a compelling visual poster layout formatted for high-engagement social feeds (Instagram 4:5 portrait format).
-
-Return ONLY a valid JSON object matching this schema:
-{
-  "original_headline": "The exact original headline detected in the physical print",
-  "publication_name": "The newspaper or magazine name (e.g. The New York Times, Financial Times, The Guardian, Time, or Physical Press)",
-  "adapted_headline": "${userContext != null && userContext.trim().isNotEmpty ? "The Curator's bold headline/verdict championing their angle for $targetAudience" : "A bold, punchy headline rewritten specifically to resonate with $targetAudience"}",
-  "hook": "An irresistible 1-2 sentence hook highlighting the core insight through the Curator's lens",
-  "summary": "STRICT 1-MINUTE READ (maximum 100-140 words total across 1-2 tight, razor-sharp paragraphs). High-voltage, punchy synthesis in the Curator's voice that takes 60 seconds or less to read.",
-  "why_it_matters": "A dedicated 2-sentence explanation of why this story matters specifically to $targetAudience",
-  "key_takeaways": [
-    "Takeaway 1 (strong, high-signal bullet point supporting the angle)",
-    "Takeaway 2 (strong, high-signal bullet point supporting the angle)",
-    "Takeaway 3 (strong, high-signal bullet point supporting the angle)",
-    "Takeaway 4 (strong, high-signal bullet point supporting the angle)"
-  ],
-  "pull_quote": "A memorable, powerful statement from the physical article suitable for a large poster callout",
-  "receipt_highlight_quote": "A 1-2 sentence verbatim excerpt or smoking-gun quote directly from the physical text that provides undeniable proof for the stance",
-  "article_excerpts": [
-    "First exact verbatim section statement or excerpt paragraph directly from the physical print (MANDATORY: Must be genuine article text, NOT curator commentary)",
-    "Second exact verbatim section statement or excerpt paragraph directly from the physical print (MANDATORY: Must be genuine article text, NOT curator commentary)",
-    "Optional third exact verbatim section statement or excerpt paragraph directly from the physical print"
-  ],
-  "key_metric": "A key number, stat, or metric from the article (e.g. '+34%', '\$1.2B', 'Year 2030', '4-Day Week')",
-  "category_badge": "Category in 1-2 uppercase words (e.g. DEEP TECH, CULTURE, GLOBAL ECONOMY, CLIMATE, SCIENCE)",
-  "digital_link": "A valid online article link or an accurate Google search URL (https://news.google.com/search?q=...) for this topic",
-  "suggested_style": "editorial | modernCyber | boldSocial | minimalist",
-  "illustration_prompt": "A vivid, artistic prompt describing modern editorial artwork whose mood and metaphors embody the story and the Curator's angle",
-  "visual_mood": "Short aesthetic style description matching the tone of the stance",
-  "infographic_type": "metric_spotlight | comparison_bars | flow_steps | stat_donut",
-  "infographic_stats": [
-    "Visual stat 1 with metric and label",
-    "Visual stat 2 with metric and label",
-    "Visual stat 3 with metric and label"
-  ]
-}
-''';
+    final prompt = _buildEditorialPrompt(
+      sourceDescription: "Optical Character Recognition (OCR) on attached photo of physical newspaper or magazine clipping. Read all headlines, subheadings, bylines, date, and column body text.",
+      targetAudience: targetAudience,
+      tone: tone,
+      userContext: userContext,
+      hookCues: hookCues,
+      existingItem: existingItem,
+      regenerationIteration: regenerationIteration,
+      artPct: artPct,
+      textPct: textPct,
+    );
 
     // Step 1: Text LLM extraction & synthesis with vision OCR
     final candidateModels = await _getAvailableModels(apiKey);
@@ -646,40 +843,28 @@ Return ONLY a valid JSON object matching this schema:
               final cleanJson = _cleanJsonString(rawText);
               final Map<String, dynamic> data = json.decode(cleanJson);
 
-              PosterStyleType style = PosterStyleType.editorial;
-              final styleStr = data['suggested_style']?.toString().toLowerCase();
-              if (styleStr == 'moderncyber' || styleStr == 'modern_cyber') {
-                style = PosterStyleType.modernCyber;
-              } else if (styleStr == 'boldsocial' || styleStr == 'bold_social') {
-                style = PosterStyleType.boldSocial;
-              } else if (styleStr == 'minimalist') {
-                style = PosterStyleType.minimalist;
-              }
-
-              final illustrationPrompt = data['illustration_prompt'] as String?;
-              final visualMood = data['visual_mood']?.toString();
-              final infographicType = data['infographic_type']?.toString();
-              final infographicStats = (data['infographic_stats'] as List?)
-                      ?.map((e) => e.toString())
-                      .toList() ??
-                  [];
-
-              // Attempt to generate visual AI artwork illustration representing curated angle
+              // Pre-generate visual AI artwork illustration representing curated angle
               Uint8List? illustrationBytes;
+              final illPrompt = (data['slide_1_anchor_hook'] is Map
+                      ? data['slide_1_anchor_hook']['image_prompt']
+                      : data['illustration_prompt'])
+                  ?.toString();
               final effectiveIllustrationPrompt = (hookCues != null && hookCues.trim().isNotEmpty)
-                  ? '${hookCues.trim()}. ${illustrationPrompt ?? ""}'.trim()
-                  : ((illustrationPrompt != null && illustrationPrompt.isNotEmpty)
-                      ? illustrationPrompt
+                  ? '${hookCues.trim()}. ${illPrompt ?? ""}'.trim()
+                  : ((illPrompt != null && illPrompt.isNotEmpty)
+                      ? illPrompt
                       : (userContext != null && userContext.trim().isNotEmpty
-                          ? '${userContext.trim()}, ${data['adapted_headline'] ?? data['original_headline'] ?? ""}'
-                          : '${data['adapted_headline'] ?? data['original_headline'] ?? "News investigation"}, editorial concept art'));
+                          ? '${userContext.trim()}, ${data['slide_1_anchor_hook']?['hook_headline'] ?? data['adapted_headline'] ?? ""}'
+                          : '${data['slide_1_anchor_hook']?['hook_headline'] ?? data['adapted_headline'] ?? "News investigation"}, editorial concept art'));
 
               if (!skipImageGeneration) {
                 try {
                   illustrationBytes = await generatePosterIllustration(
                     apiKey: apiKey,
                     prompt: effectiveIllustrationPrompt,
-                    seed: (existingItem != null || regenerationIteration > 0) ? (DateTime.now().millisecondsSinceEpoch + regenerationIteration * 7919) : 0,
+                    seed: (existingItem != null || regenerationIteration > 0)
+                        ? (DateTime.now().millisecondsSinceEpoch + regenerationIteration * 7919)
+                        : 0,
                     styleIndex: regenerationIteration,
                   );
                 } catch (e) {
@@ -687,42 +872,16 @@ Return ONLY a valid JSON object matching this schema:
                 }
               }
 
-              final parsedExcerpts = (data['article_excerpts'] as List?)
-                      ?.map((e) => e.toString().trim())
-                      .where((e) => e.isNotEmpty)
-                      .take(3)
-                      .toList() ??
-                  [];
-
-              return GeminiAnalysisResult(
-                originalHeadline: data['original_headline'] ?? 'Physical Print Article',
-                publicationName: data['publication_name'] ?? 'Print Publication',
-                adaptedHeadline: data['adapted_headline'] ?? 'Key Insights from Print',
-                hook: data['hook'] ?? 'A physical print story digitized and distilled.',
-                summary: data['summary'] ?? 'Summary generated from physical newspaper clipping.',
-                whyItMatters: data['why_it_matters'],
-                keyTakeaways: (data['key_takeaways'] as List?)
-                        ?.map((e) => e.toString())
-                        .toList() ??
-                    ['Key insight distilled from print story'],
-                pullQuote: data['pull_quote'] ?? 'A memorable story from print.',
-                receiptHighlightQuote: (data['receipt_highlight_quote'] != null && data['receipt_highlight_quote'].toString().trim().isNotEmpty)
-                    ? data['receipt_highlight_quote'].toString().trim()
-                    : (data['pull_quote']?.toString() ?? 'Source evidence excerpt.'),
-                articleExcerpts: parsedExcerpts,
-                keyMetric: data['key_metric'] ?? 'Report',
-                categoryBadge: data['category_badge'] ?? 'DISCOVERY',
-                digitalLink: data['digital_link'] ??
-                    'https://news.google.com/search?q=${Uri.encodeComponent(data['adapted_headline'] ?? 'News')}',
-                suggestedStyle: style,
-                illustrationPrompt: illustrationPrompt,
+              return _parseAnalysisResult(
+                data: data,
+                rawText: rawText,
+                targetAudience: targetAudience,
+                tone: tone,
+                userContext: userContext,
+                fallbackTitle: fallbackTitle,
+                fallbackBody: fallbackBody,
                 generatedIllustrationBytes: illustrationBytes,
                 visualArtRatio: visualArtRatio,
-                infographicType: infographicType,
-                infographicStats: infographicStats,
-                visualMood: visualMood,
-                isDemoMode: false,
-                rawGeminiResponse: rawText,
               );
             }
           }
@@ -796,103 +955,22 @@ Return ONLY a valid JSON object matching this schema:
         ? publicationName
         : _extractDomainFromUrl(articleUrl);
 
-    final prompt = '''
-You are the ghostwriter and museum-grade visual poster designer for the CURATOR of PostCard.
-The user read a digital article from "$pubName" ($articleUrl) and is curating it.
-
-${userContext != null && userContext.trim().isNotEmpty ? '''
-⚠️ ABSOLUTE DIRECTIVE ON CURATOR OWNERSHIP & TARGET AUDIENCE TRANSLATION:
-CURATOR'S OWNED ANGLE & TARGET AUDIENCE TRANSLATION PROTOCOL:
-- Curator's Owned Stance: "$userContext"
-- Target Audience: "$targetAudience" (Tone: "$tone")
-
-The Curator is NOT asking for a neutral, detached press recap. The Curator is TAKING FULL PERSONAL OWNERSHIP of this post.
-HOW TO TRANSLATE THE CURATOR'S VOICE FOR THIS AUDIENCE:
-1. UNCOMPROMISING CONVICTION: Represent and amplify the Curator's angle—good or bad, critical, contrarian, skeptical, or enthusiastic. DO NOT soften or balance it out with "while some argue" or "on the other hand".
-2. AUDIENCE RESONANCE & MENTAL MODELS: Translate the Curator's stance into the specific stakes, daily realities, and native vocabulary of "$targetAudience". Address what matters to them (risks, rewards, leverage, efficiency, or foundational truths).
-3. ADAPTED HEADLINE: Frame the Curator's thesis so it commands immediate attention from "$targetAudience".
-4. HOOK: A bold opening sentence connecting the Curator's angle directly to "$targetAudience"'s immediate world.
-5. WHY IT MATTERS: A dedicated 2-sentence callout answering: "Why should someone in $targetAudience care about this specific Curator angle right now?"
-''' : '''
-CURATOR'S EDITORIAL GOAL:
-Distill the digital story with sharp high-signal takeaways specifically for "$targetAudience" in a "$tone" tone.
-- Frame the headline, hook, and takeaways around what matters to "$targetAudience" and their unique stakes.
-'''}
-
-${hookCues != null && hookCues.trim().isNotEmpty ? '''
-🎨 SPECIFIC HINTS / CUES FOR HOOK POSTER (SLIDE 1):
-- The Curator specifically requested these visual and conceptual cues for the Hook Poster:
-  "$hookCues"
-- Factor these exact hints and cues into "adapted_headline", "hook", and especially "illustration_prompt" so the hero artwork and headline reflect these cues directly!
-''' : ''}
-
-${(existingItem != null || regenerationIteration > 0) ? '''
-🔄 REGENERATION DIRECTIVE (CRITICAL — DO NOT REPEAT PREVIOUS VARIATION):
-The Curator is RE-GENERATING this 3-Poster Carousel (Variation Attempt #${regenerationIteration + 1}).
-${existingItem != null ? '''
-The PREVIOUS poster had:
-- Previous Headline: "${existingItem.adaptedHeadline}"
-- Previous Hook: "${existingItem.hook}"
-- Previous Pull Quote: "${existingItem.pullQuote ?? ''}"
-- Previous Visual Style: "${existingItem.posterStyle.name}"
-- Previous Illustration Metaphor: "${existingItem.illustrationPrompt ?? ''}"
-''' : ''}
-MANDATORY RULES FOR THIS REGENERATION:
-1. NEVER REPEAT: You MUST generate a FRESH, DISTINCT perspective, an alternative bold headline, an inventive new hook, a different prominent quote or excerpt, and an inventive new visual metaphor.
-2. PRESERVE CURATOR ANGLE: Strictly maintain and champion the Curator's owned stance: "${userContext ?? 'Curator Insight'}" and target audience: "$targetAudience", but approach it from an unexamined dimension, contrasting lens, or deeper structural implication.
-3. VARY THE STYLE: Consider suggesting a different compatible visual style (from editorial, modernCyber, boldSocial, minimalist) to give the user a genuinely fresh design option.
-''' : ''}
-
-ARTICLE TITLE: $articleTitle
-ARTICLE CONTENT / EXCERPT:
+    final prompt = _buildEditorialPrompt(
+      sourceDescription: '''
+ONLINE DIGITAL ARTICLE from "$pubName" ($articleUrl):
+HEADLINE: $articleTitle
+BODY TEXT:
 ${articleBody.length > 3500 ? articleBody.substring(0, 3500) : articleBody}
-
-AUDIENCE & EDITORIAL GOALS:
-- Target Audience: "$targetAudience"
-- Tone & Vibe: "$tone"
-- Visual Ratio: $artPct% Picture Art & Infographics, $textPct% Editorial Text.
-
-YOUR TASK:
-1. Editorial Synthesis (⚡️ STRICT 1-MINUTE READ): Synthesize this story specifically for $targetAudience in the $tone tone, championing the Curator's angle. The summary MUST be strictly readable in 60 seconds or less. Word count: 100 to 140 words MAXIMUM across 1-2 punchy paragraphs. Do NOT write an elaborated or sprawling essay.
-2. Headline & Hook: Create a bold headline declaring the Curator's stance and an opening hook tailored to trigger curiosity.
-3. Key Takeaways: Produce 3-4 clear, high-impact bullet points and a memorable pull quote supporting the Curator's angle.
-4. Key Metric: Extract or synthesize a bold numeric stat (e.g. "\$2.6B", "+34%", "1,024 Qubits").
-5. Poster Visual Concept: Create a vivid illustration prompt whose metaphors and color mood embody the story through the Curator's angle.
-
-Return ONLY a valid JSON object matching this schema:
-{
-  "original_headline": "${articleTitle.isNotEmpty ? articleTitle : "Digital News Article"}",
-  "publication_name": "$pubName",
-  "adapted_headline": "${userContext != null && userContext.trim().isNotEmpty ? "The Curator's bold headline/verdict championing their angle for $targetAudience" : "Bold, punchy headline rewritten specifically for $targetAudience"}",
-  "hook": "1-2 sentence compelling hook highlighting the core insight through the Curator's lens",
-  "summary": "STRICT 1-MINUTE READ (maximum 100-140 words, 1-2 punchy paragraphs). A razor-sharp, high-voltage distillation in the Curator's voice that takes 60 seconds or less to read without filler or unnecessary elaboration.",
-  "why_it_matters": "A dedicated 2-sentence explanation of why this story matters specifically to $targetAudience",
-  "key_takeaways": [
-    "Takeaway 1 (strong, high-signal bullet point supporting the angle)",
-    "Takeaway 2 (strong, high-signal bullet point supporting the angle)",
-    "Takeaway 3 (strong, high-signal bullet point supporting the angle)"
-  ],
-  "pull_quote": "A memorable statement from the article supporting this stance",
-  "receipt_highlight_quote": "A 1-2 sentence verbatim excerpt directly from the article body that serves as clear evidence/receipt for the curator stance",
-  "article_excerpts": [
-    "First exact verbatim section statement or excerpt paragraph directly from the source article body (MANDATORY: Must be genuine article text, NOT curator commentary)",
-    "Second exact verbatim section statement or excerpt paragraph directly from the source article body (MANDATORY: Must be genuine article text, NOT curator commentary)",
-    "Optional third exact verbatim section statement or excerpt paragraph directly from the source article body"
-  ],
-  "key_metric": "A key stat or number (e.g. '\$2.6B', '30%', '4 Min')",
-  "category_badge": "1-2 uppercase words (e.g. HEALTHCARE, DEEP TECH, CLIMATE, ECONOMY)",
-  "digital_link": "$articleUrl",
-  "suggested_style": "editorial | modernCyber | boldSocial | minimalist",
-  "illustration_prompt": "A vivid, artistic prompt describing a modern editorial illustration embodying the mood of the Curator's angle",
-  "visual_mood": "Short aesthetic style description matching the tone of the stance",
-  "infographic_type": "metric_spotlight | comparison_bars | flow_steps | stat_donut",
-  "infographic_stats": [
-    "Stat 1 with metric and label",
-    "Stat 2 with metric and label",
-    "Stat 3 with metric and label"
-  ]
-}
-''';
+''',
+      targetAudience: targetAudience,
+      tone: tone,
+      userContext: userContext,
+      hookCues: hookCues,
+      existingItem: existingItem,
+      regenerationIteration: regenerationIteration,
+      artPct: artPct,
+      textPct: textPct,
+    );
 
     final candidateModels = await _getAvailableModels(apiKey);
     String lastError = '';
@@ -939,27 +1017,27 @@ Return ONLY a valid JSON object matching this schema:
                 final cleanedJson = _cleanJsonString(rawText);
                 final parsed = json.decode(cleanedJson) as Map<String, dynamic>;
 
-                PosterStyleType style = PosterStyleType.editorial;
-                final styleStr = parsed['suggested_style']?.toString().toLowerCase();
-                if (styleStr == 'moderncyber' || styleStr == 'modern_cyber') {
-                  style = PosterStyleType.modernCyber;
-                } else if (styleStr == 'boldsocial' || styleStr == 'bold_social') {
-                  style = PosterStyleType.boldSocial;
-                } else if (styleStr == 'minimalist') {
-                  style = PosterStyleType.minimalist;
-                }
-
                 Uint8List? illustrationBytes;
-                final illPrompt = parsed['illustration_prompt']?.toString();
+                final illPrompt = (parsed['slide_1_anchor_hook'] is Map
+                        ? parsed['slide_1_anchor_hook']['image_prompt']
+                        : parsed['illustration_prompt'])
+                    ?.toString();
                 final effectiveDigitalPrompt = (hookCues != null && hookCues.trim().isNotEmpty)
                     ? '${hookCues.trim()}. ${illPrompt ?? ""}'.trim()
-                    : (illPrompt ?? '');
+                    : ((illPrompt != null && illPrompt.isNotEmpty)
+                        ? illPrompt
+                        : (userContext != null && userContext.trim().isNotEmpty
+                            ? '${userContext.trim()}, ${parsed['slide_1_anchor_hook']?['hook_headline'] ?? parsed['adapted_headline'] ?? articleTitle}'
+                            : '${parsed['slide_1_anchor_hook']?['hook_headline'] ?? parsed['adapted_headline'] ?? articleTitle}, editorial concept art'));
+
                 if (!skipImageGeneration && effectiveDigitalPrompt.isNotEmpty && visualArtRatio >= 0.3) {
                   try {
                     illustrationBytes = await generatePosterIllustration(
                       apiKey: apiKey,
                       prompt: effectiveDigitalPrompt,
-                      seed: (existingItem != null || regenerationIteration > 0) ? (DateTime.now().millisecondsSinceEpoch + regenerationIteration * 7919) : 0,
+                      seed: (existingItem != null || regenerationIteration > 0)
+                          ? (DateTime.now().millisecondsSinceEpoch + regenerationIteration * 7919)
+                          : 0,
                       styleIndex: regenerationIteration,
                     );
                   } catch (e) {
@@ -967,44 +1045,18 @@ Return ONLY a valid JSON object matching this schema:
                   }
                 }
 
-                final parsedExcerpts = (parsed['article_excerpts'] as List?)
-                        ?.map((e) => e.toString().trim())
-                        .where((e) => e.isNotEmpty)
-                        .take(3)
-                        .toList() ??
-                    [];
-
-                return GeminiAnalysisResult(
-                  originalHeadline: parsed['original_headline'] ?? articleTitle,
-                  publicationName: parsed['publication_name'] ?? pubName,
-                  adaptedHeadline: parsed['adapted_headline'] ?? articleTitle,
-                  hook: parsed['hook'] ?? 'A digital story curated into visual poster art.',
-                  summary: parsed['summary'] ?? articleBody,
-                  whyItMatters: parsed['why_it_matters'],
-                  keyTakeaways: (parsed['key_takeaways'] as List?)
-                          ?.map((e) => e.toString())
-                          .toList() ??
-                      ['Key insight from digital news coverage'],
-                  pullQuote: parsed['pull_quote'] ?? 'A memorable observation from the story.',
-                  receiptHighlightQuote: (parsed['receipt_highlight_quote'] != null && parsed['receipt_highlight_quote'].toString().trim().isNotEmpty)
-                      ? parsed['receipt_highlight_quote'].toString().trim()
-                      : (parsed['pull_quote']?.toString() ?? 'Key quote evidence.'),
-                  articleExcerpts: parsedExcerpts,
-                  keyMetric: parsed['key_metric'] ?? 'Trending',
-                  categoryBadge: parsed['category_badge'] ?? 'DIGITAL NEWS',
-                  digitalLink: parsed['digital_link'] ?? articleUrl,
-                  suggestedStyle: style,
-                  illustrationPrompt: illPrompt,
+                return _parseAnalysisResult(
+                  data: parsed,
+                  rawText: rawText,
+                  targetAudience: targetAudience,
+                  tone: tone,
+                  userContext: userContext,
+                  fallbackTitle: articleTitle,
+                  fallbackPub: pubName,
+                  fallbackBody: articleBody,
+                  digitalLink: articleUrl,
                   generatedIllustrationBytes: illustrationBytes,
                   visualArtRatio: visualArtRatio,
-                  infographicType: parsed['infographic_type']?.toString() ?? 'metric_spotlight',
-                  infographicStats: (parsed['infographic_stats'] as List?)
-                          ?.map((e) => e.toString())
-                          .toList() ??
-                      [],
-                  visualMood: parsed['visual_mood']?.toString() ?? 'Digital Editorial Art',
-                  isDemoMode: false,
-                  rawGeminiResponse: rawText,
                 );
               }
             }
@@ -1812,6 +1864,7 @@ Return ONLY a valid JSON object matching this schema:
       adaptedHeadline: adaptedHeadline,
       hook: hook,
       summary: summary,
+      creatorOpinion: hasContext ? userContext : summary,
       whyItMatters: whyItMatters,
       keyTakeaways: takeaways,
       pullQuote: pullQuote,
@@ -2042,6 +2095,7 @@ Return ONLY a valid JSON object matching this schema:
       adaptedHeadline: adaptedHeadline,
       hook: hook,
       summary: summary,
+      creatorOpinion: angle,
       whyItMatters: whyItMatters,
       keyTakeaways: takeaways,
       pullQuote: pullQuote,

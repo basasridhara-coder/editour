@@ -768,7 +768,7 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
             ? _opinionController.text.trim()
             : (_curatorAngleController.text.trim().isNotEmpty
                 ? _curatorAngleController.text.trim()
-                : null),
+                : result.creatorOpinion),
         creatorHandle: _creatorHandleController.text.trim().isNotEmpty
             ? _creatorHandleController.text.trim()
             : '@curator',

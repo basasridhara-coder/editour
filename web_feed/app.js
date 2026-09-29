@@ -164,8 +164,16 @@ function buildSlide1Html(post, index) {
   const headline = escapeHtml(post.adaptedHeadline || post.originalHeadline || 'Untitled Story');
   const hook = escapeHtml(post.hook || '');
   const audience = escapeHtml(post.targetAudience || 'General');
-  const catBadge = escapeHtml(post.categoryBadge || 'CURATED DIGEST');
-  const pubName = escapeHtml(post.publicationName || 'Press Wire');
+  let catBadge = escapeHtml(post.categoryBadge || 'CURATED DIGEST');
+  let pubName = escapeHtml(post.publicationName || 'Press Wire');
+
+  if (catBadge.includes('•')) {
+    const parts = catBadge.split('•');
+    catBadge = parts[0].trim();
+    if (parts[1] && parts[1].trim()) {
+      pubName = parts[1].trim();
+    }
+  }
 
   let bgHtml = '';
   if (post.illustrationBase64) {
@@ -182,6 +190,8 @@ function buildSlide1Html(post, index) {
     `;
   }
 
+  const hasContextAnchor = hook && hook !== headline;
+
   return `
     ${bgHtml}
     <div class="slide-hook-top-scrim"></div>
@@ -189,14 +199,16 @@ function buildSlide1Html(post, index) {
     <div class="slide-hook-content">
       <div class="slide-hook-top">
         <span class="audience-pill">🎯 ${audience}</span>
-        <span class="category-tag">${catBadge}</span>
+        <span class="category-tag">${catBadge} • ${pubName}</span>
       </div>
       <div class="slide-hook-bottom">
-        <div class="slide-source-pill">
-          <span>📰</span> <span>${pubName}</span>
-        </div>
+        ${hasContextAnchor ? `
+          <div class="slide-context-anchor">
+            <span class="anchor-dot"></span>
+            <span class="anchor-text">${hook}</span>
+          </div>
+        ` : ''}
         <h3 class="slide-hook-headline">${headline}</h3>
-        ${hook ? `<p class="slide-hook-desc">${hook}</p>` : ''}
       </div>
     </div>
   `;
