@@ -785,6 +785,9 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
         bookExcerptPhotoPaths: _bookExcerptImages.map((f) => f.path).toList(),
         bookTitle: _bookTitleController.text.trim().isNotEmpty ? _bookTitleController.text.trim() : result.originalHeadline,
         bookAuthor: _bookAuthorController.text.trim().isNotEmpty ? _bookAuthorController.text.trim() : 'Curated Author',
+        curatorAngle: _contextController.text.trim().isNotEmpty
+            ? _contextController.text.trim()
+            : (_curatorAngleController.text.trim().isNotEmpty ? _curatorAngleController.text.trim() : null),
         postFormat: _selectedPostFormat,
         receiptHighlightQuote: result.receiptHighlightQuote ?? result.pullQuote,
         articleExcerpts: result.articleExcerpts.isNotEmpty
@@ -1172,7 +1175,9 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
         isUserCreated: true,
         bookTitle: _bookTitleController.text.trim().isNotEmpty ? _bookTitleController.text.trim() : _generatedItem!.bookTitle,
         bookAuthor: _bookAuthorController.text.trim().isNotEmpty ? _bookAuthorController.text.trim() : _generatedItem!.bookAuthor,
-        curatorAngle: _curatorAngleController.text.trim().isNotEmpty ? _curatorAngleController.text.trim() : _generatedItem!.curatorAngle,
+        curatorAngle: _curatorAngleController.text.trim().isNotEmpty
+            ? _curatorAngleController.text.trim()
+            : (_contextController.text.trim().isNotEmpty ? _contextController.text.trim() : _generatedItem!.curatorAngle),
         bookCoverPhotoPath: _bookCoverPath ?? _bookCoverImage?.path ?? _generatedItem!.bookCoverPhotoPath,
         bookExcerptPhotoPaths: _bookExcerptImages.isNotEmpty ? _bookExcerptImages.map((f) => f.path).toList() : _generatedItem!.bookExcerptPhotoPaths,
         postFormat: _selectedPostFormat,

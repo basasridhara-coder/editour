@@ -125,33 +125,41 @@ class SlideReceiptsPoster extends StatelessWidget {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              'VOL. CLXXIV • NO. 48,210',
-                              style: TextStyle(
-                                fontFamily: 'serif',
-                                fontSize: 7.5,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 0.6,
-                                color: Colors.grey.shade800,
+                            Flexible(
+                              child: Text(
+                                'VOL. CLXXIV • NO. 48,210',
+                                style: TextStyle(
+                                  fontFamily: 'serif',
+                                  fontSize: 7.2,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.5,
+                                  color: Colors.grey.shade800,
+                                ),
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
-                            Text(
-                              'ACTUAL NEWSPAPER EXCERPTS',
-                              style: TextStyle(
-                                fontFamily: 'serif',
-                                fontSize: 7.5,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: 1.0,
-                                color: Colors.grey.shade900,
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: Text(
+                                'ACTUAL NEWSPAPER EXCERPTS',
+                                style: TextStyle(
+                                  fontFamily: 'serif',
+                                  fontSize: 7.2,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 0.8,
+                                  color: Colors.grey.shade900,
+                                ),
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
+                            const SizedBox(width: 4),
                             Text(
                               'SLIDE 03 / 03',
                               style: TextStyle(
                                 fontFamily: 'serif',
-                                fontSize: 7.5,
+                                fontSize: 7.2,
                                 fontWeight: FontWeight.bold,
-                                letterSpacing: 0.6,
+                                letterSpacing: 0.5,
                                 color: Colors.grey.shade800,
                               ),
                             ),
@@ -227,6 +235,8 @@ class SlideReceiptsPoster extends StatelessWidget {
                               color: const Color(0xFF1E293B),
                               height: 1.34,
                             ),
+                            maxLines: 4,
+                            overflow: TextOverflow.ellipsis,
                           ),
 
                           const Spacer(flex: 2),
@@ -281,6 +291,8 @@ class SlideReceiptsPoster extends StatelessWidget {
                                     color: const Color(0xFF0F172A),
                                     height: 1.30,
                                   ),
+                                  maxLines: 5,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ],
                             ),
@@ -297,6 +309,8 @@ class SlideReceiptsPoster extends StatelessWidget {
                               color: const Color(0xFF334155),
                               height: 1.34,
                             ),
+                            maxLines: 4,
+                            overflow: TextOverflow.ellipsis,
                           ),
 
                           const Spacer(flex: 1),

@@ -422,6 +422,12 @@ class _InstagramPostCardWidgetState extends State<InstagramPostCardWidget> {
     ThemeData theme,
     PosterStyleConfig styleConfig,
   ) {
+    final curatedAngle = (widget.item.curatorAngle != null && widget.item.curatorAngle!.trim().isNotEmpty)
+        ? widget.item.curatorAngle!.trim()
+        : ((widget.item.userContext != null && widget.item.userContext!.trim().isNotEmpty)
+            ? widget.item.userContext!.trim()
+            : null);
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 2, 16, 16),
       child: Column(
@@ -473,8 +479,32 @@ class _InstagramPostCardWidgetState extends State<InstagramPostCardWidget> {
             ),
           ),
 
-          // Creator Opinion if present
-          if (widget.item.creatorOpinion != null && widget.item.creatorOpinion!.isNotEmpty) ...[
+          // Curated Angle provided by user (never repeat Slide 2 statement!)
+          if (curatedAngle != null && curatedAngle.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.amber.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(8),
+                border: Border(
+                  left: BorderSide(color: Colors.amber.shade700, width: 2.5),
+                ),
+              ),
+              child: Text(
+                'Curated Angle: "$curatedAngle"',
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontStyle: FontStyle.italic,
+                  fontWeight: FontWeight.w500,
+                  color: theme.colorScheme.onSurface,
+                ),
+                maxLines: 4,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ] else if (!widget.item.isCarouselTrio && widget.item.creatorOpinion != null && widget.item.creatorOpinion!.isNotEmpty) ...[
+            // Only for single non-carousel posters (where Slide 2 does not exist)
             const SizedBox(height: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),

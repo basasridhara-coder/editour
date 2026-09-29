@@ -475,31 +475,44 @@ Return JSON:
     required int textPct,
   }) {
     return '''
-You are an elite editorial director and visual design curator for a high-signal social publication studio.
+You are an elite editorial art director and publication curator for a high-signal social publication studio.
 
 Your task is to take:
-1. Source Content (article text, OCR capture from newsprint, or digital link excerpt):
+1. Source Content (article text, OCR capture from newsprint/book, or web article transcript):
 $sourceDescription
 
-2. Curator's Unhedged Take:
+2. Curator's Unhedged Take (user's raw opinion, stance, or critique in plain words):
 ${userContext != null && userContext.trim().isNotEmpty ? '"${userContext.trim()}"\nRepresent and amplify this exact unhedged stance without diluting, softening, or balancing it.' : 'Distill the most provocative, high-signal angle for the audience.'}
 
 3. Target Audience: "$targetAudience" (Tone: "$tone")
 
-And transform them into a cohesive, structured 3-Slide Social Poster Series (4:5 vertical portrait format, 1080x1350) following the "Fact vs. Angle" architecture.
+And generate the creative direction, editorial copy, and visual art prompts for a 3-Slide Social Poster Series (4:5 vertical portrait format, 1080x1350) following the "Fact vs. Angle" architecture.
 
-EDITORIAL & COPYWRITING GUARDRAILS:
+EDITORIAL & COPYWRITING DIRECTIVES:
 
-SLIDE 1 ARCHITECTURE ("FACT VS. ANGLE"):
-- TOP PILL BADGE: Must contain the specific topic/entity and source publication.
-  Format: "[SPECIFIC TOPIC/ENTITY] • [SOURCE NAME]"
-  (e.g., "ECI ROW • Hindustan Times", NOT "SYSTEM GOVERNANCE • Hindustan Times").
-- CONTEXT ANCHOR (The Fact): Exactly 1 crisp sentence (≤ 14 words) establishing the real-world event, naming the primary person, organization, or action directly.
-- MAIN HOOK (The Angle): 1 punchy, provocative headline (≤ 10 words) that injects the Curator's unhedged critique, stance, or thesis on that event.
+SLIDE 1 — THE ANCHOR HOOK ("Fact vs. Angle"):
+- TOP PILL BADGE: Explicitly state the subject/conflict and source.
+  Format: "[SPECIFIC ENTITY/TOPIC] • [SOURCE OUTLET]"
+  (e.g., "ECI ROW • Hindustan Times", never generic tags like "SYSTEM GOVERNANCE • Hindustan Times").
+- CONTEXT ANCHOR (The Fact): Exactly 1 plainspoken sentence (≤ 14 words) establishing the real-world event and explicitly naming the primary people, parties, or institutions.
+- MAIN HOOK (The Angle): 1 punchy, provocative headline (≤ 10 words) expressing the curator's core tension or critique.
+- ANTI-JARGON RULE: Strictly avoid abstract, over-intellectualized filler (e.g., "institutional nodes", "legacy operators", "systemic vectors", "epistemic paradigms", "structural dialectic"). Write with the clarity and bite of an elite editorial columnist.
 - FOOTER HINT: "SWIPE FOR TAKE →"
-- IMAGE PROMPT:
-  Dramatic editorial hero art, visual metaphor, or symbolic iconography embodying the conflict or theme.
-  STRICT NEGATIVE CONSTRAINT: Absolutely NO text, NO typography, NO alphabets, NO labels, NO words, NO letters. Clean negative space in the bottom 35% to allow overlaid typography.
+
+ART DIRECTOR ENGINE: BACKGROUND VISUAL GENERATION (SLIDE 1)
+The user does not provide artistic instructions. You must automatically invent the scene:
+1. VISUAL METAPHOR:
+   - Identify the tension between the news reality and the curator's angle.
+   - Translate it into a concrete, symbolic composition (e.g., strings of power, opaque black boxes, scales of justice, sorting sieves, labyrinths, fractured mirrors).
+2. COUNTRY & CULTURAL CUES:
+   - Detect the country/jurisdiction of the news.
+   - Weave in 1–2 authentic architectural or regional cues (e.g., for India: classical circular stone colonnades, EVM control console silhouettes, indelible ink bottle marks, red-tape government dossiers; for Wall Street: ticker tape, bank vaults, marble steps; for Silicon Valley: server racks, silicon wafers, glass atriums).
+3. VOCATIONAL & OCCUPATIONAL PROPS:
+   - Incorporate the tactile tools and silhouettes of the actors' professions (e.g., political bandhgala/suit silhouettes, diplomatic roundtable microphones, judicial gavels, server racks, ledgers, ballot boxes).
+4. RENDERING & NEGATIVE CONSTRAINTS:
+   - Style: Graphic editorial illustration / noir chiaroscuro / high-contrast dramatic cinematic lighting.
+   - Composition: Keep the main visual action in the upper/center area, leaving the bottom 35% dark, clean, and low-contrast for typography overlay.
+   - STRICT TEXT BAN: Strictly "no text, no letters, no words, no typos, no watermark, clean negative space".
 
 SLIDE 2 ARCHITECTURE ("CURATOR'S TAKE"):
 - SLIDE TITLE: "[THE CORE VERDICT / THESIS]" (≤ 8 words)
@@ -515,11 +528,6 @@ SLIDE 3 ARCHITECTURE ("THE RECEIPT / SOURCE PROOF"):
   3. Corroborating Findings / Reactions: 30–50 words of official quotes, context, or data.
 - KEY EXCERPT HIGHLIGHT: The single most pivotal sentence or quote from paragraph 2 (highlighted callout).
 - FOOTER: "VERIFIED SOURCE EVIDENCE • READ FULL ARTICLE"
-
-STRICT JARGON BAN:
-- NEVER use pseudo-intellectual buzzwords like:
-  "epistemic paradigms", "systemic vectors", "ontological", "vectoring", "institutional ossification", "paradigmatic", "structural dialectic", "legacy operators".
-- Write like an elite investigative journalist or senior editor (clear, potent, direct, intelligent, accessible).
 
 ${hookCues != null && hookCues.trim().isNotEmpty ? '''
 CURATOR'S SPECIFIC VISUAL & CONCEPTUAL CUES:
@@ -547,10 +555,10 @@ Return ONLY valid JSON matching this exact structure:
   },
   "slide_1_anchor_hook": {
     "pill_badge": "[SPECIFIC TOPIC/ENTITY] • [SOURCE NAME]",
-    "context_anchor": "Crisp 1-sentence real-world fact naming who/what happened (<= 14 words)",
-    "hook_headline": "Punchy provocative headline delivering Curator's unhedged take (<= 10 words)",
+    "context_anchor": "Plainspoken 1-sentence real-world fact naming people/institutions (<= 14 words)",
+    "hook_headline": "Punchy provocative headline expressing curator's core tension/critique (<= 10 words)",
     "footer_hint": "SWIPE FOR TAKE →",
-    "image_prompt": "Editorial art prompt, visual metaphor, cinematic lighting. Strictly no text, no letters, no words, clean negative space in bottom 35%."
+    "image_prompt": "Editorial illustration with concrete visual metaphor, authentic country/regional cues, vocational silhouettes, dramatic noir chiaroscuro lighting. Main visual in upper/center, bottom 35% dark and clean. Strictly no text, no letters, no words, no typos, no watermark."
   },
   "slide_2_curator_take": {
     "take_headline": "Core verdict headline (<= 8 words)",

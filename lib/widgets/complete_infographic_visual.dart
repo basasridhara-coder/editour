@@ -28,7 +28,6 @@ class CompleteInfographicVisual extends StatefulWidget {
 
 class _CompleteInfographicVisualState extends State<CompleteInfographicVisual> {
   late final PageController _pageController;
-  int _currentPage = 0;
 
   @override
   void initState() {
@@ -49,57 +48,32 @@ class _CompleteInfographicVisualState extends State<CompleteInfographicVisual> {
         aspectRatio: 4 / 5,
         child: GestureDetector(
           onTap: widget.onOpenDetail,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              PageView(
+          child: FittedBox(
+            fit: BoxFit.contain,
+            alignment: Alignment.center,
+            child: SizedBox(
+              width: 360,
+              height: 450,
+              child: PageView(
                 controller: _pageController,
                 physics: const BouncingScrollPhysics(),
-                onPageChanged: (idx) {
-                  setState(() => _currentPage = idx);
-                  widget.onPageChanged?.call(idx);
-                },
+                onPageChanged: widget.onPageChanged,
                 children: [
                   SlideHookPoster(
                     item: widget.item,
                     config: widget.config,
-                    borderRadius: BorderRadius.zero,
                   ),
                   SlideCritiquePoster(
                     item: widget.item,
                     config: widget.config,
-                    borderRadius: BorderRadius.zero,
                   ),
                   SlideReceiptsPoster(
                     item: widget.item,
                     config: widget.config,
-                    borderRadius: BorderRadius.zero,
                   ),
                 ],
               ),
-              // Floating slide indicator badge on top right
-              Positioned(
-                top: 14,
-                right: 14,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.75),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
-                  ),
-                  child: Text(
-                    '${_currentPage + 1} / 3',
-                    style: const TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       );
@@ -110,10 +84,17 @@ class _CompleteInfographicVisualState extends State<CompleteInfographicVisual> {
       aspectRatio: 4 / 5,
       child: GestureDetector(
         onTap: widget.onOpenDetail,
-        child: SlideHookPoster(
-          item: widget.item,
-          config: widget.config,
-          borderRadius: BorderRadius.zero,
+        child: FittedBox(
+          fit: BoxFit.contain,
+          alignment: Alignment.center,
+          child: SizedBox(
+            width: 360,
+            height: 450,
+            child: SlideHookPoster(
+              item: widget.item,
+              config: widget.config,
+            ),
+          ),
         ),
       ),
     );
