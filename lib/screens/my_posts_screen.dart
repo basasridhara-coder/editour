@@ -72,7 +72,7 @@ class _MyPostsScreenState extends State<MyPostsScreen> with SingleTickerProvider
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Delete Post?'),
-        content: Text('Delete "${item.adaptedHeadline}"? This will remove the poster and saved snap.'),
+        content: Text('Delete "${item.adaptedHeadline}"? This will remove the poster, saved snap, and delete it from editour.app.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
@@ -90,6 +90,15 @@ class _MyPostsScreenState extends State<MyPostsScreen> with SingleTickerProvider
     if (confirm == true) {
       await _storageService.deletePostCard(item.id);
       _loadItems();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('🗑️ Post deleted from device and editour.app'),
+            backgroundColor: Color(0xFF0F172A),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
     }
   }
 

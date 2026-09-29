@@ -5,6 +5,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/postcard_item.dart';
 import '../models/poster_style_config.dart';
+import 'editour_cloud_service.dart';
 
 class StorageService {
   static const String _keyPostcards = 'postcard_items_v1';
@@ -167,6 +168,22 @@ class StorageService {
     final current = await getPostCards();
     current.removeWhere((item) => item.id == id);
     await _saveItemsToFile(current);
+
+    // Clean up offloaded local media files if any
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final illusFile = File('${dir.path}/postcard_media/illus_$id.png');
+      if (await illusFile.exists()) await illusFile.delete();
+      final coverFile = File('${dir.path}/postcard_media/cover_$id.png');
+      if (await coverFile.exists()) await coverFile.delete();
+    } catch (_) {}
+
+    // Immediately propagate deletion to Supabase / editour.app
+    try {
+      await EditourCloudService().deletePost(id);
+    } catch (e) {
+      debugPrint('Error deleting post from cloud in StorageService: $e');
+    }
   }
 
   Future<void> _seedDefaultPostCards() async {

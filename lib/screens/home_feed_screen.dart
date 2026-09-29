@@ -96,7 +96,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Delete PostCard?'),
-        content: Text('Are you sure you want to delete "${item.adaptedHeadline}"?'),
+        content: Text('Are you sure you want to delete "${item.adaptedHeadline}"? This will also remove it from editour.app.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
@@ -114,6 +114,15 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     if (confirm == true) {
       await _storageService.deletePostCard(item.id);
       _loadItems();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('🗑️ Post deleted from device and editour.app'),
+            backgroundColor: Color(0xFF0F172A),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
     }
   }
 
@@ -335,8 +344,8 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                           SizedBox(
                             width: double.infinity,
                             child: FilledButton.icon(
-                              icon: const Icon(Icons.cloud_upload_rounded, size: 16),
-                              label: const Text('Sync All Posts to editour.app'),
+                              icon: const Icon(Icons.cloud_sync_rounded, size: 16),
+                              label: const Text('Sync & Reconcile with editour.app'),
                               style: FilledButton.styleFrom(
                                 backgroundColor: const Color(0xFF4F46E5),
                               ),
@@ -345,15 +354,19 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                                 final messenger = ScaffoldMessenger.of(context);
                                 messenger.showSnackBar(
                                   const SnackBar(
-                                    content: Text('☁️ Syncing posts to editour.app...'),
-                                    duration: Duration(seconds: 2),
+                                    content: Text('☁️ Reconciling feed with editour.app...'),
+                                    duration: Duration(seconds: 3),
                                   ),
                                 );
-                                final count = await EditourCloudService().syncAllPosts();
+                                final result = await EditourCloudService().reconcileWithCloud();
                                 if (mounted) {
+                                  String msg = '🚀 Synced ${result.publishedCount} post(s) to editour.app!';
+                                  if (result.deletedCount > 0) {
+                                    msg = '🚀 Reconciled: ${result.publishedCount} synced, ${result.deletedCount} deleted post(s) removed!';
+                                  }
                                   messenger.showSnackBar(
                                     SnackBar(
-                                      content: Text('🚀 Synced $count post(s) to editour.app!'),
+                                      content: Text(msg),
                                       backgroundColor: const Color(0xFF0F172A),
                                     ),
                                   );

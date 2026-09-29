@@ -116,7 +116,7 @@ class _PostcardDetailScreenState extends State<PostcardDetailScreen>
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Delete PostCard?'),
-        content: const Text('Are you sure you want to remove this PostCard from your library?'),
+        content: const Text('Are you sure you want to remove this PostCard? It will also be deleted from editour.app.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),

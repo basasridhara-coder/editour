@@ -20,7 +20,7 @@ try {
 module.exports = async function handler(req, res) {
   // CORS configuration
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
 
   if (req.method === 'OPTIONS') {
@@ -110,6 +110,39 @@ module.exports = async function handler(req, res) {
     } catch (e) {
       console.error('Error handling post creation:', e);
       return res.status(500).json({ error: 'Server error processing post: ' + e.message });
+    }
+  }
+
+  if (req.method === 'DELETE') {
+    try {
+      const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+      const id = url.searchParams.get('id') || (req.body && req.body.id);
+      if (!id) {
+        return res.status(400).json({ error: 'Missing post id parameter' });
+      }
+
+      // Delete from Supabase
+      try {
+        const supaResp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.${encodeURIComponent(id)}`, {
+          method: 'DELETE',
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`
+          }
+        });
+        if (!supaResp.ok) {
+          console.warn('Supabase delete status:', supaResp.status);
+        }
+      } catch (err) {
+        console.error('Supabase delete error:', err);
+      }
+
+      // Remove from fallback list if present
+      fallbackPosts = fallbackPosts.filter(p => p.id !== id);
+
+      return res.status(200).json({ success: true, message: `Post ${id} deleted` });
+    } catch (e) {
+      return res.status(500).json({ error: 'Error deleting post: ' + e.message });
     }
   }
 

@@ -4,6 +4,20 @@ import 'package:http/http.dart' as http;
 import '../models/postcard_item.dart';
 import 'storage_service.dart';
 
+class CloudSyncResult {
+  final int publishedCount;
+  final int deletedCount;
+  final bool success;
+  final String message;
+
+  CloudSyncResult({
+    required this.publishedCount,
+    required this.deletedCount,
+    required this.success,
+    required this.message,
+  });
+}
+
 class EditourCloudService {
   static final EditourCloudService _instance = EditourCloudService._internal();
   factory EditourCloudService() => _instance;
@@ -70,16 +84,95 @@ class EditourCloudService {
     }
   }
 
-  /// Syncs all saved posts from phone storage to editour.app
-  Future<int> syncAllPosts() async {
-    final items = await _storageService.getPostCards();
-    int successCount = 0;
+  /// Deletes a post from editour.app / Supabase
+  Future<bool> deletePost(String id) async {
+    try {
+      final uri = Uri.parse('$supabaseEndpoint?id=eq.$id');
+      final response = await http
+          .delete(
+            uri,
+            headers: {
+              'apikey': supabaseApiKey,
+              'Authorization': 'Bearer $supabaseApiKey',
+            },
+          )
+          .timeout(const Duration(seconds: 10));
 
-    for (final item in items) {
-      final ok = await publishPost(item);
-      if (ok) successCount++;
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        debugPrint('🗑️ Successfully deleted post "$id" from Supabase & editour.app');
+        return true;
+      } else {
+        debugPrint('Supabase delete status: ${response.statusCode} - ${response.body}');
+      }
+    } catch (e) {
+      debugPrint('EditourCloudService deletePost error: $e');
     }
+    return false;
+  }
 
-    return successCount;
+  /// Authoritative reconciliation between phone local storage and Supabase:
+  /// 1. Finds posts in Supabase that are NOT in local phone storage, and deletes them from Supabase.
+  /// 2. Ensures all local posts are uploaded to Supabase.
+  Future<CloudSyncResult> reconcileWithCloud() async {
+    try {
+      final items = await _storageService.getPostCards();
+      final localIds = items.map((e) => e.id).toSet();
+
+      int deletedCount = 0;
+      // 1. Fetch remote posts to find orphaned ones
+      try {
+        final uri = Uri.parse('$supabaseEndpoint?select=id');
+        final response = await http
+            .get(
+              uri,
+              headers: {
+                'apikey': supabaseApiKey,
+                'Authorization': 'Bearer $supabaseApiKey',
+              },
+            )
+            .timeout(const Duration(seconds: 10));
+
+        if (response.statusCode == 200) {
+          final List<dynamic> remoteRows = json.decode(response.body);
+          for (final row in remoteRows) {
+            final remoteId = row['id']?.toString();
+            if (remoteId != null && !localIds.contains(remoteId)) {
+              final ok = await deletePost(remoteId);
+              if (ok) deletedCount++;
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('EditourCloudService reconcile remote query error: $e');
+      }
+
+      // 2. Publish all current local posts to Supabase
+      int publishedCount = 0;
+      for (final item in items) {
+        final ok = await publishPost(item);
+        if (ok) publishedCount++;
+      }
+
+      return CloudSyncResult(
+        publishedCount: publishedCount,
+        deletedCount: deletedCount,
+        success: true,
+        message: 'Synced $publishedCount post(s), removed $deletedCount deleted post(s).',
+      );
+    } catch (e) {
+      debugPrint('EditourCloudService reconcileWithCloud error: $e');
+      return CloudSyncResult(
+        publishedCount: 0,
+        deletedCount: 0,
+        success: false,
+        message: 'Sync error: $e',
+      );
+    }
+  }
+
+  /// Syncs all saved posts from phone storage to editour.app with full reconciliation
+  Future<int> syncAllPosts() async {
+    final result = await reconcileWithCloud();
+    return result.publishedCount;
   }
 }
