@@ -19,6 +19,8 @@ import '../widgets/book_cover_viewer_dialog.dart';
 import '../widgets/photo_viewer_dialog.dart';
 import '../widgets/poster_canvas.dart';
 import '../widgets/carousel_slides/carousel_poster_studio.dart';
+import '../widgets/visual_cue_pills_selector.dart';
+import '../services/visual_cue_service.dart';
 import 'postcard_detail_screen.dart';
 
 enum InputSourceMode { physicalPhoto, digitalLink, bookExcerpt }
@@ -112,6 +114,8 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
   String _selectedTone = 'Deep-dive & Analytical';
   final TextEditingController _contextController = TextEditingController();
   final TextEditingController _hookCuesController = TextEditingController();
+  List<String> _cueWordPills = [];
+  bool _isAutoSuggestingCues = false;
   final TextEditingController _opinionController = TextEditingController();
   final TextEditingController _linkController = TextEditingController();
   final TextEditingController _headlineController = TextEditingController();
@@ -160,6 +164,48 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
     }
   }
 
+  void _syncCuesController() {
+    _hookCuesController.text = VisualCueService.formatOrderedPillsForPrompt(_cueWordPills);
+  }
+
+  void _autoSuggestCueKeywords() {
+    setState(() => _isAutoSuggestingCues = true);
+
+    String angle = _contextController.text.trim();
+    if (angle.isEmpty) {
+      angle = _opinionController.text.trim();
+    }
+    if (angle.isEmpty) {
+      angle = _curatorAngleController.text.trim();
+    }
+
+    String headline = '';
+    String body = '';
+
+    if (_sourceMode == InputSourceMode.digitalLink) {
+      headline = _digitalTitleController.text.trim();
+      body = _digitalContentController.text.trim();
+    } else if (_sourceMode == InputSourceMode.bookExcerpt) {
+      headline = _bookTitleController.text.trim();
+      body = _bookExcerptTextController.text.trim();
+    } else {
+      headline = _activeSample?.title ?? _headlineController.text.trim();
+      body = _activeSample?.rawArticleText ?? '';
+    }
+
+    final suggested = VisualCueService.extractKeywords(
+      curatorAngle: angle,
+      newsHeadline: headline,
+      newsBody: body,
+    );
+
+    setState(() {
+      _cueWordPills = suggested;
+      _syncCuesController();
+      _isAutoSuggestingCues = false;
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -169,6 +215,8 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
     _loadCreatorHandle();
     if (widget.preloadedSample != null) {
       _applySample(widget.preloadedSample!);
+    } else {
+      _autoSuggestCueKeywords();
     }
   }
 
@@ -219,10 +267,10 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
       _targetAudience = sample.suggestedAudience;
       _selectedTone = sample.suggestedTone;
       _contextController.text = sample.defaultContext;
-      _hookCuesController.clear();
       _linkController.text = sample.webLink;
       _regenerationCount = 0;
     });
+    _autoSuggestCueKeywords();
   }
 
   Future<void> _pickImage(ImageSource source) async {
@@ -375,6 +423,7 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
             _digitalContentController.text = result.content;
           }
         });
+        _autoSuggestCueKeywords();
 
         if (result.isSuccess) {
           final isNotice = result.errorMessage != null && result.errorMessage!.contains('Notice:');
@@ -507,6 +556,7 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
       _bookCoverImage = null;
       _bookCoverBytes = null;
     });
+    _autoSuggestCueKeywords();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Loaded book excerpt: ${sample['title']} by ${sample['author']}'),
@@ -532,6 +582,7 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
         content: sample['content'] ?? '',
       );
     });
+    _autoSuggestCueKeywords();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Loaded sample: ${sample['title']}'),
@@ -1197,6 +1248,14 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
     _s3Excerpt1Controller.text = excerpts.isNotEmpty ? excerpts[0] : '';
     _s3Excerpt2Controller.text = excerpts.length > 1 ? excerpts[1] : '';
     _s3Excerpt3Controller.text = excerpts.length > 2 ? excerpts[2] : '';
+
+    if (item.hookCues != null && item.hookCues!.isNotEmpty) {
+      final parsed = VisualCueService.parsePillsFromPrompt(item.hookCues!);
+      if (parsed.isNotEmpty) {
+        _cueWordPills = parsed;
+        _syncCuesController();
+      }
+    }
   }
 
   void _syncEditedFields() {
@@ -1397,17 +1456,16 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
                           maxLines: 2,
                         ),
                         const SizedBox(height: 12),
-                        TextField(
-                          controller: _hookCuesController,
-                          decoration: InputDecoration(
-                            labelText: 'Hints or Cues for Hook Poster (Optional)',
-                            hintText: 'e.g. Dramatic spotlight on an old clock, surrealist style, focus on the whistleblower',
-                            prefixIcon: const Icon(Icons.auto_awesome_outlined),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                            filled: true,
-                            fillColor: theme.colorScheme.surface,
-                          ),
-                          maxLines: 2,
+                        VisualCuePillsSelector(
+                          pills: _cueWordPills,
+                          isAutoSuggesting: _isAutoSuggestingCues,
+                          onAutoSuggest: _autoSuggestCueKeywords,
+                          onPillsChanged: (updated) {
+                            setState(() {
+                              _cueWordPills = updated;
+                              _syncCuesController();
+                            });
+                          },
                         ),
                       ],
                     ),
@@ -3517,6 +3575,31 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
             filled: true,
             fillColor: theme.colorScheme.surface,
           ),
+        ),
+        const SizedBox(height: 14),
+
+        // Visual Cues & Priority Metaphors (Slide 1 Hook Artwork)
+        VisualCuePillsSelector(
+          pills: _cueWordPills,
+          isAutoSuggesting: _isAutoSuggestingCues,
+          onAutoSuggest: _autoSuggestCueKeywords,
+          onPillsChanged: (updated) {
+            setState(() {
+              _cueWordPills = updated;
+              _syncCuesController();
+            });
+          },
+        ),
+        const SizedBox(height: 8),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            OutlinedButton.icon(
+              icon: const Icon(Icons.palette_outlined, size: 16),
+              label: const Text('Re-roll Art with Prioritized Cues', style: TextStyle(fontSize: 12)),
+              onPressed: _isAnalyzing ? null : _regenerateHookPosterOnly,
+            ),
+          ],
         ),
       ],
     );

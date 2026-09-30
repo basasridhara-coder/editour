@@ -532,9 +532,15 @@ SLIDE 3 ARCHITECTURE ("THE RECEIPT / SOURCE PROOF"):
 - FOOTER: "VERIFIED SOURCE EVIDENCE • READ FULL ARTICLE"
 
 ${hookCues != null && hookCues.trim().isNotEmpty ? '''
-CURATOR'S SPECIFIC VISUAL & CONCEPTUAL CUES:
+CURATOR'S ORDERED VISUAL CUES & METAPHOR PRIORITIZATION:
 "${hookCues.trim()}"
-Directly incorporate these cues into the hook headline and visual image prompt.
+
+MANDATORY ART DIRECTION RULE (STRICT ORDER PRIORITY):
+- Consider ALL cues listed above, but strictly prioritize the visual impression, focal point, and art composition based on the numerical order of these keywords.
+- Priority #1 is the DOMINANT HERO METAPHOR and central focal subject of Slide 1. It MUST be the most prominent, unmistakably dominant element in the upper 65% visual art area.
+- Priority #2 is the SECONDARY SUPPORTING MOTIF or contextual backdrop.
+- Subsequent cues provide subtle tactile atmospheric props, lighting, or institutional textures.
+- The editorial hook headline and the visual art prompt MUST prominently reflect Priority #1 first and foremost.
 ''' : ''}
 
 ${(existingItem != null || regenerationIteration > 0) ? '''
@@ -581,6 +587,26 @@ Return ONLY valid JSON matching this exact structure:
   }
 }
 ''';
+  }
+
+  /// Formats the final Imagen illustration prompt by putting highest priority on Cue #1
+  static String _buildPrioritizedIllustrationPrompt({
+    String? hookCues,
+    String? generatedPrompt,
+    String? fallbackContext,
+    String? fallbackHeadline,
+  }) {
+    if (hookCues != null && hookCues.trim().isNotEmpty) {
+      final cues = hookCues.trim();
+      return 'Prioritized art direction: $cues. Scene context: ${generatedPrompt ?? fallbackHeadline ?? "Editorial graphic metaphor"}. Noir chiaroscuro lighting, dramatic spotlight, clean dark negative space in bottom 35%, strictly no text, no letters, no words.';
+    }
+    if (generatedPrompt != null && generatedPrompt.trim().isNotEmpty) {
+      return generatedPrompt.trim();
+    }
+    if (fallbackContext != null && fallbackContext.trim().isNotEmpty) {
+      return '${fallbackContext.trim()}, ${fallbackHeadline ?? "Editorial investigative concept"}, noir chiaroscuro lighting, strictly no text.';
+    }
+    return '${fallbackHeadline ?? "News investigation"}, editorial graphic concept art, strictly no text.';
   }
 
   /// Robust Dual-Schema Parser: handles both the new nested "Fact vs. Angle"
@@ -892,13 +918,12 @@ Return ONLY valid JSON matching this exact structure:
                       ? data['slide_1_anchor_hook']['image_prompt']
                       : data['illustration_prompt'])
                   ?.toString();
-              final effectiveIllustrationPrompt = (hookCues != null && hookCues.trim().isNotEmpty)
-                  ? '${hookCues.trim()}. ${illPrompt ?? ""}'.trim()
-                  : ((illPrompt != null && illPrompt.isNotEmpty)
-                      ? illPrompt
-                      : (userContext != null && userContext.trim().isNotEmpty
-                          ? '${userContext.trim()}, ${data['slide_1_anchor_hook']?['hook_headline'] ?? data['adapted_headline'] ?? ""}'
-                          : '${data['slide_1_anchor_hook']?['hook_headline'] ?? data['adapted_headline'] ?? "News investigation"}, editorial concept art'));
+              final effectiveIllustrationPrompt = _buildPrioritizedIllustrationPrompt(
+                hookCues: hookCues,
+                generatedPrompt: illPrompt,
+                fallbackContext: userContext,
+                fallbackHeadline: data['slide_1_anchor_hook']?['hook_headline'] ?? data['adapted_headline'],
+              );
 
               if (!skipImageGeneration) {
                 try {
@@ -1065,13 +1090,12 @@ ${articleBody.length > 3500 ? articleBody.substring(0, 3500) : articleBody}
                         ? parsed['slide_1_anchor_hook']['image_prompt']
                         : parsed['illustration_prompt'])
                     ?.toString();
-                final effectiveDigitalPrompt = (hookCues != null && hookCues.trim().isNotEmpty)
-                    ? '${hookCues.trim()}. ${illPrompt ?? ""}'.trim()
-                    : ((illPrompt != null && illPrompt.isNotEmpty)
-                        ? illPrompt
-                        : (userContext != null && userContext.trim().isNotEmpty
-                            ? '${userContext.trim()}, ${parsed['slide_1_anchor_hook']?['hook_headline'] ?? parsed['adapted_headline'] ?? articleTitle}'
-                            : '${parsed['slide_1_anchor_hook']?['hook_headline'] ?? parsed['adapted_headline'] ?? articleTitle}, editorial concept art'));
+                final effectiveDigitalPrompt = _buildPrioritizedIllustrationPrompt(
+                  hookCues: hookCues,
+                  generatedPrompt: illPrompt,
+                  fallbackContext: userContext,
+                  fallbackHeadline: parsed['slide_1_anchor_hook']?['hook_headline'] ?? parsed['adapted_headline'] ?? articleTitle,
+                );
 
                 if (!skipImageGeneration && effectiveDigitalPrompt.isNotEmpty && visualArtRatio >= 0.3) {
                   try {
