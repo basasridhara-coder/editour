@@ -494,7 +494,7 @@ SLIDE 1 — THE ANCHOR HOOK ("Fact vs. Angle"):
 - TOP PILL BADGE: Explicitly state the subject/conflict and source.
   Format: "[SPECIFIC ENTITY/TOPIC] • [SOURCE OUTLET]"
   (e.g., "ECI ROW • Hindustan Times", never generic tags like "SYSTEM GOVERNANCE • Hindustan Times").
-- CONTEXT ANCHOR (The Fact): Exactly 1 plainspoken sentence (≤ 14 words) establishing the real-world event and explicitly naming the primary people, parties, or institutions.
+- CONTEXT ANCHOR (The Fact): Exactly 1 plainspoken sentence or actual news excerpt (≤ 14 words) establishing the real-world event and explicitly naming the primary people, parties, or institutions. If longer, keep it concise so it can sit on a small ripped newspaper clipping fragment.
 - MAIN HOOK (The Angle): 1 punchy, provocative headline (≤ 10 words) expressing the curator's core tension or critique.
 - ANTI-JARGON RULE: Strictly avoid abstract, over-intellectualized filler (e.g., "institutional nodes", "legacy operators", "systemic vectors", "epistemic paradigms", "structural dialectic"). Write with the clarity and bite of an elite editorial columnist.
 - FOOTER HINT: "SWIPE FOR TAKE →"
@@ -515,9 +515,11 @@ The user does not provide artistic instructions. You must automatically invent t
    - STRICT TEXT BAN: Strictly "no text, no letters, no words, no typos, no watermark, clean negative space".
 
 SLIDE 2 ARCHITECTURE ("CURATOR'S TAKE"):
-- SLIDE TITLE: "[THE CORE VERDICT / THESIS]" (≤ 8 words)
-- CURATOR OPINION BODY: The distilled unhedged take translated specifically for "$targetAudience". High signal, sharp tone, zero corporate fluff, zero hedging. Length: 35–50 words (tight, readable in 8 seconds).
-- "WHY IT MATTERS" CALLOUT: 1 punchy takeaway line (≤ 15 words) framing the practical implication or stakes for the reader.
+- SLIDE TITLE: "[THE CORE VERDICT / THESIS]" (≤ 7 words).
+  EDITORIAL TONE GUARDRAIL: Use incisive, thoughtful critique rather than cheap sensationalism or juvenile name-calling (avoid overly abrasive words like "shameless", "frauds", "clowns"; use sharp, analytical phrasing like "Wealth As Political Currency", "The Normalization of Political Fortunes", "The Institutional Cost of Opulence").
+- CURATOR OPINION BODY: The distilled unhedged take translated specifically for "$targetAudience".
+  POSTER BOUNDARY CONSTRAINT: Must be EXACTLY 2 tight, self-contained sentences (total 22–30 words, ~140–180 characters) ending with a definitive period (.). The poster displays this exact text, so it MUST NEVER cut off mid-thought or trail into ellipses (...). Detailed background context will live in the web application (editour.app), but this poster version must end cleanly and feel 100% complete within the poster boundaries.
+- "WHY IT MATTERS" CALLOUT: Exactly 1 punchy takeaway line (≤ 12 words) ending with a period (.), framing the practical implication for the reader.
 
 SLIDE 3 ARCHITECTURE ("THE RECEIPT / SOURCE PROOF"):
 - MASTHEAD: Source Publication Name (e.g., "The Economist", "Hindustan Times", "Bloomberg") + Volume / Date / Edition.
@@ -561,9 +563,9 @@ Return ONLY valid JSON matching this exact structure:
     "image_prompt": "Editorial illustration with concrete visual metaphor, authentic country/regional cues, vocational silhouettes, dramatic noir chiaroscuro lighting. Main visual in upper/center, bottom 35% dark and clean. Strictly no text, no letters, no words, no typos, no watermark."
   },
   "slide_2_curator_take": {
-    "take_headline": "Core verdict headline (<= 8 words)",
-    "take_body": "Sharp, unhedged perspective for target audience, zero fluff, zero hedging (35-50 words)",
-    "why_it_matters_callout": "Stakes or practical implication (<= 15 words)"
+    "take_headline": "Core verdict headline (<= 7 words, sharp & analytical, avoiding cheap slurs/offensive words)",
+    "take_body": "Exactly 2 tight, self-contained sentences (22-30 words total) ending definitively with a period (.), zero fluff, perfectly fitted for poster boundaries",
+    "why_it_matters_callout": "Stakes or practical implication ending with a period (<= 12 words)"
   },
   "slide_3_source_proof": {
     "masthead_title": "Source publication name",

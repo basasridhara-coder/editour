@@ -119,6 +119,27 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
   final TextEditingController _metricController = TextEditingController();
   final TextEditingController _creatorHandleController = TextEditingController();
   final TextEditingController _receiptQuoteController = TextEditingController();
+
+  // 3-Slide Manual Editing Tabs State & Controllers
+  int _selectedSlideEditTab = 0;
+  final PageController _carouselStudioPageController = PageController();
+
+  // Slide 1 Specific Controllers
+  final TextEditingController _s1CategoryController = TextEditingController();
+  final TextEditingController _s1PublicationController = TextEditingController();
+  final TextEditingController _s1ActualNewsExcerptController = TextEditingController();
+
+  // Slide 2 Specific Controllers
+  final TextEditingController _s2TitleController = TextEditingController();
+  final TextEditingController _s2WhyItMattersController = TextEditingController();
+
+  // Slide 3 Specific Controllers
+  final TextEditingController _s3PublicationController = TextEditingController();
+  final TextEditingController _s3HeadlineController = TextEditingController();
+  final TextEditingController _s3Excerpt1Controller = TextEditingController();
+  final TextEditingController _s3Excerpt2Controller = TextEditingController();
+  final TextEditingController _s3Excerpt3Controller = TextEditingController();
+
   String _selectedPostFormat = 'editorial_briefing'; // 'editorial_briefing' | 'carousel_trio'
 
   bool _isAnalyzing = false;
@@ -153,6 +174,18 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
 
   @override
   void dispose() {
+    _carouselStudioPageController.dispose();
+    _s1CategoryController.dispose();
+    _s1PublicationController.dispose();
+    _s1ActualNewsExcerptController.dispose();
+    _s2TitleController.dispose();
+    _s2WhyItMattersController.dispose();
+    _s3PublicationController.dispose();
+    _s3HeadlineController.dispose();
+    _s3Excerpt1Controller.dispose();
+    _s3Excerpt2Controller.dispose();
+    _s3Excerpt3Controller.dispose();
+
     _urlController.dispose();
     _digitalTitleController.dispose();
     _digitalContentController.dispose();
@@ -807,16 +840,7 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
             : null,
       );
 
-      _headlineController.text = newItem.adaptedHeadline;
-      _quoteController.text = newItem.pullQuote ?? '';
-      _receiptQuoteController.text = newItem.receiptHighlightQuote ?? '';
-      _metricController.text = newItem.keyMetric ?? '';
-      _linkController.text = newItem.digitalLink ?? '';
-      if ((isRegenerating || _opinionController.text.trim().isEmpty) &&
-          newItem.creatorOpinion != null &&
-          newItem.creatorOpinion!.isNotEmpty) {
-        _opinionController.text = newItem.creatorOpinion!;
-      }
+      _populateControllersFromItem(newItem, isRegenerating: isRegenerating);
 
       setState(() {
         _generatedItem = newItem;
@@ -1148,11 +1172,79 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
     );
   }
 
+  void _populateControllersFromItem(PostCardItem item, {bool isRegenerating = false}) {
+    _headlineController.text = item.adaptedHeadline;
+    _quoteController.text = item.pullQuote ?? '';
+    _receiptQuoteController.text = item.receiptHighlightQuote ?? '';
+    _metricController.text = item.keyMetric ?? '';
+    _linkController.text = item.digitalLink ?? '';
+    if (isRegenerating || _opinionController.text.trim().isEmpty) {
+      _opinionController.text = item.creatorOpinion ?? '';
+    }
+
+    _s1CategoryController.text = item.categoryBadge;
+    _s1PublicationController.text = item.publicationName ?? '';
+    _s1ActualNewsExcerptController.text = (item.originalHeadline != null && item.originalHeadline!.isNotEmpty)
+        ? item.originalHeadline!
+        : item.hook;
+
+    _s2TitleController.text = item.keyTakeaways.isNotEmpty ? item.keyTakeaways.first : 'THE CRITICAL PERSPECTIVE';
+    _s2WhyItMattersController.text = item.whyItMatters ?? '';
+
+    final excerpts = item.resolvedArticleExcerpts;
+    _s3PublicationController.text = item.publicationName ?? '';
+    _s3HeadlineController.text = item.originalHeadline ?? item.adaptedHeadline;
+    _s3Excerpt1Controller.text = excerpts.isNotEmpty ? excerpts[0] : '';
+    _s3Excerpt2Controller.text = excerpts.length > 1 ? excerpts[1] : '';
+    _s3Excerpt3Controller.text = excerpts.length > 2 ? excerpts[2] : '';
+  }
+
   void _syncEditedFields() {
     if (_generatedItem == null) return;
+
+    final updatedTakeaways = List<String>.from(_generatedItem!.keyTakeaways);
+    if (_s2TitleController.text.trim().isNotEmpty) {
+      if (updatedTakeaways.isNotEmpty) {
+        updatedTakeaways[0] = _s2TitleController.text.trim();
+      } else {
+        updatedTakeaways.add(_s2TitleController.text.trim());
+      }
+    }
+
+    final updatedExcerpts = <String>[];
+    if (_s3Excerpt1Controller.text.trim().isNotEmpty) updatedExcerpts.add(_s3Excerpt1Controller.text.trim());
+    if (_s3Excerpt2Controller.text.trim().isNotEmpty) updatedExcerpts.add(_s3Excerpt2Controller.text.trim());
+    if (_s3Excerpt3Controller.text.trim().isNotEmpty) updatedExcerpts.add(_s3Excerpt3Controller.text.trim());
+
     setState(() {
       _generatedItem = _generatedItem!.copyWith(
-        adaptedHeadline: _headlineController.text.trim(),
+        categoryBadge: _s1CategoryController.text.trim().isNotEmpty
+            ? _s1CategoryController.text.trim()
+            : _generatedItem!.categoryBadge,
+        publicationName: _s1PublicationController.text.trim().isNotEmpty
+            ? _s1PublicationController.text.trim()
+            : (_s3PublicationController.text.trim().isNotEmpty
+                ? _s3PublicationController.text.trim()
+                : _generatedItem!.publicationName),
+        originalHeadline: _s3HeadlineController.text.trim().isNotEmpty
+            ? _s3HeadlineController.text.trim()
+            : (_s1ActualNewsExcerptController.text.trim().isNotEmpty
+                ? _s1ActualNewsExcerptController.text.trim()
+                : _generatedItem!.originalHeadline),
+        hook: _s1ActualNewsExcerptController.text.trim().isNotEmpty
+            ? _s1ActualNewsExcerptController.text.trim()
+            : _generatedItem!.hook,
+        adaptedHeadline: _headlineController.text.trim().isNotEmpty
+            ? _headlineController.text.trim()
+            : _generatedItem!.adaptedHeadline,
+        creatorOpinion: _opinionController.text.trim().isNotEmpty
+            ? _opinionController.text.trim()
+            : _generatedItem!.creatorOpinion,
+        whyItMatters: _s2WhyItMattersController.text.trim().isNotEmpty
+            ? _s2WhyItMattersController.text.trim()
+            : _generatedItem!.whyItMatters,
+        keyTakeaways: updatedTakeaways.isNotEmpty ? updatedTakeaways : _generatedItem!.keyTakeaways,
+        articleExcerpts: updatedExcerpts.isNotEmpty ? updatedExcerpts : _generatedItem!.articleExcerpts,
         pullQuote: _quoteController.text.trim().isNotEmpty
             ? _quoteController.text.trim()
             : null,
@@ -1162,11 +1254,6 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
         digitalLink: _linkController.text.trim().isNotEmpty
             ? _linkController.text.trim()
             : null,
-        creatorOpinion: _opinionController.text.trim().isNotEmpty
-            ? _opinionController.text.trim()
-            : (_curatorAngleController.text.trim().isNotEmpty
-                ? _curatorAngleController.text.trim()
-                : _generatedItem?.creatorOpinion),
         creatorHandle: _creatorHandleController.text.trim().isNotEmpty
             ? _creatorHandleController.text.trim()
             : '@curator',
@@ -2906,6 +2993,12 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
             item: _generatedItem!,
             config: PosterStyleConfig.getPreset(_currentStyle),
             showShareActions: true,
+            pageController: _carouselStudioPageController,
+            onPageChanged: (idx) {
+              if (_selectedSlideEditTab != idx) {
+                setState(() => _selectedSlideEditTab = idx);
+              }
+            },
             onRegeneratePosterArt: _regenerateHookPosterOnly,
             onRegenerateHeadline: () => _runAnalysis(target: RegenerationTarget.headlineAndHook),
             onRegenerateAll: () => _runAnalysis(target: RegenerationTarget.all),
@@ -3026,9 +3119,123 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
   Widget _buildCreatorInputsSection(ThemeData theme) {
     final isCarousel = _generatedItem?.isCarouselTrio == true;
 
+    if (!isCarousel) {
+      return Card(
+        elevation: 0,
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.edit_note_outlined, color: theme.colorScheme.primary, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '3. Creator Perspective & Links',
+                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _headlineController,
+                onChanged: (_) => _syncEditedFields(),
+                decoration: InputDecoration(
+                  labelText: 'Adapted Headline',
+                  prefixIcon: const Icon(Icons.title),
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.auto_awesome, color: Colors.blueAccent, size: 20),
+                    tooltip: 'Re-craft Headline with AI',
+                    onPressed: _isAnalyzing
+                        ? null
+                        : () => _runAnalysis(target: RegenerationTarget.headlineAndHook),
+                  ),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  filled: true,
+                  fillColor: theme.colorScheme.surface,
+                ),
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: _opinionController,
+                onChanged: (_) => _syncEditedFields(),
+                decoration: InputDecoration(
+                  labelText: 'Your Opinion / Personal Take',
+                  hintText: 'Share your perspective on why this matters...',
+                  prefixIcon: const Icon(Icons.bolt_outlined),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  filled: true,
+                  fillColor: theme.colorScheme.surface,
+                ),
+                maxLines: 3,
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: _linkController,
+                onChanged: (_) => _syncEditedFields(),
+                decoration: InputDecoration(
+                  labelText: 'Digital Link (Web URL if exists)',
+                  hintText: 'https://...',
+                  prefixIcon: const Icon(Icons.link),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  filled: true,
+                  fillColor: theme.colorScheme.surface,
+                ),
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _creatorHandleController,
+                      onChanged: (_) => _syncEditedFields(),
+                      decoration: InputDecoration(
+                        labelText: 'Creator Byline',
+                        hintText: '@yourhandle',
+                        prefixIcon: const Icon(Icons.alternate_email),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        filled: true,
+                        fillColor: theme.colorScheme.surface,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: TextField(
+                      controller: _metricController,
+                      onChanged: (_) => _syncEditedFields(),
+                      decoration: InputDecoration(
+                        labelText: 'Key Stat / Metric',
+                        hintText: 'e.g. +42%, \$10B',
+                        prefixIcon: const Icon(Icons.query_stats),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        filled: true,
+                        fillColor: theme.colorScheme.surface,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Carousel Trio: Full 3-Slide Manual Editing Tab Section
     return Card(
       elevation: 0,
-      color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+      color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.32),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
@@ -3040,129 +3247,522 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
           children: [
             Row(
               children: [
-                Icon(Icons.edit_note_outlined, color: theme.colorScheme.primary, size: 20),
+                Icon(Icons.edit_document, color: theme.colorScheme.primary, size: 20),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    isCarousel ? '3. Edit 3-Poster Content & Data' : '3. Creator Perspective & Links',
+                    '3. Customize Slide Writing (3 Tabs)',
                     style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.3)),
+                  ),
+                  child: const Text(
+                    '100% User Editable',
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF10B981),
+                    ),
+                  ),
+                ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 4),
+            Text(
+              'Select any slide below to edit every headline, excerpt, or opinion manually before sharing.',
+              style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: 14),
 
-            // Headline
-            TextField(
-              controller: _headlineController,
-              onChanged: (_) => _syncEditedFields(),
-              decoration: InputDecoration(
-                labelText: isCarousel ? 'Slide 1: Poster Headline' : 'Adapted Headline',
-                prefixIcon: const Icon(Icons.title),
-                suffixIcon: IconButton(
-                  icon: const Icon(Icons.auto_awesome, color: Colors.blueAccent, size: 20),
-                  tooltip: 'Re-craft Headline & Hook with AI',
-                  onPressed: _isAnalyzing
-                      ? null
-                      : () => _runAnalysis(target: RegenerationTarget.headlineAndHook),
+            // 3-Tab Selector Bar with Live Carousel Page Sync
+            Container(
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4)),
+              ),
+              padding: const EdgeInsets.all(4),
+              child: Row(
+                children: [
+                  _buildSlideTabButton(
+                    theme: theme,
+                    index: 0,
+                    icon: Icons.filter_1_rounded,
+                    label: '01 Hook & Fact',
+                  ),
+                  const SizedBox(width: 4),
+                  _buildSlideTabButton(
+                    theme: theme,
+                    index: 1,
+                    icon: Icons.filter_2_rounded,
+                    label: '02 Curator Take',
+                  ),
+                  const SizedBox(width: 4),
+                  _buildSlideTabButton(
+                    theme: theme,
+                    index: 2,
+                    icon: Icons.filter_3_rounded,
+                    label: '03 Receipts',
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Tab 0: Slide 1 (The Anchor Hook)
+            if (_selectedSlideEditTab == 0) ...[
+              _buildSlide1EditSection(theme),
+            ]
+            // Tab 1: Slide 2 (Curator's Take)
+            else if (_selectedSlideEditTab == 1) ...[
+              _buildSlide2EditSection(theme),
+            ]
+            // Tab 2: Slide 3 (The Receipts & Evidence)
+            else ...[
+              _buildSlide3EditSection(theme),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSlideTabButton({
+    required ThemeData theme,
+    required int index,
+    required IconData icon,
+    required String label,
+  }) {
+    final isSelected = _selectedSlideEditTab == index;
+    return Expanded(
+      child: InkWell(
+        onTap: () {
+          setState(() => _selectedSlideEditTab = index);
+          if (_carouselStudioPageController.hasClients) {
+            _carouselStudioPageController.animateToPage(
+              index,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
+            );
+          }
+        },
+        borderRadius: BorderRadius.circular(9),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+          decoration: BoxDecoration(
+            color: isSelected ? theme.colorScheme.primary : Colors.transparent,
+            borderRadius: BorderRadius.circular(9),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: theme.colorScheme.primary.withValues(alpha: 0.35),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 14,
+                color: isSelected ? theme.colorScheme.onPrimary : theme.colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: 5),
+              Flexible(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                    color: isSelected ? theme.colorScheme.onPrimary : theme.colorScheme.onSurfaceVariant,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                filled: true,
-                fillColor: theme.colorScheme.surface,
               ),
-            ),
-            const SizedBox(height: 14),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
-            // Creator Opinion / Slide 2 Critique
-            TextField(
-              controller: _opinionController,
-              onChanged: (_) => _syncEditedFields(),
-              decoration: InputDecoration(
-                labelText: isCarousel ? 'Slide 2: Curator Take & Critique' : 'Your Opinion / Personal Take',
-                hintText: isCarousel
-                    ? 'State your direct verdict / stance for Slide 2...'
-                    : 'Share your perspective on why this physical article matters...',
-                prefixIcon: const Icon(Icons.bolt_outlined),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                filled: true,
-                fillColor: theme.colorScheme.surface,
+  /// Slide 1 Editing Section (Topic Pill, Newspaper Clipping Excerpt, Main Hook Angle, Handle)
+  Widget _buildSlide1EditSection(ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          margin: const EdgeInsets.only(bottom: 12),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.primaryContainer.withValues(alpha: 0.4),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.2)),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.info_outline, size: 14, color: theme.colorScheme.primary),
+              const SizedBox(width: 6),
+              const Expanded(
+                child: Text(
+                  'Slide 1: Edit the topic pill, newspaper headline clipping, and bold display angle.',
+                  style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w500),
+                ),
               ),
-              maxLines: 2,
-            ),
-            const SizedBox(height: 14),
+            ],
+          ),
+        ),
 
-            // Slide 3: Receipt Quote (if Carousel) or Pull Quote
-            if (isCarousel) ...[
-              TextField(
-                controller: _receiptQuoteController,
+        // Topic Pill Category & Source Outlet Row
+        Row(
+          children: [
+            Expanded(
+              flex: 4,
+              child: TextField(
+                controller: _s1CategoryController,
                 onChanged: (_) => _syncEditedFields(),
                 decoration: InputDecoration(
-                  labelText: 'Slide 3: Verbatim Source Receipt Highlight',
-                  hintText: 'Exact evidentiary quote highlighted on the newsprint clipping...',
-                  prefixIcon: const Icon(Icons.format_quote_rounded),
+                  labelText: 'Topic Pill Category',
+                  hintText: 'e.g. WEALTH ACCUMULATION',
+                  prefixIcon: const Icon(Icons.tag, size: 18),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   filled: true,
                   fillColor: theme.colorScheme.surface,
                 ),
-                maxLines: 2,
-              ),
-              const SizedBox(height: 14),
-            ],
-
-            // Digital Link
-            TextField(
-              controller: _linkController,
-              onChanged: (_) => _syncEditedFields(),
-              decoration: InputDecoration(
-                labelText: 'Digital Link (Web URL if exists)',
-                hintText: 'https://...',
-                prefixIcon: const Icon(Icons.link),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                filled: true,
-                fillColor: theme.colorScheme.surface,
               ),
             ),
-            const SizedBox(height: 14),
-
-            // Creator Handle & Standout Metric
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _creatorHandleController,
-                    onChanged: (_) => _syncEditedFields(),
-                    decoration: InputDecoration(
-                      labelText: 'Creator Byline',
-                      hintText: '@yourhandle',
-                      prefixIcon: const Icon(Icons.alternate_email),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                      filled: true,
-                      fillColor: theme.colorScheme.surface,
-                    ),
-                  ),
+            const SizedBox(width: 8),
+            Expanded(
+              flex: 5,
+              child: TextField(
+                controller: _s1PublicationController,
+                onChanged: (_) => _syncEditedFields(),
+                decoration: InputDecoration(
+                  labelText: 'Source Outlet',
+                  hintText: 'e.g. The Times of India',
+                  prefixIcon: const Icon(Icons.public, size: 18),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  filled: true,
+                  fillColor: theme.colorScheme.surface,
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: TextField(
-                    controller: _metricController,
-                    onChanged: (_) => _syncEditedFields(),
-                    decoration: InputDecoration(
-                      labelText: isCarousel ? 'Slide 2: Key Metric' : 'Key Stat / Metric',
-                      hintText: 'e.g. +42%, \$10B',
-                      prefixIcon: const Icon(Icons.query_stats),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                      filled: true,
-                      fillColor: theme.colorScheme.surface,
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
           ],
         ),
-      ),
+        const SizedBox(height: 12),
+
+        // Actual News Excerpt / Headline (Newspaper Clipping Fragment)
+        TextField(
+          controller: _s1ActualNewsExcerptController,
+          onChanged: (_) => _syncEditedFields(),
+          decoration: InputDecoration(
+            labelText: 'Slide 1: Actual News Excerpt (Newspaper Clipping)',
+            hintText: 'Headline or factual excerpt seen in newsprint...',
+            helperText: 'Displayed as a tactile vintage newsprint fragment. Keep ≤ 14 words.',
+            helperStyle: TextStyle(fontSize: 11, color: theme.colorScheme.onSurfaceVariant),
+            prefixIcon: const Icon(Icons.newspaper),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            filled: true,
+            fillColor: theme.colorScheme.surface,
+          ),
+          maxLines: 2,
+        ),
+        const SizedBox(height: 12),
+
+        // Main Hook Headline (The Angle)
+        TextField(
+          controller: _headlineController,
+          onChanged: (_) => _syncEditedFields(),
+          decoration: InputDecoration(
+            labelText: 'Slide 1: Main Hook Headline (The Angle)',
+            hintText: 'Provocative display headline...',
+            prefixIcon: const Icon(Icons.title),
+            suffixIcon: IconButton(
+              icon: const Icon(Icons.auto_awesome, color: Colors.blueAccent, size: 20),
+              tooltip: 'Re-craft Headline with AI',
+              onPressed: _isAnalyzing
+                  ? null
+                  : () => _runAnalysis(target: RegenerationTarget.headlineAndHook),
+            ),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            filled: true,
+            fillColor: theme.colorScheme.surface,
+          ),
+          maxLines: 2,
+        ),
+        const SizedBox(height: 12),
+
+        // Creator Handle
+        TextField(
+          controller: _creatorHandleController,
+          onChanged: (_) => _syncEditedFields(),
+          decoration: InputDecoration(
+            labelText: 'Creator Handle / Byline',
+            hintText: '@curator',
+            prefixIcon: const Icon(Icons.alternate_email),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            filled: true,
+            fillColor: theme.colorScheme.surface,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Slide 2 Editing Section (Stance Title / Kicker, Curator Take, Why It Matters, Standout Metric)
+  Widget _buildSlide2EditSection(ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          margin: const EdgeInsets.only(bottom: 12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF59E0B).withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.25)),
+          ),
+          child: const Row(
+            children: [
+              Icon(Icons.bolt_rounded, size: 14, color: Color(0xFFF59E0B)),
+              SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'Slide 2: You have 100% freedom to edit every word and tone down any strong AI phrasing.',
+                  style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w500),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // Stance Title / Kicker (replaces "Shameless Wealth As A Badge Of Honor" or other strong words)
+        TextField(
+          controller: _s2TitleController,
+          onChanged: (_) => _syncEditedFields(),
+          decoration: InputDecoration(
+            labelText: 'Slide 2: Stance Title / Kicker Tag',
+            hintText: 'e.g. WEALTH AS POLITICAL CURRENCY',
+            helperText: 'Shown above your opinion. Edit freely to ensure appropriate tone.',
+            helperStyle: TextStyle(fontSize: 11, color: theme.colorScheme.onSurfaceVariant),
+            prefixIcon: const Icon(Icons.label_outline_rounded),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            filled: true,
+            fillColor: theme.colorScheme.surface,
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // Curator Opinion Body
+        TextField(
+          controller: _opinionController,
+          onChanged: (_) => _syncEditedFields(),
+          decoration: InputDecoration(
+            labelText: 'Slide 2: Curator Opinion Body (Your Stance)',
+            hintText: 'State your direct verdict and critique...',
+            helperText: '💡 Keep under ~25-30 words (2 complete sentences ending in a period) to end cleanly on poster.',
+            helperStyle: TextStyle(fontSize: 11, color: theme.colorScheme.onSurfaceVariant),
+            prefixIcon: const Icon(Icons.bolt_outlined),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            filled: true,
+            fillColor: theme.colorScheme.surface,
+          ),
+          maxLines: 3,
+        ),
+        const SizedBox(height: 12),
+
+        // Why It Matters Callout
+        TextField(
+          controller: _s2WhyItMattersController,
+          onChanged: (_) => _syncEditedFields(),
+          decoration: InputDecoration(
+            labelText: 'Slide 2: WHY IT MATTERS Callout',
+            hintText: 'The practical stakes or consequence for readers...',
+            helperText: '1 punchy sentence ending in a period.',
+            helperStyle: TextStyle(fontSize: 11, color: theme.colorScheme.onSurfaceVariant),
+            prefixIcon: const Icon(Icons.lightbulb_outline_rounded),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            filled: true,
+            fillColor: theme.colorScheme.surface,
+          ),
+          maxLines: 2,
+        ),
+        const SizedBox(height: 12),
+
+        // Key Stat / Standout Metric
+        TextField(
+          controller: _metricController,
+          onChanged: (_) => _syncEditedFields(),
+          decoration: InputDecoration(
+            labelText: 'Key Stat / Standout Metric (Optional)',
+            hintText: 'e.g. +42%, ₹10,000 Cr, 10x',
+            prefixIcon: const Icon(Icons.query_stats_rounded),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            filled: true,
+            fillColor: theme.colorScheme.surface,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Slide 3 Editing Section (Source Masthead, Headline, 3 Excerpts, Highlight Quote, Link)
+  Widget _buildSlide3EditSection(ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          margin: const EdgeInsets.only(bottom: 12),
+          decoration: BoxDecoration(
+            color: const Color(0xFF6366F1).withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFF6366F1).withValues(alpha: 0.25)),
+          ),
+          child: const Row(
+            children: [
+              Icon(Icons.newspaper_outlined, size: 14, color: Color(0xFF6366F1)),
+              SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'Slide 3: Verbatim source coverage proving primary source truth. Edit headline and receipts.',
+                  style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w500),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // Masthead Publication & Digital Link
+        Row(
+          children: [
+            Expanded(
+              flex: 4,
+              child: TextField(
+                controller: _s3PublicationController,
+                onChanged: (_) => _syncEditedFields(),
+                decoration: InputDecoration(
+                  labelText: 'Masthead Name',
+                  hintText: 'The Financial Chronicle',
+                  prefixIcon: const Icon(Icons.menu_book_rounded, size: 18),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  filled: true,
+                  fillColor: theme.colorScheme.surface,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              flex: 5,
+              child: TextField(
+                controller: _linkController,
+                onChanged: (_) => _syncEditedFields(),
+                decoration: InputDecoration(
+                  labelText: 'Digital Link (URL)',
+                  hintText: 'https://...',
+                  prefixIcon: const Icon(Icons.link, size: 18),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  filled: true,
+                  fillColor: theme.colorScheme.surface,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        // Original Article Headline
+        TextField(
+          controller: _s3HeadlineController,
+          onChanged: (_) => _syncEditedFields(),
+          decoration: InputDecoration(
+            labelText: 'Slide 3: Original Broadsheet Headline',
+            hintText: 'Verbatim headline from newspaper...',
+            prefixIcon: const Icon(Icons.newspaper_rounded),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            filled: true,
+            fillColor: theme.colorScheme.surface,
+          ),
+          maxLines: 2,
+        ),
+        const SizedBox(height: 12),
+
+        // Excerpt 1
+        TextField(
+          controller: _s3Excerpt1Controller,
+          onChanged: (_) => _syncEditedFields(),
+          decoration: InputDecoration(
+            labelText: 'Excerpt 1: Baseline News Reporting',
+            hintText: 'Lead reporting establishing facts...',
+            prefixIcon: const Icon(Icons.format_quote_rounded),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            filled: true,
+            fillColor: theme.colorScheme.surface,
+          ),
+          maxLines: 3,
+        ),
+        const SizedBox(height: 12),
+
+        // Excerpt 2
+        TextField(
+          controller: _s3Excerpt2Controller,
+          onChanged: (_) => _syncEditedFields(),
+          decoration: InputDecoration(
+            labelText: 'Excerpt 2: Core Evidence / Crucial Quote',
+            hintText: 'Pivotal revelation or data excerpt...',
+            prefixIcon: const Icon(Icons.format_quote_rounded),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            filled: true,
+            fillColor: theme.colorScheme.surface,
+          ),
+          maxLines: 3,
+        ),
+        const SizedBox(height: 12),
+
+        // Excerpt 3
+        TextField(
+          controller: _s3Excerpt3Controller,
+          onChanged: (_) => _syncEditedFields(),
+          decoration: InputDecoration(
+            labelText: 'Excerpt 3: Corroborating Context',
+            hintText: 'Official records, broader systemic context...',
+            prefixIcon: const Icon(Icons.format_quote_rounded),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            filled: true,
+            fillColor: theme.colorScheme.surface,
+          ),
+          maxLines: 3,
+        ),
+        const SizedBox(height: 12),
+
+        // Highlight Evidence Quote
+        TextField(
+          controller: _receiptQuoteController,
+          onChanged: (_) => _syncEditedFields(),
+          decoration: InputDecoration(
+            labelText: 'Highlighted Evidence Quote (Yellow Callout Badge)',
+            hintText: 'The single most crucial verbatim sentence...',
+            prefixIcon: const Icon(Icons.highlight_rounded),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            filled: true,
+            fillColor: theme.colorScheme.surface,
+          ),
+          maxLines: 2,
+        ),
+      ],
     );
   }
 

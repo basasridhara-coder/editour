@@ -174,49 +174,118 @@ class SlideHookPoster extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Context Anchor (The Fact): Crisp real-world event naming who/what happened
-                    if (item.hook.trim().isNotEmpty && item.hook.trim() != headline.trim()) ...[
-                      Container(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                    // Tactile Ripped Newspaper Clipping Fragment (Actual News Excerpt / Headline)
+                    () {
+                      final rawNews = (item.originalHeadline != null &&
+                              item.originalHeadline!.trim().isNotEmpty &&
+                              item.originalHeadline!.trim() != headline.trim())
+                          ? item.originalHeadline!.trim()
+                          : (item.hook.trim().isNotEmpty && item.hook.trim() != headline.trim()
+                              ? item.hook.trim()
+                              : '');
+
+                      if (rawNews.isEmpty) return const SizedBox.shrink();
+
+                      // Word limit with ellipsis if too long so it stays compact and doesn't spoil hook impression
+                      final words = rawNews.split(RegExp(r'\s+'));
+                      final formattedNews = words.length > 13
+                          ? '${words.take(13).join(' ')}...'
+                          : rawNews;
+
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 9),
                         decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.60),
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.18),
-                            width: 0.8,
+                          // Tactile aged vintage broadsheet newsprint paper
+                          gradient: const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              Color(0xFFFAF7EE),
+                              Color(0xFFF3ECE0),
+                              Color(0xFFEBE2D2),
+                            ],
                           ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              width: 5,
-                              height: 5,
-                              decoration: BoxDecoration(
-                                color: config.primaryColor,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            Flexible(
-                              child: Text(
-                                item.hook.trim(),
-                                style: TextStyle(
-                                  fontSize: 11.5,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.white.withValues(alpha: 0.95),
-                                  height: 1.25,
-                                  letterSpacing: 0.1,
-                                ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(
+                            color: const Color(0xFFDCD2BE).withValues(alpha: 0.95),
+                            width: 0.9,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.70),
+                              blurRadius: 10,
+                              offset: const Offset(0, 3.5),
                             ),
                           ],
                         ),
-                      ),
-                    ],
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(3.5),
+                          child: Stack(
+                            children: [
+                              // Subtle sub-column ink traces on the ragged edge
+                              Positioned(
+                                bottom: 0,
+                                left: 0,
+                                right: 0,
+                                child: Container(
+                                  height: 2,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFD6CDBF).withValues(alpha: 0.8),
+                                  ),
+                                ),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(9, 5, 9, 6),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    // Micro archival paper header
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(
+                                          Icons.newspaper_rounded,
+                                          size: 9.5,
+                                          color: Color(0xFF786F5E),
+                                        ),
+                                        const SizedBox(width: 4.5),
+                                        Text(
+                                          'NEWS CLIPPING • ${displayPub.toUpperCase()}',
+                                          style: const TextStyle(
+                                            fontSize: 7.8,
+                                            fontWeight: FontWeight.w800,
+                                            color: Color(0xFF786F5E),
+                                            letterSpacing: 0.6,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 3),
+                                    // Sharp black editorial newspaper headline typography
+                                    Text(
+                                      formattedNews,
+                                      style: const TextStyle(
+                                        fontFamily: 'serif',
+                                        fontSize: 11.2,
+                                        fontWeight: FontWeight.w900,
+                                        color: Color(0xFF141414),
+                                        height: 1.20,
+                                        letterSpacing: -0.2,
+                                      ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }(),
 
                     // Massive, Punchy Display Headline (The Angle)
                     Text(

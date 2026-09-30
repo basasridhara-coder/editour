@@ -16,19 +16,41 @@ class SlideCritiquePoster extends StatelessWidget {
     this.borderRadius,
   });
 
+  static String _ensureCleanEnding(String text) {
+    String clean = text.trim();
+    if (clean.isEmpty) return clean;
+    while (clean.endsWith('.') || clean.endsWith('…')) {
+      if (clean.endsWith('...')) {
+        clean = clean.substring(0, clean.length - 3).trim();
+      } else if (clean.endsWith('…')) {
+        clean = clean.substring(0, clean.length - 1).trim();
+      } else {
+        break;
+      }
+    }
+    if (!clean.endsWith('.') && !clean.endsWith('!') && !clean.endsWith('?')) {
+      clean = '$clean.';
+    }
+    return clean;
+  }
+
   @override
   Widget build(BuildContext context) {
     final pubName = item.publicationName ?? 'Press Wire';
     final handle = item.creatorHandle ?? '@curator';
-    final opinionText = (item.creatorOpinion != null && item.creatorOpinion!.trim().isNotEmpty)
+    final rawOpinion = (item.creatorOpinion != null && item.creatorOpinion!.trim().isNotEmpty)
         ? item.creatorOpinion!
         : (item.whyItMatters != null && item.whyItMatters!.trim().isNotEmpty
             ? item.whyItMatters!
             : item.hook);
 
-    final rationaleText = (item.whyItMatters != null && item.whyItMatters!.trim().isNotEmpty && item.whyItMatters != opinionText)
+    final opinionText = _ensureCleanEnding(rawOpinion);
+
+    final rawRationale = (item.whyItMatters != null && item.whyItMatters!.trim().isNotEmpty && item.whyItMatters != rawOpinion)
         ? item.whyItMatters!
         : '';
+
+    final rationaleText = _ensureCleanEnding(rawRationale);
 
     final String slideTitle = (item.keyTakeaways.isNotEmpty &&
             item.keyTakeaways.first.trim().split(' ').length <= 12 &&
@@ -37,11 +59,13 @@ class SlideCritiquePoster extends StatelessWidget {
         : 'THE CRITICAL PERSPECTIVE';
 
     // Dynamic responsive font sizing based on opinion text length so statements complete without truncation
-    final double opinionSize = opinionText.length > 220
-        ? 13.0
+    final double opinionSize = opinionText.length > 210
+        ? 12.0
         : (opinionText.length > 150
-            ? 14.0
-            : (opinionText.length > 80 ? 15.0 : 16.0));
+            ? 12.8
+            : (opinionText.length > 90 ? 13.8 : 15.0));
+
+    final double rationaleSize = rationaleText.length > 80 ? 9.8 : 10.5;
 
     final effectiveRadius = borderRadius ?? BorderRadius.circular(16);
     final isFlush = borderRadius == BorderRadius.zero;
@@ -216,7 +240,7 @@ class SlideCritiquePoster extends StatelessWidget {
                           ),
                         ],
                       ),
-                      maxLines: 4,
+                      maxLines: 5,
                       overflow: TextOverflow.ellipsis,
                     ),
 
@@ -248,13 +272,13 @@ class SlideCritiquePoster extends StatelessWidget {
                             Expanded(
                               child: Text(
                                 rationaleText,
-                                style: const TextStyle(
-                                  fontSize: 11.0,
+                                style: TextStyle(
+                                  fontSize: rationaleSize,
                                   fontWeight: FontWeight.w600,
-                                  color: Color(0xFFE2E8F0),
+                                  color: const Color(0xFFE2E8F0),
                                   height: 1.25,
                                 ),
-                                maxLines: 2,
+                                maxLines: 3,
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),

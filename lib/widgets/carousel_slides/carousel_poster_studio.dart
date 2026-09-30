@@ -14,6 +14,8 @@ class CarouselPosterStudio extends StatefulWidget {
   final VoidCallback? onRegeneratePosterArt;
   final VoidCallback? onRegenerateHeadline;
   final VoidCallback? onRegenerateAll;
+  final PageController? pageController;
+  final ValueChanged<int>? onPageChanged;
 
   const CarouselPosterStudio({
     super.key,
@@ -23,6 +25,8 @@ class CarouselPosterStudio extends StatefulWidget {
     this.onRegeneratePosterArt,
     this.onRegenerateHeadline,
     this.onRegenerateAll,
+    this.pageController,
+    this.onPageChanged,
   });
 
   @override
@@ -30,7 +34,8 @@ class CarouselPosterStudio extends StatefulWidget {
 }
 
 class _CarouselPosterStudioState extends State<CarouselPosterStudio> {
-  final PageController _pageController = PageController();
+  late final PageController _pageController;
+  bool _ownsPageController = false;
   int _currentPage = 0;
   bool _isExporting = false;
 
@@ -39,8 +44,22 @@ class _CarouselPosterStudioState extends State<CarouselPosterStudio> {
   final GlobalKey _captureKey3 = GlobalKey();
 
   @override
+  void initState() {
+    super.initState();
+    if (widget.pageController != null) {
+      _pageController = widget.pageController!;
+      _ownsPageController = false;
+    } else {
+      _pageController = PageController();
+      _ownsPageController = true;
+    }
+  }
+
+  @override
   void dispose() {
-    _pageController.dispose();
+    if (_ownsPageController) {
+      _pageController.dispose();
+    }
     super.dispose();
   }
 
@@ -239,6 +258,7 @@ class _CarouselPosterStudioState extends State<CarouselPosterStudio> {
                 physics: const BouncingScrollPhysics(),
                 onPageChanged: (idx) {
                   setState(() => _currentPage = idx);
+                  widget.onPageChanged?.call(idx);
                 },
                 children: [
                   SlideHookPoster(item: widget.item, config: config),
