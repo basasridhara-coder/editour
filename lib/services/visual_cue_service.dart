@@ -1,124 +1,282 @@
 class VisualCueService {
   /// Extracts high-signal visual metaphors and concrete keywords
-  /// based on the curator's angle context and extracted news content.
+  /// prioritizing the Curator's angle, context, available headline, and story excerpts.
   static List<String> extractKeywords({
     required String curatorAngle,
     required String newsHeadline,
     String? newsBody,
   }) {
-    final combined = '${curatorAngle.toLowerCase()} ${newsHeadline.toLowerCase()} ${(newsBody ?? "").toLowerCase()}';
-    final Set<String> results = {};
+    final List<String> prioritized = [];
+    final Set<String> seen = {};
 
-    // 1. Specific Thematic Visual Metaphors based on Content & Angle
-    if (_hasAny(combined, ['wealth', 'fortune', 'asset', 'crore', 'money', 'billion', 'rich', 'affluent', 'opulence', 'accumul', 'shameless'])) {
-      results.add('Scales of justice');
-      results.add('Astronomical fortune');
-      results.add('Red tape dossiers');
-      results.add('Political bandhgala silhouette');
-      results.add('Classical stone colonnades');
-    } else if (_hasAny(combined, ['corrupt', 'bribe', 'scam', 'ed', 'cbi', 'probe', 'arrest', 'charge sheet', 'fraud', 'investigat'])) {
-      results.add('Red tape dossiers');
-      results.add('Subpoena ledger');
-      results.add('Judicial gavel');
-      results.add('Shadowy corridors');
-      results.add('Classical colonnades');
+    void addPill(String pill) {
+      final clean = _cleanPillText(pill);
+      if (clean.length >= 3 && clean.length <= 36 && !seen.contains(clean.toLowerCase())) {
+        seen.add(clean.toLowerCase());
+        prioritized.add(clean);
+      }
     }
 
-    if (_hasAny(combined, ['election', 'vote', 'ballot', 'eci', 'polling', 'campaign', 'candidate', 'democracy'])) {
-      results.add('EVM control console');
-      results.add('Indelible ink bottle mark');
-      results.add('Ballot box silhouette');
-      results.add('Colonnades of parliament');
-      results.add('Diplomatic microphone');
-    }
+    final combinedText = '$curatorAngle $newsHeadline ${newsBody ?? ""}';
+    final lowerCombined = combinedText.toLowerCase();
 
-    if (_hasAny(combined, ['protest', 'campus', 'student', 'university', 'strike', 'demonstrat', 'rally', 'march'])) {
-      results.add('Megaphones & placards');
-      results.add('Police barricades');
-      results.add('Historic campus archway');
-      results.add('Dramatic spotlight');
-      results.add('Torn paper notices');
-    }
-
-    if (_hasAny(combined, ['quantum', 'qubit', 'supercomput', 'physics', 'chip', 'semiconductor', 'hardware'])) {
-      results.add('Quantum superconducting core');
-      results.add('Decoherence barrier');
-      results.add('Silicon microchip array');
-      results.add('Cryogenic mist');
-      results.add('Laser interferometry');
-    } else if (_hasAny(combined, ['ai', 'artificial intelligence', 'algorithm', 'model', 'llm', 'deep learning', 'tech', 'cyber', 'data', 'cloud'])) {
-      results.add('Server racks in darkness');
-      results.add('Opaque black box');
-      results.add('Silicon wafer reflections');
-      results.add('Fiber optic glow');
-      results.add('Surveillance lens');
-    }
-
-    if (_hasAny(combined, ['climate', 'carbon', 'emission', 'heat', 'flood', 'drought', 'energy', 'oil', 'coal', 'planet', 'green'])) {
-      results.add('Smokestacks in twilight');
-      results.add('Cracked dry earth');
-      results.add('Satellite thermal map');
-      results.add('Submerged coastline');
-      results.add('Hourglass with rising water');
-    }
-
-    if (_hasAny(combined, ['market', 'stock', 'inflation', 'trade', 'tariff', 'fed', 'rbi', 'bank', 'economy', 'interest rate', 'dollar', 'rupee'])) {
-      results.add('Wall street ticker tape');
-      results.add('Heavy bank vault door');
-      results.add('Rising interest graph');
-      results.add('Gold bullion bars');
-      results.add('Stock exchange trading floor');
-    }
-
-    if (_hasAny(combined, ['work', 'job', 'workweek', 'office', 'burnout', 'corporate', 'meeting', 'employee', 'labor', 'company'])) {
-      results.add('Empty boardroom chairs');
-      results.add('Wall clock at twilight');
-      results.add('Office skyscraper window');
-      results.add('Executive desk ledger');
-      results.add('Shedding red tape');
-    }
-
-    if (_hasAny(combined, ['paper', 'print', 'book', 'read', 'newspaper', 'broadsheet', 'screen fatigue', 'doomscroll', 'magazine', 'newsstand'])) {
-      results.add('Tactile vintage broadsheet');
-      results.add('Ragged torn newsprint');
-      results.add('Serif ink typography');
-      results.add('Coffee on wooden desk');
-      results.add('Shattered smartphone screen');
-    }
-
-    if (_hasAny(combined, ['court', 'judge', 'verdict', 'justice', 'supreme court', 'law', 'legal', 'petition', 'ruling'])) {
-      results.add('Judicial gavel');
-      results.add('Blindfolded justice silhouette');
-      results.add('Supreme Court marble steps');
-      results.add('Official legal parchment');
-      results.add('Classical colonnades');
-    }
-
-    // 2. Extract key distinctive phrases from Curator's Angle if specified
+    // 1. Direct High-Signal Concepts from Curator Angle & Context (FIRST PRIORITY!)
+    // The user's angle is their unhedged stance/critique, so its core motifs should be #1!
     if (curatorAngle.trim().isNotEmpty) {
-      final angleWords = curatorAngle.trim().split(RegExp(r'[,;.\n]+'));
-      for (final phrase in angleWords) {
-        final clean = phrase.trim();
-        if (clean.length >= 4 && clean.length <= 32 && !_isGenericPhrase(clean)) {
-          // Capitalize phrase cleanly
-          final capitalized = clean.split(' ').map((w) => w.isNotEmpty ? '${w[0].toUpperCase()}${w.substring(1)}' : '').join(' ');
-          if (!results.contains(capitalized)) {
-            // Insert at the front so curator's exact angle words take immediate priority!
-            results.add(capitalized);
+      final anglePhrases = _extractMeaningfulPhrases(curatorAngle);
+      for (final p in anglePhrases) {
+        addPill(p);
+      }
+    }
+
+    // 2. Direct Subject / Entity / Conflict from Headline (SECOND PRIORITY!)
+    if (newsHeadline.trim().isNotEmpty) {
+      final headlinePhrases = _extractMeaningfulPhrases(newsHeadline);
+      for (final p in headlinePhrases) {
+        addPill(p);
+      }
+    }
+
+    // 3. Domain-Specific Thematic Visual Metaphors matching semantic keywords
+    final thematicMetaphors = _matchThematicMetaphors(lowerCombined);
+    for (final m in thematicMetaphors) {
+      addPill(m);
+    }
+
+    // 4. Secondary salient phrases from story body (if available)
+    if (newsBody != null && newsBody.trim().isNotEmpty) {
+      final bodyPhrases = _extractMeaningfulPhrases(newsBody);
+      for (final p in bodyPhrases) {
+        addPill(p);
+      }
+    }
+
+    // 5. Stylistic Noir / Editorial Fallbacks if still fewer than 4 pills
+    final fallbacks = [
+      'Noir chiaroscuro lighting',
+      'Dramatic spotlight',
+      'Classical stone colonnades',
+      'Tactile vintage broadsheet',
+      'Concrete editorial metaphor',
+      'Deep negative space',
+    ];
+    for (final f in fallbacks) {
+      if (prioritized.length >= 5) break;
+      addPill(f);
+    }
+
+    return prioritized.take(6).toList();
+  }
+
+  /// Extracts clean, readable headline words from a web URL slug when article text cannot be fetched
+  static String extractHeadlineFromUrl(String url) {
+    if (url.trim().isEmpty) return '';
+    try {
+      final uri = Uri.tryParse(url.trim());
+      if (uri == null) return '';
+      final segments = uri.pathSegments.where((s) => s.trim().isNotEmpty).toList();
+      if (segments.isEmpty) return '';
+
+      // Find the segment with the most words/hyphens (typically the article slug)
+      String bestSlug = '';
+      for (final seg in segments) {
+        final cleanSeg = seg.replaceAll(RegExp(r'\.(html|ece|htm|php|cms|amp|asp)$', caseSensitive: false), '');
+        if (cleanSeg.length > bestSlug.length && (cleanSeg.contains('-') || cleanSeg.contains('_'))) {
+          bestSlug = cleanSeg;
+        }
+      }
+      if (bestSlug.isEmpty && segments.isNotEmpty) {
+        bestSlug = segments.last.replaceAll(RegExp(r'\.(html|ece|htm|php|cms|amp|asp)$', caseSensitive: false), '');
+      }
+
+      // Remove trailing IDs or timestamps like -101712345 or _20240420
+      bestSlug = bestSlug.replaceAll(RegExp(r'[-_]\d{5,}$'), '');
+
+      // Replace hyphens and underscores with spaces
+      final words = bestSlug.split(RegExp(r'[-_]+')).where((w) => w.trim().isNotEmpty).toList();
+      if (words.isEmpty) return '';
+
+      // Capitalize cleanly
+      return words.map((w) {
+        if (w.length <= 1) return w.toUpperCase();
+        if (_isStopWord(w)) return w.toLowerCase();
+        return '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}';
+      }).join(' ');
+    } catch (_) {
+      return '';
+    }
+  }
+
+  /// Extracts key substantive phrases (1-4 words) from freeform sentences
+  static List<String> _extractMeaningfulPhrases(String text) {
+    final results = <String>[];
+    if (text.trim().isEmpty) return results;
+
+    // Clean text: strip out common meta-prompt prefixes
+    String cleaned = text
+        .replaceAll(RegExp(r'^(focus on|highlight why|explain for|critique on|stance on|opinion on|angle on)\s+', caseSensitive: false), '')
+        .replaceAll(RegExp(r'[\r\n]+'), ' ')
+        .trim();
+
+    // Split on punctuation and structural separators
+    final segments = cleaned.split(RegExp(r'[,;:.!?|•—–\(\)\[\]"\u201C\u201D\u2018\u2019]+'));
+    for (final seg in segments) {
+      final trimmed = seg.trim();
+      if (trimmed.isEmpty) continue;
+
+      final words = trimmed.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+      if (words.isNotEmpty && words.length <= 4) {
+        final phrase = _stripStopWords(words);
+        if (phrase.isNotEmpty && phrase.length >= 3) {
+          results.add(_toTitleCase(phrase));
+        }
+      } else if (words.length > 4) {
+        // If longer sentence, extract salient noun chunks / phrases of 2-3 words
+        for (int i = 0; i < words.length - 1; i++) {
+          final w1 = words[i].toLowerCase();
+          final w2 = words[i + 1].toLowerCase();
+          if (!_isStopWord(w1) && !_isStopWord(w2) && w1.length > 2 && w2.length > 2) {
+            final phrase = '$w1 $w2';
+            results.add(_toTitleCase(phrase));
+            i++; // skip next word to avoid overlapping pairs
           }
         }
       }
     }
+    return results;
+  }
 
-    // 3. Fallback defaults if few results matched
-    if (results.length < 3) {
-      results.add('Noir chiaroscuro lighting');
-      results.add('Dramatic spotlight');
-      results.add('Editorial institutional silhouette');
-      results.add('Concrete symbolic metaphor');
+  /// Matches rich domain visual metaphors based on text keywords
+  static List<String> _matchThematicMetaphors(String text) {
+    final List<String> metaphors = [];
+
+    if (_hasAny(text, ['wealth', 'fortune', 'asset', 'crore', 'money', 'billion', 'rich', 'affluent', 'opulence', 'accumul', 'shameless', 'greed'])) {
+      metaphors.addAll([
+        'Scales of justice',
+        'Astronomical fortune',
+        'Red tape dossiers',
+        'Political bandhgala silhouette',
+        'Classical stone colonnades',
+      ]);
     }
 
-    return results.take(6).toList();
+    if (_hasAny(text, ['corrupt', 'bribe', 'scam', 'ed', 'cbi', 'probe', 'arrest', 'charge sheet', 'fraud', 'investigat', 'whistleblower'])) {
+      metaphors.addAll([
+        'Red tape dossiers',
+        'Subpoena ledger',
+        'Judicial gavel',
+        'Shadowy corridors',
+        'Classical colonnades',
+      ]);
+    }
+
+    if (_hasAny(text, ['election', 'vote', 'ballot', 'eci', 'polling', 'campaign', 'candidate', 'democracy', 'transparency'])) {
+      metaphors.addAll([
+        'EVM control console',
+        'Indelible ink bottle mark',
+        'Ballot box silhouette',
+        'Colonnades of parliament',
+        'Diplomatic microphone',
+      ]);
+    }
+
+    if (_hasAny(text, ['court', 'judge', 'verdict', 'justice', 'supreme court', 'law', 'legal', 'petition', 'ruling', 'bench'])) {
+      metaphors.addAll([
+        'Judicial gavel',
+        'Blindfolded justice silhouette',
+        'Supreme Court marble steps',
+        'Official legal parchment',
+        'Classical colonnades',
+      ]);
+    }
+
+    if (_hasAny(text, ['protest', 'campus', 'student', 'university', 'strike', 'demonstrat', 'rally', 'march', 'police', 'barricade'])) {
+      metaphors.addAll([
+        'Megaphones & placards',
+        'Police barricades',
+        'Historic campus archway',
+        'Dramatic spotlight',
+        'Torn paper notices',
+      ]);
+    }
+
+    if (_hasAny(text, ['quantum', 'qubit', 'supercomput', 'physics', 'chip', 'semiconductor', 'hardware', 'nvidia'])) {
+      metaphors.addAll([
+        'Quantum superconducting core',
+        'Decoherence barrier',
+        'Silicon microchip array',
+        'Cryogenic mist',
+        'Laser interferometry',
+      ]);
+    } else if (_hasAny(text, ['ai', 'artificial intelligence', 'algorithm', 'model', 'llm', 'deep learning', 'tech', 'cyber', 'data', 'cloud'])) {
+      metaphors.addAll([
+        'Server racks in darkness',
+        'Opaque black box',
+        'Silicon wafer reflections',
+        'Fiber optic glow',
+        'Surveillance lens',
+      ]);
+    }
+
+    if (_hasAny(text, ['climate', 'carbon', 'emission', 'heat', 'flood', 'drought', 'energy', 'oil', 'coal', 'planet', 'green', 'pollution'])) {
+      metaphors.addAll([
+        'Smokestacks in twilight',
+        'Cracked dry earth',
+        'Satellite thermal map',
+        'Submerged coastline',
+        'Hourglass with rising water',
+      ]);
+    }
+
+    if (_hasAny(text, ['market', 'stock', 'inflation', 'trade', 'tariff', 'fed', 'rbi', 'bank', 'economy', 'interest rate', 'dollar', 'rupee', 'budget'])) {
+      metaphors.addAll([
+        'Wall street ticker tape',
+        'Heavy bank vault door',
+        'Rising interest graph',
+        'Gold bullion bars',
+        'Stock exchange trading floor',
+      ]);
+    }
+
+    if (_hasAny(text, ['work', 'job', 'workweek', 'office', 'burnout', 'corporate', 'meeting', 'employee', 'labor', 'company', 'salary', 'overtime'])) {
+      metaphors.addAll([
+        'Empty boardroom chairs',
+        'Wall clock at twilight',
+        'Office skyscraper window',
+        'Executive desk ledger',
+        'Shedding red tape',
+      ]);
+    }
+
+    if (_hasAny(text, ['paper', 'print', 'book', 'read', 'newspaper', 'broadsheet', 'screen fatigue', 'doomscroll', 'magazine', 'newsstand'])) {
+      metaphors.addAll([
+        'Tactile vintage broadsheet',
+        'Ragged torn newsprint',
+        'Serif ink typography',
+        'Coffee on wooden desk',
+        'Shattered smartphone screen',
+      ]);
+    }
+
+    if (_hasAny(text, ['war', 'conflict', 'border', 'military', 'army', 'defense', 'missile', 'drone', 'security', 'geopolitic'])) {
+      metaphors.addAll([
+        'Barbed wire barricades',
+        'Surveillance radar',
+        'Diplomatic summit podium',
+        'Tactical map overlay',
+      ]);
+    }
+
+    if (_hasAny(text, ['space', 'isro', 'nasa', 'rocket', 'moon', 'mars', 'satellite', 'orbit', 'galaxy'])) {
+      metaphors.addAll([
+        'Launchpad gantry in twilight',
+        'Orbital satellite telemetry',
+        'Deep space nebula',
+        'Cratered lunar surface',
+      ]);
+    }
+
+    return metaphors;
   }
 
   static bool _hasAny(String text, List<String> terms) {
@@ -128,13 +286,46 @@ class VisualCueService {
     return false;
   }
 
-  static bool _isGenericPhrase(String text) {
-    final lower = text.toLowerCase();
-    return lower.startsWith('focus on') ||
-        lower.startsWith('highlight why') ||
-        lower.startsWith('explain for') ||
-        lower.contains('and then') ||
-        lower.contains('because of');
+  static final Set<String> _stopWords = {
+    'a', 'an', 'the', 'and', 'or', 'but', 'is', 'are', 'was', 'were',
+    'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'from', 'up',
+    'about', 'into', 'over', 'after', 'than', 'this', 'that', 'these',
+    'those', 'it', 'its', 'as', 'if', 'be', 'been', 'has', 'have', 'had',
+    'why', 'how', 'what', 'when', 'where', 'which', 'who', 'whom',
+    'very', 'more', 'most', 'some', 'any', 'all', 'such', 'not', 'no',
+    'just', 'then', 'so', 'can', 'will', 'would', 'could', 'should',
+    'focus', 'highlight', 'explain', 'show', 'make', 'give', 'says', 'said',
+  };
+
+  static bool _isStopWord(String word) => _stopWords.contains(word.toLowerCase());
+
+  static String _stripStopWords(List<String> words) {
+    int start = 0;
+    while (start < words.length && _isStopWord(words[start])) {
+      start++;
+    }
+    int end = words.length - 1;
+    while (end >= start && _isStopWord(words[end])) {
+      end--;
+    }
+    if (start > end) return '';
+    return words.sublist(start, end + 1).join(' ');
+  }
+
+  static String _cleanPillText(String text) {
+    var clean = text.replaceAll(RegExp(r"""^[\s"“'#\d.:-]+|[\s"”'.:-]+$"""), '').trim();
+    if (clean.length > 36) {
+      clean = clean.substring(0, 36).trim();
+    }
+    return _toTitleCase(clean);
+  }
+
+  static String _toTitleCase(String text) {
+    return text.split(' ').map((w) {
+      if (w.isEmpty) return '';
+      if (_isStopWord(w)) return w.toLowerCase();
+      return '${w[0].toUpperCase()}${w.substring(1)}';
+    }).join(' ');
   }
 
   /// Formats ordered word pills into a prioritized prompt instruction string

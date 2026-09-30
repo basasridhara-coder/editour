@@ -116,6 +116,7 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
   final TextEditingController _hookCuesController = TextEditingController();
   List<String> _cueWordPills = [];
   bool _isAutoSuggestingCues = false;
+  bool _showManualDigitalInputs = false;
   final TextEditingController _opinionController = TextEditingController();
   final TextEditingController _linkController = TextEditingController();
   final TextEditingController _headlineController = TextEditingController();
@@ -171,32 +172,40 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
   void _autoSuggestCueKeywords() {
     setState(() => _isAutoSuggestingCues = true);
 
-    String angle = _contextController.text.trim();
-    if (angle.isEmpty) {
-      angle = _opinionController.text.trim();
-    }
-    if (angle.isEmpty) {
-      angle = _curatorAngleController.text.trim();
+    // 1. Gather all Curator angle / context / stance text available
+    final angleParts = <String>[
+      if (_contextController.text.trim().isNotEmpty) _contextController.text.trim(),
+      if (_opinionController.text.trim().isNotEmpty) _opinionController.text.trim(),
+      if (_curatorAngleController.text.trim().isNotEmpty) _curatorAngleController.text.trim(),
+    ];
+    final angle = angleParts.join(' • ');
+
+    // 2. Gather all Headline inputs available across all controllers / samples / URL slug
+    final headlineParts = <String>[
+      if (_digitalTitleController.text.trim().isNotEmpty) _digitalTitleController.text.trim(),
+      if (_headlineController.text.trim().isNotEmpty) _headlineController.text.trim(),
+      if (_bookTitleController.text.trim().isNotEmpty) _bookTitleController.text.trim(),
+      if (_activeSample?.title != null && _activeSample!.title.isNotEmpty) _activeSample!.title,
+    ];
+    String headline = headlineParts.isNotEmpty ? headlineParts.first : '';
+    if (headline.isEmpty && _urlController.text.trim().isNotEmpty) {
+      headline = VisualCueService.extractHeadlineFromUrl(_urlController.text.trim());
     }
 
-    String headline = '';
+    // 3. Gather all excerpt / body content available
     String body = '';
-
-    if (_sourceMode == InputSourceMode.digitalLink) {
-      headline = _digitalTitleController.text.trim();
+    if (_digitalContentController.text.trim().isNotEmpty) {
       body = _digitalContentController.text.trim();
-    } else if (_sourceMode == InputSourceMode.bookExcerpt) {
-      headline = _bookTitleController.text.trim();
+    } else if (_bookExcerptTextController.text.trim().isNotEmpty) {
       body = _bookExcerptTextController.text.trim();
-    } else {
-      headline = _activeSample?.title ?? _headlineController.text.trim();
-      body = _activeSample?.rawArticleText ?? '';
+    } else if (_activeSample?.rawArticleText != null) {
+      body = _activeSample!.rawArticleText;
     }
 
     final suggested = VisualCueService.extractKeywords(
       curatorAngle: angle,
       newsHeadline: headline,
-      newsBody: body,
+      newsBody: body.isNotEmpty ? body : null,
     );
 
     setState(() {
@@ -418,6 +427,11 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
           _scrapedSiteName = result.siteName;
           if (result.title.isNotEmpty) {
             _digitalTitleController.text = result.title;
+          } else if (_digitalTitleController.text.trim().isEmpty) {
+            final fallbackFromSlug = VisualCueService.extractHeadlineFromUrl(targetUrl);
+            if (fallbackFromSlug.isNotEmpty) {
+              _digitalTitleController.text = fallbackFromSlug;
+            }
           }
           if (result.content.isNotEmpty) {
             _digitalContentController.text = result.content;
@@ -445,9 +459,21 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _isFetchingUrl = false);
+        setState(() {
+          _isFetchingUrl = false;
+          if (_digitalTitleController.text.trim().isEmpty) {
+            final fallbackFromSlug = VisualCueService.extractHeadlineFromUrl(targetUrl);
+            if (fallbackFromSlug.isNotEmpty) {
+              _digitalTitleController.text = fallbackFromSlug;
+            }
+          }
+        });
+        _autoSuggestCueKeywords();
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to fetch link: $e')),
+          SnackBar(
+            content: Text('⚠️ Could not fetch web text ($e). Generated cues using available headline & angle.'),
+            backgroundColor: Colors.orange.shade800,
+          ),
         );
       }
     }
@@ -1034,29 +1060,33 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
 
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (ctx) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+        final bottomInset = MediaQuery.of(ctx).viewInsets.bottom + MediaQuery.of(ctx).padding.bottom;
+        return Padding(
+          padding: EdgeInsets.fromLTRB(20, 12, 20, 24 + bottomInset),
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Center(
                   child: Container(
-                    width: 40,
-                    height: 4,
+                    width: 44,
+                    height: 5,
                     decoration: BoxDecoration(
                       color: Colors.grey.withValues(alpha: 0.4),
-                      borderRadius: BorderRadius.circular(2),
+                      borderRadius: BorderRadius.circular(3),
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 14),
                 Row(
                   children: [
                     Container(
@@ -1093,7 +1123,7 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 14),
                 _buildRegenChoiceCard(
                   context: ctx,
                   icon: Icons.palette_rounded,
@@ -1135,6 +1165,7 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
                     _runAnalysis(target: RegenerationTarget.all);
                   },
                 ),
+                const SizedBox(height: 12),
               ],
             ),
           ),
@@ -1445,6 +1476,11 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
                         const SizedBox(height: 16),
                         TextField(
                           controller: _contextController,
+                          onChanged: (_) {
+                            if (_cueWordPills.isEmpty) {
+                              _autoSuggestCueKeywords();
+                            }
+                          },
                           decoration: InputDecoration(
                             labelText: 'Specific Angle or Context (Optional)',
                             hintText: 'e.g. Focus on climate impact, or explain for kids',
@@ -1889,8 +1925,24 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
                 ),
               ),
 
-              // Preview of fetched article
-              if (_scrapedArticle != null || _digitalTitleController.text.isNotEmpty) ...[
+              // Manual entry prompt if article isn't fetched yet
+              if (_scrapedArticle == null && _digitalTitleController.text.isEmpty && !_showManualDigitalInputs) ...[
+                const SizedBox(height: 8),
+                Center(
+                  child: TextButton.icon(
+                    onPressed: () {
+                      setState(() {
+                        _showManualDigitalInputs = true;
+                      });
+                    },
+                    icon: const Icon(Icons.edit_note, size: 16),
+                    label: const Text('Or enter headline & article excerpt manually', style: TextStyle(fontSize: 12)),
+                  ),
+                ),
+              ],
+
+              // Preview or manual input of article headline & content
+              if (_scrapedArticle != null || _digitalTitleController.text.isNotEmpty || _showManualDigitalInputs) ...[
                 const SizedBox(height: 14),
                 Container(
                   padding: const EdgeInsets.all(12),
@@ -1936,6 +1988,11 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
                       const SizedBox(height: 8),
                       TextField(
                         controller: _digitalTitleController,
+                        onChanged: (_) {
+                          if (_cueWordPills.isEmpty) {
+                            _autoSuggestCueKeywords();
+                          }
+                        },
                         decoration: const InputDecoration(
                           labelText: 'Article Headline',
                           border: OutlineInputBorder(),
