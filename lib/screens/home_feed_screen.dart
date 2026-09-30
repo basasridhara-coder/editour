@@ -41,6 +41,13 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
       _items = items;
       _isLoading = false;
     });
+
+    // Seamlessly ensure any local physical clippings are synced with photo bytes to editour.app
+    Future.microtask(() async {
+      try {
+        await EditourCloudService().reconcileWithCloud();
+      } catch (_) {}
+    });
   }
 
   List<PostCardItem> get _filteredItems {
