@@ -1,9 +1,5 @@
 {
   "version": 2,
-  "rewrites": [
-    { "source": "/api/(.*)", "destination": "/editour_web/api/$1" },
-    { "source": "/(.*)", "destination": "/editour_web/public/$1" }
-  ],
   "headers": [
     {
       "source": "/api/(.*)",

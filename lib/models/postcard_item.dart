@@ -134,7 +134,7 @@ class PostCardItem {
     this.curatorAngle,
     this.hookCues,
     this.bookCoverBase64,
-    this.postFormat = 'editorial_briefing',
+    this.postFormat = 'carousel_trio',
     this.receiptHighlightQuote,
     this.articleExcerpts = const [],
   });
@@ -325,7 +325,7 @@ class PostCardItem {
       curatorAngle: map['curatorAngle'],
       hookCues: map['hookCues'],
       bookCoverBase64: map['bookCoverBase64'],
-      postFormat: map['postFormat'] ?? 'editorial_briefing',
+      postFormat: map['postFormat'] ?? 'carousel_trio',
       receiptHighlightQuote: map['receiptHighlightQuote'],
       articleExcerpts: (map['articleExcerpts'] as List?)?.map((e) => e.toString()).toList() ?? const [],
     );

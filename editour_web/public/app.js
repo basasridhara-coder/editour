@@ -140,9 +140,7 @@ function renderFeed() {
   filtered.forEach((post, index) => {
     const card = createPostCardElement(post, index);
     container.appendChild(card);
-    if (post.postFormat === 'carousel_trio' || (post.articleExcerpts && post.articleExcerpts.length > 0)) {
-      setupCarouselGestures(index);
-    }
+    setupCarouselGestures(index);
   });
 }
 
@@ -162,7 +160,6 @@ function escapeHtml(str) {
 
 function buildSlide1Html(post, index) {
   const headline = escapeHtml(post.adaptedHeadline || post.originalHeadline || 'Untitled Story');
-  const hook = escapeHtml(post.hook || '');
   const audience = escapeHtml(post.targetAudience || 'General');
   let catBadge = escapeHtml(post.categoryBadge || 'CURATED DIGEST');
   let pubName = escapeHtml(post.publicationName || 'Press Wire');
@@ -190,24 +187,45 @@ function buildSlide1Html(post, index) {
     `;
   }
 
-  const hasContextAnchor = hook && hook !== headline;
+  // Tactile Ripped Newspaper Clipping Fragment (Actual News Excerpt / Headline)
+  const rawNews = (post.originalHeadline && post.originalHeadline.trim().length > 0 && post.originalHeadline.trim() !== (post.adaptedHeadline || '').trim())
+    ? post.originalHeadline.trim()
+    : ((post.hook && post.hook.trim().length > 0 && post.hook.trim() !== headline)
+        ? post.hook.trim()
+        : '');
+
+  let newsFragmentHtml = '';
+  if (rawNews) {
+    const words = rawNews.split(/\s+/);
+    const formattedNews = words.length > 13 ? words.slice(0, 13).join(' ') + '...' : rawNews;
+    newsFragmentHtml = `
+      <div class="tactile-news-fragment">
+        <div class="tactile-news-inner">
+          <div class="tactile-news-header">
+            <span>🗞️</span>
+            <span>NEWS CLIPPING • ${pubName.toUpperCase()}</span>
+          </div>
+          <div class="tactile-news-headline">${escapeHtml(formattedNews)}</div>
+        </div>
+      </div>
+    `;
+  }
 
   return `
     ${bgHtml}
     <div class="slide-hook-top-scrim"></div>
     <div class="slide-hook-bottom-scrim"></div>
     <div class="slide-hook-content">
-      <div class="slide-hook-top">
-        <span class="audience-pill">🎯 ${audience}</span>
-        <span class="category-tag">${catBadge} • ${pubName}</span>
+      <div class="slide-hook-top" style="justify-content: space-between; width: 100%;">
+        <div style="padding: 4px 10px; background: rgba(0,0,0,0.75); border: 1px solid rgba(255,255,255,0.25); border-radius: 20px; display: inline-flex; align-items: center; gap: 6px;">
+          <span style="width: 6px; height: 6px; border-radius: 50%; background: #6366F1; display: inline-block;"></span>
+          <span style="font-size: 9.5px; font-weight: 800; color: #818CF8; letter-spacing: 0.8px;">${catBadge}</span>
+          <span style="font-size: 9.5px; font-weight: 700; color: #FFF;">• ${pubName}</span>
+        </div>
+        <span class="slide-page-badge" style="background:rgba(0,0,0,0.75); border:1px solid rgba(255,255,255,0.25); border-radius:20px; padding:3px 9px; font-size:9.5px; color:#FFF; font-weight:800; letter-spacing:0.5px;">01 / 03</span>
       </div>
       <div class="slide-hook-bottom">
-        ${hasContextAnchor ? `
-          <div class="slide-context-anchor">
-            <span class="anchor-dot"></span>
-            <span class="anchor-text">${hook}</span>
-          </div>
-        ` : ''}
+        ${newsFragmentHtml}
         <h3 class="slide-hook-headline">${headline}</h3>
       </div>
     </div>
@@ -218,9 +236,31 @@ function buildSlide2Html(post, index) {
   const handle = escapeHtml(post.creatorHandle || '@curator');
   const initial = handle.replace('@', '').charAt(0).toUpperCase() || 'C';
   const pubName = escapeHtml(post.publicationName || 'Press Wire');
-  const opinion = escapeHtml(post.creatorOpinion || post.whyItMatters || post.hook || 'Strategic structural shift in motion.');
-  const whyItMatters = post.whyItMatters ? escapeHtml(post.whyItMatters) : '';
-  const slideTitle = post.keyTakeaways && post.keyTakeaways.length > 0
+
+  let rawOpinion = (post.creatorOpinion && post.creatorOpinion.trim())
+    ? post.creatorOpinion.trim()
+    : ((post.whyItMatters && post.whyItMatters.trim())
+        ? post.whyItMatters.trim()
+        : (post.hook || 'Strategic structural shift in motion.'));
+  while (rawOpinion.endsWith('.') || rawOpinion.endsWith('…')) {
+    if (rawOpinion.endsWith('...')) rawOpinion = rawOpinion.slice(0, -3).trim();
+    else if (rawOpinion.endsWith('…')) rawOpinion = rawOpinion.slice(0, -1).trim();
+    else break;
+  }
+  if (!rawOpinion.endsWith('.') && !rawOpinion.endsWith('!') && !rawOpinion.endsWith('?')) {
+    rawOpinion += '.';
+  }
+  const opinion = escapeHtml(rawOpinion);
+
+  let rawRationale = (post.whyItMatters && post.whyItMatters.trim() && post.whyItMatters.trim() !== rawOpinion.trim())
+    ? post.whyItMatters.trim()
+    : '';
+  if (rawRationale && !rawRationale.endsWith('.') && !rawRationale.endsWith('!') && !rawRationale.endsWith('?')) {
+    rawRationale += '.';
+  }
+  const whyItMatters = rawRationale ? escapeHtml(rawRationale) : '';
+
+  const slideTitle = post.keyTakeaways && post.keyTakeaways.length > 0 && post.keyTakeaways[0].split(' ').length <= 12
     ? escapeHtml(post.keyTakeaways[0].toUpperCase())
     : "THE CRITICAL PERSPECTIVE";
 
@@ -238,29 +278,29 @@ function buildSlide2Html(post, index) {
   return `
     ${bgHtml}
     <div class="slide-hook-top-scrim"></div>
-    <div class="slide-hook-bottom-scrim" style="height: 62%; background: linear-gradient(to bottom, transparent 0%, rgba(7,11,18,0.85) 35%, rgba(7,11,18,0.98) 100%);"></div>
+    <div class="slide-hook-bottom-scrim" style="height: 54%; background: linear-gradient(to bottom, transparent 0%, rgba(7,11,18,0.85) 35%, rgba(7,11,18,0.98) 100%);"></div>
     <div class="slide-hook-content" style="justify-content: space-between;">
-      <div class="slide-hook-top">
-        <span class="critique-verdict-badge" style="font-size:10px; padding:4px 10px; background:rgba(0,0,0,0.75); border:1px solid rgba(245,158,11,0.4); border-radius:20px; color:#F59E0B; font-weight:800;">⚡ CURATOR'S TAKE • ${pubName}</span>
-        <span class="slide-page-badge" style="background:rgba(0,0,0,0.75); border:1px solid rgba(255,255,255,0.25); border-radius:20px; padding:3px 9px; font-size:10px; color:#FFF; font-weight:800;">02 / 03</span>
+      <div class="slide-hook-top" style="justify-content: space-between; width: 100%;">
+        <span class="critique-verdict-badge" style="font-size:9.5px; padding:4px 10px; background:rgba(0,0,0,0.75); border:1px solid rgba(245,158,11,0.4); border-radius:20px; color:#F59E0B; font-weight:800;">⚡ CURATOR'S TAKE • ${pubName}</span>
+        <span class="slide-page-badge" style="background:rgba(0,0,0,0.75); border:1px solid rgba(255,255,255,0.25); border-radius:20px; padding:3px 9px; font-size:9.5px; color:#FFF; font-weight:800;">02 / 03</span>
       </div>
       <div class="slide-hook-bottom" style="gap:6px;">
         <div style="display:flex; align-items:center; gap:6px;">
           <span style="width:6px; height:6px; border-radius:50%; background:#F59E0B; display:inline-block;"></span>
-          <span style="font-size:10px; font-weight:800; color:#F59E0B; letter-spacing:1px;">${slideTitle}</span>
+          <span style="font-size:10px; font-weight:800; color:#F59E0B; letter-spacing:0.8px;">${slideTitle}</span>
         </div>
-        <p class="critique-opinion-text" style="font-size:13.5px; font-weight:600; color:#F8FAFC; line-height:1.4; margin:0;">${opinion}</p>
-        ${whyItMatters && whyItMatters !== opinion ? `
-          <div style="padding:6px 10px; background:rgba(245,158,11,0.12); border-radius:6px; border:0.8px solid rgba(245,158,11,0.35); font-size:11px; color:#E2E8F0; line-height:1.3;">
-            <strong style="color:#F59E0B; font-size:9.5px; letter-spacing:0.5px;">WHY IT MATTERS: </strong>${whyItMatters}
+        <p class="critique-opinion-text" style="font-size:13px; font-weight:700; color:#F8FAFC; line-height:1.35; margin:0;">${opinion}</p>
+        ${whyItMatters ? `
+          <div style="padding:6px 9px; background:rgba(245,158,11,0.12); border-radius:6px; border:0.8px solid rgba(245,158,11,0.35); font-size:10.5px; color:#E2E8F0; line-height:1.3;">
+            <strong style="color:#F59E0B; font-size:9px; letter-spacing:0.5px;">WHY IT MATTERS: </strong>${whyItMatters}
           </div>
         ` : ''}
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px; padding-top:6px; border-top:1px solid rgba(255,255,255,0.1);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:3px; padding-top:5px; border-top:1px solid rgba(255,255,255,0.1);">
           <div style="display:flex; align-items:center; gap:6px;">
             <div style="width:20px; height:20px; border-radius:50%; background:#F59E0B; color:#000; font-size:10px; font-weight:bold; display:flex; align-items:center; justify-content:center;">${initial}</div>
             <span style="font-size:11px; font-weight:600; color:#CBD5E1;">${handle}</span>
           </div>
-          <span style="font-size:10px; font-weight:800; color:#FCA5A5; background:rgba(220,38,38,0.25); border:1px solid rgba(239,68,68,0.8); border-radius:14px; padding:3px 8px;">THE RECEIPTS &rarr;</span>
+          <span style="font-size:9.5px; font-weight:800; color:#FCA5A5; background:rgba(220,38,38,0.25); border:1px solid rgba(239,68,68,0.8); border-radius:14px; padding:3px 8px;">THE RECEIPTS &rarr;</span>
         </div>
       </div>
     </div>
@@ -271,7 +311,6 @@ function buildSlide3Html(post, index) {
   const pubName = escapeHtml(post.publicationName || 'THE FINANCIAL CHRONICLE');
   const headline = escapeHtml(post.originalHeadline || post.adaptedHeadline || 'Original News Source');
   const quote = escapeHtml(post.receiptHighlightQuote || post.pullQuote || 'Primary reporting confirmed that recorded structural indicators diverged sharply from initial forecasts across core operations.');
-  const digitalUrl = post.digitalLink || '';
   const handle = escapeHtml(post.creatorHandle || '@curator');
 
   // Extract 3 section excerpt statements
@@ -287,39 +326,43 @@ function buildSlide3Html(post, index) {
       paragraphs.length === 0 ? quote : 'Detailed analysis across verified reporting channels confirmed the ongoing broader strategic implications.'
     );
   }
+  if (paragraphs.length < 3) {
+    paragraphs.push('Corroborating records confirmed key indicators aligned with official administrative filings.');
+  }
 
   const p1 = escapeHtml(paragraphs[0] || quote);
-  const p2 = escapeHtml(paragraphs.length > 1 ? paragraphs[1] : quote);
-  const p3 = escapeHtml(paragraphs.length > 2 ? paragraphs[2] : 'Corroborating records confirmed key indicators aligned with official administrative filings.');
+  const p2 = escapeHtml(paragraphs[1] || quote);
+  const p3 = escapeHtml(paragraphs[2]);
 
   return `
     <div class="receipt-header">
-      <div class="receipt-stamp">🗞️ THE "RECEIPT" • SOURCE CLIPPING</div>
-      <div class="receipt-pub-title">${pubName}</div>
-      <div class="receipt-rules">
+      <div style="width:100%; height:2.2px; background:#0F172A; margin-bottom:2px;"></div>
+      <div style="width:100%; height:0.7px; background:#475569; margin-bottom:4px;"></div>
+      <div class="receipt-pub-title" style="margin:2px 0 3px;">${pubName}</div>
+      <div class="receipt-rules" style="margin-bottom:6px;">
         <span>VOL. CLXXIV • NO. 48,210</span>
-        <span>NEWSROOM ARCHIVE</span>
+        <span>ACTUAL NEWSPAPER EXCERPTS</span>
         <span>SLIDE 03 / 03</span>
       </div>
-      <h4 class="receipt-headline">"${headline}"</h4>
+      <h4 class="receipt-headline" style="margin-bottom:4px;">"${headline}"</h4>
     </div>
     
-    <div class="receipt-paragraphs" style="flex:1; display:flex; flex-direction:column; justify-content:space-between; margin:8px 0;">
-      <p style="font-family:serif; font-size:11px; color:#1E293B; line-height:1.35; margin:0;">${p1}</p>
+    <div class="receipt-paragraphs" style="flex:1; display:flex; flex-direction:column; justify-content:space-between; margin:4px 0 6px;">
+      <p style="font-family:serif; font-size:10.5px; color:#1E293B; line-height:1.32; margin:0;">${p1}</p>
 
-      <div class="receipt-highlight" style="margin:4px 0; padding:8px 10px; background:#FEF08A; border-left:4px solid #CA8A04; border-radius:4px; font-family:serif; font-size:11.5px; font-weight:800; color:#0F172A; line-height:1.3;">
-        <div style="font-size:8px; font-weight:900; color:#854D0E; letter-spacing:0.8px; margin-bottom:2px;">KEY SECTION EXCERPT</div>
+      <div class="receipt-highlight" style="margin:3px 0; padding:6px 9px; background:#FEF08A; border-left:3.5px solid #CA8A04; border-radius:3px; font-family:serif; font-size:11px; font-weight:800; color:#0F172A; line-height:1.3;">
+        <div style="font-size:7.5px; font-weight:900; color:#854D0E; letter-spacing:0.8px; margin-bottom:2px; font-family:'Inter',sans-serif;">KEY SECTION EXCERPT</div>
         “${p2}”
       </div>
 
-      <p style="font-family:serif; font-size:10.8px; color:#334155; line-height:1.35; margin:0;">${p3}</p>
+      <p style="font-family:serif; font-size:10.5px; color:#334155; line-height:1.32; margin:0;">${p3}</p>
     </div>
 
-    <div class="receipt-footer" style="display:flex; justify-content:space-between; align-items:center; padding-top:6px; border-top:0.8px solid #0F172A;">
-      <span class="receipt-verified-badge" style="font-size:7.5px; font-weight:800; color:#334155; letter-spacing:0.4px;">
+    <div class="receipt-footer" style="display:flex; justify-content:space-between; align-items:center; padding-top:5px; border-top:1px solid #0F172A;">
+      <span class="receipt-verified-badge" style="font-size:8px; font-weight:800; color:#15803D; letter-spacing:0.4px;">
         <span>✓</span> <span>AUTHENTIC EXCERPTS • PRIMARY SOURCE</span>
       </span>
-      <span style="font-size:7.5px; font-weight:800; color:#334155; letter-spacing:0.4px;">
+      <span style="font-size:8px; font-weight:800; color:#475569; letter-spacing:0.4px;">
         ARCHIVED BY ${handle}
       </span>
     </div>
@@ -345,7 +388,7 @@ function createPostCardElement(post, index) {
   const metric = post.keyMetric || '';
   const quote = post.pullQuote || '';
   const isBook = post.sourceType === 'book_excerpt';
-  const isCarousel = post.postFormat === 'carousel_trio' || (post.articleExcerpts && post.articleExcerpts.length > 0);
+  const isCarousel = true;
   const hasPaperCut = post.originalPhotoPath && 
                       !post.originalPhotoPath.startsWith('http') && 
                       post.originalPhotoPath !== 'digital_article_link' && 
@@ -353,84 +396,44 @@ function createPostCardElement(post, index) {
                       post.originalPhotoPath !== 'sample_asset_print';
   const digitalUrl = post.digitalLink || '';
 
-  let visualSectionHtml = '';
+  // 3-Poster Carousel Trio Frame with Interactive Tabs & Arrows (Universal 3-Slide Social Poster Series)
+  const visualSectionHtml = `
+    <div class="carousel-slide-tabs" id="tabs-${index}">
+      <button class="carousel-tab-btn active" onclick="goToSlide(event, ${index}, 0)">1. Hook Poster</button>
+      <button class="carousel-tab-btn" onclick="goToSlide(event, ${index}, 1)">2. Curator Take</button>
+      <button class="carousel-tab-btn" onclick="goToSlide(event, ${index}, 2)">3. The Receipt</button>
+    </div>
 
-  if (isCarousel) {
-    // 3-Poster Carousel Trio Frame with Interactive Tabs & Arrows
-    visualSectionHtml = `
-      <div class="carousel-slide-tabs" id="tabs-${index}">
-        <button class="carousel-tab-btn active" onclick="goToSlide(event, ${index}, 0)">1. Hook Poster</button>
-        <button class="carousel-tab-btn" onclick="goToSlide(event, ${index}, 1)">2. Curator Take</button>
-        <button class="carousel-tab-btn" onclick="goToSlide(event, ${index}, 2)">3. The Receipt</button>
-      </div>
-
-      <div class="carousel-view" id="carousel-${index}" data-post-index="${index}" data-current-slide="0">
-        <div class="carousel-track" id="track-${index}">
-          <div class="carousel-slide slide-hook" onclick="openDetailModal(${index})">
-            ${buildSlide1Html(post, index)}
-          </div>
-          <div class="carousel-slide slide-critique" onclick="openDetailModal(${index})">
-            ${buildSlide2Html(post, index)}
-          </div>
-          <div class="carousel-slide slide-receipt" onclick="openDetailModal(${index})">
-            ${buildSlide3Html(post, index)}
-          </div>
+    <div class="carousel-view" id="carousel-${index}" data-post-index="${index}" data-current-slide="0">
+      <div class="carousel-track" id="track-${index}">
+        <div class="carousel-slide slide-hook" onclick="openDetailModal(${index})">
+          ${buildSlide1Html(post, index)}
         </div>
-
-        <!-- Navigation Buttons -->
-        <button class="carousel-nav-btn prev-btn" onclick="changeSlide(event, ${index}, -1)" title="Previous Slide">&#x2039;</button>
-        <button class="carousel-nav-btn next-btn" onclick="changeSlide(event, ${index}, 1)" title="Next Slide">&#x203A;</button>
-
-        <!-- Top Right Slide Counter -->
-        <div class="slide-counter-badge" id="badge-${index}">
-          <span>📑</span> <span class="counter-num">1 / 3 • Hook</span>
+        <div class="carousel-slide slide-critique" onclick="openDetailModal(${index})">
+          ${buildSlide2Html(post, index)}
         </div>
-
-        <!-- Bottom Dot Indicators -->
-        <div class="carousel-dots" id="dots-${index}">
-          <span class="carousel-dot active" onclick="goToSlide(event, ${index}, 0)"></span>
-          <span class="carousel-dot" onclick="goToSlide(event, ${index}, 1)"></span>
-          <span class="carousel-dot" onclick="goToSlide(event, ${index}, 2)"></span>
+        <div class="carousel-slide slide-receipt" onclick="openDetailModal(${index})">
+          ${buildSlide3Html(post, index)}
         </div>
       </div>
-    `;
-  } else {
-    // Single Poster Card
-    let heroVisualHtml = '';
-    if (post.illustrationBase64) {
-      heroVisualHtml = `
-        <div class="poster-canvas" onclick="openDetailModal(${index})">
-          <img class="poster-img" src="data:image/jpeg;base64,${post.illustrationBase64}" alt="${escapeHtml(headline)}" loading="lazy">
-        </div>
-      `;
-    } else {
-      heroVisualHtml = `
-        <div class="poster-canvas" onclick="openDetailModal(${index})">
-          <div class="infographic-banner">
-            <div class="banner-top">
-              <span class="audience-pill">🎯 ${escapeHtml(audience)}</span>
-              <span class="style-pill">${escapeHtml(post.posterStyle || 'EDITORIAL')}</span>
-            </div>
-            <div class="banner-center">
-              ${metric ? `
-                <div class="metric-badge">
-                  <span class="metric-val">${escapeHtml(metric)}</span>
-                  <span class="metric-label">Key Signal</span>
-                </div>
-              ` : ''}
-              <h3 class="canvas-headline">${escapeHtml(headline)}</h3>
-              ${quote ? `<p class="canvas-quote">"${escapeHtml(quote)}"</p>` : ''}
-            </div>
-            <div class="banner-bottom">
-              <span class="mood-text">✦ ${escapeHtml(post.visualMood || 'Visual Editorial Poster')}</span>
-              <span style="font-size:11px; font-weight:700; color:#A5B4FC;">EDITOUR.APP</span>
-            </div>
-          </div>
-        </div>
-      `;
-    }
-    visualSectionHtml = heroVisualHtml;
-  }
+
+      <!-- Navigation Buttons -->
+      <button class="carousel-nav-btn prev-btn" onclick="changeSlide(event, ${index}, -1)" title="Previous Slide">&#x2039;</button>
+      <button class="carousel-nav-btn next-btn" onclick="changeSlide(event, ${index}, 1)" title="Next Slide">&#x203A;</button>
+
+      <!-- Top Right Slide Counter -->
+      <div class="slide-counter-badge" id="badge-${index}">
+        <span>📑</span> <span class="counter-num">1 / 3 • Hook</span>
+      </div>
+
+      <!-- Bottom Dot Indicators -->
+      <div class="carousel-dots" id="dots-${index}">
+        <span class="carousel-dot active" onclick="goToSlide(event, ${index}, 0)"></span>
+        <span class="carousel-dot" onclick="goToSlide(event, ${index}, 1)"></span>
+        <span class="carousel-dot" onclick="goToSlide(event, ${index}, 2)"></span>
+      </div>
+    </div>
+  `;
 
   card.innerHTML = `
     <div class="post-header">

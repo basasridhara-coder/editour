@@ -1,0 +1,8 @@
+{
+  "name": "editour",
+  "version": "1.0.0",
+  "description": "Editour • Visual Editorial & Infographic PostCard Feed (editour.app)",
+  "scripts": {
+    "start": "node server.js"
+  }
+}

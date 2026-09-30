@@ -145,7 +145,7 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
   final TextEditingController _s3Excerpt2Controller = TextEditingController();
   final TextEditingController _s3Excerpt3Controller = TextEditingController();
 
-  String _selectedPostFormat = 'editorial_briefing'; // 'editorial_briefing' | 'carousel_trio'
+  String _selectedPostFormat = 'carousel_trio'; // 'editorial_briefing' | 'carousel_trio'
 
   bool _isAnalyzing = false;
   String _analysisStatus = '';

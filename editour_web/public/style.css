@@ -865,6 +865,9 @@ header {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  background: #060911;
+  position: relative;
+  overflow: hidden;
 }
 
 .slide-hook-bg {
@@ -881,8 +884,8 @@ header {
   top: 0;
   left: 0;
   right: 0;
-  height: 38%;
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.82) 0%, rgba(0, 0, 0, 0.45) 55%, transparent 100%);
+  height: 28%;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.65) 0%, rgba(0, 0, 0, 0.25) 60%, transparent 100%);
   z-index: 2;
   pointer-events: none;
 }
@@ -892,8 +895,8 @@ header {
   bottom: 0;
   left: 0;
   right: 0;
-  height: 65%;
-  background: linear-gradient(0deg, rgba(7, 11, 18, 0.98) 0%, rgba(7, 11, 18, 0.85) 45%, rgba(7, 11, 18, 0.4) 75%, transparent 100%);
+  height: 52%;
+  background: linear-gradient(0deg, rgba(6, 9, 17, 0.98) 0%, rgba(6, 9, 17, 0.82) 42%, transparent 100%);
   z-index: 2;
   pointer-events: none;
 }
@@ -905,7 +908,7 @@ header {
   flex-direction: column;
   justify-content: space-between;
   height: 100%;
-  padding: 18px 16px;
+  padding: 14px 14px 16px;
   box-sizing: border-box;
 }
 
@@ -919,6 +922,59 @@ header {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+/* Tactile Ripped Broadsheet Newspaper Fragment on Slide 1 */
+.tactile-news-fragment {
+  margin-bottom: 7px;
+  background: linear-gradient(135deg, #FAF7EE 0%, #F3ECE0 50%, #EBE2D2 100%);
+  border: 1px solid rgba(220, 210, 190, 0.95);
+  border-radius: 4px;
+  box-shadow: 0 3.5px 10px rgba(0, 0, 0, 0.70);
+  overflow: hidden;
+  position: relative;
+}
+
+.tactile-news-fragment::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: rgba(214, 205, 191, 0.85);
+}
+
+.tactile-news-inner {
+  padding: 5px 9px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2.5px;
+}
+
+.tactile-news-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 4.5px;
+  font-size: 7.8px;
+  font-weight: 800;
+  color: #786F5E;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+
+.tactile-news-headline {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 11.2px;
+  font-weight: 900;
+  color: #141414;
+  line-height: 1.22;
+  letter-spacing: -0.2px;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .slide-source-pill {
@@ -964,12 +1020,13 @@ header {
 
 .slide-hook-headline {
   font-family: 'Space Grotesk', 'Inter', sans-serif;
-  font-size: 19px;
-  font-weight: 800;
-  line-height: 1.25;
+  font-size: 20px;
+  font-weight: 900;
+  line-height: 1.18;
   color: #FFFFFF;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.85);
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.90);
   margin: 0;
+  letter-spacing: -0.5px;
 }
 
 .slide-hook-desc {
@@ -988,9 +1045,9 @@ header {
    SLIDE 2: CURATOR TAKE & CRITIQUE (DEEP EDITORIAL CANVAS)
    ------------------------------------------------------------ */
 .slide-critique {
-  background: linear-gradient(165deg, #090D16 0%, #0F172A 50%, #080C14 100%);
+  background: #070B12;
   position: relative;
-  padding: 20px 18px 16px;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
