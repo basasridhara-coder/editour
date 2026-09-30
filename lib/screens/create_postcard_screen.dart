@@ -915,6 +915,11 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
         curatorIllustrationBase64: result.generatedCuratorIllustrationBytes != null
             ? base64Encode(result.generatedCuratorIllustrationBytes!)
             : null,
+        originalPhotoBase64: _imageBytes != null
+            ? base64Encode(_imageBytes!)
+            : (_selectedImage != null && File(_selectedImage!.path).existsSync()
+                ? base64Encode(File(_selectedImage!.path).readAsBytesSync())
+                : null),
       );
 
       _populateControllersFromItem(newItem, isRegenerating: isRegenerating);

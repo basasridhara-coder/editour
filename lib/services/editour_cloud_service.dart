@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../models/postcard_item.dart';
@@ -33,9 +34,37 @@ class EditourCloudService {
   /// Publishes a single post card item to editour.app / Supabase
   Future<bool> publishPost(PostCardItem item) async {
     try {
+      final itemMap = Map<String, dynamic>.from(item.toMap());
+
+      // Ensure original physical paper clipping bytes are populated for web viewers
+      if ((item.originalPhotoBase64 == null || item.originalPhotoBase64!.isEmpty) &&
+          item.originalPhotoPath.isNotEmpty &&
+          !item.originalPhotoPath.startsWith('http') &&
+          !item.originalPhotoPath.startsWith('data:') &&
+          !item.originalPhotoPath.startsWith('sample_') &&
+          !item.originalPhotoPath.startsWith('digital_')) {
+        try {
+          if (!kIsWeb) {
+            final file = File(item.originalPhotoPath);
+            if (file.existsSync()) {
+              final bytes = file.readAsBytesSync();
+              final b64 = base64Encode(bytes);
+              itemMap['originalPhotoBase64'] = b64;
+              // Also update in local storage so subsequent reads have it
+              try {
+                final updatedItem = item.copyWith(originalPhotoBase64: b64);
+                _storageService.savePostCard(updatedItem);
+              } catch (_) {}
+            }
+          }
+        } catch (e) {
+          debugPrint('EditourCloudService reading photo bytes error: $e');
+        }
+      }
+
       final payload = {
         'id': item.id,
-        'data': item.toMap(),
+        'data': itemMap,
       };
       final body = json.encode(payload);
 
@@ -72,7 +101,7 @@ class EditourCloudService {
             .post(
               localUri,
               headers: {'Content-Type': 'application/json'},
-              body: json.encode(item.toMap()),
+              body: json.encode(itemMap),
             )
             .timeout(const Duration(seconds: 3));
       } catch (_) {}

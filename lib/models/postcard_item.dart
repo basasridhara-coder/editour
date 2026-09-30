@@ -43,6 +43,7 @@ class PostCardItem {
   final String postFormat; // 'editorial_briefing' | 'carousel_trio'
   final String? receiptHighlightQuote;
   final List<String> articleExcerpts;
+  final String? originalPhotoBase64;
 
   bool get isDigitalLinkSource =>
       sourceType == 'digital_link' ||
@@ -137,6 +138,7 @@ class PostCardItem {
     this.postFormat = 'carousel_trio',
     this.receiptHighlightQuote,
     this.articleExcerpts = const [],
+    this.originalPhotoBase64,
   });
 
   PostCardItem copyWith({
@@ -181,6 +183,7 @@ class PostCardItem {
     String? postFormat,
     String? receiptHighlightQuote,
     List<String>? articleExcerpts,
+    String? originalPhotoBase64,
   }) {
     return PostCardItem(
       id: id ?? this.id,
@@ -224,6 +227,7 @@ class PostCardItem {
       postFormat: postFormat ?? this.postFormat,
       receiptHighlightQuote: receiptHighlightQuote ?? this.receiptHighlightQuote,
       articleExcerpts: articleExcerpts ?? this.articleExcerpts,
+      originalPhotoBase64: originalPhotoBase64 ?? this.originalPhotoBase64,
     );
   }
 
@@ -271,6 +275,7 @@ class PostCardItem {
       'receiptHighlightQuote': receiptHighlightQuote,
       'articleExcerpts': articleExcerpts,
       'resolvedArticleExcerpts': resolvedArticleExcerpts,
+      'originalPhotoBase64': originalPhotoBase64,
     };
   }
 
@@ -328,6 +333,7 @@ class PostCardItem {
       postFormat: map['postFormat'] ?? 'carousel_trio',
       receiptHighlightQuote: map['receiptHighlightQuote'],
       articleExcerpts: (map['articleExcerpts'] as List?)?.map((e) => e.toString()).toList() ?? const [],
+      originalPhotoBase64: map['originalPhotoBase64'],
     );
   }
 

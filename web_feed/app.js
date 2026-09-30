@@ -389,11 +389,13 @@ function createPostCardElement(post, index) {
   const quote = post.pullQuote || '';
   const isBook = post.sourceType === 'book_excerpt';
   const isCarousel = true;
-  const hasPaperCut = post.originalPhotoPath && 
+  const hasPaperCut = (post.originalPhotoBase64 && post.originalPhotoBase64.length > 50) || 
+                      (post.originalPhotoPath && 
                       !post.originalPhotoPath.startsWith('http') && 
                       post.originalPhotoPath !== 'digital_article_link' && 
                       post.originalPhotoPath !== 'book_excerpt_reading' &&
-                      post.originalPhotoPath !== 'sample_asset_print';
+                      post.originalPhotoPath !== 'sample_asset_print') ||
+                      (post.sourceType === 'photo' && !post.digitalLink);
   const digitalUrl = post.digitalLink || '';
   const curatedAngle = (post.curatorAngle && post.curatorAngle.trim()) 
     ? post.curatorAngle.trim() 
@@ -480,16 +482,16 @@ function createPostCardElement(post, index) {
           </svg>
           <span>${isCarousel ? '3 Posters' : '1-Min Read'}</span>
         </button>
-        ${hasPaperCut ? `
-          <button class="tag-action-btn" onclick="openPaperCutModal(${index})">
-            📰 Paper Cut
-          </button>
-        ` : ''}
       </div>
-      <div style="display:flex; gap:6px;">
+      <div style="display:flex; gap:6px; align-items:center;">
         <button class="tag-action-btn" onclick="copyCardShareLink('${post.id}')" title="Copy shareable link">
           🔗 Share
         </button>
+        ${hasPaperCut ? `
+          <button class="tag-action-btn" onclick="openPaperCutModal(${index})" title="View original physical newspaper clipping">
+            📰 Paper Cut
+          </button>
+        ` : ''}
         ${digitalUrl ? `
           <a href="${digitalUrl}" target="_blank" class="tag-action-btn" title="Open verified online article">
             🌐 Article &nearr;
@@ -671,14 +673,73 @@ function copyCardShareLink(postId) {
 
 function openPaperCutModal(index) {
   const post = allPosts[index];
-  if (!post || !post.originalPhotoPath) return;
+  if (!post) return;
 
   const imgEl = document.getElementById('paperCutImg');
-  if (post.originalPhotoPath.startsWith('http') || post.originalPhotoPath.startsWith('data:')) {
-    imgEl.src = post.originalPhotoPath;
-  } else {
-    imgEl.src = '/image/' + encodeURIComponent(post.originalPhotoPath);
+  const imgWrap = document.getElementById('paperCutImgWrap');
+  const archivalCard = document.getElementById('paperCutArchivalCard');
+
+  let imgSrc = '';
+  if (post.originalPhotoBase64 && post.originalPhotoBase64.length > 50) {
+    imgSrc = post.originalPhotoBase64.startsWith('data:') 
+      ? post.originalPhotoBase64 
+      : 'data:image/jpeg;base64,' + post.originalPhotoBase64;
+  } else if (post.originalPhotoPath && (post.originalPhotoPath.startsWith('http') || post.originalPhotoPath.startsWith('data:'))) {
+    imgSrc = post.originalPhotoPath;
   }
+
+  function showArchivalFallback() {
+    if (imgWrap) imgWrap.style.display = 'none';
+    if (imgEl) {
+      imgEl.src = '';
+      imgEl.style.display = 'none';
+    }
+    if (archivalCard) {
+      const pub = post.publicationName || 'Print Daily Broadsheet';
+      const headline = post.originalHeadline || post.adaptedHeadline || 'Original Newsprint Article';
+      const quote = post.receiptHighlightQuote || (post.resolvedArticleExcerpts && post.resolvedArticleExcerpts[0]) || post.summary || '';
+      
+      archivalCard.innerHTML = `
+        <div class="paper-cut-archival-inner">
+          <div class="paper-cut-header-row">
+            <span class="paper-cut-pub-title">${escapeHtml(pub.toUpperCase())}</span>
+            <span class="paper-cut-verified-stamp">VERIFIED PHYSICAL ARCHIVE</span>
+          </div>
+          <div class="paper-cut-rule"></div>
+          <h2 class="paper-cut-headline">${escapeHtml(headline)}</h2>
+          <div class="paper-cut-rule subtle"></div>
+          ${quote ? `
+            <div class="paper-cut-quote-box">
+              <span class="paper-cut-quote-label">SCANNED CLIPPING EXCERPT:</span>
+              <p class="paper-cut-quote-text">"${escapeHtml(quote)}"</p>
+            </div>
+          ` : ''}
+          <div class="paper-cut-footer-meta">
+            <span>📷 High-resolution camera scan captured on mobile device via PostCard Scanner.</span>
+          </div>
+        </div>
+      `;
+      archivalCard.style.display = 'block';
+    }
+  }
+
+  if (imgEl) {
+    imgEl.onerror = () => {
+      showArchivalFallback();
+    };
+  }
+
+  if (imgSrc) {
+    if (archivalCard) archivalCard.style.display = 'none';
+    if (imgWrap) imgWrap.style.display = 'flex';
+    if (imgEl) {
+      imgEl.style.display = 'block';
+      imgEl.src = imgSrc;
+    }
+  } else {
+    showArchivalFallback();
+  }
+
   document.getElementById('paperCutModal').classList.add('open');
 }
 
