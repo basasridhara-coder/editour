@@ -433,19 +433,56 @@ class _InstagramPostCardWidgetState extends State<InstagramPostCardWidget> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Headline (tappable to view full story)
-          GestureDetector(
-            onTap: widget.onTap,
-            child: Text(
-              widget.item.adaptedHeadline,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w900,
-                fontSize: 15.5,
-                height: 1.25,
-              ),
-            ),
+          // Curated Angle Callout (Replaces duplicate headline)
+          Builder(
+            builder: (context) {
+              final angleContent = (widget.item.curatorAngle != null && widget.item.curatorAngle!.trim().isNotEmpty)
+                  ? widget.item.curatorAngle!.trim()
+                  : ((widget.item.creatorOpinion != null && widget.item.creatorOpinion!.trim().isNotEmpty)
+                      ? widget.item.creatorOpinion!.trim()
+                      : ((widget.item.whyItMatters != null && widget.item.whyItMatters!.trim().isNotEmpty)
+                          ? widget.item.whyItMatters!.trim()
+                          : widget.item.hook));
+              if (angleContent.trim().isEmpty) return const SizedBox.shrink();
+
+              return GestureDetector(
+                onTap: widget.onTap,
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF59E0B).withValues(alpha: 0.10),
+                    borderRadius: const BorderRadius.horizontal(right: Radius.circular(8)),
+                    border: const Border(
+                      left: BorderSide(color: Color(0xFFF59E0B), width: 3.5),
+                    ),
+                  ),
+                  child: RichText(
+                    text: TextSpan(
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontSize: 13,
+                        height: 1.4,
+                        color: theme.colorScheme.onSurface,
+                      ),
+                      children: [
+                        const TextSpan(
+                          text: '⚡ Curated Angle : ',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFFF59E0B),
+                          ),
+                        ),
+                        TextSpan(
+                          text: angleContent,
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
           ),
-          const SizedBox(height: 6),
 
           // ITEM 2: FEW STARTING LINES OF SUMMARY WITH "..."
           GestureDetector(

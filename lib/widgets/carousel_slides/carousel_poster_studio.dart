@@ -171,7 +171,11 @@ class _CarouselPosterStudioState extends State<CarouselPosterStudio> {
                   height: 450,
                   child: RepaintBoundary(
                     key: _captureKey1,
-                    child: SlideHookPoster(item: widget.item, config: config),
+                    child: SlideHookPoster(
+                      key: ValueKey('cap_slide1_${widget.item.id}_${widget.item.illustrationBase64.hashCode}'),
+                      item: widget.item,
+                      config: config,
+                    ),
                   ),
                 ),
                 SizedBox(
@@ -179,7 +183,11 @@ class _CarouselPosterStudioState extends State<CarouselPosterStudio> {
                   height: 450,
                   child: RepaintBoundary(
                     key: _captureKey2,
-                    child: SlideCritiquePoster(item: widget.item, config: config),
+                    child: SlideCritiquePoster(
+                      key: ValueKey('cap_slide2_${widget.item.id}_${widget.item.illustrationBase64.hashCode}'),
+                      item: widget.item,
+                      config: config,
+                    ),
                   ),
                 ),
                 SizedBox(
@@ -261,8 +269,16 @@ class _CarouselPosterStudioState extends State<CarouselPosterStudio> {
                   widget.onPageChanged?.call(idx);
                 },
                 children: [
-                  SlideHookPoster(item: widget.item, config: config),
-                  SlideCritiquePoster(item: widget.item, config: config),
+                  SlideHookPoster(
+                    key: ValueKey('studio_slide1_${widget.item.id}_${widget.item.illustrationBase64.hashCode}'),
+                    item: widget.item,
+                    config: config,
+                  ),
+                  SlideCritiquePoster(
+                    key: ValueKey('studio_slide2_${widget.item.id}_${widget.item.illustrationBase64.hashCode}'),
+                    item: widget.item,
+                    config: config,
+                  ),
                   SlideReceiptsPoster(item: widget.item, config: config),
                 ],
               ),

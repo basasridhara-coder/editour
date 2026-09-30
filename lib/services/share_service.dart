@@ -35,9 +35,18 @@ class ShareService {
     try {
       if (kIsWeb) return null;
       final dir = await getApplicationDocumentsDirectory();
-      final filePath = '${dir.path}/poster_$id.png';
+      final filePath = '${dir.path}/poster_${id}_${DateTime.now().millisecondsSinceEpoch}.png';
       final file = File(filePath);
       await file.writeAsBytes(bytes);
+      // Clean up previous older files for this id to prevent disk accumulation
+      try {
+        final allFiles = dir.listSync();
+        for (final f in allFiles) {
+          if (f is File && f.path.contains('poster_$id') && f.path != filePath) {
+            f.deleteSync();
+          }
+        }
+      } catch (_) {}
       return filePath;
     } catch (e) {
       debugPrint('Error saving poster to file: $e');

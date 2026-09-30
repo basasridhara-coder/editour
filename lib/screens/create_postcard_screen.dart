@@ -1012,6 +1012,10 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
         await _storageService.savePostCard(updatedItem);
         EditourCloudService().publishPost(updatedItem);
 
+        // Force evict stale decoded images from Flutter ImageCache so preview updates immediately
+        PaintingBinding.instance.imageCache.clear();
+        PaintingBinding.instance.imageCache.clearLiveImages();
+
         if (mounted) {
           setState(() {
             _generatedItem = updatedItem;
@@ -3105,6 +3109,7 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
 
           // Live Carousel Studio
           CarouselPosterStudio(
+            key: ValueKey('studio_${_generatedItem!.id}_${_generatedItem!.illustrationBase64.hashCode}_$_regenerationCount'),
             item: _generatedItem!,
             config: PosterStyleConfig.getPreset(_currentStyle),
             showShareActions: true,

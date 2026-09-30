@@ -385,18 +385,28 @@ class SlideHookPoster extends StatelessWidget {
   }
 
   Widget _buildVisualArt() {
-    // 1. High-resolution rendered AI illustration file
+    // 1. In-memory decoded AI illustration bytes (highest freshness priority on re-rolls)
+    if (item.illustrationBase64 != null && item.illustrationBase64!.isNotEmpty) {
+      try {
+        return Image.memory(
+          base64Decode(item.illustrationBase64!),
+          key: ValueKey('hook_mem_${item.id}_${item.illustrationBase64.hashCode}'),
+          fit: BoxFit.cover,
+          gaplessPlayback: true,
+        );
+      } catch (_) {}
+    }
+    // 2. High-resolution rendered AI illustration file
     if (item.renderedPosterPath != null && item.renderedPosterPath!.isNotEmpty) {
       final file = File(item.renderedPosterPath!);
       if (file.existsSync()) {
-        return Image.file(file, fit: BoxFit.cover);
+        return Image.file(
+          file,
+          key: ValueKey('hook_file_${item.renderedPosterPath}_${item.illustrationBase64.hashCode}'),
+          fit: BoxFit.cover,
+          gaplessPlayback: true,
+        );
       }
-    }
-    // 2. In-memory decoded AI illustration bytes
-    if (item.illustrationBase64 != null && item.illustrationBase64!.isNotEmpty) {
-      try {
-        return Image.memory(base64Decode(item.illustrationBase64!), fit: BoxFit.cover);
-      } catch (_) {}
     }
     // NOTE: We NEVER display the raw paper cut camera photo on Slide 1!
     // Slide 1 is the conceptual visual hook. The raw newspaper clipping belongs exclusively to Slide 3.

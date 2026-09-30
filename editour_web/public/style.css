@@ -540,6 +540,31 @@ header {
   line-height: 1.45;
 }
 
+.post-curated-angle-box {
+  margin: 2px 0 6px;
+  padding: 8px 12px;
+  background: rgba(245, 158, 11, 0.08);
+  border-left: 3.5px solid #F59E0B;
+  border-radius: 0 8px 8px 0;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.curated-angle-tag {
+  font-weight: 800;
+  color: #F59E0B;
+  margin-right: 6px;
+  font-size: 12.5px;
+  letter-spacing: 0.2px;
+  display: inline-block;
+}
+
+.curated-angle-text {
+  font-weight: 600;
+  color: #F8FAFC;
+  font-size: 13px;
+}
+
 .post-summary-snippet {
   font-size: 13.5px;
   line-height: 1.55;

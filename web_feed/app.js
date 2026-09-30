@@ -395,6 +395,13 @@ function createPostCardElement(post, index) {
                       post.originalPhotoPath !== 'book_excerpt_reading' &&
                       post.originalPhotoPath !== 'sample_asset_print';
   const digitalUrl = post.digitalLink || '';
+  const curatedAngle = (post.curatorAngle && post.curatorAngle.trim()) 
+    ? post.curatorAngle.trim() 
+    : ((post.creatorOpinion && post.creatorOpinion.trim()) 
+        ? post.creatorOpinion.trim() 
+        : ((post.whyItMatters && post.whyItMatters.trim()) 
+            ? post.whyItMatters.trim() 
+            : (post.hook || '')));
 
   // 3-Poster Carousel Trio Frame with Interactive Tabs & Arrows (Universal 3-Slide Social Poster Series)
   const visualSectionHtml = `
@@ -492,8 +499,12 @@ function createPostCardElement(post, index) {
     </div>
 
     <div class="post-content">
-      <div class="post-headline">${escapeHtml(headline)}</div>
-      ${hook ? `<div class="post-hook">${escapeHtml(hook)}</div>` : ''}
+      ${curatedAngle ? `
+        <div class="post-curated-angle-box">
+          <span class="curated-angle-tag">⚡ Curated Angle :</span>
+          <span class="curated-angle-text">${escapeHtml(curatedAngle)}</span>
+        </div>
+      ` : ''}
       ${isCarousel ? `
         <div style="margin: 8px 0; padding: 7px 11px; background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.22); border-radius: 8px; font-size: 11.5px; color: #E2E8F0; display:flex; justify-content:space-between; align-items:center;">
           <span>🎨 <b>3-Poster Carousel:</b> Slide 1: Hook • Slide 2: Verdict • Slide 3: Receipt</span>

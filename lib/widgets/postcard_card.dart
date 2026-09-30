@@ -158,27 +158,53 @@ class PostcardCard extends StatelessWidget {
               ),
               const SizedBox(height: 12),
 
-              // Headline
-              Text(
-                item.adaptedHeadline,
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  height: 1.25,
-                ),
-              ),
-              const SizedBox(height: 6),
+              // Curated Angle Callout (Replaces duplicate headline & hook)
+              Builder(
+                builder: (context) {
+                  final angleContent = (item.curatorAngle != null && item.curatorAngle!.trim().isNotEmpty)
+                      ? item.curatorAngle!.trim()
+                      : ((item.creatorOpinion != null && item.creatorOpinion!.trim().isNotEmpty)
+                          ? item.creatorOpinion!.trim()
+                          : ((item.whyItMatters != null && item.whyItMatters!.trim().isNotEmpty)
+                              ? item.whyItMatters!.trim()
+                              : item.hook));
+                  if (angleContent.trim().isEmpty) return const SizedBox.shrink();
 
-              // Hook
-              Text(
-                item.hook,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                  height: 1.35,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF59E0B).withValues(alpha: 0.10),
+                      borderRadius: const BorderRadius.horizontal(right: Radius.circular(8)),
+                      border: const Border(
+                        left: BorderSide(color: Color(0xFFF59E0B), width: 3.5),
+                      ),
+                    ),
+                    child: RichText(
+                      text: TextSpan(
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontSize: 13,
+                          height: 1.4,
+                          color: theme.colorScheme.onSurface,
+                        ),
+                        children: [
+                          const TextSpan(
+                            text: '⚡ Curated Angle : ',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFFF59E0B),
+                            ),
+                          ),
+                          TextSpan(
+                            text: angleContent,
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
               ),
-              const SizedBox(height: 10),
 
               // Carousel 3-poster indicator strip
               if (item.isCarouselTrio) ...[

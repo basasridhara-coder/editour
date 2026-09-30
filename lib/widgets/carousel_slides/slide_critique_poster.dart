@@ -361,23 +361,38 @@ class SlideCritiquePoster extends StatelessWidget {
   }
 
   Widget _buildVisualArt() {
-    // 1. Primary rendered poster image file (shares exact hero art with Slide 1)
+    // 1. Primary illustration bytes (highest freshness priority on re-rolls)
+    if (item.illustrationBase64 != null && item.illustrationBase64!.isNotEmpty) {
+      try {
+        return Image.memory(
+          base64Decode(item.illustrationBase64!),
+          key: ValueKey('critique_mem_${item.id}_${item.illustrationBase64.hashCode}'),
+          fit: BoxFit.cover,
+          gaplessPlayback: true,
+        );
+      } catch (_) {}
+    }
+    // 2. Primary rendered poster image file (shares exact hero art with Slide 1)
     if (item.renderedPosterPath != null && item.renderedPosterPath!.isNotEmpty) {
       final file = File(item.renderedPosterPath!);
       if (file.existsSync()) {
-        return Image.file(file, fit: BoxFit.cover);
+        return Image.file(
+          file,
+          key: ValueKey('critique_file_${item.renderedPosterPath}_${item.illustrationBase64.hashCode}'),
+          fit: BoxFit.cover,
+          gaplessPlayback: true,
+        );
       }
-    }
-    // 2. Primary illustration bytes (shares exact hero art with Slide 1)
-    if (item.illustrationBase64 != null && item.illustrationBase64!.isNotEmpty) {
-      try {
-        return Image.memory(base64Decode(item.illustrationBase64!), fit: BoxFit.cover);
-      } catch (_) {}
     }
     // 3. Dedicated curator illustration if generated
     if (item.curatorIllustrationBase64 != null && item.curatorIllustrationBase64!.isNotEmpty) {
       try {
-        return Image.memory(base64Decode(item.curatorIllustrationBase64!), fit: BoxFit.cover);
+        return Image.memory(
+          base64Decode(item.curatorIllustrationBase64!),
+          key: ValueKey('critique_cur_${item.id}_${item.curatorIllustrationBase64.hashCode}'),
+          fit: BoxFit.cover,
+          gaplessPlayback: true,
+        );
       } catch (_) {}
     }
     return _buildFallbackArtisticGraphic();
