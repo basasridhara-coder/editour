@@ -53,7 +53,7 @@ class PostCardItem {
 
   bool get isBookExcerpt => sourceType == 'book_excerpt';
 
-  bool get isCarouselTrio => postFormat == 'carousel_trio';
+  bool get isCarouselTrio => true; // 3-carousel poster format is default across all posts
 
   List<String> get resolvedArticleExcerpts {
     final List<String> list = List<String>.from(

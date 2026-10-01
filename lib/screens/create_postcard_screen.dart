@@ -145,7 +145,7 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
   final TextEditingController _s3Excerpt2Controller = TextEditingController();
   final TextEditingController _s3Excerpt3Controller = TextEditingController();
 
-  String _selectedPostFormat = 'carousel_trio'; // 'editorial_briefing' | 'carousel_trio'
+  final String _selectedPostFormat = 'carousel_trio';
 
   bool _isAnalyzing = false;
   String _analysisStatus = '';
@@ -1625,12 +1625,6 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 16),
-
-                  // Format Selector (Curator Briefing vs Social Carousel Trio)
-                  _buildFormatSelector(theme),
-                  const SizedBox(height: 16),
-
                   // Generate Button
                   FilledButton.icon(
                     onPressed: _isAnalyzing
@@ -1638,15 +1632,11 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
                         : (_generatedItem != null
                             ? _showRegenerationOptionsSheet
                             : _runAnalysis),
-                    icon: Icon(_selectedPostFormat == 'carousel_trio' ? Icons.view_carousel_rounded : Icons.auto_awesome),
+                    icon: const Icon(Icons.view_carousel_rounded),
                     label: Text(
                       _generatedItem == null
-                          ? (_selectedPostFormat == 'carousel_trio'
-                              ? 'Generate 3-Poster Social Carousel'
-                              : 'Summarize into Social Poster')
-                          : (_selectedPostFormat == 'carousel_trio'
-                              ? 'Re-generate 3-Poster Carousel'
-                              : 'Re-generate Poster with AI'),
+                          ? 'Generate 3-Poster Social Carousel'
+                          : 'Re-generate 3-Poster Carousel',
                       style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                     ),
                     style: FilledButton.styleFrom(
@@ -2903,173 +2893,6 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
           ],
         ),
       ],
-    );
-  }
-
-  Widget _buildFormatSelector(ThemeData theme) {
-    final isBriefing = _selectedPostFormat == 'editorial_briefing';
-    final isCarousel = _selectedPostFormat == 'carousel_trio';
-
-    return Card(
-      elevation: 0,
-      color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.style_outlined, color: theme.colorScheme.primary, size: 18),
-                const SizedBox(width: 8),
-                Text(
-                  'Choose Post Format',
-                  style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                // Option 1: Curator Briefing
-                Expanded(
-                  child: InkWell(
-                    onTap: () {
-                      setState(() {
-                        _selectedPostFormat = 'editorial_briefing';
-                        if (_generatedItem != null) {
-                          _generatedItem = _generatedItem!.copyWith(postFormat: 'editorial_briefing');
-                        }
-                      });
-                    },
-                    borderRadius: BorderRadius.circular(12),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: isBriefing
-                            ? theme.colorScheme.primary.withValues(alpha: 0.12)
-                            : theme.colorScheme.surface,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: isBriefing
-                              ? theme.colorScheme.primary
-                              : theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
-                          width: isBriefing ? 2 : 1,
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.article_rounded,
-                                size: 18,
-                                color: isBriefing ? theme.colorScheme.primary : theme.colorScheme.outline,
-                              ),
-                              const Spacer(),
-                              if (isBriefing)
-                                Icon(Icons.check_circle_rounded, size: 16, color: theme.colorScheme.primary),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Curator Briefing',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w800,
-                              color: isBriefing ? theme.colorScheme.primary : theme.colorScheme.onSurface,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Hero Poster + 1-Min Read',
-                            style: TextStyle(
-                              fontSize: 10.5,
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-
-                // Option 2: Social Carousel Trio
-                Expanded(
-                  child: InkWell(
-                    onTap: () {
-                      setState(() {
-                        _selectedPostFormat = 'carousel_trio';
-                        if (_generatedItem != null) {
-                          _generatedItem = _generatedItem!.copyWith(postFormat: 'carousel_trio');
-                        }
-                      });
-                    },
-                    borderRadius: BorderRadius.circular(12),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: isCarousel
-                            ? theme.colorScheme.primary.withValues(alpha: 0.12)
-                            : theme.colorScheme.surface,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: isCarousel
-                              ? theme.colorScheme.primary
-                              : theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
-                          width: isCarousel ? 2 : 1,
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.view_carousel_rounded,
-                                size: 18,
-                                color: isCarousel ? theme.colorScheme.primary : theme.colorScheme.outline,
-                              ),
-                              const Spacer(),
-                              if (isCarousel)
-                                Icon(Icons.check_circle_rounded, size: 16, color: theme.colorScheme.primary),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Social Carousel Trio',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w800,
-                              color: isCarousel ? theme.colorScheme.primary : theme.colorScheme.onSurface,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            '3 Posters • WhatsApp/Insta',
-                            style: TextStyle(
-                              fontSize: 10.5,
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
     );
   }
 
