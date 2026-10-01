@@ -28,9 +28,9 @@ module.exports = async function handler(req, res) {
   }
 
   if (req.method === 'GET') {
-    // 1. Primary: Direct Supabase query with limit
+    // 1. Primary: Direct Supabase query with safe batch limit
     try {
-      const resp = await fetch(`${SUPABASE_URL}/rest/v1/posts?select=*&data->>deleted=is.null&order=created_at.desc&limit=35`, {
+      const resp = await fetch(`${SUPABASE_URL}/rest/v1/posts?select=*&order=created_at.desc&limit=15`, {
         headers: {
           'apikey': SUPABASE_KEY,
           'Authorization': `Bearer ${SUPABASE_KEY}`
@@ -38,7 +38,7 @@ module.exports = async function handler(req, res) {
       });
       if (resp.ok) {
         const rows = await resp.json();
-        if (rows && rows.length > 0) {
+        if (Array.isArray(rows) && rows.length > 0) {
           const posts = rows.map(r => r.data || r).filter(p => p && !p.deleted && !p.isDeleted && (p.adaptedHeadline || p.originalHeadline || p.summary));
           return res.status(200).json({ status: 'ok', count: posts.length, posts });
         }

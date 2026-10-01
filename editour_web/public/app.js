@@ -14,9 +14,9 @@ const SUPABASE_URL = 'https://karnxbsmvnkydcfydrcf.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_n90rXQfEukf2gdisKe_jGg_Cybk2r-m';
 
 async function loadPosts() {
-  // 1. Primary: Direct Supabase Cloud Database with limit for high performance
+  // 1. Primary: Direct Supabase Cloud Database (Fast Initial Batch of 12 latest posts)
   try {
-    const resp = await fetch(`${SUPABASE_URL}/rest/v1/posts?select=*&data->>deleted=is.null&order=created_at.desc&limit=35`, {
+    const resp = await fetch(`${SUPABASE_URL}/rest/v1/posts?select=*&order=created_at.desc&limit=12`, {
       headers: {
         'apikey': SUPABASE_KEY,
         'Authorization': `Bearer ${SUPABASE_KEY}`
@@ -24,10 +24,13 @@ async function loadPosts() {
     });
     if (resp.ok) {
       const rows = await resp.json();
-      if (rows && rows.length > 0) {
+      if (Array.isArray(rows) && rows.length > 0) {
         allPosts = rows.map(r => r.data || r).filter(p => p && !p.deleted && !p.isDeleted && (p.adaptedHeadline || p.originalHeadline || p.summary));
         updateBadge(true, `Live Feed (${allPosts.length} posts)`);
         renderFeed();
+
+        // Progressively fetch remaining historical posts in background
+        loadRemainingPosts();
         return;
       }
     }
@@ -752,10 +755,63 @@ async function syncFeed() {
   await loadPosts();
 }
 
+async function loadRemainingPosts() {
+  try {
+    let offset = 12;
+    const batchSize = 12;
+    let keepFetching = true;
+
+    while (keepFetching) {
+      const resp = await fetch(`${SUPABASE_URL}/rest/v1/posts?select=*&order=created_at.desc&limit=${batchSize}&offset=${offset}`, {
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': `Bearer ${SUPABASE_KEY}`
+        }
+      });
+      if (!resp.ok) break;
+      const rows = await resp.json();
+      if (!Array.isArray(rows) || rows.length === 0) {
+        keepFetching = false;
+        break;
+      }
+
+      const newPosts = rows.map(r => r.data || r).filter(p => p && !p.deleted && !p.isDeleted && (p.adaptedHeadline || p.originalHeadline || p.summary));
+      if (newPosts.length === 0) {
+        if (rows.length < batchSize) keepFetching = false;
+        offset += batchSize;
+        continue;
+      }
+
+      const existingIds = new Set(allPosts.map(p => p.id));
+      let added = 0;
+      for (const p of newPosts) {
+        if (!existingIds.has(p.id)) {
+          allPosts.push(p);
+          existingIds.add(p.id);
+          added++;
+        }
+      }
+
+      if (added > 0) {
+        updateBadge(true, `Live Feed (${allPosts.length} posts)`);
+        renderFeed();
+      }
+
+      if (rows.length < batchSize) {
+        keepFetching = false;
+      } else {
+        offset += batchSize;
+      }
+    }
+  } catch (err) {
+    console.warn('Progressive loading background error:', err);
+  }
+}
+
 function setupAutoRefresh() {
   setInterval(async () => {
     try {
-      const resp = await fetch(`${SUPABASE_URL}/rest/v1/posts?select=*&data->>deleted=is.null&order=created_at.desc&limit=35`, {
+      const resp = await fetch(`${SUPABASE_URL}/rest/v1/posts?select=*&order=created_at.desc&limit=10`, {
         headers: {
           'apikey': SUPABASE_KEY,
           'Authorization': `Bearer ${SUPABASE_KEY}`
@@ -763,11 +819,22 @@ function setupAutoRefresh() {
       });
       if (resp.ok) {
         const rows = await resp.json();
-        const activePosts = rows.map(r => r.data || r).filter(p => p && !p.deleted && !p.isDeleted && (p.adaptedHeadline || p.originalHeadline || p.summary));
-        if (rows && activePosts.length !== allPosts.length) {
-          allPosts = activePosts;
-          renderFeed();
-          updateBadge(true, `Live Feed (${allPosts.length} posts)`);
+        if (Array.isArray(rows) && rows.length > 0) {
+          const latestPosts = rows.map(r => r.data || r).filter(p => p && !p.deleted && !p.isDeleted && (p.adaptedHeadline || p.originalHeadline || p.summary));
+          const existingIds = new Set(allPosts.map(p => p.id));
+          let hasNew = false;
+          for (let i = latestPosts.length - 1; i >= 0; i--) {
+            const p = latestPosts[i];
+            if (!existingIds.has(p.id)) {
+              allPosts.unshift(p);
+              existingIds.add(p.id);
+              hasNew = true;
+            }
+          }
+          if (hasNew) {
+            renderFeed();
+            updateBadge(true, `Live Feed (${allPosts.length} posts)`);
+          }
         }
       }
     } catch (_) {}
