@@ -134,20 +134,31 @@ header {
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
+  flex-shrink: 0;
 }
 
 .badge-status {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 12px;
+  height: 34px;
+  box-sizing: border-box;
+  padding: 0 11px;
   border-radius: var(--radius-pill);
   background: rgba(16, 185, 129, 0.12);
   border: 1px solid rgba(16, 185, 129, 0.28);
   color: #34D399;
   font-size: 11.5px;
   font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.badge-status strong {
+  font-weight: 800;
+  color: #10B981;
 }
 
 .pulse-dot {
@@ -155,6 +166,7 @@ header {
   height: 6px;
   border-radius: 50%;
   background: #10B981;
+  flex-shrink: 0;
   animation: pulse 2s infinite;
 }
 
@@ -168,13 +180,17 @@ header {
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid var(--border-subtle);
   color: var(--text-secondary);
-  border-radius: 10px;
+  border-radius: 50%;
   width: 34px;
   height: 34px;
-  display: flex;
+  min-width: 34px;
+  box-sizing: border-box;
+  padding: 0;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  flex-shrink: 0;
   transition: all 0.2s ease;
 }
 .icon-btn:hover {
@@ -353,6 +369,8 @@ header {
   background: rgba(99, 102, 241, 0.15);
   color: #A5B4FC;
   border: 1px solid rgba(99, 102, 241, 0.28);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 /* Poster Canvas (Instagram 4:5 Ratio) */
@@ -959,9 +977,11 @@ header {
 
 .carousel-tab-btn {
   flex: 1;
-  padding: 6px 4px;
+  height: 32px;
+  box-sizing: border-box;
+  padding: 0 8px;
   border-radius: 8px;
-  font-size: 11px;
+  font-size: 11.5px;
   font-weight: 700;
   border: 1px solid var(--border-subtle);
   background: rgba(255, 255, 255, 0.03);
@@ -969,10 +989,22 @@ header {
   cursor: pointer;
   text-align: center;
   transition: all 0.2s;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.carousel-tab-btn .tab-icon {
+  font-size: 13px;
+  line-height: 1;
+}
+
+.carousel-tab-btn .tab-text {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
 }
 
 .carousel-tab-btn:hover {
@@ -1013,25 +1045,9 @@ header {
   flex-shrink: 0;
 }
 
-/* Top-Right Floating Slide Badge */
+/* Top-Right Floating Slide Badge - hidden to prevent obscuring slide mastheads/receipts */
 .slide-counter-badge {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  background: rgba(0, 0, 0, 0.75);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  border-radius: 14px;
-  padding: 3px 9px;
-  font-size: 10.5px;
-  font-weight: 700;
-  color: #FFF;
-  letter-spacing: 0.5px;
-  z-index: 10;
-  pointer-events: none;
-  display: flex;
-  align-items: center;
-  gap: 4px;
+  display: none !important;
 }
 
 /* Navigation Arrows */
@@ -1941,8 +1957,11 @@ header {
 .auth-btn {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 6px 12px;
+  justify-content: center;
+  gap: 6px;
+  height: 34px;
+  box-sizing: border-box;
+  padding: 0 12px;
   border-radius: var(--radius-pill);
   background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(168, 85, 247, 0.15));
   border: 1px solid rgba(99, 102, 241, 0.4);
@@ -1950,6 +1969,8 @@ header {
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
   transition: all 0.2s ease;
 }
 
@@ -2344,3 +2365,56 @@ header {
   line-height: 1.4;
   color: var(--text-muted);
 }
+
+/* ============================================================
+   RESPONSIVE ADJUSTMENTS FOR HEADER & CONTROLS
+   ============================================================ */
+
+@media (max-width: 440px) {
+  .nav-inner {
+    padding: 12px 14px;
+  }
+  .brand {
+    gap: 8px;
+  }
+  .brand-logo {
+    width: 32px;
+    height: 32px;
+    font-size: 17px;
+    border-radius: 9px;
+  }
+  .brand-title {
+    font-size: 18px;
+  }
+  .brand-subtitle {
+    display: none;
+  }
+  .header-actions {
+    gap: 5px;
+  }
+  .badge-status {
+    padding: 0 8px;
+    font-size: 11px;
+  }
+  .badge-status .badge-unit {
+    display: none;
+  }
+  .auth-btn {
+    padding: 0 9px;
+    font-size: 11.5px;
+  }
+}
+
+@media (max-width: 380px) {
+  .auth-btn-text {
+    display: none;
+  }
+  .auth-btn {
+    width: 34px;
+    min-width: 34px;
+    padding: 0;
+    border-radius: 50%;
+    justify-content: center;
+  }
+}
+

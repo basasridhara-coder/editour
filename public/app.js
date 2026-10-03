@@ -539,12 +539,26 @@ async function checkLiveSupabaseUpdates(forceRender = false) {
   }
 }
 
-function updateBadge(connected, text) {
+function updateBadge(connected, textOrCount) {
   const badge = document.getElementById('connectionBadge');
   const label = document.getElementById('connectionText');
-  if (badge && label) {
-    label.textContent = text || (connected ? 'Live Feed' : 'Offline');
+  if (!badge || !label) return;
+
+  if (!connected) {
+    label.innerHTML = '<span class="badge-unit">Offline</span>';
+    return;
   }
+
+  let count = Array.isArray(allPosts) ? allPosts.length : 30;
+  if (typeof textOrCount === 'number') {
+    count = textOrCount;
+  } else if (typeof textOrCount === 'string') {
+    const m = textOrCount.match(/\d+/);
+    if (m) count = parseInt(m[0], 10);
+  }
+
+  label.innerHTML = `<strong>${count}</strong> <span class="badge-unit">stories</span>`;
+  badge.setAttribute('title', `${count} Active Editorial Stories`);
 }
 
 function setupEventListeners() {
@@ -1004,9 +1018,18 @@ function createPostCardElement(post, index) {
   // 3-Poster Carousel Trio Frame with Interactive Tabs & Arrows (Universal 3-Slide Social Poster Series)
   const visualSectionHtml = `
     <div class="carousel-slide-tabs" id="tabs-${index}">
-      <button class="carousel-tab-btn active" onclick="goToSlide(event, ${index}, 0)">1. Hook Poster</button>
-      <button class="carousel-tab-btn" onclick="goToSlide(event, ${index}, 1)">2. Curator Take</button>
-      <button class="carousel-tab-btn" onclick="goToSlide(event, ${index}, 2)">3. The Receipt</button>
+      <button class="carousel-tab-btn active" onclick="goToSlide(event, ${index}, 0)" title="Slide 1: Visual Hook">
+        <span class="tab-icon">🎨</span>
+        <span class="tab-text">Hook</span>
+      </button>
+      <button class="carousel-tab-btn" onclick="goToSlide(event, ${index}, 1)" title="Slide 2: Curator Take">
+        <span class="tab-icon">⚖️</span>
+        <span class="tab-text">Take</span>
+      </button>
+      <button class="carousel-tab-btn" onclick="goToSlide(event, ${index}, 2)" title="Slide 3: Newspaper Receipt">
+        <span class="tab-icon">📰</span>
+        <span class="tab-text">Receipt</span>
+      </button>
     </div>
 
     <div class="carousel-view ${isClean ? 'clean-view' : ''}" id="carousel-${index}" data-post-index="${index}" data-current-slide="0">
@@ -1025,11 +1048,6 @@ function createPostCardElement(post, index) {
       <!-- Navigation Buttons -->
       <button class="carousel-nav-btn prev-btn" onclick="changeSlide(event, ${index}, -1)" title="Previous Slide">&#x2039;</button>
       <button class="carousel-nav-btn next-btn" onclick="changeSlide(event, ${index}, 1)" title="Next Slide">&#x203A;</button>
-
-      <!-- Top Right Slide Counter -->
-      <div class="slide-counter-badge" id="badge-${index}">
-        <span>📑</span> <span class="counter-num">1 / 3 • Hook</span>
-      </div>
 
       <!-- Bottom Dot Indicators -->
       <div class="carousel-dots" id="dots-${index}">
@@ -1057,8 +1075,8 @@ function createPostCardElement(post, index) {
           </div>
         </div>
       </div>
-      <span class="category-tag" ${isCarousel ? 'style="background:rgba(16,185,129,0.15); color:#10B981; border:1px solid rgba(16,185,129,0.35); font-weight:800;"' : ''}>
-        ${isCarousel ? '🎨 3-POSTER CAROUSEL' : escapeHtml(catBadge)}
+      <span class="category-tag">
+        ${escapeHtml(catBadge || 'Visual Story')}
       </span>
     </div>
 
