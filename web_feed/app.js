@@ -89,7 +89,7 @@ async function init() {
   await loadPosts();
   setupEventListeners();
   checkDeepLink();
-  setupAutoRefresh();
+  setupRealtimeSubscription();
 }
 
 const SUPABASE_URL = 'https://karnxbsmvnkydcfydrcf.supabase.co';
@@ -1450,37 +1450,38 @@ async function loadRemainingPosts() {
   }
 }
 
-function setupAutoRefresh() {
-  setInterval(async () => {
+function setupRealtimeSubscription() {
+  if (supabaseClient && typeof supabaseClient.channel === 'function') {
     try {
-      const resp = await fetch(`${SUPABASE_URL}/rest/v1/posts?select=*&order=created_at.desc&limit=10`, {
-        headers: {
-          'apikey': SUPABASE_KEY,
-          'Authorization': `Bearer ${SUPABASE_KEY}`
-        }
-      });
-      if (resp.ok) {
-        const rows = await resp.json();
-        if (Array.isArray(rows) && rows.length > 0) {
-          const latestPosts = rows.map(r => r.data || r).filter(p => p && !p.deleted && !p.isDeleted && (p.adaptedHeadline || p.originalHeadline || p.summary));
-          const existingIds = new Set(allPosts.map(p => p.id));
-          let hasNew = false;
-          for (let i = latestPosts.length - 1; i >= 0; i--) {
-            const p = latestPosts[i];
-            if (!existingIds.has(p.id)) {
-              allPosts.unshift(p);
-              existingIds.add(p.id);
-              hasNew = true;
+      supabaseClient
+        .channel('public:posts')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, payload => {
+          if (payload && payload.new && payload.new.data) {
+            const p = payload.new.data;
+            if (!p.deleted && !p.isDeleted && (p.adaptedHeadline || p.originalHeadline || p.summary)) {
+              const existingIds = new Set(allPosts.map(x => x.id));
+              if (!existingIds.has(p.id)) {
+                allPosts.unshift(p);
+                renderFeed();
+                updateBadge(true, `Live Feed (${allPosts.length} posts)`);
+              }
             }
           }
-          if (hasNew) {
-            renderFeed();
-            updateBadge(true, `Live Feed (${allPosts.length} posts)`);
-          }
-        }
-      }
-    } catch (_) {}
-  }, 10000);
+        })
+        .subscribe();
+    } catch (e) {
+      console.warn('Realtime subscription error:', e);
+    }
+  }
+
+  // Refresh feed gently when user returns to tab (only if at least 2 minutes have passed)
+  let lastRefreshTime = Date.now();
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && Date.now() - lastRefreshTime > 120000) {
+      lastRefreshTime = Date.now();
+      checkLiveSupabaseUpdates(false);
+    }
+  });
 }
 
 document.addEventListener('DOMContentLoaded', init);
