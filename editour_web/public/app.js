@@ -3,7 +3,88 @@ let currentFilter = 'all';
 let searchQuery = '';
 let activePostIndex = null;
 
+// ============================================================
+// READING ATMOSPHERE CONTROLLER (Daylight Paper / Obsidian / Auto)
+// ============================================================
+let currentAtmospherePref = localStorage.getItem('editour_atmosphere_mode') || 'auto';
+
+function getEffectiveAtmosphere(pref) {
+  if (pref === 'daylight') return 'daylight';
+  if (pref === 'obsidian') return 'obsidian';
+  // Auto: Daylight between 6 AM and 6 PM, Obsidian at night
+  const hour = new Date().getHours();
+  return (hour >= 6 && hour < 18) ? 'daylight' : 'obsidian';
+}
+
+function applyAtmosphere(pref) {
+  currentAtmospherePref = pref || currentAtmospherePref;
+  const effective = getEffectiveAtmosphere(currentAtmospherePref);
+  document.documentElement.setAttribute('data-theme', effective);
+  if (document.body) {
+    document.body.setAttribute('data-theme', effective);
+  }
+  
+  // Update navbar icon
+  const iconEl = document.getElementById('themeToggleIcon');
+  if (iconEl) {
+    if (currentAtmospherePref === 'auto') {
+      iconEl.textContent = '⏰';
+      iconEl.title = `Auto (Time of Day: currently ${effective === 'daylight' ? 'Daylight ☀️' : 'Obsidian 🌙'})`;
+    } else if (currentAtmospherePref === 'daylight') {
+      iconEl.textContent = '☀️';
+      iconEl.title = 'Daylight Paper Mode (Click to change)';
+    } else {
+      iconEl.textContent = '🌙';
+      iconEl.title = 'Obsidian Press Mode (Click to change)';
+    }
+  }
+
+  // Update checkmarks in menu
+  ['daylight', 'obsidian', 'auto'].forEach(mode => {
+    const checkEl = document.getElementById(`check-${mode}`);
+    if (checkEl) {
+      checkEl.textContent = currentAtmospherePref === mode ? '✓' : '';
+    }
+  });
+
+  localStorage.setItem('editour_atmosphere_mode', currentAtmospherePref);
+}
+
+function toggleThemeMenu(e) {
+  if (e) e.stopPropagation();
+  const menu = document.getElementById('themeDropdownMenu');
+  if (menu) {
+    menu.classList.toggle('open');
+  }
+}
+
+function setAtmospherePreference(pref) {
+  applyAtmosphere(pref);
+  const menu = document.getElementById('themeDropdownMenu');
+  if (menu) menu.classList.remove('open');
+}
+
+// Close menu when clicking outside
+document.addEventListener('click', (e) => {
+  const menu = document.getElementById('themeDropdownMenu');
+  const btn = document.getElementById('themeToggleBtn');
+  if (menu && menu.classList.contains('open') && !menu.contains(e.target) && e.target !== btn && !btn.contains(e.target)) {
+    menu.classList.remove('open');
+  }
+});
+
+// Apply atmosphere immediately before render
+applyAtmosphere(currentAtmospherePref);
+
 async function init() {
+  applyAtmosphere(currentAtmospherePref);
+  // Auto-check time of day every 60s if mode is 'auto'
+  setInterval(() => {
+    if (currentAtmospherePref === 'auto') {
+      applyAtmosphere('auto');
+    }
+  }, 60000);
+
   await loadPosts();
   setupEventListeners();
   checkDeepLink();

@@ -82,6 +82,8 @@ class StorageService {
     } catch (_) {}
   }
 
+  static const String _keyAtmosphere = 'editour_atmosphere_mode';
+
   Future<String> getCreatorHandle() async {
     try {
       final p = await prefs;
@@ -94,6 +96,21 @@ class StorageService {
     try {
       final p = await prefs;
       await p.setString(_keyCreatorHandle, handle.trim());
+    } catch (_) {}
+  }
+
+  Future<String> getAtmospherePreference() async {
+    try {
+      final p = await prefs;
+      return p.getString(_keyAtmosphere) ?? 'auto';
+    } catch (_) {}
+    return 'auto';
+  }
+
+  Future<void> setAtmospherePreference(String mode) async {
+    try {
+      final p = await prefs;
+      await p.setString(_keyAtmosphere, mode.trim());
     } catch (_) {}
   }
 

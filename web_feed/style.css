@@ -1,8 +1,8 @@
-:root {
-  --bg-base: #07090E;
-  --bg-surface: #0E131F;
-  --bg-card: #131A29;
-  --bg-card-hover: #182235;
+:root, [data-theme="obsidian"] {
+  --bg-base: #0B0E14;
+  --bg-surface: #121722;
+  --bg-card: #161D2B;
+  --bg-card-hover: #1C2537;
   --border-subtle: rgba(255, 255, 255, 0.08);
   --border-focus: rgba(99, 102, 241, 0.4);
   --primary: #6366F1;
@@ -17,6 +17,33 @@
   --shadow-card: 0 12px 35px -10px rgba(0, 0, 0, 0.65);
   --radius-card: 20px;
   --radius-pill: 9999px;
+  --header-bg: rgba(11, 14, 20, 0.88);
+  --bg-gradient-1: rgba(99, 102, 241, 0.07);
+  --bg-gradient-2: rgba(6, 182, 212, 0.06);
+}
+
+[data-theme="daylight"] {
+  --bg-base: #F8F5EE;
+  --bg-surface: #EFECE3;
+  --bg-card: #FFFFFF;
+  --bg-card-hover: #FAF8F3;
+  --border-subtle: rgba(15, 23, 42, 0.09);
+  --border-focus: rgba(79, 70, 229, 0.5);
+  --primary: #4F46E5;
+  --primary-glow: rgba(79, 70, 229, 0.15);
+  --accent-cyan: #0284C7;
+  --accent-emerald: #059669;
+  --accent-rose: #E11D48;
+  --accent-amber: #D97706;
+  --text-primary: #0F172A;
+  --text-secondary: #475569;
+  --text-muted: #64748B;
+  --shadow-card: 0 8px 30px -8px rgba(15, 23, 42, 0.10), 0 2px 6px rgba(15, 23, 42, 0.04);
+  --radius-card: 20px;
+  --radius-pill: 9999px;
+  --header-bg: rgba(248, 245, 238, 0.92);
+  --bg-gradient-1: rgba(217, 119, 6, 0.04);
+  --bg-gradient-2: rgba(79, 70, 229, 0.03);
 }
 
 * {
@@ -36,9 +63,10 @@ body {
   align-items: center;
   padding-bottom: 90px;
   background-image: 
-    radial-gradient(circle at 10% 15%, rgba(99, 102, 241, 0.07) 0%, transparent 45%),
-    radial-gradient(circle at 90% 85%, rgba(6, 182, 212, 0.06) 0%, transparent 45%);
+    radial-gradient(circle at 10% 15%, var(--bg-gradient-1) 0%, transparent 45%),
+    radial-gradient(circle at 90% 85%, var(--bg-gradient-2) 0%, transparent 45%);
   background-attachment: fixed;
+  transition: background-color 0.25s ease, color 0.25s ease;
 }
 
 /* Header */
@@ -46,7 +74,7 @@ header {
   position: sticky;
   top: 0;
   width: 100%;
-  background: rgba(7, 9, 14, 0.88);
+  background: var(--header-bg);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
   border-bottom: 1px solid var(--border-subtle);
@@ -54,9 +82,11 @@ header {
   display: flex;
   flex-direction: column;
   align-items: center;
+  transition: background-color 0.25s ease, border-color 0.25s ease;
 }
 
 .nav-inner {
+  position: relative;
   width: 100%;
   max-width: 500px;
   padding: 14px 18px;
@@ -1639,4 +1669,265 @@ header {
   overflow: hidden;
   text-overflow: ellipsis;
   text-align: right;
+}
+
+/* ============================================================
+   READING ATMOSPHERE SELECTOR & DAYLIGHT PAPER STYLING
+   ============================================================ */
+
+/* Reading Atmosphere Dropdown Menu */
+.theme-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 18px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+  padding: 8px;
+  box-shadow: 0 16px 40px -10px rgba(0, 0, 0, 0.5);
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 280px;
+  z-index: 1000;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  animation: themeMenuPop 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.theme-dropdown-menu.open {
+  display: flex;
+}
+
+@keyframes themeMenuPop {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.theme-menu-header {
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding: 6px 10px 4px;
+}
+
+.theme-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease;
+  width: 100%;
+}
+
+.theme-menu-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+[data-theme="daylight"] .theme-menu-item:hover {
+  background: rgba(15, 23, 42, 0.05);
+}
+
+.theme-icon {
+  font-size: 18px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.theme-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.theme-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.theme-desc {
+  font-size: 10.5px;
+  color: var(--text-secondary);
+}
+
+.theme-check {
+  font-size: 14px;
+  font-weight: 900;
+  color: var(--primary);
+  width: 16px;
+  text-align: center;
+}
+
+/* Daylight Paper Theme Component Overrides */
+[data-theme="daylight"] .brand-title {
+  color: #0F172A;
+}
+
+[data-theme="daylight"] .creator-handle {
+  color: #0F172A;
+}
+
+[data-theme="daylight"] .post-headline {
+  color: #0F172A;
+}
+
+[data-theme="daylight"] .post-hook {
+  color: #334155;
+}
+
+[data-theme="daylight"] .post-caption-text {
+  color: #1E293B;
+}
+
+[data-theme="daylight"] .post-creator-handle {
+  color: #0F172A;
+}
+
+[data-theme="daylight"] .audience-tag {
+  background: rgba(79, 70, 229, 0.08);
+  color: #4338CA;
+  border: 1px solid rgba(79, 70, 229, 0.18);
+}
+
+[data-theme="daylight"] .pub-source-badge {
+  color: #64748B;
+}
+
+[data-theme="daylight"] .post-summary-snippet {
+  color: #334155;
+}
+
+[data-theme="daylight"] .post-curated-angle-box {
+  background: rgba(245, 158, 11, 0.12);
+  border-left-color: #D97706;
+}
+
+[data-theme="daylight"] .curated-angle-tag {
+  color: #B45309;
+}
+
+[data-theme="daylight"] .curated-angle-text {
+  color: #1E293B;
+}
+
+[data-theme="daylight"] .carousel-tab-btn {
+  background: rgba(15, 23, 42, 0.03);
+  border-color: rgba(15, 23, 42, 0.08);
+  color: #475569;
+}
+
+[data-theme="daylight"] .carousel-tab-btn:hover {
+  background: rgba(15, 23, 42, 0.07);
+  color: #0F172A;
+}
+
+[data-theme="daylight"] .carousel-tab-btn.active {
+  background: rgba(79, 70, 229, 0.10);
+  border-color: rgba(79, 70, 229, 0.35);
+  color: #4338CA;
+}
+
+[data-theme="daylight"] .tag-action-btn {
+  background: rgba(15, 23, 42, 0.05);
+  border-color: rgba(15, 23, 42, 0.10);
+  color: #334155;
+}
+
+[data-theme="daylight"] .tag-action-btn:hover {
+  background: rgba(79, 70, 229, 0.12);
+  color: #1E1B4B;
+}
+
+[data-theme="daylight"] .action-bar {
+  border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+}
+
+[data-theme="daylight"] .action-btn {
+  color: #475569;
+}
+
+[data-theme="daylight"] .action-btn:hover {
+  background: rgba(15, 23, 42, 0.06);
+  color: #0F172A;
+}
+
+[data-theme="daylight"] .icon-action-btn {
+  color: #475569;
+}
+
+[data-theme="daylight"] .icon-action-btn:hover {
+  background: rgba(15, 23, 42, 0.07);
+  color: #0F172A;
+}
+
+[data-theme="daylight"] .icon-btn {
+  background: rgba(15, 23, 42, 0.05);
+  border-color: rgba(15, 23, 42, 0.10);
+  color: #334155;
+}
+
+[data-theme="daylight"] .icon-btn:hover {
+  background: rgba(79, 70, 229, 0.12);
+  color: #1E1B4B;
+}
+
+[data-theme="daylight"] #searchInput {
+  background: #FFFFFF;
+  border-color: rgba(15, 23, 42, 0.12);
+  color: #0F172A;
+}
+
+[data-theme="daylight"] .filter-pill {
+  background: #FFFFFF;
+  border-color: rgba(15, 23, 42, 0.10);
+  color: #475569;
+}
+
+[data-theme="daylight"] .filter-pill:hover,
+[data-theme="daylight"] .filter-pill.active {
+  background: rgba(79, 70, 229, 0.10);
+  border-color: var(--primary);
+  color: #4338CA;
+}
+
+[data-theme="daylight"] .modal-card {
+  background: #FFFFFF;
+  color: #0F172A;
+}
+
+[data-theme="daylight"] .modal-title {
+  color: #0F172A;
+}
+
+[data-theme="daylight"] .modal-close {
+  background: rgba(15, 23, 42, 0.06);
+  color: #0F172A;
+}
+
+[data-theme="daylight"] .modal-why-box {
+  background: rgba(79, 70, 229, 0.06);
+  color: #1E293B;
+}
+
+[data-theme="daylight"] .modal-takeaways-list li {
+  color: #334155;
+}
+
+[data-theme="daylight"] .modal-full-summary {
+  color: #1E293B;
 }

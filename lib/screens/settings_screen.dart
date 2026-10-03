@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../main.dart';
 import '../services/gemini_service.dart';
 import '../services/storage_service.dart';
 
@@ -278,6 +279,84 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 16),
 
+            // Reading Atmosphere (Daylight Paper / Obsidian Press / Auto)
+            Card(
+              elevation: 0,
+              color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.palette_outlined, color: theme.colorScheme.primary),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Reading Atmosphere',
+                            style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Choose your reading environment or let Editour automatically switch based on the time of day.',
+                      style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                    ),
+                    const SizedBox(height: 14),
+
+                    ValueListenableBuilder<String>(
+                      valueListenable: appAtmosphereNotifier,
+                      builder: (context, currentMode, _) {
+                        return Column(
+                          children: [
+                            _buildAtmosphereTile(
+                              mode: 'daylight',
+                              title: 'Daylight Paper',
+                              subtitle: 'Warm newsprint linen • morning reading',
+                              icon: Icons.wb_sunny_rounded,
+                              iconColor: Colors.amber.shade700,
+                              isSelected: currentMode == 'daylight',
+                              theme: theme,
+                            ),
+                            const SizedBox(height: 8),
+                            _buildAtmosphereTile(
+                              mode: 'obsidian',
+                              title: 'Obsidian Press',
+                              subtitle: 'Inked velvet midnight • nightstand focus',
+                              icon: Icons.nightlight_round,
+                              iconColor: Colors.indigo.shade300,
+                              isSelected: currentMode == 'obsidian',
+                              theme: theme,
+                            ),
+                            const SizedBox(height: 8),
+                            _buildAtmosphereTile(
+                              mode: 'auto',
+                              title: 'Auto (Time of Day)',
+                              subtitle: 'Daylight 6 AM – 6 PM • Obsidian at night',
+                              icon: Icons.schedule_rounded,
+                              iconColor: Colors.teal.shade400,
+                              isSelected: currentMode == 'auto',
+                              theme: theme,
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
             // Creator Profile Section
             Card(
               elevation: 0,
@@ -378,6 +457,69 @@ class _SettingsScreenState extends State<SettingsScreen> {
               title: 'Export & Social Share',
               desc: 'Share exportable posters directly to Instagram, WhatsApp, X, and LinkedIn.',
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAtmosphereTile({
+    required String mode,
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color iconColor,
+    required bool isSelected,
+    required ThemeData theme,
+  }) {
+    return InkWell(
+      onTap: () async {
+        appAtmosphereNotifier.value = mode;
+        await _storageService.setAtmospherePreference(mode);
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? theme.colorScheme.primary : theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+            width: isSelected ? 2 : 1,
+          ),
+          color: isSelected
+              ? theme.colorScheme.primary.withValues(alpha: 0.08)
+              : theme.colorScheme.surface,
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: iconColor, size: 22),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13.5,
+                      color: isSelected ? theme.colorScheme.primary : theme.colorScheme.onSurface,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (isSelected)
+              Icon(Icons.check_circle_rounded, color: theme.colorScheme.primary, size: 20)
+            else
+              Icon(Icons.radio_button_unchecked_rounded, color: theme.colorScheme.outline, size: 20),
           ],
         ),
       ),
