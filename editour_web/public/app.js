@@ -85,6 +85,7 @@ async function init() {
     }
   }, 60000);
 
+  initAuth();
   await loadPosts();
   setupEventListeners();
   checkDeepLink();
@@ -93,6 +94,366 @@ async function init() {
 
 const SUPABASE_URL = 'https://karnxbsmvnkydcfydrcf.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_n90rXQfEukf2gdisKe_jGg_Cybk2r-m';
+
+// Supabase Auth & DB Client
+let supabase = null;
+if (window.supabase && typeof window.supabase.createClient === 'function') {
+  try {
+    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  } catch (e) {
+    console.warn('Could not init Supabase client:', e);
+  }
+}
+
+// User session state & saved bookmarks
+let currentUser = null;
+let savedPostIds = new Set(JSON.parse(localStorage.getItem('editour_saved_posts') || '[]'));
+
+// ============================================================
+// AUTHENTICATION & USER PROFILE CONTROLLER
+// ============================================================
+
+async function initAuth() {
+  if (!supabase) {
+    updateAuthUI();
+    return;
+  }
+
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    currentUser = session?.user || null;
+    updateAuthUI();
+  } catch (err) {
+    console.warn('Error fetching initial session:', err);
+  }
+
+  supabase.auth.onAuthStateChange((event, session) => {
+    currentUser = session?.user || null;
+    updateAuthUI();
+    if (event === 'SIGNED_IN') {
+      closeAuthModal();
+      showTemporaryToast(`Welcome, ${escapeHtml(getUserDisplayName())}! ✨`);
+      renderFeed();
+    } else if (event === 'SIGNED_OUT') {
+      closeAuthModal();
+      showTemporaryToast('Signed out successfully.');
+      if (currentFilter === 'my_stories') {
+        selectCategory('all');
+      } else {
+        renderFeed();
+      }
+    }
+  });
+}
+
+function getUserDisplayName() {
+  if (!currentUser) return 'Reader';
+  const meta = currentUser.user_metadata || {};
+  return meta.full_name || meta.name || currentUser.email?.split('@')[0] || 'Reader';
+}
+
+function getUserAvatarUrl() {
+  if (!currentUser) return null;
+  const meta = currentUser.user_metadata || {};
+  return meta.avatar_url || meta.picture || null;
+}
+
+function updateAuthUI() {
+  const signInBtn = document.getElementById('headerAuthBtn');
+  const userMenuWrap = document.getElementById('userMenuWrap');
+  const userDropdownName = document.getElementById('userMenuName');
+  const userDropdownEmail = document.getElementById('userMenuEmail');
+  const userAvatarImg = document.getElementById('userAvatarImg');
+  const userAvatarLetter = document.getElementById('userAvatarLetter');
+  const userMenuSavedCount = document.getElementById('userMenuSavedCount');
+  const badgeSavedCount = document.getElementById('badgeSavedCount');
+  const userMenuMyCount = document.getElementById('userMenuMyCount');
+  const badgeMyCount = document.getElementById('badgeMyCount');
+  const pillSaved = document.getElementById('pillSaved');
+  const pillMyStories = document.getElementById('pillMyStories');
+
+  const savedCount = savedPostIds.size;
+  if (userMenuSavedCount) userMenuSavedCount.textContent = savedCount;
+  if (badgeSavedCount) badgeSavedCount.textContent = savedCount;
+
+  // Compute how many posts belong to this user
+  let myPostsCount = 0;
+  if (currentUser && Array.isArray(allPosts)) {
+    const userEmail = (currentUser.email || '').toLowerCase();
+    const userHandle = (currentUser.user_metadata?.user_name || currentUser.user_metadata?.name || userEmail.split('@')[0] || '').toLowerCase().replace('@', '');
+    myPostsCount = allPosts.filter(p => {
+      const postAuthor = (p.creatorHandle || '').toLowerCase().replace('@', '');
+      const postUserId = p.user_id || p.userId;
+      return (postUserId && postUserId === currentUser.id) || (userHandle && postAuthor && postAuthor === userHandle);
+    }).length;
+  }
+  if (userMenuMyCount) userMenuMyCount.textContent = myPostsCount;
+  if (badgeMyCount) badgeMyCount.textContent = myPostsCount;
+
+  if (currentUser) {
+    if (signInBtn) signInBtn.style.display = 'none';
+    if (userMenuWrap) userMenuWrap.style.display = 'block';
+
+    const displayName = getUserDisplayName();
+    if (userDropdownName) userDropdownName.textContent = displayName;
+    if (userDropdownEmail) userDropdownEmail.textContent = currentUser.email || '';
+
+    const avatarUrl = getUserAvatarUrl();
+    if (avatarUrl && userAvatarImg && userAvatarLetter) {
+      userAvatarImg.src = avatarUrl;
+      userAvatarImg.style.display = 'block';
+      userAvatarLetter.style.display = 'none';
+    } else if (userAvatarLetter) {
+      userAvatarLetter.textContent = (displayName[0] || 'U').toUpperCase();
+      if (userAvatarImg) userAvatarImg.style.display = 'none';
+      userAvatarLetter.style.display = 'flex';
+    }
+
+    if (pillSaved) pillSaved.style.display = '';
+    if (pillMyStories) pillMyStories.style.display = '';
+  } else {
+    if (signInBtn) signInBtn.style.display = 'inline-flex';
+    if (userMenuWrap) userMenuWrap.style.display = 'none';
+
+    // Show saved pill if reader saved cards locally
+    if (pillSaved) pillSaved.style.display = savedCount > 0 ? '' : 'none';
+    if (pillMyStories) pillMyStories.style.display = 'none';
+  }
+}
+
+function openAuthModal(customDesc) {
+  const modal = document.getElementById('authModal');
+  const descEl = document.getElementById('authModalDesc');
+  const statusEl = document.getElementById('authStatusMsg');
+  if (statusEl) {
+    statusEl.style.display = 'none';
+    statusEl.textContent = '';
+  }
+  if (descEl && customDesc) {
+    descEl.textContent = customDesc;
+  } else if (descEl) {
+    descEl.textContent = 'Sign in to save your favorite visual stories, customize your reading atmosphere, and publish your own editorials.';
+  }
+  if (modal) {
+    modal.classList.add('active');
+  }
+  const themeMenu = document.getElementById('themeDropdownMenu');
+  if (themeMenu) themeMenu.classList.remove('open');
+  const userMenu = document.getElementById('userDropdownMenu');
+  if (userMenu) userMenu.classList.remove('open');
+}
+
+function closeAuthModal() {
+  const modal = document.getElementById('authModal');
+  if (modal) modal.classList.remove('active');
+}
+
+function handleAuthOverlayClick(e) {
+  if (e && e.target && e.target.id === 'authModal') {
+    closeAuthModal();
+  }
+}
+
+function showAuthStatus(msg, type = 'normal') {
+  const el = document.getElementById('authStatusMsg');
+  if (!el) return;
+  el.textContent = msg;
+  el.className = `auth-status-msg ${type}`;
+  el.style.display = 'block';
+}
+
+async function signInWithGoogle() {
+  if (!supabase) {
+    showAuthStatus('Supabase client is initializing. Please try again in a moment.', 'error');
+    return;
+  }
+  const btn = document.getElementById('googleLoginBtn');
+  if (btn) btn.style.opacity = '0.6';
+  showAuthStatus('Connecting to Google...', 'normal');
+  try {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin
+      }
+    });
+    if (error) throw error;
+  } catch (err) {
+    console.error('Google OAuth error:', err);
+    showAuthStatus(err.message || 'Google sign in failed. Please try magic link email.', 'error');
+    if (btn) btn.style.opacity = '1';
+  }
+}
+
+async function handleEmailAuth(e) {
+  if (e) e.preventDefault();
+  if (!supabase) {
+    showAuthStatus('Supabase client is initializing. Please try again in a moment.', 'error');
+    return;
+  }
+
+  const emailInput = document.getElementById('authEmailInput');
+  const email = emailInput?.value?.trim();
+  if (!email) return;
+
+  const submitBtn = document.getElementById('emailAuthBtn');
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = 'Sending magic link...';
+  }
+
+  try {
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        emailRedirectTo: window.location.origin
+      }
+    });
+    if (error) throw error;
+    showAuthStatus(`Magic link sent! Check your inbox at ${email} to sign in.`, 'success');
+    if (emailInput) emailInput.value = '';
+  } catch (err) {
+    console.error('Email OTP error:', err);
+    showAuthStatus(err.message || 'Could not send magic link. Please check the email and try again.', 'error');
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = '<span>Send Magic Link &rarr;</span>';
+    }
+  }
+}
+
+async function handleSignOut() {
+  if (supabase) {
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {
+      console.warn('Sign out error:', e);
+    }
+  }
+  currentUser = null;
+  const menu = document.getElementById('userDropdownMenu');
+  if (menu) menu.classList.remove('open');
+  updateAuthUI();
+  if (currentFilter === 'my_stories') {
+    selectCategory('all');
+  } else {
+    renderFeed();
+  }
+}
+
+function toggleUserMenu(e) {
+  if (e) e.stopPropagation();
+  const themeMenu = document.getElementById('themeDropdownMenu');
+  if (themeMenu) themeMenu.classList.remove('open');
+  const menu = document.getElementById('userDropdownMenu');
+  if (menu) menu.classList.toggle('open');
+}
+
+// Close user menu on outside click
+document.addEventListener('click', (e) => {
+  const menu = document.getElementById('userDropdownMenu');
+  const btn = document.getElementById('userAvatarBtn');
+  if (menu && menu.classList.contains('open') && !menu.contains(e.target) && e.target !== btn && !btn.contains(e.target)) {
+    menu.classList.remove('open');
+  }
+});
+
+function selectUserFilter(filterKey) {
+  const menu = document.getElementById('userDropdownMenu');
+  if (menu) menu.classList.remove('open');
+  selectCategory(filterKey);
+}
+
+function selectCategory(categoryKey) {
+  currentFilter = categoryKey;
+  document.querySelectorAll('.filter-pill').forEach(pill => {
+    pill.classList.toggle('active', pill.getAttribute('data-cat') === categoryKey);
+  });
+  renderFeed();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function toggleBookmark(event, postId) {
+  if (event) {
+    event.stopPropagation();
+    event.preventDefault();
+  }
+
+  const isCurrentlySaved = savedPostIds.has(postId);
+  if (isCurrentlySaved) {
+    savedPostIds.delete(postId);
+    showTemporaryToast('Removed from Saved Stories');
+  } else {
+    savedPostIds.add(postId);
+    if (!currentUser) {
+      showTemporaryToast('Saved! Sign in to sync your bookmarks across devices 🔖');
+    } else {
+      showTemporaryToast('Saved to your reading library 🔖');
+    }
+  }
+
+  localStorage.setItem('editour_saved_posts', JSON.stringify(Array.from(savedPostIds)));
+
+  // Update button in place
+  const btn = document.getElementById(`bookmark-btn-${postId}`);
+  if (btn) {
+    btn.classList.toggle('is-saved', !isCurrentlySaved);
+    btn.setAttribute('title', !isCurrentlySaved ? 'Remove from Saved' : 'Save Story');
+    const svg = btn.querySelector('svg');
+    if (svg) {
+      svg.setAttribute('fill', !isCurrentlySaved ? '#F59E0B' : 'none');
+      svg.setAttribute('stroke', !isCurrentlySaved ? '#F59E0B' : 'currentColor');
+    }
+  }
+
+  updateAuthUI();
+
+  // If in saved filter, re-render feed immediately
+  if (currentFilter === 'saved') {
+    renderFeed();
+  }
+}
+
+function showTemporaryToast(message) {
+  let toast = document.getElementById('editourToast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'editourToast';
+    toast.style.cssText = `
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: var(--bg-surface);
+      color: var(--text-primary);
+      border: 1px solid var(--border-subtle);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+      padding: 10px 18px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 600;
+      z-index: 9999;
+      opacity: 0;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      white-space: nowrap;
+    `;
+    document.body.appendChild(toast);
+  }
+  toast.textContent = message;
+  toast.style.opacity = '1';
+  toast.style.transform = 'translateX(-50%) translateY(0)';
+  
+  clearTimeout(toast._timeout);
+  toast._timeout = setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateX(-50%) translateY(20px)';
+  }, 2800);
+}
 
 async function loadPosts() {
   // 1. Primary: Direct Supabase Cloud Database (Fast Initial Batch of 12 latest posts)
@@ -108,6 +469,7 @@ async function loadPosts() {
       if (Array.isArray(rows) && rows.length > 0) {
         allPosts = rows.map(r => r.data || r).filter(p => p && !p.deleted && !p.isDeleted && (p.adaptedHeadline || p.originalHeadline || p.summary));
         updateBadge(true, `Live Feed (${allPosts.length} posts)`);
+        updateAuthUI();
         renderFeed();
 
         // Progressively fetch remaining historical posts in background
@@ -125,6 +487,7 @@ async function loadPosts() {
     if (localResp.ok) {
       allPosts = await localResp.json();
       updateBadge(true, `Local Feed (${allPosts.length} posts)`);
+      updateAuthUI();
       renderFeed();
       return;
     }
@@ -138,6 +501,7 @@ async function loadPosts() {
       if (data && data.posts && data.posts.length > 0) {
         allPosts = data.posts;
         updateBadge(true, `Live Feed (${allPosts.length} posts)`);
+        updateAuthUI();
         renderFeed();
       }
     }
@@ -157,10 +521,8 @@ function updateBadge(connected, text) {
 function setupEventListeners() {
   document.querySelectorAll('.filter-pill').forEach(pill => {
     pill.addEventListener('click', () => {
-      document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
-      pill.classList.add('active');
-      currentFilter = pill.getAttribute('data-cat');
-      renderFeed();
+      const cat = pill.getAttribute('data-cat');
+      selectCategory(cat);
     });
   });
 }
@@ -186,6 +548,19 @@ function renderFeed() {
   container.innerHTML = '';
 
   const filtered = allPosts.filter(post => {
+    if (currentFilter === 'saved') {
+      return savedPostIds.has(post.id);
+    }
+
+    if (currentFilter === 'my_stories') {
+      if (!currentUser) return false;
+      const userEmail = (currentUser.email || '').toLowerCase();
+      const userHandle = (currentUser.user_metadata?.user_name || currentUser.user_metadata?.name || userEmail.split('@')[0] || '').toLowerCase().replace('@', '');
+      const postAuthor = (post.creatorHandle || '').toLowerCase().replace('@', '');
+      const postUserId = post.user_id || post.userId;
+      return (postUserId && postUserId === currentUser.id) || (userHandle && postAuthor && postAuthor === userHandle);
+    }
+
     if (currentFilter !== 'all') {
       const cat = (post.categoryBadge || '').toLowerCase();
       const type = (post.sourceType || '').toLowerCase();
@@ -211,10 +586,36 @@ function renderFeed() {
   });
 
   if (filtered.length === 0) {
+    if (currentFilter === 'saved') {
+      container.innerHTML = `
+        <div style="text-align:center; padding: 56px 16px; color: var(--text-muted);">
+          <div style="font-size:42px; margin-bottom:12px;">🔖</div>
+          <div style="font-weight:700; font-size:17px; color:var(--text-primary); letter-spacing:-0.3px;">No saved stories yet</div>
+          <div style="font-size:13px; margin-top:6px; max-width:320px; margin-left:auto; margin-right:auto; line-height:1.5;">
+            Tap the bookmark icon on any visual editorial postcard to save it here for later reading.
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    if (currentFilter === 'my_stories') {
+      container.innerHTML = `
+        <div style="text-align:center; padding: 56px 16px; color: var(--text-muted);">
+          <div style="font-size:42px; margin-bottom:12px;">✍️</div>
+          <div style="font-weight:700; font-size:17px; color:var(--text-primary); letter-spacing:-0.3px;">No published stories yet</div>
+          <div style="font-size:13px; margin-top:6px; max-width:320px; margin-left:auto; margin-right:auto; line-height:1.5;">
+            Visual postcards you publish from the PostCard app or creator tools under this account will appear here.
+          </div>
+        </div>
+      `;
+      return;
+    }
+
     container.innerHTML = `
       <div style="text-align:center; padding: 48px 16px; color: var(--text-muted);">
         <div style="font-size:36px; margin-bottom:12px;">📰</div>
-        <div style="font-weight:700; font-size:16px; color:#FFF;">No stories found in this category</div>
+        <div style="font-weight:700; font-size:16px; color:var(--text-primary);">No stories found in this category</div>
         <div style="font-size:13px; margin-top:4px;">Snap a newspaper clipping or paste a news link in the PostCard app to publish here!</div>
       </div>
     `;
@@ -564,6 +965,7 @@ function createPostCardElement(post, index) {
                       post.originalPhotoPath !== 'sample_asset_print') ||
                       (post.sourceType === 'photo' && !post.digitalLink);
   const digitalUrl = post.digitalLink || '';
+  const isSaved = savedPostIds.has(post.id);
 
   // 3-Poster Carousel Trio Frame with Interactive Tabs & Arrows (Universal 3-Slide Social Poster Series)
   const visualSectionHtml = `
@@ -701,6 +1103,13 @@ function createPostCardElement(post, index) {
             </svg>
           </button>
         ` : ''}
+
+        <!-- Bookmark / Save Story -->
+        <button class="icon-action-btn bookmark-btn ${isSaved ? 'is-saved' : ''}" id="bookmark-btn-${post.id}" onclick="toggleBookmark(event, '${post.id}')" title="${isSaved ? 'Remove from Saved' : 'Save Story'}">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="${isSaved ? '#F59E0B' : 'none'}" stroke="${isSaved ? '#F59E0B' : 'currentColor'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+          </svg>
+        </button>
       </div>
     </div>
 
