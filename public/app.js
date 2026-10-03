@@ -96,10 +96,10 @@ const SUPABASE_URL = 'https://karnxbsmvnkydcfydrcf.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_n90rXQfEukf2gdisKe_jGg_Cybk2r-m';
 
 // Supabase Auth & DB Client
-let supabase = null;
+let supabaseClient = null;
 if (window.supabase && typeof window.supabase.createClient === 'function') {
   try {
-    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   } catch (e) {
     console.warn('Could not init Supabase client:', e);
   }
@@ -114,20 +114,20 @@ let savedPostIds = new Set(JSON.parse(localStorage.getItem('editour_saved_posts'
 // ============================================================
 
 async function initAuth() {
-  if (!supabase) {
+  if (!supabaseClient) {
     updateAuthUI();
     return;
   }
 
   try {
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } = await supabaseClient.auth.getSession();
     currentUser = session?.user || null;
     updateAuthUI();
   } catch (err) {
     console.warn('Error fetching initial session:', err);
   }
 
-  supabase.auth.onAuthStateChange((event, session) => {
+  supabaseClient.auth.onAuthStateChange((event, session) => {
     currentUser = session?.user || null;
     updateAuthUI();
     if (event === 'SIGNED_IN') {
@@ -267,7 +267,7 @@ function showAuthStatus(msg, type = 'normal') {
 }
 
 async function signInWithGoogle() {
-  if (!supabase) {
+  if (!supabaseClient) {
     showAuthStatus('Supabase client is initializing. Please try again in a moment.', 'error');
     return;
   }
@@ -275,7 +275,7 @@ async function signInWithGoogle() {
   if (btn) btn.style.opacity = '0.6';
   showAuthStatus('Connecting to Google...', 'normal');
   try {
-    const { error } = await supabase.auth.signInWithOAuth({
+    const { error } = await supabaseClient.auth.signInWithOAuth({
       provider: 'google',
       options: {
         redirectTo: window.location.origin
@@ -291,7 +291,7 @@ async function signInWithGoogle() {
 
 async function handleEmailAuth(e) {
   if (e) e.preventDefault();
-  if (!supabase) {
+  if (!supabaseClient) {
     showAuthStatus('Supabase client is initializing. Please try again in a moment.', 'error');
     return;
   }
@@ -307,7 +307,7 @@ async function handleEmailAuth(e) {
   }
 
   try {
-    const { error } = await supabase.auth.signInWithOtp({
+    const { error } = await supabaseClient.auth.signInWithOtp({
       email,
       options: {
         emailRedirectTo: window.location.origin
@@ -328,9 +328,9 @@ async function handleEmailAuth(e) {
 }
 
 async function handleSignOut() {
-  if (supabase) {
+  if (supabaseClient) {
     try {
-      await supabase.auth.signOut();
+      await supabaseClient.auth.signOut();
     } catch (e) {
       console.warn('Sign out error:', e);
     }
