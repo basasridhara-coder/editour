@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../../models/postcard_item.dart';
@@ -30,18 +31,63 @@ class CarouselPosterStudio extends StatefulWidget {
   });
 
   @override
-  State<CarouselPosterStudio> createState() => _CarouselPosterStudioState();
+  State<CarouselPosterStudio> createState() => CarouselPosterStudioState();
 }
 
-class _CarouselPosterStudioState extends State<CarouselPosterStudio> {
+class CarouselPosterStudioState extends State<CarouselPosterStudio> {
   late final PageController _pageController;
   bool _ownsPageController = false;
   int _currentPage = 0;
   bool _isExporting = false;
+  bool _isCleanView = false;
+
+  void _toggleCleanView() {
+    setState(() {
+      _isCleanView = !_isCleanView;
+    });
+  }
+
+  Future<void> _saveCleanArtToGallery() async {
+    if (widget.item.illustrationBase64 == null || widget.item.illustrationBase64!.isEmpty) return;
+    try {
+      final bytes = base64Decode(widget.item.illustrationBase64!);
+      final shareService = ShareService();
+      final path = await shareService.savePosterToFile(bytes, 'clean_art_${widget.item.id}');
+      if (path != null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Saved pure artwork without text to device!'),
+            backgroundColor: Color(0xFF10B981),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not save artwork: $e')),
+        );
+      }
+    }
+  }
 
   final GlobalKey _captureKey1 = GlobalKey();
   final GlobalKey _captureKey2 = GlobalKey();
   final GlobalKey _captureKey3 = GlobalKey();
+
+  /// Captures all 3 slides to PNG bytes
+  Future<List<Uint8List>> captureAllSlides() async {
+    final shareService = ShareService();
+    await Future.delayed(const Duration(milliseconds: 100));
+    final bytes1 = await shareService.captureWidgetToPng(_captureKey1);
+    final bytes2 = await shareService.captureWidgetToPng(_captureKey2);
+    final bytes3 = await shareService.captureWidgetToPng(_captureKey3);
+
+    final validBytes = <Uint8List>[];
+    if (bytes1 != null) validBytes.add(bytes1);
+    if (bytes2 != null) validBytes.add(bytes2);
+    if (bytes3 != null) validBytes.add(bytes3);
+    return validBytes;
+  }
 
   @override
   void initState() {
@@ -239,6 +285,46 @@ class _CarouselPosterStudioState extends State<CarouselPosterStudio> {
                       ),
                     ),
                   ),
+                  InkWell(
+                    onTap: _toggleCleanView,
+                    borderRadius: BorderRadius.circular(8),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: _isCleanView
+                            ? const Color(0xFF38BDF8).withValues(alpha: 0.22)
+                            : Colors.white.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: _isCleanView
+                              ? const Color(0xFF38BDF8).withValues(alpha: 0.7)
+                              : Colors.white.withValues(alpha: 0.15),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            _isCleanView ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                            size: 12,
+                            color: _isCleanView ? const Color(0xFF38BDF8) : Colors.white70,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            _isCleanView ? 'CLEAN VIEW' : 'CLEAN ART',
+                            style: TextStyle(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w800,
+                              color: _isCleanView ? const Color(0xFF38BDF8) : Colors.white70,
+                              letterSpacing: 0.4,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
@@ -273,16 +359,77 @@ class _CarouselPosterStudioState extends State<CarouselPosterStudio> {
                     key: ValueKey('studio_slide1_${widget.item.id}_${widget.item.illustrationBase64.hashCode}'),
                     item: widget.item,
                     config: config,
+                    showOverlays: !_isCleanView,
                   ),
                   SlideCritiquePoster(
                     key: ValueKey('studio_slide2_${widget.item.id}_${widget.item.illustrationBase64.hashCode}'),
                     item: widget.item,
                     config: config,
+                    showOverlays: !_isCleanView,
                   ),
                   SlideReceiptsPoster(item: widget.item, config: config),
                 ],
               ),
             ),
+
+            // Dedicated Pure Artwork Action Bar when in Clean View
+            if (_isCleanView && widget.item.illustrationBase64 != null && widget.item.illustrationBase64!.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0F172A).withValues(alpha: 0.85),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.35)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.palette_rounded, size: 14, color: Color(0xFF38BDF8)),
+                        SizedBox(width: 6),
+                        Text(
+                          'Viewing Pure Unobstructed Artwork',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFFE2E8F0),
+                          ),
+                        ),
+                      ],
+                    ),
+                    InkWell(
+                      onTap: _saveCleanArtToGallery,
+                      borderRadius: BorderRadius.circular(6),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF38BDF8).withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: const Color(0xFF38BDF8)),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.download_rounded, size: 13, color: Color(0xFF38BDF8)),
+                            SizedBox(width: 4),
+                            Text(
+                              'Save Pure Art',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF38BDF8),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
 
             const SizedBox(height: 12),
 

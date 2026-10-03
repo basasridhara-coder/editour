@@ -962,7 +962,53 @@ class WebFeedServer {
     .action-group-right {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 4px;
+    }
+
+    /* Minimalist Action Icon Buttons (Parity with Mobile Feed) */
+    .icon-action-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      cursor: pointer;
+      padding: 0;
+      transition: all 0.18s ease;
+      text-decoration: none;
+    }
+    .icon-action-btn:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: #FFF;
+    }
+    .icon-action-btn.active,
+    .icon-action-btn.clean-view-btn.active {
+      color: var(--accent-cyan);
+      background: rgba(56, 189, 248, 0.14);
+    }
+    .icon-action-btn.clean-view-btn.active svg {
+      stroke: var(--accent-cyan);
+    }
+
+    /* Clean View: Smoothly fade out text overlays and scrims to reveal pure artwork */
+    .carousel-viewport.clean-view .slide-top-bar,
+    .carousel-viewport.clean-view .slide-bottom-content,
+    .carousel-viewport.clean-view .slide-vignette,
+    .carousel-viewport.clean-view .critique-container,
+    .carousel-viewport.clean-view .stamp-verified {
+      opacity: 0 !important;
+      pointer-events: none !important;
+    }
+
+    .slide-top-bar,
+    .slide-bottom-content,
+    .slide-vignette,
+    .critique-container {
+      transition: opacity 0.24s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     .tag-action-btn {
@@ -988,7 +1034,7 @@ class WebFeedServer {
 
     /* Post Content Details (Caption Style) */
     .post-content {
-      padding: 12px 14px 16px;
+      padding: 10px 14px 16px;
       display: flex;
       flex-direction: column;
       gap: 6px;
@@ -1006,12 +1052,13 @@ class WebFeedServer {
     }
 
     .post-summary-snippet {
-      font-size: 12.5px;
-      line-height: 1.5;
+      font-size: 13px;
+      line-height: 1.46;
       color: var(--text-secondary);
     }
     .post-summary-snippet strong {
       color: #FFF;
+      margin-right: 4px;
     }
 
     .read-more-btn {
@@ -1285,6 +1332,70 @@ class WebFeedServer {
       });
     }
 
+    const cleanViewState = {};
+
+    function toggleCleanView(event, index) {
+      if (event) {
+        event.stopPropagation();
+        event.preventDefault();
+      }
+      cleanViewState[index] = !cleanViewState[index];
+      const isClean = cleanViewState[index];
+
+      const viewport = document.getElementById('viewport-' + index);
+      if (viewport) {
+        viewport.classList.toggle('clean-view', isClean);
+      }
+
+      const btn = document.getElementById('clean-btn-' + index);
+      if (btn) {
+        btn.classList.toggle('active', isClean);
+        btn.setAttribute('title', isClean ? 'Show text overlays' : 'Clean artwork (hide text)');
+        btn.innerHTML = isClean
+          ? `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#38BDF8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+               <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+               <line x1="1" y1="1" x2="23" y2="23"></line>
+             </svg>`
+          : `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+               <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+               <circle cx="12" cy="12" r="3"></circle>
+             </svg>`;
+      }
+    }
+
+    function cleanDomain(url) {
+      if (!url) return '';
+      try {
+        const parsed = new URL(url);
+        return parsed.hostname.replace(/^www\\./, '');
+      } catch {
+        return url;
+      }
+    }
+
+    function getStartingLines(fullText) {
+      if (!fullText) return 'No summary available.';
+      if (fullText.length <= 130) return fullText;
+      const cutoff = fullText.indexOf(' ', 110);
+      if (cutoff !== -1 && cutoff <= 145) {
+        return fullText.substring(0, cutoff);
+      }
+      return fullText.substring(0, 120);
+    }
+
+    function copyCardShareLink(postId) {
+      const shareUrl = window.location.origin + '/?p=' + postId;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(shareUrl).then(() => {
+          alert('📋 Shareable link copied: ' + shareUrl);
+        }).catch(() => {
+          prompt('Copy this link:', shareUrl);
+        });
+      } else {
+        prompt('Copy this link:', shareUrl);
+      }
+    }
+
     function createPostCardElement(post, index) {
       const card = document.createElement('article');
       card.className = 'post-card';
@@ -1292,7 +1403,13 @@ class WebFeedServer {
 
       const handle = post.creatorHandle || '@curator';
       const initial = handle.replace('@', '').charAt(0).toUpperCase() || 'C';
-      const pubName = (post.publicationName && post.publicationName.trim()) ? post.publicationName.trim() : 'THE FINANCIAL CHRONICLE';
+      let pubName = (post.publicationName && post.publicationName.trim()) ? post.publicationName.trim() : 'THE FINANCIAL CHRONICLE';
+      if (pubName.includes('•')) {
+        const parts = pubName.split('•');
+        pubName = parts[parts.length - 1].trim();
+      }
+      pubName = pubName.replace(/^(NEWSPAPER|ARTICLE|BOOK|MAGAZINE|PRESS):\\s*/i, '').trim();
+
       const catBadge = (post.categoryBadge || 'EDITORIAL').toUpperCase();
       const audience = post.targetAudience || 'General Audience';
       const headline = post.adaptedHeadline || post.originalHeadline || 'Story Overview';
@@ -1303,6 +1420,7 @@ class WebFeedServer {
       const pullQuote = post.pullQuote || (post.keyTakeaways && post.keyTakeaways[0]) || 'A structural shift the mainstream missed.';
       const whyItMatters = post.whyItMatters || '';
       const isBook = post.sourceType === 'book_excerpt';
+      const isClean = !!cleanViewState[index];
       const hasPaperCut = post.originalPhotoPath && !post.originalPhotoPath.startsWith('http') && post.originalPhotoPath !== 'digital_article_link' && post.originalPhotoPath !== 'book_excerpt_reading';
       const digitalUrl = post.digitalLink || '';
 
@@ -1356,7 +1474,7 @@ class WebFeedServer {
         </div>
 
         <!-- 4:5 Poster Carousel Viewport (1:1 with Mobile App) -->
-        <div class="carousel-viewport" id="viewport-\${index}">
+        <div class="carousel-viewport \${isClean ? 'clean-view' : ''}" id="viewport-\${index}">
           <div class="carousel-track" id="track-\${index}">
             <!-- SLIDE 1: Bold Headline Hook Poster -->
             <div class="carousel-slide slide-hook" onclick="openDetailModal(\${index})">
@@ -1484,47 +1602,78 @@ class WebFeedServer {
         <!-- Instagram Action Bar -->
         <div class="action-bar">
           <div class="action-group-left">
-            <button class="action-btn" onclick="toggleLike(this)">
-              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <button class="action-btn" onclick="toggleLike(this)" title="Like Poster">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
               </svg>
               <span class="like-count">42</span>
             </button>
-            <button class="action-btn" onclick="openDetailModal(\${index})">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+            <button class="icon-action-btn" onclick="copyCardShareLink('\${post.id || index}')" title="Share story link">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="18" cy="5" r="3"></circle>
+                <circle cx="6" cy="12" r="3"></circle>
+                <circle cx="18" cy="19" r="3"></circle>
+                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
               </svg>
-              <span>Inspect</span>
             </button>
-            \${hasPaperCut ? `
-              <button class="tag-action-btn" onclick="openPaperCutModal(\${index})">
-                📰 Paper Cut
+            <!-- Clean Art Toggle (Show/Hide text overlays directly on feed) -->
+            <button class="icon-action-btn clean-view-btn \${isClean ? 'active' : ''}" id="clean-btn-\${index}" onclick="toggleCleanView(event, \${index})" title="\${isClean ? 'Show text overlays' : 'Clean artwork (hide text)'}">
+              \${isClean
+                ? `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#38BDF8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                     <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                     <line x1="1" y1="1" x2="23" y2="23"></line>
+                   </svg>`
+                : `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                     <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                     <circle cx="12" cy="12" r="3"></circle>
+                   </svg>`}
+            </button>
+            <div class="carousel-dots-container" id="dots-\${index}">
+              <span class="dot-indicator active" onclick="goToSlide(\${index}, 0)"></span>
+              <span class="dot-indicator" onclick="goToSlide(\${index}, 1)"></span>
+              <span class="dot-indicator" onclick="goToSlide(\${index}, 2)"></span>
+            </div>
+          </div>
+
+          <!-- Minimalist Action Icons: Book Cover, World Web Link, Newspaper Paper Cut -->
+          <div class="action-group-right">
+            \${isBook ? `
+              <button class="icon-action-btn" onclick="openDetailModal(\${index})" title="View Book Cover & Source">
+                <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                  <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+                </svg>
               </button>
             ` : ''}
-          </div>
-
-          <!-- Instagram-style 3-slide dots -->
-          <div class="carousel-dots-container" id="dots-\${index}">
-            <span class="dot-indicator active" onclick="goToSlide(\${index}, 0)"></span>
-            <span class="dot-indicator" onclick="goToSlide(\${index}, 1)"></span>
-            <span class="dot-indicator" onclick="goToSlide(\${index}, 2)"></span>
-          </div>
-
-          <div class="action-group-right">
             \${digitalUrl ? `
-              <a href="\${digitalUrl}" target="_blank" class="tag-action-btn" title="Open verified web article">
-                🌐 Article &nearr;
+              <a href="\${digitalUrl}" target="_blank" rel="noopener noreferrer" class="icon-action-btn" title="Open Web Article (\${cleanDomain(digitalUrl)})">
+                <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#0284C7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="2" y1="12" x2="22" y2="12"></line>
+                  <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                </svg>
               </a>
+            ` : ''}
+            \${hasPaperCut ? `
+              <button class="icon-action-btn" onclick="openPaperCutModal(\${index})" title="View Paper Cut (\${pubName})">
+                <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"></path>
+                  <path d="M18 14h-8"></path>
+                  <path d="M15 18h-5"></path>
+                  <path d="M10 6h8v4h-8V6Z"></path>
+                </svg>
+              </button>
             ` : ''}
           </div>
         </div>
 
-        <!-- Post Content Details (Caption Style) -->
+        <!-- Post Content Details (Caption Style matching mobile 1:1) -->
         <div class="post-content">
-          <div class="post-caption-headline" onclick="openDetailModal(\${index})">\${headline}</div>
-          <div class="post-summary-snippet">
-            <strong>\${handle}</strong> \${summary.substring(0, 150)}...
-            <button class="read-more-btn" onclick="openDetailModal(\${index})">more</button>
+          <div class="post-summary-snippet" onclick="openDetailModal(\${index})" style="cursor:pointer;">
+            <span class="post-creator-handle"><strong>\${handle}</strong></span>
+            <span class="post-caption-text">\${getStartingLines(summary)}</span>
+            <button class="read-more-btn" onclick="event.stopPropagation(); openDetailModal(\${index})">... more</button>
           </div>
         </div>
       `;

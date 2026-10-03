@@ -23,11 +23,6 @@ class PostcardCard extends StatelessWidget {
     final theme = Theme.of(context);
     final timeStr = DateFormat('MMM d, yyyy').format(item.createdAt);
     final styleConfig = PosterStyleConfig.getPreset(item.posterStyle);
-    final curatedAngle = (item.curatorAngle != null && item.curatorAngle!.trim().isNotEmpty)
-        ? item.curatorAngle!.trim()
-        : ((item.userContext != null && item.userContext!.trim().isNotEmpty)
-            ? item.userContext!.trim()
-            : null);
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -158,53 +153,6 @@ class PostcardCard extends StatelessWidget {
               ),
               const SizedBox(height: 12),
 
-              // Curated Angle Callout (Replaces duplicate headline & hook)
-              Builder(
-                builder: (context) {
-                  final angleContent = (item.curatorAngle != null && item.curatorAngle!.trim().isNotEmpty)
-                      ? item.curatorAngle!.trim()
-                      : ((item.creatorOpinion != null && item.creatorOpinion!.trim().isNotEmpty)
-                          ? item.creatorOpinion!.trim()
-                          : ((item.whyItMatters != null && item.whyItMatters!.trim().isNotEmpty)
-                              ? item.whyItMatters!.trim()
-                              : item.hook));
-                  if (angleContent.trim().isEmpty) return const SizedBox.shrink();
-
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF59E0B).withValues(alpha: 0.10),
-                      borderRadius: const BorderRadius.horizontal(right: Radius.circular(8)),
-                      border: const Border(
-                        left: BorderSide(color: Color(0xFFF59E0B), width: 3.5),
-                      ),
-                    ),
-                    child: RichText(
-                      text: TextSpan(
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          fontSize: 13,
-                          height: 1.4,
-                          color: theme.colorScheme.onSurface,
-                        ),
-                        children: [
-                          const TextSpan(
-                            text: '⚡ Curated Angle : ',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w800,
-                              color: Color(0xFFF59E0B),
-                            ),
-                          ),
-                          TextSpan(
-                            text: angleContent,
-                            style: const TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
 
               // Carousel 3-poster indicator strip
               if (item.isCarouselTrio) ...[
@@ -265,48 +213,6 @@ class PostcardCard extends StatelessWidget {
                 const SizedBox(height: 12),
               ],
 
-              // Curated Angle snippet
-              if (curatedAngle != null && curatedAngle.isNotEmpty) ...[
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(Icons.lightbulb_outline, size: 14, color: Colors.amber),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        'Curated Angle: "$curatedAngle"',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          fontStyle: FontStyle.italic,
-                          color: theme.colorScheme.onSurface,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-              ] else if (!item.isCarouselTrio && item.creatorOpinion != null && item.creatorOpinion!.isNotEmpty) ...[
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(Icons.chat_bubble_outline, size: 14, color: Colors.amber),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        '${item.creatorHandle ?? "Curator"}: "${item.creatorOpinion}"',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          fontStyle: FontStyle.italic,
-                          color: theme.colorScheme.onSurface,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-              ],
 
               const Divider(height: 1),
               const SizedBox(height: 8),

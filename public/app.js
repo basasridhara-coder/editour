@@ -158,6 +158,61 @@ function escapeHtml(str) {
 }
 
 /* ============================================================
+   CLEAN VIEW & HELPERS
+   ============================================================ */
+
+const cleanViewState = {};
+
+function toggleCleanView(event, index) {
+  if (event) {
+    event.stopPropagation();
+    event.preventDefault();
+  }
+  cleanViewState[index] = !cleanViewState[index];
+  const isClean = cleanViewState[index];
+
+  const carousel = document.getElementById(`carousel-${index}`);
+  if (carousel) {
+    carousel.classList.toggle('clean-view', isClean);
+  }
+
+  const btn = document.getElementById(`clean-btn-${index}`);
+  if (btn) {
+    btn.classList.toggle('active', isClean);
+    btn.setAttribute('title', isClean ? 'Show text overlays' : 'Clean artwork (hide text)');
+    btn.innerHTML = isClean
+      ? `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#38BDF8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+           <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+           <line x1="1" y1="1" x2="23" y2="23"></line>
+         </svg>`
+      : `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+           <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+           <circle cx="12" cy="12" r="3"></circle>
+         </svg>`;
+  }
+}
+
+function cleanDomain(url) {
+  if (!url) return '';
+  try {
+    const parsed = new URL(url);
+    return parsed.hostname.replace(/^www\./, '');
+  } catch {
+    return url;
+  }
+}
+
+function getStartingLines(fullText) {
+  if (!fullText) return 'No summary available.';
+  if (fullText.length <= 130) return fullText;
+  const cutoff = fullText.indexOf(' ', 110);
+  if (cutoff !== -1 && cutoff <= 145) {
+    return fullText.substring(0, cutoff);
+  }
+  return fullText.substring(0, 120);
+}
+
+/* ============================================================
    SLIDE BUILDERS (SLIDE 1, SLIDE 2, SLIDE 3)
    ============================================================ */
 
@@ -382,7 +437,13 @@ function createPostCardElement(post, index) {
 
   const handle = post.creatorHandle || '@curator';
   const initial = handle.replace('@', '').charAt(0).toUpperCase() || 'C';
-  const pubName = post.publicationName || 'Press Wire';
+  let pubName = post.publicationName || 'Press Wire';
+  if (pubName.includes('•')) {
+    const parts = pubName.split('•');
+    pubName = parts[parts.length - 1].trim();
+  }
+  pubName = pubName.replace(/^(NEWSPAPER|ARTICLE|BOOK|MAGAZINE|PRESS):\s*/i, '').trim();
+
   const catBadge = post.categoryBadge || 'DISCOVERY';
   const audience = post.targetAudience || 'General';
   const headline = post.adaptedHeadline || post.originalHeadline || 'Untitled Story';
@@ -392,6 +453,7 @@ function createPostCardElement(post, index) {
   const quote = post.pullQuote || '';
   const isBook = post.sourceType === 'book_excerpt';
   const isCarousel = true;
+  const isClean = !!cleanViewState[index];
   const hasPaperCut = (post.originalPhotoBase64 && post.originalPhotoBase64.length > 50) || 
                       (post.originalPhotoPath && 
                       !post.originalPhotoPath.startsWith('http') && 
@@ -400,13 +462,6 @@ function createPostCardElement(post, index) {
                       post.originalPhotoPath !== 'sample_asset_print') ||
                       (post.sourceType === 'photo' && !post.digitalLink);
   const digitalUrl = post.digitalLink || '';
-  const curatedAngle = (post.curatorAngle && post.curatorAngle.trim()) 
-    ? post.curatorAngle.trim() 
-    : ((post.creatorOpinion && post.creatorOpinion.trim()) 
-        ? post.creatorOpinion.trim() 
-        : ((post.whyItMatters && post.whyItMatters.trim()) 
-            ? post.whyItMatters.trim() 
-            : (post.hook || '')));
 
   // 3-Poster Carousel Trio Frame with Interactive Tabs & Arrows (Universal 3-Slide Social Poster Series)
   const visualSectionHtml = `
@@ -416,7 +471,7 @@ function createPostCardElement(post, index) {
       <button class="carousel-tab-btn" onclick="goToSlide(event, ${index}, 2)">3. The Receipt</button>
     </div>
 
-    <div class="carousel-view" id="carousel-${index}" data-post-index="${index}" data-current-slide="0">
+    <div class="carousel-view ${isClean ? 'clean-view' : ''}" id="carousel-${index}" data-post-index="${index}" data-current-slide="0">
       <div class="carousel-track" id="track-${index}">
         <div class="carousel-slide slide-hook" onclick="openDetailModal(${index})">
           ${buildSlide1Html(post, index)}
@@ -473,54 +528,87 @@ function createPostCardElement(post, index) {
 
     <div class="action-bar">
       <div class="action-group-left">
-        <button class="action-btn" onclick="toggleLike(this)">
-          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <!-- Heart / Like button -->
+        <button class="action-btn" onclick="toggleLike(this)" title="Like Poster">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
           </svg>
           <span class="like-count">64</span>
         </button>
-        <button class="action-btn" onclick="openDetailModal(${index})">
+
+        <!-- Share Poster -->
+        <button class="icon-action-btn" onclick="copyCardShareLink('${post.id}')" title="Share story link">
           <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            ${isCarousel ? '<rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line>' : '<circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline>'}
+            <circle cx="18" cy="5" r="3"></circle>
+            <circle cx="6" cy="12" r="3"></circle>
+            <circle cx="18" cy="19" r="3"></circle>
+            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
           </svg>
-          <span>${isCarousel ? '3 Posters' : '1-Min Read'}</span>
         </button>
+
+        <!-- Clean Art Toggle (Show/Hide text overlays directly on feed) -->
+        <button class="icon-action-btn clean-view-btn ${isClean ? 'active' : ''}" id="clean-btn-${index}" onclick="toggleCleanView(event, ${index})" title="${isClean ? 'Show text overlays' : 'Clean artwork (hide text)'}">
+          ${isClean
+            ? `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#38BDF8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                 <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                 <line x1="1" y1="1" x2="23" y2="23"></line>
+               </svg>`
+            : `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                 <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                 <circle cx="12" cy="12" r="3"></circle>
+               </svg>`}
+        </button>
+
+        <!-- Native Instagram-style pagination dots for carousel posts -->
+        <div class="carousel-dots-inline" id="dots-bar-${index}">
+          <span class="carousel-dot active" onclick="goToSlide(event, ${index}, 0)"></span>
+          <span class="carousel-dot" onclick="goToSlide(event, ${index}, 1)"></span>
+          <span class="carousel-dot" onclick="goToSlide(event, ${index}, 2)"></span>
+        </div>
       </div>
-      <div style="display:flex; gap:6px; align-items:center;">
-        <button class="tag-action-btn" onclick="copyCardShareLink('${post.id}')" title="Copy shareable link">
-          🔗 Share
-        </button>
-        ${hasPaperCut ? `
-          <button class="tag-action-btn" onclick="openPaperCutModal(${index})" title="View original physical newspaper clipping">
-            📰 Paper Cut
+
+      <!-- Minimalist Action Icons: Book Cover, World Web Link, Newspaper Paper Cut -->
+      <div class="action-group-right">
+        ${isBook ? `
+          <button class="icon-action-btn" onclick="openDetailModal(${index})" title="View Book Cover & Source">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+            </svg>
           </button>
         ` : ''}
+
         ${digitalUrl ? `
-          <a href="${digitalUrl}" target="_blank" class="tag-action-btn" title="Open verified online article">
-            🌐 Article &nearr;
+          <a href="${escapeHtml(digitalUrl)}" target="_blank" rel="noopener noreferrer" class="icon-action-btn" title="Open Web Article (${escapeHtml(cleanDomain(digitalUrl))})">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#0284C7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="2" y1="12" x2="22" y2="12"></line>
+              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+            </svg>
           </a>
+        ` : ''}
+
+        ${hasPaperCut ? `
+          <button class="icon-action-btn" onclick="openPaperCutModal(${index})" title="View Paper Cut (${escapeHtml(pubName)})">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"></path>
+              <path d="M18 14h-8"></path>
+              <path d="M15 18h-5"></path>
+              <path d="M10 6h8v4h-8V6Z"></path>
+            </svg>
+          </button>
         ` : ''}
       </div>
     </div>
 
+    <!-- Instagram-style Caption Area: Creator Handle + Summary Starting Lines + '... more' -->
     <div class="post-content">
-      ${curatedAngle ? `
-        <div class="post-curated-angle-box">
-          <span class="curated-angle-tag">⚡ Curated Angle :</span>
-          <span class="curated-angle-text">${escapeHtml(curatedAngle)}</span>
-        </div>
-      ` : ''}
-      ${isCarousel ? `
-        <div style="margin: 8px 0; padding: 7px 11px; background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.22); border-radius: 8px; font-size: 11.5px; color: #E2E8F0; display:flex; justify-content:space-between; align-items:center;">
-          <span>🎨 <b>3-Poster Carousel:</b> Slide 1: Hook • Slide 2: Verdict • Slide 3: Receipt</span>
-          <button class="read-more-btn" onclick="openDetailModal(${index})">Open Briefing &nearr;</button>
-        </div>
-      ` : `
-        <div class="post-summary-snippet">
-          ${escapeHtml(summary.substring(0, 160))}...
-          <button class="read-more-btn" onclick="openDetailModal(${index})">⏱️ 1-min read</button>
-        </div>
-      `}
+      <div class="post-summary-snippet" onclick="openDetailModal(${index})" style="cursor:pointer;">
+        <span class="post-creator-handle"><strong>${escapeHtml(handle)}</strong></span>
+        <span class="post-caption-text">${escapeHtml(getStartingLines(summary))}</span>
+        <button class="read-more-btn" onclick="event.stopPropagation(); openDetailModal(${index})">... more</button>
+      </div>
     </div>
   `;
 
@@ -549,6 +637,7 @@ function goToSlide(event, postIndex, slideIndex) {
   const badge = document.getElementById(`badge-${postIndex}`);
   const tabs = document.getElementById(`tabs-${postIndex}`);
   const dots = document.getElementById(`dots-${postIndex}`);
+  const dotsBar = document.getElementById(`dots-bar-${postIndex}`);
   if (!carousel || !track) return;
 
   carousel.setAttribute('data-current-slide', slideIndex);
@@ -567,6 +656,12 @@ function goToSlide(event, postIndex, slideIndex) {
 
   if (dots) {
     dots.querySelectorAll('.carousel-dot').forEach((dot, i) => {
+      dot.classList.toggle('active', i === slideIndex);
+    });
+  }
+
+  if (dotsBar) {
+    dotsBar.querySelectorAll('.carousel-dot').forEach((dot, i) => {
       dot.classList.toggle('active', i === slideIndex);
     });
   }

@@ -2,13 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/postcard_item.dart';
-import '../models/sample_articles.dart';
 import '../services/editour_cloud_service.dart';
 import '../services/share_service.dart';
 import '../services/storage_service.dart';
 import '../services/web_feed_server.dart';
 import '../widgets/instagram_post_card_widget.dart';
-import 'create_postcard_screen.dart';
+import '../widgets/slant_source_sheet.dart';
 import 'postcard_detail_screen.dart';
 import 'settings_screen.dart';
 
@@ -74,15 +73,6 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
       }
     }
     return set;
-  }
-
-  void _openCreateScreen({SampleArticle? preloadedSample}) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (ctx) => CreatePostcardScreen(preloadedSample: preloadedSample),
-      ),
-    );
-    _loadItems();
   }
 
   void _openDetailScreen(PostCardItem item) async {
@@ -485,9 +475,10 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _openCreateScreen(),
-        icon: const Icon(Icons.camera_alt),
-        label: const Text('Snap & Summarize', style: TextStyle(fontWeight: FontWeight.bold)),
+        onPressed: () => SlantSourceSheet.show(context, onFinish: _loadItems),
+        icon: const Icon(Icons.bolt_rounded, color: Colors.white, size: 22),
+        label: const Text('Slant', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
+        backgroundColor: theme.colorScheme.primary,
       ),
       body: RefreshIndicator(
         onRefresh: _loadItems,
@@ -569,12 +560,12 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                           ),
                           const SizedBox(width: 8),
                           FilledButton.tonal(
-                            onPressed: () => _openCreateScreen(),
+                            onPressed: () => SlantSourceSheet.show(context, onFinish: _loadItems),
                             style: FilledButton.styleFrom(
                               visualDensity: VisualDensity.compact,
                               padding: const EdgeInsets.symmetric(horizontal: 10),
                             ),
-                            child: const Text('Snap', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                            child: const Text('Slant', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                           ),
                         ],
                       ),
@@ -599,18 +590,16 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              'Snap your first physical article or try a sample',
+                              'Create your first Slant from a newspaper cut or web link',
                               style: theme.textTheme.bodyMedium?.copyWith(
                                 color: theme.colorScheme.onSurfaceVariant,
                               ),
                             ),
                             const SizedBox(height: 16),
                             FilledButton.icon(
-                              onPressed: () => _openCreateScreen(
-                                preloadedSample: SampleArticle.samples.first,
-                              ),
-                              icon: const Icon(Icons.play_arrow),
-                              label: const Text('Try Sample Newspaper Story'),
+                              onPressed: () => SlantSourceSheet.show(context, onFinish: _loadItems),
+                              icon: const Icon(Icons.bolt),
+                              label: const Text('Create Slant PostCard'),
                             ),
                           ],
                         ),

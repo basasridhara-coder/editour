@@ -13,6 +13,7 @@ class CompleteInfographicVisual extends StatefulWidget {
   final PosterStyleConfig config;
   final VoidCallback? onOpenDetail;
   final ValueChanged<int>? onPageChanged;
+  final bool showOverlays;
 
   const CompleteInfographicVisual({
     super.key,
@@ -20,6 +21,7 @@ class CompleteInfographicVisual extends StatefulWidget {
     required this.config,
     this.onOpenDetail,
     this.onPageChanged,
+    this.showOverlays = true,
   });
 
   @override
@@ -46,33 +48,32 @@ class _CompleteInfographicVisualState extends State<CompleteInfographicVisual> {
     if (widget.item.isCarouselTrio) {
       return AspectRatio(
         aspectRatio: 4 / 5,
-        child: GestureDetector(
-          onTap: widget.onOpenDetail,
-          child: FittedBox(
-            fit: BoxFit.contain,
-            alignment: Alignment.center,
-            child: SizedBox(
-              width: 360,
-              height: 450,
-              child: PageView(
-                controller: _pageController,
-                physics: const BouncingScrollPhysics(),
-                onPageChanged: widget.onPageChanged,
-                children: [
-                  SlideHookPoster(
-                    item: widget.item,
-                    config: widget.config,
-                  ),
-                  SlideCritiquePoster(
-                    item: widget.item,
-                    config: widget.config,
-                  ),
-                  SlideReceiptsPoster(
-                    item: widget.item,
-                    config: widget.config,
-                  ),
-                ],
-              ),
+        child: FittedBox(
+          fit: BoxFit.contain,
+          alignment: Alignment.center,
+          child: SizedBox(
+            width: 360,
+            height: 450,
+            child: PageView(
+              controller: _pageController,
+              physics: const BouncingScrollPhysics(),
+              onPageChanged: widget.onPageChanged,
+              children: [
+                SlideHookPoster(
+                  item: widget.item,
+                  config: widget.config,
+                  showOverlays: widget.showOverlays,
+                ),
+                SlideCritiquePoster(
+                  item: widget.item,
+                  config: widget.config,
+                  showOverlays: widget.showOverlays,
+                ),
+                SlideReceiptsPoster(
+                  item: widget.item,
+                  config: widget.config,
+                ),
+              ],
             ),
           ),
         ),
@@ -82,18 +83,16 @@ class _CompleteInfographicVisualState extends State<CompleteInfographicVisual> {
     // Single poster format: 4:5 complete poster
     return AspectRatio(
       aspectRatio: 4 / 5,
-      child: GestureDetector(
-        onTap: widget.onOpenDetail,
-        child: FittedBox(
-          fit: BoxFit.contain,
-          alignment: Alignment.center,
-          child: SizedBox(
-            width: 360,
-            height: 450,
-            child: SlideHookPoster(
-              item: widget.item,
-              config: widget.config,
-            ),
+      child: FittedBox(
+        fit: BoxFit.contain,
+        alignment: Alignment.center,
+        child: SizedBox(
+          width: 360,
+          height: 450,
+          child: SlideHookPoster(
+            item: widget.item,
+            config: widget.config,
+            showOverlays: widget.showOverlays,
           ),
         ),
       ),

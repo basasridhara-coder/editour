@@ -374,62 +374,6 @@ class _PostcardDetailScreenState extends State<PostcardDetailScreen>
               const SizedBox(height: 16),
             ],
 
-            // Creator Opinion Section (Highlights creator's voice)
-            if (_item.creatorOpinion != null && _item.creatorOpinion!.isNotEmpty) ...[
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.amber.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.mode_comment_outlined, size: 16, color: Colors.amber),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            'CREATOR OPINION & PERSPECTIVE',
-                            style: TextStyle(
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 1.2,
-                              color: Colors.amber.shade900,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          _item.creatorHandle ?? '@curator',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.amber.shade900,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '“${_item.creatorOpinion}”',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontStyle: FontStyle.italic,
-                        height: 1.4,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-            ],
-
             // If Carousel Trio: Show 3-Poster Social Overview Card instead of the long text essay!
             if (_item.isCarouselTrio) ...[
               Card(
@@ -976,46 +920,6 @@ class _PostcardDetailScreenState extends State<PostcardDetailScreen>
           ),
           const SizedBox(height: 14),
 
-          // Curator Emotion Angle Callout
-          if (_item.curatorAngle != null && _item.curatorAngle!.isNotEmpty) ...[
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.amber.shade900.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.amber.shade700.withValues(alpha: 0.25)),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(Icons.lightbulb_outline, size: 16, color: Colors.amber),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'CURATOR\'S EMOTION & ANGLE',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.amber,
-                            letterSpacing: 0.8,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '“${_item.curatorAngle}”',
-                          style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 14),
-          ],
 
           // Excerpt pages thumbnails strip if present
           if (_item.bookExcerptPhotoPaths.isNotEmpty) ...[

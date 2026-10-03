@@ -241,6 +241,191 @@ class GeminiService {
     }
   }
 
+  /// Extracts the 6 ranked visual cue dimensions (Hero, Motif, Tension, Atmosphere, Lighting, Style) using Gemini AI
+  Future<List<String>?> extract6RankedCueDimensionsWithAI({
+    required String curatorAngle,
+    required String newsHeadline,
+    String? newsBody,
+  }) async {
+    final apiKey = await _storageService.getApiKey();
+    if (apiKey == null || apiKey.trim().isEmpty) return null;
+
+    final prompt = '''
+You are an elite editorial art director for a high-signal social publication.
+Given the following news headline, excerpt, and curator angle, extract exactly 6 prioritized visual cues representing the 6 core storytelling dimensions for an editorial poster:
+
+NEWS HEADLINE: "$newsHeadline"
+CURATOR'S ANGLE / STANCE: "$curatorAngle"
+${newsBody != null && newsBody.trim().isNotEmpty ? 'ARTICLE EXCERPT: "${newsBody.length > 500 ? newsBody.substring(0, 500) : newsBody}"' : ''}
+
+Extract 6 concise, concrete, evocative visual cues (2-5 words each):
+1. HERO: The single undisputed central subject / figure / focal anchor.
+2. MOTIF: The core symbolic metaphor representing the curator's deeper philosophical angle/critique.
+3. TENSION: The opposing friction, conflict, or threat pushing against the hero.
+4. ATMOSPHERE: The environmental setting, backdrop, and physical scale.
+5. LIGHTING: The chiaroscuro lighting and dramatic shadow mood.
+6. STYLE: The graphic art movement or print medium (e.g. High-Contrast Noir Risograph, Minimalist Bauhaus, Pop Graphic Vector).
+
+Return strictly a valid JSON object with these 6 exact keys:
+{
+  "hero": "...",
+  "motif": "...",
+  "tension": "...",
+  "atmosphere": "...",
+  "lighting": "...",
+  "style": "..."
+}
+''';
+
+    final candidateModels = await _getAvailableModels(apiKey);
+    for (final model in candidateModels) {
+      try {
+        final uri = Uri.parse(
+          'https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey',
+        );
+        final requestBody = {
+          "contents": [
+            {
+              "parts": [{"text": prompt}],
+            }
+          ],
+          "generationConfig": {
+            "responseMimeType": "application/json",
+            "temperature": 0.3,
+          }
+        };
+
+        final response = await _postWithRetry(
+          uri,
+          headers: {'Content-Type': 'application/json'},
+          body: json.encode(requestBody),
+          timeout: const Duration(seconds: 12),
+        );
+
+        if (response.statusCode == 200) {
+          final decoded = json.decode(response.body);
+          final candidates = decoded['candidates'] as List?;
+          if (candidates != null && candidates.isNotEmpty) {
+            final content = candidates[0]['content'];
+            final parts = content['parts'] as List?;
+            if (parts != null && parts.isNotEmpty) {
+              final rawText = parts[0]['text'] as String;
+              final cleanJson = _cleanJsonString(rawText);
+              final Map<String, dynamic> data = json.decode(cleanJson);
+
+              final hero = data['hero']?.toString().trim();
+              final motif = data['motif']?.toString().trim();
+              final tension = data['tension']?.toString().trim();
+              final atmosphere = data['atmosphere']?.toString().trim();
+              final lighting = data['lighting']?.toString().trim();
+              final style = data['style']?.toString().trim();
+
+              final result = <String>[];
+              if (hero != null && hero.isNotEmpty) result.add(hero);
+              if (motif != null && motif.isNotEmpty) result.add(motif);
+              if (tension != null && tension.isNotEmpty) result.add(tension);
+              if (atmosphere != null && atmosphere.isNotEmpty) result.add(atmosphere);
+              if (lighting != null && lighting.isNotEmpty) result.add(lighting);
+              if (style != null && style.isNotEmpty) result.add(style);
+
+              if (result.length >= 4) {
+                return result;
+              }
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('Gemini 6-dimension extraction exception on $model: $e');
+      }
+    }
+    return null;
+  }
+
+  /// Generates fresh replacement visual cues specifically for selected cues,
+  /// harmonizing with existing kept cues.
+  Future<List<String>?> resuggestSelectedCuesWithAI({
+    required String curatorAngle,
+    required String newsHeadline,
+    String? newsBody,
+    required List<String> existingKeptCues,
+    required int countNeeded,
+  }) async {
+    final apiKey = await _storageService.getApiKey();
+    if (apiKey == null || apiKey.trim().isEmpty) return null;
+
+    final keptPrompt = existingKeptCues.isNotEmpty
+        ? 'The user already likes and is KEEPING these visual cues:\n${existingKeptCues.map((c) => "- $c").join("\n")}\n'
+        : '';
+
+    final prompt = '''
+You are an elite editorial art director for a high-signal social publication.
+Given the following news headline, excerpt, and curator angle:
+
+NEWS HEADLINE: "$newsHeadline"
+CURATOR'S ANGLE / STANCE: "$curatorAngle"
+${newsBody != null && newsBody.trim().isNotEmpty ? 'ARTICLE EXCERPT: "${newsBody.length > 500 ? newsBody.substring(0, 500) : newsBody}"' : ''}
+$keptPrompt
+Provide exactly $countNeeded fresh, distinct, concrete, evocative visual cues (2-5 words each) representing powerful storytelling metaphors or scene elements for an editorial poster.
+Do NOT repeat the kept cues. Harmonize with the theme.
+
+Return strictly a valid JSON array of strings, for example:
+["cue 1", "cue 2"]
+''';
+
+    final candidateModels = await _getAvailableModels(apiKey);
+    for (final model in candidateModels) {
+      try {
+        final uri = Uri.parse(
+          'https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey',
+        );
+        final requestBody = {
+          "contents": [
+            {
+              "parts": [{"text": prompt}],
+            }
+          ],
+          "generationConfig": {
+            "responseMimeType": "application/json",
+            "temperature": 0.5,
+          }
+        };
+
+        final response = await _postWithRetry(
+          uri,
+          headers: {'Content-Type': 'application/json'},
+          body: json.encode(requestBody),
+          timeout: const Duration(seconds: 12),
+        );
+
+        if (response.statusCode == 200) {
+          final decoded = json.decode(response.body);
+          final candidates = decoded['candidates'] as List?;
+          if (candidates != null && candidates.isNotEmpty) {
+            final content = candidates[0]['content'];
+            final parts = content['parts'] as List?;
+            if (parts != null && parts.isNotEmpty) {
+              final rawText = parts[0]['text'] as String;
+              final cleanJson = _cleanJsonString(rawText);
+              final decodedList = json.decode(cleanJson);
+              if (decodedList is List) {
+                final result = decodedList
+                    .map((e) => e.toString().trim())
+                    .where((e) => e.isNotEmpty && !existingKeptCues.contains(e))
+                    .toList();
+                if (result.isNotEmpty) {
+                  return result;
+                }
+              }
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('Gemini selective cue suggestion exception on $model: $e');
+      }
+    }
+    return null;
+  }
+
   /// Web Match First pipeline for physical paper clippings:
   /// Stage 1: Quick vision scan for headline & publication name
   /// Stage 2: Live Google Search to discover matching active online news article
@@ -258,6 +443,8 @@ class GeminiService {
     PostCardItem? existingItem,
     int regenerationIteration = 0,
     bool skipImageGeneration = false,
+    Uint8List? referenceImageBytes,
+    bool matchRealPersonLikeness = false,
     void Function(String message)? onProgressUpdate,
   }) async {
     final apiKey = await _storageService.getApiKey();
@@ -288,7 +475,7 @@ class GeminiService {
     try {
       final base64Image = base64Encode(imageBytes);
       final scanPrompt = '''
-Analyze this physical newspaper or magazine clipping.
+Analyze this physical newspaper or magazine clipping. The photo may be photographed at an angle, rotated sideways (90°/270°), or upside down (180°); automatically detect the text orientation and reading direction.
 Extract ONLY:
 1. "headline": The main printed article headline in large bold type.
 2. "publication": The newspaper or magazine title if visible (e.g. "The Hindu", "The New York Times", "Financial Times", "Times of India", or "").
@@ -434,6 +621,8 @@ Return JSON:
                 existingItem: existingItem,
                 regenerationIteration: regenerationIteration,
                 skipImageGeneration: skipImageGeneration,
+                referenceImageBytes: referenceImageBytes,
+                matchRealPersonLikeness: matchRealPersonLikeness,
               );
 
               return result;
@@ -459,6 +648,8 @@ Return JSON:
       existingItem: existingItem,
       regenerationIteration: regenerationIteration,
       skipImageGeneration: skipImageGeneration,
+      referenceImageBytes: referenceImageBytes,
+      matchRealPersonLikeness: matchRealPersonLikeness,
     );
   }
 
@@ -482,7 +673,7 @@ Your task is to take:
 $sourceDescription
 
 2. Curator's Unhedged Take (user's raw opinion, stance, or critique in plain words):
-${userContext != null && userContext.trim().isNotEmpty ? '"${userContext.trim()}"\nRepresent and amplify this exact unhedged stance without diluting, softening, or balancing it.' : 'Distill the most provocative, high-signal angle for the audience.'}
+${userContext != null && userContext.trim().isNotEmpty ? '"${userContext.trim()}"\nThis is the user\'s raw seed perspective. In Slide 2, you MUST articulate, refine, and extend this stance into a cohesive, model-synthesized editorial argument connecting the stance to the article\'s verified facts and context. DO NOT copy or output this raw text verbatim.' : 'Distill the most provocative, high-signal angle for the audience.'}
 
 3. Target Audience: "$targetAudience" (Tone: "$tone")
 
@@ -515,10 +706,15 @@ The user does not provide artistic instructions. You must automatically invent t
    - STRICT TEXT BAN: Strictly "no text, no letters, no words, no typos, no watermark, clean negative space".
 
 SLIDE 2 ARCHITECTURE ("CURATOR'S TAKE"):
+- MANDATORY REFINEMENT DIRECTIVE (NEVER ECHO VERBATIM):
+  * Slide 2 must NEVER display the user's raw input verbatim!
+  * You MUST refine and extend the curator's unhedged take into an articulate, model-synthesized editorial argument (EXACTLY 2 complete sentences, 22–32 words total, ending definitively with a period).
+  * Ground the take directly in the article's specific facts, actors, and structural implications.
+  * Express it with the bite and precision of an elite columnist championing the curator's unhedged perspective for "$targetAudience".
 - SLIDE TITLE: "[THE CORE VERDICT / THESIS]" (≤ 7 words).
   EDITORIAL TONE GUARDRAIL: Use incisive, thoughtful critique rather than cheap sensationalism or juvenile name-calling (avoid overly abrasive words like "shameless", "frauds", "clowns"; use sharp, analytical phrasing like "Wealth As Political Currency", "The Normalization of Political Fortunes", "The Institutional Cost of Opulence").
-- CURATOR OPINION BODY: The distilled unhedged take translated specifically for "$targetAudience".
-  POSTER BOUNDARY CONSTRAINT: Must be EXACTLY 2 tight, self-contained sentences (total 22–30 words, ~140–180 characters) ending with a definitive period (.). The poster displays this exact text, so it MUST NEVER cut off mid-thought or trail into ellipses (...). Detailed background context will live in the web application (editour.app), but this poster version must end cleanly and feel 100% complete within the poster boundaries.
+- CURATOR OPINION BODY (take_body): The model-refined and extended editorial take synthesizing the user's unhedged stance against article context.
+  POSTER BOUNDARY CONSTRAINT: Must be EXACTLY 2 tight, self-contained sentences (total 22–32 words, ~140–180 characters) ending with a definitive period (.). The poster displays this exact text, so it MUST NEVER cut off mid-thought or trail into ellipses (...). Detailed background context will live in the web application (editour.app), but this poster version must end cleanly and feel 100% complete within the poster boundaries.
 - "WHY IT MATTERS" CALLOUT: Exactly 1 punchy takeaway line (≤ 12 words) ending with a period (.), framing the practical implication for the reader.
 
 SLIDE 3 ARCHITECTURE ("THE RECEIPT / SOURCE PROOF"):
@@ -570,7 +766,7 @@ Return ONLY valid JSON matching this exact structure:
   },
   "slide_2_curator_take": {
     "take_headline": "Core verdict headline (<= 7 words, sharp & analytical, avoiding cheap slurs/offensive words)",
-    "take_body": "Exactly 2 tight, self-contained sentences (22-30 words total) ending definitively with a period (.), zero fluff, perfectly fitted for poster boundaries",
+    "take_body": "Model-refined and extended editorial take (NOT raw user text verbatim). Exactly 2 tight, self-contained analytical sentences (22-32 words total) synthesizing the curator's unhedged stance against article facts, ending definitively with a period (.), zero fluff, perfectly fitted for poster boundaries",
     "why_it_matters_callout": "Stakes or practical implication ending with a period (<= 12 words)"
   },
   "slide_3_source_proof": {
@@ -589,24 +785,61 @@ Return ONLY valid JSON matching this exact structure:
 ''';
   }
 
-  /// Formats the final Imagen illustration prompt by putting highest priority on Cue #1
+  /// Cleans and formats structured cue pills into natural descriptive prose for AI image models
+  static String _cleanCuesForImagePrompt(String cues) {
+    return cues
+        .replaceAll(RegExp(r'#1\s*\[HERO[^\]]*\]:?', caseSensitive: false), 'Hero subject:')
+        .replaceAll(RegExp(r'#2\s*\[MOTIF[^\]]*\]:?', caseSensitive: false), 'Symbolic motif:')
+        .replaceAll(RegExp(r'#3\s*\[TENSION[^\]]*\]:?', caseSensitive: false), 'Visual tension:')
+        .replaceAll(RegExp(r'#4\s*\[ATMOSPHERE[^\]]*\]:?', caseSensitive: false), 'Atmospheric setting:')
+        .replaceAll(RegExp(r'#5\s*\[LIGHTING[^\]]*\]:?', caseSensitive: false), 'Lighting:')
+        .replaceAll(RegExp(r'#6\s*\[STYLE[^\]]*\]:?', caseSensitive: false), 'Art style:')
+        .replaceAll(RegExp(r'\[[^\]]*\]'), '')
+        .replaceAll('•', ',')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+  }
+
+  /// Formats the final illustration prompt by synthesizing Cues, Curator Angle, and News Headline
   static String _buildPrioritizedIllustrationPrompt({
     String? hookCues,
     String? generatedPrompt,
     String? fallbackContext,
     String? fallbackHeadline,
   }) {
+    final buffer = StringBuffer();
+
+    // 1. Core Visual Cues (Hero subject, motif, tension, lighting)
     if (hookCues != null && hookCues.trim().isNotEmpty) {
-      final cues = hookCues.trim();
-      return 'Prioritized art direction: $cues. Scene context: ${generatedPrompt ?? fallbackHeadline ?? "Editorial graphic metaphor"}. Noir chiaroscuro lighting, dramatic spotlight, clean dark negative space in bottom 35%, strictly no text, no letters, no words.';
+      buffer.write(_cleanCuesForImagePrompt(hookCues));
+      buffer.write('. ');
     }
-    if (generatedPrompt != null && generatedPrompt.trim().isNotEmpty) {
-      return generatedPrompt.trim();
-    }
+
+    // 2. Curator's Angle & Editorial Narrative (Vital thematic metaphor!)
     if (fallbackContext != null && fallbackContext.trim().isNotEmpty) {
-      return '${fallbackContext.trim()}, ${fallbackHeadline ?? "Editorial investigative concept"}, noir chiaroscuro lighting, strictly no text.';
+      buffer.write('Curator angle and editorial perspective: ');
+      buffer.write(fallbackContext.trim());
+      buffer.write('. ');
     }
-    return '${fallbackHeadline ?? "News investigation"}, editorial graphic concept art, strictly no text.';
+
+    // 3. Scene context / Generated prompt or Headline
+    if (generatedPrompt != null && generatedPrompt.trim().isNotEmpty) {
+      buffer.write('Scene context: ');
+      buffer.write(generatedPrompt.trim());
+      buffer.write('. ');
+    } else if (fallbackHeadline != null && fallbackHeadline.trim().isNotEmpty) {
+      buffer.write('News story headline: ');
+      buffer.write(fallbackHeadline.trim());
+      buffer.write('. ');
+    }
+
+    buffer.write(
+      'Modern cinematic editorial artwork poster, 4:5 vertical format, volumetric rim lighting, '
+      'dramatic chiaroscuro lighting, rich textural depth, clean negative space in bottom 30% for badge placement, '
+      'strictly no typography, no letters, no words anywhere in the image.',
+    );
+
+    return buffer.toString();
   }
 
   /// Robust Dual-Schema Parser: handles both the new nested "Fact vs. Angle"
@@ -674,10 +907,26 @@ Return ONLY valid JSON matching this exact structure:
         data['hook']?.toString().trim() ??
         'Verified real-world event.';
 
-    final takeBody = s2['take_body']?.toString().trim() ??
+    String takeBody = s2['take_body']?.toString().trim() ??
         data['creator_opinion']?.toString().trim() ??
         data['summary']?.toString().trim() ??
-        'The unhedged curator stance.';
+        '';
+
+    // GUARANTEE: Slide 2 must NEVER display the raw user take verbatim!
+    // If the model echoed the raw userContext verbatim or returned an empty takeBody,
+    // synthesize an articulate, context-grounded editorial argument.
+    if (userContext != null && userContext.trim().isNotEmpty) {
+      final rawUser = userContext.trim();
+      final isVerbatim = takeBody.toLowerCase() == rawUser.toLowerCase() ||
+          takeBody.toLowerCase() == '"${rawUser.toLowerCase()}"' ||
+          takeBody.isEmpty;
+      if (isVerbatim) {
+        final topic = entity.isNotEmpty ? entity : 'this development';
+        takeBody = 'Beyond surface reporting, $rawUser. This exposes a systemic inflection point regarding $topic that institutional observers and the mainstream feed routinely underestimate.';
+      }
+    } else if (takeBody.isEmpty) {
+      takeBody = 'Surface reporting treats this as an isolated milestone, but the structural implications reveal a far more decisive shift. Navigating these underlying currents requires looking well beyond official soundbites.';
+    }
 
     final whyItMatters = s2['why_it_matters_callout']?.toString().trim() ??
         data['why_it_matters']?.toString().trim();
@@ -823,6 +1072,8 @@ Return ONLY valid JSON matching this exact structure:
     PostCardItem? existingItem,
     int regenerationIteration = 0,
     bool skipImageGeneration = false,
+    Uint8List? referenceImageBytes,
+    bool matchRealPersonLikeness = false,
   }) async {
     final apiKey = await _storageService.getApiKey();
 
@@ -848,7 +1099,7 @@ Return ONLY valid JSON matching this exact structure:
     final int textPct = 100 - artPct;
 
     final prompt = _buildEditorialPrompt(
-      sourceDescription: "Optical Character Recognition (OCR) on attached photo of physical newspaper or magazine clipping. Read all headlines, subheadings, bylines, date, and column body text.",
+      sourceDescription: "Optical Character Recognition (OCR) on attached photo of physical newspaper or magazine clipping. Note: The photo may be photographed at an angle, rotated sideways (90°/270°), or upside down (180°); automatically detect the text orientation and read in the natural reading direction. Read all headlines, subheadings, bylines, date, and column body text.",
       targetAudience: targetAudience,
       tone: tone,
       userContext: userContext,
@@ -934,6 +1185,8 @@ Return ONLY valid JSON matching this exact structure:
                         ? (DateTime.now().millisecondsSinceEpoch + regenerationIteration * 7919)
                         : 0,
                     styleIndex: regenerationIteration,
+                    referenceImageBytes: referenceImageBytes,
+                    matchRealPersonLikeness: matchRealPersonLikeness,
                   );
                 } catch (e) {
                   debugPrint('Poster illustration generation exception: $e');
@@ -997,6 +1250,8 @@ Return ONLY valid JSON matching this exact structure:
     PostCardItem? existingItem,
     int regenerationIteration = 0,
     bool skipImageGeneration = false,
+    Uint8List? referenceImageBytes,
+    bool matchRealPersonLikeness = false,
   }) async {
     final apiKey = await _storageService.getApiKey();
 
@@ -1106,6 +1361,8 @@ ${articleBody.length > 3500 ? articleBody.substring(0, 3500) : articleBody}
                           ? (DateTime.now().millisecondsSinceEpoch + regenerationIteration * 7919)
                           : 0,
                       styleIndex: regenerationIteration,
+                      referenceImageBytes: referenceImageBytes,
+                      matchRealPersonLikeness: matchRealPersonLikeness,
                     );
                   } catch (e) {
                     debugPrint('Digital article illustration generation failed: $e');
@@ -1353,12 +1610,21 @@ Return ONLY a valid JSON object matching this schema:
                         .toList() ??
                     [];
 
+                final refinedBookTake = (parsed['creator_opinion'] != null && parsed['creator_opinion'].toString().trim().isNotEmpty)
+                    ? parsed['creator_opinion'].toString().trim()
+                    : ((parsed['take_body'] != null && parsed['take_body'].toString().trim().isNotEmpty)
+                        ? parsed['take_body'].toString().trim()
+                        : (curatorAngle.isNotEmpty && curatorAngle != 'The beauty of stillness and human reflection'
+                            ? 'Reading through this lens reveals how $curatorAngle. The author cuts through contemporary distraction to illuminate timeless truths that modern discourse urgently needs.'
+                            : (parsed['why_it_matters'] ?? parsed['hook'] ?? 'A timeless literary reflection.')));
+
                 return GeminiAnalysisResult(
                   originalHeadline: parsed['original_headline'] ?? '$bookTitle Excerpt',
                   publicationName: parsed['publication_name'] ?? '$bookTitle • $bookAuthor',
                   adaptedHeadline: parsed['adapted_headline'] ?? bookTitle,
                   hook: parsed['hook'] ?? 'An unforgettable literary excerpt.',
                   summary: parsed['summary'] ?? '',
+                  creatorOpinion: refinedBookTake,
                   whyItMatters: parsed['whyItMatters'] ?? parsed['why_it_matters'],
                   keyTakeaways: List<String>.from(parsed['key_takeaways'] ?? []),
                   pullQuote: parsed['pull_quote'] ?? '',
@@ -1420,12 +1686,14 @@ Return ONLY a valid JSON object matching this schema:
 
 
 
-  /// Generates visual AI illustration using Google Gemini Image Models, multimodal generation, and high-definition fallback
+  /// Generates visual AI illustration using native Google Gemini Image models with face conditioning
   Future<Uint8List?> generatePosterIllustration({
     String? apiKey,
     required String prompt,
     int seed = 0,
     int styleIndex = 0,
+    Uint8List? referenceImageBytes,
+    bool matchRealPersonLikeness = false,
   }) async {
     final cleanPrompt = prompt.trim();
     if (cleanPrompt.isEmpty) return null;
@@ -1447,58 +1715,69 @@ Return ONLY a valid JSON object matching this schema:
     final selectedStylePrefix = stylePrefixes[styleIndex % stylePrefixes.length];
     final effectiveSeed = (seed != 0 ? seed.abs() : (DateTime.now().millisecondsSinceEpoch + styleIndex * 7919).abs()) % 1000000;
 
+    // --- Primary: Native Google Gemini Image Generation Models ---
     if (effectiveApiKey != null && effectiveApiKey.isNotEmpty) {
-      // 1. Google Gemini Multimodal Image Generation Models (Fast, reliable 4:5 vertical poster generation)
-      const geminiImageModels = [
+      final googleImageModels = [
         'gemini-2.5-flash-image',
-        'gemini-3.1-flash-lite-image',
         'gemini-3.1-flash-image',
         'gemini-3-pro-image',
       ];
-      for (final model in geminiImageModels) {
+
+      for (final modelName in googleImageModels) {
         try {
-          debugPrint('🎨 Generating artwork with Gemini Image model: $model (style variant: $styleIndex, seed: $effectiveSeed)');
-          final uri = Uri.parse(
-            'https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$effectiveApiKey',
+          debugPrint('🎨 [Gemini Image API] Generating artwork with $modelName (likeness: $matchRealPersonLikeness)...');
+          final geminiUri = Uri.parse(
+            'https://generativelanguage.googleapis.com/v1beta/models/$modelName:generateContent?key=$effectiveApiKey',
           );
 
-          final requestBody = {
-            "contents": [
-              {
-                "parts": [
-                  {
-                    "text": "$selectedStylePrefix: $cleanPrompt. Visual editorial concept art poster, vertical 4:5 format, strictly no text, no words, no letters, no typography, high artistic aesthetic."
-                  }
-                ]
+          final List<Map<String, dynamic>> parts = [];
+          if (matchRealPersonLikeness && referenceImageBytes != null && referenceImageBytes.isNotEmpty) {
+            parts.add({
+              "inlineData": {
+                "mimeType": "image/jpeg",
+                "data": base64Encode(referenceImageBytes),
               }
-            ],
-            "generationConfig": {
-              "responseModalities": ["IMAGE"],
-            }
-          };
+            });
+            parts.add({
+              "text": "PORTRAIT LIKENESS DIRECTIVE: The attached image is a reference photograph of the key individual for this story. "
+                  "Preserve their recognizable facial characteristics, hairstyle, age, and expressive posture in this stylized artistic illustration.\n\n"
+                  "EDITORIAL POSTER ARTWORK:\n"
+                  "$selectedStylePrefix. $cleanPrompt.\n\n"
+                  "CRITICAL CONSTRAINT: Masterpiece vertical 4:5 editorial artwork poster, dramatic chiaroscuro, rich textural depth, "
+                  "strictly no typography, no letters, no words anywhere in the image.",
+            });
+          } else {
+            parts.add({
+              "text": "EDITORIAL POSTER ARTWORK:\n"
+                  "$selectedStylePrefix. $cleanPrompt.\n\n"
+                  "CRITICAL CONSTRAINT: Masterpiece vertical 4:5 editorial artwork poster, dramatic chiaroscuro lighting, rich textural depth, "
+                  "strictly no typography, no letters, no words anywhere in the image.",
+            });
+          }
 
           final response = await http
               .post(
-                uri,
-                headers: {
-                  'Content-Type': 'application/json',
-                  'x-goog-api-key': effectiveApiKey,
-                },
-                body: json.encode(requestBody),
+                geminiUri,
+                headers: {'Content-Type': 'application/json'},
+                body: json.encode({
+                  "contents": [
+                    {"parts": parts}
+                  ]
+                }),
               )
-              .timeout(const Duration(seconds: 25));
+              .timeout(const Duration(seconds: 30));
 
           if (response.statusCode == 200) {
             final data = json.decode(response.body);
             final candidates = data['candidates'] as List?;
             if (candidates != null && candidates.isNotEmpty) {
-              final parts = candidates[0]['content']?['parts'] as List?;
-              if (parts != null) {
-                for (final p in parts) {
+              final resParts = candidates[0]['content']?['parts'] as List?;
+              if (resParts != null) {
+                for (final p in resParts) {
                   if (p is Map && p.containsKey('inlineData')) {
                     final b64 = p['inlineData']?['data'] as String?;
                     if (b64 != null && b64.isNotEmpty) {
-                      debugPrint('✅ Successfully generated illustration with $model!');
+                      debugPrint('✅ [Gemini Image API] Successfully generated illustration via $modelName (${b64.length} chars)!');
                       return base64Decode(b64);
                     }
                   }
@@ -1506,12 +1785,40 @@ Return ONLY a valid JSON object matching this schema:
               }
             }
           } else {
-            debugPrint('Gemini Image $model returned ${response.statusCode}: ${response.body}');
+            debugPrint('Gemini Image API ($modelName) returned ${response.statusCode}: ${response.body}');
           }
         } catch (e) {
-          debugPrint('Gemini Image $model exception: $e');
+          debugPrint('Gemini Image API ($modelName) exception: $e');
         }
       }
+    }
+
+    // --- Fallback: Pollinations AI (FLUX) for offline / network resilience ---
+    try {
+      debugPrint('🎨 [Fallback] Generating artwork via Pollinations FLUX (seed: $effectiveSeed)...');
+      final sanitizedArtPrompt = cleanPrompt
+          .replaceAll(RegExp(r'#\d+\s*\[[^\]]+\]:?'), '')
+          .replaceAll('•', ',')
+          .replaceAll(RegExp(r'\s+'), ' ')
+          .trim();
+      final artKeywords = sanitizedArtPrompt.length > 350
+          ? sanitizedArtPrompt.substring(0, 350)
+          : sanitizedArtPrompt;
+
+      final fullPrompt = '$selectedStylePrefix. $artKeywords';
+      final encodedPrompt = Uri.encodeComponent(fullPrompt);
+
+      final pollUri = Uri.parse(
+        'https://image.pollinations.ai/prompt/$encodedPrompt?width=720&height=900&nologo=true&seed=$effectiveSeed&model=flux',
+      );
+
+      final pollResponse = await http.get(pollUri).timeout(const Duration(seconds: 15));
+      if (pollResponse.statusCode == 200 && pollResponse.bodyBytes.length > 5000) {
+        debugPrint('✅ [Fallback] Successfully generated illustration via Pollinations FLUX (${pollResponse.bodyBytes.length} bytes)!');
+        return pollResponse.bodyBytes;
+      }
+    } catch (e) {
+      debugPrint('Pollinations AI fallback exception: $e');
     }
 
     return null;
@@ -1528,14 +1835,21 @@ Return ONLY a valid JSON object matching this schema:
     required String tone,
     int iteration = 0,
     PosterStyleType? currentStyle,
+    Uint8List? referenceImageBytes,
+    bool matchRealPersonLikeness = false,
   }) async {
     final effectiveApiKey = (apiKey != null && apiKey.trim().isNotEmpty)
         ? apiKey.trim()
         : await _storageService.getApiKey();
 
-    final cue = (hookCues != null && hookCues.trim().isNotEmpty) ? hookCues.trim() : null;
+    final cueClean = (hookCues != null && hookCues.trim().isNotEmpty) ? _cleanCuesForImagePrompt(hookCues) : null;
     final context = (userContext != null && userContext.trim().isNotEmpty) ? userContext.trim() : null;
-    final subject = cue ?? (context != null ? '$context, $headline' : headline);
+    final parts = <String>[
+      ?cueClean,
+      if (context != null) 'Curator angle and theme: $context',
+      'Story context: $headline',
+    ];
+    final subject = parts.join('. ');
 
     // 8 radically distinct creative directions so re-rolling is highly dynamic and never repetitive
     final distinctMetaphors = [
@@ -1568,6 +1882,8 @@ Return ONLY a valid JSON object matching this schema:
       prompt: selectedMetaphor,
       seed: seed,
       styleIndex: styleIndex,
+      referenceImageBytes: referenceImageBytes,
+      matchRealPersonLikeness: matchRealPersonLikeness,
     );
 
     return {
@@ -1931,7 +2247,9 @@ Return ONLY a valid JSON object matching this schema:
       adaptedHeadline: adaptedHeadline,
       hook: hook,
       summary: summary,
-      creatorOpinion: hasContext ? userContext : summary,
+      creatorOpinion: hasContext
+          ? 'While conventional reporting fixates on the headline announcements, ${userContext.trim()}. This development exposes a structural recalibration that $targetAudience cannot afford to ignore.'
+          : (whyItMatters.isNotEmpty ? '$hook $whyItMatters' : summary),
       whyItMatters: whyItMatters,
       keyTakeaways: takeaways,
       pullQuote: pullQuote,
@@ -2162,7 +2480,9 @@ Return ONLY a valid JSON object matching this schema:
       adaptedHeadline: adaptedHeadline,
       hook: hook,
       summary: summary,
-      creatorOpinion: angle,
+      creatorOpinion: hasCustomAngle
+          ? 'Reading through this lens reveals how $angle. The author cuts through contemporary distraction to illuminate timeless truths that modern discourse urgently needs.'
+          : 'This quintessential passage cuts through the noise of modern distraction. Absorbing its cadence reminds us that clarity is forged through patient contemplation, not immediate reaction.',
       whyItMatters: whyItMatters,
       keyTakeaways: takeaways,
       pullQuote: pullQuote,

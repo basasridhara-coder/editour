@@ -1,71 +1,134 @@
 class VisualCueService {
-  /// Extracts high-signal visual metaphors and concrete keywords
-  /// prioritizing the Curator's angle, context, available headline, and story excerpts.
+  /// Extracts the 6 ranked storytelling dimensions:
+  /// #1 HERO (Central figure / subject)
+  /// #2 MOTIF (Symbolic metaphor reflecting curator angle)
+  /// #3 TENSION (Opposing friction / conflict / consequence)
+  /// #4 ATMOSPHERE (Setting / environment / scale)
+  /// #5 LIGHTING (Chiaroscuro & dramatic illumination)
+  /// #6 STYLE (Artistic medium & poster grammar)
+  static List<String> extract6RankedCueDimensions({
+    required String curatorAngle,
+    required String newsHeadline,
+    String? newsBody,
+  }) {
+    final combined = '$curatorAngle $newsHeadline ${newsBody ?? ""}'.toLowerCase();
+
+    // 1. HERO (Subject from headline or angle)
+    String hero = '';
+    if (combined.contains('garbage') || combined.contains('trash') || combined.contains('waste') || combined.contains('clean')) {
+      hero = 'Lone Sweeper with Traditional Broom';
+    } else if (combined.contains('ai') || combined.contains('tech') || combined.contains('silicon') || combined.contains('data center')) {
+      hero = 'Monolithic Server Tower';
+    } else if (combined.contains('market') || combined.contains('invest') || combined.contains('wealth') || combined.contains('billion') || combined.contains('stock')) {
+      hero = 'Silhouetted Wall Street Bull';
+    } else if (combined.contains('polit') || combined.contains('elect') || combined.contains('minister') || combined.contains('leader') || combined.contains('vote')) {
+      hero = 'Solitary Figure at Microphone';
+    } else if (combined.contains('court') || combined.contains('judge') || combined.contains('law') || combined.contains('case')) {
+      hero = 'Gavel & Broken Stone Pillar';
+    } else if (newsHeadline.trim().isNotEmpty) {
+      final phrases = _extractMeaningfulPhrases(newsHeadline);
+      hero = phrases.isNotEmpty ? phrases.first : 'Central Editorial Subject';
+    } else {
+      hero = 'Solitary Focal Figure';
+    }
+
+    // 2. MOTIF (Core Metaphor from Curator Angle)
+    String motif = '';
+    if (combined.contains('mind') && (combined.contains('garbage') || combined.contains('trash') || combined.contains('clean'))) {
+      motif = 'Mind Silhouette Filled with Plastic Waste';
+    } else if (combined.contains('puppet') || combined.contains('control') || combined.contains('manipulat')) {
+      motif = 'Tangled Marionette Puppet Strings';
+    } else if (combined.contains('scale') || combined.contains('justice') || combined.contains('balance') || combined.contains('fair')) {
+      motif = 'Tipping Scales of Justice';
+    } else if (combined.contains('hourglass') || combined.contains('time') || combined.contains('delay') || combined.contains('wait')) {
+      motif = 'Crumbling Glass Hourglass';
+    } else if (combined.contains('power') || combined.contains('grid') || combined.contains('cable') || combined.contains('energy')) {
+      motif = 'Tangled High-Voltage Cables';
+    } else if (curatorAngle.trim().isNotEmpty) {
+      final anglePhrases = _extractMeaningfulPhrases(curatorAngle);
+      motif = anglePhrases.isNotEmpty ? anglePhrases.first : 'Symbolic Editorial Metaphor';
+    } else {
+      final thematic = _matchThematicMetaphors(combined);
+      motif = thematic.isNotEmpty ? thematic.first : 'Abstract Conceptual Metaphor';
+    }
+
+    // 3. TENSION (Conflict / Friction / Obstacle)
+    String tension = '';
+    if (combined.contains('garbage') || combined.contains('throw') || combined.contains('dirty') || combined.contains('street')) {
+      tension = 'Hands Dropping Trash Behind Sweeper';
+    } else if (combined.contains('storm') || combined.contains('threat') || combined.contains('crisis')) {
+      tension = 'Approaching Storm Wall';
+    } else if (combined.contains('crack') || combined.contains('fall') || combined.contains('collaps')) {
+      tension = 'Cracking Foundation Beneath';
+    } else if (combined.contains('surveil') || combined.contains('monitor') || combined.contains('watch')) {
+      tension = 'Unblinking Mechanical Eye';
+    } else if (combined.contains('greed') || combined.contains('inequal') || combined.contains('shadow')) {
+      tension = 'Looming Corporate Shadow';
+    } else {
+      tension = 'Friction & Opposing Shadows';
+    }
+
+    // 4. ATMOSPHERE (Setting / Environment)
+    String atmosphere = '';
+    if (combined.contains('street') || combined.contains('city') || combined.contains('road') || combined.contains('urban')) {
+      atmosphere = 'Damp Morning City Boulevard';
+    } else if (combined.contains('board') || combined.contains('exec') || combined.contains('corp')) {
+      atmosphere = 'Smoke-Filled Boardroom';
+    } else if (combined.contains('cyber') || combined.contains('digital') || combined.contains('data')) {
+      atmosphere = 'Brutalist Concrete Server Canyon';
+    } else if (combined.contains('trade') || combined.contains('stock') || combined.contains('wall street')) {
+      atmosphere = 'Empty Trading Floor at Dusk';
+    } else if (combined.contains('court') || combined.contains('legal') || combined.contains('parliament')) {
+      atmosphere = 'Colonnaded Classical Chamber';
+    } else {
+      atmosphere = 'Atmospheric Urban Crossroads';
+    }
+
+    // 5. LIGHTING (Chiaroscuro & Mood)
+    String lighting = '';
+    if (combined.contains('street') || combined.contains('dawn') || combined.contains('morning')) {
+      lighting = 'Single Harsh Streetlamp Spotlight';
+    } else if (combined.contains('dark') || combined.contains('noir') || combined.contains('secret') || combined.contains('investig')) {
+      lighting = 'Deep Chiaroscuro Silhouette';
+    } else if (combined.contains('neon') || combined.contains('tech') || combined.contains('futur')) {
+      lighting = 'Eerie Volumetric Neon Glow';
+    } else {
+      lighting = 'Dramatic Chiaroscuro Spotlight';
+    }
+
+    // 6. STYLE (Print Medium & Movement)
+    String style = '';
+    if (combined.contains('broadsheet') || combined.contains('news') || combined.contains('street') || combined.contains('public')) {
+      style = 'High-Contrast Noir Risograph Print';
+    } else if (combined.contains('tech') || combined.contains('modern') || combined.contains('future')) {
+      style = 'Bauhaus Geometric Vector Art';
+    } else if (combined.contains('historic') || combined.contains('classic') || combined.contains('heritage')) {
+      style = 'Vintage Woodcut Broadsheet';
+    } else {
+      style = 'Minimalist Editorial Graphic Poster';
+    }
+
+    return [
+      _cleanPillText(hero),
+      _cleanPillText(motif),
+      _cleanPillText(tension),
+      _cleanPillText(atmosphere),
+      _cleanPillText(lighting),
+      _cleanPillText(style),
+    ];
+  }
+
+  /// Extracts keywords prioritizing 6 ranked dimensions
   static List<String> extractKeywords({
     required String curatorAngle,
     required String newsHeadline,
     String? newsBody,
   }) {
-    final List<String> prioritized = [];
-    final Set<String> seen = {};
-
-    void addPill(String pill) {
-      final clean = _cleanPillText(pill);
-      if (clean.length >= 3 && clean.length <= 36 && !seen.contains(clean.toLowerCase())) {
-        seen.add(clean.toLowerCase());
-        prioritized.add(clean);
-      }
-    }
-
-    final combinedText = '$curatorAngle $newsHeadline ${newsBody ?? ""}';
-    final lowerCombined = combinedText.toLowerCase();
-
-    // 1. Direct High-Signal Concepts from Curator Angle & Context (FIRST PRIORITY!)
-    // The user's angle is their unhedged stance/critique, so its core motifs should be #1!
-    if (curatorAngle.trim().isNotEmpty) {
-      final anglePhrases = _extractMeaningfulPhrases(curatorAngle);
-      for (final p in anglePhrases) {
-        addPill(p);
-      }
-    }
-
-    // 2. Direct Subject / Entity / Conflict from Headline (SECOND PRIORITY!)
-    if (newsHeadline.trim().isNotEmpty) {
-      final headlinePhrases = _extractMeaningfulPhrases(newsHeadline);
-      for (final p in headlinePhrases) {
-        addPill(p);
-      }
-    }
-
-    // 3. Domain-Specific Thematic Visual Metaphors matching semantic keywords
-    final thematicMetaphors = _matchThematicMetaphors(lowerCombined);
-    for (final m in thematicMetaphors) {
-      addPill(m);
-    }
-
-    // 4. Secondary salient phrases from story body (if available)
-    if (newsBody != null && newsBody.trim().isNotEmpty) {
-      final bodyPhrases = _extractMeaningfulPhrases(newsBody);
-      for (final p in bodyPhrases) {
-        addPill(p);
-      }
-    }
-
-    // 5. Stylistic Noir / Editorial Fallbacks if still fewer than 4 pills
-    final fallbacks = [
-      'Noir chiaroscuro lighting',
-      'Dramatic spotlight',
-      'Classical stone colonnades',
-      'Tactile vintage broadsheet',
-      'Concrete editorial metaphor',
-      'Deep negative space',
-    ];
-    for (final f in fallbacks) {
-      if (prioritized.length >= 5) break;
-      addPill(f);
-    }
-
-    return prioritized.take(6).toList();
+    return extract6RankedCueDimensions(
+      curatorAngle: curatorAngle,
+      newsHeadline: newsHeadline,
+      newsBody: newsBody,
+    );
   }
 
   /// Extracts clean, readable headline words from a web URL slug when article text cannot be fetched
@@ -328,20 +391,23 @@ class VisualCueService {
     }).join(' ');
   }
 
-  /// Formats ordered word pills into a prioritized prompt instruction string
+  /// Formats ordered word pills into a prioritized prompt instruction string mapping the 6 dimensions
   static String formatOrderedPillsForPrompt(List<String> pills) {
     if (pills.isEmpty) return '';
     final buffer = StringBuffer();
+    final dimensionLabels = [
+      '#1 [HERO - PRIMARY DOMINANT SUBJECT FOCUS]',
+      '#2 [MOTIF - CORE EDITORIAL METAPHOR & STANCE]',
+      '#3 [TENSION - CONFLICTING FORCE & STAKES]',
+      '#4 [ATMOSPHERE - ENVIRONMENTAL SETTING & SCALE]',
+      '#5 [LIGHTING - CHIAROSCURO & DRAMATIC MOOD]',
+      '#6 [STYLE - ARTISTIC MEDIUM & POSTER GRAMMAR]',
+    ];
     for (int i = 0; i < pills.length; i++) {
       final pill = pills[i].trim();
       if (pill.isEmpty) continue;
-      if (i == 0) {
-        buffer.writeln('#1 [PRIMARY DOMINANT VISUAL FOCUS]: $pill');
-      } else if (i == 1) {
-        buffer.writeln('#2 [SECONDARY SUPPORTING MOTIF]: $pill');
-      } else {
-        buffer.writeln('#${i + 1} [ATMOSPHERIC PROP / CONTEXT]: $pill');
-      }
+      final label = i < dimensionLabels.length ? dimensionLabels[i] : '#${i + 1} [SUPPORTING CUE]';
+      buffer.writeln('$label: $pill');
     }
     return buffer.toString().trim();
   }
@@ -365,5 +431,55 @@ class VisualCueService {
       }
     }
     return pills;
+  }
+
+  /// Supplies alternative visual cues that exclude already kept cues
+  static List<String> getAlternativeCues({
+    required List<String> existingKeptCues,
+    required int countNeeded,
+    String curatorAngle = '',
+    String newsHeadline = '',
+  }) {
+    final allDimensionCues = [
+      'Lone Sweeper with Traditional Broom',
+      'Silhouetted Titan in Corporate Suit',
+      'Wall Street Bull Behind Barbed Wire',
+      'Whistleblower in Shadowed Corridor',
+      'Lone Chessmaster with Tipped King',
+      'Mind Silhouette Filled with Plastic Waste',
+      'Tangled Marionette Puppet Strings',
+      'Tipping Scales of Justice',
+      'Melting Mechanical Clock',
+      'Tangled High-Voltage Cables',
+      'Hands Dropping Trash Behind Sweeper',
+      'Approaching Storm Wall on Horizon',
+      'Cracking Ice Sheet Beneath Footsteps',
+      'Watchful Surveillance Camera Lens',
+      'Looming Shadow Over Small Figure',
+      'Damp Morning Boulevard with Reflections',
+      'Boardroom Dense with Blue Cigar Smoke',
+      'Towering Brutalist Concrete Facade',
+      'Trading Floor Strewn with Ticker Tape',
+      'Neon-Drenched Cyber Alleyway',
+      'Single High-Intensity Streetlamp Beam',
+      'Noir Chiaroscuro Slanted Shadows',
+      'Volumetric Sunlight Rays Through Smog',
+      'Eerie Blue Screen Neon Glow',
+      'Golden Hour Sunset Silhouette',
+      'High-Contrast Noir Risograph',
+      'Minimalist Bauhaus Color Blocking',
+      'Pop Graphic Screenprint Poster',
+      'Vintage Broadsheet Newspaper Grammar',
+      'Dramatic Graphic Novel Ink Illustration',
+    ];
+
+    final result = <String>[];
+    for (final cue in allDimensionCues) {
+      if (!existingKeptCues.contains(cue) && !result.contains(cue)) {
+        result.add(cue);
+        if (result.length >= countNeeded) break;
+      }
+    }
+    return result;
   }
 }

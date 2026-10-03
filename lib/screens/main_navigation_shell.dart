@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'create_postcard_screen.dart';
 import 'home_feed_screen.dart';
 import 'my_posts_screen.dart';
 import 'settings_screen.dart';
@@ -35,10 +34,8 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
       case 0:
         return const HomeFeedScreen();
       case 1:
-        return const CreatePostcardScreen();
-      case 2:
         return const MyPostsScreen();
-      case 3:
+      case 2:
         return const SettingsScreen();
       default:
         return const HomeFeedScreen();
@@ -50,7 +47,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
     return Scaffold(
       body: IndexedStack(
         index: _currentIndex,
-        children: List.generate(4, (i) => _buildTab(i)),
+        children: List.generate(3, (i) => _buildTab(i)),
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
@@ -65,11 +62,6 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
             icon: Icon(Icons.home_outlined),
             selectedIcon: Icon(Icons.home),
             label: 'Home Feed',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.add_a_photo_outlined),
-            selectedIcon: Icon(Icons.add_a_photo),
-            label: 'Snap & Create',
           ),
           NavigationDestination(
             icon: Icon(Icons.collections_bookmark_outlined),

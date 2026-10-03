@@ -8,12 +8,14 @@ class SlideCritiquePoster extends StatelessWidget {
   final PostCardItem item;
   final PosterStyleConfig config;
   final BorderRadius? borderRadius;
+  final bool showOverlays;
 
   const SlideCritiquePoster({
     super.key,
     required this.item,
     required this.config,
     this.borderRadius,
+    this.showOverlays = true,
   });
 
   static String _ensureCleanEnding(String text) {
@@ -70,7 +72,7 @@ class SlideCritiquePoster extends StatelessWidget {
     final effectiveRadius = borderRadius ?? BorderRadius.circular(16);
     final isFlush = borderRadius == BorderRadius.zero;
 
-    return AspectRatio(
+    final posterWidget = AspectRatio(
       aspectRatio: 4 / 5,
       child: Container(
         decoration: BoxDecoration(
@@ -102,8 +104,18 @@ class SlideCritiquePoster extends StatelessWidget {
               // 1. Full-Bleed Thematic AI Art Backdrop
               _buildVisualArt(),
 
-              // 2. Multi-Stop Vignette: First half (top 46%) is transparent so artwork is clearly relatable to Slide 1
-              Container(
+              // 2. Overlays Layer (Animated fade for clean unobstructed art viewing)
+              AnimatedOpacity(
+                duration: const Duration(milliseconds: 240),
+                curve: Curves.easeInOut,
+                opacity: showOverlays ? 1.0 : 0.0,
+                child: IgnorePointer(
+                  ignoring: !showOverlays,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      // 2a. Multi-Stop Vignette: First half (top 46%) is transparent so artwork is clearly relatable to Slide 1
+                      Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
@@ -353,11 +365,60 @@ class SlideCritiquePoster extends StatelessWidget {
                   ],
                 ),
               ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // 3. Clean View Subtle Indicator Pill (visible only when overlays are hidden)
+              Positioned(
+                top: 14,
+                right: 16,
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 240),
+                  opacity: showOverlays ? 0.0 : 1.0,
+                  child: IgnorePointer(
+                    ignoring: showOverlays,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.75),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.5),
+                            blurRadius: 10,
+                          ),
+                        ],
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.visibility_off_rounded, size: 12, color: Color(0xFFF59E0B)),
+                          SizedBox(width: 5),
+                          Text(
+                            'Clean View',
+                            style: TextStyle(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
       ),
     );
+
+    return posterWidget;
   }
 
   Widget _buildVisualArt() {

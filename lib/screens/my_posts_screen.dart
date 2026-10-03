@@ -9,7 +9,7 @@ import '../models/poster_style_config.dart';
 import '../services/share_service.dart';
 import '../services/storage_service.dart';
 import '../widgets/photo_viewer_dialog.dart';
-import 'create_postcard_screen.dart';
+import '../widgets/slant_source_sheet.dart';
 import 'postcard_detail_screen.dart';
 
 class MyPostsScreen extends StatefulWidget {
@@ -188,14 +188,10 @@ class _MyPostsScreenState extends State<MyPostsScreen> with SingleTickerProvider
             ),
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'my_posts_create_fab',
-        onPressed: () async {
-          await Navigator.of(context).push(
-            MaterialPageRoute(builder: (ctx) => const CreatePostcardScreen()),
-          );
-          _loadItems();
-        },
-        icon: const Icon(Icons.add_a_photo),
-        label: const Text('Snap New Article'),
+        onPressed: () => SlantSourceSheet.show(context, onFinish: _loadItems),
+        icon: const Icon(Icons.bolt_rounded, color: Colors.white, size: 22),
+        label: const Text('Slant', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
+        backgroundColor: Theme.of(context).colorScheme.primary,
       ),
     );
   }

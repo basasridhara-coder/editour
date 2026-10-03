@@ -466,7 +466,13 @@ header {
 .action-group-left {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
+}
+
+.action-group-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .action-btn {
@@ -495,6 +501,82 @@ header {
   stroke: var(--accent-rose);
 }
 
+/* Minimalist Action Icon Buttons (Parity with Mobile Feed) */
+.icon-action-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.18s ease;
+  text-decoration: none;
+}
+.icon-action-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #FFF;
+}
+.icon-action-btn.active,
+.icon-action-btn.clean-view-btn.active {
+  color: var(--accent-cyan);
+  background: rgba(56, 189, 248, 0.14);
+}
+.icon-action-btn.clean-view-btn.active svg {
+  stroke: var(--accent-cyan);
+}
+
+/* Native Instagram-Style Inline Carousel Dots */
+.carousel-dots-inline {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 6px;
+}
+.carousel-dots-inline .carousel-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.28);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.carousel-dots-inline .carousel-dot.active {
+  width: 7px;
+  height: 7px;
+  background: var(--accent-cyan);
+  box-shadow: 0 0 6px rgba(56, 189, 248, 0.6);
+}
+
+/* Clean View: Smoothly fade out text overlays and scrims to reveal pure artwork */
+.carousel-view.clean-view .slide-hook-content,
+.carousel-view.clean-view .slide-hook-top-scrim,
+.carousel-view.clean-view .slide-hook-bottom-scrim,
+.carousel-view.clean-view .tactile-news-fragment,
+.carousel-view.clean-view .slide-counter-badge,
+.carousel-view.clean-view .critique-body,
+.carousel-view.clean-view .critique-badge-row,
+.carousel-view.clean-view .slide-critique-glow,
+.carousel-view.clean-view .slide-hook-top,
+.carousel-view.clean-view .slide-hook-bottom {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+.slide-hook-content,
+.slide-hook-top-scrim,
+.slide-hook-bottom-scrim,
+.tactile-news-fragment,
+.slide-counter-badge,
+.critique-body,
+.critique-badge-row {
+  transition: opacity 0.24s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 .tag-action-btn {
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid var(--border-subtle);
@@ -518,10 +600,10 @@ header {
 
 /* Post Content */
 .post-content {
-  padding: 14px 16px 18px;
+  padding: 10px 16px 16px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .post-headline {
@@ -566,10 +648,20 @@ header {
 }
 
 .post-summary-snippet {
-  font-size: 13.5px;
-  line-height: 1.55;
-  color: var(--text-secondary);
-  margin-top: 2px;
+  font-size: 13px;
+  line-height: 1.46;
+  color: #CBD5E1;
+  margin-top: 1px;
+}
+
+.post-creator-handle {
+  font-weight: 700;
+  color: #F8FAFC;
+  margin-right: 4px;
+}
+
+.post-caption-text {
+  color: rgba(241, 245, 249, 0.88);
 }
 
 .read-more-btn {

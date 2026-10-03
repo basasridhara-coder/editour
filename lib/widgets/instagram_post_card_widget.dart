@@ -33,6 +33,7 @@ class InstagramPostCardWidget extends StatefulWidget {
 
 class _InstagramPostCardWidgetState extends State<InstagramPostCardWidget> {
   bool _isLiked = false;
+  bool _isCleanView = false;
   int _carouselIndex = 0;
 
   Future<void> _launchDigitalLink(BuildContext context, String url) async {
@@ -96,6 +97,7 @@ class _InstagramPostCardWidgetState extends State<InstagramPostCardWidget> {
             child: CompleteInfographicVisual(
               item: widget.item,
               config: styleConfig,
+              showOverlays: !_isCleanView,
               onOpenDetail: widget.onTap,
               onPageChanged: (idx) {
                 setState(() => _carouselIndex = idx);
@@ -148,56 +150,61 @@ class _InstagramPostCardWidgetState extends State<InstagramPostCardWidget> {
           ),
           const SizedBox(width: 10),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        widget.item.creatorHandle ?? '@curator',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Flexible(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.primaryContainer.withValues(alpha: 0.6),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
+            child: GestureDetector(
+              onTap: widget.onTap,
+              behavior: HitTestBehavior.opaque,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
                         child: Text(
-                          '🎯 ${widget.item.targetAudience}',
-                          style: TextStyle(
-                            fontSize: 9.5,
-                            fontWeight: FontWeight.w700,
-                            color: theme.colorScheme.onPrimaryContainer,
+                          widget.item.creatorHandle ?? '@curator',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                    ),
-                  ],
-                ),
-                Text(
-                  widget.item.isDigitalLinkSource
-                      ? '🌐 Web: ${widget.item.publicationName ?? _cleanDomain(widget.item.digitalLink)}'
-                      : 'Physical: ${widget.item.publicationName ?? "Press Clipping"}',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    fontSize: 11,
-                    color: theme.colorScheme.onSurfaceVariant,
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.primaryContainer.withValues(alpha: 0.6),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            '🎯 ${widget.item.targetAudience}',
+                            style: TextStyle(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w700,
+                              color: theme.colorScheme.onPrimaryContainer,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
+                  Text(
+                    widget.item.publicationName ??
+                        (widget.item.isDigitalLinkSource
+                            ? _cleanDomain(widget.item.digitalLink)
+                            : 'Press Clipping'),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontSize: 11,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
             ),
           ),
           PopupMenuButton<String>(
@@ -227,11 +234,19 @@ class _InstagramPostCardWidgetState extends State<InstagramPostCardWidget> {
 
   /// Action bar featuring:
   /// - Like & Share
-  /// - ITEM 3: Dedicated "Paper Cut" icon to view physical newspaper snap OR "Web Article" for digital links
-  /// - ITEM 4: Small active digital link chip
+  /// - Clean Art Toggle (Show/Hide text overlay directly on feed)
+  /// - Native Carousel Pagination Dots
+  /// - Minimalist Action Icons: Newspaper Paper Cut, World Web Article, Book Cover
   Widget _buildActionBar(BuildContext context, ThemeData theme) {
+    final hasDigitalLink = widget.item.isDigitalLinkSource ||
+        (widget.item.digitalLink != null && widget.item.digitalLink!.isNotEmpty);
+    final hasPaperCut = !widget.item.isDigitalLinkSource &&
+        widget.item.originalPhotoPath.isNotEmpty &&
+        !widget.item.originalPhotoPath.startsWith('http') &&
+        widget.item.originalPhotoPath != 'digital_article_link';
+
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       child: Row(
         children: [
           // Heart / Like button
@@ -247,7 +262,7 @@ class _InstagramPostCardWidgetState extends State<InstagramPostCardWidget> {
             constraints: const BoxConstraints(),
             onPressed: () => setState(() => _isLiked = !_isLiked),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 4),
 
           // Share to Instagram & Apps
           IconButton(
@@ -257,6 +272,21 @@ class _InstagramPostCardWidgetState extends State<InstagramPostCardWidget> {
             padding: const EdgeInsets.all(6),
             constraints: const BoxConstraints(),
             onPressed: widget.onShare,
+          ),
+          const SizedBox(width: 4),
+
+          // Clean Art Toggle (Show/Hide text overlays directly on feed)
+          IconButton(
+            icon: Icon(
+              _isCleanView ? Icons.visibility_off_rounded : Icons.visibility_outlined,
+              size: 22,
+              color: _isCleanView ? const Color(0xFF38BDF8) : theme.colorScheme.onSurfaceVariant,
+            ),
+            tooltip: _isCleanView ? 'Show text overlays' : 'Clean artwork (hide text)',
+            visualDensity: VisualDensity.compact,
+            padding: const EdgeInsets.all(6),
+            constraints: const BoxConstraints(),
+            onPressed: () => setState(() => _isCleanView = !_isCleanView),
           ),
 
           // Native Instagram-style pagination dots for carousel posts
@@ -281,135 +311,53 @@ class _InstagramPostCardWidgetState extends State<InstagramPostCardWidget> {
               }),
             ),
           ],
-          const SizedBox(width: 8),
 
-          // Trailing action chips auto-adjusting without overflow
-          Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              reverse: true, // keeps the badge pinned neatly towards the right edge
-              physics: const BouncingScrollPhysics(),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (widget.item.isBookExcerpt) ...[
-                    // Book Cover quick-view chip
-                    InkWell(
-                      onTap: () => BookCoverViewerDialog.show(context, item: widget.item),
-                      borderRadius: BorderRadius.circular(20),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF8B5CF6).withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: const Color(0xFF8B5CF6).withValues(alpha: 0.4),
-                            width: 1,
-                          ),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.menu_book_rounded, size: 13, color: Color(0xFF8B5CF6)),
-                            SizedBox(width: 5),
-                            Text(
-                              'Book Cover 📖',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF8B5CF6),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ] else if (widget.item.isDigitalLinkSource) ...[
-                    // Unified Web Article link badge showing the domain directly
-                    InkWell(
-                      onTap: () {
-                        if (widget.item.digitalLink != null && widget.item.digitalLink!.isNotEmpty) {
-                          _launchDigitalLink(context, widget.item.digitalLink!);
-                        }
-                      },
-                      borderRadius: BorderRadius.circular(20),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF0284C7).withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: const Color(0xFF0284C7).withValues(alpha: 0.4),
-                            width: 1,
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.language, size: 14, color: Color(0xFF0284C7)),
-                            const SizedBox(width: 5),
-                            ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 160),
-                              child: Text(
-                                _cleanDomain(widget.item.digitalLink),
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF0284C7),
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            const SizedBox(width: 3),
-                            const Icon(Icons.open_in_new, size: 11, color: Color(0xFF0284C7)),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ] else ...[
-                    // Physical Newspaper Paper Cut
-                    InkWell(
-                      onTap: () {
-                        PhotoViewerDialog.show(
-                          context,
-                          photoPath: widget.item.originalPhotoPath,
-                          headline: 'Physical Paper Cut: ${widget.item.originalHeadline ?? widget.item.publicationName}',
-                        );
-                      },
-                      borderRadius: BorderRadius.circular(20),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.secondaryContainer.withValues(alpha: 0.65),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: theme.colorScheme.secondary.withValues(alpha: 0.35),
-                            width: 1,
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.newspaper_outlined, size: 14),
-                            const SizedBox(width: 5),
-                            Text(
-                              'Paper Cut',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: theme.colorScheme.onSecondaryContainer,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
+          const Spacer(),
+
+          // Minimalist Action Icons: Book Cover, World Web Link, Newspaper Paper Cut
+          if (widget.item.isBookExcerpt) ...[
+            IconButton(
+              icon: const Icon(Icons.auto_stories_rounded, size: 21, color: Color(0xFF8B5CF6)),
+              tooltip: 'View Book Cover',
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.all(6),
+              constraints: const BoxConstraints(),
+              onPressed: () => BookCoverViewerDialog.show(context, item: widget.item),
             ),
-          ),
+            const SizedBox(width: 2),
+          ],
+
+          if (hasDigitalLink) ...[
+            IconButton(
+              icon: const Icon(Icons.language_rounded, size: 21, color: Color(0xFF0284C7)),
+              tooltip: 'Open Web Article (${_cleanDomain(widget.item.digitalLink)})',
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.all(6),
+              constraints: const BoxConstraints(),
+              onPressed: () {
+                if (widget.item.digitalLink != null && widget.item.digitalLink!.isNotEmpty) {
+                  _launchDigitalLink(context, widget.item.digitalLink!);
+                }
+              },
+            ),
+            const SizedBox(width: 2),
+          ],
+
+          if (hasPaperCut)
+            IconButton(
+              icon: Icon(Icons.newspaper_rounded, size: 21, color: theme.colorScheme.onSurfaceVariant),
+              tooltip: 'View Paper Cut (${widget.item.publicationName ?? "Press Clipping"})',
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.all(6),
+              constraints: const BoxConstraints(),
+              onPressed: () {
+                PhotoViewerDialog.show(
+                  context,
+                  photoPath: widget.item.originalPhotoPath,
+                  headline: 'Physical Paper Cut: ${widget.item.originalHeadline ?? widget.item.publicationName}',
+                );
+              },
+            ),
         ],
       ),
     );
@@ -422,69 +370,12 @@ class _InstagramPostCardWidgetState extends State<InstagramPostCardWidget> {
     ThemeData theme,
     PosterStyleConfig styleConfig,
   ) {
-    final curatedAngle = (widget.item.curatorAngle != null && widget.item.curatorAngle!.trim().isNotEmpty)
-        ? widget.item.curatorAngle!.trim()
-        : ((widget.item.userContext != null && widget.item.userContext!.trim().isNotEmpty)
-            ? widget.item.userContext!.trim()
-            : null);
-
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 2, 16, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Curated Angle Callout (Replaces duplicate headline)
-          Builder(
-            builder: (context) {
-              final angleContent = (widget.item.curatorAngle != null && widget.item.curatorAngle!.trim().isNotEmpty)
-                  ? widget.item.curatorAngle!.trim()
-                  : ((widget.item.creatorOpinion != null && widget.item.creatorOpinion!.trim().isNotEmpty)
-                      ? widget.item.creatorOpinion!.trim()
-                      : ((widget.item.whyItMatters != null && widget.item.whyItMatters!.trim().isNotEmpty)
-                          ? widget.item.whyItMatters!.trim()
-                          : widget.item.hook));
-              if (angleContent.trim().isEmpty) return const SizedBox.shrink();
-
-              return GestureDetector(
-                onTap: widget.onTap,
-                child: Container(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF59E0B).withValues(alpha: 0.10),
-                    borderRadius: const BorderRadius.horizontal(right: Radius.circular(8)),
-                    border: const Border(
-                      left: BorderSide(color: Color(0xFFF59E0B), width: 3.5),
-                    ),
-                  ),
-                  child: RichText(
-                    text: TextSpan(
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontSize: 13,
-                        height: 1.4,
-                        color: theme.colorScheme.onSurface,
-                      ),
-                      children: [
-                        const TextSpan(
-                          text: '⚡ Curated Angle : ',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w800,
-                            color: Color(0xFFF59E0B),
-                          ),
-                        ),
-                        TextSpan(
-                          text: angleContent,
-                          style: const TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-
-          // ITEM 2: FEW STARTING LINES OF SUMMARY WITH "..."
+          // Starting lines of summary with "..."
           GestureDetector(
             onTap: widget.onTap,
             child: RichText(
@@ -515,55 +406,6 @@ class _InstagramPostCardWidgetState extends State<InstagramPostCardWidget> {
               overflow: TextOverflow.ellipsis,
             ),
           ),
-
-          // Curated Angle provided by user (never repeat Slide 2 statement!)
-          if (curatedAngle != null && curatedAngle.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.amber.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(8),
-                border: Border(
-                  left: BorderSide(color: Colors.amber.shade700, width: 2.5),
-                ),
-              ),
-              child: Text(
-                'Curated Angle: "$curatedAngle"',
-                style: TextStyle(
-                  fontSize: 11.5,
-                  fontStyle: FontStyle.italic,
-                  fontWeight: FontWeight.w500,
-                  color: theme.colorScheme.onSurface,
-                ),
-                maxLines: 4,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ] else if (!widget.item.isCarouselTrio && widget.item.creatorOpinion != null && widget.item.creatorOpinion!.isNotEmpty) ...[
-            // Only for single non-carousel posters (where Slide 2 does not exist)
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.amber.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(8),
-                border: Border(
-                  left: BorderSide(color: Colors.amber.shade700, width: 2.5),
-                ),
-              ),
-              child: Text(
-                'My Take: "${widget.item.creatorOpinion}"',
-                style: TextStyle(
-                  fontSize: 11.5,
-                  fontStyle: FontStyle.italic,
-                  color: theme.colorScheme.onSurface,
-                ),
-                maxLines: 4,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
         ],
       ),
     );

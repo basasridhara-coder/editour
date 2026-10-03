@@ -8,12 +8,14 @@ class SlideHookPoster extends StatelessWidget {
   final PostCardItem item;
   final PosterStyleConfig config;
   final BorderRadius? borderRadius;
+  final bool showOverlays;
 
   const SlideHookPoster({
     super.key,
     required this.item,
     required this.config,
     this.borderRadius,
+    this.showOverlays = true,
   });
 
   @override
@@ -43,7 +45,7 @@ class SlideHookPoster extends StatelessWidget {
     final effectiveRadius = borderRadius ?? BorderRadius.circular(16);
     final isFlush = borderRadius == BorderRadius.zero;
 
-    return AspectRatio(
+    final posterWidget = AspectRatio(
       aspectRatio: 4 / 5,
       child: Container(
         decoration: BoxDecoration(
@@ -75,9 +77,19 @@ class SlideHookPoster extends StatelessWidget {
               // 1. Full-Bleed Background Visual Art (100% Canvas Coverage)
               _buildVisualArt(),
 
-              // 2. Cinematic Multi-Stop Dark Vignette Overlay
-              // Leaves 70%+ of the poster completely clear so the main artwork subject is pristine!
-              Container(
+              // 2. Overlays Layer (Animated fade for clean unobstructed art viewing)
+              AnimatedOpacity(
+                duration: const Duration(milliseconds: 240),
+                curve: Curves.easeInOut,
+                opacity: showOverlays ? 1.0 : 0.0,
+                child: IgnorePointer(
+                  ignoring: !showOverlays,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      // 2a. Cinematic Multi-Stop Dark Vignette Overlay
+                      // Leaves 70%+ of the poster completely clear so the main artwork subject is pristine!
+                      Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
@@ -377,11 +389,60 @@ class SlideHookPoster extends StatelessWidget {
                   ],
                 ),
               ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // 3. Clean View Subtle Indicator Pill (visible only when overlays are hidden)
+              Positioned(
+                top: 14,
+                right: 16,
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 240),
+                  opacity: showOverlays ? 0.0 : 1.0,
+                  child: IgnorePointer(
+                    ignoring: showOverlays,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.75),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.5),
+                            blurRadius: 10,
+                          ),
+                        ],
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.visibility_off_rounded, size: 12, color: Color(0xFF38BDF8)),
+                          SizedBox(width: 5),
+                          Text(
+                            'Clean View',
+                            style: TextStyle(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
       ),
     );
+
+    return posterWidget;
   }
 
   Widget _buildVisualArt() {
@@ -415,8 +476,6 @@ class SlideHookPoster extends StatelessWidget {
 
   Widget _buildStylizedConceptArt() {
     final heroIcon = _resolveHeroIcon();
-    final hasCues = item.hookCues != null && item.hookCues!.trim().isNotEmpty;
-    final hasContext = item.userContext != null && item.userContext!.trim().isNotEmpty;
     final primary = config.primaryColor;
     final isCyber = item.posterStyle == PosterStyleType.modernCyber;
     final isBold = item.posterStyle == PosterStyleType.boldSocial;
@@ -543,68 +602,6 @@ class SlideHookPoster extends StatelessWidget {
                     ),
                   ),
 
-                  const SizedBox(height: 20),
-
-                  // Prominent Curated Stance / Hook Cue Showcase Card
-                  if (hasCues || hasContext) ...[
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF020617).withValues(alpha: 0.88),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: primary.withValues(alpha: 0.80),
-                          width: 1.4,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.60),
-                            blurRadius: 20,
-                            offset: const Offset(0, 6),
-                          ),
-                          BoxShadow(
-                            color: primary.withValues(alpha: 0.25),
-                            blurRadius: 16,
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.auto_awesome, size: 13, color: primary),
-                              const SizedBox(width: 6),
-                              Text(
-                                (hasCues ? 'CURATOR HOOK CUE' : 'CURATORIAL ANGLE').toUpperCase(),
-                                style: TextStyle(
-                                  fontSize: 9.5,
-                                  fontWeight: FontWeight.w900,
-                                  color: primary,
-                                  letterSpacing: 1.1,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            (hasCues ? item.hookCues! : item.userContext!).trim(),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w700,
-                              height: 1.3,
-                              letterSpacing: 0.1,
-                            ),
-                            maxLines: 3,
-                            overflow: TextOverflow.ellipsis,
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
                 ],
               ),
             ),

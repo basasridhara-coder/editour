@@ -3,27 +3,34 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
+import 'main_navigation_shell.dart';
 import '../models/postcard_item.dart';
 import '../models/poster_style_config.dart';
 import '../models/sample_articles.dart';
 import '../services/editour_cloud_service.dart';
+import '../services/gallery_service.dart';
 import '../services/gemini_service.dart';
 import '../services/link_scraper_service.dart';
 import '../services/share_service.dart';
 import '../services/storage_service.dart';
-import '../widgets/audience_chip_selector.dart';
-import '../widgets/book_cover_viewer_dialog.dart';
-import '../widgets/photo_viewer_dialog.dart';
-import '../widgets/poster_canvas.dart';
-import '../widgets/carousel_slides/carousel_poster_studio.dart';
-import '../widgets/visual_cue_pills_selector.dart';
 import '../services/visual_cue_service.dart';
-import 'postcard_detail_screen.dart';
+import 'dart:math' as math;
+import 'dart:ui' as ui;
+import '../widgets/carousel_slides/carousel_poster_studio.dart';
+import '../widgets/photo_viewer_dialog.dart';
+import '../widgets/visual_cue_pills_selector.dart';
 
 enum InputSourceMode { physicalPhoto, digitalLink, bookExcerpt }
+
+enum SlantStep {
+  sourceAndAngle,
+  visualCues,
+  resultPoster,
+}
 
 enum RegenerationTarget {
   all,
@@ -33,10 +40,12 @@ enum RegenerationTarget {
 
 class CreatePostcardScreen extends StatefulWidget {
   final SampleArticle? preloadedSample;
+  final InputSourceMode? initialSourceMode;
 
   const CreatePostcardScreen({
     super.key,
     this.preloadedSample,
+    this.initialSourceMode,
   });
 
   @override
@@ -49,8 +58,8 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
   final StorageService _storageService = StorageService();
   final ShareService _shareService = ShareService();
   final LinkScraperService _linkScraperService = LinkScraperService();
-  final GlobalKey _posterBoundaryKey = GlobalKey();
 
+  SlantStep _currentStep = SlantStep.sourceAndAngle;
   InputSourceMode _sourceMode = InputSourceMode.physicalPhoto;
 
   // Digital Link Fields
@@ -69,54 +78,19 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
   int _imageRotationTurns = 0;
   SampleArticle? _activeSample;
 
-  // Book Reading & Excerpt Fields
-  final TextEditingController _bookTitleController = TextEditingController();
-  final TextEditingController _bookAuthorController = TextEditingController();
-  final TextEditingController _curatorAngleController = TextEditingController();
-  final TextEditingController _bookExcerptTextController = TextEditingController();
-  XFile? _bookCoverImage;
-  Uint8List? _bookCoverBytes;
-  String? _bookCoverPath;
-  final List<XFile> _bookExcerptImages = [];
-  final List<Uint8List> _bookExcerptBytes = [];
-
-  static const List<Map<String, String>> sampleBooks = [
-    {
-      'id': 'meditations',
-      'title': 'Meditations',
-      'author': 'Marcus Aurelius',
-      'angle': 'The unshakeable citadel within; outer chaos cannot touch inner peace without consent',
-      'excerpt': 'You have power over your mind—not outside events. Realize this, and you will find strength. Never let the future disturb you; you will meet it with the same weapons of reason that arm you against the present.',
-      'audience': 'General Public',
-      'tone': 'Thought-provoking & Story-driven',
-    },
-    {
-      'id': 'midnight_library',
-      'title': 'The Midnight Library',
-      'author': 'Matt Haig',
-      'angle': 'Dissolving the phantom ache of unlived lives; loving our singular messy existence',
-      'excerpt': 'Between life and death there is a library, and within that library, the shelves go on forever. Every book provides a chance to try another life you could have lived... to realize the only life that matters is the one you are living now.',
-      'audience': 'Young Adults / Gen-Z',
-      'tone': 'Emotional & Poetic',
-    },
-    {
-      'id': 'letters_rilke',
-      'title': 'Letters to a Young Poet',
-      'author': 'Rainer Maria Rilke',
-      'angle': 'Loving the unanswered questions; trusting the slow ripening of the soul',
-      'excerpt': 'Be patient toward all that is unsolved in your heart and try to love the questions themselves, like locked rooms and like books that are now written in a very foreign tongue. Live the questions now. Perhaps then, someday far in the future, you will gradually, without even noticing it, live along some distant day into the answer.',
-      'audience': 'Creative Minds',
-      'tone': 'Contemplative & Elegant',
-    },
-  ];
-
-  String _targetAudience = 'Tech Enthusiasts';
-  String _selectedTone = 'Deep-dive & Analytical';
+  String _targetAudience = 'General Public';
+  String _selectedTone = 'Balanced & Engaging';
   final TextEditingController _contextController = TextEditingController();
   final TextEditingController _hookCuesController = TextEditingController();
   List<String> _cueWordPills = [];
   bool _isAutoSuggestingCues = false;
-  bool _showManualDigitalInputs = false;
+  String? _lastSuggestedContextKey;
+
+  // Character & Face Representation Fields
+  bool _matchRealPersonLikeness = false;
+  Uint8List? _referenceImageBytes;
+  String? _referenceImageSourceLabel;
+
   final TextEditingController _opinionController = TextEditingController();
   final TextEditingController _linkController = TextEditingController();
   final TextEditingController _headlineController = TextEditingController();
@@ -125,66 +99,47 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
   final TextEditingController _creatorHandleController = TextEditingController();
   final TextEditingController _receiptQuoteController = TextEditingController();
 
-  // 3-Slide Manual Editing Tabs State & Controllers
-  int _selectedSlideEditTab = 0;
-  final PageController _carouselStudioPageController = PageController();
-
-  // Slide 1 Specific Controllers
+  // Slide Specific Controllers for Editing Modal
   final TextEditingController _s1CategoryController = TextEditingController();
   final TextEditingController _s1PublicationController = TextEditingController();
   final TextEditingController _s1ActualNewsExcerptController = TextEditingController();
 
-  // Slide 2 Specific Controllers
   final TextEditingController _s2TitleController = TextEditingController();
   final TextEditingController _s2WhyItMattersController = TextEditingController();
 
-  // Slide 3 Specific Controllers
   final TextEditingController _s3PublicationController = TextEditingController();
   final TextEditingController _s3HeadlineController = TextEditingController();
   final TextEditingController _s3Excerpt1Controller = TextEditingController();
   final TextEditingController _s3Excerpt2Controller = TextEditingController();
   final TextEditingController _s3Excerpt3Controller = TextEditingController();
 
-  final String _selectedPostFormat = 'carousel_trio';
+  final PageController _carouselStudioPageController = PageController();
+  final GlobalKey<CarouselPosterStudioState> _carouselStudioKey = GlobalKey<CarouselPosterStudioState>();
 
   bool _isAnalyzing = false;
+  bool _isExporting = false;
   String _analysisStatus = '';
   PostCardItem? _generatedItem;
   int _regenerationCount = 0;
   PosterStyleType _currentStyle = PosterStyleType.editorial;
-  double _visualArtRatio = 0.65;
-
-  String _getArtRatioDescription(double ratio) {
-    final pct = (ratio * 100).round();
-    if (pct >= 75) {
-      return '🎨 $pct% Art Focus: Hero picture artwork & visual infographics with punchy typography overlays.';
-    } else if (pct >= 45) {
-      return '📊 $pct% Balanced: 50/50 split between visual art/infographics and curated editorial takeaways.';
-    } else {
-      return '📰 $pct% Editorial: Comprehensive text breakdown with an artistic masthead and metric callouts.';
-    }
-  }
+  final double _visualArtRatio = 0.65;
 
   void _syncCuesController() {
     _hookCuesController.text = VisualCueService.formatOrderedPillsForPrompt(_cueWordPills);
   }
 
-  void _autoSuggestCueKeywords() {
+  Future<void> _autoSuggestCueKeywords([Set<int>? selectedIndices]) async {
     setState(() => _isAutoSuggestingCues = true);
 
-    // 1. Gather all Curator angle / context / stance text available
     final angleParts = <String>[
       if (_contextController.text.trim().isNotEmpty) _contextController.text.trim(),
       if (_opinionController.text.trim().isNotEmpty) _opinionController.text.trim(),
-      if (_curatorAngleController.text.trim().isNotEmpty) _curatorAngleController.text.trim(),
     ];
     final angle = angleParts.join(' • ');
 
-    // 2. Gather all Headline inputs available across all controllers / samples / URL slug
     final headlineParts = <String>[
       if (_digitalTitleController.text.trim().isNotEmpty) _digitalTitleController.text.trim(),
       if (_headlineController.text.trim().isNotEmpty) _headlineController.text.trim(),
-      if (_bookTitleController.text.trim().isNotEmpty) _bookTitleController.text.trim(),
       if (_activeSample?.title != null && _activeSample!.title.isNotEmpty) _activeSample!.title,
     ];
     String headline = headlineParts.isNotEmpty ? headlineParts.first : '';
@@ -192,40 +147,104 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
       headline = VisualCueService.extractHeadlineFromUrl(_urlController.text.trim());
     }
 
-    // 3. Gather all excerpt / body content available
     String body = '';
     if (_digitalContentController.text.trim().isNotEmpty) {
       body = _digitalContentController.text.trim();
-    } else if (_bookExcerptTextController.text.trim().isNotEmpty) {
-      body = _bookExcerptTextController.text.trim();
     } else if (_activeSample?.rawArticleText != null) {
       body = _activeSample!.rawArticleText;
     }
 
-    final suggested = VisualCueService.extractKeywords(
-      curatorAngle: angle,
-      newsHeadline: headline,
-      newsBody: body.isNotEmpty ? body : null,
-    );
+    final hasSelection = selectedIndices != null && selectedIndices.isNotEmpty;
 
-    setState(() {
-      _cueWordPills = suggested;
-      _syncCuesController();
-      _isAutoSuggestingCues = false;
-    });
+    if (hasSelection && _cueWordPills.isNotEmpty) {
+      // Selective Re-Suggestion: Keep all unselected cues intact, regenerate only selected ones
+      final keptCues = <String>[];
+      for (int i = 0; i < _cueWordPills.length; i++) {
+        if (!selectedIndices.contains(i)) {
+          keptCues.add(_cueWordPills[i]);
+        }
+      }
+
+      final countNeeded = selectedIndices.length;
+      List<String>? newSuggestions;
+      try {
+        newSuggestions = await _geminiService.resuggestSelectedCuesWithAI(
+          curatorAngle: angle,
+          newsHeadline: headline,
+          newsBody: body.isNotEmpty ? body : null,
+          existingKeptCues: keptCues,
+          countNeeded: countNeeded,
+        );
+      } catch (_) {}
+
+      final fallbackAlternatives = VisualCueService.getAlternativeCues(
+        existingKeptCues: keptCues,
+        countNeeded: countNeeded,
+        curatorAngle: angle,
+        newsHeadline: headline,
+      );
+
+      final replacementPool = newSuggestions != null && newSuggestions.isNotEmpty
+          ? [...newSuggestions, ...fallbackAlternatives]
+          : fallbackAlternatives;
+
+      final updatedPills = List<String>.from(_cueWordPills);
+      final sortedIndices = selectedIndices.toList()..sort();
+      for (int i = 0; i < sortedIndices.length; i++) {
+        final targetIndex = sortedIndices[i];
+        if (targetIndex < updatedPills.length && i < replacementPool.length) {
+          updatedPills[targetIndex] = replacementPool[i];
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _cueWordPills = updatedPills;
+          _syncCuesController();
+          _isAutoSuggestingCues = false;
+        });
+      }
+    } else {
+      // Suggest All: Fresh full 6-dimension extraction for current article & angle
+      List<String>? aiExtracted;
+      try {
+        aiExtracted = await _geminiService.extract6RankedCueDimensionsWithAI(
+          curatorAngle: angle,
+          newsHeadline: headline,
+          newsBody: body.isNotEmpty ? body : null,
+        );
+      } catch (_) {}
+
+      final suggested = aiExtracted ??
+          VisualCueService.extract6RankedCueDimensions(
+            curatorAngle: angle,
+            newsHeadline: headline,
+            newsBody: body.isNotEmpty ? body : null,
+          );
+
+      if (mounted) {
+        setState(() {
+          _cueWordPills = suggested;
+          _syncCuesController();
+          _isAutoSuggestingCues = false;
+          _lastSuggestedContextKey = '$headline::$angle';
+        });
+      }
+    }
   }
 
   @override
   void initState() {
     super.initState();
+    if (widget.initialSourceMode != null) {
+      _sourceMode = widget.initialSourceMode!;
+    }
     if (_sourceMode == InputSourceMode.bookExcerpt) {
       _sourceMode = InputSourceMode.physicalPhoto;
     }
     _loadCreatorHandle();
     if (widget.preloadedSample != null) {
       _applySample(widget.preloadedSample!);
-    } else {
-      _autoSuggestCueKeywords();
     }
   }
 
@@ -246,10 +265,6 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
     _urlController.dispose();
     _digitalTitleController.dispose();
     _digitalContentController.dispose();
-    _bookTitleController.dispose();
-    _bookAuthorController.dispose();
-    _curatorAngleController.dispose();
-    _bookExcerptTextController.dispose();
     _contextController.dispose();
     _hookCuesController.dispose();
     _opinionController.dispose();
@@ -302,7 +317,6 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
           _regenerationCount = 0;
         });
 
-        // Launch cropping tool to cut out the exact article section
         await _cropImage(sourcePath: picked.path);
       }
     } catch (e) {
@@ -361,8 +375,8 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
           });
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('✂️ Article section cut out successfully! Ready to summarize.'),
-              duration: Duration(seconds: 3),
+              content: Text('✂️ Article section cut out successfully!'),
+              duration: Duration(seconds: 2),
               backgroundColor: Color(0xFF0F172A),
             ),
           );
@@ -370,42 +384,71 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
       }
     } catch (e) {
       debugPrint('Error cropping image: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Cropping error: $e')),
-        );
-      }
     }
   }
 
-  Future<void> _resetToOriginalImage() async {
-    if (_originalImagePath == null) return;
+  Future<Uint8List> _rotateBytes90Degrees(Uint8List bytes) async {
+    final codec = await ui.instantiateImageCodec(bytes);
+    final frame = await codec.getNextFrame();
+    final image = frame.image;
+
+    final origW = image.width.toDouble();
+    final origH = image.height.toDouble();
+    final targetW = origH;
+    final targetH = origW;
+
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder, Rect.fromLTWH(0, 0, targetW, targetH));
+
+    canvas.translate(targetW / 2, targetH / 2);
+    canvas.rotate(math.pi / 2);
+    canvas.translate(-origW / 2, -origH / 2);
+
+    canvas.drawImage(image, Offset.zero, Paint());
+
+    final picture = recorder.endRecording();
+    final rotated = await picture.toImage(targetW.round(), targetH.round());
+    final byteData = await rotated.toByteData(format: ui.ImageByteFormat.png);
+    return byteData!.buffer.asUint8List();
+  }
+
+  Future<void> _rotateImage() async {
+    if (_imageBytes == null && _selectedImage == null) return;
     try {
-      final file = File(_originalImagePath!);
-      if (await file.exists()) {
-        final bytes = await file.readAsBytes();
-        if (mounted) {
-          setState(() {
-            _selectedImage = XFile(_originalImagePath!);
-            _imageBytes = bytes;
-            _imageRotationTurns = 0;
-            _isCropped = false;
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Restored full uncropped photo'),
-              duration: Duration(seconds: 2),
-            ),
-          );
+      final bytesToRotate = _imageBytes ?? await File(_selectedImage!.path).readAsBytes();
+      final rotated = await _rotateBytes90Degrees(bytesToRotate);
+      setState(() {
+        _imageRotationTurns = (_imageRotationTurns + 1) % 4;
+        _imageBytes = rotated;
+        if (_referenceImageBytes != null && _referenceImageSourceLabel == 'Print Clipping Photo') {
+          _referenceImageBytes = rotated;
+        }
+      });
+      if (_selectedImage != null) {
+        final f = File(_selectedImage!.path);
+        if (await f.exists()) {
+          await f.writeAsBytes(rotated);
         }
       }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('🔄 Rotated 90° clockwise'),
+            duration: Duration(seconds: 1),
+            backgroundColor: Color(0xFF0F172A),
+          ),
+        );
+      }
     } catch (e) {
-      debugPrint('Error restoring original photo: $e');
+      debugPrint('Error rotating image: $e');
+      setState(() {
+        _imageRotationTurns = (_imageRotationTurns + 1) % 4;
+      });
     }
   }
 
   Future<void> _fetchUrlArticle([String? overrideUrl]) async {
-    final targetUrl = overrideUrl ?? _urlController.text.trim();
+    final targetUrl = (overrideUrl ?? _urlController.text).trim();
     if (targetUrl.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter or paste a valid web article link')),
@@ -427,34 +470,17 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
           _scrapedSiteName = result.siteName;
           if (result.title.isNotEmpty) {
             _digitalTitleController.text = result.title;
-          } else if (_digitalTitleController.text.trim().isEmpty) {
-            final fallbackFromSlug = VisualCueService.extractHeadlineFromUrl(targetUrl);
-            if (fallbackFromSlug.isNotEmpty) {
-              _digitalTitleController.text = fallbackFromSlug;
-            }
+          } else {
+            final fallback = VisualCueService.extractHeadlineFromUrl(targetUrl);
+            if (fallback.isNotEmpty) _digitalTitleController.text = fallback;
           }
           if (result.content.isNotEmpty) {
             _digitalContentController.text = result.content;
           }
         });
         _autoSuggestCueKeywords();
-
-        if (result.isSuccess) {
-          final isNotice = result.errorMessage != null && result.errorMessage!.contains('Notice:');
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(isNotice ? 'ℹ️ ${result.errorMessage}' : '✅ Fetched article from ${result.siteName}!'),
-              backgroundColor: isNotice ? const Color(0xFF0284C7) : const Color(0xFF0F172A),
-              duration: Duration(seconds: isNotice ? 4 : 2),
-            ),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('⚠️ ${result.errorMessage ?? "Could not fully fetch article. You can type or edit the headline below."}'),
-              backgroundColor: Colors.orange.shade800,
-            ),
-          );
+        if (result.imageUrl != null && result.imageUrl!.isNotEmpty) {
+          _fetchReferenceImageBytes(result.imageUrl!);
         }
       }
     } catch (e) {
@@ -462,205 +488,168 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
         setState(() {
           _isFetchingUrl = false;
           if (_digitalTitleController.text.trim().isEmpty) {
-            final fallbackFromSlug = VisualCueService.extractHeadlineFromUrl(targetUrl);
-            if (fallbackFromSlug.isNotEmpty) {
-              _digitalTitleController.text = fallbackFromSlug;
-            }
+            final fallback = VisualCueService.extractHeadlineFromUrl(targetUrl);
+            if (fallback.isNotEmpty) _digitalTitleController.text = fallback;
           }
         });
         _autoSuggestCueKeywords();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('⚠️ Could not fetch web text ($e). Generated cues using available headline & angle.'),
-            backgroundColor: Colors.orange.shade800,
+      }
+    }
+  }
+
+  Future<void> _fetchReferenceImageBytes(String url) async {
+    try {
+      final resp = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 10));
+      if (resp.statusCode == 200 && resp.bodyBytes.isNotEmpty) {
+        if (mounted) {
+          setState(() {
+            _referenceImageBytes = resp.bodyBytes;
+            _referenceImageSourceLabel = 'Article Web Photo';
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Failed to auto-fetch reference photo from url: $e');
+    }
+  }
+
+  Future<void> _pickReferencePhoto(ImageSource source) async {
+    try {
+      final picked = await _picker.pickImage(
+        source: source,
+        maxWidth: 1200,
+        maxHeight: 1200,
+        imageQuality: 85,
+      );
+      if (picked != null) {
+        final bytes = await picked.readAsBytes();
+        if (mounted) {
+          setState(() {
+            _referenceImageBytes = bytes;
+            _referenceImageSourceLabel = source == ImageSource.camera ? 'Captured Portrait' : 'Uploaded Photo';
+            _matchRealPersonLikeness = true;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error picking reference photo: $e');
+    }
+  }
+
+  void _showReferencePhotoPickerSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.withValues(alpha: 0.4),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                const Text(
+                  'Attach Person Reference Photo',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Select a clear portrait photo so AI can preserve their facial structure & likeness in the poster.',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+                const SizedBox(height: 16),
+                ListTile(
+                  leading: const CircleAvatar(
+                    backgroundColor: Color(0xFF6366F1),
+                    child: Icon(Icons.camera_alt, color: Colors.white, size: 20),
+                  ),
+                  title: const Text('Take Photo with Camera', style: TextStyle(fontWeight: FontWeight.w600)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _pickReferencePhoto(ImageSource.camera);
+                  },
+                ),
+                ListTile(
+                  leading: const CircleAvatar(
+                    backgroundColor: Color(0xFF0284C7),
+                    child: Icon(Icons.photo_library, color: Colors.white, size: 20),
+                  ),
+                  title: const Text('Choose from Photo Gallery', style: TextStyle(fontWeight: FontWeight.w600)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _pickReferencePhoto(ImageSource.gallery);
+                  },
+                ),
+                if (_sourceMode == InputSourceMode.physicalPhoto && _imageBytes != null)
+                  ListTile(
+                    leading: const CircleAvatar(
+                      backgroundColor: Color(0xFF10B981),
+                      child: Icon(Icons.newspaper, color: Colors.white, size: 20),
+                    ),
+                    title: const Text('Use Physical Clipping Photo', style: TextStyle(fontWeight: FontWeight.w600)),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      setState(() {
+                        _referenceImageBytes = _imageBytes;
+                        _referenceImageSourceLabel = 'Print Clipping Photo';
+                        _matchRealPersonLikeness = true;
+                      });
+                    },
+                  ),
+                if (_scrapedArticle?.imageUrl != null && _scrapedArticle!.imageUrl!.isNotEmpty)
+                  ListTile(
+                    leading: const CircleAvatar(
+                      backgroundColor: Color(0xFFF59E0B),
+                      child: Icon(Icons.link, color: Colors.white, size: 20),
+                    ),
+                    title: const Text('Reload Article Web Photo', style: TextStyle(fontWeight: FontWeight.w600)),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _fetchReferenceImageBytes(_scrapedArticle!.imageUrl!);
+                    },
+                  ),
+              ],
+            ),
           ),
         );
-      }
-    }
-  }
-
-  Future<void> _pickBookCoverImage(ImageSource source) async {
-    try {
-      final XFile? image = await _picker.pickImage(
-        source: source,
-        imageQuality: 88,
-      );
-      if (image != null) {
-        final bytes = await image.readAsBytes();
-        setState(() {
-          _bookCoverImage = image;
-          _bookCoverBytes = bytes;
-          _bookCoverPath = image.path;
-        });
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('📖 Book cover page identified successfully!'),
-              backgroundColor: Color(0xFF1E293B),
-              duration: Duration(seconds: 2),
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      debugPrint('Error picking book cover: $e');
-    }
-  }
-
-  Future<void> _addBookExcerptPage(ImageSource source) async {
-    try {
-      if (source == ImageSource.gallery) {
-        final List<XFile> images = await _picker.pickMultiImage(
-          imageQuality: 88,
-        );
-        if (images.isNotEmpty) {
-          final List<Uint8List> newBytes = [];
-          for (final img in images) {
-            newBytes.add(await img.readAsBytes());
-          }
-          setState(() {
-            _bookExcerptImages.addAll(images);
-            _bookExcerptBytes.addAll(newBytes);
-          });
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('📄 Added ${images.length} excerpt page photo(s)!'),
-                backgroundColor: const Color(0xFF1E293B),
-                duration: const Duration(seconds: 2),
-              ),
-            );
-          }
-        }
-      } else {
-        final XFile? image = await _picker.pickImage(
-          source: ImageSource.camera,
-          imageQuality: 88,
-        );
-        if (image != null) {
-          final bytes = await image.readAsBytes();
-          setState(() {
-            _bookExcerptImages.add(image);
-            _bookExcerptBytes.add(bytes);
-          });
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('📄 Added Excerpt Page #${_bookExcerptImages.length}!'),
-                backgroundColor: const Color(0xFF1E293B),
-                duration: const Duration(seconds: 2),
-              ),
-            );
-          }
-        }
-      }
-    } catch (e) {
-      debugPrint('Error picking excerpt page: $e');
-    }
-  }
-
-  void _removeBookExcerptPage(int index) {
-    if (index >= 0 && index < _bookExcerptImages.length) {
-      setState(() {
-        _bookExcerptImages.removeAt(index);
-        if (index < _bookExcerptBytes.length) {
-          _bookExcerptBytes.removeAt(index);
-        }
-      });
-    }
-  }
-
-  void _applySampleBook(Map<String, String> sample) {
-    setState(() {
-      _bookTitleController.text = sample['title'] ?? '';
-      _bookAuthorController.text = sample['author'] ?? '';
-      _curatorAngleController.text = sample['angle'] ?? '';
-      _bookExcerptTextController.text = sample['excerpt'] ?? '';
-      _targetAudience = sample['audience'] ?? _targetAudience;
-      _selectedTone = sample['tone'] ?? _selectedTone;
-      _bookCoverPath = 'sample_book_cover_${sample['id']}';
-      _bookCoverImage = null;
-      _bookCoverBytes = null;
-    });
-    _autoSuggestCueKeywords();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Loaded book excerpt: ${sample['title']} by ${sample['author']}'),
-        duration: const Duration(seconds: 2),
-        backgroundColor: Colors.amber.shade900,
-      ),
+      },
     );
   }
 
-  void _applySampleDigitalLink(Map<String, String> sample) {
-    setState(() {
-      _urlController.text = sample['url'] ?? '';
-      _digitalTitleController.text = sample['title'] ?? '';
-      _digitalContentController.text = sample['content'] ?? '';
-      _scrapedSiteName = sample['site'] ?? 'Web Source';
-      _targetAudience = sample['audience'] ?? _targetAudience;
-      _selectedTone = sample['tone'] ?? _selectedTone;
-      _scrapedArticle = ScrapedArticle(
-        url: sample['url'] ?? '',
-        title: sample['title'] ?? '',
-        siteName: sample['site'] ?? 'Web Source',
-        description: sample['description'] ?? '',
-        content: sample['content'] ?? '',
-      );
-    });
-    _autoSuggestCueKeywords();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Loaded sample: ${sample['title']}'),
-        duration: const Duration(seconds: 2),
-        backgroundColor: const Color(0xFF0284C7),
-      ),
-    );
-  }
-
-  Future<void> _runAnalysis({RegenerationTarget target = RegenerationTarget.all}) async {
-    if (target == RegenerationTarget.hookPosterArt) {
-      await _regenerateHookPosterOnly();
-      return;
-    }
-
+  void _goToVisualCuesStep() {
     if (_sourceMode == InputSourceMode.physicalPhoto) {
       if (_selectedImage == null && _activeSample == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Please snap or select a physical newspaper/magazine photo first'),
+            content: Text('Please snap or upload a print article photo first'),
             backgroundColor: Colors.orange,
           ),
         );
         return;
       }
-    } else if (_sourceMode == InputSourceMode.digitalLink) {
-      final url = _urlController.text.trim();
-      final title = _digitalTitleController.text.trim();
-      final content = _digitalContentController.text.trim();
-      if (url.isEmpty && title.isEmpty && content.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please paste a news link or article headline to summarize'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-        return;
+      if (_referenceImageBytes == null && _imageBytes != null && _imageBytes!.isNotEmpty) {
+        _referenceImageBytes = _imageBytes;
+        _referenceImageSourceLabel = 'Print Clipping Photo';
       }
     } else {
-      // Book Excerpt mode validation
-      final bTitle = _bookTitleController.text.trim();
-      final bAuthor = _bookAuthorController.text.trim();
-      final excerptNotes = _bookExcerptTextController.text.trim();
-      if (bTitle.isEmpty &&
-          bAuthor.isEmpty &&
-          excerptNotes.isEmpty &&
-          _bookExcerptImages.isEmpty &&
-          _bookCoverImage == null &&
-          _bookCoverPath == null) {
+      final url = _urlController.text.trim();
+      if (url.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Please attach excerpt page photos or select a sample book reading'),
+            content: Text('Please enter or paste a news article URL first'),
             backgroundColor: Colors.orange,
           ),
         );
@@ -668,6 +657,28 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
       }
     }
 
+    final headlineParts = <String>[
+      if (_digitalTitleController.text.trim().isNotEmpty) _digitalTitleController.text.trim(),
+      if (_headlineController.text.trim().isNotEmpty) _headlineController.text.trim(),
+      if (_activeSample?.title != null && _activeSample!.title.isNotEmpty) _activeSample!.title,
+    ];
+    String headline = headlineParts.isNotEmpty ? headlineParts.first : '';
+    if (headline.isEmpty && _urlController.text.trim().isNotEmpty) {
+      headline = VisualCueService.extractHeadlineFromUrl(_urlController.text.trim());
+    }
+    final angle = _contextController.text.trim();
+    final currentKey = '$headline::$angle';
+
+    if (_cueWordPills.isEmpty || _lastSuggestedContextKey != currentKey) {
+      _autoSuggestCueKeywords();
+    }
+
+    setState(() {
+      _currentStep = SlantStep.visualCues;
+    });
+  }
+
+  Future<void> _runAnalysis({RegenerationTarget target = RegenerationTarget.all}) async {
     final isRegenerating = _generatedItem != null;
     if (isRegenerating) {
       _regenerationCount++;
@@ -678,14 +689,10 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
     setState(() {
       _isAnalyzing = true;
       _analysisStatus = isHeadlineOnly
-          ? 'Synthesizing fresh bold headline & curated takes (Attempt #$_regenerationCount)...'
-          : (isRegenerating
-              ? 'Exploring new creative angle & fresh visual artwork (Attempt #$_regenerationCount)...'
-              : (_sourceMode == InputSourceMode.physicalPhoto
-                  ? 'Scanning physical print typography & OCR...'
-                  : (_sourceMode == InputSourceMode.digitalLink
-                      ? 'Extracting digital article context & key themes...'
-                      : 'Reading excerpt pages & synthesizing Curator\'s emotional angle...')));
+          ? 'Synthesizing bold headline & curated takes...'
+          : (_sourceMode == InputSourceMode.physicalPhoto
+              ? 'Analyzing print photo typography & OCR...'
+              : 'Extracting digital news context & editorial cues...');
     });
 
     try {
@@ -696,16 +703,12 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
         if (_imageBytes != null) {
           bytesToAnalyze = _imageBytes!;
         } else {
-          // Mock bytes for sample article
           bytesToAnalyze = Uint8List.fromList(List.generate(64, (i) => i));
         }
 
-        await Future.delayed(const Duration(milliseconds: 600));
-        if (mounted) {
-          setState(() {
-            _analysisStatus = 'Distilling core story for "$_targetAudience"...';
-          });
-        }
+        final refBytes = _matchRealPersonLikeness
+            ? (_referenceImageBytes ?? (_imageBytes != null && _imageBytes!.isNotEmpty ? _imageBytes : null))
+            : null;
 
         result = await _geminiService.analyzeAndSummarizeArticleWithWebMatchFirst(
           imageBytes: bytesToAnalyze,
@@ -723,49 +726,33 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
           existingItem: _generatedItem,
           regenerationIteration: _regenerationCount,
           skipImageGeneration: isHeadlineOnly,
+          referenceImageBytes: refBytes,
+          matchRealPersonLikeness: _matchRealPersonLikeness,
           onProgressUpdate: (msg) {
-            if (mounted) {
-              setState(() {
-                _analysisStatus = msg;
-              });
-            }
+            if (mounted) setState(() => _analysisStatus = msg);
           },
         );
-      } else if (_sourceMode == InputSourceMode.digitalLink) {
-        // Digital Link pipeline
+      } else {
         String articleUrl = _urlController.text.trim();
         String articleTitle = _digitalTitleController.text.trim();
         String articleBody = _digitalContentController.text.trim();
 
         if (articleBody.isEmpty && articleUrl.isNotEmpty) {
-          if (mounted) {
-            setState(() {
-              _analysisStatus = 'Fetching full web article from $articleUrl...';
-            });
-          }
           final scraped = await _linkScraperService.scrapeArticle(articleUrl);
-          if (scraped.title.isNotEmpty && articleTitle.isEmpty) {
-            articleTitle = scraped.title;
-          }
-          if (scraped.content.isNotEmpty) {
-            articleBody = scraped.content;
-          }
+          if (scraped.title.isNotEmpty && articleTitle.isEmpty) articleTitle = scraped.title;
+          if (scraped.content.isNotEmpty) articleBody = scraped.content;
           _scrapedSiteName = scraped.siteName;
         }
 
         if (articleTitle.isEmpty && articleUrl.isNotEmpty) {
-          articleTitle = 'Digital News Story';
+          articleTitle = VisualCueService.extractHeadlineFromUrl(articleUrl);
         }
 
-        if (mounted) {
-          setState(() {
-            _analysisStatus = 'Synthesizing story & insights for "$_targetAudience"...';
-          });
-        }
+        final refBytes = _matchRealPersonLikeness ? _referenceImageBytes : null;
 
         result = await _geminiService.analyzeAndSummarizeDigitalArticle(
           articleUrl: articleUrl.isNotEmpty ? articleUrl : 'https://news.google.com',
-          articleTitle: articleTitle,
+          articleTitle: articleTitle.isNotEmpty ? articleTitle : 'Digital News Story',
           articleBody: articleBody.isNotEmpty ? articleBody : articleTitle,
           publicationName: _scrapedSiteName,
           targetAudience: _targetAudience,
@@ -780,37 +767,9 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
           existingItem: _generatedItem,
           regenerationIteration: _regenerationCount,
           skipImageGeneration: isHeadlineOnly,
+          referenceImageBytes: refBytes,
+          matchRealPersonLikeness: _matchRealPersonLikeness,
         );
-      } else {
-        // Book Excerpt pipeline
-        final bTitle = _bookTitleController.text.trim();
-        final bAuthor = _bookAuthorController.text.trim();
-        final cAngle = _curatorAngleController.text.trim();
-        final excerptNotes = _bookExcerptTextController.text.trim();
-
-        if (mounted) {
-          setState(() {
-            _analysisStatus = 'Distilling excerpt emotion & reflections for "$_targetAudience"...';
-          });
-        }
-
-        result = await _geminiService.analyzeAndSummarizeBookExcerpt(
-          excerptPageImages: _bookExcerptBytes,
-          bookCoverImage: _bookCoverBytes,
-          bookTitle: bTitle.isNotEmpty ? bTitle : 'Book Reading',
-          bookAuthor: bAuthor.isNotEmpty ? bAuthor : 'Curated Author',
-          curatorAngle: cAngle.isNotEmpty ? cAngle : 'Profound literary reflection',
-          userExcerptText: excerptNotes.isNotEmpty ? excerptNotes : null,
-          targetAudience: _targetAudience,
-          tone: _selectedTone,
-          visualArtRatio: _visualArtRatio,
-        );
-      }
-
-      if (mounted) {
-        setState(() {
-          _analysisStatus = 'Composing high-impact visual poster card...';
-        });
       }
 
       String? illustrationB64 = isHeadlineOnly ? _generatedItem?.illustrationBase64 : null;
@@ -825,60 +784,37 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
       }
 
       final isLink = _sourceMode == InputSourceMode.digitalLink;
-      final isBook = _sourceMode == InputSourceMode.bookExcerpt;
-      final digitalUrl = isBook
-          ? null
-          : (isLink
-              ? (_urlController.text.trim().isNotEmpty ? _urlController.text.trim() : result.digitalLink)
-              : (_linkController.text.trim().isNotEmpty ? _linkController.text.trim() : null));
+      final digitalUrl = isLink
+          ? (_urlController.text.trim().isNotEmpty ? _urlController.text.trim() : result.digitalLink)
+          : (_linkController.text.trim().isNotEmpty ? _linkController.text.trim() : null);
 
       final newItem = PostCardItem(
         id: itemId,
         createdAt: DateTime.now(),
-        originalPhotoPath: isBook
-            ? (_bookCoverPath ?? _bookCoverImage?.path ?? (_bookExcerptImages.isNotEmpty ? _bookExcerptImages.first.path : 'sample_book_reading'))
-            : (isLink
-                ? (_urlController.text.trim().isNotEmpty ? _urlController.text.trim() : 'digital_article_link')
-                : (_selectedImage?.path ?? 'sample_asset_print')),
+        originalPhotoPath: isLink
+            ? (_urlController.text.trim().isNotEmpty ? _urlController.text.trim() : 'digital_article_link')
+            : (_selectedImage?.path ?? 'sample_asset_print'),
         renderedPosterPath: savedPosterPath,
-        originalHeadline: isBook
-            ? (_bookTitleController.text.trim().isNotEmpty ? _bookTitleController.text.trim() : result.originalHeadline)
-            : result.originalHeadline,
-        publicationName: isBook
-            ? '${_bookTitleController.text.trim().isNotEmpty ? _bookTitleController.text.trim() : "Book"} • ${_bookAuthorController.text.trim().isNotEmpty ? _bookAuthorController.text.trim() : "Author"}'
-            : (isLink
-                ? (_scrapedSiteName ?? result.publicationName)
-                : (_activeSample?.publication ?? result.publicationName)),
+        originalHeadline: result.originalHeadline,
+        publicationName: isLink
+            ? (_scrapedSiteName ?? result.publicationName)
+            : (_activeSample?.publication ?? result.publicationName),
         targetAudience: _targetAudience,
         tone: _selectedTone,
-        userContext: isBook
-            ? (_curatorAngleController.text.trim().isNotEmpty ? _curatorAngleController.text.trim() : 'Curator Reflection')
-            : (_contextController.text.trim().isNotEmpty ? _contextController.text.trim() : null),
-        hookCues: _hookCuesController.text.trim().isNotEmpty
-            ? _hookCuesController.text.trim()
-            : null,
+        userContext: _contextController.text.trim().isNotEmpty ? _contextController.text.trim() : null,
+        hookCues: _hookCuesController.text.trim().isNotEmpty ? _hookCuesController.text.trim() : null,
         adaptedHeadline: result.adaptedHeadline,
         hook: result.hook,
         summary: result.summary,
         whyItMatters: result.whyItMatters,
         keyTakeaways: result.keyTakeaways,
-        pullQuote: result.pullQuote.trim().isNotEmpty
-            ? result.pullQuote
-            : _activeSample?.pullQuote,
-        keyMetric: result.keyMetric.trim().isNotEmpty
-            ? result.keyMetric
-            : _activeSample?.metric,
-        categoryBadge: isBook
-            ? 'LITERARY EXCERPT'
-            : (result.categoryBadge.trim().isNotEmpty
-                ? result.categoryBadge
-                : (_activeSample?.category ?? 'CURATED DIGEST')),
+        pullQuote: result.pullQuote.trim().isNotEmpty ? result.pullQuote : _activeSample?.pullQuote,
+        keyMetric: result.keyMetric.trim().isNotEmpty ? result.keyMetric : _activeSample?.metric,
+        categoryBadge: result.categoryBadge.trim().isNotEmpty
+            ? result.categoryBadge
+            : (_activeSample?.category ?? 'CURATED DIGEST'),
         digitalLink: digitalUrl,
-        creatorOpinion: _opinionController.text.trim().isNotEmpty
-            ? _opinionController.text.trim()
-            : (_curatorAngleController.text.trim().isNotEmpty
-                ? _curatorAngleController.text.trim()
-                : result.creatorOpinion),
+        creatorOpinion: result.creatorOpinion,
         creatorHandle: _creatorHandleController.text.trim().isNotEmpty
             ? _creatorHandleController.text.trim()
             : '@curator',
@@ -890,15 +826,8 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
         infographicStats: result.infographicStats,
         visualMood: result.visualMood,
         isUserCreated: true,
-        sourceType: isBook ? 'book_excerpt' : (isLink ? 'digital_link' : 'photo'),
-        bookCoverPhotoPath: _bookCoverPath ?? _bookCoverImage?.path,
-        bookExcerptPhotoPaths: _bookExcerptImages.map((f) => f.path).toList(),
-        bookTitle: _bookTitleController.text.trim().isNotEmpty ? _bookTitleController.text.trim() : result.originalHeadline,
-        bookAuthor: _bookAuthorController.text.trim().isNotEmpty ? _bookAuthorController.text.trim() : 'Curated Author',
-        curatorAngle: _contextController.text.trim().isNotEmpty
-            ? _contextController.text.trim()
-            : (_curatorAngleController.text.trim().isNotEmpty ? _curatorAngleController.text.trim() : null),
-        postFormat: _selectedPostFormat,
+        sourceType: isLink ? 'digital_link' : 'photo',
+        postFormat: 'carousel_trio',
         receiptHighlightQuote: result.receiptHighlightQuote ?? result.pullQuote,
         articleExcerpts: result.articleExcerpts.isNotEmpty
             ? result.articleExcerpts
@@ -928,35 +857,15 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
         _generatedItem = newItem;
         _currentStyle = newItem.posterStyle;
         _isAnalyzing = false;
+        _currentStep = SlantStep.resultPoster;
       });
 
-      if (result.isDemoMode && mounted) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              result.errorMessage != null
-                  ? '⚠️ Demo Mode: ${result.errorMessage}'
-                  : '✨ PostCard generated using Smart Demo. Add your Gemini API Key in Settings for live extraction!',
-            ),
-            backgroundColor: Colors.orange.shade800,
-            duration: const Duration(seconds: 5),
-            action: SnackBarAction(
-              label: 'OK',
-              textColor: Colors.white,
-              onPressed: () {},
-            ),
-          ),
-        );
-      } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              isHeadlineOnly
-                  ? '✍️ New bold headline & editorial hook synthesized!'
-                  : '✨ Gemini Multimodal AI successfully analyzed print & crafted poster!',
-            ),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 4),
+          const SnackBar(
+            content: Text('✨ 3-Poster Social Carousel created successfully!'),
+            backgroundColor: Color(0xFF10B981),
+            duration: Duration(seconds: 3),
           ),
         );
       }
@@ -972,306 +881,13 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
     }
   }
 
-  Future<void> _regenerateHookPosterOnly() async {
-    if (_generatedItem == null || _isAnalyzing) return;
-
-    setState(() {
-      _isAnalyzing = true;
-      _regenerationCount++;
-      _analysisStatus =
-          'Generating diverse visual artwork (Attempt #$_regenerationCount)...';
-    });
-
-    try {
-      final artResult = await _geminiService.regenerateHookPosterArt(
-        headline: _headlineController.text.trim().isNotEmpty
-            ? _headlineController.text.trim()
-            : _generatedItem!.adaptedHeadline,
-        userContext: _contextController.text.trim().isNotEmpty
-            ? _contextController.text.trim()
-            : _generatedItem!.userContext,
-        hookCues: _hookCuesController.text.trim().isNotEmpty
-            ? _hookCuesController.text.trim()
-            : _generatedItem!.hookCues,
-        targetAudience: _targetAudience,
-        tone: _selectedTone,
-        iteration: _regenerationCount,
-        currentStyle: _currentStyle,
-      );
-
-      final Uint8List? newArtBytes = artResult['bytes'] as Uint8List?;
-      final String? newPrompt = artResult['prompt'] as String?;
-      final PosterStyleType? nextStyle = artResult['suggestedStyle'] as PosterStyleType?;
-
-      if (newArtBytes != null) {
-        final b64 = base64Encode(newArtBytes);
-        final itemId = _generatedItem!.id;
-        final savedPath = await _shareService.savePosterToFile(newArtBytes, itemId);
-
-        final updatedItem = _generatedItem!.copyWith(
-          illustrationBase64: b64,
-          renderedPosterPath: savedPath,
-          illustrationPrompt: newPrompt ?? _generatedItem!.illustrationPrompt,
-          posterStyle: nextStyle ?? _generatedItem!.posterStyle,
-        );
-        await _storageService.savePostCard(updatedItem);
-        EditourCloudService().publishPost(updatedItem);
-
-        // Force evict stale decoded images from Flutter ImageCache so preview updates immediately
-        PaintingBinding.instance.imageCache.clear();
-        PaintingBinding.instance.imageCache.clearLiveImages();
-
-        if (mounted) {
-          setState(() {
-            _generatedItem = updatedItem;
-            if (nextStyle != null) {
-              _currentStyle = nextStyle;
-            }
-            _isAnalyzing = false;
-          });
-
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('🎨 Fresh Curated Hook Poster artwork generated & saved!'),
-              backgroundColor: Colors.green,
-              duration: Duration(seconds: 3),
-            ),
-          );
-        }
-      } else {
-        if (mounted) {
-          setState(() {
-            _isAnalyzing = false;
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('⚠️ Could not generate alternate artwork right now. Please try again.'),
-              backgroundColor: Colors.orange,
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isAnalyzing = false;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Art generation error: $e'), backgroundColor: Colors.red),
-        );
-      }
-    }
-  }
-
-  void _showRegenerationOptionsSheet() {
-    if (_isAnalyzing) return;
-    final isCarousel = _selectedPostFormat == 'carousel_trio';
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) {
-        final bottomInset = MediaQuery.of(ctx).viewInsets.bottom + MediaQuery.of(ctx).padding.bottom;
-        return Padding(
-          padding: EdgeInsets.fromLTRB(20, 12, 20, 24 + bottomInset),
-          child: SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 44,
-                    height: 5,
-                    decoration: BoxDecoration(
-                      color: Colors.grey.withValues(alpha: 0.4),
-                      borderRadius: BorderRadius.circular(3),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primaryContainer,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Icon(
-                        Icons.auto_awesome,
-                        size: 20,
-                        color: Theme.of(context).colorScheme.onPrimaryContainer,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'What would you like to re-generate?',
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                          ),
-                          Text(
-                            'Select which part of your curation to refresh',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                _buildRegenChoiceCard(
-                  context: ctx,
-                  icon: Icons.palette_rounded,
-                  iconColor: Colors.deepPurple,
-                  title: isCarousel ? 'Hook Poster Artwork (Slide 1)' : 'Poster Visual Artwork',
-                  description:
-                      'Generates a new conceptual visual considering your curated angle while keeping current headline & text intact.',
-                  badge: 'Visual Only',
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _regenerateHookPosterOnly();
-                  },
-                ),
-                const SizedBox(height: 10),
-                _buildRegenChoiceCard(
-                  context: ctx,
-                  icon: Icons.edit_note_rounded,
-                  iconColor: Colors.blueAccent,
-                  title: isCarousel ? 'Headline & Editorial Copy' : 'Headline & Summary Copy',
-                  description:
-                      'Re-crafts the adapted headline, hook, and curated takes while preserving the current artwork.',
-                  badge: 'Copy Only',
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _runAnalysis(target: RegenerationTarget.headlineAndHook);
-                  },
-                ),
-                const SizedBox(height: 10),
-                _buildRegenChoiceCard(
-                  context: ctx,
-                  icon: Icons.refresh_rounded,
-                  iconColor: Colors.amber.shade800,
-                  title: isCarousel ? 'Entire Carousel Trio' : 'Entire Poster & Synthesis',
-                  description:
-                      'Re-analyzes and regenerates fresh visuals, a new headline, and all takes from scratch.',
-                  badge: 'Full Refresh',
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _runAnalysis(target: RegenerationTarget.all);
-                  },
-                ),
-                const SizedBox(height: 12),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildRegenChoiceCard({
-    required BuildContext context,
-    required IconData icon,
-    required Color iconColor,
-    required String title,
-    required String description,
-    required String badge,
-    required VoidCallback onTap,
-  }) {
-    final theme = Theme.of(context);
-    return Material(
-      color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                margin: const EdgeInsets.only(top: 2),
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: iconColor.withValues(alpha: 0.15),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(icon, size: 18, color: iconColor),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            title,
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: iconColor.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            badge,
-                            style: TextStyle(
-                              color: iconColor,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      description,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                        fontSize: 11.5,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 6),
-              const Icon(Icons.chevron_right, size: 18, color: Colors.grey),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   void _populateControllersFromItem(PostCardItem item, {bool isRegenerating = false}) {
     _headlineController.text = item.adaptedHeadline;
     _quoteController.text = item.pullQuote ?? '';
     _receiptQuoteController.text = item.receiptHighlightQuote ?? '';
     _metricController.text = item.keyMetric ?? '';
     _linkController.text = item.digitalLink ?? '';
-    if (isRegenerating || _opinionController.text.trim().isEmpty) {
-      _opinionController.text = item.creatorOpinion ?? '';
-    }
+    _opinionController.text = item.creatorOpinion ?? '';
 
     _s1CategoryController.text = item.categoryBadge;
     _s1PublicationController.text = item.publicationName ?? '';
@@ -1310,11 +926,6 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
       }
     }
 
-    final updatedExcerpts = <String>[];
-    if (_s3Excerpt1Controller.text.trim().isNotEmpty) updatedExcerpts.add(_s3Excerpt1Controller.text.trim());
-    if (_s3Excerpt2Controller.text.trim().isNotEmpty) updatedExcerpts.add(_s3Excerpt2Controller.text.trim());
-    if (_s3Excerpt3Controller.text.trim().isNotEmpty) updatedExcerpts.add(_s3Excerpt3Controller.text.trim());
-
     setState(() {
       _generatedItem = _generatedItem!.copyWith(
         categoryBadge: _s1CategoryController.text.trim().isNotEmpty
@@ -1322,14 +933,7 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
             : _generatedItem!.categoryBadge,
         publicationName: _s1PublicationController.text.trim().isNotEmpty
             ? _s1PublicationController.text.trim()
-            : (_s3PublicationController.text.trim().isNotEmpty
-                ? _s3PublicationController.text.trim()
-                : _generatedItem!.publicationName),
-        originalHeadline: _s3HeadlineController.text.trim().isNotEmpty
-            ? _s3HeadlineController.text.trim()
-            : (_s1ActualNewsExcerptController.text.trim().isNotEmpty
-                ? _s1ActualNewsExcerptController.text.trim()
-                : _generatedItem!.originalHeadline),
+            : _generatedItem!.publicationName,
         hook: _s1ActualNewsExcerptController.text.trim().isNotEmpty
             ? _s1ActualNewsExcerptController.text.trim()
             : _generatedItem!.hook,
@@ -1343,69 +947,232 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
             ? _s2WhyItMattersController.text.trim()
             : _generatedItem!.whyItMatters,
         keyTakeaways: updatedTakeaways.isNotEmpty ? updatedTakeaways : _generatedItem!.keyTakeaways,
-        articleExcerpts: updatedExcerpts.isNotEmpty ? updatedExcerpts : _generatedItem!.articleExcerpts,
-        pullQuote: _quoteController.text.trim().isNotEmpty
-            ? _quoteController.text.trim()
-            : null,
-        keyMetric: _metricController.text.trim().isNotEmpty
-            ? _metricController.text.trim()
-            : null,
-        digitalLink: _linkController.text.trim().isNotEmpty
-            ? _linkController.text.trim()
-            : null,
+        pullQuote: _quoteController.text.trim().isNotEmpty ? _quoteController.text.trim() : null,
+        keyMetric: _metricController.text.trim().isNotEmpty ? _metricController.text.trim() : null,
         creatorHandle: _creatorHandleController.text.trim().isNotEmpty
             ? _creatorHandleController.text.trim()
             : '@curator',
-        posterStyle: _currentStyle,
-        visualArtRatio: _visualArtRatio,
         isUserCreated: true,
-        bookTitle: _bookTitleController.text.trim().isNotEmpty ? _bookTitleController.text.trim() : _generatedItem!.bookTitle,
-        bookAuthor: _bookAuthorController.text.trim().isNotEmpty ? _bookAuthorController.text.trim() : _generatedItem!.bookAuthor,
-        curatorAngle: _curatorAngleController.text.trim().isNotEmpty
-            ? _curatorAngleController.text.trim()
-            : (_contextController.text.trim().isNotEmpty ? _contextController.text.trim() : _generatedItem!.curatorAngle),
-        bookCoverPhotoPath: _bookCoverPath ?? _bookCoverImage?.path ?? _generatedItem!.bookCoverPhotoPath,
-        bookExcerptPhotoPaths: _bookExcerptImages.isNotEmpty ? _bookExcerptImages.map((f) => f.path).toList() : _generatedItem!.bookExcerptPhotoPaths,
-        postFormat: _selectedPostFormat,
-        receiptHighlightQuote: _receiptQuoteController.text.trim().isNotEmpty
-            ? _receiptQuoteController.text.trim()
-            : _generatedItem?.receiptHighlightQuote,
       );
     });
   }
 
-  Future<void> _saveAndFinish() async {
-    _syncEditedFields();
-    if (_generatedItem == null) return;
+  // --- Step 3 Actions ---
 
-    // Render poster to PNG bytes and save path
+  Future<void> _downloadCarouselToGallerySlant() async {
+    if (_generatedItem == null || _isExporting) return;
+    setState(() => _isExporting = true);
+
     try {
-      final pngBytes = await _shareService.captureWidgetToPng(_posterBoundaryKey);
-      String? savedPath;
-      if (pngBytes != null) {
-        savedPath = await _shareService.savePosterToFile(pngBytes, _generatedItem!.id);
+      final bytesList = await _carouselStudioKey.currentState?.captureAllSlides();
+      if (bytesList != null && bytesList.isNotEmpty) {
+        final paths = await GalleryService.downloadCarouselToSlantFolder(
+          slideBytesList: bytesList,
+          title: _generatedItem!.adaptedHeadline,
+        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.check_circle, color: Colors.white, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text('Downloaded ${paths.length} posters to Gallery (Slant folder)!'),
+                  ),
+                ],
+              ),
+              backgroundColor: const Color(0xFF10B981),
+              duration: const Duration(seconds: 4),
+              action: SnackBarAction(
+                label: 'Go Home',
+                textColor: Colors.white,
+                onPressed: () => _returnToHome(targetTabIndex: 0),
+              ),
+            ),
+          );
+        }
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not capture posters. Please try again.')),
+        );
       }
-
-      final finalItem = _generatedItem!.copyWith(renderedPosterPath: savedPath);
-      await _storageService.savePostCard(finalItem);
-      await _storageService.setCreatorHandle(_creatorHandleController.text.trim());
-
-      // Auto-publish live to editour.app
-      EditourCloudService().publishPost(finalItem);
-
+    } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ PostCard saved & published live to editour.app!'),
-            backgroundColor: Color(0xFF0F172A),
-            duration: Duration(seconds: 3),
+          SnackBar(content: Text('Download failed: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
+    }
+  }
+
+  void _returnToHome({int targetTabIndex = 0}) {
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(
+        builder: (_) => MainNavigationShell(initialIndex: targetTabIndex),
+      ),
+      (route) => false,
+    );
+  }
+
+  void _showSaveSuccessSheet() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      builder: (ctx) {
+        final theme = Theme.of(ctx);
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.withValues(alpha: 0.4),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Center(
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF10B981).withValues(alpha: 0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.check_circle_rounded,
+                      color: Color(0xFF10B981),
+                      size: 36,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Saved to My Posts! 🎉',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Your 3-poster deck is stored safely in your app archive and published to the feed.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 12.5, color: theme.colorScheme.onSurfaceVariant),
+                ),
+                const SizedBox(height: 20),
+                FilledButton.icon(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    _returnToHome(targetTabIndex: 0);
+                  },
+                  icon: const Icon(Icons.home_rounded, size: 18),
+                  label: const Text('Return to Home Feed', style: TextStyle(fontWeight: FontWeight.bold)),
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    _returnToHome(targetTabIndex: 1);
+                  },
+                  icon: const Icon(Icons.collections_bookmark_outlined, size: 18),
+                  label: const Text('View in My Posts', style: TextStyle(fontWeight: FontWeight.bold)),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Stay on Poster Deck'),
+                ),
+              ],
+            ),
           ),
         );
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (ctx) => PostcardDetailScreen(initialItem: finalItem),
+      },
+    );
+  }
+
+  void _showExitConfirmationDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.home_rounded, color: Color(0xFF6366F1)),
+            SizedBox(width: 8),
+            Text('Finished with Poster?', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: const Text(
+          'Would you like to return to the Home Feed or go back to tweak visual cues and angle?',
+          style: TextStyle(fontSize: 13),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              setState(() => _currentStep = SlantStep.visualCues);
+            },
+            child: const Text('Tweak Cues'),
+          ),
+          FilledButton.icon(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _returnToHome(targetTabIndex: 0);
+            },
+            icon: const Icon(Icons.home_rounded, size: 16),
+            label: const Text('Return to Home'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _saveToMyPosts() async {
+    if (_generatedItem == null) return;
+    try {
+      _syncEditedFields();
+      await _storageService.savePostCard(_generatedItem!);
+      await _storageService.setCreatorHandle(_creatorHandleController.text.trim());
+      EditourCloudService().publishPost(_generatedItem!);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Row(
+              children: [
+                Icon(Icons.bookmark_added, color: Colors.greenAccent, size: 20),
+                SizedBox(width: 8),
+                Text('💾 Saved to My Posts in app!'),
+              ],
+            ),
+            backgroundColor: const Color(0xFF0F172A),
+            duration: const Duration(seconds: 4),
+            action: SnackBarAction(
+              label: 'Go Home',
+              textColor: const Color(0xFF818CF8),
+              onPressed: () => _returnToHome(targetTabIndex: 0),
+            ),
           ),
         );
+        _showSaveSuccessSheet();
       }
     } catch (e) {
       if (mounted) {
@@ -1416,14 +1183,430 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
     }
   }
 
-  Future<void> _shareDirectly() async {
-    _syncEditedFields();
-    if (_generatedItem == null) return;
+  Future<void> _shareCarousel() async {
+    if (_generatedItem == null || _isExporting) return;
+    setState(() => _isExporting = true);
+    try {
+      final bytesList = await _carouselStudioKey.currentState?.captureAllSlides();
+      if (bytesList != null && bytesList.isNotEmpty && mounted) {
+        await _shareService.shareCarouselTrio(
+          item: _generatedItem!,
+          slideBytes: bytesList,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Share failed: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
+    }
+  }
 
-    final pngBytes = await _shareService.captureWidgetToPng(_posterBoundaryKey);
-    await _shareService.sharePostCard(
-      item: _generatedItem!,
-      posterBytes: pngBytes,
+  void _handleRegenerate() {
+    setState(() {
+      _currentStep = SlantStep.visualCues;
+    });
+  }
+
+  void _showEditPosterModalBottomSheet(BuildContext context) {
+    int activeEditTab = 0;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) {
+            final theme = Theme.of(ctx);
+            final bottomInset = MediaQuery.of(ctx).viewInsets.bottom;
+
+            return Padding(
+              padding: EdgeInsets.fromLTRB(16, 12, 16, 20 + bottomInset),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.withValues(alpha: 0.4),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        const Icon(Icons.edit_note_rounded, size: 22),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Edit Carousel Slide Content',
+                            style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close, size: 20),
+                          onPressed: () => Navigator.of(sheetContext).pop(),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+
+                    // 3-Slide Tabs
+                    Container(
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      padding: const EdgeInsets.all(3),
+                      child: Row(
+                        children: [
+                          _buildModalTabButton(
+                            title: 'Slide 1: Hook',
+                            isSelected: activeEditTab == 0,
+                            onTap: () => setSheetState(() => activeEditTab = 0),
+                            theme: theme,
+                          ),
+                          _buildModalTabButton(
+                            title: 'Slide 2: Take',
+                            isSelected: activeEditTab == 1,
+                            onTap: () => setSheetState(() => activeEditTab = 1),
+                            theme: theme,
+                          ),
+                          _buildModalTabButton(
+                            title: 'Slide 3: Receipts 🔒',
+                            isSelected: activeEditTab == 2,
+                            onTap: () => setSheetState(() => activeEditTab = 2),
+                            theme: theme,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    if (activeEditTab == 0) ...[
+                      // Slide 1 editable fields
+                      TextField(
+                        controller: _s1CategoryController,
+                        decoration: const InputDecoration(
+                          labelText: 'Topic Category Badge',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: _s1PublicationController,
+                        decoration: const InputDecoration(
+                          labelText: 'Source Publication Outlet',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: _headlineController,
+                        decoration: const InputDecoration(
+                          labelText: 'Hook Headline (The Angle)',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                        maxLines: 2,
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: _s1ActualNewsExcerptController,
+                        decoration: const InputDecoration(
+                          labelText: 'Newsprint Fragment Excerpt',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                        maxLines: 2,
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: _creatorHandleController,
+                        decoration: const InputDecoration(
+                          labelText: 'Creator Handle',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                      ),
+                    ] else if (activeEditTab == 1) ...[
+                      // Slide 2 editable fields
+                      TextField(
+                        controller: _s2TitleController,
+                        decoration: const InputDecoration(
+                          labelText: 'Stance Title / Kicker Tag',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: _opinionController,
+                        decoration: const InputDecoration(
+                          labelText: 'Curator Opinion Take',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                        maxLines: 3,
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: _s2WhyItMattersController,
+                        decoration: const InputDecoration(
+                          labelText: 'Why It Matters Callout',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                        maxLines: 2,
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: _metricController,
+                        decoration: const InputDecoration(
+                          labelText: 'Key Metric / Stat (Optional)',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                      ),
+                    ] else ...[
+                      // Slide 3 LOCKED / IMMUTABLE
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFEF3C7),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFF59E0B)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Row(
+                              children: [
+                                Icon(Icons.lock_rounded, color: Color(0xFFB45309), size: 18),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Direct from source — immutable',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                    color: Color(0xFFB45309),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            const Text(
+                              'Slide 3 contains verbatim primary source reporting and receipts. To maintain journalistic authenticity and reader trust, verbatim broadsheet excerpts cannot be edited.',
+                              style: TextStyle(fontSize: 11.5, color: Color(0xFF78350F), height: 1.35),
+                            ),
+                            const Divider(height: 18, color: Color(0xFFFDE68A)),
+                            Text('Masthead: ${_s3PublicationController.text}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: Colors.black87)),
+                            const SizedBox(height: 4),
+                            Text('Headline: ${_s3HeadlineController.text}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: Colors.black87)),
+                            if (_s3Excerpt1Controller.text.isNotEmpty) ...[
+                              const SizedBox(height: 6),
+                              Text('• "${_s3Excerpt1Controller.text}"', style: const TextStyle(fontSize: 10.5, fontStyle: FontStyle.italic, color: Colors.black87)),
+                            ],
+                            if (_s3Excerpt2Controller.text.isNotEmpty) ...[
+                              const SizedBox(height: 4),
+                              Text('• "${_s3Excerpt2Controller.text}"', style: const TextStyle(fontSize: 10.5, fontStyle: FontStyle.italic, color: Colors.black87)),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+
+                    const SizedBox(height: 18),
+                    FilledButton.icon(
+                      onPressed: () {
+                        _syncEditedFields();
+                        Navigator.of(sheetContext).pop();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('✏️ Poster updated with edits!'),
+                            backgroundColor: Color(0xFF10B981),
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.check, size: 18),
+                      label: const Text('Save Changes & Update Posters', style: TextStyle(fontWeight: FontWeight.bold)),
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildModalTabButton({
+    required String title,
+    required bool isSelected,
+    required VoidCallback onTap,
+    required ThemeData theme,
+  }) {
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            color: isSelected ? theme.colorScheme.primary : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            title,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              color: isSelected ? Colors.white : theme.colorScheme.onSurface,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // --- Step Indicator ---
+
+  Widget _buildStepIndicator(ThemeData theme) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(14, 8, 14, 12),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          _buildStepPill(
+            stepNumber: 1,
+            label: _sourceMode == InputSourceMode.digitalLink ? 'Link & Angle' : 'Snap & Angle',
+            isActive: _currentStep == SlantStep.sourceAndAngle,
+            isCompleted: _currentStep == SlantStep.visualCues || _currentStep == SlantStep.resultPoster,
+            theme: theme,
+            onTap: () {
+              setState(() => _currentStep = SlantStep.sourceAndAngle);
+            },
+          ),
+          Container(width: 14, height: 1.5, color: Colors.grey.withValues(alpha: 0.3)),
+          _buildStepPill(
+            stepNumber: 2,
+            label: 'Visual Cues',
+            isActive: _currentStep == SlantStep.visualCues,
+            isCompleted: _currentStep == SlantStep.resultPoster,
+            theme: theme,
+            onTap: () {
+              if (_selectedImage != null || _activeSample != null || _urlController.text.trim().isNotEmpty) {
+                setState(() => _currentStep = SlantStep.visualCues);
+              }
+            },
+          ),
+          Container(width: 14, height: 1.5, color: Colors.grey.withValues(alpha: 0.3)),
+          _buildStepPill(
+            stepNumber: 3,
+            label: '3 Posters',
+            isActive: _currentStep == SlantStep.resultPoster,
+            isCompleted: false,
+            theme: theme,
+            onTap: () {
+              if (_generatedItem != null) {
+                setState(() => _currentStep = SlantStep.resultPoster);
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStepPill({
+    required int stepNumber,
+    required String label,
+    required bool isActive,
+    required bool isCompleted,
+    required ThemeData theme,
+    required VoidCallback onTap,
+  }) {
+    final activeColor = theme.colorScheme.primary;
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+          decoration: BoxDecoration(
+            color: isActive ? activeColor.withValues(alpha: 0.15) : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+            border: isActive ? Border.all(color: activeColor.withValues(alpha: 0.5)) : null,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 18,
+                height: 18,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: isCompleted
+                      ? const Color(0xFF10B981)
+                      : (isActive ? activeColor : Colors.grey.withValues(alpha: 0.3)),
+                ),
+                alignment: Alignment.center,
+                child: isCompleted
+                    ? const Icon(Icons.check, size: 12, color: Colors.white)
+                    : Text(
+                        '$stepNumber',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: isActive ? Colors.white : Colors.grey.shade700,
+                        ),
+                      ),
+              ),
+              const SizedBox(width: 5),
+              Flexible(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
+                    color: isActive ? activeColor : theme.colorScheme.onSurfaceVariant,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -1431,1910 +1614,500 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Create New PostCard'),
-        actions: [
-          if (_generatedItem != null)
-            TextButton.icon(
-              onPressed: _saveAndFinish,
-              icon: const Icon(Icons.check, color: Colors.green),
-              label: const Text('Save', style: TextStyle(fontWeight: FontWeight.bold)),
-            ),
-        ],
-      ),
-      body: _isAnalyzing
-          ? _buildAnalyzingOverlay(theme)
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+    return PopScope(
+      canPop: _currentStep == SlantStep.sourceAndAngle,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (_currentStep == SlantStep.resultPoster) {
+          _showExitConfirmationDialog();
+        } else if (_currentStep == SlantStep.visualCues) {
+          setState(() => _currentStep = SlantStep.sourceAndAngle);
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(
+            _currentStep == SlantStep.resultPoster
+                ? 'Slant • 3-Poster Carousel'
+                : (_currentStep == SlantStep.visualCues
+                    ? 'Slant • Visual Cues'
+                    : (_sourceMode == InputSourceMode.digitalLink ? 'Slant • Web Link' : 'Slant • Snap')),
+          ),
+          actions: [
+            if (_generatedItem != null && _currentStep == SlantStep.resultPoster) ...[
+              IconButton(
+                tooltip: 'Save to My Posts',
+                onPressed: _saveToMyPosts,
+                icon: const Icon(Icons.bookmark_added_outlined, color: Colors.green),
+              ),
+              IconButton(
+                tooltip: 'Return to Home',
+                onPressed: () => _returnToHome(targetTabIndex: 0),
+                icon: const Icon(Icons.home_outlined),
+              ),
+              TextButton(
+                onPressed: () => _returnToHome(targetTabIndex: 0),
+                child: const Text('Done', style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ],
+        ),
+        body: _isAnalyzing
+            ? _buildAnalyzingOverlay(theme)
+            : Column(
                 children: [
-                  // Step 1: Input Source Selector (Physical Paper Cut vs Digital News Link)
-                  _buildSourceTypeSelector(theme),
-                  const SizedBox(height: 16),
-                  if (_sourceMode == InputSourceMode.physicalPhoto)
-                    _buildPhotoSection(theme)
-                  else if (_sourceMode == InputSourceMode.digitalLink)
-                    _buildDigitalLinkSection(theme)
-                  else if (_sourceMode == InputSourceMode.bookExcerpt)
-                    _buildBookExcerptSection(theme)
-                  else
-                    _buildPhotoSection(theme),
-                  const SizedBox(height: 20),
-
-                  // Step 2: Audience & Tone configuration
-                  Card(
-                    elevation: 0,
-                    color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4)),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                        AudienceChipSelector(
-                          selectedAudience: _targetAudience,
-                          selectedTone: _selectedTone,
-                          onAudienceSelected: (aud) => setState(() => _targetAudience = aud),
-                          onToneSelected: (tone) => setState(() => _selectedTone = tone),
-                        ),
-                        const SizedBox(height: 16),
-                        TextField(
-                          controller: _contextController,
-                          onChanged: (_) {
-                            if (_cueWordPills.isEmpty) {
-                              _autoSuggestCueKeywords();
-                            }
-                          },
-                          decoration: InputDecoration(
-                            labelText: 'Specific Angle or Context (Optional)',
-                            hintText: 'e.g. Focus on climate impact, or explain for kids',
-                            prefixIcon: const Icon(Icons.lightbulb_outline),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                            filled: true,
-                            fillColor: theme.colorScheme.surface,
-                          ),
-                          maxLines: 2,
-                        ),
-                        const SizedBox(height: 12),
-                        VisualCuePillsSelector(
-                          pills: _cueWordPills,
-                          isAutoSuggesting: _isAutoSuggestingCues,
-                          onAutoSuggest: _autoSuggestCueKeywords,
-                          onPillsChanged: (updated) {
-                            setState(() {
-                              _cueWordPills = updated;
-                              _syncCuesController();
-                            });
-                          },
-                        ),
-                      ],
+                  _buildStepIndicator(theme),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(14, 0, 14, 20),
+                      child: _buildCurrentStepContent(theme),
                     ),
                   ),
-                ),
-                  const SizedBox(height: 16),
-
-                  // Step 3: Visual Art & Infographics Ratio Slider
-                  Card(
-                    elevation: 0,
-                    color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4)),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(Icons.palette_outlined, size: 20, color: theme.colorScheme.primary),
-                              const SizedBox(width: 8),
-                              const Expanded(
-                                child: Text(
-                                  'Visual Art & Infographics Ratio',
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: theme.colorScheme.primary,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Text(
-                                  '${(_visualArtRatio * 100).round()}% Art',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 11.5,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            _getArtRatioDescription(_visualArtRatio),
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                              fontSize: 11.5,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          SliderTheme(
-                            data: SliderTheme.of(context).copyWith(
-                              activeTrackColor: theme.colorScheme.primary,
-                              thumbColor: theme.colorScheme.primary,
-                              trackHeight: 6,
-                            ),
-                            child: Slider(
-                              value: _visualArtRatio,
-                              min: 0.20,
-                              max: 0.90,
-                              divisions: 7,
-                              onChanged: (val) {
-                                setState(() {
-                                  _visualArtRatio = val;
-                                  if (_generatedItem != null) {
-                                    _generatedItem = _generatedItem!.copyWith(visualArtRatio: val);
-                                  }
-                                });
-                              },
-                            ),
-                          ),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  '20% (More Text)',
-                                  style: TextStyle(fontSize: 10, color: theme.colorScheme.outline),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              Expanded(
-                                child: Text(
-                                  '50% (Balanced)',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(fontSize: 10, color: theme.colorScheme.outline),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              Expanded(
-                                child: Text(
-                                  '90% (Hero Art)',
-                                  textAlign: TextAlign.right,
-                                  style: TextStyle(fontSize: 10, color: theme.colorScheme.outline),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  // Generate Button
-                  FilledButton.icon(
-                    onPressed: _isAnalyzing
-                        ? null
-                        : (_generatedItem != null
-                            ? _showRegenerationOptionsSheet
-                            : _runAnalysis),
-                    icon: const Icon(Icons.view_carousel_rounded),
-                    label: Text(
-                      _generatedItem == null
-                          ? 'Generate 3-Poster Social Carousel'
-                          : 'Re-generate 3-Poster Carousel',
-                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-                    ),
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                  ),
-
-                  // Step 3: Poster & PostCard Customization (Appears after generation)
-                  if (_generatedItem != null) ...[
-                    const SizedBox(height: 28),
-                    _buildGeneratedPosterSection(theme),
-                    const SizedBox(height: 20),
-                    _buildCreatorInputsSection(theme),
-                    const SizedBox(height: 24),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: _shareDirectly,
-                            icon: const Icon(Icons.share_outlined),
-                            label: const Text('Share Poster Now'),
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: FilledButton.icon(
-                            onPressed: _saveAndFinish,
-                            icon: const Icon(Icons.bookmark_added_outlined),
-                            label: const Text('Save PostCard'),
-                            style: FilledButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 32),
-                  ],
                 ],
               ),
-            ),
-    );
-  }
-
-  Widget _buildSourceTypeSelector(ThemeData theme) {
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
-      ),
-      padding: const EdgeInsets.all(4),
-      child: Row(
-        children: [
-          Expanded(
-            child: InkWell(
-              onTap: () {
-                if (_sourceMode != InputSourceMode.physicalPhoto) {
-                  setState(() => _sourceMode = InputSourceMode.physicalPhoto);
-                }
-              },
-              borderRadius: BorderRadius.circular(10),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(vertical: 9),
-                decoration: BoxDecoration(
-                  color: _sourceMode == InputSourceMode.physicalPhoto
-                      ? theme.colorScheme.primary
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(10),
-                  boxShadow: _sourceMode == InputSourceMode.physicalPhoto
-                      ? [
-                          BoxShadow(
-                            color: theme.colorScheme.primary.withValues(alpha: 0.3),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          )
-                        ]
-                      : null,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.camera_alt_outlined,
-                      size: 15,
-                      color: _sourceMode == InputSourceMode.physicalPhoto
-                          ? Colors.white
-                          : theme.colorScheme.onSurface,
-                    ),
-                    const SizedBox(width: 5),
-                    Flexible(
-                      child: Text(
-                        'Physical Print',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                          color: _sourceMode == InputSourceMode.physicalPhoto
-                              ? Colors.white
-                              : theme.colorScheme.onSurface,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 4),
-          Expanded(
-            child: InkWell(
-              onTap: () {
-                if (_sourceMode != InputSourceMode.digitalLink) {
-                  setState(() => _sourceMode = InputSourceMode.digitalLink);
-                }
-              },
-              borderRadius: BorderRadius.circular(10),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(vertical: 9),
-                decoration: BoxDecoration(
-                  color: _sourceMode == InputSourceMode.digitalLink
-                      ? const Color(0xFF0284C7)
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(10),
-                  boxShadow: _sourceMode == InputSourceMode.digitalLink
-                      ? [
-                          BoxShadow(
-                            color: const Color(0xFF0284C7).withValues(alpha: 0.3),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          )
-                        ]
-                      : null,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.language,
-                      size: 15,
-                      color: _sourceMode == InputSourceMode.digitalLink
-                          ? Colors.white
-                          : theme.colorScheme.onSurface,
-                    ),
-                    const SizedBox(width: 5),
-                    Flexible(
-                      child: Text(
-                        'Web Link',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                          color: _sourceMode == InputSourceMode.digitalLink
-                              ? Colors.white
-                              : theme.colorScheme.onSurface,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
 
-  Widget _buildDigitalLinkSection(ThemeData theme) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            const Icon(Icons.language, color: Color(0xFF0284C7), size: 20),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                '1. Paste News Article Link',
-                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'Summarize any online article (BBC, Reuters, TechCrunch, The Hindu, etc.) into an infographic poster.',
-          style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-        ),
-        const SizedBox(height: 12),
-
-        // URL Input Card
-        Container(
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surface,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.6)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
-                blurRadius: 10,
-                offset: const Offset(0, 3),
-              ),
-            ],
-          ),
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              TextField(
-                controller: _urlController,
-                decoration: InputDecoration(
-                  labelText: 'News Article URL / Web Link',
-                  hintText: 'https://www.reuters.com/...',
-                  prefixIcon: const Icon(Icons.link, color: Color(0xFF0284C7)),
-                  suffixIcon: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        tooltip: 'Paste from Clipboard',
-                        icon: const Icon(Icons.content_paste, size: 20),
-                        onPressed: () async {
-                          final data = await Clipboard.getData(Clipboard.kTextPlain);
-                          if (data?.text != null && data!.text!.trim().isNotEmpty) {
-                            _urlController.text = data.text!.trim();
-                            _fetchUrlArticle(data.text!.trim());
-                          }
-                        },
-                      ),
-                      if (_urlController.text.isNotEmpty)
-                        IconButton(
-                          tooltip: 'Clear',
-                          icon: const Icon(Icons.clear, size: 18),
-                          onPressed: () {
-                            setState(() {
-                              _urlController.clear();
-                              _digitalTitleController.clear();
-                              _digitalContentController.clear();
-                              _scrapedArticle = null;
-                              _scrapedSiteName = null;
-                            });
-                          },
-                        ),
-                    ],
-                  ),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  filled: true,
-                  fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.2),
-                ),
-                keyboardType: TextInputType.url,
-                onSubmitted: (val) => _fetchUrlArticle(val),
-              ),
-              const SizedBox(height: 12),
-
-              FilledButton.tonalIcon(
-                onPressed: _isFetchingUrl ? null : () => _fetchUrlArticle(),
-                icon: _isFetchingUrl
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.cloud_download_outlined, size: 18),
-                label: Text(
-                  _isFetchingUrl
-                      ? 'Fetching Article Text...'
-                      : (_scrapedArticle != null ? 'Re-fetch Web Article' : 'Fetch & Preview Article'),
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-
-              // Manual entry prompt if article isn't fetched yet
-              if (_scrapedArticle == null && _digitalTitleController.text.isEmpty && !_showManualDigitalInputs) ...[
-                const SizedBox(height: 8),
-                Center(
-                  child: TextButton.icon(
-                    onPressed: () {
-                      setState(() {
-                        _showManualDigitalInputs = true;
-                      });
-                    },
-                    icon: const Icon(Icons.edit_note, size: 16),
-                    label: const Text('Or enter headline & article excerpt manually', style: TextStyle(fontSize: 12)),
-                  ),
-                ),
-              ],
-
-              // Preview or manual input of article headline & content
-              if (_scrapedArticle != null || _digitalTitleController.text.isNotEmpty || _showManualDigitalInputs) ...[
-                const SizedBox(height: 14),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF0284C7).withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFF0284C7).withValues(alpha: 0.25)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF0284C7),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              _scrapedSiteName?.toUpperCase() ?? 'WEB SOURCE',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 0.8,
-                              ),
-                            ),
-                          ),
-                          const Spacer(),
-                          const Icon(Icons.check_circle, color: Color(0xFF10B981), size: 16),
-                          const SizedBox(width: 4),
-                          const Text(
-                            'Article Ready',
-                            style: TextStyle(
-                              color: Color(0xFF10B981),
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: _digitalTitleController,
-                        onChanged: (_) {
-                          if (_cueWordPills.isEmpty) {
-                            _autoSuggestCueKeywords();
-                          }
-                        },
-                        decoration: const InputDecoration(
-                          labelText: 'Article Headline',
-                          border: OutlineInputBorder(),
-                          isDense: true,
-                        ),
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                        maxLines: 2,
-                      ),
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: _digitalContentController,
-                        decoration: const InputDecoration(
-                          labelText: 'Article Content / Key Excerpt',
-                          border: OutlineInputBorder(),
-                          isDense: true,
-                        ),
-                        style: const TextStyle(fontSize: 12),
-                        maxLines: 3,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-
-        const SizedBox(height: 12),
-        // Sample digital news links
-        Text(
-          'Or try sample digital stories:',
-          style: theme.textTheme.labelMedium?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 6),
-        Wrap(
-          spacing: 8,
-          runSpacing: 6,
-          children: LinkScraperService.sampleDigitalLinks.map((sample) {
-            return ActionChip(
-              avatar: const Icon(Icons.public, size: 14, color: Color(0xFF0284C7)),
-              label: Text(
-                '${sample['site']}: ${sample['title']!.split(':').first}',
-                style: const TextStyle(fontSize: 11),
-              ),
-              onPressed: () => _applySampleDigitalLink(sample),
-            );
-          }).toList(),
-        ),
-      ],
-    );
+  Widget _buildCurrentStepContent(ThemeData theme) {
+    switch (_currentStep) {
+      case SlantStep.sourceAndAngle:
+        return _buildStep1SourceAndAngle(theme);
+      case SlantStep.visualCues:
+        return _buildStep2VisualCues(theme);
+      case SlantStep.resultPoster:
+        return _buildStep3ResultPoster(theme);
+    }
   }
 
-  Widget _buildBookExcerptSection(ThemeData theme) {
+  // ================= STEP 1: Source & Angle =================
+
+  Widget _buildStep1SourceAndAngle(ThemeData theme) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          children: [
-            Icon(Icons.auto_stories, color: Colors.amber.shade800, size: 20),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                'Step 1: Book Cover & Excerpt Reading',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'Attach book excerpt pages (single or multiple photos) and a separate identified Book Cover Page to create an evocative literary poster.',
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: 14),
+        if (_sourceMode == InputSourceMode.physicalPhoto)
+          _buildSnapSourceSection(theme)
+        else
+          _buildWeblinkSourceSection(theme),
 
-        // Quick Curated Book Samples
-        Text(
-          'Or try classic curated book readings:',
-          style: theme.textTheme.labelMedium?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 6),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: sampleBooks.map((sample) {
-              return Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: ActionChip(
-                  avatar: Icon(Icons.auto_stories, size: 14, color: Colors.amber.shade900),
-                  label: Text(
-                    '${sample['title']} (${sample['author']})',
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
-                  ),
-                  backgroundColor: Colors.amber.shade900.withValues(alpha: 0.08),
-                  side: BorderSide(color: Colors.amber.shade800.withValues(alpha: 0.3)),
-                  onPressed: () => _applySampleBook(sample),
-                ),
-              );
-            }).toList(),
-          ),
-        ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 18),
 
-        // Card 1: Identified Book Cover Page
+        // Angle or Context
         Card(
           elevation: 0,
-          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: Colors.amber.shade800.withValues(alpha: 0.3)),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.menu_book, size: 18, color: Colors.amber.shade800),
-                    const SizedBox(width: 8),
-                    const Expanded(
-                      child: Text(
-                        'Identified Book Cover Page',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: _bookCoverImage != null || _bookCoverPath != null
-                            ? Colors.green.shade800
-                            : Colors.amber.shade800,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        _bookCoverImage != null || _bookCoverPath != null
-                            ? 'COVER READY'
-                            : 'SEPARATE PHOTO',
-                        style: const TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'The book cover will be linked to the poster with a book icon so readers can tap to inspect the cover page.',
-                  style: TextStyle(fontSize: 11.5, color: theme.colorScheme.onSurfaceVariant),
-                ),
-                const SizedBox(height: 12),
-
-                // Cover display if selected
-                if (_bookCoverImage != null || _bookCoverPath != null) ...[
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.amber.shade800.withValues(alpha: 0.4)),
-                    ),
-                    child: Row(
-                      children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: Container(
-                            width: 65,
-                            height: 90,
-                            color: const Color(0xFF1E293B),
-                            child: _bookCoverBytes != null
-                                ? Image.memory(_bookCoverBytes!, fit: BoxFit.cover)
-                                : (_bookCoverImage != null && !kIsWeb && File(_bookCoverImage!.path).existsSync()
-                                    ? Image.file(File(_bookCoverImage!.path), fit: BoxFit.cover)
-                                    : const Center(child: Icon(Icons.auto_stories, color: Colors.amber, size: 30))),
-                          ),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Cover Page Photo Attached',
-                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                _bookTitleController.text.isNotEmpty
-                                    ? _bookTitleController.text
-                                    : 'Identified edition cover',
-                                style: TextStyle(fontSize: 11.5, color: theme.colorScheme.onSurfaceVariant),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              const SizedBox(height: 8),
-                              Wrap(
-                                spacing: 8,
-                                children: [
-                                  OutlinedButton.icon(
-                                    style: OutlinedButton.styleFrom(
-                                      visualDensity: VisualDensity.compact,
-                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                    ),
-                                    onPressed: () => BookCoverViewerDialog.show(
-                                      context,
-                                      coverBytes: _bookCoverBytes,
-                                      coverPhotoPath: _bookCoverPath ?? _bookCoverImage?.path,
-                                      bookTitle: _bookTitleController.text,
-                                      bookAuthor: _bookAuthorController.text,
-                                      curatorAngle: _curatorAngleController.text,
-                                    ),
-                                    icon: const Icon(Icons.zoom_in, size: 14),
-                                    label: const Text('Inspect', style: TextStyle(fontSize: 11)),
-                                  ),
-                                  TextButton.icon(
-                                    style: TextButton.styleFrom(
-                                      visualDensity: VisualDensity.compact,
-                                      foregroundColor: Colors.red,
-                                    ),
-                                    onPressed: () => setState(() {
-                                      _bookCoverImage = null;
-                                      _bookCoverBytes = null;
-                                      _bookCoverPath = null;
-                                    }),
-                                    icon: const Icon(Icons.close, size: 14),
-                                    label: const Text('Remove', style: TextStyle(fontSize: 11)),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ] else ...[
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () => _pickBookCoverImage(ImageSource.camera),
-                          icon: const Icon(Icons.camera_alt_outlined, size: 16),
-                          label: const Text('Snap Cover Photo', style: TextStyle(fontSize: 12)),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () => _pickBookCoverImage(ImageSource.gallery),
-                          icon: const Icon(Icons.photo_library_outlined, size: 16),
-                          label: const Text('Pick Cover Photo', style: TextStyle(fontSize: 12)),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 14),
-
-        // Card 2: Book Excerpt Pages (Single or Multiple Photos)
-        Card(
-          elevation: 0,
-          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(14),
             side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4)),
           ),
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(14),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.collections_bookmark_outlined, size: 18),
+                    Icon(Icons.lightbulb_outline, size: 18, color: theme.colorScheme.primary),
                     const SizedBox(width: 8),
-                    const Expanded(
-                      child: Text(
-                        'Excerpt Pages (Multiple Photos)',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    if (_bookExcerptImages.isNotEmpty) ...[
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF0F172A),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          '${_bookExcerptImages.length} PAGE(S)',
-                          style: const TextStyle(
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Photograph a section of a book page or multiple consecutive pages to capture the full reading passage.',
-                  style: TextStyle(fontSize: 11.5, color: theme.colorScheme.onSurfaceVariant),
-                ),
-                const SizedBox(height: 12),
-
-                // Thumbnails strip of excerpt pages if present
-                if (_bookExcerptImages.isNotEmpty) ...[
-                  SizedBox(
-                    height: 110,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: _bookExcerptImages.length,
-                      separatorBuilder: (_, _) => const SizedBox(width: 10),
-                      itemBuilder: (ctx, idx) {
-                        final img = _bookExcerptImages[idx];
-                        return Stack(
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(10),
-                              child: Container(
-                                width: 85,
-                                height: 110,
-                                color: Colors.black12,
-                                child: !kIsWeb && File(img.path).existsSync()
-                                    ? Image.file(File(img.path), fit: BoxFit.cover)
-                                    : const Center(child: Icon(Icons.description, size: 28)),
-                              ),
-                            ),
-                            Positioned(
-                              top: 4,
-                              left: 4,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: Colors.black87,
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  'Page ${idx + 1}',
-                                  style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                            ),
-                            Positioned(
-                              top: 2,
-                              right: 2,
-                              child: InkWell(
-                                onTap: () => _removeBookExcerptPage(idx),
-                                child: Container(
-                                  padding: const EdgeInsets.all(3),
-                                  decoration: const BoxDecoration(
-                                    color: Colors.red,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(Icons.close, size: 12, color: Colors.white),
-                                ),
-                              ),
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                ],
-
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => _addBookExcerptPage(ImageSource.camera),
-                        icon: const Icon(Icons.camera_alt_outlined, size: 16),
-                        label: Text(_bookExcerptImages.isEmpty ? 'Snap Excerpt Page' : '+ Another Page'),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => _addBookExcerptPage(ImageSource.gallery),
-                        icon: const Icon(Icons.photo_library_outlined, size: 16),
-                        label: const Text('Add Pages (Gallery)'),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 14),
-
-        // Card 3: Curator Angle & Emotion
-        Card(
-          elevation: 0,
-          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4)),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.lightbulb_outline, size: 18, color: Colors.amber.shade800),
-                    const SizedBox(width: 8),
-                    const Expanded(
-                      child: Text(
-                        'Curator\'s Emotional Angle & Resonance',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                    const Text(
+                      'Angle or Context',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                     ),
                   ],
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Express how this excerpt made you feel. The poster will represent the reading\'s emotion through your Curator lens.',
+                  'Write your unique perspective, stance, or context on this story.',
                   style: TextStyle(fontSize: 11.5, color: theme.colorScheme.onSurfaceVariant),
                 ),
                 const SizedBox(height: 10),
-
-                // Quick Emotion Presets
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 4,
-                  children: [
-                    'Stoic Calm & Inner Citadel',
-                    'Quiet Solace & Gratitude',
-                    'Liberation from Regret',
-                    'Loving the Questions',
-                    'Existential Wonder',
-                    'Intellectual Epiphany',
-                  ].map((preset) {
-                    final isSelected = _curatorAngleController.text == preset;
-                    return ChoiceChip(
-                      label: Text(preset),
-                      selected: isSelected,
-                      selectedColor: Colors.amber.shade800,
-                      labelStyle: TextStyle(
-                        fontSize: 10.5,
-                        color: isSelected ? Colors.white : theme.colorScheme.onSurface,
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                      ),
-                      visualDensity: VisualDensity.compact,
-                      onSelected: (val) {
-                        if (val) {
-                          setState(() {
-                            _curatorAngleController.text = preset;
-                          });
-                        }
-                      },
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 10),
-
                 TextField(
-                  controller: _curatorAngleController,
+                  controller: _contextController,
                   decoration: InputDecoration(
-                    labelText: 'Curator\'s Angle / Feeling',
-                    hintText: 'e.g. Finding peace amidst chaos; living into the answers with grace...',
+                    hintText: 'e.g. Beyond the raw numbers, this shifts the balance of power between legacy media and digital creators...',
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                    prefixIcon: const Icon(Icons.edit_note, size: 18),
-                    isDense: true,
+                    filled: true,
+                    fillColor: theme.colorScheme.surface,
+                    alignLabelWithHint: true,
                   ),
-                  maxLines: 2,
-                ),
-                const SizedBox(height: 12),
-
-                // Book Title & Author row
-                Row(
-                  children: [
-                    Expanded(
-                      flex: 3,
-                      child: TextField(
-                        controller: _bookTitleController,
-                        decoration: InputDecoration(
-                          labelText: 'Book Title',
-                          hintText: 'e.g. Meditations',
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                          isDense: true,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      flex: 2,
-                      child: TextField(
-                        controller: _bookAuthorController,
-                        decoration: InputDecoration(
-                          labelText: 'Author',
-                          hintText: 'e.g. Marcus Aurelius',
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                          isDense: true,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-
-                TextField(
-                  controller: _bookExcerptTextController,
-                  decoration: InputDecoration(
-                    labelText: 'Key Excerpt Passage (Optional text transcription)',
-                    hintText: 'Paste or type memorable sentences from the pages...',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                    isDense: true,
-                  ),
-                  maxLines: 3,
+                  maxLines: 5,
+                  minLines: 4,
+                  onChanged: (_) {
+                    if (_cueWordPills.isEmpty) {
+                      _autoSuggestCueKeywords();
+                    }
+                  },
                 ),
               ],
             ),
+          ),
+        ),
+
+        const SizedBox(height: 20),
+
+        FilledButton.icon(
+          onPressed: _goToVisualCuesStep,
+          icon: const Icon(Icons.arrow_forward),
+          label: const Text(
+            'Next: Visual Cues →',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+          ),
+          style: FilledButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildPhotoSection(ThemeData theme) {
+  Widget _buildSnapSourceSection(ThemeData theme) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          children: [
-            Icon(Icons.camera_alt_outlined, color: theme.colorScheme.primary, size: 20),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                '1. Snap Newspaper / Magazine Photo',
-                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
+        if (_selectedImage != null || _activeSample != null) ...[
+          Container(
+            decoration: BoxDecoration(
+              color: const Color(0xFF0F172A),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
             ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'Capture physical broadsheet, magazine clipping, or test with sample print clips.',
-          style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-        ),
-        const SizedBox(height: 12),
-
-        // Photo Preview or Selection Area
-        if (_selectedImage != null) ...[
-          Stack(
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(14),
-                child: Container(
-                  height: 220,
-                  width: double.infinity,
-                  color: Colors.black,
-                  child: RotatedBox(
-                    quarterTurns: _imageRotationTurns,
-                    child: kIsWeb
-                        ? Image.network(_selectedImage!.path, fit: BoxFit.contain)
-                        : Image.file(File(_selectedImage!.path), fit: BoxFit.contain),
-                  ),
-                ),
-              ),
-              if (_isCropped)
-                Positioned(
-                  top: 10,
-                  left: 10,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.78),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: const Color(0xFF10B981), width: 1.2),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.content_cut, size: 12, color: Color(0xFF10B981)),
-                        SizedBox(width: 5),
-                        Text(
-                          'Article Cropped',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Visual Photo Preview Container (Interactive: Tap to Zoom/Inspect)
+                GestureDetector(
+                  onTap: () {
+                    PhotoViewerDialog.show(
+                      context,
+                      imageBytes: _imageBytes,
+                      photoPath: _selectedImage?.path,
+                      headline: _isCropped ? 'Cropped Article Cut-Out' : 'Your Snapped Newspaper Photo',
+                    );
+                  },
+                  child: Stack(
+                    children: [
+                      Container(
+                        height: 180,
+                        width: double.infinity,
+                        color: Colors.black,
+                        child: _imageBytes != null
+                            ? Image.memory(
+                                _imageBytes!,
+                                fit: BoxFit.contain,
+                              )
+                            : const Center(
+                                child: Icon(Icons.newspaper, color: Colors.white60, size: 48),
+                              ),
+                      ),
+                      // Top Left Badge
+                      Positioned(
+                        top: 8,
+                        left: 8,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.75),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: _isCropped ? const Color(0xFF10B981) : Colors.white38,
+                              width: 1.2,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                _isCropped ? Icons.check_circle : Icons.camera_alt_outlined,
+                                size: 12,
+                                color: _isCropped ? const Color(0xFF10B981) : Colors.white70,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                _activeSample != null
+                                    ? _activeSample!.publication
+                                    : (_isCropped ? 'Article Cut-Out Ready' : 'Print Photo Ready'),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                ),
-              Positioned(
-                bottom: 10,
-                right: 10,
-                child: Row(
-                  children: [
-                    FloatingActionButton.small(
-                      heroTag: 'crop_photo',
-                      backgroundColor: const Color(0xFF6366F1),
-                      foregroundColor: Colors.white,
-                      onPressed: () => _cropImage(),
-                      tooltip: _isCropped ? 'Re-crop Section' : 'Crop Article Section',
-                      child: const Icon(Icons.crop),
-                    ),
-                    const SizedBox(width: 8),
-                    FloatingActionButton.small(
-                      heroTag: 'rotate_photo',
-                      onPressed: () => setState(() => _imageRotationTurns = (_imageRotationTurns + 1) % 4),
-                      tooltip: 'Rotate 90°',
-                      child: const Icon(Icons.rotate_right),
-                    ),
-                    const SizedBox(width: 8),
-                    FloatingActionButton.small(
-                      heroTag: 'inspect_photo',
-                      onPressed: () => PhotoViewerDialog.show(
-                        context,
-                        photoPath: _selectedImage!.path,
-                        headline: _isCropped ? 'Cropped Article Cut-Out' : 'Your Snapped Newspaper Photo',
-                        quarterTurns: _imageRotationTurns,
                       ),
-                      tooltip: 'Zoom & Inspect',
-                      child: const Icon(Icons.zoom_in),
-                    ),
-                    const SizedBox(width: 8),
-                    FloatingActionButton.small(
-                      heroTag: 'retake_photo',
-                      onPressed: () => _pickImage(ImageSource.camera),
-                      tooltip: 'Retake',
-                      child: const Icon(Icons.refresh),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: _isCropped
-                  ? const Color(0xFF0F172A)
-                  : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: _isCropped
-                    ? const Color(0xFF10B981).withValues(alpha: 0.6)
-                    : theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
-              ),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  _isCropped ? Icons.check_circle : Icons.content_cut,
-                  size: 16,
-                  color: _isCropped ? const Color(0xFF10B981) : theme.colorScheme.primary,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    _isCropped
-                        ? 'Clean article cutout ready for AI OCR'
-                        : 'Cut out just the article section before summarizing',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: _isCropped ? Colors.white : theme.colorScheme.onSurface,
-                    ),
-                  ),
-                ),
-                TextButton.icon(
-                  style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  onPressed: () => _cropImage(),
-                  icon: Icon(
-                    _isCropped ? Icons.tune : Icons.crop,
-                    size: 14,
-                    color: _isCropped ? const Color(0xFF38BDF8) : theme.colorScheme.primary,
-                  ),
-                  label: Text(
-                    _isCropped ? 'Re-crop' : 'Crop Section',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: _isCropped ? const Color(0xFF38BDF8) : theme.colorScheme.primary,
-                    ),
-                  ),
-                ),
-                if (_isCropped && _originalImagePath != null) ...[
-                  const SizedBox(width: 4),
-                  IconButton(
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    icon: const Icon(Icons.undo, size: 16, color: Colors.white70),
-                    tooltip: 'Restore Full Photo',
-                    onPressed: _resetToOriginalImage,
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ] else if (_activeSample != null) ...[
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: const Color(0xFFFBF8F2),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: const Color(0xFFD6CEBE), width: 1.5),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.newspaper, size: 18, color: Color(0xFF8C7A6B)),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        _activeSample!.publication.toUpperCase(),
-                        style: const TextStyle(
-                          fontFamily: 'serif',
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.2,
-                          color: Color(0xFF5A4D41),
+                      // Tap hint
+                      Positioned(
+                        top: 8,
+                        right: 8,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.6),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.zoom_in, size: 12, color: Colors.white70),
+                              SizedBox(width: 3),
+                              Text(
+                                'Tap to inspect',
+                                style: TextStyle(color: Colors.white70, fontSize: 9.5),
+                              ),
+                            ],
+                          ),
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF8C7A6B),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        _activeSample!.category,
-                        style: const TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  _activeSample!.title,
-                  style: const TextStyle(
-                    fontFamily: 'serif',
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF2B241E),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  _activeSample!.rawArticleText.trim(),
-                  style: const TextStyle(fontFamily: 'serif', fontSize: 11, color: Colors.black87),
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
+
+                // Control Toolbar (Rotate, Recut, Inspect, Retake)
+                Container(
+                  color: theme.colorScheme.surface,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  child: Row(
+                    children: [
+                      // Rotate 90° Button
+                      FilledButton.tonalIcon(
+                        onPressed: _rotateImage,
+                        icon: const Icon(Icons.rotate_right_rounded, size: 17),
+                        label: const Text('Rotate 90°', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          visualDensity: VisualDensity.compact,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+
+                      // Recut / Crop Button
+                      OutlinedButton.icon(
+                        onPressed: () => _cropImage(),
+                        icon: const Icon(Icons.crop, size: 16),
+                        label: const Text('Recut', style: TextStyle(fontSize: 11.5)),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          visualDensity: VisualDensity.compact,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                      ),
+                      const Spacer(),
+
+                      // Zoom & Inspect Button
+                      IconButton(
+                        tooltip: 'Zoom & Inspect',
+                        icon: const Icon(Icons.zoom_in, size: 21),
+                        onPressed: () {
+                          PhotoViewerDialog.show(
+                            context,
+                            imageBytes: _imageBytes,
+                            photoPath: _selectedImage?.path,
+                            headline: _isCropped ? 'Cropped Article Cut-Out' : 'Your Snapped Newspaper Photo',
+                          );
+                        },
+                      ),
+
+                      // Retake Button
+                      IconButton(
+                        tooltip: 'Retake Photo',
+                        icon: const Icon(Icons.camera_alt_outlined, size: 20),
+                        onPressed: () => _pickImage(ImageSource.camera),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
           ),
         ] else ...[
           Container(
-            height: 140,
+            height: 96,
             decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+              color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                color: theme.colorScheme.outlineVariant,
-                style: BorderStyle.solid,
-                width: 1.5,
+                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.6),
+                width: 1.2,
               ),
             ),
-            child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.add_a_photo_outlined, size: 36, color: theme.colorScheme.primary),
-                  const SizedBox(height: 6),
-                  const Text('Snap or Select Physical Article', style: TextStyle(fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 2),
-                  const Text('Use phone camera or pick from gallery', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                ],
-              ),
-            ),
-          ),
-        ],
-
-        const SizedBox(height: 12),
-        // Action buttons row: Camera, Gallery, and Sample presets
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
-                  visualDensity: VisualDensity.compact,
-                ),
-                onPressed: () => _pickImage(ImageSource.camera),
-                icon: const Icon(Icons.camera_alt, size: 16),
-                label: const FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text('Camera', maxLines: 1),
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
-                  visualDensity: VisualDensity.compact,
-                ),
-                onPressed: () => _pickImage(ImageSource.gallery),
-                icon: const Icon(Icons.photo_library, size: 16),
-                label: const FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text('Gallery', maxLines: 1),
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            PopupMenuButton<SampleArticle>(
-              onSelected: _applySample,
-              tooltip: 'Choose Sample Article',
-              itemBuilder: (ctx) => SampleArticle.samples.map((s) {
-                return PopupMenuItem(
-                  value: s,
-                  child: Row(
-                    children: [
-                      const Icon(Icons.article_outlined, size: 16),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          s.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }).toList(),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                decoration: BoxDecoration(
-                  border: Border.all(color: theme.colorScheme.outlineVariant),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.library_books_outlined, size: 16),
-                    SizedBox(width: 4),
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text('Samples', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold), maxLines: 1),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildGeneratedPosterSection(ThemeData theme) {
-    if (_generatedItem == null) return const SizedBox.shrink();
-
-    final isCarousel = _generatedItem!.isCarouselTrio;
-
-    if (isCarousel) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.view_carousel_rounded, color: theme.colorScheme.primary, size: 20),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  '2. Generated Social Carousel Trio (3 Posters)',
-                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              OutlinedButton.icon(
-                onPressed: _isAnalyzing ? null : _showRegenerationOptionsSheet,
-                icon: const Icon(Icons.autorenew_rounded, size: 16),
-                label: const Text('Try Another', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  visualDensity: VisualDensity.compact,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Slide 1: Hook & Headline • Slide 2: Curator Take • Slide 3: The "Receipt". WhatsApp & Instagram ready.',
-            style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-          ),
-          const SizedBox(height: 14),
-
-          // Live Carousel Studio
-          CarouselPosterStudio(
-            key: ValueKey('studio_${_generatedItem!.id}_${_generatedItem!.illustrationBase64.hashCode}_$_regenerationCount'),
-            item: _generatedItem!,
-            config: PosterStyleConfig.getPreset(_currentStyle),
-            showShareActions: true,
-            pageController: _carouselStudioPageController,
-            onPageChanged: (idx) {
-              if (_selectedSlideEditTab != idx) {
-                setState(() => _selectedSlideEditTab = idx);
-              }
-            },
-            onRegeneratePosterArt: _regenerateHookPosterOnly,
-            onRegenerateHeadline: () => _runAnalysis(target: RegenerationTarget.headlineAndHook),
-            onRegenerateAll: () => _runAnalysis(target: RegenerationTarget.all),
-          ),
-
-          const SizedBox(height: 12),
-
-          // Live Art Ratio Adjuster for generated poster
-          Padding(
-            padding: const EdgeInsets.only(top: 4, bottom: 4),
             child: Row(
               children: [
-                const Icon(Icons.tune, size: 16, color: Colors.grey),
-                const SizedBox(width: 6),
-                Text(
-                  'Art Ratio: ${(_visualArtRatio * 100).round()}%',
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                ),
                 Expanded(
-                  child: Slider(
-                    value: _visualArtRatio,
-                    min: 0.20,
-                    max: 0.90,
-                    divisions: 7,
-                    onChanged: (val) {
-                      setState(() {
-                        _visualArtRatio = val;
-                        _generatedItem = _generatedItem!.copyWith(visualArtRatio: val);
-                      });
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      );
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(Icons.palette_outlined, color: theme.colorScheme.primary, size: 20),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                '2. Generated Visual Poster Card',
-                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            OutlinedButton.icon(
-              onPressed: _isAnalyzing ? null : _showRegenerationOptionsSheet,
-              icon: const Icon(Icons.autorenew_rounded, size: 16),
-              label: const Text('Try Another', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                visualDensity: VisualDensity.compact,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'Live interactive poster adapted to your audience. Switch styles with one tap.',
-          style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-        ),
-        const SizedBox(height: 14),
-
-        // Live Poster Canvas
-        PosterCanvas(
-          item: _generatedItem!,
-          boundaryKey: _posterBoundaryKey,
-          showStyleSelector: true,
-          onStyleChanged: (newStyle) {
-            setState(() {
-              _currentStyle = newStyle;
-              _generatedItem = _generatedItem!.copyWith(posterStyle: newStyle);
-            });
-          },
-        ),
-
-        // Live Art Ratio Adjuster for generated poster
-        Padding(
-          padding: const EdgeInsets.only(top: 8, bottom: 4),
-          child: Row(
-            children: [
-              const Icon(Icons.tune, size: 16, color: Colors.grey),
-              const SizedBox(width: 6),
-              Text(
-                'Art Ratio: ${(_visualArtRatio * 100).round()}%',
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-              ),
-              Expanded(
-                child: Slider(
-                  value: _visualArtRatio,
-                  min: 0.20,
-                  max: 0.90,
-                  divisions: 7,
-                  onChanged: (val) {
-                    setState(() {
-                      _visualArtRatio = val;
-                      _generatedItem = _generatedItem!.copyWith(visualArtRatio: val);
-                    });
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildCreatorInputsSection(ThemeData theme) {
-    final isCarousel = _generatedItem?.isCarouselTrio == true;
-
-    if (!isCarousel) {
-      return Card(
-        elevation: 0,
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(Icons.edit_note_outlined, color: theme.colorScheme.primary, size: 20),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      '3. Creator Perspective & Links',
-                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                  child: InkWell(
+                    onTap: () => _pickImage(ImageSource.camera),
+                    borderRadius: const BorderRadius.horizontal(left: Radius.circular(14)),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(7),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.primary.withValues(alpha: 0.12),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(Icons.camera_alt, size: 22, color: theme.colorScheme.primary),
+                        ),
+                        const SizedBox(height: 5),
+                        const Text(
+                          'Camera',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                        ),
+                        const SizedBox(height: 1),
+                        Text(
+                          'Snap print article',
+                          style: TextStyle(fontSize: 9.5, color: theme.colorScheme.onSurfaceVariant),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _headlineController,
-                onChanged: (_) => _syncEditedFields(),
-                decoration: InputDecoration(
-                  labelText: 'Adapted Headline',
-                  prefixIcon: const Icon(Icons.title),
-                  suffixIcon: IconButton(
-                    icon: const Icon(Icons.auto_awesome, color: Colors.blueAccent, size: 20),
-                    tooltip: 'Re-craft Headline with AI',
-                    onPressed: _isAnalyzing
-                        ? null
-                        : () => _runAnalysis(target: RegenerationTarget.headlineAndHook),
-                  ),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  filled: true,
-                  fillColor: theme.colorScheme.surface,
-                ),
-              ),
-              const SizedBox(height: 14),
-              TextField(
-                controller: _opinionController,
-                onChanged: (_) => _syncEditedFields(),
-                decoration: InputDecoration(
-                  labelText: 'Your Opinion / Personal Take',
-                  hintText: 'Share your perspective on why this matters...',
-                  prefixIcon: const Icon(Icons.bolt_outlined),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  filled: true,
-                  fillColor: theme.colorScheme.surface,
-                ),
-                maxLines: 3,
-              ),
-              const SizedBox(height: 14),
-              TextField(
-                controller: _linkController,
-                onChanged: (_) => _syncEditedFields(),
-                decoration: InputDecoration(
-                  labelText: 'Digital Link (Web URL if exists)',
-                  hintText: 'https://...',
-                  prefixIcon: const Icon(Icons.link),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  filled: true,
-                  fillColor: theme.colorScheme.surface,
-                ),
-              ),
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _creatorHandleController,
-                      onChanged: (_) => _syncEditedFields(),
-                      decoration: InputDecoration(
-                        labelText: 'Creator Byline',
-                        hintText: '@yourhandle',
-                        prefixIcon: const Icon(Icons.alternate_email),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                        filled: true,
-                        fillColor: theme.colorScheme.surface,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: TextField(
-                      controller: _metricController,
-                      onChanged: (_) => _syncEditedFields(),
-                      decoration: InputDecoration(
-                        labelText: 'Key Stat / Metric',
-                        hintText: 'e.g. +42%, \$10B',
-                        prefixIcon: const Icon(Icons.query_stats),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                        filled: true,
-                        fillColor: theme.colorScheme.surface,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    // Carousel Trio: Full 3-Slide Manual Editing Tab Section
-    return Card(
-      elevation: 0,
-      color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.32),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.edit_document, color: theme.colorScheme.primary, size: 20),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    '3. Customize Slide Writing (3 Tabs)',
-                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF10B981).withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.3)),
-                  ),
-                  child: const Text(
-                    '100% User Editable',
-                    style: TextStyle(
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF10B981),
+                  height: 44,
+                  width: 1,
+                  color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
+                ),
+                Expanded(
+                  child: InkWell(
+                    onTap: () => _pickImage(ImageSource.gallery),
+                    borderRadius: const BorderRadius.horizontal(right: Radius.circular(14)),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(7),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF0284C7).withValues(alpha: 0.12),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.photo_library, size: 22, color: Color(0xFF0284C7)),
+                        ),
+                        const SizedBox(height: 5),
+                        const Text(
+                          'Upload',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                        ),
+                        const SizedBox(height: 1),
+                        Text(
+                          'Pick from gallery',
+                          style: TextStyle(fontSize: 9.5, color: theme.colorScheme.onSurfaceVariant),
+                        ),
+                      ],
                     ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 4),
-            Text(
-              'Select any slide below to edit every headline, excerpt, or opinion manually before sharing.',
-              style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-            ),
-            const SizedBox(height: 14),
-
-            // 3-Tab Selector Bar with Live Carousel Page Sync
-            Container(
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4)),
-              ),
-              padding: const EdgeInsets.all(4),
-              child: Row(
-                children: [
-                  _buildSlideTabButton(
-                    theme: theme,
-                    index: 0,
-                    icon: Icons.filter_1_rounded,
-                    label: '01 Hook & Fact',
-                  ),
-                  const SizedBox(width: 4),
-                  _buildSlideTabButton(
-                    theme: theme,
-                    index: 1,
-                    icon: Icons.filter_2_rounded,
-                    label: '02 Curator Take',
-                  ),
-                  const SizedBox(width: 4),
-                  _buildSlideTabButton(
-                    theme: theme,
-                    index: 2,
-                    icon: Icons.filter_3_rounded,
-                    label: '03 Receipts',
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Tab 0: Slide 1 (The Anchor Hook)
-            if (_selectedSlideEditTab == 0) ...[
-              _buildSlide1EditSection(theme),
-            ]
-            // Tab 1: Slide 2 (Curator's Take)
-            else if (_selectedSlideEditTab == 1) ...[
-              _buildSlide2EditSection(theme),
-            ]
-            // Tab 2: Slide 3 (The Receipts & Evidence)
-            else ...[
-              _buildSlide3EditSection(theme),
-            ],
-          ],
-        ),
-      ),
+          ),
+        ],
+      ],
     );
   }
 
-  Widget _buildSlideTabButton({
-    required ThemeData theme,
-    required int index,
-    required IconData icon,
-    required String label,
-  }) {
-    final isSelected = _selectedSlideEditTab == index;
-    return Expanded(
-      child: InkWell(
-        onTap: () {
-          setState(() => _selectedSlideEditTab = index);
-          if (_carouselStudioPageController.hasClients) {
-            _carouselStudioPageController.animateToPage(
-              index,
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeInOut,
-            );
-          }
-        },
-        borderRadius: BorderRadius.circular(9),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-          decoration: BoxDecoration(
-            color: isSelected ? theme.colorScheme.primary : Colors.transparent,
-            borderRadius: BorderRadius.circular(9),
-            boxShadow: isSelected
-                ? [
-                    BoxShadow(
-                      color: theme.colorScheme.primary.withValues(alpha: 0.35),
-                      blurRadius: 6,
-                      offset: const Offset(0, 2),
+  Widget _buildWeblinkSourceSection(ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TextField(
+          controller: _urlController,
+          decoration: InputDecoration(
+            labelText: 'News Article URL',
+            hintText: 'https://...',
+            prefixIcon: const Icon(Icons.link),
+            suffixIcon: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (_isFetchingUrl)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 10),
+                    child: SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
                     ),
-                  ]
-                : null,
+                  )
+                else if (_scrapedArticle != null)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: Tooltip(
+                      message: _scrapedArticle!.content.length > 200
+                          ? 'Full article text fetched'
+                          : 'Headline/slug fetched',
+                      child: Icon(
+                        Icons.check_circle,
+                        color: _scrapedArticle!.content.length > 200
+                            ? const Color(0xFF10B981)
+                            : const Color(0xFFF59E0B),
+                        size: 22,
+                      ),
+                    ),
+                  ),
+                IconButton(
+                  tooltip: 'Paste from clipboard',
+                  icon: const Icon(Icons.content_paste, size: 19),
+                  onPressed: () async {
+                    final data = await Clipboard.getData(Clipboard.kTextPlain);
+                    if (data?.text != null && data!.text!.trim().isNotEmpty) {
+                      _urlController.text = data.text!.trim();
+                      _fetchUrlArticle(data.text!.trim());
+                    }
+                  },
+                ),
+                if (_urlController.text.isNotEmpty)
+                  IconButton(
+                    tooltip: 'Clear',
+                    icon: const Icon(Icons.clear, size: 18),
+                    onPressed: () {
+                      setState(() {
+                        _urlController.clear();
+                        _digitalTitleController.clear();
+                        _digitalContentController.clear();
+                        _scrapedArticle = null;
+                        _scrapedSiteName = null;
+                      });
+                    },
+                  ),
+              ],
+            ),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            filled: true,
+            fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.2),
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+          keyboardType: TextInputType.url,
+          onSubmitted: (val) => _fetchUrlArticle(val),
+          onChanged: (val) {
+            if (val.trim().startsWith('http://') || val.trim().startsWith('https://')) {
+              _fetchUrlArticle(val.trim());
+            }
+          },
+        ),
+        if (_scrapedArticle != null) ...[
+          const SizedBox(height: 6),
+          Row(
             children: [
               Icon(
-                icon,
+                _scrapedArticle!.content.length > 200 ? Icons.check : Icons.info_outline,
                 size: 14,
-                color: isSelected ? theme.colorScheme.onPrimary : theme.colorScheme.onSurfaceVariant,
+                color: _scrapedArticle!.content.length > 200
+                    ? const Color(0xFF10B981)
+                    : const Color(0xFFF59E0B),
               ),
-              const SizedBox(width: 5),
-              Flexible(
+              const SizedBox(width: 4),
+              Expanded(
                 child: Text(
-                  label,
+                  _scrapedArticle!.content.length > 200
+                      ? 'Full article content retrieved (${_scrapedSiteName ?? "Web"})'
+                      : 'Headline retrieved: "${_digitalTitleController.text}"',
                   style: TextStyle(
-                    fontSize: 11.5,
-                    fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                    color: isSelected ? theme.colorScheme.onPrimary : theme.colorScheme.onSurfaceVariant,
+                    fontSize: 11,
+                    color: _scrapedArticle!.content.length > 200
+                        ? const Color(0xFF10B981)
+                        : const Color(0xFFF59E0B),
+                    fontWeight: FontWeight.w600,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -3342,133 +2115,36 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
               ),
             ],
           ),
-        ),
-      ),
+        ],
+      ],
     );
   }
 
-  /// Slide 1 Editing Section (Topic Pill, Newspaper Clipping Excerpt, Main Hook Angle, Handle)
-  Widget _buildSlide1EditSection(ThemeData theme) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          margin: const EdgeInsets.only(bottom: 12),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.primaryContainer.withValues(alpha: 0.4),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.2)),
-          ),
-          child: Row(
-            children: [
-              Icon(Icons.info_outline, size: 14, color: theme.colorScheme.primary),
-              const SizedBox(width: 6),
-              const Expanded(
-                child: Text(
-                  'Slide 1: Edit the topic pill, newspaper headline clipping, and bold display angle.',
-                  style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w500),
-                ),
-              ),
-            ],
-          ),
-        ),
+  // ================= STEP 2: Dedicated Visual Cues Studio =================
 
-        // Topic Pill Category & Source Outlet Row
+  Widget _buildStep2VisualCues(ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
         Row(
           children: [
-            Expanded(
-              flex: 4,
-              child: TextField(
-                controller: _s1CategoryController,
-                onChanged: (_) => _syncEditedFields(),
-                decoration: InputDecoration(
-                  labelText: 'Topic Pill Category',
-                  hintText: 'e.g. WEALTH ACCUMULATION',
-                  prefixIcon: const Icon(Icons.tag, size: 18),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  filled: true,
-                  fillColor: theme.colorScheme.surface,
-                ),
-              ),
-            ),
+            Icon(Icons.palette_outlined, size: 20, color: theme.colorScheme.primary),
             const SizedBox(width: 8),
             Expanded(
-              flex: 5,
-              child: TextField(
-                controller: _s1PublicationController,
-                onChanged: (_) => _syncEditedFields(),
-                decoration: InputDecoration(
-                  labelText: 'Source Outlet',
-                  hintText: 'e.g. The Times of India',
-                  prefixIcon: const Icon(Icons.public, size: 18),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  filled: true,
-                  fillColor: theme.colorScheme.surface,
-                ),
+              child: Text(
+                'Visual Cues & Metaphor Studio',
+                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
               ),
             ),
           ],
         ),
-        const SizedBox(height: 12),
-
-        // Actual News Excerpt / Headline (Newspaper Clipping Fragment)
-        TextField(
-          controller: _s1ActualNewsExcerptController,
-          onChanged: (_) => _syncEditedFields(),
-          decoration: InputDecoration(
-            labelText: 'Slide 1: Actual News Excerpt (Newspaper Clipping)',
-            hintText: 'Headline or factual excerpt seen in newsprint...',
-            helperText: 'Displayed as a tactile vintage newsprint fragment. Keep ≤ 14 words.',
-            helperStyle: TextStyle(fontSize: 11, color: theme.colorScheme.onSurfaceVariant),
-            prefixIcon: const Icon(Icons.newspaper),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-            filled: true,
-            fillColor: theme.colorScheme.surface,
-          ),
-          maxLines: 2,
+        const SizedBox(height: 3),
+        Text(
+          'Visual cues guide your Hook Poster. The #1 Hero cue drives primary artwork.',
+          style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 10),
 
-        // Main Hook Headline (The Angle)
-        TextField(
-          controller: _headlineController,
-          onChanged: (_) => _syncEditedFields(),
-          decoration: InputDecoration(
-            labelText: 'Slide 1: Main Hook Headline (The Angle)',
-            hintText: 'Provocative display headline...',
-            prefixIcon: const Icon(Icons.title),
-            suffixIcon: IconButton(
-              icon: const Icon(Icons.auto_awesome, color: Colors.blueAccent, size: 20),
-              tooltip: 'Re-craft Headline with AI',
-              onPressed: _isAnalyzing
-                  ? null
-                  : () => _runAnalysis(target: RegenerationTarget.headlineAndHook),
-            ),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-            filled: true,
-            fillColor: theme.colorScheme.surface,
-          ),
-          maxLines: 2,
-        ),
-        const SizedBox(height: 12),
-
-        // Creator Handle
-        TextField(
-          controller: _creatorHandleController,
-          onChanged: (_) => _syncEditedFields(),
-          decoration: InputDecoration(
-            labelText: 'Creator Handle / Byline',
-            hintText: '@curator',
-            prefixIcon: const Icon(Icons.alternate_email),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-            filled: true,
-            fillColor: theme.colorScheme.surface,
-          ),
-        ),
-        const SizedBox(height: 14),
-
-        // Visual Cues & Priority Metaphors (Slide 1 Hook Artwork)
         VisualCuePillsSelector(
           pills: _cueWordPills,
           isAutoSuggesting: _isAutoSuggestingCues,
@@ -3480,260 +2156,548 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
             });
           },
         ),
-        const SizedBox(height: 8),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.end,
+
+        const SizedBox(height: 12),
+
+        _buildCharacterRepresentationCard(theme),
+
+        const SizedBox(height: 14),
+
+        FilledButton.icon(
+          onPressed: _isAnalyzing ? null : () => _runAnalysis(),
+          icon: const Icon(Icons.auto_awesome),
+          label: const Text(
+            'Generate 3-Poster Social Carousel',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+          ),
+          style: FilledButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          ),
+        ),
+
+        const SizedBox(height: 10),
+
+        TextButton.icon(
+          onPressed: () {
+            setState(() => _currentStep = SlantStep.sourceAndAngle);
+          },
+          icon: const Icon(Icons.arrow_back, size: 16),
+          label: const Text('Back to Angle & Source'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCharacterRepresentationCard(ThemeData theme) {
+    final effectiveRefBytes = _referenceImageBytes ??
+        (_sourceMode == InputSourceMode.physicalPhoto ? _imageBytes : null);
+
+    return Card(
+      elevation: 0,
+      color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            OutlinedButton.icon(
-              icon: const Icon(Icons.palette_outlined, size: 16),
-              label: const Text('Re-roll Art with Prioritized Cues', style: TextStyle(fontSize: 12)),
-              onPressed: _isAnalyzing ? null : _regenerateHookPosterOnly,
+            Row(
+              children: [
+                Icon(
+                  Icons.person_pin_circle_outlined,
+                  size: 20,
+                  color: theme.colorScheme.primary,
+                ),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    'Character & Face Representation',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                  ),
+                ),
+              ],
             ),
+            const SizedBox(height: 4),
+            Text(
+              'Select how characters are portrayed in the generated editorial poster artwork.',
+              style: TextStyle(fontSize: 11.5, color: theme.colorScheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: 12),
+
+            // Option 1: Stylized Generic Figure (Default)
+            InkWell(
+              onTap: () {
+                setState(() => _matchRealPersonLikeness = false);
+              },
+              borderRadius: BorderRadius.circular(12),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: !_matchRealPersonLikeness
+                      ? theme.colorScheme.primary.withValues(alpha: 0.1)
+                      : theme.colorScheme.surface,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: !_matchRealPersonLikeness
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+                    width: !_matchRealPersonLikeness ? 1.8 : 1.0,
+                  ),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: !_matchRealPersonLikeness
+                            ? theme.colorScheme.primary
+                            : theme.colorScheme.surfaceContainerHighest,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.style_outlined,
+                        size: 16,
+                        color: !_matchRealPersonLikeness
+                            ? Colors.white
+                            : theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Text(
+                                'Stylized Generic Figure',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                              ),
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme.primary.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  'Usual Style',
+                                  style: TextStyle(
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: theme.colorScheme.primary,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            'Editorial stylized figures with expressive generic faces in authentic attire matching story context (sanitation workwear, corporate suits, lab coats, etc.).',
+                            style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurfaceVariant),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      width: 22,
+                      height: 22,
+                      margin: const EdgeInsets.only(top: 2),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: !_matchRealPersonLikeness
+                              ? theme.colorScheme.primary
+                              : theme.colorScheme.outlineVariant,
+                          width: 2,
+                        ),
+                      ),
+                      child: !_matchRealPersonLikeness
+                          ? Center(
+                              child: Container(
+                                width: 12,
+                                height: 12,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: theme.colorScheme.primary,
+                                ),
+                              ),
+                            )
+                          : null,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 10),
+
+            // Option 2: Match Real Person Face (Look-Alike)
+            InkWell(
+              onTap: () {
+                setState(() {
+                  _matchRealPersonLikeness = true;
+                  if (_referenceImageBytes == null && _sourceMode == InputSourceMode.physicalPhoto && _imageBytes != null) {
+                    _referenceImageBytes = _imageBytes;
+                    _referenceImageSourceLabel = 'Print Clipping Photo';
+                  }
+                });
+              },
+              borderRadius: BorderRadius.circular(12),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: _matchRealPersonLikeness
+                      ? const Color(0xFF6366F1).withValues(alpha: 0.1)
+                      : theme.colorScheme.surface,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: _matchRealPersonLikeness
+                        ? const Color(0xFF6366F1)
+                        : theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+                    width: _matchRealPersonLikeness ? 1.8 : 1.0,
+                  ),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: _matchRealPersonLikeness
+                            ? const Color(0xFF6366F1)
+                            : theme.colorScheme.surfaceContainerHighest,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.face_retouching_natural,
+                        size: 16,
+                        color: _matchRealPersonLikeness
+                            ? Colors.white
+                            : theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Text(
+                                'Match Real Person Face',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                              ),
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF6366F1).withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: const Text(
+                                  'Look-Alike',
+                                  style: TextStyle(
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF6366F1),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            'Multimodal photo conditioning preserves recognizable facial features, hair, and likeness of key people in the poster.',
+                            style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurfaceVariant),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      width: 22,
+                      height: 22,
+                      margin: const EdgeInsets.only(top: 2),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: _matchRealPersonLikeness
+                              ? const Color(0xFF6366F1)
+                              : theme.colorScheme.outlineVariant,
+                          width: 2,
+                        ),
+                      ),
+                      child: _matchRealPersonLikeness
+                          ? Center(
+                              child: Container(
+                                width: 12,
+                                height: 12,
+                                decoration: const BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Color(0xFF6366F1),
+                                ),
+                              ),
+                            )
+                          : null,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // Reference Photo Details when Match Real Person Face is selected
+            if (_matchRealPersonLikeness) ...[
+              const SizedBox(height: 12),
+              if (effectiveRefBytes != null && effectiveRefBytes.isNotEmpty) ...[
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF10B981).withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.memory(
+                          effectiveRefBytes,
+                          width: 48,
+                          height: 48,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(Icons.check_circle, size: 14, color: Color(0xFF10B981)),
+                                const SizedBox(width: 4),
+                                Text(
+                                  _referenceImageSourceLabel ?? 'Reference Photo Ready',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Face structure will be captured and styled into poster art.',
+                              style: TextStyle(fontSize: 10.5, color: theme.colorScheme.onSurfaceVariant),
+                            ),
+                          ],
+                        ),
+                      ),
+                      OutlinedButton(
+                        onPressed: () => _showReferencePhotoPickerSheet(context),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          visualDensity: VisualDensity.compact,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        child: const Text('Change', style: TextStyle(fontSize: 11)),
+                      ),
+                    ],
+                  ),
+                ),
+              ] else ...[
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: const [
+                          Icon(Icons.add_photo_alternate_outlined, size: 16, color: Colors.amber),
+                          SizedBox(width: 6),
+                          Text(
+                            'Attach Reference Photo',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.amber),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Upload a portrait photo or snap the person\'s photo to preserve their facial likeness.',
+                        style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurfaceVariant),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          FilledButton.icon(
+                            onPressed: () => _pickReferencePhoto(ImageSource.camera),
+                            icon: const Icon(Icons.camera_alt, size: 14),
+                            label: const Text('Camera', style: TextStyle(fontSize: 11)),
+                            style: FilledButton.styleFrom(
+                              visualDensity: VisualDensity.compact,
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          OutlinedButton.icon(
+                            onPressed: () => _pickReferencePhoto(ImageSource.gallery),
+                            icon: const Icon(Icons.photo_library, size: 14),
+                            label: const Text('Gallery', style: TextStyle(fontSize: 11)),
+                            style: OutlinedButton.styleFrom(
+                              visualDensity: VisualDensity.compact,
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
           ],
         ),
+      ),
+    );
+  }
+
+  // ================= STEP 3: Streamlined Result Poster =================
+
+  Widget _buildStep3ResultPoster(ThemeData theme) {
+    if (_generatedItem == null) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        CarouselPosterStudio(
+          key: _carouselStudioKey,
+          item: _generatedItem!,
+          config: PosterStyleConfig.getPreset(_currentStyle),
+          showShareActions: false,
+          pageController: _carouselStudioPageController,
+        ),
+
+        const SizedBox(height: 16),
+
+        // 5 Focused Actions: Download, Save, Share, Edit, Regenerate
+        _buildResultActionPanel(theme),
       ],
     );
   }
 
-  /// Slide 2 Editing Section (Stance Title / Kicker, Curator Take, Why It Matters, Standout Metric)
-  Widget _buildSlide2EditSection(ThemeData theme) {
+  Widget _buildResultActionPanel(ThemeData theme) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          margin: const EdgeInsets.only(bottom: 12),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF59E0B).withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.25)),
-          ),
-          child: const Row(
-            children: [
-              Icon(Icons.bolt_rounded, size: 14, color: Color(0xFFF59E0B)),
-              SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  'Slide 2: You have 100% freedom to edit every word and tone down any strong AI phrasing.',
-                  style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w500),
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        // Stance Title / Kicker (replaces "Shameless Wealth As A Badge Of Honor" or other strong words)
-        TextField(
-          controller: _s2TitleController,
-          onChanged: (_) => _syncEditedFields(),
-          decoration: InputDecoration(
-            labelText: 'Slide 2: Stance Title / Kicker Tag',
-            hintText: 'e.g. WEALTH AS POLITICAL CURRENCY',
-            helperText: 'Shown above your opinion. Edit freely to ensure appropriate tone.',
-            helperStyle: TextStyle(fontSize: 11, color: theme.colorScheme.onSurfaceVariant),
-            prefixIcon: const Icon(Icons.label_outline_rounded),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-            filled: true,
-            fillColor: theme.colorScheme.surface,
-          ),
-        ),
-        const SizedBox(height: 12),
-
-        // Curator Opinion Body
-        TextField(
-          controller: _opinionController,
-          onChanged: (_) => _syncEditedFields(),
-          decoration: InputDecoration(
-            labelText: 'Slide 2: Curator Opinion Body (Your Stance)',
-            hintText: 'State your direct verdict and critique...',
-            helperText: '💡 Keep under ~25-30 words (2 complete sentences ending in a period) to end cleanly on poster.',
-            helperStyle: TextStyle(fontSize: 11, color: theme.colorScheme.onSurfaceVariant),
-            prefixIcon: const Icon(Icons.bolt_outlined),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-            filled: true,
-            fillColor: theme.colorScheme.surface,
-          ),
-          maxLines: 3,
-        ),
-        const SizedBox(height: 12),
-
-        // Why It Matters Callout
-        TextField(
-          controller: _s2WhyItMattersController,
-          onChanged: (_) => _syncEditedFields(),
-          decoration: InputDecoration(
-            labelText: 'Slide 2: WHY IT MATTERS Callout',
-            hintText: 'The practical stakes or consequence for readers...',
-            helperText: '1 punchy sentence ending in a period.',
-            helperStyle: TextStyle(fontSize: 11, color: theme.colorScheme.onSurfaceVariant),
-            prefixIcon: const Icon(Icons.lightbulb_outline_rounded),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-            filled: true,
-            fillColor: theme.colorScheme.surface,
-          ),
-          maxLines: 2,
-        ),
-        const SizedBox(height: 12),
-
-        // Key Stat / Standout Metric
-        TextField(
-          controller: _metricController,
-          onChanged: (_) => _syncEditedFields(),
-          decoration: InputDecoration(
-            labelText: 'Key Stat / Standout Metric (Optional)',
-            hintText: 'e.g. +42%, ₹10,000 Cr, 10x',
-            prefixIcon: const Icon(Icons.query_stats_rounded),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-            filled: true,
-            fillColor: theme.colorScheme.surface,
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// Slide 3 Editing Section (Source Masthead, Headline, 3 Excerpts, Highlight Quote, Link)
-  Widget _buildSlide3EditSection(ThemeData theme) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          margin: const EdgeInsets.only(bottom: 12),
-          decoration: BoxDecoration(
-            color: const Color(0xFF6366F1).withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: const Color(0xFF6366F1).withValues(alpha: 0.25)),
-          ),
-          child: const Row(
-            children: [
-              Icon(Icons.newspaper_outlined, size: 14, color: Color(0xFF6366F1)),
-              SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  'Slide 3: Verbatim source coverage proving primary source truth. Edit headline and receipts.',
-                  style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w500),
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        // Masthead Publication & Digital Link
+        // Primary Row: Download to Gallery & Save to My Posts
         Row(
           children: [
             Expanded(
-              flex: 4,
-              child: TextField(
-                controller: _s3PublicationController,
-                onChanged: (_) => _syncEditedFields(),
-                decoration: InputDecoration(
-                  labelText: 'Masthead Name',
-                  hintText: 'The Financial Chronicle',
-                  prefixIcon: const Icon(Icons.menu_book_rounded, size: 18),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  filled: true,
-                  fillColor: theme.colorScheme.surface,
+              child: FilledButton.icon(
+                onPressed: _isExporting ? null : _downloadCarouselToGallerySlant,
+                icon: const Icon(Icons.download_rounded, size: 18),
+                label: const Text(
+                  'Download\n(Gallery Slant)',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                ),
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF0F172A),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
-              flex: 5,
-              child: TextField(
-                controller: _linkController,
-                onChanged: (_) => _syncEditedFields(),
-                decoration: InputDecoration(
-                  labelText: 'Digital Link (URL)',
-                  hintText: 'https://...',
-                  prefixIcon: const Icon(Icons.link, size: 18),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  filled: true,
-                  fillColor: theme.colorScheme.surface,
+              child: FilledButton.icon(
+                onPressed: _saveToMyPosts,
+                icon: const Icon(Icons.bookmark_added_outlined, size: 18),
+                label: const Text(
+                  'Save\n(My Posts)',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                ),
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF6366F1),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
               ),
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 10),
 
-        // Original Article Headline
-        TextField(
-          controller: _s3HeadlineController,
-          onChanged: (_) => _syncEditedFields(),
-          decoration: InputDecoration(
-            labelText: 'Slide 3: Original Broadsheet Headline',
-            hintText: 'Verbatim headline from newspaper...',
-            prefixIcon: const Icon(Icons.newspaper_rounded),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-            filled: true,
-            fillColor: theme.colorScheme.surface,
+        // Secondary Row: Share & Edit
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _isExporting ? null : _shareCarousel,
+                icon: const Icon(Icons.share_rounded, color: Color(0xFF25D366), size: 18),
+                label: const Text('Share Carousel', style: TextStyle(fontWeight: FontWeight.bold)),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () => _showEditPosterModalBottomSheet(context),
+                icon: const Icon(Icons.edit_note_rounded, size: 18),
+                label: const Text('Edit Content', style: TextStyle(fontWeight: FontWeight.bold)),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+
+        // Tertiary Action: Regenerate
+        TextButton.icon(
+          onPressed: _handleRegenerate,
+          icon: const Icon(Icons.refresh_rounded, size: 18),
+          label: const Text(
+            'Regenerate (Tweak Angle & Visual Cues)',
+            style: TextStyle(fontWeight: FontWeight.w600),
           ),
-          maxLines: 2,
+        ),
+        const SizedBox(height: 10),
+        Container(
+          height: 1,
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.35),
         ),
         const SizedBox(height: 12),
 
-        // Excerpt 1
-        TextField(
-          controller: _s3Excerpt1Controller,
-          onChanged: (_) => _syncEditedFields(),
-          decoration: InputDecoration(
-            labelText: 'Excerpt 1: Baseline News Reporting',
-            hintText: 'Lead reporting establishing facts...',
-            prefixIcon: const Icon(Icons.format_quote_rounded),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-            filled: true,
-            fillColor: theme.colorScheme.surface,
+        // Finish & Return to Home Feed
+        FilledButton.tonalIcon(
+          onPressed: () => _returnToHome(targetTabIndex: 0),
+          icon: const Icon(Icons.home_rounded, size: 20),
+          label: const Text(
+            'Done • Return to Home Feed',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
           ),
-          maxLines: 3,
-        ),
-        const SizedBox(height: 12),
-
-        // Excerpt 2
-        TextField(
-          controller: _s3Excerpt2Controller,
-          onChanged: (_) => _syncEditedFields(),
-          decoration: InputDecoration(
-            labelText: 'Excerpt 2: Core Evidence / Crucial Quote',
-            hintText: 'Pivotal revelation or data excerpt...',
-            prefixIcon: const Icon(Icons.format_quote_rounded),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-            filled: true,
-            fillColor: theme.colorScheme.surface,
+          style: FilledButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
-          maxLines: 3,
-        ),
-        const SizedBox(height: 12),
-
-        // Excerpt 3
-        TextField(
-          controller: _s3Excerpt3Controller,
-          onChanged: (_) => _syncEditedFields(),
-          decoration: InputDecoration(
-            labelText: 'Excerpt 3: Corroborating Context',
-            hintText: 'Official records, broader systemic context...',
-            prefixIcon: const Icon(Icons.format_quote_rounded),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-            filled: true,
-            fillColor: theme.colorScheme.surface,
-          ),
-          maxLines: 3,
-        ),
-        const SizedBox(height: 12),
-
-        // Highlight Evidence Quote
-        TextField(
-          controller: _receiptQuoteController,
-          onChanged: (_) => _syncEditedFields(),
-          decoration: InputDecoration(
-            labelText: 'Highlighted Evidence Quote (Yellow Callout Badge)',
-            hintText: 'The single most crucial verbatim sentence...',
-            prefixIcon: const Icon(Icons.highlight_rounded),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-            filled: true,
-            fillColor: theme.colorScheme.surface,
-          ),
-          maxLines: 2,
         ),
       ],
     );
@@ -3766,7 +2730,7 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
             ),
             const SizedBox(height: 28),
             Text(
-              'Creating Your PostCard',
+              'Crafting Social Carousel',
               style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
@@ -3785,7 +2749,7 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(
-                'Adapting for: $_targetAudience',
+                'Synthesizing 3-Poster Deck',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
