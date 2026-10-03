@@ -58,7 +58,7 @@ header {
 
 .nav-inner {
   width: 100%;
-  max-width: 640px;
+  max-width: 500px;
   padding: 14px 18px;
   display: flex;
   align-items: center;
@@ -156,7 +156,7 @@ header {
 /* Search Box */
 .search-container {
   width: 100%;
-  max-width: 640px;
+  max-width: 500px;
   padding: 0 16px 10px;
 }
 
@@ -195,7 +195,7 @@ header {
 /* Filter Bar */
 .filter-bar {
   width: 100%;
-  max-width: 640px;
+  max-width: 500px;
   padding: 0 16px 12px;
   display: flex;
   gap: 8px;
@@ -225,11 +225,11 @@ header {
 /* Feed Container */
 .feed-container {
   width: 100%;
-  max-width: 600px;
+  max-width: 480px;
   display: flex;
   flex-direction: column;
-  gap: 26px;
-  padding: 20px 14px;
+  gap: 24px;
+  padding: 16px 14px;
 }
 
 /* Post Card */
@@ -1529,20 +1529,17 @@ header {
 
 .receipt-spacer-top {
   flex: 1;
-  min-height: 6px;
-  max-height: 16px;
+  min-height: 8px;
 }
 
 .receipt-spacer-mid {
   flex: 2;
-  min-height: 12px;
-  max-height: 24px;
+  min-height: 14px;
 }
 
 .receipt-spacer-bottom {
   flex: 1;
-  min-height: 6px;
-  max-height: 16px;
+  min-height: 8px;
 }
 
 .receipt-p1 {

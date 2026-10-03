@@ -362,7 +362,7 @@ class WebFeedServer {
     /* Main Feed Layout */
     .feed-container {
       width: 100%;
-      max-width: 560px;
+      max-width: 480px;
       display: flex;
       flex-direction: column;
       gap: 22px;
