@@ -724,7 +724,8 @@ header {
   opacity: 0;
   transition: opacity 0.25s ease;
 }
-.modal-overlay.open {
+.modal-overlay.open,
+.modal-overlay.active {
   display: flex;
   opacity: 1;
 }

@@ -235,6 +235,7 @@ function openAuthModal(customDesc) {
     descEl.textContent = 'Sign in to save your favorite visual stories, customize your reading atmosphere, and publish your own editorials.';
   }
   if (modal) {
+    modal.classList.add('open');
     modal.classList.add('active');
   }
   const themeMenu = document.getElementById('themeDropdownMenu');
@@ -245,7 +246,10 @@ function openAuthModal(customDesc) {
 
 function closeAuthModal() {
   const modal = document.getElementById('authModal');
-  if (modal) modal.classList.remove('active');
+  if (modal) {
+    modal.classList.remove('open');
+    modal.classList.remove('active');
+  }
 }
 
 function handleAuthOverlayClick(e) {
