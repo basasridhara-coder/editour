@@ -9,12 +9,15 @@ const SUPABASE_KEY = 'sb_publishable_n90rXQfEukf2gdisKe_jGg_Cybk2r-m';
 
 let fallbackPosts = [];
 try {
+  const slantPath = path.join(__dirname, '../public/slant_feed.json');
   const dataPath = path.join(__dirname, '../public/postcards_data.json');
-  if (fs.existsSync(dataPath)) {
+  if (fs.existsSync(slantPath)) {
+    fallbackPosts = JSON.parse(fs.readFileSync(slantPath, 'utf8'));
+  } else if (fs.existsSync(dataPath)) {
     fallbackPosts = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
   }
 } catch (e) {
-  console.warn('Could not read postcards_data.json:', e);
+  console.warn('Could not read slant_feed.json:', e);
 }
 
 module.exports = async function handler(req, res) {

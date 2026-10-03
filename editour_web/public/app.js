@@ -461,57 +461,81 @@ function showTemporaryToast(message) {
 }
 
 async function loadPosts() {
-  // 1. Primary: Direct Supabase Cloud Database (Fast Initial Batch of 12 latest posts)
+  // 1. Instant Cache-First: Load pre-built lightweight slant_feed.json (140 KB, renders in ~20ms!)
+  let loadedFromCache = false;
   try {
-    const resp = await fetch(`${SUPABASE_URL}/rest/v1/posts?select=*&order=created_at.desc&limit=12`, {
+    const fastResp = await fetch('slant_feed.json');
+    if (fastResp.ok) {
+      const posts = await fastResp.json();
+      if (Array.isArray(posts) && posts.length > 0) {
+        allPosts = posts.filter(p => p && !p.deleted && !p.isDeleted && (p.adaptedHeadline || p.originalHeadline || p.summary));
+        updateBadge(true, `Live Feed (${allPosts.length} posts)`);
+        updateAuthUI();
+        renderFeed();
+        loadedFromCache = true;
+      }
+    }
+  } catch (e) {
+    console.warn('Could not load slant_feed.json, trying live Supabase:', e);
+  }
+
+  // 2. Asynchronously check Supabase in background for any new posts published from mobile/web
+  checkLiveSupabaseUpdates(!loadedFromCache);
+}
+
+async function checkLiveSupabaseUpdates(forceRender = false) {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4500); // 4.5s safe timeout so it never hangs
+
+    const resp = await fetch(`${SUPABASE_URL}/rest/v1/posts?select=*&order=created_at.desc&limit=15`, {
+      signal: controller.signal,
       headers: {
         'apikey': SUPABASE_KEY,
         'Authorization': `Bearer ${SUPABASE_KEY}`
       }
     });
+    clearTimeout(timeoutId);
+
     if (resp.ok) {
       const rows = await resp.json();
       if (Array.isArray(rows) && rows.length > 0) {
-        allPosts = rows.map(r => r.data || r).filter(p => p && !p.deleted && !p.isDeleted && (p.adaptedHeadline || p.originalHeadline || p.summary));
-        updateBadge(true, `Live Feed (${allPosts.length} posts)`);
-        updateAuthUI();
-        renderFeed();
-
-        // Progressively fetch remaining historical posts in background
-        loadRemainingPosts();
+        const livePosts = rows.map(r => r.data || r).filter(p => p && !p.deleted && !p.isDeleted && (p.adaptedHeadline || p.originalHeadline || p.summary));
+        const existingIds = new Set(allPosts.map(p => p.id));
+        let newCount = 0;
+        for (const lp of livePosts) {
+          if (!existingIds.has(lp.id)) {
+            allPosts.unshift(lp);
+            existingIds.add(lp.id);
+            newCount++;
+          }
+        }
+        if (newCount > 0 || forceRender) {
+          updateBadge(true, `Live Feed (${allPosts.length} posts)`);
+          updateAuthUI();
+          renderFeed();
+        }
         return;
       }
     }
-  } catch (e) {
-    console.warn('Supabase fetch error, checking local fallback:', e);
+  } catch (err) {
+    console.info('Supabase background sync completed or timed out.');
   }
 
-  // 2. Secondary fallback: local postcards_data.json (synced with actual app posts)
-  try {
-    const localResp = await fetch('postcards_data.json');
-    if (localResp.ok) {
-      allPosts = await localResp.json();
-      updateBadge(true, `Local Feed (${allPosts.length} posts)`);
-      updateAuthUI();
-      renderFeed();
-      return;
-    }
-  } catch (_) {}
-
-  // 3. Tertiary fallback: /api/posts
-  try {
-    const resp = await fetch('/api/posts');
-    if (resp.ok) {
-      const data = await resp.json();
-      if (data && data.posts && data.posts.length > 0) {
-        allPosts = data.posts;
-        updateBadge(true, `Live Feed (${allPosts.length} posts)`);
-        updateAuthUI();
-        renderFeed();
+  // 3. Fallback to /api/posts if nothing loaded yet
+  if (!allPosts || allPosts.length === 0) {
+    try {
+      const resp = await fetch('/api/posts');
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data && data.posts && data.posts.length > 0) {
+          allPosts = data.posts;
+          updateBadge(true, `Live Feed (${allPosts.length} posts)`);
+          updateAuthUI();
+          renderFeed();
+        }
       }
-    }
-  } catch (e) {
-    console.warn('Could not fetch from /api/posts:', e);
+    } catch (_) {}
   }
 }
 
@@ -718,7 +742,9 @@ function buildSlide1Html(post, index) {
   }
 
   let bgHtml = '';
-  if (post.illustrationBase64) {
+  if (post.illustrationUrl) {
+    bgHtml = `<img class="slide-hook-bg" src="${escapeHtml(post.illustrationUrl)}" alt="${headline}" loading="lazy">`;
+  } else if (post.illustrationBase64) {
     bgHtml = `<img class="slide-hook-bg" src="data:image/jpeg;base64,${post.illustrationBase64}" alt="${headline}" loading="lazy">`;
   } else {
     // Rich geometric editorial cover matching mobile SlideHookPoster
@@ -810,7 +836,9 @@ function buildSlide2Html(post, index) {
     : "THE CRITICAL PERSPECTIVE";
 
   let bgHtml = '';
-  if (post.illustrationBase64) {
+  if (post.illustrationUrl) {
+    bgHtml = `<img class="slide-hook-bg" src="${escapeHtml(post.illustrationUrl)}" alt="${slideTitle}" loading="lazy">`;
+  } else if (post.illustrationBase64) {
     bgHtml = `<img class="slide-hook-bg" src="data:image/jpeg;base64,${post.illustrationBase64}" alt="${slideTitle}" loading="lazy">`;
   } else {
     bgHtml = `
@@ -962,7 +990,8 @@ function createPostCardElement(post, index) {
   const isBook = post.sourceType === 'book_excerpt';
   const isCarousel = true;
   const isClean = !!cleanViewState[index];
-  const hasPaperCut = (post.originalPhotoBase64 && post.originalPhotoBase64.length > 50) || 
+  const hasPaperCut = (post.originalPhotoUrl && post.originalPhotoUrl.length > 0) ||
+                      (post.originalPhotoBase64 && post.originalPhotoBase64.length > 50) || 
                       (post.originalPhotoPath && 
                       !post.originalPhotoPath.startsWith('http') && 
                       post.originalPhotoPath !== 'digital_article_link' && 
@@ -1294,7 +1323,9 @@ function openPaperCutModal(index) {
   const archivalCard = document.getElementById('paperCutArchivalCard');
 
   let imgSrc = '';
-  if (post.originalPhotoBase64 && post.originalPhotoBase64.length > 50) {
+  if (post.originalPhotoUrl) {
+    imgSrc = post.originalPhotoUrl;
+  } else if (post.originalPhotoBase64 && post.originalPhotoBase64.length > 50) {
     imgSrc = post.originalPhotoBase64.startsWith('data:') 
       ? post.originalPhotoBase64 
       : 'data:image/jpeg;base64,' + post.originalPhotoBase64;
