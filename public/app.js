@@ -393,36 +393,56 @@ function buildSlide3Html(post, index) {
   const p3 = escapeHtml(paragraphs[2]);
 
   return `
+    <!-- Forensic "VERIFIED PRESS EVIDENCE" Weathered Red Rubber Stamp -->
+    <div class="stamp-verified">
+      <div>★ VERIFIED ★</div>
+      <div>PRESS EVIDENCE</div>
+    </div>
+
     <div class="receipt-header">
       <div style="width:100%; height:2.2px; background:#0F172A; margin-bottom:2px;"></div>
       <div style="width:100%; height:0.7px; background:#475569; margin-bottom:4px;"></div>
-      <div class="receipt-pub-title" style="margin:2px 0 3px;">${pubName}</div>
-      <div class="receipt-rules" style="margin-bottom:6px;">
+      <div class="receipt-pub-title">${pubName.toUpperCase()}</div>
+      <div class="receipt-rules">
         <span>VOL. CLXXIV • NO. 48,210</span>
-        <span>ACTUAL NEWSPAPER EXCERPTS</span>
+        <span style="font-weight:900; color:#0F172A; letter-spacing:0.8px;">ACTUAL NEWSPAPER EXCERPTS</span>
         <span>SLIDE 03 / 03</span>
       </div>
-      <h4 class="receipt-headline" style="margin-bottom:4px;">"${headline}"</h4>
+      <div style="width:100%; height:1.2px; background:#0F172A; margin-bottom:6px;"></div>
+      
+      <div class="receipts-headline-box">
+        <h4 class="receipt-headline">"${headline}"</h4>
+        <div class="receipts-byline">
+          <span>BY SPECIAL CORRESPONDENT & WIRE BUREAU</span>
+          <span class="receipts-archive-tag">★ VERIFIED ARCHIVE</span>
+        </div>
+        <div class="receipts-hairline"></div>
+      </div>
     </div>
     
-    <div class="receipt-paragraphs" style="flex:1; display:flex; flex-direction:column; justify-content:space-between; margin:4px 0 6px;">
-      <p style="font-family:serif; font-size:10.5px; color:#1E293B; line-height:1.32; margin:0;">${p1}</p>
+    <div class="receipt-paragraphs">
+      <p class="receipt-p1">${p1}</p>
 
-      <div class="receipt-highlight" style="margin:3px 0; padding:6px 9px; background:#FEF08A; border-left:3.5px solid #CA8A04; border-radius:3px; font-family:serif; font-size:11px; font-weight:800; color:#0F172A; line-height:1.3;">
-        <div style="font-size:7.5px; font-weight:900; color:#854D0E; letter-spacing:0.8px; margin-bottom:2px; font-family:'Inter',sans-serif;">KEY SECTION EXCERPT</div>
-        “${p2}”
+      <div class="receipt-highlight">
+        <div class="highlighter-label">
+          <span>✏️</span> KEY SECTION EXCERPT
+        </div>
+        <div class="highlighter-text">“${p2}”</div>
       </div>
 
-      <p style="font-family:serif; font-size:10.5px; color:#334155; line-height:1.32; margin:0;">${p3}</p>
+      <p class="receipt-p3">${p3}</p>
     </div>
 
-    <div class="receipt-footer" style="display:flex; justify-content:space-between; align-items:center; padding-top:5px; border-top:1px solid #0F172A;">
-      <span class="receipt-verified-badge" style="font-size:8px; font-weight:800; color:#15803D; letter-spacing:0.4px;">
-        <span>✓</span> <span>AUTHENTIC EXCERPTS • PRIMARY SOURCE</span>
-      </span>
-      <span style="font-size:8px; font-weight:800; color:#475569; letter-spacing:0.4px;">
-        ARCHIVED BY ${handle}
-      </span>
+    <div class="receipt-footer">
+      <div class="receipt-folio-rule"></div>
+      <div class="receipt-folio-text">
+        <span class="receipt-verified-badge">
+          <span>✓</span> <span>AUTHENTIC ARTICLE EXCERPTS • PRIMARY SOURCE</span>
+        </span>
+        <span style="font-size:7.5px; font-weight:800; color:#475569; letter-spacing:0.4px;">
+          ARCHIVED BY ${handle} • EDITOUR.APP
+        </span>
+      </div>
     </div>
   `;
 }

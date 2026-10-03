@@ -836,8 +836,8 @@ class WebFeedServer {
       flex: 1;
       display: flex;
       flex-direction: column;
-      justify-content: space-evenly;
-      gap: 6px;
+      justify-content: center;
+      gap: 12px;
       margin: 4px 0;
     }
     .receipts-p1 {
