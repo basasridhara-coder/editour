@@ -120,6 +120,66 @@
     "illustrationUrl": "/illustrations/bb5114c8-da15-4af9-afaf-70a577cc6e4a.jpg"
   },
   {
+    "id": "9b55d7ea-8a78-4ef1-a068-cec226e200fd",
+    "hook": "Mobile phone, sim cards and cash found again in Bengaluru Central Prison",
+    "tone": "Balanced & Engaging",
+    "summary": "Raids uncovered cash, phones, and SIM cards inside Bengaluru Central Prison barracks.\n\nCorrectional facilities are designed to foster moral reflection and behavioral reform. Instead, illicit luxuries reduce deterrence into an uninterrupted holiday for networked criminals.",
+    "hookCues": "#1 [HERO - PRIMARY DOMINANT SUBJECT FOCUS]: Lounging convict scrolling smartphone\n#2 [MOTIF - CORE EDITORIAL METAPHOR & STANCE]: Prison bars framing resort lounger\n#3 [TENSION - CONFLICTING FORCE & STAKES]: Discarded rehabilitation books and wires\n#4 [ATMOSPHERE - ENVIRONMENTAL SETTING & SCALE]: Grim cell turned luxury suite\n#5 [LIGHTING - CHIAROSCURO & DRAMATIC MOOD]: Harsh neon and phone glow\n#6 [STYLE - ARTISTIC MEDIUM & POSTER GRAMMAR]: Satirical Editorial Risograph Print",
+    "bookTitle": null,
+    "createdAt": "2026-10-02T09:48:34.731928+00:00",
+    "keyMetric": "September 30, 2024 • Bengaluru City Edition",
+    "pullQuote": "Officials found Rs 8,500 in cash inside a bag kept in the toilet.",
+    "bookAuthor": null,
+    "postFormat": "carousel_trio",
+    "sourceType": "photo",
+    "visualMood": "dark",
+    "digitalLink": null,
+    "posterStyle": "editorial",
+    "userContext": "Jails which are supposed to be helping those convicts to change their mindset for better human being through self reflection are having access to mobiles Sims and what not... Jails are like resorts for convicts  to take a break",
+    "curatorAngle": null,
+    "keyTakeaways": [
+      "The Collapse Of Penal Reform",
+      "Compromised prisons destroy public faith in equal judicial punishment."
+    ],
+    "whyItMatters": "Compromised prisons destroy public faith in equal judicial punishment.",
+    "categoryBadge": "BENGALURU PRISON BREACH",
+    "creatorHandle": "@shri",
+    "isUserCreated": true,
+    "creatorOpinion": "Jails which are supposed to be helping those convicts to change their mindset for better human being through self reflection are having access to mobiles Sims and what not... Jails are like resorts for convicts  to take a break",
+    "targetAudience": "General Public",
+    "visualArtRatio": 0.65,
+    "adaptedHeadline": "When Confinement Turns Into An All-Inclusive Getaway",
+    "articleExcerpts": [
+      "Another security breach has come to light at Central Prison, Parappana Agrahara, with the authorities recovering a mobile phone, three sim cards, and cash from the prison premises. Superintendent BM Kotresh has filed two complaints with Parappana Agrahara police.",
+      "A surprise inspection led to the recoveries on Sept 29 between 1pm and 2pm in Tower-2, C-Barrack, Room No. 4, where they found a keypad mobile phone without a sim card inside the bag of convict prisoner Malatesha.",
+      "In another inspection of room 7 on Sept 28 between 11am and 1.15pm, officials found Rs 8,500 in cash inside a bag kept in the toilet. The complaint seeks action against those who allegedly smuggled the cash into the prison."
+    ],
+    "bookCoverBase64": null,
+    "infographicType": "metric_spotlight",
+    "publicationName": "The Times of India",
+    "infographicStats": [
+      "BENGALURU PRISON BREACH",
+      "The Times of India",
+      "September 30, 2024 • Bengaluru City Edition"
+    ],
+    "originalHeadline": "Mobile phone, sim cards and cash found again in Bengaluru Central Prison",
+    "originalPhotoPath": "/data/user/0/com.postcard.app/cache/image_cropper_1790933544070.jpg",
+    "bookCoverPhotoPath": null,
+    "illustrationPrompt": "Satirical editorial risograph print of a convict lounging comfortably, lazily scrolling a glowing smartphone in a dimly lit cell. Prominent iron prison bars open up like luxury resort cabana pillars around him. Discarded rehabilitation books, loose charging wires, and illicit cash sit neglected on a concrete bench. Grim stone institutional masonry blended with plush resort lounger aesthetics. Dramatic noir chiaroscuro lighting, harsh blue glow from the mobile screen clashing with sickly neon green prison corridor light. Upper 65% visually dense and dominant, bottom 35% dark, clean, negative space. No text, no letters, no words, no typos, no watermark.",
+    "renderedPosterPath": "/data/user/0/com.postcard.app/app_flutter/postcard_media/illus_9b55d7ea-8a78-4ef1-a068-cec226e200fd.png",
+    "bookExcerptPhotoPaths": [],
+    "receiptHighlightQuote": "Officials found Rs 8,500 in cash inside a bag kept in the toilet.",
+    "resolvedArticleExcerpts": [
+      "Another security breach has come to light at Central Prison, Parappana Agrahara, with the authorities recovering a mobile phone, three sim cards, and cash from the prison premises. Superintendent BM Kotresh has filed two complaints with Parappana Agrahara police.",
+      "A surprise inspection led to the recoveries on Sept 29 between 1pm and 2pm in Tower-2, C-Barrack, Room No. 4, where they found a keypad mobile phone without a sim card inside the bag of convict prisoner Malatesha.",
+      "In another inspection of room 7 on Sept 28 between 11am and 1.15pm, officials found Rs 8,500 in cash inside a bag kept in the toilet. The complaint seeks action against those who allegedly smuggled the cash into the prison."
+    ],
+    "curatorIllustrationBase64": null,
+    "curatorIllustrationPrompt": "Correctional facilities are designed to foster moral reflection and behavioral reform. Instead, illicit luxuries reduce deterrence into an uninterrupted holiday for networked criminals.",
+    "illustrationUrl": "/illustrations/9b55d7ea-8a78-4ef1-a068-cec226e200fd.jpg",
+    "originalPhotoUrl": "/clippings/9b55d7ea-8a78-4ef1-a068-cec226e200fd.jpg"
+  },
+  {
     "id": "9a9a239d-3865-4f6c-9aa8-db0bf8771588",
     "hook": "Result of 500 years of struggle and determination: Ram Janmbhoomi Trust shares glimpses of under-construction Ram temple",
     "tone": "Balanced & Engaging",
