@@ -6,7 +6,7 @@ let activePostIndex = null;
 // ============================================================
 // READING ATMOSPHERE CONTROLLER (Daylight Paper / Obsidian / Auto)
 // ============================================================
-let currentAtmospherePref = localStorage.getItem('editour_atmosphere_mode') || 'auto';
+let currentAtmospherePref = localStorage.getItem('slant_atmosphere_mode') || localStorage.getItem('editour_atmosphere_mode') || 'auto';
 
 function getEffectiveAtmosphere(pref) {
   if (pref === 'daylight') return 'daylight';
@@ -47,7 +47,7 @@ function applyAtmosphere(pref) {
     }
   });
 
-  localStorage.setItem('editour_atmosphere_mode', currentAtmospherePref);
+  localStorage.setItem('slant_atmosphere_mode', currentAtmospherePref);
 }
 
 function toggleThemeMenu(e) {
@@ -107,7 +107,7 @@ if (window.supabase && typeof window.supabase.createClient === 'function') {
 
 // User session state & saved bookmarks
 let currentUser = null;
-let savedPostIds = new Set(JSON.parse(localStorage.getItem('editour_saved_posts') || '[]'));
+let savedPostIds = new Set(JSON.parse(localStorage.getItem('slant_saved_posts') || localStorage.getItem('editour_saved_posts') || '[]'));
 
 // ============================================================
 // AUTHENTICATION & USER PROFILE CONTROLLER
@@ -397,6 +397,7 @@ function toggleBookmark(event, postId) {
     }
   }
 
+  localStorage.setItem('slant_saved_posts', JSON.stringify(Array.from(savedPostIds)));
   localStorage.setItem('editour_saved_posts', JSON.stringify(Array.from(savedPostIds)));
 
   // Update button in place
@@ -420,10 +421,10 @@ function toggleBookmark(event, postId) {
 }
 
 function showTemporaryToast(message) {
-  let toast = document.getElementById('editourToast');
+  let toast = document.getElementById('slantToast') || document.getElementById('editourToast');
   if (!toast) {
     toast = document.createElement('div');
-    toast.id = 'editourToast';
+    toast.id = 'slantToast';
     toast.style.cssText = `
       position: fixed;
       bottom: 24px;
