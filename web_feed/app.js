@@ -366,31 +366,30 @@ function buildSlide2Html(post, index) {
 }
 
 function buildSlide3Html(post, index) {
-  const pubName = escapeHtml(post.publicationName || 'THE FINANCIAL CHRONICLE');
+  let pubName = post.publicationName || 'THE FINANCIAL CHRONICLE';
+  if (pubName.includes('•')) {
+    const parts = pubName.split('•');
+    pubName = parts[parts.length - 1].trim();
+  }
+  pubName = pubName.replace(/^(NEWSPAPER|ARTICLE|BOOK|MAGAZINE|PRESS):\s*/i, '').trim();
+  if (!pubName) pubName = 'THE NEW INDIAN EXPRESS';
+  pubName = escapeHtml(pubName.toUpperCase());
+
   const headline = escapeHtml(post.originalHeadline || post.adaptedHeadline || 'Original News Source');
   const quote = escapeHtml(post.receiptHighlightQuote || post.pullQuote || 'Primary reporting confirmed that recorded structural indicators diverged sharply from initial forecasts across core operations.');
   const handle = escapeHtml(post.creatorHandle || '@curator');
 
   // Extract 3 section excerpt statements
-  let paragraphs = post.articleExcerpts || [];
-  if (!paragraphs || paragraphs.length < 3) {
+  let excerpts = post.resolvedArticleExcerpts || post.articleExcerpts || [];
+  if (!Array.isArray(excerpts) || excerpts.length === 0) {
     if (post.summary) {
       const extra = post.summary.split(/\n\s*\n/).map(p => p.trim()).filter(p => p.length > 20);
-      paragraphs = [...paragraphs, ...extra];
+      excerpts = [...extra];
     }
   }
-  if (paragraphs.length < 3) {
-    paragraphs.push(
-      paragraphs.length === 0 ? quote : 'Detailed analysis across verified reporting channels confirmed the ongoing broader strategic implications.'
-    );
-  }
-  if (paragraphs.length < 3) {
-    paragraphs.push('Corroborating records confirmed key indicators aligned with official administrative filings.');
-  }
-
-  const p1 = escapeHtml(paragraphs[0] || quote);
-  const p2 = escapeHtml(paragraphs[1] || quote);
-  const p3 = escapeHtml(paragraphs[2]);
+  const p1 = escapeHtml((excerpts.length > 0 && excerpts[0]) ? excerpts[0] : quote);
+  const p2 = escapeHtml((excerpts.length > 1 && excerpts[1]) ? excerpts[1] : ((post.receiptHighlightQuote && post.receiptHighlightQuote !== p1) ? post.receiptHighlightQuote : quote));
+  const p3 = escapeHtml((excerpts.length > 2 && excerpts[2]) ? excerpts[2] : (post.summary && post.summary !== p1 && post.summary !== p2 ? post.summary : 'Corroborating records confirmed key indicators aligned with official administrative filings.'));
 
   return `
     <!-- Forensic "VERIFIED PRESS EVIDENCE" Weathered Red Rubber Stamp -->
@@ -399,49 +398,51 @@ function buildSlide3Html(post, index) {
       <div>PRESS EVIDENCE</div>
     </div>
 
+    <!-- 1. Classic Broadsheet Masthead Header -->
     <div class="receipt-header">
-      <div style="width:100%; height:2.2px; background:#0F172A; margin-bottom:2px;"></div>
-      <div style="width:100%; height:0.7px; background:#475569; margin-bottom:4px;"></div>
-      <div class="receipt-pub-title">${pubName.toUpperCase()}</div>
+      <div class="receipt-masthead-thick"></div>
+      <div class="receipt-masthead-thin"></div>
+      <div class="receipt-pub-title">${pubName}</div>
       <div class="receipt-rules">
         <span>VOL. CLXXIV • NO. 48,210</span>
-        <span style="font-weight:900; color:#0F172A; letter-spacing:0.8px;">ACTUAL NEWSPAPER EXCERPTS</span>
+        <span class="receipt-rules-center">ACTUAL NEWSPAPER EXCERPTS</span>
         <span>SLIDE 03 / 03</span>
       </div>
-      <div style="width:100%; height:1.2px; background:#0F172A; margin-bottom:6px;"></div>
-      
-      <div class="receipts-headline-box">
-        <h4 class="receipt-headline">"${headline}"</h4>
-        <div class="receipts-byline">
-          <span>BY SPECIAL CORRESPONDENT & WIRE BUREAU</span>
-          <span class="receipts-archive-tag">★ VERIFIED ARCHIVE</span>
-        </div>
-        <div class="receipts-hairline"></div>
-      </div>
+      <div class="receipt-masthead-bottom"></div>
     </div>
     
-    <div class="receipt-paragraphs">
-      <p class="receipt-p1">${p1}</p>
+    <!-- 2. Original Article Headline & Wire Byline -->
+    <div class="receipts-headline-box">
+      <h4 class="receipt-headline">${headline}</h4>
+      <div class="receipts-byline">
+        <span>BY SPECIAL CORRESPONDENT & WIRE BUREAU</span>
+        <span class="receipts-archive-tag">VERIFIED ARCHIVE</span>
+      </div>
+      <div class="receipts-hairline"></div>
+    </div>
 
+    <!-- 3. Continuous Actual Newspaper Excerpts (1:2:2:1 Spacer Distribution Matching App) -->
+    <div class="receipt-paragraphs">
+      <div class="receipt-spacer-top"></div>
+      <p class="receipt-p1">${p1}</p>
+      <div class="receipt-spacer-mid"></div>
       <div class="receipt-highlight">
         <div class="highlighter-label">
           <span>✏️</span> KEY SECTION EXCERPT
         </div>
         <div class="highlighter-text">“${p2}”</div>
       </div>
-
+      <div class="receipt-spacer-mid"></div>
       <p class="receipt-p3">${p3}</p>
+      <div class="receipt-spacer-bottom"></div>
     </div>
 
+    <!-- 4. Broadsheet Archival Bottom Folio -->
     <div class="receipt-footer">
       <div class="receipt-folio-rule"></div>
       <div class="receipt-folio-text">
-        <span class="receipt-verified-badge">
-          <span>✓</span> <span>AUTHENTIC ARTICLE EXCERPTS • PRIMARY SOURCE</span>
-        </span>
-        <span style="font-size:7.5px; font-weight:800; color:#475569; letter-spacing:0.4px;">
-          ARCHIVED BY ${handle} • EDITOUR.APP
-        </span>
+        <span class="receipt-folio-source">AUTHENTIC ARTICLE EXCERPTS • PRIMARY SOURCE</span>
+        <span class="receipt-folio-author">ARCHIVED BY ${handle}</span>
       </div>
     </div>
   `;

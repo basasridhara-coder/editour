@@ -1566,22 +1566,24 @@ class WebFeedServer {
                 <div class="receipts-headline">\${origHeadline}</div>
                 <div class="receipts-byline">
                   <span>BY SPECIAL CORRESPONDENT & WIRE BUREAU</span>
-                  <span class="receipts-archive-tag">★ VERIFIED ARCHIVE</span>
+                  <span class="receipts-archive-tag">VERIFIED ARCHIVE</span>
                 </div>
                 <div class="receipts-hairline"></div>
               </div>
 
               <div class="receipts-article-flow">
+                <div style="flex: 1; min-height: 6px; max-height: 16px;"></div>
                 <p class="receipts-p1">\${p1}</p>
-
+                <div style="flex: 2; min-height: 12px; max-height: 24px;"></div>
                 <div class="receipts-highlighter-box">
                   <div class="highlighter-label">
                     <span>✏️</span> KEY SECTION EXCERPT
                   </div>
                   <div class="highlighter-text">“\${p2}”</div>
                 </div>
-
+                <div style="flex: 2; min-height: 12px; max-height: 24px;"></div>
                 \${p3 ? `<p class="receipts-p3">\${p3}</p>` : ''}
+                <div style="flex: 1; min-height: 6px; max-height: 16px;"></div>
               </div>
 
               <div class="receipts-folio">
