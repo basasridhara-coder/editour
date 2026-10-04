@@ -25,21 +25,6 @@
         </div>
       </div>
       <div class="header-actions">
-        <div class="badge-status" id="connectionBadge" title="Active Editorial Stories">
-          <span class="pulse-dot"></span>
-          <span id="connectionText"><strong>30</strong> <span class="badge-unit">stories</span></span>
-        </div>
-        <!-- Reading Atmosphere Mode Selector Button -->
-        <button class="icon-btn theme-toggle-btn" id="themeToggleBtn" onclick="toggleThemeMenu(event)" title="Reading Atmosphere (☀️ Daylight / 🌙 Obsidian / ⏰ Auto)">
-          <span id="themeToggleIcon" style="font-size:14px; line-height:1;">🌙</span>
-        </button>
-        <button class="icon-btn" onclick="syncFeed()" title="Refresh Feed">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="23 4 23 10 17 10"></polyline>
-            <polyline points="1 20 1 14 7 14"></polyline>
-            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
-          </svg>
-        </button>
         <!-- Auth Sign In / User Profile -->
         <button class="auth-btn" id="headerAuthBtn" onclick="openAuthModal()" title="Sign In to Slant">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -49,63 +34,18 @@
           <span class="auth-btn-text">Sign In</span>
         </button>
         <div class="user-menu-wrap" id="userMenuWrap" style="display:none;">
-          <button class="user-avatar-btn" id="userAvatarBtn" onclick="toggleUserMenu(event)" title="Account & Library">
+          <button class="user-avatar-btn" id="userAvatarBtn" onclick="openDrawer()" title="Account & Options">
             <div class="user-avatar-letter" id="userAvatarLetter">U</div>
             <img class="user-avatar-img" id="userAvatarImg" src="" alt="User" style="display:none;" />
           </button>
         </div>
-      </div>
-
-      <!-- Atmosphere Dropdown Menu -->
-      <div class="theme-dropdown-menu" id="themeDropdownMenu">
-        <div class="theme-menu-header">Reading Atmosphere</div>
-        <button class="theme-menu-item" onclick="setAtmospherePreference('daylight')">
-          <span class="theme-icon">☀️</span>
-          <div class="theme-meta">
-            <span class="theme-label">Daylight Paper</span>
-            <span class="theme-desc">Warm newsprint ivory • morning reading</span>
-          </div>
-          <span class="theme-check" id="check-daylight"></span>
-        </button>
-        <button class="theme-menu-item" onclick="setAtmospherePreference('obsidian')">
-          <span class="theme-icon">🌙</span>
-          <div class="theme-meta">
-            <span class="theme-label">Obsidian Press</span>
-            <span class="theme-desc">Inked velvet midnight • evening focus</span>
-          </div>
-          <span class="theme-check" id="check-obsidian"></span>
-        </button>
-        <button class="theme-menu-item" onclick="setAtmospherePreference('auto')">
-          <span class="theme-icon">⏰</span>
-          <div class="theme-meta">
-            <span class="theme-label">Auto (Time of Day)</span>
-            <span class="theme-desc">Daylight 6 AM – 6 PM • Obsidian at night</span>
-          </div>
-          <span class="theme-check" id="check-auto"></span>
-        </button>
-      </div>
-
-      <!-- User Account & Library Dropdown Menu -->
-      <div class="user-dropdown-menu" id="userDropdownMenu">
-        <div class="user-menu-profile">
-          <div class="user-menu-name" id="userMenuName">Reader</div>
-          <div class="user-menu-email" id="userMenuEmail">user@example.com</div>
-        </div>
-        <div class="user-menu-divider"></div>
-        <button class="user-menu-item" onclick="selectUserFilter('saved')">
-          <span class="user-item-icon">🔖</span>
-          <span class="user-item-label">Saved Stories</span>
-          <span class="user-item-count" id="userMenuSavedCount">0</span>
-        </button>
-        <button class="user-menu-item" onclick="selectUserFilter('my_stories')">
-          <span class="user-item-icon">✍️</span>
-          <span class="user-item-label">My Published Stories</span>
-          <span class="user-item-count" id="userMenuMyCount">0</span>
-        </button>
-        <div class="user-menu-divider"></div>
-        <button class="user-menu-item user-sign-out" onclick="handleSignOut()">
-          <span class="user-item-icon">🚪</span>
-          <span class="user-item-label">Sign Out</span>
+        <!-- Options Drawer Button -->
+        <button class="icon-btn drawer-toggle-btn" id="drawerToggleBtn" onclick="toggleDrawer(event)" title="Options & Settings" aria-label="Open Options Drawer">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+          </svg>
         </button>
       </div>
     </div>
@@ -133,6 +73,20 @@
       <div class="filter-pill" data-cat="literary">Literary Excerpt</div>
     </div>
   </header>
+
+  <!-- Pull To Refresh Indicator -->
+  <div class="ptr-indicator" id="ptrIndicator">
+    <div class="ptr-inner">
+      <div class="ptr-icon" id="ptrIcon">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <polyline points="19 12 12 19 5 12"></polyline>
+        </svg>
+      </div>
+      <div class="ptr-spinner" id="ptrSpinner"></div>
+      <span class="ptr-label" id="ptrLabel">Pull to refresh</span>
+    </div>
+  </div>
 
   <!-- Feed Container -->
   <main class="feed-container" id="feedContainer">
@@ -240,6 +194,142 @@
       </div>
     </div>
   </div>
+
+  <!-- Options Drawer Overlay & Panel -->
+  <div class="drawer-overlay" id="optionsDrawerOverlay" onclick="closeDrawer()"></div>
+  <aside class="options-drawer" id="optionsDrawer" aria-hidden="true">
+    <div class="drawer-header">
+      <div class="drawer-brand">
+        <div class="drawer-brand-logo">S</div>
+        <div>
+          <div class="drawer-brand-title">Slant</div>
+          <div class="drawer-brand-subtitle">Options & Settings</div>
+        </div>
+      </div>
+      <button class="drawer-close-btn" onclick="closeDrawer()" title="Close options" aria-label="Close options">&times;</button>
+    </div>
+
+    <div class="drawer-body">
+      <!-- Section 1: User Account & Library -->
+      <div class="drawer-section">
+        <div class="drawer-section-title">Account</div>
+        
+        <!-- Guest View -->
+        <div class="drawer-card drawer-guest-card" id="drawerAuthGuest">
+          <div class="drawer-card-icon">👤</div>
+          <div class="drawer-card-text">
+            <strong>Personalize Your Experience</strong>
+            <p>Sign in to bookmark stories, filter your reading history, and sync across devices.</p>
+          </div>
+          <button class="drawer-btn-primary" onclick="closeDrawer(); openAuthModal();">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+            <span>Sign In / Join</span>
+          </button>
+        </div>
+
+        <!-- Logged-in View -->
+        <div class="drawer-card drawer-user-card" id="drawerAuthUser" style="display:none;">
+          <div class="drawer-user-info">
+            <div class="drawer-user-avatar" id="drawerUserAvatar">U</div>
+            <div class="drawer-user-meta">
+              <div class="drawer-user-name" id="drawerUserName">Reader</div>
+              <div class="drawer-user-email" id="drawerUserEmail">user@slant.today</div>
+            </div>
+          </div>
+          <div class="drawer-user-actions">
+            <button class="drawer-menu-row" onclick="closeDrawer(); selectUserFilter('saved');">
+              <span class="row-icon">🔖</span>
+              <span class="row-label">Saved Stories</span>
+              <span class="row-pill" id="drawerSavedCount">0</span>
+            </button>
+            <button class="drawer-menu-row" onclick="closeDrawer(); selectUserFilter('my_stories');">
+              <span class="row-icon">✍️</span>
+              <span class="row-label">My Published Stories</span>
+              <span class="row-pill" id="drawerMyCount">0</span>
+            </button>
+            <button class="drawer-menu-row drawer-sign-out" onclick="closeDrawer(); handleSignOut();">
+              <span class="row-icon">🚪</span>
+              <span class="row-label">Sign Out</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 2: Reading Atmosphere Theme -->
+      <div class="drawer-section">
+        <div class="drawer-section-title">Reading Atmosphere</div>
+        <div class="drawer-theme-options">
+          <button class="drawer-theme-btn" id="themeBtn-daylight" onclick="setAtmospherePreference('daylight')">
+            <div class="theme-btn-left">
+              <span class="theme-btn-emoji">☀️</span>
+              <div>
+                <div class="theme-btn-title">Daylight Paper</div>
+                <div class="theme-btn-desc">Warm newsprint ivory • morning reading</div>
+              </div>
+            </div>
+            <span class="drawer-theme-check" id="drawer-check-daylight"></span>
+          </button>
+
+          <button class="drawer-theme-btn" id="themeBtn-obsidian" onclick="setAtmospherePreference('obsidian')">
+            <div class="theme-btn-left">
+              <span class="theme-btn-emoji">🌙</span>
+              <div>
+                <div class="theme-btn-title">Obsidian Press</div>
+                <div class="theme-btn-desc">Inked velvet midnight • evening focus</div>
+              </div>
+            </div>
+            <span class="drawer-theme-check" id="drawer-check-obsidian"></span>
+          </button>
+
+          <button class="drawer-theme-btn" id="themeBtn-auto" onclick="setAtmospherePreference('auto')">
+            <div class="theme-btn-left">
+              <span class="theme-btn-emoji">⏰</span>
+              <div>
+                <div class="theme-btn-title">Auto (Time of Day)</div>
+                <div class="theme-btn-desc">Daylight 6 AM – 6 PM • Obsidian at night</div>
+              </div>
+            </div>
+            <span class="drawer-theme-check" id="drawer-check-auto"></span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Section 3: Live Feed Status & Sync -->
+      <div class="drawer-section">
+        <div class="drawer-section-title">Feed Status & Sync</div>
+        <div class="drawer-card drawer-feed-card">
+          <div class="drawer-feed-row">
+            <div class="badge-status" id="connectionBadge" title="Active Editorial Stories">
+              <span class="pulse-dot"></span>
+              <span id="connectionText"><strong>30</strong> <span class="badge-unit">stories</span></span>
+            </div>
+            <button class="drawer-refresh-btn" onclick="syncFeedFromDrawer()" title="Refresh Feed">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="23 4 23 10 17 10"></polyline>
+                <polyline points="1 20 1 14 7 14"></polyline>
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+              </svg>
+              <span>Refresh</span>
+            </button>
+          </div>
+          <div class="drawer-tip">
+            <span>💡</span> <span>Drag down the screen anytime to refresh the feed automatically.</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 4: About Slant -->
+      <div class="drawer-section drawer-about-section">
+        <div class="drawer-about-text">
+          <strong>Slant</strong> is a curated visual editorial journal delivering high-signal, multi-perspective news briefings.
+        </div>
+        <div class="drawer-version-tag">slant.today • v2.4</div>
+      </div>
+    </div>
+  </aside>
 
   <script src="app.js"></script>
 </body>

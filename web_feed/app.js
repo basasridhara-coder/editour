@@ -39,38 +39,72 @@ function applyAtmosphere(pref) {
     }
   }
 
-  // Update checkmarks in menu
+  // Update checkmarks in drawer and dropdowns
   ['daylight', 'obsidian', 'auto'].forEach(mode => {
     const checkEl = document.getElementById(`check-${mode}`);
-    if (checkEl) {
-      checkEl.textContent = currentAtmospherePref === mode ? '✓' : '';
-    }
+    if (checkEl) checkEl.textContent = currentAtmospherePref === mode ? '✓' : '';
+    const drawerCheck = document.getElementById(`drawer-check-${mode}`);
+    if (drawerCheck) drawerCheck.textContent = currentAtmospherePref === mode ? '✓' : '';
+    const drawerBtn = document.getElementById(`themeBtn-${mode}`);
+    if (drawerBtn) drawerBtn.classList.toggle('active', currentAtmospherePref === mode);
   });
 
   localStorage.setItem('slant_atmosphere_mode', currentAtmospherePref);
 }
 
-function toggleThemeMenu(e) {
-  if (e) e.stopPropagation();
-  const menu = document.getElementById('themeDropdownMenu');
-  if (menu) {
-    menu.classList.toggle('open');
+function openDrawer() {
+  const drawer = document.getElementById('optionsDrawer');
+  const overlay = document.getElementById('optionsDrawerOverlay');
+  if (drawer && overlay) {
+    drawer.classList.add('open');
+    overlay.classList.add('open');
+    document.body.style.overflow = 'hidden';
   }
+}
+
+function closeDrawer() {
+  const drawer = document.getElementById('optionsDrawer');
+  const overlay = document.getElementById('optionsDrawerOverlay');
+  if (drawer && overlay) {
+    drawer.classList.remove('open');
+    overlay.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+}
+
+function toggleDrawer(e) {
+  if (e) e.stopPropagation();
+  const drawer = document.getElementById('optionsDrawer');
+  if (drawer && drawer.classList.contains('open')) {
+    closeDrawer();
+  } else {
+    openDrawer();
+  }
+}
+
+function toggleThemeMenu(e) {
+  toggleDrawer(e);
 }
 
 function setAtmospherePreference(pref) {
   applyAtmosphere(pref);
-  const menu = document.getElementById('themeDropdownMenu');
-  if (menu) menu.classList.remove('open');
 }
 
-// Close menu when clicking outside
-document.addEventListener('click', (e) => {
-  const menu = document.getElementById('themeDropdownMenu');
-  const btn = document.getElementById('themeToggleBtn');
-  if (menu && menu.classList.contains('open') && !menu.contains(e.target) && e.target !== btn && !btn.contains(e.target)) {
-    menu.classList.remove('open');
+async function syncFeedFromDrawer() {
+  const btn = document.querySelector('.drawer-refresh-btn');
+  if (btn) btn.classList.add('spinning');
+  try {
+    await syncFeed();
+  } finally {
+    setTimeout(() => {
+      if (btn) btn.classList.remove('spinning');
+    }, 600);
   }
+}
+
+// Close drawer on Escape
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeDrawer();
 });
 
 // Apply atmosphere immediately before render
@@ -88,6 +122,7 @@ async function init() {
   initAuth();
   await loadPosts();
   setupEventListeners();
+  setupPullToRefresh();
   checkDeepLink();
   setupRealtimeSubscription();
 }
@@ -211,6 +246,23 @@ function updateAuthUI() {
 
     if (pillSaved) pillSaved.style.display = '';
     if (pillMyStories) pillMyStories.style.display = '';
+
+    // Update Drawer Account UI
+    const drawerAuthGuest = document.getElementById('drawerAuthGuest');
+    const drawerAuthUser = document.getElementById('drawerAuthUser');
+    const drawerUserName = document.getElementById('drawerUserName');
+    const drawerUserEmail = document.getElementById('drawerUserEmail');
+    const drawerUserAvatar = document.getElementById('drawerUserAvatar');
+    const drawerSavedCount = document.getElementById('drawerSavedCount');
+    const drawerMyCount = document.getElementById('drawerMyCount');
+
+    if (drawerAuthGuest) drawerAuthGuest.style.display = 'none';
+    if (drawerAuthUser) drawerAuthUser.style.display = 'flex';
+    if (drawerUserName) drawerUserName.textContent = displayName;
+    if (drawerUserEmail) drawerUserEmail.textContent = currentUser.email || '';
+    if (drawerUserAvatar) drawerUserAvatar.textContent = (displayName[0] || 'U').toUpperCase();
+    if (drawerSavedCount) drawerSavedCount.textContent = savedCount;
+    if (drawerMyCount) drawerMyCount.textContent = myPostsCount;
   } else {
     if (signInBtn) signInBtn.style.display = 'inline-flex';
     if (userMenuWrap) userMenuWrap.style.display = 'none';
@@ -218,6 +270,12 @@ function updateAuthUI() {
     // Show saved pill if reader saved cards locally
     if (pillSaved) pillSaved.style.display = savedCount > 0 ? '' : 'none';
     if (pillMyStories) pillMyStories.style.display = 'none';
+
+    // Update Drawer Account UI for guest
+    const drawerAuthGuest = document.getElementById('drawerAuthGuest');
+    const drawerAuthUser = document.getElementById('drawerAuthUser');
+    if (drawerAuthGuest) drawerAuthGuest.style.display = 'flex';
+    if (drawerAuthUser) drawerAuthUser.style.display = 'none';
   }
 }
 
@@ -568,6 +626,97 @@ function setupEventListeners() {
       selectCategory(cat);
     });
   });
+}
+
+function setupPullToRefresh() {
+  const ptr = document.getElementById('ptrIndicator');
+  const ptrIcon = document.getElementById('ptrIcon');
+  const ptrLabel = document.getElementById('ptrLabel');
+  if (!ptr) return;
+
+  let startY = 0;
+  let isPulling = false;
+  let isRefreshing = false;
+  const THRESHOLD = 60; // Distance in px to trigger refresh
+
+  function getScrollTop() {
+    return window.scrollY || window.pageYOffset || document.documentElement.scrollTop || 0;
+  }
+
+  function handleTouchStart(e) {
+    if (isRefreshing) return;
+    if (getScrollTop() <= 2) {
+      startY = e.touches ? e.touches[0].clientY : e.clientY;
+      isPulling = true;
+    }
+  }
+
+  function handleTouchMove(e) {
+    if (!isPulling || isRefreshing) return;
+    const currentY = e.touches ? e.touches[0].clientY : e.clientY;
+    const dy = currentY - startY;
+
+    if (dy > 0 && getScrollTop() <= 2) {
+      // Gentle dampening curve
+      const pullDist = Math.min(80, dy * 0.45);
+      if (pullDist > 8) {
+        if (e.cancelable && e.preventDefault) e.preventDefault();
+        ptr.style.height = `${pullDist}px`;
+        ptr.classList.add('visible');
+
+        if (pullDist >= THRESHOLD) {
+          ptr.classList.add('ready');
+          if (ptrLabel) ptrLabel.textContent = 'Release to refresh';
+        } else {
+          ptr.classList.remove('ready');
+          if (ptrLabel) ptrLabel.textContent = 'Pull down to refresh';
+        }
+      }
+    } else {
+      ptr.style.height = '0px';
+      ptr.classList.remove('visible', 'ready');
+    }
+  }
+
+  async function handleTouchEnd() {
+    if (!isPulling) return;
+    isPulling = false;
+
+    if (ptr.classList.contains('ready') && !isRefreshing) {
+      isRefreshing = true;
+      ptr.classList.remove('ready');
+      ptr.classList.add('refreshing');
+      ptr.style.height = '48px';
+      if (ptrLabel) ptrLabel.textContent = 'Updating feed...';
+
+      try {
+        await syncFeed();
+        if (ptrLabel) ptrLabel.textContent = 'Stories updated!';
+      } catch (err) {
+        console.error('Pull-to-refresh error:', err);
+        if (ptrLabel) ptrLabel.textContent = 'Refresh complete';
+      }
+
+      setTimeout(() => {
+        ptr.style.height = '0px';
+        setTimeout(() => {
+          ptr.classList.remove('refreshing', 'visible');
+          if (ptrLabel) ptrLabel.textContent = 'Pull down to refresh';
+          isRefreshing = false;
+        }, 260);
+      }, 500);
+    } else {
+      ptr.style.height = '0px';
+      setTimeout(() => {
+        ptr.classList.remove('visible', 'ready');
+      }, 200);
+    }
+  }
+
+  window.addEventListener('touchstart', handleTouchStart, { passive: true });
+  window.addEventListener('touchmove', handleTouchMove, { passive: false });
+  window.addEventListener('touchend', handleTouchEnd, { passive: true });
+  window.addEventListener('touchcancel', handleTouchEnd, { passive: true });
 }
 
 function handleSearch(query) {
