@@ -33,6 +33,8 @@ class GeminiAnalysisResult {
   final String? receiptHighlightQuote;
   final List<String> articleExcerpts;
   final String? creatorOpinion;
+  final String? slantTone;
+  final String? slantIcon;
 
   GeminiAnalysisResult({
     required this.originalHeadline,
@@ -61,6 +63,8 @@ class GeminiAnalysisResult {
     this.rawGeminiResponse,
     this.receiptHighlightQuote,
     this.articleExcerpts = const [],
+    this.slantTone,
+    this.slantIcon,
   });
 }
 
@@ -1673,6 +1677,221 @@ Return ONLY a valid JSON object matching this schema:
     );
   }
 
+  /// Synthesizes a high-impact 3-poster carousel for direct personal thought/opinion/feeling ("My Slant").
+  /// Zero-burden: user expresses freely from Mind (🧠) or Heart (❤️), AI generates headline, hook, manifesto, and art.
+  Future<GeminiAnalysisResult> analyzeAndSummarizeMySlant({
+    required String rawThought,
+    required String slantTone, // 'mind' or 'heart'
+    String? visualCues,
+    required String targetAudience,
+    required String tone,
+    double visualArtRatio = 0.65,
+  }) async {
+    final apiKey = await _storageService.getApiKey();
+
+    if (apiKey == null || apiKey.trim().isEmpty) {
+      debugPrint('No API Key configured, using Smart Demo mode for My Slant.');
+      return _generateSmartMySlantDemoResult(
+        rawThought: rawThought,
+        slantTone: slantTone,
+        visualCues: visualCues,
+        targetAudience: targetAudience,
+        tone: tone,
+        visualArtRatio: visualArtRatio,
+        errorMessage: 'No Gemini API Key provided. Enter your free API key in Settings.',
+      );
+    }
+
+    final String vibeName = slantTone == 'heart'
+        ? 'Heart (Emotional, Humanist, Empathy, Intuitive, Deep Feeling)'
+        : 'Mind (Intellectual, Systems, Critique, Logic, Conviction)';
+    final String toneIcon = slantTone == 'heart' ? '❤️' : '🧠';
+
+    final prompt = '''
+You are the master ghostwriter, editorial op-ed director, and visual artist for the CURATOR of PostCard.
+The Curator has shared a personal opinion or feeling directly from their $vibeName ($toneIcon).
+There is NO external newspaper link or book source attached—this is the Curator's own direct expression, conviction, or reflection.
+
+⚠️ CURATOR'S RAW THOUGHT / EXPRESSION:
+"$rawThought"
+
+${visualCues != null && visualCues.trim().isNotEmpty ? 'CURATOR\'S VISUAL CUES / METAPHORS:\n"$visualCues"' : ''}
+
+🎯 YOUR MISSION (ZERO BURDEN ON THE CURATOR):
+The Curator did NOT provide a headline or structure an essay. They expressed freely from their $slantTone.
+Your job is to elevate this raw thought into a world-class 3-Poster Carousel:
+1. Synthesize a powerful, unforgettable **Adapted Headline** (6-10 words, bold, evocative, declares the core premise).
+2. Write a captivating 1-2 sentence **Hook** that draws in $targetAudience immediately.
+3. Distill the **Core Conviction (Pull Quote & Highlight)**: The singular, razor-sharp sentence that crystallizes this thought.
+4. Craft an articulate, punchy **Summary & Reflection (1-minute read)** (90-130 words) in the Curator's authentic first-person voice. Zero fluff or corporate speak.
+5. Create **3 Consecutive Broadsheet Op-Ed Passages** (for Slide 3's tactile newspaper broadsheet layout):
+   - Paragraph 1: The real-world observation or tension that sparked this reflection.
+   - Paragraph 2: The core conviction statement (matches or elaborates on the pull quote).
+   - Paragraph 3: The enduring lesson, call to reflection, or forward-looking perspective.
+6. Provide visual illustration prompts for Slide 1 and Slide 2:
+   - Embody the $slantTone tone: ${slantTone == 'heart' ? 'warm humanist, impressionistic, deep textural gouache, poetic cinematic editorial portraiture/landscape' : 'metaphorical, conceptual editorial, sleek architectural surrealism, high-contrast woodcut or lithograph'}.
+   - Seamlessly weave in any visual cues: "${visualCues ?? ''}".
+
+Return ONLY valid JSON with this exact structure:
+{
+  "adapted_headline": "Bold 6-10 word headline declaring the core conviction",
+  "hook": "1-2 sentence hook declaring the Curator's premise to the reader",
+  "pull_quote": "The single most unforgettable, quotable line of the entire piece",
+  "receipt_highlight_quote": "The core manifesto conviction for the broadsheet yellow highlighter",
+  "summary": "Full 1-minute read (90-130 words) in the Curator's authentic voice",
+  "why_it_matters": "2 sentences explaining why this perspective matters to $targetAudience",
+  "key_takeaways": [
+    "Core conviction point 1",
+    "Underlying insight or reflection point 2",
+    "Perspective shift or practical takeaway point 3"
+  ],
+  "article_excerpts": [
+    "First broadsheet passage: The observation, catalyst, or premise",
+    "Second broadsheet passage: The core conviction (matches receipt_highlight_quote)",
+    "Third broadsheet passage: The enduring reflection, philosophy, or forward-looking takeaway"
+  ],
+  "key_metric": "${slantTone == 'heart' ? 'Heartfelt Stance' : 'Core Thesis'}",
+  "category_badge": "OPINION",
+  "digital_link": "",
+  "suggested_style": "editorial",
+  "illustration_prompt": "Editorial poster visual prompt embodying the essence of this thought with ${slantTone == 'heart' ? 'warm humanist emotional textures' : 'metaphorical surrealist intellectual depth'}",
+  "curator_illustration_prompt": "Editorial critique visual prompt for the second slide emphasizing reflection",
+  "visual_mood": "${slantTone == 'heart' ? 'Emotional Humanist' : 'Intellectual Metaphor'}",
+  "infographic_type": "metric_spotlight",
+  "infographic_stats": [
+    "My Slant",
+    "${slantTone == 'heart' ? 'Heart' : 'Mind'}",
+    "Personal Take"
+  ]
+}
+''';
+
+    final candidateModels = await _getAvailableModels(apiKey);
+    String lastError = '';
+
+    for (final model in candidateModels) {
+      try {
+        debugPrint('Attempting Gemini API for My Slant with model: $model');
+        final uri = Uri.parse(
+          'https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey',
+        );
+
+        final requestBody = {
+          "contents": [
+            {
+              "parts": [
+                {"text": prompt}
+              ],
+            }
+          ],
+          "generationConfig": {
+            "responseMimeType": "application/json",
+            "temperature": 0.4,
+          }
+        };
+
+        final response = await _postWithRetry(
+          uri,
+          headers: {'Content-Type': 'application/json'},
+          body: json.encode(requestBody),
+          timeout: const Duration(seconds: 40),
+        );
+
+        if (response.statusCode == 200) {
+          final decoded = json.decode(response.body);
+          final candidates = decoded['candidates'] as List?;
+          if (candidates != null && candidates.isNotEmpty) {
+            final content = candidates[0]['content'];
+            final candidateParts = content['parts'] as List?;
+            if (candidateParts != null && candidateParts.isNotEmpty) {
+              final rawText = candidateParts[0]['text'] as String?;
+              if (rawText != null && rawText.isNotEmpty) {
+                final cleanedJson = _cleanJsonString(rawText);
+                final parsed = json.decode(cleanedJson) as Map<String, dynamic>;
+
+                PosterStyleType style = PosterStyleType.editorial;
+                final styleStr = parsed['suggested_style']?.toString().toLowerCase();
+                if (styleStr == 'moderncyber' || styleStr == 'modern_cyber') {
+                  style = PosterStyleType.modernCyber;
+                } else if (styleStr == 'boldsocial' || styleStr == 'bold_social') {
+                  style = PosterStyleType.boldSocial;
+                } else if (styleStr == 'minimalist') {
+                  style = PosterStyleType.minimalist;
+                }
+
+                final illustPrompt = parsed['illustration_prompt'] as String?;
+                Uint8List? illustrationBytes;
+                if (illustPrompt != null && illustPrompt.isNotEmpty) {
+                  try {
+                    illustrationBytes = await generatePosterIllustration(
+                      apiKey: apiKey,
+                      prompt: illustPrompt,
+                      styleIndex: style.index,
+                    );
+                  } catch (e) {
+                    debugPrint('Could not generate illustration for My Slant: $e');
+                  }
+                }
+
+                final excerpts = List<String>.from(parsed['article_excerpts'] ?? []);
+                final pullQuote = parsed['pull_quote'] ?? rawThought;
+                final receiptHighlight = parsed['receipt_highlight_quote'] ?? pullQuote;
+
+                return GeminiAnalysisResult(
+                  originalHeadline: parsed['adapted_headline'] ?? 'My Slant',
+                  publicationName: "Reader's Op-Ed",
+                  adaptedHeadline: parsed['adapted_headline'] ?? 'My Slant',
+                  hook: parsed['hook'] ?? rawThought,
+                  summary: parsed['summary'] ?? rawThought,
+                  whyItMatters: parsed['why_it_matters'],
+                  keyTakeaways: List<String>.from(parsed['key_takeaways'] ?? []),
+                  pullQuote: pullQuote,
+                  receiptHighlightQuote: receiptHighlight,
+                  articleExcerpts: excerpts.isNotEmpty ? excerpts : [rawThought, pullQuote, 'Reflections preserved in personal slant archive.'],
+                  keyMetric: parsed['key_metric'] ?? (slantTone == 'heart' ? 'Heartfelt Stance' : 'Core Thesis'),
+                  categoryBadge: 'OPINION',
+                  digitalLink: '',
+                  creatorOpinion: rawThought,
+                  suggestedStyle: style,
+                  illustrationPrompt: illustPrompt,
+                  curatorIllustrationPrompt: parsed['curator_illustration_prompt'],
+                  generatedIllustrationBytes: illustrationBytes,
+                  visualArtRatio: visualArtRatio,
+                  infographicType: parsed['infographic_type'] ?? 'metric_spotlight',
+                  infographicStats: List<String>.from(parsed['infographic_stats'] ?? ['My Slant', slantTone == 'heart' ? 'Heart' : 'Mind', 'Personal Take']),
+                  visualMood: parsed['visual_mood'] ?? (slantTone == 'heart' ? 'Emotional Humanist' : 'Intellectual Metaphor'),
+                  slantTone: slantTone,
+                  slantIcon: toneIcon,
+                  isDemoMode: false,
+                  rawGeminiResponse: rawText,
+                );
+              }
+            }
+          }
+        } else {
+          lastError = '[$model error ${response.statusCode}]: ${_extractErrorMessage(response.body)}';
+        }
+      } catch (e) {
+        lastError = '[$model exception]: $e';
+        debugPrint('Gemini My Slant model $model exception: $e');
+        if (_isNetworkError(e)) {
+          debugPrint('Network offline detected, halting model loop');
+          break;
+        }
+      }
+    }
+
+    return _generateSmartMySlantDemoResult(
+      rawThought: rawThought,
+      slantTone: slantTone,
+      visualCues: visualCues,
+      targetAudience: targetAudience,
+      tone: tone,
+      visualArtRatio: visualArtRatio,
+      errorMessage: _formatUserFriendlyError(lastError),
+    );
+  }
+
   static String _extractDomainFromUrl(String rawUrl) {
     try {
       final uri = Uri.parse(rawUrl);
@@ -2496,6 +2715,94 @@ Return ONLY a valid JSON object matching this schema:
       infographicType: 'metric_spotlight',
       infographicStats: [title, author, metric],
       visualMood: 'Literary Evocative Art',
+      isDemoMode: true,
+      errorMessage: errorMessage,
+    );
+  }
+
+  GeminiAnalysisResult _generateSmartMySlantDemoResult({
+    required String rawThought,
+    required String slantTone,
+    String? visualCues,
+    required String targetAudience,
+    required String tone,
+    double visualArtRatio = 0.65,
+    String? errorMessage,
+  }) {
+    final bool isHeart = slantTone == 'heart';
+    final String toneIcon = isHeart ? '❤️' : '🧠';
+
+    final cleanThought = rawThought.trim();
+    String headline = 'Reflections on Life & Perspective';
+    final sentences = cleanThought.split(RegExp(r'(?<=[.!?])\s+'));
+    if (sentences.isNotEmpty && sentences.first.isNotEmpty) {
+      final first = sentences.first.replaceAll(RegExp(r'[.!?]$'), '').trim();
+      final words = first.split(RegExp(r'\s+'));
+      if (words.length <= 10) {
+        headline = first;
+      } else {
+        headline = '${words.take(8).join(' ')}...';
+      }
+    }
+
+    final String hook = isHeart
+        ? 'A personal, heartfelt reflection from lived experience: "$cleanThought"'
+        : 'An unfiltered, sharp intellectual conviction: "$cleanThought"';
+
+    final String pullQuote = cleanThought.length > 130
+        ? '${cleanThought.substring(0, 130)}...'
+        : cleanThought;
+
+    final String summary = isHeart
+        ? 'Direct from the heart: $cleanThought\n\nSometimes we carry convictions that require no external validation or news peg. This reflection touches on the fundamental human need for connection, meaning, and staying true to our inner compass.'
+        : 'Direct intellectual conviction: $cleanThought\n\nBeyond conventional wisdom and second-hand opinions, genuine clarity begins when you reason from direct observation. This stance challenges prevailing assumptions and demands clear-eyed examination.';
+
+    final String whyItMatters = isHeart
+        ? 'Because genuine vulnerability and heartfelt perspective are the truest counterweight to noisy online feeds.'
+        : 'Because independent critical reasoning separates genuine insight from herd consensus.';
+
+    final List<String> takeaways = isHeart
+        ? [
+            'Lived emotional truth holds its own authority without citation',
+            'Staying grounded in our core human values amidst relentless pace',
+            'A quiet invitation to listen inward and honor what truly matters',
+          ]
+        : [
+            'First-principles reasoning cuts through reactionary noise',
+            'Direct personal conviction over borrowed opinions',
+            'A strategic perspective shift that unlocks deeper clarity',
+          ];
+
+    final List<String> excerpts = [
+      'The initial observation that stirred this conviction: $cleanThought',
+      pullQuote,
+      isHeart
+          ? 'An enduring personal conviction preserved as a reminder of what remains true when everything else shifts.'
+          : 'A rigorous intellectual foundation that stands independent of fleeting trends and external consensus.',
+    ];
+
+    return GeminiAnalysisResult(
+      originalHeadline: headline,
+      publicationName: "Reader's Op-Ed",
+      adaptedHeadline: headline,
+      hook: hook,
+      summary: summary,
+      creatorOpinion: cleanThought,
+      whyItMatters: whyItMatters,
+      keyTakeaways: takeaways,
+      pullQuote: pullQuote,
+      receiptHighlightQuote: pullQuote,
+      articleExcerpts: excerpts,
+      keyMetric: isHeart ? 'Heartfelt Stance' : 'Core Thesis',
+      categoryBadge: 'OPINION',
+      digitalLink: '',
+      suggestedStyle: PosterStyleType.editorial,
+      visualArtRatio: visualArtRatio,
+      infographicType: 'metric_spotlight',
+      infographicStats: ['My Slant', isHeart ? 'Heart' : 'Mind', 'Personal Take'],
+      visualMood: isHeart ? 'Emotional Humanist' : 'Intellectual Metaphor',
+      slantTone: slantTone,
+      slantIcon: toneIcon,
       isDemoMode: true,
       errorMessage: errorMessage,
     );

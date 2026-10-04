@@ -756,6 +756,8 @@ function renderFeed() {
     if (currentFilter !== 'all') {
       const cat = (post.categoryBadge || '').toLowerCase();
       const type = (post.sourceType || '').toLowerCase();
+      const isMySlant = post.isMySlant === true || type === 'my_slant' || (post.publicationName || '').toLowerCase().includes('my slant');
+      if (currentFilter === 'opinion' && !(isMySlant || cat.includes('opinion') || cat.includes('slant') || cat.includes('op-ed') || cat.includes('editorial') || cat.includes('perspective'))) return false;
       if (currentFilter === 'tech' && !(cat.includes('tech') || cat.includes('quantum') || cat.includes('ai') || cat.includes('astro'))) return false;
       if (currentFilter === 'health' && !(cat.includes('health') || cat.includes('cures') || cat.includes('bio'))) return false;
       if (currentFilter === 'climate' && !(cat.includes('climate') || cat.includes('energy') || cat.includes('renewable'))) return false;

@@ -52,6 +52,204 @@ class SlideReceiptsPoster extends StatelessWidget {
         item.originalPhotoPath != 'digital_article_link' &&
         File(item.originalPhotoPath).existsSync();
 
+    String cleanHost = '';
+    if (item.digitalLink != null && item.digitalLink!.isNotEmpty) {
+      try {
+        final uri = Uri.parse(item.digitalLink!);
+        cleanHost = uri.host.replaceFirst(RegExp(r'^www\.'), '');
+      } catch (_) {}
+    }
+
+    final String mastheadTitle;
+    final String rulesLeft;
+    final String rulesCenter;
+    final String bylineLeft;
+    final String bylineTag;
+    final Color bylineTagColor;
+    final String highlightTitle;
+    final IconData highlightIcon;
+    final String folioSource;
+    final String folioAuthor;
+    final Widget rubberStamp;
+
+    if (item.isVerifiedPress) {
+      mastheadTitle = pubName.toUpperCase();
+      rulesLeft = 'VOL. CLXXIV • NO. 48,210';
+      rulesCenter = 'ACTUAL NEWSPAPER EXCERPTS';
+      bylineLeft = 'BY SPECIAL CORRESPONDENT & WIRE BUREAU';
+      bylineTag = 'VERIFIED ARCHIVE';
+      bylineTagColor = const Color(0xFFB91C1C);
+      highlightTitle = 'KEY SECTION EXCERPT';
+      highlightIcon = Icons.border_color_rounded;
+      folioSource = 'AUTHENTIC ARTICLE EXCERPTS • PRIMARY SOURCE';
+      folioAuthor = 'ARCHIVED BY $handle';
+      rubberStamp = Container(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+        decoration: BoxDecoration(
+          border: Border.all(color: const Color(0xFFDC2626), width: 1.8),
+          borderRadius: BorderRadius.circular(5),
+          color: const Color(0xFFDC2626).withValues(alpha: 0.07),
+        ),
+        child: const Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '★ VERIFIED ★',
+              style: TextStyle(
+                fontSize: 6.5,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1.0,
+                color: Color(0xFFDC2626),
+              ),
+            ),
+            Text(
+              'PRESS ARCHIVE',
+              style: TextStyle(
+                fontSize: 8,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0.8,
+                color: Color(0xFFDC2626),
+              ),
+            ),
+          ],
+        ),
+      );
+    } else if (item.isMySlant) {
+      final slantIcon = item.resolvedSlantIcon;
+      mastheadTitle = "READER'S OP-ED";
+      rulesLeft = 'FIRST-PERSON PERSPECTIVE';
+      rulesCenter = 'COMMUNITY OP-ED & ESSAY';
+      bylineLeft = 'CONTRIBUTED BY $handle';
+      bylineTag = 'PERSONAL SLANT';
+      bylineTagColor = const Color(0xFF7C3AED);
+      highlightTitle = 'THE CORE CONVICTION';
+      highlightIcon = slantIcon == '❤️' ? Icons.favorite_rounded : Icons.psychology_rounded;
+      folioSource = 'FIRST-PERSON REFLECTION • UNVERIFIED OPINION';
+      folioAuthor = 'BY $handle';
+      rubberStamp = Container(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+        decoration: BoxDecoration(
+          border: Border.all(color: const Color(0xFF7C3AED), width: 1.8),
+          borderRadius: BorderRadius.circular(5),
+          color: const Color(0xFF7C3AED).withValues(alpha: 0.07),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '$slantIcon OPINION',
+              style: const TextStyle(
+                fontSize: 6.5,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0.8,
+                color: Color(0xFF7C3AED),
+              ),
+            ),
+            const Text(
+              'MY SLANT',
+              style: TextStyle(
+                fontSize: 8,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0.8,
+                color: Color(0xFF7C3AED),
+              ),
+            ),
+          ],
+        ),
+      );
+    } else if (item.isBookExcerpt) {
+      final bookTitle = (item.bookTitle != null && item.bookTitle!.trim().isNotEmpty)
+          ? item.bookTitle!.trim().toUpperCase()
+          : 'CLASSIC LITERATURE ARCHIVE';
+      final author = (item.bookAuthor != null && item.bookAuthor!.trim().isNotEmpty)
+          ? item.bookAuthor!.trim().toUpperCase()
+          : 'CANONICAL AUTHOR';
+      mastheadTitle = bookTitle;
+      rulesLeft = 'CANONICAL FOLIO';
+      rulesCenter = 'LITERARY EXCERPT';
+      bylineLeft = 'WRITTEN BY $author';
+      bylineTag = 'BOOK EXCERPT';
+      bylineTagColor = const Color(0xFF0F766E);
+      highlightTitle = 'CORE PASSAGE';
+      highlightIcon = Icons.auto_stories_rounded;
+      folioSource = 'LITERARY EXCERPT • CLASSICAL ARCHIVE';
+      folioAuthor = 'EXCERPTED BY $handle';
+      rubberStamp = Container(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+        decoration: BoxDecoration(
+          border: Border.all(color: const Color(0xFF0F766E), width: 1.8),
+          borderRadius: BorderRadius.circular(5),
+          color: const Color(0xFF0F766E).withValues(alpha: 0.07),
+        ),
+        child: const Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '📖 LITERARY',
+              style: TextStyle(
+                fontSize: 6.5,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0.8,
+                color: Color(0xFF0F766E),
+              ),
+            ),
+            Text(
+              'EXCERPT',
+              style: TextStyle(
+                fontSize: 8,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0.8,
+                color: Color(0xFF0F766E),
+              ),
+            ),
+          ],
+        ),
+      );
+    } else {
+      final hostDisplay = cleanHost.isNotEmpty ? cleanHost.toUpperCase() : 'ONLINE PUBLICATION';
+      mastheadTitle = cleanHost.isNotEmpty ? '$hostDisplay • WEB COMMENTARY' : 'WEB COMMENTARY';
+      rulesLeft = 'ONLINE CITATION';
+      rulesCenter = 'WEB COMMENTARY & CITATION';
+      bylineLeft = 'SOURCED FROM $hostDisplay';
+      bylineTag = 'WEB COMMENTARY';
+      bylineTagColor = const Color(0xFF475569);
+      highlightTitle = 'KEY ARTICLE EXCERPT';
+      highlightIcon = Icons.public_rounded;
+      folioSource = 'DIGITAL COMMENTARY CITATION • EXTERNAL LINK';
+      folioAuthor = 'CURATED BY $handle';
+      rubberStamp = Container(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+        decoration: BoxDecoration(
+          border: Border.all(color: const Color(0xFF475569), width: 1.8),
+          borderRadius: BorderRadius.circular(5),
+          color: const Color(0xFF475569).withValues(alpha: 0.07),
+        ),
+        child: const Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '🌐 WEB SOURCE',
+              style: TextStyle(
+                fontSize: 6.5,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0.8,
+                color: Color(0xFF475569),
+              ),
+            ),
+            Text(
+              'WEB COMMENTARY',
+              style: TextStyle(
+                fontSize: 8,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0.8,
+                color: Color(0xFF475569),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     // Responsive font sizes to ensure complete statements and elegant newspaper layout
     final double headlineSize = headline.length > 70
         ? 15.0
@@ -109,12 +307,12 @@ class SlideReceiptsPoster extends StatelessWidget {
                         const SizedBox(height: 5),
                         Center(
                           child: Text(
-                            pubName.toUpperCase(),
+                            mastheadTitle,
                             style: const TextStyle(
                               fontFamily: 'serif',
-                              fontSize: 19,
+                              fontSize: 18,
                               fontWeight: FontWeight.w900,
-                              letterSpacing: 2.5,
+                              letterSpacing: 2.2,
                               color: Color(0xFF0F172A),
                             ),
                             maxLines: 1,
@@ -127,7 +325,7 @@ class SlideReceiptsPoster extends StatelessWidget {
                           children: [
                             Flexible(
                               child: Text(
-                                'VOL. CLXXIV • NO. 48,210',
+                                rulesLeft,
                                 style: TextStyle(
                                   fontFamily: 'serif',
                                   fontSize: 7.2,
@@ -141,7 +339,7 @@ class SlideReceiptsPoster extends StatelessWidget {
                             const SizedBox(width: 4),
                             Flexible(
                               child: Text(
-                                'ACTUAL NEWSPAPER EXCERPTS',
+                                rulesCenter,
                                 style: TextStyle(
                                   fontFamily: 'serif',
                                   fontSize: 7.2,
@@ -190,7 +388,7 @@ class SlideReceiptsPoster extends StatelessWidget {
                         Row(
                           children: [
                             Text(
-                              'BY SPECIAL CORRESPONDENT & WIRE BUREAU',
+                              bylineLeft,
                               style: TextStyle(
                                 fontFamily: 'serif',
                                 fontSize: 7.5,
@@ -201,13 +399,13 @@ class SlideReceiptsPoster extends StatelessWidget {
                             ),
                             const Spacer(),
                             Text(
-                              'VERIFIED ARCHIVE',
+                              bylineTag,
                               style: TextStyle(
                                 fontFamily: 'serif',
                                 fontSize: 7.5,
                                 fontWeight: FontWeight.w800,
                                 letterSpacing: 0.5,
-                                color: Colors.red.shade900,
+                                color: bylineTagColor,
                               ),
                             ),
                           ],
@@ -267,10 +465,10 @@ class SlideReceiptsPoster extends StatelessWidget {
                               children: [
                                 Row(
                                   children: [
-                                    const Icon(Icons.border_color_rounded, size: 12, color: Color(0xFF854D0E)),
+                                    Icon(highlightIcon, size: 12, color: const Color(0xFF854D0E)),
                                     const SizedBox(width: 5),
                                     Text(
-                                      'KEY SECTION EXCERPT',
+                                      highlightTitle,
                                       style: TextStyle(
                                         fontFamily: 'serif',
                                         fontSize: 8,
@@ -330,7 +528,7 @@ class SlideReceiptsPoster extends StatelessWidget {
                           children: [
                             Expanded(
                               child: Text(
-                                'AUTHENTIC ARTICLE EXCERPTS • PRIMARY SOURCE',
+                                folioSource,
                                 style: TextStyle(
                                   fontFamily: 'serif',
                                   fontSize: 7.2,
@@ -344,7 +542,7 @@ class SlideReceiptsPoster extends StatelessWidget {
                             ),
                             const SizedBox(width: 8),
                             Text(
-                              'ARCHIVED BY $handle',
+                              folioAuthor,
                               style: TextStyle(
                                 fontFamily: 'serif',
                                 fontSize: 7.2,
@@ -394,43 +592,13 @@ class SlideReceiptsPoster extends StatelessWidget {
                   ),
                 ),
 
-              // Forensic "VERIFIED PRESS EVIDENCE" Weathered Red Rubber Stamp
+              // Forensic Weathered Rubber Stamp
               Positioned(
                 top: 8,
                 right: 12,
                 child: Transform.rotate(
                   angle: -0.18, // Tilted authentic rubber stamp
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: const Color(0xFFDC2626), width: 1.8),
-                      borderRadius: BorderRadius.circular(5),
-                      color: const Color(0xFFDC2626).withValues(alpha: 0.07),
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Text(
-                          '★ VERIFIED ★',
-                          style: TextStyle(
-                            fontSize: 6.5,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 1.0,
-                            color: Color(0xFFDC2626),
-                          ),
-                        ),
-                        Text(
-                          'PRESS EVIDENCE',
-                          style: TextStyle(
-                            fontSize: 8,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 0.8,
-                            color: const Color(0xFFDC2626).withValues(alpha: 0.95),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  child: rubberStamp,
                 ),
               ),
             ],

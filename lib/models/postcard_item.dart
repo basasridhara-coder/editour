@@ -44,6 +44,10 @@ class PostCardItem {
   final String? receiptHighlightQuote;
   final List<String> articleExcerpts;
   final String? originalPhotoBase64;
+  final String? slantTone;
+  final String? slantIcon;
+
+  String get resolvedSlantIcon => slantIcon ?? (slantTone == 'heart' ? '❤️' : '💭');
 
   bool get isDigitalLinkSource =>
       sourceType == 'digital_link' ||
@@ -52,6 +56,42 @@ class PostCardItem {
       (originalPhotoPath.isEmpty && digitalLink != null && digitalLink!.isNotEmpty);
 
   bool get isBookExcerpt => sourceType == 'book_excerpt';
+
+  bool get isMySlant =>
+      sourceType == 'my_slant' ||
+      sourceType == 'opinion' ||
+      categoryBadge.toUpperCase() == 'OPINION' ||
+      categoryBadge.toUpperCase() == 'MY SLANT';
+
+  bool get isVerifiedPress {
+    if (isMySlant || isBookExcerpt) return false;
+    final pub = (publicationName ?? '').toLowerCase();
+    final link = (digitalLink ?? '').toLowerCase();
+
+    const registeredKeywords = [
+      'indian express', 'new indian express', 'the hindu', 'times of india',
+      'deccan herald', 'hindustan times', 'economic times', 'livemint', 'mint',
+      'business standard', 'reuters', 'ap news', 'associated press', 'bbc',
+      'the guardian', 'new york times', 'washington post', 'wall street journal',
+      'wsj', 'financial times', 'bloomberg', 'the atlantic', 'economist',
+      'al jazeera', 'bangalore mirror', 'sunday herald', 'the telegraph',
+      'daily telegraph', 'tribune', 'statesman', 'frontline'
+    ];
+
+    const registeredDomains = [
+      'indianexpress.com', 'newindianexpress.com', 'thehindu.com', 'timesofindia.indiatimes.com',
+      'deccanherald.com', 'hindustantimes.com', 'economictimes.indiatimes.com', 'livemint.com',
+      'business-standard.com', 'reuters.com', 'apnews.com', 'bbc.com', 'bbc.co.uk',
+      'theguardian.com', 'nytimes.com', 'washingtonpost.com', 'wsj.com', 'ft.com',
+      'bloomberg.com', 'theatlantic.com', 'economist.com', 'aljazeera.com', 'bangaloremirror.indiatimes.com',
+      'telegraphindia.com', 'tribuneindia.com'
+    ];
+
+    final isPressPub = registeredKeywords.any((k) => pub.contains(k));
+    final isPressDomain = registeredDomains.any((d) => link.contains(d));
+
+    return isPressPub || isPressDomain;
+  }
 
   bool get isCarouselTrio => true; // 3-carousel poster format is default across all posts
 
@@ -139,6 +179,8 @@ class PostCardItem {
     this.receiptHighlightQuote,
     this.articleExcerpts = const [],
     this.originalPhotoBase64,
+    this.slantTone,
+    this.slantIcon,
   });
 
   PostCardItem copyWith({
@@ -184,6 +226,8 @@ class PostCardItem {
     String? receiptHighlightQuote,
     List<String>? articleExcerpts,
     String? originalPhotoBase64,
+    String? slantTone,
+    String? slantIcon,
   }) {
     return PostCardItem(
       id: id ?? this.id,
@@ -228,6 +272,8 @@ class PostCardItem {
       receiptHighlightQuote: receiptHighlightQuote ?? this.receiptHighlightQuote,
       articleExcerpts: articleExcerpts ?? this.articleExcerpts,
       originalPhotoBase64: originalPhotoBase64 ?? this.originalPhotoBase64,
+      slantTone: slantTone ?? this.slantTone,
+      slantIcon: slantIcon ?? this.slantIcon,
     );
   }
 
@@ -276,6 +322,8 @@ class PostCardItem {
       'articleExcerpts': articleExcerpts,
       'resolvedArticleExcerpts': resolvedArticleExcerpts,
       'originalPhotoBase64': originalPhotoBase64,
+      'slantTone': slantTone,
+      'slantIcon': slantIcon,
     };
   }
 
@@ -334,6 +382,8 @@ class PostCardItem {
       receiptHighlightQuote: map['receiptHighlightQuote'],
       articleExcerpts: (map['articleExcerpts'] as List?)?.map((e) => e.toString()).toList() ?? const [],
       originalPhotoBase64: map['originalPhotoBase64'],
+      slantTone: map['slantTone'],
+      slantIcon: map['slantIcon'],
     );
   }
 

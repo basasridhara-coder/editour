@@ -440,7 +440,19 @@ class CarouselPosterStudioState extends State<CarouselPosterStudio> {
                 const SizedBox(width: 6),
                 _buildSlideTab(1, '02 Curator Take', Icons.bolt_outlined),
                 const SizedBox(width: 6),
-                _buildSlideTab(2, '03 Paper Excerpts', Icons.newspaper_rounded),
+                _buildSlideTab(
+                  2,
+                  widget.item.isMySlant
+                      ? '03 My Slant'
+                      : (widget.item.isBookExcerpt
+                          ? '03 Book Excerpt'
+                          : (widget.item.isVerifiedPress ? '03 Paper Excerpts' : '03 Web Source')),
+                  widget.item.isMySlant
+                      ? (widget.item.slantTone == 'heart' ? Icons.favorite_rounded : Icons.psychology_rounded)
+                      : (widget.item.isBookExcerpt
+                          ? Icons.auto_stories_rounded
+                          : (widget.item.isVerifiedPress ? Icons.newspaper_rounded : Icons.public_rounded)),
+                ),
               ],
             ),
 

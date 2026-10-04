@@ -24,7 +24,7 @@ import '../widgets/carousel_slides/carousel_poster_studio.dart';
 import '../widgets/photo_viewer_dialog.dart';
 import '../widgets/visual_cue_pills_selector.dart';
 
-enum InputSourceMode { physicalPhoto, digitalLink, bookExcerpt }
+enum InputSourceMode { physicalPhoto, digitalLink, bookExcerpt, mySlant }
 
 enum SlantStep {
   sourceAndAngle,
@@ -61,6 +61,11 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
 
   SlantStep _currentStep = SlantStep.sourceAndAngle;
   InputSourceMode _sourceMode = InputSourceMode.physicalPhoto;
+
+  // My Slant Fields (Direct personal thought from Mind or Heart)
+  String _slantTone = 'mind'; // 'mind' | 'heart'
+  final TextEditingController _slantThoughtController = TextEditingController();
+  final TextEditingController _slantVisualCuesController = TextEditingController();
 
   // Digital Link Fields
   final TextEditingController _urlController = TextEditingController();
@@ -145,6 +150,14 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
     String headline = headlineParts.isNotEmpty ? headlineParts.first : '';
     if (headline.isEmpty && _urlController.text.trim().isNotEmpty) {
       headline = VisualCueService.extractHeadlineFromUrl(_urlController.text.trim());
+    }
+    if (headline.isEmpty && _sourceMode == InputSourceMode.mySlant) {
+      if (_slantVisualCuesController.text.trim().isNotEmpty) {
+        headline = _slantVisualCuesController.text.trim();
+      } else if (angle.isNotEmpty) {
+        headline = angle.split(RegExp(r'[.\n!?]')).first.trim();
+        if (headline.length > 60) headline = '${headline.substring(0, 57)}...';
+      }
     }
 
     String body = '';
@@ -265,6 +278,8 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
     _urlController.dispose();
     _digitalTitleController.dispose();
     _digitalContentController.dispose();
+    _slantThoughtController.dispose();
+    _slantVisualCuesController.dispose();
     _contextController.dispose();
     _hookCuesController.dispose();
     _opinionController.dispose();
@@ -630,7 +645,21 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
   }
 
   void _goToVisualCuesStep() {
-    if (_sourceMode == InputSourceMode.physicalPhoto) {
+    if (_sourceMode == InputSourceMode.mySlant) {
+      if (_slantThoughtController.text.trim().isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please share what is on your mind or heart first'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+      _contextController.text = _slantThoughtController.text.trim();
+      if (_slantVisualCuesController.text.trim().isNotEmpty) {
+        _hookCuesController.text = _slantVisualCuesController.text.trim();
+      }
+    } else if (_sourceMode == InputSourceMode.physicalPhoto) {
       if (_selectedImage == null && _activeSample == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -666,6 +695,14 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
     if (headline.isEmpty && _urlController.text.trim().isNotEmpty) {
       headline = VisualCueService.extractHeadlineFromUrl(_urlController.text.trim());
     }
+    if (headline.isEmpty && _sourceMode == InputSourceMode.mySlant) {
+      if (_slantVisualCuesController.text.trim().isNotEmpty) {
+        headline = _slantVisualCuesController.text.trim();
+      } else if (_slantThoughtController.text.trim().isNotEmpty) {
+        headline = _slantThoughtController.text.trim().split(RegExp(r'[.\n!?]')).first.trim();
+        if (headline.length > 60) headline = '${headline.substring(0, 57)}...';
+      }
+    }
     final angle = _contextController.text.trim();
     final currentKey = '$headline::$angle';
 
@@ -690,15 +727,32 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
       _isAnalyzing = true;
       _analysisStatus = isHeadlineOnly
           ? 'Synthesizing bold headline & curated takes...'
-          : (_sourceMode == InputSourceMode.physicalPhoto
-              ? 'Analyzing print photo typography & OCR...'
-              : 'Extracting digital news context & editorial cues...');
+          : (_sourceMode == InputSourceMode.mySlant
+              ? 'Synthesizing personal opinion manifesto & art...'
+              : (_sourceMode == InputSourceMode.physicalPhoto
+                  ? 'Analyzing print photo typography & OCR...'
+                  : 'Extracting digital news context & editorial cues...'));
     });
 
     try {
       GeminiAnalysisResult result;
 
-      if (_sourceMode == InputSourceMode.physicalPhoto) {
+      if (_sourceMode == InputSourceMode.mySlant) {
+        result = await _geminiService.analyzeAndSummarizeMySlant(
+          rawThought: _slantThoughtController.text.trim().isNotEmpty
+              ? _slantThoughtController.text.trim()
+              : (_contextController.text.trim().isNotEmpty
+                  ? _contextController.text.trim()
+                  : 'Direct personal perspective reflection.'),
+          slantTone: _slantTone,
+          visualCues: _slantVisualCuesController.text.trim().isNotEmpty
+              ? _slantVisualCuesController.text.trim()
+              : (_hookCuesController.text.trim().isNotEmpty ? _hookCuesController.text.trim() : null),
+          targetAudience: _targetAudience,
+          tone: _selectedTone,
+          visualArtRatio: _visualArtRatio,
+        );
+      } else if (_sourceMode == InputSourceMode.physicalPhoto) {
         Uint8List bytesToAnalyze;
         if (_imageBytes != null) {
           bytesToAnalyze = _imageBytes!;
@@ -783,22 +837,29 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
         );
       }
 
+      final isMySlant = _sourceMode == InputSourceMode.mySlant;
       final isLink = _sourceMode == InputSourceMode.digitalLink;
-      final digitalUrl = isLink
-          ? (_urlController.text.trim().isNotEmpty ? _urlController.text.trim() : result.digitalLink)
-          : (_linkController.text.trim().isNotEmpty ? _linkController.text.trim() : null);
+      final digitalUrl = isMySlant
+          ? null
+          : (isLink
+              ? (_urlController.text.trim().isNotEmpty ? _urlController.text.trim() : result.digitalLink)
+              : (_linkController.text.trim().isNotEmpty ? _linkController.text.trim() : null));
 
       final newItem = PostCardItem(
         id: itemId,
         createdAt: DateTime.now(),
-        originalPhotoPath: isLink
-            ? (_urlController.text.trim().isNotEmpty ? _urlController.text.trim() : 'digital_article_link')
-            : (_selectedImage?.path ?? 'sample_asset_print'),
+        originalPhotoPath: isMySlant
+            ? ''
+            : (isLink
+                ? (_urlController.text.trim().isNotEmpty ? _urlController.text.trim() : 'digital_article_link')
+                : (_selectedImage?.path ?? 'sample_asset_print')),
         renderedPosterPath: savedPosterPath,
         originalHeadline: result.originalHeadline,
-        publicationName: isLink
-            ? (_scrapedSiteName ?? result.publicationName)
-            : (_activeSample?.publication ?? result.publicationName),
+        publicationName: isMySlant
+            ? "Reader's Op-Ed"
+            : (isLink
+                ? (_scrapedSiteName ?? result.publicationName)
+                : (_activeSample?.publication ?? result.publicationName)),
         targetAudience: _targetAudience,
         tone: _selectedTone,
         userContext: _contextController.text.trim().isNotEmpty ? _contextController.text.trim() : null,
@@ -810,11 +871,15 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
         keyTakeaways: result.keyTakeaways,
         pullQuote: result.pullQuote.trim().isNotEmpty ? result.pullQuote : _activeSample?.pullQuote,
         keyMetric: result.keyMetric.trim().isNotEmpty ? result.keyMetric : _activeSample?.metric,
-        categoryBadge: result.categoryBadge.trim().isNotEmpty
-            ? result.categoryBadge
-            : (_activeSample?.category ?? 'CURATED DIGEST'),
+        categoryBadge: isMySlant
+            ? 'OPINION'
+            : (result.categoryBadge.trim().isNotEmpty
+                ? result.categoryBadge
+                : (_activeSample?.category ?? 'CURATED DIGEST')),
         digitalLink: digitalUrl,
-        creatorOpinion: result.creatorOpinion,
+        creatorOpinion: isMySlant
+            ? _slantThoughtController.text.trim()
+            : result.creatorOpinion,
         creatorHandle: _creatorHandleController.text.trim().isNotEmpty
             ? _creatorHandleController.text.trim()
             : '@curator',
@@ -826,7 +891,9 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
         infographicStats: result.infographicStats,
         visualMood: result.visualMood,
         isUserCreated: true,
-        sourceType: isLink ? 'digital_link' : 'photo',
+        sourceType: isMySlant ? 'my_slant' : (isLink ? 'digital_link' : 'photo'),
+        slantTone: isMySlant ? _slantTone : result.slantTone,
+        slantIcon: isMySlant ? (_slantTone == 'heart' ? '❤️' : '🧠') : result.slantIcon,
         postFormat: 'carousel_trio',
         receiptHighlightQuote: result.receiptHighlightQuote ?? result.pullQuote,
         articleExcerpts: result.articleExcerpts.isNotEmpty
@@ -926,6 +993,13 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
       }
     }
 
+    final bool isMySlant = _generatedItem!.isMySlant;
+    final List<String> updatedExcerpts = [
+      if (_s3Excerpt1Controller.text.trim().isNotEmpty) _s3Excerpt1Controller.text.trim(),
+      if (_s3Excerpt2Controller.text.trim().isNotEmpty) _s3Excerpt2Controller.text.trim(),
+      if (_s3Excerpt3Controller.text.trim().isNotEmpty) _s3Excerpt3Controller.text.trim(),
+    ];
+
     setState(() {
       _generatedItem = _generatedItem!.copyWith(
         categoryBadge: _s1CategoryController.text.trim().isNotEmpty
@@ -949,6 +1023,14 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
         keyTakeaways: updatedTakeaways.isNotEmpty ? updatedTakeaways : _generatedItem!.keyTakeaways,
         pullQuote: _quoteController.text.trim().isNotEmpty ? _quoteController.text.trim() : null,
         keyMetric: _metricController.text.trim().isNotEmpty ? _metricController.text.trim() : null,
+        receiptHighlightQuote: isMySlant && _s3Excerpt2Controller.text.trim().isNotEmpty
+            ? _s3Excerpt2Controller.text.trim()
+            : _generatedItem!.receiptHighlightQuote,
+        articleExcerpts: isMySlant && updatedExcerpts.isNotEmpty
+            ? updatedExcerpts
+            : _generatedItem!.articleExcerpts,
+        slantTone: isMySlant ? _slantTone : _generatedItem!.slantTone,
+        slantIcon: isMySlant ? (_slantTone == 'heart' ? '❤️' : '🧠') : _generatedItem!.slantIcon,
         creatorHandle: _creatorHandleController.text.trim().isNotEmpty
             ? _creatorHandleController.text.trim()
             : '@curator',
@@ -1211,8 +1293,8 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
     });
   }
 
-  void _showEditPosterModalBottomSheet(BuildContext context) {
-    int activeEditTab = 0;
+  void _showEditPosterModalBottomSheet(BuildContext context, {int initialTab = 0}) {
+    int activeEditTab = initialTab;
 
     showModalBottomSheet(
       context: context,
@@ -1227,6 +1309,7 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
           builder: (ctx, setSheetState) {
             final theme = Theme.of(ctx);
             final bottomInset = MediaQuery.of(ctx).viewInsets.bottom;
+            final isSlantPost = (_generatedItem?.isMySlant == true) || (_sourceMode == InputSourceMode.mySlant);
 
             return Padding(
               padding: EdgeInsets.fromLTRB(16, 12, 16, 20 + bottomInset),
@@ -1286,7 +1369,7 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
                             theme: theme,
                           ),
                           _buildModalTabButton(
-                            title: 'Slide 3: Receipts 🔒',
+                            title: isSlantPost ? 'Slide 3: My Slant ✏️' : 'Slide 3: Receipts 🔒',
                             isSelected: activeEditTab == 2,
                             onTap: () => setSheetState(() => activeEditTab = 2),
                             theme: theme,
@@ -1384,51 +1467,134 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
                         ),
                       ),
                     ] else ...[
-                      // Slide 3 LOCKED / IMMUTABLE
-                      Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFEF3C7),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFF59E0B)),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Row(
-                              children: [
-                                Icon(Icons.lock_rounded, color: Color(0xFFB45309), size: 18),
-                                SizedBox(width: 8),
-                                Text(
-                                  'Direct from source — immutable',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
-                                    color: Color(0xFFB45309),
+                      // Slide 3: My Slant vs Locked Receipt
+                      if (isSlantPost) ...[
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          margin: const EdgeInsets.only(bottom: 12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF7C3AED).withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: const Color(0xFF7C3AED).withValues(alpha: 0.3)),
+                          ),
+                          child: Row(
+                            children: [
+                              Text(_slantTone == 'heart' ? '❤️' : '🧠', style: const TextStyle(fontSize: 16)),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  "Reader's Op-Ed (${_slantTone == 'heart' ? 'Out of Heart' : 'Out of Mind'})",
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF7C3AED)),
+                                ),
+                              ),
+                              InkWell(
+                                onTap: () {
+                                  setSheetState(() {
+                                    _slantTone = _slantTone == 'heart' ? 'mind' : 'heart';
+                                  });
+                                },
+                                borderRadius: BorderRadius.circular(6),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF7C3AED).withValues(alpha: 0.2),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    _slantTone == 'heart' ? 'Switch to 🧠 Mind' : 'Switch to ❤️ Heart',
+                                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF7C3AED)),
                                   ),
                                 ),
-                              ],
-                            ),
-                            const SizedBox(height: 6),
-                            const Text(
-                              'Slide 3 contains verbatim primary source reporting and receipts. To maintain journalistic authenticity and reader trust, verbatim broadsheet excerpts cannot be edited.',
-                              style: TextStyle(fontSize: 11.5, color: Color(0xFF78350F), height: 1.35),
-                            ),
-                            const Divider(height: 18, color: Color(0xFFFDE68A)),
-                            Text('Masthead: ${_s3PublicationController.text}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: Colors.black87)),
-                            const SizedBox(height: 4),
-                            Text('Headline: ${_s3HeadlineController.text}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: Colors.black87)),
-                            if (_s3Excerpt1Controller.text.isNotEmpty) ...[
-                              const SizedBox(height: 6),
-                              Text('• "${_s3Excerpt1Controller.text}"', style: const TextStyle(fontSize: 10.5, fontStyle: FontStyle.italic, color: Colors.black87)),
+                              ),
                             ],
-                            if (_s3Excerpt2Controller.text.isNotEmpty) ...[
-                              const SizedBox(height: 4),
-                              Text('• "${_s3Excerpt2Controller.text}"', style: const TextStyle(fontSize: 10.5, fontStyle: FontStyle.italic, color: Colors.black87)),
-                            ],
-                          ],
+                          ),
                         ),
-                      ),
+                        TextField(
+                          controller: _s3HeadlineController,
+                          decoration: const InputDecoration(
+                            labelText: "Reader's Op-Ed Headline",
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                          maxLines: 2,
+                        ),
+                        const SizedBox(height: 10),
+                        TextField(
+                          controller: _s3Excerpt2Controller,
+                          decoration: const InputDecoration(
+                            labelText: 'Core Highlight Quote (Yellow Broadsheet Highlight)',
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                          maxLines: 3,
+                        ),
+                        const SizedBox(height: 10),
+                        TextField(
+                          controller: _s3Excerpt1Controller,
+                          decoration: const InputDecoration(
+                            labelText: 'Paragraph 1: Catalyzing Observation / Context',
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                          maxLines: 3,
+                        ),
+                        const SizedBox(height: 10),
+                        TextField(
+                          controller: _s3Excerpt3Controller,
+                          decoration: const InputDecoration(
+                            labelText: 'Paragraph 3: Concluding Reflection / Implication',
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                          maxLines: 3,
+                        ),
+                      ] else ...[
+                        // Slide 3 LOCKED / IMMUTABLE for registered press, web commentary, book excerpts
+                        Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFEF3C7),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0xFFF59E0B)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Row(
+                                children: [
+                                  Icon(Icons.lock_rounded, color: Color(0xFFB45309), size: 18),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'Direct from source — immutable',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                      color: Color(0xFFB45309),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              const Text(
+                                'Slide 3 contains verbatim primary source reporting and receipts. To maintain journalistic authenticity and reader trust, verbatim broadsheet excerpts cannot be edited.',
+                                style: TextStyle(fontSize: 11.5, color: Color(0xFF78350F), height: 1.35),
+                              ),
+                              const Divider(height: 18, color: Color(0xFFFDE68A)),
+                              Text('Masthead: ${_s3PublicationController.text}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: Colors.black87)),
+                              const SizedBox(height: 4),
+                              Text('Headline: ${_s3HeadlineController.text}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: Colors.black87)),
+                              if (_s3Excerpt1Controller.text.isNotEmpty) ...[
+                                const SizedBox(height: 6),
+                                Text('• "${_s3Excerpt1Controller.text}"', style: const TextStyle(fontSize: 10.5, fontStyle: FontStyle.italic, color: Colors.black87)),
+                              ],
+                              if (_s3Excerpt2Controller.text.isNotEmpty) ...[
+                                const SizedBox(height: 4),
+                                Text('• "${_s3Excerpt2Controller.text}"', style: const TextStyle(fontSize: 10.5, fontStyle: FontStyle.italic, color: Colors.black87)),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ],
                     ],
 
                     const SizedBox(height: 18),
@@ -1631,7 +1797,9 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
                 ? 'Slant • 3-Poster Carousel'
                 : (_currentStep == SlantStep.visualCues
                     ? 'Slant • Visual Cues'
-                    : (_sourceMode == InputSourceMode.digitalLink ? 'Slant • Web Link' : 'Slant • Snap')),
+                    : (_sourceMode == InputSourceMode.mySlant
+                        ? 'Slant • My Slant'
+                        : (_sourceMode == InputSourceMode.digitalLink ? 'Slant • Web Link' : 'Slant • Snap'))),
           ),
           actions: [
             if (_generatedItem != null && _currentStep == SlantStep.resultPoster) ...[
@@ -1683,6 +1851,9 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
   // ================= STEP 1: Source & Angle =================
 
   Widget _buildStep1SourceAndAngle(ThemeData theme) {
+    if (_sourceMode == InputSourceMode.mySlant) {
+      return _buildMySlantSourceSection(theme);
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1751,6 +1922,331 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
           icon: const Icon(Icons.arrow_forward),
           label: const Text(
             'Next: Visual Cues →',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+          ),
+          style: FilledButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMySlantSourceSection(ThemeData theme) {
+    final isDark = theme.brightness == Brightness.dark;
+    final isHeart = _slantTone == 'heart';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Hero Banner Card
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: isHeart
+                  ? [
+                      const Color(0xFFF43F5E).withValues(alpha: isDark ? 0.25 : 0.12),
+                      const Color(0xFFBE123C).withValues(alpha: isDark ? 0.15 : 0.06),
+                    ]
+                  : [
+                      const Color(0xFF6366F1).withValues(alpha: isDark ? 0.25 : 0.12),
+                      const Color(0xFF4338CA).withValues(alpha: isDark ? 0.15 : 0.06),
+                    ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isHeart
+                  ? const Color(0xFFF43F5E).withValues(alpha: 0.35)
+                  : const Color(0xFF6366F1).withValues(alpha: 0.35),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: isHeart
+                          ? const Color(0xFFF43F5E).withValues(alpha: 0.2)
+                          : const Color(0xFF6366F1).withValues(alpha: 0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Text(
+                      isHeart ? '❤️' : '🧠',
+                      style: const TextStyle(fontSize: 22),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          isHeart ? 'My Slant • Out of Heart' : 'My Slant • Out of Mind',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.white : const Color(0xFF1E293B),
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'No link or photo needed. Slant AI writes your headline, core take, and broadsheet layout.',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+
+              // Mind vs Heart Switcher Pill Toggle
+              Container(
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surface.withValues(alpha: 0.8),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3)),
+                ),
+                padding: const EdgeInsets.all(4),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: InkWell(
+                        onTap: () {
+                          if (_slantTone != 'mind') {
+                            setState(() {
+                              _slantTone = 'mind';
+                              _lastSuggestedContextKey = null;
+                            });
+                          }
+                        },
+                        borderRadius: BorderRadius.circular(9),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          decoration: BoxDecoration(
+                            color: !isHeart
+                                ? const Color(0xFF6366F1).withValues(alpha: 0.15)
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(9),
+                            border: !isHeart
+                                ? Border.all(color: const Color(0xFF6366F1).withValues(alpha: 0.5))
+                                : null,
+                          ),
+                          alignment: Alignment.center,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Text('🧠', style: TextStyle(fontSize: 14)),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Mind (Perspective)',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: !isHeart ? FontWeight.bold : FontWeight.w500,
+                                  color: !isHeart
+                                      ? (isDark ? Colors.indigoAccent : const Color(0xFF4338CA))
+                                      : theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: InkWell(
+                        onTap: () {
+                          if (_slantTone != 'heart') {
+                            setState(() {
+                              _slantTone = 'heart';
+                              _lastSuggestedContextKey = null;
+                            });
+                          }
+                        },
+                        borderRadius: BorderRadius.circular(9),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          decoration: BoxDecoration(
+                            color: isHeart
+                                ? const Color(0xFFF43F5E).withValues(alpha: 0.15)
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(9),
+                            border: isHeart
+                                ? Border.all(color: const Color(0xFFF43F5E).withValues(alpha: 0.5))
+                                : null,
+                          ),
+                          alignment: Alignment.center,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Text('❤️', style: TextStyle(fontSize: 14)),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Heart (Emotion)',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: isHeart ? FontWeight.bold : FontWeight.w500,
+                                  color: isHeart
+                                      ? (isDark ? Colors.pinkAccent : const Color(0xFFBE123C))
+                                      : theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 16),
+
+        // Thought / Raw Slant Card
+        Card(
+          elevation: 0,
+          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+            side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4)),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(isHeart ? '❤️' : '🧠', style: const TextStyle(fontSize: 16)),
+                    const SizedBox(width: 8),
+                    Text(
+                      isHeart ? 'What are you feeling?' : 'What is on your mind?',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                    ),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        'Zero-burden',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: theme.colorScheme.primary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  isHeart
+                      ? 'Share your raw feeling, personal emotion, or life experience without worrying about formatting.'
+                      : 'Express your stance, analysis, reflection, or critique without worrying about finding a source.',
+                  style: TextStyle(fontSize: 11.5, color: theme.colorScheme.onSurfaceVariant),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: _slantThoughtController,
+                  decoration: InputDecoration(
+                    hintText: isHeart
+                        ? 'e.g. Walking through the quiet neighborhood at dusk, I felt a deep nostalgia for an era before endless feeds consumed our quiet hours...'
+                        : 'e.g. The real risk of AI isn’t superintelligence taking over, it’s that we surrender our curiosity and critical judgment to automated convenience...',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    filled: true,
+                    fillColor: theme.colorScheme.surface,
+                    alignLabelWithHint: true,
+                  ),
+                  maxLines: 7,
+                  minLines: 4,
+                  onChanged: (val) {
+                    _contextController.text = val;
+                    if (_cueWordPills.isEmpty) {
+                      _autoSuggestCueKeywords();
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 14),
+
+        // Visual Cues & Vibes (Optional)
+        Card(
+          elevation: 0,
+          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+            side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4)),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.palette_outlined, size: 18, color: theme.colorScheme.primary),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Visual Cues & Imagery (Optional)',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Have visual imagery in mind? Describe objects, lighting, mood, or colors for the cover poster.',
+                  style: TextStyle(fontSize: 11.5, color: theme.colorScheme.onSurfaceVariant),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: _slantVisualCuesController,
+                  decoration: InputDecoration(
+                    hintText: 'e.g. Vintage typewriter with warm golden morning light, deep shadows, cinematic minimalism',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    filled: true,
+                    fillColor: theme.colorScheme.surface,
+                  ),
+                  maxLines: 2,
+                  minLines: 1,
+                  onChanged: (val) {
+                    _hookCuesController.text = val;
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 20),
+
+        FilledButton.icon(
+          onPressed: _goToVisualCuesStep,
+          icon: const Icon(Icons.arrow_forward),
+          label: const Text(
+            'Next: Visual Cues & Metaphors →',
             style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
           ),
           style: FilledButton.styleFrom(
@@ -2166,9 +2662,11 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
         FilledButton.icon(
           onPressed: _isAnalyzing ? null : () => _runAnalysis(),
           icon: const Icon(Icons.auto_awesome),
-          label: const Text(
-            'Generate 3-Poster Social Carousel',
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+          label: Text(
+            _sourceMode == InputSourceMode.mySlant
+                ? 'Synthesize My Slant Carousel'
+                : 'Generate 3-Poster Social Carousel',
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
           ),
           style: FilledButton.styleFrom(
             padding: const EdgeInsets.symmetric(vertical: 14),
@@ -2183,7 +2681,9 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
             setState(() => _currentStep = SlantStep.sourceAndAngle);
           },
           icon: const Icon(Icons.arrow_back, size: 16),
-          label: const Text('Back to Angle & Source'),
+          label: Text(
+            _sourceMode == InputSourceMode.mySlant ? 'Back to My Slant' : 'Back to Angle & Source',
+          ),
         ),
       ],
     );

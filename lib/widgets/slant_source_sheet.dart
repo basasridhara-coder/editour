@@ -166,6 +166,95 @@ class SlantSourceSheet {
                     ),
                   ],
                 ),
+                const SizedBox(height: 14),
+
+                // 3. My Slant (Personal Opinion / Feeling)
+                InkWell(
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    await Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (c) => const CreatePostcardScreen(
+                          initialSourceMode: InputSourceMode.mySlant,
+                        ),
+                      ),
+                    );
+                    onFinish?.call();
+                  },
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          const Color(0xFF7C3AED).withValues(alpha: 0.12),
+                          const Color(0xFFDB2777).withValues(alpha: 0.08),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: const Color(0xFF7C3AED).withValues(alpha: 0.35),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: const BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [Color(0xFF7C3AED), Color(0xFF9333EA)],
+                            ),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.edit_note_rounded, color: Colors.white, size: 26),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Text(
+                                    'My Slant',
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF7C3AED).withValues(alpha: 0.18),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: const Text(
+                                      '🧠 Mind  •  ❤️ Heart',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w800,
+                                        color: Color(0xFF7C3AED),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                'Express a thought or feeling freely. No article link or photo required—AI drafts your poster & headline.',
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                  height: 1.25,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(Icons.arrow_forward_ios_rounded, size: 16, color: Color(0xFF7C3AED)),
+                      ],
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
