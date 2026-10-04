@@ -43,23 +43,26 @@ module.exports = async function handler(req, res) {
       creatorHandle = '@curator',
       cues = [],
       heroCue = '',
-      characterRepresentation = 'silhouette'
+      characterRepresentation = 'silhouette',
+      scrapedTitle = '',
+      scrapedContent = ''
     } = body || {};
 
     const userSlant = slantTake || text || '';
-    let extractedTitle = '';
-    let extractedContent = text || '';
+    let extractedTitle = scrapedTitle || '';
+    let extractedContent = scrapedContent || text || '';
     let pubName = '';
 
-    // 1. If digital link, attempt lightweight server-side scraping of OpenGraph / Title / Text
+    // 1. If digital link, attempt lightweight server-side scraping of OpenGraph / Title / Text if not already supplied
     if (sourceType === 'digital_link' && url) {
       try {
         const parsedUrl = new URL(url);
         pubName = parsedUrl.hostname.replace(/^www\./, '');
         
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 4000);
-        const pageResp = await fetch(url, {
+        if (!extractedContent || !extractedTitle) {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 4000);
+          const pageResp = await fetch(url, {
           signal: controller.signal,
           headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 SlantBot/1.0'
@@ -98,10 +101,11 @@ module.exports = async function handler(req, res) {
 
           extractedContent = `Title: ${extractedTitle}\nDescription: ${desc}\n\nArticle Text:\n${cleanBody}`;
         }
-      } catch (err) {
-        console.warn('URL metadata fetch skipped or timed out:', err.message);
       }
+    } catch (err) {
+      console.warn('URL metadata fetch skipped or timed out:', err.message);
     }
+  }
 
     // 2. Build Prompt for Gemini 3.8 Flash
     const toneDescription = slantTone === 'heart'

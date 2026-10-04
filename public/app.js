@@ -1922,8 +1922,9 @@ function openCreatorModal() {
   modal.classList.add('active');
   document.body.style.overflow = 'hidden';
 
-  // Attach drag-drop listeners if not already attached
+  // Attach drag-drop & url scrape listeners
   setupCreatorDropzone();
+  setupCreatorUrlListener();
 }
 
 function closeCreatorModal() {
@@ -2127,15 +2128,146 @@ let creatorSelectedCueIndices = new Set();
 let creatorCharacterRepresentation = 'silhouette'; // 'silhouette' | 'likeness'
 let creatorLastSuggestedContextKey = '';
 
-// Ported heuristic 6-dimension extractor matching VisualCueService.dart
-function extract6RankedCueDimensions(curatorAngle, newsHeadline, newsBody) {
-  const combined = `${curatorAngle || ''} ${newsHeadline || ''} ${newsBody || ''}`.toLowerCase();
+// Live Scraped Article State
+let currentScrapedArticle = null;
+let scrapeDebounceTimer = null;
+let isScrapingUrl = false;
 
-  // 1. HERO (Subject from headline or angle)
+function extractHeadlineFromUrl(url) {
+  if (!url || typeof url !== 'string') return '';
+  try {
+    let clean = url.trim();
+    if (!clean.startsWith('http://') && !clean.startsWith('https://')) {
+      clean = 'https://' + clean;
+    }
+    const parsed = new URL(clean);
+    const segments = parsed.pathname.split('/').filter(Boolean);
+    if (!segments.length) {
+      return parsed.hostname.replace(/^www\./, '');
+    }
+
+    let bestSlug = '';
+    for (const seg of segments) {
+      const c = seg.replace(/\.(html|ece|htm|php|cms|amp|asp)$/i, '');
+      if (c.length > bestSlug.length && (c.includes('-') || c.includes('_'))) {
+        bestSlug = c;
+      }
+    }
+    if (!bestSlug && segments.length) bestSlug = segments[segments.length - 1];
+
+    const words = bestSlug
+      .split(/[-_]/)
+      .filter(w => w.length > 2 && !/^\d+$/.test(w))
+      .map(w => w.charAt(0).toUpperCase() + w.slice(1));
+
+    return words.length ? words.join(' ') : parsed.hostname.replace(/^www\./, '');
+  } catch (_) {
+    return '';
+  }
+}
+
+function setupCreatorUrlListener() {
+  const urlInput = document.getElementById('creatorUrlInput');
+  if (!urlInput || urlInput.dataset.listenerAttached) return;
+  urlInput.dataset.listenerAttached = 'true';
+
+  urlInput.addEventListener('input', (e) => {
+    clearTimeout(scrapeDebounceTimer);
+    const val = e.target.value.trim();
+    if (val.startsWith('http://') || val.startsWith('https://') || val.includes('.')) {
+      scrapeDebounceTimer = setTimeout(() => {
+        handleUrlInput(val);
+      }, 500);
+    } else {
+      const indicator = document.getElementById('urlScrapeIndicator');
+      if (indicator) indicator.style.display = 'none';
+      currentScrapedArticle = null;
+    }
+  });
+
+  urlInput.addEventListener('paste', () => {
+    setTimeout(() => {
+      const val = urlInput.value.trim();
+      if (val) handleUrlInput(val);
+    }, 100);
+  });
+}
+
+async function handleUrlInput(val) {
+  const clean = (val || '').trim();
+  const indicator = document.getElementById('urlScrapeIndicator');
+  if (!clean || (!clean.startsWith('http://') && !clean.startsWith('https://') && !clean.includes('.'))) {
+    if (indicator) indicator.style.display = 'none';
+    currentScrapedArticle = null;
+    return;
+  }
+
+  isScrapingUrl = true;
+  if (indicator) {
+    indicator.className = 'url-scrape-indicator loading';
+    indicator.innerHTML = '<span class="scrape-icon">⏳</span><span class="scrape-text">Fetching & verifying article source...</span>';
+    indicator.style.display = 'flex';
+  }
+
+  try {
+    const resp = await fetch('/api/scrape', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: clean })
+    });
+
+    if (!resp.ok) throw new Error('Scrape request failed');
+    const data = await resp.json();
+
+    if (data && data.success) {
+      currentScrapedArticle = data;
+      const isFull = (data.content && data.content.length > 200) || (!data.fallback);
+      if (indicator) {
+        indicator.className = isFull ? 'url-scrape-indicator success' : 'url-scrape-indicator info';
+        indicator.innerHTML = `
+          <span class="scrape-icon">${isFull ? '✓' : 'ℹ'}</span>
+          <div class="scrape-text-wrap">
+            <span class="scrape-title">${isFull ? 'Full article retrieved' : 'Headline extracted'} (${escapeHtml(data.siteName || 'Web')})</span>
+            <span class="scrape-sub">${escapeHtml(data.title || clean)}</span>
+          </div>
+        `;
+        indicator.style.display = 'flex';
+      }
+    }
+  } catch (err) {
+    console.warn('URL scrape error:', err.message);
+    const slugTitle = extractHeadlineFromUrl(clean);
+    currentScrapedArticle = { url: clean, title: slugTitle, siteName: getCleanDomain(clean), content: '' };
+    if (indicator) {
+      indicator.className = 'url-scrape-indicator info';
+      indicator.innerHTML = `
+        <span class="scrape-icon">ℹ</span>
+        <div class="scrape-text-wrap">
+          <span class="scrape-title">Citation link saved (${escapeHtml(currentScrapedArticle.siteName)})</span>
+          <span class="scrape-sub">${escapeHtml(slugTitle || clean)}</span>
+        </div>
+      `;
+      indicator.style.display = 'flex';
+    }
+  } finally {
+    isScrapingUrl = false;
+  }
+}
+
+// Fallback heuristic 6-dimension extractor matching VisualCueService.dart
+function extract6RankedCueDimensions(curatorAngle, newsHeadline, newsBody) {
+  let cleanHeadline = (newsHeadline || '').trim();
+  if (cleanHeadline.startsWith('http://') || cleanHeadline.startsWith('https://')) {
+    cleanHeadline = extractHeadlineFromUrl(cleanHeadline);
+  }
+
+  const combined = `${curatorAngle || ''} ${cleanHeadline} ${newsBody || ''}`.toLowerCase();
+
+  // 1. HERO (Subject from headline or angle - never a URL!)
   let hero = '';
   if (combined.includes('garbage') || combined.includes('trash') || combined.includes('waste') || combined.includes('clean')) {
     hero = 'Lone Sweeper with Traditional Broom';
-  } else if (combined.includes('ai') || combined.includes('tech') || combined.includes('silicon') || combined.includes('data center') || combined.includes('model') || combined.includes('compute')) {
+  } else if (combined.includes('ai') || combined.includes('tech') || combined.includes('silicon') || combined.includes('data center') || combined.includes('model') || combined.includes('compute') || combined.includes('apple') || combined.includes('phone') || combined.includes('ipad')) {
     hero = 'Monolithic Obsidian Server Tower';
   } else if (combined.includes('market') || combined.includes('invest') || combined.includes('wealth') || combined.includes('billion') || combined.includes('stock')) {
     hero = 'Silhouetted Wall Street Bull';
@@ -2143,8 +2275,8 @@ function extract6RankedCueDimensions(curatorAngle, newsHeadline, newsBody) {
     hero = 'Solitary Figure at Microphone';
   } else if (combined.includes('court') || combined.includes('judge') || combined.includes('law') || combined.includes('case')) {
     hero = 'Gavel & Broken Stone Pillar';
-  } else if (newsHeadline && newsHeadline.trim().length > 0) {
-    hero = newsHeadline.trim().split(/[:–—\-]/)[0].trim();
+  } else if (cleanHeadline && cleanHeadline.length > 3 && !cleanHeadline.startsWith('http')) {
+    hero = cleanHeadline.split(/[:–—\-]/)[0].trim();
     if (hero.length > 38) hero = hero.substring(0, 35) + '...';
   } else if (curatorAngle && curatorAngle.trim().length > 0) {
     hero = curatorAngle.trim().split(/[.\n!?]/)[0].trim();
@@ -2237,7 +2369,7 @@ const CUE_RANK_CONFIGS = [
   { badge: '🎨 #6 STYLE', badgeClass: 'badge-rank-5', rowClass: 'cue-rank-5' },
 ];
 
-function goToVisualCuesStep() {
+async function goToVisualCuesStep() {
   const urlInput = document.getElementById('creatorUrlInput');
   const slantTakeInput = document.getElementById('creatorSlantTakeInput');
 
@@ -2262,6 +2394,10 @@ function goToVisualCuesStep() {
       if (urlInput) urlInput.focus();
       return;
     }
+    // If not scraped yet, scrape now!
+    if (!currentScrapedArticle) {
+      await handleUrlInput(url);
+    }
   }
 
   // Switch step indicators
@@ -2284,15 +2420,17 @@ function goToVisualCuesStep() {
   if (d2) d2.className = 'creator-step-dot active';
   if (d3) d3.className = 'creator-step-dot';
 
-  // Auto-suggest cues if needed
-  const contextKey = `${creatorSelectedSource}::${url}::${slantTake}`;
+  // AI-suggest cues if context changed or empty
+  const articleTitle = currentScrapedArticle?.title || extractHeadlineFromUrl(url);
+  const contextKey = `${creatorSelectedSource}::${articleTitle}::${slantTake}`;
+
   if (creatorCuePills.length === 0 || creatorLastSuggestedContextKey !== contextKey) {
     creatorLastSuggestedContextKey = contextKey;
-    creatorCuePills = extract6RankedCueDimensions(slantTake, url, '');
-    creatorSelectedCueIndices.clear();
+    renderCuesDeck(); // initial render
+    await triggerCueSuggest(); // call Gemini AI model for rich cues!
+  } else {
+    renderCuesDeck();
   }
-
-  renderCuesDeck();
 }
 
 function renderCuesDeck() {
@@ -2414,28 +2552,72 @@ function addCustomCue() {
   renderCuesDeck();
 }
 
-function triggerCueSuggest() {
+async function triggerCueSuggest() {
   const urlInput = document.getElementById('creatorUrlInput');
   const slantTakeInput = document.getElementById('creatorSlantTakeInput');
   const url = urlInput ? urlInput.value.trim() : '';
   const slantTake = slantTakeInput ? slantTakeInput.value.trim() : '';
 
-  const fresh = extract6RankedCueDimensions(slantTake, url, '');
+  const articleTitle = currentScrapedArticle?.title || extractHeadlineFromUrl(url);
+  const articleBody = currentScrapedArticle?.content || '';
 
-  if (creatorSelectedCueIndices.size > 0) {
-    // Selective replacement
-    creatorSelectedCueIndices.forEach(idx => {
-      if (idx < fresh.length) {
-        creatorCuePills[idx] = fresh[idx];
-      }
+  const suggestBtn = document.getElementById('cuesSuggestBtn');
+  const suggestLabel = document.getElementById('cuesSuggestLabel');
+  const suggestIcon = document.getElementById('cuesSuggestIcon');
+
+  if (suggestBtn) suggestBtn.disabled = true;
+  if (suggestLabel) suggestLabel.textContent = 'Thinking with Gemini...';
+  if (suggestIcon) suggestIcon.textContent = '⏳';
+
+  try {
+    const resp = await fetch('/api/cues', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        curatorAngle: slantTake,
+        newsHeadline: articleTitle,
+        newsBody: articleBody,
+        sourceType: creatorSelectedSource,
+        selectedIndices: Array.from(creatorSelectedCueIndices)
+      })
     });
-    creatorSelectedCueIndices.clear();
-  } else {
-    // Re-extract all
-    creatorCuePills = fresh;
-  }
 
-  renderCuesDeck();
+    if (!resp.ok) throw new Error('AI cues request failed');
+    const data = await resp.json();
+
+    if (data && data.success && Array.isArray(data.cues) && data.cues.length > 0) {
+      if (creatorSelectedCueIndices.size > 0 && creatorCuePills.length > 0) {
+        // Selective replacement
+        const updated = [...creatorCuePills];
+        const selectedArr = Array.from(creatorSelectedCueIndices).sort((a,b)=>a-b);
+        selectedArr.forEach((targetIdx, i) => {
+          if (data.cues[i] && targetIdx < updated.length) {
+            updated[targetIdx] = data.cues[i];
+          }
+        });
+        creatorCuePills = updated;
+        creatorSelectedCueIndices.clear();
+      } else {
+        creatorCuePills = data.cues;
+      }
+    } else {
+      throw new Error('Invalid cues response');
+    }
+  } catch (err) {
+    console.warn('AI cue suggestion fallback:', err.message);
+    const fallbacks = extract6RankedCueDimensions(slantTake, articleTitle, articleBody);
+    if (creatorSelectedCueIndices.size > 0 && creatorCuePills.length > 0) {
+      creatorSelectedCueIndices.forEach(idx => {
+        if (idx < fallbacks.length) creatorCuePills[idx] = fallbacks[idx];
+      });
+      creatorSelectedCueIndices.clear();
+    } else {
+      creatorCuePills = fallbacks;
+    }
+  } finally {
+    if (suggestBtn) suggestBtn.disabled = false;
+    renderCuesDeck();
+  }
 }
 
 function selectCharacterRepresentation(type) {
@@ -2497,7 +2679,9 @@ async function startAiSynthesis() {
     creatorHandle: userHandle,
     cues: creatorCuePills,
     heroCue: creatorCuePills[0] || '',
-    characterRepresentation: creatorCharacterRepresentation
+    characterRepresentation: creatorCharacterRepresentation,
+    scrapedTitle: currentScrapedArticle?.title || '',
+    scrapedContent: currentScrapedArticle?.content || ''
   };
 
   try {
