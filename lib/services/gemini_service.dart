@@ -1679,9 +1679,12 @@ Return ONLY a valid JSON object matching this schema:
 
   /// Synthesizes a high-impact 3-poster carousel for direct personal thought/opinion/feeling ("My Slant").
   /// Zero-burden: user expresses freely from Mind (🧠) or Heart (❤️), AI generates headline, hook, manifesto, and art.
+  /// Synthesizes a high-impact 3-poster carousel for direct personal thought/opinion/feeling ("My Slant").
+  /// Zero-burden: user expresses freely from Mind (🧠) or Heart (❤️), AI generates headline, hook, manifesto, and art.
   Future<GeminiAnalysisResult> analyzeAndSummarizeMySlant({
     required String rawThought,
     required String slantTone, // 'mind' or 'heart'
+    bool refineCoreTake = true,
     String? visualCues,
     required String targetAudience,
     required String tone,
@@ -1694,6 +1697,7 @@ Return ONLY a valid JSON object matching this schema:
       return _generateSmartMySlantDemoResult(
         rawThought: rawThought,
         slantTone: slantTone,
+        refineCoreTake: refineCoreTake,
         visualCues: visualCues,
         targetAudience: targetAudience,
         tone: tone,
@@ -1720,35 +1724,48 @@ ${visualCues != null && visualCues.trim().isNotEmpty ? 'CURATOR\'S VISUAL CUES /
 🎯 YOUR MISSION (ZERO BURDEN ON THE CURATOR):
 The Curator did NOT provide a headline or structure an essay. They expressed freely from their $slantTone.
 Your job is to elevate this raw thought into a world-class 3-Poster Carousel:
-1. Synthesize a powerful, unforgettable **Adapted Headline** (6-10 words, bold, evocative, declares the core premise).
+1. Synthesize a powerful, unforgettable **Adapted Headline** (6-10 words, bold, evocative, declares the core premise without trailing ellipses).
 2. Write a captivating 1-2 sentence **Hook** that draws in $targetAudience immediately.
-3. Distill the **Core Conviction (Pull Quote & Highlight)**: The singular, razor-sharp sentence that crystallizes this thought.
-4. Craft an articulate, punchy **Summary & Reflection (1-minute read)** (90-130 words) in the Curator's authentic first-person voice. Zero fluff or corporate speak.
+3. ${refineCoreTake ? '''**Refine Core Conviction Take (Canary Yellow Highlighter & Slide 2 Take)**:
+   - REFINE and ELEVATE the raw thought into a razor-sharp, unforgettable aphorism or editorial statement (1-2 tight sentences, total 20-35 words).
+   - Make it punchy, articulate, and memorable—worthy of being highlighted in yellow ink on the front page of a broadsheet.
+   - It MUST end with a definitive period (.).
+''' : '''**Core Conviction Take (Verbatim)**:
+   - Preserve the Curator's exact words faithfully as their core take. Ensure it forms a complete, grammatically finished statement ending with a period (.).
+'''}
+4. Craft an articulate, punchy **Summary & Reflection (1-minute read)** (90-130 words, 3-5 complete sentences) in the Curator's authentic first-person voice. Zero fluff.
 5. Create **3 Consecutive Broadsheet Op-Ed Passages** (for Slide 3's tactile newspaper broadsheet layout):
-   - Paragraph 1: The real-world observation or tension that sparked this reflection.
-   - Paragraph 2: The core conviction statement (matches or elaborates on the pull quote).
-   - Paragraph 3: The enduring lesson, call to reflection, or forward-looking perspective.
+   - Paragraph 1 (30-45 words): The real-world observation or tension that sparked this reflection. Must end with a full stop (.).
+   - Paragraph 2 (25-40 words): The core conviction statement (matches or elaborates on the refined core take). Must end with a full stop (.).
+   - Paragraph 3 (30-45 words): The enduring lesson, call to reflection, or forward-looking perspective. Must end with a full stop (.).
+   ⚠️ CRITICAL FORMAT CONSTRAINT: Each broadsheet passage MUST be a complete, grammatically finished paragraph that fits inside the broadsheet layout without getting cut off or clipped.
 6. Provide visual illustration prompts for Slide 1 and Slide 2:
    - Embody the $slantTone tone: ${slantTone == 'heart' ? 'warm humanist, impressionistic, deep textural gouache, poetic cinematic editorial portraiture/landscape' : 'metaphorical, conceptual editorial, sleek architectural surrealism, high-contrast woodcut or lithograph'}.
    - Seamlessly weave in any visual cues: "${visualCues ?? ''}".
 
+⛔ CRITICAL SENTENCE COMPLETION MANDATE:
+- NEVER cut off any sentence mid-way.
+- NEVER end any sentence or paragraph with trailing ellipses (...).
+- Every single property in the JSON output MUST end with a proper terminating punctuation mark (. ! ?).
+
 Return ONLY valid JSON with this exact structure:
 {
   "adapted_headline": "Bold 6-10 word headline declaring the core conviction",
-  "hook": "1-2 sentence hook declaring the Curator's premise to the reader",
-  "pull_quote": "The single most unforgettable, quotable line of the entire piece",
-  "receipt_highlight_quote": "The core manifesto conviction for the broadsheet yellow highlighter",
-  "summary": "Full 1-minute read (90-130 words) in the Curator's authentic voice",
-  "why_it_matters": "2 sentences explaining why this perspective matters to $targetAudience",
+  "hook": "1-2 sentence hook declaring the Curator's premise to the reader.",
+  "refined_core_take": "The elevated, razor-sharp 1-2 sentence core conviction.",
+  "pull_quote": "The single most unforgettable, quotable line of the entire piece.",
+  "receipt_highlight_quote": "The core manifesto conviction for the broadsheet yellow highlighter.",
+  "summary": "Full 1-minute read (90-130 words) in the Curator's authentic voice.",
+  "why_it_matters": "2 complete sentences explaining why this perspective matters to $targetAudience.",
   "key_takeaways": [
-    "Core conviction point 1",
-    "Underlying insight or reflection point 2",
-    "Perspective shift or practical takeaway point 3"
+    "Core conviction point 1.",
+    "Underlying insight or reflection point 2.",
+    "Perspective shift or practical takeaway point 3."
   ],
   "article_excerpts": [
-    "First broadsheet passage: The observation, catalyst, or premise",
-    "Second broadsheet passage: The core conviction (matches receipt_highlight_quote)",
-    "Third broadsheet passage: The enduring reflection, philosophy, or forward-looking takeaway"
+    "First broadsheet passage: Complete 30-45 word observation or premise.",
+    "Second broadsheet passage: Complete 25-40 word core conviction.",
+    "Third broadsheet passage: Complete 30-45 word enduring reflection."
   ],
   "key_metric": "${slantTone == 'heart' ? 'Heartfelt Stance' : 'Core Thesis'}",
   "category_badge": "OPINION",
@@ -1833,25 +1850,58 @@ Return ONLY valid JSON with this exact structure:
                   }
                 }
 
-                final excerpts = List<String>.from(parsed['article_excerpts'] ?? []);
-                final pullQuote = parsed['pull_quote'] ?? rawThought;
-                final receiptHighlight = parsed['receipt_highlight_quote'] ?? pullQuote;
+                final rawRefinedTake = parsed['refined_core_take']?.toString();
+                final rawPullQuote = parsed['pull_quote']?.toString();
+                final rawReceiptHighlight = parsed['receipt_highlight_quote']?.toString();
+
+                final String pullQuote = _ensureCompleteSentence(
+                  rawPullQuote ?? (rawRefinedTake ?? rawThought),
+                );
+                final String receiptHighlight = _ensureCompleteSentence(
+                  rawReceiptHighlight ?? pullQuote,
+                );
+                final String coreOpinion = _ensureCompleteSentence(
+                  refineCoreTake
+                      ? (rawRefinedTake ?? pullQuote)
+                      : rawThought,
+                );
+
+                final excerptsList = (parsed['article_excerpts'] as List?)
+                        ?.map((e) => _ensureCompleteSentence(e.toString()))
+                        .where((e) => e.isNotEmpty)
+                        .take(3)
+                        .toList() ??
+                    [];
+
+                final excerpts = excerptsList.length >= 3
+                    ? excerptsList
+                    : [
+                        _ensureCompleteSentence('The initial observation that sparked this perspective: $rawThought'),
+                        receiptHighlight,
+                        _ensureCompleteSentence(slantTone == 'heart'
+                            ? 'An enduring personal conviction preserved as a reminder of what remains true when everything else shifts.'
+                            : 'A rigorous intellectual foundation that stands independent of fleeting trends and external consensus.'),
+                      ];
 
                 return GeminiAnalysisResult(
-                  originalHeadline: parsed['adapted_headline'] ?? 'My Slant',
+                  originalHeadline: _ensureCleanHeadline(parsed['adapted_headline'] ?? 'My Slant'),
                   publicationName: "Reader's Op-Ed",
-                  adaptedHeadline: parsed['adapted_headline'] ?? 'My Slant',
-                  hook: parsed['hook'] ?? rawThought,
-                  summary: parsed['summary'] ?? rawThought,
-                  whyItMatters: parsed['why_it_matters'],
-                  keyTakeaways: List<String>.from(parsed['key_takeaways'] ?? []),
+                  adaptedHeadline: _ensureCleanHeadline(parsed['adapted_headline'] ?? 'My Slant'),
+                  hook: _ensureCompleteSentence(parsed['hook'] ?? rawThought),
+                  summary: _ensureCompleteSentence(parsed['summary'] ?? rawThought),
+                  whyItMatters: parsed['why_it_matters'] != null ? _ensureCompleteSentence(parsed['why_it_matters']) : null,
+                  keyTakeaways: (parsed['key_takeaways'] as List?)
+                          ?.map((e) => _ensureCompleteSentence(e.toString()))
+                          .where((e) => e.isNotEmpty)
+                          .toList() ??
+                      [],
                   pullQuote: pullQuote,
                   receiptHighlightQuote: receiptHighlight,
-                  articleExcerpts: excerpts.isNotEmpty ? excerpts : [rawThought, pullQuote, 'Reflections preserved in personal slant archive.'],
+                  articleExcerpts: excerpts,
                   keyMetric: parsed['key_metric'] ?? (slantTone == 'heart' ? 'Heartfelt Stance' : 'Core Thesis'),
                   categoryBadge: 'OPINION',
                   digitalLink: '',
-                  creatorOpinion: rawThought,
+                  creatorOpinion: coreOpinion,
                   suggestedStyle: style,
                   illustrationPrompt: illustPrompt,
                   curatorIllustrationPrompt: parsed['curator_illustration_prompt'],
@@ -1884,6 +1934,7 @@ Return ONLY valid JSON with this exact structure:
     return _generateSmartMySlantDemoResult(
       rawThought: rawThought,
       slantTone: slantTone,
+      refineCoreTake: refineCoreTake,
       visualCues: visualCues,
       targetAudience: targetAudience,
       tone: tone,
@@ -2720,9 +2771,44 @@ Return ONLY valid JSON with this exact structure:
     );
   }
 
+  static String _ensureCompleteSentence(String text) {
+    String clean = text.trim();
+    if (clean.isEmpty) return clean;
+    while (clean.endsWith('...') || clean.endsWith('…') || clean.endsWith('.')) {
+      if (clean.endsWith('...')) {
+        clean = clean.substring(0, clean.length - 3).trim();
+      } else if (clean.endsWith('…')) {
+        clean = clean.substring(0, clean.length - 1).trim();
+      } else if (clean.endsWith('.')) {
+        clean = clean.substring(0, clean.length - 1).trim();
+      } else {
+        break;
+      }
+    }
+    if (!clean.endsWith('.') && !clean.endsWith('!') && !clean.endsWith('?')) {
+      clean = '$clean.';
+    }
+    return clean;
+  }
+
+  static String _ensureCleanHeadline(String text) {
+    String clean = text.trim();
+    while (clean.endsWith('...') || clean.endsWith('…')) {
+      if (clean.endsWith('...')) {
+        clean = clean.substring(0, clean.length - 3).trim();
+      } else if (clean.endsWith('…')) {
+        clean = clean.substring(0, clean.length - 1).trim();
+      } else {
+        break;
+      }
+    }
+    return clean;
+  }
+
   GeminiAnalysisResult _generateSmartMySlantDemoResult({
     required String rawThought,
     required String slantTone,
+    bool refineCoreTake = true,
     String? visualCues,
     required String targetAudience,
     required String tone,
@@ -2732,26 +2818,39 @@ Return ONLY valid JSON with this exact structure:
     final bool isHeart = slantTone == 'heart';
     final String toneIcon = isHeart ? '❤️' : '🧠';
 
-    final cleanThought = rawThought.trim();
+    final cleanThought = _ensureCompleteSentence(rawThought);
     String headline = 'Reflections on Life & Perspective';
     final sentences = cleanThought.split(RegExp(r'(?<=[.!?])\s+'));
     if (sentences.isNotEmpty && sentences.first.isNotEmpty) {
       final first = sentences.first.replaceAll(RegExp(r'[.!?]$'), '').trim();
       final words = first.split(RegExp(r'\s+'));
-      if (words.length <= 10) {
+      if (words.length <= 9) {
         headline = first;
       } else {
-        headline = '${words.take(8).join(' ')}...';
+        headline = words.take(8).join(' ');
       }
     }
+    headline = _ensureCleanHeadline(headline);
 
     final String hook = isHeart
-        ? 'A personal, heartfelt reflection from lived experience: "$cleanThought"'
-        : 'An unfiltered, sharp intellectual conviction: "$cleanThought"';
+        ? _ensureCompleteSentence('A personal, heartfelt reflection from lived experience: "$cleanThought"')
+        : _ensureCompleteSentence('An unfiltered, sharp intellectual conviction: "$cleanThought"');
 
-    final String pullQuote = cleanThought.length > 130
-        ? '${cleanThought.substring(0, 130)}...'
-        : cleanThought;
+    String coreTake;
+    if (refineCoreTake) {
+      if (sentences.isNotEmpty && sentences.first.length > 15) {
+        coreTake = _ensureCompleteSentence(sentences.first);
+      } else {
+        coreTake = isHeart
+            ? 'Our deepest human instincts and heartfelt experiences carry an innate authority that no algorithm or consensus can replicate.'
+            : 'Independent critical reasoning and direct observation are the only real antidote to borrowed opinions and algorithmic conformity.';
+      }
+    } else {
+      coreTake = cleanThought;
+    }
+
+    final String pullQuote = coreTake;
+    final String receiptHighlight = coreTake;
 
     final String summary = isHeart
         ? 'Direct from the heart: $cleanThought\n\nSometimes we carry convictions that require no external validation or news peg. This reflection touches on the fundamental human need for connection, meaning, and staying true to our inner compass.'
@@ -2763,18 +2862,18 @@ Return ONLY valid JSON with this exact structure:
 
     final List<String> takeaways = isHeart
         ? [
-            'Lived emotional truth holds its own authority without citation',
-            'Staying grounded in our core human values amidst relentless pace',
-            'A quiet invitation to listen inward and honor what truly matters',
+            'Lived emotional truth holds its own authority without citation.',
+            'Staying grounded in our core human values amidst relentless pace.',
+            'A quiet invitation to listen inward and honor what truly matters.',
           ]
         : [
-            'First-principles reasoning cuts through reactionary noise',
-            'Direct personal conviction over borrowed opinions',
-            'A strategic perspective shift that unlocks deeper clarity',
+            'First-principles reasoning cuts through reactionary noise.',
+            'Direct personal conviction over borrowed opinions.',
+            'A strategic perspective shift that unlocks deeper clarity.',
           ];
 
     final List<String> excerpts = [
-      'The initial observation that stirred this conviction: $cleanThought',
+      _ensureCompleteSentence('The initial observation that stirred this conviction: $cleanThought'),
       pullQuote,
       isHeart
           ? 'An enduring personal conviction preserved as a reminder of what remains true when everything else shifts.'
@@ -2787,11 +2886,11 @@ Return ONLY valid JSON with this exact structure:
       adaptedHeadline: headline,
       hook: hook,
       summary: summary,
-      creatorOpinion: cleanThought,
+      creatorOpinion: coreTake,
       whyItMatters: whyItMatters,
       keyTakeaways: takeaways,
       pullQuote: pullQuote,
-      receiptHighlightQuote: pullQuote,
+      receiptHighlightQuote: receiptHighlight,
       articleExcerpts: excerpts,
       keyMetric: isHeart ? 'Heartfelt Stance' : 'Core Thesis',
       categoryBadge: 'OPINION',

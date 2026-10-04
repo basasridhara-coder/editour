@@ -60,12 +60,13 @@ class SlideCritiquePoster extends StatelessWidget {
         ? item.keyTakeaways.first.trim().toUpperCase()
         : 'THE CRITICAL PERSPECTIVE';
 
-    // Dynamic responsive font sizing based on opinion text length so statements complete without truncation
+    // Dynamic responsive font sizing and line wrapping based on opinion text length so statements complete without truncation
+    final int opinionMaxLines = opinionText.length > 210 ? 8 : (opinionText.length > 140 ? 6 : 5);
     final double opinionSize = opinionText.length > 210
-        ? 12.0
+        ? 11.2
         : (opinionText.length > 150
-            ? 12.8
-            : (opinionText.length > 90 ? 13.8 : 15.0));
+            ? 12.2
+            : (opinionText.length > 90 ? 13.4 : 14.5));
 
     final double rationaleSize = rationaleText.length > 80 ? 9.8 : 10.5;
 
@@ -252,7 +253,7 @@ class SlideCritiquePoster extends StatelessWidget {
                           ),
                         ],
                       ),
-                      maxLines: 5,
+                      maxLines: opinionMaxLines,
                       overflow: TextOverflow.ellipsis,
                     ),
 

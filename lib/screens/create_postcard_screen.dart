@@ -64,6 +64,7 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
 
   // My Slant Fields (Direct personal thought from Mind or Heart)
   String _slantTone = 'mind'; // 'mind' | 'heart'
+  bool _refineCoreTake = true;
   final TextEditingController _slantThoughtController = TextEditingController();
   final TextEditingController _slantVisualCuesController = TextEditingController();
 
@@ -745,9 +746,8 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
                   ? _contextController.text.trim()
                   : 'Direct personal perspective reflection.'),
           slantTone: _slantTone,
-          visualCues: _slantVisualCuesController.text.trim().isNotEmpty
-              ? _slantVisualCuesController.text.trim()
-              : (_hookCuesController.text.trim().isNotEmpty ? _hookCuesController.text.trim() : null),
+          refineCoreTake: _refineCoreTake,
+          visualCues: _hookCuesController.text.trim().isNotEmpty ? _hookCuesController.text.trim() : null,
           targetAudience: _targetAudience,
           tone: _selectedTone,
           visualArtRatio: _visualArtRatio,
@@ -869,7 +869,14 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
         summary: result.summary,
         whyItMatters: result.whyItMatters,
         keyTakeaways: result.keyTakeaways,
-        pullQuote: result.pullQuote.trim().isNotEmpty ? result.pullQuote : _activeSample?.pullQuote,
+        pullQuote: isMySlant
+            ? (_refineCoreTake
+                ? PostCardItem.sanitizeCompleteSentence(
+                    result.pullQuote.trim().isNotEmpty
+                        ? result.pullQuote
+                        : (result.creatorOpinion ?? _slantThoughtController.text.trim()))
+                : PostCardItem.sanitizeCompleteSentence(_slantThoughtController.text.trim()))
+            : (result.pullQuote.trim().isNotEmpty ? result.pullQuote : _activeSample?.pullQuote),
         keyMetric: result.keyMetric.trim().isNotEmpty ? result.keyMetric : _activeSample?.metric,
         categoryBadge: isMySlant
             ? 'OPINION'
@@ -878,7 +885,12 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
                 : (_activeSample?.category ?? 'CURATED DIGEST')),
         digitalLink: digitalUrl,
         creatorOpinion: isMySlant
-            ? _slantThoughtController.text.trim()
+            ? (_refineCoreTake
+                ? PostCardItem.sanitizeCompleteSentence(
+                    (result.creatorOpinion != null && result.creatorOpinion!.trim().isNotEmpty)
+                        ? result.creatorOpinion!
+                        : (result.pullQuote.trim().isNotEmpty ? result.pullQuote : _slantThoughtController.text.trim()))
+                : PostCardItem.sanitizeCompleteSentence(_slantThoughtController.text.trim()))
             : result.creatorOpinion,
         creatorHandle: _creatorHandleController.text.trim().isNotEmpty
             ? _creatorHandleController.text.trim()
@@ -895,7 +907,11 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
         slantTone: isMySlant ? _slantTone : result.slantTone,
         slantIcon: isMySlant ? (_slantTone == 'heart' ? '❤️' : '🧠') : result.slantIcon,
         postFormat: 'carousel_trio',
-        receiptHighlightQuote: result.receiptHighlightQuote ?? result.pullQuote,
+        receiptHighlightQuote: isMySlant
+            ? (_refineCoreTake
+                ? PostCardItem.sanitizeCompleteSentence(result.receiptHighlightQuote ?? result.pullQuote)
+                : PostCardItem.sanitizeCompleteSentence(_slantThoughtController.text.trim()))
+            : (result.receiptHighlightQuote ?? result.pullQuote),
         articleExcerpts: result.articleExcerpts.isNotEmpty
             ? result.articleExcerpts
             : ((_activeSample != null && _activeSample!.rawArticleText.trim().isNotEmpty)
@@ -995,9 +1011,12 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
 
     final bool isMySlant = _generatedItem!.isMySlant;
     final List<String> updatedExcerpts = [
-      if (_s3Excerpt1Controller.text.trim().isNotEmpty) _s3Excerpt1Controller.text.trim(),
-      if (_s3Excerpt2Controller.text.trim().isNotEmpty) _s3Excerpt2Controller.text.trim(),
-      if (_s3Excerpt3Controller.text.trim().isNotEmpty) _s3Excerpt3Controller.text.trim(),
+      if (_s3Excerpt1Controller.text.trim().isNotEmpty)
+        PostCardItem.sanitizeCompleteSentence(_s3Excerpt1Controller.text.trim()),
+      if (_s3Excerpt2Controller.text.trim().isNotEmpty)
+        PostCardItem.sanitizeCompleteSentence(_s3Excerpt2Controller.text.trim()),
+      if (_s3Excerpt3Controller.text.trim().isNotEmpty)
+        PostCardItem.sanitizeCompleteSentence(_s3Excerpt3Controller.text.trim()),
     ];
 
     setState(() {
@@ -1009,22 +1028,22 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
             ? _s1PublicationController.text.trim()
             : _generatedItem!.publicationName,
         hook: _s1ActualNewsExcerptController.text.trim().isNotEmpty
-            ? _s1ActualNewsExcerptController.text.trim()
+            ? PostCardItem.sanitizeCompleteSentence(_s1ActualNewsExcerptController.text.trim())
             : _generatedItem!.hook,
         adaptedHeadline: _headlineController.text.trim().isNotEmpty
             ? _headlineController.text.trim()
             : _generatedItem!.adaptedHeadline,
         creatorOpinion: _opinionController.text.trim().isNotEmpty
-            ? _opinionController.text.trim()
+            ? PostCardItem.sanitizeCompleteSentence(_opinionController.text.trim())
             : _generatedItem!.creatorOpinion,
         whyItMatters: _s2WhyItMattersController.text.trim().isNotEmpty
-            ? _s2WhyItMattersController.text.trim()
+            ? PostCardItem.sanitizeCompleteSentence(_s2WhyItMattersController.text.trim())
             : _generatedItem!.whyItMatters,
-        keyTakeaways: updatedTakeaways.isNotEmpty ? updatedTakeaways : _generatedItem!.keyTakeaways,
-        pullQuote: _quoteController.text.trim().isNotEmpty ? _quoteController.text.trim() : null,
+        keyTakeaways: updatedTakeaways.isNotEmpty ? updatedTakeaways.map((t) => PostCardItem.sanitizeCompleteSentence(t)).toList() : _generatedItem!.keyTakeaways,
+        pullQuote: _quoteController.text.trim().isNotEmpty ? PostCardItem.sanitizeCompleteSentence(_quoteController.text.trim()) : null,
         keyMetric: _metricController.text.trim().isNotEmpty ? _metricController.text.trim() : null,
         receiptHighlightQuote: isMySlant && _s3Excerpt2Controller.text.trim().isNotEmpty
-            ? _s3Excerpt2Controller.text.trim()
+            ? PostCardItem.sanitizeCompleteSentence(_s3Excerpt2Controller.text.trim())
             : _generatedItem!.receiptHighlightQuote,
         articleExcerpts: isMySlant && updatedExcerpts.isNotEmpty
             ? updatedExcerpts
@@ -2192,47 +2211,80 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
 
         const SizedBox(height: 14),
 
-        // Visual Cues & Vibes (Optional)
+        // Core Take Representation Mode Card (Refined vs As-Is / Verbatim)
         Card(
           elevation: 0,
-          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.25),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
-            side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4)),
+            side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.35)),
           ),
           child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            child: Row(
               children: [
-                Row(
-                  children: [
-                    Icon(Icons.palette_outlined, size: 18, color: theme.colorScheme.primary),
-                    const SizedBox(width: 8),
-                    const Text(
-                      'Visual Cues & Imagery (Optional)',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Have visual imagery in mind? Describe objects, lighting, mood, or colors for the cover poster.',
-                  style: TextStyle(fontSize: 11.5, color: theme.colorScheme.onSurfaceVariant),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: _slantVisualCuesController,
-                  decoration: InputDecoration(
-                    hintText: 'e.g. Vintage typewriter with warm golden morning light, deep shadows, cinematic minimalism',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                    filled: true,
-                    fillColor: theme.colorScheme.surface,
+                Container(
+                  padding: const EdgeInsets.all(7),
+                  decoration: BoxDecoration(
+                    color: _refineCoreTake
+                        ? const Color(0xFFF59E0B).withValues(alpha: 0.15)
+                        : Colors.grey.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  maxLines: 2,
-                  minLines: 1,
+                  child: Icon(
+                    _refineCoreTake ? Icons.auto_awesome : Icons.format_quote_rounded,
+                    size: 18,
+                    color: _refineCoreTake ? const Color(0xFFD97706) : Colors.grey,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            _refineCoreTake ? 'Refine Core Take with AI' : 'Use Core Take As-Is',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                          ),
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              color: _refineCoreTake
+                                  ? const Color(0xFFF59E0B).withValues(alpha: 0.15)
+                                  : Colors.grey.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              _refineCoreTake ? 'Refined' : 'Verbatim',
+                              style: TextStyle(
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w700,
+                                color: _refineCoreTake ? const Color(0xFFD97706) : Colors.grey.shade700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        _refineCoreTake
+                            ? 'AI polishes and sharpens your raw thought into a punchy poster quote.'
+                            : 'Keeps your exact typed words verbatim on the poster slides without rephrasing.',
+                        style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurfaceVariant),
+                      ),
+                    ],
+                  ),
+                ),
+                Switch.adaptive(
+                  value: _refineCoreTake,
+                  activeTrackColor: const Color(0xFFF59E0B),
                   onChanged: (val) {
-                    _hookCuesController.text = val;
+                    setState(() {
+                      _refineCoreTake = val;
+                    });
                   },
                 ),
               ],

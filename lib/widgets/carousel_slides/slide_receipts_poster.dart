@@ -15,37 +15,72 @@ class SlideReceiptsPoster extends StatelessWidget {
     this.borderRadius,
   });
 
+  static String _ensureCleanEnding(String text) {
+    String clean = text.trim();
+    if (clean.isEmpty) return clean;
+    while (clean.endsWith('...') || clean.endsWith('…') || clean.endsWith('.')) {
+      if (clean.endsWith('...')) {
+        clean = clean.substring(0, clean.length - 3).trim();
+      } else if (clean.endsWith('…')) {
+        clean = clean.substring(0, clean.length - 1).trim();
+      } else if (clean.endsWith('.')) {
+        clean = clean.substring(0, clean.length - 1).trim();
+      } else {
+        break;
+      }
+    }
+    if (!clean.endsWith('.') && !clean.endsWith('!') && !clean.endsWith('?')) {
+      clean = '$clean.';
+    }
+    return clean;
+  }
+
+  static String _ensureCleanHeadline(String text) {
+    String clean = text.trim();
+    while (clean.endsWith('...') || clean.endsWith('…')) {
+      if (clean.endsWith('...')) {
+        clean = clean.substring(0, clean.length - 3).trim();
+      } else if (clean.endsWith('…')) {
+        clean = clean.substring(0, clean.length - 1).trim();
+      } else {
+        break;
+      }
+    }
+    return clean;
+  }
+
   @override
   Widget build(BuildContext context) {
     final pubName = (item.publicationName != null && item.publicationName!.trim().isNotEmpty)
         ? item.publicationName!.trim()
         : 'THE FINANCIAL CHRONICLE';
     final handle = item.creatorHandle ?? '@curator';
-    final headline = (item.originalHeadline != null && item.originalHeadline!.trim().isNotEmpty)
+    final rawHeadline = (item.originalHeadline != null && item.originalHeadline!.trim().isNotEmpty)
         ? item.originalHeadline!
         : item.adaptedHeadline;
+    final headline = _ensureCleanHeadline(rawHeadline);
 
     final List<String> excerpts = item.resolvedArticleExcerpts;
 
     // Guarantee 3 authentic broadsheet excerpt paragraphs for dense newspaper layout
-    final String p1 = excerpts.isNotEmpty
+    final String p1 = _ensureCleanEnding(excerpts.isNotEmpty
         ? excerpts[0]
         : (item.receiptHighlightQuote ??
-            'Primary reporting confirmed that recorded structural indicators diverged sharply from initial forecasts across core operations.');
+            'Primary reporting confirmed that recorded structural indicators diverged sharply from initial forecasts across core operations.'));
 
-    final String p2 = excerpts.length > 1
+    final String p2 = _ensureCleanEnding(excerpts.length > 1
         ? excerpts[1]
         : (item.receiptHighlightQuote != null && item.receiptHighlightQuote != p1
             ? item.receiptHighlightQuote!
             : ((item.pullQuote != null && item.pullQuote != p1)
                 ? item.pullQuote!
-                : 'Official records corroborated the recorded developments across primary administrative and field channels.'));
+                : 'Official records corroborated the recorded developments across primary administrative and field channels.')));
 
-    final String p3 = excerpts.length >= 3
+    final String p3 = _ensureCleanEnding(excerpts.length >= 3
         ? excerpts[2]
         : (item.summary.isNotEmpty && item.summary != p1 && item.summary != p2
             ? item.summary
-            : 'Detailed analysis across verified reporting channels confirmed the ongoing broader strategic implications.');
+            : 'Detailed analysis across verified reporting channels confirmed the ongoing broader strategic implications.'));
 
     final hasPhysicalPhoto = item.originalPhotoPath.isNotEmpty &&
         !item.originalPhotoPath.startsWith('http') &&
@@ -255,9 +290,14 @@ class SlideReceiptsPoster extends StatelessWidget {
         ? 15.0
         : (headline.length > 45 ? 16.5 : 18.0);
 
-    final double p1FontSize = p1.length > 170 ? 9.8 : (p1.length > 120 ? 10.5 : 11.2);
-    final double p2FontSize = p2.length > 150 ? 10.0 : (p2.length > 100 ? 10.8 : 11.6);
-    final double p3FontSize = p3.length > 170 ? 9.6 : (p3.length > 120 ? 10.2 : 10.8);
+    final double p1FontSize = p1.length > 200 ? 9.0 : (p1.length > 140 ? 9.8 : (p1.length > 90 ? 10.6 : 11.2));
+    final int p1MaxLines = p1.length > 180 ? 6 : (p1.length > 120 ? 5 : 4);
+
+    final double p2FontSize = p2.length > 160 ? 9.4 : (p2.length > 110 ? 10.2 : (p2.length > 70 ? 11.0 : 11.8));
+    final int p2MaxLines = p2.length > 150 ? 6 : (p2.length > 90 ? 5 : 4);
+
+    final double p3FontSize = p3.length > 200 ? 8.8 : (p3.length > 140 ? 9.6 : (p3.length > 90 ? 10.2 : 10.8));
+    final int p3MaxLines = p3.length > 180 ? 6 : (p3.length > 120 ? 5 : 4);
 
     final effectiveRadius = borderRadius ?? BorderRadius.circular(16);
     final isFlush = borderRadius == BorderRadius.zero;
@@ -433,7 +473,7 @@ class SlideReceiptsPoster extends StatelessWidget {
                               color: const Color(0xFF1E293B),
                               height: 1.34,
                             ),
-                            maxLines: 4,
+                            maxLines: p1MaxLines,
                             overflow: TextOverflow.ellipsis,
                           ),
 
@@ -489,7 +529,7 @@ class SlideReceiptsPoster extends StatelessWidget {
                                     color: const Color(0xFF0F172A),
                                     height: 1.30,
                                   ),
-                                  maxLines: 5,
+                                  maxLines: p2MaxLines,
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ],
@@ -507,7 +547,7 @@ class SlideReceiptsPoster extends StatelessWidget {
                               color: const Color(0xFF334155),
                               height: 1.34,
                             ),
-                            maxLines: 4,
+                            maxLines: p3MaxLines,
                             overflow: TextOverflow.ellipsis,
                           ),
 
