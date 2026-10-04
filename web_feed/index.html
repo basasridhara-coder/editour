@@ -118,11 +118,11 @@
         <button class="modal-close" onclick="closeCreatorModal()">&times;</button>
       </div>
 
-      <!-- Step Indicator Bar -->
+      <!-- Step Indicator Bar (Matches Mobile App) -->
       <div class="creator-steps-bar">
         <div class="creator-step-dot active" id="stepDot1">
           <span class="step-num">1</span>
-          <span class="step-text">Source & Angle</span>
+          <span class="step-text">Slant & Source</span>
         </div>
         <div class="creator-step-divider" id="stepDiv1"></div>
         <div class="creator-step-dot" id="stepDot2">
@@ -132,126 +132,132 @@
         <div class="creator-step-divider" id="stepDiv2"></div>
         <div class="creator-step-dot" id="stepDot3">
           <span class="step-num">3</span>
-          <span class="step-text">3-Poster Preview</span>
+          <span class="step-text">3 Posters</span>
         </div>
       </div>
 
-      <!-- STEP 1 CONTAINER: SOURCE & ANGLE -->
+      <!-- STEP 1 CONTAINER: Slant & Source (Matches Mobile App Exact Sequence) -->
       <div class="creator-step-content" id="creatorStep1">
-        <!-- Source Selector Tabs -->
-        <div class="creator-source-tabs" id="creatorSourceTabs">
-          <button type="button" class="source-tab active" data-source="digital_link" onclick="selectCreatorSource('digital_link')">
-            <span class="tab-emoji">🌐</span>
-            <span class="tab-label">Web Link</span>
-          </button>
-          <!-- Upload / Camera Tab (Device-Adaptive) -->
-          <button type="button" class="source-tab" data-source="photo" id="creatorSourcePhotoTab" onclick="selectCreatorSource('photo')">
-            <span class="tab-emoji" id="creatorPhotoEmoji">📁</span>
-            <span class="tab-label" id="creatorPhotoLabel">Upload Image</span>
-          </button>
-          <button type="button" class="source-tab" data-source="inner_voice" onclick="selectCreatorSource('inner_voice')">
-            <span class="tab-emoji">💭</span>
-            <span class="tab-label">Inner Voice</span>
-          </button>
+        
+        <!-- 1. Top Hero: The Slant / Angle Prompt Box (Same as Mobile Hero Card) -->
+        <div class="creator-hero-slant-card">
+          <div class="creator-card-header">
+            <div class="creator-card-title-row">
+              <div class="creator-icon-box" id="slantIconBox">
+                <span id="slantHeroIcon">💭</span>
+              </div>
+              <div class="creator-card-titles">
+                <span class="creator-card-title" id="slantTakeLabel">Your Slant / Take (Optional)</span>
+                <span class="creator-card-subtitle" id="slantTakeSubtitle">Write your unique angle, stance, or critique on this story (or leave empty to let AI deduce it).</span>
+              </div>
+            </div>
+            <span class="creator-tag-badge" id="slantTakeBadge">Optional</span>
+          </div>
+          <textarea id="creatorSlantTakeInput" class="creator-textarea hero-textarea" rows="4" placeholder="e.g. Beyond the raw numbers, this shifts the balance of power between legacy media and digital creators..."></textarea>
         </div>
 
-        <!-- 1. Digital Link Section -->
-        <div class="creator-source-section" id="sectionDigitalLink">
-          <label class="creator-field-label">Web Article or Story URL</label>
-          <div class="creator-input-group">
+        <!-- 2. Middle: ROOT YOUR SLANT IN (Source Anchor Selector) -->
+        <div class="creator-anchor-section">
+          <div class="creator-anchor-header">
+            <span class="anchor-label">ROOT YOUR SLANT IN</span>
+            <span class="anchor-tag">Source Anchor</span>
+          </div>
+          <div class="creator-anchor-grid">
+            <!-- 1. Magazine -->
+            <button type="button" class="anchor-card" data-mode="photo" id="anchorMagazineBtn" onclick="setAnchorMode('photo')">
+              <div class="anchor-icon-circle anchor-magazine">
+                <span id="anchorPhotoIcon">📖</span>
+              </div>
+              <div class="anchor-card-title" id="anchorPhotoTitle">Magazine</div>
+              <div class="anchor-card-subtitle" id="anchorPhotoSub">Print clipping</div>
+            </button>
+
+            <!-- 2. Web Commentary -->
+            <button type="button" class="anchor-card active" data-mode="digital_link" id="anchorWebBtn" onclick="setAnchorMode('digital_link')">
+              <div class="anchor-icon-circle anchor-web">🌐</div>
+              <div class="anchor-card-title">Web</div>
+              <div class="anchor-card-subtitle">Citation link</div>
+            </button>
+
+            <!-- 3. Inner Voice -->
+            <button type="button" class="anchor-card" data-mode="inner_voice" id="anchorVoiceBtn" onclick="setAnchorMode('inner_voice')">
+              <div class="anchor-icon-circle anchor-voice">💭</div>
+              <div class="anchor-card-title">Inner Voice</div>
+              <div class="anchor-card-subtitle">Personal take</div>
+            </button>
+          </div>
+        </div>
+
+        <!-- 3. Dynamic Lower Panel (Trigger Panel) -->
+        <div class="creator-trigger-panel">
+          <!-- Web Anchor Trigger Panel -->
+          <div class="trigger-section" id="triggerWebSection">
+            <div class="trigger-header">
+              <div class="trigger-title-row">
+                <span class="trigger-icon">🔗</span>
+                <span class="trigger-title">Source Web Link</span>
+              </div>
+              <span class="trigger-sub">Paste & Fetch</span>
+            </div>
             <input type="url" id="creatorUrlInput" class="creator-input" placeholder="https://www.nytimes.com/... or https://techcrunch.com/..." autocomplete="off">
           </div>
-          <p class="creator-field-hint">Paste any news, newsletter, or blog link. Gemini will extract the core arguments and synthesize your 3-poster visual deck.</p>
-        </div>
 
-        <!-- 2. Photo / Camera / Clipping Section -->
-        <div class="creator-source-section" id="sectionPhoto" style="display:none;">
-          <!-- Mobile Specific Camera Trigger (visible only on mobile) -->
-          <div class="mobile-camera-prompt" id="mobileCameraPrompt" style="display:none;">
-            <button type="button" class="creator-camera-btn" onclick="document.getElementById('creatorCameraInput').click()">
-              <span class="cam-icon">📸</span>
-              <span class="cam-text">Snap News Clipping or Book Page</span>
-            </button>
-            <input type="file" id="creatorCameraInput" accept="image/*" capture="environment" style="display:none;" onchange="handleImageSelection(event)">
-            <div class="mobile-or-divider"><span>OR SELECT FROM LIBRARY</span></div>
-          </div>
-
-          <!-- Desktop Drag & Drop Zone / File Picker -->
-          <div class="creator-dropzone" id="creatorDropzone" onclick="document.getElementById('creatorFileInput').click()">
-            <input type="file" id="creatorFileInput" accept="image/png, image/jpeg, image/webp" style="display:none;" onchange="handleImageSelection(event)">
-            <div class="dropzone-content" id="dropzoneEmpty">
-              <div class="dropzone-icon">📷</div>
-              <div class="dropzone-text" id="dropzoneText">Drag and drop news clipping or screenshot, or <span class="dropzone-link">browse</span></div>
-              <div class="dropzone-sub">Supports PNG, JPG, WebP (auto-optimized)</div>
+          <!-- Magazine / Photo Anchor Trigger Panel -->
+          <div class="trigger-section" id="triggerPhotoSection" style="display:none;">
+            <div class="trigger-header">
+              <div class="trigger-title-row">
+                <span class="trigger-icon">📰</span>
+                <span class="trigger-title">Source Clipping Photo</span>
+              </div>
+              <span class="trigger-sub" id="photoTriggerSub">Camera or Gallery</span>
             </div>
-            <!-- Image Selected Preview -->
-            <div class="dropzone-preview" id="dropzonePreview" style="display:none;">
-              <img id="creatorImageThumb" src="" alt="Source preview">
-              <div class="dropzone-preview-overlay">
-                <button type="button" class="dropzone-remove-btn" onclick="removeSelectedImage(event)" title="Remove image">✕</button>
+
+            <!-- Mobile Specific Camera Trigger (visible on mobile) -->
+            <div class="mobile-camera-prompt" id="mobileCameraPrompt" style="display:none;">
+              <button type="button" class="creator-camera-btn" onclick="document.getElementById('creatorCameraInput').click()">
+                <span class="cam-icon">📸</span>
+                <span class="cam-text">Snap News Clipping or Book Page</span>
+              </button>
+              <input type="file" id="creatorCameraInput" accept="image/*" capture="environment" style="display:none;" onchange="handleImageSelection(event)">
+              <div class="mobile-or-divider"><span>OR SELECT FROM GALLERY</span></div>
+            </div>
+
+            <!-- Drag & Drop Zone / Browse (Desktop & Mobile Library) -->
+            <div class="creator-dropzone" id="creatorDropzone" onclick="document.getElementById('creatorFileInput').click()">
+              <input type="file" id="creatorFileInput" accept="image/png, image/jpeg, image/webp" style="display:none;" onchange="handleImageSelection(event)">
+              <div class="dropzone-content" id="dropzoneEmpty">
+                <div class="dropzone-icon">📷</div>
+                <div class="dropzone-text" id="dropzoneText">Drag and drop clipping photo or screenshot, or <span class="dropzone-link">browse</span></div>
+                <div class="dropzone-sub">Supports PNG, JPG, WebP</div>
+              </div>
+              <div class="dropzone-preview" id="dropzonePreview" style="display:none;">
+                <img id="creatorImageThumb" src="" alt="Source preview">
+                <div class="dropzone-preview-overlay">
+                  <button type="button" class="dropzone-remove-btn" onclick="removeSelectedImage(event)" title="Remove image">✕</button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <!-- 3. Inner Voice Section Callout -->
-        <div class="creator-source-section" id="sectionInnerVoice" style="display:none;">
-          <div class="creator-voice-callout">
-            <span class="callout-icon">💭</span>
-            <span>Express your conviction or reflection freely below. Gemini will transform it directly into your 3-poster lead take.</span>
-          </div>
-        </div>
-
-        <!-- Universal Section 1: Your Slant / Take (Applicable to ALL 3 formats: Web Link, Upload Image, Inner Voice) -->
-        <div class="creator-common-section">
-          <div class="creator-label-row">
-            <label class="creator-field-label" id="slantTakeLabel">Your Slant / Take</label>
-            <span class="label-optional" id="slantTakeBadge">(Optional)</span>
-          </div>
-          <textarea id="creatorSlantTakeInput" class="creator-textarea" rows="3" placeholder="What is your unique angle, stance, or critique? e.g. Beyond the raw numbers, this shifts the balance of power between legacy media and digital creators..."></textarea>
-          <p class="creator-field-hint" id="slantTakeHint">Write your unique angle, stance, or critique on this story (or leave empty to let AI deduce it).</p>
-        </div>
-
-        <!-- Universal Section 2: Conviction Slant Tone (Applicable to ALL 3 formats: Mind vs Heart) -->
-        <div class="creator-common-section">
-          <div class="slant-tone-picker">
-            <span class="tone-label">Conviction Slant Tone:</span>
-            <div class="tone-options">
-              <button type="button" class="tone-btn active" data-tone="mind" onclick="selectSlantTone('mind')">
-                <span class="tone-title">🧠 Out of Mind</span>
-                <span class="tone-desc">Analytical, sharp & strategic</span>
-              </button>
-              <button type="button" class="tone-btn" data-tone="heart" onclick="selectSlantTone('heart')">
-                <span class="tone-title">❤️ Out of Heart</span>
-                <span class="tone-desc">Reflective, emotive & philosophical</span>
-              </button>
+          <!-- Inner Voice Trigger Panel: The Spark -->
+          <div class="trigger-section" id="triggerVoiceSection" style="display:none;">
+            <div class="trigger-header">
+              <div class="trigger-title-row">
+                <span class="trigger-icon" style="color: #F59E0B;">⚡</span>
+                <span class="trigger-title">The Spark (What sparked this?)</span>
+              </div>
+              <span class="trigger-sub">Optional • Under 15 words</span>
             </div>
+            <p class="trigger-desc">The real-world observation, memory, or moment that triggered this perspective.</p>
+            <input type="text" id="creatorSparkInput" class="creator-input" placeholder="e.g. A conversation with an old colleague about vanishing craft...">
           </div>
         </div>
 
-        <!-- Common Section 3: The Spark (Optional User Context) -->
-        <div class="creator-common-section">
-          <label class="creator-field-label">The Spark <span class="label-optional">(Optional personal context or observation)</span></label>
-          <input type="text" id="creatorSparkInput" class="creator-input" placeholder="e.g. Discussing this with my team; why does no one see the second-order effects?">
-        </div>
-
-        <!-- Target Audience Selector -->
-        <div class="creator-common-section">
-          <label class="creator-field-label">Target Audience Tone</label>
-          <div class="creator-audience-chips" id="creatorAudienceChips">
-            <button type="button" class="audience-chip active" data-audience="General Public" onclick="selectAudience('General Public')">General Public</button>
-            <button type="button" class="audience-chip" data-audience="Tech & Founders" onclick="selectAudience('Tech & Founders')">Tech & Founders</button>
-            <button type="button" class="audience-chip" data-audience="Designers & Creatives" onclick="selectAudience('Designers & Creatives')">Designers & Creatives</button>
-            <button type="button" class="audience-chip" data-audience="Investors & Analysts" onclick="selectAudience('Investors & Analysts')">Investors & Analysts</button>
-            <button type="button" class="audience-chip" data-audience="Curious Minds" onclick="selectAudience('Curious Minds')">Curious Minds</button>
-          </div>
-        </div>
-
-        <!-- Action Next Button -->
+        <!-- 4. Bottom Synthesize Button -->
         <div class="creator-footer">
           <button type="button" class="creator-synthesize-btn" id="synthesizeBtn" onclick="startAiSynthesis()">
             <span class="btn-stars">✨</span>
-            <span class="btn-text">Synthesize 3-Poster Slant</span>
+            <span class="btn-text">Generate 3-Poster Social Carousel</span>
           </button>
         </div>
       </div>

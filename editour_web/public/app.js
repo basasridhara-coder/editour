@@ -1885,26 +1885,34 @@ function openCreatorModal() {
   if (!modal) return;
 
   const isMobile = isMobileDevice();
-  const photoTab = document.getElementById('creatorSourcePhotoTab');
-  const photoEmoji = document.getElementById('creatorPhotoEmoji');
-  const photoLabel = document.getElementById('creatorPhotoLabel');
   const mobileCameraPrompt = document.getElementById('mobileCameraPrompt');
   const dropzoneText = document.getElementById('dropzoneText');
+  const anchorPhotoTitle = document.getElementById('anchorPhotoTitle');
+  const anchorPhotoSub = document.getElementById('anchorPhotoSub');
+  const photoTriggerSub = document.getElementById('photoTriggerSub');
+  const anchorPhotoIcon = document.getElementById('anchorPhotoIcon');
 
   // Device-adaptive adjustments:
-  // Mobile gets camera snap prominent button & "Camera / Snap" tab label
-  // Desktop/laptop gets "Upload Image" with drag-and-drop file zone & NO camera button
+  // Mobile gets camera snap prompt & camera icon
+  // Laptop/desktop gets upload / drag-and-drop file zone
   if (isMobile) {
-    if (photoEmoji) photoEmoji.textContent = '📸';
-    if (photoLabel) photoLabel.textContent = 'Camera / Snap';
+    if (anchorPhotoTitle) anchorPhotoTitle.textContent = 'Magazine';
+    if (anchorPhotoSub) anchorPhotoSub.textContent = 'Camera / Print';
+    if (photoTriggerSub) photoTriggerSub.textContent = 'Camera or Gallery';
+    if (anchorPhotoIcon) anchorPhotoIcon.textContent = '📸';
     if (mobileCameraPrompt) mobileCameraPrompt.style.display = 'block';
     if (dropzoneText) dropzoneText.innerHTML = 'Or choose an image from your library';
   } else {
-    if (photoEmoji) photoEmoji.textContent = '📁';
-    if (photoLabel) photoLabel.textContent = 'Upload Image';
+    if (anchorPhotoTitle) anchorPhotoTitle.textContent = 'Magazine / Photo';
+    if (anchorPhotoSub) anchorPhotoSub.textContent = 'Print clipping';
+    if (photoTriggerSub) photoTriggerSub.textContent = 'Upload / Drop Image';
+    if (anchorPhotoIcon) anchorPhotoIcon.textContent = '📰';
     if (mobileCameraPrompt) mobileCameraPrompt.style.display = 'none';
-    if (dropzoneText) dropzoneText.innerHTML = 'Drag and drop news clipping or screenshot, or <span class="dropzone-link">browse</span>';
+    if (dropzoneText) dropzoneText.innerHTML = 'Drag and drop clipping photo or screenshot, or <span class="dropzone-link">browse</span>';
   }
+
+  // Sync anchor selection
+  setAnchorMode(creatorSelectedSource || 'digital_link');
 
   // Reset to Step 1
   backToStep1();
@@ -1933,68 +1941,68 @@ function handleCreatorOverlayClick(e) {
   }
 }
 
-function selectCreatorSource(sourceType) {
-  creatorSelectedSource = sourceType;
+function setAnchorMode(mode) {
+  creatorSelectedSource = mode;
 
-  // Update tabs
-  document.querySelectorAll('#creatorSourceTabs .source-tab').forEach(tab => {
-    tab.classList.toggle('active', tab.getAttribute('data-source') === sourceType);
+  // 1. Highlight selected anchor card
+  document.querySelectorAll('.anchor-card').forEach(card => {
+    card.classList.toggle('active', card.getAttribute('data-mode') === mode);
   });
 
-  // Toggle sections
-  const secLink = document.getElementById('sectionDigitalLink');
-  const secPhoto = document.getElementById('sectionPhoto');
-  const secVoice = document.getElementById('sectionInnerVoice');
+  // 2. Toggle trigger sections
+  const secLink = document.getElementById('triggerWebSection');
+  const secPhoto = document.getElementById('triggerPhotoSection');
+  const secVoice = document.getElementById('triggerVoiceSection');
 
-  if (secLink) secLink.style.display = sourceType === 'digital_link' ? 'flex' : 'none';
-  if (secPhoto) secPhoto.style.display = sourceType === 'photo' ? 'flex' : 'none';
-  if (secVoice) secVoice.style.display = sourceType === 'inner_voice' ? 'flex' : 'none';
+  if (secLink) secLink.style.display = mode === 'digital_link' ? 'flex' : 'none';
+  if (secPhoto) secPhoto.style.display = mode === 'photo' ? 'flex' : 'none';
+  if (secVoice) secVoice.style.display = mode === 'inner_voice' ? 'flex' : 'none';
 
-  // Contextual labels & hints for "Your Slant / Take"
+  // 3. Update Hero Card prompts matching Flutter mobile app exactly:
   const label = document.getElementById('slantTakeLabel');
   const badge = document.getElementById('slantTakeBadge');
-  const hint = document.getElementById('slantTakeHint');
+  const sub = document.getElementById('slantTakeSubtitle');
   const input = document.getElementById('creatorSlantTakeInput');
+  const heroIcon = document.getElementById('slantHeroIcon');
+  const heroBox = document.getElementById('slantIconBox');
 
-  if (sourceType === 'inner_voice') {
+  if (mode === 'inner_voice') {
     if (label) label.textContent = 'What is your Slant or Perspective?';
     if (badge) {
-      badge.textContent = '(Required)';
-      badge.className = 'label-required';
+      badge.textContent = 'Required';
+      badge.className = 'creator-tag-badge badge-required';
     }
-    if (hint) hint.textContent = 'Express your conviction or reflection freely. AI transforms this into your lead take.';
+    if (sub) sub.textContent = 'Express your conviction or reflection freely. AI transforms this into your lead take.';
     if (input) input.placeholder = 'What perspective demands to be shared? e.g. The real risk of AI isn’t superintelligence taking over, it’s that we surrender our curiosity and critical judgment to automated convenience...';
-  } else if (sourceType === 'photo') {
-    if (label) label.textContent = 'Your Slant / Take';
+    if (heroIcon) heroIcon.textContent = '💭';
+    if (heroBox) heroBox.style.color = '#8B5CF6';
+  } else if (mode === 'photo') {
+    if (label) label.textContent = 'Your Slant / Take (Optional)';
     if (badge) {
-      badge.textContent = '(Optional)';
-      badge.className = 'label-optional';
+      badge.textContent = 'Optional';
+      badge.className = 'creator-tag-badge';
     }
-    if (hint) hint.textContent = 'Write your unique angle, stance, or critique on this clipping (or leave empty to let AI deduce it).';
+    if (sub) sub.textContent = 'A few sentences framing your angle, critique, or why this clipping matters.';
     if (input) input.placeholder = 'e.g. Beyond the raw numbers, this shifts the balance of power between legacy media and digital creators...';
+    if (heroIcon) heroIcon.textContent = '💡';
+    if (heroBox) heroBox.style.color = '#0D9488';
   } else {
-    if (label) label.textContent = 'Your Slant / Take';
+    // digital_link
+    if (label) label.textContent = 'Your Slant / Take (Optional)';
     if (badge) {
-      badge.textContent = '(Optional)';
-      badge.className = 'label-optional';
+      badge.textContent = 'Optional';
+      badge.className = 'creator-tag-badge';
     }
-    if (hint) hint.textContent = 'Write your unique angle, stance, or critique on this story (or leave empty to let AI deduce it).';
+    if (sub) sub.textContent = 'A few sentences framing your angle, critique, or why this article matters.';
     if (input) input.placeholder = 'e.g. The headline misses the real structural disruption happening behind the scenes...';
+    if (heroIcon) heroIcon.textContent = '🌐';
+    if (heroBox) heroBox.style.color = '#0284C7';
   }
 }
 
-function selectSlantTone(tone) {
-  creatorSlantTone = tone;
-  document.querySelectorAll('.tone-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.getAttribute('data-tone') === tone);
-  });
-}
-
-function selectAudience(audience) {
-  creatorAudience = audience;
-  document.querySelectorAll('#creatorAudienceChips .audience-chip').forEach(chip => {
-    chip.classList.toggle('active', chip.getAttribute('data-audience') === audience);
-  });
+// Backward compatibility alias
+function selectCreatorSource(sourceType) {
+  setAnchorMode(sourceType);
 }
 
 // Client-side downscaling and compression via HTML5 canvas
@@ -2242,6 +2250,18 @@ function showStep3Preview() {
   if (headlineInput) headlineInput.value = currentSynthesizedPost.adaptedHeadline || '';
   if (categoryInput) categoryInput.value = currentSynthesizedPost.categoryBadge || 'OPINION';
   if (handleInput) handleInput.value = currentSynthesizedPost.creatorHandle || '@curator';
+
+  // Update Tab 3 text and icon dynamically based on source anchor
+  const prevTab2 = document.getElementById('prevTab2');
+  if (prevTab2) {
+    if (creatorSelectedSource === 'inner_voice') {
+      prevTab2.innerHTML = '<span>💭</span> Poster 3: Conviction';
+    } else if (creatorSelectedSource === 'photo') {
+      prevTab2.innerHTML = '<span>📰</span> Poster 3: Receipts';
+    } else {
+      prevTab2.innerHTML = '<span>🌐</span> Poster 3: Web Receipts';
+    }
+  }
 
   // Render preview
   renderCreatorPreview();
