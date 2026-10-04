@@ -1355,7 +1355,7 @@ function createPostCardElement(post, index) {
   const isCarousel = true;
   const isClean = !!cleanViewState[index];
   const isSaved = savedPostIds.has(post.id);
-  const hasPaperCut = !!(post.originalPhotoUrl || (post.originalPhotoBase64 && post.originalPhotoBase64.length > 50) || (post.originalPhotoPath && (post.originalPhotoPath.startsWith('http') || post.originalPhotoPath.startsWith('data:'))) || post.bookCoverBase64);
+  const hasPaperCut = post.sourceType === 'photo' && !!(post.originalPhotoUrl || (post.originalPhotoBase64 && post.originalPhotoBase64.length > 50) || (post.originalPhotoPath && !post.originalPhotoPath.startsWith('http') && post.originalPhotoPath !== post.digitalLink) || (post.originalPhotoPath && /\.(png|jpe?g|webp|gif)$/i.test(post.originalPhotoPath)) || post.bookCoverBase64);
 
   // Determine Tab 3 label and icon based on tier
   let tab3Icon = '📰';
