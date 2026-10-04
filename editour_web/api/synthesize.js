@@ -40,7 +40,10 @@ module.exports = async function handler(req, res) {
       targetAudience = 'General',
       slantTone = 'mind', // 'mind' | 'heart'
       spark = '',
-      creatorHandle = '@curator'
+      creatorHandle = '@curator',
+      cues = [],
+      heroCue = '',
+      characterRepresentation = 'silhouette'
     } = body || {};
 
     const userSlant = slantTake || text || '';
@@ -115,6 +118,8 @@ ${userSlant ? `- Curator's Slant / Take (Primary Stance & Angle): "${userSlant}"
 ${spark ? `- The Spark (Personal Context / Catalyst): "${spark}"` : ''}
 ${url ? `- Source Link: ${url}` : ''}
 ${pubName ? `- Publication / Domain: ${pubName}` : ''}
+${cues && cues.length > 0 ? `- Ranked Visual Cues: ${cues.map((c, i) => `#${i+1} ${c}`).join(' • ')}` : ''}
+- Character Portrayal Style: ${characterRepresentation === 'likeness' ? 'Match real person face and likeness from source photo' : 'Stylized metaphorical silhouette / symbolic figures'}
 
 Task:
 Synthesize this input into a compelling 3-poster social carousel deck:
@@ -122,6 +127,7 @@ Synthesize this input into a compelling 3-poster social carousel deck:
 2. Poster 2 (The Curator's Take): A punchy perspective directly emphasizing the curator's slant/take, why it matters right now, and exactly 3 distinct high-signal takeaways.
 3. Poster 3 (The Receipts / Core Conviction): A single powerful highlight quote, and 3 verified excerpt bullet points backing the stance.
 ${userSlant ? 'CRITICAL EDITORIAL RULE: The curator has provided their own distinct Slant/Take. The adapted headline, hook, critique, and takeaways MUST center around this unique angle, contrasting it against the generic narrative rather than simply summarizing the facts.' : ''}
+${cues && cues.length > 0 ? `CRITICAL VISUAL RULE: The Hook poster artwork and cues MUST be anchored in #1 HERO: "${cues[0]}", incorporating #2 MOTIF: "${cues[1] || ''}" and #3 TENSION: "${cues[2] || ''}".` : ''}
 
 Respond strictly with valid JSON with this exact structure:
 {
@@ -234,7 +240,10 @@ Respond strictly with valid JSON with this exact structure:
       keyMetric: parsed.keyMetric || '',
       pullQuote: parsed.receiptHighlightQuote || '',
       visualMood: parsed.visualMood || 'Editorial Chiaroscuro',
-      hookCues: `#1 [HERO]: ${parsed.heroCue || 'Central subject'}\n#2 [MOTIF]: ${parsed.motifCue || 'Metaphor'}\n#3 [TENSION]: ${parsed.tensionCue || 'Conflict'}\n#4 [ATMOSPHERE]: ${parsed.atmosphereCue || 'Setting'}\n#5 [LIGHTING]: ${parsed.lightingCue || 'Atmospheric light'}\n#6 [STYLE]: ${parsed.styleCue || 'Editorial illustration'}`,
+      heroCue: parsed.heroCue || (cues && cues[0]) || '',
+      cues: cues || [],
+      characterRepresentation,
+      hookCues: `#1 [HERO]: ${parsed.heroCue || (cues && cues[0]) || 'Central subject'}\n#2 [MOTIF]: ${parsed.motifCue || (cues && cues[1]) || 'Metaphor'}\n#3 [TENSION]: ${parsed.tensionCue || (cues && cues[2]) || 'Conflict'}\n#4 [ATMOSPHERE]: ${parsed.atmosphereCue || (cues && cues[3]) || 'Setting'}\n#5 [LIGHTING]: ${parsed.lightingCue || (cues && cues[4]) || 'Atmospheric light'}\n#6 [STYLE]: ${parsed.styleCue || (cues && cues[5]) || 'Editorial illustration'}`,
       illustrationPrompt: parsed.illustrationPrompt || '',
       illustrationUrl,
       creatorHandle: creatorHandle || '@curator',

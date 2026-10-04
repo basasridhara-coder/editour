@@ -3700,6 +3700,400 @@ header {
   font-size: 17px;
 }
 
+/* ============================================================
+   STEP 2: VISUAL CUES & METAPHOR STUDIO STYLES
+   ============================================================ */
+
+.creator-cues-studio {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cues-studio-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cues-header-icon-box {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: rgba(99, 102, 241, 0.16);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.cues-header-titles {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cues-title {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0;
+  letter-spacing: -0.2px;
+}
+
+.cues-subtitle {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.35;
+}
+
+.cues-action-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 2px;
+}
+
+.cues-info-text {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.cues-suggest-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border-radius: 8px;
+  background: rgba(99, 102, 241, 0.14);
+  color: #818CF8;
+  border: 1px solid rgba(99, 102, 241, 0.35);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.cues-suggest-btn:hover {
+  background: rgba(99, 102, 241, 0.25);
+  border-color: var(--primary);
+  transform: translateY(-1px);
+}
+
+.cues-deck-container {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 250px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.cue-card-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  transition: all 0.18s ease;
+}
+
+.cue-card-row.selected {
+  border-color: var(--primary) !important;
+  background: rgba(99, 102, 241, 0.12) !important;
+}
+
+/* Rank-Specific Styling matching Flutter */
+.cue-rank-0 {
+  border-color: rgba(245, 158, 11, 0.55);
+  background: rgba(245, 158, 11, 0.08);
+}
+
+.cue-rank-1 {
+  border-color: rgba(2, 132, 199, 0.50);
+  background: rgba(2, 132, 199, 0.07);
+}
+
+.cue-rank-2 {
+  border-color: rgba(225, 29, 72, 0.45);
+  background: rgba(225, 29, 72, 0.07);
+}
+
+.cue-rank-3 {
+  border-color: rgba(139, 92, 246, 0.45);
+  background: rgba(139, 92, 246, 0.07);
+}
+
+.cue-rank-4 {
+  border-color: rgba(5, 150, 105, 0.45);
+  background: rgba(5, 150, 105, 0.07);
+}
+
+.cue-rank-5 {
+  border-color: rgba(71, 85, 105, 0.45);
+  background: rgba(71, 85, 105, 0.07);
+}
+
+.cue-reorder-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.cue-move-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 8.5px;
+  padding: 0 2px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.cue-move-btn:hover {
+  color: var(--text-primary);
+}
+
+.cue-checkbox-wrap {
+  display: flex;
+  align-items: center;
+}
+
+.cue-checkbox {
+  cursor: pointer;
+  accent-color: var(--primary);
+  width: 14px;
+  height: 14px;
+}
+
+.cue-badge {
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.3px;
+  padding: 2.5px 6px;
+  border-radius: 5px;
+  color: #FFFFFF;
+  white-space: nowrap;
+}
+
+.badge-rank-0 { background: #F59E0B; }
+.badge-rank-1 { background: #0284C7; }
+.badge-rank-2 { background: #E11D48; }
+.badge-rank-3 { background: #8B5CF6; }
+.badge-rank-4 { background: #059669; }
+.badge-rank-5 { background: #475569; }
+.badge-rank-other { background: #64748B; }
+
+.cue-input-text {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 2px 4px;
+}
+
+.cue-input-text:focus {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+}
+
+.cue-delete-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+}
+
+.cue-delete-btn:hover {
+  color: #EF4444;
+}
+
+/* Add Custom Cue Row */
+.cues-add-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 4px 6px 4px 10px;
+}
+
+.cues-add-icon {
+  font-size: 14px;
+  color: var(--primary);
+}
+
+.cues-add-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 12.5px;
+}
+
+.cues-add-btn {
+  background: var(--primary);
+  color: #FFFFFF;
+  border: none;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.cues-add-btn:hover {
+  opacity: 0.9;
+}
+
+/* Character & Face Representation Card */
+.character-rep-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  padding: 12px 14px;
+}
+
+.character-rep-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.rep-icon {
+  font-size: 16px;
+  margin-top: 1px;
+}
+
+.rep-titles {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rep-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.rep-subtitle {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+.character-rep-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rep-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  border: 1.5px solid var(--border-subtle);
+  background: var(--bg-surface);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.rep-option:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.rep-option.active {
+  border-color: var(--primary);
+  background: rgba(99, 102, 241, 0.08);
+}
+
+.rep-radio-circle {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  border: 2px solid var(--border-subtle);
+  margin-top: 2px;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.rep-option.active .rep-radio-circle {
+  border-color: var(--primary);
+  background: var(--primary);
+  box-shadow: inset 0 0 0 3px var(--bg-surface);
+}
+
+.rep-option-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rep-option-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.rep-option-desc {
+  font-size: 10.5px;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+/* Step 2 Bottom Navigation */
+.cues-footer-nav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.creator-back-btn {
+  padding: 15px 18px;
+  border-radius: 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.creator-back-btn:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.05);
+}
+
 /* Synthesis Loading Screen */
 .synthesis-loading-state {
   display: flex;

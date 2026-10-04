@@ -118,16 +118,16 @@
         <button class="modal-close" onclick="closeCreatorModal()">&times;</button>
       </div>
 
-      <!-- Step Indicator Bar (Matches Mobile App) -->
+      <!-- Step Indicator Bar (Matches Mobile App Exactly) -->
       <div class="creator-steps-bar">
-        <div class="creator-step-dot active" id="stepDot1">
+        <div class="creator-step-dot active" id="stepDot1" onclick="backToStep1()" style="cursor:pointer;">
           <span class="step-num">1</span>
           <span class="step-text">Slant & Source</span>
         </div>
         <div class="creator-step-divider" id="stepDiv1"></div>
-        <div class="creator-step-dot" id="stepDot2">
+        <div class="creator-step-dot" id="stepDot2" onclick="goToVisualCuesStep()" style="cursor:pointer;">
           <span class="step-num">2</span>
-          <span class="step-text">AI Synthesis</span>
+          <span class="step-text">Visual Cues</span>
         </div>
         <div class="creator-step-divider" id="stepDiv2"></div>
         <div class="creator-step-dot" id="stepDot3">
@@ -253,18 +253,95 @@
           </div>
         </div>
 
-        <!-- 4. Bottom Synthesize Button -->
+        <!-- 4. Bottom Next Button (Step 1 -> Step 2) -->
         <div class="creator-footer">
-          <button type="button" class="creator-synthesize-btn" id="synthesizeBtn" onclick="startAiSynthesis()">
-            <span class="btn-stars">✨</span>
-            <span class="btn-text">Generate 3-Poster Social Carousel</span>
+          <button type="button" class="creator-synthesize-btn" id="nextToCuesBtn" onclick="goToVisualCuesStep()">
+            <span class="btn-text">Next: Visual Cues →</span>
           </button>
         </div>
       </div>
 
-      <!-- STEP 2 CONTAINER: AI SYNTHESIS LOADING -->
+      <!-- STEP 2 CONTAINER: DEDICATED VISUAL CUES & METAPHOR STUDIO -->
       <div class="creator-step-content" id="creatorStep2" style="display:none;">
-        <div class="synthesis-loading-state">
+        <div class="creator-cues-studio" id="cuesStudioContent">
+          <!-- 1. Header -->
+          <div class="cues-studio-header">
+            <div class="cues-header-icon-box">
+              <span>🎨</span>
+            </div>
+            <div class="cues-header-titles">
+              <h3 class="cues-title">Visual Cues & Metaphor Studio</h3>
+              <p class="cues-subtitle">Visual cues guide your Hook Poster. The #1 Hero cue drives primary artwork.</p>
+            </div>
+          </div>
+
+          <!-- 2. Action Bar: Selection Info + Suggest Button -->
+          <div class="cues-action-bar">
+            <div class="cues-info-text" id="cuesInfoText">
+              <span class="cues-info-icon">⇅</span>
+              <span>Tap to select • Drag ⇅ to prioritize (#1 is Hero)</span>
+            </div>
+            <div class="cues-actions-right">
+              <button type="button" class="cues-suggest-btn" id="cuesSuggestBtn" onclick="triggerCueSuggest()">
+                <span class="suggest-icon" id="cuesSuggestIcon">✨</span>
+                <span id="cuesSuggestLabel">Suggest All</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- 3. Cues Reorderable Deck List -->
+          <div class="cues-deck-container" id="cuesDeckContainer">
+            <!-- Dynamically populated 6 cue category rows -->
+          </div>
+
+          <!-- 4. Add Custom Cue Field -->
+          <div class="cues-add-row">
+            <span class="cues-add-icon">＋</span>
+            <input type="text" id="customCueInput" class="cues-add-input" placeholder="Type custom cue or metaphor..." onkeydown="if(event.key==='Enter'){event.preventDefault();addCustomCue();}">
+            <button type="button" class="cues-add-btn" onclick="addCustomCue()">Add Cue</button>
+          </div>
+
+          <!-- 5. Character & Face Representation Card -->
+          <div class="character-rep-card">
+            <div class="character-rep-header">
+              <span class="rep-icon">👤</span>
+              <div class="rep-titles">
+                <span class="rep-title">Character & Face Representation</span>
+                <span class="rep-subtitle">Select how characters are portrayed in the generated editorial poster artwork.</span>
+              </div>
+            </div>
+            <div class="character-rep-options">
+              <div class="rep-option active" id="repOptionSilhouette" onclick="selectCharacterRepresentation('silhouette')">
+                <div class="rep-radio-circle"></div>
+                <div class="rep-option-body">
+                  <span class="rep-option-title">Stylized Metaphorical Silhouette</span>
+                  <span class="rep-option-desc">Minimalist silhouettes, architectural shadows, or symbolic figures focusing on editorial tension.</span>
+                </div>
+              </div>
+              <div class="rep-option" id="repOptionLikeness" onclick="selectCharacterRepresentation('likeness')">
+                <div class="rep-radio-circle"></div>
+                <div class="rep-option-body">
+                  <span class="rep-option-title">Match Real Person Face & Likeness</span>
+                  <span class="rep-option-desc">Preserves recognizable facial features, hair, and likeness from the reference photo.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 6. Step 2 Bottom Navigation & Synthesis Trigger -->
+          <div class="cues-footer-nav">
+            <button type="button" class="creator-back-btn" onclick="backToStep1()">
+              ← Back to Slant & Source
+            </button>
+            <button type="button" class="creator-synthesize-btn" id="synthesizeBtn" onclick="startAiSynthesis()">
+              <span class="btn-stars">✨</span>
+              <span class="btn-text">Generate 3-Poster Social Carousel</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Synthesis Loading State Overlay inside Step 2 -->
+        <div class="synthesis-loading-state" id="synthesisLoadingState" style="display:none;">
           <div class="synthesis-orb-wrap">
             <div class="synthesis-orb"></div>
             <div class="synthesis-rings"></div>

@@ -2121,6 +2121,332 @@ function backToStep1() {
   if (d3) { d3.className = 'creator-step-dot'; }
 }
 
+// Visual Cues Studio State
+let creatorCuePills = [];
+let creatorSelectedCueIndices = new Set();
+let creatorCharacterRepresentation = 'silhouette'; // 'silhouette' | 'likeness'
+let creatorLastSuggestedContextKey = '';
+
+// Ported heuristic 6-dimension extractor matching VisualCueService.dart
+function extract6RankedCueDimensions(curatorAngle, newsHeadline, newsBody) {
+  const combined = `${curatorAngle || ''} ${newsHeadline || ''} ${newsBody || ''}`.toLowerCase();
+
+  // 1. HERO (Subject from headline or angle)
+  let hero = '';
+  if (combined.includes('garbage') || combined.includes('trash') || combined.includes('waste') || combined.includes('clean')) {
+    hero = 'Lone Sweeper with Traditional Broom';
+  } else if (combined.includes('ai') || combined.includes('tech') || combined.includes('silicon') || combined.includes('data center') || combined.includes('model') || combined.includes('compute')) {
+    hero = 'Monolithic Obsidian Server Tower';
+  } else if (combined.includes('market') || combined.includes('invest') || combined.includes('wealth') || combined.includes('billion') || combined.includes('stock')) {
+    hero = 'Silhouetted Wall Street Bull';
+  } else if (combined.includes('polit') || combined.includes('elect') || combined.includes('minister') || combined.includes('leader') || combined.includes('vote')) {
+    hero = 'Solitary Figure at Microphone';
+  } else if (combined.includes('court') || combined.includes('judge') || combined.includes('law') || combined.includes('case')) {
+    hero = 'Gavel & Broken Stone Pillar';
+  } else if (newsHeadline && newsHeadline.trim().length > 0) {
+    hero = newsHeadline.trim().split(/[:–—\-]/)[0].trim();
+    if (hero.length > 38) hero = hero.substring(0, 35) + '...';
+  } else if (curatorAngle && curatorAngle.trim().length > 0) {
+    hero = curatorAngle.trim().split(/[.\n!?]/)[0].trim();
+    if (hero.length > 38) hero = hero.substring(0, 35) + '...';
+  } else {
+    hero = 'Solitary Focal Figure';
+  }
+
+  // 2. MOTIF (Core Metaphor from Curator Angle)
+  let motif = '';
+  if (combined.includes('taste') || combined.includes('craft') || combined.includes('art') || combined.includes('design')) {
+    motif = 'Sculptor Chisel against Uncarved Marble';
+  } else if (combined.includes('puppet') || combined.includes('control') || combined.includes('manipulat')) {
+    motif = 'Tangled Marionette Puppet Strings';
+  } else if (combined.includes('scale') || combined.includes('justice') || combined.includes('balance') || combined.includes('fair')) {
+    motif = 'Tipping Brass Balance Scales';
+  } else if (combined.includes('hourglass') || combined.includes('time') || combined.includes('delay') || combined.includes('wait')) {
+    motif = 'Crumbling Glass Hourglass';
+  } else if (combined.includes('power') || combined.includes('grid') || combined.includes('cable') || combined.includes('energy')) {
+    motif = 'Tangled High-Voltage Transmission Cables';
+  } else if (curatorAngle && curatorAngle.trim().length > 0) {
+    const parts = curatorAngle.trim().split(/[;,–—]/);
+    motif = (parts[1] || parts[0]).trim();
+    if (motif.length > 38) motif = motif.substring(0, 35) + '...';
+  } else {
+    motif = 'Symbolic Editorial Metaphor';
+  }
+
+  // 3. TENSION (Conflict / Friction / Obstacle)
+  let tension = '';
+  if (combined.includes('storm') || combined.includes('threat') || combined.includes('crisis')) {
+    tension = 'Approaching Storm Wall on Horizon';
+  } else if (combined.includes('crack') || combined.includes('fall') || combined.includes('collaps')) {
+    tension = 'Cracking Stone Foundation Beneath';
+  } else if (combined.includes('surveil') || combined.includes('monitor') || combined.includes('watch')) {
+    tension = 'Unblinking Mechanical Ocular Eye';
+  } else if (combined.includes('speed') || combined.includes('flood') || combined.includes('infinite') || combined.includes('mediocrity')) {
+    tension = 'Relentless Tidal Wave of Noise';
+  } else if (combined.includes('greed') || combined.includes('inequal') || combined.includes('shadow')) {
+    tension = 'Looming Corporate Glass Shadow';
+  } else {
+    tension = 'Friction & Opposing Cast Shadows';
+  }
+
+  // 4. ATMOSPHERE (Setting / Environment)
+  let atmosphere = '';
+  if (combined.includes('street') || combined.includes('city') || combined.includes('road') || combined.includes('urban')) {
+    atmosphere = 'Damp Rain-Slicked City Boulevard';
+  } else if (combined.includes('board') || combined.includes('exec') || combined.includes('corp')) {
+    atmosphere = 'Smoke-Filled High-Rise Boardroom';
+  } else if (combined.includes('cyber') || combined.includes('digital') || combined.includes('data') || combined.includes('tech')) {
+    atmosphere = 'Brutalist Concrete Server Canyon';
+  } else if (combined.includes('trade') || combined.includes('stock') || combined.includes('wall street')) {
+    atmosphere = 'Empty Trading Floor at Dusk';
+  } else {
+    atmosphere = 'Atmospheric Minimalist Crossroads';
+  }
+
+  // 5. LIGHTING (Chiaroscuro & Mood)
+  let lighting = '';
+  if (combined.includes('neon') || combined.includes('cyber') || combined.includes('future')) {
+    lighting = 'Eerie Volumetric Neon Cyan Glow';
+  } else if (combined.includes('dark') || combined.includes('noir') || combined.includes('secret') || combined.includes('investig')) {
+    lighting = 'Deep Chiaroscuro High-Contrast Silhouette';
+  } else if (combined.includes('dawn') || combined.includes('morning') || combined.includes('hope')) {
+    lighting = 'Cold Blue Twilight with Amber Rim Light';
+  } else {
+    lighting = 'Dramatic Chiaroscuro Editorial Spotlight';
+  }
+
+  // 6. STYLE (Print Medium & Movement)
+  let style = '';
+  if (combined.includes('tech') || combined.includes('modern') || combined.includes('future')) {
+    style = 'Bauhaus Geometric Vector Poster';
+  } else if (combined.includes('historic') || combined.includes('classic') || combined.includes('book') || combined.includes('paper')) {
+    style = 'Vintage Woodcut Broadsheet Engraving';
+  } else {
+    style = 'High-Contrast Noir Risograph Print';
+  }
+
+  return [hero, motif, tension, atmosphere, lighting, style];
+}
+
+const CUE_RANK_CONFIGS = [
+  { badge: '★ #1 HERO', badgeClass: 'badge-rank-0', rowClass: 'cue-rank-0' },
+  { badge: '★ #2 MOTIF', badgeClass: 'badge-rank-1', rowClass: 'cue-rank-1' },
+  { badge: '⚡ #3 TENSION', badgeClass: 'badge-rank-2', rowClass: 'cue-rank-2' },
+  { badge: '🏛 #4 ATMOSPHERE', badgeClass: 'badge-rank-3', rowClass: 'cue-rank-3' },
+  { badge: '💡 #5 LIGHTING', badgeClass: 'badge-rank-4', rowClass: 'cue-rank-4' },
+  { badge: '🎨 #6 STYLE', badgeClass: 'badge-rank-5', rowClass: 'cue-rank-5' },
+];
+
+function goToVisualCuesStep() {
+  const urlInput = document.getElementById('creatorUrlInput');
+  const slantTakeInput = document.getElementById('creatorSlantTakeInput');
+
+  const url = urlInput ? urlInput.value.trim() : '';
+  const slantTake = slantTakeInput ? slantTakeInput.value.trim() : '';
+
+  // Validation matching Flutter mobile app exactly
+  if (creatorSelectedSource === 'inner_voice') {
+    if (!slantTake) {
+      alert('Please write your slant or perspective above first');
+      if (slantTakeInput) slantTakeInput.focus();
+      return;
+    }
+  } else if (creatorSelectedSource === 'photo') {
+    if (!creatorSelectedImageBase64) {
+      alert('Please snap or upload a magazine or print clipping photo first');
+      return;
+    }
+  } else if (creatorSelectedSource === 'digital_link') {
+    if (!url) {
+      alert('Please enter or paste a news article URL first');
+      if (urlInput) urlInput.focus();
+      return;
+    }
+  }
+
+  // Switch step indicators
+  const s1 = document.getElementById('creatorStep1');
+  const s2 = document.getElementById('creatorStep2');
+  const s3 = document.getElementById('creatorStep3');
+  const d1 = document.getElementById('stepDot1');
+  const d2 = document.getElementById('stepDot2');
+  const d3 = document.getElementById('stepDot3');
+  const cuesContent = document.getElementById('cuesStudioContent');
+  const synthLoading = document.getElementById('synthesisLoadingState');
+
+  if (s1) s1.style.display = 'none';
+  if (s2) s2.style.display = 'block';
+  if (s3) s3.style.display = 'none';
+  if (cuesContent) cuesContent.style.display = 'flex';
+  if (synthLoading) synthLoading.style.display = 'none';
+
+  if (d1) d1.className = 'creator-step-dot completed';
+  if (d2) d2.className = 'creator-step-dot active';
+  if (d3) d3.className = 'creator-step-dot';
+
+  // Auto-suggest cues if needed
+  const contextKey = `${creatorSelectedSource}::${url}::${slantTake}`;
+  if (creatorCuePills.length === 0 || creatorLastSuggestedContextKey !== contextKey) {
+    creatorLastSuggestedContextKey = contextKey;
+    creatorCuePills = extract6RankedCueDimensions(slantTake, url, '');
+    creatorSelectedCueIndices.clear();
+  }
+
+  renderCuesDeck();
+}
+
+function renderCuesDeck() {
+  const container = document.getElementById('cuesDeckContainer');
+  if (!container) return;
+
+  container.innerHTML = '';
+
+  creatorCuePills.forEach((cueText, index) => {
+    const isSelected = creatorSelectedCueIndices.has(index);
+    const rankConfig = CUE_RANK_CONFIGS[index] || {
+      badge: `#${index + 1} CUE`,
+      badgeClass: 'badge-rank-other',
+      rowClass: ''
+    };
+
+    const row = document.createElement('div');
+    row.className = `cue-card-row ${rankConfig.rowClass} ${isSelected ? 'selected' : ''}`;
+    row.setAttribute('data-index', index);
+
+    row.innerHTML = `
+      <div class="cue-reorder-btns">
+        <button type="button" class="cue-move-btn" onclick="moveCue(${index}, -1)" title="Move up" ${index === 0 ? 'style="opacity:0.3;pointer-events:none;"' : ''}>▲</button>
+        <button type="button" class="cue-move-btn" onclick="moveCue(${index}, 1)" title="Move down" ${index === creatorCuePills.length - 1 ? 'style="opacity:0.3;pointer-events:none;"' : ''}>▼</button>
+      </div>
+      <div class="cue-checkbox-wrap" onclick="toggleCueSelection(${index})">
+        <input type="checkbox" class="cue-checkbox" ${isSelected ? 'checked' : ''} onchange="toggleCueSelection(${index})">
+      </div>
+      <span class="cue-badge ${rankConfig.badgeClass}">${rankConfig.badge}</span>
+      <input type="text" class="cue-input-text" value="${escapeHtml(cueText)}" oninput="updateCueText(${index}, this.value)">
+      <button type="button" class="cue-delete-btn" onclick="deleteCue(${index})" title="Remove cue">✕</button>
+    `;
+
+    container.appendChild(row);
+  });
+
+  // Update Action Bar info & suggest button
+  const infoText = document.getElementById('cuesInfoText');
+  const suggestLabel = document.getElementById('cuesSuggestLabel');
+  const suggestIcon = document.getElementById('cuesSuggestIcon');
+
+  if (creatorSelectedCueIndices.size > 0) {
+    if (infoText) {
+      infoText.innerHTML = `
+        <span style="color:var(--primary);font-weight:700;">${creatorSelectedCueIndices.size} selected</span>
+        <span>•</span>
+        <a href="javascript:void(0)" onclick="clearCueSelection()" style="color:var(--text-muted);text-decoration:underline;">Clear</a>
+      `;
+    }
+    if (suggestLabel) suggestLabel.textContent = `Suggest (${creatorSelectedCueIndices.size})`;
+    if (suggestIcon) suggestIcon.textContent = '🔄';
+  } else {
+    if (infoText) {
+      infoText.innerHTML = `
+        <span class="cues-info-icon">⇅</span>
+        <span>Tap to select • Drag ⇅ to prioritize (#1 is Hero)</span>
+      `;
+    }
+    if (suggestLabel) suggestLabel.textContent = 'Suggest All';
+    if (suggestIcon) suggestIcon.textContent = '✨';
+  }
+}
+
+function moveCue(index, delta) {
+  const newIndex = index + delta;
+  if (newIndex < 0 || newIndex >= creatorCuePills.length) return;
+
+  const item = creatorCuePills.splice(index, 1)[0];
+  creatorCuePills.splice(newIndex, 0, item);
+
+  // Remap selection
+  const newSelected = new Set();
+  creatorSelectedCueIndices.forEach(idx => {
+    if (idx === index) newSelected.add(newIndex);
+    else if (delta > 0 && idx > index && idx <= newIndex) newSelected.add(idx - 1);
+    else if (delta < 0 && idx < index && idx >= newIndex) newSelected.add(idx + 1);
+    else newSelected.add(idx);
+  });
+  creatorSelectedCueIndices = newSelected;
+
+  renderCuesDeck();
+}
+
+function toggleCueSelection(index) {
+  if (creatorSelectedCueIndices.has(index)) {
+    creatorSelectedCueIndices.delete(index);
+  } else {
+    creatorSelectedCueIndices.add(index);
+  }
+  renderCuesDeck();
+}
+
+function clearCueSelection() {
+  creatorSelectedCueIndices.clear();
+  renderCuesDeck();
+}
+
+function deleteCue(index) {
+  if (index >= 0 && index < creatorCuePills.length) {
+    creatorCuePills.splice(index, 1);
+    creatorSelectedCueIndices.delete(index);
+    renderCuesDeck();
+  }
+}
+
+function updateCueText(index, val) {
+  if (index >= 0 && index < creatorCuePills.length) {
+    creatorCuePills[index] = val;
+  }
+}
+
+function addCustomCue() {
+  const input = document.getElementById('customCueInput');
+  const val = input ? input.value.trim() : '';
+  if (!val) return;
+
+  creatorCuePills.push(val);
+  if (input) input.value = '';
+  renderCuesDeck();
+}
+
+function triggerCueSuggest() {
+  const urlInput = document.getElementById('creatorUrlInput');
+  const slantTakeInput = document.getElementById('creatorSlantTakeInput');
+  const url = urlInput ? urlInput.value.trim() : '';
+  const slantTake = slantTakeInput ? slantTakeInput.value.trim() : '';
+
+  const fresh = extract6RankedCueDimensions(slantTake, url, '');
+
+  if (creatorSelectedCueIndices.size > 0) {
+    // Selective replacement
+    creatorSelectedCueIndices.forEach(idx => {
+      if (idx < fresh.length) {
+        creatorCuePills[idx] = fresh[idx];
+      }
+    });
+    creatorSelectedCueIndices.clear();
+  } else {
+    // Re-extract all
+    creatorCuePills = fresh;
+  }
+
+  renderCuesDeck();
+}
+
+function selectCharacterRepresentation(type) {
+  creatorCharacterRepresentation = type;
+  const optSil = document.getElementById('repOptionSilhouette');
+  const optLik = document.getElementById('repOptionLikeness');
+
+  if (optSil) optSil.classList.toggle('active', type === 'silhouette');
+  if (optLik) optLik.classList.toggle('active', type === 'likeness');
+}
+
 async function startAiSynthesis() {
   const urlInput = document.getElementById('creatorUrlInput');
   const slantTakeInput = document.getElementById('creatorSlantTakeInput');
@@ -2130,38 +2456,14 @@ async function startAiSynthesis() {
   const slantTake = slantTakeInput ? slantTakeInput.value.trim() : '';
   const spark = sparkInput ? sparkInput.value.trim() : '';
 
-  // Validation
-  if (creatorSelectedSource === 'digital_link') {
-    if (!url) {
-      alert('Please enter a web article URL to synthesize.');
-      if (urlInput) urlInput.focus();
-      return;
-    }
-  } else if (creatorSelectedSource === 'photo') {
-    if (!creatorSelectedImageBase64) {
-      alert('Please snap a photo or upload an image of the clipping first.');
-      return;
-    }
-  } else if (creatorSelectedSource === 'inner_voice') {
-    if (!slantTake) {
-      alert('Please share your slant or perspective thought first.');
-      if (slantTakeInput) slantTakeInput.focus();
-      return;
-    }
-  }
-
-  // Switch to Step 2 (Loading)
-  const s1 = document.getElementById('creatorStep1');
-  const s2 = document.getElementById('creatorStep2');
-  const d1 = document.getElementById('stepDot1');
-  const d2 = document.getElementById('stepDot2');
+  // Switch to Synthesis Loading State inside Step 2
+  const cuesContent = document.getElementById('cuesStudioContent');
+  const synthLoading = document.getElementById('synthesisLoadingState');
   const stepText = document.getElementById('synthesisStepText');
   const fill = document.getElementById('synthesisProgressFill');
 
-  if (s1) s1.style.display = 'none';
-  if (s2) s2.style.display = 'flex';
-  if (d1) { d1.className = 'creator-step-dot completed'; }
-  if (d2) { d2.className = 'creator-step-dot active'; }
+  if (cuesContent) cuesContent.style.display = 'none';
+  if (synthLoading) synthLoading.style.display = 'flex';
 
   if (stepText) stepText.textContent = 'Reading source and extracting core tension...';
   if (fill) fill.style.width = '25%';
@@ -2189,10 +2491,13 @@ async function startAiSynthesis() {
     slantTake: slantTake,
     imageBase64: creatorSelectedImageBase64,
     imageMimeType: creatorSelectedImageMimeType,
-    targetAudience: creatorAudience,
-    slantTone: creatorSlantTone,
+    targetAudience: 'General Public',
+    slantTone: 'mind',
     spark,
-    creatorHandle: userHandle
+    creatorHandle: userHandle,
+    cues: creatorCuePills,
+    heroCue: creatorCuePills[0] || '',
+    characterRepresentation: creatorCharacterRepresentation
   };
 
   try {
@@ -2227,7 +2532,8 @@ async function startAiSynthesis() {
     clearTimeout(ticker2);
     console.error('Synthesis error:', err);
     alert('AI Synthesis Error: ' + err.message + '\n\nPlease check your input and try again.');
-    backToStep1();
+    if (cuesContent) cuesContent.style.display = 'flex';
+    if (synthLoading) synthLoading.style.display = 'none';
   }
 }
 
