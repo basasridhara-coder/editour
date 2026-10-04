@@ -47,7 +47,10 @@ class PostCardItem {
   final String? slantTone;
   final String? slantIcon;
 
-  String get resolvedSlantIcon => slantIcon ?? (slantTone == 'heart' ? '❤️' : '💭');
+  String get resolvedSlantIcon =>
+      (slantIcon != null && slantIcon!.isNotEmpty)
+          ? slantIcon!
+          : (slantTone == 'heart' ? '❤️' : '💭');
 
   bool get isDigitalLinkSource =>
       sourceType == 'digital_link' ||
@@ -57,11 +60,15 @@ class PostCardItem {
 
   bool get isBookExcerpt => sourceType == 'book_excerpt';
 
-  bool get isMySlant =>
+  bool get isInnerVoice =>
+      sourceType == 'inner_voice' ||
       sourceType == 'my_slant' ||
       sourceType == 'opinion' ||
+      categoryBadge.toUpperCase() == 'INNER VOICE' ||
       categoryBadge.toUpperCase() == 'OPINION' ||
       categoryBadge.toUpperCase() == 'MY SLANT';
+
+  bool get isMySlant => isInnerVoice;
 
   bool get isVerifiedPress {
     if (isMySlant || isBookExcerpt) return false;

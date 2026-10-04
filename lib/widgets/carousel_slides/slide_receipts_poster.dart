@@ -51,13 +51,17 @@ class SlideReceiptsPoster extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final pubName = (item.publicationName != null && item.publicationName!.trim().isNotEmpty)
-        ? item.publicationName!.trim()
-        : 'THE FINANCIAL CHRONICLE';
+    final pubName = (item.isMySlant || item.publicationName == "Reader's Op-Ed" || item.publicationName == "Inner Voice")
+        ? 'INNER VOICE'
+        : ((item.publicationName != null && item.publicationName!.trim().isNotEmpty)
+            ? item.publicationName!.trim()
+            : 'THE FINANCIAL CHRONICLE');
     final handle = item.creatorHandle ?? '@curator';
-    final rawHeadline = (item.originalHeadline != null && item.originalHeadline!.trim().isNotEmpty)
-        ? item.originalHeadline!
-        : item.adaptedHeadline;
+    final rawHeadline = item.isMySlant
+        ? item.adaptedHeadline
+        : ((item.originalHeadline != null && item.originalHeadline!.trim().isNotEmpty)
+            ? item.originalHeadline!
+            : item.adaptedHeadline);
     final headline = _ensureCleanHeadline(rawHeadline);
 
     final List<String> excerpts = item.resolvedArticleExcerpts;
@@ -151,15 +155,15 @@ class SlideReceiptsPoster extends StatelessWidget {
       );
     } else if (item.isMySlant) {
       final slantIcon = item.resolvedSlantIcon;
-      mastheadTitle = "READER'S OP-ED";
-      rulesLeft = 'FIRST-PERSON PERSPECTIVE';
-      rulesCenter = 'COMMUNITY OP-ED & ESSAY';
-      bylineLeft = 'CONTRIBUTED BY $handle';
-      bylineTag = 'PERSONAL SLANT';
+      mastheadTitle = "INNER VOICE";
+      rulesLeft = 'FIRST-PERSON REFLECTION';
+      rulesCenter = 'PERSONAL ESSAY • CONVICTION';
+      bylineLeft = 'AUTHORED BY $handle';
+      bylineTag = 'INNER VOICE';
       bylineTagColor = const Color(0xFF7C3AED);
       highlightTitle = 'THE CORE CONVICTION';
-      highlightIcon = slantIcon == '❤️' ? Icons.favorite_rounded : Icons.psychology_rounded;
-      folioSource = 'FIRST-PERSON REFLECTION • UNVERIFIED OPINION';
+      highlightIcon = Icons.record_voice_over_rounded;
+      folioSource = 'FIRST-PERSON REFLECTION';
       folioAuthor = 'BY $handle';
       rubberStamp = Container(
         padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
@@ -172,7 +176,7 @@ class SlideReceiptsPoster extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              '$slantIcon OPINION',
+              '$slantIcon AUTHORED TAKE',
               style: const TextStyle(
                 fontSize: 6.5,
                 fontWeight: FontWeight.w900,
@@ -181,7 +185,7 @@ class SlideReceiptsPoster extends StatelessWidget {
               ),
             ),
             const Text(
-              'MY SLANT',
+              'INNER VOICE',
               style: TextStyle(
                 fontSize: 8,
                 fontWeight: FontWeight.w900,
@@ -626,6 +630,7 @@ class SlideReceiptsPoster extends StatelessWidget {
                       child: Image.file(
                         File(item.originalPhotoPath),
                         fit: BoxFit.cover,
+                        cacheWidth: 320,
                         errorBuilder: (_, _, _) => const SizedBox.shrink(),
                       ),
                     ),

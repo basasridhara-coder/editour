@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -6,10 +5,11 @@ import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/postcard_item.dart';
 import '../models/poster_style_config.dart';
+import '../services/image_cache_service.dart';
 import '../services/share_service.dart';
 import '../services/storage_service.dart';
 import '../widgets/photo_viewer_dialog.dart';
-import '../widgets/slant_source_sheet.dart';
+import 'create_postcard_screen.dart';
 import 'postcard_detail_screen.dart';
 
 class MyPostsScreen extends StatefulWidget {
@@ -188,7 +188,16 @@ class _MyPostsScreenState extends State<MyPostsScreen> with SingleTickerProvider
             ),
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'my_posts_create_fab',
-        onPressed: () => SlantSourceSheet.show(context, onFinish: _loadItems),
+        onPressed: () async {
+          await Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (ctx) => const CreatePostcardScreen(
+                initialSourceMode: InputSourceMode.mySlant,
+              ),
+            ),
+          );
+          _loadItems();
+        },
         icon: const Icon(Icons.bolt_rounded, color: Colors.white, size: 22),
         label: const Text('Slant', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
         backgroundColor: Theme.of(context).colorScheme.primary,
@@ -206,7 +215,7 @@ class _MyPostsScreenState extends State<MyPostsScreen> with SingleTickerProvider
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 90),
       itemCount: _filteredItems.length,
       itemBuilder: (context, index) {
         final item = _filteredItems[index];
@@ -426,7 +435,7 @@ class _MyPostsScreenState extends State<MyPostsScreen> with SingleTickerProvider
     }
 
     return GridView.builder(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 90),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
         crossAxisSpacing: 10,
@@ -531,7 +540,7 @@ class _MyPostsScreenState extends State<MyPostsScreen> with SingleTickerProvider
     }
 
     return GridView.builder(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 90),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
         crossAxisSpacing: 10,
@@ -656,7 +665,11 @@ class _MyPostsScreenState extends State<MyPostsScreen> with SingleTickerProvider
       );
     }
     if (!kIsWeb && File(path).existsSync()) {
-      return Image.file(File(path), fit: BoxFit.cover);
+      return Image.file(
+        File(path),
+        fit: BoxFit.cover,
+        cacheWidth: 360,
+      );
     }
     return Container(
       color: Colors.grey.shade300,
@@ -666,12 +679,21 @@ class _MyPostsScreenState extends State<MyPostsScreen> with SingleTickerProvider
 
   Widget _buildPosterGridVisual(PostCardItem item, PosterStyleConfig config) {
     if (item.illustrationBase64 != null && item.illustrationBase64!.isNotEmpty) {
-      try {
-        return Image.memory(base64Decode(item.illustrationBase64!), fit: BoxFit.cover);
-      } catch (_) {}
+      final bytes = ImageCacheService.getBytes('grid_${item.id}', item.illustrationBase64);
+      if (bytes != null) {
+        return Image.memory(
+          bytes,
+          fit: BoxFit.cover,
+          cacheWidth: 360,
+        );
+      }
     }
     if (item.renderedPosterPath != null && File(item.renderedPosterPath!).existsSync()) {
-      return Image.file(File(item.renderedPosterPath!), fit: BoxFit.cover);
+      return Image.file(
+        File(item.renderedPosterPath!),
+        fit: BoxFit.cover,
+        cacheWidth: 360,
+      );
     }
     return Container(
       decoration: BoxDecoration(

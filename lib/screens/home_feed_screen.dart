@@ -7,7 +7,7 @@ import '../services/share_service.dart';
 import '../services/storage_service.dart';
 import '../services/web_feed_server.dart';
 import '../widgets/instagram_post_card_widget.dart';
-import '../widgets/slant_source_sheet.dart';
+import 'create_postcard_screen.dart';
 import 'postcard_detail_screen.dart';
 import 'settings_screen.dart';
 
@@ -22,6 +22,11 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
   final StorageService _storageService = StorageService();
   final ShareService _shareService = ShareService();
 
+  static const int _initialBatchSize = 12;
+  static const int _batchIncrement = 10;
+  int _displayLimit = _initialBatchSize;
+  late final ScrollController _scrollController;
+
   List<PostCardItem> _items = [];
   bool _isLoading = true;
   String _searchQuery = '';
@@ -30,7 +35,27 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
   @override
   void initState() {
     super.initState();
+    _scrollController = ScrollController()..addListener(_onScroll);
     _loadItems();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 600) {
+      final total = _filteredItems.length;
+      if (_displayLimit < total) {
+        setState(() {
+          _displayLimit = (_displayLimit + _batchIncrement).clamp(0, total);
+        });
+      }
+    }
   }
 
   Future<void> _loadItems() async {
@@ -38,15 +63,16 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     final items = await _storageService.getPostCards();
     setState(() {
       _items = items;
+      _displayLimit = _initialBatchSize;
       _isLoading = false;
     });
+  }
 
-    // Seamlessly ensure any local physical clippings are synced with photo bytes to editour.app
-    Future.microtask(() async {
-      try {
-        await EditourCloudService().reconcileWithCloud();
-      } catch (_) {}
-    });
+  Future<void> _handleRefresh() async {
+    await _loadItems();
+    try {
+      await EditourCloudService().reconcileWithCloud();
+    } catch (_) {}
   }
 
   List<PostCardItem> get _filteredItems {
@@ -475,16 +501,26 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => SlantSourceSheet.show(context, onFinish: _loadItems),
+        onPressed: () async {
+          await Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (ctx) => const CreatePostcardScreen(
+                initialSourceMode: InputSourceMode.mySlant,
+              ),
+            ),
+          );
+          _loadItems();
+        },
         icon: const Icon(Icons.bolt_rounded, color: Colors.white, size: 22),
         label: const Text('Slant', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
         backgroundColor: theme.colorScheme.primary,
       ),
       body: RefreshIndicator(
-        onRefresh: _loadItems,
+        onRefresh: _handleRefresh,
         child: _isLoading
             ? const Center(child: CircularProgressIndicator())
             : CustomScrollView(
+                controller: _scrollController,
                 slivers: [
                   // Search & Quick Filter bar
                   SliverToBoxAdapter(
@@ -494,7 +530,10 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                         hintText: 'Search headlines, publications, audience...',
                         leading: const Icon(Icons.search, size: 20),
                         elevation: const WidgetStatePropertyAll(1),
-                        onChanged: (val) => setState(() => _searchQuery = val),
+                        onChanged: (val) => setState(() {
+                          _searchQuery = val;
+                          _displayLimit = _initialBatchSize;
+                        }),
                       ),
                     ),
                   ),
@@ -515,7 +554,12 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                                 label: Text(cat),
                                 selected: isSelected,
                                 onSelected: (val) {
-                                  if (val) setState(() => _selectedCategory = cat);
+                                  if (val) {
+                                    setState(() {
+                                      _selectedCategory = cat;
+                                      _displayLimit = _initialBatchSize;
+                                    });
+                                  }
                                 },
                               ),
                             );
@@ -560,7 +604,16 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                           ),
                           const SizedBox(width: 8),
                           FilledButton.tonal(
-                            onPressed: () => SlantSourceSheet.show(context, onFinish: _loadItems),
+                            onPressed: () async {
+                              await Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (ctx) => const CreatePostcardScreen(
+                                    initialSourceMode: InputSourceMode.physicalPhoto,
+                                  ),
+                                ),
+                              );
+                              _loadItems();
+                            },
                             style: FilledButton.styleFrom(
                               visualDensity: VisualDensity.compact,
                               padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -590,14 +643,23 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              'Create your first Slant from a newspaper cut or web link',
+                              'Create your first Slant from a newspaper cut, web link, or inner voice',
                               style: theme.textTheme.bodyMedium?.copyWith(
                                 color: theme.colorScheme.onSurfaceVariant,
                               ),
                             ),
                             const SizedBox(height: 16),
                             FilledButton.icon(
-                              onPressed: () => SlantSourceSheet.show(context, onFinish: _loadItems),
+                              onPressed: () async {
+                                await Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (ctx) => const CreatePostcardScreen(
+                                      initialSourceMode: InputSourceMode.mySlant,
+                                    ),
+                                  ),
+                                );
+                                _loadItems();
+                              },
                               icon: const Icon(Icons.bolt),
                               label: const Text('Create Slant PostCard'),
                             ),
@@ -605,22 +667,76 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                         ),
                       ),
                     )
-                  else
-                    // Postcard List (Always Instagram Infographic Feed)
-                    SliverList(
-                      delegate: SliverChildBuilderDelegate(
-                        (context, index) {
-                          final item = displayedList[index];
-                          return InstagramPostCardWidget(
-                            item: item,
-                            onTap: () => _openDetailScreen(item),
-                            onShare: () => _handleShare(item),
-                            onDelete: () => _handleDelete(item),
-                          );
-                        },
-                        childCount: displayedList.length,
+                  else ...[
+                    // Postcard List (Always Instagram Infographic Feed - Virtualized & Batch Rendered)
+                    () {
+                      final totalCount = displayedList.length;
+                      final visibleCount = totalCount > _displayLimit ? _displayLimit : totalCount;
+                      return SliverList(
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) {
+                            final item = displayedList[index];
+                            return InstagramPostCardWidget(
+                              item: item,
+                              onTap: () => _openDetailScreen(item),
+                              onShare: () => _handleShare(item),
+                              onDelete: () => _handleDelete(item),
+                            );
+                          },
+                          childCount: visibleCount,
+                          addAutomaticKeepAlives: false,
+                          addRepaintBoundaries: true,
+                        ),
+                      );
+                    }(),
+
+                    if (displayedList.length > _displayLimit)
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 24),
+                          child: Center(
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: theme.colorScheme.primary,
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Text(
+                                  'Showing $_displayLimit of ${displayedList.length} posts • Scroll for more',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      )
+                    else if (displayedList.isNotEmpty)
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 24),
+                          child: Center(
+                            child: Text(
+                              'Showing all ${displayedList.length} posts • Silky smooth',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                                color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
+                  ],
 
                   const SliverToBoxAdapter(
                     child: SizedBox(height: 100),

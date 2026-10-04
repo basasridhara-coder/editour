@@ -4,8 +4,8 @@
 const fs = require('fs');
 const path = require('path');
 
-const SUPABASE_URL = 'https://karnxbsmvnkydcfydrcf.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_n90rXQfEukf2gdisKe_jGg_Cybk2r-m';
+const SUPABASE_URL = 'https://fsuukgpizuipxxwatkbo.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZzdXVrZ3BpenVpcHh4d2F0a2JvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTExMzE4NjEsImV4cCI6MjEwNjcwNzg2MX0.NPnTDhGyiigPZIvror8JGqjCMVKuJ8OZaDN2pGuVfM8';
 
 let fallbackPosts = [];
 try {
@@ -31,6 +31,7 @@ module.exports = async function handler(req, res) {
   }
 
   if (req.method === 'GET') {
+    res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=120');
     // 1. Primary: Direct Supabase query with safe batch limit
     try {
       const resp = await fetch(`${SUPABASE_URL}/rest/v1/posts?select=*&order=created_at.desc&limit=15`, {

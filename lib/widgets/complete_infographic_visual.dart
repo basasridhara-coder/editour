@@ -54,26 +54,34 @@ class _CompleteInfographicVisualState extends State<CompleteInfographicVisual> {
           child: SizedBox(
             width: 360,
             height: 450,
-            child: PageView(
+            child: PageView.builder(
               controller: _pageController,
               physics: const BouncingScrollPhysics(),
+              itemCount: 3,
               onPageChanged: widget.onPageChanged,
-              children: [
-                SlideHookPoster(
-                  item: widget.item,
-                  config: widget.config,
-                  showOverlays: widget.showOverlays,
-                ),
-                SlideCritiquePoster(
-                  item: widget.item,
-                  config: widget.config,
-                  showOverlays: widget.showOverlays,
-                ),
-                SlideReceiptsPoster(
-                  item: widget.item,
-                  config: widget.config,
-                ),
-              ],
+              itemBuilder: (context, index) {
+                switch (index) {
+                  case 0:
+                    return SlideHookPoster(
+                      item: widget.item,
+                      config: widget.config,
+                      showOverlays: widget.showOverlays,
+                    );
+                  case 1:
+                    return SlideCritiquePoster(
+                      item: widget.item,
+                      config: widget.config,
+                      showOverlays: widget.showOverlays,
+                    );
+                  case 2:
+                    return SlideReceiptsPoster(
+                      item: widget.item,
+                      config: widget.config,
+                    );
+                  default:
+                    return const SizedBox.shrink();
+                }
+              },
             ),
           ),
         ),

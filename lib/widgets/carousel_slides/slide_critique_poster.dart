@@ -1,8 +1,8 @@
-import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import '../../models/postcard_item.dart';
 import '../../models/poster_style_config.dart';
+import '../../services/image_cache_service.dart';
 
 class SlideCritiquePoster extends StatelessWidget {
   final PostCardItem item;
@@ -38,8 +38,18 @@ class SlideCritiquePoster extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final pubName = item.publicationName ?? 'Press Wire';
+    final pubName = (item.isMySlant || item.publicationName == "Reader's Op-Ed" || item.publicationName == "Inner Voice")
+        ? 'Inner Voice'
+        : (item.publicationName ?? 'Press Wire');
     final handle = item.creatorHandle ?? '@curator';
+    final bool isSlant = item.isMySlant;
+    final Color pillColor = isSlant
+        ? (item.slantTone == 'heart' ? const Color(0xFFFB7185) : const Color(0xFFA5B4FC))
+        : const Color(0xFFF59E0B);
+    final String pillLabel = isSlant
+        ? (item.slantTone == 'heart' ? "FIRST-PERSON REFLECTION" : "INNER VOICE TAKE")
+        : "CURATOR'S TAKE";
+
     final rawOpinion = (item.creatorOpinion != null && item.creatorOpinion!.trim().isNotEmpty)
         ? item.creatorOpinion!
         : (item.whyItMatters != null && item.whyItMatters!.trim().isNotEmpty
@@ -58,7 +68,9 @@ class SlideCritiquePoster extends StatelessWidget {
             item.keyTakeaways.first.trim().split(' ').length <= 12 &&
             !item.keyTakeaways.first.toLowerCase().contains('http'))
         ? item.keyTakeaways.first.trim().toUpperCase()
-        : 'THE CRITICAL PERSPECTIVE';
+        : (isSlant
+            ? (item.slantTone == 'heart' ? 'PERSONAL REFLECTION' : 'INNER VOICE PERSPECTIVE')
+            : 'THE CRITICAL PERSPECTIVE');
 
     // Dynamic responsive font sizing and line wrapping based on opinion text length so statements complete without truncation
     final int opinionMaxLines = opinionText.length > 210 ? 8 : (opinionText.length > 140 ? 6 : 5);
@@ -146,19 +158,24 @@ class SlideCritiquePoster extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: Colors.black.withValues(alpha: 0.75),
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.4)),
+                        border: Border.all(color: pillColor.withValues(alpha: 0.45)),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.bolt_rounded, size: 12, color: Color(0xFFF59E0B)),
-                          const SizedBox(width: 5),
-                          const Text(
-                            "CURATOR'S TAKE",
+                          if (isSlant && item.resolvedSlantIcon.isNotEmpty) ...[
+                            Text(item.resolvedSlantIcon, style: const TextStyle(fontSize: 11)),
+                            const SizedBox(width: 5),
+                          ] else ...[
+                            Icon(Icons.bolt_rounded, size: 12, color: pillColor),
+                            const SizedBox(width: 5),
+                          ],
+                          Text(
+                            pillLabel,
                             style: TextStyle(
                               fontSize: 9.5,
                               fontWeight: FontWeight.w800,
-                              color: Color(0xFFF59E0B),
+                              color: pillColor,
                               letterSpacing: 0.8,
                             ),
                           ),
@@ -212,8 +229,8 @@ class SlideCritiquePoster extends StatelessWidget {
                         Container(
                           width: 6,
                           height: 6,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFFF59E0B),
+                          decoration: BoxDecoration(
+                            color: pillColor,
                             shape: BoxShape.circle,
                           ),
                         ),
@@ -221,10 +238,10 @@ class SlideCritiquePoster extends StatelessWidget {
                         Expanded(
                           child: Text(
                             slideTitle,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w800,
-                              color: Color(0xFFF59E0B),
+                              color: pillColor,
                               letterSpacing: 1.1,
                             ),
                             maxLines: 1,
@@ -263,22 +280,24 @@ class SlideCritiquePoster extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF59E0B).withValues(alpha: 0.12),
+                          color: pillColor.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(6),
                           border: Border.all(
-                            color: const Color(0xFFF59E0B).withValues(alpha: 0.35),
+                            color: pillColor.withValues(alpha: 0.35),
                             width: 0.8,
                           ),
                         ),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'WHY IT MATTERS: ',
+                            Text(
+                              isSlant
+                                  ? (item.slantTone == 'heart' ? 'IN MY WORDS: ' : 'MY PERSPECTIVE: ')
+                                  : 'WHY IT MATTERS: ',
                               style: TextStyle(
                                 fontSize: 9.5,
                                 fontWeight: FontWeight.w800,
-                                color: Color(0xFFF59E0B),
+                                color: pillColor,
                                 letterSpacing: 0.6,
                               ),
                             ),
@@ -312,7 +331,7 @@ class SlideCritiquePoster extends StatelessWidget {
                               width: 20,
                               height: 20,
                               decoration: BoxDecoration(
-                                color: config.primaryColor,
+                                color: isSlant ? pillColor : (config.primaryColor.computeLuminance() < 0.35 ? const Color(0xFF38BDF8) : config.primaryColor),
                                 shape: BoxShape.circle,
                               ),
                               child: Center(
@@ -340,24 +359,33 @@ class SlideCritiquePoster extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFDC2626).withValues(alpha: 0.28),
+                            color: isSlant
+                                ? pillColor.withValues(alpha: 0.25)
+                                : const Color(0xFFDC2626).withValues(alpha: 0.28),
                             borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: const Color(0xFFEF4444), width: 1.2),
+                            border: Border.all(
+                              color: isSlant ? pillColor : const Color(0xFFEF4444),
+                              width: 1.2,
+                            ),
                           ),
-                          child: const Row(
+                          child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
-                                'THE RECEIPTS',
+                                isSlant ? 'INNER VOICE' : (item.isVerifiedPress ? 'THE RECEIPTS' : 'SOURCE'),
                                 style: TextStyle(
                                   fontSize: 10.5,
                                   fontWeight: FontWeight.w900,
-                                  color: Color(0xFFFCA5A5),
+                                  color: isSlant ? pillColor : const Color(0xFFFCA5A5),
                                   letterSpacing: 0.8,
                                 ),
                               ),
-                              SizedBox(width: 5),
-                              Icon(Icons.arrow_forward_rounded, size: 13, color: Color(0xFFFCA5A5)),
+                              const SizedBox(width: 5),
+                              Icon(
+                                Icons.arrow_forward_rounded,
+                                size: 13,
+                                color: isSlant ? pillColor : const Color(0xFFFCA5A5),
+                              ),
                             ],
                           ),
                         ),
@@ -425,14 +453,16 @@ class SlideCritiquePoster extends StatelessWidget {
   Widget _buildVisualArt() {
     // 1. Primary illustration bytes (highest freshness priority on re-rolls)
     if (item.illustrationBase64 != null && item.illustrationBase64!.isNotEmpty) {
-      try {
+      final bytes = ImageCacheService.getBytes('critique_${item.id}', item.illustrationBase64);
+      if (bytes != null) {
         return Image.memory(
-          base64Decode(item.illustrationBase64!),
-          key: ValueKey('critique_mem_${item.id}_${item.illustrationBase64.hashCode}'),
+          bytes,
+          key: ValueKey('critique_mem_${item.id}'),
           fit: BoxFit.cover,
+          cacheWidth: 720,
           gaplessPlayback: true,
         );
-      } catch (_) {}
+      }
     }
     // 2. Primary rendered poster image file (shares exact hero art with Slide 1)
     if (item.renderedPosterPath != null && item.renderedPosterPath!.isNotEmpty) {
@@ -440,34 +470,45 @@ class SlideCritiquePoster extends StatelessWidget {
       if (file.existsSync()) {
         return Image.file(
           file,
-          key: ValueKey('critique_file_${item.renderedPosterPath}_${item.illustrationBase64.hashCode}'),
+          key: ValueKey('critique_file_${item.id}_${item.renderedPosterPath}'),
           fit: BoxFit.cover,
+          cacheWidth: 720,
           gaplessPlayback: true,
         );
       }
     }
     // 3. Dedicated curator illustration if generated
     if (item.curatorIllustrationBase64 != null && item.curatorIllustrationBase64!.isNotEmpty) {
-      try {
+      final bytes = ImageCacheService.getBytes('critique_cur_${item.id}', item.curatorIllustrationBase64);
+      if (bytes != null) {
         return Image.memory(
-          base64Decode(item.curatorIllustrationBase64!),
-          key: ValueKey('critique_cur_${item.id}_${item.curatorIllustrationBase64.hashCode}'),
+          bytes,
+          key: ValueKey('critique_cur_${item.id}'),
           fit: BoxFit.cover,
+          cacheWidth: 720,
           gaplessPlayback: true,
         );
-      } catch (_) {}
+      }
     }
     return _buildFallbackArtisticGraphic();
   }
 
   Widget _buildFallbackArtisticGraphic() {
+    final bool isSlant = item.isMySlant;
+    final Color glowColor = isSlant
+        ? (item.slantTone == 'heart' ? const Color(0xFFFB7185) : const Color(0xFFA5B4FC))
+        : const Color(0xFFF59E0B);
+    final IconData icon = isSlant
+        ? (item.slantTone == 'heart' ? Icons.favorite_rounded : Icons.record_voice_over_rounded)
+        : Icons.lightbulb_outline_rounded;
+
     return Container(
       decoration: BoxDecoration(
         gradient: RadialGradient(
           center: const Alignment(-0.2, 0.2),
           radius: 1.2,
           colors: [
-            const Color(0xFFF59E0B).withValues(alpha: 0.25),
+            glowColor.withValues(alpha: 0.25),
             const Color(0xFF0F172A),
             const Color(0xFF070B12),
           ],
@@ -475,9 +516,9 @@ class SlideCritiquePoster extends StatelessWidget {
       ),
       child: Center(
         child: Icon(
-          Icons.lightbulb_outline_rounded,
+          icon,
           size: 72,
-          color: Colors.white.withValues(alpha: 0.2),
+          color: glowColor.withValues(alpha: 0.35),
         ),
       ),
     );

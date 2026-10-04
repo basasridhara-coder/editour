@@ -1683,6 +1683,7 @@ Return ONLY a valid JSON object matching this schema:
   /// Zero-burden: user expresses freely from Mind (🧠) or Heart (❤️), AI generates headline, hook, manifesto, and art.
   Future<GeminiAnalysisResult> analyzeAndSummarizeMySlant({
     required String rawThought,
+    String? sparkCatalyst,
     required String slantTone, // 'mind' or 'heart'
     bool refineCoreTake = true,
     String? visualCues,
@@ -1696,6 +1697,7 @@ Return ONLY a valid JSON object matching this schema:
       debugPrint('No API Key configured, using Smart Demo mode for My Slant.');
       return _generateSmartMySlantDemoResult(
         rawThought: rawThought,
+        sparkCatalyst: sparkCatalyst,
         slantTone: slantTone,
         refineCoreTake: refineCoreTake,
         visualCues: visualCues,
@@ -1716,30 +1718,37 @@ You are the master ghostwriter, editorial op-ed director, and visual artist for 
 The Curator has shared a personal opinion or feeling directly from their $vibeName ($toneIcon).
 There is NO external newspaper link or book source attached—this is the Curator's own direct expression, conviction, or reflection.
 
-⚠️ CURATOR'S RAW THOUGHT / EXPRESSION:
+⚠️ CURATOR'S RAW PERSPECTIVE / EXPRESSION:
 "$rawThought"
 
-${visualCues != null && visualCues.trim().isNotEmpty ? 'CURATOR\'S VISUAL CUES / METAPHORS:\n"$visualCues"' : ''}
+${sparkCatalyst != null && sparkCatalyst.trim().isNotEmpty ? '⚡ THE SPARK / CATALYST (WHAT PROVOKED OR STIRRED THIS):\n"$sparkCatalyst"\n' : ''}
+${visualCues != null && visualCues.trim().isNotEmpty ? 'CURATOR\'S VISUAL CUES / METAPHORS:\n"$visualCues"\n' : ''}
 
 🎯 YOUR MISSION (ZERO BURDEN ON THE CURATOR):
-The Curator did NOT provide a headline or structure an essay. They expressed freely from their $slantTone.
+The Curator expressed directly from their $slantTone.
 Your job is to elevate this raw thought into a world-class 3-Poster Carousel:
-1. Synthesize a powerful, unforgettable **Adapted Headline** (6-10 words, bold, evocative, declares the core premise without trailing ellipses).
-2. Write a captivating 1-2 sentence **Hook** that draws in $targetAudience immediately.
-3. ${refineCoreTake ? '''**Refine Core Conviction Take (Canary Yellow Highlighter & Slide 2 Take)**:
+1. Synthesize **The Spark / Catalyst Anchor ("catalyst_spark")**:
+   - The concise (6-14 words) real-world moment, event, or observation that ignited this thought.
+   - If the curator provided a spark catalyst above, polish it into a crisp, evocative broadsheet clipping anchor.
+   - If they did not provide one, infer and articulate the specific real-world observation or moment implied by the thought.
+   - ⚠️ CRITICAL: "catalyst_spark" MUST BE COMPLETELY DIFFERENT from "adapted_headline". It represents the TRIGGER/CONTEXT (e.g. "Observing how AI tools replace critical thinking in schools"), NOT the conclusion.
+2. Synthesize a powerful, unforgettable **Adapted Headline ("adapted_headline")** (6-10 words, bold, evocative, declares the core premise without trailing ellipses).
+   - Example: If the spark is "When metrics prioritize speed over craftsmanship", the headline is "Speed Is The Enemy of Mastery".
+3. Write a captivating 1-2 sentence **Hook** that draws in $targetAudience immediately.
+4. ${refineCoreTake ? '''**Refine Core Conviction Take (Canary Yellow Highlighter & Slide 2 Take)**:
    - REFINE and ELEVATE the raw thought into a razor-sharp, unforgettable aphorism or editorial statement (1-2 tight sentences, total 20-35 words).
    - Make it punchy, articulate, and memorable—worthy of being highlighted in yellow ink on the front page of a broadsheet.
    - It MUST end with a definitive period (.).
 ''' : '''**Core Conviction Take (Verbatim)**:
    - Preserve the Curator's exact words faithfully as their core take. Ensure it forms a complete, grammatically finished statement ending with a period (.).
 '''}
-4. Craft an articulate, punchy **Summary & Reflection (1-minute read)** (90-130 words, 3-5 complete sentences) in the Curator's authentic first-person voice. Zero fluff.
-5. Create **3 Consecutive Broadsheet Op-Ed Passages** (for Slide 3's tactile newspaper broadsheet layout):
+5. Craft an articulate, punchy **Summary & Reflection (1-minute read)** (90-130 words, 3-5 complete sentences) in the Curator's authentic first-person voice. Zero fluff.
+6. Create **3 Consecutive Broadsheet Op-Ed Passages** (for Slide 3's tactile newspaper broadsheet layout):
    - Paragraph 1 (30-45 words): The real-world observation or tension that sparked this reflection. Must end with a full stop (.).
    - Paragraph 2 (25-40 words): The core conviction statement (matches or elaborates on the refined core take). Must end with a full stop (.).
    - Paragraph 3 (30-45 words): The enduring lesson, call to reflection, or forward-looking perspective. Must end with a full stop (.).
    ⚠️ CRITICAL FORMAT CONSTRAINT: Each broadsheet passage MUST be a complete, grammatically finished paragraph that fits inside the broadsheet layout without getting cut off or clipped.
-6. Provide visual illustration prompts for Slide 1 and Slide 2:
+7. Provide visual illustration prompts for Slide 1 and Slide 2:
    - Embody the $slantTone tone: ${slantTone == 'heart' ? 'warm humanist, impressionistic, deep textural gouache, poetic cinematic editorial portraiture/landscape' : 'metaphorical, conceptual editorial, sleek architectural surrealism, high-contrast woodcut or lithograph'}.
    - Seamlessly weave in any visual cues: "${visualCues ?? ''}".
 
@@ -1750,6 +1759,7 @@ Your job is to elevate this raw thought into a world-class 3-Poster Carousel:
 
 Return ONLY valid JSON with this exact structure:
 {
+  "catalyst_spark": "Concise 6-14 word real-world trigger or spark that ignited this reflection",
   "adapted_headline": "Bold 6-10 word headline declaring the core conviction",
   "hook": "1-2 sentence hook declaring the Curator's premise to the reader.",
   "refined_core_take": "The elevated, razor-sharp 1-2 sentence core conviction.",
@@ -1883,10 +1893,20 @@ Return ONLY valid JSON with this exact structure:
                             : 'A rigorous intellectual foundation that stands independent of fleeting trends and external consensus.'),
                       ];
 
+                final rawCatalyst = parsed['catalyst_spark']?.toString();
+                final catalystSpark = (rawCatalyst != null && rawCatalyst.trim().isNotEmpty)
+                    ? _ensureCleanHeadline(rawCatalyst)
+                    : (sparkCatalyst != null && sparkCatalyst.trim().isNotEmpty
+                        ? _ensureCleanHeadline(sparkCatalyst)
+                        : (slantTone == 'heart'
+                            ? 'A quiet moment of lived reflection'
+                            : 'Observing the pace of modern consensus'));
+                final adaptedHeadline = _ensureCleanHeadline(parsed['adapted_headline'] ?? 'My Slant');
+
                 return GeminiAnalysisResult(
-                  originalHeadline: _ensureCleanHeadline(parsed['adapted_headline'] ?? 'My Slant'),
-                  publicationName: "Reader's Op-Ed",
-                  adaptedHeadline: _ensureCleanHeadline(parsed['adapted_headline'] ?? 'My Slant'),
+                  originalHeadline: catalystSpark,
+                  publicationName: "My Slant",
+                  adaptedHeadline: adaptedHeadline,
                   hook: _ensureCompleteSentence(parsed['hook'] ?? rawThought),
                   summary: _ensureCompleteSentence(parsed['summary'] ?? rawThought),
                   whyItMatters: parsed['why_it_matters'] != null ? _ensureCompleteSentence(parsed['why_it_matters']) : null,
@@ -1933,6 +1953,7 @@ Return ONLY valid JSON with this exact structure:
 
     return _generateSmartMySlantDemoResult(
       rawThought: rawThought,
+      sparkCatalyst: sparkCatalyst,
       slantTone: slantTone,
       refineCoreTake: refineCoreTake,
       visualCues: visualCues,
@@ -2807,6 +2828,7 @@ Return ONLY valid JSON with this exact structure:
 
   GeminiAnalysisResult _generateSmartMySlantDemoResult({
     required String rawThought,
+    String? sparkCatalyst,
     required String slantTone,
     bool refineCoreTake = true,
     String? visualCues,
@@ -2819,6 +2841,12 @@ Return ONLY valid JSON with this exact structure:
     final String toneIcon = isHeart ? '❤️' : '🧠';
 
     final cleanThought = _ensureCompleteSentence(rawThought);
+    final String catalyst = (sparkCatalyst != null && sparkCatalyst.trim().isNotEmpty)
+        ? _ensureCleanHeadline(sparkCatalyst.trim())
+        : (isHeart
+            ? 'A quiet moment of lived reflection'
+            : 'Observing the pace of modern consensus');
+
     String headline = 'Reflections on Life & Perspective';
     final sentences = cleanThought.split(RegExp(r'(?<=[.!?])\s+'));
     if (sentences.isNotEmpty && sentences.first.isNotEmpty) {
@@ -2881,8 +2909,8 @@ Return ONLY valid JSON with this exact structure:
     ];
 
     return GeminiAnalysisResult(
-      originalHeadline: headline,
-      publicationName: "Reader's Op-Ed",
+      originalHeadline: catalyst,
+      publicationName: "My Slant",
       adaptedHeadline: headline,
       hook: hook,
       summary: summary,

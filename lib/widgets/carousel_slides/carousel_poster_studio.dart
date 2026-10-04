@@ -443,12 +443,12 @@ class CarouselPosterStudioState extends State<CarouselPosterStudio> {
                 _buildSlideTab(
                   2,
                   widget.item.isMySlant
-                      ? '03 My Slant'
+                      ? '03 Inner Voice'
                       : (widget.item.isBookExcerpt
                           ? '03 Book Excerpt'
                           : (widget.item.isVerifiedPress ? '03 Paper Excerpts' : '03 Web Source')),
                   widget.item.isMySlant
-                      ? (widget.item.slantTone == 'heart' ? Icons.favorite_rounded : Icons.psychology_rounded)
+                      ? (widget.item.slantTone == 'heart' ? Icons.favorite_rounded : Icons.record_voice_over_rounded)
                       : (widget.item.isBookExcerpt
                           ? Icons.auto_stories_rounded
                           : (widget.item.isVerifiedPress ? Icons.newspaper_rounded : Icons.public_rounded)),

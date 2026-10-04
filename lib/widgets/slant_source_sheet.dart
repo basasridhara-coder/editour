@@ -91,7 +91,7 @@ class SlantSourceSheet {
                               ),
                               const SizedBox(height: 12),
                               const Text(
-                                'Snap',
+                                'Magazine',
                                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                               ),
                               const SizedBox(height: 4),
@@ -147,7 +147,7 @@ class SlantSourceSheet {
                               ),
                               const SizedBox(height: 12),
                               const Text(
-                                'Weblink',
+                                'Web',
                                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                               ),
                               const SizedBox(height: 4),
@@ -168,7 +168,7 @@ class SlantSourceSheet {
                 ),
                 const SizedBox(height: 14),
 
-                // 3. My Slant (Personal Opinion / Feeling)
+                // 3. Inner Voice (Direct Personal Take / Conviction)
                 InkWell(
                   onTap: () async {
                     Navigator.pop(ctx);
@@ -207,7 +207,7 @@ class SlantSourceSheet {
                             ),
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.edit_note_rounded, color: Colors.white, size: 26),
+                          child: const Icon(Icons.record_voice_over_rounded, color: Colors.white, size: 26),
                         ),
                         const SizedBox(width: 14),
                         Expanded(
@@ -217,7 +217,7 @@ class SlantSourceSheet {
                               Row(
                                 children: [
                                   const Text(
-                                    'My Slant',
+                                    'Inner Voice',
                                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                                   ),
                                   const SizedBox(width: 8),
@@ -228,7 +228,7 @@ class SlantSourceSheet {
                                       borderRadius: BorderRadius.circular(6),
                                     ),
                                     child: const Text(
-                                      '🧠 Mind  •  ❤️ Heart',
+                                      '💭 First-Person Take',
                                       style: TextStyle(
                                         fontSize: 10,
                                         fontWeight: FontWeight.w800,
@@ -240,7 +240,7 @@ class SlantSourceSheet {
                               ),
                               const SizedBox(height: 3),
                               Text(
-                                'Express a thought or feeling freely. No article link or photo required—AI drafts your poster & headline.',
+                                'Express your perspective or conviction freely. No article link or photo required—AI drafts your poster & headline.',
                                 style: TextStyle(
                                   fontSize: 11.5,
                                   color: theme.colorScheme.onSurfaceVariant,

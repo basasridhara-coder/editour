@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../models/postcard_item.dart';
@@ -26,41 +25,25 @@ class EditourCloudService {
 
   final StorageService _storageService = StorageService();
 
-  // Supabase Cloud Backend for https://editour.app
-  static const String supabaseUrl = 'https://karnxbsmvnkydcfydrcf.supabase.co';
-  static const String supabaseApiKey = 'sb_publishable_n90rXQfEukf2gdisKe_jGg_Cybk2r-m';
+  // Supabase Cloud Backend for https://slant.today / https://editour.app
+  static const String supabaseUrl = 'https://fsuukgpizuipxxwatkbo.supabase.co';
+  static const String supabaseApiKey =
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZzdXVrZ3BpenVpcHh4d2F0a2JvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTExMzE4NjEsImV4cCI6MjEwNjcwNzg2MX0.NPnTDhGyiigPZIvror8JGqjCMVKuJ8OZaDN2pGuVfM8';
   static const String supabaseEndpoint = '$supabaseUrl/rest/v1/posts';
 
-  /// Publishes a single post card item to editour.app / Supabase
+  /// Publishes a single post card item to slant.today / editour.app
+  /// Payload is kept ultra-lean (< 3 KB) to guarantee zero quota burnout.
   Future<bool> publishPost(PostCardItem item) async {
     try {
       final itemMap = Map<String, dynamic>.from(item.toMap());
 
-      // Ensure original physical paper clipping bytes are populated for web viewers
-      if ((item.originalPhotoBase64 == null || item.originalPhotoBase64!.isEmpty) &&
-          item.originalPhotoPath.isNotEmpty &&
-          !item.originalPhotoPath.startsWith('http') &&
-          !item.originalPhotoPath.startsWith('data:') &&
-          !item.originalPhotoPath.startsWith('sample_') &&
-          !item.originalPhotoPath.startsWith('digital_')) {
-        try {
-          if (!kIsWeb) {
-            final file = File(item.originalPhotoPath);
-            if (file.existsSync()) {
-              final bytes = file.readAsBytesSync();
-              final b64 = base64Encode(bytes);
-              itemMap['originalPhotoBase64'] = b64;
-              // Also update in local storage so subsequent reads have it
-              try {
-                final updatedItem = item.copyWith(originalPhotoBase64: b64);
-                _storageService.savePostCard(updatedItem);
-              } catch (_) {}
-            }
-          }
-        } catch (e) {
-          debugPrint('EditourCloudService reading photo bytes error: $e');
-        }
-      }
+      // CRITICAL: Strip heavy raw base64 images from cloud database JSON
+      // Camera photos and canvases can be 3-5 MB each. Stripping them keeps
+      // each database row under 3 KB and ensures we never exceed Free Tier egress!
+      itemMap.remove('originalPhotoBase64');
+      itemMap.remove('illustrationBase64');
+      itemMap.remove('curatorIllustrationBase64');
+      itemMap.remove('bookCoverBase64');
 
       final payload = {
         'id': item.id,
@@ -68,7 +51,7 @@ class EditourCloudService {
       };
       final body = json.encode(payload);
 
-      // 1. Direct Supabase Cloud Database (instant live sync to editour.app)
+      // 1. Direct Supabase Cloud Database (instant live sync to slant.today & editour.app)
       try {
         final uri = Uri.parse(supabaseEndpoint);
         final response = await http
@@ -165,45 +148,13 @@ class EditourCloudService {
     return false;
   }
 
-  /// Authoritative reconciliation between phone local storage and Supabase:
-  /// 1. Finds posts in Supabase that are NOT in local phone storage, and deletes them from Supabase.
-  /// 2. Ensures all local posts are uploaded to Supabase.
+  /// Syncs local posts to Supabase so everything created on phone is in cloud.
+  /// Never deletes other remote posts, protecting community feed and seed posts.
   Future<CloudSyncResult> reconcileWithCloud() async {
     try {
       final items = await _storageService.getPostCards();
-      final localIds = items.map((e) => e.id).toSet();
 
-      int deletedCount = 0;
-      // 1. Fetch remote posts to find orphaned ones
-      try {
-        final uri = Uri.parse('$supabaseEndpoint?select=id,data->deleted');
-        final response = await http
-            .get(
-              uri,
-              headers: {
-                'apikey': supabaseApiKey,
-                'Authorization': 'Bearer $supabaseApiKey',
-              },
-            )
-            .timeout(const Duration(seconds: 10));
-
-        if (response.statusCode == 200) {
-          final List<dynamic> remoteRows = json.decode(response.body);
-          for (final row in remoteRows) {
-            final remoteId = row['id']?.toString();
-            final isDeleted = row['deleted'] == true || (row['data'] is Map && row['data']['deleted'] == true);
-            if (isDeleted) continue; // Already marked as deleted
-            if (remoteId != null && !localIds.contains(remoteId)) {
-              final ok = await deletePost(remoteId);
-              if (ok) deletedCount++;
-            }
-          }
-        }
-      } catch (e) {
-        debugPrint('EditourCloudService reconcile remote query error: $e');
-      }
-
-      // 2. Publish all current local posts to Supabase
+      // Publish all current local posts to Supabase
       int publishedCount = 0;
       for (final item in items) {
         final ok = await publishPost(item);
@@ -212,9 +163,9 @@ class EditourCloudService {
 
       return CloudSyncResult(
         publishedCount: publishedCount,
-        deletedCount: deletedCount,
+        deletedCount: 0,
         success: true,
-        message: 'Synced $publishedCount post(s), removed $deletedCount deleted post(s).',
+        message: 'Successfully synced $publishedCount post(s) to cloud.',
       );
     } catch (e) {
       debugPrint('EditourCloudService reconcileWithCloud error: $e');

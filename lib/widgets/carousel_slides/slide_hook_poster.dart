@@ -1,8 +1,8 @@
-import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import '../../models/postcard_item.dart';
 import '../../models/poster_style_config.dart';
+import '../../services/image_cache_service.dart';
 
 class SlideHookPoster extends StatelessWidget {
   final PostCardItem item;
@@ -21,7 +21,9 @@ class SlideHookPoster extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final headline = item.adaptedHeadline.isNotEmpty ? item.adaptedHeadline : (item.originalHeadline ?? 'Story Overview');
-    final pubName = item.publicationName ?? 'Press Wire';
+    final pubName = item.isInnerVoice
+        ? 'Inner Voice'
+        : (item.publicationName ?? 'Press Wire');
     final category = item.categoryBadge.isNotEmpty ? item.categoryBadge.toUpperCase() : 'EDITORIAL';
     final handle = item.creatorHandle ?? '@curator';
 
@@ -33,6 +35,26 @@ class SlideHookPoster extends StatelessWidget {
       if (parts.length > 1 && parts[1].trim().isNotEmpty) {
         displayPub = parts[1].trim();
       }
+    }
+    if (item.isInnerVoice || displayPub == "Reader's Op-Ed" || displayPub == 'My Slant') {
+      displayPub = 'Inner Voice';
+      if (!displayCategory.contains('OPINION') && !displayCategory.contains('INNER VOICE')) {
+        displayCategory = 'INNER VOICE';
+      }
+    }
+
+    // High-contrast luminous color resolution - guarantees vivid clarity against dark overlays
+    final Color categoryColor;
+    if (item.isMySlant) {
+      categoryColor = item.slantTone == 'heart'
+          ? const Color(0xFFFB7185) // Luminous warm rose
+          : const Color(0xFFA5B4FC); // Luminous lavender indigo
+    } else if (displayCategory.contains('OPINION')) {
+      categoryColor = const Color(0xFFFBBF24); // Luminous warm amber
+    } else if (config.primaryColor.computeLuminance() < 0.35) {
+      categoryColor = const Color(0xFF38BDF8); // Luminous sky blue fallback for dark editorial slate
+    } else {
+      categoryColor = config.primaryColor;
     }
 
     // Dynamic responsive font sizing for the bold display headline
@@ -117,28 +139,47 @@ class SlideHookPoster extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.75),
+                        color: Colors.black.withValues(alpha: 0.78),
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+                        border: Border.all(
+                          color: item.isMySlant
+                              ? categoryColor.withValues(alpha: 0.5)
+                              : Colors.white.withValues(alpha: 0.25),
+                          width: 1.0,
+                        ),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Container(
-                            width: 6,
-                            height: 6,
-                            decoration: BoxDecoration(
-                              color: config.primaryColor,
-                              shape: BoxShape.circle,
+                          if (item.isMySlant && item.resolvedSlantIcon.isNotEmpty) ...[
+                            Text(
+                              item.resolvedSlantIcon,
+                              style: const TextStyle(fontSize: 10.5),
                             ),
-                          ),
-                          const SizedBox(width: 6),
+                            const SizedBox(width: 5),
+                          ] else ...[
+                            Container(
+                              width: 6.5,
+                              height: 6.5,
+                              decoration: BoxDecoration(
+                                color: categoryColor,
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: categoryColor.withValues(alpha: 0.6),
+                                    blurRadius: 4,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                          ],
                           Text(
                             displayCategory,
                             style: TextStyle(
                               fontSize: 9.5,
                               fontWeight: FontWeight.w800,
-                              color: config.primaryColor,
+                              color: categoryColor,
                               letterSpacing: 0.8,
                             ),
                           ),
@@ -186,15 +227,19 @@ class SlideHookPoster extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Tactile Ripped Newspaper Clipping Fragment (Actual News Excerpt / Headline)
+                    // Tactile Ripped Newspaper Clipping Fragment (Actual News Excerpt / Catalyst Spark)
                     () {
                       final rawNews = (item.originalHeadline != null &&
                               item.originalHeadline!.trim().isNotEmpty &&
-                              item.originalHeadline!.trim() != headline.trim())
+                              item.originalHeadline!.trim().toLowerCase() != headline.trim().toLowerCase())
                           ? item.originalHeadline!.trim()
-                          : (item.hook.trim().isNotEmpty && item.hook.trim() != headline.trim()
+                          : (item.hook.trim().isNotEmpty && item.hook.trim().toLowerCase() != headline.trim().toLowerCase()
                               ? item.hook.trim()
-                              : '');
+                              : (item.isMySlant
+                                  ? (item.slantTone == 'heart'
+                                      ? 'A quiet, personal reflection from lived experience'
+                                      : 'An unfiltered, sharp intellectual observation')
+                                  : ''));
 
                       if (rawNews.isEmpty) return const SizedBox.shrink();
 
@@ -256,18 +301,24 @@ class SlideHookPoster extends StatelessWidget {
                                     Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        const Icon(
-                                          Icons.newspaper_rounded,
+                                        Icon(
+                                          item.isMySlant
+                                              ? (item.slantTone == 'heart' ? Icons.favorite_rounded : Icons.record_voice_over_rounded)
+                                              : Icons.newspaper_rounded,
                                           size: 9.5,
-                                          color: Color(0xFF786F5E),
+                                          color: item.isMySlant ? categoryColor : const Color(0xFF786F5E),
                                         ),
                                         const SizedBox(width: 4.5),
                                         Text(
-                                          'NEWS CLIPPING • ${displayPub.toUpperCase()}',
-                                          style: const TextStyle(
+                                          item.isMySlant
+                                              ? (item.slantTone == 'heart'
+                                                  ? '${item.resolvedSlantIcon} THE SPARK • REFLECTION'
+                                                  : '${item.resolvedSlantIcon} THE SPARK • INNER VOICE')
+                                              : 'NEWS CLIPPING • ${displayPub.toUpperCase()}',
+                                          style: TextStyle(
                                             fontSize: 7.8,
                                             fontWeight: FontWeight.w800,
-                                            color: Color(0xFF786F5E),
+                                            color: item.isMySlant ? categoryColor : const Color(0xFF786F5E),
                                             letterSpacing: 0.6,
                                           ),
                                           maxLines: 1,
@@ -335,7 +386,7 @@ class SlideHookPoster extends StatelessWidget {
                               width: 20,
                               height: 20,
                               decoration: BoxDecoration(
-                                color: config.primaryColor,
+                                color: categoryColor,
                                 shape: BoxShape.circle,
                               ),
                               child: Center(
@@ -363,9 +414,9 @@ class SlideHookPoster extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
                           decoration: BoxDecoration(
-                            color: config.primaryColor.withValues(alpha: 0.3),
+                            color: categoryColor.withValues(alpha: 0.25),
                             borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: config.primaryColor.withValues(alpha: 0.8), width: 1.2),
+                            border: Border.all(color: categoryColor.withValues(alpha: 0.8), width: 1.2),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
@@ -380,7 +431,7 @@ class SlideHookPoster extends StatelessWidget {
                                 ),
                               ),
                               const SizedBox(width: 5),
-                              Icon(Icons.arrow_forward_rounded, size: 13, color: config.primaryColor),
+                              Icon(Icons.arrow_forward_rounded, size: 13, color: categoryColor),
                             ],
                           ),
                         ),
@@ -448,14 +499,16 @@ class SlideHookPoster extends StatelessWidget {
   Widget _buildVisualArt() {
     // 1. In-memory decoded AI illustration bytes (highest freshness priority on re-rolls)
     if (item.illustrationBase64 != null && item.illustrationBase64!.isNotEmpty) {
-      try {
+      final bytes = ImageCacheService.getBytes('hook_${item.id}', item.illustrationBase64);
+      if (bytes != null) {
         return Image.memory(
-          base64Decode(item.illustrationBase64!),
-          key: ValueKey('hook_mem_${item.id}_${item.illustrationBase64.hashCode}'),
+          bytes,
+          key: ValueKey('hook_mem_${item.id}'),
           fit: BoxFit.cover,
+          cacheWidth: 720,
           gaplessPlayback: true,
         );
-      } catch (_) {}
+      }
     }
     // 2. High-resolution rendered AI illustration file
     if (item.renderedPosterPath != null && item.renderedPosterPath!.isNotEmpty) {
@@ -463,8 +516,9 @@ class SlideHookPoster extends StatelessWidget {
       if (file.existsSync()) {
         return Image.file(
           file,
-          key: ValueKey('hook_file_${item.renderedPosterPath}_${item.illustrationBase64.hashCode}'),
+          key: ValueKey('hook_file_${item.id}_${item.renderedPosterPath}'),
           fit: BoxFit.cover,
+          cacheWidth: 720,
           gaplessPlayback: true,
         );
       }
@@ -476,7 +530,9 @@ class SlideHookPoster extends StatelessWidget {
 
   Widget _buildStylizedConceptArt() {
     final heroIcon = _resolveHeroIcon();
-    final primary = config.primaryColor;
+    final primary = item.isMySlant
+        ? (item.slantTone == 'heart' ? const Color(0xFFFB7185) : const Color(0xFFA5B4FC))
+        : (config.primaryColor.computeLuminance() < 0.35 ? const Color(0xFF0284C7) : config.primaryColor);
     final isCyber = item.posterStyle == PosterStyleType.modernCyber;
     final isBold = item.posterStyle == PosterStyleType.boldSocial;
 
@@ -612,6 +668,9 @@ class SlideHookPoster extends StatelessWidget {
   }
 
   IconData _resolveHeroIcon() {
+    if (item.isMySlant) {
+      return item.slantTone == 'heart' ? Icons.favorite_rounded : Icons.psychology_rounded;
+    }
     final text = '${item.hookCues ?? ""} ${item.categoryBadge} ${item.adaptedHeadline}'.toLowerCase();
     if (text.contains('clock') || text.contains('time') || text.contains('hour') || text.contains('watch')) {
       return Icons.access_time_filled_rounded;

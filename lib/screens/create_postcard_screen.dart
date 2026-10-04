@@ -24,7 +24,7 @@ import '../widgets/carousel_slides/carousel_poster_studio.dart';
 import '../widgets/photo_viewer_dialog.dart';
 import '../widgets/visual_cue_pills_selector.dart';
 
-enum InputSourceMode { physicalPhoto, digitalLink, bookExcerpt, mySlant }
+enum InputSourceMode { physicalPhoto, digitalLink, bookExcerpt, mySlant, innerVoice }
 
 enum SlantStep {
   sourceAndAngle,
@@ -60,12 +60,14 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
   final LinkScraperService _linkScraperService = LinkScraperService();
 
   SlantStep _currentStep = SlantStep.sourceAndAngle;
-  InputSourceMode _sourceMode = InputSourceMode.physicalPhoto;
+  InputSourceMode _sourceMode = InputSourceMode.mySlant;
+  bool get _isInnerVoiceMode => _sourceMode == InputSourceMode.mySlant || _sourceMode == InputSourceMode.innerVoice;
 
   // My Slant Fields (Direct personal thought from Mind or Heart)
   String _slantTone = 'mind'; // 'mind' | 'heart'
   bool _refineCoreTake = true;
   final TextEditingController _slantThoughtController = TextEditingController();
+  final TextEditingController _slantSparkController = TextEditingController();
   final TextEditingController _slantVisualCuesController = TextEditingController();
 
   // Digital Link Fields
@@ -124,6 +126,8 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
 
   bool _isAnalyzing = false;
   bool _isExporting = false;
+  bool _isSaved = false;
+  bool _isDownloaded = false;
   String _analysisStatus = '';
   PostCardItem? _generatedItem;
   int _regenerationCount = 0;
@@ -280,6 +284,7 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
     _digitalTitleController.dispose();
     _digitalContentController.dispose();
     _slantThoughtController.dispose();
+    _slantSparkController.dispose();
     _slantVisualCuesController.dispose();
     _contextController.dispose();
     _hookCuesController.dispose();
@@ -646,17 +651,21 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
   }
 
   void _goToVisualCuesStep() {
-    if (_sourceMode == InputSourceMode.mySlant) {
-      if (_slantThoughtController.text.trim().isEmpty) {
+    if (_isInnerVoiceMode) {
+      final thought = _contextController.text.trim().isNotEmpty
+          ? _contextController.text.trim()
+          : _slantThoughtController.text.trim();
+      if (thought.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Please share what is on your mind or heart first'),
+            content: Text('Please write your slant or perspective above first'),
             backgroundColor: Colors.orange,
           ),
         );
         return;
       }
-      _contextController.text = _slantThoughtController.text.trim();
+      _contextController.text = thought;
+      _slantThoughtController.text = thought;
       if (_slantVisualCuesController.text.trim().isNotEmpty) {
         _hookCuesController.text = _slantVisualCuesController.text.trim();
       }
@@ -664,7 +673,7 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
       if (_selectedImage == null && _activeSample == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Please snap or upload a print article photo first'),
+            content: Text('Please snap or upload a magazine or print clipping photo first'),
             backgroundColor: Colors.orange,
           ),
         );
@@ -738,13 +747,16 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
     try {
       GeminiAnalysisResult result;
 
-      if (_sourceMode == InputSourceMode.mySlant) {
+      if (_isInnerVoiceMode) {
         result = await _geminiService.analyzeAndSummarizeMySlant(
           rawThought: _slantThoughtController.text.trim().isNotEmpty
               ? _slantThoughtController.text.trim()
               : (_contextController.text.trim().isNotEmpty
                   ? _contextController.text.trim()
                   : 'Direct personal perspective reflection.'),
+          sparkCatalyst: _slantSparkController.text.trim().isNotEmpty
+              ? _slantSparkController.text.trim()
+              : null,
           slantTone: _slantTone,
           refineCoreTake: _refineCoreTake,
           visualCues: _hookCuesController.text.trim().isNotEmpty ? _hookCuesController.text.trim() : null,
@@ -837,7 +849,7 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
         );
       }
 
-      final isMySlant = _sourceMode == InputSourceMode.mySlant;
+      final isMySlant = _isInnerVoiceMode;
       final isLink = _sourceMode == InputSourceMode.digitalLink;
       final digitalUrl = isMySlant
           ? null
@@ -856,7 +868,7 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
         renderedPosterPath: savedPosterPath,
         originalHeadline: result.originalHeadline,
         publicationName: isMySlant
-            ? "Reader's Op-Ed"
+            ? "Inner Voice"
             : (isLink
                 ? (_scrapedSiteName ?? result.publicationName)
                 : (_activeSample?.publication ?? result.publicationName)),
@@ -874,12 +886,12 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
                 ? PostCardItem.sanitizeCompleteSentence(
                     result.pullQuote.trim().isNotEmpty
                         ? result.pullQuote
-                        : (result.creatorOpinion ?? _slantThoughtController.text.trim()))
-                : PostCardItem.sanitizeCompleteSentence(_slantThoughtController.text.trim()))
+                        : (result.creatorOpinion ?? _contextController.text.trim()))
+                : PostCardItem.sanitizeCompleteSentence(_contextController.text.trim()))
             : (result.pullQuote.trim().isNotEmpty ? result.pullQuote : _activeSample?.pullQuote),
         keyMetric: result.keyMetric.trim().isNotEmpty ? result.keyMetric : _activeSample?.metric,
         categoryBadge: isMySlant
-            ? 'OPINION'
+            ? 'INNER VOICE'
             : (result.categoryBadge.trim().isNotEmpty
                 ? result.categoryBadge
                 : (_activeSample?.category ?? 'CURATED DIGEST')),
@@ -889,8 +901,8 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
                 ? PostCardItem.sanitizeCompleteSentence(
                     (result.creatorOpinion != null && result.creatorOpinion!.trim().isNotEmpty)
                         ? result.creatorOpinion!
-                        : (result.pullQuote.trim().isNotEmpty ? result.pullQuote : _slantThoughtController.text.trim()))
-                : PostCardItem.sanitizeCompleteSentence(_slantThoughtController.text.trim()))
+                        : (result.pullQuote.trim().isNotEmpty ? result.pullQuote : _contextController.text.trim()))
+                : PostCardItem.sanitizeCompleteSentence(_contextController.text.trim()))
             : result.creatorOpinion,
         creatorHandle: _creatorHandleController.text.trim().isNotEmpty
             ? _creatorHandleController.text.trim()
@@ -903,14 +915,14 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
         infographicStats: result.infographicStats,
         visualMood: result.visualMood,
         isUserCreated: true,
-        sourceType: isMySlant ? 'my_slant' : (isLink ? 'digital_link' : 'photo'),
+        sourceType: isMySlant ? 'inner_voice' : (isLink ? 'digital_link' : 'photo'),
         slantTone: isMySlant ? _slantTone : result.slantTone,
-        slantIcon: isMySlant ? (_slantTone == 'heart' ? '❤️' : '🧠') : result.slantIcon,
+        slantIcon: isMySlant ? '💭' : result.slantIcon,
         postFormat: 'carousel_trio',
         receiptHighlightQuote: isMySlant
             ? (_refineCoreTake
                 ? PostCardItem.sanitizeCompleteSentence(result.receiptHighlightQuote ?? result.pullQuote)
-                : PostCardItem.sanitizeCompleteSentence(_slantThoughtController.text.trim()))
+                : PostCardItem.sanitizeCompleteSentence(_contextController.text.trim()))
             : (result.receiptHighlightQuote ?? result.pullQuote),
         articleExcerpts: result.articleExcerpts.isNotEmpty
             ? result.articleExcerpts
@@ -942,6 +954,9 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
         _isAnalyzing = false;
         _currentStep = SlantStep.resultPoster;
       });
+
+      // Instantly sync newly created slant to slant.today & editour.app
+      EditourCloudService().publishPost(newItem);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1027,6 +1042,9 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
         publicationName: _s1PublicationController.text.trim().isNotEmpty
             ? _s1PublicationController.text.trim()
             : _generatedItem!.publicationName,
+        originalHeadline: _s1ActualNewsExcerptController.text.trim().isNotEmpty
+            ? _s1ActualNewsExcerptController.text.trim()
+            : _generatedItem!.originalHeadline,
         hook: _s1ActualNewsExcerptController.text.trim().isNotEmpty
             ? PostCardItem.sanitizeCompleteSentence(_s1ActualNewsExcerptController.text.trim())
             : _generatedItem!.hook,
@@ -1072,6 +1090,7 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
           title: _generatedItem!.adaptedHeadline,
         );
         if (mounted) {
+          setState(() => _isDownloaded = true);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Row(
@@ -1255,6 +1274,7 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
       await _storageService.setCreatorHandle(_creatorHandleController.text.trim());
       EditourCloudService().publishPost(_generatedItem!);
       if (mounted) {
+        setState(() => _isSaved = true);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Row(
@@ -1308,6 +1328,8 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
 
   void _handleRegenerate() {
     setState(() {
+      _isSaved = false;
+      _isDownloaded = false;
       _currentStep = SlantStep.visualCues;
     });
   }
@@ -1388,7 +1410,7 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
                             theme: theme,
                           ),
                           _buildModalTabButton(
-                            title: isSlantPost ? 'Slide 3: My Slant ✏️' : 'Slide 3: Receipts 🔒',
+                            title: isSlantPost ? 'Slide 3: Inner Voice ✏️' : 'Slide 3: Receipts 🔒',
                             isSelected: activeEditTab == 2,
                             onTap: () => setSheetState(() => activeEditTab = 2),
                             theme: theme,
@@ -1420,9 +1442,9 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
                       const SizedBox(height: 10),
                       TextField(
                         controller: _headlineController,
-                        decoration: const InputDecoration(
-                          labelText: 'Hook Headline (The Angle)',
-                          border: OutlineInputBorder(),
+                        decoration: InputDecoration(
+                          labelText: isSlantPost ? 'Hook Headline (The Angle / Stance)' : 'Hook Headline (The Angle)',
+                          border: const OutlineInputBorder(),
                           isDense: true,
                         ),
                         maxLines: 2,
@@ -1430,9 +1452,11 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
                       const SizedBox(height: 10),
                       TextField(
                         controller: _s1ActualNewsExcerptController,
-                        decoration: const InputDecoration(
-                          labelText: 'Newsprint Fragment Excerpt',
-                          border: OutlineInputBorder(),
+                        decoration: InputDecoration(
+                          labelText: isSlantPost
+                              ? '💭 The Spark (Clipping Excerpt)'
+                              : 'Newsprint Fragment Excerpt',
+                          border: const OutlineInputBorder(),
                           isDense: true,
                         ),
                         maxLines: 2,
@@ -1502,7 +1526,7 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  "Reader's Op-Ed (${_slantTone == 'heart' ? 'Out of Heart' : 'Out of Mind'})",
+                                  "Inner Voice (${_slantTone == 'heart' ? 'Out of Heart' : 'Out of Mind'})",
                                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF7C3AED)),
                                 ),
                               ),
@@ -1531,7 +1555,7 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
                         TextField(
                           controller: _s3HeadlineController,
                           decoration: const InputDecoration(
-                            labelText: "Reader's Op-Ed Headline",
+                            labelText: "Inner Voice Broadsheet Headline",
                             border: OutlineInputBorder(),
                             isDense: true,
                           ),
@@ -1692,7 +1716,7 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
         children: [
           _buildStepPill(
             stepNumber: 1,
-            label: _sourceMode == InputSourceMode.digitalLink ? 'Link & Angle' : 'Snap & Angle',
+            label: 'Slant & Source',
             isActive: _currentStep == SlantStep.sourceAndAngle,
             isCompleted: _currentStep == SlantStep.visualCues || _currentStep == SlantStep.resultPoster,
             theme: theme,
@@ -1708,7 +1732,7 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
             isCompleted: _currentStep == SlantStep.resultPoster,
             theme: theme,
             onTap: () {
-              if (_selectedImage != null || _activeSample != null || _urlController.text.trim().isNotEmpty) {
+              if (_selectedImage != null || _activeSample != null || _urlController.text.trim().isNotEmpty || _contextController.text.trim().isNotEmpty || _slantThoughtController.text.trim().isNotEmpty) {
                 setState(() => _currentStep = SlantStep.visualCues);
               }
             },
@@ -1816,25 +1840,16 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
                 ? 'Slant • 3-Poster Carousel'
                 : (_currentStep == SlantStep.visualCues
                     ? 'Slant • Visual Cues'
-                    : (_sourceMode == InputSourceMode.mySlant
-                        ? 'Slant • My Slant'
-                        : (_sourceMode == InputSourceMode.digitalLink ? 'Slant • Web Link' : 'Slant • Snap'))),
+                    : (_isInnerVoiceMode
+                        ? 'Slant • Inner Voice'
+                        : (_sourceMode == InputSourceMode.digitalLink ? 'Slant • Web Commentary' : 'Slant • Magazine'))),
           ),
           actions: [
             if (_generatedItem != null && _currentStep == SlantStep.resultPoster) ...[
-              IconButton(
-                tooltip: 'Save to My Posts',
-                onPressed: _saveToMyPosts,
-                icon: const Icon(Icons.bookmark_added_outlined, color: Colors.green),
-              ),
-              IconButton(
-                tooltip: 'Return to Home',
+              TextButton.icon(
                 onPressed: () => _returnToHome(targetTabIndex: 0),
-                icon: const Icon(Icons.home_outlined),
-              ),
-              TextButton(
-                onPressed: () => _returnToHome(targetTabIndex: 0),
-                child: const Text('Done', style: TextStyle(fontWeight: FontWeight.bold)),
+                icon: const Icon(Icons.check_circle_outline_rounded, size: 18),
+                label: const Text('Done', style: TextStyle(fontWeight: FontWeight.bold)),
               ),
             ],
           ],
@@ -1846,14 +1861,115 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
                   _buildStepIndicator(theme),
                   Expanded(
                     child: SingleChildScrollView(
-                      padding: const EdgeInsets.fromLTRB(14, 0, 14, 20),
-                      child: _buildCurrentStepContent(theme),
+                      padding: EdgeInsets.fromLTRB(
+                        14,
+                        0,
+                        14,
+                        _currentStep == SlantStep.resultPoster ? 36 : 24,
+                      ),
+                      child: SafeArea(
+                        top: false,
+                        child: _buildCurrentStepContent(theme),
+                      ),
                     ),
                   ),
                 ],
               ),
+        bottomNavigationBar: _buildBottomBar(theme),
       ),
     );
+  }
+
+  Widget? _buildBottomBar(ThemeData theme) {
+    if (_isAnalyzing) return null;
+
+    if (_currentStep == SlantStep.sourceAndAngle) {
+      return Container(
+        decoration: BoxDecoration(
+          color: theme.scaffoldBackgroundColor,
+          border: Border(
+            top: BorderSide(
+              color: theme.colorScheme.outlineVariant.withValues(alpha: 0.35),
+              width: 1,
+            ),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.06),
+              blurRadius: 10,
+              offset: const Offset(0, -4),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+            child: SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: FilledButton.icon(
+                onPressed: _goToVisualCuesStep,
+                icon: const Icon(Icons.arrow_forward_rounded, size: 20),
+                label: const Text(
+                  'Next: Visual Cues →',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 0.3),
+                ),
+                style: FilledButton.styleFrom(
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    } else if (_currentStep == SlantStep.visualCues) {
+      return Container(
+        decoration: BoxDecoration(
+          color: theme.scaffoldBackgroundColor,
+          border: Border(
+            top: BorderSide(
+              color: theme.colorScheme.outlineVariant.withValues(alpha: 0.35),
+              width: 1,
+            ),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.06),
+              blurRadius: 10,
+              offset: const Offset(0, -4),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+            child: SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: FilledButton.icon(
+                onPressed: _isAnalyzing ? null : () => _runAnalysis(),
+                icon: const Icon(Icons.auto_awesome, size: 20),
+                label: Text(
+                  _sourceMode == InputSourceMode.mySlant
+                      ? 'Synthesize Inner Voice Carousel'
+                      : 'Generate 3-Poster Social Carousel',
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, letterSpacing: 0.3),
+                ),
+                style: FilledButton.styleFrom(
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return null;
   }
 
   Widget _buildCurrentStepContent(ThemeData theme) {
@@ -1870,274 +1986,368 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
   // ================= STEP 1: Source & Angle =================
 
   Widget _buildStep1SourceAndAngle(ThemeData theme) {
-    if (_sourceMode == InputSourceMode.mySlant) {
-      return _buildMySlantSourceSection(theme);
-    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (_sourceMode == InputSourceMode.physicalPhoto)
-          _buildSnapSourceSection(theme)
-        else
-          _buildWeblinkSourceSection(theme),
+        // 1. Top Hero: The Slant / Angle Prompt Box
+        _buildHeroSlantPromptCard(theme),
 
-        const SizedBox(height: 18),
+        const SizedBox(height: 16),
 
-        // Angle or Context
-        Card(
-          elevation: 0,
-          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-            side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4)),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+        // 2. Middle: The 3 Root Anchors (Magazine, Web Commentary, Inner Voice)
+        _buildSourceAnchorSelector(theme),
+
+        const SizedBox(height: 16),
+
+        // 3. Dynamic Lower Panel (What sparked this / Source Input)
+        _buildDynamicAnchorTriggerPanel(theme),
+
+        const SizedBox(height: 24),
+      ],
+    );
+  }
+
+  Widget _buildHeroSlantPromptCard(ThemeData theme) {
+    final isInnerVoice = _isInnerVoiceMode;
+    final isDark = theme.brightness == Brightness.dark;
+
+    final String cardTitle;
+    final String cardSubtitle;
+    final String hintText;
+    final IconData titleIcon;
+    final Color iconColor;
+    final String tagLabel;
+    final Color tagColor;
+
+    if (isInnerVoice) {
+      cardTitle = 'What is your Slant or Perspective?';
+      cardSubtitle = 'Express your conviction or reflection freely. AI transforms this into your lead take.';
+      hintText = 'What perspective demands to be shared? e.g. The real risk of AI isn’t superintelligence taking over, it’s that we surrender our curiosity and critical judgment to automated convenience...';
+      titleIcon = Icons.record_voice_over_rounded;
+      iconColor = const Color(0xFF8B5CF6);
+      tagLabel = 'Required';
+      tagColor = const Color(0xFF8B5CF6);
+    } else if (_sourceMode == InputSourceMode.physicalPhoto) {
+      cardTitle = 'Your Slant / Take (Optional)';
+      cardSubtitle = 'Write your unique angle, stance, or critique on this story (or leave empty to let AI deduce it).';
+      hintText = 'e.g. Beyond the raw numbers, this shifts the balance of power between legacy media and digital creators...';
+      titleIcon = Icons.menu_book_rounded;
+      iconColor = const Color(0xFF0D9488);
+      tagLabel = 'Optional';
+      tagColor = theme.colorScheme.onSurfaceVariant;
+    } else {
+      cardTitle = 'Your Slant / Take (Optional)';
+      cardSubtitle = 'Write your unique angle, stance, or critique on this story (or leave empty to let AI deduce it).';
+      hintText = 'e.g. The headline misses the real structural disruption happening behind the scenes...';
+      titleIcon = Icons.language_rounded;
+      iconColor = const Color(0xFF0284C7);
+      tagLabel = 'Optional';
+      tagColor = theme.colorScheme.onSurfaceVariant;
+    }
+
+    return Card(
+      elevation: 0,
+      color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: isDark ? 0.35 : 0.45),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: isInnerVoice
+              ? const Color(0xFF8B5CF6).withValues(alpha: 0.35)
+              : theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
+          width: isInnerVoice ? 1.5 : 1.0,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               children: [
-                Row(
-                  children: [
-                    Icon(Icons.lightbulb_outline, size: 18, color: theme.colorScheme.primary),
-                    const SizedBox(width: 8),
-                    const Text(
-                      'Angle or Context',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Write your unique perspective, stance, or context on this story.',
-                  style: TextStyle(fontSize: 11.5, color: theme.colorScheme.onSurfaceVariant),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: _contextController,
-                  decoration: InputDecoration(
-                    hintText: 'e.g. Beyond the raw numbers, this shifts the balance of power between legacy media and digital creators...',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                    filled: true,
-                    fillColor: theme.colorScheme.surface,
-                    alignLabelWithHint: true,
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: iconColor.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  maxLines: 5,
-                  minLines: 4,
-                  onChanged: (_) {
-                    if (_cueWordPills.isEmpty) {
-                      _autoSuggestCueKeywords();
-                    }
-                  },
+                  child: Icon(titleIcon, size: 18, color: iconColor),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    cardTitle,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                  decoration: BoxDecoration(
+                    color: tagColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    tagLabel,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: tagColor,
+                    ),
+                  ),
                 ),
               ],
             ),
-          ),
+            const SizedBox(height: 5),
+            Text(
+              cardSubtitle,
+              style: TextStyle(fontSize: 11.5, color: theme.colorScheme.onSurfaceVariant, height: 1.3),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _contextController,
+              decoration: InputDecoration(
+                hintText: hintText,
+                hintStyle: TextStyle(
+                  fontSize: 12.5,
+                  color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                  height: 1.35,
+                ),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                filled: true,
+                fillColor: theme.colorScheme.surface,
+                alignLabelWithHint: true,
+                contentPadding: const EdgeInsets.all(12),
+              ),
+              maxLines: 5,
+              minLines: 4,
+              onChanged: (val) {
+                _slantThoughtController.text = val;
+                if (_cueWordPills.isEmpty) {
+                  _autoSuggestCueKeywords();
+                }
+              },
+            ),
+          ],
         ),
+      ),
+    );
+  }
 
-        const SizedBox(height: 20),
-
-        FilledButton.icon(
-          onPressed: _goToVisualCuesStep,
-          icon: const Icon(Icons.arrow_forward),
-          label: const Text(
-            'Next: Visual Cues →',
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-          ),
-          style: FilledButton.styleFrom(
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
+  Widget _buildSourceAnchorSelector(ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              'ROOT YOUR SLANT IN',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.8,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                'Source Anchor',
+                style: TextStyle(
+                  fontSize: 9.5,
+                  fontWeight: FontWeight.w600,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            // 1. Magazine
+            Expanded(
+              child: _buildAnchorTabCard(
+                theme: theme,
+                title: 'Magazine',
+                subtitle: 'Print clipping',
+                icon: Icons.menu_book_rounded,
+                mode: InputSourceMode.physicalPhoto,
+                accentColor: const Color(0xFF0D9488),
+              ),
+            ),
+            const SizedBox(width: 8),
+            // 2. Web Commentary
+            Expanded(
+              child: _buildAnchorTabCard(
+                theme: theme,
+                title: 'Web',
+                subtitle: 'Citation link',
+                icon: Icons.language_rounded,
+                mode: InputSourceMode.digitalLink,
+                accentColor: const Color(0xFF0284C7),
+              ),
+            ),
+            const SizedBox(width: 8),
+            // 3. Inner Voice
+            Expanded(
+              child: _buildAnchorTabCard(
+                theme: theme,
+                title: 'Inner Voice',
+                subtitle: 'Personal take',
+                icon: Icons.record_voice_over_rounded,
+                mode: InputSourceMode.mySlant,
+                accentColor: const Color(0xFF8B5CF6),
+              ),
+            ),
+          ],
         ),
       ],
     );
   }
 
-  Widget _buildMySlantSourceSection(ThemeData theme) {
+  Widget _buildAnchorTabCard({
+    required ThemeData theme,
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required InputSourceMode mode,
+    required Color accentColor,
+  }) {
+    final isSelected = (mode == InputSourceMode.mySlant)
+        ? _isInnerVoiceMode
+        : (_sourceMode == mode);
     final isDark = theme.brightness == Brightness.dark;
-    final isHeart = _slantTone == 'heart';
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        // Hero Banner Card
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: isHeart
-                  ? [
-                      const Color(0xFFF43F5E).withValues(alpha: isDark ? 0.25 : 0.12),
-                      const Color(0xFFBE123C).withValues(alpha: isDark ? 0.15 : 0.06),
-                    ]
-                  : [
-                      const Color(0xFF6366F1).withValues(alpha: isDark ? 0.25 : 0.12),
-                      const Color(0xFF4338CA).withValues(alpha: isDark ? 0.15 : 0.06),
-                    ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: isHeart
-                  ? const Color(0xFFF43F5E).withValues(alpha: 0.35)
-                  : const Color(0xFF6366F1).withValues(alpha: 0.35),
-            ),
+    return InkWell(
+      onTap: () {
+        setState(() {
+          _sourceMode = mode;
+          if (_contextController.text.trim().isNotEmpty) {
+            _slantThoughtController.text = _contextController.text.trim();
+          } else if (_slantThoughtController.text.trim().isNotEmpty) {
+            _contextController.text = _slantThoughtController.text.trim();
+          }
+        });
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? accentColor.withValues(alpha: isDark ? 0.22 : 0.12)
+              : theme.colorScheme.surfaceContainerHighest.withValues(alpha: isDark ? 0.3 : 0.4),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? accentColor : theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+            width: isSelected ? 1.8 : 1.0,
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: isHeart
-                          ? const Color(0xFFF43F5E).withValues(alpha: 0.2)
-                          : const Color(0xFF6366F1).withValues(alpha: 0.2),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Text(
-                      isHeart ? '❤️' : '🧠',
-                      style: const TextStyle(fontSize: 22),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          isHeart ? 'My Slant • Out of Heart' : 'My Slant • Out of Mind',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: isDark ? Colors.white : const Color(0xFF1E293B),
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'No link or photo needed. Slant AI writes your headline, core take, and broadsheet layout.',
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(7),
+              decoration: BoxDecoration(
+                color: isSelected ? accentColor.withValues(alpha: 0.25) : Colors.transparent,
+                shape: BoxShape.circle,
               ),
-              const SizedBox(height: 14),
+              child: Icon(
+                icon,
+                size: 20,
+                color: isSelected ? accentColor : theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                color: isSelected
+                    ? (isDark ? Colors.white : accentColor)
+                    : theme.colorScheme.onSurface,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 2),
+            Text(
+              subtitle,
+              style: TextStyle(
+                fontSize: 9.5,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
-              // Mind vs Heart Switcher Pill Toggle
-              Container(
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surface.withValues(alpha: 0.8),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3)),
-                ),
-                padding: const EdgeInsets.all(4),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: InkWell(
-                        onTap: () {
-                          if (_slantTone != 'mind') {
-                            setState(() {
-                              _slantTone = 'mind';
-                              _lastSuggestedContextKey = null;
-                            });
-                          }
-                        },
-                        borderRadius: BorderRadius.circular(9),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          decoration: BoxDecoration(
-                            color: !isHeart
-                                ? const Color(0xFF6366F1).withValues(alpha: 0.15)
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(9),
-                            border: !isHeart
-                                ? Border.all(color: const Color(0xFF6366F1).withValues(alpha: 0.5))
-                                : null,
-                          ),
-                          alignment: Alignment.center,
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Text('🧠', style: TextStyle(fontSize: 14)),
-                              const SizedBox(width: 6),
-                              Text(
-                                'Mind (Perspective)',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: !isHeart ? FontWeight.bold : FontWeight.w500,
-                                  color: !isHeart
-                                      ? (isDark ? Colors.indigoAccent : const Color(0xFF4338CA))
-                                      : theme.colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: InkWell(
-                        onTap: () {
-                          if (_slantTone != 'heart') {
-                            setState(() {
-                              _slantTone = 'heart';
-                              _lastSuggestedContextKey = null;
-                            });
-                          }
-                        },
-                        borderRadius: BorderRadius.circular(9),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          decoration: BoxDecoration(
-                            color: isHeart
-                                ? const Color(0xFFF43F5E).withValues(alpha: 0.15)
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(9),
-                            border: isHeart
-                                ? Border.all(color: const Color(0xFFF43F5E).withValues(alpha: 0.5))
-                                : null,
-                          ),
-                          alignment: Alignment.center,
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Text('❤️', style: TextStyle(fontSize: 14)),
-                              const SizedBox(width: 6),
-                              Text(
-                                'Heart (Emotion)',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: isHeart ? FontWeight.bold : FontWeight.w500,
-                                  color: isHeart
-                                      ? (isDark ? Colors.pinkAccent : const Color(0xFFBE123C))
-                                      : theme.colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+  Widget _buildDynamicAnchorTriggerPanel(ThemeData theme) {
+    if (_isInnerVoiceMode) {
+      return _buildInnerVoiceAnchorTriggerSection(theme);
+    } else if (_sourceMode == InputSourceMode.physicalPhoto) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.newspaper_rounded, size: 16, color: Color(0xFF0D9488)),
+              const SizedBox(width: 6),
+              const Text(
+                'Source Clipping Photo',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              ),
+              const Spacer(),
+              Text(
+                'Camera or Gallery',
+                style: TextStyle(fontSize: 10.5, color: theme.colorScheme.onSurfaceVariant),
               ),
             ],
           ),
-        ),
+          const SizedBox(height: 8),
+          _buildSnapSourceSection(theme),
+        ],
+      );
+    } else {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.link_rounded, size: 16, color: Color(0xFF0284C7)),
+              const SizedBox(width: 6),
+              const Text(
+                'Source Web Link',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              ),
+              const Spacer(),
+              Text(
+                'Paste & Fetch',
+                style: TextStyle(fontSize: 10.5, color: theme.colorScheme.onSurfaceVariant),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          _buildWeblinkSourceSection(theme),
+        ],
+      );
+    }
+  }
 
-        const SizedBox(height: 16),
-
-        // Thought / Raw Slant Card
+  Widget _buildInnerVoiceAnchorTriggerSection(ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // The Spark (What stirred / provoked this?) - Optional Catalyst Card (Under 10-15 words)
         Card(
           elevation: 0,
           color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
@@ -2146,31 +2356,35 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
             side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4)),
           ),
           child: Padding(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.all(12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    Text(isHeart ? '❤️' : '🧠', style: const TextStyle(fontSize: 16)),
-                    const SizedBox(width: 8),
-                    Text(
-                      isHeart ? 'What are you feeling?' : 'What is on your mind?',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                    const Icon(
+                      Icons.bolt_rounded,
+                      size: 16,
+                      color: Color(0xFFF59E0B),
+                    ),
+                    const SizedBox(width: 6),
+                    const Text(
+                      'The Spark (What sparked this?)',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                     ),
                     const Spacer(),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: theme.colorScheme.primary.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(6),
+                        color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(5),
                       ),
                       child: Text(
-                        'Zero-burden',
+                        'Optional • Under 15 words',
                         style: TextStyle(
-                          fontSize: 10,
+                          fontSize: 9.5,
                           fontWeight: FontWeight.w600,
-                          color: theme.colorScheme.primary,
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ),
@@ -2178,38 +2392,32 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  isHeart
-                      ? 'Share your raw feeling, personal emotion, or life experience without worrying about formatting.'
-                      : 'Express your stance, analysis, reflection, or critique without worrying about finding a source.',
-                  style: TextStyle(fontSize: 11.5, color: theme.colorScheme.onSurfaceVariant),
+                  'The real-world observation, memory, or moment that triggered this perspective.',
+                  style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurfaceVariant),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 8),
                 TextField(
-                  controller: _slantThoughtController,
+                  controller: _slantSparkController,
                   decoration: InputDecoration(
-                    hintText: isHeart
-                        ? 'e.g. Walking through the quiet neighborhood at dusk, I felt a deep nostalgia for an era before endless feeds consumed our quiet hours...'
-                        : 'e.g. The real risk of AI isn’t superintelligence taking over, it’s that we surrender our curiosity and critical judgment to automated convenience...',
+                    hintText: 'e.g. A conversation with an old colleague about vanishing craft...',
+                    hintStyle: TextStyle(
+                      fontSize: 12,
+                      color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                    ),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                     filled: true,
                     fillColor: theme.colorScheme.surface,
-                    alignLabelWithHint: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   ),
-                  maxLines: 7,
-                  minLines: 4,
-                  onChanged: (val) {
-                    _contextController.text = val;
-                    if (_cueWordPills.isEmpty) {
-                      _autoSuggestCueKeywords();
-                    }
-                  },
+                  maxLines: 2,
+                  minLines: 1,
                 ),
               ],
             ),
           ),
         ),
 
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
 
         // Core Take Representation Mode Card (Refined vs As-Is / Verbatim)
         Card(
@@ -2289,21 +2497,6 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
                 ),
               ],
             ),
-          ),
-        ),
-
-        const SizedBox(height: 20),
-
-        FilledButton.icon(
-          onPressed: _goToVisualCuesStep,
-          icon: const Icon(Icons.arrow_forward),
-          label: const Text(
-            'Next: Visual Cues & Metaphors →',
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-          ),
-          style: FilledButton.styleFrom(
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
         ),
       ],
@@ -2709,34 +2902,21 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
 
         _buildCharacterRepresentationCard(theme),
 
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
 
-        FilledButton.icon(
-          onPressed: _isAnalyzing ? null : () => _runAnalysis(),
-          icon: const Icon(Icons.auto_awesome),
-          label: Text(
-            _sourceMode == InputSourceMode.mySlant
-                ? 'Synthesize My Slant Carousel'
-                : 'Generate 3-Poster Social Carousel',
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-          ),
-          style: FilledButton.styleFrom(
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        Center(
+          child: TextButton.icon(
+            onPressed: () {
+              setState(() => _currentStep = SlantStep.sourceAndAngle);
+            },
+            icon: const Icon(Icons.arrow_back_rounded, size: 16),
+            label: Text(
+              _isInnerVoiceMode ? 'Back to Inner Voice & Spark' : 'Back to Slant & Source',
+            ),
           ),
         ),
 
-        const SizedBox(height: 10),
-
-        TextButton.icon(
-          onPressed: () {
-            setState(() => _currentStep = SlantStep.sourceAndAngle);
-          },
-          icon: const Icon(Icons.arrow_back, size: 16),
-          label: Text(
-            _sourceMode == InputSourceMode.mySlant ? 'Back to My Slant' : 'Back to Angle & Source',
-          ),
-        ),
+        const SizedBox(height: 20),
       ],
     );
   }
@@ -3146,111 +3326,189 @@ class _CreatePostcardScreenState extends State<CreatePostcardScreen> {
     );
   }
 
+  Widget _buildActionIconButton({
+    required IconData icon,
+    required String label,
+    required String tooltip,
+    required Color color,
+    required VoidCallback? onTap,
+    bool isLoading = false,
+    bool isActive = false,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: isActive
+                        ? color.withValues(alpha: 0.24)
+                        : color.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(13),
+                    border: Border.all(
+                      color: isActive
+                          ? color.withValues(alpha: 0.85)
+                          : color.withValues(alpha: 0.28),
+                      width: isActive ? 1.4 : 1.0,
+                    ),
+                    boxShadow: isActive
+                        ? [
+                            BoxShadow(
+                              color: color.withValues(alpha: 0.3),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ]
+                        : null,
+                  ),
+                  child: Center(
+                    child: isLoading
+                        ? SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(color),
+                            ),
+                          )
+                        : Icon(
+                            icon,
+                            size: 21,
+                            color: color,
+                          ),
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: isActive ? FontWeight.w800 : FontWeight.w600,
+                    color: isActive ? color : const Color(0xFFCBD5E1),
+                    letterSpacing: 0.2,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildResultActionPanel(ThemeData theme) {
+    final isDark = theme.brightness == Brightness.dark;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Primary Row: Download to Gallery & Save to My Posts
-        Row(
-          children: [
-            Expanded(
-              child: FilledButton.icon(
-                onPressed: _isExporting ? null : _downloadCarouselToGallerySlant,
-                icon: const Icon(Icons.download_rounded, size: 18),
-                label: const Text(
-                  'Download\n(Gallery Slant)',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                ),
-                style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF0F172A),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-              ),
+        // Sleek compact action toolbar with apt icons
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF0F172A).withValues(alpha: 0.90) : const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.12)
+                  : theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
+              width: 1.0,
             ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: FilledButton.icon(
-                onPressed: _saveToMyPosts,
-                icon: const Icon(Icons.bookmark_added_outlined, size: 18),
-                label: const Text(
-                  'Save\n(My Posts)',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                ),
-                style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF6366F1),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.06),
+                blurRadius: 14,
+                offset: const Offset(0, 4),
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              // 1. Regenerate
+              _buildActionIconButton(
+                icon: Icons.refresh_rounded,
+                label: 'Regen',
+                tooltip: 'Regenerate / Tweak Cues',
+                color: const Color(0xFFA78BFA), // Lavender / Purple
+                onTap: _handleRegenerate,
+              ),
 
-        // Secondary Row: Share & Edit
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: _isExporting ? null : _shareCarousel,
-                icon: const Icon(Icons.share_rounded, color: Color(0xFF25D366), size: 18),
-                label: const Text('Share Carousel', style: TextStyle(fontWeight: FontWeight.bold)),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
+              // 2. Edit
+              _buildActionIconButton(
+                icon: Icons.tune_rounded,
+                label: 'Edit',
+                tooltip: 'Edit Content & Slant',
+                color: const Color(0xFFFBBF24), // Amber
+                onTap: () => _showEditPosterModalBottomSheet(context),
               ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: () => _showEditPosterModalBottomSheet(context),
-                icon: const Icon(Icons.edit_note_rounded, size: 18),
-                label: const Text('Edit Content', style: TextStyle(fontWeight: FontWeight.bold)),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
 
-        // Tertiary Action: Regenerate
-        TextButton.icon(
-          onPressed: _handleRegenerate,
-          icon: const Icon(Icons.refresh_rounded, size: 18),
-          label: const Text(
-            'Regenerate (Tweak Angle & Visual Cues)',
-            style: TextStyle(fontWeight: FontWeight.w600),
+              // 3. Share
+              _buildActionIconButton(
+                icon: Icons.share_rounded,
+                label: 'Share',
+                tooltip: 'Share Carousel Trio',
+                color: const Color(0xFF34D399), // Emerald
+                isLoading: _isExporting,
+                onTap: _isExporting ? null : _shareCarousel,
+              ),
+
+              // 4. Download
+              _buildActionIconButton(
+                icon: _isDownloaded ? Icons.download_done_rounded : Icons.download_rounded,
+                label: _isDownloaded ? 'Downloaded' : 'Download',
+                tooltip: _isDownloaded ? 'Downloaded to Gallery (Slant folder)' : 'Download 3 Posters to Gallery',
+                color: const Color(0xFF38BDF8), // Sky Blue
+                isActive: _isDownloaded,
+                isLoading: _isExporting,
+                onTap: _isExporting ? null : _downloadCarouselToGallerySlant,
+              ),
+
+              // 5. Save to My Posts
+              _buildActionIconButton(
+                icon: _isSaved ? Icons.bookmark_added_rounded : Icons.bookmark_add_outlined,
+                label: _isSaved ? 'Saved' : 'Save',
+                tooltip: _isSaved ? 'Saved in My Posts' : 'Save to My Posts in app',
+                color: _isSaved ? const Color(0xFF10B981) : const Color(0xFFFB7185), // Rose / Emerald
+                isActive: _isSaved,
+                onTap: _saveToMyPosts,
+              ),
+            ],
           ),
         ),
-        const SizedBox(height: 10),
-        Container(
-          height: 1,
-          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.35),
-        ),
+
         const SizedBox(height: 12),
 
-        // Finish & Return to Home Feed
-        FilledButton.tonalIcon(
-          onPressed: () => _returnToHome(targetTabIndex: 0),
-          icon: const Icon(Icons.home_rounded, size: 20),
-          label: const Text(
-            'Done • Return to Home Feed',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
-          ),
-          style: FilledButton.styleFrom(
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        // Slim Done button
+        SizedBox(
+          height: 42,
+          child: FilledButton.tonalIcon(
+            onPressed: () => _returnToHome(targetTabIndex: 0),
+            icon: const Icon(Icons.check_circle_outline_rounded, size: 18),
+            label: const Text(
+              'Done • Return to Home Feed',
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+            ),
+            style: FilledButton.styleFrom(
+              padding: EdgeInsets.zero,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
           ),
         ),
+
+        const SizedBox(height: 24),
       ],
     );
   }

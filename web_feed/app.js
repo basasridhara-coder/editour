@@ -127,8 +127,8 @@ async function init() {
   setupRealtimeSubscription();
 }
 
-const SUPABASE_URL = 'https://karnxbsmvnkydcfydrcf.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_n90rXQfEukf2gdisKe_jGg_Cybk2r-m';
+const SUPABASE_URL = 'https://fsuukgpizuipxxwatkbo.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZzdXVrZ3BpenVpcHh4d2F0a2JvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTExMzE4NjEsImV4cCI6MjEwNjcwNzg2MX0.NPnTDhGyiigPZIvror8JGqjCMVKuJ8OZaDN2pGuVfM8';
 
 // Supabase Auth & DB Client
 let supabaseClient = null;
@@ -971,13 +971,13 @@ function buildSlide1Html(post, index) {
   let pubName = escapeHtml(post.publicationName || 'Press Wire');
   const tier = getSourceTier(post);
   const cleanHost = getCleanDomain(post.digitalLink);
-  const slantIcon = post.slantIcon || (post.slantTone === 'heart' ? '❤️' : '💭');
+  const slantIcon = (post.slantIcon && post.slantIcon !== '💭') ? post.slantIcon : (post.slantTone === 'heart' ? '❤️' : '🧠');
 
   let sourceLabel = pubName;
   if (tier === 'tier2_web') {
     sourceLabel = cleanHost || 'Web Commentary';
   } else if (tier === 'tier3_opinion') {
-    sourceLabel = 'Personal Slant';
+    sourceLabel = 'My Slant';
     catBadge = `${slantIcon} OPINION`;
   } else if (tier === 'tier_book') {
     sourceLabel = post.bookTitle || 'Book Excerpt';
@@ -1072,7 +1072,7 @@ function buildSlide2Html(post, index) {
   const initial = handle.replace('@', '').charAt(0).toUpperCase() || 'C';
   const pubName = escapeHtml(post.publicationName || 'Press Wire');
   const tier = getSourceTier(post);
-  const slantIcon = post.slantIcon || (post.slantTone === 'heart' ? '❤️' : '💭');
+  const slantIcon = (post.slantIcon && post.slantIcon !== '💭') ? post.slantIcon : (post.slantTone === 'heart' ? '❤️' : '🧠');
 
   let verdictBadgeLabel = `⚡ CURATOR'S TAKE • ${pubName}`;
   let nextSlideLabel = 'THE RECEIPTS &rarr;';
@@ -1081,7 +1081,7 @@ function buildSlide2Html(post, index) {
     verdictBadgeLabel = `⚡ CURATOR'S TAKE • WEB COMMENTARY`;
     nextSlideLabel = 'WEB SOURCE &rarr;';
   } else if (tier === 'tier3_opinion') {
-    verdictBadgeLabel = `${slantIcon} THE CORE TAKE • PERSONAL PERSPECTIVE`;
+    verdictBadgeLabel = `${slantIcon} FIRST-PERSON REFLECTION • MY SLANT`;
     nextSlideLabel = 'MY SLANT &rarr;';
   } else if (tier === 'tier_book') {
     verdictBadgeLabel = `📖 LITERARY REFLECTION`;
@@ -1113,7 +1113,7 @@ function buildSlide2Html(post, index) {
 
   const slideTitle = post.keyTakeaways && post.keyTakeaways.length > 0 && post.keyTakeaways[0].split(' ').length <= 12
     ? escapeHtml(post.keyTakeaways[0].toUpperCase())
-    : "THE CRITICAL PERSPECTIVE";
+    : (tier === 'tier3_opinion' ? (post.slantTone === 'heart' ? 'PERSONAL REFLECTION' : 'MY CORE TAKE') : "THE CRITICAL PERSPECTIVE");
 
   let bgHtml = '';
   if (post.illustrationUrl) {
@@ -1235,18 +1235,18 @@ function buildSlide3Html(post, index) {
   } else if (tier === 'tier3_opinion') {
     stampHtml = `
       <div class="stamp-opinion">
-        <div>${slantIcon} OPINION</div>
+        <div>${slantIcon} PERSONAL TAKE</div>
         <div>MY SLANT</div>
       </div>
     `;
-    mastheadTitle = `READER'S OP-ED`;
-    rulesCenter = 'COMMUNITY OP-ED & ESSAY';
-    rulesLeft = 'FIRST-PERSON PERSPECTIVE';
-    bylineLeft = `CONTRIBUTED BY ${handle}`;
-    bylineTag = '<span class="receipts-opinion-tag">PERSONAL SLANT</span>';
+    mastheadTitle = `MY SLANT`;
+    rulesCenter = post.slantTone === 'heart' ? 'OUT OF HEART • PERSONAL ESSAY' : 'OUT OF MIND • PERSONAL ESSAY';
+    rulesLeft = 'FIRST-PERSON REFLECTION';
+    bylineLeft = `AUTHORED BY ${handle}`;
+    bylineTag = '<span class="receipts-opinion-tag">PERSONAL PERSPECTIVE</span>';
     highlightIcon = slantIcon;
     highlightTitle = 'THE CORE CONVICTION';
-    folioSource = 'FIRST-PERSON REFLECTION • UNVERIFIED OPINION';
+    folioSource = 'FIRST-PERSON REFLECTION';
     folioAuthor = `BY ${handle}`;
   } else if (tier === 'tier_book') {
     stampHtml = `
@@ -1339,7 +1339,7 @@ function createPostCardElement(post, index) {
   const tier = getSourceTier(post);
   const digitalUrl = post.digitalLink || '';
   const cleanHost = getCleanDomain(digitalUrl);
-  const slantIcon = post.slantIcon || (post.slantTone === 'heart' ? '❤️' : '💭');
+  const slantIcon = (post.slantIcon && post.slantIcon !== '💭') ? post.slantIcon : (post.slantTone === 'heart' ? '❤️' : '🧠');
 
   let catBadge = post.categoryBadge || 'DISCOVERY';
   if (tier === 'tier3_opinion') {
@@ -1792,51 +1792,31 @@ async function syncFeed() {
 
 async function loadRemainingPosts() {
   try {
-    let offset = 12;
-    const batchSize = 12;
-    let keepFetching = true;
-
-    while (keepFetching) {
-      const resp = await fetch(`${SUPABASE_URL}/rest/v1/posts?select=*&order=created_at.desc&limit=${batchSize}&offset=${offset}`, {
-        headers: {
-          'apikey': SUPABASE_KEY,
-          'Authorization': `Bearer ${SUPABASE_KEY}`
-        }
-      });
-      if (!resp.ok) break;
-      const rows = await resp.json();
-      if (!Array.isArray(rows) || rows.length === 0) {
-        keepFetching = false;
-        break;
+    // Ultra-lean fetch: fetch up to 20 posts, no while loop, never blow egress
+    const resp = await fetch(`${SUPABASE_URL}/rest/v1/posts?select=id,created_at,data&order=created_at.desc&limit=20`, {
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`
       }
+    });
+    if (!resp.ok) return;
+    const rows = await resp.json();
+    if (!Array.isArray(rows) || rows.length === 0) return;
 
-      const newPosts = rows.map(r => r.data || r).filter(p => p && !p.deleted && !p.isDeleted && (p.adaptedHeadline || p.originalHeadline || p.summary));
-      if (newPosts.length === 0) {
-        if (rows.length < batchSize) keepFetching = false;
-        offset += batchSize;
-        continue;
+    const newPosts = rows.map(r => r.data || r).filter(p => p && !p.deleted && !p.isDeleted && (p.adaptedHeadline || p.originalHeadline || p.summary));
+    const existingIds = new Set(allPosts.map(p => p.id));
+    let added = 0;
+    for (const p of newPosts) {
+      if (!existingIds.has(p.id)) {
+        allPosts.push(p);
+        existingIds.add(p.id);
+        added++;
       }
+    }
 
-      const existingIds = new Set(allPosts.map(p => p.id));
-      let added = 0;
-      for (const p of newPosts) {
-        if (!existingIds.has(p.id)) {
-          allPosts.push(p);
-          existingIds.add(p.id);
-          added++;
-        }
-      }
-
-      if (added > 0) {
-        updateBadge(true, `Live Feed (${allPosts.length} posts)`);
-        renderFeed();
-      }
-
-      if (rows.length < batchSize) {
-        keepFetching = false;
-      } else {
-        offset += batchSize;
-      }
+    if (added > 0) {
+      updateBadge(true, `Live Feed (${allPosts.length} posts)`);
+      renderFeed();
     }
   } catch (err) {
     console.warn('Progressive loading background error:', err);
