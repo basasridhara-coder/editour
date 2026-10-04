@@ -194,14 +194,28 @@
           </div>
         </div>
 
-        <!-- 3. Inner Voice Section -->
+        <!-- 3. Inner Voice Section Callout -->
         <div class="creator-source-section" id="sectionInnerVoice" style="display:none;">
-          <label class="creator-field-label">Your Core Slant / Direct Thought</label>
-          <textarea id="creatorInnerVoiceInput" class="creator-textarea" rows="4" placeholder="What is your counter-intuitive take or core conviction? E.g. Friction is not inefficiency; it is your moat..."></textarea>
-          
-          <!-- Slant Tone Switcher: Mind vs Heart -->
+          <div class="creator-voice-callout">
+            <span class="callout-icon">💭</span>
+            <span>Express your conviction or reflection freely below. Gemini will transform it directly into your 3-poster lead take.</span>
+          </div>
+        </div>
+
+        <!-- Universal Section 1: Your Slant / Take (Applicable to ALL 3 formats: Web Link, Upload Image, Inner Voice) -->
+        <div class="creator-common-section">
+          <div class="creator-label-row">
+            <label class="creator-field-label" id="slantTakeLabel">Your Slant / Take</label>
+            <span class="label-optional" id="slantTakeBadge">(Optional)</span>
+          </div>
+          <textarea id="creatorSlantTakeInput" class="creator-textarea" rows="3" placeholder="What is your unique angle, stance, or critique? e.g. Beyond the raw numbers, this shifts the balance of power between legacy media and digital creators..."></textarea>
+          <p class="creator-field-hint" id="slantTakeHint">Write your unique angle, stance, or critique on this story (or leave empty to let AI deduce it).</p>
+        </div>
+
+        <!-- Universal Section 2: Conviction Slant Tone (Applicable to ALL 3 formats: Mind vs Heart) -->
+        <div class="creator-common-section">
           <div class="slant-tone-picker">
-            <span class="tone-label">Conviction Slant:</span>
+            <span class="tone-label">Conviction Slant Tone:</span>
             <div class="tone-options">
               <button type="button" class="tone-btn active" data-tone="mind" onclick="selectSlantTone('mind')">
                 <span class="tone-title">🧠 Out of Mind</span>
@@ -215,7 +229,7 @@
           </div>
         </div>
 
-        <!-- Common Section: The Spark (Optional User Context) -->
+        <!-- Common Section 3: The Spark (Optional User Context) -->
         <div class="creator-common-section">
           <label class="creator-field-label">The Spark <span class="label-optional">(Optional personal context or observation)</span></label>
           <input type="text" id="creatorSparkInput" class="creator-input" placeholder="e.g. Discussing this with my team; why does no one see the second-order effects?">

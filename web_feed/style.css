@@ -3109,14 +3109,14 @@ header {
 
 /* Creator Modal Card */
 .creator-modal-card {
-  max-width: 660px;
-  max-height: 92vh;
-  padding: 24px 28px;
-  border-radius: 26px;
+  max-width: 560px;
+  max-height: 88vh;
+  padding: 22px 24px;
+  border-radius: 24px;
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   overflow-y: auto;
-  box-shadow: 0 25px 60px -10px rgba(0, 0, 0, 0.75);
+  box-shadow: 0 25px 60px -10px rgba(0, 0, 0, 0.80);
 }
 
 .creator-modal-header {
@@ -3677,21 +3677,57 @@ header {
   border-radius: var(--radius-pill);
 }
 
+.creator-voice-callout {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 14px;
+  background: rgba(99, 102, 241, 0.08);
+  border: 1px solid rgba(99, 102, 241, 0.22);
+  border-radius: 12px;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  line-height: 1.45;
+  margin-bottom: 4px;
+}
+
+.creator-voice-callout .callout-icon {
+  font-size: 18px;
+}
+
+.creator-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 2px;
+}
+
+.label-required {
+  font-size: 11px;
+  font-weight: 700;
+  color: #8B5CF6;
+  letter-spacing: 0.3px;
+}
+
 /* Step 3 Preview & Refine */
 .creator-preview-container {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
 }
 
 .creator-preview-tabs {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
+  gap: 6px;
   background: var(--bg-card);
   padding: 4px;
   border-radius: 12px;
   border: 1px solid var(--border-subtle);
+  width: 100%;
+  max-width: 330px;
 }
 
 .preview-tab {
@@ -3728,25 +3764,52 @@ header {
 
 .creator-preview-card-wrap {
   width: 100%;
+  max-width: 320px; /* Fits proportionally inside modal without overflowing or blowing up */
+  margin: 0 auto;
   border-radius: 18px;
   overflow: hidden;
-  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 16px 45px -10px rgba(0, 0, 0, 0.7);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-card);
 }
 
 .creator-preview-card-wrap .post-card {
   margin: 0;
+  border: none;
   border-radius: 18px;
-  max-width: 100%;
+  box-shadow: none;
+  background: transparent;
+}
+
+/* Hide feed action bar (like/bookmark/share) in preview mode */
+.creator-preview-card-wrap .action-bar {
+  display: none !important;
+}
+
+.creator-preview-card-wrap .post-header {
+  padding: 10px 14px;
 }
 
 .creator-refine-box {
+  width: 100%;
+  max-width: 440px;
+  margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   background: var(--bg-card);
-  padding: 16px;
+  padding: 14px 16px;
   border-radius: 14px;
   border: 1px solid var(--border-subtle);
+}
+
+.creator-publish-footer {
+  width: 100%;
+  max-width: 440px;
+  margin: 0 auto;
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
 }
 
 .refine-field {

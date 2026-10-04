@@ -34,6 +34,7 @@ module.exports = async function handler(req, res) {
       sourceType = 'inner_voice', // 'digital_link' | 'inner_voice' | 'photo'
       url = '',
       text = '',
+      slantTake = '',
       imageBase64 = null,
       imageMimeType = 'image/jpeg',
       targetAudience = 'General',
@@ -42,6 +43,7 @@ module.exports = async function handler(req, res) {
       creatorHandle = '@curator'
     } = body || {};
 
+    const userSlant = slantTake || text || '';
     let extractedTitle = '';
     let extractedContent = text || '';
     let pubName = '';
@@ -109,15 +111,17 @@ Input Details:
 - Source Type: ${sourceType}
 - Target Audience: ${targetAudience}
 - Tone / Slant: ${toneDescription}
-${spark ? `- The Spark (Personal Context / Observation): "${spark}"` : ''}
+${userSlant ? `- Curator's Slant / Take (Primary Stance & Angle): "${userSlant}"` : ''}
+${spark ? `- The Spark (Personal Context / Catalyst): "${spark}"` : ''}
 ${url ? `- Source Link: ${url}` : ''}
 ${pubName ? `- Publication / Domain: ${pubName}` : ''}
 
 Task:
 Synthesize this input into a compelling 3-poster social carousel deck:
 1. Poster 1 (The Visual Hook): A bold adapted headline (5-10 words, unforgettable), a gripping 1-2 sentence hook, category badge, and dominant visual metaphor.
-2. Poster 2 (The Curator's Take): A punchy perspective, why it matters right now, and exactly 3 distinct high-signal takeaways.
+2. Poster 2 (The Curator's Take): A punchy perspective directly emphasizing the curator's slant/take, why it matters right now, and exactly 3 distinct high-signal takeaways.
 3. Poster 3 (The Receipts / Core Conviction): A single powerful highlight quote, and 3 verified excerpt bullet points backing the stance.
+${userSlant ? 'CRITICAL EDITORIAL RULE: The curator has provided their own distinct Slant/Take. The adapted headline, hook, critique, and takeaways MUST center around this unique angle, contrasting it against the generic narrative rather than simply summarizing the facts.' : ''}
 
 Respond strictly with valid JSON with this exact structure:
 {
@@ -236,6 +240,7 @@ Respond strictly with valid JSON with this exact structure:
       creatorHandle: creatorHandle || '@curator',
       slantTone: slantTone || 'mind',
       slantIcon: slantTone === 'heart' ? '❤️' : '🧠',
+      creatorOpinion: userSlant || '',
       isUserCreated: true,
       userContext: spark || ''
     };

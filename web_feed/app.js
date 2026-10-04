@@ -1949,6 +1949,38 @@ function selectCreatorSource(sourceType) {
   if (secLink) secLink.style.display = sourceType === 'digital_link' ? 'flex' : 'none';
   if (secPhoto) secPhoto.style.display = sourceType === 'photo' ? 'flex' : 'none';
   if (secVoice) secVoice.style.display = sourceType === 'inner_voice' ? 'flex' : 'none';
+
+  // Contextual labels & hints for "Your Slant / Take"
+  const label = document.getElementById('slantTakeLabel');
+  const badge = document.getElementById('slantTakeBadge');
+  const hint = document.getElementById('slantTakeHint');
+  const input = document.getElementById('creatorSlantTakeInput');
+
+  if (sourceType === 'inner_voice') {
+    if (label) label.textContent = 'What is your Slant or Perspective?';
+    if (badge) {
+      badge.textContent = '(Required)';
+      badge.className = 'label-required';
+    }
+    if (hint) hint.textContent = 'Express your conviction or reflection freely. AI transforms this into your lead take.';
+    if (input) input.placeholder = 'What perspective demands to be shared? e.g. The real risk of AI isn’t superintelligence taking over, it’s that we surrender our curiosity and critical judgment to automated convenience...';
+  } else if (sourceType === 'photo') {
+    if (label) label.textContent = 'Your Slant / Take';
+    if (badge) {
+      badge.textContent = '(Optional)';
+      badge.className = 'label-optional';
+    }
+    if (hint) hint.textContent = 'Write your unique angle, stance, or critique on this clipping (or leave empty to let AI deduce it).';
+    if (input) input.placeholder = 'e.g. Beyond the raw numbers, this shifts the balance of power between legacy media and digital creators...';
+  } else {
+    if (label) label.textContent = 'Your Slant / Take';
+    if (badge) {
+      badge.textContent = '(Optional)';
+      badge.className = 'label-optional';
+    }
+    if (hint) hint.textContent = 'Write your unique angle, stance, or critique on this story (or leave empty to let AI deduce it).';
+    if (input) input.placeholder = 'e.g. The headline misses the real structural disruption happening behind the scenes...';
+  }
 }
 
 function selectSlantTone(tone) {
@@ -2083,11 +2115,11 @@ function backToStep1() {
 
 async function startAiSynthesis() {
   const urlInput = document.getElementById('creatorUrlInput');
-  const voiceInput = document.getElementById('creatorInnerVoiceInput');
+  const slantTakeInput = document.getElementById('creatorSlantTakeInput');
   const sparkInput = document.getElementById('creatorSparkInput');
 
   const url = urlInput ? urlInput.value.trim() : '';
-  const text = voiceInput ? voiceInput.value.trim() : '';
+  const slantTake = slantTakeInput ? slantTakeInput.value.trim() : '';
   const spark = sparkInput ? sparkInput.value.trim() : '';
 
   // Validation
@@ -2103,9 +2135,9 @@ async function startAiSynthesis() {
       return;
     }
   } else if (creatorSelectedSource === 'inner_voice') {
-    if (!text) {
-      alert('Please enter your thought or conviction first.');
-      if (voiceInput) voiceInput.focus();
+    if (!slantTake) {
+      alert('Please share your slant or perspective thought first.');
+      if (slantTakeInput) slantTakeInput.focus();
       return;
     }
   }
@@ -2145,7 +2177,8 @@ async function startAiSynthesis() {
   const payload = {
     sourceType: creatorSelectedSource,
     url,
-    text,
+    text: slantTake,
+    slantTake: slantTake,
     imageBase64: creatorSelectedImageBase64,
     imageMimeType: creatorSelectedImageMimeType,
     targetAudience: creatorAudience,
