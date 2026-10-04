@@ -25,6 +25,11 @@
         </div>
       </div>
       <div class="header-actions">
+        <!-- New Slant Creator Button (Header) -->
+        <button class="create-slant-header-btn" id="headerCreateBtn" onclick="openCreatorModal()" title="Create New Slant">
+          <span class="btn-sparkle">✨</span>
+          <span class="create-btn-text">+ New Slant</span>
+        </button>
         <!-- Auth Sign In / User Profile -->
         <button class="auth-btn" id="headerAuthBtn" onclick="openAuthModal()" title="Sign In to Slant">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -93,6 +98,218 @@
   <main class="feed-container" id="feedContainer">
     <!-- Rendered dynamically via app.js -->
   </main>
+
+  <!-- Floating Action Button for Mobile / Quick Create -->
+  <button class="fab-create-btn" id="fabCreateBtn" onclick="openCreatorModal()" title="Create New Slant">
+    <span class="fab-icon">⚡</span>
+    <span class="fab-label">Slant</span>
+  </button>
+
+  <!-- ==========================================
+       CREATE SLANT MODAL (Adaptive Web & Mobile)
+       ========================================== -->
+  <div class="modal-overlay creator-modal-overlay" id="creatorModal" onclick="handleCreatorOverlayClick(event)">
+    <div class="modal-card creator-modal-card" onclick="event.stopPropagation()">
+      <div class="creator-modal-header">
+        <div class="creator-modal-title-wrap">
+          <div class="creator-badge">STUDIO</div>
+          <h2 class="creator-title" id="creatorModalTitle">Create New Slant</h2>
+        </div>
+        <button class="modal-close" onclick="closeCreatorModal()">&times;</button>
+      </div>
+
+      <!-- Step Indicator Bar -->
+      <div class="creator-steps-bar">
+        <div class="creator-step-dot active" id="stepDot1">
+          <span class="step-num">1</span>
+          <span class="step-text">Source & Angle</span>
+        </div>
+        <div class="creator-step-divider" id="stepDiv1"></div>
+        <div class="creator-step-dot" id="stepDot2">
+          <span class="step-num">2</span>
+          <span class="step-text">AI Synthesis</span>
+        </div>
+        <div class="creator-step-divider" id="stepDiv2"></div>
+        <div class="creator-step-dot" id="stepDot3">
+          <span class="step-num">3</span>
+          <span class="step-text">3-Poster Preview</span>
+        </div>
+      </div>
+
+      <!-- STEP 1 CONTAINER: SOURCE & ANGLE -->
+      <div class="creator-step-content" id="creatorStep1">
+        <!-- Source Selector Tabs -->
+        <div class="creator-source-tabs" id="creatorSourceTabs">
+          <button type="button" class="source-tab active" data-source="digital_link" onclick="selectCreatorSource('digital_link')">
+            <span class="tab-emoji">🌐</span>
+            <span class="tab-label">Web Link</span>
+          </button>
+          <!-- Upload / Camera Tab (Device-Adaptive) -->
+          <button type="button" class="source-tab" data-source="photo" id="creatorSourcePhotoTab" onclick="selectCreatorSource('photo')">
+            <span class="tab-emoji" id="creatorPhotoEmoji">📁</span>
+            <span class="tab-label" id="creatorPhotoLabel">Upload Image</span>
+          </button>
+          <button type="button" class="source-tab" data-source="inner_voice" onclick="selectCreatorSource('inner_voice')">
+            <span class="tab-emoji">💭</span>
+            <span class="tab-label">Inner Voice</span>
+          </button>
+        </div>
+
+        <!-- 1. Digital Link Section -->
+        <div class="creator-source-section" id="sectionDigitalLink">
+          <label class="creator-field-label">Web Article or Story URL</label>
+          <div class="creator-input-group">
+            <input type="url" id="creatorUrlInput" class="creator-input" placeholder="https://www.nytimes.com/... or https://techcrunch.com/..." autocomplete="off">
+          </div>
+          <p class="creator-field-hint">Paste any news, newsletter, or blog link. Gemini will extract the core arguments and synthesize your 3-poster visual deck.</p>
+        </div>
+
+        <!-- 2. Photo / Camera / Clipping Section -->
+        <div class="creator-source-section" id="sectionPhoto" style="display:none;">
+          <!-- Mobile Specific Camera Trigger (visible only on mobile) -->
+          <div class="mobile-camera-prompt" id="mobileCameraPrompt" style="display:none;">
+            <button type="button" class="creator-camera-btn" onclick="document.getElementById('creatorCameraInput').click()">
+              <span class="cam-icon">📸</span>
+              <span class="cam-text">Snap News Clipping or Book Page</span>
+            </button>
+            <input type="file" id="creatorCameraInput" accept="image/*" capture="environment" style="display:none;" onchange="handleImageSelection(event)">
+            <div class="mobile-or-divider"><span>OR SELECT FROM LIBRARY</span></div>
+          </div>
+
+          <!-- Desktop Drag & Drop Zone / File Picker -->
+          <div class="creator-dropzone" id="creatorDropzone" onclick="document.getElementById('creatorFileInput').click()">
+            <input type="file" id="creatorFileInput" accept="image/png, image/jpeg, image/webp" style="display:none;" onchange="handleImageSelection(event)">
+            <div class="dropzone-content" id="dropzoneEmpty">
+              <div class="dropzone-icon">📷</div>
+              <div class="dropzone-text" id="dropzoneText">Drag and drop news clipping or screenshot, or <span class="dropzone-link">browse</span></div>
+              <div class="dropzone-sub">Supports PNG, JPG, WebP (auto-optimized)</div>
+            </div>
+            <!-- Image Selected Preview -->
+            <div class="dropzone-preview" id="dropzonePreview" style="display:none;">
+              <img id="creatorImageThumb" src="" alt="Source preview">
+              <div class="dropzone-preview-overlay">
+                <button type="button" class="dropzone-remove-btn" onclick="removeSelectedImage(event)" title="Remove image">✕</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. Inner Voice Section -->
+        <div class="creator-source-section" id="sectionInnerVoice" style="display:none;">
+          <label class="creator-field-label">Your Core Slant / Direct Thought</label>
+          <textarea id="creatorInnerVoiceInput" class="creator-textarea" rows="4" placeholder="What is your counter-intuitive take or core conviction? E.g. Friction is not inefficiency; it is your moat..."></textarea>
+          
+          <!-- Slant Tone Switcher: Mind vs Heart -->
+          <div class="slant-tone-picker">
+            <span class="tone-label">Conviction Slant:</span>
+            <div class="tone-options">
+              <button type="button" class="tone-btn active" data-tone="mind" onclick="selectSlantTone('mind')">
+                <span class="tone-title">🧠 Out of Mind</span>
+                <span class="tone-desc">Analytical, sharp & strategic</span>
+              </button>
+              <button type="button" class="tone-btn" data-tone="heart" onclick="selectSlantTone('heart')">
+                <span class="tone-title">❤️ Out of Heart</span>
+                <span class="tone-desc">Reflective, emotive & philosophical</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Common Section: The Spark (Optional User Context) -->
+        <div class="creator-common-section">
+          <label class="creator-field-label">The Spark <span class="label-optional">(Optional personal context or observation)</span></label>
+          <input type="text" id="creatorSparkInput" class="creator-input" placeholder="e.g. Discussing this with my team; why does no one see the second-order effects?">
+        </div>
+
+        <!-- Target Audience Selector -->
+        <div class="creator-common-section">
+          <label class="creator-field-label">Target Audience Tone</label>
+          <div class="creator-audience-chips" id="creatorAudienceChips">
+            <button type="button" class="audience-chip active" data-audience="General Public" onclick="selectAudience('General Public')">General Public</button>
+            <button type="button" class="audience-chip" data-audience="Tech & Founders" onclick="selectAudience('Tech & Founders')">Tech & Founders</button>
+            <button type="button" class="audience-chip" data-audience="Designers & Creatives" onclick="selectAudience('Designers & Creatives')">Designers & Creatives</button>
+            <button type="button" class="audience-chip" data-audience="Investors & Analysts" onclick="selectAudience('Investors & Analysts')">Investors & Analysts</button>
+            <button type="button" class="audience-chip" data-audience="Curious Minds" onclick="selectAudience('Curious Minds')">Curious Minds</button>
+          </div>
+        </div>
+
+        <!-- Action Next Button -->
+        <div class="creator-footer">
+          <button type="button" class="creator-synthesize-btn" id="synthesizeBtn" onclick="startAiSynthesis()">
+            <span class="btn-stars">✨</span>
+            <span class="btn-text">Synthesize 3-Poster Slant</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- STEP 2 CONTAINER: AI SYNTHESIS LOADING -->
+      <div class="creator-step-content" id="creatorStep2" style="display:none;">
+        <div class="synthesis-loading-state">
+          <div class="synthesis-orb-wrap">
+            <div class="synthesis-orb"></div>
+            <div class="synthesis-rings"></div>
+          </div>
+          <h3 class="synthesis-loading-title">Synthesizing Editorial Deck</h3>
+          <p class="synthesis-loading-subtitle" id="synthesisStepText">Reading source and distilling narrative arc...</p>
+          <div class="synthesis-progress-bar">
+            <div class="synthesis-progress-fill" id="synthesisProgressFill"></div>
+          </div>
+          <div class="synthesis-model-badge">Powered by Gemini 3.8 Flash</div>
+        </div>
+      </div>
+
+      <!-- STEP 3 CONTAINER: 3-POSTER PREVIEW & PUBLISH -->
+      <div class="creator-step-content" id="creatorStep3" style="display:none;">
+        <div class="creator-preview-container">
+          <!-- Slide Preview Switcher Tabs -->
+          <div class="creator-preview-tabs">
+            <button type="button" class="preview-tab active" id="prevTab0" onclick="switchPreviewSlide(0)">
+              <span>🎨</span> Poster 1: The Hook
+            </button>
+            <button type="button" class="preview-tab" id="prevTab1" onclick="switchPreviewSlide(1)">
+              <span>⚖️</span> Poster 2: Curator Take
+            </button>
+            <button type="button" class="preview-tab" id="prevTab2" onclick="switchPreviewSlide(2)">
+              <span id="prevTab2Icon">📰</span> Poster 3: Receipts
+            </button>
+          </div>
+
+          <!-- Dynamic Live Post Card Preview -->
+          <div class="creator-preview-card-wrap" id="creatorCardPreviewWrapper">
+            <!-- Rendered dynamically -->
+          </div>
+
+          <!-- Quick Editorial Refinement Section -->
+          <div class="creator-refine-box">
+            <div class="refine-field">
+              <label class="refine-label">Editorial Headline (Editable)</label>
+              <input type="text" id="refineHeadlineInput" class="refine-input" oninput="updatePreviewHeadline(this.value)">
+            </div>
+            <div class="refine-field-row">
+              <div class="refine-field-col">
+                <label class="refine-label">Category</label>
+                <input type="text" id="refineCategoryInput" class="refine-input" oninput="updatePreviewCategory(this.value)">
+              </div>
+              <div class="refine-field-col">
+                <label class="refine-label">Curator Handle</label>
+                <input type="text" id="refineHandleInput" class="refine-input" placeholder="@curator" oninput="updatePreviewHandle(this.value)">
+              </div>
+            </div>
+          </div>
+
+          <!-- Final Publish Bar -->
+          <div class="creator-publish-footer">
+            <button type="button" class="creator-secondary-btn" onclick="backToStep1()">
+              &larr; Re-edit Inputs
+            </button>
+            <button type="button" class="creator-publish-btn" id="publishBtn" onclick="publishSynthesizedPost()">
+              <span>Publish to slant.today 🚀</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Detail Modal -->
   <div class="modal-overlay" id="detailModal">

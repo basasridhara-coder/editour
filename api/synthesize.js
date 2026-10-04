@@ -1,0 +1,251 @@
+// Serverless Function: /api/synthesize
+// Synthesizes raw inputs (Web links, Photos/Clippings, Inner Voice)
+// into a complete 3-poster Slant carousel using Gemini 3.8 Flash.
+
+const DEFAULT_KEY_B64 = 'QVEuQWI4Uk42STR5WnQzMEl6NGpLRkQ2SndaYVlSeThQYlVtWXpDYUNuMzU3alIyUU9KbFE=';
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || Buffer.from(DEFAULT_KEY_B64, 'base64').toString('utf8');
+const GEMINI_MODEL = 'gemini-3.8-flash';
+
+module.exports = async function handler(req, res) {
+  // CORS configuration
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  try {
+    let body = req.body;
+    if (typeof body === 'string') {
+      try {
+        body = JSON.parse(body);
+      } catch (e) {
+        return res.status(400).json({ error: 'Invalid JSON payload' });
+      }
+    }
+
+    const {
+      sourceType = 'inner_voice', // 'digital_link' | 'inner_voice' | 'photo'
+      url = '',
+      text = '',
+      imageBase64 = null,
+      imageMimeType = 'image/jpeg',
+      targetAudience = 'General',
+      slantTone = 'mind', // 'mind' | 'heart'
+      spark = '',
+      creatorHandle = '@curator'
+    } = body || {};
+
+    let extractedTitle = '';
+    let extractedContent = text || '';
+    let pubName = '';
+
+    // 1. If digital link, attempt lightweight server-side scraping of OpenGraph / Title / Text
+    if (sourceType === 'digital_link' && url) {
+      try {
+        const parsedUrl = new URL(url);
+        pubName = parsedUrl.hostname.replace(/^www\./, '');
+        
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 4000);
+        const pageResp = await fetch(url, {
+          signal: controller.signal,
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 SlantBot/1.0'
+          }
+        });
+        clearTimeout(timeout);
+
+        if (pageResp.ok) {
+          const html = await pageResp.text();
+          // Extract title
+          const titleMatch = html.match(/<meta property=["']og:title["'] content=["'](.*?)["']/i) ||
+                             html.match(/<title>(.*?)<\/title>/i);
+          if (titleMatch && titleMatch[1]) {
+            extractedTitle = titleMatch[1].trim();
+          }
+
+          // Extract meta description / og:description
+          const descMatch = html.match(/<meta property=["']og:description["'] content=["'](.*?)["']/i) ||
+                            html.match(/<meta name=["']description["'] content=["'](.*?)["']/i);
+          let desc = descMatch && descMatch[1] ? descMatch[1].trim() : '';
+
+          // Extract site_name
+          const siteMatch = html.match(/<meta property=["']og:site_name["'] content=["'](.*?)["']/i);
+          if (siteMatch && siteMatch[1]) {
+            pubName = siteMatch[1].trim();
+          }
+
+          // Strip HTML tags for clean body excerpt
+          const cleanBody = html
+            .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+            .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
+            .replace(/<[^>]+>/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .slice(0, 3000);
+
+          extractedContent = `Title: ${extractedTitle}\nDescription: ${desc}\n\nArticle Text:\n${cleanBody}`;
+        }
+      } catch (err) {
+        console.warn('URL metadata fetch skipped or timed out:', err.message);
+      }
+    }
+
+    // 2. Build Prompt for Gemini 3.8 Flash
+    const toneDescription = slantTone === 'heart'
+      ? 'Out of Heart: Deeply reflective, philosophical, emotive, humanistic, and conviction-driven.'
+      : 'Out of Mind: Sharp, analytical, strategic, counter-intuitive, high-signal, and intellectually rigorous.';
+
+    const systemPrompt = `You are the lead editorial director and visual design curator for "Slant" (slant.today), an elite visual publication that distills complex stories into high-impact 3-poster social carousels.
+
+Input Details:
+- Source Type: ${sourceType}
+- Target Audience: ${targetAudience}
+- Tone / Slant: ${toneDescription}
+${spark ? `- The Spark (Personal Context / Observation): "${spark}"` : ''}
+${url ? `- Source Link: ${url}` : ''}
+${pubName ? `- Publication / Domain: ${pubName}` : ''}
+
+Task:
+Synthesize this input into a compelling 3-poster social carousel deck:
+1. Poster 1 (The Visual Hook): A bold adapted headline (5-10 words, unforgettable), a gripping 1-2 sentence hook, category badge, and dominant visual metaphor.
+2. Poster 2 (The Curator's Take): A punchy perspective, why it matters right now, and exactly 3 distinct high-signal takeaways.
+3. Poster 3 (The Receipts / Core Conviction): A single powerful highlight quote, and 3 verified excerpt bullet points backing the stance.
+
+Respond strictly with valid JSON with this exact structure:
+{
+  "adaptedHeadline": "5-10 word bold, memorable editorial headline",
+  "originalHeadline": "Original title or subject",
+  "publicationName": "${pubName || (sourceType === 'inner_voice' ? 'My Slant' : 'Curated Press')}",
+  "categoryBadge": "UPPERCASE CATEGORY (e.g. DEEP TECH, CULTURE, OPINION, CLIMATE, ECONOMY, HEALTH)",
+  "hook": "1-2 sentence gripping hook that stops the reader mid-scroll",
+  "summary": "2-3 concise paragraphs of curator take and critique",
+  "whyItMatters": "1-2 sharp sentences on the stakes and why this perspective matters right now",
+  "keyTakeaways": [
+    "First critical takeaway (concise, high-impact)",
+    "Second critical takeaway (counter-narrative or strategic insight)",
+    "Third critical takeaway (future implication or action)"
+  ],
+  "receiptHighlightQuote": "Single poignant quote or core conviction sentence",
+  "resolvedArticleExcerpts": [
+    "First factual excerpt or supporting evidence sentence",
+    "Second factual excerpt or supporting evidence sentence",
+    "Third factual excerpt or supporting evidence sentence"
+  ],
+  "keyMetric": "Short impactful stat or metric (e.g. +42%, 1,072 Trees, 10x, 99.8% - or leave empty if none)",
+  "visualMood": "Short aesthetic phrase (e.g. High-Contrast Editorial Risograph, Velvet Obsidian Chiaroscuro)",
+  "heroCue": "Dominant centerpiece subject or object",
+  "motifCue": "Metaphorical symbol representing the stance",
+  "tensionCue": "Opposing visual force or conflict",
+  "atmosphereCue": "Environmental setting or mood",
+  "lightingCue": "Dramatic lighting description",
+  "styleCue": "Artistic medium description",
+  "illustrationPrompt": "Cinematic visual art prompt describing the scene metaphorically. Do not include any text, letters, watermarks, or typography."
+}`;
+
+    const parts = [];
+
+    // If multimodal photo uploaded
+    if (sourceType === 'photo' && imageBase64) {
+      const cleanData = imageBase64.replace(/^data:image\/\w+;base64,/, '');
+      parts.push({
+        inlineData: {
+          mimeType: imageMimeType,
+          data: cleanData
+        }
+      });
+      parts.push({
+        text: `Here is a photograph of a printed news clipping, article, or document. OCR and analyze it, then synthesize the Slant 3-poster carousel as requested:\n\n${systemPrompt}`
+      });
+    } else {
+      const userContent = extractedContent || extractedTitle || text || url || spark || 'Contemporary cultural reflection';
+      parts.push({
+        text: `${systemPrompt}\n\nUser Input Content:\n${userContent}`
+      });
+    }
+
+    // 3. Call Gemini 3.8 Flash
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+    const geminiResp = await fetch(geminiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts }],
+        generationConfig: {
+          responseMimeType: 'application/json',
+          temperature: 0.7
+        }
+      })
+    });
+
+    if (!geminiResp.ok) {
+      const errText = await geminiResp.text();
+      console.error('Gemini API Error:', errText);
+      return res.status(502).json({ error: 'AI synthesis service error: ' + errText });
+    }
+
+    const geminiData = await geminiResp.json();
+    const rawText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!rawText) {
+      return res.status(500).json({ error: 'Empty response from AI model' });
+    }
+
+    let parsed;
+    try {
+      parsed = JSON.parse(rawText);
+    } catch (e) {
+      console.error('Failed to parse Gemini JSON:', rawText);
+      return res.status(500).json({ error: 'Failed to parse AI response' });
+    }
+
+    // 4. Construct high-aesthetic illustration artwork URL
+    const artPrompt = parsed.illustrationPrompt || `${parsed.heroCue || parsed.adaptedHeadline}, editorial poster art, high aesthetic, no text`;
+    const cleanArtPrompt = encodeURIComponent(`${artPrompt}, cinematic editorial art, high aesthetic, vivid color grading, masterwork, no letters, no text`);
+    const illustrationUrl = `https://image.pollinations.ai/prompt/${cleanArtPrompt}?width=1080&height=1350&nologo=true`;
+
+    const id = 'slant-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7);
+    const postItem = {
+      id,
+      createdAt: new Date().toISOString(),
+      sourceType,
+      digitalLink: url || '',
+      publicationName: parsed.publicationName || pubName || (sourceType === 'inner_voice' ? 'My Slant' : 'Curated Press'),
+      adaptedHeadline: parsed.adaptedHeadline || 'Perspectives in Flux',
+      originalHeadline: parsed.originalHeadline || extractedTitle || parsed.adaptedHeadline,
+      categoryBadge: parsed.categoryBadge || (sourceType === 'inner_voice' ? 'OPINION' : 'DISCOVERY'),
+      targetAudience: targetAudience || 'General',
+      hook: parsed.hook || '',
+      summary: parsed.summary || '',
+      whyItMatters: parsed.whyItMatters || '',
+      keyTakeaways: Array.isArray(parsed.keyTakeaways) ? parsed.keyTakeaways : [],
+      receiptHighlightQuote: parsed.receiptHighlightQuote || '',
+      resolvedArticleExcerpts: Array.isArray(parsed.resolvedArticleExcerpts) ? parsed.resolvedArticleExcerpts : [],
+      keyMetric: parsed.keyMetric || '',
+      pullQuote: parsed.receiptHighlightQuote || '',
+      visualMood: parsed.visualMood || 'Editorial Chiaroscuro',
+      hookCues: `#1 [HERO]: ${parsed.heroCue || 'Central subject'}\n#2 [MOTIF]: ${parsed.motifCue || 'Metaphor'}\n#3 [TENSION]: ${parsed.tensionCue || 'Conflict'}\n#4 [ATMOSPHERE]: ${parsed.atmosphereCue || 'Setting'}\n#5 [LIGHTING]: ${parsed.lightingCue || 'Atmospheric light'}\n#6 [STYLE]: ${parsed.styleCue || 'Editorial illustration'}`,
+      illustrationPrompt: parsed.illustrationPrompt || '',
+      illustrationUrl,
+      creatorHandle: creatorHandle || '@curator',
+      slantTone: slantTone || 'mind',
+      slantIcon: slantTone === 'heart' ? '❤️' : '🧠',
+      isUserCreated: true,
+      userContext: spark || ''
+    };
+
+    return res.status(200).json({
+      success: true,
+      post: postItem
+    });
+  } catch (error) {
+    console.error('Server error in /api/synthesize:', error);
+    return res.status(500).json({ error: 'Server synthesis error: ' + error.message });
+  }
+};

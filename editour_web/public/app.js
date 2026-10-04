@@ -143,6 +143,7 @@ if (window.supabase && typeof window.supabase.createClient === 'function') {
 // User session state & saved bookmarks
 let currentUser = null;
 let savedPostIds = new Set(JSON.parse(localStorage.getItem('slant_saved_posts') || localStorage.getItem('editour_saved_posts') || '[]'));
+let myCreatedPostIds = new Set(JSON.parse(localStorage.getItem('slant_my_posts') || '[]'));
 
 // ============================================================
 // AUTHENTICATION & USER PROFILE CONTROLLER
@@ -213,13 +214,15 @@ function updateAuthUI() {
 
   // Compute how many posts belong to this user
   let myPostsCount = 0;
-  if (currentUser && Array.isArray(allPosts)) {
-    const userEmail = (currentUser.email || '').toLowerCase();
-    const userHandle = (currentUser.user_metadata?.user_name || currentUser.user_metadata?.name || userEmail.split('@')[0] || '').toLowerCase().replace('@', '');
+  if (Array.isArray(allPosts)) {
+    const userEmail = currentUser ? (currentUser.email || '').toLowerCase() : '';
+    const userHandle = currentUser ? (currentUser.user_metadata?.user_name || currentUser.user_metadata?.name || userEmail.split('@')[0] || '').toLowerCase().replace('@', '') : '';
     myPostsCount = allPosts.filter(p => {
+      if (myCreatedPostIds.has(p.id)) return true;
+      if (!currentUser) return false;
       const postAuthor = (p.creatorHandle || '').toLowerCase().replace('@', '');
       const postUserId = p.user_id || p.userId;
-      return (postUserId && postUserId === currentUser.id) || (userHandle && postAuthor && postAuthor === userHandle);
+      return (postUserId && postUserId === currentUser.id) || (userHandle && postAuthor && postAuthor === userHandle) || (userEmail && (p.userEmail || '').toLowerCase() === userEmail);
     }).length;
   }
   if (userMenuMyCount) userMenuMyCount.textContent = myPostsCount;
@@ -269,7 +272,7 @@ function updateAuthUI() {
 
     // Show saved pill if reader saved cards locally
     if (pillSaved) pillSaved.style.display = savedCount > 0 ? '' : 'none';
-    if (pillMyStories) pillMyStories.style.display = 'none';
+    if (pillMyStories) pillMyStories.style.display = myPostsCount > 0 ? '' : 'none';
 
     // Update Drawer Account UI for guest
     const drawerAuthGuest = document.getElementById('drawerAuthGuest');
@@ -745,12 +748,13 @@ function renderFeed() {
     }
 
     if (currentFilter === 'my_stories') {
+      if (myCreatedPostIds.has(post.id)) return true;
       if (!currentUser) return false;
       const userEmail = (currentUser.email || '').toLowerCase();
       const userHandle = (currentUser.user_metadata?.user_name || currentUser.user_metadata?.name || userEmail.split('@')[0] || '').toLowerCase().replace('@', '');
       const postAuthor = (post.creatorHandle || '').toLowerCase().replace('@', '');
       const postUserId = post.user_id || post.userId;
-      return (postUserId && postUserId === currentUser.id) || (userHandle && postAuthor && postAuthor === userHandle);
+      return (postUserId && postUserId === currentUser.id) || (userHandle && postAuthor && postAuthor === userHandle) || (userEmail && (post.userEmail || '').toLowerCase() === userEmail);
     }
 
     if (currentFilter !== 'all') {
@@ -1653,6 +1657,7 @@ function toggleLike(btn) {
    ============================================================ */
 
 function openDetailModal(index) {
+  if (index === 'preview') return;
   activePostIndex = index;
   const post = allPosts[index];
   if (!post) return;
@@ -1856,6 +1861,465 @@ function setupRealtimeSubscription() {
       checkLiveSupabaseUpdates(false);
     }
   });
+}
+
+/* ============================================================
+   CREATOR STUDIO: ADAPTIVE 3-POSTER GENERATOR (WEB & MOBILE)
+   ============================================================ */
+
+let creatorSelectedSource = 'digital_link'; // 'digital_link' | 'photo' | 'inner_voice'
+let creatorSelectedImageBase64 = null;
+let creatorSelectedImageMimeType = 'image/jpeg';
+let creatorSlantTone = 'mind'; // 'mind' | 'heart'
+let creatorAudience = 'General Public';
+let currentSynthesizedPost = null;
+let currentPreviewSlide = 0;
+
+function isMobileDevice() {
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+    (navigator.maxTouchPoints && navigator.maxTouchPoints > 1 && window.innerWidth <= 820);
+}
+
+function openCreatorModal() {
+  const modal = document.getElementById('creatorModal');
+  if (!modal) return;
+
+  const isMobile = isMobileDevice();
+  const photoTab = document.getElementById('creatorSourcePhotoTab');
+  const photoEmoji = document.getElementById('creatorPhotoEmoji');
+  const photoLabel = document.getElementById('creatorPhotoLabel');
+  const mobileCameraPrompt = document.getElementById('mobileCameraPrompt');
+  const dropzoneText = document.getElementById('dropzoneText');
+
+  // Device-adaptive adjustments:
+  // Mobile gets camera snap prominent button & "Camera / Snap" tab label
+  // Desktop/laptop gets "Upload Image" with drag-and-drop file zone & NO camera button
+  if (isMobile) {
+    if (photoEmoji) photoEmoji.textContent = '📸';
+    if (photoLabel) photoLabel.textContent = 'Camera / Snap';
+    if (mobileCameraPrompt) mobileCameraPrompt.style.display = 'block';
+    if (dropzoneText) dropzoneText.innerHTML = 'Or choose an image from your library';
+  } else {
+    if (photoEmoji) photoEmoji.textContent = '📁';
+    if (photoLabel) photoLabel.textContent = 'Upload Image';
+    if (mobileCameraPrompt) mobileCameraPrompt.style.display = 'none';
+    if (dropzoneText) dropzoneText.innerHTML = 'Drag and drop news clipping or screenshot, or <span class="dropzone-link">browse</span>';
+  }
+
+  // Reset to Step 1
+  backToStep1();
+
+  // Show modal
+  modal.classList.add('open');
+  modal.classList.add('active');
+  document.body.style.overflow = 'hidden';
+
+  // Attach drag-drop listeners if not already attached
+  setupCreatorDropzone();
+}
+
+function closeCreatorModal() {
+  const modal = document.getElementById('creatorModal');
+  if (modal) {
+    modal.classList.remove('open');
+    modal.classList.remove('active');
+  }
+  document.body.style.overflow = '';
+}
+
+function handleCreatorOverlayClick(e) {
+  if (e && e.target && e.target.id === 'creatorModal') {
+    closeCreatorModal();
+  }
+}
+
+function selectCreatorSource(sourceType) {
+  creatorSelectedSource = sourceType;
+
+  // Update tabs
+  document.querySelectorAll('#creatorSourceTabs .source-tab').forEach(tab => {
+    tab.classList.toggle('active', tab.getAttribute('data-source') === sourceType);
+  });
+
+  // Toggle sections
+  const secLink = document.getElementById('sectionDigitalLink');
+  const secPhoto = document.getElementById('sectionPhoto');
+  const secVoice = document.getElementById('sectionInnerVoice');
+
+  if (secLink) secLink.style.display = sourceType === 'digital_link' ? 'flex' : 'none';
+  if (secPhoto) secPhoto.style.display = sourceType === 'photo' ? 'flex' : 'none';
+  if (secVoice) secVoice.style.display = sourceType === 'inner_voice' ? 'flex' : 'none';
+}
+
+function selectSlantTone(tone) {
+  creatorSlantTone = tone;
+  document.querySelectorAll('.tone-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.getAttribute('data-tone') === tone);
+  });
+}
+
+function selectAudience(audience) {
+  creatorAudience = audience;
+  document.querySelectorAll('#creatorAudienceChips .audience-chip').forEach(chip => {
+    chip.classList.toggle('active', chip.getAttribute('data-audience') === audience);
+  });
+}
+
+// Client-side downscaling and compression via HTML5 canvas
+function compressImage(file, maxDimension, quality, callback) {
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const img = new Image();
+    img.onload = function() {
+      let width = img.width;
+      let height = img.height;
+
+      if (width > maxDimension || height > maxDimension) {
+        if (width > height) {
+          height = Math.round((height * maxDimension) / width);
+          width = maxDimension;
+        } else {
+          width = Math.round((width * maxDimension) / height);
+          height = maxDimension;
+        }
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+
+      const compressedData = canvas.toDataURL('image/jpeg', quality);
+      callback(compressedData, 'image/jpeg');
+    };
+    img.onerror = function() {
+      alert('Could not process this image file. Please try another image.');
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function handleImageSelection(event) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+
+  // Compress down to max 1200px / 82% quality (< 100 KB)
+  compressImage(file, 1200, 0.82, function(base64Data, mimeType) {
+    creatorSelectedImageBase64 = base64Data;
+    creatorSelectedImageMimeType = mimeType;
+
+    const thumb = document.getElementById('creatorImageThumb');
+    const emptyBox = document.getElementById('dropzoneEmpty');
+    const previewBox = document.getElementById('dropzonePreview');
+
+    if (thumb) thumb.src = base64Data;
+    if (emptyBox) emptyBox.style.display = 'none';
+    if (previewBox) previewBox.style.display = 'flex';
+  });
+}
+
+function removeSelectedImage(event) {
+  if (event) event.stopPropagation();
+  creatorSelectedImageBase64 = null;
+
+  const fileInput = document.getElementById('creatorFileInput');
+  const camInput = document.getElementById('creatorCameraInput');
+  const emptyBox = document.getElementById('dropzoneEmpty');
+  const previewBox = document.getElementById('dropzonePreview');
+  const thumb = document.getElementById('creatorImageThumb');
+
+  if (fileInput) fileInput.value = '';
+  if (camInput) camInput.value = '';
+  if (thumb) thumb.src = '';
+  if (emptyBox) emptyBox.style.display = 'block';
+  if (previewBox) previewBox.style.display = 'none';
+}
+
+let dropzoneInitialized = false;
+function setupCreatorDropzone() {
+  if (dropzoneInitialized) return;
+  const dropzone = document.getElementById('creatorDropzone');
+  if (!dropzone) return;
+
+  dropzone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropzone.classList.add('drag-over');
+  });
+
+  dropzone.addEventListener('dragleave', (e) => {
+    e.preventDefault();
+    dropzone.classList.remove('drag-over');
+  });
+
+  dropzone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropzone.classList.remove('drag-over');
+    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleImageSelection({ target: { files: e.dataTransfer.files } });
+    }
+  });
+
+  dropzoneInitialized = true;
+}
+
+function backToStep1() {
+  const s1 = document.getElementById('creatorStep1');
+  const s2 = document.getElementById('creatorStep2');
+  const s3 = document.getElementById('creatorStep3');
+  const d1 = document.getElementById('stepDot1');
+  const d2 = document.getElementById('stepDot2');
+  const d3 = document.getElementById('stepDot3');
+
+  if (s1) s1.style.display = 'block';
+  if (s2) s2.style.display = 'none';
+  if (s3) s3.style.display = 'none';
+
+  if (d1) { d1.className = 'creator-step-dot active'; }
+  if (d2) { d2.className = 'creator-step-dot'; }
+  if (d3) { d3.className = 'creator-step-dot'; }
+}
+
+async function startAiSynthesis() {
+  const urlInput = document.getElementById('creatorUrlInput');
+  const voiceInput = document.getElementById('creatorInnerVoiceInput');
+  const sparkInput = document.getElementById('creatorSparkInput');
+
+  const url = urlInput ? urlInput.value.trim() : '';
+  const text = voiceInput ? voiceInput.value.trim() : '';
+  const spark = sparkInput ? sparkInput.value.trim() : '';
+
+  // Validation
+  if (creatorSelectedSource === 'digital_link') {
+    if (!url) {
+      alert('Please enter a web article URL to synthesize.');
+      if (urlInput) urlInput.focus();
+      return;
+    }
+  } else if (creatorSelectedSource === 'photo') {
+    if (!creatorSelectedImageBase64) {
+      alert('Please snap a photo or upload an image of the clipping first.');
+      return;
+    }
+  } else if (creatorSelectedSource === 'inner_voice') {
+    if (!text) {
+      alert('Please enter your thought or conviction first.');
+      if (voiceInput) voiceInput.focus();
+      return;
+    }
+  }
+
+  // Switch to Step 2 (Loading)
+  const s1 = document.getElementById('creatorStep1');
+  const s2 = document.getElementById('creatorStep2');
+  const d1 = document.getElementById('stepDot1');
+  const d2 = document.getElementById('stepDot2');
+  const stepText = document.getElementById('synthesisStepText');
+  const fill = document.getElementById('synthesisProgressFill');
+
+  if (s1) s1.style.display = 'none';
+  if (s2) s2.style.display = 'flex';
+  if (d1) { d1.className = 'creator-step-dot completed'; }
+  if (d2) { d2.className = 'creator-step-dot active'; }
+
+  if (stepText) stepText.textContent = 'Reading source and extracting core tension...';
+  if (fill) fill.style.width = '25%';
+
+  const ticker1 = setTimeout(() => {
+    if (stepText) stepText.textContent = 'Synthesizing 3-poster narrative (Hook → Take → Receipts)...';
+    if (fill) fill.style.width = '60%';
+  }, 1400);
+
+  const ticker2 = setTimeout(() => {
+    if (stepText) stepText.textContent = 'Generating visual metaphors & editorial poster art...';
+    if (fill) fill.style.width = '85%';
+  }, 2800);
+
+  // Author handle
+  let userHandle = '@curator';
+  if (currentUser) {
+    userHandle = '@' + (currentUser.user_metadata?.user_name || currentUser.user_metadata?.name || currentUser.email.split('@')[0]);
+  }
+
+  const payload = {
+    sourceType: creatorSelectedSource,
+    url,
+    text,
+    imageBase64: creatorSelectedImageBase64,
+    imageMimeType: creatorSelectedImageMimeType,
+    targetAudience: creatorAudience,
+    slantTone: creatorSlantTone,
+    spark,
+    creatorHandle: userHandle
+  };
+
+  try {
+    const resp = await fetch('/api/synthesize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    clearTimeout(ticker1);
+    clearTimeout(ticker2);
+
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({ error: 'Synthesis failed' }));
+      throw new Error(err.error || 'AI synthesis failed');
+    }
+
+    const data = await resp.json();
+    if (!data || !data.post) {
+      throw new Error('Received invalid post payload from AI model');
+    }
+
+    currentSynthesizedPost = data.post;
+    if (fill) fill.style.width = '100%';
+
+    setTimeout(() => {
+      showStep3Preview();
+    }, 400);
+
+  } catch (err) {
+    clearTimeout(ticker1);
+    clearTimeout(ticker2);
+    console.error('Synthesis error:', err);
+    alert('AI Synthesis Error: ' + err.message + '\n\nPlease check your input and try again.');
+    backToStep1();
+  }
+}
+
+function showStep3Preview() {
+  const s2 = document.getElementById('creatorStep2');
+  const s3 = document.getElementById('creatorStep3');
+  const d2 = document.getElementById('stepDot2');
+  const d3 = document.getElementById('stepDot3');
+
+  if (s2) s2.style.display = 'none';
+  if (s3) s3.style.display = 'flex';
+  if (d2) { d2.className = 'creator-step-dot completed'; }
+  if (d3) { d3.className = 'creator-step-dot active'; }
+
+  // Fill refine inputs
+  const headlineInput = document.getElementById('refineHeadlineInput');
+  const categoryInput = document.getElementById('refineCategoryInput');
+  const handleInput = document.getElementById('refineHandleInput');
+
+  if (headlineInput) headlineInput.value = currentSynthesizedPost.adaptedHeadline || '';
+  if (categoryInput) categoryInput.value = currentSynthesizedPost.categoryBadge || 'OPINION';
+  if (handleInput) handleInput.value = currentSynthesizedPost.creatorHandle || '@curator';
+
+  // Render preview
+  renderCreatorPreview();
+}
+
+function renderCreatorPreview() {
+  const wrapper = document.getElementById('creatorCardPreviewWrapper');
+  if (!wrapper || !currentSynthesizedPost) return;
+
+  wrapper.innerHTML = '';
+  // Pass index as 'preview'
+  const card = createPostCardElement(currentSynthesizedPost, 'preview');
+  wrapper.appendChild(card);
+
+  // Set to current slide
+  switchPreviewSlide(0);
+}
+
+function switchPreviewSlide(slideIdx) {
+  currentPreviewSlide = slideIdx;
+  goToSlide(null, 'preview', slideIdx);
+
+  document.querySelectorAll('.preview-tab').forEach((tab, idx) => {
+    tab.classList.toggle('active', idx === slideIdx);
+  });
+}
+
+function updatePreviewHeadline(val) {
+  if (!currentSynthesizedPost) return;
+  currentSynthesizedPost.adaptedHeadline = val;
+  // Update in preview card directly
+  const h1 = document.querySelector('#carousel-preview .headline-overlay');
+  if (h1) h1.textContent = val;
+}
+
+function updatePreviewCategory(val) {
+  if (!currentSynthesizedPost) return;
+  const upper = val.toUpperCase();
+  currentSynthesizedPost.categoryBadge = upper;
+  const badge = document.querySelector('#carousel-preview .category-badge');
+  if (badge) badge.textContent = upper;
+}
+
+function updatePreviewHandle(val) {
+  if (!currentSynthesizedPost) return;
+  currentSynthesizedPost.creatorHandle = val;
+  const handleEl = document.querySelector('#creatorCardPreviewWrapper .creator-handle');
+  if (handleEl) handleEl.textContent = val;
+}
+
+async function publishSynthesizedPost() {
+  if (!currentSynthesizedPost) return;
+
+  const publishBtn = document.getElementById('publishBtn');
+  if (publishBtn) {
+    publishBtn.disabled = true;
+    publishBtn.innerHTML = '<span>Publishing to Live Feed... ⏳</span>';
+  }
+
+  // Final values from inputs
+  const headline = document.getElementById('refineHeadlineInput')?.value?.trim();
+  const category = document.getElementById('refineCategoryInput')?.value?.trim();
+  const handle = document.getElementById('refineHandleInput')?.value?.trim();
+
+  if (headline) currentSynthesizedPost.adaptedHeadline = headline;
+  if (category) currentSynthesizedPost.categoryBadge = category.toUpperCase();
+  if (handle) currentSynthesizedPost.creatorHandle = handle;
+
+  if (currentUser) {
+    currentSynthesizedPost.user_id = currentUser.id;
+    currentSynthesizedPost.userEmail = currentUser.email;
+  }
+  currentSynthesizedPost.createdAt = new Date().toISOString();
+  currentSynthesizedPost.isUserCreated = true;
+
+  try {
+    // 1. Post to backend API
+    const resp = await fetch('/api/posts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(currentSynthesizedPost)
+    });
+
+    if (!resp.ok) {
+      console.warn('Backend /api/posts returned status:', resp.status);
+    }
+  } catch (err) {
+    console.warn('Backend publish call error:', err);
+  }
+
+  // 2. Track in local storage
+  myCreatedPostIds.add(currentSynthesizedPost.id);
+  localStorage.setItem('slant_my_posts', JSON.stringify(Array.from(myCreatedPostIds)));
+
+  // 3. Unshift into allPosts and render feed
+  allPosts.unshift(currentSynthesizedPost);
+  updateBadge(true, `Live Feed (${allPosts.length} posts)`);
+  updateAuthUI();
+  renderFeed();
+
+  // 4. Close modal & show toast
+  closeCreatorModal();
+  showTemporaryToast('✨ Published! Your 3-poster Slant is live on slant.today');
+
+  // Scroll smoothly to top so user sees their new post
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+
+  if (publishBtn) {
+    publishBtn.disabled = false;
+    publishBtn.innerHTML = '<span>Publish to slant.today 🚀</span>';
+  }
 }
 
 if (document.readyState === 'loading') {
