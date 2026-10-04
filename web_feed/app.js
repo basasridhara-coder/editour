@@ -887,6 +887,78 @@ function getStartingLines(fullText) {
 }
 
 /* ============================================================
+   SOURCE VERIFICATION & AUTHENTICATION CLASSIFICATION
+   ============================================================ */
+
+const REGISTERED_PRESS_KEYWORDS = [
+  'indian express', 'new indian express', 'the hindu', 'times of india',
+  'deccan herald', 'hindustan times', 'economic times', 'livemint', 'mint',
+  'business standard', 'reuters', 'ap news', 'associated press', 'bbc',
+  'the guardian', 'new york times', 'washington post', 'wall street journal',
+  'wsj', 'financial times', 'bloomberg', 'the atlantic', 'economist',
+  'al jazeera', 'bangalore mirror', 'sunday herald', 'the telegraph',
+  'daily telegraph', 'tribune', 'statesman', 'frontline'
+];
+
+const REGISTERED_PRESS_DOMAINS = [
+  'indianexpress.com', 'newindianexpress.com', 'thehindu.com', 'timesofindia.indiatimes.com',
+  'deccanherald.com', 'hindustantimes.com', 'economictimes.indiatimes.com', 'livemint.com',
+  'business-standard.com', 'reuters.com', 'apnews.com', 'bbc.com', 'bbc.co.uk',
+  'theguardian.com', 'nytimes.com', 'washingtonpost.com', 'wsj.com', 'ft.com',
+  'bloomberg.com', 'theatlantic.com', 'economist.com', 'aljazeera.com', 'bangaloremirror.indiatimes.com',
+  'telegraphindia.com', 'tribuneindia.com'
+];
+
+function getCleanDomain(link) {
+  if (!link) return '';
+  try {
+    const url = new URL(link);
+    return url.hostname.replace(/^www\./, '');
+  } catch (_) {
+    return link.replace(/^https?:\/\/(www\.)?/, '').split('/')[0];
+  }
+}
+
+function getSourceTier(post) {
+  // Tier 3: My Slant / Personal Opinion
+  if (post.sourceType === 'my_slant' || post.sourceType === 'opinion' || post.categoryBadge === 'OPINION' || post.categoryBadge === 'MY SLANT') {
+    return 'tier3_opinion';
+  }
+  // Book Excerpt
+  if (post.sourceType === 'book_excerpt') {
+    return 'tier_book';
+  }
+
+  const pub = (post.publicationName || '').toLowerCase();
+  const link = (post.digitalLink || '').toLowerCase();
+
+  const isPressPub = REGISTERED_PRESS_KEYWORDS.some(k => pub.includes(k));
+  let isPressDomain = false;
+  if (link) {
+    try {
+      const url = new URL(link);
+      const host = url.hostname.replace(/^www\./, '');
+      isPressDomain = REGISTERED_PRESS_DOMAINS.some(d => host === d || host.endsWith('.' + d));
+    } catch (_) {
+      isPressDomain = REGISTERED_PRESS_DOMAINS.some(d => link.includes(d));
+    }
+  }
+
+  // Accredited news organization
+  if (isPressPub || isPressDomain) {
+    return 'tier1_press';
+  }
+
+  // Web article, commentary, or independent link
+  if (post.digitalLink || post.sourceType === 'digital_link' || (pub && pub !== 'Press Wire' && pub !== 'Physical Press')) {
+    return 'tier2_web';
+  }
+
+  // Fallback: reader perspective
+  return 'tier3_opinion';
+}
+
+/* ============================================================
    SLIDE BUILDERS (SLIDE 1, SLIDE 2, SLIDE 3)
    ============================================================ */
 
@@ -895,8 +967,21 @@ function buildSlide1Html(post, index) {
   const audience = escapeHtml(post.targetAudience || 'General');
   let catBadge = escapeHtml(post.categoryBadge || 'CURATED DIGEST');
   let pubName = escapeHtml(post.publicationName || 'Press Wire');
+  const tier = getSourceTier(post);
+  const cleanHost = getCleanDomain(post.digitalLink);
+  const slantIcon = post.slantIcon || (post.slantTone === 'heart' ? '❤️' : '💭');
 
-  if (catBadge.includes('•')) {
+  let sourceLabel = pubName;
+  if (tier === 'tier2_web') {
+    sourceLabel = cleanHost || 'Web Commentary';
+  } else if (tier === 'tier3_opinion') {
+    sourceLabel = 'Personal Slant';
+    catBadge = `${slantIcon} OPINION`;
+  } else if (tier === 'tier_book') {
+    sourceLabel = post.bookTitle || 'Book Excerpt';
+  }
+
+  if (catBadge.includes('•') && tier !== 'tier3_opinion') {
     const parts = catBadge.split('•');
     catBadge = parts[0].trim();
     if (parts[1] && parts[1].trim()) {
@@ -932,12 +1017,26 @@ function buildSlide1Html(post, index) {
   if (rawNews) {
     const words = rawNews.split(/\s+/);
     const formattedNews = words.length > 13 ? words.slice(0, 13).join(' ') + '...' : rawNews;
+    
+    let fragIcon = '🗞️';
+    let fragTitle = `NEWS CLIPPING • ${pubName.toUpperCase()}`;
+    if (tier === 'tier2_web') {
+      fragIcon = '🌐';
+      fragTitle = `WEB COMMENTARY • ${(cleanHost || 'ONLINE').toUpperCase()}`;
+    } else if (tier === 'tier3_opinion') {
+      fragIcon = slantIcon;
+      fragTitle = `PERSPECTIVE • THE SPARK`;
+    } else if (tier === 'tier_book') {
+      fragIcon = '📖';
+      fragTitle = `LITERARY EXCERPT • CLASSICAL TEXT`;
+    }
+
     newsFragmentHtml = `
       <div class="tactile-news-fragment">
         <div class="tactile-news-inner">
           <div class="tactile-news-header">
-            <span>🗞️</span>
-            <span>NEWS CLIPPING • ${pubName.toUpperCase()}</span>
+            <span>${fragIcon}</span>
+            <span>${fragTitle}</span>
           </div>
           <div class="tactile-news-headline">${escapeHtml(formattedNews)}</div>
         </div>
@@ -954,7 +1053,7 @@ function buildSlide1Html(post, index) {
         <div style="padding: 4px 10px; background: rgba(0,0,0,0.75); border: 1px solid rgba(255,255,255,0.25); border-radius: 20px; display: inline-flex; align-items: center; gap: 6px;">
           <span style="width: 6px; height: 6px; border-radius: 50%; background: #6366F1; display: inline-block;"></span>
           <span style="font-size: 9.5px; font-weight: 800; color: #818CF8; letter-spacing: 0.8px;">${catBadge}</span>
-          <span style="font-size: 9.5px; font-weight: 700; color: #FFF;">• ${pubName}</span>
+          <span style="font-size: 9.5px; font-weight: 700; color: #FFF;">• ${sourceLabel}</span>
         </div>
         <span class="slide-page-badge" style="background:rgba(0,0,0,0.75); border:1px solid rgba(255,255,255,0.25); border-radius:20px; padding:3px 9px; font-size:9.5px; color:#FFF; font-weight:800; letter-spacing:0.5px;">01 / 03</span>
       </div>
@@ -970,6 +1069,22 @@ function buildSlide2Html(post, index) {
   const handle = escapeHtml(post.creatorHandle || '@curator');
   const initial = handle.replace('@', '').charAt(0).toUpperCase() || 'C';
   const pubName = escapeHtml(post.publicationName || 'Press Wire');
+  const tier = getSourceTier(post);
+  const slantIcon = post.slantIcon || (post.slantTone === 'heart' ? '❤️' : '💭');
+
+  let verdictBadgeLabel = `⚡ CURATOR'S TAKE • ${pubName}`;
+  let nextSlideLabel = 'THE RECEIPTS &rarr;';
+
+  if (tier === 'tier2_web') {
+    verdictBadgeLabel = `⚡ CURATOR'S TAKE • WEB COMMENTARY`;
+    nextSlideLabel = 'WEB SOURCE &rarr;';
+  } else if (tier === 'tier3_opinion') {
+    verdictBadgeLabel = `${slantIcon} THE CORE TAKE • PERSONAL PERSPECTIVE`;
+    nextSlideLabel = 'MY SLANT &rarr;';
+  } else if (tier === 'tier_book') {
+    verdictBadgeLabel = `📖 LITERARY REFLECTION`;
+    nextSlideLabel = 'EXCERPT &rarr;';
+  }
 
   let rawOpinion = (post.creatorOpinion && post.creatorOpinion.trim())
     ? post.creatorOpinion.trim()
@@ -1017,7 +1132,7 @@ function buildSlide2Html(post, index) {
     <div class="slide-hook-bottom-scrim" style="height: 54%; background: linear-gradient(to bottom, transparent 0%, rgba(7,11,18,0.85) 35%, rgba(7,11,18,0.98) 100%);"></div>
     <div class="slide-hook-content" style="justify-content: space-between;">
       <div class="slide-hook-top" style="justify-content: space-between; width: 100%;">
-        <span class="critique-verdict-badge" style="font-size:9.5px; padding:4px 10px; background:rgba(0,0,0,0.75); border:1px solid rgba(245,158,11,0.4); border-radius:20px; color:#F59E0B; font-weight:800;">⚡ CURATOR'S TAKE • ${pubName}</span>
+        <span class="critique-verdict-badge" style="font-size:9.5px; padding:4px 10px; background:rgba(0,0,0,0.75); border:1px solid rgba(245,158,11,0.4); border-radius:20px; color:#F59E0B; font-weight:800;">${verdictBadgeLabel}</span>
         <span class="slide-page-badge" style="background:rgba(0,0,0,0.75); border:1px solid rgba(255,255,255,0.25); border-radius:20px; padding:3px 9px; font-size:9.5px; color:#FFF; font-weight:800;">02 / 03</span>
       </div>
       <div class="slide-hook-bottom" style="gap:6px;">
@@ -1036,7 +1151,7 @@ function buildSlide2Html(post, index) {
             <div style="width:20px; height:20px; border-radius:50%; background:#F59E0B; color:#000; font-size:10px; font-weight:bold; display:flex; align-items:center; justify-content:center;">${initial}</div>
             <span style="font-size:11px; font-weight:600; color:#CBD5E1;">${handle}</span>
           </div>
-          <span style="font-size:9.5px; font-weight:800; color:#FCA5A5; background:rgba(220,38,38,0.25); border:1px solid rgba(239,68,68,0.8); border-radius:14px; padding:3px 8px;">THE RECEIPTS &rarr;</span>
+          <span style="font-size:9.5px; font-weight:800; color:#FCA5A5; background:rgba(220,38,38,0.25); border:1px solid rgba(239,68,68,0.8); border-radius:14px; padding:3px 8px;">${nextSlideLabel}</span>
         </div>
       </div>
     </div>
@@ -1044,6 +1159,11 @@ function buildSlide2Html(post, index) {
 }
 
 function buildSlide3Html(post, index) {
+  const tier = getSourceTier(post);
+  const cleanHost = getCleanDomain(post.digitalLink);
+  const handle = escapeHtml(post.creatorHandle || '@curator');
+  const slantIcon = post.slantIcon || (post.slantTone === 'heart' ? '❤️' : '💭');
+
   let pubName = post.publicationName || 'THE FINANCIAL CHRONICLE';
   if (pubName.includes('•')) {
     const parts = pubName.split('•');
@@ -1055,7 +1175,6 @@ function buildSlide3Html(post, index) {
 
   const headline = escapeHtml(post.originalHeadline || post.adaptedHeadline || 'Original News Source');
   const quote = escapeHtml(post.receiptHighlightQuote || post.pullQuote || 'Primary reporting confirmed that recorded structural indicators diverged sharply from initial forecasts across core operations.');
-  const handle = escapeHtml(post.creatorHandle || '@curator');
 
   // Extract 3 section excerpt statements
   let excerpts = post.resolvedArticleExcerpts || post.articleExcerpts || [];
@@ -1069,21 +1188,93 @@ function buildSlide3Html(post, index) {
   const p2 = escapeHtml((excerpts.length > 1 && excerpts[1]) ? excerpts[1] : ((post.receiptHighlightQuote && post.receiptHighlightQuote !== p1) ? post.receiptHighlightQuote : quote));
   const p3 = escapeHtml((excerpts.length > 2 && excerpts[2]) ? excerpts[2] : (post.summary && post.summary !== p1 && post.summary !== p2 ? post.summary : 'Corroborating records confirmed key indicators aligned with official administrative filings.'));
 
+  // Tier-specific broadsheet configurations:
+  let stampHtml = '';
+  let mastheadTitle = pubName;
+  let rulesCenter = 'ACTUAL NEWSPAPER EXCERPTS';
+  let rulesLeft = 'VOL. CLXXIV • NO. 48,210';
+  let bylineLeft = 'BY SPECIAL CORRESPONDENT & WIRE BUREAU';
+  let bylineTag = '<span class="receipts-archive-tag">VERIFIED ARCHIVE</span>';
+  let highlightIcon = '✏️';
+  let highlightTitle = 'KEY SECTION EXCERPT';
+  let folioSource = 'AUTHENTIC ARTICLE EXCERPTS • PRIMARY SOURCE';
+  let folioAuthor = `ARCHIVED BY ${handle}`;
+
+  if (tier === 'tier1_press') {
+    stampHtml = `
+      <div class="stamp-verified">
+        <div>★ VERIFIED ★</div>
+        <div>PRESS ARCHIVE</div>
+      </div>
+    `;
+    mastheadTitle = pubName;
+    rulesCenter = 'ACTUAL NEWSPAPER EXCERPTS';
+    rulesLeft = 'VOL. CLXXIV • NO. 48,210';
+    bylineLeft = 'BY SPECIAL CORRESPONDENT & WIRE BUREAU';
+    bylineTag = '<span class="receipts-archive-tag">VERIFIED ARCHIVE</span>';
+    highlightTitle = 'KEY SECTION EXCERPT';
+    folioSource = 'AUTHENTIC ARTICLE EXCERPTS • PRIMARY SOURCE';
+    folioAuthor = `ARCHIVED BY ${handle}`;
+  } else if (tier === 'tier2_web') {
+    stampHtml = `
+      <div class="stamp-web-citation">
+        <div>🌐 WEB</div>
+        <div>COMMENTARY</div>
+      </div>
+    `;
+    mastheadTitle = cleanHost ? `${escapeHtml(cleanHost.toUpperCase())} • WEB COMMENTARY` : 'WEB COMMENTARY';
+    rulesCenter = 'WEB COMMENTARY & CITATION';
+    rulesLeft = 'ONLINE CITATION';
+    bylineLeft = `SOURCED FROM ${escapeHtml(cleanHost || 'ONLINE PUBLICATION')}`;
+    bylineTag = '<span class="receipts-web-tag">WEB COMMENTARY</span>';
+    highlightTitle = 'KEY ARTICLE EXCERPT';
+    folioSource = 'DIGITAL COMMENTARY CITATION • EXTERNAL LINK';
+    folioAuthor = `CURATED BY ${handle}`;
+  } else if (tier === 'tier3_opinion') {
+    stampHtml = `
+      <div class="stamp-opinion">
+        <div>${slantIcon} OPINION</div>
+        <div>MY SLANT</div>
+      </div>
+    `;
+    mastheadTitle = `READER'S OP-ED`;
+    rulesCenter = 'COMMUNITY OP-ED & ESSAY';
+    rulesLeft = 'FIRST-PERSON PERSPECTIVE';
+    bylineLeft = `CONTRIBUTED BY ${handle}`;
+    bylineTag = '<span class="receipts-opinion-tag">PERSONAL SLANT</span>';
+    highlightIcon = slantIcon;
+    highlightTitle = 'THE CORE CONVICTION';
+    folioSource = 'FIRST-PERSON REFLECTION • UNVERIFIED OPINION';
+    folioAuthor = `BY ${handle}`;
+  } else if (tier === 'tier_book') {
+    stampHtml = `
+      <div class="stamp-book">
+        <div>📖 LITERARY</div>
+        <div>EXCERPT</div>
+      </div>
+    `;
+    mastheadTitle = 'CLASSIC LITERATURE ARCHIVE';
+    rulesCenter = escapeHtml((post.bookTitle || 'LITERARY EXCERPT').toUpperCase());
+    rulesLeft = 'CANONICAL FOLIO';
+    bylineLeft = `WRITTEN BY ${escapeHtml((post.bookAuthor || 'MARCUS AURELIUS').toUpperCase())}`;
+    bylineTag = '<span class="receipts-book-tag">BOOK EXCERPT</span>';
+    highlightIcon = '📖';
+    highlightTitle = 'CORE PASSAGE';
+    folioSource = 'LITERARY EXCERPT • CLASSICAL ARCHIVE';
+    folioAuthor = `EXCERPTED BY ${handle}`;
+  }
+
   return `
-    <!-- Forensic "VERIFIED PRESS EVIDENCE" Weathered Red Rubber Stamp -->
-    <div class="stamp-verified">
-      <div>★ VERIFIED ★</div>
-      <div>PRESS EVIDENCE</div>
-    </div>
+    ${stampHtml}
 
     <!-- 1. Classic Broadsheet Masthead Header -->
     <div class="receipt-header">
       <div class="receipt-masthead-thick"></div>
       <div class="receipt-masthead-thin"></div>
-      <div class="receipt-pub-title">${pubName}</div>
+      <div class="receipt-pub-title">${mastheadTitle}</div>
       <div class="receipt-rules">
-        <span>VOL. CLXXIV • NO. 48,210</span>
-        <span class="receipt-rules-center">ACTUAL NEWSPAPER EXCERPTS</span>
+        <span>${rulesLeft}</span>
+        <span class="receipt-rules-center">${rulesCenter}</span>
         <span>SLIDE 03 / 03</span>
       </div>
       <div class="receipt-masthead-bottom"></div>
@@ -1093,8 +1284,8 @@ function buildSlide3Html(post, index) {
     <div class="receipts-headline-box">
       <h4 class="receipt-headline">${headline}</h4>
       <div class="receipts-byline">
-        <span>BY SPECIAL CORRESPONDENT & WIRE BUREAU</span>
-        <span class="receipts-archive-tag">VERIFIED ARCHIVE</span>
+        <span>${bylineLeft}</span>
+        ${bylineTag}
       </div>
       <div class="receipts-hairline"></div>
     </div>
@@ -1106,7 +1297,7 @@ function buildSlide3Html(post, index) {
       <div class="receipt-spacer-mid"></div>
       <div class="receipt-highlight">
         <div class="highlighter-label">
-          <span>✏️</span> KEY SECTION EXCERPT
+          <span>${highlightIcon}</span> ${highlightTitle}
         </div>
         <div class="highlighter-text">“${p2}”</div>
       </div>
@@ -1119,8 +1310,8 @@ function buildSlide3Html(post, index) {
     <div class="receipt-footer">
       <div class="receipt-folio-rule"></div>
       <div class="receipt-folio-text">
-        <span class="receipt-folio-source">AUTHENTIC ARTICLE EXCERPTS • PRIMARY SOURCE</span>
-        <span class="receipt-folio-author">ARCHIVED BY ${handle}</span>
+        <span class="receipt-folio-source">${folioSource}</span>
+        <span class="receipt-folio-author">${folioAuthor}</span>
       </div>
     </div>
   `;
@@ -1143,7 +1334,15 @@ function createPostCardElement(post, index) {
   }
   pubName = pubName.replace(/^(NEWSPAPER|ARTICLE|BOOK|MAGAZINE|PRESS):\s*/i, '').trim();
 
-  const catBadge = post.categoryBadge || 'DISCOVERY';
+  const tier = getSourceTier(post);
+  const digitalUrl = post.digitalLink || '';
+  const cleanHost = getCleanDomain(digitalUrl);
+  const slantIcon = post.slantIcon || (post.slantTone === 'heart' ? '❤️' : '💭');
+
+  let catBadge = post.categoryBadge || 'DISCOVERY';
+  if (tier === 'tier3_opinion') {
+    catBadge = `${slantIcon} OPINION`;
+  }
   const audience = post.targetAudience || 'General';
   const headline = post.adaptedHeadline || post.originalHeadline || 'Untitled Story';
   const hook = post.hook || '';
@@ -1153,16 +1352,41 @@ function createPostCardElement(post, index) {
   const isBook = post.sourceType === 'book_excerpt';
   const isCarousel = true;
   const isClean = !!cleanViewState[index];
-  const hasPaperCut = (post.originalPhotoUrl && post.originalPhotoUrl.length > 0) ||
-                      (post.originalPhotoBase64 && post.originalPhotoBase64.length > 50) || 
-                      (post.originalPhotoPath && 
-                      !post.originalPhotoPath.startsWith('http') && 
-                      post.originalPhotoPath !== 'digital_article_link' && 
-                      post.originalPhotoPath !== 'book_excerpt_reading' &&
-                      post.originalPhotoPath !== 'sample_asset_print') ||
-                      (post.sourceType === 'photo' && !post.digitalLink);
-  const digitalUrl = post.digitalLink || '';
   const isSaved = savedPostIds.has(post.id);
+
+  // Determine Tab 3 label and icon based on tier
+  let tab3Icon = '📰';
+  let tab3Label = 'Receipt';
+  let tab3Title = 'Slide 3: Newspaper Receipt';
+
+  let sourceBadgeIcon = '📰';
+  let sourceBadgeText = pubName;
+
+  if (tier === 'tier1_press') {
+    tab3Icon = '📰';
+    tab3Label = 'Receipt';
+    tab3Title = 'Slide 3: Verified Newspaper Receipt';
+    sourceBadgeIcon = '🏛️';
+    sourceBadgeText = pubName;
+  } else if (tier === 'tier2_web') {
+    tab3Icon = '🌐';
+    tab3Label = 'Web Source';
+    tab3Title = 'Slide 3: Web Commentary Source';
+    sourceBadgeIcon = '🌐';
+    sourceBadgeText = cleanHost || pubName || 'Web Commentary';
+  } else if (tier === 'tier3_opinion') {
+    tab3Icon = slantIcon;
+    tab3Label = 'My Slant';
+    tab3Title = 'Slide 3: My Slant (Personal Perspective)';
+    sourceBadgeIcon = slantIcon;
+    sourceBadgeText = 'Personal Perspective';
+  } else if (tier === 'tier_book') {
+    tab3Icon = '📖';
+    tab3Label = 'Excerpt';
+    tab3Title = 'Slide 3: Classical Book Excerpt';
+    sourceBadgeIcon = '📖';
+    sourceBadgeText = post.bookTitle || pubName || 'Classical Literature';
+  }
 
   // 3-Poster Carousel Trio Frame with Interactive Tabs & Arrows (Universal 3-Slide Social Poster Series)
   const visualSectionHtml = `
@@ -1175,9 +1399,9 @@ function createPostCardElement(post, index) {
         <span class="tab-icon">⚖️</span>
         <span class="tab-text">Take</span>
       </button>
-      <button class="carousel-tab-btn" onclick="goToSlide(event, ${index}, 2)" title="Slide 3: Newspaper Receipt">
-        <span class="tab-icon">📰</span>
-        <span class="tab-text">Receipt</span>
+      <button class="carousel-tab-btn" onclick="goToSlide(event, ${index}, 2)" title="${escapeHtml(tab3Title)}">
+        <span class="tab-icon">${tab3Icon}</span>
+        <span class="tab-text">${escapeHtml(tab3Label)}</span>
       </button>
     </div>
 
@@ -1219,8 +1443,8 @@ function createPostCardElement(post, index) {
             <span class="post-time">• Today</span>
           </div>
           <div class="pub-source-badge">
-            <span>${isBook ? '📖' : '📰'}</span>
-            <span>${escapeHtml(pubName)}</span>
+            <span>${sourceBadgeIcon}</span>
+            <span>${escapeHtml(sourceBadgeText)}</span>
           </div>
         </div>
       </div>

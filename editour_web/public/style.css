@@ -1464,6 +1464,69 @@ header {
   text-transform: uppercase;
 }
 
+.stamp-web-citation {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  transform: rotate(-6deg);
+  border: 1.5px solid #475569;
+  color: #334155;
+  border-radius: 4px;
+  padding: 2px 7px;
+  font-size: 6.8px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  text-align: center;
+  line-height: 1.15;
+  background: rgba(71, 85, 105, 0.08);
+  z-index: 10;
+  pointer-events: none;
+  font-family: 'Inter', system-ui, sans-serif;
+  text-transform: uppercase;
+}
+
+.stamp-opinion {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  transform: rotate(-7deg);
+  border: 1.5px solid #4F46E5;
+  color: #4338CA;
+  border-radius: 4px;
+  padding: 2px 7px;
+  font-size: 6.8px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  text-align: center;
+  line-height: 1.15;
+  background: rgba(79, 70, 229, 0.08);
+  z-index: 10;
+  pointer-events: none;
+  font-family: 'Inter', system-ui, sans-serif;
+  text-transform: uppercase;
+}
+
+.stamp-book {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  transform: rotate(-5deg);
+  border: 1.5px solid #B45309;
+  color: #92400E;
+  border-radius: 4px;
+  padding: 2px 7px;
+  font-size: 6.8px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  text-align: center;
+  line-height: 1.15;
+  background: rgba(180, 83, 9, 0.08);
+  z-index: 10;
+  pointer-events: none;
+  font-family: 'Inter', system-ui, sans-serif;
+  text-transform: uppercase;
+}
+
 .receipt-header {
   display: flex;
   flex-direction: column;
@@ -1557,6 +1620,24 @@ header {
 .receipts-archive-tag {
   font-weight: 800;
   color: #991B1B;
+  letter-spacing: 0.5px;
+}
+
+.receipts-web-tag {
+  font-weight: 800;
+  color: #475569;
+  letter-spacing: 0.5px;
+}
+
+.receipts-opinion-tag {
+  font-weight: 800;
+  color: #4F46E5;
+  letter-spacing: 0.5px;
+}
+
+.receipts-book-tag {
+  font-weight: 800;
+  color: #92400E;
   letter-spacing: 0.5px;
 }
 
