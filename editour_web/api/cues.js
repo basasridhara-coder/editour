@@ -30,8 +30,11 @@ module.exports = async function handler(req, res) {
     newsHeadline = '',
     newsBody = '',
     sourceType = 'digital_link',
+    characterRepresentation = 'silhouette',
     selectedIndices = []
   } = body || {};
+
+  const isLikeness = (characterRepresentation === 'likeness');
 
   const prompt = `You are the lead visual art director for "Slant" (slant.today), an elite editorial publication.
 Your job is to define the 6 ranked storytelling visual cue dimensions for Poster 1 (The Hook Poster).
@@ -40,9 +43,12 @@ Curator's Slant / Perspective: "${curatorAngle || 'No specific angle specified'}
 Article Title: "${newsHeadline || ''}"
 Article Excerpt / Context: "${newsBody ? newsBody.slice(0, 1500) : ''}"
 Source Type: ${sourceType}
+Character Portrayal Style: ${isLikeness ? 'REAL PERSON FACE & LIKENESS' : 'Stylized Metaphor / Silhouette'}
+
+${isLikeness ? 'CRITICAL PERSON LIKENESS DIRECTIVE: The curator has explicitly requested REAL PERSON LIKENESS. The #1 HERO cue MUST be the central real-world individual named in the headline or context (e.g., "Donald Trump (Editorial Portrait)", "Elon Musk (Editorial Portrait)") styled for a high-contrast editorial magazine cover. Do NOT substitute with an abstract object or inanimate building!' : ''}
 
 STRICT VISUAL CUE REQUIREMENTS (Must be short, punchy 3-6 word phrases):
-1. HERO: Central focal figure, subject, or architectural centerpiece. Must reflect the actual story subject or curator's protagonist (e.g. "Monolithic Obsidian Server Tower", "Lone Sweeper with Traditional Broom", "Silhouetted Wall Street Bull"). Never output a URL, protocol, or punctuation!
+1. HERO: Central focal figure, subject, or architectural centerpiece. ${isLikeness ? 'Must be the real person identified in the story (e.g. "Donald Trump (Editorial Portrait)").' : 'Must reflect the actual story subject or curator protagonist (e.g. "Monolithic Obsidian Server Tower", "Lone Sweeper with Traditional Broom", "Silhouetted Wall Street Bull").'} Never output a URL, protocol, or punctuation!
 2. MOTIF: Secondary symbolic metaphorical object capturing the curator's philosophical stance or critique (e.g. "Tangled Marionette Puppet Strings", "Sculptor Chisel against Marble", "Tipping Balance Scales").
 3. TENSION: Opposing visual friction, conflict, shadow, crisis, or counter-force (e.g. "Relentless Tidal Wave of Noise", "Cracking Stone Foundation", "Looming Corporate Shadow").
 4. ATMOSPHERE: Setting, environmental scale, weather, or time of day (e.g. "Damp Rain-Slicked City Boulevard", "Smoke-Filled High-Rise Boardroom", "Brutalist Concrete Server Canyon").
@@ -106,7 +112,7 @@ Respond strictly with valid JSON with this exact schema:
 
   } catch (err) {
     console.warn('Gemini cues generation error, using smart fallback:', err.message);
-    const fallbacks = generateSmartFallbackCues(curatorAngle, newsHeadline, newsBody);
+    const fallbacks = generateSmartFallbackCues(curatorAngle, newsHeadline, newsBody, characterRepresentation);
     return res.status(200).json({
       success: true,
       cues: fallbacks,
@@ -115,22 +121,62 @@ Respond strictly with valid JSON with this exact schema:
   }
 };
 
-function generateSmartFallbackCues(curatorAngle, newsHeadline, newsBody) {
+function generateSmartFallbackCues(curatorAngle, newsHeadline, newsBody, characterRepresentation = 'silhouette') {
   const combined = `${curatorAngle || ''} ${newsHeadline || ''} ${newsBody || ''}`.toLowerCase();
+  const isLikeness = (characterRepresentation === 'likeness');
 
   let hero = '';
-  if (combined.includes('garbage') || combined.includes('trash') || combined.includes('waste')) {
-    hero = 'Lone Sweeper with Traditional Broom';
-  } else if (combined.includes('ai') || combined.includes('tech') || combined.includes('silicon') || combined.includes('compute') || combined.includes('apple') || combined.includes('model')) {
-    hero = 'Monolithic Obsidian Server Tower';
-  } else if (combined.includes('market') || combined.includes('invest') || combined.includes('wealth') || combined.includes('stock')) {
-    hero = 'Silhouetted Wall Street Bull';
-  } else if (combined.includes('polit') || combined.includes('elect') || combined.includes('minister') || combined.includes('vote')) {
-    hero = 'Solitary Figure at Microphone';
-  } else if (newsHeadline && newsHeadline.length > 3 && !newsHeadline.startsWith('http')) {
-    hero = newsHeadline.split(/[:–—\-]/)[0].trim().slice(0, 35);
-  } else {
-    hero = 'Solitary Focal Figure';
+
+  // 1. Prominent public figure detection (prioritize when likeness requested or mentioned)
+  if (combined.includes('trump')) {
+    hero = 'Donald Trump (Editorial Portrait)';
+  } else if (combined.includes('musk')) {
+    hero = 'Elon Musk (Editorial Portrait)';
+  } else if (combined.includes('altman')) {
+    hero = 'Sam Altman (Editorial Portrait)';
+  } else if (combined.includes('nadella')) {
+    hero = 'Satya Nadella (Editorial Portrait)';
+  } else if (combined.includes('pichai')) {
+    hero = 'Sundar Pichai (Editorial Portrait)';
+  } else if (combined.includes('cook') && (combined.includes('apple') || combined.includes('tim'))) {
+    hero = 'Tim Cook (Editorial Portrait)';
+  } else if (combined.includes('huang') || combined.includes('jensen')) {
+    hero = 'Jensen Huang (Editorial Portrait)';
+  } else if (combined.includes('biden')) {
+    hero = 'Joe Biden (Editorial Portrait)';
+  } else if (combined.includes('harris') && (combined.includes('kamala') || combined.includes('vice'))) {
+    hero = 'Kamala Harris (Editorial Portrait)';
+  } else if (combined.includes('modi')) {
+    hero = 'Narendra Modi (Editorial Portrait)';
+  } else if (combined.includes('zuckerberg')) {
+    hero = 'Mark Zuckerberg (Editorial Portrait)';
+  } else if (combined.includes('bezos')) {
+    hero = 'Jeff Bezos (Editorial Portrait)';
+  }
+
+  // 2. If likeness requested and headline has a proper name
+  if (!hero && isLikeness && newsHeadline) {
+    const nameMatch = newsHeadline.match(/\b([A-Z][a-z]+ [A-Z][a-z]+)\b/);
+    if (nameMatch && nameMatch[1]) {
+      hero = `${nameMatch[1]} (Editorial Portrait)`;
+    }
+  }
+
+  // 3. Thematic topic fallbacks
+  if (!hero) {
+    if (combined.includes('garbage') || combined.includes('trash') || combined.includes('waste')) {
+      hero = 'Lone Sweeper with Traditional Broom';
+    } else if (combined.includes('ai') || combined.includes('tech') || combined.includes('silicon') || combined.includes('compute') || combined.includes('apple') || combined.includes('model')) {
+      hero = 'Monolithic Obsidian Server Tower';
+    } else if (combined.includes('market') || combined.includes('invest') || combined.includes('wealth') || combined.includes('stock')) {
+      hero = 'Silhouetted Wall Street Bull';
+    } else if (combined.includes('polit') || combined.includes('elect') || combined.includes('minister') || combined.includes('vote')) {
+      hero = 'Solitary Figure at Microphone';
+    } else if (newsHeadline && newsHeadline.length > 3 && !newsHeadline.startsWith('http')) {
+      hero = newsHeadline.split(/[:–—\-]/)[0].trim().slice(0, 35);
+    } else {
+      hero = 'Solitary Focal Figure';
+    }
   }
 
   let motif = '';

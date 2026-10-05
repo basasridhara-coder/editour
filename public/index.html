@@ -454,6 +454,18 @@
                 <input type="text" id="refineHandleInput" class="refine-input" placeholder="@curator" oninput="updatePreviewHandle(this.value)">
               </div>
             </div>
+            <!-- Poster 1 Artwork Source Toggle (Visible when real likeness photo is available) -->
+            <div class="refine-field" id="artworkSourceToggleRow" style="display:none; margin-top:10px;">
+              <label class="refine-label">Poster 1 Visual Art</label>
+              <div class="artwork-toggle-pills">
+                <button type="button" class="art-pill-btn active" id="artPillLikeness" onclick="setPreviewArtworkSource('likeness')">
+                  <span>👤 Real Photo Likeness</span>
+                </button>
+                <button type="button" class="art-pill-btn" id="artPillMetaphor" onclick="setPreviewArtworkSource('metaphor')">
+                  <span>🎨 Stylized Metaphor Art</span>
+                </button>
+              </div>
+            </div>
           </div>
 
           <!-- 4. Bottom Navigation Bar (Step 3: Left Arrow + Publish + Right Arrow) -->

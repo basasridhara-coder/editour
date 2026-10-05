@@ -4690,5 +4690,41 @@ header {
   transform: translateY(0.5px);
 }
 
+/* Poster 1 Visual Art Source Toggle in Step 3 */
+.artwork-toggle-pills {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
 
+.art-pill-btn {
+  flex: 1;
+  padding: 9px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
 
+.art-pill-btn:hover {
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #FFFFFF;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.art-pill-btn.active {
+  background: rgba(14, 165, 233, 0.16);
+  border-color: #0284C7;
+  color: #38BDF8;
+  font-weight: 700;
+  box-shadow: 0 0 14px rgba(2, 132, 199, 0.25);
+}

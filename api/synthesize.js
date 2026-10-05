@@ -124,6 +124,7 @@ ${url ? `- Source Link: ${url}` : ''}
 ${pubName ? `- Publication / Domain: ${pubName}` : ''}
 ${cues && cues.length > 0 ? `- Ranked Visual Cues: ${cues.map((c, i) => `#${i+1} ${c}`).join(' • ')}` : ''}
 - Character Portrayal Style: ${characterRepresentation === 'likeness' ? 'Match real person face and likeness from source photo' : 'Stylized metaphorical silhouette / symbolic figures'}
+${characterRepresentation === 'likeness' ? 'CRITICAL PERSON LIKENESS DIRECTIVE: Character Portrayal is set to REAL PERSON LIKENESS. The heroCue MUST specify the primary real-world individual named in the article/slant (e.g. "Donald Trump (Editorial Portrait)", "Elon Musk (Editorial Portrait)") formatted as an editorial cover portrait.' : ''}
 
 Task:
 Synthesize this input into a compelling 3-poster social carousel deck:
@@ -242,6 +243,7 @@ Respond strictly with valid JSON with this exact structure:
     const cleanArtPrompt = encodeURIComponent(`${artPrompt}, cinematic editorial art, high aesthetic, vivid color grading, masterwork, no letters, no text`);
     const illustrationUrl = `https://image.pollinations.ai/prompt/${cleanArtPrompt}?width=1080&height=1350&nologo=true`;
 
+    const hasLikenessPhoto = (characterRepresentation === 'likeness') && !!(imageBase64);
     const id = 'slant-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7);
     const postItem = {
       id,
@@ -267,7 +269,11 @@ Respond strictly with valid JSON with this exact structure:
       characterRepresentation,
       hookCues: `#1 [HERO]: ${parsed.heroCue || (cues && cues[0]) || 'Central subject'}\n#2 [MOTIF]: ${parsed.motifCue || (cues && cues[1]) || 'Metaphor'}\n#3 [TENSION]: ${parsed.tensionCue || (cues && cues[2]) || 'Conflict'}\n#4 [ATMOSPHERE]: ${parsed.atmosphereCue || (cues && cues[3]) || 'Setting'}\n#5 [LIGHTING]: ${parsed.lightingCue || (cues && cues[4]) || 'Atmospheric light'}\n#6 [STYLE]: ${parsed.styleCue || (cues && cues[5]) || 'Editorial illustration'}`,
       illustrationPrompt: parsed.illustrationPrompt || '',
-      illustrationUrl,
+      illustrationUrl: hasLikenessPhoto ? imageBase64 : illustrationUrl,
+      illustrationBase64: hasLikenessPhoto && imageBase64.startsWith('data:') ? imageBase64.split(',')[1] : null,
+      referencePhotoUrl: imageBase64 || null,
+      aiIllustrationUrl: illustrationUrl,
+      originalPhotoPath: imageBase64 || url || '',
       creatorHandle: creatorHandle || '@curator',
       slantTone: slantTone || 'mind',
       slantIcon: slantTone === 'heart' ? '❤️' : '🧠',
@@ -304,7 +310,16 @@ function generateSmartFallbackSynthesis({
     ? userSlant.split(/[.:;!?]/)[0].trim()
     : (extractedTitle || 'The Unspoken Friction Behind the Headline');
 
-  const hero = (cues && cues[0]) || 'Solitary Focal Figure';
+  let hero = (cues && cues[0]) || 'Solitary Focal Figure';
+  if (characterRepresentation === 'likeness') {
+    const combined = `${userSlant || ''} ${extractedTitle || ''} ${extractedContent || ''}`.toLowerCase();
+    if (combined.includes('trump')) hero = 'Donald Trump (Editorial Portrait)';
+    else if (combined.includes('musk')) hero = 'Elon Musk (Editorial Portrait)';
+    else if (combined.includes('altman')) hero = 'Sam Altman (Editorial Portrait)';
+    else if (combined.includes('nadella')) hero = 'Satya Nadella (Editorial Portrait)';
+    else if (combined.includes('pichai')) hero = 'Sundar Pichai (Editorial Portrait)';
+    else if (combined.includes('biden')) hero = 'Joe Biden (Editorial Portrait)';
+  }
   const motif = (cues && cues[1]) || 'Symbolic Editorial Metaphor';
   const tension = (cues && cues[2]) || 'Friction & Opposing Cast Shadows';
 

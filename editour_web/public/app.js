@@ -1398,15 +1398,15 @@ function createPostCardElement(post, index) {
   // 3-Poster Carousel Trio Frame with Interactive Tabs & Arrows (Universal 3-Slide Social Poster Series)
   const visualSectionHtml = `
     <div class="carousel-slide-tabs" id="tabs-${index}">
-      <button class="carousel-tab-btn active" onclick="goToSlide(event, ${index}, 0)" title="Slide 1: Visual Hook">
+      <button class="carousel-tab-btn active" onclick="goToSlide(event, '${index}', 0)" title="Slide 1: Visual Hook">
         <span class="tab-icon">🎨</span>
         <span class="tab-text">Hook</span>
       </button>
-      <button class="carousel-tab-btn" onclick="goToSlide(event, ${index}, 1)" title="Slide 2: Curator Take">
+      <button class="carousel-tab-btn" onclick="goToSlide(event, '${index}', 1)" title="Slide 2: Curator Take">
         <span class="tab-icon">⚖️</span>
         <span class="tab-text">Take</span>
       </button>
-      <button class="carousel-tab-btn" onclick="goToSlide(event, ${index}, 2)" title="${escapeHtml(tab3Title)}">
+      <button class="carousel-tab-btn" onclick="goToSlide(event, '${index}', 2)" title="${escapeHtml(tab3Title)}">
         <span class="tab-icon">${tab3Icon}</span>
         <span class="tab-text">${escapeHtml(tab3Label)}</span>
       </button>
@@ -1414,26 +1414,26 @@ function createPostCardElement(post, index) {
 
     <div class="carousel-view ${isClean ? 'clean-view' : ''}" id="carousel-${index}" data-post-index="${index}" data-current-slide="0">
       <div class="carousel-track" id="track-${index}">
-        <div class="carousel-slide slide-hook" onclick="openDetailModal(${index})">
+        <div class="carousel-slide slide-hook" onclick="openDetailModal('${index}')">
           ${buildSlide1Html(post, index)}
         </div>
-        <div class="carousel-slide slide-critique" onclick="openDetailModal(${index})">
+        <div class="carousel-slide slide-critique" onclick="openDetailModal('${index}')">
           ${buildSlide2Html(post, index)}
         </div>
-        <div class="carousel-slide slide-receipt" onclick="openDetailModal(${index})">
+        <div class="carousel-slide slide-receipt" onclick="openDetailModal('${index}')">
           ${buildSlide3Html(post, index)}
         </div>
       </div>
 
       <!-- Navigation Buttons -->
-      <button class="carousel-nav-btn prev-btn" onclick="changeSlide(event, ${index}, -1)" title="Previous Slide">&#x2039;</button>
-      <button class="carousel-nav-btn next-btn" onclick="changeSlide(event, ${index}, 1)" title="Next Slide">&#x203A;</button>
+      <button class="carousel-nav-btn prev-btn" onclick="changeSlide(event, '${index}', -1)" title="Previous Slide">&#x2039;</button>
+      <button class="carousel-nav-btn next-btn" onclick="changeSlide(event, '${index}', 1)" title="Next Slide">&#x203A;</button>
 
       <!-- Bottom Dot Indicators -->
       <div class="carousel-dots" id="dots-${index}">
-        <span class="carousel-dot active" onclick="goToSlide(event, ${index}, 0)"></span>
-        <span class="carousel-dot" onclick="goToSlide(event, ${index}, 1)"></span>
-        <span class="carousel-dot" onclick="goToSlide(event, ${index}, 2)"></span>
+        <span class="carousel-dot active" onclick="goToSlide(event, '${index}', 0)"></span>
+        <span class="carousel-dot" onclick="goToSlide(event, '${index}', 1)"></span>
+        <span class="carousel-dot" onclick="goToSlide(event, '${index}', 2)"></span>
       </div>
     </div>
   `;
@@ -1484,7 +1484,7 @@ function createPostCardElement(post, index) {
         </button>
 
         <!-- Clean Art Toggle (Show/Hide text overlays directly on feed) -->
-        <button class="icon-action-btn clean-view-btn ${isClean ? 'active' : ''}" id="clean-btn-${index}" onclick="toggleCleanView(event, ${index})" title="${isClean ? 'Show text overlays' : 'Clean artwork (hide text)'}">
+        <button class="icon-action-btn clean-view-btn ${isClean ? 'active' : ''}" id="clean-btn-${index}" onclick="toggleCleanView(event, '${index}')" title="${isClean ? 'Show text overlays' : 'Clean artwork (hide text)'}">
           ${isClean
             ? `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#38BDF8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
@@ -1498,16 +1498,16 @@ function createPostCardElement(post, index) {
 
         <!-- Native Instagram-style pagination dots for carousel posts -->
         <div class="carousel-dots-inline" id="dots-bar-${index}">
-          <span class="carousel-dot active" onclick="goToSlide(event, ${index}, 0)"></span>
-          <span class="carousel-dot" onclick="goToSlide(event, ${index}, 1)"></span>
-          <span class="carousel-dot" onclick="goToSlide(event, ${index}, 2)"></span>
+          <span class="carousel-dot active" onclick="goToSlide(event, '${index}', 0)"></span>
+          <span class="carousel-dot" onclick="goToSlide(event, '${index}', 1)"></span>
+          <span class="carousel-dot" onclick="goToSlide(event, '${index}', 2)"></span>
         </div>
       </div>
 
       <!-- Minimalist Action Icons: Book Cover, World Web Link, Newspaper Paper Cut -->
       <div class="action-group-right">
         ${isBook ? `
-          <button class="icon-action-btn" onclick="openDetailModal(${index})" title="View Book Cover & Source">
+          <button class="icon-action-btn" onclick="openDetailModal('${index}')" title="View Book Cover & Source">
             <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
               <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
@@ -1526,7 +1526,7 @@ function createPostCardElement(post, index) {
         ` : ''}
 
         ${hasPaperCut ? `
-          <button class="icon-action-btn" onclick="openPaperCutModal(${index})" title="View Paper Cut (${escapeHtml(pubName)})">
+          <button class="icon-action-btn" onclick="openPaperCutModal('${index}')" title="View Paper Cut (${escapeHtml(pubName)})">
             <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"></path>
               <path d="M18 14h-8"></path>
@@ -1547,10 +1547,10 @@ function createPostCardElement(post, index) {
 
     <!-- Instagram-style Caption Area: Creator Handle + Summary Starting Lines + '... more' -->
     <div class="post-content">
-      <div class="post-summary-snippet" onclick="openDetailModal(${index})" style="cursor:pointer;">
+      <div class="post-summary-snippet" onclick="openDetailModal('${index}')" style="cursor:pointer;">
         <span class="post-creator-handle"><strong>${escapeHtml(handle)}</strong></span>
         <span class="post-caption-text">${escapeHtml(getStartingLines(summary))}</span>
-        <button class="read-more-btn" onclick="event.stopPropagation(); openDetailModal(${index})">... more</button>
+        <button class="read-more-btn" onclick="event.stopPropagation(); openDetailModal('${index}')">... more</button>
       </div>
     </div>
   `;
@@ -1608,16 +1608,26 @@ function goToSlide(event, postIndex, slideIndex) {
       dot.classList.toggle('active', i === slideIndex);
     });
   }
+
+  // Keep top creator modal preview tabs synchronized with the current slide
+  if (postIndex === 'preview') {
+    currentPreviewSlide = slideIndex;
+    document.querySelectorAll('.preview-tab').forEach((tab, i) => {
+      tab.classList.toggle('active', i === slideIndex);
+    });
+  }
 }
 
 function setupCarouselGestures(postIndex) {
   const carousel = document.getElementById(`carousel-${postIndex}`);
-  if (!carousel) return;
+  if (!carousel || carousel.dataset.gesturesAttached) return;
+  carousel.dataset.gesturesAttached = 'true';
 
   let startX = 0;
   let startY = 0;
   let isSwiping = false;
 
+  // Touch Swipe for Mobile
   carousel.addEventListener('touchstart', (e) => {
     if (e.touches.length === 1) {
       startX = e.touches[0].clientX;
@@ -1631,7 +1641,7 @@ function setupCarouselGestures(postIndex) {
     isSwiping = false;
     const diffX = e.changedTouches[0].clientX - startX;
     const diffY = e.changedTouches[0].clientY - startY;
-    if (Math.abs(diffX) > 40 && Math.abs(diffX) > Math.abs(diffY)) {
+    if (Math.abs(diffX) > 35 && Math.abs(diffX) > Math.abs(diffY)) {
       if (diffX < 0) {
         changeSlide(null, postIndex, 1);
       } else {
@@ -1639,6 +1649,32 @@ function setupCarouselGestures(postIndex) {
       }
     }
   }, { passive: true });
+
+  // Mouse Drag Swipe for Desktop / Laptop
+  let isMouseDown = false;
+  carousel.addEventListener('mousedown', (e) => {
+    if (e.button !== 0 || e.target.closest('button') || e.target.closest('.carousel-tab-btn') || e.target.closest('.read-more-btn')) return;
+    isMouseDown = true;
+    startX = e.clientX;
+    startY = e.clientY;
+  });
+
+  const handleMouseEnd = (e) => {
+    if (!isMouseDown) return;
+    isMouseDown = false;
+    const diffX = e.clientX - startX;
+    const diffY = e.clientY - startY;
+    if (Math.abs(diffX) > 35 && Math.abs(diffX) > Math.abs(diffY)) {
+      if (diffX < 0) {
+        changeSlide(null, postIndex, 1);
+      } else {
+        changeSlide(null, postIndex, -1);
+      }
+    }
+  };
+
+  carousel.addEventListener('mouseup', handleMouseEnd);
+  carousel.addEventListener('mouseleave', () => { isMouseDown = false; });
 }
 
 function toggleLike(btn) {
@@ -2272,6 +2308,34 @@ async function handleUrlInput(val) {
   }
 }
 
+function detectPersonNameInContext(title, slant, content) {
+  const combined = `${title || ''} ${slant || ''} ${content ? content.slice(0, 500) : ''}`;
+  const lower = combined.toLowerCase();
+
+  if (lower.includes('trump')) return 'Donald Trump';
+  if (lower.includes('musk')) return 'Elon Musk';
+  if (lower.includes('altman')) return 'Sam Altman';
+  if (lower.includes('nadella')) return 'Satya Nadella';
+  if (lower.includes('pichai')) return 'Sundar Pichai';
+  if (lower.includes('tim cook') || (lower.includes('cook') && lower.includes('apple'))) return 'Tim Cook';
+  if (lower.includes('huang') || lower.includes('jensen')) return 'Jensen Huang';
+  if (lower.includes('biden')) return 'Joe Biden';
+  if (lower.includes('harris') && (lower.includes('kamala') || lower.includes('vice'))) return 'Kamala Harris';
+  if (lower.includes('zuckerberg')) return 'Mark Zuckerberg';
+  if (lower.includes('bezos')) return 'Jeff Bezos';
+  if (lower.includes('modi')) return 'Narendra Modi';
+
+  // Capitalized full name in title e.g. "John Smith"
+  if (title) {
+    const match = title.match(/\b([A-Z][a-z]{2,}\s+[A-Z][a-z]{2,})\b/);
+    if (match && !/^(The New|United States|White House|Wall Street|Silicon Valley|New York|Los Angeles|San Francisco)/i.test(match[1])) {
+      return match[1];
+    }
+  }
+
+  return null;
+}
+
 // Fallback heuristic 6-dimension extractor matching VisualCueService.dart
 function extract6RankedCueDimensions(curatorAngle, newsHeadline, newsBody) {
   let cleanHeadline = (newsHeadline || '').trim();
@@ -2283,7 +2347,10 @@ function extract6RankedCueDimensions(curatorAngle, newsHeadline, newsBody) {
 
   // 1. HERO (Subject from headline or angle - never a URL!)
   let hero = '';
-  if (combined.includes('garbage') || combined.includes('trash') || combined.includes('waste') || combined.includes('clean')) {
+  const detectedPerson = detectPersonNameInContext(cleanHeadline, curatorAngle, newsBody);
+  if (detectedPerson) {
+    hero = `${detectedPerson} (Editorial Portrait)`;
+  } else if (combined.includes('garbage') || combined.includes('trash') || combined.includes('waste') || combined.includes('clean')) {
     hero = 'Lone Sweeper with Traditional Broom';
   } else if (combined.includes('ai') || combined.includes('tech') || combined.includes('silicon') || combined.includes('data center') || combined.includes('model') || combined.includes('compute') || combined.includes('apple') || combined.includes('phone') || combined.includes('ipad')) {
     hero = 'Monolithic Obsidian Server Tower';
@@ -2455,13 +2522,19 @@ async function goToVisualCuesStep() {
 
   // AI-suggest cues if context changed or empty
   const articleTitle = currentScrapedArticle?.title || extractHeadlineFromUrl(url);
-  const contextKey = `${creatorSelectedSource}::${articleTitle}::${slantTake}`;
+  const contextKey = `${creatorSelectedSource}::${articleTitle}::${slantTake}::${creatorCharacterRepresentation}`;
 
   if (creatorCuePills.length === 0 || creatorLastSuggestedContextKey !== contextKey) {
     creatorLastSuggestedContextKey = contextKey;
     renderCuesDeck(); // initial render
     await triggerCueSuggest(); // call Gemini AI model for rich cues!
   } else {
+    if (creatorCharacterRepresentation === 'likeness') {
+      const detected = detectPersonNameInContext(articleTitle, slantTake, currentScrapedArticle?.content);
+      if (detected && creatorCuePills.length > 0 && !creatorCuePills[0].toLowerCase().includes(detected.toLowerCase())) {
+        creatorCuePills[0] = `${detected} (Editorial Portrait)`;
+      }
+    }
     renderCuesDeck();
   }
 }
@@ -2715,6 +2788,7 @@ async function triggerCueSuggest() {
         newsHeadline: articleTitle,
         newsBody: articleBody,
         sourceType: creatorSelectedSource,
+        characterRepresentation: creatorCharacterRepresentation,
         selectedIndices: Array.from(creatorSelectedCueIndices)
       })
     });
@@ -2736,6 +2810,14 @@ async function triggerCueSuggest() {
         creatorSelectedCueIndices.clear();
       } else {
         creatorCuePills = data.cues;
+      }
+
+      // If likeness is selected, enforce detected person in #1 HERO
+      if (creatorCharacterRepresentation === 'likeness') {
+        const detected = detectPersonNameInContext(articleTitle, slantTake, articleBody);
+        if (detected && creatorCuePills.length > 0 && !creatorCuePills[0].toLowerCase().includes(detected.toLowerCase())) {
+          creatorCuePills[0] = `${detected} (Editorial Portrait)`;
+        }
       }
     } else {
       throw new Error('Invalid cues response');
@@ -2828,6 +2910,19 @@ function selectCharacterRepresentation(type) {
         creatorReferenceImageMimeType = currentScrapedArticle.imageMimeType || 'image/jpeg';
         creatorReferenceImageSourceLabel = 'Article Lead Photo (' + (currentScrapedArticle.siteName || 'Web') + ')';
       }
+    }
+
+    // Immediately condition #1 HERO cue to detected person from story/slant
+    const urlInput = document.getElementById('creatorUrlInput');
+    const slantTakeInput = document.getElementById('creatorSlantTakeInput');
+    const url = urlInput ? urlInput.value.trim() : '';
+    const slantTake = slantTakeInput ? slantTakeInput.value.trim() : '';
+    const articleTitle = currentScrapedArticle?.title || extractHeadlineFromUrl(url);
+    const detectedPerson = detectPersonNameInContext(articleTitle, slantTake, currentScrapedArticle?.content);
+
+    if (detectedPerson && creatorCuePills.length > 0) {
+      creatorCuePills[0] = `${detectedPerson} (Editorial Portrait)`;
+      renderCuesDeck();
     }
   }
 
@@ -2990,6 +3085,18 @@ function showStep3Preview() {
     }
   }
 
+  // Handle Artwork Source Toggle Row
+  const artToggleRow = document.getElementById('artworkSourceToggleRow');
+  if (artToggleRow) {
+    const hasLikeness = !!(currentSynthesizedPost.referencePhotoUrl);
+    artToggleRow.style.display = hasLikeness ? 'block' : 'none';
+    const isUsingLikeness = (currentSynthesizedPost.illustrationUrl === currentSynthesizedPost.referencePhotoUrl);
+    const pillLik = document.getElementById('artPillLikeness');
+    const pillMet = document.getElementById('artPillMetaphor');
+    if (pillLik) pillLik.classList.toggle('active', isUsingLikeness);
+    if (pillMet) pillMet.classList.toggle('active', !isUsingLikeness);
+  }
+
   // Render preview
   renderCreatorPreview();
 }
@@ -3005,6 +3112,31 @@ function renderCreatorPreview() {
 
   // Set to current slide
   switchPreviewSlide(0);
+
+  // Enable gesture swiping and mouse drag on preview card
+  setupCarouselGestures('preview');
+}
+
+function setPreviewArtworkSource(source) {
+  if (!currentSynthesizedPost) return;
+  const pillLik = document.getElementById('artPillLikeness');
+  const pillMet = document.getElementById('artPillMetaphor');
+
+  if (source === 'likeness' && currentSynthesizedPost.referencePhotoUrl) {
+    currentSynthesizedPost.illustrationUrl = currentSynthesizedPost.referencePhotoUrl;
+    if (pillLik) pillLik.classList.add('active');
+    if (pillMet) pillMet.classList.remove('active');
+  } else if (source === 'metaphor' && currentSynthesizedPost.aiIllustrationUrl) {
+    currentSynthesizedPost.illustrationUrl = currentSynthesizedPost.aiIllustrationUrl;
+    if (pillLik) pillLik.classList.remove('active');
+    if (pillMet) pillMet.classList.add('active');
+  }
+
+  // Update image in preview card DOM
+  const bgImg = document.querySelector('#carousel-preview .slide-hook-bg');
+  if (bgImg && currentSynthesizedPost.illustrationUrl) {
+    bgImg.src = currentSynthesizedPost.illustrationUrl;
+  }
 }
 
 function switchPreviewSlide(slideIdx) {
