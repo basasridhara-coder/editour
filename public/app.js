@@ -995,22 +995,27 @@ function buildSlide1Html(post, index) {
     }
   }
 
-  let bgHtml = '';
-  if (post.illustrationUrl) {
-    bgHtml = `<img class="slide-hook-bg" src="${escapeHtml(post.illustrationUrl)}" alt="${headline}" loading="lazy">`;
-  } else if (post.illustrationBase64) {
-    bgHtml = `<img class="slide-hook-bg" src="data:image/jpeg;base64,${post.illustrationBase64}" alt="${headline}" loading="lazy">`;
-  } else {
-    // Rich geometric editorial cover matching mobile SlideHookPoster
-    bgHtml = `
-      <div class="slide-hook-bg" style="background: radial-gradient(circle at 50% 28%, #1e1b4b 0%, #0f172a 60%, #030712 100%);">
-        <div style="position:absolute; inset:0; opacity:0.18; background-image: radial-gradient(#818cf8 1px, transparent 1px); background-size: 20px 20px;"></div>
-        <div style="position:absolute; top:28%; left:50%; transform:translate(-50%,-50%); width:170px; height:170px; border-radius:50%; border:1px dashed rgba(129,140,248,0.35); display:flex; align-items:center; justify-content:center;">
-          <div style="width:115px; height:115px; border-radius:50%; background:linear-gradient(135deg, rgba(99,102,241,0.22), rgba(168,85,247,0.12)); border:1px solid rgba(168,85,247,0.45); display:flex; align-items:center; justify-content:center; font-size:42px; box-shadow:0 0 30px rgba(99,102,241,0.25);">🎨</div>
-        </div>
+  const fallbackCoverHtml = `
+    <div class="slide-hook-fallback-bg" style="background: radial-gradient(circle at 50% 28%, #1e1b4b 0%, #0f172a 60%, #030712 100%);">
+      <div style="position:absolute; inset:0; opacity:0.18; background-image: radial-gradient(#818cf8 1px, transparent 1px); background-size: 20px 20px;"></div>
+      <div style="position:absolute; top:28%; left:50%; transform:translate(-50%,-50%); width:170px; height:170px; border-radius:50%; border:1px dashed rgba(129,140,248,0.35); display:flex; align-items:center; justify-content:center;">
+        <div style="width:115px; height:115px; border-radius:50%; background:linear-gradient(135deg, rgba(99,102,241,0.22), rgba(168,85,247,0.12)); border:1px solid rgba(168,85,247,0.45); display:flex; align-items:center; justify-content:center; font-size:42px; box-shadow:0 0 30px rgba(99,102,241,0.25);">🎨</div>
       </div>
-    `;
+    </div>
+  `;
+
+  let bgImgSrc = '';
+  if (post.illustrationUrl) {
+    bgImgSrc = post.illustrationUrl;
+  } else if (post.illustrationBase64) {
+    bgImgSrc = `data:image/jpeg;base64,${post.illustrationBase64}`;
   }
+
+  const imgHtml = bgImgSrc
+    ? `<img class="slide-hook-bg" src="${escapeHtml(bgImgSrc)}" alt="" loading="lazy" referrerpolicy="no-referrer" crossorigin="anonymous" onerror="this.style.opacity='0'; this.style.display='none'; this.removeAttribute('alt');">`
+    : `<img class="slide-hook-bg" src="" alt="" style="display:none;" loading="lazy" referrerpolicy="no-referrer" crossorigin="anonymous" onerror="this.style.opacity='0'; this.style.display='none'; this.removeAttribute('alt');">`;
+
+  const bgHtml = `${fallbackCoverHtml}${imgHtml}`;
 
   // Tactile Ripped Newspaper Clipping Fragment (Actual News Excerpt / Headline)
   const rawNews = (post.originalHeadline && post.originalHeadline.trim().length > 0 && post.originalHeadline.trim() !== (post.adaptedHeadline || '').trim())
@@ -1119,18 +1124,24 @@ function buildSlide2Html(post, index) {
     ? escapeHtml(post.keyTakeaways[0].toUpperCase())
     : (tier === 'tier3_opinion' ? (post.slantTone === 'heart' ? 'PERSONAL REFLECTION' : 'MY CORE TAKE') : "THE CRITICAL PERSPECTIVE");
 
-  let bgHtml = '';
+  const fallbackCritiqueCoverHtml = `
+    <div class="slide-hook-fallback-bg" style="background: radial-gradient(circle at 50% 28%, #1e1b4b 0%, #0f172a 60%, #030712 100%);">
+      <div style="position:absolute; inset:0; opacity:0.18; background-image: radial-gradient(#818cf8 1px, transparent 1px); background-size: 20px 20px;"></div>
+    </div>
+  `;
+
+  let bgCritiqueImgSrc = '';
   if (post.illustrationUrl) {
-    bgHtml = `<img class="slide-hook-bg" src="${escapeHtml(post.illustrationUrl)}" alt="${slideTitle}" loading="lazy">`;
+    bgCritiqueImgSrc = post.illustrationUrl;
   } else if (post.illustrationBase64) {
-    bgHtml = `<img class="slide-hook-bg" src="data:image/jpeg;base64,${post.illustrationBase64}" alt="${slideTitle}" loading="lazy">`;
-  } else {
-    bgHtml = `
-      <div class="slide-hook-bg" style="background: radial-gradient(circle at 50% 28%, #1e1b4b 0%, #0f172a 60%, #030712 100%);">
-        <div style="position:absolute; inset:0; opacity:0.18; background-image: radial-gradient(#818cf8 1px, transparent 1px); background-size: 20px 20px;"></div>
-      </div>
-    `;
+    bgCritiqueImgSrc = `data:image/jpeg;base64,${post.illustrationBase64}`;
   }
+
+  const critiqueImgHtml = bgCritiqueImgSrc
+    ? `<img class="slide-hook-bg" src="${escapeHtml(bgCritiqueImgSrc)}" alt="" loading="lazy" referrerpolicy="no-referrer" crossorigin="anonymous" onerror="this.style.opacity='0'; this.style.display='none'; this.removeAttribute('alt');">`
+    : `<img class="slide-hook-bg" src="" alt="" style="display:none;" loading="lazy" referrerpolicy="no-referrer" crossorigin="anonymous" onerror="this.style.opacity='0'; this.style.display='none'; this.removeAttribute('alt');">`;
+
+  const bgHtml = `${fallbackCritiqueCoverHtml}${critiqueImgHtml}`;
 
   return `
     ${bgHtml}
@@ -3254,12 +3265,13 @@ async function startAiSynthesis() {
     userHandle = '@' + (currentUser.user_metadata?.user_name || currentUser.user_metadata?.name || currentUser.email.split('@')[0]);
   }
 
-  const effectiveImageBase64 = (creatorCharacterRepresentation === 'likeness' && creatorReferenceImageBase64)
+  const isPhotoPortrayal = (creatorCharacterRepresentation === 'likeness' || creatorCharacterRepresentation === 'exact' || creatorCharacterRepresentation === 'lookalike');
+  const effectiveImageBase64 = (isPhotoPortrayal && creatorReferenceImageBase64)
     ? creatorReferenceImageBase64
-    : creatorSelectedImageBase64;
-  const effectiveImageMime = (creatorCharacterRepresentation === 'likeness' && creatorReferenceImageBase64)
-    ? creatorReferenceImageMimeType
-    : creatorSelectedImageMimeType;
+    : (creatorSelectedImageBase64 || creatorReferenceImageBase64 || null);
+  const effectiveImageMime = (isPhotoPortrayal && creatorReferenceImageBase64)
+    ? (creatorReferenceImageMimeType || 'image/jpeg')
+    : (creatorSelectedImageMimeType || 'image/jpeg');
 
   const payload = {
     sourceType: creatorSelectedSource,
@@ -3414,10 +3426,14 @@ function setPreviewArtworkSource(source) {
   }
 
   // Update image in preview card DOM
-  const bgImg = document.querySelector('#carousel-preview .slide-hook-bg');
-  if (bgImg && currentSynthesizedPost.illustrationUrl) {
-    bgImg.src = currentSynthesizedPost.illustrationUrl;
-  }
+  const bgImgs = document.querySelectorAll('#carousel-preview img.slide-hook-bg');
+  bgImgs.forEach(bgImg => {
+    if (currentSynthesizedPost.illustrationUrl) {
+      bgImg.style.display = 'block';
+      bgImg.style.opacity = '1';
+      bgImg.src = currentSynthesizedPost.illustrationUrl;
+    }
+  });
 }
 
 function switchPreviewSlide(slideIdx) {

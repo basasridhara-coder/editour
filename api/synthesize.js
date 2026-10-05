@@ -275,24 +275,28 @@ Respond strictly with valid JSON with this exact structure:
       });
     }
 
-    // 4. Construct high-aesthetic illustration artwork URL
-    const countrySetting = countryContext && countryContext !== 'Global'
-      ? `${countryContext} regional setting, authentic cultural and institutional architecture, authentic ${countryContext} environmental elements, `
-      : '';
-
+    // 4. Construct high-aesthetic illustration artwork URL (concise <=190 chars for 3-5s response)
+    const countryTag = (countryContext && countryContext !== 'Global') ? `${countryContext}, ` : '';
     const isLookalike = (characterRepresentation === 'likeness' || characterRepresentation === 'lookalike');
     const isExactPhoto = (characterRepresentation === 'exact');
 
-    let artPrompt = '';
+    let coreSubject = '';
     if (isLookalike) {
-      const heroPerson = parsed.heroCue || (cues && cues[0]) || 'Key Protagonist';
-      artPrompt = `${heroPerson}, striking lookalike likeness portrait, cinematic noir editorial illustration, mysterious chiaroscuro shadow and atmospheric smoke, painterly texture, subtle resemblance, editorial magazine cover art, high aesthetic, vivid colors, no text, no letters`;
+      const heroPerson = (parsed.heroCue || (cues && cues[0]) || 'Key Protagonist').replace(/[^\w\s-]/g, '').trim();
+      coreSubject = `${heroPerson} portrait likeness, mysterious chiaroscuro shadow, cinematic noir editorial illustration, painterly, no text`;
     } else {
-      artPrompt = parsed.illustrationPrompt || `${parsed.heroCue || parsed.adaptedHeadline}, editorial poster art, high aesthetic, no text`;
+      let candidate = parsed.heroCue || (cues && cues[0]) || parsed.adaptedHeadline || 'Editorial conceptual art';
+      candidate = candidate.replace(/[^\w\s,.-]/g, '').replace(/\s+/g, ' ').trim();
+      if (candidate.length > 90) {
+        candidate = candidate.slice(0, 90).replace(/,[^,]*$/, '');
+      }
+      coreSubject = `${candidate}, cinematic editorial poster art, dramatic atmospheric lighting, no text`;
     }
 
-    const cleanArtPrompt = encodeURIComponent(`${countrySetting}${artPrompt}, cinematic editorial art, high aesthetic, vivid color grading, masterwork, no letters, no text`);
-    const illustrationUrl = `https://image.pollinations.ai/prompt/${cleanArtPrompt}?width=1080&height=1350&nologo=true`;
+    const concisePrompt = `${countryTag}${coreSubject}`.slice(0, 190);
+    const cleanArtPrompt = encodeURIComponent(concisePrompt);
+    const illustrationSeed = Math.floor(Math.random() * 899999 + 100000);
+    const illustrationUrl = `https://image.pollinations.ai/prompt/${cleanArtPrompt}?width=1080&height=1350&nologo=true&seed=${illustrationSeed}`;
 
     const hasExactPhoto = isExactPhoto && !!(imageBase64);
     const finalIllustrationUrl = hasExactPhoto ? imageBase64 : illustrationUrl;
@@ -371,7 +375,7 @@ function generateSmartFallbackSynthesis({
     : (extractedTitle || 'The Unspoken Friction Behind the Headline');
 
   let hero = (cues && cues[0]) || 'Solitary Focal Figure';
-  if (characterRepresentation === 'likeness') {
+  if (characterRepresentation === 'likeness' || characterRepresentation === 'lookalike') {
     const combined = `${userSlant || ''} ${extractedTitle || ''} ${extractedContent || ''}`.toLowerCase();
     if (combined.includes('trump')) hero = 'Donald Trump (Editorial Portrait)';
     else if (combined.includes('musk')) hero = 'Elon Musk (Editorial Portrait)';
@@ -423,7 +427,7 @@ function generateSmartFallbackSynthesis({
     atmosphereCue: (cues && cues[3]) || 'Atmospheric Minimalist Crossroads',
     lightingCue: (cues && cues[4]) || 'Dramatic Chiaroscuro Editorial Spotlight',
     styleCue: (cues && cues[5]) || 'High-Contrast Noir Risograph Print',
-    illustrationPrompt: `${hero}, ${motif}, ${tension}, high contrast editorial fine art poster, dramatic volumetric lighting, cinematic color grading, masterwork, no typography`
+    illustrationPrompt: `${hero}, ${motif}, cinematic editorial poster art, dramatic atmospheric lighting, no text`
   };
 }
 
