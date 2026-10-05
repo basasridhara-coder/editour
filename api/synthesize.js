@@ -150,9 +150,9 @@ ${spark ? `- The Spark (Personal Context / Catalyst): "${spark}"` : ''}
 ${url ? `- Source Link: ${url}` : ''}
 ${pubName ? `- Publication / Domain: ${pubName}` : ''}
 ${cues && cues.length > 0 ? `- Ranked Visual Cues: ${cues.map((c, i) => `#${i+1} ${c}`).join(' • ')}` : ''}
-${countryContext && countryContext !== 'Global' ? `- Regional & Cultural Setting: ${countryContext} (Ensure the story narrative, institutions, and visual motifs faithfully reflect the authentic architectural, cultural, and environmental elements of ${countryContext})` : ''}
-- Character Portrayal Style: ${characterRepresentation === 'likeness' ? 'Match real person face and likeness from source photo' : 'Stylized metaphorical silhouette / symbolic figures'}
-${characterRepresentation === 'likeness' ? 'CRITICAL PERSON LIKENESS DIRECTIVE: Character Portrayal is set to REAL PERSON LIKENESS. The heroCue MUST specify the primary real-world individual named in the article/slant (e.g. "Donald Trump (Editorial Portrait)", "Elon Musk (Editorial Portrait)") formatted as an editorial cover portrait.' : ''}
+- Character Portrayal Style: ${characterRepresentation === 'exact' ? 'Use exact unedited news/attached photo directly' : ((characterRepresentation === 'likeness' || characterRepresentation === 'lookalike') ? 'Lookalike & Mystery: Match real person face and likeness from source photo with artistic chiaroscuro mystery' : 'Stylized metaphorical silhouette / symbolic figures')}
+${(characterRepresentation === 'likeness' || characterRepresentation === 'lookalike') ? 'CRITICAL PERSON LOOKALIKE & MYSTERY DIRECTIVE: Character Portrayal is set to LOOKALIKE & MYSTERY. The heroCue MUST specify the primary real-world individual named in the article/slant (e.g. "Donald Trump Lookalike (Editorial Portrait)", "Elon Musk Lookalike (Editorial Portrait)"). The artwork must be an editorial painterly illustration blending recognizable likeness with artistic shadow and mystery (looks like the person, but an artistic creation).' : ''}
+${characterRepresentation === 'exact' ? 'CRITICAL EXACT PHOTO DIRECTIVE: Character Portrayal is set to USE EXACT PHOTO. The heroCue should highlight the central photographic subject of the unedited news photo.' : ''}
 
 ${vocabDirective}
 
@@ -279,11 +279,23 @@ Respond strictly with valid JSON with this exact structure:
     const countrySetting = countryContext && countryContext !== 'Global'
       ? `${countryContext} regional setting, authentic cultural and institutional architecture, authentic ${countryContext} environmental elements, `
       : '';
-    const artPrompt = parsed.illustrationPrompt || `${parsed.heroCue || parsed.adaptedHeadline}, editorial poster art, high aesthetic, no text`;
+
+    const isLookalike = (characterRepresentation === 'likeness' || characterRepresentation === 'lookalike');
+    const isExactPhoto = (characterRepresentation === 'exact');
+
+    let artPrompt = '';
+    if (isLookalike) {
+      const heroPerson = parsed.heroCue || (cues && cues[0]) || 'Key Protagonist';
+      artPrompt = `${heroPerson}, striking lookalike likeness portrait, cinematic noir editorial illustration, mysterious chiaroscuro shadow and atmospheric smoke, painterly texture, subtle resemblance, editorial magazine cover art, high aesthetic, vivid colors, no text, no letters`;
+    } else {
+      artPrompt = parsed.illustrationPrompt || `${parsed.heroCue || parsed.adaptedHeadline}, editorial poster art, high aesthetic, no text`;
+    }
+
     const cleanArtPrompt = encodeURIComponent(`${countrySetting}${artPrompt}, cinematic editorial art, high aesthetic, vivid color grading, masterwork, no letters, no text`);
     const illustrationUrl = `https://image.pollinations.ai/prompt/${cleanArtPrompt}?width=1080&height=1350&nologo=true`;
 
-    const hasLikenessPhoto = (characterRepresentation === 'likeness') && !!(imageBase64);
+    const hasExactPhoto = isExactPhoto && !!(imageBase64);
+    const finalIllustrationUrl = hasExactPhoto ? imageBase64 : illustrationUrl;
     const finalCuratorTake = (refineCoreTake && parsed.curatorTake && parsed.curatorTake.trim().length > 10)
       ? parsed.curatorTake.trim()
       : (userSlant || parsed.whyItMatters || 'Strategic structural shift in motion.');
@@ -313,8 +325,8 @@ Respond strictly with valid JSON with this exact structure:
       characterRepresentation,
       hookCues: `#1 [HERO]: ${parsed.heroCue || (cues && cues[0]) || 'Central subject'}\n#2 [MOTIF]: ${parsed.motifCue || (cues && cues[1]) || 'Metaphor'}\n#3 [TENSION]: ${parsed.tensionCue || (cues && cues[2]) || 'Conflict'}\n#4 [ATMOSPHERE]: ${parsed.atmosphereCue || (cues && cues[3]) || 'Setting'}\n#5 [LIGHTING]: ${parsed.lightingCue || (cues && cues[4]) || 'Atmospheric light'}\n#6 [STYLE]: ${parsed.styleCue || (cues && cues[5]) || 'Editorial illustration'}`,
       illustrationPrompt: parsed.illustrationPrompt || '',
-      illustrationUrl: hasLikenessPhoto ? imageBase64 : illustrationUrl,
-      illustrationBase64: hasLikenessPhoto && imageBase64.startsWith('data:') ? imageBase64.split(',')[1] : null,
+      illustrationUrl: finalIllustrationUrl,
+      illustrationBase64: hasExactPhoto && imageBase64.startsWith('data:') ? imageBase64.split(',')[1] : null,
       referencePhotoUrl: imageBase64 || null,
       aiIllustrationUrl: illustrationUrl,
       originalPhotoPath: imageBase64 || url || '',

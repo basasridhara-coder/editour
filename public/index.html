@@ -392,13 +392,13 @@
             <button type="button" class="cues-add-btn" onclick="addCustomCue()">Add Cue</button>
           </div>
 
-          <!-- 5. Character & Face Representation Card -->
+          <!-- 5. Character & Image Portrayal Card -->
           <div class="character-rep-card">
             <div class="character-rep-header">
               <span class="rep-icon">👤</span>
               <div class="rep-titles">
-                <span class="rep-title">Character & Face Representation</span>
-                <span class="rep-subtitle">Select how characters are portrayed in the generated editorial poster artwork.</span>
+                <span class="rep-title">Character & Image Portrayal</span>
+                <span class="rep-subtitle">Select how characters and images are portrayed in the Hook poster.</span>
               </div>
             </div>
             <div class="character-rep-options">
@@ -412,8 +412,15 @@
               <div class="rep-option" id="repOptionLikeness" onclick="selectCharacterRepresentation('likeness')">
                 <div class="rep-radio-circle"></div>
                 <div class="rep-option-body">
-                  <span class="rep-option-title">Match Real Person Face & Likeness</span>
-                  <span class="rep-option-desc">Preserves recognizable facial features, hair, and likeness from the reference photo.</span>
+                  <span class="rep-option-title">Lookalike & Mystery (AI Editorial Art)</span>
+                  <span class="rep-option-desc">Generates an artistic poster portrait—a mix of real likeness and mystery (looks like the person, but an artistic creation).</span>
+                </div>
+              </div>
+              <div class="rep-option" id="repOptionExact" onclick="selectCharacterRepresentation('exact')">
+                <div class="rep-radio-circle"></div>
+                <div class="rep-option-body">
+                  <span class="rep-option-title">Use Exact Photo (Direct Image)</span>
+                  <span class="rep-option-desc">Uses the exact unedited news photo or uploaded photograph directly as the primary poster image.</span>
                 </div>
               </div>
             </div>
@@ -650,15 +657,18 @@
             <label class="edit-field-label">Creator Handle</label>
             <input type="text" id="editModalHandle" class="edit-field-input" placeholder="@curator">
           </div>
-          <!-- Poster 1 Artwork Source Toggle (Visible when real likeness photo is available) -->
+          <!-- Poster 1 Artwork Source Toggle (Visible when reference photo is available) -->
           <div class="edit-form-group" id="editModalArtworkToggleRow" style="display:none;">
             <label class="edit-field-label">Poster 1 Visual Art</label>
             <div class="artwork-toggle-pills">
+              <button type="button" class="art-pill-btn" id="editArtPillExact" onclick="setPreviewArtworkSource('exact')">
+                <span>📷 Exact Photo</span>
+              </button>
               <button type="button" class="art-pill-btn active" id="editArtPillLikeness" onclick="setPreviewArtworkSource('likeness')">
-                <span>👤 Real Photo Likeness</span>
+                <span>✨ Lookalike AI Art</span>
               </button>
               <button type="button" class="art-pill-btn" id="editArtPillMetaphor" onclick="setPreviewArtworkSource('metaphor')">
-                <span>🎨 Stylized Metaphor Art</span>
+                <span>🎨 Metaphor Art</span>
               </button>
             </div>
           </div>

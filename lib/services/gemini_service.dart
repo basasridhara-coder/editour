@@ -2035,8 +2035,9 @@ Return ONLY valid JSON with this exact structure:
               }
             });
             parts.add({
-              "text": "PORTRAIT LIKENESS DIRECTIVE: The attached image is a reference photograph of the key individual for this story. "
-                  "Preserve their recognizable facial characteristics, hairstyle, age, and expressive posture in this stylized artistic illustration.\n\n"
+              "text": "PORTRAIT LOOKALIKE & MYSTERY DIRECTIVE: The attached image is a reference photograph. "
+                  "Create an artistic stylized editorial illustration that echoes their recognizable likeness and facial characteristics, "
+                  "blended with dramatic chiaroscuro noir shadow, painterly texture, and atmospheric mystery (looks like the person, but an artistic creation, not a flat photographic copy).\n\n"
                   "EDITORIAL POSTER ARTWORK:\n"
                   "$selectedStylePrefix. $cleanPrompt.\n\n"
                   "CRITICAL CONSTRAINT: Masterpiece vertical 4:5 editorial artwork poster, dramatic chiaroscuro, rich textural depth, "

@@ -3138,18 +3138,27 @@ function updateReferencePhotoUI() {
 
   if (!section) return;
 
-  if (creatorCharacterRepresentation !== 'likeness') {
+  if (creatorCharacterRepresentation === 'silhouette') {
     section.style.display = 'none';
     return;
   }
 
   section.style.display = 'block';
 
+  const desc = document.getElementById('refPhotoDesc');
+  if (desc) {
+    if (creatorCharacterRepresentation === 'exact') {
+      desc.textContent = 'Exact unedited photo will be used directly as the primary poster image.';
+    } else {
+      desc.textContent = 'Face features will guide AI to generate an artistic lookalike portrait with mystery.';
+    }
+  }
+
   if (creatorReferenceImageBase64) {
     if (activeCard) activeCard.style.display = 'flex';
     if (emptyCard) emptyCard.style.display = 'none';
     if (thumb) thumb.src = creatorReferenceImageBase64;
-    if (title) title.textContent = creatorReferenceImageSourceLabel || 'Reference Photo Ready';
+    if (title) title.textContent = creatorReferenceImageSourceLabel || (creatorCharacterRepresentation === 'exact' ? 'Exact Photo Attached' : 'Reference Photo Ready');
   } else {
     if (activeCard) activeCard.style.display = 'none';
     if (emptyCard) emptyCard.style.display = 'block';
@@ -3161,11 +3170,13 @@ function selectCharacterRepresentation(type) {
   creatorCharacterRepresentation = type;
   const optSil = document.getElementById('repOptionSilhouette');
   const optLik = document.getElementById('repOptionLikeness');
+  const optExact = document.getElementById('repOptionExact');
 
   if (optSil) optSil.classList.toggle('active', type === 'silhouette');
   if (optLik) optLik.classList.toggle('active', type === 'likeness');
+  if (optExact) optExact.classList.toggle('active', type === 'exact');
 
-  if (type === 'likeness') {
+  if (type === 'likeness' || type === 'exact') {
     // If no reference photo is explicitly set yet, auto-extract from sources:
     if (!creatorReferenceImageBase64 && creatorSelectedImageBase64) {
       creatorReferenceImageBase64 = creatorSelectedImageBase64;
@@ -3188,7 +3199,9 @@ function selectCharacterRepresentation(type) {
     const detectedPerson = detectPersonNameInContext(articleTitle, slantTake, currentScrapedArticle?.content);
 
     if (detectedPerson && creatorCuePills.length > 0) {
-      creatorCuePills[0] = `${detectedPerson} (Editorial Portrait)`;
+      creatorCuePills[0] = (type === 'likeness')
+        ? `${detectedPerson} Lookalike (Editorial Portrait)`
+        : `${detectedPerson} (Lead Photo Focus)`;
       renderCuesDeck();
     }
   }
@@ -3379,15 +3392,23 @@ function renderCreatorPreview() {
 
 function setPreviewArtworkSource(source) {
   if (!currentSynthesizedPost) return;
+  const pillExact = document.getElementById('editArtPillExact');
   const pillLik = document.getElementById('editArtPillLikeness');
   const pillMet = document.getElementById('editArtPillMetaphor');
 
-  if (source === 'likeness' && currentSynthesizedPost.referencePhotoUrl) {
+  if (source === 'exact' && currentSynthesizedPost.referencePhotoUrl) {
     currentSynthesizedPost.illustrationUrl = currentSynthesizedPost.referencePhotoUrl;
+    if (pillExact) pillExact.classList.add('active');
+    if (pillLik) pillLik.classList.remove('active');
+    if (pillMet) pillMet.classList.remove('active');
+  } else if (source === 'likeness') {
+    currentSynthesizedPost.illustrationUrl = currentSynthesizedPost.aiIllustrationUrl || currentSynthesizedPost.illustrationUrl;
+    if (pillExact) pillExact.classList.remove('active');
     if (pillLik) pillLik.classList.add('active');
     if (pillMet) pillMet.classList.remove('active');
   } else if (source === 'metaphor' && currentSynthesizedPost.aiIllustrationUrl) {
     currentSynthesizedPost.illustrationUrl = currentSynthesizedPost.aiIllustrationUrl;
+    if (pillExact) pillExact.classList.remove('active');
     if (pillLik) pillLik.classList.remove('active');
     if (pillMet) pillMet.classList.add('active');
   }
@@ -3442,13 +3463,15 @@ function openEditPosterModal(initialTab = 0) {
   // Poster 1 Artwork source toggle
   const artRow = document.getElementById('editModalArtworkToggleRow');
   if (artRow) {
-    const hasLikeness = !!(currentSynthesizedPost.referencePhotoUrl);
-    artRow.style.display = hasLikeness ? 'block' : 'none';
-    const isUsingLikeness = (currentSynthesizedPost.illustrationUrl === currentSynthesizedPost.referencePhotoUrl);
+    const hasPhoto = !!(currentSynthesizedPost.referencePhotoUrl);
+    artRow.style.display = hasPhoto ? 'block' : 'none';
+    const isUsingExact = (currentSynthesizedPost.illustrationUrl === currentSynthesizedPost.referencePhotoUrl);
+    const pillExact = document.getElementById('editArtPillExact');
     const pillLik = document.getElementById('editArtPillLikeness');
     const pillMet = document.getElementById('editArtPillMetaphor');
-    if (pillLik) pillLik.classList.toggle('active', isUsingLikeness);
-    if (pillMet) pillMet.classList.toggle('active', !isUsingLikeness);
+    if (pillExact) pillExact.classList.toggle('active', isUsingExact);
+    if (pillLik) pillLik.classList.toggle('active', !isUsingExact && currentSynthesizedPost.characterRepresentation === 'likeness');
+    if (pillMet) pillMet.classList.toggle('active', !isUsingExact && currentSynthesizedPost.characterRepresentation !== 'likeness');
   }
 
   // Tab 2 (Slide 3) Setup

@@ -36,7 +36,9 @@ module.exports = async function handler(req, res) {
     countryCode = ''
   } = body || {};
 
-  const isLikeness = (characterRepresentation === 'likeness');
+  const isLikeness = (characterRepresentation === 'likeness' || characterRepresentation === 'lookalike');
+  const isExact = (characterRepresentation === 'exact');
+  const hasPersonFocus = isLikeness || isExact;
 
   const countryDirective = countryContext && countryContext !== 'Global'
     ? `CRITICAL GEOGRAPHIC & CULTURAL CONTEXT DIRECTIVE:
@@ -47,6 +49,12 @@ All 6 visual cues MUST authentically reflect the geographic, cultural, and insti
 - #4 ATMOSPHERE: Authentic regional landscape, urban environment, weather, and architecture of ${countryContext} (e.g. "Monsoon-Drenched New Delhi Rajpath", "Dusk over Old Delhi Red Sandstone", "Tokyo Neon Shinjuku Alleyway").`
     : `GEOGRAPHIC & CULTURAL DIRECTIVE: If the story mentions or is set in a specific country or region, anchor all visual cues (#1 HERO, #2 MOTIF, #4 ATMOSPHERE) in the authentic regional and architectural motifs of that country.`;
 
+  const personDirective = isLikeness
+    ? 'CRITICAL PERSON LOOKALIKE & MYSTERY DIRECTIVE: The curator requested LOOKALIKE & MYSTERY portrayal. The #1 HERO cue MUST specify the central real-world individual named in the headline or context (e.g. "Donald Trump Lookalike Editorial Portrait", "Elon Musk Lookalike Editorial Portrait") styled as an artistic editorial magazine portrait blending recognizable likeness with noir shadow and atmospheric mystery. Do NOT substitute with an abstract building!'
+    : (isExact
+      ? 'CRITICAL EXACT PHOTO DIRECTIVE: The curator requested to USE THE EXACT PHOTO. The #1 HERO cue should specify the primary photographic subject (e.g. "Donald Trump (Lead Photo Focus)").'
+      : '');
+
   const prompt = `You are the lead visual art director for "Slant" (slant.today), an elite editorial publication.
 Your job is to define the 6 ranked storytelling visual cue dimensions for Poster 1 (The Hook Poster).
 
@@ -55,14 +63,14 @@ Article Title: "${newsHeadline || ''}"
 Article Excerpt / Context: "${newsBody ? newsBody.slice(0, 1500) : ''}"
 Source Type: ${sourceType}
 Regional & Cultural Setting: ${countryContext || 'Global / Contextually Detected'}
-Character Portrayal Style: ${isLikeness ? 'REAL PERSON FACE & LIKENESS' : 'Stylized Metaphor / Silhouette'}
+Character Portrayal Style: ${isExact ? 'EXACT PHOTO FOCUS' : (isLikeness ? 'LOOKALIKE & MYSTERY (ARTISTIC EDITORIAL PORTRAIT)' : 'Stylized Metaphor / Silhouette')}
 
 ${countryDirective}
 
-${isLikeness ? 'CRITICAL PERSON LIKENESS DIRECTIVE: The curator has explicitly requested REAL PERSON LIKENESS. The #1 HERO cue MUST be the central real-world individual named in the headline or context (e.g., "Donald Trump (Editorial Portrait)", "Elon Musk (Editorial Portrait)") styled for a high-contrast editorial magazine cover. Do NOT substitute with an abstract object or inanimate building!' : ''}
+${personDirective}
 
 STRICT VISUAL CUE REQUIREMENTS (Must be short, punchy 3-6 word phrases):
-1. HERO: Central focal figure, subject, or architectural centerpiece. ${isLikeness ? 'Must be the real person identified in the story (e.g. "Donald Trump (Editorial Portrait)").' : 'Must reflect the actual story subject or curator protagonist (e.g. "Monolithic Obsidian Server Tower", "Lone Sweeper with Traditional Broom", "Silhouetted Wall Street Bull").'} Never output a URL, protocol, or punctuation!
+1. HERO: Central focal figure, subject, or architectural centerpiece. ${hasPersonFocus ? 'Must be the central individual identified in the story (e.g. "Donald Trump Lookalike Editorial Portrait").' : 'Must reflect the actual story subject or curator protagonist (e.g. "Monolithic Obsidian Server Tower", "Lone Sweeper with Traditional Broom", "Silhouetted Wall Street Bull").'} Never output a URL, protocol, or punctuation!
 2. MOTIF: Secondary symbolic metaphorical object capturing the curator's philosophical stance or critique (e.g. "Tangled Marionette Puppet Strings", "Sculptor Chisel against Marble", "Tipping Balance Scales").
 3. TENSION: Opposing visual friction, conflict, shadow, crisis, or counter-force (e.g. "Relentless Tidal Wave of Noise", "Cracking Stone Foundation", "Looming Corporate Shadow").
 4. ATMOSPHERE: Setting, environmental scale, weather, or time of day (e.g. "Damp Rain-Slicked City Boulevard", "Smoke-Filled High-Rise Boardroom", "Brutalist Concrete Server Canyon").
