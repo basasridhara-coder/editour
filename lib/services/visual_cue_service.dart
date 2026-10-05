@@ -12,19 +12,21 @@ class VisualCueService {
     String? newsBody,
   }) {
     final combined = '$curatorAngle $newsHeadline ${newsBody ?? ""}'.toLowerCase();
+    final isIndia = combined.contains('india') || combined.contains('delhi') || combined.contains('thehindu') || combined.contains('mumbai') || combined.contains('rupee');
+    final isUK = combined.contains('london') || combined.contains('westminster') || combined.contains('uk ') || combined.contains('britain');
 
     // 1. HERO (Subject from headline or angle)
     String hero = '';
     if (combined.contains('garbage') || combined.contains('trash') || combined.contains('waste') || combined.contains('clean')) {
-      hero = 'Lone Sweeper with Traditional Broom';
+      hero = isIndia ? 'Municipal Sweeper with Traditional Reed Broom' : 'Lone Sweeper with Traditional Broom';
     } else if (combined.contains('ai') || combined.contains('tech') || combined.contains('silicon') || combined.contains('data center')) {
       hero = 'Monolithic Server Tower';
     } else if (combined.contains('market') || combined.contains('invest') || combined.contains('wealth') || combined.contains('billion') || combined.contains('stock')) {
-      hero = 'Silhouetted Wall Street Bull';
+      hero = isIndia ? 'Dalal Street Bull Monument Silhouette' : 'Silhouetted Wall Street Bull';
     } else if (combined.contains('polit') || combined.contains('elect') || combined.contains('minister') || combined.contains('leader') || combined.contains('vote')) {
-      hero = 'Solitary Figure at Microphone';
-    } else if (combined.contains('court') || combined.contains('judge') || combined.contains('law') || combined.contains('case')) {
-      hero = 'Gavel & Broken Stone Pillar';
+      hero = isIndia ? 'Indian Parliament Sandstone Colonnade' : 'Solitary Figure at Microphone';
+    } else if (combined.contains('court') || combined.contains('judge') || combined.contains('law') || combined.contains('case') || combined.contains('crime') || combined.contains('goon')) {
+      hero = isIndia ? 'Supreme Court of India Pillared Portico' : (isUK ? 'Old Bailey Gilded Scales of Justice' : 'Gavel & Broken Stone Pillar');
     } else if (newsHeadline.trim().isNotEmpty) {
       final phrases = _extractMeaningfulPhrases(newsHeadline);
       hero = phrases.isNotEmpty ? phrases.first : 'Central Editorial Subject';
@@ -34,12 +36,12 @@ class VisualCueService {
 
     // 2. MOTIF (Core Metaphor from Curator Angle)
     String motif = '';
-    if (combined.contains('mind') && (combined.contains('garbage') || combined.contains('trash') || combined.contains('clean'))) {
+    if (combined.contains('court') || combined.contains('crime') || combined.contains('scale') || combined.contains('justice') || combined.contains('balance') || combined.contains('fair')) {
+      motif = isIndia ? 'Ashoka Lion Capital & Scales of Justice' : 'Tipping Scales of Justice';
+    } else if (combined.contains('mind') && (combined.contains('garbage') || combined.contains('trash') || combined.contains('clean'))) {
       motif = 'Mind Silhouette Filled with Plastic Waste';
     } else if (combined.contains('puppet') || combined.contains('control') || combined.contains('manipulat')) {
       motif = 'Tangled Marionette Puppet Strings';
-    } else if (combined.contains('scale') || combined.contains('justice') || combined.contains('balance') || combined.contains('fair')) {
-      motif = 'Tipping Scales of Justice';
     } else if (combined.contains('hourglass') || combined.contains('time') || combined.contains('delay') || combined.contains('wait')) {
       motif = 'Crumbling Glass Hourglass';
     } else if (combined.contains('power') || combined.contains('grid') || combined.contains('cable') || combined.contains('energy')) {
@@ -54,7 +56,9 @@ class VisualCueService {
 
     // 3. TENSION (Conflict / Friction / Obstacle)
     String tension = '';
-    if (combined.contains('garbage') || combined.contains('throw') || combined.contains('dirty') || combined.contains('street')) {
+    if (combined.contains('court') || combined.contains('crime')) {
+      tension = 'Swarm of Shadows around Court Gates';
+    } else if (combined.contains('garbage') || combined.contains('throw') || combined.contains('dirty') || combined.contains('street')) {
       tension = 'Hands Dropping Trash Behind Sweeper';
     } else if (combined.contains('storm') || combined.contains('threat') || combined.contains('crisis')) {
       tension = 'Approaching Storm Wall';
@@ -70,16 +74,16 @@ class VisualCueService {
 
     // 4. ATMOSPHERE (Setting / Environment)
     String atmosphere = '';
-    if (combined.contains('street') || combined.contains('city') || combined.contains('road') || combined.contains('urban')) {
-      atmosphere = 'Damp Morning City Boulevard';
+    if (combined.contains('court') || combined.contains('legal') || combined.contains('parliament')) {
+      atmosphere = isIndia ? 'Dusk over New Delhi Red Sandstone Corridor' : (isUK ? 'Rain-Mist Westminster Stone Embankment' : 'Colonnaded Classical Chamber');
+    } else if (combined.contains('street') || combined.contains('city') || combined.contains('road') || combined.contains('urban')) {
+      atmosphere = isIndia ? 'Monsoon-Drenched Indian City Boulevard' : 'Damp Morning City Boulevard';
     } else if (combined.contains('board') || combined.contains('exec') || combined.contains('corp')) {
       atmosphere = 'Smoke-Filled Boardroom';
     } else if (combined.contains('cyber') || combined.contains('digital') || combined.contains('data')) {
       atmosphere = 'Brutalist Concrete Server Canyon';
     } else if (combined.contains('trade') || combined.contains('stock') || combined.contains('wall street')) {
-      atmosphere = 'Empty Trading Floor at Dusk';
-    } else if (combined.contains('court') || combined.contains('legal') || combined.contains('parliament')) {
-      atmosphere = 'Colonnaded Classical Chamber';
+      atmosphere = isIndia ? 'Dalal Street Trading Floor at Dusk' : 'Empty Trading Floor at Dusk';
     } else {
       atmosphere = 'Atmospheric Urban Crossroads';
     }
@@ -91,21 +95,21 @@ class VisualCueService {
     } else if (combined.contains('dark') || combined.contains('noir') || combined.contains('secret') || combined.contains('investig')) {
       lighting = 'Deep Chiaroscuro Silhouette';
     } else if (combined.contains('neon') || combined.contains('tech') || combined.contains('futur')) {
-      lighting = 'Eerie Volumetric Neon Glow';
+      lighting = 'Eerie Volumetric Neon Cyan Glow';
     } else {
       lighting = 'Dramatic Chiaroscuro Spotlight';
     }
 
     // 6. STYLE (Print Medium & Movement)
     String style = '';
-    if (combined.contains('broadsheet') || combined.contains('news') || combined.contains('street') || combined.contains('public')) {
-      style = 'High-Contrast Noir Risograph Print';
-    } else if (combined.contains('tech') || combined.contains('modern') || combined.contains('future')) {
-      style = 'Bauhaus Geometric Vector Art';
-    } else if (combined.contains('historic') || combined.contains('classic') || combined.contains('heritage')) {
-      style = 'Vintage Woodcut Broadsheet';
+    if (isIndia) {
+      style = 'Editorial Sandstone & Indigo Broadsheet Woodcut';
+    } else if (combined.contains('tech') || combined.contains('modern') || combined.contains('futur')) {
+      style = 'Bauhaus Geometric Vector Poster';
+    } else if (combined.contains('historic') || combined.contains('classic') || combined.contains('book') || combined.contains('paper')) {
+      style = 'Vintage Woodcut Broadsheet Engraving';
     } else {
-      style = 'Minimalist Editorial Graphic Poster';
+      style = 'High-Contrast Noir Risograph Print';
     }
 
     return [

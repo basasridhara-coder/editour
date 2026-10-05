@@ -4058,6 +4058,108 @@ header {
   opacity: 0.9;
 }
 
+/* Geographic & Cultural Setting Card (Matches Regional Elements & Architecture) */
+.country-context-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: rgba(99, 102, 241, 0.08);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  border-radius: 14px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  transition: all 0.2s ease;
+}
+
+.country-context-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+
+.country-context-flag {
+  font-size: 24px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.country-context-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.country-context-title-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.country-context-label {
+  font-size: 10px;
+  font-weight: 800;
+  color: #818CF8;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+
+.country-context-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: #F8FAFC;
+}
+
+.country-context-badge {
+  font-size: 9.5px;
+  font-weight: 700;
+  background: rgba(16, 185, 129, 0.18);
+  color: #34D399;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  padding: 1px 6px;
+  border-radius: 8px;
+  letter-spacing: 0.2px;
+}
+
+.country-context-desc {
+  font-size: 11px;
+  color: #94A3B8;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.country-context-right {
+  flex-shrink: 0;
+}
+
+.country-context-select {
+  background: rgba(15, 23, 42, 0.85);
+  color: #F8FAFC;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 9px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+  font-family: inherit;
+  transition: all 0.2s ease;
+}
+
+.country-context-select:hover,
+.country-context-select:focus {
+  border-color: #6366F1;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.25);
+}
+
 /* Character & Face Representation Card */
 .character-rep-card {
   background: var(--bg-card);

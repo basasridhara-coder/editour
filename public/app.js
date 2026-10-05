@@ -2207,6 +2207,195 @@ let creatorCharacterRepresentation = 'silhouette'; // 'silhouette' | 'likeness'
 let creatorLastSuggestedContextKey = '';
 let draggedCueIndex = null;
 
+// Geographic & Cultural Context State
+let creatorCountryContext = null;
+
+function detectGeographicContext(url = '', headline = '', body = '', userAngle = '') {
+  const combined = `${url} ${headline} ${body} ${userAngle}`.toLowerCase();
+
+  // 1. India Detection
+  if (
+    url.includes('.in') || url.includes('thehindu') || url.includes('timesofindia') ||
+    url.includes('ndtv') || url.includes('hindustantimes') || url.includes('indianexpress') ||
+    url.includes('livemint') || url.includes('scroll.in') || url.includes('thewire.in') ||
+    combined.includes('delhi') || combined.includes('mumbai') || combined.includes('bengaluru') ||
+    combined.includes('india') || combined.includes('supreme court of india') || combined.includes('lok sabha') ||
+    combined.includes('rajya sabha') || combined.includes('rupee') || combined.includes('ncr') ||
+    combined.includes('hyderabad') || combined.includes('chennai') || combined.includes('kolkata')
+  ) {
+    return {
+      code: 'IN',
+      name: 'India',
+      flag: '🇮🇳',
+      source: 'Auto-detected from Article & Source',
+      desc: 'Grounds visual cues, architecture, and lighting in authentic Indian institutional and environmental motifs.'
+    };
+  }
+
+  // 2. UK Detection
+  if (
+    url.includes('.uk') || url.includes('bbc.co.uk') || url.includes('theguardian.com') ||
+    url.includes('telegraph.co.uk') || url.includes('ft.com') ||
+    combined.includes('london') || combined.includes('westminster') || combined.includes('downing street') ||
+    combined.includes('parliament') || combined.includes('pound sterling') || combined.includes('united kingdom') ||
+    combined.includes('britain')
+  ) {
+    return {
+      code: 'GB',
+      name: 'United Kingdom',
+      flag: '🇬🇧',
+      source: 'Auto-detected from Article & Source',
+      desc: 'Grounds visual cues in authentic British institutional architecture, Westminster stone, and London atmosphere.'
+    };
+  }
+
+  // 3. Japan Detection
+  if (
+    url.includes('.jp') || url.includes('japantimes') || url.includes('nhk.or.jp') || url.includes('nikkei') ||
+    combined.includes('japan') || combined.includes('tokyo') || combined.includes('yen') || combined.includes('osaka')
+  ) {
+    return {
+      code: 'JP',
+      name: 'Japan',
+      flag: '🇯🇵',
+      source: 'Auto-detected from Article & Source',
+      desc: 'Grounds visual cues in Japanese architecture, Tokyo urban scale, and cultural minimalism.'
+    };
+  }
+
+  // 4. US Detection
+  if (
+    combined.includes('white house') || combined.includes('capitol hill') || combined.includes('wall street') ||
+    combined.includes('pentagon') || combined.includes('biden') || combined.includes('trump') ||
+    combined.includes('california') || combined.includes('washington dc')
+  ) {
+    return {
+      code: 'US',
+      name: 'United States',
+      flag: '🇺🇸',
+      source: 'Auto-detected from Article & Source',
+      desc: 'Grounds visual cues in American federal architecture, metropolitan high-rises, and institutional settings.'
+    };
+  }
+
+  // 5. Fall back to user's device timezone / locale
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+    if (tz.includes('Kolkata') || tz.includes('Calcutta') || tz.includes('India')) {
+      return {
+        code: 'IN',
+        name: 'India',
+        flag: '🇮🇳',
+        source: 'User Country (Locale)',
+        desc: 'Grounds visual cues, architecture, and lighting in authentic Indian institutional and environmental motifs.'
+      };
+    }
+    if (tz.includes('New_York') || tz.includes('Los_Angeles') || tz.includes('Chicago') || tz.includes('Denver')) {
+      return {
+        code: 'US',
+        name: 'United States',
+        flag: '🇺🇸',
+        source: 'User Country (Locale)',
+        desc: 'Grounds visual cues in American federal architecture, metropolitan high-rises, and institutional settings.'
+      };
+    }
+    if (tz.includes('London')) {
+      return {
+        code: 'GB',
+        name: 'United Kingdom',
+        flag: '🇬🇧',
+        source: 'User Country (Locale)',
+        desc: 'Grounds visual cues in authentic British institutional architecture, Westminster stone, and London atmosphere.'
+      };
+    }
+    if (tz.includes('Tokyo')) {
+      return {
+        code: 'JP',
+        name: 'Japan',
+        flag: '🇯🇵',
+        source: 'User Country (Locale)',
+        desc: 'Grounds visual cues in Japanese architecture, Tokyo urban scale, and cultural minimalism.'
+      };
+    }
+  } catch (_) {}
+
+  return {
+    code: 'GLOBAL',
+    name: 'Global',
+    flag: '🌐',
+    source: 'Universal Setting',
+    desc: 'Uses universal, cross-cultural metaphorical archetypes and neutral editorial lighting.'
+  };
+}
+
+function updateCountryContextUI() {
+  if (!creatorCountryContext) {
+    creatorCountryContext = detectGeographicContext();
+  }
+  const flagEl = document.getElementById('countryContextFlag');
+  const nameEl = document.getElementById('countryContextName');
+  const badgeEl = document.getElementById('countryContextBadge');
+  const descEl = document.getElementById('countryContextDesc');
+  const selectEl = document.getElementById('countryContextSelect');
+
+  if (flagEl) flagEl.textContent = creatorCountryContext.flag || '🌐';
+  if (nameEl) nameEl.textContent = creatorCountryContext.name || 'Global';
+  if (badgeEl) badgeEl.textContent = creatorCountryContext.source || 'Auto-detected';
+  if (descEl) descEl.textContent = creatorCountryContext.desc || '';
+  if (selectEl) selectEl.value = creatorCountryContext.code || 'GLOBAL';
+}
+
+function changeCountryContext(code) {
+  const options = {
+    'IN': {
+      code: 'IN',
+      name: 'India',
+      flag: '🇮🇳',
+      source: 'User Selected',
+      desc: 'Grounds visual cues, architecture, and lighting in authentic Indian institutional and environmental motifs.'
+    },
+    'US': {
+      code: 'US',
+      name: 'United States',
+      flag: '🇺🇸',
+      source: 'User Selected',
+      desc: 'Grounds visual cues in American federal architecture, metropolitan high-rises, and institutional settings.'
+    },
+    'GB': {
+      code: 'GB',
+      name: 'United Kingdom',
+      flag: '🇬🇧',
+      source: 'User Selected',
+      desc: 'Grounds visual cues in authentic British institutional architecture, Westminster stone, and London atmosphere.'
+    },
+    'JP': {
+      code: 'JP',
+      name: 'Japan',
+      flag: '🇯🇵',
+      source: 'User Selected',
+      desc: 'Grounds visual cues in Japanese architecture, Tokyo urban scale, and cultural minimalism.'
+    },
+    'EU': {
+      code: 'EU',
+      name: 'Europe',
+      flag: '🇪🇺',
+      source: 'User Selected',
+      desc: 'Grounds visual cues in European continental architecture, civic plazas, and historic institutions.'
+    },
+    'GLOBAL': {
+      code: 'GLOBAL',
+      name: 'Global',
+      flag: '🌐',
+      source: 'Universal',
+      desc: 'Uses universal, cross-cultural metaphorical archetypes and neutral editorial lighting.'
+    }
+  };
+
+  creatorCountryContext = options[code] || options['GLOBAL'];
+  updateCountryContextUI();
+  triggerCueSuggest();
+}
+
 // Reference Photo Likeness State
 let creatorReferenceImageBase64 = null;
 let creatorReferenceImageMimeType = 'image/jpeg';
@@ -2381,6 +2570,9 @@ function extract6RankedCueDimensions(curatorAngle, newsHeadline, newsBody) {
   }
 
   const combined = `${curatorAngle || ''} ${cleanHeadline} ${newsBody || ''}`.toLowerCase();
+  const isIndia = (creatorCountryContext?.code === 'IN') || combined.includes('india') || combined.includes('delhi') || combined.includes('thehindu');
+  const isUK = (creatorCountryContext?.code === 'GB') || combined.includes('london') || combined.includes('westminster');
+  const isJapan = (creatorCountryContext?.code === 'JP') || combined.includes('japan') || combined.includes('tokyo');
 
   // 1. HERO (Subject from headline or angle - never a URL!)
   let hero = '';
@@ -2388,15 +2580,15 @@ function extract6RankedCueDimensions(curatorAngle, newsHeadline, newsBody) {
   if (detectedPerson) {
     hero = `${detectedPerson} (Editorial Portrait)`;
   } else if (combined.includes('garbage') || combined.includes('trash') || combined.includes('waste') || combined.includes('clean')) {
-    hero = 'Lone Sweeper with Traditional Broom';
+    hero = isIndia ? 'Municipal Sweeper with Traditional Reed Broom' : 'Lone Sweeper with Traditional Broom';
   } else if (combined.includes('ai') || combined.includes('tech') || combined.includes('silicon') || combined.includes('data center') || combined.includes('model') || combined.includes('compute') || combined.includes('apple') || combined.includes('phone') || combined.includes('ipad')) {
     hero = 'Monolithic Obsidian Server Tower';
   } else if (combined.includes('market') || combined.includes('invest') || combined.includes('wealth') || combined.includes('billion') || combined.includes('stock')) {
-    hero = 'Silhouetted Wall Street Bull';
+    hero = isIndia ? 'Dalal Street Bull Monument Silhouette' : 'Silhouetted Wall Street Bull';
   } else if (combined.includes('polit') || combined.includes('elect') || combined.includes('minister') || combined.includes('leader') || combined.includes('vote')) {
-    hero = 'Solitary Figure at Microphone';
-  } else if (combined.includes('court') || combined.includes('judge') || combined.includes('law') || combined.includes('case')) {
-    hero = 'Gavel & Broken Stone Pillar';
+    hero = isIndia ? 'Indian Parliament Sandstone Colonnade' : 'Solitary Figure at Microphone';
+  } else if (combined.includes('court') || combined.includes('judge') || combined.includes('law') || combined.includes('case') || combined.includes('crime') || combined.includes('goon')) {
+    hero = isIndia ? 'Supreme Court of India Pillared Portico' : (isUK ? 'Old Bailey Gilded Scales of Justice' : 'Gavel & Broken Stone Pillar');
   } else if (cleanHeadline && cleanHeadline.length > 3 && !cleanHeadline.startsWith('http')) {
     hero = cleanHeadline.split(/[:–—\-]/)[0].trim();
     if (hero.length > 38) hero = hero.substring(0, 35) + '...';
@@ -2409,12 +2601,12 @@ function extract6RankedCueDimensions(curatorAngle, newsHeadline, newsBody) {
 
   // 2. MOTIF (Core Metaphor from Curator Angle)
   let motif = '';
-  if (combined.includes('taste') || combined.includes('craft') || combined.includes('art') || combined.includes('design')) {
+  if (combined.includes('court') || combined.includes('judge') || combined.includes('law') || combined.includes('crime') || combined.includes('scale') || combined.includes('justice') || combined.includes('balance') || combined.includes('fair')) {
+    motif = isIndia ? 'Ashoka Lion Capital & Scales of Justice' : 'Tipping Brass Balance Scales';
+  } else if (combined.includes('taste') || combined.includes('craft') || combined.includes('art') || combined.includes('design')) {
     motif = 'Sculptor Chisel against Uncarved Marble';
   } else if (combined.includes('puppet') || combined.includes('control') || combined.includes('manipulat')) {
     motif = 'Tangled Marionette Puppet Strings';
-  } else if (combined.includes('scale') || combined.includes('justice') || combined.includes('balance') || combined.includes('fair')) {
-    motif = 'Tipping Brass Balance Scales';
   } else if (combined.includes('hourglass') || combined.includes('time') || combined.includes('delay') || combined.includes('wait')) {
     motif = 'Crumbling Glass Hourglass';
   } else if (combined.includes('power') || combined.includes('grid') || combined.includes('cable') || combined.includes('energy')) {
@@ -2429,7 +2621,9 @@ function extract6RankedCueDimensions(curatorAngle, newsHeadline, newsBody) {
 
   // 3. TENSION (Conflict / Friction / Obstacle)
   let tension = '';
-  if (combined.includes('storm') || combined.includes('threat') || combined.includes('crisis')) {
+  if (combined.includes('court') || combined.includes('crime')) {
+    tension = 'Swarm of Shadows around Court Gates';
+  } else if (combined.includes('storm') || combined.includes('threat') || combined.includes('crisis')) {
     tension = 'Approaching Storm Wall on Horizon';
   } else if (combined.includes('crack') || combined.includes('fall') || combined.includes('collaps')) {
     tension = 'Cracking Stone Foundation Beneath';
@@ -2446,15 +2640,15 @@ function extract6RankedCueDimensions(curatorAngle, newsHeadline, newsBody) {
   // 4. ATMOSPHERE (Setting / Environment)
   let atmosphere = '';
   if (combined.includes('street') || combined.includes('city') || combined.includes('road') || combined.includes('urban')) {
-    atmosphere = 'Damp Rain-Slicked City Boulevard';
+    atmosphere = isIndia ? 'Dusk over New Delhi Red Sandstone Corridor' : 'Damp Rain-Slicked City Boulevard';
   } else if (combined.includes('board') || combined.includes('exec') || combined.includes('corp')) {
     atmosphere = 'Smoke-Filled High-Rise Boardroom';
   } else if (combined.includes('cyber') || combined.includes('digital') || combined.includes('data') || combined.includes('tech')) {
     atmosphere = 'Brutalist Concrete Server Canyon';
   } else if (combined.includes('trade') || combined.includes('stock') || combined.includes('wall street')) {
-    atmosphere = 'Empty Trading Floor at Dusk';
+    atmosphere = isIndia ? 'Dalal Street Trading Floor at Dusk' : 'Empty Trading Floor at Dusk';
   } else {
-    atmosphere = 'Atmospheric Minimalist Crossroads';
+    atmosphere = isIndia ? 'Monsoon-Drenched New Delhi Court Corridor' : (isUK ? 'Rain-Mist Westminster Stone Embankment' : (isJapan ? 'Shinjuku Neon Alleyway in Dusk Rain' : 'Atmospheric Minimalist Crossroads'));
   }
 
   // 5. LIGHTING (Chiaroscuro & Mood)
@@ -2471,7 +2665,9 @@ function extract6RankedCueDimensions(curatorAngle, newsHeadline, newsBody) {
 
   // 6. STYLE (Print Medium & Movement)
   let style = '';
-  if (combined.includes('tech') || combined.includes('modern') || combined.includes('future')) {
+  if (isIndia) {
+    style = 'Editorial Sandstone & Indigo Broadsheet Woodcut';
+  } else if (combined.includes('tech') || combined.includes('modern') || combined.includes('future')) {
     style = 'Bauhaus Geometric Vector Poster';
   } else if (combined.includes('historic') || combined.includes('classic') || combined.includes('book') || combined.includes('paper')) {
     style = 'Vintage Woodcut Broadsheet Engraving';
@@ -2557,9 +2753,16 @@ async function goToVisualCuesStep() {
     step2Right.title = currentSynthesizedPost ? 'View Generated Posters →' : 'Generate Posters →';
   }
 
-  // AI-suggest cues if context changed or empty
+  // Auto-detect and set geographic & cultural context
   const articleTitle = currentScrapedArticle?.title || extractHeadlineFromUrl(url);
-  const contextKey = `${creatorSelectedSource}::${articleTitle}::${slantTake}::${creatorCharacterRepresentation}`;
+  const articleBody = currentScrapedArticle?.content || '';
+  if (!creatorCountryContext) {
+    creatorCountryContext = detectGeographicContext(url, articleTitle, articleBody, slantTake);
+  }
+  updateCountryContextUI();
+
+  // AI-suggest cues if context changed or empty
+  const contextKey = `${creatorSelectedSource}::${articleTitle}::${slantTake}::${creatorCharacterRepresentation}::${creatorCountryContext?.code}`;
 
   if (creatorCuePills.length === 0 || creatorLastSuggestedContextKey !== contextKey) {
     creatorLastSuggestedContextKey = contextKey;
@@ -2826,7 +3029,9 @@ async function triggerCueSuggest() {
         newsBody: articleBody,
         sourceType: creatorSelectedSource,
         characterRepresentation: creatorCharacterRepresentation,
-        selectedIndices: Array.from(creatorSelectedCueIndices)
+        selectedIndices: Array.from(creatorSelectedCueIndices),
+        countryContext: creatorCountryContext?.name || 'India',
+        countryCode: creatorCountryContext?.code || 'IN'
       })
     });
 
@@ -3033,6 +3238,7 @@ async function startAiSynthesis() {
     heroCue: creatorCuePills[0] || '',
     characterRepresentation: creatorCharacterRepresentation,
     refineCoreTake: creatorRefineCoreTake,
+    countryContext: creatorCountryContext?.name || 'India',
     scrapedTitle: currentScrapedArticle?.title || '',
     scrapedContent: currentScrapedArticle?.content || ''
   };

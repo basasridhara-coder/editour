@@ -31,10 +31,21 @@ module.exports = async function handler(req, res) {
     newsBody = '',
     sourceType = 'digital_link',
     characterRepresentation = 'silhouette',
-    selectedIndices = []
+    selectedIndices = [],
+    countryContext = '',
+    countryCode = ''
   } = body || {};
 
   const isLikeness = (characterRepresentation === 'likeness');
+
+  const countryDirective = countryContext && countryContext !== 'Global'
+    ? `CRITICAL GEOGRAPHIC & CULTURAL CONTEXT DIRECTIVE:
+The story and curator are situated in ${countryContext}.
+All 6 visual cues MUST authentically reflect the geographic, cultural, and institutional reality of ${countryContext} rather than defaulting to generic American or Western European tropes:
+- #1 HERO: Must use culturally and institutionally authentic subjects for ${countryContext} (e.g. for India: Indian Supreme Court architecture, Ashoka lion capital emblems, Indian legal dockets, South Asian protagonist archetypes; for Japan: Tokyo corridors, Shinto / Japanese brutalist architecture; for US: neoclassical federal porticos, etc.).
+- #2 MOTIF: Culturally resonant symbolism relevant to ${countryContext} and the editorial issue.
+- #4 ATMOSPHERE: Authentic regional landscape, urban environment, weather, and architecture of ${countryContext} (e.g. "Monsoon-Drenched New Delhi Rajpath", "Dusk over Old Delhi Red Sandstone", "Tokyo Neon Shinjuku Alleyway").`
+    : `GEOGRAPHIC & CULTURAL DIRECTIVE: If the story mentions or is set in a specific country or region, anchor all visual cues (#1 HERO, #2 MOTIF, #4 ATMOSPHERE) in the authentic regional and architectural motifs of that country.`;
 
   const prompt = `You are the lead visual art director for "Slant" (slant.today), an elite editorial publication.
 Your job is to define the 6 ranked storytelling visual cue dimensions for Poster 1 (The Hook Poster).
@@ -43,7 +54,10 @@ Curator's Slant / Perspective: "${curatorAngle || 'No specific angle specified'}
 Article Title: "${newsHeadline || ''}"
 Article Excerpt / Context: "${newsBody ? newsBody.slice(0, 1500) : ''}"
 Source Type: ${sourceType}
+Regional & Cultural Setting: ${countryContext || 'Global / Contextually Detected'}
 Character Portrayal Style: ${isLikeness ? 'REAL PERSON FACE & LIKENESS' : 'Stylized Metaphor / Silhouette'}
+
+${countryDirective}
 
 ${isLikeness ? 'CRITICAL PERSON LIKENESS DIRECTIVE: The curator has explicitly requested REAL PERSON LIKENESS. The #1 HERO cue MUST be the central real-world individual named in the headline or context (e.g., "Donald Trump (Editorial Portrait)", "Elon Musk (Editorial Portrait)") styled for a high-contrast editorial magazine cover. Do NOT substitute with an abstract object or inanimate building!' : ''}
 
@@ -112,7 +126,7 @@ Respond strictly with valid JSON with this exact schema:
 
   } catch (err) {
     console.warn('Gemini cues generation error, using smart fallback:', err.message);
-    const fallbacks = generateSmartFallbackCues(curatorAngle, newsHeadline, newsBody, characterRepresentation);
+    const fallbacks = generateSmartFallbackCues(curatorAngle, newsHeadline, newsBody, characterRepresentation, countryContext);
     return res.status(200).json({
       success: true,
       cues: fallbacks,
@@ -121,9 +135,12 @@ Respond strictly with valid JSON with this exact schema:
   }
 };
 
-function generateSmartFallbackCues(curatorAngle, newsHeadline, newsBody, characterRepresentation = 'silhouette') {
+function generateSmartFallbackCues(curatorAngle, newsHeadline, newsBody, characterRepresentation = 'silhouette', countryContext = '') {
   const combined = `${curatorAngle || ''} ${newsHeadline || ''} ${newsBody || ''}`.toLowerCase();
   const isLikeness = (characterRepresentation === 'likeness');
+  const isIndia = (countryContext === 'India') || combined.includes('india') || combined.includes('delhi') || combined.includes('thehindu');
+  const isUK = (countryContext === 'United Kingdom') || combined.includes('london') || combined.includes('westminster');
+  const isJapan = (countryContext === 'Japan') || combined.includes('japan') || combined.includes('tokyo');
 
   let hero = '';
 
@@ -162,16 +179,24 @@ function generateSmartFallbackCues(curatorAngle, newsHeadline, newsBody, charact
     }
   }
 
-  // 3. Thematic topic fallbacks
+  // 3. Thematic topic fallbacks grounded in country/regional context
   if (!hero) {
-    if (combined.includes('garbage') || combined.includes('trash') || combined.includes('waste')) {
-      hero = 'Lone Sweeper with Traditional Broom';
-    } else if (combined.includes('ai') || combined.includes('tech') || combined.includes('silicon') || combined.includes('compute') || combined.includes('apple') || combined.includes('model')) {
+    if (combined.includes('court') || combined.includes('judge') || combined.includes('law') || combined.includes('legal') || combined.includes('crime') || combined.includes('goon')) {
+      if (isIndia) {
+        hero = 'Supreme Court of India Pillared Portico';
+      } else if (isUK) {
+        hero = 'Old Bailey Gilded Scales of Justice';
+      } else {
+        hero = 'Monolithic Neoclassical Courthouse Columns';
+      }
+    } else if (combined.includes('garbage') || combined.includes('trash') || combined.includes('waste')) {
+      hero = isIndia ? 'Municipal Sweeper with Traditional Reed Broom' : 'Lone Sweeper with Traditional Broom';
+    } else if (combined.includes('ai') || combined.includes('tech') || combined.includes('silicon') || combined.includes('compute') || combined.includes('model')) {
       hero = 'Monolithic Obsidian Server Tower';
     } else if (combined.includes('market') || combined.includes('invest') || combined.includes('wealth') || combined.includes('stock')) {
-      hero = 'Silhouetted Wall Street Bull';
+      hero = isIndia ? 'Dalal Street Bull Monument Silhouette' : 'Silhouetted Wall Street Bull';
     } else if (combined.includes('polit') || combined.includes('elect') || combined.includes('minister') || combined.includes('vote')) {
-      hero = 'Solitary Figure at Microphone';
+      hero = isIndia ? 'Indian Parliament Sandstone Colonnade' : 'Solitary Figure at Microphone';
     } else if (newsHeadline && newsHeadline.length > 3 && !newsHeadline.startsWith('http')) {
       hero = newsHeadline.split(/[:–—\-]/)[0].trim().slice(0, 35);
     } else {
@@ -180,7 +205,9 @@ function generateSmartFallbackCues(curatorAngle, newsHeadline, newsBody, charact
   }
 
   let motif = '';
-  if (combined.includes('taste') || combined.includes('craft') || combined.includes('design')) {
+  if (combined.includes('court') || combined.includes('judge') || combined.includes('law') || combined.includes('crime') || combined.includes('justice')) {
+    motif = isIndia ? 'Ashoka Lion Capital & Brass Balance Scales' : 'Tipping Brass Balance Scales';
+  } else if (combined.includes('taste') || combined.includes('craft') || combined.includes('design')) {
     motif = 'Sculptor Chisel against Uncarved Marble';
   } else if (combined.includes('puppet') || combined.includes('control')) {
     motif = 'Tangled Marionette Puppet Strings';
@@ -198,29 +225,26 @@ function generateSmartFallbackCues(curatorAngle, newsHeadline, newsBody, charact
   } else if (combined.includes('crack') || combined.includes('collapse')) {
     tension = 'Cracking Stone Foundation Beneath';
   } else if (combined.includes('shadow') || combined.includes('monopoly')) {
-    tension = 'Looming Corporate Glass Shadow';
+    tension = 'Looming Corporate Shadow';
+  } else if (combined.includes('court') || combined.includes('crime')) {
+    tension = 'Swarm of Shadows around Court Gates';
   }
 
   let atmosphere = 'Damp Rain-Slicked City Boulevard';
-  if (combined.includes('tech') || combined.includes('digital')) {
-    atmosphere = 'Brutalist Concrete Server Canyon';
-  } else if (combined.includes('exec') || combined.includes('corp') || combined.includes('board')) {
-    atmosphere = 'Smoke-Filled High-Rise Boardroom';
+  if (isIndia) {
+    atmosphere = combined.includes('court') || combined.includes('delhi')
+      ? 'Dusk over New Delhi Red Sandstone Corridor'
+      : 'Monsoon-Drenched Indian City Boulevard';
+  } else if (isUK) {
+    atmosphere = 'Rain-Mist Westminster Stone Embankment';
+  } else if (isJapan) {
+    atmosphere = 'Shinjuku Neon Alleyway in Evening Rain';
   }
 
-  let lighting = 'Dramatic Chiaroscuro Editorial Spotlight';
-  if (combined.includes('cyber') || combined.includes('neon') || combined.includes('future')) {
-    lighting = 'Eerie Volumetric Neon Cyan Glow';
-  } else if (combined.includes('dark') || combined.includes('noir') || combined.includes('secret')) {
-    lighting = 'Deep Chiaroscuro High-Contrast Silhouette';
-  }
-
-  let style = 'High-Contrast Noir Risograph Print';
-  if (combined.includes('tech') || combined.includes('vector')) {
-    style = 'Bauhaus Geometric Vector Poster';
-  } else if (combined.includes('book') || combined.includes('classic') || combined.includes('history')) {
-    style = 'Vintage Woodcut Broadsheet Engraving';
-  }
+  const lighting = 'Dramatic Chiaroscuro Editorial Spotlight';
+  const style = isIndia
+    ? 'Editorial Sandstone & Indigo Broadsheet Woodcut'
+    : 'High-Contrast Noir Risograph Print';
 
   return [hero, motif, tension, atmosphere, lighting, style];
 }

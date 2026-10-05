@@ -309,6 +309,31 @@
             </div>
           </div>
 
+          <!-- Geographic & Cultural Setting Card -->
+          <div class="country-context-card" id="countryContextCard">
+            <div class="country-context-left">
+              <span class="country-context-flag" id="countryContextFlag">🇮🇳</span>
+              <div class="country-context-info">
+                <div class="country-context-title-row">
+                  <span class="country-context-label">REGIONAL & CULTURAL SETTING:</span>
+                  <span class="country-context-name" id="countryContextName">India</span>
+                  <span class="country-context-badge" id="countryContextBadge">Auto-detected</span>
+                </div>
+                <span class="country-context-desc" id="countryContextDesc">Grounds visual cues, architecture, and lighting in authentic Indian institutional and environmental motifs.</span>
+              </div>
+            </div>
+            <div class="country-context-right">
+              <select id="countryContextSelect" class="country-context-select" onchange="changeCountryContext(this.value)">
+                <option value="IN">🇮🇳 India</option>
+                <option value="US">🇺🇸 United States</option>
+                <option value="GB">🇬🇧 United Kingdom</option>
+                <option value="JP">🇯🇵 Japan</option>
+                <option value="EU">🇪🇺 Europe</option>
+                <option value="GLOBAL">🌐 Global / Universal</option>
+              </select>
+            </div>
+          </div>
+
           <!-- 2. Action Bar: Selection Info + Suggest Button -->
           <div class="cues-action-bar">
             <div class="cues-info-text" id="cuesInfoText">

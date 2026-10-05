@@ -46,7 +46,8 @@ module.exports = async function handler(req, res) {
       heroCue = '',
       characterRepresentation = 'silhouette',
       scrapedTitle = '',
-      scrapedContent = ''
+      scrapedContent = '',
+      countryContext = ''
     } = body || {};
 
     const userSlant = slantTake || text || '';
@@ -124,6 +125,7 @@ ${spark ? `- The Spark (Personal Context / Catalyst): "${spark}"` : ''}
 ${url ? `- Source Link: ${url}` : ''}
 ${pubName ? `- Publication / Domain: ${pubName}` : ''}
 ${cues && cues.length > 0 ? `- Ranked Visual Cues: ${cues.map((c, i) => `#${i+1} ${c}`).join(' • ')}` : ''}
+${countryContext && countryContext !== 'Global' ? `- Regional & Cultural Setting: ${countryContext} (Ensure the story narrative, institutions, and visual motifs faithfully reflect the authentic architectural, cultural, and environmental elements of ${countryContext})` : ''}
 - Character Portrayal Style: ${characterRepresentation === 'likeness' ? 'Match real person face and likeness from source photo' : 'Stylized metaphorical silhouette / symbolic figures'}
 ${characterRepresentation === 'likeness' ? 'CRITICAL PERSON LIKENESS DIRECTIVE: Character Portrayal is set to REAL PERSON LIKENESS. The heroCue MUST specify the primary real-world individual named in the article/slant (e.g. "Donald Trump (Editorial Portrait)", "Elon Musk (Editorial Portrait)") formatted as an editorial cover portrait.' : ''}
 
@@ -247,8 +249,11 @@ Respond strictly with valid JSON with this exact structure:
     }
 
     // 4. Construct high-aesthetic illustration artwork URL
+    const countrySetting = countryContext && countryContext !== 'Global'
+      ? `${countryContext} regional setting, authentic cultural and institutional architecture, authentic ${countryContext} environmental elements, `
+      : '';
     const artPrompt = parsed.illustrationPrompt || `${parsed.heroCue || parsed.adaptedHeadline}, editorial poster art, high aesthetic, no text`;
-    const cleanArtPrompt = encodeURIComponent(`${artPrompt}, cinematic editorial art, high aesthetic, vivid color grading, masterwork, no letters, no text`);
+    const cleanArtPrompt = encodeURIComponent(`${countrySetting}${artPrompt}, cinematic editorial art, high aesthetic, vivid color grading, masterwork, no letters, no text`);
     const illustrationUrl = `https://image.pollinations.ai/prompt/${cleanArtPrompt}?width=1080&height=1350&nologo=true`;
 
     const hasLikenessPhoto = (characterRepresentation === 'likeness') && !!(imageBase64);
