@@ -47,7 +47,8 @@ module.exports = async function handler(req, res) {
       characterRepresentation = 'silhouette',
       scrapedTitle = '',
       scrapedContent = '',
-      countryContext = ''
+      countryContext = '',
+      vocabularyStyle = 'punchy' // 'punchy' | 'conversational' | 'analytical'
     } = body || {};
 
     const userSlant = slantTake || text || '';
@@ -114,12 +115,36 @@ module.exports = async function handler(req, res) {
       ? 'Out of Heart: Deeply reflective, philosophical, emotive, humanistic, and conviction-driven.'
       : 'Out of Mind: Sharp, analytical, strategic, counter-intuitive, high-signal, and intellectually rigorous.';
 
+    let vocabDirective = '';
+    if (vocabularyStyle === 'conversational') {
+      vocabDirective = `VOCABULARY STYLE: CONVERSATIONAL & DIRECT
+- Use natural, everyday conversational English.
+- Avoid academic jargon, convoluted sentences, or high-brow SAT words.
+- Write with the warmth, clarity, and directness of a smart friend explaining the stakes over coffee.`;
+    } else if (vocabularyStyle === 'analytical') {
+      vocabDirective = `VOCABULARY STYLE: IN-DEPTH & ANALYTICAL
+- Formal, structural broadsheet analysis with intellectual rigor.
+- Nuanced vocabulary suitable for policy institutes, think-tanks, and macro analyses.`;
+    } else {
+      // Default: 'punchy' (Visceral, emotional, easily understandable yet not childish)
+      vocabDirective = `CRITICAL EDITORIAL VOCABULARY & EMOTIONAL IMPACT DIRECTIVE (PUNCHY, EMOTIONAL & VIVID):
+1. BANISH HEAVY / POMPOUS SAT JARGON:
+   - NEVER use pretentious Latinate words or academic clichés: "hegemony", "panopticon", "paradigm", "Kafkaesque", "dichotomy", "juxtaposition", "inexorable", "obfuscate", "surreptitious", "monolithic", "harbinger", "verisimilitude", "disenfranchised", "quagmire", "ubiquitous", "pervasive", "machinations", "epistemic".
+   - If a word sounds like a PhD dissertation or corporate report, replace it with a direct, everyday equivalent.
+2. CONVEY RAW EMOTION THROUGH CLEAR, GUT-PUNCH LANGUAGE:
+   - Convey feeling through high human stakes, tension, vivid imagery, and clear cause-and-effect—NOT through rare multi-syllabic adjectives.
+   - Use punchy, active verbs and concrete nouns (e.g., choke, crush, hollow out, bankroll, shield, silence, fracture, bet, gamble, trap, blindspot, flashpoint).
+3. SMART YET EFFORTLESSLY UNDERSTANDABLE:
+   - Do NOT dumb it down like a children's primer. Keep the adult intelligence, wit, and conviction, but ensure any smart reader can grasp every single word instantly on their phone.`;
+    }
+
     const systemPrompt = `You are the lead editorial director and visual design curator for "Slant" (slant.today), an elite visual publication that distills complex stories into high-impact 3-poster social carousels.
 
 Input Details:
 - Source Type: ${sourceType}
 - Target Audience: ${targetAudience}
 - Tone / Slant: ${toneDescription}
+- Vocabulary & Voice Style: ${vocabularyStyle}
 ${userSlant ? `- Curator's Slant / Take (Primary Stance & Angle): "${userSlant}"` : ''}
 ${spark ? `- The Spark (Personal Context / Catalyst): "${spark}"` : ''}
 ${url ? `- Source Link: ${url}` : ''}
@@ -128,6 +153,8 @@ ${cues && cues.length > 0 ? `- Ranked Visual Cues: ${cues.map((c, i) => `#${i+1}
 ${countryContext && countryContext !== 'Global' ? `- Regional & Cultural Setting: ${countryContext} (Ensure the story narrative, institutions, and visual motifs faithfully reflect the authentic architectural, cultural, and environmental elements of ${countryContext})` : ''}
 - Character Portrayal Style: ${characterRepresentation === 'likeness' ? 'Match real person face and likeness from source photo' : 'Stylized metaphorical silhouette / symbolic figures'}
 ${characterRepresentation === 'likeness' ? 'CRITICAL PERSON LIKENESS DIRECTIVE: Character Portrayal is set to REAL PERSON LIKENESS. The heroCue MUST specify the primary real-world individual named in the article/slant (e.g. "Donald Trump (Editorial Portrait)", "Elon Musk (Editorial Portrait)") formatted as an editorial cover portrait.' : ''}
+
+${vocabDirective}
 
 Task:
 Synthesize this input into a compelling 3-poster social carousel deck:
@@ -138,7 +165,7 @@ ${userSlant ? (refineCoreTake ? `MANDATORY REFINEMENT DIRECTIVE (NEVER ECHO VERB
 - Poster 2 ("THE CRITICAL PERSPECTIVE" / Curator Take) MUST NEVER display the user's raw slant verbatim!
 - You MUST refine and extend the curator's unhedged take ("${userSlant}") into an articulate, model-synthesized editorial argument (EXACTLY 2 complete sentences, 22–35 words total, ending definitively with a period).
 - Ground it directly in the article's specific facts, actors, and structural implications.
-- Express it with the bite and precision of an elite broadsheet columnist. Return this elevated statement in "curatorTake".` : `VERBATIM DIRECTIVE:
+- Strictly adhere to the Vocabulary Directive: use vivid, emotionally resonant, easily understandable English without heavy SAT/GRE academic jargon. Return this elevated statement in "curatorTake".` : `VERBATIM DIRECTIVE:
 - Poster 2 ("THE CRITICAL PERSPECTIVE") MUST preserve the curator's exact typed words verbatim: "${userSlant}", ending with a period. Return this in "curatorTake".`) : ''}
 ${cues && cues.length > 0 ? `CRITICAL VISUAL RULE: The Hook poster artwork and cues MUST be anchored in #1 HERO: "${cues[0]}", incorporating #2 MOTIF: "${cues[1] || ''}" and #3 TENSION: "${cues[2] || ''}".` : ''}
 
@@ -297,6 +324,7 @@ Respond strictly with valid JSON with this exact structure:
       creatorOpinion: finalCuratorTake,
       rawUserSlant: userSlant || '',
       refineCoreTake,
+      vocabularyStyle: vocabularyStyle || 'punchy',
       isUserCreated: true,
       userContext: spark || ''
     };

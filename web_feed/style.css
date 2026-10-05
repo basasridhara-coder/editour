@@ -5185,6 +5185,129 @@ header {
   color: var(--text-muted);
 }
 
+/* Vocabulary & Voice Selector Card */
+.slant-vocab-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 14px;
+  transition: all 0.2s ease;
+}
+
+.slant-vocab-card:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.slant-vocab-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.slant-vocab-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.slant-vocab-icon-box {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  background: rgba(129, 140, 248, 0.15);
+  color: #818CF8;
+  flex-shrink: 0;
+}
+
+.slant-vocab-text-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.slant-vocab-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.slant-vocab-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-main);
+  letter-spacing: -0.1px;
+}
+
+.slant-vocab-badge {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  padding: 1.5px 7px;
+  border-radius: 4px;
+  background: rgba(129, 140, 248, 0.18);
+  color: #818CF8;
+  transition: all 0.2s ease;
+}
+
+.slant-vocab-subtitle {
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--text-muted);
+}
+
+.slant-vocab-pills {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+.slant-vocab-pill {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.slant-vocab-pill:hover {
+  background: rgba(255, 255, 255, 0.09);
+  color: #F8FAFC;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.slant-vocab-pill.active {
+  background: rgba(129, 140, 248, 0.18);
+  border-color: #6366F1;
+  color: #F8FAFC;
+  box-shadow: 0 0 10px rgba(99, 102, 241, 0.2);
+}
+
+.slant-vocab-pill .pill-icon {
+  font-size: 13px;
+}
+
 /* iOS/Android style Switch Toggle */
 .switch-toggle {
   position: relative;

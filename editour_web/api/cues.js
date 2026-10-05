@@ -70,6 +70,7 @@ STRICT VISUAL CUE REQUIREMENTS (Must be short, punchy 3-6 word phrases):
 6. STYLE: Specific high-aesthetic visual medium (e.g. "High-Contrast Noir Risograph Print", "Bauhaus Geometric Vector Art", "Vintage Woodcut Broadsheet Engraving").
 
 CRITICAL RULE: Under no circumstances output URLs, web links, "https", or technical domain strings. Every cue must be evocative visual imagery.
+VOCABULARY DIRECTIVE: Use crisp, vivid, easily understood visual English. NEVER use pretentious academic jargon or obscure Latinate words (e.g. avoid "panopticon", "hegemony", "Kafkaesque", "dichotomy", "inexorable", "epistemic"). Ground every cue in tangible, emotional, concrete reality.
 
 Respond strictly with valid JSON with this exact schema:
 {

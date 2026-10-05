@@ -1948,6 +1948,30 @@ function toggleRefineCoreTake(val) {
   }
 }
 
+let creatorVocabularyStyle = 'punchy'; // 'punchy' | 'conversational' | 'analytical'
+
+function setVocabularyStyle(style) {
+  creatorVocabularyStyle = style;
+  const badge = document.getElementById('slantVocabBadge');
+  const sub = document.getElementById('slantVocabSubtitle');
+
+  document.querySelectorAll('.slant-vocab-pill').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.vocab === style);
+  });
+
+  if (style === 'conversational') {
+    if (badge) badge.textContent = '💬 Conversational';
+    if (sub) sub.textContent = 'Natural everyday English. Clean, grounded, and universally easy to read.';
+  } else if (style === 'analytical') {
+    if (badge) badge.textContent = '🏛 Analytical';
+    if (sub) sub.textContent = 'Formal editorial broadsheet vocabulary for deep policy or structural critique.';
+  } else {
+    // punchy
+    if (badge) badge.textContent = '⚡ Punchy & Vivid';
+    if (sub) sub.textContent = 'Emotional, vivid & clear. Strong verbs, zero academic jargon. Reads effortlessly.';
+  }
+}
+
 function isMobileDevice() {
   return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
     (navigator.maxTouchPoints && navigator.maxTouchPoints > 1 && window.innerWidth <= 820);
@@ -3031,7 +3055,8 @@ async function triggerCueSuggest() {
         characterRepresentation: creatorCharacterRepresentation,
         selectedIndices: Array.from(creatorSelectedCueIndices),
         countryContext: creatorCountryContext?.name || 'India',
-        countryCode: creatorCountryContext?.code || 'IN'
+        countryCode: creatorCountryContext?.code || 'IN',
+        vocabularyStyle: creatorVocabularyStyle || 'punchy'
       })
     });
 
@@ -3238,6 +3263,7 @@ async function startAiSynthesis() {
     heroCue: creatorCuePills[0] || '',
     characterRepresentation: creatorCharacterRepresentation,
     refineCoreTake: creatorRefineCoreTake,
+    vocabularyStyle: creatorVocabularyStyle || 'punchy',
     countryContext: creatorCountryContext?.name || 'India',
     scrapedTitle: currentScrapedArticle?.title || '',
     scrapedContent: currentScrapedArticle?.content || ''

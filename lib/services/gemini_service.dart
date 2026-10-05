@@ -1752,6 +1752,11 @@ Your job is to elevate this raw thought into a world-class 3-Poster Carousel:
    - Embody the $slantTone tone: ${slantTone == 'heart' ? 'warm humanist, impressionistic, deep textural gouache, poetic cinematic editorial portraiture/landscape' : 'metaphorical, conceptual editorial, sleek architectural surrealism, high-contrast woodcut or lithograph'}.
    - Seamlessly weave in any visual cues: "${visualCues ?? ''}".
 
+⛔ CRITICAL VOCABULARY & EMOTIONAL IMPACT MANDATE:
+- ZERO HEAVY/POMPOUS SAT JARGON: NEVER use words like "hegemony", "panopticon", "paradigm", "Kafkaesque", "dichotomy", "juxtaposition", "inexorable", "obfuscate", "surreptitious", "monolithic", "harbinger", "disenfranchised", "quagmire", "ubiquitous".
+- CONVEY EMOTION THROUGH CLEAR, GUT-PUNCH LANGUAGE: Use concrete human stakes, strong active verbs (choke, crush, stall, hollow out, bankroll, shield, silence, fracture), and clear conflict.
+- ACCESSIBLE YET SHARP: Do NOT write like a children's book. Write like an articulate, world-class columnist speaking with raw conviction and utmost clarity.
+
 ⛔ CRITICAL SENTENCE COMPLETION MANDATE:
 - NEVER cut off any sentence mid-way.
 - NEVER end any sentence or paragraph with trailing ellipses (...).

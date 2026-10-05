@@ -174,6 +174,38 @@
               <span class="switch-slider"></span>
             </label>
           </div>
+
+          <!-- Vocabulary & Voice Style Selector Card -->
+          <div class="slant-vocab-card" id="slantVocabCard">
+            <div class="slant-vocab-top">
+              <div class="slant-vocab-left">
+                <div class="slant-vocab-icon-box">
+                  <span id="slantVocabIcon">✍️</span>
+                </div>
+                <div class="slant-vocab-text-wrap">
+                  <div class="slant-vocab-title-row">
+                    <span class="slant-vocab-title">VOCABULARY & VOICE</span>
+                    <span class="slant-vocab-badge" id="slantVocabBadge">⚡ Punchy & Vivid</span>
+                  </div>
+                  <div class="slant-vocab-subtitle" id="slantVocabSubtitle">Emotional, vivid & clear. Strong verbs, zero academic jargon. Reads effortlessly.</div>
+                </div>
+              </div>
+            </div>
+            <div class="slant-vocab-pills">
+              <button type="button" class="slant-vocab-pill active" id="vocabPillPunchy" data-vocab="punchy" onclick="setVocabularyStyle('punchy')">
+                <span class="pill-icon">⚡</span>
+                <span class="pill-text">Punchy & Vivid</span>
+              </button>
+              <button type="button" class="slant-vocab-pill" id="vocabPillConversational" data-vocab="conversational" onclick="setVocabularyStyle('conversational')">
+                <span class="pill-icon">💬</span>
+                <span class="pill-text">Conversational</span>
+              </button>
+              <button type="button" class="slant-vocab-pill" id="vocabPillAnalytical" data-vocab="analytical" onclick="setVocabularyStyle('analytical')">
+                <span class="pill-icon">🏛</span>
+                <span class="pill-text">Analytical</span>
+              </button>
+            </div>
+          </div>
         </div>
 
         <!-- 2. Middle: ROOT YOUR SLANT IN (Source Anchor Selector) -->
