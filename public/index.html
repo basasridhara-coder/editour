@@ -458,41 +458,76 @@
             <!-- Rendered dynamically -->
           </div>
 
-          <!-- Quick Editorial Refinement Section -->
-          <div class="creator-refine-box">
-            <div class="refine-field">
-              <label class="refine-label">Editorial Headline (Editable)</label>
-              <input type="text" id="refineHeadlineInput" class="refine-input" oninput="updatePreviewHeadline(this.value)">
-            </div>
-            <div class="refine-field">
-              <label class="refine-label">Curator Perspective (Slide 2 Take - Editable)</label>
-              <textarea id="refineTakeInput" class="refine-textarea" rows="2" placeholder="Curator's refined perspective" oninput="updatePreviewTake(this.value)"></textarea>
-            </div>
-            <div class="refine-field-row">
-              <div class="refine-field-col">
-                <label class="refine-label">Category</label>
-                <input type="text" id="refineCategoryInput" class="refine-input" oninput="updatePreviewCategory(this.value)">
+          <!-- Sleek Compact Action Toolbar (Matches Android App Exactly) -->
+          <div class="creator-result-action-panel" id="creatorResultActionPanel">
+            <!-- 1. Regenerate -->
+            <button type="button" class="action-icon-btn regen" onclick="handleStep3Regenerate()" title="Regenerate / Tweak Cues">
+              <div class="action-icon-circle">
+                <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M23 4v6h-6"></path>
+                  <path d="M1 20v-6h6"></path>
+                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                </svg>
               </div>
-              <div class="refine-field-col">
-                <label class="refine-label">Curator Handle</label>
-                <input type="text" id="refineHandleInput" class="refine-input" placeholder="@curator" oninput="updatePreviewHandle(this.value)">
+              <span class="action-icon-label">Regen</span>
+            </button>
+
+            <!-- 2. Edit -->
+            <button type="button" class="action-icon-btn edit" onclick="openEditPosterModal()" title="Edit Content & Slant">
+              <div class="action-icon-circle">
+                <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="4" y1="21" x2="4" y2="14"></line>
+                  <line x1="4" y1="10" x2="4" y2="3"></line>
+                  <line x1="12" y1="21" x2="12" y2="12"></line>
+                  <line x1="12" y1="8" x2="12" y2="3"></line>
+                  <line x1="20" y1="21" x2="20" y2="16"></line>
+                  <line x1="20" y1="12" x2="20" y2="3"></line>
+                  <line x1="1" y1="14" x2="7" y2="14"></line>
+                  <line x1="9" y1="8" x2="15" y2="8"></line>
+                  <line x1="17" y1="16" x2="23" y2="16"></line>
+                </svg>
               </div>
-            </div>
-            <!-- Poster 1 Artwork Source Toggle (Visible when real likeness photo is available) -->
-            <div class="refine-field" id="artworkSourceToggleRow" style="display:none; margin-top:10px;">
-              <label class="refine-label">Poster 1 Visual Art</label>
-              <div class="artwork-toggle-pills">
-                <button type="button" class="art-pill-btn active" id="artPillLikeness" onclick="setPreviewArtworkSource('likeness')">
-                  <span>👤 Real Photo Likeness</span>
-                </button>
-                <button type="button" class="art-pill-btn" id="artPillMetaphor" onclick="setPreviewArtworkSource('metaphor')">
-                  <span>🎨 Stylized Metaphor Art</span>
-                </button>
+              <span class="action-icon-label">Edit</span>
+            </button>
+
+            <!-- 3. Share -->
+            <button type="button" class="action-icon-btn share" onclick="handleStep3Share()" title="Share Carousel Trio">
+              <div class="action-icon-circle">
+                <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="18" cy="5" r="3"></circle>
+                  <circle cx="6" cy="12" r="3"></circle>
+                  <circle cx="18" cy="19" r="3"></circle>
+                  <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                  <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+                </svg>
               </div>
-            </div>
+              <span class="action-icon-label">Share</span>
+            </button>
+
+            <!-- 4. Download -->
+            <button type="button" class="action-icon-btn download" id="step3DownloadBtn" onclick="handleStep3Download()" title="Download Posters">
+              <div class="action-icon-circle">
+                <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="7 10 12 15 17 10"></polyline>
+                  <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+              </div>
+              <span class="action-icon-label" id="step3DownloadLabel">Download</span>
+            </button>
+
+            <!-- 5. Save / Publish -->
+            <button type="button" class="action-icon-btn save" id="step3SaveBtn" onclick="publishSynthesizedPost()" title="Publish to slant.today">
+              <div class="action-icon-circle">
+                <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+                </svg>
+              </div>
+              <span class="action-icon-label" id="step3SaveLabel">Save</span>
+            </button>
           </div>
 
-          <!-- 4. Bottom Navigation Bar (Step 3: Left Arrow + Publish + Right Arrow) -->
+          <!-- Bottom Navigation Bar (Step 3: Left Arrow + Publish + Right Arrow) -->
           <div class="creator-bottom-nav">
             <button type="button" class="creator-nav-arrow" id="step3NavLeftBtn" onclick="goToVisualCuesStep()" title="Back to Visual Cues">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
@@ -511,6 +546,133 @@
             </button>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Carousel Slide Content Modal (Matches Android _showEditPosterModalBottomSheet) -->
+  <div class="modal-overlay" id="editPosterModal" style="display:none;" onclick="if(event.target===this) closeEditPosterModal()">
+    <div class="edit-poster-modal-card">
+      <div class="sheet-drag-handle"></div>
+      
+      <div class="edit-poster-modal-header">
+        <div class="edit-poster-title-row">
+          <span class="edit-poster-icon">📝</span>
+          <span class="edit-poster-title">Edit Carousel Slide Content</span>
+        </div>
+        <button type="button" class="edit-poster-close-btn" onclick="closeEditPosterModal()">✕</button>
+      </div>
+
+      <!-- 3-Slide Tabs -->
+      <div class="edit-slide-tabs">
+        <button type="button" class="edit-tab-btn active" id="editTab0" onclick="switchEditModalTab(0)">Slide 1: Hook</button>
+        <button type="button" class="edit-tab-btn" id="editTab1" onclick="switchEditModalTab(1)">Slide 2: Take</button>
+        <button type="button" class="edit-tab-btn" id="editTab2" onclick="switchEditModalTab(2)">Slide 3: Receipts 🔒</button>
+      </div>
+
+      <div class="edit-modal-scrollable">
+        <!-- Tab Content 0: Slide 1: Hook -->
+        <div class="edit-tab-pane" id="editTabPane0">
+          <div class="edit-form-group">
+            <label class="edit-field-label">Topic Category Badge</label>
+            <input type="text" id="editModalCategory" class="edit-field-input" placeholder="e.g. JUSTICE & CRIME">
+          </div>
+          <div class="edit-form-group">
+            <label class="edit-field-label">Source Publication Outlet</label>
+            <input type="text" id="editModalPublication" class="edit-field-input" placeholder="e.g. THEHINDU.COM">
+          </div>
+          <div class="edit-form-group">
+            <label class="edit-field-label">Hook Headline (The Angle / Stance)</label>
+            <textarea id="editModalHeadline" class="edit-field-textarea" rows="2" placeholder="Hook headline"></textarea>
+          </div>
+          <div class="edit-form-group">
+            <label class="edit-field-label">Newsprint Fragment Excerpt / The Spark</label>
+            <textarea id="editModalNewsExcerpt" class="edit-field-textarea" rows="2" placeholder="Source clipping excerpt..."></textarea>
+          </div>
+          <div class="edit-form-group">
+            <label class="edit-field-label">Creator Handle</label>
+            <input type="text" id="editModalHandle" class="edit-field-input" placeholder="@curator">
+          </div>
+          <!-- Poster 1 Artwork Source Toggle (Visible when real likeness photo is available) -->
+          <div class="edit-form-group" id="editModalArtworkToggleRow" style="display:none;">
+            <label class="edit-field-label">Poster 1 Visual Art</label>
+            <div class="artwork-toggle-pills">
+              <button type="button" class="art-pill-btn active" id="editArtPillLikeness" onclick="setPreviewArtworkSource('likeness')">
+                <span>👤 Real Photo Likeness</span>
+              </button>
+              <button type="button" class="art-pill-btn" id="editArtPillMetaphor" onclick="setPreviewArtworkSource('metaphor')">
+                <span>🎨 Stylized Metaphor Art</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab Content 1: Slide 2: Take -->
+        <div class="edit-tab-pane" id="editTabPane1" style="display:none;">
+          <div class="edit-form-group">
+            <label class="edit-field-label">Stance Title / Kicker Tag</label>
+            <input type="text" id="editModalS2Title" class="edit-field-input" placeholder="e.g. THE EDITORIAL ANGLE">
+          </div>
+          <div class="edit-form-group">
+            <label class="edit-field-label">Curator Opinion Take (Slide 2 Perspective)</label>
+            <textarea id="editModalOpinion" class="edit-field-textarea" rows="3" placeholder="Curator's refined perspective"></textarea>
+          </div>
+          <div class="edit-form-group">
+            <label class="edit-field-label">Why It Matters Callout</label>
+            <textarea id="editModalWhyItMatters" class="edit-field-textarea" rows="2" placeholder="Why this matters..."></textarea>
+          </div>
+          <div class="edit-form-group">
+            <label class="edit-field-label">Key Metric / Stat (Optional)</label>
+            <input type="text" id="editModalMetric" class="edit-field-input" placeholder="e.g. 84% unaddressed cases">
+          </div>
+        </div>
+
+        <!-- Tab Content 2: Slide 3: Receipts / Inner Voice -->
+        <div class="edit-tab-pane" id="editTabPane2" style="display:none;">
+          <!-- If Web / Press: Immutable Receipts Notice -->
+          <div class="edit-immutable-receipts-card" id="editReceiptsImmutableCard">
+            <div class="immutable-receipts-header">
+              <span class="immutable-icon">🔒</span>
+              <span class="immutable-title">Direct from source — immutable</span>
+            </div>
+            <p class="immutable-desc">
+              Slide 3 contains verbatim primary source reporting and receipts. To maintain journalistic authenticity and reader trust, verbatim broadsheet excerpts cannot be edited.
+            </p>
+            <div class="immutable-preview-block">
+              <div class="immutable-masthead" id="editReceiptsMasthead"></div>
+              <div class="immutable-headline" id="editReceiptsHeadline"></div>
+              <div class="immutable-quotes" id="editReceiptsQuotes"></div>
+            </div>
+          </div>
+
+          <!-- If Inner Voice: Editable Spark & Broadsheet -->
+          <div class="edit-inner-voice-block" id="editInnerVoiceBlock" style="display:none;">
+            <div class="edit-form-group">
+              <label class="edit-field-label">Inner Voice Broadsheet Headline</label>
+              <input type="text" id="editModalS3Headline" class="edit-field-input" placeholder="Broadsheet headline">
+            </div>
+            <div class="edit-form-group">
+              <label class="edit-field-label">Core Highlight Quote</label>
+              <textarea id="editModalS3Quote" class="edit-field-textarea" rows="3" placeholder="Core highlight quote..."></textarea>
+            </div>
+            <div class="edit-form-group">
+              <label class="edit-field-label">Catalyzing Observation / Context</label>
+              <textarea id="editModalS3Observation" class="edit-field-textarea" rows="2" placeholder="Observation context..."></textarea>
+            </div>
+            <div class="edit-form-group">
+              <label class="edit-field-label">Concluding Reflection / Implication</label>
+              <textarea id="editModalS3Reflection" class="edit-field-textarea" rows="2" placeholder="Concluding reflection..."></textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Save & Apply Changes Button -->
+      <div class="edit-modal-footer">
+        <button type="button" class="edit-modal-save-btn" onclick="saveEditedSlideContent()">
+          <span class="save-icon">✓</span>
+          <span>Save Changes & Update Posters</span>
+        </button>
       </div>
     </div>
   </div>

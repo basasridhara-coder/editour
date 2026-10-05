@@ -4580,16 +4580,404 @@ header {
 }
 
 .creator-refine-box {
+  display: none !important;
+}
+
+/* Sleek Result Action Toolbar (5 Focused Actions: Regen, Edit, Share, Download, Save) */
+/* Matches Flutter create_postcard_screen.dart:3417-3490 */
+.creator-result-action-panel {
   width: 100%;
   max-width: 480px;
-  margin: 0 auto;
+  margin: 16px auto 14px auto;
+  padding: 10px 8px;
+  background: rgba(15, 23, 42, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 18px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  backdrop-filter: blur(12px);
+}
+
+.action-icon-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  background: var(--bg-card);
-  padding: 14px 16px;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 4px 8px;
   border-radius: 14px;
-  border: 1px solid var(--border-subtle);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+  outline: none;
+}
+
+.action-icon-circle {
+  width: 44px;
+  height: 44px;
+  border-radius: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.action-icon-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #CBD5E1;
+  letter-spacing: 0.2px;
+  transition: color 0.2s ease;
+}
+
+/* 1. Regen: Lavender / Purple #A78BFA */
+.action-icon-btn.regen .action-icon-circle {
+  background: rgba(167, 139, 250, 0.12);
+  border: 1px solid rgba(167, 139, 250, 0.32);
+  color: #A78BFA;
+}
+.action-icon-btn.regen:hover .action-icon-circle,
+.action-icon-btn.regen:active .action-icon-circle {
+  background: rgba(167, 139, 250, 0.26);
+  border-color: rgba(167, 139, 250, 0.85);
+  box-shadow: 0 2px 10px rgba(167, 139, 250, 0.35);
+  transform: translateY(-2px);
+  color: #DDD6FE;
+}
+.action-icon-btn.regen:hover .action-icon-label {
+  color: #A78BFA;
+  font-weight: 700;
+}
+
+/* 2. Edit: Amber #FBBF24 */
+.action-icon-btn.edit .action-icon-circle {
+  background: rgba(251, 191, 36, 0.12);
+  border: 1px solid rgba(251, 191, 36, 0.32);
+  color: #FBBF24;
+}
+.action-icon-btn.edit:hover .action-icon-circle,
+.action-icon-btn.edit:active .action-icon-circle {
+  background: rgba(251, 191, 36, 0.26);
+  border-color: rgba(251, 191, 36, 0.85);
+  box-shadow: 0 2px 10px rgba(251, 191, 36, 0.35);
+  transform: translateY(-2px);
+  color: #FEF08A;
+}
+.action-icon-btn.edit:hover .action-icon-label {
+  color: #FBBF24;
+  font-weight: 700;
+}
+
+/* 3. Share: Emerald #34D399 */
+.action-icon-btn.share .action-icon-circle {
+  background: rgba(52, 211, 153, 0.12);
+  border: 1px solid rgba(52, 211, 153, 0.32);
+  color: #34D399;
+}
+.action-icon-btn.share:hover .action-icon-circle,
+.action-icon-btn.share:active .action-icon-circle {
+  background: rgba(52, 211, 153, 0.26);
+  border-color: rgba(52, 211, 153, 0.85);
+  box-shadow: 0 2px 10px rgba(52, 211, 153, 0.35);
+  transform: translateY(-2px);
+  color: #A7F3D0;
+}
+.action-icon-btn.share:hover .action-icon-label {
+  color: #34D399;
+  font-weight: 700;
+}
+
+/* 4. Download: Sky Blue #38BDF8 */
+.action-icon-btn.download .action-icon-circle {
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.32);
+  color: #38BDF8;
+}
+.action-icon-btn.download:hover .action-icon-circle,
+.action-icon-btn.download:active .action-icon-circle {
+  background: rgba(56, 189, 248, 0.26);
+  border-color: rgba(56, 189, 248, 0.85);
+  box-shadow: 0 2px 10px rgba(56, 189, 248, 0.35);
+  transform: translateY(-2px);
+  color: #BAE6FD;
+}
+.action-icon-btn.download:hover .action-icon-label {
+  color: #38BDF8;
+  font-weight: 700;
+}
+.action-icon-btn.download.active .action-icon-circle {
+  background: rgba(56, 189, 248, 0.28);
+  border-color: #38BDF8;
+  color: #38BDF8;
+}
+.action-icon-btn.download.active .action-icon-label {
+  color: #38BDF8;
+  font-weight: 700;
+}
+
+/* 5. Save: Rose #FB7185 / Emerald #10B981 */
+.action-icon-btn.save .action-icon-circle {
+  background: rgba(251, 113, 133, 0.12);
+  border: 1px solid rgba(251, 113, 133, 0.32);
+  color: #FB7185;
+}
+.action-icon-btn.save:hover .action-icon-circle,
+.action-icon-btn.save:active .action-icon-circle {
+  background: rgba(251, 113, 133, 0.26);
+  border-color: rgba(251, 113, 133, 0.85);
+  box-shadow: 0 2px 10px rgba(251, 113, 133, 0.35);
+  transform: translateY(-2px);
+  color: #FECDD3;
+}
+.action-icon-btn.save:hover .action-icon-label {
+  color: #FB7185;
+  font-weight: 700;
+}
+.action-icon-btn.save.active .action-icon-circle {
+  background: rgba(16, 185, 129, 0.24);
+  border-color: #10B981;
+  color: #10B981;
+}
+.action-icon-btn.save.active .action-icon-label {
+  color: #10B981;
+  font-weight: 700;
+}
+
+/* Edit Carousel Slide Content Modal (Matches Android _showEditPosterModalBottomSheet) */
+.edit-poster-modal-card {
+  background: #0F172A;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 20px;
+  width: 94%;
+  max-width: 520px;
+  max-height: 86vh;
+  display: flex;
+  flex-direction: column;
+  padding: 16px 20px 20px 20px;
+  box-shadow: 0 24px 50px rgba(0, 0, 0, 0.6);
+  animation: modalSlideUp 0.25s ease-out;
+  overflow: hidden;
+}
+
+.sheet-drag-handle {
+  width: 40px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 2px;
+  margin: 0 auto 12px auto;
+}
+
+.edit-poster-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.edit-poster-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.edit-poster-icon {
+  font-size: 20px;
+}
+
+.edit-poster-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: #F8FAFC;
+}
+
+.edit-poster-close-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #94A3B8;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  transition: all 0.2s ease;
+}
+.edit-poster-close-btn:hover {
+  background: rgba(255, 255, 255, 0.16);
+  color: #FFFFFF;
+}
+
+/* 3-Slide Tabs inside Edit Modal */
+.edit-slide-tabs {
+  display: flex;
+  background: rgba(30, 41, 59, 0.7);
+  border-radius: 12px;
+  padding: 4px;
+  gap: 4px;
+  margin-bottom: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.edit-tab-btn {
+  flex: 1;
+  padding: 9px 8px;
+  background: transparent;
+  border: none;
+  border-radius: 9px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #94A3B8;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+}
+
+.edit-tab-btn:hover {
+  color: #E2E8F0;
+}
+
+.edit-tab-btn.active {
+  background: #6366F1;
+  color: #FFFFFF;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.35);
+}
+
+.edit-modal-scrollable {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.edit-tab-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.edit-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.edit-field-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #94A3B8;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.edit-field-input,
+.edit-field-textarea {
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  padding: 10px 12px;
+  color: #F8FAFC;
+  font-size: 13.5px;
+  font-family: inherit;
+  transition: border-color 0.2s ease;
+  resize: vertical;
+}
+
+.edit-field-input:focus,
+.edit-field-textarea:focus {
+  outline: none;
+  border-color: #6366F1;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.25);
+}
+
+/* Immutable Receipts Card for Slide 3 */
+.edit-immutable-receipts-card {
+  background: rgba(254, 243, 199, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: 12px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.immutable-receipts-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #F59E0B;
+  font-weight: 700;
+  font-size: 13.5px;
+}
+
+.immutable-desc {
+  font-size: 12px;
+  color: #CBD5E1;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.immutable-preview-block {
+  border-top: 1px solid rgba(245, 158, 11, 0.2);
+  padding-top: 10px;
+  margin-top: 4px;
+  font-size: 12px;
+  color: #94A3B8;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.immutable-masthead {
+  font-weight: 700;
+  color: #F8FAFC;
+}
+
+.immutable-headline {
+  font-weight: 600;
+  color: #E2E8F0;
+}
+
+.immutable-quotes {
+  font-style: italic;
+  color: #CBD5E1;
+}
+
+.edit-modal-footer {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 14px;
+}
+
+.edit-modal-save-btn {
+  width: 100%;
+  background: #10B981;
+  color: #FFFFFF;
+  border: none;
+  border-radius: 12px;
+  padding: 12px 18px;
+  font-size: 14.5px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);
+  transition: all 0.2s ease;
+}
+
+.edit-modal-save-btn:hover {
+  background: #059669;
+  transform: translateY(-1px);
 }
 
 .creator-publish-footer {
