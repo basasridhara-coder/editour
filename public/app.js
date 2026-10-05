@@ -2914,9 +2914,26 @@ async function startAiSynthesis() {
     clearTimeout(ticker1);
     clearTimeout(ticker2);
 
+    const contentType = resp.headers.get('content-type') || '';
     if (!resp.ok) {
-      const err = await resp.json().catch(() => ({ error: 'Synthesis failed' }));
-      throw new Error(err.error || 'AI synthesis failed');
+      let errMsg = 'AI synthesis failed';
+      if (contentType.includes('application/json')) {
+        const errJson = await resp.json().catch(() => null);
+        if (errJson && errJson.error) errMsg = errJson.error;
+      } else {
+        const text = await resp.text().catch(() => '');
+        if (resp.status === 504 || text.includes('504')) {
+          errMsg = 'AI synthesis timed out. Please try again in a few moments.';
+        } else {
+          errMsg = `Server error (${resp.status}). Please try again.`;
+        }
+      }
+      throw new Error(errMsg);
+    }
+
+    if (!contentType.includes('application/json')) {
+      const text = await resp.text().catch(() => '');
+      throw new Error('Server returned an unexpected response. Please refresh and try again.');
     }
 
     const data = await resp.json();
