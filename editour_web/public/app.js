@@ -2232,8 +2232,9 @@ async function handleUrlInput(val) {
 
     if (data && data.success) {
       currentScrapedArticle = data;
-      if (data.imageBase64 && (!creatorReferenceImageBase64 || creatorReferenceImageSourceLabel?.startsWith('Article Lead Photo'))) {
-        creatorReferenceImageBase64 = data.imageBase64;
+      const scrapedImg = data.imageBase64 || data.imageUrl;
+      if (scrapedImg && (!creatorReferenceImageBase64 || creatorReferenceImageSourceLabel?.startsWith('Article Lead Photo'))) {
+        creatorReferenceImageBase64 = scrapedImg;
         creatorReferenceImageMimeType = data.imageMimeType || 'image/jpeg';
         creatorReferenceImageSourceLabel = `Article Lead Photo (${data.siteName || 'Web'})`;
         updateReferencePhotoUI();
@@ -2436,6 +2437,14 @@ async function goToVisualCuesStep() {
   if (d1) d1.className = 'creator-step-dot completed';
   if (d2) d2.className = 'creator-step-dot active';
   if (d3) d3.className = 'creator-step-dot';
+
+  if (currentScrapedArticle && (currentScrapedArticle.imageBase64 || currentScrapedArticle.imageUrl)) {
+    if (!creatorReferenceImageBase64 || creatorReferenceImageSourceLabel?.startsWith('Article Lead Photo')) {
+      creatorReferenceImageBase64 = currentScrapedArticle.imageBase64 || currentScrapedArticle.imageUrl;
+      creatorReferenceImageMimeType = currentScrapedArticle.imageMimeType || 'image/jpeg';
+      creatorReferenceImageSourceLabel = `Article Lead Photo (${currentScrapedArticle.siteName || 'Web'})`;
+    }
+  }
 
   updateReferencePhotoUI();
 
@@ -2813,10 +2822,12 @@ function selectCharacterRepresentation(type) {
       creatorReferenceImageBase64 = creatorSelectedImageBase64;
       creatorReferenceImageMimeType = creatorSelectedImageMimeType || 'image/jpeg';
       creatorReferenceImageSourceLabel = 'Print Clipping Photo';
-    } else if (!creatorReferenceImageBase64 && currentScrapedArticle?.imageBase64) {
-      creatorReferenceImageBase64 = currentScrapedArticle.imageBase64;
-      creatorReferenceImageMimeType = currentScrapedArticle.imageMimeType || 'image/jpeg';
-      creatorReferenceImageSourceLabel = 'Article Lead Photo (' + (currentScrapedArticle.siteName || 'Web') + ')';
+    } else if (currentScrapedArticle && (currentScrapedArticle.imageBase64 || currentScrapedArticle.imageUrl)) {
+      if (!creatorReferenceImageBase64 || creatorReferenceImageSourceLabel?.startsWith('Article Lead Photo')) {
+        creatorReferenceImageBase64 = currentScrapedArticle.imageBase64 || currentScrapedArticle.imageUrl;
+        creatorReferenceImageMimeType = currentScrapedArticle.imageMimeType || 'image/jpeg';
+        creatorReferenceImageSourceLabel = 'Article Lead Photo (' + (currentScrapedArticle.siteName || 'Web') + ')';
+      }
     }
   }
 

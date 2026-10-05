@@ -57,51 +57,46 @@ module.exports = async function handler(req, res) {
     const html = await pageResp.text();
 
     // 1. Title Extraction
-    const ogTitle = html.match(/<meta\s+property=["']og:title["']\s+content=["'](.*?)["']/i) ||
-                    html.match(/<meta\s+content=["'](.*?)["']\s+property=["']og:title["']/i) ||
-                    html.match(/<meta\s+name=["']twitter:title["']\s+content=["'](.*?)["']/i) ||
-                    html.match(/<title[^>]*>(.*?)<\/title>/i);
-    let title = ogTitle && ogTitle[1] ? decodeHtmlEntities(ogTitle[1].trim()) : '';
+    const titleFromMeta = getMetaTagContent(html, 'og:title') ||
+                          getMetaTagContent(html, 'twitter:title');
+    const rawTitleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+    const titleFromTag = rawTitleMatch && rawTitleMatch[1] ? decodeHtmlEntities(rawTitleMatch[1].trim()) : '';
+    let title = titleFromMeta || titleFromTag;
 
     // 2. Site Name
-    const ogSite = html.match(/<meta\s+property=["']og:site_name["']\s+content=["'](.*?)["']/i) ||
-                   html.match(/<meta\s+content=["'](.*?)["']\s+property=["']og:site_name["']/i);
-    if (ogSite && ogSite[1]) {
-      domain = decodeHtmlEntities(ogSite[1].trim());
+    const ogSite = getMetaTagContent(html, 'og:site_name');
+    if (ogSite) {
+      domain = ogSite;
     }
 
     // 3. Description
-    const ogDesc = html.match(/<meta\s+property=["']og:description["']\s+content=["'](.*?)["']/i) ||
-                   html.match(/<meta\s+name=["']description["']\s+content=["'](.*?)["']/i);
-    const description = ogDesc && ogDesc[1] ? decodeHtmlEntities(ogDesc[1].trim()) : '';
+    const description = getMetaTagContent(html, 'og:description') ||
+                        getMetaTagContent(html, 'description');
 
-    // 4. Image
-    const ogImage = html.match(/<meta\s+property=["']og:image["']\s+content=["'](.*?)["']/i) ||
-                    html.match(/<meta\s+content=["'](.*?)["']\s+property=["']og:image["']/i) ||
-                    html.match(/<meta\s+name=["']twitter:image["']\s+content=["'](.*?)["']/i) ||
-                    html.match(/<meta\s+content=["'](.*?)["']\s+name=["']twitter:image["']/i) ||
-                    html.match(/<link\s+rel=["']image_src["']\s+href=["'](.*?)["']/i);
-    let imageUrl = ogImage && ogImage[1] ? ogImage[1].trim() : '';
+    // 4. Lead Image Extraction
+    let imageUrl = extractMetaImage(html, targetUrl);
 
     let imageBase64 = null;
     let imageMimeType = 'image/jpeg';
     if (imageUrl && imageUrl.startsWith('http')) {
       try {
         const imgCtrl = new AbortController();
-        const imgTimer = setTimeout(() => imgCtrl.abort(), 3500);
+        const imgTimer = setTimeout(() => imgCtrl.abort(), 4500);
         const imgResp = await fetch(imageUrl, {
           signal: imgCtrl.signal,
-          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+            'Referer': targetUrl,
+            'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8'
+          }
         });
         clearTimeout(imgTimer);
         if (imgResp.ok) {
           const contentType = imgResp.headers.get('content-type') || 'image/jpeg';
-          if (contentType.startsWith('image/')) {
-            imageMimeType = contentType.split(';')[0];
-            const buffer = await imgResp.arrayBuffer();
-            if (buffer.byteLength > 1000 && buffer.byteLength < 3 * 1024 * 1024) {
-              imageBase64 = `data:${imageMimeType};base64,` + Buffer.from(buffer).toString('base64');
-            }
+          imageMimeType = contentType.split(';')[0];
+          const buffer = await imgResp.arrayBuffer();
+          if (buffer.byteLength > 1000 && buffer.byteLength < 5 * 1024 * 1024) {
+            imageBase64 = `data:${imageMimeType};base64,` + Buffer.from(buffer).toString('base64');
           }
         }
       } catch (err) {
@@ -155,14 +150,27 @@ module.exports = async function handler(req, res) {
 };
 
 function decodeHtmlEntities(str) {
+  if (!str) return '';
   return str
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
+    .replace(/&#x27;/gi, "'")
     .replace(/&mdash;/g, '—')
-    .replace(/&ndash;/g, '–');
+    .replace(/&ndash;/g, '–')
+    .replace(/&hellip;/g, '…')
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(parseInt(n, 10)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCharCode(parseInt(n, 16)));
+}
+
+function getMetaTagContent(html, propertyOrName) {
+  if (!html || !propertyOrName) return '';
+  const r1 = new RegExp(`<meta\\b[^>]*?\\b(?:property|name)=["']${propertyOrName}["'][^>]*?\\bcontent=["']([^"']+)["']`, 'i');
+  const r2 = new RegExp(`<meta\\b[^>]*?\\bcontent=["']([^"']+)["'][^>]*?\\b(?:property|name)=["']${propertyOrName}["']`, 'i');
+  const m = html.match(r1) || html.match(r2);
+  return m && m[1] ? decodeHtmlEntities(m[1].trim()) : '';
 }
 
 function extractSlugHeadline(rawUrl) {
@@ -190,3 +198,46 @@ function extractSlugHeadline(rawUrl) {
     return '';
   }
 }
+
+function extractMetaImage(html, baseUrl) {
+  if (!html) return '';
+  const metaRegexes = [
+    /<meta\b[^>]*?\b(?:property|name)=["'](?:og:image|og:image:url|twitter:image|twitter:image:src|image)["'][^>]*?\bcontent=["']([^"']+)["']/i,
+    /<meta\b[^>]*?\bcontent=["']([^"']+)["'][^>]*?\b(?:property|name)=["'](?:og:image|og:image:url|twitter:image|twitter:image:src|image)["']/i,
+    /<link\b[^>]*?\brel=["']image_src["'][^>]*?\bhref=["']([^"']+)["']/i,
+    /<meta\b[^>]*?\bitemprop=["']image["'][^>]*?\bcontent=["']([^"']+)["']/i
+  ];
+  let img = '';
+  for (const r of metaRegexes) {
+    const m = html.match(r);
+    if (m && m[1]) {
+      img = decodeHtmlEntities(m[1].trim());
+      break;
+    }
+  }
+
+  // JSON-LD fallback if meta tag not found
+  if (!img) {
+    try {
+      const jsonLdMatches = html.matchAll(/<script\b[^>]*?type=["']application\/ld\+json["'][^>]*?>([\s\S]*?)<\/script>/gi);
+      for (const match of jsonLdMatches) {
+        const parsed = JSON.parse(match[1]);
+        const items = Array.isArray(parsed) ? parsed : [parsed];
+        for (const item of items) {
+          if (typeof item.image === 'string') { img = item.image; break; }
+          if (Array.isArray(item.image) && typeof item.image[0] === 'string') { img = item.image[0]; break; }
+          if (item.image && typeof item.image.url === 'string') { img = item.image.url; break; }
+        }
+        if (img) break;
+      }
+    } catch (_) {}
+  }
+
+  if (img && baseUrl) {
+    try {
+      img = new URL(img, baseUrl).href;
+    } catch (_) {}
+  }
+  return img || '';
+}
+
