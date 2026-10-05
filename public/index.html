@@ -154,6 +154,26 @@
             <span class="creator-tag-badge" id="slantTakeBadge">Optional</span>
           </div>
           <textarea id="creatorSlantTakeInput" class="creator-textarea hero-textarea" rows="4" placeholder="e.g. Beyond the raw numbers, this shifts the balance of power between legacy media and digital creators..."></textarea>
+
+          <!-- Core Take Representation Mode: Refine with AI vs Use As-Is (Matches Android App) -->
+          <div class="slant-refine-toggle-card refined" id="slantRefineToggleCard" onclick="toggleRefineCoreTake()">
+            <div class="slant-refine-toggle-left">
+              <div class="slant-refine-icon-box" id="slantRefineIconBox">
+                <span id="slantRefineIcon">✨</span>
+              </div>
+              <div class="slant-refine-text-wrap">
+                <div class="slant-refine-title-row">
+                  <span class="slant-refine-title" id="slantRefineTitle">Refine Core Take with AI</span>
+                  <span class="slant-refine-badge" id="slantRefineBadge">Refined</span>
+                </div>
+                <div class="slant-refine-subtitle" id="slantRefineSubtitle">AI polishes and sharpens your raw thought into a punchy poster quote.</div>
+              </div>
+            </div>
+            <label class="switch-toggle" onclick="event.stopPropagation()">
+              <input type="checkbox" id="refineCoreTakeSwitch" checked onchange="toggleRefineCoreTake(this.checked)">
+              <span class="switch-slider"></span>
+            </label>
+          </div>
         </div>
 
         <!-- 2. Middle: ROOT YOUR SLANT IN (Source Anchor Selector) -->
@@ -443,6 +463,10 @@
             <div class="refine-field">
               <label class="refine-label">Editorial Headline (Editable)</label>
               <input type="text" id="refineHeadlineInput" class="refine-input" oninput="updatePreviewHeadline(this.value)">
+            </div>
+            <div class="refine-field">
+              <label class="refine-label">Curator Perspective (Slide 2 Take - Editable)</label>
+              <textarea id="refineTakeInput" class="refine-textarea" rows="2" placeholder="Curator's refined perspective" oninput="updatePreviewTake(this.value)"></textarea>
             </div>
             <div class="refine-field-row">
               <div class="refine-field-col">

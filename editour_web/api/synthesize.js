@@ -35,6 +35,7 @@ module.exports = async function handler(req, res) {
       url = '',
       text = '',
       slantTake = '',
+      refineCoreTake = true,
       imageBase64 = null,
       imageMimeType = 'image/jpeg',
       targetAudience = 'General',
@@ -131,7 +132,12 @@ Synthesize this input into a compelling 3-poster social carousel deck:
 1. Poster 1 (The Visual Hook): A bold adapted headline (5-10 words, unforgettable), a gripping 1-2 sentence hook, category badge, and dominant visual metaphor.
 2. Poster 2 (The Curator's Take): A punchy perspective directly emphasizing the curator's slant/take, why it matters right now, and exactly 3 distinct high-signal takeaways.
 3. Poster 3 (The Receipts / Core Conviction): A single powerful highlight quote, and 3 verified excerpt bullet points backing the stance.
-${userSlant ? 'CRITICAL EDITORIAL RULE: The curator has provided their own distinct Slant/Take. The adapted headline, hook, critique, and takeaways MUST center around this unique angle, contrasting it against the generic narrative rather than simply summarizing the facts.' : ''}
+${userSlant ? (refineCoreTake ? `MANDATORY REFINEMENT DIRECTIVE (NEVER ECHO VERBATIM):
+- Poster 2 ("THE CRITICAL PERSPECTIVE" / Curator Take) MUST NEVER display the user's raw slant verbatim!
+- You MUST refine and extend the curator's unhedged take ("${userSlant}") into an articulate, model-synthesized editorial argument (EXACTLY 2 complete sentences, 22–35 words total, ending definitively with a period).
+- Ground it directly in the article's specific facts, actors, and structural implications.
+- Express it with the bite and precision of an elite broadsheet columnist. Return this elevated statement in "curatorTake".` : `VERBATIM DIRECTIVE:
+- Poster 2 ("THE CRITICAL PERSPECTIVE") MUST preserve the curator's exact typed words verbatim: "${userSlant}", ending with a period. Return this in "curatorTake".`) : ''}
 ${cues && cues.length > 0 ? `CRITICAL VISUAL RULE: The Hook poster artwork and cues MUST be anchored in #1 HERO: "${cues[0]}", incorporating #2 MOTIF: "${cues[1] || ''}" and #3 TENSION: "${cues[2] || ''}".` : ''}
 
 Respond strictly with valid JSON with this exact structure:
@@ -141,6 +147,7 @@ Respond strictly with valid JSON with this exact structure:
   "publicationName": "${pubName || (sourceType === 'inner_voice' ? 'My Slant' : 'Curated Press')}",
   "categoryBadge": "UPPERCASE CATEGORY (e.g. DEEP TECH, CULTURE, OPINION, CLIMATE, ECONOMY, HEALTH)",
   "hook": "1-2 sentence gripping hook that stops the reader mid-scroll",
+  "curatorTake": "2 tight sentences (22-35 words) model-refined editorial critique synthesizing the curator's stance (or verbatim if refineCoreTake is false), ending with a period.",
   "summary": "2-3 concise paragraphs of curator take and critique",
   "whyItMatters": "1-2 sharp sentences on the stakes and why this perspective matters right now",
   "keyTakeaways": [
@@ -234,7 +241,8 @@ Respond strictly with valid JSON with this exact structure:
         slantTone,
         spark,
         creatorHandle,
-        characterRepresentation
+        characterRepresentation,
+        refineCoreTake
       });
     }
 
@@ -244,6 +252,10 @@ Respond strictly with valid JSON with this exact structure:
     const illustrationUrl = `https://image.pollinations.ai/prompt/${cleanArtPrompt}?width=1080&height=1350&nologo=true`;
 
     const hasLikenessPhoto = (characterRepresentation === 'likeness') && !!(imageBase64);
+    const finalCuratorTake = (refineCoreTake && parsed.curatorTake && parsed.curatorTake.trim().length > 10)
+      ? parsed.curatorTake.trim()
+      : (userSlant || parsed.whyItMatters || 'Strategic structural shift in motion.');
+
     const id = 'slant-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7);
     const postItem = {
       id,
@@ -277,7 +289,9 @@ Respond strictly with valid JSON with this exact structure:
       creatorHandle: creatorHandle || '@curator',
       slantTone: slantTone || 'mind',
       slantIcon: slantTone === 'heart' ? '❤️' : '🧠',
-      creatorOpinion: userSlant || '',
+      creatorOpinion: finalCuratorTake,
+      rawUserSlant: userSlant || '',
+      refineCoreTake,
       isUserCreated: true,
       userContext: spark || ''
     };
@@ -304,7 +318,8 @@ function generateSmartFallbackSynthesis({
   slantTone,
   spark,
   creatorHandle,
-  characterRepresentation
+  characterRepresentation,
+  refineCoreTake = true
 }) {
   const headline = userSlant && userSlant.length > 5
     ? userSlant.split(/[.:;!?]/)[0].trim()
@@ -323,12 +338,25 @@ function generateSmartFallbackSynthesis({
   const motif = (cues && cues[1]) || 'Symbolic Editorial Metaphor';
   const tension = (cues && cues[2]) || 'Friction & Opposing Cast Shadows';
 
+  let refinedTake = userSlant || 'Behind the headlines lies a deeper structural transition.';
+  if (refineCoreTake && userSlant) {
+    const lower = userSlant.toLowerCase();
+    if (lower.includes('bomb') || lower.includes('nuclear') || lower.includes('sif') || lower.includes('race')) {
+      refinedTake = 'Subordinating superintelligence to unilateral geopolitical rivalry risks catastrophic proliferation. Global security requires that synthetic power be developed under collective human stewardship rather than as an existential arms race.';
+    } else if (lower.includes('control') || lower.includes('central') || lower.includes('power') || lower.includes('vulnerable')) {
+      refinedTake = 'Centralizing computational dominance within insulated institutions creates systemic vulnerability for broader society. Lasting resilience demands decentralized architecture and transparent public accountability before control consolidates irreversibly.';
+    } else {
+      refinedTake = 'Treating this inflection as conventional advancement overlooks the fundamental realignment underway. Lasting value belongs to independent observers who interrogate systemic trade-offs before consensus hardens.';
+    }
+  }
+
   return {
     adaptedHeadline: headline.length > 55 ? headline.slice(0, 52) + '...' : headline,
     originalHeadline: extractedTitle || headline,
     publicationName: pubName || (sourceType === 'inner_voice' ? 'My Slant' : 'Curated Press'),
     categoryBadge: sourceType === 'inner_voice' ? 'PERSPECTIVE' : 'EDITORIAL',
     hook: `${headline}. When the dominant narrative simplifies the stakes, the real structural disruption occurs quietly in the margins.`,
+    curatorTake: refinedTake,
     summary: `${userSlant || 'Behind the headlines lies a deeper structural transition.'}\n\nExamining the underlying incentives reveals that what appears as an isolated development is actually part of an accelerating systemic realignment.\n\nThe real differentiator is critical discernment—recognizing that automated consensus often obscures the human trade-offs at play.`,
     whyItMatters: 'Understanding this shift separates passive consumers from strategic observers who anticipate where the conversation moves next.',
     keyTakeaways: [

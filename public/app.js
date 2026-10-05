@@ -1135,18 +1135,18 @@ function buildSlide2Html(post, index) {
   return `
     ${bgHtml}
     <div class="slide-hook-top-scrim"></div>
-    <div class="slide-hook-bottom-scrim" style="height: 54%; background: linear-gradient(to bottom, transparent 0%, rgba(7,11,18,0.85) 35%, rgba(7,11,18,0.98) 100%);"></div>
+    <div class="slide-hook-bottom-scrim" style="height: 68%; background: linear-gradient(to bottom, transparent 0%, rgba(7,11,18,0.72) 22%, rgba(7,11,18,0.92) 55%, rgba(7,11,18,0.99) 100%);"></div>
     <div class="slide-hook-content" style="justify-content: space-between;">
       <div class="slide-hook-top" style="justify-content: space-between; width: 100%;">
         <span class="critique-verdict-badge" style="font-size:9.5px; padding:4px 10px; background:rgba(0,0,0,0.75); border:1px solid rgba(245,158,11,0.4); border-radius:20px; color:#F59E0B; font-weight:800;">${verdictBadgeLabel}</span>
         <span class="slide-page-badge" style="background:rgba(0,0,0,0.75); border:1px solid rgba(255,255,255,0.25); border-radius:20px; padding:3px 9px; font-size:9.5px; color:#FFF; font-weight:800;">02 / 03</span>
       </div>
-      <div class="slide-hook-bottom" style="gap:6px;">
+      <div class="slide-hook-bottom" style="gap:7px; z-index:2;">
         <div style="display:flex; align-items:center; gap:6px;">
           <span style="width:6px; height:6px; border-radius:50%; background:#F59E0B; display:inline-block;"></span>
           <span style="font-size:10px; font-weight:800; color:#F59E0B; letter-spacing:0.8px;">${slideTitle}</span>
         </div>
-        <p class="critique-opinion-text" style="font-size:13px; font-weight:700; color:#F8FAFC; line-height:1.35; margin:0;">${opinion}</p>
+        <p class="critique-opinion-text" style="font-size:13.5px; font-weight:700; color:#F8FAFC; line-height:1.38; margin:0;">${opinion}</p>
         ${whyItMatters ? `
           <div style="padding:6px 9px; background:rgba(245,158,11,0.12); border-radius:6px; border:0.8px solid rgba(245,158,11,0.35); font-size:10.5px; color:#E2E8F0; line-height:1.3;">
             <strong style="color:#F59E0B; font-size:9px; letter-spacing:0.5px;">WHY IT MATTERS: </strong>${whyItMatters}
@@ -1910,6 +1910,43 @@ let creatorSlantTone = 'mind'; // 'mind' | 'heart'
 let creatorAudience = 'General Public';
 let currentSynthesizedPost = null;
 let currentPreviewSlide = 0;
+let creatorRefineCoreTake = true;
+
+function toggleRefineCoreTake(val) {
+  if (typeof val === 'boolean') {
+    creatorRefineCoreTake = val;
+  } else {
+    creatorRefineCoreTake = !creatorRefineCoreTake;
+  }
+
+  const card = document.getElementById('slantRefineToggleCard');
+  const sw = document.getElementById('refineCoreTakeSwitch');
+  const icon = document.getElementById('slantRefineIcon');
+  const title = document.getElementById('slantRefineTitle');
+  const badge = document.getElementById('slantRefineBadge');
+  const sub = document.getElementById('slantRefineSubtitle');
+
+  if (sw) sw.checked = creatorRefineCoreTake;
+  if (card) card.classList.toggle('refined', creatorRefineCoreTake);
+
+  if (creatorRefineCoreTake) {
+    if (icon) icon.textContent = '✨';
+    if (title) title.textContent = 'Refine Core Take with AI';
+    if (badge) {
+      badge.textContent = 'Refined';
+      badge.className = 'slant-refine-badge';
+    }
+    if (sub) sub.textContent = 'AI polishes and sharpens your raw thought into a punchy poster quote.';
+  } else {
+    if (icon) icon.textContent = '❝';
+    if (title) title.textContent = 'Use Core Take As-Is';
+    if (badge) {
+      badge.textContent = 'Verbatim';
+      badge.className = 'slant-refine-badge verbatim';
+    }
+    if (sub) sub.textContent = 'Keeps your exact typed words verbatim on the poster slides without rephrasing.';
+  }
+}
 
 function isMobileDevice() {
   return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
@@ -2995,6 +3032,7 @@ async function startAiSynthesis() {
     cues: creatorCuePills,
     heroCue: creatorCuePills[0] || '',
     characterRepresentation: creatorCharacterRepresentation,
+    refineCoreTake: creatorRefineCoreTake,
     scrapedTitle: currentScrapedArticle?.title || '',
     scrapedContent: currentScrapedArticle?.content || ''
   };
@@ -3068,10 +3106,12 @@ function showStep3Preview() {
   const headlineInput = document.getElementById('refineHeadlineInput');
   const categoryInput = document.getElementById('refineCategoryInput');
   const handleInput = document.getElementById('refineHandleInput');
+  const takeInput = document.getElementById('refineTakeInput');
 
   if (headlineInput) headlineInput.value = currentSynthesizedPost.adaptedHeadline || '';
   if (categoryInput) categoryInput.value = currentSynthesizedPost.categoryBadge || 'OPINION';
   if (handleInput) handleInput.value = currentSynthesizedPost.creatorHandle || '@curator';
+  if (takeInput) takeInput.value = currentSynthesizedPost.creatorOpinion || '';
 
   // Update Tab 3 text and icon dynamically based on source anchor
   const prevTab2 = document.getElementById('prevTab2');
@@ -3154,6 +3194,14 @@ function updatePreviewHeadline(val) {
   // Update in preview card directly
   const h1 = document.querySelector('#carousel-preview .headline-overlay');
   if (h1) h1.textContent = val;
+}
+
+function updatePreviewTake(val) {
+  if (!currentSynthesizedPost) return;
+  currentSynthesizedPost.creatorOpinion = val;
+  // Update in Slide 2 preview card directly
+  const p = document.querySelector('#carousel-preview .critique-opinion-text');
+  if (p) p.textContent = val;
 }
 
 function updatePreviewCategory(val) {

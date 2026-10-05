@@ -3109,8 +3109,9 @@ header {
 
 /* Creator Modal Card */
 .creator-modal-card {
-  max-width: 560px;
-  max-height: 88vh;
+  width: 100%;
+  max-width: 600px;
+  max-height: 90vh;
   padding: 22px 24px;
   border-radius: 24px;
   background: var(--bg-surface);
@@ -4514,7 +4515,7 @@ header {
   border-radius: 12px;
   border: 1px solid var(--border-subtle);
   width: 100%;
-  max-width: 330px;
+  max-width: 480px;
 }
 
 .preview-tab {
@@ -4551,7 +4552,7 @@ header {
 
 .creator-preview-card-wrap {
   width: 100%;
-  max-width: 320px; /* Fits proportionally inside modal without overflowing or blowing up */
+  max-width: 480px; /* Matches usual web feed card size, preventing text overlap and scaling artifacts */
   margin: 0 auto;
   border-radius: 18px;
   overflow: hidden;
@@ -4580,7 +4581,7 @@ header {
 
 .creator-refine-box {
   width: 100%;
-  max-width: 440px;
+  max-width: 480px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
@@ -4593,11 +4594,173 @@ header {
 
 .creator-publish-footer {
   width: 100%;
-  max-width: 440px;
+  max-width: 480px;
   margin: 0 auto;
   display: flex;
   gap: 10px;
   margin-top: 4px;
+}
+
+/* Core Take Refinement Toggle Card (Matches Android App create_postcard_screen.dart) */
+.slant-refine-toggle-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.slant-refine-toggle-card:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.slant-refine-toggle-card.refined {
+  border-color: rgba(245, 158, 11, 0.35);
+  background: rgba(245, 158, 11, 0.06);
+}
+
+.slant-refine-toggle-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.slant-refine-icon-box {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  background: rgba(245, 158, 11, 0.15);
+  color: #F59E0B;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.slant-refine-toggle-card:not(.refined) .slant-refine-icon-box {
+  background: rgba(255, 255, 255, 0.08);
+  color: #94A3B8;
+}
+
+.slant-refine-text-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.slant-refine-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.slant-refine-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.slant-refine-badge {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  padding: 1.5px 7px;
+  border-radius: 4px;
+  background: rgba(245, 158, 11, 0.18);
+  color: #F59E0B;
+  transition: all 0.2s ease;
+}
+
+.slant-refine-toggle-card:not(.refined) .slant-refine-badge {
+  background: rgba(255, 255, 255, 0.1);
+  color: #94A3B8;
+}
+
+.slant-refine-subtitle {
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--text-muted);
+}
+
+/* iOS/Android style Switch Toggle */
+.switch-toggle {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.switch-toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.switch-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.2);
+  transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 24px;
+}
+
+.switch-slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: #FFFFFF;
+  transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+}
+
+.switch-toggle input:checked + .switch-slider {
+  background-color: #F59E0B;
+}
+
+.switch-toggle input:checked + .switch-slider:before {
+  transform: translateX(20px);
+}
+
+.refine-textarea {
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.4;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.refine-textarea:focus {
+  outline: none;
+  border-color: #F59E0B;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
 }
 
 .refine-field {
