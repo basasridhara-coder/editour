@@ -2050,6 +2050,11 @@ function handleImageSelection(event) {
   compressImage(file, 1200, 0.82, function(base64Data, mimeType) {
     creatorSelectedImageBase64 = base64Data;
     creatorSelectedImageMimeType = mimeType;
+    if (!creatorReferenceImageBase64) {
+      creatorReferenceImageBase64 = base64Data;
+      creatorReferenceImageMimeType = mimeType;
+      creatorReferenceImageSourceLabel = 'Print Clipping Photo';
+    }
 
     const thumb = document.getElementById('creatorImageThumb');
     const emptyBox = document.getElementById('dropzoneEmpty');
@@ -2127,6 +2132,12 @@ let creatorCuePills = [];
 let creatorSelectedCueIndices = new Set();
 let creatorCharacterRepresentation = 'silhouette'; // 'silhouette' | 'likeness'
 let creatorLastSuggestedContextKey = '';
+let draggedCueIndex = null;
+
+// Reference Photo Likeness State
+let creatorReferenceImageBase64 = null;
+let creatorReferenceImageMimeType = 'image/jpeg';
+let creatorReferenceImageSourceLabel = null;
 
 // Live Scraped Article State
 let currentScrapedArticle = null;
@@ -2221,6 +2232,12 @@ async function handleUrlInput(val) {
 
     if (data && data.success) {
       currentScrapedArticle = data;
+      if (data.imageBase64 && (!creatorReferenceImageBase64 || creatorReferenceImageSourceLabel?.startsWith('Article Lead Photo'))) {
+        creatorReferenceImageBase64 = data.imageBase64;
+        creatorReferenceImageMimeType = data.imageMimeType || 'image/jpeg';
+        creatorReferenceImageSourceLabel = `Article Lead Photo (${data.siteName || 'Web'})`;
+        updateReferencePhotoUI();
+      }
       const isFull = (data.content && data.content.length > 200) || (!data.fallback);
       if (indicator) {
         indicator.className = isFull ? 'url-scrape-indicator success' : 'url-scrape-indicator info';
@@ -2420,6 +2437,13 @@ async function goToVisualCuesStep() {
   if (d2) d2.className = 'creator-step-dot active';
   if (d3) d3.className = 'creator-step-dot';
 
+  updateReferencePhotoUI();
+
+  const step2Right = document.getElementById('step2NavRightBtn');
+  if (step2Right) {
+    step2Right.title = currentSynthesizedPost ? 'View Generated Posters →' : 'Generate Posters →';
+  }
+
   // AI-suggest cues if context changed or empty
   const articleTitle = currentScrapedArticle?.title || extractHeadlineFromUrl(url);
   const contextKey = `${creatorSelectedSource}::${articleTitle}::${slantTake}`;
@@ -2450,11 +2474,18 @@ function renderCuesDeck() {
     const row = document.createElement('div');
     row.className = `cue-card-row ${rankConfig.rowClass} ${isSelected ? 'selected' : ''}`;
     row.setAttribute('data-index', index);
+    row.setAttribute('draggable', 'true');
 
     row.innerHTML = `
-      <div class="cue-reorder-btns">
-        <button type="button" class="cue-move-btn" onclick="moveCue(${index}, -1)" title="Move up" ${index === 0 ? 'style="opacity:0.3;pointer-events:none;"' : ''}>▲</button>
-        <button type="button" class="cue-move-btn" onclick="moveCue(${index}, 1)" title="Move down" ${index === creatorCuePills.length - 1 ? 'style="opacity:0.3;pointer-events:none;"' : ''}>▼</button>
+      <div class="cue-drag-handle" title="Hold & drag to prioritize (#1 is Hero)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+          <circle cx="9" cy="5" r="2"></circle>
+          <circle cx="15" cy="5" r="2"></circle>
+          <circle cx="9" cy="12" r="2"></circle>
+          <circle cx="15" cy="12" r="2"></circle>
+          <circle cx="9" cy="19" r="2"></circle>
+          <circle cx="15" cy="19" r="2"></circle>
+        </svg>
       </div>
       <div class="cue-checkbox-wrap" onclick="toggleCueSelection(${index})">
         <input type="checkbox" class="cue-checkbox" ${isSelected ? 'checked' : ''} onchange="toggleCueSelection(${index})">
@@ -2463,6 +2494,96 @@ function renderCuesDeck() {
       <input type="text" class="cue-input-text" value="${escapeHtml(cueText)}" oninput="updateCueText(${index}, this.value)">
       <button type="button" class="cue-delete-btn" onclick="deleteCue(${index})" title="Remove cue">✕</button>
     `;
+
+    // HTML5 Drag and Drop events
+    row.addEventListener('dragstart', (e) => {
+      draggedCueIndex = index;
+      row.classList.add('dragging');
+      if (e.dataTransfer) {
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', String(index));
+      }
+    });
+
+    row.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+      const rect = row.getBoundingClientRect();
+      const midpoint = rect.top + rect.height / 2;
+      if (e.clientY < midpoint) {
+        row.classList.add('drag-over-top');
+        row.classList.remove('drag-over-bottom');
+      } else {
+        row.classList.add('drag-over-bottom');
+        row.classList.remove('drag-over-top');
+      }
+    });
+
+    row.addEventListener('dragleave', () => {
+      row.classList.remove('drag-over-top', 'drag-over-bottom');
+    });
+
+    row.addEventListener('drop', (e) => {
+      e.preventDefault();
+      row.classList.remove('drag-over-top', 'drag-over-bottom');
+      if (draggedCueIndex !== null && draggedCueIndex !== index) {
+        reorderCues(draggedCueIndex, index);
+      }
+      draggedCueIndex = null;
+    });
+
+    row.addEventListener('dragend', () => {
+      row.classList.remove('dragging');
+      document.querySelectorAll('.cue-card-row').forEach(r => r.classList.remove('drag-over-top', 'drag-over-bottom'));
+      draggedCueIndex = null;
+    });
+
+    // Touch support for mobile hold-and-drag
+    const dragHandle = row.querySelector('.cue-drag-handle');
+    if (dragHandle) {
+      let isTouchDragging = false;
+
+      dragHandle.addEventListener('touchstart', (e) => {
+        draggedCueIndex = index;
+        isTouchDragging = true;
+        row.classList.add('dragging');
+      }, { passive: true });
+
+      dragHandle.addEventListener('touchmove', (e) => {
+        if (!isTouchDragging) return;
+        const touch = e.touches[0];
+        const el = document.elementFromPoint(touch.clientX, touch.clientY);
+        const targetRow = el ? el.closest('.cue-card-row') : null;
+        document.querySelectorAll('.cue-card-row').forEach(r => {
+          if (r !== row) r.classList.remove('drag-over-top', 'drag-over-bottom');
+        });
+        if (targetRow && targetRow !== row) {
+          const rect = targetRow.getBoundingClientRect();
+          if (touch.clientY < rect.top + rect.height / 2) {
+            targetRow.classList.add('drag-over-top');
+          } else {
+            targetRow.classList.add('drag-over-bottom');
+          }
+        }
+      }, { passive: false });
+
+      dragHandle.addEventListener('touchend', (e) => {
+        if (!isTouchDragging) return;
+        isTouchDragging = false;
+        row.classList.remove('dragging');
+        const touch = e.changedTouches[0];
+        const el = document.elementFromPoint(touch.clientX, touch.clientY);
+        const targetRow = el ? el.closest('.cue-card-row') : null;
+        document.querySelectorAll('.cue-card-row').forEach(r => r.classList.remove('drag-over-top', 'drag-over-bottom'));
+        if (targetRow && targetRow !== row) {
+          const targetIdx = parseInt(targetRow.getAttribute('data-index'), 10);
+          if (!isNaN(targetIdx) && targetIdx !== index) {
+            reorderCues(index, targetIdx);
+          }
+        }
+        draggedCueIndex = null;
+      });
+    }
 
     container.appendChild(row);
   });
@@ -2486,7 +2607,7 @@ function renderCuesDeck() {
     if (infoText) {
       infoText.innerHTML = `
         <span class="cues-info-icon">⇅</span>
-        <span>Tap to select • Drag ⇅ to prioritize (#1 is Hero)</span>
+        <span>Tap to select • Hold & drag ⠿ to prioritize (#1 is Hero)</span>
       `;
     }
     if (suggestLabel) suggestLabel.textContent = 'Suggest All';
@@ -2494,21 +2615,28 @@ function renderCuesDeck() {
   }
 }
 
-function moveCue(index, delta) {
-  const newIndex = index + delta;
+function reorderCues(oldIndex, newIndex) {
+  if (oldIndex < 0 || oldIndex >= creatorCuePills.length) return;
   if (newIndex < 0 || newIndex >= creatorCuePills.length) return;
+  if (oldIndex === newIndex) return;
 
-  const item = creatorCuePills.splice(index, 1)[0];
+  const item = creatorCuePills.splice(oldIndex, 1)[0];
   creatorCuePills.splice(newIndex, 0, item);
 
-  // Remap selection
+  // Remap selections cleanly (matching Flutter ReorderableListView logic)
+  const wasSelected = creatorSelectedCueIndices.has(oldIndex);
   const newSelected = new Set();
-  creatorSelectedCueIndices.forEach(idx => {
-    if (idx === index) newSelected.add(newIndex);
-    else if (delta > 0 && idx > index && idx <= newIndex) newSelected.add(idx - 1);
-    else if (delta < 0 && idx < index && idx >= newIndex) newSelected.add(idx + 1);
-    else newSelected.add(idx);
+  creatorSelectedCueIndices.forEach(s => {
+    if (s === oldIndex) return;
+    let mapped = s;
+    if (oldIndex < newIndex) {
+      if (s > oldIndex && s <= newIndex) mapped = s - 1;
+    } else {
+      if (s >= newIndex && s < oldIndex) mapped = s + 1;
+    }
+    newSelected.add(mapped);
   });
+  if (wasSelected) newSelected.add(newIndex);
   creatorSelectedCueIndices = newSelected;
 
   renderCuesDeck();
@@ -2620,6 +2748,57 @@ async function triggerCueSuggest() {
   }
 }
 
+function triggerReferencePhotoUpload() {
+  const input = document.getElementById('faceLikenessFileInput');
+  if (input) input.click();
+}
+
+function triggerReferencePhotoCamera() {
+  const input = document.getElementById('faceLikenessCameraInput');
+  if (input) input.click();
+}
+
+function handleReferenceImageSelection(event) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+
+  compressImage(file, 1200, 0.82, function(base64Data, mimeType) {
+    creatorReferenceImageBase64 = base64Data;
+    creatorReferenceImageMimeType = mimeType || 'image/jpeg';
+    creatorReferenceImageSourceLabel = 'Custom Portrait Photo';
+    updateReferencePhotoUI();
+  });
+}
+
+function updateReferencePhotoUI() {
+  const section = document.getElementById('characterRefPhotoSection');
+  const activeCard = document.getElementById('refPhotoActiveCard');
+  const emptyCard = document.getElementById('refPhotoEmptyCard');
+  const thumb = document.getElementById('refPhotoThumb');
+  const title = document.getElementById('refPhotoTitle');
+  const cameraBtn = document.getElementById('refCameraBtn');
+
+  if (!section) return;
+
+  if (creatorCharacterRepresentation !== 'likeness') {
+    section.style.display = 'none';
+    return;
+  }
+
+  section.style.display = 'block';
+
+  if (creatorReferenceImageBase64) {
+    if (activeCard) activeCard.style.display = 'flex';
+    if (emptyCard) emptyCard.style.display = 'none';
+    if (thumb) thumb.src = creatorReferenceImageBase64;
+    if (title) title.textContent = creatorReferenceImageSourceLabel || 'Reference Photo Ready';
+  } else {
+    if (activeCard) activeCard.style.display = 'none';
+    if (emptyCard) emptyCard.style.display = 'block';
+    if (cameraBtn) cameraBtn.style.display = isMobileDevice() ? 'inline-flex' : 'none';
+  }
+}
+
 function selectCharacterRepresentation(type) {
   creatorCharacterRepresentation = type;
   const optSil = document.getElementById('repOptionSilhouette');
@@ -2627,6 +2806,29 @@ function selectCharacterRepresentation(type) {
 
   if (optSil) optSil.classList.toggle('active', type === 'silhouette');
   if (optLik) optLik.classList.toggle('active', type === 'likeness');
+
+  if (type === 'likeness') {
+    // If no reference photo is explicitly set yet, auto-extract from sources:
+    if (!creatorReferenceImageBase64 && creatorSelectedImageBase64) {
+      creatorReferenceImageBase64 = creatorSelectedImageBase64;
+      creatorReferenceImageMimeType = creatorSelectedImageMimeType || 'image/jpeg';
+      creatorReferenceImageSourceLabel = 'Print Clipping Photo';
+    } else if (!creatorReferenceImageBase64 && currentScrapedArticle?.imageBase64) {
+      creatorReferenceImageBase64 = currentScrapedArticle.imageBase64;
+      creatorReferenceImageMimeType = currentScrapedArticle.imageMimeType || 'image/jpeg';
+      creatorReferenceImageSourceLabel = 'Article Lead Photo (' + (currentScrapedArticle.siteName || 'Web') + ')';
+    }
+  }
+
+  updateReferencePhotoUI();
+}
+
+function handleStep2NavRight() {
+  if (currentSynthesizedPost) {
+    showStep3Preview();
+  } else {
+    startAiSynthesis();
+  }
 }
 
 async function startAiSynthesis() {
@@ -2666,13 +2868,20 @@ async function startAiSynthesis() {
     userHandle = '@' + (currentUser.user_metadata?.user_name || currentUser.user_metadata?.name || currentUser.email.split('@')[0]);
   }
 
+  const effectiveImageBase64 = (creatorCharacterRepresentation === 'likeness' && creatorReferenceImageBase64)
+    ? creatorReferenceImageBase64
+    : creatorSelectedImageBase64;
+  const effectiveImageMime = (creatorCharacterRepresentation === 'likeness' && creatorReferenceImageBase64)
+    ? creatorReferenceImageMimeType
+    : creatorSelectedImageMimeType;
+
   const payload = {
     sourceType: creatorSelectedSource,
     url,
     text: slantTake,
     slantTake: slantTake,
-    imageBase64: creatorSelectedImageBase64,
-    imageMimeType: creatorSelectedImageMimeType,
+    imageBase64: effectiveImageBase64,
+    imageMimeType: effectiveImageMime,
     targetAudience: 'General Public',
     slantTone: 'mind',
     spark,

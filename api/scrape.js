@@ -77,8 +77,37 @@ module.exports = async function handler(req, res) {
 
     // 4. Image
     const ogImage = html.match(/<meta\s+property=["']og:image["']\s+content=["'](.*?)["']/i) ||
-                    html.match(/<meta\s+content=["'](.*?)["']\s+property=["']og:image["']/i);
+                    html.match(/<meta\s+content=["'](.*?)["']\s+property=["']og:image["']/i) ||
+                    html.match(/<meta\s+name=["']twitter:image["']\s+content=["'](.*?)["']/i) ||
+                    html.match(/<meta\s+content=["'](.*?)["']\s+name=["']twitter:image["']/i) ||
+                    html.match(/<link\s+rel=["']image_src["']\s+href=["'](.*?)["']/i);
     let imageUrl = ogImage && ogImage[1] ? ogImage[1].trim() : '';
+
+    let imageBase64 = null;
+    let imageMimeType = 'image/jpeg';
+    if (imageUrl && imageUrl.startsWith('http')) {
+      try {
+        const imgCtrl = new AbortController();
+        const imgTimer = setTimeout(() => imgCtrl.abort(), 3500);
+        const imgResp = await fetch(imageUrl, {
+          signal: imgCtrl.signal,
+          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+        });
+        clearTimeout(imgTimer);
+        if (imgResp.ok) {
+          const contentType = imgResp.headers.get('content-type') || 'image/jpeg';
+          if (contentType.startsWith('image/')) {
+            imageMimeType = contentType.split(';')[0];
+            const buffer = await imgResp.arrayBuffer();
+            if (buffer.byteLength > 1000 && buffer.byteLength < 3 * 1024 * 1024) {
+              imageBase64 = `data:${imageMimeType};base64,` + Buffer.from(buffer).toString('base64');
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Could not pre-fetch article lead photo buffer:', err.message);
+      }
+    }
 
     // 5. Clean Article Body Excerpt
     const cleanText = html
@@ -104,7 +133,9 @@ module.exports = async function handler(req, res) {
       siteName: domain,
       description,
       content: cleanText,
-      imageUrl: imageUrl.startsWith('http') ? imageUrl : null
+      imageUrl: imageUrl.startsWith('http') ? imageUrl : null,
+      imageBase64,
+      imageMimeType
     });
 
   } catch (err) {

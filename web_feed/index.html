@@ -255,10 +255,22 @@
           </div>
         </div>
 
-        <!-- 4. Bottom Next Button (Step 1 -> Step 2) -->
-        <div class="creator-footer">
-          <button type="button" class="creator-synthesize-btn" id="nextToCuesBtn" onclick="goToVisualCuesStep()">
+        <!-- 4. Bottom Navigation Bar (Step 1) -->
+        <div class="creator-bottom-nav">
+          <button type="button" class="creator-nav-arrow disabled" id="step1NavLeftBtn" disabled title="Previous step">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="19" y1="12" x2="5" y2="12"></line>
+              <polyline points="12 19 5 12 12 5"></polyline>
+            </svg>
+          </button>
+          <button type="button" class="creator-synthesize-btn creator-nav-main-btn" id="nextToCuesBtn" onclick="goToVisualCuesStep()">
             <span class="btn-text">Next: Visual Cues →</span>
+          </button>
+          <button type="button" class="creator-nav-arrow" id="step1NavRightBtn" onclick="goToVisualCuesStep()" title="Next: Visual Cues">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+              <polyline points="12 5 19 12 12 19"></polyline>
+            </svg>
           </button>
         </div>
       </div>
@@ -328,16 +340,64 @@
                 </div>
               </div>
             </div>
+
+            <!-- Reference Photo Conditioning Panel (Visible when Match Real Person Face is selected) -->
+            <div class="ref-photo-section" id="characterRefPhotoSection" style="display:none;">
+              <!-- State A: Reference Photo Ready (Thumbnail + Change Button) -->
+              <div class="ref-photo-card ref-photo-ready" id="refPhotoActiveCard" style="display:none;">
+                <div class="ref-photo-thumb-wrap">
+                  <img id="refPhotoThumb" class="ref-photo-thumb" src="" alt="Reference Photo">
+                </div>
+                <div class="ref-photo-info">
+                  <div class="ref-photo-status">
+                    <span class="ref-check-icon">✓</span>
+                    <span class="ref-status-title" id="refPhotoTitle">Reference Photo Ready</span>
+                  </div>
+                  <span class="ref-photo-desc" id="refPhotoDesc">Face structure will be captured and styled into poster art.</span>
+                </div>
+                <button type="button" class="ref-photo-change-btn" onclick="triggerReferencePhotoUpload()">Change</button>
+              </div>
+
+              <!-- State B: No Photo Attached Yet -->
+              <div class="ref-photo-card ref-photo-empty" id="refPhotoEmptyCard" style="display:none;">
+                <div class="ref-empty-header">
+                  <span class="ref-empty-icon">📷</span>
+                  <span class="ref-empty-title">Attach Reference Photo</span>
+                </div>
+                <p class="ref-empty-desc">Upload a portrait photo or snap the person's photo to preserve their facial likeness.</p>
+                <div class="ref-empty-actions">
+                  <button type="button" class="ref-upload-btn" onclick="triggerReferencePhotoUpload()">
+                    <span>📁 Upload / Browse</span>
+                  </button>
+                  <button type="button" class="ref-camera-btn" id="refCameraBtn" style="display:none;" onclick="triggerReferencePhotoCamera()">
+                    <span>📸 Camera</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Hidden file inputs for reference photo selection -->
+              <input type="file" id="faceLikenessFileInput" accept="image/png, image/jpeg, image/webp" style="display:none;" onchange="handleReferenceImageSelection(event)">
+              <input type="file" id="faceLikenessCameraInput" accept="image/*" capture="environment" style="display:none;" onchange="handleReferenceImageSelection(event)">
+            </div>
           </div>
 
-          <!-- 6. Step 2 Bottom Navigation & Synthesis Trigger -->
-          <div class="cues-footer-nav">
-            <button type="button" class="creator-back-btn" onclick="backToStep1()">
-              ← Back to Slant & Source
+          <!-- 6. Bottom Navigation Bar (Step 2: Left Arrow + Action Button + Right Arrow) -->
+          <div class="creator-bottom-nav">
+            <button type="button" class="creator-nav-arrow" id="step2NavLeftBtn" onclick="backToStep1()" title="Back to Slant & Source">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="19" y1="12" x2="5" y2="12"></line>
+                <polyline points="12 19 5 12 12 5"></polyline>
+              </svg>
             </button>
-            <button type="button" class="creator-synthesize-btn" id="synthesizeBtn" onclick="startAiSynthesis()">
+            <button type="button" class="creator-synthesize-btn creator-nav-main-btn" id="synthesizeBtn" onclick="startAiSynthesis()">
               <span class="btn-stars">✨</span>
               <span class="btn-text">Generate 3-Poster Social Carousel</span>
+            </button>
+            <button type="button" class="creator-nav-arrow" id="step2NavRightBtn" onclick="handleStep2NavRight()" title="View Generated Posters">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+                <polyline points="12 5 19 12 12 19"></polyline>
+              </svg>
             </button>
           </div>
         </div>
@@ -396,13 +456,22 @@
             </div>
           </div>
 
-          <!-- Final Publish Bar -->
-          <div class="creator-publish-footer">
-            <button type="button" class="creator-secondary-btn" onclick="backToStep1()">
-              &larr; Re-edit Inputs
+          <!-- 4. Bottom Navigation Bar (Step 3: Left Arrow + Publish + Right Arrow) -->
+          <div class="creator-bottom-nav">
+            <button type="button" class="creator-nav-arrow" id="step3NavLeftBtn" onclick="goToVisualCuesStep()" title="Back to Visual Cues">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="19" y1="12" x2="5" y2="12"></line>
+                <polyline points="12 19 5 12 12 5"></polyline>
+              </svg>
             </button>
-            <button type="button" class="creator-publish-btn" id="publishBtn" onclick="publishSynthesizedPost()">
+            <button type="button" class="creator-publish-btn creator-nav-main-btn" id="publishBtn" onclick="publishSynthesizedPost()">
               <span>Publish to slant.today 🚀</span>
+            </button>
+            <button type="button" class="creator-nav-arrow disabled" id="step3NavRightBtn" disabled title="Final Step">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+                <polyline points="12 5 19 12 12 19"></polyline>
+              </svg>
             </button>
           </div>
         </div>
