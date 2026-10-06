@@ -243,6 +243,7 @@ Respond strictly with valid JSON with this exact structure:
           generationConfig: {
             responseMimeType: 'application/json',
             temperature: 0.7,
+            maxOutputTokens: 1000,
             thinkingConfig: { thinkingBudget: 0 }
           }
         })
