@@ -4860,6 +4860,20 @@ header {
 }
 
 /* Edit Carousel Slide Content Modal (Matches Android _showEditPosterModalBottomSheet) */
+#editPosterModal {
+  z-index: 3000 !important;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+
+#editPosterModal.open,
+#editPosterModal.active {
+  display: flex !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
 .edit-poster-modal-card {
   background: #0F172A;
   border: 1px solid rgba(255, 255, 255, 0.14);

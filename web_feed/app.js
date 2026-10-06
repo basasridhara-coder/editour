@@ -3476,9 +3476,11 @@ function handleStep3Regenerate() {
   goToVisualCuesStep();
 }
 
-function openEditPosterModal(initialTab = 0) {
+function openEditPosterModal(initialTab = null) {
   if (!currentSynthesizedPost) return;
-  switchEditModalTab(initialTab);
+
+  const tabToOpen = (typeof initialTab === 'number') ? initialTab : (currentPreviewSlide || 0);
+  switchEditModalTab(tabToOpen);
 
   const catInput = document.getElementById('editModalCategory');
   const pubInput = document.getElementById('editModalPublication');
@@ -3491,12 +3493,12 @@ function openEditPosterModal(initialTab = 0) {
   const metricInput = document.getElementById('editModalMetric');
 
   if (catInput) catInput.value = currentSynthesizedPost.categoryBadge || 'OPINION';
-  if (pubInput) pubInput.value = currentSynthesizedPost.sourcePublication || currentSynthesizedPost.sourceDomain || '';
+  if (pubInput) pubInput.value = currentSynthesizedPost.publicationName || currentSynthesizedPost.sourcePublication || currentSynthesizedPost.sourceDomain || '';
   if (headInput) headInput.value = currentSynthesizedPost.adaptedHeadline || '';
-  if (excerptInput) excerptInput.value = currentSynthesizedPost.newsprintExcerpt || '';
+  if (excerptInput) excerptInput.value = currentSynthesizedPost.originalHeadline || currentSynthesizedPost.newsprintExcerpt || currentSynthesizedPost.hook || '';
   if (handleInput) handleInput.value = currentSynthesizedPost.creatorHandle || '@curator';
-  if (s2TitleInput) s2TitleInput.value = currentSynthesizedPost.critiqueBadge || 'THE CRITIQUE';
-  if (opinionInput) opinionInput.value = currentSynthesizedPost.creatorOpinion || '';
+  if (s2TitleInput) s2TitleInput.value = currentSynthesizedPost.critiqueBadge || (currentSynthesizedPost.keyTakeaways && currentSynthesizedPost.keyTakeaways[0] ? currentSynthesizedPost.keyTakeaways[0].toUpperCase() : 'THE CRITICAL PERSPECTIVE');
+  if (opinionInput) opinionInput.value = currentSynthesizedPost.creatorOpinion || currentSynthesizedPost.curatorTake || '';
   if (whyInput) whyInput.value = currentSynthesizedPost.whyItMatters || '';
   if (metricInput) metricInput.value = currentSynthesizedPost.keyMetric || '';
 
@@ -3545,18 +3547,26 @@ function openEditPosterModal(initialTab = 0) {
     const headEl = document.getElementById('editReceiptsHeadline');
     const quoteEl = document.getElementById('editReceiptsQuotes');
 
-    if (mastEl) mastEl.textContent = `Masthead: ${currentSynthesizedPost.sourcePublication || currentSynthesizedPost.sourceDomain || 'Source Outlet'}`;
-    if (headEl) headEl.textContent = `Headline: ${currentSynthesizedPost.originalTitle || currentSynthesizedPost.adaptedHeadline || ''}`;
-    if (quoteEl) quoteEl.textContent = currentSynthesizedPost.newsprintExcerpt ? `• "${currentSynthesizedPost.newsprintExcerpt}"` : '';
+    if (mastEl) mastEl.textContent = `Masthead: ${currentSynthesizedPost.publicationName || currentSynthesizedPost.sourcePublication || currentSynthesizedPost.sourceDomain || 'Source Outlet'}`;
+    if (headEl) headEl.textContent = `Headline: ${currentSynthesizedPost.originalHeadline || currentSynthesizedPost.originalTitle || currentSynthesizedPost.adaptedHeadline || ''}`;
+    if (quoteEl) quoteEl.textContent = currentSynthesizedPost.receiptHighlightQuote ? `• "${currentSynthesizedPost.receiptHighlightQuote}"` : (currentSynthesizedPost.newsprintExcerpt ? `• "${currentSynthesizedPost.newsprintExcerpt}"` : '');
   }
 
   const modal = document.getElementById('editPosterModal');
-  if (modal) modal.style.display = 'flex';
+  if (modal) {
+    modal.classList.add('open');
+    modal.classList.add('active');
+    modal.style.display = 'flex';
+  }
 }
 
 function closeEditPosterModal() {
   const modal = document.getElementById('editPosterModal');
-  if (modal) modal.style.display = 'none';
+  if (modal) {
+    modal.classList.remove('open');
+    modal.classList.remove('active');
+    modal.style.display = 'none';
+  }
 }
 
 function switchEditModalTab(tabIdx) {
@@ -3582,12 +3592,26 @@ function saveEditedSlideContent() {
   const metricInput = document.getElementById('editModalMetric');
 
   if (catInput && catInput.value.trim()) currentSynthesizedPost.categoryBadge = catInput.value.trim().toUpperCase();
-  if (pubInput && pubInput.value.trim()) currentSynthesizedPost.sourcePublication = pubInput.value.trim();
+  if (pubInput && pubInput.value.trim()) {
+    currentSynthesizedPost.publicationName = pubInput.value.trim();
+    currentSynthesizedPost.sourcePublication = pubInput.value.trim();
+  }
   if (headInput && headInput.value.trim()) currentSynthesizedPost.adaptedHeadline = headInput.value.trim();
-  if (excerptInput && excerptInput.value.trim()) currentSynthesizedPost.newsprintExcerpt = excerptInput.value.trim();
+  if (excerptInput && excerptInput.value.trim()) {
+    currentSynthesizedPost.originalHeadline = excerptInput.value.trim();
+    currentSynthesizedPost.newsprintExcerpt = excerptInput.value.trim();
+    currentSynthesizedPost.hook = excerptInput.value.trim();
+  }
   if (handleInput && handleInput.value.trim()) currentSynthesizedPost.creatorHandle = handleInput.value.trim();
-  if (s2TitleInput && s2TitleInput.value.trim()) currentSynthesizedPost.critiqueBadge = s2TitleInput.value.trim();
-  if (opinionInput && opinionInput.value.trim()) currentSynthesizedPost.creatorOpinion = opinionInput.value.trim();
+  if (s2TitleInput && s2TitleInput.value.trim()) {
+    currentSynthesizedPost.critiqueBadge = s2TitleInput.value.trim();
+    currentSynthesizedPost.keyTakeaways = currentSynthesizedPost.keyTakeaways || [];
+    currentSynthesizedPost.keyTakeaways[0] = s2TitleInput.value.trim();
+  }
+  if (opinionInput && opinionInput.value.trim()) {
+    currentSynthesizedPost.creatorOpinion = opinionInput.value.trim();
+    currentSynthesizedPost.curatorTake = opinionInput.value.trim();
+  }
   if (whyInput && whyInput.value.trim()) currentSynthesizedPost.whyItMatters = whyInput.value.trim();
   if (metricInput && metricInput.value.trim()) currentSynthesizedPost.keyMetric = metricInput.value.trim();
 
