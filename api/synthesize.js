@@ -280,23 +280,35 @@ Respond strictly with valid JSON with this exact structure:
     const isLookalike = (characterRepresentation === 'likeness' || characterRepresentation === 'lookalike');
     const isExactPhoto = (characterRepresentation === 'exact');
 
+    let heroCandidate = (parsed.heroCue || (cues && cues[0]) || parsed.adaptedHeadline || 'Editorial subject')
+      .replace(/[^\w\s-]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (heroCandidate.length > 80) {
+      heroCandidate = heroCandidate.slice(0, 80).replace(/,[^,]*$/, '');
+    }
+
+    const isPerson = isLikelyPersonSubject(heroCandidate);
+
     let coreSubject = '';
-    if (isLookalike) {
-      const heroPerson = (parsed.heroCue || (cues && cues[0]) || 'Key Protagonist').replace(/[^\w\s-]/g, '').trim();
-      coreSubject = `${heroPerson} portrait likeness, mysterious chiaroscuro shadow, cinematic noir editorial illustration, painterly, no text`;
+    if (isPerson && isLookalike) {
+      coreSubject = `${heroCandidate} portrait likeness, mysterious chiaroscuro shadow, cinematic noir editorial illustration, painterly, no text`;
+    } else if (isPerson) {
+      coreSubject = `${heroCandidate} silhouetted focal figure, cinematic editorial poster art, dramatic atmospheric lighting, no text`;
     } else {
-      let candidate = parsed.heroCue || (cues && cues[0]) || parsed.adaptedHeadline || 'Editorial conceptual art';
-      candidate = candidate.replace(/[^\w\s,.-]/g, '').replace(/\s+/g, ' ').trim();
-      if (candidate.length > 90) {
-        candidate = candidate.slice(0, 90).replace(/,[^,]*$/, '');
+      // Inanimate object, building, court, institution, or environmental concept
+      const isArchitecture = /court|building|parliament|monument|colonnade|facade|tower|temple|chamber/i.test(heroCandidate);
+      if (isArchitecture) {
+        coreSubject = `${heroCandidate} grand architectural facade, dramatic volumetric lighting, cinematic editorial poster art, no text`;
+      } else {
+        coreSubject = `${heroCandidate}, dramatic atmospheric lighting, cinematic editorial poster art, no text`;
       }
-      coreSubject = `${candidate}, cinematic editorial poster art, dramatic atmospheric lighting, no text`;
     }
 
     const concisePrompt = `${countryTag}${coreSubject}`.slice(0, 190);
     const cleanArtPrompt = encodeURIComponent(concisePrompt);
     const illustrationSeed = Math.floor(Math.random() * 899999 + 100000);
-    const illustrationUrl = `https://image.pollinations.ai/prompt/${cleanArtPrompt}?width=1080&height=1350&nologo=true&seed=${illustrationSeed}`;
+    const illustrationUrl = `https://image.pollinations.ai/prompt/${cleanArtPrompt}?seed=${illustrationSeed}`;
 
     const hasExactPhoto = isExactPhoto && !!(imageBase64);
     const finalIllustrationUrl = hasExactPhoto ? imageBase64 : illustrationUrl;
@@ -430,4 +442,25 @@ function generateSmartFallbackSynthesis({
     illustrationPrompt: `${hero}, ${motif}, cinematic editorial poster art, dramatic atmospheric lighting, no text`
   };
 }
+
+function isLikelyPersonSubject(name) {
+  if (!name) return false;
+  const lower = name.toLowerCase();
+  const nonPersonKeywords = [
+    'court', 'building', 'parliament', 'cctv', 'camera', 'surveillance', 'rig',
+    'tower', 'monument', 'bull', 'colonnade', 'street', 'office', 'temple',
+    'facility', 'center', 'centre', 'network', 'grid', 'machine', 'car', 'drone',
+    'chip', 'server', 'satellite', 'statue', 'facade', 'institution', 'cell',
+    'system', 'law', 'act', 'code', 'bill', 'treaty', 'policy', 'economy', 'budget'
+  ];
+  if (nonPersonKeywords.some(w => lower.includes(w))) return false;
+  const personKeywords = [
+    'trump', 'musk', 'altman', 'biden', 'modi', 'pichai', 'nadella', 'cook',
+    'huang', 'minister', 'president', 'judge', 'justice', 'officer', 'sweeper',
+    'curator', 'citizen', 'woman', 'man', 'girl', 'boy', 'leader', 'doctor',
+    'worker', 'protagonist', 'figure', 'person', 'individual', 'portrait', 'lookalike'
+  ];
+  return personKeywords.some(w => lower.includes(w));
+}
+
 

@@ -2569,6 +2569,26 @@ async function handleUrlInput(val) {
   }
 }
 
+function isLikelyPersonSubject(name) {
+  if (!name) return false;
+  const lower = name.toLowerCase();
+  const nonPersonKeywords = [
+    'court', 'building', 'parliament', 'cctv', 'camera', 'surveillance', 'rig',
+    'tower', 'monument', 'bull', 'colonnade', 'street', 'office', 'temple',
+    'facility', 'center', 'centre', 'network', 'grid', 'machine', 'car', 'drone',
+    'chip', 'server', 'satellite', 'statue', 'facade', 'institution', 'cell',
+    'system', 'law', 'act', 'code', 'bill', 'treaty', 'policy', 'economy', 'budget'
+  ];
+  if (nonPersonKeywords.some(w => lower.includes(w))) return false;
+  const personKeywords = [
+    'trump', 'musk', 'altman', 'biden', 'modi', 'pichai', 'nadella', 'cook',
+    'huang', 'minister', 'president', 'judge', 'justice', 'officer', 'sweeper',
+    'curator', 'citizen', 'woman', 'man', 'girl', 'boy', 'leader', 'doctor',
+    'worker', 'protagonist', 'figure', 'person', 'individual', 'portrait', 'lookalike'
+  ];
+  return personKeywords.some(w => lower.includes(w));
+}
+
 function detectPersonNameInContext(title, slant, content) {
   const combined = `${title || ''} ${slant || ''} ${content ? content.slice(0, 500) : ''}`;
   const lower = combined.toLowerCase();
@@ -3158,10 +3178,14 @@ function updateReferencePhotoUI() {
 
   const desc = document.getElementById('refPhotoDesc');
   if (desc) {
+    const firstCue = creatorCuePills[0] || '';
+    const isPerson = isLikelyPersonSubject(firstCue);
     if (creatorCharacterRepresentation === 'exact') {
       desc.textContent = 'Exact unedited photo will be used directly as the primary poster image.';
-    } else {
+    } else if (isPerson) {
       desc.textContent = 'Face features will guide AI to generate an artistic lookalike portrait with mystery.';
+    } else {
+      desc.textContent = 'Subject will guide AI to generate a cinematic architectural/editorial poster illustration.';
     }
   }
 
