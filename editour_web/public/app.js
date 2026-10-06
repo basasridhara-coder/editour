@@ -498,83 +498,111 @@ function renderLoginPostsPreview() {
   startLoginTrackVerticalOscillation(track);
 }
 
-// Ambient Vertical Oscillation controller for login showcase track
-let loginOscillateTimer = null;
-let loginOscillateDirection = 1; // 1 = scrolling down, -1 = scrolling up
-let loginOscillatePaused = false;
-let loginOscillatePauseTimeout = null;
+// Step-by-Step Smooth Vertical Auto-Scroll Controller (every 5 seconds)
+let loginAutoScrollTimer = null;
+let loginScrollRowIndex = 0;
+let loginScrollDirection = 1; // 1 = scrolling downwards, -1 = scrolling upwards
+let isLoginTrackHovered = false;
 
 function startLoginTrackVerticalOscillation(track) {
   if (!track || track.dataset.oscillatorStarted === 'true') return;
   track.dataset.oscillatorStarted = 'true';
 
-  function pauseOscillationTemporarily(ms = 4000) {
-    loginOscillatePaused = true;
-    if (loginOscillatePauseTimeout) clearTimeout(loginOscillatePauseTimeout);
-    loginOscillatePauseTimeout = setTimeout(() => {
-      loginOscillatePaused = false;
-    }, ms);
-  }
+  function doScrollStep() {
+    if (isLoginTrackHovered) return;
+    const rows = track.querySelectorAll('.login-post-row');
+    if (!rows || rows.length <= 1) return;
 
-  // Pause on user mouse hover or mobile touch
-  track.addEventListener('mouseenter', () => { loginOscillatePaused = true; });
-  track.addEventListener('mouseleave', () => {
-    if (loginOscillatePauseTimeout) clearTimeout(loginOscillatePauseTimeout);
-    loginOscillatePauseTimeout = setTimeout(() => {
-      loginOscillatePaused = false;
-    }, 1500);
-  });
-  track.addEventListener('touchstart', () => { loginOscillatePaused = true; }, { passive: true });
-  track.addEventListener('touchend', () => {
-    if (loginOscillatePauseTimeout) clearTimeout(loginOscillatePauseTimeout);
-    loginOscillatePauseTimeout = setTimeout(() => {
-      loginOscillatePaused = false;
-    }, 2500);
-  });
-  track.addEventListener('wheel', () => { pauseOscillationTemporarily(5000); }, { passive: true });
+    // Advance to next row
+    loginScrollRowIndex += loginScrollDirection;
 
-  // Smooth continuous ambient drift
-  let lastTimestamp = performance.now();
-  function step(now) {
-    const delta = Math.min(now - lastTimestamp, 50);
-    lastTimestamp = now;
-
-    if (!loginOscillatePaused && track.scrollHeight > track.clientHeight) {
-      const maxScroll = track.scrollHeight - track.clientHeight;
-      const speed = 0.04 * delta; // gentle smooth drift
-      
-      track.scrollTop += loginOscillateDirection * speed;
-
-      if (track.scrollTop >= maxScroll - 2 && loginOscillateDirection > 0) {
-        loginOscillatePaused = true;
-        setTimeout(() => {
-          loginOscillateDirection = -1;
-          loginOscillatePaused = false;
-        }, 2200); // pause at bottom before oscillating back up
-      } else if (track.scrollTop <= 2 && loginOscillateDirection < 0) {
-        loginOscillatePaused = true;
-        setTimeout(() => {
-          loginOscillateDirection = 1;
-          loginOscillatePaused = false;
-        }, 2200); // pause at top before oscillating back down
-      }
+    // Check boundaries and reverse direction at the ends
+    if (loginScrollRowIndex >= rows.length - 1) {
+      loginScrollRowIndex = rows.length - 1;
+      loginScrollDirection = -1; // Reached bottom, next time scroll up!
+    } else if (loginScrollRowIndex <= 0) {
+      loginScrollRowIndex = 0;
+      loginScrollDirection = 1; // Reached top, next time scroll down!
     }
 
-    loginOscillateTimer = requestAnimationFrame(step);
+    const targetRow = rows[loginScrollRowIndex];
+    if (targetRow) {
+      const targetTop = targetRow.offsetTop - track.offsetTop;
+      track.scrollTo({ top: Math.max(0, targetTop - 8), behavior: 'smooth' });
+    }
   }
 
-  loginOscillateTimer = requestAnimationFrame(step);
+  function resetTimer() {
+    if (loginAutoScrollTimer) clearInterval(loginAutoScrollTimer);
+    loginAutoScrollTimer = setInterval(doScrollStep, 5000);
+  }
+
+  // Hover detection: pause firmly when user brings mouse pointer on them
+  track.addEventListener('mouseenter', () => {
+    isLoginTrackHovered = true;
+    if (loginAutoScrollTimer) clearInterval(loginAutoScrollTimer);
+  });
+
+  track.addEventListener('mouseleave', () => {
+    isLoginTrackHovered = false;
+    resetTimer();
+  });
+
+  // Touch detection for mobile devices
+  track.addEventListener('touchstart', () => {
+    isLoginTrackHovered = true;
+    if (loginAutoScrollTimer) clearInterval(loginAutoScrollTimer);
+  }, { passive: true });
+
+  track.addEventListener('touchend', () => {
+    isLoginTrackHovered = false;
+    resetTimer();
+  }, { passive: true });
+
+  // When user wheels or scrolls manually, sync current row index
+  track.addEventListener('wheel', () => {
+    isLoginTrackHovered = true;
+    if (loginAutoScrollTimer) clearInterval(loginAutoScrollTimer);
+    clearTimeout(track._wheelTimeout);
+    track._wheelTimeout = setTimeout(() => {
+      isLoginTrackHovered = false;
+      const rows = track.querySelectorAll('.login-post-row');
+      let nearestIdx = 0;
+      let minDiff = Infinity;
+      rows.forEach((r, i) => {
+        const diff = Math.abs(r.offsetTop - track.offsetTop - track.scrollTop);
+        if (diff < minDiff) {
+          minDiff = diff;
+          nearestIdx = i;
+        }
+      });
+      loginScrollRowIndex = nearestIdx;
+      resetTimer();
+    }, 4000);
+  }, { passive: true });
+
+  // Start the 5-second interval
+  resetTimer();
 }
 
 function scrollLoginPosts(direction) {
   const track = document.getElementById('loginPostsScrollTrack');
   if (!track) return;
-  loginOscillatePaused = true;
-  if (loginOscillatePauseTimeout) clearTimeout(loginOscillatePauseTimeout);
-  loginOscillatePauseTimeout = setTimeout(() => { loginOscillatePaused = false; }, 4000);
+  isLoginTrackHovered = true;
+  clearTimeout(track._manualTimeout);
+  track._manualTimeout = setTimeout(() => { isLoginTrackHovered = false; }, 4000);
 
-  const scrollAmount = 350 * direction;
-  track.scrollBy({ top: scrollAmount, behavior: 'smooth' });
+  const rows = track.querySelectorAll('.login-post-row');
+  if (rows && rows.length > 0) {
+    loginScrollRowIndex = Math.max(0, Math.min(rows.length - 1, loginScrollRowIndex + direction));
+    const targetRow = rows[loginScrollRowIndex];
+    if (targetRow) {
+      const targetTop = targetRow.offsetTop - track.offsetTop;
+      track.scrollTo({ top: Math.max(0, targetTop - 8), behavior: 'smooth' });
+    }
+  } else {
+    track.scrollBy({ top: 380 * direction, behavior: 'smooth' });
+  }
 }
 
 function previewPostFromLogin(postId) {
