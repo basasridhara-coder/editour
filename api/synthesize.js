@@ -311,7 +311,24 @@ Respond strictly with valid JSON with this exact structure:
     const illustrationUrl = `https://image.pollinations.ai/prompt/${cleanArtPrompt}?seed=${illustrationSeed}`;
 
     const hasExactPhoto = isExactPhoto && !!(imageBase64);
-    const finalIllustrationUrl = hasExactPhoto ? imageBase64 : illustrationUrl;
+    let geminiArtUri = null;
+    if (!hasExactPhoto) {
+      geminiArtUri = await generateGeminiEditorialArtwork({
+        prompt: concisePrompt,
+        imageBase64: (isLookalike && imageBase64) ? imageBase64 : null,
+        imageMimeType: imageMimeType || 'image/jpeg',
+        timeoutMs: 11000
+      });
+    }
+
+    const finalIllustrationUrl = hasExactPhoto
+      ? imageBase64
+      : (geminiArtUri || illustrationUrl);
+
+    const finalIllustrationBase64 = geminiArtUri
+      ? (geminiArtUri.includes(',') ? geminiArtUri.split(',')[1] : geminiArtUri)
+      : (hasExactPhoto && imageBase64.startsWith('data:') ? imageBase64.split(',')[1] : null);
+
     const finalCuratorTake = (refineCoreTake && parsed.curatorTake && parsed.curatorTake.trim().length > 10)
       ? parsed.curatorTake.trim()
       : (userSlant || parsed.whyItMatters || 'Strategic structural shift in motion.');
@@ -342,9 +359,9 @@ Respond strictly with valid JSON with this exact structure:
       hookCues: `#1 [HERO]: ${parsed.heroCue || (cues && cues[0]) || 'Central subject'}\n#2 [MOTIF]: ${parsed.motifCue || (cues && cues[1]) || 'Metaphor'}\n#3 [TENSION]: ${parsed.tensionCue || (cues && cues[2]) || 'Conflict'}\n#4 [ATMOSPHERE]: ${parsed.atmosphereCue || (cues && cues[3]) || 'Setting'}\n#5 [LIGHTING]: ${parsed.lightingCue || (cues && cues[4]) || 'Atmospheric light'}\n#6 [STYLE]: ${parsed.styleCue || (cues && cues[5]) || 'Editorial illustration'}`,
       illustrationPrompt: parsed.illustrationPrompt || '',
       illustrationUrl: finalIllustrationUrl,
-      illustrationBase64: hasExactPhoto && imageBase64.startsWith('data:') ? imageBase64.split(',')[1] : null,
+      illustrationBase64: finalIllustrationBase64,
       referencePhotoUrl: imageBase64 || null,
-      aiIllustrationUrl: illustrationUrl,
+      aiIllustrationUrl: geminiArtUri || illustrationUrl,
       originalPhotoPath: imageBase64 || url || '',
       creatorHandle: creatorHandle || '@curator',
       slantTone: slantTone || 'mind',
@@ -462,5 +479,53 @@ function isLikelyPersonSubject(name) {
   ];
   return personKeywords.some(w => lower.includes(w));
 }
+
+async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeType = 'image/jpeg', timeoutMs = 12000 }) {
+  if (!GEMINI_API_KEY) return null;
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${GEMINI_API_KEY}`;
+    const parts = [];
+
+    if (imageBase64) {
+      const cleanData = imageBase64.includes(',') ? imageBase64.split(',')[1] : imageBase64;
+      parts.push({
+        inlineData: {
+          mimeType: imageMimeType,
+          data: cleanData
+        }
+      });
+      parts.push({
+        text: `Transform this reference image into a high-aesthetic cinematic editorial poster art: ${prompt}. Imposing visual composition, dramatic lighting, painterly texture, vivid color grading, masterwork, no typography, no letters, no text.`
+      });
+    } else {
+      parts.push({
+        text: `${prompt}, cinematic editorial poster art, dramatic atmospheric lighting, painterly texture, high aesthetic, vivid color grading, masterwork, no typography, no letters, no text.`
+      });
+    }
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+    const resp = await fetch(url, {
+      method: 'POST',
+      signal: controller.signal,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents: [{ parts }] })
+    });
+    clearTimeout(timer);
+
+    if (resp.ok) {
+      const data = await resp.json();
+      const inlinePart = data.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
+      if (inlinePart && inlinePart.inlineData && inlinePart.inlineData.data) {
+        return `data:${inlinePart.inlineData.mimeType || 'image/png'};base64,${inlinePart.inlineData.data}`;
+      }
+    }
+  } catch (err) {
+    console.warn('Gemini editorial image generation skipped/timed out:', err.message);
+  }
+  return null;
+}
+
 
 
