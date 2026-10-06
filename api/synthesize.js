@@ -326,23 +326,15 @@ Respond strictly with valid JSON with this exact structure:
     }
 
     const hasExactPhoto = isExactPhoto && !!(imageBase64);
-    let geminiArtUri = null;
-    if (!hasExactPhoto) {
-      geminiArtUri = await generateGeminiEditorialArtwork({
-        prompt: concisePrompt,
-        imageBase64: (isLookalike && imageBase64) ? imageBase64 : null,
-        imageMimeType: imageMimeType || 'image/jpeg',
-        timeoutMs: 11000
-      });
-    }
-
+    
+    // Use instant Pollinations artwork URL (or exact photo) so serverless synthesis returns in ~3-4 seconds, safely within Vercel's 10-second execution limit
     const finalIllustrationUrl = hasExactPhoto
       ? imageBase64
-      : (geminiArtUri || illustrationUrl);
+      : illustrationUrl;
 
-    const finalIllustrationBase64 = geminiArtUri
-      ? (geminiArtUri.includes(',') ? geminiArtUri.split(',')[1] : geminiArtUri)
-      : (hasExactPhoto && imageBase64.startsWith('data:') ? imageBase64.split(',')[1] : null);
+    const finalIllustrationBase64 = hasExactPhoto && imageBase64.startsWith('data:')
+      ? imageBase64.split(',')[1]
+      : null;
 
     const finalCuratorTake = (refineCoreTake && parsed.curatorTake && parsed.curatorTake.trim().length > 10)
       ? parsed.curatorTake.trim()
@@ -375,9 +367,7 @@ Respond strictly with valid JSON with this exact structure:
       illustrationPrompt: parsed.illustrationPrompt || '',
       illustrationUrl: finalIllustrationUrl,
       illustrationBase64: finalIllustrationBase64,
-      referencePhotoUrl: imageBase64 || null,
-      aiIllustrationUrl: geminiArtUri || illustrationUrl,
-      originalPhotoPath: imageBase64 || url || '',
+      aiIllustrationUrl: finalIllustrationUrl,
       creatorHandle: creatorHandle || '@curator',
       slantTone: slantTone || 'mind',
       slantIcon: slantTone === 'heart' ? '❤️' : '🧠',
