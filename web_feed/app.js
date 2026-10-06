@@ -2685,7 +2685,7 @@ function backToStep1() {
 // Visual Cues Studio State
 let creatorCuePills = [];
 let creatorSelectedCueIndices = new Set();
-let creatorCharacterRepresentation = 'silhouette'; // 'silhouette' | 'likeness'
+let creatorCharacterRepresentation = 'realistic'; // 'realistic' | 'likeness' | 'exact' | 'silhouette'
 let creatorLastSuggestedContextKey = '';
 let draggedCueIndex = null;
 let creatorActiveInspectedCueIndex = 0;
@@ -3087,7 +3087,7 @@ function extract6RankedCueDimensions(curatorAngle, newsHeadline, newsBody) {
   } else if (combined.includes('ai') || combined.includes('tech') || combined.includes('silicon') || combined.includes('data center') || combined.includes('model') || combined.includes('compute') || combined.includes('apple') || combined.includes('phone') || combined.includes('ipad')) {
     hero = 'Monolithic Obsidian Server Tower';
   } else if (combined.includes('market') || combined.includes('invest') || combined.includes('wealth') || combined.includes('billion') || combined.includes('stock')) {
-    hero = isIndia ? 'Dalal Street Bull Monument Silhouette' : 'Silhouetted Wall Street Bull';
+    hero = isIndia ? 'Dalal Street Bull Bronze Monument' : 'Charging Wall Street Bronze Bull';
   } else if (combined.includes('polit') || combined.includes('elect') || combined.includes('minister') || combined.includes('leader') || combined.includes('vote')) {
     hero = isIndia ? 'Indian Parliament Sandstone Colonnade' : 'Solitary Figure at Microphone';
   } else if (combined.includes('court') || combined.includes('judge') || combined.includes('law') || combined.includes('case') || combined.includes('crime') || combined.includes('goon')) {
@@ -3159,7 +3159,7 @@ function extract6RankedCueDimensions(curatorAngle, newsHeadline, newsBody) {
   if (combined.includes('neon') || combined.includes('cyber') || combined.includes('future')) {
     lighting = 'Eerie Volumetric Neon Cyan Glow';
   } else if (combined.includes('dark') || combined.includes('noir') || combined.includes('secret') || combined.includes('investig')) {
-    lighting = 'Deep Chiaroscuro High-Contrast Silhouette';
+    lighting = 'Warm Golden Chiaroscuro Atmospheric Glow';
   } else if (combined.includes('dawn') || combined.includes('morning') || combined.includes('hope')) {
     lighting = 'Cold Blue Twilight with Amber Rim Light';
   } else {
@@ -3175,7 +3175,7 @@ function extract6RankedCueDimensions(curatorAngle, newsHeadline, newsBody) {
   } else if (combined.includes('historic') || combined.includes('classic') || combined.includes('book') || combined.includes('paper')) {
     style = 'Vintage Woodcut Broadsheet Engraving';
   } else {
-    style = 'High-Contrast Noir Risograph Print';
+    style = 'Vivid Cinematic Editorial Illustration';
   }
 
   return [hero, motif, tension, atmosphere, lighting, style];
@@ -3945,7 +3945,7 @@ function updateReferencePhotoUI() {
 
   if (!section) return;
 
-  if (creatorCharacterRepresentation === 'silhouette') {
+  if (creatorCharacterRepresentation !== 'likeness' && creatorCharacterRepresentation !== 'exact') {
     section.style.display = 'none';
     return;
   }
@@ -3979,10 +3979,12 @@ function updateReferencePhotoUI() {
 
 function selectCharacterRepresentation(type) {
   creatorCharacterRepresentation = type;
+  const optReal = document.getElementById('repOptionRealistic');
   const optSil = document.getElementById('repOptionSilhouette');
   const optLik = document.getElementById('repOptionLikeness');
   const optExact = document.getElementById('repOptionExact');
 
+  if (optReal) optReal.classList.toggle('active', type === 'realistic');
   if (optSil) optSil.classList.toggle('active', type === 'silhouette');
   if (optLik) optLik.classList.toggle('active', type === 'likeness');
   if (optExact) optExact.classList.toggle('active', type === 'exact');

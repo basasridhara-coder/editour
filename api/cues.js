@@ -31,7 +31,7 @@ module.exports = async function handler(req, res) {
     newsHeadline = '',
     newsBody = '',
     sourceType = 'digital_link',
-    characterRepresentation = 'silhouette',
+    characterRepresentation = 'realistic',
     selectedIndices = [],
     countryContext = '',
     countryCode = '',
@@ -40,6 +40,7 @@ module.exports = async function handler(req, res) {
 
   const isLikeness = (characterRepresentation === 'likeness' || characterRepresentation === 'lookalike');
   const isExact = (characterRepresentation === 'exact');
+  const isSilhouette = (characterRepresentation === 'silhouette');
   const hasPersonFocus = isLikeness || isExact;
 
   const combinedTopic = `${curatorAngle || ''} ${spark || ''} ${newsHeadline || ''} ${newsBody || ''}`.toLowerCase();
@@ -65,10 +66,12 @@ The visual cues MUST authentically capture the human situation, intimate setting
     : '';
 
   const personDirective = isLikeness
-    ? 'CRITICAL PERSON LOOKALIKE & MYSTERY DIRECTIVE: The curator requested LOOKALIKE & MYSTERY portrayal. The #1 HERO cue MUST specify the central real-world individual named in the headline or context (e.g. "Donald Trump Lookalike Editorial Portrait", "Elon Musk Lookalike Editorial Portrait") styled as an artistic editorial magazine portrait blending recognizable likeness with noir shadow and atmospheric mystery. Do NOT substitute with an abstract building!'
+    ? 'CRITICAL PERSON LOOKALIKE & PORTRAIT DIRECTIVE: The curator requested LOOKALIKE & PORTRAIT portrayal. The #1 HERO cue MUST specify the central real-world individual named in the headline or context (e.g. "Donald Trump Lookalike Editorial Portrait", "Elon Musk Lookalike Editorial Portrait") styled as an artistic editorial magazine portrait. Do NOT substitute with an abstract building!'
     : (isExact
       ? 'CRITICAL EXACT PHOTO DIRECTIVE: The curator requested to USE THE EXACT PHOTO. The #1 HERO cue should specify the primary photographic subject (e.g. "Donald Trump (Lead Photo Focus)").'
-      : '');
+      : (isSilhouette
+        ? 'MINIMALIST SILHOUETTE DIRECTIVE: The curator explicitly requested silhouette portrayal. #1 HERO should use minimalist shadow outlines.'
+        : 'VIVID EDITORIAL REALISM DIRECTIVE: All human subjects MUST be depicted as warm, realistic, expressive people with visible faces, natural lighting, and tangible environments. NEVER suggest pitch-black silhouettes, faceless shadow phantoms, or creepy dark figures!'));
 
   const prompt = `You are the lead visual art director for "Slant" (slant.today), an elite editorial publication.
 Your job is to define the 6 ranked storytelling visual cue dimensions for Poster 1 (The Hook Poster).
@@ -79,7 +82,7 @@ Article Title: "${newsHeadline || ''}"
 Article Excerpt / Context: "${newsBody ? newsBody.slice(0, 1500) : ''}"
 Source Type: ${sourceType}
 Regional & Cultural Setting: ${countryContext || 'Global / Contextually Detected'}
-Character Portrayal Style: ${isExact ? 'EXACT PHOTO FOCUS' : (isLikeness ? 'LOOKALIKE & MYSTERY (ARTISTIC EDITORIAL PORTRAIT)' : 'Stylized Metaphor / Silhouette')}
+Character Portrayal Style: ${isExact ? 'EXACT PHOTO FOCUS' : (isLikeness ? 'LOOKALIKE & PORTRAIT (ARTISTIC EDITORIAL PORTRAIT)' : (isSilhouette ? 'Stylized Minimalist Silhouette' : 'Vivid Editorial Realism (Realistic & Expressive Human Subjects)'))}
 
 ${personalDirective}
 
@@ -88,7 +91,7 @@ ${countryDirective}
 ${personDirective}
 
 STRICT VISUAL CUE REQUIREMENTS (Must be short, punchy 3-6 word phrases):
-1. HERO: Central focal figure, subject, or architectural centerpiece. ${hasPersonFocus ? 'Must be the central individual identified in the story (e.g. "Donald Trump Lookalike Editorial Portrait").' : 'Must reflect the actual story subject or curator protagonist (e.g. "Parent Closing Laptop While Packing", "Monolithic Obsidian Server Tower", "Lone Sweeper with Traditional Broom").'} Never output a URL, protocol, or punctuation!
+1. HERO: Central focal figure, subject, or architectural centerpiece. ${hasPersonFocus ? 'Must be the central individual identified in the story (e.g. "Donald Trump Lookalike Editorial Portrait").' : (isSilhouette ? 'Minimalist silhouette or outline.' : 'Warm, realistic protagonist or subject with visible human expression (e.g. "Parent and Child Packing Suitcase", "Monolithic Obsidian Server Tower", "Lone Sweeper with Traditional Broom"). NEVER pitch-black silhouettes, NEVER ghost figures!')} Never output a URL, protocol, or punctuation!
 2. MOTIF: Secondary symbolic metaphorical object capturing the curator's philosophical stance or critique (e.g. "Child Holding Forgotten Travel Item", "Tangled Marionette Puppet Strings", "Sculptor Chisel against Marble", "Tipping Balance Scales").
 3. TENSION: Opposing visual friction, conflict, shadow, crisis, or counter-force (e.g. "Work Deadlines Clashing with Escape", "Relentless Tidal Wave of Noise", "Cracking Stone Foundation", "Looming Corporate Shadow").
 4. ATMOSPHERE: Setting, environmental scale, weather, or time of day (e.g. "Cluttered Study with Kerala Palms", "Damp Rain-Slicked City Boulevard", "Smoke-Filled High-Rise Boardroom").
@@ -163,7 +166,7 @@ Respond strictly with valid JSON with this exact schema:
   }
 };
 
-function generateSmartFallbackCues(curatorAngle = '', spark = '', newsHeadline = '', newsBody = '', characterRepresentation = 'silhouette', countryContext = '', sourceType = 'digital_link') {
+function generateSmartFallbackCues(curatorAngle = '', spark = '', newsHeadline = '', newsBody = '', characterRepresentation = 'realistic', countryContext = '', sourceType = 'digital_link') {
   const combined = `${curatorAngle || ''} ${spark || ''} ${newsHeadline || ''} ${newsBody || ''}`.toLowerCase();
   const isLikeness = (characterRepresentation === 'likeness');
   const isIndia = (countryContext === 'India') || combined.includes('india') || combined.includes('delhi') || combined.includes('kerala') || combined.includes('thehindu');
@@ -245,7 +248,7 @@ function generateSmartFallbackCues(curatorAngle = '', spark = '', newsHeadline =
     } else if (combined.includes('ai') || combined.includes('tech') || combined.includes('silicon') || combined.includes('compute') || combined.includes('model')) {
       hero = 'Monolithic Obsidian Server Tower';
     } else if (combined.includes('market') || combined.includes('invest') || combined.includes('wealth') || combined.includes('stock')) {
-      hero = isIndia ? 'Dalal Street Bull Monument Silhouette' : 'Silhouetted Wall Street Bull';
+      hero = isIndia ? 'Dalal Street Bull Bronze Monument' : 'Charging Wall Street Bronze Bull';
     } else if (combined.includes('polit') || combined.includes('elect') || combined.includes('minister') || combined.includes('vote')) {
       hero = isIndia ? 'Indian Parliament Sandstone Colonnade' : 'Solitary Figure at Microphone';
     } else if (newsHeadline && newsHeadline.length > 3 && !newsHeadline.startsWith('http')) {

@@ -44,7 +44,7 @@ module.exports = async function handler(req, res) {
       creatorHandle = '@curator',
       cues = [],
       heroCue = '',
-      characterRepresentation = 'silhouette',
+      characterRepresentation = 'realistic',
       scrapedTitle = '',
       scrapedContent = '',
       countryContext = '',
@@ -150,8 +150,14 @@ ${spark ? `- The Spark (Personal Context / Catalyst): "${spark}"` : ''}
 ${url ? `- Source Link: ${url}` : ''}
 ${pubName ? `- Publication / Domain: ${pubName}` : ''}
 ${cues && cues.length > 0 ? `- Ranked Visual Cues: ${cues.map((c, i) => `#${i+1} ${c}`).join(' • ')}` : ''}
-- Character Portrayal Style: ${characterRepresentation === 'exact' ? 'Use exact unedited news/attached photo directly' : ((characterRepresentation === 'likeness' || characterRepresentation === 'lookalike') ? 'Lookalike & Mystery: Match real person face and likeness from source photo with artistic chiaroscuro mystery' : 'Stylized metaphorical silhouette / symbolic figures')}
-${(characterRepresentation === 'likeness' || characterRepresentation === 'lookalike') ? 'CRITICAL PERSON LOOKALIKE & MYSTERY DIRECTIVE: Character Portrayal is set to LOOKALIKE & MYSTERY. The heroCue MUST specify the primary real-world individual named in the article/slant (e.g. "Donald Trump Lookalike (Editorial Portrait)", "Elon Musk Lookalike (Editorial Portrait)"). The artwork must be an editorial painterly illustration blending recognizable likeness with artistic shadow and mystery (looks like the person, but an artistic creation).' : ''}
+- Character Portrayal Style: ${characterRepresentation === 'exact' 
+  ? 'Use exact unedited news/attached photo directly' 
+  : ((characterRepresentation === 'likeness' || characterRepresentation === 'lookalike') 
+    ? 'Lookalike & Portrait: Match real person face and likeness from source photo with artistic painted editorial style' 
+    : (characterRepresentation === 'silhouette'
+      ? 'Minimalist silhouette / stark shadow figures (ONLY if explicitly demanded)'
+      : 'Vivid Editorial Realism & Expressive People: Warm, realistic, expressive human beings with clearly visible faces, natural skin tones, clear clothing, and bright warm ambient lighting. STRICT BAN: NEVER pitch-black silhouettes, NEVER faceless shadows, NEVER dark doorway shadow figures, NEVER creepy ghost-like phantoms!'))}
+${(characterRepresentation === 'likeness' || characterRepresentation === 'lookalike') ? 'CRITICAL PERSON LOOKALIKE & MYSTERY DIRECTIVE: Character Portrayal is set to LOOKALIKE & PORTRAIT. The heroCue MUST specify the primary real-world individual named in the article/slant (e.g. "Donald Trump Lookalike (Editorial Portrait)"). The artwork must be an editorial painterly illustration blending recognizable likeness with artistic magazine portraiture.' : ''}
 ${characterRepresentation === 'exact' ? 'CRITICAL EXACT PHOTO DIRECTIVE: Character Portrayal is set to USE EXACT PHOTO. The heroCue should highlight the central photographic subject of the unedited news photo.' : ''}
 
 ${vocabDirective}
@@ -162,16 +168,26 @@ Synthesize this input into a compelling 3-poster social carousel deck:
 2. Poster 2 (The Curator's Take): A punchy perspective directly emphasizing the curator's slant/take, why it matters right now, and exactly 3 distinct high-signal takeaways.
 3. Poster 3 (The Receipts / Core Conviction): A single powerful highlight quote, and 3 verified excerpt bullet points backing the stance.
 ${sourceType === 'inner_voice' ? `CRITICAL INNER VOICE & LIVED EXPERIENCE DIRECTIVE:
-- This is an INNER VOICE perspective rooted in the curator's personal life, emotional experience, philosophical stance, or daily human reality (e.g. work-life balance, travel, family, burnout, craft, purpose).
-- DO NOT manufacture corporate, political, or bureaucratic jargon (NEVER mention "key stakeholders", "operational priorities", "strategic inflection", "unilateral arms race", or "structural realignment").
-- In Poster 2 ("THE CRITICAL PERSPECTIVE" / curatorTake): Refine the user's raw slant ("${userSlant}") into an insightful, emotionally resonant, and clear 2-sentence conviction (22-35 words total, ending with a period).
-- In Poster 3 ("THE RECEIPTS & CORE CONVICTION" / resolvedArticleExcerpts):
-  * DO NOT output tiny 1-line fragments!
+- This is an INNER VOICE perspective rooted in the curator's personal life, emotional experience, philosophical stance, or daily human reality (e.g. travel anticipation, family moments, work-life balance, craft, relief).
+- MATCH THE EMOTIONAL ENERGY OF THE USER'S CONTEXT:
+  * If the user is excited about a vacation, Kerala trip, beach, hills, or time with family, MATCH THAT VIBRANT EXCITEMENT AND ANTICIPATION!
+  * NEVER produce gloomy, melodramatic, depressing headlines like "The Heavy Art of Leaving Real Life Behind"!
+  * Frame the friction as relatable, humorous, and heartwarming pre-trip scramble (packing, forgotten items, last emails, excitement of what lies ahead).
+- IN POSTER 1 ("VISUAL HOOK"):
+  * Headline MUST be vibrant, positive, memorable, and directly relevant to their story (e.g. "The Sweet Rush Before the Backwaters", "Trading Pending Tabs for Kerala Sun", "When Packing Chaos Meets Pure Anticipation", "The Art of Finally Switching Off").
+  * The Hook sentence must capture the excitement and relatable rush of preparing for the journey.
+- IN POSTER 2 ("THE CRITICAL PERSPECTIVE" / curatorTake):
+  * Ground the conviction directly in their specific context (Kerala, the trip, the son's reminder, closing pending tasks, the relief of the break).
+  * Exactly 2 complete sentences (22–35 words total, ending with a period): celebrate that while work demands never stop multiplying, the countdown to being present with the people you love is what gives work its meaning.
+  * In "keyTakeaways", give 3 sharp, uplifting insights about breaking away, presence over perfection, and why the destination makes the frantic packing worth it.
+- IN POSTER 3 ("THE RECEIPTS & CORE CONVICTION" / resolvedArticleExcerpts):
   * Deliver 3 substantive, evocative narrative paragraphs (each 28–45 words, 2–3 full sentences):
-    1. Paragraph 1 (Scene & Catalyst): Ground the situation in sensory detail around the spark ("${spark}")—the physical room, the tension between packing and typing, the clutter, the rush.
-    2. Paragraph 2 (The Turning Point): The poignant realization where the child or catalyst breaks through the illusion of urgent work.
-    3. Paragraph 3 (The Lasting Truth): A deep, resonant closing thought on presence, why work will always expand to fill every second, and why choosing to disconnect is essential.
-- In Poster 1 ("VISUAL HOOK"): Adapted headline and hook must capture the relatable human friction of their story.` : (userSlant ? (refineCoreTake ? `MANDATORY REFINEMENT DIRECTIVE (NEVER ECHO VERBATIM):
+    1. Paragraph 1 (Scene & Catalyst): Ground the situation in sensory detail around the spark ("${spark}")—the open suitcases, packing lists, children holding forgotten travel items, and the rush to close remaining tasks.
+    2. Paragraph 2 (The Turning Point): The joyful realization when you realize work will never be 100% finished, but vacation countdown waits for no one.
+    3. Paragraph 3 (The Lasting Truth): A deep, warm closing reflection on Kerala's tranquil backwaters, green hills, and why presence with family is the greatest luxury.
+- IN "illustrationPrompt":
+  * Describe a warm, colorful, sunny scene of real people packing or getting ready, with smiling illuminated faces, colorful room, suitcase, tropical palms visible through window, warm golden light.
+  * Explicitly instruct: "Realistic people with clearly visible smiling faces, warm daylight, vibrant colors, Kerala palm trees, cheerful atmosphere, highly detailed, no silhouettes, no dark shadows, no faceless figures, no text".` : (userSlant ? (refineCoreTake ? `MANDATORY REFINEMENT DIRECTIVE (NEVER ECHO VERBATIM):
 - Poster 2 ("THE CRITICAL PERSPECTIVE" / Curator Take) MUST NEVER display the user's raw slant verbatim!
 - You MUST refine and extend the curator's unhedged take ("${userSlant}") into an articulate, model-synthesized editorial argument (EXACTLY 2 complete sentences, 22–35 words total, ending definitively with a period).
 - Ground it directly in the article's specific facts, actors, and structural implications.
@@ -208,7 +224,7 @@ Respond strictly with valid JSON with this exact structure:
   "atmosphereCue": "Environmental setting or mood",
   "lightingCue": "Dramatic lighting description",
   "styleCue": "Artistic medium description",
-  "illustrationPrompt": "Cinematic visual art prompt describing the scene metaphorically. Do not include any text, letters, watermarks, or typography."
+  "illustrationPrompt": "Cinematic visual art prompt describing the scene with rich detail. People MUST have visible faces, warm natural lighting, and clear human form. Strictly avoid pitch-black silhouettes, faceless shadow figures, dark ghosts, or creepy silhouettes unless characterRepresentation is explicitly 'silhouette'. Do not include any text, letters, watermarks, or typography."
 }`;
 
     const parts = [];
@@ -297,8 +313,16 @@ Respond strictly with valid JSON with this exact structure:
     let concisePrompt = '';
 
     if (parsed.illustrationPrompt && parsed.illustrationPrompt.trim().length > 15) {
-      // Use model's cohesive storytelling scene prompt directly
-      concisePrompt = parsed.illustrationPrompt.trim().slice(0, 240);
+      let rawPrompt = parsed.illustrationPrompt.trim();
+      if (characterRepresentation !== 'silhouette') {
+        // Aggressively strip out silhouette / dark shadow / ghost keywords
+        rawPrompt = rawPrompt
+          .replace(/\b(silhouetted?|silhouette|faceless|pitch[- ]black|shadowy figure|shadow figure|dark silhouette|creepy|ghost[- ]like|dark figures?|ominous|shadowy)\b/gi, '')
+          .replace(/\s+/g, ' ')
+          .trim();
+        rawPrompt = `${rawPrompt}, warm vivid realistic editorial illustration, expressive people with visible illuminated faces, natural lighting, beautiful colors, cheerful atmosphere, no silhouettes, no dark shadows, no text`;
+      }
+      concisePrompt = rawPrompt.slice(0, 240);
       const cleanArtPrompt = encodeURIComponent(concisePrompt);
       illustrationUrl = `https://image.pollinations.ai/prompt/${cleanArtPrompt}?seed=${illustrationSeed}`;
     } else {
@@ -314,19 +338,21 @@ Respond strictly with valid JSON with this exact structure:
 
       let coreSubject = '';
       if (isPerson && isLookalike) {
-        coreSubject = `${heroCandidate} portrait likeness, mysterious chiaroscuro shadow, cinematic noir editorial illustration, painterly, no text`;
+        coreSubject = `${heroCandidate} portrait likeness, painted editorial magazine illustration, realistic details, expressive lighting, no text`;
+      } else if (isPerson && characterRepresentation === 'silhouette') {
+        coreSubject = `${heroCandidate} minimalist silhouette outline, stark graphic contrast, editorial poster art, no text`;
       } else if (isPerson) {
-        coreSubject = `${heroCandidate} silhouetted focal figure, cinematic editorial poster art, dramatic atmospheric lighting, no text`;
+        coreSubject = `${heroCandidate}, warm vivid realistic editorial illustration, expressive people with visible illuminated faces, natural daylight, detailed clothing, rich colors, no silhouettes, no dark shadows, no text`;
       } else {
         const isArchitecture = /court|building|parliament|monument|colonnade|facade|tower|temple|chamber/i.test(heroCandidate);
         if (isArchitecture) {
           coreSubject = `${heroCandidate} grand architectural facade, dramatic volumetric lighting, cinematic editorial poster art, no text`;
         } else {
-          coreSubject = `${heroCandidate}, dramatic atmospheric lighting, cinematic editorial poster art, no text`;
+          coreSubject = `${heroCandidate}, warm atmospheric lighting, cinematic editorial poster art, rich colors, no silhouettes, no text`;
         }
       }
 
-      concisePrompt = `${countryTag}${coreSubject}`.slice(0, 190);
+      concisePrompt = `${countryTag}${coreSubject}`.slice(0, 220);
       const cleanArtPrompt = encodeURIComponent(concisePrompt);
       illustrationUrl = `https://image.pollinations.ai/prompt/${cleanArtPrompt}?seed=${illustrationSeed}`;
     }
@@ -461,7 +487,7 @@ function generateSmartFallbackSynthesis({
       atmosphereCue: atmosphere,
       lightingCue: lighting,
       styleCue: style,
-      illustrationPrompt: `Cinematic editorial illustration of ${hero.toLowerCase()}, ${motif.toLowerCase()}, ${tension.toLowerCase()}, ${atmosphere.toLowerCase()}, ${lighting.toLowerCase()}, ${style.toLowerCase()}, no typography, no letters, no text`
+      illustrationPrompt: `Cinematic editorial illustration of ${hero.toLowerCase()}, ${motif.toLowerCase()}, ${tension.toLowerCase()}, ${atmosphere.toLowerCase()}, ${lighting.toLowerCase()}, ${style.toLowerCase()}, warm realistic people with visible faces, natural lighting, rich colors, no silhouettes, no dark shadows, no text`
     };
   }
 
