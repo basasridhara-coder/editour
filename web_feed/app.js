@@ -282,6 +282,142 @@ function updateAuthUI() {
   }
 }
 
+let isAuthPasswordMode = false;
+
+function togglePasswordMode(isPassword) {
+  isAuthPasswordMode = (isPassword === true);
+  const wrap = document.getElementById('loginPasswordWrap');
+  const helper = document.getElementById('authHelperText');
+  const submitBtn = document.getElementById('emailAuthBtn');
+  const altRow = document.getElementById('authAltRow');
+  const passwordInput = document.getElementById('loginPasswordInput');
+
+  if (isAuthPasswordMode) {
+    if (wrap) wrap.style.display = 'block';
+    if (helper) helper.textContent = 'Enter your email & password to sign into your Slant account.';
+    if (submitBtn) submitBtn.innerHTML = '<span>Sign In with Password &rarr;</span>';
+    if (altRow) {
+      altRow.innerHTML = `
+        <button type="button" class="auth-toggle-btn" onclick="togglePasswordMode(false)">
+          Prefer passwordless? Send Magic Link instead
+        </button>
+      `;
+    }
+    if (passwordInput) passwordInput.focus();
+  } else {
+    if (wrap) wrap.style.display = 'none';
+    if (helper) helper.textContent = "We'll send an instant passwordless magic link to your email.";
+    if (submitBtn) submitBtn.innerHTML = '<span>Send Magic Link &rarr;</span>';
+    if (altRow) {
+      altRow.innerHTML = `
+        <button type="button" class="auth-toggle-btn" id="togglePasswordModeBtn" onclick="togglePasswordMode(true)">
+          Have a password? Sign in with password
+        </button>
+      `;
+    }
+  }
+}
+
+function renderLoginPostsPreview() {
+  const track = document.getElementById('loginPostsScrollTrack');
+  if (!track) return;
+
+  // Prefer allPosts if already populated
+  let previewList = [];
+  if (Array.isArray(allPosts) && allPosts.length > 0) {
+    previewList = allPosts.filter(p => p && (p.illustrationUrl || p.illustrationBase64 || p.coverImage || p.adaptedHeadline || p.hook)).slice(0, 8);
+  }
+
+  if (previewList.length === 0) {
+    fetch('slant_feed.json')
+      .then(r => r.json())
+      .then(data => {
+        if (Array.isArray(data) && data.length > 0) {
+          allPosts = data.filter(p => p && !p.deleted && (p.adaptedHeadline || p.hook || p.summary));
+          renderLoginPostsPreview();
+        }
+      })
+      .catch(e => console.warn('Could not load slant_feed for login preview:', e));
+    return;
+  }
+
+  track.innerHTML = '';
+  track.dataset.populated = 'true';
+
+  previewList.forEach((post) => {
+    const card = document.createElement('div');
+    card.className = 'login-preview-card';
+    card.setAttribute('role', 'button');
+    card.setAttribute('tabindex', '0');
+    const headline = post.adaptedHeadline || post.hook || post.originalHeadline || 'Visual Editorial';
+    card.setAttribute('title', `Explore "${escapeHtml(headline)}"`);
+
+    // Image source resolution
+    let imgSrc = '';
+    if (post.illustrationUrl) {
+      imgSrc = post.illustrationUrl;
+    } else if (post.illustrationBase64) {
+      imgSrc = `data:image/jpeg;base64,${post.illustrationBase64}`;
+    } else if (post.id) {
+      imgSrc = `/illustrations/${post.id}.jpg`;
+    }
+
+    const category = post.categoryBadge || 'EDITORIAL';
+    const conviction = post.whyItMatters || post.creatorOpinion || (post.keyTakeaways && post.keyTakeaways[0]) || post.summary || '';
+    const author = post.creatorHandle ? (post.creatorHandle.startsWith('@') ? post.creatorHandle : `@${post.creatorHandle}`) : '@slant';
+    const pub = post.publicationName || 'Slant Today';
+
+    card.innerHTML = `
+      <img class="preview-card-bg" src="${escapeHtml(imgSrc)}" alt="" loading="lazy" onerror="this.style.opacity='0.15';">
+      <div class="preview-card-overlay"></div>
+      
+      <div class="preview-card-top">
+        <span class="preview-card-cat">${escapeHtml(category)}</span>
+        <span class="preview-card-deck-badge">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M15 3v18"/></svg>
+          3 Posters
+        </span>
+      </div>
+
+      <div class="preview-card-body">
+        <h4 class="preview-card-headline">${escapeHtml(headline)}</h4>
+        ${conviction ? `<p class="preview-card-conviction">“${escapeHtml(conviction)}”</p>` : ''}
+        <div class="preview-card-footer">
+          <span class="preview-card-author">${escapeHtml(author)}</span>
+          <span class="preview-card-pub">${escapeHtml(pub)}</span>
+        </div>
+      </div>
+    `;
+
+    card.onclick = () => {
+      previewPostFromLogin(post.id);
+    };
+
+    track.appendChild(card);
+  });
+}
+
+function scrollLoginPosts(direction) {
+  const track = document.getElementById('loginPostsScrollTrack');
+  if (!track) return;
+  const scrollAmount = 260 * direction;
+  track.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+}
+
+function previewPostFromLogin(postId) {
+  closeAuthModal();
+  if (!postId) return;
+
+  const idx = allPosts.findIndex(p => p.id === postId);
+  if (idx >= 0) {
+    setTimeout(() => {
+      openDetailModal(idx);
+    }, 250);
+  } else {
+    showTemporaryToast('Navigating to story...');
+  }
+}
+
 function openAuthModal(customDesc) {
   const modal = document.getElementById('authModal');
   const descEl = document.getElementById('authModalDesc');
@@ -299,6 +435,17 @@ function openAuthModal(customDesc) {
     modal.classList.add('open');
     modal.classList.add('active');
   }
+
+  // Populate dynamic post preview cards in the login showcase
+  renderLoginPostsPreview();
+
+  // Push #login to URL hash if not already present
+  if (window.location.hash !== '#login') {
+    try {
+      history.replaceState(null, '', '#login');
+    } catch (e) {}
+  }
+
   const themeMenu = document.getElementById('themeDropdownMenu');
   if (themeMenu) themeMenu.classList.remove('open');
   const userMenu = document.getElementById('userDropdownMenu');
@@ -310,6 +457,14 @@ function closeAuthModal() {
   if (modal) {
     modal.classList.remove('open');
     modal.classList.remove('active');
+  }
+
+  // Remove #login from URL hash if present
+  if (window.location.hash === '#login') {
+    try {
+      const cleanUrl = window.location.pathname + window.location.search;
+      history.replaceState(null, '', cleanUrl);
+    } catch (e) {}
   }
 }
 
@@ -362,28 +517,72 @@ async function handleEmailAuth(e) {
   if (!email) return;
 
   const submitBtn = document.getElementById('emailAuthBtn');
-  if (submitBtn) {
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = 'Sending magic link...';
-  }
+  const origBtnHtml = submitBtn ? submitBtn.innerHTML : '';
 
-  try {
-    const { error } = await supabaseClient.auth.signInWithOtp({
-      email,
-      options: {
-        emailRedirectTo: window.location.origin
-      }
-    });
-    if (error) throw error;
-    showAuthStatus(`Magic link sent! Check your inbox at ${email} to sign in.`, 'success');
-    if (emailInput) emailInput.value = '';
-  } catch (err) {
-    console.error('Email OTP error:', err);
-    showAuthStatus(err.message || 'Could not send magic link. Please check the email and try again.', 'error');
-  } finally {
+  if (isAuthPasswordMode) {
+    const passwordInput = document.getElementById('loginPasswordInput');
+    const password = passwordInput?.value;
+    if (!password) {
+      showAuthStatus('Please enter your password.', 'error');
+      return;
+    }
+
     if (submitBtn) {
-      submitBtn.disabled = false;
-      submitBtn.innerHTML = '<span>Send Magic Link &rarr;</span>';
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = 'Signing in...';
+    }
+
+    try {
+      const { data, error } = await supabaseClient.auth.signInWithPassword({
+        email,
+        password
+      });
+      if (error) {
+        if (error.message && error.message.toLowerCase().includes('invalid login credentials')) {
+          showAuthStatus('Invalid email or password. You can also sign in via Magic Link.', 'error');
+        } else {
+          showAuthStatus(error.message || 'Authentication failed.', 'error');
+        }
+        return;
+      }
+      showAuthStatus('Signed in successfully!', 'success');
+      setTimeout(() => {
+        closeAuthModal();
+      }, 600);
+    } catch (err) {
+      console.error('Password auth error:', err);
+      showAuthStatus(err.message || 'Authentication error. Please try again.', 'error');
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = origBtnHtml || '<span>Sign In with Password &rarr;</span>';
+      }
+    }
+  } else {
+    // Magic Link
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = 'Sending magic link...';
+    }
+
+    try {
+      const { error } = await supabaseClient.auth.signInWithOtp({
+        email,
+        options: {
+          emailRedirectTo: window.location.origin
+        }
+      });
+      if (error) throw error;
+      showAuthStatus(`Magic link sent! Check your inbox at ${email} to sign in.`, 'success');
+      if (emailInput) emailInput.value = '';
+    } catch (err) {
+      console.error('Email OTP error:', err);
+      showAuthStatus(err.message || 'Could not send magic link. Please check the email and try again.', 'error');
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = origBtnHtml || '<span>Send Magic Link &rarr;</span>';
+      }
     }
   }
 }
@@ -734,9 +933,32 @@ function checkDeepLink() {
     const idx = allPosts.findIndex(p => p.id === postId);
     if (idx >= 0) {
       setTimeout(() => openDetailModal(idx), 300);
+      return;
     }
   }
+
+  // Check login deep link / direct route
+  if (
+    params.get('auth') === 'login' ||
+    params.get('login') === 'true' ||
+    window.location.hash === '#login' ||
+    (window.location.pathname && window.location.pathname.endsWith('/login'))
+  ) {
+    setTimeout(() => openAuthModal(), 250);
+  }
 }
+
+// Listen for browser navigation / hashchange for #login
+window.addEventListener('hashchange', () => {
+  if (window.location.hash === '#login') {
+    openAuthModal();
+  } else {
+    const modal = document.getElementById('authModal');
+    if (modal && (modal.classList.contains('open') || modal.classList.contains('active'))) {
+      closeAuthModal();
+    }
+  }
+});
 
 function renderFeed() {
   const container = document.getElementById('feedContainer');
