@@ -3507,8 +3507,10 @@ function addCustomCue() {
 async function triggerCueSuggest() {
   const urlInput = document.getElementById('creatorUrlInput');
   const slantTakeInput = document.getElementById('creatorSlantTakeInput');
+  const sparkInput = document.getElementById('creatorSparkInput');
   const url = urlInput ? urlInput.value.trim() : '';
   const slantTake = slantTakeInput ? slantTakeInput.value.trim() : '';
+  const spark = sparkInput ? sparkInput.value.trim() : '';
 
   const articleTitle = currentScrapedArticle?.title || extractHeadlineFromUrl(url);
   const articleBody = currentScrapedArticle?.content || '';
@@ -3527,6 +3529,7 @@ async function triggerCueSuggest() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         curatorAngle: slantTake,
+        spark: spark,
         newsHeadline: articleTitle,
         newsBody: articleBody,
         sourceType: creatorSelectedSource,

@@ -12,12 +12,21 @@ class VisualCueService {
     String? newsBody,
   }) {
     final combined = '$curatorAngle $newsHeadline ${newsBody ?? ""}'.toLowerCase();
-    final isIndia = combined.contains('india') || combined.contains('delhi') || combined.contains('thehindu') || combined.contains('mumbai') || combined.contains('rupee');
+    final isIndia = combined.contains('india') || combined.contains('delhi') || combined.contains('thehindu') || combined.contains('mumbai') || combined.contains('rupee') || combined.contains('kerala');
     final isUK = combined.contains('london') || combined.contains('westminster') || combined.contains('uk ') || combined.contains('britain');
+    final isTravel = combined.contains('trip') || combined.contains('kerala') || combined.contains('vacation') || combined.contains('travel') || combined.contains('flight') || combined.contains('pack') || combined.contains('holiday') || combined.contains('beach');
+    final isFamily = combined.contains('son') || combined.contains('daughter') || combined.contains('child') || combined.contains('parent') || combined.contains('family');
+    final isWorkLife = combined.contains('burnout') || combined.contains('break') || combined.contains('unplug') || combined.contains('deadline') || combined.contains('email') || combined.contains('laptop') || combined.contains('office');
 
     // 1. HERO (Subject from headline or angle)
     String hero = '';
-    if (combined.contains('garbage') || combined.contains('trash') || combined.contains('waste') || combined.contains('clean')) {
+    if (isTravel && isFamily) {
+      hero = 'Parent Closing Laptop While Packing Luggage';
+    } else if (isTravel) {
+      hero = combined.contains('kerala') ? 'Traveler with Suitcase Gazing toward Kerala Palms' : 'Traveler Packing Luggage at Dusk';
+    } else if (isWorkLife) {
+      hero = 'Worker Closing Glowing Laptop at Dusk';
+    } else if (combined.contains('garbage') || combined.contains('trash') || combined.contains('waste') || combined.contains('clean')) {
       hero = isIndia ? 'Municipal Sweeper with Traditional Reed Broom' : 'Lone Sweeper with Traditional Broom';
     } else if (combined.contains('ai') || combined.contains('tech') || combined.contains('silicon') || combined.contains('data center')) {
       hero = 'Monolithic Server Tower';
@@ -30,13 +39,20 @@ class VisualCueService {
     } else if (newsHeadline.trim().isNotEmpty) {
       final phrases = _extractMeaningfulPhrases(newsHeadline);
       hero = phrases.isNotEmpty ? phrases.first : 'Central Editorial Subject';
+    } else if (curatorAngle.trim().isNotEmpty) {
+      final phrases = _extractMeaningfulPhrases(curatorAngle);
+      hero = phrases.isNotEmpty ? phrases.first : 'Reflective Storyteller at Crossroads';
     } else {
-      hero = 'Solitary Focal Figure';
+      hero = 'Reflective Storyteller at Crossroads';
     }
 
     // 2. MOTIF (Core Metaphor from Curator Angle)
     String motif = '';
-    if (combined.contains('court') || combined.contains('crime') || combined.contains('scale') || combined.contains('justice') || combined.contains('balance') || combined.contains('fair')) {
+    if (isTravel || isFamily) {
+      motif = 'Child Holding Forgotten Travel Item';
+    } else if (isWorkLife) {
+      motif = 'Unread Notification Ping on Screen';
+    } else if (combined.contains('court') || combined.contains('crime') || combined.contains('scale') || combined.contains('justice') || combined.contains('balance') || combined.contains('fair')) {
       motif = isIndia ? 'Ashoka Lion Capital & Scales of Justice' : 'Tipping Scales of Justice';
     } else if (combined.contains('mind') && (combined.contains('garbage') || combined.contains('trash') || combined.contains('clean'))) {
       motif = 'Mind Silhouette Filled with Plastic Waste';
@@ -56,7 +72,9 @@ class VisualCueService {
 
     // 3. TENSION (Conflict / Friction / Obstacle)
     String tension = '';
-    if (combined.contains('court') || combined.contains('crime')) {
+    if (isTravel || isWorkLife) {
+      tension = 'Work Deadlines Clashing with Vacation';
+    } else if (combined.contains('court') || combined.contains('crime')) {
       tension = 'Swarm of Shadows around Court Gates';
     } else if (combined.contains('garbage') || combined.contains('throw') || combined.contains('dirty') || combined.contains('street')) {
       tension = 'Hands Dropping Trash Behind Sweeper';
@@ -69,12 +87,16 @@ class VisualCueService {
     } else if (combined.contains('greed') || combined.contains('inequal') || combined.contains('shadow')) {
       tension = 'Looming Corporate Shadow';
     } else {
-      tension = 'Friction & Opposing Shadows';
+      tension = 'Friction Between Duty and Presence';
     }
 
     // 4. ATMOSPHERE (Setting / Environment)
     String atmosphere = '';
-    if (combined.contains('court') || combined.contains('legal') || combined.contains('parliament')) {
+    if (isTravel) {
+      atmosphere = combined.contains('kerala') ? 'Cluttered Study Transitioning to Kerala Palms' : 'Cluttered Luggage in Evening Room';
+    } else if (isWorkLife) {
+      atmosphere = 'Quiet Home Study at Twilight';
+    } else if (combined.contains('court') || combined.contains('legal') || combined.contains('parliament')) {
       atmosphere = isIndia ? 'Dusk over New Delhi Red Sandstone Corridor' : (isUK ? 'Rain-Mist Westminster Stone Embankment' : 'Colonnaded Classical Chamber');
     } else if (combined.contains('street') || combined.contains('city') || combined.contains('road') || combined.contains('urban')) {
       atmosphere = isIndia ? 'Monsoon-Drenched Indian City Boulevard' : 'Damp Morning City Boulevard';
@@ -90,7 +112,9 @@ class VisualCueService {
 
     // 5. LIGHTING (Chiaroscuro & Mood)
     String lighting = '';
-    if (combined.contains('street') || combined.contains('dawn') || combined.contains('morning')) {
+    if (isTravel || isWorkLife) {
+      lighting = 'Warm Golden Twilight Clashing with Screen Glow';
+    } else if (combined.contains('street') || combined.contains('dawn') || combined.contains('morning')) {
       lighting = 'Single Harsh Streetlamp Spotlight';
     } else if (combined.contains('dark') || combined.contains('noir') || combined.contains('secret') || combined.contains('investig')) {
       lighting = 'Deep Chiaroscuro Silhouette';
@@ -102,7 +126,9 @@ class VisualCueService {
 
     // 6. STYLE (Print Medium & Movement)
     String style = '';
-    if (isIndia) {
+    if (isTravel || isFamily) {
+      style = 'Cinematic Warm Editorial Illustration';
+    } else if (isIndia) {
       style = 'Editorial Sandstone & Indigo Broadsheet Woodcut';
     } else if (combined.contains('tech') || combined.contains('modern') || combined.contains('futur')) {
       style = 'Bauhaus Geometric Vector Poster';

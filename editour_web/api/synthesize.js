@@ -161,12 +161,17 @@ Synthesize this input into a compelling 3-poster social carousel deck:
 1. Poster 1 (The Visual Hook): A bold adapted headline (5-10 words, unforgettable), a gripping 1-2 sentence hook, category badge, and dominant visual metaphor.
 2. Poster 2 (The Curator's Take): A punchy perspective directly emphasizing the curator's slant/take, why it matters right now, and exactly 3 distinct high-signal takeaways.
 3. Poster 3 (The Receipts / Core Conviction): A single powerful highlight quote, and 3 verified excerpt bullet points backing the stance.
-${userSlant ? (refineCoreTake ? `MANDATORY REFINEMENT DIRECTIVE (NEVER ECHO VERBATIM):
+${sourceType === 'inner_voice' ? `CRITICAL INNER VOICE & LIVED EXPERIENCE DIRECTIVE:
+- This is an INNER VOICE perspective rooted in the curator's personal life, emotional experience, philosophical stance, or daily human reality (e.g. work-life balance, travel, family, burnout, craft, purpose).
+- DO NOT manufacture corporate, political, or bureaucratic jargon (NEVER mention "key stakeholders", "operational priorities", "strategic inflection", "unilateral arms race", or "structural realignment").
+- In Poster 2 ("THE CRITICAL PERSPECTIVE" / curatorTake): Refine the user's raw slant ("${userSlant}") into an insightful, emotionally resonant, and clear 2-sentence conviction (22-35 words total, ending with a period).
+- In Poster 3 ("THE RECEIPTS" / resolvedArticleExcerpts): Instead of dry article excerpts, generate 3 authentic, grounded supporting observations or life-moments drawn directly from their slant and spark ("${spark}").
+- In Poster 1 ("VISUAL HOOK"): Adapted headline and hook must capture the relatable human friction of their story.` : (userSlant ? (refineCoreTake ? `MANDATORY REFINEMENT DIRECTIVE (NEVER ECHO VERBATIM):
 - Poster 2 ("THE CRITICAL PERSPECTIVE" / Curator Take) MUST NEVER display the user's raw slant verbatim!
 - You MUST refine and extend the curator's unhedged take ("${userSlant}") into an articulate, model-synthesized editorial argument (EXACTLY 2 complete sentences, 22–35 words total, ending definitively with a period).
 - Ground it directly in the article's specific facts, actors, and structural implications.
 - Strictly adhere to the Vocabulary Directive: use vivid, emotionally resonant, easily understandable English without heavy SAT/GRE academic jargon. Return this elevated statement in "curatorTake".` : `VERBATIM DIRECTIVE:
-- Poster 2 ("THE CRITICAL PERSPECTIVE") MUST preserve the curator's exact typed words verbatim: "${userSlant}", ending with a period. Return this in "curatorTake".`) : ''}
+- Poster 2 ("THE CRITICAL PERSPECTIVE") MUST preserve the curator's exact typed words verbatim: "${userSlant}", ending with a period. Return this in "curatorTake".`) : '')}
 ${cues && cues.length > 0 ? `CRITICAL VISUAL RULE: The Hook poster artwork and cues MUST be anchored in #1 HERO: "${cues[0]}", incorporating #2 MOTIF: "${cues[1] || ''}" and #3 TENSION: "${cues[2] || ''}".` : ''}
 
 Respond strictly with valid JSON with this exact structure:
@@ -227,7 +232,7 @@ Respond strictly with valid JSON with this exact structure:
     try {
       const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 16000);
+      const timeout = setTimeout(() => controller.abort(), 30000);
 
       const geminiResp = await fetch(geminiUrl, {
         method: 'POST',
@@ -237,7 +242,8 @@ Respond strictly with valid JSON with this exact structure:
           contents: [{ parts }],
           generationConfig: {
             responseMimeType: 'application/json',
-            temperature: 0.7
+            temperature: 0.7,
+            thinkingConfig: { thinkingBudget: 0 }
           }
         })
       });
@@ -275,40 +281,49 @@ Respond strictly with valid JSON with this exact structure:
       });
     }
 
-    // 4. Construct high-aesthetic illustration artwork URL (concise <=190 chars for 3-5s response)
+    // 4. Construct high-aesthetic illustration artwork URL
     const countryTag = (countryContext && countryContext !== 'Global') ? `${countryContext}, ` : '';
     const isLookalike = (characterRepresentation === 'likeness' || characterRepresentation === 'lookalike');
     const isExactPhoto = (characterRepresentation === 'exact');
-
-    let heroCandidate = (parsed.heroCue || (cues && cues[0]) || parsed.adaptedHeadline || 'Editorial subject')
-      .replace(/[^\w\s-]/g, '')
-      .replace(/\s+/g, ' ')
-      .trim();
-    if (heroCandidate.length > 80) {
-      heroCandidate = heroCandidate.slice(0, 80).replace(/,[^,]*$/, '');
-    }
-
-    const isPerson = isLikelyPersonSubject(heroCandidate);
-
-    let coreSubject = '';
-    if (isPerson && isLookalike) {
-      coreSubject = `${heroCandidate} portrait likeness, mysterious chiaroscuro shadow, cinematic noir editorial illustration, painterly, no text`;
-    } else if (isPerson) {
-      coreSubject = `${heroCandidate} silhouetted focal figure, cinematic editorial poster art, dramatic atmospheric lighting, no text`;
-    } else {
-      // Inanimate object, building, court, institution, or environmental concept
-      const isArchitecture = /court|building|parliament|monument|colonnade|facade|tower|temple|chamber/i.test(heroCandidate);
-      if (isArchitecture) {
-        coreSubject = `${heroCandidate} grand architectural facade, dramatic volumetric lighting, cinematic editorial poster art, no text`;
-      } else {
-        coreSubject = `${heroCandidate}, dramatic atmospheric lighting, cinematic editorial poster art, no text`;
-      }
-    }
-
-    const concisePrompt = `${countryTag}${coreSubject}`.slice(0, 190);
-    const cleanArtPrompt = encodeURIComponent(concisePrompt);
     const illustrationSeed = Math.floor(Math.random() * 899999 + 100000);
-    const illustrationUrl = `https://image.pollinations.ai/prompt/${cleanArtPrompt}?seed=${illustrationSeed}`;
+
+    let illustrationUrl = '';
+    let concisePrompt = '';
+
+    if (parsed.illustrationPrompt && parsed.illustrationPrompt.trim().length > 15) {
+      // Use model's cohesive storytelling scene prompt directly
+      concisePrompt = parsed.illustrationPrompt.trim().slice(0, 240);
+      const cleanArtPrompt = encodeURIComponent(concisePrompt);
+      illustrationUrl = `https://image.pollinations.ai/prompt/${cleanArtPrompt}?seed=${illustrationSeed}`;
+    } else {
+      let heroCandidate = (parsed.heroCue || (cues && cues[0]) || parsed.adaptedHeadline || 'Editorial subject')
+        .replace(/[^\w\s-]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+      if (heroCandidate.length > 80) {
+        heroCandidate = heroCandidate.slice(0, 80).replace(/,[^,]*$/, '');
+      }
+
+      const isPerson = isLikelyPersonSubject(heroCandidate);
+
+      let coreSubject = '';
+      if (isPerson && isLookalike) {
+        coreSubject = `${heroCandidate} portrait likeness, mysterious chiaroscuro shadow, cinematic noir editorial illustration, painterly, no text`;
+      } else if (isPerson) {
+        coreSubject = `${heroCandidate} silhouetted focal figure, cinematic editorial poster art, dramatic atmospheric lighting, no text`;
+      } else {
+        const isArchitecture = /court|building|parliament|monument|colonnade|facade|tower|temple|chamber/i.test(heroCandidate);
+        if (isArchitecture) {
+          coreSubject = `${heroCandidate} grand architectural facade, dramatic volumetric lighting, cinematic editorial poster art, no text`;
+        } else {
+          coreSubject = `${heroCandidate}, dramatic atmospheric lighting, cinematic editorial poster art, no text`;
+        }
+      }
+
+      concisePrompt = `${countryTag}${coreSubject}`.slice(0, 190);
+      const cleanArtPrompt = encodeURIComponent(concisePrompt);
+      illustrationUrl = `https://image.pollinations.ai/prompt/${cleanArtPrompt}?seed=${illustrationSeed}`;
+    }
 
     const hasExactPhoto = isExactPhoto && !!(imageBase64);
     let geminiArtUri = null;
@@ -399,13 +414,67 @@ function generateSmartFallbackSynthesis({
   characterRepresentation,
   refineCoreTake = true
 }) {
+  const combined = `${userSlant || ''} ${spark || ''} ${extractedTitle || ''} ${extractedContent || ''}`.toLowerCase();
+  const isPersonal = (sourceType === 'inner_voice') ||
+    /trip|vacation|kerala|holiday|travel|family|son|daughter|kid|child|parent|pack|luggage|flight|beach|home|rest|weekend|burnout|unplug/i.test(combined);
+
+  if (isPersonal) {
+    const headline = userSlant && userSlant.length > 5
+      ? userSlant.split(/[.:;!?,\n]/)[0].trim()
+      : 'The Discipline of Choosing Presence';
+
+    const hero = (cues && cues[0]) || (combined.includes('kerala') ? 'Traveler Packing Suitcase with Kerala Ticket' : 'Parent Closing Laptop While Packing Suitcase');
+    const motif = (cues && cues[1]) || (spark ? 'Child Holding Forgotten Travel Item' : 'Open Suitcase & Glowing Laptop Screen');
+    const tension = (cues && cues[2]) || 'The Friction Between Unfinished Work and Needed Rest';
+    const atmosphere = (cues && cues[3]) || (combined.includes('kerala') ? 'Cluttered Study Transitioning to Kerala Palms' : 'Quiet Evening Room with Open Luggage');
+    const lighting = (cues && cues[4]) || 'Warm Golden Evening Lamp clashing with Monitor Glow';
+    const style = (cues && cues[5]) || 'Cinematic Warm Editorial Illustration';
+
+    const cleanTake = userSlant ? userSlant.replace(/[.]+$/, '').trim() : 'We treat rest as something we must endlessly earn';
+    const refinedTake = `${cleanTake}. True restoration only begins when you accept that work will never be finished, but presence cannot wait.`;
+
+    const highlightQuote = spark
+      ? `${spark}. The real journey starts the second you step away from the screen.`
+      : `${cleanTake}. Life happens outside the inbox.`;
+
+    return {
+      adaptedHeadline: headline.length > 50 ? headline.slice(0, 47) + '...' : headline,
+      originalHeadline: userSlant || headline,
+      publicationName: 'My Slant',
+      categoryBadge: 'LIFE & WORK',
+      hook: `We tell ourselves we can only rest once every task is settled. But waiting for an empty inbox is a trap that turns pre-trip excitement into pure panic.`,
+      curatorTake: refineCoreTake ? refinedTake : (userSlant || refinedTake),
+      summary: `Every getaway begins with an exhausting sprint to tie up loose ends and clear pending messages. The closer departure gets, the heavier every open loop feels.\n\nYet a child’s sudden interruption—or a reminder of a forgotten essential—cuts through the mental clutter. It reveals that the urge to finish everything is an illusion that delays genuine presence.\n\nTrue rest isn’t a trophy earned by clearing your desk; it is an intentional boundary you must defend before burnout decides for you.`,
+      whyItMatters: 'If you cannot disconnect until every task is done, you will carry your work straight into your vacation.',
+      keyTakeaways: [
+        'The Myth of the Clean Slate: Work will always expand to fill every waking moment unless you actively pull the plug.',
+        'The Grounding Anchor: Small family moments cut through work-induced panic faster than any productivity trick.',
+        'The Discipline of Rest: Genuine restoration begins when you leave unfinished threads behind and trust they can wait.'
+      ],
+      receiptHighlightQuote: highlightQuote,
+      resolvedArticleExcerpts: [
+        spark ? `The spark: "${spark}"` : 'A single domestic reminder broke through the trance of urgent deadlines.',
+        userSlant ? `Curator stance: "${userSlant}"` : 'The frantic rush to finish every task often exhausts the very energy the trip was meant to replenish.',
+        'Unfinished work will always be there tomorrow, but this window to connect will not.'
+      ],
+      keyMetric: 'Rest Over Noise',
+      visualMood: 'Warm Twilight Editorial Realism',
+      heroCue: hero,
+      motifCue: motif,
+      tensionCue: tension,
+      atmosphereCue: atmosphere,
+      lightingCue: lighting,
+      styleCue: style,
+      illustrationPrompt: `Cinematic editorial illustration of ${hero.toLowerCase()}, ${motif.toLowerCase()}, ${tension.toLowerCase()}, ${atmosphere.toLowerCase()}, ${lighting.toLowerCase()}, ${style.toLowerCase()}, no typography, no letters, no text`
+    };
+  }
+
   const headline = userSlant && userSlant.length > 5
     ? userSlant.split(/[.:;!?]/)[0].trim()
     : (extractedTitle || 'The Unspoken Friction Behind the Headline');
 
   let hero = (cues && cues[0]) || 'Solitary Focal Figure';
   if (characterRepresentation === 'likeness' || characterRepresentation === 'lookalike') {
-    const combined = `${userSlant || ''} ${extractedTitle || ''} ${extractedContent || ''}`.toLowerCase();
     if (combined.includes('trump')) hero = 'Donald Trump (Editorial Portrait)';
     else if (combined.includes('musk')) hero = 'Elon Musk (Editorial Portrait)';
     else if (combined.includes('altman')) hero = 'Sam Altman (Editorial Portrait)';
@@ -424,7 +493,9 @@ function generateSmartFallbackSynthesis({
     } else if (lower.includes('control') || lower.includes('central') || lower.includes('power') || lower.includes('vulnerable')) {
       refinedTake = 'Centralizing computational dominance within insulated institutions creates systemic vulnerability for broader society. Lasting resilience demands decentralized architecture and transparent public accountability before control consolidates irreversibly.';
     } else {
-      refinedTake = 'Treating this inflection as conventional advancement overlooks the fundamental realignment underway. Lasting value belongs to independent observers who interrogate systemic trade-offs before consensus hardens.';
+      refinedTake = userSlant.length > 15
+        ? `${userSlant.replace(/[.]+$/, '')}. The deeper shift occurs when critical observers examine the structural incentives behind the surface narrative.`
+        : 'Treating this inflection as conventional advancement overlooks the fundamental realignment underway.';
     }
   }
 
