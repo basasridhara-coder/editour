@@ -1411,6 +1411,28 @@ function getSourceTier(post) {
   return 'tier3_opinion';
 }
 
+window.handlePosterImageError = function(imgEl, category) {
+  if (!imgEl) return;
+  if (!imgEl.dataset.triedFallback) {
+    imgEl.dataset.triedFallback = 'true';
+    const fallbackMap = {
+      'LIFE & WORK': 'https://images.unsplash.com/photo-1602216056096-3b40cc0c9944?auto=format&fit=crop&w=1200&q=80',
+      'OPINION': 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=1200&q=80',
+      'EDITORIAL': 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1200&q=80',
+      'LEGAL': 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=1200&q=80',
+      'DISCOVERY': 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1200&q=80'
+    };
+    const nextUrl = fallbackMap[category] || 'https://images.unsplash.com/photo-1602216056096-3b40cc0c9944?auto=format&fit=crop&w=1200&q=80';
+    if (imgEl.src !== nextUrl) {
+      imgEl.src = nextUrl;
+      return;
+    }
+  }
+  imgEl.style.opacity = '0';
+  imgEl.style.display = 'none';
+  imgEl.removeAttribute('alt');
+};
+
 /* ============================================================
    SLIDE BUILDERS (SLIDE 1, SLIDE 2, SLIDE 3)
    ============================================================ */
@@ -1452,15 +1474,17 @@ function buildSlide1Html(post, index) {
   `;
 
   let bgImgSrc = '';
-  if (post.illustrationUrl) {
+  if (post.illustrationBase64) {
+    bgImgSrc = post.illustrationBase64.startsWith('data:')
+      ? post.illustrationBase64
+      : `data:image/png;base64,${post.illustrationBase64}`;
+  } else if (post.illustrationUrl) {
     bgImgSrc = post.illustrationUrl;
-  } else if (post.illustrationBase64) {
-    bgImgSrc = `data:image/jpeg;base64,${post.illustrationBase64}`;
   }
 
   const imgHtml = bgImgSrc
-    ? `<img class="slide-hook-bg" src="${escapeHtml(bgImgSrc)}" alt="" loading="lazy" referrerpolicy="no-referrer" crossorigin="anonymous" onerror="this.style.opacity='0'; this.style.display='none'; this.removeAttribute('alt');">`
-    : `<img class="slide-hook-bg" src="" alt="" style="display:none;" loading="lazy" referrerpolicy="no-referrer" crossorigin="anonymous" onerror="this.style.opacity='0'; this.style.display='none'; this.removeAttribute('alt');">`;
+    ? `<img class="slide-hook-bg" src="${escapeHtml(bgImgSrc)}" alt="" loading="eager" referrerpolicy="no-referrer" crossorigin="anonymous" onerror="handlePosterImageError(this, '${escapeHtml(post.categoryBadge || '')}')">`
+    : `<img class="slide-hook-bg" src="" alt="" style="display:none;" loading="eager" referrerpolicy="no-referrer" crossorigin="anonymous" onerror="handlePosterImageError(this, '${escapeHtml(post.categoryBadge || '')}')">`;
 
   const bgHtml = `${fallbackCoverHtml}${imgHtml}`;
 
@@ -4053,13 +4077,23 @@ async function startAiSynthesis() {
 
   const ticker1 = setTimeout(() => {
     if (stepText) stepText.textContent = 'Synthesizing 3-poster narrative (Hook → Take → Receipts)...';
-    if (fill) fill.style.width = '60%';
+    if (fill) fill.style.width = '45%';
   }, 1400);
 
   const ticker2 = setTimeout(() => {
-    if (stepText) stepText.textContent = 'Generating visual metaphors & editorial poster art...';
-    if (fill) fill.style.width = '85%';
+    if (stepText) stepText.textContent = 'Drafting visual metaphors & editorial composition...';
+    if (fill) fill.style.width = '65%';
   }, 2800);
+
+  const ticker3 = setTimeout(() => {
+    if (stepText) stepText.textContent = 'Rendering high-definition editorial poster artwork...';
+    if (fill) fill.style.width = '84%';
+  }, 4500);
+
+  const ticker4 = setTimeout(() => {
+    if (stepText) stepText.textContent = 'Polishing typography, color grade & final composition...';
+    if (fill) fill.style.width = '94%';
+  }, 7800);
 
   // Author handle
   let userHandle = '@curator';
@@ -4105,6 +4139,8 @@ async function startAiSynthesis() {
 
     clearTimeout(ticker1);
     clearTimeout(ticker2);
+    clearTimeout(ticker3);
+    clearTimeout(ticker4);
 
     const contentType = resp.headers.get('content-type') || '';
     if (!resp.ok) {
@@ -4143,6 +4179,8 @@ async function startAiSynthesis() {
   } catch (err) {
     clearTimeout(ticker1);
     clearTimeout(ticker2);
+    clearTimeout(ticker3);
+    clearTimeout(ticker4);
     console.error('Synthesis error:', err);
     alert('AI Synthesis Error: ' + err.message + '\n\nPlease check your input and try again.');
     if (cuesContent) cuesContent.style.display = 'flex';

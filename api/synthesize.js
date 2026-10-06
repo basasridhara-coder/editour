@@ -314,6 +314,7 @@ Respond strictly with valid JSON with this exact structure:
 
     if (parsed.illustrationPrompt && parsed.illustrationPrompt.trim().length > 15) {
       let rawPrompt = parsed.illustrationPrompt.trim();
+      rawPrompt = rawPrompt.replace(/^(?:Cinematic\s+visual\s+art\s+prompt\s*:\s*|Visual\s+art\s+prompt\s*:\s*|Art\s+prompt\s*:\s*)/i, '');
       if (characterRepresentation !== 'silhouette') {
         // Aggressively strip out silhouette / dark shadow / ghost keywords
         rawPrompt = rawPrompt
@@ -322,9 +323,7 @@ Respond strictly with valid JSON with this exact structure:
           .trim();
         rawPrompt = `${rawPrompt}, warm vivid realistic editorial illustration, expressive people with visible illuminated faces, natural lighting, beautiful colors, cheerful atmosphere, no silhouettes, no dark shadows, no text`;
       }
-      concisePrompt = rawPrompt.slice(0, 240);
-      const cleanArtPrompt = encodeURIComponent(concisePrompt);
-      illustrationUrl = `https://image.pollinations.ai/prompt/${cleanArtPrompt}?seed=${illustrationSeed}`;
+      concisePrompt = rawPrompt.slice(0, 450);
     } else {
       let heroCandidate = (parsed.heroCue || (cues && cues[0]) || parsed.adaptedHeadline || 'Editorial subject')
         .replace(/[^\w\s-]/g, '')
@@ -352,21 +351,45 @@ Respond strictly with valid JSON with this exact structure:
         }
       }
 
-      concisePrompt = `${countryTag}${coreSubject}`.slice(0, 220);
-      const cleanArtPrompt = encodeURIComponent(concisePrompt);
-      illustrationUrl = `https://image.pollinations.ai/prompt/${cleanArtPrompt}?seed=${illustrationSeed}`;
+      concisePrompt = `${countryTag}${coreSubject}`.slice(0, 300);
     }
 
     const hasExactPhoto = isExactPhoto && !!(imageBase64);
-    
-    // Use instant Pollinations artwork URL (or exact photo) so serverless synthesis returns in ~3-4 seconds, safely within Vercel's 10-second execution limit
-    const finalIllustrationUrl = hasExactPhoto
-      ? imageBase64
-      : illustrationUrl;
+    let finalIllustrationUrl = '';
+    let finalIllustrationBase64 = null;
 
-    const finalIllustrationBase64 = hasExactPhoto && imageBase64.startsWith('data:')
-      ? imageBase64.split(',')[1]
-      : null;
+    if (hasExactPhoto) {
+      finalIllustrationUrl = imageBase64;
+      finalIllustrationBase64 = imageBase64.startsWith('data:')
+        ? imageBase64.split(',')[1]
+        : imageBase64;
+    } else {
+      // 1. Generate high-aesthetic editorial poster artwork via Gemini 2.5 Flash Image
+      try {
+        const geminiArt = await generateGeminiEditorialArtwork({
+          prompt: concisePrompt,
+          imageBase64: (isLookalike ? imageBase64 : null),
+          imageMimeType,
+          timeoutMs: 25000
+        });
+
+        if (geminiArt) {
+          finalIllustrationUrl = geminiArt;
+          finalIllustrationBase64 = geminiArt.replace(/^data:image\/[^;]+;base64,/, '');
+        }
+      } catch (geminiErr) {
+        console.warn('Gemini artwork generation caught error:', geminiErr.message);
+      }
+
+      // 2. Resilient curated editorial photo fallback if Gemini timed out or failed
+      if (!finalIllustrationUrl) {
+        finalIllustrationUrl = getCuratedEditorialPhoto({
+          text: `${concisePrompt} ${userSlant} ${spark} ${parsed.adaptedHeadline || ''}`,
+          category: parsed.categoryBadge || '',
+          seed: illustrationSeed
+        });
+      }
+    }
 
     const finalCuratorTake = (refineCoreTake && parsed.curatorTake && parsed.curatorTake.trim().length > 10)
       ? parsed.curatorTake.trim()
@@ -573,7 +596,7 @@ function isLikelyPersonSubject(name) {
   return personKeywords.some(w => lower.includes(w));
 }
 
-async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeType = 'image/jpeg', timeoutMs = 12000 }) {
+async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeType = 'image/jpeg', timeoutMs = 25000 }) {
   if (!GEMINI_API_KEY) return null;
   try {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${GEMINI_API_KEY}`;
@@ -588,7 +611,7 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
         }
       });
       parts.push({
-        text: `Transform this reference image into a high-aesthetic cinematic editorial poster art: ${prompt}. Imposing visual composition, dramatic lighting, painterly texture, vivid color grading, masterwork, no typography, no letters, no text.`
+        text: `Transform this reference image into a high-aesthetic cinematic editorial magazine poster: ${prompt}. Imposing visual composition, dramatic lighting, painterly texture, vivid color grading, masterwork, no typography, no letters, no text.`
       });
     } else {
       parts.push({
@@ -603,7 +626,10 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
       method: 'POST',
       signal: controller.signal,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts }] })
+      body: JSON.stringify({
+        contents: [{ parts }],
+        generationConfig: { responseModalities: ['IMAGE'] }
+      })
     });
     clearTimeout(timer);
 
@@ -613,6 +639,9 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
       if (inlinePart && inlinePart.inlineData && inlinePart.inlineData.data) {
         return `data:${inlinePart.inlineData.mimeType || 'image/png'};base64,${inlinePart.inlineData.data}`;
       }
+    } else {
+      const errText = await resp.text().catch(() => '');
+      console.warn('Gemini editorial image non-200:', resp.status, errText.slice(0, 180));
     }
   } catch (err) {
     console.warn('Gemini editorial image generation skipped/timed out:', err.message);
@@ -620,5 +649,45 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
   return null;
 }
 
+function getCuratedEditorialPhoto({ text = '', category = '', seed = 1 }) {
+  const lower = `${text} ${category}`.toLowerCase();
 
+  if (/kerala|backwater|houseboat|alleppey|kumarakom|munnar/.test(lower)) {
+    return 'https://images.unsplash.com/photo-1602216056096-3b40cc0c9944?auto=format&fit=crop&w=1200&q=80';
+  }
+  if (/packing|luggage|suitcase|flight|airport|journey|trip|vacation|holiday/.test(lower)) {
+    return 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=1200&q=80';
+  }
+  if (/beach|coast|ocean|sea|shore|island|surf|sand/.test(lower)) {
+    return 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=80';
+  }
+  if (/mountain|hills?|trek|hiking|nature|forest|greenery/.test(lower)) {
+    return 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1200&q=80';
+  }
+  if (/court|law|judge|justice|supreme|legal|constitution|verdict|bench/.test(lower)) {
+    return 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=1200&q=80';
+  }
+  if (/parliament|politics|government|minister|election|state|policy|democracy/.test(lower)) {
+    return 'https://images.unsplash.com/photo-1541872703-74c5e44368f9?auto=format&fit=crop&w=1200&q=80';
+  }
+  if (/ai|artificial|tech|algorithm|chip|computer|code|software|cyber|digital|robot/.test(lower)) {
+    return 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80';
+  }
+  if (/market|stock|finance|economy|business|money|bank|investment|fund/.test(lower)) {
+    return 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1200&q=80';
+  }
+  if (/india|delhi|mumbai|heritage|monument/.test(lower)) {
+    return 'https://images.unsplash.com/photo-1524492412937-b28074a5d7da?auto=format&fit=crop&w=1200&q=80';
+  }
+  if (/people|portrait|human|society|community|family|reflection|life/.test(lower)) {
+    return 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=1200&q=80';
+  }
 
+  const fallbacks = [
+    'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=80',
+    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=1200&q=80'
+  ];
+  return fallbacks[Math.abs(seed) % fallbacks.length];
+}
