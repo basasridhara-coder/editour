@@ -1,14 +1,33 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="daylight">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Slant • Visual Editorial & Infographic Feed (slant.today)</title>
   <meta name="description" content="Physical news clippings, book excerpts, and digital articles distilled into high-impact Instagram-style visual editorial posters.">
+  <script>
+    /* Instant Theme Initialization (Prevents FOUC) - Default: Daylight Paper */
+    (function() {
+      var pref = localStorage.getItem('slant_atmosphere_mode');
+      if (!pref || pref === 'auto' || localStorage.getItem('slant_theme_v3') !== 'daylight_default') {
+        pref = 'daylight';
+        try {
+          localStorage.setItem('slant_atmosphere_mode', 'daylight');
+          localStorage.setItem('slant_theme_v3', 'daylight_default');
+        } catch(e) {}
+      }
+      var effective = pref;
+      if (pref === 'auto') {
+        var h = new Date().getHours();
+        effective = (h >= 6 && h < 18) ? 'daylight' : 'obsidian';
+      }
+      document.documentElement.setAttribute('data-theme', effective);
+    })();
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Merriweather:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,400;1,600;1,700;1,900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261006_10">
+  <link rel="stylesheet" href="style.css?v=20261006_11">
   <!-- Favicon & Brand Icons -->
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
@@ -20,7 +39,7 @@
   <!-- Supabase JS Client for Authentication & Real-time -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
-<body>
+<body data-theme="daylight">
 
   <!-- Sticky Top Navigation -->
   <header>
@@ -1081,7 +1100,7 @@
             <div class="theme-btn-left">
               <span class="theme-btn-emoji">☀️</span>
               <div>
-                <div class="theme-btn-title">Daylight Paper</div>
+                <div class="theme-btn-title">Daylight Paper (Default)</div>
                 <div class="theme-btn-desc">Warm newsprint ivory • morning reading</div>
               </div>
             </div>
@@ -1146,6 +1165,6 @@
     </div>
   </aside>
 
-  <script src="app.js?v=20261006_9"></script>
+  <script src="app.js?v=20261006_11"></script>
 </body>
 </html>

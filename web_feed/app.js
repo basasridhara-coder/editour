@@ -5,15 +5,23 @@ let activePostIndex = null;
 
 // ============================================================
 // READING ATMOSPHERE CONTROLLER (Daylight Paper / Obsidian / Auto)
+// Default Theme: Daylight Paper (warm newsprint ivory)
 // ============================================================
-let currentAtmospherePref = localStorage.getItem('slant_atmosphere_mode') || localStorage.getItem('editour_atmosphere_mode') || 'auto';
+let currentAtmospherePref = localStorage.getItem('slant_atmosphere_mode');
+if (!currentAtmospherePref || currentAtmospherePref === 'auto' || localStorage.getItem('slant_theme_v3') !== 'daylight_default') {
+  currentAtmospherePref = 'daylight';
+  localStorage.setItem('slant_atmosphere_mode', 'daylight');
+  localStorage.setItem('slant_theme_v3', 'daylight_default');
+}
 
 function getEffectiveAtmosphere(pref) {
-  if (pref === 'daylight') return 'daylight';
   if (pref === 'obsidian') return 'obsidian';
-  // Auto: Daylight between 6 AM and 6 PM, Obsidian at night
-  const hour = new Date().getHours();
-  return (hour >= 6 && hour < 18) ? 'daylight' : 'obsidian';
+  if (pref === 'auto') {
+    // Auto: Daylight between 6 AM and 6 PM, Obsidian at night
+    const hour = new Date().getHours();
+    return (hour >= 6 && hour < 18) ? 'daylight' : 'obsidian';
+  }
+  return 'daylight';
 }
 
 function applyAtmosphere(pref) {
@@ -32,7 +40,7 @@ function applyAtmosphere(pref) {
       iconEl.title = `Auto (Time of Day: currently ${effective === 'daylight' ? 'Daylight ☀️' : 'Obsidian 🌙'})`;
     } else if (currentAtmospherePref === 'daylight') {
       iconEl.textContent = '☀️';
-      iconEl.title = 'Daylight Paper Mode (Click to change)';
+      iconEl.title = 'Daylight Paper Mode (Default • Click to change)';
     } else {
       iconEl.textContent = '🌙';
       iconEl.title = 'Obsidian Press Mode (Click to change)';
