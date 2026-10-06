@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Merriweather:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,400;1,600;1,700;1,900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261006_3">
+  <link rel="stylesheet" href="style.css?v=20261006_6">
   <!-- Supabase JS Client for Authentication & Real-time -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
@@ -269,30 +269,35 @@
       <!-- Main Login Body: Split Grid -->
       <div class="slant-login-grid">
         
-        <!-- Left Side: Live Post Preview Showcase -->
+        <!-- Left Side: Live 3-Poster Vertical Showcase -->
         <div class="slant-login-showcase">
           <div class="showcase-header">
             <div class="showcase-header-left">
               <span class="showcase-pill">
                 <span class="live-pulse"></span>
-                COMMUNITY SHOWCASE
+                3-POSTER EDITORIAL TRIO
               </span>
               <h3 class="showcase-title">Conviction in Three Frames</h3>
-              <p class="showcase-subtitle">Scroll through live 3-poster visual editorials published on Slant.</p>
+              <p class="showcase-subtitle">Scroll vertically through each story's Hook, Slant, and Primary Receipts.</p>
             </div>
             <div class="showcase-scroll-arrows">
-              <button class="scroll-arrow-btn" onclick="scrollLoginPosts(-1)" title="Scroll Left" aria-label="Previous posts">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+              <button class="scroll-arrow-btn" onclick="scrollLoginPosts(-1)" title="Scroll Up" aria-label="Previous poster">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 15l-6-6-6 6"/></svg>
               </button>
-              <button class="scroll-arrow-btn" onclick="scrollLoginPosts(1)" title="Scroll Right" aria-label="Next posts">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+              <button class="scroll-arrow-btn" onclick="scrollLoginPosts(1)" title="Scroll Down" aria-label="Next poster">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
               </button>
             </div>
           </div>
 
-          <!-- Horizontal Scroll Track -->
-          <div class="login-posts-track" id="loginPostsScrollTrack">
-            <!-- Dynamically populated -->
+          <!-- Colourful Stories Selector Pills -->
+          <div class="login-stories-switcher" id="loginStoriesSwitcher">
+            <!-- Dynamically populated story switcher pills -->
+          </div>
+
+          <!-- Vertical Scroll Track for 3-Poster Sets -->
+          <div class="login-vertical-track" id="loginPostsScrollTrack">
+            <!-- Dynamically populated with complete 3-poster sets for each colorful story -->
           </div>
 
           <!-- 3-Poster Architecture Walkthrough Banner -->
@@ -409,7 +414,7 @@
 
   </main>
 
-  <script src="app.js?v=20261006_3"></script>
+  <script src="app.js?v=20261006_6"></script>
   <script>
     // Ensure the post preview is rendered immediately upon loading login.html
     window.addEventListener('DOMContentLoaded', () => {

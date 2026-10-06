@@ -2529,164 +2529,259 @@ header {
   transform: translateY(-1px);
 }
 
-/* Horizontal Track */
-.login-posts-track {
+/* ============================================================
+   3-POSTER VERTICAL SHOWCASE STYLING
+   ============================================================ */
+
+/* Colourful Story Switcher Pills */
+.login-stories-switcher {
   display: flex;
-  gap: 14px;
+  gap: 8px;
   overflow-x: auto;
-  scroll-snap-type: x mandatory;
-  padding: 6px 2px 14px 2px;
+  padding: 2px 2px 10px 2px;
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
 
-.login-posts-track::-webkit-scrollbar {
+.login-stories-switcher::-webkit-scrollbar {
   display: none;
 }
 
-/* Individual Preview Card */
-.login-preview-card {
-  flex: 0 0 240px;
-  height: 330px;
-  border-radius: 18px;
-  position: relative;
-  overflow: hidden;
-  scroll-snap-align: start;
-  cursor: pointer;
-  background: #0B1120;
+.story-switch-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+  color: #CBD5E1;
+  font-family: 'Space Grotesk', -apple-system, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.story-switch-pill:hover {
+  background: rgba(99, 102, 241, 0.2);
+  border-color: rgba(99, 102, 241, 0.5);
+  color: #FFF;
+  transform: translateY(-1px);
+}
+
+.story-switch-pill.active {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.35), rgba(139, 92, 246, 0.35));
+  border-color: #818CF8;
+  color: #FFFFFF;
+  box-shadow: 0 0 14px rgba(99, 102, 241, 0.4);
+}
+
+/* Vertical Track */
+.login-vertical-track {
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  padding: 14px;
+  gap: 20px;
+  overflow-y: auto;
+  max-height: 510px;
+  padding: 4px 6px 20px 4px;
+  scroll-snap-type: y proximity;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(99, 102, 241, 0.4) transparent;
 }
 
-.login-preview-card:hover {
-  transform: translateY(-5px);
-  border-color: rgba(99, 102, 241, 0.6);
-  box-shadow: 
-    0 16px 36px rgba(0, 0, 0, 0.75),
-    0 0 20px rgba(99, 102, 241, 0.3);
+.login-vertical-track::-webkit-scrollbar {
+  width: 5px;
 }
 
-.preview-card-bg {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  z-index: 1;
-  transition: transform 0.4s ease;
+.login-vertical-track::-webkit-scrollbar-track {
+  background: transparent;
 }
 
-.login-preview-card:hover .preview-card-bg {
-  transform: scale(1.05);
+.login-vertical-track::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.4);
+  border-radius: 10px;
 }
 
-.preview-card-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 2;
-  background: linear-gradient(
-    180deg,
-    rgba(11, 17, 32, 0.25) 0%,
-    rgba(11, 17, 32, 0.65) 45%,
-    rgba(11, 17, 32, 0.96) 90%
-  );
+.login-vertical-track::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.8);
 }
 
-.preview-card-top {
-  position: relative;
-  z-index: 3;
+/* Post Trio Container */
+.login-post-trio {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
+  gap: 12px;
 }
 
-.preview-card-cat {
+.trio-post-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 4px;
+}
+
+.trio-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.trio-cat-pill {
   font-size: 9.5px;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.8px;
   background: rgba(15, 23, 42, 0.85);
-  backdrop-filter: blur(8px);
   color: #F59E0B;
   border: 1px solid rgba(245, 158, 11, 0.4);
   padding: 3px 8px;
   border-radius: 8px;
 }
 
-.preview-card-deck-badge {
-  font-size: 9.5px;
-  font-weight: 700;
-  color: #A5B4FC;
-  background: rgba(15, 23, 42, 0.8);
-  border: 1px solid rgba(99, 102, 241, 0.3);
-  padding: 3px 7px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  gap: 3px;
-}
-
-.preview-card-body {
-  position: relative;
-  z-index: 3;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.preview-card-headline {
-  font-family: 'Playfair Display', Georgia, serif;
-  font-size: 14.5px;
-  font-weight: 800;
-  line-height: 1.32;
-  color: #FFFFFF;
-  margin: 0;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
-}
-
-.preview-card-conviction {
-  font-size: 11px;
-  line-height: 1.4;
-  color: #CBD5E1;
-  font-style: italic;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.preview-card-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding-top: 6px;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+.trio-source {
   font-size: 10px;
+  font-weight: 700;
   color: #94A3B8;
 }
 
-.preview-card-author {
+.trio-handle {
+  font-size: 10.5px;
   font-weight: 700;
   color: #818CF8;
 }
 
-.preview-card-pub {
-  white-space: nowrap;
+/* 3 Individual Poster Frames */
+.trio-poster-frame {
+  width: 100%;
+  max-width: 360px;
+  aspect-ratio: 4 / 5;
+  margin: 0 auto;
+  position: relative;
+  border-radius: 18px;
   overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 110px;
+  scroll-snap-align: start;
+  background: #070B12;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.65);
+  cursor: pointer;
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+  user-select: none;
+}
+
+.trio-poster-frame:hover {
+  transform: translateY(-4px);
+  border-color: rgba(99, 102, 241, 0.7);
+  box-shadow: 
+    0 20px 45px rgba(0, 0, 0, 0.8),
+    0 0 24px rgba(99, 102, 241, 0.35);
+}
+
+.trio-poster-frame .carousel-slide {
+  width: 100% !important;
+  height: 100% !important;
+  position: relative !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: space-between !important;
+  box-sizing: border-box !important;
+}
+
+.trio-poster-frame .slide-hook-bg {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+}
+
+.trio-poster-frame .slide-hook-content {
+  position: relative !important;
+  z-index: 2 !important;
+  height: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: space-between !important;
+  box-sizing: border-box !important;
+  padding: 14px 14px 12px 14px !important;
+}
+
+.trio-poster-frame .slide-receipt {
+  width: 100% !important;
+  height: 100% !important;
+  box-sizing: border-box !important;
+  padding: 12px 14px 10px 14px !important;
+}
+
+.trio-frame-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 10;
+  padding: 3px 9px;
+  border-radius: 12px;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  background: rgba(0, 0, 0, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #FFF;
+  pointer-events: none;
+}
+
+.trio-story-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin: 18px 0 10px 0;
+  color: #64748B;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+
+.trio-story-divider::before,
+.trio-story-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Daylight theme adaptations */
+[data-theme="daylight"] .story-switch-pill {
+  background: #FFFFFF;
+  border-color: #E2E8F0;
+  color: #334155;
+}
+
+[data-theme="daylight"] .story-switch-pill:hover {
+  background: #F1F5F9;
+  color: #0F172A;
+}
+
+[data-theme="daylight"] .story-switch-pill.active {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.15));
+  border-color: #6366F1;
+  color: #4338CA;
+}
+
+[data-theme="daylight"] .trio-poster-frame {
+  border-color: rgba(0, 0, 0, 0.12);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="daylight"] .trio-story-divider {
+  color: #94A3B8;
+}
+
+[data-theme="daylight"] .trio-story-divider::before,
+[data-theme="daylight"] .trio-story-divider::after {
+  background: #E2E8F0;
 }
 
 /* 3-Poster Architecture Walkthrough */

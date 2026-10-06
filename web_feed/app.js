@@ -318,17 +318,46 @@ function togglePasswordMode(isPassword) {
   }
 }
 
+const FEATURED_COLORFUL_POST_CONFIGS = [
+  {
+    id: '9a9a239d-3865-4f6c-9aa8-db0bf8771588',
+    icon: '🛕',
+    shortName: 'Ayodhya Temple'
+  },
+  {
+    id: '83940fae-4ad7-43f6-9329-91cd17752f78',
+    icon: '🥇',
+    shortName: 'Asian Games Gold'
+  },
+  {
+    id: 'bb5114c8-da15-4af9-afaf-70a577cc6e4a',
+    icon: '📈',
+    shortName: 'GST Divergence'
+  },
+  {
+    id: '2f001766-faca-4a3a-92c8-20ea3f444749',
+    icon: '🌳',
+    shortName: 'Hebbal Canopy'
+  },
+  {
+    id: '692d99fc-d140-4d1c-9275-3263a7c187b7',
+    icon: '🚨',
+    shortName: 'Karnataka Drought'
+  }
+];
+
 function renderLoginPostsPreview() {
   const track = document.getElementById('loginPostsScrollTrack');
+  const switcher = document.getElementById('loginStoriesSwitcher');
   if (!track) return;
 
-  // Prefer allPosts if already populated
-  let previewList = [];
-  if (Array.isArray(allPosts) && allPosts.length > 0) {
-    previewList = allPosts.filter(p => p && (p.illustrationUrl || p.illustrationBase64 || p.coverImage || p.adaptedHeadline || p.hook)).slice(0, 8);
+  // Don't re-render if already populated
+  if (track.children.length > 0 && track.dataset.populated === 'true') {
+    return;
   }
 
-  if (previewList.length === 0) {
+  // Load feed if not loaded yet
+  if (!Array.isArray(allPosts) || allPosts.length === 0) {
     fetch('slant_feed.json')
       .then(r => r.json())
       .then(data => {
@@ -341,67 +370,128 @@ function renderLoginPostsPreview() {
     return;
   }
 
+  // Find the selected colourful posts
+  const selectedPosts = [];
+  FEATURED_COLORFUL_POST_CONFIGS.forEach(cfg => {
+    const post = allPosts.find(p => p && p.id === cfg.id);
+    if (post) {
+      selectedPosts.push({ post, cfg });
+    }
+  });
+
+  // Fallback if some IDs are missing
+  if (selectedPosts.length === 0) {
+    allPosts.slice(0, 4).forEach((post, i) => {
+      selectedPosts.push({
+        post,
+        cfg: { id: post.id, icon: '📰', shortName: post.categoryBadge || `Story ${i+1}` }
+      });
+    });
+  }
+
   track.innerHTML = '';
   track.dataset.populated = 'true';
+  if (switcher) switcher.innerHTML = '';
 
-  previewList.forEach((post) => {
-    const card = document.createElement('div');
-    card.className = 'login-preview-card';
-    card.setAttribute('role', 'button');
-    card.setAttribute('tabindex', '0');
-    const headline = post.adaptedHeadline || post.hook || post.originalHeadline || 'Visual Editorial';
-    card.setAttribute('title', `Explore "${escapeHtml(headline)}"`);
-
-    // Image source resolution
-    let imgSrc = '';
-    if (post.illustrationUrl) {
-      imgSrc = post.illustrationUrl;
-    } else if (post.illustrationBase64) {
-      imgSrc = `data:image/jpeg;base64,${post.illustrationBase64}`;
-    } else if (post.id) {
-      imgSrc = `/illustrations/${post.id}.jpg`;
+  // 1. Build Story Switcher Pills
+  selectedPosts.forEach(({ post, cfg }, idx) => {
+    if (switcher) {
+      const pill = document.createElement('button');
+      pill.type = 'button';
+      pill.className = `story-switch-pill ${idx === 0 ? 'active' : ''}`;
+      pill.id = `storyPill-${post.id}`;
+      pill.innerHTML = `<span>${cfg.icon}</span> <span>${escapeHtml(cfg.shortName)}</span>`;
+      pill.onclick = () => {
+        document.querySelectorAll('.story-switch-pill').forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+        const targetTrio = document.getElementById(`login-trio-${post.id}`);
+        if (targetTrio) {
+          targetTrio.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      };
+      switcher.appendChild(pill);
     }
+  });
 
-    const category = post.categoryBadge || 'EDITORIAL';
-    const conviction = post.whyItMatters || post.creatorOpinion || (post.keyTakeaways && post.keyTakeaways[0]) || post.summary || '';
-    const author = post.creatorHandle ? (post.creatorHandle.startsWith('@') ? post.creatorHandle : `@${post.creatorHandle}`) : '@slant';
-    const pub = post.publicationName || 'Slant Today';
+  // 2. Build the 3-Poster Sets vertically for each post
+  selectedPosts.forEach(({ post, cfg }, idx) => {
+    const trioDiv = document.createElement('div');
+    trioDiv.className = 'login-post-trio';
+    trioDiv.id = `login-trio-${post.id}`;
 
-    card.innerHTML = `
-      <img class="preview-card-bg" src="${escapeHtml(imgSrc)}" alt="" loading="lazy" onerror="this.style.opacity='0.15';">
-      <div class="preview-card-overlay"></div>
-      
-      <div class="preview-card-top">
-        <span class="preview-card-cat">${escapeHtml(category)}</span>
-        <span class="preview-card-deck-badge">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M15 3v18"/></svg>
-          3 Posters
-        </span>
+    const catBadge = post.categoryBadge || 'CURATED';
+    const pubName = post.publicationName || 'Slant Press';
+    const author = post.creatorHandle || '@curator';
+
+    // Slide 1 (Hook), Slide 2 (Critique / Slant), Slide 3 (Receipts)
+    const slide1Content = buildSlide1Html(post, `login-${idx}`);
+    const slide2Content = buildSlide2Html(post, `login-${idx}`);
+    const slide3Content = buildSlide3Html(post, `login-${idx}`);
+
+    trioDiv.innerHTML = `
+      <div class="trio-post-header">
+        <div class="trio-badge-row">
+          <span class="trio-cat-pill">${cfg.icon} ${escapeHtml(catBadge)}</span>
+          <span class="trio-source">${escapeHtml(pubName)}</span>
+        </div>
+        <span class="trio-handle">${escapeHtml(author)}</span>
       </div>
 
-      <div class="preview-card-body">
-        <h4 class="preview-card-headline">${escapeHtml(headline)}</h4>
-        ${conviction ? `<p class="preview-card-conviction">“${escapeHtml(conviction)}”</p>` : ''}
-        <div class="preview-card-footer">
-          <span class="preview-card-author">${escapeHtml(author)}</span>
-          <span class="preview-card-pub">${escapeHtml(pub)}</span>
+      <!-- Poster 1: The Visual Hook -->
+      <div class="trio-poster-frame frame-hook" onclick="previewPostFromLogin('${post.id}')" title="Poster 1: Visual Hook • Click to read in feed">
+        <span class="trio-frame-badge">01 / 03 • HOOK</span>
+        <div class="carousel-slide slide-hook">
+          ${slide1Content}
         </div>
       </div>
+
+      <!-- Poster 2: The Slant & Conviction -->
+      <div class="trio-poster-frame frame-critique" onclick="previewPostFromLogin('${post.id}')" title="Poster 2: The Slant • Click to read in feed">
+        <span class="trio-frame-badge">02 / 03 • THE SLANT</span>
+        <div class="carousel-slide slide-critique">
+          ${slide2Content}
+        </div>
+      </div>
+
+      <!-- Poster 3: The Primary Receipts -->
+      <div class="trio-poster-frame frame-receipt" onclick="previewPostFromLogin('${post.id}')" title="Poster 3: The Receipts • Click to read in feed">
+        <span class="trio-frame-badge">03 / 03 • THE RECEIPTS</span>
+        <div class="carousel-slide slide-receipt">
+          ${slide3Content}
+        </div>
+      </div>
+
+      ${idx < selectedPosts.length - 1 ? '<div class="trio-story-divider">✦ NEXT EDITORIAL TRIO ✦</div>' : ''}
     `;
 
-    card.onclick = () => {
-      previewPostFromLogin(post.id);
-    };
-
-    track.appendChild(card);
+    track.appendChild(trioDiv);
   });
+
+  // Track scroll position to update active pill
+  if (switcher && typeof IntersectionObserver !== 'undefined') {
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          const id = entry.target.id.replace('login-trio-', '');
+          document.querySelectorAll('.story-switch-pill').forEach(p => p.classList.remove('active'));
+          const activePill = document.getElementById(`storyPill-${id}`);
+          if (activePill) activePill.classList.add('active');
+        }
+      });
+    }, { root: track, threshold: 0.3 });
+
+    selectedPosts.forEach(({ post }) => {
+      const el = document.getElementById(`login-trio-${post.id}`);
+      if (el) observer.observe(el);
+    });
+  }
 }
 
 function scrollLoginPosts(direction) {
   const track = document.getElementById('loginPostsScrollTrack');
   if (!track) return;
-  const scrollAmount = 260 * direction;
-  track.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+  const scrollAmount = 420 * direction;
+  track.scrollBy({ top: scrollAmount, behavior: 'smooth' });
 }
 
 function previewPostFromLogin(postId) {
