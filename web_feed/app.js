@@ -2688,6 +2688,7 @@ let creatorSelectedCueIndices = new Set();
 let creatorCharacterRepresentation = 'silhouette'; // 'silhouette' | 'likeness'
 let creatorLastSuggestedContextKey = '';
 let draggedCueIndex = null;
+let creatorActiveInspectedCueIndex = 0;
 
 // Geographic & Cultural Context State
 let creatorCountryContext = null;
@@ -3189,6 +3190,99 @@ const CUE_RANK_CONFIGS = [
   { badge: '🎨 #6 STYLE', badgeClass: 'badge-rank-5', rowClass: 'cue-rank-5' },
 ];
 
+const CUE_DIMENSION_EXPLAINERS = [
+  {
+    dimension: 'HERO',
+    name: 'Focal Subject & Protagonist',
+    badge: '★ #1 HERO',
+    shortBadge: '#1 HERO',
+    badgeClass: 'badge-rank-0',
+    color: '#F59E0B',
+    tagline: 'Centerpiece of Poster 1 (The Hook)',
+    whatItMeans: 'The central protagonist, focal figure, key persona, or physical centerpiece commanding the visual frame.',
+    howItModulates: 'Dictates the dominant subject rendered in Poster 1 (The Hook). All composition lines, eye-tracking paths, and the primary visual metaphor anchor directly onto this figure or object.',
+    placeholder: 'e.g. Parent Packing Suitcase in Rush, Solo Whistleblower at Podium, Cluttered Airport Gate'
+  },
+  {
+    dimension: 'MOTIF',
+    name: 'Symbolic Metaphor & Catalyst',
+    badge: '★ #2 MOTIF',
+    shortBadge: '#2 MOTIF',
+    badgeClass: 'badge-rank-1',
+    color: '#0284C7',
+    tagline: 'Emotional & Narrative Catalyst',
+    whatItMeans: 'A tangible symbolic object, emblem, or artifact that embodies the core dilemma, spark, or philosophy of your slant.',
+    howItModulates: 'Acts as the secondary storytelling element juxtaposed against the Hero. Visually anchors the deeper thematic argument expressed in Poster 2, turning an abstract idea into concrete visual poetry.',
+    placeholder: 'e.g. Child Holding Forgotten Travel Item, Tipping Balance Scales, Severed Corporate Cable'
+  },
+  {
+    dimension: 'TENSION',
+    name: 'Opposing Friction & Conflict',
+    badge: '⚡ #3 TENSION',
+    shortBadge: '#3 TENSION',
+    badgeClass: 'badge-rank-2',
+    color: '#E11D48',
+    tagline: 'Dramatic Stakes & Dynamic Energy',
+    whatItMeans: 'The opposing friction, psychological resistance, looming deadline, or obstacle clashing against the protagonist.',
+    howItModulates: 'Drives the dramatic contrast, diagonal composition angles, cast shadows, and emotional stakes of the visual narrative.',
+    placeholder: 'e.g. Work Deadlines Clashing with Vacation Departure, Relentless Wave of Digital Pings'
+  },
+  {
+    dimension: 'ATMOSPHERE',
+    name: 'Environmental Setting & Scale',
+    badge: '🏛 #4 ATMOSPHERE',
+    shortBadge: '#4 ATMOSPHERE',
+    badgeClass: 'badge-rank-3',
+    color: '#8B5CF6',
+    tagline: 'World, Geography & Texture',
+    whatItMeans: 'The physical space, weather, geographical scale, architectural environment, or cultural landscape enclosing the scene.',
+    howItModulates: 'Establishes authentic regional environment and background world (e.g. Kerala tropical backwaters vs corporate boardroom), rooting your slant in real life.',
+    placeholder: 'e.g. Cluttered Study Transitioning to Kerala Palms, Rain-Slicked Dusk Boulevard'
+  },
+  {
+    dimension: 'LIGHTING',
+    name: 'Illumination & Chiaroscuro',
+    badge: '💡 #5 LIGHTING',
+    shortBadge: '#5 LIGHTING',
+    badgeClass: 'badge-rank-4',
+    color: '#059669',
+    tagline: 'Visual Tone & Mood Contrast',
+    whatItMeans: 'The light source, color temperature, atmospheric haze, and chiaroscuro contrast illuminating the scene.',
+    howItModulates: 'Controls shadow depth, color temperature harmony, and cinematic mood (e.g. warm golden sunset lamp clashing with cool laptop monitor glow), ensuring an editorial, artistic poster feel.',
+    placeholder: 'e.g. Warm Sunset Amber Light Meeting Cool Screen Glow, Harsh Noir Overhead Spotlight'
+  },
+  {
+    dimension: 'STYLE',
+    name: 'Visual Art Medium & Texture',
+    badge: '🎨 #6 STYLE',
+    shortBadge: '#6 STYLE',
+    badgeClass: 'badge-rank-5',
+    color: '#475569',
+    tagline: 'Aesthetic Grammar & Print Medium',
+    whatItMeans: 'The specific visual art medium, print technique, surface texture, and editorial aesthetic grammar.',
+    howItModulates: 'Instructs the image generation engine on artistic texture—determining whether it renders as painterly editorial realism, noir risograph, vintage woodcut, or Bauhaus vector.',
+    placeholder: 'e.g. Cinematic Warm Editorial Illustration, High-Contrast Noir Risograph Print, Vintage Woodcut'
+  }
+];
+
+function getCueExplainer(index) {
+  if (index >= 0 && index < CUE_DIMENSION_EXPLAINERS.length) {
+    return CUE_DIMENSION_EXPLAINERS[index];
+  }
+  return {
+    dimension: `CUE #${index + 1}`,
+    name: 'Custom Visual Dimension',
+    badge: `🏷️ #${index + 1} CUE`,
+    shortBadge: `#${index + 1} CUE`,
+    badgeClass: 'badge-rank-other',
+    color: '#64748B',
+    tagline: 'User-Defined Storytelling Element',
+    whatItMeans: 'A custom visual motif, metaphor, or specific element defined directly by you.',
+    howItModulates: 'Injected into the artwork generation prompt to enrich the visual depth and contextual nuance of the Hook poster.',
+    placeholder: 'Type your custom visual element or metaphor...'
+  };
+}
+
 async function goToVisualCuesStep() {
   const urlInput = document.getElementById('creatorUrlInput');
   const slantTakeInput = document.getElementById('creatorSlantTakeInput');
@@ -3287,8 +3381,16 @@ function renderCuesDeck() {
 
   container.innerHTML = '';
 
+  // Ensure inspected index is valid
+  if (creatorCuePills.length > 0) {
+    if (creatorActiveInspectedCueIndex < 0 || creatorActiveInspectedCueIndex >= creatorCuePills.length) {
+      creatorActiveInspectedCueIndex = 0;
+    }
+  }
+
   creatorCuePills.forEach((cueText, index) => {
     const isSelected = creatorSelectedCueIndices.has(index);
+    const isInspected = (creatorActiveInspectedCueIndex === index);
     const rankConfig = CUE_RANK_CONFIGS[index] || {
       badge: `#${index + 1} CUE`,
       badgeClass: 'badge-rank-other',
@@ -3296,7 +3398,7 @@ function renderCuesDeck() {
     };
 
     const row = document.createElement('div');
-    row.className = `cue-card-row ${rankConfig.rowClass} ${isSelected ? 'selected' : ''}`;
+    row.className = `cue-card-row ${rankConfig.rowClass} ${isSelected ? 'selected' : ''} ${isInspected ? 'inspected-active' : ''}`;
     row.setAttribute('data-index', index);
     row.setAttribute('draggable', 'true');
 
@@ -3311,13 +3413,24 @@ function renderCuesDeck() {
           <circle cx="15" cy="19" r="2"></circle>
         </svg>
       </div>
-      <div class="cue-checkbox-wrap" onclick="toggleCueSelection(${index})">
-        <input type="checkbox" class="cue-checkbox" ${isSelected ? 'checked' : ''} onchange="toggleCueSelection(${index})">
+      <div class="cue-checkbox-wrap" onclick="event.stopPropagation(); toggleCueSelection(${index})" title="Select for targeted AI suggest">
+        <input type="checkbox" class="cue-checkbox" ${isSelected ? 'checked' : ''} onchange="event.stopPropagation(); toggleCueSelection(${index})">
       </div>
       <span class="cue-badge ${rankConfig.badgeClass}">${rankConfig.badge}</span>
-      <input type="text" class="cue-input-text" value="${escapeHtml(cueText)}" oninput="updateCueText(${index}, this.value)">
-      <button type="button" class="cue-delete-btn" onclick="deleteCue(${index})" title="Remove cue">✕</button>
+      <input type="text" class="cue-input-text" id="cueRowInput_${index}" value="${escapeHtml(cueText)}" onfocus="onCueRowFocus(${index})" oninput="updateCueTextFromRow(${index}, this.value)">
+      <div class="cue-row-inspect-action" onclick="event.stopPropagation(); selectActiveInspectedCue(${index}, true)" title="Inspect meaning & edit below">
+        ${isInspected ? '<span class="cue-row-inspect-badge active">Editing Below ▾</span>' : '<span class="cue-row-inspect-badge">Inspect ❯</span>'}
+      </div>
+      <button type="button" class="cue-delete-btn" onclick="event.stopPropagation(); deleteCue(${index})" title="Remove cue">✕</button>
     `;
+
+    // Clicking row selects it for inspector
+    row.addEventListener('click', (e) => {
+      if (e.target.closest('.cue-drag-handle') || e.target.closest('.cue-checkbox-wrap') || e.target.closest('.cue-delete-btn') || e.target.closest('.cue-input-text')) {
+        return;
+      }
+      selectActiveInspectedCue(index, true);
+    });
 
     // HTML5 Drag and Drop events
     row.addEventListener('dragstart', (e) => {
@@ -3430,13 +3543,211 @@ function renderCuesDeck() {
   } else {
     if (infoText) {
       infoText.innerHTML = `
-        <span class="cues-info-icon">⇅</span>
-        <span>Tap to select • Hold & drag ⠿ to prioritize (#1 is Hero)</span>
+        <span class="cues-info-icon">👁️</span>
+        <span>Tap any cue to inspect meaning & edit below • Hold & drag ⠿ to re-rank</span>
       `;
     }
     if (suggestLabel) suggestLabel.textContent = 'Suggest All';
     if (suggestIcon) suggestIcon.textContent = '✨';
   }
+
+  // Always update the active cue inspector & meaning panel
+  renderCueInspector();
+}
+
+function renderCueInspector() {
+  const container = document.getElementById('cueInspectorCard');
+  if (!container) return;
+
+  if (creatorCuePills.length === 0) {
+    container.innerHTML = `
+      <div class="cue-inspector-empty">
+        <span class="cue-inspector-empty-icon">🎨</span>
+        <span>No visual cues yet. Click <strong>✨ Suggest All</strong> above to generate editorial cues.</span>
+      </div>
+    `;
+    return;
+  }
+
+  // Ensure index in bounds
+  if (creatorActiveInspectedCueIndex < 0 || creatorActiveInspectedCueIndex >= creatorCuePills.length) {
+    creatorActiveInspectedCueIndex = 0;
+  }
+
+  const index = creatorActiveInspectedCueIndex;
+  const explainer = getCueExplainer(index);
+  const currentVal = creatorCuePills[index] || '';
+
+  // Generate top navigation pills
+  const navPillsHtml = creatorCuePills.map((_, i) => {
+    const exp = getCueExplainer(i);
+    const isActive = (i === index);
+    return `
+      <button type="button" 
+        class="cue-nav-pill ${isActive ? 'active ' + exp.badgeClass : ''}" 
+        onclick="selectActiveInspectedCue(${i}, false)"
+        title="Inspect and edit ${exp.badge}">
+        ${exp.shortBadge || exp.badge}
+      </button>
+    `;
+  }).join('');
+
+  container.innerHTML = `
+    <!-- 1. Top Quick Dimension Navigator -->
+    <div class="cue-inspector-nav-strip">
+      <span class="cue-nav-strip-label">Select Cue to Inspect & Edit:</span>
+      <div class="cue-nav-pills-row">
+        ${navPillsHtml}
+      </div>
+    </div>
+
+    <!-- 2. Active Cue Header & Uneditable Badge -->
+    <div class="cue-inspector-header">
+      <div class="cue-inspector-title-wrap">
+        <span class="cue-badge ${explainer.badgeClass}">${explainer.badge}</span>
+        <span class="cue-inspector-title">${explainer.name}</span>
+        <span class="cue-inspector-tagline">• ${explainer.tagline}</span>
+      </div>
+      <div class="cue-uneditable-badge" title="This editorial definition guides your post synthesis">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 2C9.243 2 7 4.243 7 7v3H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-1V7c0-2.757-2.243-5-5-5zm-3 5c0-1.654 1.346-3 3-3s3 1.346 3 3v3H9V7z"/>
+        </svg>
+        <span>Editorial Guide (Uneditable)</span>
+      </div>
+    </div>
+
+    <!-- 3. Uneditable Informative Details Card -->
+    <div class="cue-explainer-box" style="border-left: 3.5px solid ${explainer.color};">
+      <div class="cue-explainer-row">
+        <div class="cue-explainer-tag"><span class="cue-explainer-icon">📌</span> WHAT THIS MEANS</div>
+        <div class="cue-explainer-desc">${explainer.whatItMeans}</div>
+      </div>
+      <div class="cue-explainer-divider"></div>
+      <div class="cue-explainer-row">
+        <div class="cue-explainer-tag"><span class="cue-explainer-icon">🎨</span> HOW IT MODULATES YOUR POST</div>
+        <div class="cue-explainer-desc">${explainer.howItModulates}</div>
+      </div>
+    </div>
+
+    <!-- 4. Editable Content Field -->
+    <div class="cue-editor-section">
+      <div class="cue-editor-header">
+        <label for="cueInspectorInput" class="cue-editor-label">
+          <span>✏️ Current Content for ${explainer.shortBadge || explainer.badge} (Editable):</span>
+        </label>
+        <span class="cue-editor-hint">Edits live-sync with the cue deck and guide final artwork</span>
+      </div>
+      <div class="cue-editor-input-wrap">
+        <textarea id="cueInspectorInput" class="cue-inspector-textarea" rows="2" 
+          placeholder="${explainer.placeholder}" 
+          oninput="updateActiveCueFromInspector(this.value)">${escapeHtml(currentVal)}</textarea>
+      </div>
+      <div class="cue-editor-footer">
+        <span class="cue-sync-pill">
+          <span class="cue-sync-dot"></span> Live synced with cues deck above
+        </span>
+        <div class="cue-editor-nav-btns">
+          <button type="button" class="cue-action-btn cue-action-clear" onclick="clearActiveCueContent()">Clear</button>
+          <button type="button" class="cue-action-btn cue-action-prev" onclick="goToPrevCue()" ${index === 0 ? 'disabled' : ''}>❮ Prev</button>
+          <button type="button" class="cue-action-btn cue-action-next" onclick="goToNextCue()" ${index >= creatorCuePills.length - 1 ? 'disabled' : ''}>Next ❯</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function selectActiveInspectedCue(index, focusField = false) {
+  if (index < 0 || index >= creatorCuePills.length) return;
+  creatorActiveInspectedCueIndex = index;
+
+  // Highlight rows in deck without doing expensive DOM destroy
+  const rows = document.querySelectorAll('.cue-card-row');
+  rows.forEach((r, idx) => {
+    r.classList.toggle('inspected-active', idx === index);
+    const inspectBadge = r.querySelector('.cue-row-inspect-action');
+    if (inspectBadge) {
+      inspectBadge.innerHTML = (idx === index)
+        ? '<span class="cue-row-inspect-badge active">Editing Below ▾</span>'
+        : '<span class="cue-row-inspect-badge">Inspect ❯</span>';
+    }
+  });
+
+  renderCueInspector();
+
+  if (focusField) {
+    const input = document.getElementById('cueInspectorInput');
+    if (input) {
+      input.focus();
+      const len = input.value.length;
+      input.setSelectionRange(len, len);
+    }
+  }
+}
+
+function onCueRowFocus(index) {
+  if (creatorActiveInspectedCueIndex !== index) {
+    creatorActiveInspectedCueIndex = index;
+    const rows = document.querySelectorAll('.cue-card-row');
+    rows.forEach((r, idx) => {
+      r.classList.toggle('inspected-active', idx === index);
+      const inspectBadge = r.querySelector('.cue-row-inspect-action');
+      if (inspectBadge) {
+        inspectBadge.innerHTML = (idx === index)
+          ? '<span class="cue-row-inspect-badge active">Editing Below ▾</span>'
+          : '<span class="cue-row-inspect-badge">Inspect ❯</span>';
+      }
+    });
+    renderCueInspector();
+  }
+}
+
+function updateCueTextFromRow(index, val) {
+  if (index >= 0 && index < creatorCuePills.length) {
+    creatorCuePills[index] = val;
+    if (creatorActiveInspectedCueIndex === index) {
+      const inspectorInput = document.getElementById('cueInspectorInput');
+      if (inspectorInput && inspectorInput.value !== val) {
+        inspectorInput.value = val;
+      }
+    }
+  }
+}
+
+function updateActiveCueFromInspector(val) {
+  const index = creatorActiveInspectedCueIndex;
+  if (index >= 0 && index < creatorCuePills.length) {
+    creatorCuePills[index] = val;
+    const rowInput = document.getElementById(`cueRowInput_${index}`);
+    if (rowInput && rowInput.value !== val) {
+      rowInput.value = val;
+    }
+  }
+}
+
+function clearActiveCueContent() {
+  const index = creatorActiveInspectedCueIndex;
+  if (index >= 0 && index < creatorCuePills.length) {
+    creatorCuePills[index] = '';
+    const rowInput = document.getElementById(`cueRowInput_${index}`);
+    if (rowInput) rowInput.value = '';
+    const inspectorInput = document.getElementById('cueInspectorInput');
+    if (inspectorInput) {
+      inspectorInput.value = '';
+      inspectorInput.focus();
+    }
+  }
+}
+
+function goToNextCue() {
+  if (creatorCuePills.length === 0) return;
+  const next = (creatorActiveInspectedCueIndex + 1) % creatorCuePills.length;
+  selectActiveInspectedCue(next, true);
+}
+
+function goToPrevCue() {
+  if (creatorCuePills.length === 0) return;
+  const prev = (creatorActiveInspectedCueIndex - 1 + creatorCuePills.length) % creatorCuePills.length;
+  selectActiveInspectedCue(prev, true);
 }
 
 function reorderCues(oldIndex, newIndex) {
@@ -3463,6 +3774,15 @@ function reorderCues(oldIndex, newIndex) {
   if (wasSelected) newSelected.add(newIndex);
   creatorSelectedCueIndices = newSelected;
 
+  // Remap active inspected cue index
+  if (creatorActiveInspectedCueIndex === oldIndex) {
+    creatorActiveInspectedCueIndex = newIndex;
+  } else if (oldIndex < newIndex && creatorActiveInspectedCueIndex > oldIndex && creatorActiveInspectedCueIndex <= newIndex) {
+    creatorActiveInspectedCueIndex--;
+  } else if (oldIndex > newIndex && creatorActiveInspectedCueIndex >= newIndex && creatorActiveInspectedCueIndex < oldIndex) {
+    creatorActiveInspectedCueIndex++;
+  }
+
   renderCuesDeck();
 }
 
@@ -3484,14 +3804,15 @@ function deleteCue(index) {
   if (index >= 0 && index < creatorCuePills.length) {
     creatorCuePills.splice(index, 1);
     creatorSelectedCueIndices.delete(index);
+    if (creatorActiveInspectedCueIndex >= creatorCuePills.length) {
+      creatorActiveInspectedCueIndex = Math.max(0, creatorCuePills.length - 1);
+    }
     renderCuesDeck();
   }
 }
 
 function updateCueText(index, val) {
-  if (index >= 0 && index < creatorCuePills.length) {
-    creatorCuePills[index] = val;
-  }
+  updateCueTextFromRow(index, val);
 }
 
 function addCustomCue() {
@@ -3500,8 +3821,13 @@ function addCustomCue() {
   if (!val) return;
 
   creatorCuePills.push(val);
+  creatorActiveInspectedCueIndex = creatorCuePills.length - 1;
   if (input) input.value = '';
   renderCuesDeck();
+  const inspectorInput = document.getElementById('cueInspectorInput');
+  if (inspectorInput) {
+    inspectorInput.focus();
+  }
 }
 
 async function triggerCueSuggest() {
