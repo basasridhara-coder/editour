@@ -1207,7 +1207,7 @@ function renderFeed() {
     if (currentFilter !== 'all') {
       const cat = (post.categoryBadge || '').toLowerCase();
       const type = (post.sourceType || '').toLowerCase();
-      const isMySlant = post.isMySlant === true || type === 'my_slant' || (post.publicationName || '').toLowerCase().includes('my slant');
+      const isMySlant = post.isMySlant === true || type === 'my_slant' || type === 'inner_voice' || (post.publicationName || '').toLowerCase().includes('my slant') || (post.publicationName || '').toLowerCase().includes('inner voice');
       if (currentFilter === 'opinion' && !(isMySlant || cat.includes('opinion') || cat.includes('slant') || cat.includes('op-ed') || cat.includes('editorial') || cat.includes('perspective'))) return false;
       if (currentFilter === 'tech' && !(cat.includes('tech') || cat.includes('quantum') || cat.includes('ai') || cat.includes('astro'))) return false;
       if (currentFilter === 'health' && !(cat.includes('health') || cat.includes('cures') || cat.includes('bio'))) return false;
@@ -1374,7 +1374,7 @@ function getCleanDomain(link) {
 
 function getSourceTier(post) {
   // Tier 3: My Slant / Inner Voice / Personal Opinion
-  if (post.sourceType === 'inner_voice' || post.sourceType === 'my_slant' || post.sourceType === 'opinion' || post.categoryBadge === 'OPINION' || post.categoryBadge === 'MY SLANT' || post.categoryBadge === 'PERSPECTIVE' || (post.publicationName && post.publicationName.toLowerCase() === 'my slant')) {
+  if (post.sourceType === 'inner_voice' || post.sourceType === 'my_slant' || post.sourceType === 'opinion' || post.categoryBadge === 'OPINION' || post.categoryBadge === 'MY SLANT' || post.categoryBadge === 'INNER VOICE' || post.categoryBadge === 'PERSPECTIVE' || (post.publicationName && post.publicationName.toLowerCase() === 'my slant') || (post.publicationName && post.publicationName.toLowerCase() === 'inner voice')) {
     return 'tier3_opinion';
   }
   // Book Excerpt
@@ -1450,7 +1450,7 @@ function buildSlide1Html(post, index) {
   if (tier === 'tier2_web') {
     sourceLabel = cleanHost || 'Web Commentary';
   } else if (tier === 'tier3_opinion') {
-    sourceLabel = 'My Slant';
+    sourceLabel = 'Inner Voice';
     catBadge = `${slantIcon} OPINION`;
   } else if (tier === 'tier_book') {
     sourceLabel = post.bookTitle || 'Book Excerpt';
@@ -1561,13 +1561,14 @@ function buildSlide2Html(post, index) {
     verdictBadgeLabel = `⚡ CURATOR'S TAKE • WEB COMMENTARY`;
     nextSlideLabel = 'WEB SOURCE &rarr;';
   } else if (tier === 'tier3_opinion') {
-    verdictBadgeLabel = `${slantIcon} FIRST-PERSON REFLECTION • MY SLANT`;
-    nextSlideLabel = 'MY SLANT &rarr;';
+    verdictBadgeLabel = `${slantIcon} FIRST-PERSON REFLECTION • INNER VOICE`;
+    nextSlideLabel = 'INNER VOICE &rarr;';
   } else if (tier === 'tier_book') {
     verdictBadgeLabel = `📖 LITERARY REFLECTION`;
     nextSlideLabel = 'EXCERPT &rarr;';
   }
 
+  // Combine into a single, punchy, elegant paragraph (no redundant WHY IT MATTERS box)
   let rawOpinion = (post.creatorOpinion && post.creatorOpinion.trim())
     ? post.creatorOpinion.trim()
     : ((post.whyItMatters && post.whyItMatters.trim())
@@ -1583,17 +1584,9 @@ function buildSlide2Html(post, index) {
   }
   const opinion = escapeHtml(rawOpinion);
 
-  let rawRationale = (post.whyItMatters && post.whyItMatters.trim() && post.whyItMatters.trim() !== rawOpinion.trim())
-    ? post.whyItMatters.trim()
-    : '';
-  if (rawRationale && !rawRationale.endsWith('.') && !rawRationale.endsWith('!') && !rawRationale.endsWith('?')) {
-    rawRationale += '.';
-  }
-  const whyItMatters = rawRationale ? escapeHtml(rawRationale) : '';
-
   const slideTitle = post.keyTakeaways && post.keyTakeaways.length > 0 && post.keyTakeaways[0].split(' ').length <= 12
     ? escapeHtml(post.keyTakeaways[0].toUpperCase())
-    : (tier === 'tier3_opinion' ? (post.slantTone === 'heart' ? 'PERSONAL REFLECTION' : 'MY CORE TAKE') : "THE CRITICAL PERSPECTIVE");
+    : (tier === 'tier3_opinion' ? (post.slantTone === 'heart' ? 'PERSONAL REFLECTION' : 'CORE CONVICTION') : "THE CRITICAL PERSPECTIVE");
 
   const fallbackCritiqueCoverHtml = `
     <div class="slide-hook-fallback-bg" style="background: radial-gradient(circle at 50% 28%, #1e1b4b 0%, #0f172a 60%, #030712 100%);">
@@ -1602,39 +1595,36 @@ function buildSlide2Html(post, index) {
   `;
 
   let bgCritiqueImgSrc = '';
-  if (post.illustrationUrl) {
+  if (post.illustrationBase64) {
+    bgCritiqueImgSrc = post.illustrationBase64.startsWith('data:')
+      ? post.illustrationBase64
+      : `data:image/png;base64,${post.illustrationBase64}`;
+  } else if (post.illustrationUrl) {
     bgCritiqueImgSrc = post.illustrationUrl;
-  } else if (post.illustrationBase64) {
-    bgCritiqueImgSrc = `data:image/jpeg;base64,${post.illustrationBase64}`;
   }
 
   const critiqueImgHtml = bgCritiqueImgSrc
-    ? `<img class="slide-hook-bg" src="${escapeHtml(bgCritiqueImgSrc)}" alt="" loading="lazy" referrerpolicy="no-referrer" crossorigin="anonymous" onerror="this.style.opacity='0'; this.style.display='none'; this.removeAttribute('alt');">`
-    : `<img class="slide-hook-bg" src="" alt="" style="display:none;" loading="lazy" referrerpolicy="no-referrer" crossorigin="anonymous" onerror="this.style.opacity='0'; this.style.display='none'; this.removeAttribute('alt');">`;
+    ? `<img class="slide-hook-bg" src="${escapeHtml(bgCritiqueImgSrc)}" alt="" loading="eager" referrerpolicy="no-referrer" crossorigin="anonymous" onerror="handlePosterImageError(this, '${escapeHtml(post.categoryBadge || '')}')">`
+    : `<img class="slide-hook-bg" src="" alt="" style="display:none;" loading="eager" referrerpolicy="no-referrer" crossorigin="anonymous" onerror="handlePosterImageError(this, '${escapeHtml(post.categoryBadge || '')}')">`;
 
   const bgHtml = `${fallbackCritiqueCoverHtml}${critiqueImgHtml}`;
 
   return `
     ${bgHtml}
     <div class="slide-hook-top-scrim"></div>
-    <div class="slide-hook-bottom-scrim" style="height: 68%; background: linear-gradient(to bottom, transparent 0%, rgba(7,11,18,0.72) 22%, rgba(7,11,18,0.92) 55%, rgba(7,11,18,0.99) 100%);"></div>
+    <div class="slide-hook-bottom-scrim" style="height: 38%; background: linear-gradient(to bottom, transparent 0%, rgba(7,11,18,0.52) 24%, rgba(7,11,18,0.92) 100%);"></div>
     <div class="slide-hook-content" style="justify-content: space-between;">
       <div class="slide-hook-top" style="justify-content: space-between; width: 100%;">
         <span class="critique-verdict-badge" style="font-size:9.5px; padding:4px 10px; background:rgba(0,0,0,0.75); border:1px solid rgba(245,158,11,0.4); border-radius:20px; color:#F59E0B; font-weight:800;">${verdictBadgeLabel}</span>
         <span class="slide-page-badge" style="background:rgba(0,0,0,0.75); border:1px solid rgba(255,255,255,0.25); border-radius:20px; padding:3px 9px; font-size:9.5px; color:#FFF; font-weight:800;">02 / 03</span>
       </div>
-      <div class="slide-hook-bottom" style="gap:7px; z-index:2;">
+      <div class="slide-hook-bottom" style="gap:6px; z-index:2;">
         <div style="display:flex; align-items:center; gap:6px;">
           <span style="width:6px; height:6px; border-radius:50%; background:#F59E0B; display:inline-block;"></span>
           <span style="font-size:10px; font-weight:800; color:#F59E0B; letter-spacing:0.8px;">${slideTitle}</span>
         </div>
-        <p class="critique-opinion-text" style="font-size:13.5px; font-weight:700; color:#F8FAFC; line-height:1.38; margin:0;">${opinion}</p>
-        ${whyItMatters ? `
-          <div style="padding:6px 9px; background:rgba(245,158,11,0.12); border-radius:6px; border:0.8px solid rgba(245,158,11,0.35); font-size:10.5px; color:#E2E8F0; line-height:1.3;">
-            <strong style="color:#F59E0B; font-size:9px; letter-spacing:0.5px;">WHY IT MATTERS: </strong>${whyItMatters}
-          </div>
-        ` : ''}
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:3px; padding-top:5px; border-top:1px solid rgba(255,255,255,0.1);">
+        <p class="critique-opinion-text" style="font-size:13.5px; font-weight:700; color:#F8FAFC; line-height:1.42; margin:0;">${opinion}</p>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:2px; padding-top:5px; border-top:1px solid rgba(255,255,255,0.1);">
           <div style="display:flex; align-items:center; gap:6px;">
             <div style="width:20px; height:20px; border-radius:50%; background:#F59E0B; color:#000; font-size:10px; font-weight:bold; display:flex; align-items:center; justify-content:center;">${initial}</div>
             <span style="font-size:11px; font-weight:600; color:#CBD5E1;">${handle}</span>
@@ -1722,10 +1712,10 @@ function buildSlide3Html(post, index) {
     stampHtml = `
       <div class="stamp-opinion">
         <div>${slantIcon} PERSONAL TAKE</div>
-        <div>MY SLANT</div>
+        <div>INNER VOICE</div>
       </div>
     `;
-    mastheadTitle = `MY SLANT`;
+    mastheadTitle = `INNER VOICE`;
     rulesCenter = post.slantTone === 'heart' ? 'OUT OF HEART • PERSONAL ESSAY' : 'OUT OF MIND • PERSONAL ESSAY';
     rulesLeft = 'FIRST-PERSON REFLECTION';
     bylineLeft = `AUTHORED BY ${handle}`;
@@ -1865,8 +1855,8 @@ function createPostCardElement(post, index) {
     sourceBadgeText = cleanHost || pubName || 'Web Commentary';
   } else if (tier === 'tier3_opinion') {
     tab3Icon = slantIcon;
-    tab3Label = 'My Slant';
-    tab3Title = 'Slide 3: My Slant (Personal Perspective)';
+    tab3Label = 'Inner Voice';
+    tab3Title = 'Slide 3: Inner Voice (Personal Perspective)';
     sourceBadgeIcon = slantIcon;
     sourceBadgeText = 'Personal Perspective';
   } else if (tier === 'tier_book') {
@@ -4214,7 +4204,7 @@ function showStep3Preview() {
   const prevTab2 = document.getElementById('prevTab2');
   if (prevTab2) {
     if (creatorSelectedSource === 'inner_voice') {
-      prevTab2.innerHTML = '<span>💭</span> Poster 3: Conviction';
+      prevTab2.innerHTML = '<span>💭</span> Poster 3: Inner Voice';
     } else if (creatorSelectedSource === 'photo') {
       prevTab2.innerHTML = '<span>📰</span> Poster 3: Receipts';
     } else {

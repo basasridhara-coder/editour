@@ -199,7 +199,7 @@ Respond strictly with valid JSON with this exact structure:
 {
   "adaptedHeadline": "5-10 word bold, memorable editorial headline",
   "originalHeadline": "Original title or subject",
-  "publicationName": "${pubName || (sourceType === 'inner_voice' ? 'My Slant' : 'Curated Press')}",
+  "publicationName": "${pubName || (sourceType === 'inner_voice' ? 'Inner Voice' : 'Curated Press')}",
   "categoryBadge": "UPPERCASE CATEGORY (e.g. DEEP TECH, CULTURE, OPINION, CLIMATE, ECONOMY, HEALTH)",
   "hook": "1-2 sentence gripping hook that stops the reader mid-scroll",
   "curatorTake": "2 tight sentences (22-35 words) model-refined editorial critique synthesizing the curator's stance (or verbatim if refineCoreTake is false), ending with a period.",
@@ -404,7 +404,7 @@ Respond strictly with valid JSON with this exact structure:
       createdAt: new Date().toISOString(),
       sourceType,
       digitalLink: url || '',
-      publicationName: parsed.publicationName || pubName || (sourceType === 'inner_voice' ? 'My Slant' : 'Curated Press'),
+      publicationName: parsed.publicationName || pubName || (sourceType === 'inner_voice' ? 'Inner Voice' : 'Curated Press'),
       adaptedHeadline: parsed.adaptedHeadline || 'Perspectives in Flux',
       originalHeadline: parsed.originalHeadline || extractedTitle || parsed.adaptedHeadline,
       categoryBadge: parsed.categoryBadge || (sourceType === 'inner_voice' ? 'OPINION' : 'DISCOVERY'),
@@ -488,7 +488,7 @@ function generateSmartFallbackSynthesis({
     return {
       adaptedHeadline: headline.length > 50 ? headline.slice(0, 47) + '...' : headline,
       originalHeadline: userSlant || headline,
-      publicationName: 'My Slant',
+      publicationName: 'Inner Voice',
       categoryBadge: 'LIFE & WORK',
       hook: `We tell ourselves we can only rest once every task is settled. But waiting for an empty inbox is a trap that turns pre-trip excitement into pure panic.`,
       curatorTake: refineCoreTake ? refinedTake : (userSlant || refinedTake),
@@ -550,7 +550,7 @@ function generateSmartFallbackSynthesis({
   return {
     adaptedHeadline: headline.length > 55 ? headline.slice(0, 52) + '...' : headline,
     originalHeadline: extractedTitle || headline,
-    publicationName: pubName || (sourceType === 'inner_voice' ? 'My Slant' : 'Curated Press'),
+    publicationName: pubName || (sourceType === 'inner_voice' ? 'Inner Voice' : 'Curated Press'),
     categoryBadge: sourceType === 'inner_voice' ? 'PERSPECTIVE' : 'EDITORIAL',
     hook: `${headline}. When the dominant narrative simplifies the stakes, the real structural disruption occurs quietly in the margins.`,
     curatorTake: refinedTake,
