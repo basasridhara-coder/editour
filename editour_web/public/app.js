@@ -459,6 +459,10 @@ function closeAuthModal() {
     modal.classList.remove('active');
   }
 
+  try {
+    sessionStorage.setItem('slant_guest_explored', 'true');
+  } catch (e) {}
+
   // Remove #login from URL hash if present
   if (window.location.hash === '#login') {
     try {
@@ -937,14 +941,19 @@ function checkDeepLink() {
     }
   }
 
-  // Check login deep link / direct route
-  if (
-    params.get('auth') === 'login' ||
+  // Check login deep link / direct route or first-time visitor gateway
+  const isExplicitLogin = params.get('auth') === 'login' ||
     params.get('login') === 'true' ||
     window.location.hash === '#login' ||
-    (window.location.pathname && window.location.pathname.endsWith('/login'))
-  ) {
-    setTimeout(() => openAuthModal(), 250);
+    (window.location.pathname && window.location.pathname.endsWith('/login'));
+
+  let hasExplored = false;
+  try {
+    hasExplored = sessionStorage.getItem('slant_guest_explored') === 'true';
+  } catch (e) {}
+
+  if (isExplicitLogin || (!currentUser && !hasExplored && !postId)) {
+    setTimeout(() => openAuthModal(), 200);
   }
 }
 

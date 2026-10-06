@@ -131,7 +131,8 @@ const server = http.createServer(async (req, res) => {
   }
 
   // Static files
-  let filePath = path.join(PUBLIC_DIR, url.pathname === '/' ? 'index.html' : url.pathname);
+  let subPath = url.pathname === '/' ? 'index.html' : (url.pathname === '/login' ? 'login.html' : url.pathname);
+  let filePath = path.join(PUBLIC_DIR, subPath);
   const ext = path.extname(filePath).toLowerCase();
 
   fs.readFile(filePath, (err, content) => {
