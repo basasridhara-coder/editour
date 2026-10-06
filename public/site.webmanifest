@@ -1,0 +1,21 @@
+{
+  "name": "Slant • Visual Editorial Feed",
+  "short_name": "Slant",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#050813",
+  "theme_color": "#050813",
+  "description": "Visual editorial journalism distilled into high-impact posters.",
+  "icons": [
+    {
+      "src": "/favicon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "1024x1024",
+      "type": "image/png"
+    }
+  ]
+}

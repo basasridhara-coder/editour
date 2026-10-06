@@ -100,20 +100,33 @@ header {
   align-items: center;
   gap: 10px;
   text-decoration: none;
+  cursor: pointer;
 }
 
 .brand-logo {
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
   border-radius: 11px;
-  background: linear-gradient(135deg, #4338CA, #6366F1, #06B6D4);
+  background: #FDFCF8;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 900;
-  color: #FFF;
-  font-size: 19px;
-  box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.16);
+  flex-shrink: 0;
+  overflow: hidden;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.brand:hover .brand-logo {
+  transform: translateY(-1px) scale(1.02);
+  box-shadow: 0 6px 18px rgba(245, 158, 11, 0.3), 0 0 0 1px rgba(245, 158, 11, 0.45);
+}
+
+.brand-logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .brand-title {
@@ -3233,19 +3246,30 @@ header {
 }
 
 .auth-badge-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 14px;
-  background: linear-gradient(135deg, #6366F1, #8B5CF6);
-  color: #FFF;
-  font-family: 'Playfair Display', serif;
-  font-size: 24px;
-  font-weight: 800;
+  width: 68px;
+  height: 68px;
+  border-radius: 18px;
+  background: #FDFCF8;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 8px 20px -4px rgba(99, 102, 241, 0.4);
-  margin-bottom: 12px;
+  overflow: hidden;
+  box-shadow: 0 12px 30px -4px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.2), 0 0 24px rgba(245, 158, 11, 0.15);
+  margin-bottom: 16px;
+  flex-shrink: 0;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.auth-badge-icon:hover {
+  transform: scale(1.04);
+  box-shadow: 0 16px 36px -4px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(245, 158, 11, 0.4), 0 0 28px rgba(245, 158, 11, 0.25);
+}
+
+.auth-badge-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .auth-title {
@@ -3554,16 +3578,23 @@ header {
 }
 
 .drawer-brand-logo {
-  width: 32px;
-  height: 32px;
-  border-radius: 9px;
-  background: linear-gradient(135deg, #4338CA, #6366F1, #06B6D4);
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: #FDFCF8;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 900;
-  color: #FFF;
-  font-size: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.16);
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.drawer-brand-logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .drawer-brand-title {
@@ -3978,9 +4009,8 @@ header {
     gap: 8px;
   }
   .brand-logo {
-    width: 32px;
-    height: 32px;
-    font-size: 17px;
+    width: 34px;
+    height: 34px;
     border-radius: 9px;
   }
   .brand-title {

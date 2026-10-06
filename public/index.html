@@ -8,7 +8,15 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Merriweather:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,400;1,600;1,700;1,900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261006_9">
+  <link rel="stylesheet" href="style.css?v=20261006_10">
+  <!-- Favicon & Brand Icons -->
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+  <link rel="shortcut icon" href="/favicon.ico">
+  <link rel="manifest" href="/site.webmanifest">
+  <meta property="og:image" content="https://www.slant.today/logo.png">
+  <meta name="twitter:image" content="https://www.slant.today/logo.png">
   <!-- Supabase JS Client for Authentication & Real-time -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -17,8 +25,10 @@
   <!-- Sticky Top Navigation -->
   <header>
     <div class="nav-inner">
-      <div class="brand">
-        <div class="brand-logo">S</div>
+      <div class="brand" onclick="window.scrollTo({top: 0, behavior: 'smooth'})" title="Slant • slant.today">
+        <div class="brand-logo">
+          <img src="/logo.png" alt="Slant Logo" class="brand-logo-img">
+        </div>
         <div class="brand-text">
           <div class="brand-title">Slant</div>
           <div class="brand-subtitle">slant.today</div>
@@ -925,7 +935,9 @@
         <!-- Right Side: Dedicated Auth Sanctuary -->
         <div class="slant-login-auth-col">
           <div class="auth-header">
-            <div class="auth-badge-icon">S</div>
+            <div class="auth-badge-icon">
+              <img src="/logo.png" alt="Slant Logo" class="auth-badge-img">
+            </div>
             <h2 class="auth-title">Welcome to Slant</h2>
             <p class="auth-desc" id="authModalDesc">Sign in to save your favorite visual stories, customize your reading atmosphere, and publish your own editorials.</p>
           </div>
@@ -1001,7 +1013,9 @@
   <aside class="options-drawer" id="optionsDrawer" aria-hidden="true">
     <div class="drawer-header">
       <div class="drawer-brand">
-        <div class="drawer-brand-logo">S</div>
+        <div class="drawer-brand-logo">
+          <img src="/logo.png" alt="Slant Logo" class="drawer-brand-logo-img">
+        </div>
         <div>
           <div class="drawer-brand-title">Slant</div>
           <div class="drawer-brand-subtitle">Options & Settings</div>
