@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Merriweather:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,400;1,600;1,700;1,900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261006_6">
+  <link rel="stylesheet" href="style.css?v=20261006_7">
   <!-- Supabase JS Client for Authentication & Real-time -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
@@ -22,101 +22,26 @@
       font-family: 'Inter', -apple-system, sans-serif;
       display: flex;
       flex-direction: column;
-      overflow-x: hidden;
-    }
-
-    .login-nav {
-      height: 64px;
-      padding: 0 28px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-      background: rgba(10, 15, 29, 0.8);
-      backdrop-filter: blur(12px);
-      position: sticky;
-      top: 0;
-      z-index: 100;
-    }
-
-    .login-brand {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      text-decoration: none;
-      color: inherit;
-    }
-
-    .login-brand-logo {
-      width: 36px;
-      height: 36px;
-      border-radius: 10px;
-      background: linear-gradient(135deg, #6366F1, #8B5CF6);
-      display: flex;
       align-items: center;
       justify-content: center;
-      font-family: 'Playfair Display', serif;
-      font-weight: 800;
-      font-size: 20px;
-      color: #FFF;
-      box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4);
-    }
-
-    .login-brand-title {
-      font-family: 'Playfair Display', serif;
-      font-size: 20px;
-      font-weight: 800;
-      letter-spacing: -0.3px;
-    }
-
-    .login-brand-sub {
-      font-size: 11px;
-      color: #818CF8;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.6px;
-    }
-
-    .login-nav-right {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .nav-explore-btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 16px;
-      border-radius: 20px;
-      background: rgba(255, 255, 255, 0.06);
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      color: #E2E8F0;
-      font-size: 13px;
-      font-weight: 600;
-      text-decoration: none;
-      transition: all 0.2s ease;
-    }
-
-    .nav-explore-btn:hover {
-      background: rgba(255, 255, 255, 0.12);
-      border-color: rgba(255, 255, 255, 0.25);
-      color: #FFF;
-      transform: translateY(-1px);
+      overflow-x: hidden;
     }
 
     /* Main Container */
     .login-main-wrap {
       flex: 1;
+      width: 100%;
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 24px 20px 48px 20px;
+      justify-content: center;
+      padding: 28px 20px 48px 20px;
+      box-sizing: border-box;
     }
 
     .login-page-card-standalone {
       width: 100%;
-      max-width: 1080px;
+      max-width: 1300px;
       background: #080D1A;
       background-image: 
         radial-gradient(ellipse at 85% 10%, rgba(99, 102, 241, 0.18), transparent 50%),
@@ -129,11 +54,10 @@
       overflow: hidden;
       display: flex;
       flex-direction: column;
-      margin-top: 12px;
     }
 
     .login-footer-trust {
-      margin-top: 36px;
+      margin-top: 32px;
       text-align: center;
       font-size: 12px;
       color: #64748B;
@@ -151,11 +75,8 @@
     }
 
     @media (max-width: 860px) {
-      .login-nav {
-        padding: 0 16px;
-      }
       .login-main-wrap {
-        padding: 12px 10px 32px 10px;
+        padding: 14px 10px 32px 10px;
       }
       .login-page-card-standalone {
         border-radius: 20px;
@@ -165,24 +86,7 @@
 </head>
 <body class="login-page-body">
 
-  <!-- Top Navigation -->
-  <header class="login-nav">
-    <a href="/" class="login-brand">
-      <div class="login-brand-logo">S</div>
-      <div>
-        <div class="login-brand-title">Slant</div>
-        <div class="login-brand-sub">slant.today</div>
-      </div>
-    </a>
-    <div class="login-nav-right">
-      <a href="/" class="nav-explore-btn" onclick="sessionStorage.setItem('slant_guest_explored', 'true')">
-        <span>Explore Feed as Guest</span>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-      </a>
-    </div>
-  </header>
-
-  <!-- Main Login Workspace -->
+  <!-- Main Login Workspace (No awkward top navbar) -->
   <main class="login-main-wrap">
     
     <div class="login-page-card-standalone">
@@ -275,10 +179,10 @@
             <div class="showcase-header-left">
               <span class="showcase-pill">
                 <span class="live-pulse"></span>
-                3-POSTER EDITORIAL TRIO
+                3-POSTER ROW SHOWCASE
               </span>
               <h3 class="showcase-title">Conviction in Three Frames</h3>
-              <p class="showcase-subtitle">Scroll vertically through each story's Hook, Slant, and Primary Receipts.</p>
+              <p class="showcase-subtitle">3 posters of each post in a row (Hook • Slant • Receipts), oscillating vertically.</p>
             </div>
             <div class="showcase-scroll-arrows">
               <button class="scroll-arrow-btn" onclick="scrollLoginPosts(-1)" title="Scroll Up" aria-label="Previous poster">
@@ -414,7 +318,7 @@
 
   </main>
 
-  <script src="app.js?v=20261006_6"></script>
+  <script src="app.js?v=20261006_7"></script>
   <script>
     // Ensure the post preview is rendered immediately upon loading login.html
     window.addEventListener('DOMContentLoaded', () => {

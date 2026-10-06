@@ -404,100 +404,190 @@ function renderLoginPostsPreview() {
       pill.onclick = () => {
         document.querySelectorAll('.story-switch-pill').forEach(p => p.classList.remove('active'));
         pill.classList.add('active');
-        const targetTrio = document.getElementById(`login-trio-${post.id}`);
-        if (targetTrio) {
-          targetTrio.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        const targetRow = document.getElementById(`login-row-${post.id}`);
+        if (targetRow) {
+          targetRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
       };
       switcher.appendChild(pill);
     }
   });
 
-  // 2. Build the 3-Poster Sets vertically for each post
+  // 2. Build 3 Posters of Single Post in a Row for each colourful story
   selectedPosts.forEach(({ post, cfg }, idx) => {
-    const trioDiv = document.createElement('div');
-    trioDiv.className = 'login-post-trio';
-    trioDiv.id = `login-trio-${post.id}`;
+    const rowDiv = document.createElement('div');
+    rowDiv.className = 'login-post-row';
+    rowDiv.id = `login-row-${post.id}`;
 
     const catBadge = post.categoryBadge || 'CURATED';
     const pubName = post.publicationName || 'Slant Press';
     const author = post.creatorHandle || '@curator';
+    const headline = post.adaptedHeadline || post.originalHeadline || 'Visual Editorial';
 
     // Slide 1 (Hook), Slide 2 (Critique / Slant), Slide 3 (Receipts)
     const slide1Content = buildSlide1Html(post, `login-${idx}`);
     const slide2Content = buildSlide2Html(post, `login-${idx}`);
     const slide3Content = buildSlide3Html(post, `login-${idx}`);
 
-    trioDiv.innerHTML = `
-      <div class="trio-post-header">
-        <div class="trio-badge-row">
-          <span class="trio-cat-pill">${cfg.icon} ${escapeHtml(catBadge)}</span>
-          <span class="trio-source">${escapeHtml(pubName)}</span>
+    rowDiv.innerHTML = `
+      <!-- Single Post Row Header -->
+      <div class="login-row-header">
+        <div class="login-row-meta-left">
+          <span class="login-row-cat-pill">${cfg.icon} ${escapeHtml(catBadge)}</span>
+          <span class="login-row-headline" title="${escapeHtml(headline)}">${escapeHtml(headline)}</span>
         </div>
-        <span class="trio-handle">${escapeHtml(author)}</span>
-      </div>
-
-      <!-- Poster 1: The Visual Hook -->
-      <div class="trio-poster-frame frame-hook" onclick="previewPostFromLogin('${post.id}')" title="Poster 1: Visual Hook • Click to read in feed">
-        <span class="trio-frame-badge">01 / 03 • HOOK</span>
-        <div class="carousel-slide slide-hook">
-          ${slide1Content}
+        <div class="login-row-meta-right">
+          <span class="login-row-source">${escapeHtml(pubName)}</span>
+          <span class="login-row-author">${escapeHtml(author)}</span>
         </div>
       </div>
 
-      <!-- Poster 2: The Slant & Conviction -->
-      <div class="trio-poster-frame frame-critique" onclick="previewPostFromLogin('${post.id}')" title="Poster 2: The Slant • Click to read in feed">
-        <span class="trio-frame-badge">02 / 03 • THE SLANT</span>
-        <div class="carousel-slide slide-critique">
-          ${slide2Content}
+      <!-- 3 Posters in a Row: Hook, Slant, Receipts -->
+      <div class="login-row-posters">
+        <!-- Poster 1: The Visual Hook -->
+        <div class="login-poster-col poster-hook" onclick="previewPostFromLogin('${post.id}')" title="Poster 1: Visual Hook • Click to read in feed">
+          <span class="login-poster-label">01 • HOOK</span>
+          <div class="carousel-slide slide-hook">
+            ${slide1Content}
+          </div>
+        </div>
+
+        <!-- Poster 2: The Slant & Conviction -->
+        <div class="login-poster-col poster-slant" onclick="previewPostFromLogin('${post.id}')" title="Poster 2: The Slant • Click to read in feed">
+          <span class="login-poster-label">02 • THE SLANT</span>
+          <div class="carousel-slide slide-critique">
+            ${slide2Content}
+          </div>
+        </div>
+
+        <!-- Poster 3: The Primary Receipts -->
+        <div class="login-poster-col poster-receipts" onclick="previewPostFromLogin('${post.id}')" title="Poster 3: The Receipts • Click to read in feed">
+          <span class="login-poster-label">03 • RECEIPTS</span>
+          <div class="carousel-slide slide-receipt">
+            ${slide3Content}
+          </div>
         </div>
       </div>
 
-      <!-- Poster 3: The Primary Receipts -->
-      <div class="trio-poster-frame frame-receipt" onclick="previewPostFromLogin('${post.id}')" title="Poster 3: The Receipts • Click to read in feed">
-        <span class="trio-frame-badge">03 / 03 • THE RECEIPTS</span>
-        <div class="carousel-slide slide-receipt">
-          ${slide3Content}
-        </div>
-      </div>
-
-      ${idx < selectedPosts.length - 1 ? '<div class="trio-story-divider">✦ NEXT EDITORIAL TRIO ✦</div>' : ''}
+      ${idx < selectedPosts.length - 1 ? '<div class="login-row-divider">✦ NEXT EDITORIAL TRIO ✦</div>' : ''}
     `;
 
-    track.appendChild(trioDiv);
+    track.appendChild(rowDiv);
   });
 
-  // Track scroll position to update active pill
+  // Track scroll position to update active switcher pill
   if (switcher && typeof IntersectionObserver !== 'undefined') {
     const observer = new IntersectionObserver((entries) => {
       entries.forEach(entry => {
         if (entry.isIntersecting) {
-          const id = entry.target.id.replace('login-trio-', '');
+          const id = entry.target.id.replace('login-row-', '');
           document.querySelectorAll('.story-switch-pill').forEach(p => p.classList.remove('active'));
           const activePill = document.getElementById(`storyPill-${id}`);
           if (activePill) activePill.classList.add('active');
         }
       });
-    }, { root: track, threshold: 0.3 });
+    }, { root: track, threshold: 0.35 });
 
     selectedPosts.forEach(({ post }) => {
-      const el = document.getElementById(`login-trio-${post.id}`);
+      const el = document.getElementById(`login-row-${post.id}`);
       if (el) observer.observe(el);
     });
   }
+
+  // Start continuous vertical oscillation drift for the showcase track
+  startLoginTrackVerticalOscillation(track);
+}
+
+// Ambient Vertical Oscillation controller for login showcase track
+let loginOscillateTimer = null;
+let loginOscillateDirection = 1; // 1 = scrolling down, -1 = scrolling up
+let loginOscillatePaused = false;
+let loginOscillatePauseTimeout = null;
+
+function startLoginTrackVerticalOscillation(track) {
+  if (!track || track.dataset.oscillatorStarted === 'true') return;
+  track.dataset.oscillatorStarted = 'true';
+
+  function pauseOscillationTemporarily(ms = 4000) {
+    loginOscillatePaused = true;
+    if (loginOscillatePauseTimeout) clearTimeout(loginOscillatePauseTimeout);
+    loginOscillatePauseTimeout = setTimeout(() => {
+      loginOscillatePaused = false;
+    }, ms);
+  }
+
+  // Pause on user mouse hover or mobile touch
+  track.addEventListener('mouseenter', () => { loginOscillatePaused = true; });
+  track.addEventListener('mouseleave', () => {
+    if (loginOscillatePauseTimeout) clearTimeout(loginOscillatePauseTimeout);
+    loginOscillatePauseTimeout = setTimeout(() => {
+      loginOscillatePaused = false;
+    }, 1500);
+  });
+  track.addEventListener('touchstart', () => { loginOscillatePaused = true; }, { passive: true });
+  track.addEventListener('touchend', () => {
+    if (loginOscillatePauseTimeout) clearTimeout(loginOscillatePauseTimeout);
+    loginOscillatePauseTimeout = setTimeout(() => {
+      loginOscillatePaused = false;
+    }, 2500);
+  });
+  track.addEventListener('wheel', () => { pauseOscillationTemporarily(5000); }, { passive: true });
+
+  // Smooth continuous ambient drift
+  let lastTimestamp = performance.now();
+  function step(now) {
+    const delta = Math.min(now - lastTimestamp, 50);
+    lastTimestamp = now;
+
+    if (!loginOscillatePaused && track.scrollHeight > track.clientHeight) {
+      const maxScroll = track.scrollHeight - track.clientHeight;
+      const speed = 0.04 * delta; // gentle smooth drift
+      
+      track.scrollTop += loginOscillateDirection * speed;
+
+      if (track.scrollTop >= maxScroll - 2 && loginOscillateDirection > 0) {
+        loginOscillatePaused = true;
+        setTimeout(() => {
+          loginOscillateDirection = -1;
+          loginOscillatePaused = false;
+        }, 2200); // pause at bottom before oscillating back up
+      } else if (track.scrollTop <= 2 && loginOscillateDirection < 0) {
+        loginOscillatePaused = true;
+        setTimeout(() => {
+          loginOscillateDirection = 1;
+          loginOscillatePaused = false;
+        }, 2200); // pause at top before oscillating back down
+      }
+    }
+
+    loginOscillateTimer = requestAnimationFrame(step);
+  }
+
+  loginOscillateTimer = requestAnimationFrame(step);
 }
 
 function scrollLoginPosts(direction) {
   const track = document.getElementById('loginPostsScrollTrack');
   if (!track) return;
-  const scrollAmount = 420 * direction;
+  loginOscillatePaused = true;
+  if (loginOscillatePauseTimeout) clearTimeout(loginOscillatePauseTimeout);
+  loginOscillatePauseTimeout = setTimeout(() => { loginOscillatePaused = false; }, 4000);
+
+  const scrollAmount = 350 * direction;
   track.scrollBy({ top: scrollAmount, behavior: 'smooth' });
 }
 
 function previewPostFromLogin(postId) {
-  closeAuthModal();
   if (!postId) return;
 
+  // If on standalone login.html, navigate to home with the post deep-link
+  if (window.location.pathname.includes('login') || !document.getElementById('feedStream')) {
+    sessionStorage.setItem('slant_guest_explored', 'true');
+    window.location.href = `/?p=${encodeURIComponent(postId)}`;
+    return;
+  }
+
+  closeAuthModal();
   const idx = allPosts.findIndex(p => p.id === postId);
   if (idx >= 0) {
     setTimeout(() => {
