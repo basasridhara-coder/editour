@@ -107,9 +107,9 @@ module.exports = async function handler(req, res) {
 
       return res.status(200).json({
         success: true,
-        message: 'Post successfully published to editour.app!',
+        message: 'Post successfully published to slant.today!',
         id: postData.id,
-        webUrl: `https://editour.app/?p=${postData.id}`
+        webUrl: `https://www.slant.today/?p=${postData.id}`
       });
     } catch (e) {
       console.error('Error handling post creation:', e);
