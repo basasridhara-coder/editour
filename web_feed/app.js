@@ -1373,8 +1373,8 @@ function getCleanDomain(link) {
 }
 
 function getSourceTier(post) {
-  // Tier 3: My Slant / Personal Opinion
-  if (post.sourceType === 'my_slant' || post.sourceType === 'opinion' || post.categoryBadge === 'OPINION' || post.categoryBadge === 'MY SLANT') {
+  // Tier 3: My Slant / Inner Voice / Personal Opinion
+  if (post.sourceType === 'inner_voice' || post.sourceType === 'my_slant' || post.sourceType === 'opinion' || post.categoryBadge === 'OPINION' || post.categoryBadge === 'MY SLANT' || post.categoryBadge === 'PERSPECTIVE' || (post.publicationName && post.publicationName.toLowerCase() === 'my slant')) {
     return 'tier3_opinion';
   }
   // Book Excerpt

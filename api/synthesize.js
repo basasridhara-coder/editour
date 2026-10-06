@@ -165,7 +165,12 @@ ${sourceType === 'inner_voice' ? `CRITICAL INNER VOICE & LIVED EXPERIENCE DIRECT
 - This is an INNER VOICE perspective rooted in the curator's personal life, emotional experience, philosophical stance, or daily human reality (e.g. work-life balance, travel, family, burnout, craft, purpose).
 - DO NOT manufacture corporate, political, or bureaucratic jargon (NEVER mention "key stakeholders", "operational priorities", "strategic inflection", "unilateral arms race", or "structural realignment").
 - In Poster 2 ("THE CRITICAL PERSPECTIVE" / curatorTake): Refine the user's raw slant ("${userSlant}") into an insightful, emotionally resonant, and clear 2-sentence conviction (22-35 words total, ending with a period).
-- In Poster 3 ("THE RECEIPTS" / resolvedArticleExcerpts): Instead of dry article excerpts, generate 3 authentic, grounded supporting observations or life-moments drawn directly from their slant and spark ("${spark}").
+- In Poster 3 ("THE RECEIPTS & CORE CONVICTION" / resolvedArticleExcerpts):
+  * DO NOT output tiny 1-line fragments!
+  * Deliver 3 substantive, evocative narrative paragraphs (each 28–45 words, 2–3 full sentences):
+    1. Paragraph 1 (Scene & Catalyst): Ground the situation in sensory detail around the spark ("${spark}")—the physical room, the tension between packing and typing, the clutter, the rush.
+    2. Paragraph 2 (The Turning Point): The poignant realization where the child or catalyst breaks through the illusion of urgent work.
+    3. Paragraph 3 (The Lasting Truth): A deep, resonant closing thought on presence, why work will always expand to fill every second, and why choosing to disconnect is essential.
 - In Poster 1 ("VISUAL HOOK"): Adapted headline and hook must capture the relatable human friction of their story.` : (userSlant ? (refineCoreTake ? `MANDATORY REFINEMENT DIRECTIVE (NEVER ECHO VERBATIM):
 - Poster 2 ("THE CRITICAL PERSPECTIVE" / Curator Take) MUST NEVER display the user's raw slant verbatim!
 - You MUST refine and extend the curator's unhedged take ("${userSlant}") into an articulate, model-synthesized editorial argument (EXACTLY 2 complete sentences, 22–35 words total, ending definitively with a period).
@@ -189,11 +194,11 @@ Respond strictly with valid JSON with this exact structure:
     "Second critical takeaway (counter-narrative or strategic insight)",
     "Third critical takeaway (future implication or action)"
   ],
-  "receiptHighlightQuote": "Single poignant quote or core conviction sentence",
+  "receiptHighlightQuote": "Single poignant quote or core conviction sentence (18-30 words)",
   "resolvedArticleExcerpts": [
-    "First factual excerpt or supporting evidence sentence",
-    "Second factual excerpt or supporting evidence sentence",
-    "Third factual excerpt or supporting evidence sentence"
+    "Paragraph 1: Grounded sensory scene-setting around catalyst (28-45 words, 2-3 sentences)",
+    "Paragraph 2: Turning point conviction statement (20-35 words, 1-2 punchy sentences)",
+    "Paragraph 3: Reflective closing thought on presence and priorities (28-45 words, 2-3 sentences)"
   ],
   "keyMetric": "Short impactful stat or metric (e.g. +42%, 1,072 Trees, 10x, 99.8% - or leave empty if none)",
   "visualMood": "Short aesthetic phrase (e.g. High-Contrast Editorial Risograph, Velvet Obsidian Chiaroscuro)",

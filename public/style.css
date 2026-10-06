@@ -1674,57 +1674,59 @@ header {
   flex: 1;
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
   min-height: 0;
   overflow: hidden;
+  padding: 4px 0;
 }
 
 .receipt-spacer-top {
-  flex: 1;
-  min-height: 8px;
+  height: 8px;
+  flex-shrink: 0;
 }
 
 .receipt-spacer-mid {
-  flex: 2;
-  min-height: 14px;
+  height: 12px;
+  flex-shrink: 0;
 }
 
 .receipt-spacer-bottom {
-  flex: 1;
-  min-height: 8px;
+  height: 8px;
+  flex-shrink: 0;
 }
 
 .receipt-p1 {
   font-family: 'Merriweather', Georgia, 'Times New Roman', serif;
-  font-size: 11.2px;
-  line-height: 1.45;
+  font-size: 12.8px;
+  line-height: 1.55;
   color: #1E293B;
   margin: 0;
   display: -webkit-box;
-  -webkit-line-clamp: 4;
+  -webkit-line-clamp: 5;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  text-align: justify;
+  text-align: left;
 }
 
 .receipt-highlight {
   background: #FEF08A;
   border: 1px solid #FDE047;
   border-left: 5px solid #CA8A04;
-  padding: 8px 12px;
-  border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(234, 179, 8, 0.35);
+  padding: 10px 14px;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(234, 179, 8, 0.25);
   margin: 0;
   text-align: left;
   flex-shrink: 0;
 }
 
 .highlighter-label {
-  font-size: 8px;
+  font-size: 8.5px;
   font-weight: 900;
   letter-spacing: 0.9px;
   color: #854D0E;
   text-transform: uppercase;
-  margin-bottom: 3px;
+  margin-bottom: 4px;
   font-family: 'Merriweather', Georgia, serif;
   display: flex;
   align-items: center;
@@ -1733,10 +1735,10 @@ header {
 
 .highlighter-text {
   font-family: 'Merriweather', 'Playfair Display', Georgia, serif;
-  font-size: 12px;
-  font-weight: 900;
+  font-size: 13.5px;
+  font-weight: 800;
   color: #0F172A;
-  line-height: 1.32;
+  line-height: 1.45;
   display: -webkit-box;
   -webkit-line-clamp: 5;
   -webkit-box-orient: vertical;
@@ -1745,15 +1747,15 @@ header {
 
 .receipt-p3 {
   font-family: 'Merriweather', Georgia, 'Times New Roman', serif;
-  font-size: 10.8px;
-  line-height: 1.45;
+  font-size: 12.5px;
+  line-height: 1.55;
   color: #334155;
   margin: 0;
   display: -webkit-box;
-  -webkit-line-clamp: 4;
+  -webkit-line-clamp: 5;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  text-align: justify;
+  text-align: left;
 }
 
 .receipt-footer {
