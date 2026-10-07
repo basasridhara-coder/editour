@@ -1550,8 +1550,10 @@ header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 3px;
+  margin-bottom: 5px;
   width: 100%;
+  position: relative;
+  z-index: 5;
 }
 
 .receipt-corner-brand {
@@ -1659,7 +1661,7 @@ header {
 
 .stamp-verified {
   position: absolute;
-  top: 8px;
+  top: 34px;
   right: 12px;
   transform: rotate(-10deg);
   border: 1.8px solid #DC2626;
@@ -1680,7 +1682,7 @@ header {
 
 .stamp-web-citation {
   position: absolute;
-  top: 8px;
+  top: 34px;
   right: 12px;
   transform: rotate(-6deg);
   border: 1.5px solid #475569;
@@ -1701,7 +1703,7 @@ header {
 
 .stamp-opinion {
   position: absolute;
-  top: 8px;
+  top: 34px;
   right: 12px;
   transform: rotate(-7deg);
   border: 1.5px solid #4F46E5;
@@ -1722,7 +1724,7 @@ header {
 
 .stamp-book {
   position: absolute;
-  top: 8px;
+  top: 34px;
   right: 12px;
   transform: rotate(-5deg);
   border: 1.5px solid #B45309;
@@ -1865,14 +1867,14 @@ header {
   flex: 1;
   display: flex;
   flex-direction: column;
-  justify-content: flex-start;
+  justify-content: space-between;
   min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
   -ms-overflow-style: none;
-  padding: 2px 0;
-  gap: 2px;
+  padding: 4px 0;
+  gap: 4px;
 }
 
 .receipt-paragraphs::-webkit-scrollbar {
@@ -1882,27 +1884,24 @@ header {
 }
 
 .receipt-spacer-top {
-  height: 3px;
-  min-height: 2px;
-  flex-shrink: 0;
+  flex: 0.8;
+  min-height: 4px;
 }
 
 .receipt-spacer-mid {
-  height: 6px;
-  min-height: 3px;
-  flex-shrink: 0;
+  flex: 1.2;
+  min-height: 8px;
 }
 
 .receipt-spacer-bottom {
-  height: 3px;
-  min-height: 2px;
-  flex-shrink: 0;
+  flex: 0.8;
+  min-height: 4px;
 }
 
 .receipt-p1 {
   font-family: 'Merriweather', Georgia, 'Times New Roman', serif;
-  font-size: 11.2px;
-  line-height: 1.44;
+  font-size: 12px;
+  line-height: 1.52;
   color: #1E293B;
   margin: 0;
   text-align: left;
@@ -1914,21 +1913,21 @@ header {
   background: #FEF08A;
   border: 1px solid #FDE047;
   border-left: 5px solid #CA8A04;
-  padding: 8px 12px;
-  border-radius: 5px;
+  padding: 10px 14px;
+  border-radius: 6px;
   box-shadow: 0 2px 8px rgba(234, 179, 8, 0.22);
-  margin: 2px 0;
+  margin: 4px 0;
   text-align: left;
   flex-shrink: 0;
 }
 
 .highlighter-label {
-  font-size: 8px;
+  font-size: 8.5px;
   font-weight: 900;
   letter-spacing: 0.9px;
   color: #854D0E;
   text-transform: uppercase;
-  margin-bottom: 2px;
+  margin-bottom: 3px;
   font-family: 'Merriweather', Georgia, serif;
   display: flex;
   align-items: center;
@@ -1937,17 +1936,17 @@ header {
 
 .highlighter-text {
   font-family: 'Merriweather', 'Playfair Display', Georgia, serif;
-  font-size: 11.8px;
+  font-size: 12.5px;
   font-weight: 800;
   color: #0F172A;
-  line-height: 1.38;
+  line-height: 1.45;
   display: block;
 }
 
 .receipt-p3 {
   font-family: 'Merriweather', Georgia, 'Times New Roman', serif;
-  font-size: 10.8px;
-  line-height: 1.44;
+  font-size: 11.8px;
+  line-height: 1.5;
   color: #334155;
   margin: 0;
   text-align: left;

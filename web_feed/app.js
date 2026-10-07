@@ -2414,15 +2414,18 @@ async function capturePostSlidesAsFiles(post, index) {
     throw new Error('html2canvas library is not loaded');
   }
 
-  // Create isolated offscreen container matching 4:5 social ratio (540x675)
+  // Exact 4:5 social ratio (440x550) matching the web app feed card dimensions
+  const exportWidth = 440;
+  const exportHeight = 550;
+
   const container = document.createElement('div');
   container.className = 'poster-export-sandbox';
   container.style.cssText = `
     position: fixed !important;
     left: -9999px !important;
     top: 0 !important;
-    width: 540px !important;
-    height: 675px !important;
+    width: ${exportWidth}px !important;
+    height: ${exportHeight}px !important;
     overflow: hidden !important;
     z-index: -9999 !important;
     background: #0B0F17 !important;
@@ -2444,7 +2447,7 @@ async function capturePostSlidesAsFiles(post, index) {
 
   for (const cfg of slideConfigs) {
     container.innerHTML = `
-      <div class="carousel-slide ${cfg.class}" style="width: 540px !important; height: 675px !important; position: relative !important; left: 0 !important; top: 0 !important; transform: none !important; flex: none !important; display: flex !important;">
+      <div class="carousel-slide ${cfg.class}" style="width: ${exportWidth}px !important; height: ${exportHeight}px !important; position: relative !important; left: 0 !important; top: 0 !important; transform: none !important; flex: none !important; display: flex !important;">
         ${cfg.html}
       </div>
     `;
@@ -2456,34 +2459,74 @@ async function capturePostSlidesAsFiles(post, index) {
       return new Promise(res => {
         img.onload = res;
         img.onerror = res;
-        setTimeout(res, 600);
+        setTimeout(res, 700);
       });
     }));
 
+    // CRITICAL: html2canvas does not support CSS object-fit: cover, which causes human faces
+    // and backgrounds to be vertically stretched/squashed! We calculate the exact un-stretched
+    // dimensions and offsets based on natural aspect ratio to guarantee 100% natural proportions.
+    const bgImgs = container.querySelectorAll('.slide-hook-bg');
+    bgImgs.forEach(img => {
+      const natW = img.naturalWidth || img.width;
+      const natH = img.naturalHeight || img.height;
+      if (natW > 0 && natH > 0) {
+        const rImg = natW / natH;
+        const rBox = exportWidth / exportHeight; // 440 / 550 = 0.8
+        if (rImg >= rBox) {
+          // Image is wider than 4:5 (e.g. 1:1 square or 16:9 landscape)
+          const rw = Math.round(exportHeight * rImg);
+          const rh = exportHeight;
+          const left = Math.round((exportWidth - rw) / 2);
+          img.style.setProperty('position', 'absolute', 'important');
+          img.style.setProperty('width', rw + 'px', 'important');
+          img.style.setProperty('height', rh + 'px', 'important');
+          img.style.setProperty('left', left + 'px', 'important');
+          img.style.setProperty('top', '0px', 'important');
+          img.style.setProperty('max-width', 'none', 'important');
+          img.style.setProperty('max-height', 'none', 'important');
+          img.style.setProperty('object-fit', 'fill', 'important');
+        } else {
+          // Image is taller than 4:5 (e.g. 9:16 portrait)
+          const rw = exportWidth;
+          const rh = Math.round(exportWidth / rImg);
+          const top = Math.round((exportHeight - rh) / 2);
+          img.style.setProperty('position', 'absolute', 'important');
+          img.style.setProperty('width', rw + 'px', 'important');
+          img.style.setProperty('height', rh + 'px', 'important');
+          img.style.setProperty('left', '0px', 'important');
+          img.style.setProperty('top', top + 'px', 'important');
+          img.style.setProperty('max-width', 'none', 'important');
+          img.style.setProperty('max-height', 'none', 'important');
+          img.style.setProperty('object-fit', 'fill', 'important');
+        }
+      }
+    });
+
     // Micro-delay for fonts and styles to paint
-    await new Promise(r => setTimeout(r, 70));
+    await new Promise(r => setTimeout(r, 80));
 
     let canvas;
     try {
       canvas = await html2canvas(container, {
-        scale: 2, // 1080x1350 ultra-sharp export
+        scale: 2.4545, // 440 * 2.4545 = 1080, 550 * 2.4545 = 1350 (Ultra HD 1080x1350)
         useCORS: true,
         allowTaint: true,
         backgroundColor: cfg.bg,
         logging: false,
-        width: 540,
-        height: 675
+        width: exportWidth,
+        height: exportHeight
       });
     } catch (renderErr) {
       console.warn('html2canvas primary render failed, retrying without taint:', renderErr);
       canvas = await html2canvas(container, {
-        scale: 2,
+        scale: 2.4545,
         useCORS: true,
         allowTaint: false,
         backgroundColor: cfg.bg,
         logging: false,
-        width: 540,
-        height: 675
+        width: exportWidth,
+        height: exportHeight
       });
     }
 
