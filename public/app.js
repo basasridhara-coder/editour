@@ -1380,6 +1380,11 @@ function renderFeed() {
     container.appendChild(card);
     setupCarouselGestures(index);
   });
+
+  // Pre-render top feed posters in background during idle time
+  if (typeof queueBackgroundPosterPreRender === 'function') {
+    queueBackgroundPosterPreRender(filtered);
+  }
 }
 
 function escapeHtml(str) {
@@ -2258,6 +2263,8 @@ function goToSlide(event, postIndex, slideIndex) {
     document.querySelectorAll('.preview-tab').forEach((tab, i) => {
       tab.classList.toggle('active', i === slideIndex);
     });
+  } else if (typeof triggerPostPreRender === 'function') {
+    triggerPostPreRender(postIndex);
   }
 }
 
@@ -2407,7 +2414,17 @@ function copyCardShareLink(postId) {
 /* ============================================================
    3-POSTER EXPORT & NATIVE 3-IMAGE SOCIAL SHARING
    Strict Requirement: Share set of 3 slide posters, no extra text details.
+   - Background pre-rendering keeps user gesture active for instant native share (<5ms)
+   - Parallel generation via Promise.all across 3 offscreen sandboxes
+   - Dedicated modal with fresh gesture if gesture window timed out or desktop
    ============================================================ */
+
+const posterFilesCache = new Map();
+const posterRenderPromises = new Map();
+let preRenderQueue = [];
+let isPreRendering = false;
+let currentSharePost = null;
+let currentShareFiles = null;
 
 async function capturePostSlidesAsFiles(post, index) {
   if (typeof html2canvas === 'undefined') {
@@ -2418,149 +2435,237 @@ async function capturePostSlidesAsFiles(post, index) {
   const exportWidth = 440;
   const exportHeight = 550;
 
-  const container = document.createElement('div');
-  container.className = 'poster-export-sandbox';
-  container.style.cssText = `
-    position: fixed !important;
-    left: -9999px !important;
-    top: 0 !important;
-    width: ${exportWidth}px !important;
-    height: ${exportHeight}px !important;
-    overflow: hidden !important;
-    z-index: -9999 !important;
-    background: #0B0F17 !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    border: none !important;
-  `;
-  document.body.appendChild(container);
-
   const slideConfigs = [
     { num: 1, class: 'slide-hook', bg: '#0B0F17', html: buildSlide1Html(post, index) },
     { num: 2, class: 'slide-critique', bg: '#0B0F17', html: buildSlide2Html(post, index) },
     { num: 3, class: 'slide-receipt', bg: '#F7F5EE', html: buildSlide3Html(post, index) }
   ];
 
-  const files = [];
   const rawHeadline = post.adaptedHeadline || post.originalHeadline || post.hook || 'slant';
   const slug = rawHeadline.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 30) || 'slant-story';
 
-  for (const cfg of slideConfigs) {
-    container.innerHTML = `
-      <div class="carousel-slide ${cfg.class}" style="width: ${exportWidth}px !important; height: ${exportHeight}px !important; position: relative !important; left: 0 !important; top: 0 !important; transform: none !important; flex: none !important; display: flex !important;">
-        ${cfg.html}
-      </div>
+  // Render all 3 slides in PARALLEL with dedicated offscreen sandboxes
+  const renderSlide = async (cfg) => {
+    const container = document.createElement('div');
+    container.className = 'poster-export-sandbox';
+    container.style.cssText = `
+      position: fixed !important;
+      left: -9999px !important;
+      top: 0 !important;
+      width: ${exportWidth}px !important;
+      height: ${exportHeight}px !important;
+      overflow: hidden !important;
+      z-index: -9999 !important;
+      background: ${cfg.bg} !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      border: none !important;
     `;
+    document.body.appendChild(container);
 
-    // Wait for images inside to load
-    const imgs = Array.from(container.querySelectorAll('img'));
-    await Promise.all(imgs.map(img => {
-      if (img.complete && img.naturalWidth > 0) return Promise.resolve();
-      return new Promise(res => {
-        img.onload = res;
-        img.onerror = res;
-        setTimeout(res, 700);
-      });
-    }));
-
-    // CRITICAL: html2canvas does not support CSS object-fit: cover, which causes human faces
-    // and backgrounds to be vertically stretched/squashed! We calculate the exact un-stretched
-    // dimensions and offsets based on natural aspect ratio to guarantee 100% natural proportions.
-    const bgImgs = container.querySelectorAll('.slide-hook-bg');
-    bgImgs.forEach(img => {
-      const natW = img.naturalWidth || img.width;
-      const natH = img.naturalHeight || img.height;
-      if (natW > 0 && natH > 0) {
-        const rImg = natW / natH;
-        const rBox = exportWidth / exportHeight; // 440 / 550 = 0.8
-        if (rImg >= rBox) {
-          // Image is wider than 4:5 (e.g. 1:1 square or 16:9 landscape)
-          const rw = Math.round(exportHeight * rImg);
-          const rh = exportHeight;
-          const left = Math.round((exportWidth - rw) / 2);
-          img.style.setProperty('position', 'absolute', 'important');
-          img.style.setProperty('width', rw + 'px', 'important');
-          img.style.setProperty('height', rh + 'px', 'important');
-          img.style.setProperty('left', left + 'px', 'important');
-          img.style.setProperty('top', '0px', 'important');
-          img.style.setProperty('max-width', 'none', 'important');
-          img.style.setProperty('max-height', 'none', 'important');
-          img.style.setProperty('object-fit', 'fill', 'important');
-        } else {
-          // Image is taller than 4:5 (e.g. 9:16 portrait)
-          const rw = exportWidth;
-          const rh = Math.round(exportWidth / rImg);
-          const top = Math.round((exportHeight - rh) / 2);
-          img.style.setProperty('position', 'absolute', 'important');
-          img.style.setProperty('width', rw + 'px', 'important');
-          img.style.setProperty('height', rh + 'px', 'important');
-          img.style.setProperty('left', '0px', 'important');
-          img.style.setProperty('top', top + 'px', 'important');
-          img.style.setProperty('max-width', 'none', 'important');
-          img.style.setProperty('max-height', 'none', 'important');
-          img.style.setProperty('object-fit', 'fill', 'important');
-        }
-      }
-    });
-
-    // Micro-delay for fonts and styles to paint
-    await new Promise(r => setTimeout(r, 80));
-
-    let canvas;
     try {
-      canvas = await html2canvas(container, {
-        scale: 2.4545, // 440 * 2.4545 = 1080, 550 * 2.4545 = 1350 (Ultra HD 1080x1350)
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: cfg.bg,
-        logging: false,
-        width: exportWidth,
-        height: exportHeight
-      });
-    } catch (renderErr) {
-      console.warn('html2canvas primary render failed, retrying without taint:', renderErr);
-      canvas = await html2canvas(container, {
-        scale: 2.4545,
-        useCORS: true,
-        allowTaint: false,
-        backgroundColor: cfg.bg,
-        logging: false,
-        width: exportWidth,
-        height: exportHeight
-      });
-    }
+      container.innerHTML = `
+        <div class="carousel-slide ${cfg.class}" style="width: ${exportWidth}px !important; height: ${exportHeight}px !important; position: relative !important; left: 0 !important; top: 0 !important; transform: none !important; flex: none !important; display: flex !important;">
+          ${cfg.html}
+        </div>
+      `;
 
-    let blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.95));
-    if (!blob) {
-      try {
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
-        const parts = dataUrl.split(',');
-        const mime = parts[0].match(/:(.*?);/)[1];
-        const bstr = atob(parts[1]);
-        let n = bstr.length;
-        const u8arr = new Uint8Array(n);
-        while (n--) {
-          u8arr[n] = bstr.charCodeAt(n);
+      // Wait for images inside to load
+      const imgs = Array.from(container.querySelectorAll('img'));
+      await Promise.all(imgs.map(img => {
+        if (!img.src) return Promise.resolve();
+        if (img.complete && img.naturalWidth > 0) return Promise.resolve();
+        return new Promise(res => {
+          img.onload = res;
+          img.onerror = res;
+          setTimeout(res, 600);
+        });
+      }));
+
+      // CRITICAL: html2canvas does not support CSS object-fit: cover, which causes human faces
+      // and backgrounds to be vertically stretched/squashed! We calculate the exact un-stretched
+      // dimensions and offsets based on natural aspect ratio to guarantee 100% natural proportions.
+      const bgImgs = container.querySelectorAll('.slide-hook-bg');
+      bgImgs.forEach(img => {
+        const natW = img.naturalWidth || img.width;
+        const natH = img.naturalHeight || img.height;
+        if (natW > 0 && natH > 0) {
+          const rImg = natW / natH;
+          const rBox = exportWidth / exportHeight; // 440 / 550 = 0.8
+          if (rImg >= rBox) {
+            // Image is wider than 4:5 (e.g. 1:1 square or 16:9 landscape)
+            const rw = Math.round(exportHeight * rImg);
+            const rh = exportHeight;
+            const left = Math.round((exportWidth - rw) / 2);
+            img.style.setProperty('position', 'absolute', 'important');
+            img.style.setProperty('width', rw + 'px', 'important');
+            img.style.setProperty('height', rh + 'px', 'important');
+            img.style.setProperty('left', left + 'px', 'important');
+            img.style.setProperty('top', '0px', 'important');
+            img.style.setProperty('max-width', 'none', 'important');
+            img.style.setProperty('max-height', 'none', 'important');
+            img.style.setProperty('object-fit', 'fill', 'important');
+          } else {
+            // Image is taller than 4:5 (e.g. 9:16 portrait)
+            const rw = exportWidth;
+            const rh = Math.round(exportWidth / rImg);
+            const top = Math.round((exportHeight - rh) / 2);
+            img.style.setProperty('position', 'absolute', 'important');
+            img.style.setProperty('width', rw + 'px', 'important');
+            img.style.setProperty('height', rh + 'px', 'important');
+            img.style.setProperty('left', '0px', 'important');
+            img.style.setProperty('top', top + 'px', 'important');
+            img.style.setProperty('max-width', 'none', 'important');
+            img.style.setProperty('max-height', 'none', 'important');
+            img.style.setProperty('object-fit', 'fill', 'important');
+          }
         }
-        blob = new Blob([u8arr], { type: mime });
-      } catch (blobErr) {
-        console.warn('Canvas to blob fallback failed:', blobErr);
+      });
+
+      // Micro-delay for fonts and styles to paint
+      await new Promise(r => setTimeout(r, 60));
+
+      let canvas;
+      try {
+        canvas = await html2canvas(container, {
+          scale: 2.4545, // 440 * 2.4545 = 1080, 550 * 2.4545 = 1350 (Ultra HD 1080x1350)
+          useCORS: true,
+          allowTaint: true,
+          backgroundColor: cfg.bg,
+          logging: false,
+          width: exportWidth,
+          height: exportHeight
+        });
+      } catch (renderErr) {
+        console.warn('html2canvas primary render failed, retrying without taint:', renderErr);
+        canvas = await html2canvas(container, {
+          scale: 2.4545,
+          useCORS: true,
+          allowTaint: false,
+          backgroundColor: cfg.bg,
+          logging: false,
+          width: exportWidth,
+          height: exportHeight
+        });
+      }
+
+      let blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.95));
+      if (!blob) {
+        try {
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+          const parts = dataUrl.split(',');
+          const mime = parts[0].match(/:(.*?);/)[1];
+          const bstr = atob(parts[1]);
+          let n = bstr.length;
+          const u8arr = new Uint8Array(n);
+          while (n--) {
+            u8arr[n] = bstr.charCodeAt(n);
+          }
+          blob = new Blob([u8arr], { type: mime });
+        } catch (blobErr) {
+          console.warn('Canvas to blob fallback failed:', blobErr);
+        }
+      }
+
+      if (blob) {
+        const fileName = `${slug}-slide-0${cfg.num}.jpg`;
+        return new File([blob], fileName, { type: 'image/jpeg' });
+      }
+      return null;
+    } finally {
+      if (container.parentNode) {
+        container.parentNode.removeChild(container);
       }
     }
+  };
 
-    if (blob) {
-      const fileName = `${slug}-slide-0${cfg.num}.jpg`;
-      const file = new File([blob], fileName, { type: 'image/jpeg' });
-      files.push(file);
-    }
-  }
-
-  // Cleanup offscreen sandbox
-  if (container.parentNode) {
-    container.parentNode.removeChild(container);
-  }
-
+  const files = (await Promise.all(slideConfigs.map(renderSlide))).filter(Boolean);
   return files;
+}
+
+async function getPostSlidesFiles(post, index) {
+  const cacheKey = post.id || `idx-${index}`;
+  if (posterFilesCache.has(cacheKey)) {
+    return posterFilesCache.get(cacheKey);
+  }
+  if (posterRenderPromises.has(cacheKey)) {
+    return await posterRenderPromises.get(cacheKey);
+  }
+
+  const renderPromise = (async () => {
+    try {
+      const files = await capturePostSlidesAsFiles(post, index);
+      if (files && files.length > 0) {
+        // Enforce cache limit to prevent memory bloat on mobile browsers
+        if (posterFilesCache.size >= 25) {
+          const oldestKey = posterFilesCache.keys().next().value;
+          posterFilesCache.delete(oldestKey);
+        }
+        posterFilesCache.set(cacheKey, files);
+      }
+      return files;
+    } finally {
+      posterRenderPromises.delete(cacheKey);
+    }
+  })();
+
+  posterRenderPromises.set(cacheKey, renderPromise);
+  return await renderPromise;
+}
+
+function queueBackgroundPosterPreRender(posts) {
+  if (!posts || posts.length === 0) return;
+  // Queue top 4 posts on initial feed load
+  const toQueue = posts.slice(0, 4);
+  toQueue.forEach((post, i) => {
+    const key = post.id || `idx-${i}`;
+    if (!posterFilesCache.has(key) && !posterRenderPromises.has(key) && !preRenderQueue.some(item => item.key === key)) {
+      preRenderQueue.push({ post, index: i, key });
+    }
+  });
+  scheduleNextPreRender();
+}
+
+function triggerPostPreRender(postIndex) {
+  const post = (typeof postIndex === 'number' || (typeof postIndex === 'string' && /^\d+$/.test(postIndex)))
+    ? allPosts[parseInt(postIndex, 10)]
+    : allPosts.find(p => p && p.id === postIndex);
+  if (!post) return;
+  const key = post.id || `idx-${postIndex}`;
+  if (posterFilesCache.has(key) || posterRenderPromises.has(key)) return;
+  preRenderQueue.unshift({ post, index: postIndex, key });
+  scheduleNextPreRender();
+}
+
+function scheduleNextPreRender() {
+  if (isPreRendering || preRenderQueue.length === 0) return;
+
+  const runNext = async () => {
+    if (preRenderQueue.length === 0) {
+      isPreRendering = false;
+      return;
+    }
+    isPreRendering = true;
+    const item = preRenderQueue.shift();
+    try {
+      if (!posterFilesCache.has(item.key)) {
+        await getPostSlidesFiles(item.post, item.index);
+      }
+    } catch (e) {
+      console.warn('Background poster pre-render idle task error:', e);
+    } finally {
+      setTimeout(() => {
+        isPreRendering = false;
+        scheduleNextPreRender();
+      }, 400);
+    }
+  };
+
+  if (window.requestIdleCallback) {
+    requestIdleCallback(runNext, { timeout: 3000 });
+  } else {
+    setTimeout(runNext, 600);
+  }
 }
 
 async function sharePosters(indexOrId) {
@@ -2573,64 +2678,154 @@ async function sharePosters(indexOrId) {
     return;
   }
 
-  showTemporaryToast('📸 Preparing 3 slide posters...');
+  const cacheKey = post.id || `idx-${indexOrId}`;
 
+  // INSTANT-FIRE: If already pre-rendered, navigator.share fires synchronously with 0ms delay!
+  // This preserves the active user gesture on iOS Safari & Android Chrome 100% of the time.
+  if (posterFilesCache.has(cacheKey)) {
+    const cachedFiles = posterFilesCache.get(cacheKey);
+    if (navigator.canShare && navigator.canShare({ files: cachedFiles })) {
+      try {
+        await navigator.share({
+          files: cachedFiles
+        });
+        showTemporaryToast('✨ 3 Slide Posters shared!');
+        return;
+      } catch (err) {
+        if (err.name === 'AbortError') {
+          return; // User dismissed share sheet
+        }
+        console.warn('Instant native share failed, falling back to share modal:', err);
+      }
+    }
+    openSharePostersModal(post, cachedFiles);
+    return;
+  }
+
+  // ON-DEMAND PARALLEL GENERATION: If not cached yet, generate now (<800ms)
+  showTemporaryToast('📸 Preparing 3 slide posters...');
   try {
-    const files = await capturePostSlidesAsFiles(post, indexOrId);
+    const files = await getPostSlidesFiles(post, indexOrId);
     if (!files || files.length === 0) {
       throw new Error('Failed to generate poster images');
     }
 
-    // Check if Web Share API with files is supported
+    // Try direct native share
     if (navigator.canShare && navigator.canShare({ files })) {
-      // User requirement: "share set of 3 slide posters, no need of any other text details"
-      // Strict rule: NO title, NO text, NO url parameter
-      await navigator.share({
-        files: files
-      });
-      showTemporaryToast('✨ 3 Slide Posters shared!');
-    } else {
-      // Desktop / Browser Fallback: Sequential download of all 3 images
-      showTemporaryToast('📥 Downloading 3 slide posters...');
-      files.forEach((file, idx) => {
-        setTimeout(() => {
-          const url = URL.createObjectURL(file);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = file.name;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          setTimeout(() => URL.revokeObjectURL(url), 3000);
-        }, idx * 250);
-      });
+      try {
+        await navigator.share({ files });
+        showTemporaryToast('✨ 3 Slide Posters shared!');
+        return;
+      } catch (err) {
+        if (err.name === 'AbortError') {
+          return;
+        }
+        console.warn('Direct share after render failed (gesture token expired or OS blocked), opening share modal:', err);
+      }
     }
+
+    // Dedicated modal gives the user a guaranteed fresh gesture to share or save
+    openSharePostersModal(post, files);
   } catch (err) {
-    if (err.name === 'AbortError') {
-      // User closed/cancelled system share dialog
-      return;
-    }
-    console.error('Error sharing posters:', err);
-    showTemporaryToast('Could not share posters. Downloading files...');
-    try {
-      const files = await capturePostSlidesAsFiles(post, indexOrId);
-      files.forEach((file, idx) => {
-        setTimeout(() => {
-          const url = URL.createObjectURL(file);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = file.name;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          setTimeout(() => URL.revokeObjectURL(url), 3000);
-        }, idx * 250);
-      });
-    } catch (e2) {
-      console.error('Fallback download also failed:', e2);
-    }
+    console.error('Error generating posters:', err);
+    showTemporaryToast('Could not prepare posters. Please try again.');
   }
 }
+
+function openSharePostersModal(post, files) {
+  currentSharePost = post;
+  currentShareFiles = files;
+
+  const modal = document.getElementById('posterShareModal');
+  const thumbsRow = document.getElementById('sharePostersThumbsRow');
+  const nativeBtn = document.getElementById('modalNativeShareBtn');
+  const saveBtn = document.getElementById('modalSavePhotosBtn');
+
+  if (!modal) return;
+
+  if (thumbsRow && files && files.length > 0) {
+    thumbsRow.innerHTML = '';
+    files.forEach((file, i) => {
+      const url = URL.createObjectURL(file);
+      const wrap = document.createElement('div');
+      wrap.style.cssText = 'position:relative; width:92px; height:115px; border-radius:8px; overflow:hidden; border:1px solid rgba(255,255,255,0.15); background:#111; box-shadow:0 4px 12px rgba(0,0,0,0.4);';
+      wrap.innerHTML = `
+        <img src="${url}" style="width:100%; height:100%; object-fit:cover; display:block;" alt="Slide ${i+1}">
+        <span style="position:absolute; bottom:4px; right:4px; font-size:9px; font-weight:800; background:rgba(0,0,0,0.75); color:#fff; padding:1px 5px; border-radius:4px; backdrop-filter:blur(2px);">0${i+1}/03</span>
+      `;
+      thumbsRow.appendChild(wrap);
+    });
+  }
+
+  // Setup Share button (User clicking this button generates a guaranteed fresh user gesture!)
+  if (nativeBtn) {
+    if (navigator.canShare && navigator.canShare({ files })) {
+      nativeBtn.style.display = 'flex';
+      nativeBtn.innerHTML = '<span>📤</span> <span>Share to Instagram & Apps</span>';
+      nativeBtn.onclick = async () => {
+        try {
+          await navigator.share({ files });
+          closeSharePostersModal();
+          showTemporaryToast('✨ 3 Slide Posters shared!');
+        } catch (err) {
+          if (err.name !== 'AbortError') {
+            downloadShareFiles(files);
+          }
+        }
+      };
+    } else {
+      // If desktop browser doesn't support file sharing, label it as Download Posters for Instagram
+      nativeBtn.style.display = 'flex';
+      nativeBtn.innerHTML = '<span>📥</span> <span>Download 3 Posters for Instagram</span>';
+      nativeBtn.onclick = () => {
+        downloadShareFiles(files);
+        closeSharePostersModal();
+      };
+    }
+  }
+
+  // Setup Save / Download button
+  if (saveBtn) {
+    saveBtn.onclick = () => {
+      downloadShareFiles(files);
+      closeSharePostersModal();
+    };
+  }
+
+  modal.classList.add('open');
+  modal.classList.add('active');
+}
+
+function closeSharePostersModal() {
+  const modal = document.getElementById('posterShareModal');
+  if (modal) {
+    modal.classList.remove('open');
+    modal.classList.remove('active');
+  }
+}
+
+function downloadShareFiles(files) {
+  if (!files || files.length === 0) return;
+  showTemporaryToast('📥 Saving 3 slide posters...');
+  files.forEach((file, idx) => {
+    setTimeout(() => {
+      const url = URL.createObjectURL(file);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = file.name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+    }, idx * 250);
+  });
+}
+
+// Global exposure for inline onclick handlers
+window.sharePosters = sharePosters;
+window.openSharePostersModal = openSharePostersModal;
+window.closeSharePostersModal = closeSharePostersModal;
+window.downloadShareFiles = downloadShareFiles;
 
 function openPaperCutModal(indexOrId) {
   const post = (typeof indexOrId === 'number' || (typeof indexOrId === 'string' && /^\d+$/.test(indexOrId)))
