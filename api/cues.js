@@ -5,7 +5,7 @@
 
 const DEFAULT_KEY_B64 = 'QVEuQWI4Uk42STR5WnQzMEl6NGpLRkQ2SndaYVlSeThQYlVtWXpDYUNuMzU3alIyUU9KbFE=';
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || Buffer.from(DEFAULT_KEY_B64, 'base64').toString('utf8');
-const GEMINI_MODEL = 'gemini-3.8-flash';
+const GEMINI_MODEL = 'gemini-3.5-flash-lite';
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -127,8 +127,7 @@ Respond strictly with valid JSON with this exact schema:
         generationConfig: {
           temperature: 0.4,
           maxOutputTokens: 2048,
-          responseMimeType: 'application/json',
-          thinkingConfig: { thinkingBudget: 0 }
+          responseMimeType: 'application/json'
         }
       })
     });

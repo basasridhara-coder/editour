@@ -4,7 +4,7 @@
 
 const DEFAULT_KEY_B64 = 'QVEuQWI4Uk42STR5WnQzMEl6NGpLRkQ2SndaYVlSeThQYlVtWXpDYUNuMzU3alIyUU9KbFE=';
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || Buffer.from(DEFAULT_KEY_B64, 'base64').toString('utf8');
-const GEMINI_MODEL = 'gemini-3.8-flash';
+const GEMINI_MODEL = 'gemini-3.5-flash-lite';
 
 module.exports = async function handler(req, res) {
   // CORS configuration
@@ -204,13 +204,16 @@ ${sourceType === 'inner_voice' ? `CRITICAL INNER VOICE & LIVED EXPERIENCE DIRECT
   * The Hook sentence must capture the excitement and relatable rush of preparing for the journey.
 - IN POSTER 2 ("THE CRITICAL PERSPECTIVE" / curatorTake):
   * Ground the conviction directly in their specific context (Kerala, the trip, the son's reminder, closing pending tasks, the relief of the break).
-  * Exactly 2 complete sentences (22–35 words total, ending with a period): celebrate that while work demands never stop multiplying, the countdown to being present with the people you love is what gives work its meaning.
+  * STRICT BAN: NEVER echo the user's raw input slant verbatim! You MUST synthesize an articulate, elevated 2-sentence editorial conviction (EXACTLY 2 complete sentences, 22–35 words total, ending definitively with a period) that refines their thoughts into an inspiring insight.
   * In "keyTakeaways", give 3 sharp, uplifting insights about breaking away, presence over perfection, and why the destination makes the frantic packing worth it.
 - IN POSTER 3 ("THE RECEIPTS & CORE CONVICTION" / resolvedArticleExcerpts):
-  * Deliver 3 substantive, evocative narrative paragraphs (each 28–45 words, 2–3 full sentences):
+  * Deliver exactly 3 substantive, evocative broadsheet narrative paragraphs (each 28–45 words, 2–3 full sentences):
     1. Paragraph 1 (Scene & Catalyst): Ground the situation in sensory detail around the spark ("${spark}")—the open suitcases, packing lists, children holding forgotten travel items, and the rush to close remaining tasks.
     2. Paragraph 2 (The Turning Point): The joyful realization when you realize work will never be 100% finished, but vacation countdown waits for no one.
     3. Paragraph 3 (The Lasting Truth): A deep, warm closing reflection on Kerala's tranquil backwaters, green hills, and why presence with family is the greatest luxury.
+  * STRICT BAN: NEVER prefix paragraphs with labels like "The spark:", "Curator stance:", "Paragraph 1:", or bullet points! Output pure, narrative broadsheet text.
+- IN "originalHeadline":
+  * Set to the spark statement or a refined 6–12 word hook of the spark (e.g. "When a forgotten packing item breaks the work trance and signals the escape"). NEVER set to the raw user slant.
 - IN "illustrationPrompt":
   * Describe a warm, colorful, sunny scene of real people packing or getting ready, with smiling illuminated faces, colorful room, suitcase, tropical palms visible through window, warm golden light.
   * Explicitly instruct: "Realistic people with clearly visible smiling faces, warm daylight, vibrant colors, Kerala palm trees, cheerful atmosphere, highly detailed, no silhouettes, no dark shadows, no faceless figures, no text".` : (userSlant ? (refineCoreTake ? `MANDATORY REFINEMENT DIRECTIVE (NEVER ECHO VERBATIM):
@@ -224,7 +227,7 @@ ${cues && cues.length > 0 ? `CRITICAL VISUAL RULE: The Hook poster artwork and c
 Respond strictly with valid JSON with this exact structure:
 {
   "adaptedHeadline": "5-10 word bold, memorable editorial headline",
-  "originalHeadline": "Original title or subject",
+  "originalHeadline": "Original title or subject (or spark hook if Inner Voice)",
   "publicationName": "${pubName || (sourceType === 'inner_voice' ? 'Inner Voice' : 'Curated Press')}",
   "categoryBadge": "UPPERCASE CATEGORY (e.g. DEEP TECH, CULTURE, OPINION, CLIMATE, ECONOMY, HEALTH)",
   "hook": "1-2 sentence gripping hook that stops the reader mid-scroll",
@@ -238,9 +241,9 @@ Respond strictly with valid JSON with this exact structure:
   ],
   "receiptHighlightQuote": "Single poignant quote or core conviction sentence (18-30 words)",
   "resolvedArticleExcerpts": [
-    "Paragraph 1: Grounded sensory scene-setting around catalyst (28-45 words, 2-3 sentences)",
-    "Paragraph 2: Turning point conviction statement (20-35 words, 1-2 punchy sentences)",
-    "Paragraph 3: Reflective closing thought on presence and priorities (28-45 words, 2-3 sentences)"
+    "Sensory scene-setting around catalyst (28-45 words, 2-3 full sentences, no labels)",
+    "Turning point conviction statement (25-40 words, 2-3 full sentences, no labels)",
+    "Reflective closing thought on presence and priorities (28-45 words, 2-3 full sentences, no labels)"
   ],
   "keyMetric": "Short impactful stat or metric (e.g. +42%, 1,072 Trees, 10x, 99.8% - or leave empty if none)",
   "visualMood": "Short aesthetic phrase (e.g. High-Contrast Editorial Risograph, Velvet Obsidian Chiaroscuro)",
@@ -330,8 +333,7 @@ Respond strictly with valid JSON with this exact structure:
             generationConfig: {
               responseMimeType: 'application/json',
               temperature: 0.7,
-              maxOutputTokens: 1000,
-              thinkingConfig: { thinkingBudget: 0 }
+              maxOutputTokens: 1500
             }
           })
         });
@@ -411,6 +413,9 @@ Respond strictly with valid JSON with this exact structure:
       ? parsed.curatorTake.trim()
       : (userSlant || parsed.whyItMatters || 'Strategic structural shift in motion.');
 
+    const rawExcerpts = Array.isArray(parsed.resolvedArticleExcerpts) ? parsed.resolvedArticleExcerpts : [];
+    const cleanedExcerpts = rawExcerpts.map(e => String(e).replace(/^(the spark|curator stance|paragraph \d+)\s*:\s*["']?/i, '').replace(/["']?$/i, '').trim());
+
     const id = 'slant-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7);
     const postItem = {
       id,
@@ -419,7 +424,7 @@ Respond strictly with valid JSON with this exact structure:
       digitalLink: url || '',
       publicationName: parsed.publicationName || pubName || (sourceType === 'inner_voice' ? 'Inner Voice' : 'Curated Press'),
       adaptedHeadline: parsed.adaptedHeadline || 'Perspectives in Flux',
-      originalHeadline: parsed.originalHeadline || extractedTitle || parsed.adaptedHeadline,
+      originalHeadline: (sourceType === 'inner_voice' && spark) ? (parsed.originalHeadline || spark) : (parsed.originalHeadline || extractedTitle || parsed.adaptedHeadline),
       categoryBadge: parsed.categoryBadge || (sourceType === 'inner_voice' ? 'OPINION' : 'DISCOVERY'),
       targetAudience: targetAudience || 'General',
       hook: parsed.hook || '',
@@ -427,7 +432,7 @@ Respond strictly with valid JSON with this exact structure:
       whyItMatters: parsed.whyItMatters || '',
       keyTakeaways: Array.isArray(parsed.keyTakeaways) ? parsed.keyTakeaways : [],
       receiptHighlightQuote: parsed.receiptHighlightQuote || '',
-      resolvedArticleExcerpts: Array.isArray(parsed.resolvedArticleExcerpts) ? parsed.resolvedArticleExcerpts : [],
+      resolvedArticleExcerpts: cleanedExcerpts,
       keyMetric: parsed.keyMetric || '',
       pullQuote: parsed.receiptHighlightQuote || '',
       visualMood: parsed.visualMood || 'Editorial Chiaroscuro',
@@ -448,7 +453,8 @@ Respond strictly with valid JSON with this exact structure:
       refineCoreTake,
       vocabularyStyle: vocabularyStyle || 'punchy',
       isUserCreated: true,
-      userContext: spark || ''
+      userContext: spark || '',
+      spark: spark || ''
     };
 
     return res.status(200).json({
@@ -481,31 +487,56 @@ function generateSmartFallbackSynthesis({
     /trip|vacation|kerala|holiday|travel|family|son|daughter|kid|child|parent|pack|luggage|flight|beach|home|rest|weekend|burnout|unplug/i.test(combined);
 
   if (isPersonal) {
-    const headline = userSlant && userSlant.length > 5
-      ? userSlant.split(/[.:;!?,\n]/)[0].trim()
-      : 'The Discipline of Choosing Presence';
+    let headline = 'The Discipline of Choosing Presence';
+    if (combined.includes('kerala')) {
+      headline = 'Trading Pending Tabs for Kerala Sun';
+    } else if (/beach|ocean|coast/i.test(combined)) {
+      headline = 'The Art of Finally Switching Off';
+    } else if (/mountain|hill|hike|trek/i.test(combined)) {
+      headline = 'Leaving the Noise for Higher Ground';
+    } else if (/family|kid|son|daughter|parent/i.test(combined)) {
+      headline = 'When Life Refuses to Wait for an Empty Inbox';
+    }
 
-    const hero = (cues && cues[0]) || (combined.includes('kerala') ? 'Traveler Packing Suitcase with Kerala Ticket' : 'Parent Closing Laptop While Packing Suitcase');
+    const hero = (cues && cues[0]) || (combined.includes('kerala') ? 'Parent Closing Laptop Beside Packed Suitcases' : 'Traveler Packing Suitcase with Boarding Pass');
     const motif = (cues && cues[1]) || (spark ? 'Child Holding Forgotten Travel Item' : 'Open Suitcase & Glowing Laptop Screen');
-    const tension = (cues && cues[2]) || 'The Friction Between Unfinished Work and Needed Rest';
-    const atmosphere = (cues && cues[3]) || (combined.includes('kerala') ? 'Cluttered Study Transitioning to Kerala Palms' : 'Quiet Evening Room with Open Luggage');
+    const tension = (cues && cues[2]) || 'The Friction Between Unfinished Tasks and Needed Rest';
+    const atmosphere = (cues && cues[3]) || (combined.includes('kerala') ? 'Sunlit Study Transitioning to Tropical Kerala Palms' : 'Quiet Evening Room with Open Luggage');
     const lighting = (cues && cues[4]) || 'Warm Golden Evening Lamp clashing with Monitor Glow';
     const style = (cues && cues[5]) || 'Cinematic Warm Editorial Illustration';
 
-    const cleanTake = userSlant ? userSlant.replace(/[.]+$/, '').trim() : 'We treat rest as something we must endlessly earn';
-    const refinedTake = `${cleanTake}. True restoration only begins when you accept that work will never be finished, but presence cannot wait.`;
+    let refinedTake = '';
+    if (refineCoreTake) {
+      if (combined.includes('kerala') || combined.includes('trip') || combined.includes('vacation')) {
+        refinedTake = 'The illusion of closing every open loop before a journey only drains the energy the escape was meant to restore. True presence begins the moment you close the laptop and let the break take over.';
+      } else {
+        refinedTake = 'We convince ourselves that peace must be earned through an empty inbox, but work will always multiply. Real restoration begins when you deliberately choose connection over endless preparation.';
+      }
+    } else {
+      refinedTake = userSlant || 'True restoration begins when you accept that work can wait, but presence cannot.';
+    }
 
     const highlightQuote = spark
-      ? `${spark}. The real journey starts the second you step away from the screen.`
-      : `${cleanTake}. Life happens outside the inbox.`;
+      ? 'A forgotten travel item breaks the work trance. The real journey begins the second you choose presence over the inbox.'
+      : 'True restoration begins the moment you close the laptop and let the adventure take over.';
+
+    const p1 = spark
+      ? `The afternoon light slants across half-zipped luggage, loose packing lists, and tangled cables. Right in the thick of clearing one final email, a child pipes up about a forgotten travel essential—instantly snapping the work trance and turning deadline tension into pure anticipation.`
+      : `The afternoon light slants across half-zipped luggage, loose packing lists, and tangled cables on the floor. In the scramble to close every pending tab, a simple domestic reminder breaks through the deadline rush and grounds the entire room in excitement.`;
+
+    const p2 = `There is a decisive threshold where you must accept that your task list will never hit zero. Stepping away is not an act of surrender; it is an intentional boundary declaring that the journey ahead matters far more than an endless queue of messages.`;
+
+    const p3 = combined.includes('kerala')
+      ? `The palm-fringed backwaters, ocean breeze, and mist-covered hills will not wait for work to quiet down. Long after the pending emails are forgotten, the shared laughter and stillness with family are all that truly endure.`
+      : `The open road, quiet horizons, and restorative silence will not wait for work to finish itself. Long after the pending emails are forgotten, the shared moments and presence with the people you love are all that truly endure.`;
 
     return {
-      adaptedHeadline: headline.length > 50 ? headline.slice(0, 47) + '...' : headline,
-      originalHeadline: userSlant || headline,
+      adaptedHeadline: headline,
+      originalHeadline: spark || headline,
       publicationName: 'Inner Voice',
       categoryBadge: 'LIFE & WORK',
       hook: `We tell ourselves we can only rest once every task is settled. But waiting for an empty inbox is a trap that turns pre-trip excitement into pure panic.`,
-      curatorTake: refineCoreTake ? refinedTake : (userSlant || refinedTake),
+      curatorTake: refinedTake,
       summary: `Every getaway begins with an exhausting sprint to tie up loose ends and clear pending messages. The closer departure gets, the heavier every open loop feels.\n\nYet a child’s sudden interruption—or a reminder of a forgotten essential—cuts through the mental clutter. It reveals that the urge to finish everything is an illusion that delays genuine presence.\n\nTrue rest isn’t a trophy earned by clearing your desk; it is an intentional boundary you must defend before burnout decides for you.`,
       whyItMatters: 'If you cannot disconnect until every task is done, you will carry your work straight into your vacation.',
       keyTakeaways: [
@@ -514,11 +545,7 @@ function generateSmartFallbackSynthesis({
         'The Discipline of Rest: Genuine restoration begins when you leave unfinished threads behind and trust they can wait.'
       ],
       receiptHighlightQuote: highlightQuote,
-      resolvedArticleExcerpts: [
-        spark ? `The spark: "${spark}"` : 'A single domestic reminder broke through the trance of urgent deadlines.',
-        userSlant ? `Curator stance: "${userSlant}"` : 'The frantic rush to finish every task often exhausts the very energy the trip was meant to replenish.',
-        'Unfinished work will always be there tomorrow, but this window to connect will not.'
-      ],
+      resolvedArticleExcerpts: [p1, p2, p3],
       keyMetric: 'Rest Over Noise',
       visualMood: 'Warm Twilight Editorial Realism',
       heroCue: hero,
@@ -577,9 +604,9 @@ function generateSmartFallbackSynthesis({
     ],
     receiptHighlightQuote: userSlant || 'The real inflection point isn’t the headline—it’s what happens when the dust settles.',
     resolvedArticleExcerpts: [
-      extractedTitle ? `Source reporting: "${extractedTitle}"` : 'Verified primary source documentation.',
-      'Key stakeholders are actively realigning operational priorities around this strategic inflection.',
-      'Historical precedence suggests this tension will redefine category standards over the coming cycle.'
+      extractedTitle ? `Primary reporting on ${extractedTitle} reveals an accelerating operational transition across key institutional operators.` : 'Primary reporting confirmed that recorded structural indicators diverged sharply from initial forecasts across core operations.',
+      'Underlying institutional disclosures and balance sheets show capital reallocation accelerating far faster than public consensus had anticipated.',
+      'Historical precedence confirms that early operational divergence inevitably forces systemic realignment before the broader regulatory cycle concludes.'
     ],
     keyMetric: 'High Impact',
     visualMood: 'Chiaroscuro Risograph Editorial',

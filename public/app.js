@@ -1508,11 +1508,25 @@ function buildSlide1Html(post, index) {
   const bgHtml = `${fallbackCoverHtml}${imgHtml}`;
 
   // Tactile Ripped Newspaper Clipping Fragment (Actual News Excerpt / Headline)
-  const rawNews = (post.originalHeadline && post.originalHeadline.trim().length > 0 && post.originalHeadline.trim() !== (post.adaptedHeadline || '').trim())
-    ? post.originalHeadline.trim()
-    : ((post.hook && post.hook.trim().length > 0 && post.hook.trim() !== headline)
-        ? post.hook.trim()
-        : '');
+  let rawNews = '';
+  if (tier === 'tier3_opinion') {
+    rawNews = (post.spark && post.spark.trim())
+      ? post.spark.trim()
+      : ((post.userContext && post.userContext.trim())
+          ? post.userContext.trim()
+          : ((post.originalHeadline && post.originalHeadline.trim() !== (post.adaptedHeadline || '').trim())
+              ? post.originalHeadline.trim()
+              : (post.hook || '')));
+  } else {
+    rawNews = (post.originalHeadline && post.originalHeadline.trim().length > 0 && post.originalHeadline.trim() !== (post.adaptedHeadline || '').trim())
+      ? post.originalHeadline.trim()
+      : ((post.hook && post.hook.trim().length > 0 && post.hook.trim() !== headline)
+          ? post.hook.trim()
+          : '');
+  }
+  if (rawNews) {
+    rawNews = rawNews.replace(/^the spark\s*:\s*["']?/i, '').replace(/["']?$/i, '').trim();
+  }
 
   let newsFragmentHtml = '';
   if (rawNews) {
@@ -1670,8 +1684,21 @@ function buildSlide3Html(post, index) {
   if (!pubName) pubName = 'THE NEW INDIAN EXPRESS';
   pubName = escapeHtml(pubName.toUpperCase());
 
-  const headline = escapeHtml(post.originalHeadline || post.adaptedHeadline || 'Original News Source');
+  const headline = escapeHtml(
+    (tier === 'tier3_opinion'
+      ? (post.adaptedHeadline || post.originalHeadline)
+      : (post.originalHeadline || post.adaptedHeadline)) || 'Original News Source'
+  );
   const quote = escapeHtml(post.receiptHighlightQuote || post.pullQuote || 'Primary reporting confirmed that recorded structural indicators diverged sharply from initial forecasts across core operations.');
+
+  // Clean any residual label prefixes like "The spark:", "Curator stance:"
+  const cleanExcerpt = (txt) => {
+    if (!txt) return '';
+    return String(txt)
+      .replace(/^(the spark|curator stance|paragraph \d+)\s*:\s*["']?/i, '')
+      .replace(/["']?$/i, '')
+      .trim();
+  };
 
   // Extract 3 section excerpt statements
   let excerpts = post.resolvedArticleExcerpts || post.articleExcerpts || [];
@@ -1681,9 +1708,9 @@ function buildSlide3Html(post, index) {
       excerpts = [...extra];
     }
   }
-  const p1 = escapeHtml((excerpts.length > 0 && excerpts[0]) ? excerpts[0] : quote);
-  const p2 = escapeHtml((excerpts.length > 1 && excerpts[1]) ? excerpts[1] : ((post.receiptHighlightQuote && post.receiptHighlightQuote !== p1) ? post.receiptHighlightQuote : quote));
-  const p3 = escapeHtml((excerpts.length > 2 && excerpts[2]) ? excerpts[2] : (post.summary && post.summary !== p1 && post.summary !== p2 ? post.summary : 'Corroborating records confirmed key indicators aligned with official administrative filings.'));
+  const p1 = escapeHtml(cleanExcerpt((excerpts.length > 0 && excerpts[0]) ? excerpts[0] : quote));
+  const p2 = escapeHtml(cleanExcerpt((excerpts.length > 1 && excerpts[1]) ? excerpts[1] : ((post.receiptHighlightQuote && post.receiptHighlightQuote !== p1) ? post.receiptHighlightQuote : quote)));
+  const p3 = escapeHtml(cleanExcerpt((excerpts.length > 2 && excerpts[2]) ? excerpts[2] : (post.summary && post.summary !== p1 && post.summary !== p2 ? post.summary : 'Corroborating records confirmed key indicators aligned with official administrative filings.')));
 
   // Tier-specific broadsheet configurations:
   let stampHtml = '';
