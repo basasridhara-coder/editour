@@ -4,7 +4,7 @@
 
 const DEFAULT_KEY_B64 = 'QVEuQWI4Uk42STR5WnQzMEl6NGpLRkQ2SndaYVlSeThQYlVtWXpDYUNuMzU3alIyUU9KbFE=';
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || Buffer.from(DEFAULT_KEY_B64, 'base64').toString('utf8');
-const GEMINI_MODEL = 'gemini-3.5-flash-lite';
+const GEMINI_MODEL = 'gemini-3.8-flash';
 
 module.exports = async function handler(req, res) {
   // CORS configuration
@@ -819,24 +819,39 @@ function extractYouTubeVideoId(url) {
   return null;
 }
 
-async function getGeminiVideoBrief(title, author) {
-  if (!title || !GEMINI_API_KEY) return '';
+async function getGeminiVideoBrief(targetUrl, title, author) {
+  if (!GEMINI_API_KEY) return '';
   try {
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${GEMINI_API_KEY}`;
-    const prompt = `You are a research journalist for an editorial publication. Provide a concise, fact-rich 3-paragraph summary and key takeaways of the YouTube video titled "${title}" by ${author || 'curator'}. Focus on the subject matter, the central announcements or arguments, key metrics, and why it matters.`;
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${GEMINI_API_KEY}`;
+    const prompt = `You are an investigative research journalist. Research and provide a comprehensive, fact-dense editorial briefing for this YouTube video: ${targetUrl || title} (${title ? `titled "${title}"` : ''} by ${author || 'creator'}).
+Extract and provide:
+1. Exact video title, host/channel name, and featured guest(s)
+2. Core thesis and comprehensive narrative summary
+3. Key quotes and primary data points/receipts
+4. Chapter breakdown or key thematic transitions`;
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 9500);
+
     const resp = await fetch(geminiUrl, {
       method: 'POST',
+      signal: controller.signal,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { maxOutputTokens: 600, temperature: 0.3 }
+        tools: [{ google_search: {} }],
+        generationConfig: { maxOutputTokens: 1000, temperature: 0.2 }
       })
     });
+    clearTimeout(timeout);
+
     if (resp.ok) {
       const data = await resp.json();
       return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
     }
-  } catch (_) {}
+  } catch (e) {
+    console.warn('Gemini video research brief in synthesize failed, falling back:', e.message);
+  }
   return '';
 }
 
@@ -854,7 +869,7 @@ async function scrapeYouTubeUrl(targetUrl, videoId) {
   let playerObj = null;
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000);
+    const timeout = setTimeout(() => controller.abort(), 4000);
     const pageResp = await fetch(targetUrl, {
       signal: controller.signal,
       headers: {
@@ -875,16 +890,24 @@ async function scrapeYouTubeUrl(targetUrl, videoId) {
     }
   } catch (_) {}
 
-  const rawTitle = playerObj?.videoDetails?.title || oembed.title || '';
-  const title = decodeHtmlEntities(rawTitle).trim();
-  const author = decodeHtmlEntities(playerObj?.videoDetails?.author || oembed.author_name || 'YouTube').trim();
+  let title = decodeHtmlEntities(playerObj?.videoDetails?.title || oembed.title || '').trim();
+  let author = decodeHtmlEntities(playerObj?.videoDetails?.author || oembed.author_name || 'YouTube').trim();
   const rawDesc = playerObj?.videoDetails?.shortDescription || '';
   let desc = decodeHtmlEntities(rawDesc).trim();
 
-  if (!desc || desc.length < 100) {
-    const brief = await getGeminiVideoBrief(title, author);
-    if (brief) {
+  // If description is missing, short, or generic, query grounded Gemini 3.8 Flash
+  if (!desc || desc.length < 150) {
+    const brief = await getGeminiVideoBrief(targetUrl, title, author);
+    if (brief && brief.length > 80) {
       desc = brief;
+      const titleMatch = brief.match(/Exact Video Title:\*?\*?\s*(.+)$/m);
+      if (titleMatch && titleMatch[1] && (!title || title.length < 5)) {
+        title = titleMatch[1].replace(/[*#]/g, '').trim();
+      }
+      const authorMatch = brief.match(/(?:Channel Name|Author|Host):\*?\*?\s*(.+)$/m);
+      if (authorMatch && authorMatch[1] && (!author || author === 'YouTube')) {
+        author = authorMatch[1].replace(/[*#]/g, '').trim();
+      }
     }
   }
 
@@ -900,7 +923,7 @@ async function scrapeYouTubeUrl(targetUrl, videoId) {
     `Title: ${title}`,
     `Channel / Speaker: ${author}`,
     `Platform: YouTube Video`,
-    desc ? `\nVideo Description, Highlights & Chapters:\n${desc}` : ''
+    desc ? `\nVideo Context, Highlights, Primary Receipts & Chapters:\n${desc}` : ''
   ].filter(Boolean).join('\n').trim();
 
   const shortDesc = desc ? (desc.slice(0, 450).replace(/\s+/g, ' ') + (desc.length > 450 ? '...' : '')) : '';

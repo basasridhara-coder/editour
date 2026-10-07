@@ -36,7 +36,7 @@ module.exports = async function handler(req, res) {
     domain = parsedUri.hostname.replace(/^www\./, '');
   } catch (_) {}
 
-  // Specialized YouTube Video Extractor: extracts full interview description, chapters, and high-res thumbnail
+  // 1. Specialized YouTube Video Extractor: extracts full interview description, chapters, and high-res thumbnail
   const ytVideoId = extractYouTubeVideoId(targetUrl);
   if (ytVideoId) {
     try {
@@ -48,6 +48,21 @@ module.exports = async function handler(req, res) {
       console.warn('Specialized YouTube scrape failed, falling back to standard scrape:', ytErr.message);
     }
   }
+
+  // 2. Authentic Article Reader: Try Jina Reader API first for clean, JavaScript-rendered markdown
+  let jinaData = null;
+  try {
+    jinaData = await scrapeWithJinaReader(targetUrl);
+  } catch (jinaErr) {
+    console.warn('Jina reader attempt failed, falling back:', jinaErr.message);
+  }
+
+  let title = jinaData ? jinaData.title : '';
+  let description = jinaData ? jinaData.description : '';
+  let cleanText = jinaData ? jinaData.content : '';
+  let imageUrl = null;
+  let imageBase64 = null;
+  let imageMimeType = 'image/jpeg';
 
   try {
     const controller = new AbortController();
@@ -63,112 +78,112 @@ module.exports = async function handler(req, res) {
     });
     clearTimeout(timeout);
 
-    if (!pageResp.ok) {
-      throw new Error(`HTTP ${pageResp.status}`);
-    }
+    if (pageResp.ok) {
+      const html = await pageResp.text();
 
-    const html = await pageResp.text();
+      // Title Extraction (if Jina didn't provide one)
+      if (!title) {
+        const titleFromMeta = getMetaTagContent(html, 'og:title') || getMetaTagContent(html, 'twitter:title');
+        const rawTitleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+        const titleFromTag = rawTitleMatch && rawTitleMatch[1] ? decodeHtmlEntities(rawTitleMatch[1].trim()) : '';
+        title = titleFromMeta || titleFromTag;
+      }
 
-    // 1. Title Extraction
-    const titleFromMeta = getMetaTagContent(html, 'og:title') ||
-                          getMetaTagContent(html, 'twitter:title');
-    const rawTitleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
-    const titleFromTag = rawTitleMatch && rawTitleMatch[1] ? decodeHtmlEntities(rawTitleMatch[1].trim()) : '';
-    let title = titleFromMeta || titleFromTag;
+      // Site Name
+      const ogSite = getMetaTagContent(html, 'og:site_name');
+      if (ogSite) {
+        domain = ogSite;
+      }
 
-    // 2. Site Name
-    const ogSite = getMetaTagContent(html, 'og:site_name');
-    if (ogSite) {
-      domain = ogSite;
-    }
+      // Description (if Jina didn't provide one)
+      if (!description) {
+        description = getMetaTagContent(html, 'og:description') || getMetaTagContent(html, 'description');
+      }
 
-    // 3. Description
-    const description = getMetaTagContent(html, 'og:description') ||
-                        getMetaTagContent(html, 'description');
+      // Lead Image Extraction
+      imageUrl = extractMetaImage(html, targetUrl);
 
-    // 4. Lead Image Extraction
-    let imageUrl = extractMetaImage(html, targetUrl);
+      // Fallback cleanText if Jina was empty or blocked
+      if (!cleanText || cleanText.length < 200) {
+        let fallbackText = html
+          .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+          .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
+          .replace(/<nav\b[^<]*(?:(?!<\/nav>)<[^<]*)*<\/nav>/gi, '')
+          .replace(/<header\b[^<]*(?:(?!<\/header>)<[^<]*)*<\/header>/gi, '')
+          .replace(/<footer\b[^<]*(?:(?!<\/footer>)<[^<]*)*<\/footer>/gi, '')
+          .replace(/<[^>]+>/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim()
+          .slice(0, 3500);
 
-    let imageBase64 = null;
-    let imageMimeType = 'image/jpeg';
-    if (imageUrl && imageUrl.startsWith('http')) {
-      try {
-        const imgCtrl = new AbortController();
-        const imgTimer = setTimeout(() => imgCtrl.abort(), 4500);
-        const imgResp = await fetch(imageUrl, {
-          signal: imgCtrl.signal,
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-            'Referer': targetUrl,
-            'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8'
-          }
-        });
-        clearTimeout(imgTimer);
-        if (imgResp.ok) {
-          const contentType = imgResp.headers.get('content-type') || 'image/jpeg';
-          imageMimeType = contentType.split(';')[0];
-          const buffer = await imgResp.arrayBuffer();
-          if (buffer.byteLength > 1000 && buffer.byteLength < 5 * 1024 * 1024) {
-            imageBase64 = `data:${imageMimeType};base64,` + Buffer.from(buffer).toString('base64');
-          }
+        if (fallbackText.length < 250 && description) {
+          fallbackText = `${title}\n\n${description}`.trim();
         }
-      } catch (err) {
-        console.warn('Could not pre-fetch article lead photo buffer:', err.message);
+        cleanText = fallbackText;
       }
     }
+  } catch (directErr) {
+    console.warn('Direct HTML scrape failed (may already have Jina data):', directErr.message);
+  }
 
-    // 5. Clean Article Body Excerpt
-    let cleanText = html
-      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-      .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
-      .replace(/<nav\b[^<]*(?:(?!<\/nav>)<[^<]*)*<\/nav>/gi, '')
-      .replace(/<header\b[^<]*(?:(?!<\/header>)<[^<]*)*<\/header>/gi, '')
-      .replace(/<footer\b[^<]*(?:(?!<\/footer>)<[^<]*)*<\/footer>/gi, '')
-      .replace(/<[^>]+>/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim()
-      .slice(0, 3500);
+  // Fallback title from slug if title is still empty
+  if (!title) {
+    title = extractSlugHeadline(targetUrl);
+  }
 
-    // If cleanText is suspiciously short or contains common SPA boilerplate, enrich with description
-    if (cleanText.length < 250 || cleanText.includes('About Press Copyright Contact us')) {
-      if (description && description.length > 30) {
-        cleanText = `${title}\n\n${description}`.trim();
+  // Pre-fetch Lead Image Buffer if image URL exists
+  if (imageUrl && imageUrl.startsWith('http')) {
+    try {
+      const imgCtrl = new AbortController();
+      const imgTimer = setTimeout(() => imgCtrl.abort(), 4500);
+      const imgResp = await fetch(imageUrl, {
+        signal: imgCtrl.signal,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          'Referer': targetUrl,
+          'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8'
+        }
+      });
+      clearTimeout(imgTimer);
+      if (imgResp.ok) {
+        const contentType = imgResp.headers.get('content-type') || 'image/jpeg';
+        imageMimeType = contentType.split(';')[0];
+        const buffer = await imgResp.arrayBuffer();
+        if (buffer.byteLength > 1000 && buffer.byteLength < 5 * 1024 * 1024) {
+          imageBase64 = `data:${imageMimeType};base64,` + Buffer.from(buffer).toString('base64');
+        }
       }
-    } else if (description && !cleanText.toLowerCase().includes(description.slice(0, 40).toLowerCase())) {
-      cleanText = `${description}\n\n${cleanText}`.trim().slice(0, 4000);
+    } catch (err) {
+      console.warn('Could not pre-fetch article lead photo buffer:', err.message);
     }
+  }
 
-    // Fallback title from slug if title is empty
-    if (!title) {
-      title = extractSlugHeadline(targetUrl);
-    }
-
+  if (title || cleanText) {
     return res.status(200).json({
       success: true,
       url: targetUrl,
       title: title || 'Curated Web Article',
       siteName: domain,
-      description,
-      content: cleanText,
-      imageUrl: imageUrl.startsWith('http') ? imageUrl : null,
+      description: description || '',
+      content: cleanText || '',
+      imageUrl: imageUrl && imageUrl.startsWith('http') ? imageUrl : null,
       imageBase64,
       imageMimeType
     });
-
-  } catch (err) {
-    const slugHeadline = extractSlugHeadline(targetUrl);
-    return res.status(200).json({
-      success: true,
-      url: targetUrl,
-      title: slugHeadline || 'Curated Web Article',
-      siteName: domain,
-      description: '',
-      content: '',
-      imageUrl: null,
-      fallback: true,
-      notice: 'Lightweight slug extraction used'
-    });
   }
+
+  const slugHeadline = extractSlugHeadline(targetUrl);
+  return res.status(200).json({
+    success: true,
+    url: targetUrl,
+    title: slugHeadline || 'Curated Web Article',
+    siteName: domain,
+    description: '',
+    content: '',
+    imageUrl: null,
+    fallback: true,
+    notice: 'Lightweight slug extraction used'
+  });
 };
 
 function decodeHtmlEntities(str) {
@@ -287,24 +302,103 @@ function extractYouTubeVideoId(url) {
 const DEFAULT_KEY_B64 = 'QVEuQWI4Uk42STR5WnQzMEl6NGpLRkQ2SndaYVlSeThQYlVtWXpDYUNuMzU3alIyUU9KbFE=';
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || Buffer.from(DEFAULT_KEY_B64, 'base64').toString('utf8');
 
-async function getGeminiVideoBrief(title, author) {
-  if (!title || !GEMINI_API_KEY) return '';
+async function scrapeWithJinaReader(targetUrl) {
   try {
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${GEMINI_API_KEY}`;
-    const prompt = `You are a research journalist for an editorial publication. Provide a concise, fact-rich 3-paragraph summary and key takeaways of the YouTube video titled "${title}" by ${author || 'curator'}. Focus on the subject matter, the central announcements or arguments, key metrics, and why it matters.`;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 7500);
+
+    const jinaResp = await fetch(`https://r.jina.ai/${targetUrl}`, {
+      signal: controller.signal,
+      headers: {
+        'Accept': 'text/plain',
+        'X-No-Cache': 'true',
+        'User-Agent': 'PostCard-Editorial/2.0'
+      }
+    });
+    clearTimeout(timeout);
+
+    if (!jinaResp.ok) return null;
+
+    const rawText = await jinaResp.text();
+    if (!rawText || rawText.length < 150) return null;
+
+    // Parse Title
+    let title = '';
+    const titleMatch = rawText.match(/^Title:\s*(.+)$/m);
+    if (titleMatch && titleMatch[1]) {
+      title = decodeHtmlEntities(titleMatch[1].trim());
+    }
+
+    // Parse Description if present
+    let description = '';
+    const descMatch = rawText.match(/^Description:\s*(.+)$/m);
+    if (descMatch && descMatch[1]) {
+      description = decodeHtmlEntities(descMatch[1].trim());
+    }
+
+    // Extract Markdown Content
+    let content = rawText;
+    const mdMarker = 'Markdown Content:';
+    const mdIndex = rawText.indexOf(mdMarker);
+    if (mdIndex !== -1) {
+      content = rawText.slice(mdIndex + mdMarker.length).trim();
+    }
+
+    // Clean boilerplate
+    content = content
+      .replace(/^URL Source:.*$/gm, '')
+      .replace(/^Published Time:.*$/gm, '')
+      .replace(/\[(?:Image \d+|Sign in|Cookie|Privacy Policy|Terms of Service)\]\(.*?\)/gi, '')
+      .trim();
+
+    if (!description && content.length > 50) {
+      description = content.slice(0, 250).replace(/\s+/g, ' ').trim() + '...';
+    }
+
+    return {
+      title,
+      description,
+      content: content.slice(0, 4500)
+    };
+  } catch (err) {
+    console.warn('Jina reader error, falling back to direct parser:', err.message);
+    return null;
+  }
+}
+
+async function getGeminiVideoBrief(targetUrl, title, author) {
+  if (!GEMINI_API_KEY) return '';
+  try {
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${GEMINI_API_KEY}`;
+    const prompt = `You are an investigative research journalist. Research and provide a comprehensive, fact-dense editorial briefing for this YouTube video: ${targetUrl || title} (${title ? `titled "${title}"` : ''} by ${author || 'creator'}).
+Extract and provide:
+1. Exact video title, host/channel name, and featured guest(s)
+2. Core thesis and comprehensive narrative summary
+3. Key quotes and primary data points/receipts
+4. Chapter breakdown or key thematic transitions`;
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 9500);
+
     const resp = await fetch(geminiUrl, {
       method: 'POST',
+      signal: controller.signal,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { maxOutputTokens: 600, temperature: 0.3 }
+        tools: [{ google_search: {} }],
+        generationConfig: { maxOutputTokens: 1000, temperature: 0.2 }
       })
     });
+    clearTimeout(timeout);
+
     if (resp.ok) {
       const data = await resp.json();
       return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
     }
-  } catch (_) {}
+  } catch (e) {
+    console.warn('Gemini video research brief failed, falling back:', e.message);
+  }
   return '';
 }
 
@@ -322,7 +416,7 @@ async function scrapeYouTubeUrl(targetUrl, videoId) {
   let playerObj = null;
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000);
+    const timeout = setTimeout(() => controller.abort(), 4000);
     const pageResp = await fetch(targetUrl, {
       signal: controller.signal,
       headers: {
@@ -343,21 +437,29 @@ async function scrapeYouTubeUrl(targetUrl, videoId) {
     }
   } catch (_) {}
 
-  const rawTitle = playerObj?.videoDetails?.title || oembed.title || '';
-  const title = decodeHtmlEntities(rawTitle).trim();
-  const author = decodeHtmlEntities(playerObj?.videoDetails?.author || oembed.author_name || 'YouTube').trim();
+  let title = decodeHtmlEntities(playerObj?.videoDetails?.title || oembed.title || '').trim();
+  let author = decodeHtmlEntities(playerObj?.videoDetails?.author || oembed.author_name || 'YouTube').trim();
   const rawDesc = playerObj?.videoDetails?.shortDescription || '';
   let desc = decodeHtmlEntities(rawDesc).trim();
 
-  // If description is missing or blocked, generate an editorial briefing via Gemini Flash
-  if (!desc || desc.length < 100) {
-    const brief = await getGeminiVideoBrief(title, author);
-    if (brief) {
+  // If description is missing, short (<150 chars), or just boilerplate,
+  // query Gemini with Google Search Grounding to extract full factual briefing & transcripts!
+  if (!desc || desc.length < 150) {
+    const brief = await getGeminiVideoBrief(targetUrl, title, author);
+    if (brief && brief.length > 80) {
       desc = brief;
+      const titleMatch = brief.match(/Exact Video Title:\*?\*?\s*(.+)$/m);
+      if (titleMatch && titleMatch[1] && (!title || title.length < 5)) {
+        title = titleMatch[1].replace(/[*#]/g, '').trim();
+      }
+      const authorMatch = brief.match(/(?:Channel Name|Author|Host):\*?\*?\s*(.+)$/m);
+      if (authorMatch && authorMatch[1] && (!author || author === 'YouTube')) {
+        author = authorMatch[1].replace(/[*#]/g, '').trim();
+      }
     }
   }
 
-  // Prefer highest quality maxresdefault thumbnail, fallback to hqdefault, then oembed
+  // Candidate Thumbnails
   const candidateThumbs = [
     videoId ? `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg` : null,
     videoId ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` : null,
@@ -397,7 +499,7 @@ async function scrapeYouTubeUrl(targetUrl, videoId) {
     `Title: ${title}`,
     `Channel / Speaker: ${author}`,
     `Platform: YouTube Video`,
-    desc ? `\nVideo Description, Highlights & Chapters:\n${desc}` : ''
+    desc ? `\nVideo Context, Highlights, Primary Receipts & Chapters:\n${desc}` : ''
   ].filter(Boolean).join('\n').trim();
 
   const shortDesc = desc ? (desc.slice(0, 450).replace(/\s+/g, ' ') + (desc.length > 450 ? '...' : '')) : '';
