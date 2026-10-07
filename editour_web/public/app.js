@@ -4496,6 +4496,7 @@ async function triggerCueSuggest() {
         sourceType: creatorSelectedSource,
         characterRepresentation: creatorCharacterRepresentation,
         selectedIndices: Array.from(creatorSelectedCueIndices),
+        existingCues: creatorCuePills,
         countryContext: creatorCountryContext?.name || 'India',
         countryCode: creatorCountryContext?.code || 'IN',
         vocabularyStyle: creatorVocabularyStyle || 'punchy'
@@ -4507,12 +4508,11 @@ async function triggerCueSuggest() {
 
     if (data && data.success && Array.isArray(data.cues) && data.cues.length > 0) {
       if (creatorSelectedCueIndices.size > 0 && creatorCuePills.length > 0) {
-        // Selective replacement
+        // Selective replacement: Map each selected cue index directly to its corresponding dimension from response
         const updated = [...creatorCuePills];
-        const selectedArr = Array.from(creatorSelectedCueIndices).sort((a,b)=>a-b);
-        selectedArr.forEach((targetIdx, i) => {
-          if (data.cues[i] && targetIdx < updated.length) {
-            updated[targetIdx] = data.cues[i];
+        creatorSelectedCueIndices.forEach(targetIdx => {
+          if (data.cues && data.cues[targetIdx] !== undefined && data.cues[targetIdx]) {
+            updated[targetIdx] = data.cues[targetIdx];
           }
         });
         creatorCuePills = updated;
@@ -4536,7 +4536,7 @@ async function triggerCueSuggest() {
     const fallbacks = extract6RankedCueDimensions(slantTake, articleTitle, articleBody);
     if (creatorSelectedCueIndices.size > 0 && creatorCuePills.length > 0) {
       creatorSelectedCueIndices.forEach(idx => {
-        if (idx < fallbacks.length) creatorCuePills[idx] = fallbacks[idx];
+        if (fallbacks[idx]) creatorCuePills[idx] = fallbacks[idx];
       });
       creatorSelectedCueIndices.clear();
     } else {

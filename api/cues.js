@@ -33,6 +33,7 @@ module.exports = async function handler(req, res) {
     sourceType = 'digital_link',
     characterRepresentation = 'realistic',
     selectedIndices = [],
+    existingCues = [],
     countryContext = '',
     countryCode = '',
     vocabularyStyle = 'punchy'
@@ -45,7 +46,7 @@ module.exports = async function handler(req, res) {
 
   const combinedTopic = `${curatorAngle || ''} ${spark || ''} ${newsHeadline || ''} ${newsBody || ''}`.toLowerCase();
   const isPersonalStory = (sourceType === 'inner_voice') ||
-    /trip|vacation|kerala|holiday|travel|family|son|daughter|kid|child|parent|pack|luggage|flight|beach|home|rest|weekend|burnout|unplug/i.test(combinedTopic);
+    /\b(trip|vacation|kerala|holiday|travel|family|son|daughter|kid|child|parent|pack|luggage|flight|beach|home|rest|weekend|burnout|unplug)\b/i.test(combinedTopic);
 
   const countryDirective = countryContext && countryContext !== 'Global'
     ? (isPersonalStory
@@ -73,6 +74,27 @@ The visual cues MUST authentically capture the human situation, intimate setting
         ? 'MINIMALIST SILHOUETTE DIRECTIVE: The curator explicitly requested silhouette portrayal. #1 HERO should use minimalist shadow outlines.'
         : 'VIVID EDITORIAL REALISM DIRECTIVE: All human subjects MUST be depicted as warm, realistic, expressive people with visible faces, natural lighting, and tangible environments. NEVER suggest pitch-black silhouettes, faceless shadow phantoms, or creepy dark figures!'));
 
+  const dimensionNames = ['#1 HERO', '#2 MOTIF', '#3 TENSION', '#4 ATMOSPHERE', '#5 LIGHTING', '#6 STYLE'];
+  let variationDirective = '';
+  if (Array.isArray(selectedIndices) && selectedIndices.length > 0 && Array.isArray(existingCues) && existingCues.length > 0) {
+    const selectedLabels = selectedIndices.map(idx => dimensionNames[idx] || `#${idx + 1}`).join(', ');
+    variationDirective = `CRITICAL TARGETED REGENERATION INSTRUCTION:
+The curator is selectively regenerating ONLY the following dimension(s): ${selectedLabels}.
+Current visual cues:
+${existingCues.map((c, i) => `${dimensionNames[i] || `#${i + 1}`}: "${c}"`).join('\n')}
+
+RULES FOR THIS REGENERATION:
+1. For the selected dimension(s) (${selectedLabels}), you MUST provide completely FRESH, DISTINCT alternative phrases that offer a new angle or visual metaphor.
+2. For unselected dimensions, maintain the current cue text from above so the post stays cohesive.
+3. Every cue must remain 3-6 words, evocative and tangible.`;
+  } else if (Array.isArray(existingCues) && existingCues.length > 0) {
+    variationDirective = `FRESH SUGGESTION VARIATION INSTRUCTION:
+The curator requested a NEW alternative set of visual cues. Previous cues were:
+${existingCues.map((c, i) => `${dimensionNames[i] || `#${i + 1}`}: "${c}"`).join('\n')}
+
+Explore a fresh artistic perspective, novel symbolic motifs, or alternative lighting/atmosphere. Do NOT repeat identical phrases.`;
+  }
+
   const prompt = `You are the lead visual art director for "Slant" (slant.today), an elite editorial publication.
 Your job is to define the 6 ranked storytelling visual cue dimensions for Poster 1 (The Hook Poster).
 
@@ -89,6 +111,8 @@ ${personalDirective}
 ${countryDirective}
 
 ${personDirective}
+
+${variationDirective}
 
 STRICT VISUAL CUE REQUIREMENTS (Must be short, punchy 3-6 word phrases):
 1. HERO: Central focal figure, subject, or architectural centerpiece. ${hasPersonFocus ? 'Must be the central individual identified in the story (e.g. "Donald Trump Lookalike Editorial Portrait").' : (isSilhouette ? 'Minimalist silhouette or outline.' : 'Warm, realistic protagonist or subject with visible human expression (e.g. "Parent and Child Packing Suitcase", "Monolithic Obsidian Server Tower", "Lone Sweeper with Traditional Broom"). NEVER pitch-black silhouettes, NEVER ghost figures!')} Never output a URL, protocol, or punctuation!
@@ -125,7 +149,7 @@ Respond strictly with valid JSON with this exact schema:
       body: JSON.stringify({
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         generationConfig: {
-          temperature: 0.4,
+          temperature: 0.75,
           maxOutputTokens: 2048,
           responseMimeType: 'application/json'
         }
@@ -149,6 +173,20 @@ Respond strictly with valid JSON with this exact schema:
     // Clean cues
     const cleanCues = parsed.cues.map(c => String(c).replace(/^#\d+\s*\[?[A-Z]+\]?:?\s*/i, '').trim());
 
+    // If targeted selective indices were provided and unselected cues need fallback preservation
+    if (Array.isArray(selectedIndices) && selectedIndices.length > 0 && Array.isArray(existingCues) && existingCues.length > 0) {
+      const finalCues = [...existingCues];
+      selectedIndices.forEach(idx => {
+        if (cleanCues[idx]) {
+          finalCues[idx] = cleanCues[idx];
+        }
+      });
+      return res.status(200).json({
+        success: true,
+        cues: finalCues
+      });
+    }
+
     return res.status(200).json({
       success: true,
       cues: cleanCues
@@ -156,7 +194,7 @@ Respond strictly with valid JSON with this exact schema:
 
   } catch (err) {
     console.warn('Gemini cues generation error, using smart fallback:', err.message);
-    const fallbacks = generateSmartFallbackCues(curatorAngle, spark, newsHeadline, newsBody, characterRepresentation, countryContext, sourceType);
+    const fallbacks = generateSmartFallbackCues(curatorAngle, spark, newsHeadline, newsBody, characterRepresentation, countryContext, sourceType, selectedIndices, existingCues);
     return res.status(200).json({
       success: true,
       cues: fallbacks,
@@ -165,22 +203,26 @@ Respond strictly with valid JSON with this exact schema:
   }
 };
 
-function generateSmartFallbackCues(curatorAngle = '', spark = '', newsHeadline = '', newsBody = '', characterRepresentation = 'realistic', countryContext = '', sourceType = 'digital_link') {
+function generateSmartFallbackCues(curatorAngle = '', spark = '', newsHeadline = '', newsBody = '', characterRepresentation = 'realistic', countryContext = '', sourceType = 'digital_link', selectedIndices = [], existingCues = []) {
   const combined = `${curatorAngle || ''} ${spark || ''} ${newsHeadline || ''} ${newsBody || ''}`.toLowerCase();
   const isLikeness = (characterRepresentation === 'likeness');
   const isIndia = (countryContext === 'India') || combined.includes('india') || combined.includes('delhi') || combined.includes('kerala') || combined.includes('thehindu');
   const isUK = (countryContext === 'United Kingdom') || combined.includes('london') || combined.includes('westminster');
   const isJapan = (countryContext === 'Japan') || combined.includes('japan') || combined.includes('tokyo');
 
-  const isTravel = combined.includes('trip') || combined.includes('kerala') || combined.includes('vacation') || combined.includes('travel') || combined.includes('flight') || combined.includes('pack') || combined.includes('holiday') || combined.includes('beach') || combined.includes('hotel');
-  const isFamily = combined.includes('son') || combined.includes('daughter') || combined.includes('child') || combined.includes('parent') || combined.includes('family') || combined.includes('father') || combined.includes('mother');
-  const isWorkLife = combined.includes('burnout') || combined.includes('break') || combined.includes('unplug') || combined.includes('deadline') || combined.includes('email') || combined.includes('laptop') || combined.includes('office');
+  const isTravel = /\b(trip|vacation|kerala|holiday|travel|flight|pack|luggage|beach|hotel)\b/i.test(combined);
+  const isFamily = /\b(son|daughter|child|children|parent|family|father|mother|kid|kids)\b/i.test(combined);
+  const isWorkLife = /\b(burnout|break|unplug|deadline|deadlines|inbox|laptop|office)\b/i.test(combined);
   const isInnerVoice = (sourceType === 'inner_voice') || (!newsHeadline && curatorAngle.length > 5);
 
   let hero = '';
 
-  // 1. Prominent public figure detection (prioritize when likeness requested or mentioned)
-  if (combined.includes('trump')) {
+  // 1. Prominent public figure detection
+  if (combined.includes('sitharaman') || combined.includes('finance minister')) {
+    hero = 'Nirmala Sitharaman (Editorial Portrait)';
+  } else if (combined.includes('ranganathan')) {
+    hero = 'Anand Ranganathan (Editorial Portrait)';
+  } else if (combined.includes('trump')) {
     hero = 'Donald Trump (Editorial Portrait)';
   } else if (combined.includes('musk')) {
     hero = 'Elon Musk (Editorial Portrait)';
@@ -214,13 +256,13 @@ function generateSmartFallbackCues(curatorAngle = '', spark = '', newsHeadline =
     }
   }
 
-  // 3. Personal, Travel & Inner Voice fallbacks
-  if (!hero && (isTravel || isFamily || isWorkLife || isInnerVoice)) {
+  // 3. Personal, Travel & Inner Voice fallbacks (strictly whole words)
+  if (!hero && (isTravel || isFamily || (isWorkLife && isInnerVoice) || isInnerVoice)) {
     if (isTravel && isFamily) {
-      hero = 'Parent Closing Laptop While Packing Suitcase';
+      hero = 'Parent Closing Laptop Beside Packed Suitcase';
     } else if (isTravel) {
       hero = combined.includes('kerala')
-        ? 'Traveler with Suitcase Gazing toward Kerala Palms'
+        ? 'Traveler Gazing toward Tropical Palms'
         : 'Traveler Packing Luggage at Dusk';
     } else if (isWorkLife) {
       hero = 'Solitary Worker Shutting Laptop at Midnight';
@@ -234,7 +276,7 @@ function generateSmartFallbackCues(curatorAngle = '', spark = '', newsHeadline =
 
   // 4. Thematic topic fallbacks grounded in country/regional context
   if (!hero) {
-    if (combined.includes('court') || combined.includes('judge') || combined.includes('law') || combined.includes('legal') || combined.includes('crime') || combined.includes('goon')) {
+    if (combined.includes('court') || combined.includes('judge') || combined.includes('law') || combined.includes('legal') || combined.includes('crime')) {
       if (isIndia) {
         hero = 'Supreme Court of India Pillared Portico';
       } else if (isUK) {
@@ -248,83 +290,71 @@ function generateSmartFallbackCues(curatorAngle = '', spark = '', newsHeadline =
       hero = 'Monolithic Obsidian Server Tower';
     } else if (combined.includes('market') || combined.includes('invest') || combined.includes('wealth') || combined.includes('stock')) {
       hero = isIndia ? 'Dalal Street Bull Bronze Monument' : 'Charging Wall Street Bronze Bull';
-    } else if (combined.includes('polit') || combined.includes('elect') || combined.includes('minister') || combined.includes('vote')) {
+    } else if (combined.includes('polit') || combined.includes('elect') || combined.includes('minister') || combined.includes('vote') || combined.includes('parliament')) {
       hero = isIndia ? 'Indian Parliament Sandstone Colonnade' : 'Solitary Figure at Microphone';
     } else if (newsHeadline && newsHeadline.length > 3 && !newsHeadline.startsWith('http')) {
       hero = newsHeadline.split(/[:–—\-]/)[0].trim().slice(0, 35);
     } else {
-      hero = 'Reflective Storyteller at Crossroads';
+      hero = 'Expressive Protagonist in Discussion';
     }
   }
 
-  let motif = '';
-  if (isTravel || isFamily) {
-    motif = spark ? 'Child Holding Forgotten Travel Item' : 'Open Suitcase with Boarding Pass';
-  } else if (isWorkLife) {
-    motif = 'Unread Notification Ping on Screen';
-  } else if (combined.includes('court') || combined.includes('judge') || combined.includes('law') || combined.includes('crime') || combined.includes('justice')) {
-    motif = isIndia ? 'Ashoka Lion Capital & Brass Balance Scales' : 'Tipping Brass Balance Scales';
-  } else if (combined.includes('taste') || combined.includes('craft') || combined.includes('design')) {
-    motif = 'Sculptor Chisel against Uncarved Marble';
-  } else if (combined.includes('puppet') || combined.includes('control')) {
-    motif = 'Tangled Marionette Puppet Strings';
-  } else if (combined.includes('scale') || combined.includes('balance') || combined.includes('fair')) {
-    motif = 'Tipping Brass Balance Scales';
-  } else if (combined.includes('hourglass') || combined.includes('time') || combined.includes('delay')) {
-    motif = 'Crumbling Glass Hourglass';
-  } else {
-    motif = spark ? spark.slice(0, 35) : 'Quiet Moment of Realization';
+  // Alternative pools to ensure variation when regenerating
+  const motifPool = (combined.includes('minister') || combined.includes('polic') || combined.includes('econom') || isIndia)
+    ? ['Ashoka Lion Capital & Policy Dockets', 'Gilded Scales of Fiscal Governance', 'Microphone at Press Podium', 'Unfurled Economic Blueprint']
+    : ['Tipping Brass Balance Scales', 'Sculptor Chisel against Uncarved Marble', 'Tangled Marionette Puppet Strings', 'Hourglass with Flowing Sand'];
+
+  const tensionPool = (combined.includes('minister') || combined.includes('polic') || combined.includes('econom'))
+    ? ['Hard Public Questions Met with Conviction', 'Fiscal Discipline Clashing with Populist Demands', 'Structural Reform vs Bureaucratic Inertia', 'Sharp Media Inquiries under Stage Lights']
+    : ['Friction Between Duty and Presence', 'Approaching Storm Wall on Horizon', 'Cracking Stone Foundation Beneath', 'Looming Corporate Shadow'];
+
+  const atmospherePool = isIndia
+    ? ['New Delhi Auditorium Stage Under Lights', 'Dusk over New Delhi Red Sandstone Corridor', 'Historic Colonnaded Assembly Hall', 'Monsoon-Drenched Civic Square']
+    : ['Quiet Study at Twilight', 'Rain-Slicked City Boulevard at Dusk', 'High-Ceilinged Conference Hall', 'Smoke-Filled High-Rise Boardroom'];
+
+  const lightingPool = [
+    'Dramatic Chiaroscuro Editorial Spotlight',
+    'High-Contrast Cinematic Beam from Above',
+    'Warm Golden Spotlight on Speaker',
+    'Cool Ambient Stage Floodlight'
+  ];
+
+  const stylePool = isIndia
+    ? ['Cinematic Warm Editorial Photography', 'Editorial Sandstone & Indigo Broadsheet Woodcut', 'Warm Fine-Art Editorial Illustration', 'High-Contrast Risograph Print']
+    : ['Cinematic Warm Editorial Illustration', 'High-Contrast Noir Risograph Print', 'Bauhaus Graphic Vector Style', 'Editorial Portrait Oil Texture'];
+
+  // Select item from pool that does not duplicate current cue
+  function pickFresh(pool, currentCue) {
+    if (!currentCue) return pool[0];
+    const candidate = pool.find(item => item.toLowerCase() !== currentCue.toLowerCase());
+    return candidate || pool[0];
   }
 
-  let tension = '';
-  if (isTravel || isWorkLife) {
-    tension = 'Work Deadlines Clashing with Vacation';
-  } else if (combined.includes('storm') || combined.includes('threat')) {
-    tension = 'Approaching Storm Wall on Horizon';
-  } else if (combined.includes('crack') || combined.includes('collapse')) {
-    tension = 'Cracking Stone Foundation Beneath';
-  } else if (combined.includes('shadow') || combined.includes('monopoly')) {
-    tension = 'Looming Corporate Shadow';
-  } else if (combined.includes('court') || combined.includes('crime')) {
-    tension = 'Swarm of Shadows around Court Gates';
-  } else {
-    tension = 'Friction Between Duty and Presence';
+  const existingHero = existingCues[0] || '';
+  const existingMotif = existingCues[1] || '';
+  const existingTension = existingCues[2] || '';
+  const existingAtmosphere = existingCues[3] || '';
+  const existingLighting = existingCues[4] || '';
+  const existingStyle = existingCues[5] || '';
+
+  const motif = pickFresh(motifPool, existingMotif);
+  const tension = pickFresh(tensionPool, existingTension);
+  const atmosphere = pickFresh(atmospherePool, existingAtmosphere);
+  const lighting = pickFresh(lightingPool, existingLighting);
+  const style = pickFresh(stylePool, existingStyle);
+
+  const freshList = [hero, motif, tension, atmosphere, lighting, style];
+
+  // If specific indices were selected, preserve unselected existing cues!
+  if (Array.isArray(selectedIndices) && selectedIndices.length > 0 && Array.isArray(existingCues) && existingCues.length === 6) {
+    const merged = [...existingCues];
+    selectedIndices.forEach(idx => {
+      if (idx >= 0 && idx < 6) {
+        merged[idx] = freshList[idx];
+      }
+    });
+    return merged;
   }
 
-  let atmosphere = '';
-  if (isTravel) {
-    atmosphere = combined.includes('kerala')
-      ? 'Cluttered Home Study with Glimpse of Kerala Palms'
-      : 'Cluttered Luggage in Evening Room';
-  } else if (isWorkLife || isInnerVoice) {
-    atmosphere = 'Quiet Home Study at Twilight';
-  } else if (isIndia) {
-    atmosphere = combined.includes('court') || combined.includes('delhi')
-      ? 'Dusk over New Delhi Red Sandstone Corridor'
-      : 'Monsoon-Drenched Indian City Boulevard';
-  } else if (isUK) {
-    atmosphere = 'Rain-Mist Westminster Stone Embankment';
-  } else if (isJapan) {
-    atmosphere = 'Shinjuku Neon Alleyway in Evening Rain';
-  } else {
-    atmosphere = 'Quiet City Street at Dusk';
-  }
-
-  let lighting = '';
-  if (isTravel || isWorkLife || isInnerVoice) {
-    lighting = 'Golden Twilight Clashing with Screen Glow';
-  } else {
-    lighting = 'Dramatic Chiaroscuro Editorial Spotlight';
-  }
-
-  let style = '';
-  if (isTravel || isFamily || isInnerVoice) {
-    style = 'Cinematic Warm Editorial Illustration';
-  } else if (isIndia) {
-    style = 'Editorial Sandstone & Indigo Broadsheet Woodcut';
-  } else {
-    style = 'High-Contrast Noir Risograph Print';
-  }
-
-  return [hero, motif, tension, atmosphere, lighting, style];
+  return freshList;
 }
