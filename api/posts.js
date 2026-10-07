@@ -34,9 +34,20 @@ module.exports = async function handler(req, res) {
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
+
+    // Parse limit parameter (default 12 for blazing fast mobile/web initial load, max 50)
+    let limit = 12;
+    try {
+      const parsedUrl = new URL(req.url, 'http://localhost');
+      const qLimit = parseInt(parsedUrl.searchParams.get('limit'), 10);
+      if (!isNaN(qLimit) && qLimit > 0) {
+        limit = Math.min(qLimit, 50);
+      }
+    } catch (_) {}
+
     // 1. Primary: Direct Supabase query with safe batch limit
     try {
-      const resp = await fetch(`${SUPABASE_URL}/rest/v1/posts?select=*&order=created_at.desc&limit=45`, {
+      const resp = await fetch(`${SUPABASE_URL}/rest/v1/posts?select=*&order=created_at.desc&limit=${limit}`, {
         headers: {
           'apikey': SUPABASE_KEY,
           'Authorization': `Bearer ${SUPABASE_KEY}`
@@ -49,6 +60,18 @@ module.exports = async function handler(req, res) {
             const p = r.data || r;
             p.id = p.id || r.id;
             p.createdAt = p.createdAt || r.created_at || new Date().toISOString();
+            // Clean up any motherboard or palette fallback URLs if present in older saved posts
+            if (p.illustrationUrl && (p.illustrationUrl.includes('photo-1518770660439') || p.illustrationUrl.includes('photo-1541872703'))) {
+              p.illustrationUrl = '';
+            }
+            if (p.aiIllustrationUrl && (p.aiIllustrationUrl.includes('photo-1518770660439') || p.aiIllustrationUrl.includes('photo-1541872703'))) {
+              p.aiIllustrationUrl = '';
+            }
+            // Strip duplicate multi-megabyte base64 string if present in multiple fields
+            if (p.illustrationBase64) {
+              if (p.illustrationUrl && p.illustrationUrl.startsWith('data:')) p.illustrationUrl = '';
+              if (p.aiIllustrationUrl && p.aiIllustrationUrl.startsWith('data:')) p.aiIllustrationUrl = '';
+            }
             return p;
           }).filter(p => p && !p.deleted && !p.isDeleted && (p.adaptedHeadline || p.originalHeadline || p.summary));
           return res.status(200).json({ status: 'ok', count: posts.length, posts });
@@ -59,10 +82,11 @@ module.exports = async function handler(req, res) {
     }
 
     // 2. Return fallback posts (synced with actual app posts)
+    const slicedFallback = fallbackPosts.slice(0, limit);
     return res.status(200).json({
       status: 'ok',
-      count: fallbackPosts.length,
-      posts: fallbackPosts
+      count: slicedFallback.length,
+      posts: slicedFallback
     });
   }
 

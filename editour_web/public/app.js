@@ -1057,7 +1057,7 @@ async function syncLiveCloudPosts(forceRender = false) {
 
   // 1. Primary: Fetch from /api/posts with timestamp and no-store to bypass any proxy/browser cache
   try {
-    const apiResp = await fetch(`/api/posts?ts=${Date.now()}`, {
+    const apiResp = await fetch(`/api/posts?limit=12&ts=${Date.now()}`, {
       cache: 'no-store'
     });
     if (apiResp.ok) {
@@ -1075,7 +1075,7 @@ async function syncLiveCloudPosts(forceRender = false) {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 8000);
-      const resp = await fetch(`${SUPABASE_URL}/rest/v1/posts?select=*&order=created_at.desc&limit=45`, {
+      const resp = await fetch(`${SUPABASE_URL}/rest/v1/posts?select=*&order=created_at.desc&limit=12`, {
         signal: controller.signal,
         headers: {
           'apikey': SUPABASE_KEY,
@@ -1526,21 +1526,6 @@ function getSourceTier(post) {
 
 window.handlePosterImageError = function(imgEl, category) {
   if (!imgEl) return;
-  if (!imgEl.dataset.triedFallback) {
-    imgEl.dataset.triedFallback = 'true';
-    const fallbackMap = {
-      'LIFE & WORK': 'https://images.unsplash.com/photo-1602216056096-3b40cc0c9944?auto=format&fit=crop&w=1200&q=80',
-      'OPINION': 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=1200&q=80',
-      'EDITORIAL': 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1200&q=80',
-      'LEGAL': 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=1200&q=80',
-      'DISCOVERY': 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1200&q=80'
-    };
-    const nextUrl = fallbackMap[category] || 'https://images.unsplash.com/photo-1602216056096-3b40cc0c9944?auto=format&fit=crop&w=1200&q=80';
-    if (imgEl.src !== nextUrl) {
-      imgEl.src = nextUrl;
-      return;
-    }
-  }
   imgEl.style.opacity = '0';
   imgEl.style.display = 'none';
   imgEl.removeAttribute('alt');
@@ -1580,9 +1565,6 @@ function buildSlide1Html(post, index) {
   const fallbackCoverHtml = `
     <div class="slide-hook-fallback-bg" style="background: radial-gradient(circle at 50% 28%, #1e1b4b 0%, #0f172a 60%, #030712 100%);">
       <div style="position:absolute; inset:0; opacity:0.18; background-image: radial-gradient(#818cf8 1px, transparent 1px); background-size: 20px 20px;"></div>
-      <div style="position:absolute; top:28%; left:50%; transform:translate(-50%,-50%); width:170px; height:170px; border-radius:50%; border:1px dashed rgba(129,140,248,0.35); display:flex; align-items:center; justify-content:center;">
-        <div style="width:115px; height:115px; border-radius:50%; background:linear-gradient(135deg, rgba(99,102,241,0.22), rgba(168,85,247,0.12)); border:1px solid rgba(168,85,247,0.45); display:flex; align-items:center; justify-content:center; font-size:42px; box-shadow:0 0 30px rgba(99,102,241,0.25);">🎨</div>
-      </div>
     </div>
   `;
 

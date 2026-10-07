@@ -809,12 +809,12 @@ function getCuratedEditorialPhoto({ heroCue = '', motifCue = '', prompt = '', te
 
   // Government / Politics / Statecraft
   if (/parliament|politics|government|minister|election|state|policy|democracy/.test(heroLower)) {
-    return 'https://images.unsplash.com/photo-1541872703-74c5e44368f9?auto=format&fit=crop&w=1200&q=80';
+    return 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=1200&q=80';
   }
 
   // Technology / AI / Silicon
   if (/ai|artificial|tech|algorithm|chip|computer|code|software|cyber|digital|robot|server/.test(heroLower)) {
-    return 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80';
+    return 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1200&q=80';
   }
 
   // Markets / Finance
