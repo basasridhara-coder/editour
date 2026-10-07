@@ -177,7 +177,7 @@ async function initAuth() {
     if (event === 'SIGNED_IN') {
       closeAuthModal();
       showTemporaryToast(`Welcome, ${escapeHtml(getUserDisplayName())}! ✨`);
-      renderFeed();
+      checkLiveSupabaseUpdates(true);
     } else if (event === 'SIGNED_OUT') {
       closeAuthModal();
       showTemporaryToast('Signed out successfully.');
@@ -949,9 +949,6 @@ async function loadPosts() {
       const posts = await fastResp.json();
       if (Array.isArray(posts) && posts.length > 0) {
         allPosts = posts.filter(p => p && !p.deleted && !p.isDeleted && (p.adaptedHeadline || p.originalHeadline || p.summary));
-        updateBadge(true, `Live Feed (${allPosts.length} posts)`);
-        updateAuthUI();
-        renderFeed();
         loadedFromCache = true;
       }
     }
@@ -959,16 +956,38 @@ async function loadPosts() {
     console.warn('Could not load slant_feed.json, trying live Supabase:', e);
   }
 
-  // 2. Asynchronously check Supabase in background for any new posts published from mobile/web
+  // 2. Merge locally cached user-created stories so they NEVER vanish across sign-ins/reloads
+  try {
+    const localCache = JSON.parse(localStorage.getItem('slant_user_posts_cache') || '[]');
+    if (Array.isArray(localCache) && localCache.length > 0) {
+      const existingIds = new Set(allPosts.map(p => p.id));
+      for (const cp of localCache) {
+        if (cp && cp.id && !existingIds.has(cp.id) && !cp.deleted && !cp.isDeleted) {
+          allPosts.unshift(cp);
+          existingIds.add(cp.id);
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('Error merging local user posts cache:', e);
+  }
+
+  if (allPosts.length > 0) {
+    updateBadge(true, `Live Feed (${allPosts.length} posts)`);
+    updateAuthUI();
+    renderFeed();
+  }
+
+  // 3. Asynchronously check Supabase in background for any new posts published from mobile/web
   checkLiveSupabaseUpdates(!loadedFromCache);
 }
 
 async function checkLiveSupabaseUpdates(forceRender = false) {
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 4500); // 4.5s safe timeout so it never hangs
+    const timeoutId = setTimeout(() => controller.abort(), 6000); // 6s safe timeout so it never hangs
 
-    const resp = await fetch(`${SUPABASE_URL}/rest/v1/posts?select=*&order=created_at.desc&limit=15`, {
+    const resp = await fetch(`${SUPABASE_URL}/rest/v1/posts?select=*&order=created_at.desc&limit=45`, {
       signal: controller.signal,
       headers: {
         'apikey': SUPABASE_KEY,
@@ -4525,22 +4544,69 @@ async function publishSynthesizedPost() {
   currentSynthesizedPost.createdAt = new Date().toISOString();
   currentSynthesizedPost.isUserCreated = true;
 
+  // 1. Clean payload: remove redundant duplicate multi-megabyte image strings
+  const postToSave = { ...currentSynthesizedPost };
+  if (postToSave.illustrationBase64) {
+    if (postToSave.illustrationUrl && postToSave.illustrationUrl.startsWith('data:')) {
+      postToSave.illustrationUrl = '';
+    }
+    if (postToSave.aiIllustrationUrl && postToSave.aiIllustrationUrl.startsWith('data:')) {
+      postToSave.aiIllustrationUrl = '';
+    }
+  }
+
+  // 2. Primary cloud save: POST to /api/posts
+  let savedToCloud = false;
   try {
-    // 1. Post to backend API
     const resp = await fetch('/api/posts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(currentSynthesizedPost)
+      body: JSON.stringify(postToSave)
     });
 
-    if (!resp.ok) {
+    if (resp.ok) {
+      savedToCloud = true;
+    } else {
       console.warn('Backend /api/posts returned status:', resp.status);
     }
   } catch (err) {
     console.warn('Backend publish call error:', err);
   }
 
-  // 2. Track in local storage
+  // 3. Resilient fallback: Direct Supabase write if /api/posts failed or was bypassed
+  if (!savedToCloud) {
+    try {
+      const supaResp = await fetch(`${SUPABASE_URL}/rest/v1/posts`, {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'resolution=merge-duplicates'
+        },
+        body: JSON.stringify({ id: postToSave.id, data: postToSave })
+      });
+      if (supaResp.ok) {
+        savedToCloud = true;
+      } else {
+        console.warn('Direct Supabase write status:', supaResp.status);
+      }
+    } catch (supaErr) {
+      console.error('Direct Supabase write error:', supaErr);
+    }
+  }
+
+  // 4. Local storage persistent backup: Save full post objects so stories NEVER vanish across reloads/sign-ins
+  try {
+    const localPosts = JSON.parse(localStorage.getItem('slant_user_posts_cache') || '[]');
+    const filtered = localPosts.filter(p => p && p.id !== currentSynthesizedPost.id);
+    filtered.unshift(currentSynthesizedPost);
+    localStorage.setItem('slant_user_posts_cache', JSON.stringify(filtered.slice(0, 25)));
+  } catch (lsErr) {
+    console.warn('Could not cache user post to localStorage:', lsErr);
+  }
+
+  // 5. Track in local storage ID set
   myCreatedPostIds.add(currentSynthesizedPost.id);
   localStorage.setItem('slant_my_posts', JSON.stringify(Array.from(myCreatedPostIds)));
 
@@ -4550,13 +4616,13 @@ async function publishSynthesizedPost() {
   if (saveBtn) saveBtn.classList.add('active');
   if (saveLbl) saveLbl.textContent = 'Saved';
 
-  // 3. Unshift into allPosts and render feed
+  // 6. Unshift into allPosts and render feed
   allPosts.unshift(currentSynthesizedPost);
   updateBadge(true, `Live Feed (${allPosts.length} posts)`);
   updateAuthUI();
   renderFeed();
 
-  // 4. Close modal & show toast
+  // 7. Close modal & show toast
   closeCreatorModal();
   showTemporaryToast('✨ Published! Your 3-poster Slant is live on slant.today');
 

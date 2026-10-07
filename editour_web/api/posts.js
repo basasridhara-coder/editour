@@ -34,7 +34,7 @@ module.exports = async function handler(req, res) {
     res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=120');
     // 1. Primary: Direct Supabase query with safe batch limit
     try {
-      const resp = await fetch(`${SUPABASE_URL}/rest/v1/posts?select=*&order=created_at.desc&limit=15`, {
+      const resp = await fetch(`${SUPABASE_URL}/rest/v1/posts?select=*&order=created_at.desc&limit=45`, {
         headers: {
           'apikey': SUPABASE_KEY,
           'Authorization': `Bearer ${SUPABASE_KEY}`
@@ -76,6 +76,16 @@ module.exports = async function handler(req, res) {
       }
       if (!postData.createdAt) {
         postData.createdAt = new Date().toISOString();
+      }
+
+      // Strip redundant duplicate multi-megabyte base64 copies before saving
+      if (postData.illustrationBase64) {
+        if (postData.illustrationUrl && postData.illustrationUrl.startsWith('data:')) {
+          postData.illustrationUrl = '';
+        }
+        if (postData.aiIllustrationUrl && postData.aiIllustrationUrl.startsWith('data:')) {
+          postData.aiIllustrationUrl = '';
+        }
       }
 
       // Upsert into Supabase
