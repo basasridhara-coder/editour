@@ -36,7 +36,8 @@ module.exports = async function handler(req, res) {
     existingCues = [],
     countryContext = '',
     countryCode = '',
-    vocabularyStyle = 'punchy'
+    vocabularyStyle = 'punchy',
+    slantTone = 'mind'
   } = body || {};
 
   const isLikeness = (characterRepresentation === 'likeness' || characterRepresentation === 'lookalike');
@@ -47,6 +48,25 @@ module.exports = async function handler(req, res) {
   const combinedTopic = `${curatorAngle || ''} ${spark || ''} ${newsHeadline || ''} ${newsBody || ''}`.toLowerCase();
   const isPersonalStory = (sourceType === 'inner_voice') ||
     /\b(trip|vacation|kerala|holiday|travel|family|son|daughter|kid|child|parent|pack|luggage|flight|beach|home|rest|weekend|burnout|unplug)\b/i.test(combinedTopic);
+
+  const isHeart = (slantTone === 'heart' || isPersonalStory);
+  const lightingDirective = isHeart
+    ? `CRITICAL LIGHTING DIRECTIVE (ATMOSPHERIC, EMOTIVE & CONTEXT-DRIVEN):
+This is a personal, emotive, or philosophical reflection (Out of Heart).
+STRICT RULE: Do NOT lazily default to generic "Golden Hour"!
+Derive the lighting directly from the real setting and emotional atmosphere:
+- Morning / Fresh beginnings: "Soft Fog-Diffused Morning Light", "Pale Morning Window Light"
+- Twilight / Intimate reflection: "Moody Twilight Indigo with Warm Lantern", "Muted Amber Domestic Desk Glow"
+- Outdoor nature / Travel: "Dappled Tree Canopy Sunlight", "Misty Monsoon Diffused Light"
+- Tension / Burnout: "Cold Screen Glare Against Shadowy Room"`
+    : `CRITICAL LIGHTING DIRECTIVE (STARK, INTELLECTUAL & FORENSIC):
+This is an analytical, strategic, systemic, or investigative slant (Out of Mind).
+STRICT RULE: NEVER default to generic "Golden Hour", "Sunset Glow", or romantic evening light! That completely clashes with analytical journalism.
+Derive the lighting from the tension, power dynamics, and architectural setting:
+- Governance / Law / Courts: "Stark Chiaroscuro Beam from Above", "High-Contrast Noir Rim Light"
+- Tech / Silicon / AI: "Cyan Terminal Glare and Charcoal Shadows", "Eerie Volumetric Server Neon"
+- Markets / Finance: "Cold Blue Architectural Daylight", "Forensic Overhead Halogen Grid"
+- Crisis / Scandal: "Harsh Razor Chiaroscuro Slit Lamp", "Damp Streetlamp in Midnight Rain"`;
 
   const countryDirective = countryContext && countryContext !== 'Global'
     ? (isPersonalStory
@@ -103,6 +123,7 @@ The Spark (Catalyst / Personal Context): "${spark || ''}"
 Article Title: "${newsHeadline || ''}"
 Article Excerpt / Context: "${newsBody ? newsBody.slice(0, 1500) : ''}"
 Source Type: ${sourceType}
+Slant Tone: ${slantTone === 'heart' ? 'Out of Heart (Emotive, Humanistic, Personal Reflection)' : 'Out of Mind (Analytical, Strategic, Systemic Broadsheet)'}
 Regional & Cultural Setting: ${countryContext || 'Global / Contextually Detected'}
 Character Portrayal Style: ${isExact ? 'EXACT PHOTO FOCUS' : (isLikeness ? 'LOOKALIKE & PORTRAIT (ARTISTIC EDITORIAL PORTRAIT)' : (isSilhouette ? 'Stylized Minimalist Silhouette' : 'Vivid Editorial Realism (Realistic & Expressive Human Subjects)'))}
 
@@ -112,6 +133,8 @@ ${countryDirective}
 
 ${personDirective}
 
+${lightingDirective}
+
 ${variationDirective}
 
 STRICT VISUAL CUE REQUIREMENTS (Must be short, punchy 3-6 word phrases):
@@ -119,7 +142,7 @@ STRICT VISUAL CUE REQUIREMENTS (Must be short, punchy 3-6 word phrases):
 2. MOTIF: Secondary symbolic metaphorical object capturing the curator's philosophical stance or critique (e.g. "Child Holding Forgotten Travel Item", "Tangled Marionette Puppet Strings", "Sculptor Chisel against Marble", "Tipping Balance Scales").
 3. TENSION: Opposing visual friction, conflict, shadow, crisis, or counter-force (e.g. "Work Deadlines Clashing with Escape", "Relentless Tidal Wave of Noise", "Cracking Stone Foundation", "Looming Corporate Shadow").
 4. ATMOSPHERE: Setting, environmental scale, weather, or time of day (e.g. "Cluttered Study with Kerala Palms", "Damp Rain-Slicked City Boulevard", "Smoke-Filled High-Rise Boardroom").
-5. LIGHTING: Dramatic chiaroscuro, cinematic spotlight, or ambient illumination mood (e.g. "Golden Twilight Clashing with Screen Glow", "Dramatic Chiaroscuro Editorial Spotlight", "Single Harsh Streetlamp Spotlight").
+5. LIGHTING: Evocative 3-6 word lighting mood strictly reflecting the topic and emotional stance (e.g. "Cold Steel-Blue Chiaroscuro Rim", "Forensic Overhead Halogen Grid", "Soft Fog-Diffused Morning Light", "Dramatic Low-Angle Razor Spotlight"). STRICTLY AVOID generic "Golden Hour" or "Warm Sunset" cliches unless an outdoor sunset is explicitly central to the narrative!
 6. STYLE: Specific high-aesthetic visual medium (e.g. "Cinematic Warm Editorial Illustration", "High-Contrast Noir Risograph Print", "Bauhaus Geometric Vector Art").
 
 CRITICAL RULE: Under no circumstances output URLs, web links, "https", or technical domain strings. Every cue must be evocative visual imagery.
@@ -312,12 +335,19 @@ function generateSmartFallbackCues(curatorAngle = '', spark = '', newsHeadline =
     ? ['New Delhi Auditorium Stage Under Lights', 'Dusk over New Delhi Red Sandstone Corridor', 'Historic Colonnaded Assembly Hall', 'Monsoon-Drenched Civic Square']
     : ['Quiet Study at Twilight', 'Rain-Slicked City Boulevard at Dusk', 'High-Ceilinged Conference Hall', 'Smoke-Filled High-Rise Boardroom'];
 
-  const lightingPool = [
-    'Dramatic Chiaroscuro Editorial Spotlight',
-    'High-Contrast Cinematic Beam from Above',
-    'Warm Golden Spotlight on Speaker',
-    'Cool Ambient Stage Floodlight'
-  ];
+  const lightingPool = isHeart
+    ? [
+        'Soft Fog-Diffused Morning Light',
+        'Pale Morning Window Light with Subtle Falloff',
+        'Moody Twilight Indigo with Warm Lantern',
+        'Muted Amber Domestic Desk Glow'
+      ]
+    : [
+        'Stark High-Contrast Noir Rim Light',
+        'Cold Steel-Blue Architectural Daylight',
+        'Dramatic Chiaroscuro Beam from Above',
+        'Cyan Terminal Glare and Charcoal Shadows'
+      ];
 
   const stylePool = isIndia
     ? ['Cinematic Warm Editorial Photography', 'Editorial Sandstone & Indigo Broadsheet Woodcut', 'Warm Fine-Art Editorial Illustration', 'High-Contrast Risograph Print']

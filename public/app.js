@@ -1881,6 +1881,54 @@ function buildSlide3Html(post, index) {
     folioAuthor = `EXCERPTED BY ${handle}`;
   }
 
+  // Evidentiary metric badge
+  let metricHtml = '';
+  if (post.keyMetric && String(post.keyMetric).trim()) {
+    metricHtml = `
+      <div class="receipt-metric-row">
+        <span class="receipt-metric-badge">KEY METRIC</span>
+        <span class="receipt-metric-val">${escapeHtml(String(post.keyMetric).trim())}</span>
+      </div>
+    `;
+  }
+
+  // Evidentiary takeaways / structured findings card
+  let takeawaysHtml = '';
+  const takeaways = Array.isArray(post.keyTakeaways) ? post.keyTakeaways.filter(Boolean) : [];
+  if (takeaways.length > 0) {
+    const topTakeaways = takeaways.slice(0, 2);
+    takeawaysHtml = `
+      <div class="receipt-takeaways-card">
+        <div class="takeaways-header">
+          <span class="takeaways-icon">⚖️</span>
+          <span class="takeaways-title">${tier === 'tier3_opinion' ? 'CURATOR CONVICTIONS' : 'EVIDENTIARY TAKEAWAYS'}</span>
+        </div>
+        <div class="takeaways-list">
+          ${topTakeaways.map(t => {
+            const str = String(t).trim();
+            const colonIdx = str.indexOf(':');
+            if (colonIdx > 0 && colonIdx < 35) {
+              const prefix = escapeHtml(str.slice(0, colonIdx).trim());
+              const rest = escapeHtml(str.slice(colonIdx + 1).trim());
+              return `<div class="takeaway-item"><span class="takeaway-dot">▪</span><span class="takeaway-text"><strong>${prefix}:</strong> ${rest}</span></div>`;
+            }
+            return `<div class="takeaway-item"><span class="takeaway-dot">▪</span><span class="takeaway-text">${escapeHtml(str)}</span></div>`;
+          }).join('')}
+        </div>
+      </div>
+    `;
+  } else if (post.whyItMatters && String(post.whyItMatters).trim()) {
+    takeawaysHtml = `
+      <div class="receipt-takeaways-card">
+        <div class="takeaways-header">
+          <span class="takeaways-icon">🔍</span>
+          <span class="takeaways-title">WHY THIS MATTERS</span>
+        </div>
+        <p class="takeaway-why-text">${escapeHtml(String(post.whyItMatters).trim())}</p>
+      </div>
+    `;
+  }
+
   return `
     ${stampHtml}
 
@@ -1919,20 +1967,18 @@ function buildSlide3Html(post, index) {
       <div class="receipts-hairline"></div>
     </div>
 
-    <!-- 3. Continuous Actual Newspaper Excerpts (1:2:2:1 Spacer Distribution Matching App) -->
+    <!-- 3. Continuous Actual Newspaper Excerpts & Evidentiary Findings -->
     <div class="receipt-paragraphs">
-      <div class="receipt-spacer-top"></div>
+      ${metricHtml}
       <p class="receipt-p1">${p1}</p>
-      <div class="receipt-spacer-mid"></div>
       <div class="receipt-highlight">
         <div class="highlighter-label">
           <span>${highlightIcon}</span> ${highlightTitle}
         </div>
         <div class="highlighter-text">“${p2}”</div>
       </div>
-      <div class="receipt-spacer-mid"></div>
-      <p class="receipt-p3">${p3}</p>
-      <div class="receipt-spacer-bottom"></div>
+      ${(p3 && p3 !== p1 && p3 !== p2) ? `<p class="receipt-p3">${p3}</p>` : ''}
+      ${takeawaysHtml}
     </div>
 
     <!-- 4. Broadsheet Archival Bottom Folio (Bottom-Left: slant.today | Bottom-Right: Your conviction in 3 frames) -->
@@ -3773,14 +3819,16 @@ function extract6RankedCueDimensions(curatorAngle, newsHeadline, newsBody) {
 
   // 5. LIGHTING (Chiaroscuro & Mood)
   let lighting = '';
-  if (combined.includes('neon') || combined.includes('cyber') || combined.includes('future')) {
-    lighting = 'Eerie Volumetric Neon Cyan Glow';
-  } else if (combined.includes('dark') || combined.includes('noir') || combined.includes('secret') || combined.includes('investig')) {
-    lighting = 'Warm Golden Chiaroscuro Atmospheric Glow';
-  } else if (combined.includes('dawn') || combined.includes('morning') || combined.includes('hope')) {
-    lighting = 'Cold Blue Twilight with Amber Rim Light';
+  if (combined.includes('neon') || combined.includes('cyber') || combined.includes('future') || combined.includes('tech') || combined.includes('ai')) {
+    lighting = 'Cyan Terminal Glare and Charcoal Shadows';
+  } else if (combined.includes('dark') || combined.includes('noir') || combined.includes('secret') || combined.includes('investig') || combined.includes('court') || combined.includes('crime')) {
+    lighting = 'Stark High-Contrast Noir Rim Light';
+  } else if (combined.includes('dawn') || combined.includes('morning') || combined.includes('hope') || combined.includes('trip') || combined.includes('family') || combined.includes('travel')) {
+    lighting = 'Soft Fog-Diffused Morning Light';
+  } else if (combined.includes('market') || combined.includes('stock') || combined.includes('trade') || combined.includes('finance')) {
+    lighting = 'Cold Steel-Blue Architectural Daylight';
   } else {
-    lighting = 'Dramatic Chiaroscuro Editorial Spotlight';
+    lighting = 'Dramatic Chiaroscuro Beam from Above';
   }
 
   // 6. STYLE (Print Medium & Movement)
@@ -4481,7 +4529,8 @@ async function triggerCueSuggest() {
         existingCues: creatorCuePills,
         countryContext: creatorCountryContext?.name || 'India',
         countryCode: creatorCountryContext?.code || 'IN',
-        vocabularyStyle: creatorVocabularyStyle || 'punchy'
+        vocabularyStyle: creatorVocabularyStyle || 'punchy',
+        slantTone: (creatorSelectedSource === 'inner_voice' || /\b(family|child|love|heart|trip|vacation|weekend|pack|burnout|unplug|memoir|personal)\b/i.test(`${slantTake} ${spark}`)) ? 'heart' : 'mind'
       })
     });
 
@@ -4710,7 +4759,7 @@ async function startAiSynthesis() {
     imageBase64: effectiveImageBase64,
     imageMimeType: effectiveImageMime,
     targetAudience: 'General Public',
-    slantTone: 'mind',
+    slantTone: (creatorSelectedSource === 'inner_voice' || /\b(family|child|love|heart|trip|vacation|weekend|pack|burnout|unplug|memoir|personal)\b/i.test(`${slantTake} ${spark}`)) ? 'heart' : 'mind',
     spark,
     creatorHandle: userHandle,
     cues: creatorCuePills,
