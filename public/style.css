@@ -3272,17 +3272,27 @@ header {
   }
 
   .slant-login-close {
-    top: 10px;
-    right: 12px;
-    width: 34px;
-    height: 34px;
+    top: 8px;
+    right: 10px;
+    width: 32px;
+    height: 32px;
     font-size: 18px;
     z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .slant-login-topbar {
-    padding: 12px 48px 12px 16px; /* Clearance for close button on right */
+    padding: 12px 46px; /* Symmetrical clearance on both sides for exact horizontal centering */
     gap: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    width: 100%;
+    box-sizing: border-box;
+    position: relative;
   }
 
   .topbar-rule-left,
@@ -3290,11 +3300,30 @@ header {
     display: none;
   }
 
+  .topbar-tagline-wrap {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin: 0 auto;
+    text-align: center;
+  }
+
   .topbar-tagline {
     font-size: 13px;
     letter-spacing: 0.2px;
     white-space: normal;
     text-align: center;
+  }
+
+  /* Hide top header New Slant button on mobile since bottom floating Slant FAB exists */
+  .create-slant-header-btn {
+    display: none !important;
+  }
+
+  /* Show floating Slant action button on mobile */
+  .fab-create-btn {
+    display: inline-flex !important;
   }
 
   /* Grid turns into Column Flexbox with Auth prioritized on top */
@@ -3502,6 +3531,22 @@ header {
     margin: 0;
     border-radius: 0;
     border: none;
+  }
+
+  .slant-login-topbar {
+    padding: 11px 40px;
+  }
+
+  .slant-login-close {
+    top: 7px;
+    right: 8px;
+    width: 30px;
+    height: 30px;
+    font-size: 16px;
+  }
+
+  .topbar-tagline {
+    font-size: 12.5px;
   }
 
   .slant-login-auth-col {
@@ -4430,12 +4475,12 @@ header {
   z-index: 99;
   display: none;
   align-items: center;
-  gap: 8px;
+  gap: 9px;
   background: linear-gradient(135deg, #6366F1 0%, #EC4899 100%);
   color: #FFFFFF;
   border: 1px solid rgba(255, 255, 255, 0.25);
   border-radius: 9999px;
-  padding: 13px 22px;
+  padding: 10px 18px 10px 12px;
   font-size: 15px;
   font-weight: 800;
   cursor: pointer;
@@ -4454,10 +4499,36 @@ header {
 }
 
 .fab-create-btn .fab-icon {
-  font-size: 16px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  flex-shrink: 0;
+  padding: 2px;
+  box-sizing: border-box;
 }
 
-@media (max-width: 768px) {
+.fab-create-btn .fab-logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+  display: block;
+}
+
+.fab-create-btn .fab-label {
+  font-size: 15px;
+  font-weight: 800;
+  color: #FFFFFF;
+  letter-spacing: -0.2px;
+}
+
+@media (max-width: 860px) {
   .fab-create-btn {
     display: inline-flex;
   }
