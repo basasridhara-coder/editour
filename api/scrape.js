@@ -36,6 +36,19 @@ module.exports = async function handler(req, res) {
     domain = parsedUri.hostname.replace(/^www\./, '');
   } catch (_) {}
 
+  // Specialized YouTube Video Extractor: extracts full interview description, chapters, and high-res thumbnail
+  const ytVideoId = extractYouTubeVideoId(targetUrl);
+  if (ytVideoId) {
+    try {
+      const ytResult = await scrapeYouTubeUrl(targetUrl, ytVideoId);
+      if (ytResult && ytResult.title) {
+        return res.status(200).json(ytResult);
+      }
+    } catch (ytErr) {
+      console.warn('Specialized YouTube scrape failed, falling back to standard scrape:', ytErr.message);
+    }
+  }
+
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 6000);
@@ -105,7 +118,7 @@ module.exports = async function handler(req, res) {
     }
 
     // 5. Clean Article Body Excerpt
-    const cleanText = html
+    let cleanText = html
       .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
       .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
       .replace(/<nav\b[^<]*(?:(?!<\/nav>)<[^<]*)*<\/nav>/gi, '')
@@ -115,6 +128,15 @@ module.exports = async function handler(req, res) {
       .replace(/\s+/g, ' ')
       .trim()
       .slice(0, 3500);
+
+    // If cleanText is suspiciously short or contains common SPA boilerplate, enrich with description
+    if (cleanText.length < 250 || cleanText.includes('About Press Copyright Contact us')) {
+      if (description && description.length > 30) {
+        cleanText = `${title}\n\n${description}`.trim();
+      }
+    } else if (description && !cleanText.toLowerCase().includes(description.slice(0, 40).toLowerCase())) {
+      cleanText = `${description}\n\n${cleanText}`.trim().slice(0, 4000);
+    }
 
     // Fallback title from slug if title is empty
     if (!title) {
@@ -239,5 +261,124 @@ function extractMetaImage(html, baseUrl) {
     } catch (_) {}
   }
   return img || '';
+}
+
+function extractYouTubeVideoId(url) {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.toLowerCase();
+    if (host.includes('youtu.be')) {
+      return parsed.pathname.slice(1).split(/[?#&]/)[0];
+    }
+    if (host.includes('youtube.com')) {
+      if (parsed.searchParams.has('v')) return parsed.searchParams.get('v');
+      const parts = parsed.pathname.split('/').filter(Boolean);
+      const shortsIdx = parts.indexOf('shorts');
+      if (shortsIdx !== -1 && parts[shortsIdx + 1]) return parts[shortsIdx + 1];
+      const liveIdx = parts.indexOf('live');
+      if (liveIdx !== -1 && parts[liveIdx + 1]) return parts[liveIdx + 1];
+      const embedIdx = parts.indexOf('embed');
+      if (embedIdx !== -1 && parts[embedIdx + 1]) return parts[embedIdx + 1];
+    }
+  } catch (_) {}
+  return null;
+}
+
+async function scrapeYouTubeUrl(targetUrl, videoId) {
+  let oembed = {};
+  try {
+    const oembedResp = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(targetUrl)}&format=json`, {
+      headers: { 'User-Agent': 'Mozilla/5.0' }
+    });
+    if (oembedResp.ok) {
+      oembed = await oembedResp.json();
+    }
+  } catch (_) {}
+
+  let playerObj = null;
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    const pageResp = await fetch(targetUrl, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9'
+      }
+    });
+    clearTimeout(timeout);
+    if (pageResp.ok) {
+      const pageHtml = await pageResp.text();
+      const match = pageHtml.match(/var ytInitialPlayerResponse\s*=\s*(\{.+?\});(?:var|<\/script>)/s) ||
+                    pageHtml.match(/ytInitialPlayerResponse\s*=\s*(\{.+?\});/);
+      if (match) {
+        try { playerObj = JSON.parse(match[1]); } catch (_) {}
+      }
+    }
+  } catch (_) {}
+
+  const rawTitle = playerObj?.videoDetails?.title || oembed.title || '';
+  const title = decodeHtmlEntities(rawTitle).trim();
+  const author = decodeHtmlEntities(playerObj?.videoDetails?.author || oembed.author_name || 'YouTube').trim();
+  const rawDesc = playerObj?.videoDetails?.shortDescription || '';
+  const desc = decodeHtmlEntities(rawDesc).trim();
+
+  // Prefer highest quality maxresdefault thumbnail, fallback to hqdefault, then oembed
+  const candidateThumbs = [
+    videoId ? `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg` : null,
+    videoId ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` : null,
+    oembed.thumbnail_url
+  ].filter(Boolean);
+
+  let imageUrl = candidateThumbs[0] || null;
+  let imageBase64 = null;
+  let imageMimeType = 'image/jpeg';
+
+  for (const thumbUrl of candidateThumbs) {
+    try {
+      const imgCtrl = new AbortController();
+      const imgTimer = setTimeout(() => imgCtrl.abort(), 3500);
+      const imgResp = await fetch(thumbUrl, {
+        signal: imgCtrl.signal,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Referer': 'https://www.youtube.com/'
+        }
+      });
+      clearTimeout(imgTimer);
+      if (imgResp.ok) {
+        const ct = imgResp.headers.get('content-type') || 'image/jpeg';
+        const buf = await imgResp.arrayBuffer();
+        if (buf.byteLength > 2000 && buf.byteLength < 5 * 1024 * 1024) {
+          imageUrl = thumbUrl;
+          imageMimeType = ct.split(';')[0];
+          imageBase64 = `data:${imageMimeType};base64,` + Buffer.from(buf).toString('base64');
+          break;
+        }
+      }
+    } catch (_) {}
+  }
+
+  const structuredContent = [
+    `Title: ${title}`,
+    `Channel / Speaker: ${author}`,
+    `Platform: YouTube Video`,
+    desc ? `\nVideo Description, Highlights & Chapters:\n${desc}` : ''
+  ].filter(Boolean).join('\n').trim();
+
+  const shortDesc = desc ? (desc.slice(0, 450).replace(/\s+/g, ' ') + (desc.length > 450 ? '...' : '')) : '';
+
+  return {
+    success: true,
+    url: targetUrl,
+    title: title || 'YouTube Video',
+    siteName: `${author} • YouTube`,
+    description: shortDesc,
+    content: structuredContent,
+    imageUrl,
+    imageBase64,
+    imageMimeType
+  };
 }
 

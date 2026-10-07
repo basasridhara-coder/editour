@@ -82,59 +82,84 @@ module.exports = async function handler(req, res) {
     let extractedContent = scrapedContent || text || '';
     let pubName = '';
 
-    // 1. If digital link, attempt lightweight server-side scraping of OpenGraph / Title / Text if not already supplied
+    // 1. If digital link, attempt server-side extraction if content is thin, missing, or boilerplate
     if (sourceType === 'digital_link' && url) {
       try {
         const parsedUrl = new URL(url);
         pubName = parsedUrl.hostname.replace(/^www\./, '');
+
+        const isYouTube = parsedUrl.hostname.includes('youtube.com') || parsedUrl.hostname.includes('youtu.be');
+        const isJunkContent = !extractedContent || 
+                              extractedContent.length < 200 || 
+                              extractedContent.includes('About Press Copyright Contact us');
+
+        if (isYouTube && (isJunkContent || !extractedTitle)) {
+          const ytVideoId = extractYouTubeVideoId(url);
+          if (ytVideoId) {
+            try {
+              const ytData = await scrapeYouTubeUrl(url, ytVideoId);
+              if (ytData && ytData.title) {
+                if (!extractedTitle || extractedTitle.length < 5) extractedTitle = ytData.title;
+                extractedContent = ytData.content;
+                if (ytData.siteName) pubName = ytData.siteName;
+              }
+            } catch (ytErr) {
+              console.warn('YouTube scrape in synthesize failed:', ytErr.message);
+            }
+          }
+        }
         
-        if (!extractedContent || !extractedTitle) {
+        if (!extractedContent || !extractedTitle || isJunkContent) {
           const controller = new AbortController();
           const timeout = setTimeout(() => controller.abort(), 4000);
           const pageResp = await fetch(url, {
-          signal: controller.signal,
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 SlantBot/1.0'
+            signal: controller.signal,
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 SlantBot/1.0'
+            }
+          });
+          clearTimeout(timeout);
+
+          if (pageResp.ok) {
+            const html = await pageResp.text();
+            // Extract title
+            const titleMatch = html.match(/<meta property=["']og:title["'] content=["'](.*?)["']/i) ||
+                               html.match(/<title>(.*?)<\/title>/i);
+            if (titleMatch && titleMatch[1]) {
+              extractedTitle = decodeHtmlEntities(titleMatch[1].trim());
+            }
+
+            // Extract meta description / og:description
+            const descMatch = html.match(/<meta property=["']og:description["'] content=["'](.*?)["']/i) ||
+                              html.match(/<meta name=["']description["'] content=["'](.*?)["']/i);
+            let desc = descMatch && descMatch[1] ? decodeHtmlEntities(descMatch[1].trim()) : '';
+
+            // Extract site_name
+            const siteMatch = html.match(/<meta property=["']og:site_name["'] content=["'](.*?)["']/i);
+            if (siteMatch && siteMatch[1]) {
+              pubName = decodeHtmlEntities(siteMatch[1].trim());
+            }
+
+            // Strip HTML tags for clean body excerpt
+            let cleanBody = html
+              .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+              .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
+              .replace(/<[^>]+>/g, ' ')
+              .replace(/\s+/g, ' ')
+              .trim()
+              .slice(0, 3000);
+
+            if (cleanBody.length < 200 && desc) {
+              cleanBody = desc;
+            }
+
+            extractedContent = `Title: ${extractedTitle}\nDescription: ${desc}\n\nArticle Text:\n${cleanBody}`;
           }
-        });
-        clearTimeout(timeout);
-
-        if (pageResp.ok) {
-          const html = await pageResp.text();
-          // Extract title
-          const titleMatch = html.match(/<meta property=["']og:title["'] content=["'](.*?)["']/i) ||
-                             html.match(/<title>(.*?)<\/title>/i);
-          if (titleMatch && titleMatch[1]) {
-            extractedTitle = titleMatch[1].trim();
-          }
-
-          // Extract meta description / og:description
-          const descMatch = html.match(/<meta property=["']og:description["'] content=["'](.*?)["']/i) ||
-                            html.match(/<meta name=["']description["'] content=["'](.*?)["']/i);
-          let desc = descMatch && descMatch[1] ? descMatch[1].trim() : '';
-
-          // Extract site_name
-          const siteMatch = html.match(/<meta property=["']og:site_name["'] content=["'](.*?)["']/i);
-          if (siteMatch && siteMatch[1]) {
-            pubName = siteMatch[1].trim();
-          }
-
-          // Strip HTML tags for clean body excerpt
-          const cleanBody = html
-            .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-            .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
-            .replace(/<[^>]+>/g, ' ')
-            .replace(/\s+/g, ' ')
-            .trim()
-            .slice(0, 3000);
-
-          extractedContent = `Title: ${extractedTitle}\nDescription: ${desc}\n\nArticle Text:\n${cleanBody}`;
         }
+      } catch (err) {
+        console.warn('URL metadata fetch skipped or timed out:', err.message);
       }
-    } catch (err) {
-      console.warn('URL metadata fetch skipped or timed out:', err.message);
     }
-  }
 
     // 2. Build Prompt for Gemini 3.8 Flash
     const toneDescription = slantTone === 'heart'
@@ -754,4 +779,107 @@ function getCuratedEditorialPhoto({ heroCue = '', motifCue = '', prompt = '', te
     'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=1200&q=80'
   ];
   return fallbacks[Math.abs(seed) % fallbacks.length];
+}
+
+function decodeHtmlEntities(str) {
+  if (!str) return '';
+  return str
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&#x27;/gi, "'")
+    .replace(/&mdash;/g, '—')
+    .replace(/&ndash;/g, '–')
+    .replace(/&hellip;/g, '…');
+}
+
+function extractYouTubeVideoId(url) {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.toLowerCase();
+    if (host.includes('youtu.be')) {
+      return parsed.pathname.slice(1).split(/[?#&]/)[0];
+    }
+    if (host.includes('youtube.com')) {
+      if (parsed.searchParams.has('v')) return parsed.searchParams.get('v');
+      const parts = parsed.pathname.split('/').filter(Boolean);
+      const shortsIdx = parts.indexOf('shorts');
+      if (shortsIdx !== -1 && parts[shortsIdx + 1]) return parts[shortsIdx + 1];
+      const liveIdx = parts.indexOf('live');
+      if (liveIdx !== -1 && parts[liveIdx + 1]) return parts[liveIdx + 1];
+      const embedIdx = parts.indexOf('embed');
+      if (embedIdx !== -1 && parts[embedIdx + 1]) return parts[embedIdx + 1];
+    }
+  } catch (_) {}
+  return null;
+}
+
+async function scrapeYouTubeUrl(targetUrl, videoId) {
+  let oembed = {};
+  try {
+    const oembedResp = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(targetUrl)}&format=json`, {
+      headers: { 'User-Agent': 'Mozilla/5.0' }
+    });
+    if (oembedResp.ok) {
+      oembed = await oembedResp.json();
+    }
+  } catch (_) {}
+
+  let playerObj = null;
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    const pageResp = await fetch(targetUrl, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9'
+      }
+    });
+    clearTimeout(timeout);
+    if (pageResp.ok) {
+      const pageHtml = await pageResp.text();
+      const match = pageHtml.match(/var ytInitialPlayerResponse\s*=\s*(\{.+?\});(?:var|<\/script>)/s) ||
+                    pageHtml.match(/ytInitialPlayerResponse\s*=\s*(\{.+?\});/);
+      if (match) {
+        try { playerObj = JSON.parse(match[1]); } catch (_) {}
+      }
+    }
+  } catch (_) {}
+
+  const rawTitle = playerObj?.videoDetails?.title || oembed.title || '';
+  const title = decodeHtmlEntities(rawTitle).trim();
+  const author = decodeHtmlEntities(playerObj?.videoDetails?.author || oembed.author_name || 'YouTube').trim();
+  const rawDesc = playerObj?.videoDetails?.shortDescription || '';
+  const desc = decodeHtmlEntities(rawDesc).trim();
+
+  const candidateThumbs = [
+    videoId ? `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg` : null,
+    videoId ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` : null,
+    oembed.thumbnail_url
+  ].filter(Boolean);
+
+  let imageUrl = candidateThumbs[0] || null;
+
+  const structuredContent = [
+    `Title: ${title}`,
+    `Channel / Speaker: ${author}`,
+    `Platform: YouTube Video`,
+    desc ? `\nVideo Description, Highlights & Chapters:\n${desc}` : ''
+  ].filter(Boolean).join('\n').trim();
+
+  const shortDesc = desc ? (desc.slice(0, 450).replace(/\s+/g, ' ') + (desc.length > 450 ? '...' : '')) : '';
+
+  return {
+    success: true,
+    url: targetUrl,
+    title: title || 'YouTube Video',
+    siteName: `${author} • YouTube`,
+    description: shortDesc,
+    content: structuredContent,
+    imageUrl
+  };
 }
