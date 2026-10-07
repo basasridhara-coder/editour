@@ -478,6 +478,9 @@ Respond strictly with valid JSON with this exact structure:
       refineCoreTake,
       vocabularyStyle: vocabularyStyle || 'punchy',
       isUserCreated: true,
+      sourceType: sourceType,
+      originalPhotoBase64: (sourceType === 'photo' && imageBase64) ? imageBase64 : null,
+      hasPaperCut: (sourceType === 'photo' && !!imageBase64),
       userContext: spark || '',
       spark: spark || ''
     };

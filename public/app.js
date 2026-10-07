@@ -1648,22 +1648,33 @@ function buildSlide1Html(post, index) {
     `;
   }
 
+  const handle = escapeHtml(post.creatorHandle || '@curator');
+
   return `
     ${bgHtml}
     <div class="slide-hook-top-scrim"></div>
     <div class="slide-hook-bottom-scrim"></div>
     <div class="slide-hook-content">
       <div class="slide-hook-top" style="justify-content: space-between; width: 100%;">
-        <div style="padding: 4px 10px; background: rgba(0,0,0,0.75); border: 1px solid rgba(255,255,255,0.25); border-radius: 20px; display: inline-flex; align-items: center; gap: 6px;">
-          <span style="width: 6px; height: 6px; border-radius: 50%; background: #6366F1; display: inline-block;"></span>
-          <span style="font-size: 9.5px; font-weight: 800; color: #818CF8; letter-spacing: 0.8px;">${catBadge}</span>
-          <span style="font-size: 9.5px; font-weight: 700; color: #FFF;">• ${sourceLabel}</span>
+        <!-- Top-Left (The Brand Identity): <logo> -->
+        <div class="poster-brand-corner top-left">
+          <img src="/logo.png" class="poster-corner-logo" alt="Slant">
+          <span class="poster-corner-cat">${catBadge}</span>
         </div>
-        <span class="slide-page-badge" style="background:rgba(0,0,0,0.75); border:1px solid rgba(255,255,255,0.25); border-radius:20px; padding:3px 9px; font-size:9.5px; color:#FFF; font-weight:800; letter-spacing:0.5px;">01 / 03</span>
+        <!-- Top-Right (The Creator): @<curatorname> -->
+        <div class="poster-brand-corner top-right">
+          <span class="poster-corner-creator">${handle}</span>
+          <span class="poster-corner-slide-num">01 / 03</span>
+        </div>
       </div>
       <div class="slide-hook-bottom">
         ${newsFragmentHtml}
         <h3 class="slide-hook-headline">${headline}</h3>
+        <!-- Bottom-Left: slant.today | Bottom-Right: Your conviction in 3 frames -->
+        <div class="poster-brand-footer">
+          <span class="poster-footer-domain">slant.today</span>
+          <span class="poster-footer-punchline">Your conviction in 3 frames</span>
+        </div>
       </div>
     </div>
   `;
@@ -1734,11 +1745,19 @@ function buildSlide2Html(post, index) {
   return `
     ${bgHtml}
     <div class="slide-hook-top-scrim"></div>
-    <div class="slide-hook-bottom-scrim" style="height: 38%; background: linear-gradient(to bottom, transparent 0%, rgba(7,11,18,0.52) 24%, rgba(7,11,18,0.92) 100%);"></div>
+    <div class="slide-hook-bottom-scrim" style="height: 42%; background: linear-gradient(to bottom, transparent 0%, rgba(7,11,18,0.52) 22%, rgba(7,11,18,0.95) 100%);"></div>
     <div class="slide-hook-content" style="justify-content: space-between;">
       <div class="slide-hook-top" style="justify-content: space-between; width: 100%;">
-        <span class="critique-verdict-badge" style="font-size:9.5px; padding:4px 10px; background:rgba(0,0,0,0.75); border:1px solid rgba(245,158,11,0.4); border-radius:20px; color:#F59E0B; font-weight:800;">${verdictBadgeLabel}</span>
-        <span class="slide-page-badge" style="background:rgba(0,0,0,0.75); border:1px solid rgba(255,255,255,0.25); border-radius:20px; padding:3px 9px; font-size:9.5px; color:#FFF; font-weight:800;">02 / 03</span>
+        <!-- Top-Left (The Brand Identity): <logo> -->
+        <div class="poster-brand-corner top-left">
+          <img src="/logo.png" class="poster-corner-logo" alt="Slant">
+          <span class="poster-corner-cat" style="color: #F59E0B;">${verdictBadgeLabel}</span>
+        </div>
+        <!-- Top-Right (The Creator): @<curatorname> -->
+        <div class="poster-brand-corner top-right">
+          <span class="poster-corner-creator">${handle}</span>
+          <span class="poster-corner-slide-num">02 / 03</span>
+        </div>
       </div>
       <div class="slide-hook-bottom" style="gap:6px; z-index:2;">
         <div style="display:flex; align-items:center; gap:6px;">
@@ -1746,12 +1765,10 @@ function buildSlide2Html(post, index) {
           <span style="font-size:10px; font-weight:800; color:#F59E0B; letter-spacing:0.8px;">${slideTitle}</span>
         </div>
         <p class="critique-opinion-text" style="font-size:13.5px; font-weight:700; color:#F8FAFC; line-height:1.42; margin:0;">${opinion}</p>
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:2px; padding-top:5px; border-top:1px solid rgba(255,255,255,0.1);">
-          <div style="display:flex; align-items:center; gap:6px;">
-            <div style="width:20px; height:20px; border-radius:50%; background:#F59E0B; color:#000; font-size:10px; font-weight:bold; display:flex; align-items:center; justify-content:center;">${initial}</div>
-            <span style="font-size:11px; font-weight:600; color:#CBD5E1;">${handle}</span>
-          </div>
-          <span style="font-size:9.5px; font-weight:800; color:#FCA5A5; background:rgba(220,38,38,0.25); border:1px solid rgba(239,68,68,0.8); border-radius:14px; padding:3px 8px;">${nextSlideLabel}</span>
+        <!-- Bottom-Left: slant.today | Bottom-Right: Your conviction in 3 frames -->
+        <div class="poster-brand-footer">
+          <span class="poster-footer-domain">slant.today</span>
+          <span class="poster-footer-punchline">Your conviction in 3 frames</span>
         </div>
       </div>
     </div>
@@ -1880,6 +1897,18 @@ function buildSlide3Html(post, index) {
   return `
     ${stampHtml}
 
+    <!-- 4-Corner Branding Top Row: Top-Left Logo + Brand, Top-Right Creator + Slide -->
+    <div class="receipt-brand-corner-bar">
+      <div class="receipt-corner-brand">
+        <img src="/logo.png" class="receipt-corner-logo" alt="Slant">
+        <span class="receipt-brand-text">SLANT</span>
+      </div>
+      <div class="receipt-corner-creator">
+        <span class="receipt-creator-name">${handle}</span>
+        <span class="receipt-corner-slide-num">03 / 03</span>
+      </div>
+    </div>
+
     <!-- 1. Classic Broadsheet Masthead Header -->
     <div class="receipt-header">
       <div class="receipt-masthead-thick"></div>
@@ -1888,7 +1917,7 @@ function buildSlide3Html(post, index) {
       <div class="receipt-rules">
         <span>${rulesLeft}</span>
         <span class="receipt-rules-center">${rulesCenter}</span>
-        <span>SLIDE 03 / 03</span>
+        <span>VERIFIED ARCHIVE</span>
       </div>
       <div class="receipt-masthead-bottom"></div>
     </div>
@@ -1919,12 +1948,12 @@ function buildSlide3Html(post, index) {
       <div class="receipt-spacer-bottom"></div>
     </div>
 
-    <!-- 4. Broadsheet Archival Bottom Folio -->
+    <!-- 4. Broadsheet Archival Bottom Folio (Bottom-Left: slant.today | Bottom-Right: Your conviction in 3 frames) -->
     <div class="receipt-footer">
       <div class="receipt-folio-rule"></div>
-      <div class="receipt-folio-text">
-        <span class="receipt-folio-source">${folioSource}</span>
-        <span class="receipt-folio-author">${folioAuthor}</span>
+      <div class="receipt-folio-text" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+        <span class="receipt-folio-source" style="font-weight: 800; letter-spacing: 0.8px; color: #0F172A;">slant.today</span>
+        <span class="receipt-folio-author" style="font-style: italic; letter-spacing: 0.4px; color: #475569;">Your conviction in 3 frames</span>
       </div>
     </div>
   `;
@@ -1966,7 +1995,13 @@ function createPostCardElement(post, index) {
   const isCarousel = true;
   const isClean = !!cleanViewState[index];
   const isSaved = savedPostIds.has(post.id);
-  const hasPaperCut = post.sourceType === 'photo' && !!(post.originalPhotoUrl || (post.originalPhotoBase64 && post.originalPhotoBase64.length > 50) || (post.originalPhotoPath && !post.originalPhotoPath.startsWith('http') && post.originalPhotoPath !== post.digitalLink) || (post.originalPhotoPath && /\.(png|jpe?g|webp|gif)$/i.test(post.originalPhotoPath)) || post.bookCoverBase64);
+  const hasPaperCut = post.sourceType === 'photo' 
+    || !!post.paperCutImage 
+    || !!post.hasPaperCut
+    || (post.originalPhotoUrl && (post.originalPhotoUrl.includes('clipping') || post.sourceType === 'photo'))
+    || (post.originalPhotoBase64 && post.originalPhotoBase64.length > 50)
+    || (post.originalPhotoPath && !post.originalPhotoPath.startsWith('http') && post.originalPhotoPath !== post.digitalLink)
+    || (tier === 'tier1_press' && (post.originalPhotoUrl || post.originalPhotoBase64 || post.originalPhotoPath));
 
   // Determine Tab 3 label and icon based on tier
   let tab3Icon = '📰';
@@ -2056,9 +2091,10 @@ function createPostCardElement(post, index) {
             <span class="creator-handle">${escapeHtml(handle)}</span>
             <span class="post-time">• Today</span>
           </div>
-          <div class="pub-source-badge">
-            <span>${sourceBadgeIcon}</span>
+          <div class="pub-source-badge ${hasPaperCut ? 'source-badge-clickable' : ''}" ${hasPaperCut ? `onclick="openPaperCutModal('${index}')" title="Click to view original newspaper clipping"` : ''}>
+            <span>${hasPaperCut ? '📰' : sourceBadgeIcon}</span>
             <span>${escapeHtml(sourceBadgeText)}</span>
+            ${hasPaperCut ? `<span class="source-view-pill">View Paper ↗</span>` : ''}
           </div>
         </div>
       </div>
@@ -2079,8 +2115,8 @@ function createPostCardElement(post, index) {
           <span class="like-count">64</span>
         </button>
 
-        <!-- Share Poster -->
-        <button class="icon-action-btn" onclick="copyCardShareLink('${post.id}')" title="Share story link">
+        <!-- Share 3 Slide Posters (Native Web Share API with 3 image files) -->
+        <button class="icon-action-btn" onclick="sharePosters('${index}')" title="Share 3 Slide Posters">
           <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="18" cy="5" r="3"></circle>
             <circle cx="6" cy="12" r="3"></circle>
@@ -2133,7 +2169,7 @@ function createPostCardElement(post, index) {
         ` : ''}
 
         ${hasPaperCut ? `
-          <button class="icon-action-btn" onclick="openPaperCutModal('${index}')" title="View Paper Cut (${escapeHtml(pubName)})">
+          <button class="icon-action-btn papercut-action-btn" onclick="openPaperCutModal('${index}')" title="View Paper Cut (${escapeHtml(pubName)})">
             <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"></path>
               <path d="M18 14h-8"></path>
@@ -2329,6 +2365,18 @@ function openDetailModal(index) {
     extLink.style.display = 'none';
   }
 
+  const paperCutBtn = document.getElementById('modalPaperCutBtn');
+  if (paperCutBtn) {
+    const hasPaper = post.sourceType === 'photo' 
+      || !!post.paperCutImage 
+      || !!post.hasPaperCut
+      || (post.originalPhotoUrl && (post.originalPhotoUrl.includes('clipping') || post.sourceType === 'photo'))
+      || (post.originalPhotoBase64 && post.originalPhotoBase64.length > 50)
+      || (post.originalPhotoPath && !post.originalPhotoPath.startsWith('http') && post.originalPhotoPath !== post.digitalLink)
+      || (post.id && ['692d99fc-d140-4d1c-9275-3263a7c187b7', '79cb4873-7c1b-402c-aebb-71fcebbefa5d', '83940fae-4ad7-43f6-9329-91cd17752f78', '9b55d7ea-8a78-4ef1-a068-cec226e200fd'].includes(post.id));
+    paperCutBtn.style.display = hasPaper ? 'inline-flex' : 'none';
+  }
+
   // Update browser URL query without reload
   history.pushState(null, '', `?p=${post.id}`);
 
@@ -2356,8 +2404,195 @@ function copyCardShareLink(postId) {
   });
 }
 
-function openPaperCutModal(index) {
-  const post = allPosts[index];
+/* ============================================================
+   3-POSTER EXPORT & NATIVE 3-IMAGE SOCIAL SHARING
+   Strict Requirement: Share set of 3 slide posters, no extra text details.
+   ============================================================ */
+
+async function capturePostSlidesAsFiles(post, index) {
+  if (typeof html2canvas === 'undefined') {
+    throw new Error('html2canvas library is not loaded');
+  }
+
+  // Create isolated offscreen container matching 4:5 social ratio (540x675)
+  const container = document.createElement('div');
+  container.className = 'poster-export-sandbox';
+  container.style.cssText = `
+    position: fixed !important;
+    left: -9999px !important;
+    top: 0 !important;
+    width: 540px !important;
+    height: 675px !important;
+    overflow: hidden !important;
+    z-index: -9999 !important;
+    background: #0B0F17 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+  `;
+  document.body.appendChild(container);
+
+  const slideConfigs = [
+    { num: 1, class: 'slide-hook', bg: '#0B0F17', html: buildSlide1Html(post, index) },
+    { num: 2, class: 'slide-critique', bg: '#0B0F17', html: buildSlide2Html(post, index) },
+    { num: 3, class: 'slide-receipt', bg: '#F7F5EE', html: buildSlide3Html(post, index) }
+  ];
+
+  const files = [];
+  const rawHeadline = post.adaptedHeadline || post.originalHeadline || post.hook || 'slant';
+  const slug = rawHeadline.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 30) || 'slant-story';
+
+  for (const cfg of slideConfigs) {
+    container.innerHTML = `
+      <div class="carousel-slide ${cfg.class}" style="width: 540px !important; height: 675px !important; position: relative !important; left: 0 !important; top: 0 !important; transform: none !important; flex: none !important; display: flex !important;">
+        ${cfg.html}
+      </div>
+    `;
+
+    // Wait for images inside to load
+    const imgs = Array.from(container.querySelectorAll('img'));
+    await Promise.all(imgs.map(img => {
+      if (img.complete && img.naturalWidth > 0) return Promise.resolve();
+      return new Promise(res => {
+        img.onload = res;
+        img.onerror = res;
+        setTimeout(res, 600);
+      });
+    }));
+
+    // Micro-delay for fonts and styles to paint
+    await new Promise(r => setTimeout(r, 70));
+
+    let canvas;
+    try {
+      canvas = await html2canvas(container, {
+        scale: 2, // 1080x1350 ultra-sharp export
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: cfg.bg,
+        logging: false,
+        width: 540,
+        height: 675
+      });
+    } catch (renderErr) {
+      console.warn('html2canvas primary render failed, retrying without taint:', renderErr);
+      canvas = await html2canvas(container, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: false,
+        backgroundColor: cfg.bg,
+        logging: false,
+        width: 540,
+        height: 675
+      });
+    }
+
+    let blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.95));
+    if (!blob) {
+      try {
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+        const parts = dataUrl.split(',');
+        const mime = parts[0].match(/:(.*?);/)[1];
+        const bstr = atob(parts[1]);
+        let n = bstr.length;
+        const u8arr = new Uint8Array(n);
+        while (n--) {
+          u8arr[n] = bstr.charCodeAt(n);
+        }
+        blob = new Blob([u8arr], { type: mime });
+      } catch (blobErr) {
+        console.warn('Canvas to blob fallback failed:', blobErr);
+      }
+    }
+
+    if (blob) {
+      const fileName = `${slug}-slide-0${cfg.num}.jpg`;
+      const file = new File([blob], fileName, { type: 'image/jpeg' });
+      files.push(file);
+    }
+  }
+
+  // Cleanup offscreen sandbox
+  if (container.parentNode) {
+    container.parentNode.removeChild(container);
+  }
+
+  return files;
+}
+
+async function sharePosters(indexOrId) {
+  const post = (typeof indexOrId === 'number' || (typeof indexOrId === 'string' && /^\d+$/.test(indexOrId)))
+    ? allPosts[parseInt(indexOrId, 10)]
+    : allPosts.find(p => p && p.id === indexOrId);
+
+  if (!post) {
+    showTemporaryToast('Post not found to share');
+    return;
+  }
+
+  showTemporaryToast('📸 Preparing 3 slide posters...');
+
+  try {
+    const files = await capturePostSlidesAsFiles(post, indexOrId);
+    if (!files || files.length === 0) {
+      throw new Error('Failed to generate poster images');
+    }
+
+    // Check if Web Share API with files is supported
+    if (navigator.canShare && navigator.canShare({ files })) {
+      // User requirement: "share set of 3 slide posters, no need of any other text details"
+      // Strict rule: NO title, NO text, NO url parameter
+      await navigator.share({
+        files: files
+      });
+      showTemporaryToast('✨ 3 Slide Posters shared!');
+    } else {
+      // Desktop / Browser Fallback: Sequential download of all 3 images
+      showTemporaryToast('📥 Downloading 3 slide posters...');
+      files.forEach((file, idx) => {
+        setTimeout(() => {
+          const url = URL.createObjectURL(file);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = file.name;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(url), 3000);
+        }, idx * 250);
+      });
+    }
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      // User closed/cancelled system share dialog
+      return;
+    }
+    console.error('Error sharing posters:', err);
+    showTemporaryToast('Could not share posters. Downloading files...');
+    try {
+      const files = await capturePostSlidesAsFiles(post, indexOrId);
+      files.forEach((file, idx) => {
+        setTimeout(() => {
+          const url = URL.createObjectURL(file);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = file.name;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(url), 3000);
+        }, idx * 250);
+      });
+    } catch (e2) {
+      console.error('Fallback download also failed:', e2);
+    }
+  }
+}
+
+function openPaperCutModal(indexOrId) {
+  const post = (typeof indexOrId === 'number' || (typeof indexOrId === 'string' && /^\d+$/.test(indexOrId)))
+    ? allPosts[parseInt(indexOrId, 10)]
+    : allPosts.find(p => p && p.id === indexOrId);
   if (!post) return;
 
   const imgEl = document.getElementById('paperCutImg');
@@ -2365,14 +2600,20 @@ function openPaperCutModal(index) {
   const archivalCard = document.getElementById('paperCutArchivalCard');
 
   let imgSrc = '';
-  if (post.originalPhotoUrl) {
-    imgSrc = post.originalPhotoUrl;
-  } else if (post.originalPhotoBase64 && post.originalPhotoBase64.length > 50) {
+  if (post.originalPhotoBase64 && post.originalPhotoBase64.length > 50) {
     imgSrc = post.originalPhotoBase64.startsWith('data:') 
       ? post.originalPhotoBase64 
       : 'data:image/jpeg;base64,' + post.originalPhotoBase64;
+  } else if (post.originalPhotoUrl) {
+    imgSrc = post.originalPhotoUrl.startsWith('/') || post.originalPhotoUrl.startsWith('http')
+      ? post.originalPhotoUrl
+      : `/${post.originalPhotoUrl}`;
+  } else if (post.paperCutImage) {
+    imgSrc = post.paperCutImage;
   } else if (post.originalPhotoPath && (post.originalPhotoPath.startsWith('http') || post.originalPhotoPath.startsWith('data:'))) {
     imgSrc = post.originalPhotoPath;
+  } else if (post.id) {
+    imgSrc = `/clippings/${post.id}.jpg`;
   }
 
   function showArchivalFallback() {
@@ -2411,8 +2652,19 @@ function openPaperCutModal(index) {
   }
 
   if (imgEl) {
+    imgEl.onload = () => {
+      if (imgWrap) imgWrap.style.display = 'flex';
+      if (imgEl) imgEl.style.display = 'block';
+      if (archivalCard) archivalCard.style.display = 'none';
+    };
     imgEl.onerror = () => {
-      showArchivalFallback();
+      // If primary path failed, try /clippings/${post.id}.jpg if not already tried
+      if (post.id && imgSrc && !imgSrc.includes(`/clippings/${post.id}.jpg`)) {
+        imgSrc = `/clippings/${post.id}.jpg`;
+        imgEl.src = imgSrc;
+      } else {
+        showArchivalFallback();
+      }
     };
   }
 
@@ -4291,6 +4543,11 @@ async function startAiSynthesis() {
     }
 
     currentSynthesizedPost = data.post;
+    if (creatorSelectedSource === 'photo' && (creatorSelectedImageBase64 || creatorReferenceImageBase64)) {
+      currentSynthesizedPost.sourceType = 'photo';
+      currentSynthesizedPost.originalPhotoBase64 = creatorSelectedImageBase64 || creatorReferenceImageBase64;
+      currentSynthesizedPost.hasPaperCut = true;
+    }
     if (fill) fill.style.width = '100%';
 
     setTimeout(() => {
@@ -4702,6 +4959,14 @@ async function publishSynthesizedPost() {
 
   // 1. Clean payload: remove redundant duplicate multi-megabyte image strings
   const postToSave = { ...currentSynthesizedPost };
+  if (currentSynthesizedPost.originalPhotoBase64) {
+    postToSave.originalPhotoBase64 = currentSynthesizedPost.originalPhotoBase64;
+    postToSave.hasPaperCut = true;
+  }
+  if (currentSynthesizedPost.sourceType === 'photo') {
+    postToSave.sourceType = 'photo';
+    postToSave.hasPaperCut = true;
+  }
   if (postToSave.illustrationBase64) {
     if (postToSave.illustrationUrl && postToSave.illustrationUrl.startsWith('data:')) {
       postToSave.illustrationUrl = '';

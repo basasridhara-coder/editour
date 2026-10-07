@@ -38,6 +38,8 @@
   <meta name="twitter:image" content="https://www.slant.today/logo.png">
   <!-- Supabase JS Client for Authentication & Real-time -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- html2canvas for high-fidelity 3-poster set export & native sharing -->
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
 <body data-theme="daylight">
 
@@ -809,7 +811,13 @@
 
       <div class="modal-footer">
         <span class="modal-pub-source" id="modalPubSource">Source: Reuters</span>
-        <div style="display:flex; gap:8px;">
+        <div style="display:flex; gap:8px; flex-wrap: wrap;">
+          <button id="modalPaperCutBtn" onclick="openPaperCutModal(activePostIndex)" class="tag-action-btn" style="display:none; color:#D97706; border-color:rgba(217,119,6,0.4);">
+            📰 View Paper
+          </button>
+          <button class="tag-action-btn" onclick="sharePosters(activePostIndex)" style="color:#6366F1; border-color:rgba(99,102,241,0.4);">
+            📤 Share 3 Posters
+          </button>
           <button class="tag-action-btn" onclick="copyShareLink()">
             🔗 Copy Link
           </button>
