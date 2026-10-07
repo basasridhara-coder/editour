@@ -43,7 +43,12 @@ module.exports = async function handler(req, res) {
       if (resp.ok) {
         const rows = await resp.json();
         if (Array.isArray(rows) && rows.length > 0) {
-          const posts = rows.map(r => r.data || r).filter(p => p && !p.deleted && !p.isDeleted && (p.adaptedHeadline || p.originalHeadline || p.summary));
+          const posts = rows.map(r => {
+            const p = r.data || r;
+            p.id = p.id || r.id;
+            p.createdAt = p.createdAt || r.created_at || new Date().toISOString();
+            return p;
+          }).filter(p => p && !p.deleted && !p.isDeleted && (p.adaptedHeadline || p.originalHeadline || p.summary));
           return res.status(200).json({ status: 'ok', count: posts.length, posts });
         }
       }

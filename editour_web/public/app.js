@@ -177,6 +177,19 @@ async function initAuth() {
     if (event === 'SIGNED_IN') {
       closeAuthModal();
       showTemporaryToast(`Welcome, ${escapeHtml(getUserDisplayName())}! ✨`);
+      // Restore cloud-saved bookmarks and authored stories from user metadata
+      if (currentUser?.user_metadata) {
+        const cloudSaved = currentUser.user_metadata.saved_posts;
+        if (Array.isArray(cloudSaved) && cloudSaved.length > 0) {
+          cloudSaved.forEach(id => savedPostIds.add(id));
+          localStorage.setItem('slant_saved_posts', JSON.stringify(Array.from(savedPostIds)));
+        }
+        const cloudMy = currentUser.user_metadata.my_posts;
+        if (Array.isArray(cloudMy) && cloudMy.length > 0) {
+          cloudMy.forEach(id => myCreatedPostIds.add(id));
+          localStorage.setItem('slant_my_posts', JSON.stringify(Array.from(myCreatedPostIds)));
+        }
+      }
       checkLiveSupabaseUpdates(true);
     } else if (event === 'SIGNED_OUT') {
       closeAuthModal();
@@ -188,6 +201,19 @@ async function initAuth() {
       }
     }
   });
+}
+
+function syncUserMetadataToCloud() {
+  if (currentUser && supabaseClient && typeof supabaseClient.auth?.updateUser === 'function') {
+    try {
+      supabaseClient.auth.updateUser({
+        data: {
+          saved_posts: Array.from(savedPostIds),
+          my_posts: Array.from(myCreatedPostIds)
+        }
+      }).catch(err => console.warn('Could not sync user metadata:', err));
+    } catch (e) {}
+  }
 }
 
 function getUserDisplayName() {
@@ -879,6 +905,7 @@ function toggleBookmark(event, postId) {
 
   localStorage.setItem('slant_saved_posts', JSON.stringify(Array.from(savedPostIds)));
   localStorage.setItem('editour_saved_posts', JSON.stringify(Array.from(savedPostIds)));
+  syncUserMetadataToCloud();
 
   // Update button in place
   const btn = document.getElementById(`bookmark-btn-${postId}`);
@@ -940,6 +967,53 @@ function showTemporaryToast(message) {
   }, 2800);
 }
 
+function mergeAndSortPosts(newPosts) {
+  if (!Array.isArray(newPosts) || newPosts.length === 0) return false;
+
+  const existingMap = new Map();
+  // 1. Keep track of all current posts
+  for (const post of allPosts) {
+    if (post && post.id) {
+      existingMap.set(post.id, post);
+    }
+  }
+
+  let addedCount = 0;
+  for (const raw of newPosts) {
+    if (!raw) continue;
+    const p = raw.data || raw;
+    const postId = p.id || raw.id;
+    if (!postId || p.deleted || p.isDeleted || raw.deleted || raw.isDeleted) continue;
+    if (!p.adaptedHeadline && !p.originalHeadline && !p.summary) continue;
+
+    // Normalize IDs and timestamps
+    p.id = postId;
+    p.createdAt = p.createdAt || raw.created_at || raw.createdAt || new Date().toISOString();
+
+    if (!existingMap.has(postId)) {
+      existingMap.set(postId, p);
+      addedCount++;
+    } else {
+      // Merge with existing to preserve local rich fields (like full illustrationBase64)
+      const existing = existingMap.get(postId);
+      const merged = { ...p, ...existing };
+      if (!merged.illustrationBase64 && p.illustrationBase64) {
+        merged.illustrationBase64 = p.illustrationBase64;
+      }
+      existingMap.set(postId, merged);
+    }
+  }
+
+  // Convert back to array and sort strictly chronologically (newest first)
+  allPosts = Array.from(existingMap.values()).sort((a, b) => {
+    const timeA = new Date(a.createdAt || a.created_at || 0).getTime();
+    const timeB = new Date(b.createdAt || b.created_at || 0).getTime();
+    return timeB - timeA; // Descending: newest stories stay at the top!
+  });
+
+  return addedCount > 0;
+}
+
 async function loadPosts() {
   // 1. Instant Cache-First: Load pre-built lightweight slant_feed.json (140 KB, renders in ~20ms!)
   let loadedFromCache = false;
@@ -948,7 +1022,7 @@ async function loadPosts() {
     if (fastResp.ok) {
       const posts = await fastResp.json();
       if (Array.isArray(posts) && posts.length > 0) {
-        allPosts = posts.filter(p => p && !p.deleted && !p.isDeleted && (p.adaptedHeadline || p.originalHeadline || p.summary));
+        mergeAndSortPosts(posts);
         loadedFromCache = true;
       }
     }
@@ -960,13 +1034,7 @@ async function loadPosts() {
   try {
     const localCache = JSON.parse(localStorage.getItem('slant_user_posts_cache') || '[]');
     if (Array.isArray(localCache) && localCache.length > 0) {
-      const existingIds = new Set(allPosts.map(p => p.id));
-      for (const cp of localCache) {
-        if (cp && cp.id && !existingIds.has(cp.id) && !cp.deleted && !cp.isDeleted) {
-          allPosts.unshift(cp);
-          existingIds.add(cp.id);
-        }
-      }
+      mergeAndSortPosts(localCache);
     }
   } catch (e) {
     console.warn('Error merging local user posts cache:', e);
@@ -999,17 +1067,15 @@ async function checkLiveSupabaseUpdates(forceRender = false) {
     if (resp.ok) {
       const rows = await resp.json();
       if (Array.isArray(rows) && rows.length > 0) {
-        const livePosts = rows.map(r => r.data || r).filter(p => p && !p.deleted && !p.isDeleted && (p.adaptedHeadline || p.originalHeadline || p.summary));
-        const existingIds = new Set(allPosts.map(p => p.id));
-        let newCount = 0;
-        for (const lp of livePosts) {
-          if (!existingIds.has(lp.id)) {
-            allPosts.unshift(lp);
-            existingIds.add(lp.id);
-            newCount++;
-          }
-        }
-        if (newCount > 0 || forceRender) {
+        const livePosts = rows.map(r => {
+          const p = r.data || r;
+          p.id = p.id || r.id;
+          p.createdAt = p.createdAt || r.created_at || new Date().toISOString();
+          return p;
+        }).filter(p => p && !p.deleted && !p.isDeleted && (p.adaptedHeadline || p.originalHeadline || p.summary));
+
+        const hasNew = mergeAndSortPosts(livePosts);
+        if (hasNew || forceRender) {
           updateBadge(true, `Live Feed (${allPosts.length} posts)`);
           updateAuthUI();
           renderFeed();
@@ -1021,14 +1087,14 @@ async function checkLiveSupabaseUpdates(forceRender = false) {
     console.info('Supabase background sync completed or timed out.');
   }
 
-  // 3. Fallback to /api/posts if nothing loaded yet
+  // Fallback to /api/posts if nothing loaded yet
   if (!allPosts || allPosts.length === 0) {
     try {
       const resp = await fetch('/api/posts');
       if (resp.ok) {
         const data = await resp.json();
         if (data && data.posts && data.posts.length > 0) {
-          allPosts = data.posts;
+          mergeAndSortPosts(data.posts);
           updateBadge(true, `Live Feed (${allPosts.length} posts)`);
           updateAuthUI();
           renderFeed();
@@ -2363,18 +2429,15 @@ async function loadRemainingPosts() {
     const rows = await resp.json();
     if (!Array.isArray(rows) || rows.length === 0) return;
 
-    const newPosts = rows.map(r => r.data || r).filter(p => p && !p.deleted && !p.isDeleted && (p.adaptedHeadline || p.originalHeadline || p.summary));
-    const existingIds = new Set(allPosts.map(p => p.id));
-    let added = 0;
-    for (const p of newPosts) {
-      if (!existingIds.has(p.id)) {
-        allPosts.push(p);
-        existingIds.add(p.id);
-        added++;
-      }
-    }
+    const newPosts = rows.map(r => {
+      const p = r.data || r;
+      p.id = p.id || r.id;
+      p.createdAt = p.createdAt || r.created_at || new Date().toISOString();
+      return p;
+    }).filter(p => p && !p.deleted && !p.isDeleted && (p.adaptedHeadline || p.originalHeadline || p.summary));
 
-    if (added > 0) {
+    const hasNew = mergeAndSortPosts(newPosts);
+    if (hasNew) {
       updateBadge(true, `Live Feed (${allPosts.length} posts)`);
       renderFeed();
     }
@@ -2389,15 +2452,14 @@ function setupRealtimeSubscription() {
       supabaseClient
         .channel('public:posts')
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, payload => {
-          if (payload && payload.new && payload.new.data) {
-            const p = payload.new.data;
+          if (payload && payload.new) {
+            const p = payload.new.data || payload.new;
+            p.id = p.id || payload.new.id;
+            p.createdAt = p.createdAt || payload.new.created_at || new Date().toISOString();
             if (!p.deleted && !p.isDeleted && (p.adaptedHeadline || p.originalHeadline || p.summary)) {
-              const existingIds = new Set(allPosts.map(x => x.id));
-              if (!existingIds.has(p.id)) {
-                allPosts.unshift(p);
-                renderFeed();
-                updateBadge(true, `Live Feed (${allPosts.length} posts)`);
-              }
+              mergeAndSortPosts([p]);
+              updateBadge(true, `Live Feed (${allPosts.length} posts)`);
+              renderFeed();
             }
           }
         })
@@ -4672,14 +4734,27 @@ async function publishSynthesizedPost() {
     const localPosts = JSON.parse(localStorage.getItem('slant_user_posts_cache') || '[]');
     const filtered = localPosts.filter(p => p && p.id !== currentSynthesizedPost.id);
     filtered.unshift(currentSynthesizedPost);
-    localStorage.setItem('slant_user_posts_cache', JSON.stringify(filtered.slice(0, 25)));
+    try {
+      localStorage.setItem('slant_user_posts_cache', JSON.stringify(filtered.slice(0, 25)));
+    } catch (quotaErr) {
+      // If quota exceeded due to large base64 strings, save lightweight copies
+      const lightweight = filtered.map(p => {
+        if (p.illustrationBase64 && p.illustrationBase64.length > 50000) {
+          const { illustrationBase64, ...rest } = p;
+          return rest;
+        }
+        return p;
+      });
+      localStorage.setItem('slant_user_posts_cache', JSON.stringify(lightweight.slice(0, 25)));
+    }
   } catch (lsErr) {
     console.warn('Could not cache user post to localStorage:', lsErr);
   }
 
-  // 5. Track in local storage ID set
+  // 5. Track in local storage ID set & sync with cloud profile
   myCreatedPostIds.add(currentSynthesizedPost.id);
   localStorage.setItem('slant_my_posts', JSON.stringify(Array.from(myCreatedPostIds)));
+  syncUserMetadataToCloud();
 
   // Update Step 3 Save button state
   const saveBtn = document.getElementById('step3SaveBtn');
@@ -4687,8 +4762,8 @@ async function publishSynthesizedPost() {
   if (saveBtn) saveBtn.classList.add('active');
   if (saveLbl) saveLbl.textContent = 'Saved';
 
-  // 6. Unshift into allPosts and render feed
-  allPosts.unshift(currentSynthesizedPost);
+  // 6. Merge & sort chronologically, then render feed
+  mergeAndSortPosts([currentSynthesizedPost]);
   updateBadge(true, `Live Feed (${allPosts.length} posts)`);
   updateAuthUI();
   renderFeed();
