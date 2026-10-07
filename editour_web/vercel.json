@@ -3,6 +3,15 @@
   "functions": {
     "api/*.js": {
       "maxDuration": 60
+    },
+    "api/synthesize.js": {
+      "maxDuration": 60
+    },
+    "api/cues.js": {
+      "maxDuration": 60
+    },
+    "api/posts.js": {
+      "maxDuration": 60
     }
   },
   "rewrites": [

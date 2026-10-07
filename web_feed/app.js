@@ -4190,10 +4190,49 @@ async function startAiSynthesis() {
     clearTimeout(ticker2);
     clearTimeout(ticker3);
     clearTimeout(ticker4);
-    console.error('Synthesis error:', err);
-    alert('AI Synthesis Error: ' + err.message + '\n\nPlease check your input and try again.');
+    const friendlyMsg = (err.message === 'Failed to fetch' || (err.message && err.message.includes('fetch')))
+      ? 'Network connection timed out. Please tap Synthesize again.'
+      : err.message;
+    alert('AI Synthesis Error: ' + friendlyMsg + '\n\nPlease check your input and try again.');
     if (cuesContent) cuesContent.style.display = 'flex';
     if (synthLoading) synthLoading.style.display = 'none';
+  }
+}
+
+let isArtworkEnhancing = false;
+async function enhancePosterArtworkInBackground(post) {
+  if (!post || post.illustrationBase64 || !post.illustrationPrompt || isArtworkEnhancing) return;
+  isArtworkEnhancing = true;
+
+  try {
+    const resp = await fetch('/api/synthesize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'artwork_only',
+        prompt: post.illustrationPrompt,
+        imageBase64: (creatorCharacterRepresentation === 'likeness' || creatorCharacterRepresentation === 'lookalike') ? (creatorReferenceImageBase64 || null) : null,
+        imageMimeType: creatorReferenceImageMimeType || 'image/jpeg'
+      })
+    });
+
+    if (resp.ok) {
+      const data = await resp.json();
+      if (data && data.success && data.illustrationBase64) {
+        post.illustrationBase64 = data.illustrationBase64;
+        post.artworkPending = false;
+        if (currentSynthesizedPost && currentSynthesizedPost.id === post.id) {
+          currentSynthesizedPost.illustrationBase64 = data.illustrationBase64;
+          currentSynthesizedPost.artworkPending = false;
+          renderCreatorPreview();
+          showTemporaryToast('✨ AI Editorial Artwork successfully rendered!');
+        }
+      }
+    }
+  } catch (err) {
+    console.info('Background artwork enhancement complete or skipped:', err.message);
+  } finally {
+    isArtworkEnhancing = false;
   }
 }
 
@@ -4233,6 +4272,11 @@ function showStep3Preview() {
 
   // Render preview
   renderCreatorPreview();
+
+  // If AI artwork was not included in first phase, upgrade in background without blocking user
+  if (currentSynthesizedPost && !currentSynthesizedPost.illustrationBase64 && currentSynthesizedPost.illustrationPrompt) {
+    enhancePosterArtworkInBackground(currentSynthesizedPost);
+  }
 }
 
 function renderCreatorPreview() {

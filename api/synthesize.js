@@ -30,6 +30,32 @@ module.exports = async function handler(req, res) {
       }
     }
 
+    // Direct Single-Purpose Endpoint: Generate artwork only in background (has dedicated full execution window)
+    if (body && body.action === 'artwork_only') {
+      const { prompt = '', imageBase64 = null, imageMimeType = 'image/jpeg' } = body;
+      if (!prompt) {
+        return res.status(400).json({ error: 'Missing prompt for artwork generation' });
+      }
+      try {
+        const geminiArt = await generateGeminiEditorialArtwork({
+          prompt,
+          imageBase64,
+          imageMimeType,
+          timeoutMs: 8500
+        });
+        if (geminiArt) {
+          const cleanB64 = geminiArt.replace(/^data:image\/[^;]+;base64,/, '');
+          return res.status(200).json({
+            success: true,
+            illustrationBase64: cleanB64
+          });
+        }
+        return res.status(200).json({ success: false, error: 'Artwork generation timed out' });
+      } catch (e) {
+        return res.status(500).json({ success: false, error: e.message });
+      }
+    }
+
     const {
       sourceType = 'inner_voice', // 'digital_link' | 'inner_voice' | 'photo'
       url = '',
@@ -248,42 +274,98 @@ Respond strictly with valid JSON with this exact structure:
       });
     }
 
-    // 3. Call Gemini 3.8 Flash with smart timeout & fallback
-    let parsed = null;
-    try {
-      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 30000);
+    // 3. Pre-construct concise artwork prompt so text synthesis and image generation run concurrently
+    const countryTag = (countryContext && countryContext !== 'Global') ? `${countryContext}, ` : '';
+    const isLookalike = (characterRepresentation === 'likeness' || characterRepresentation === 'lookalike');
+    const isExactPhoto = (characterRepresentation === 'exact');
+    const illustrationSeed = Math.floor(Math.random() * 899999 + 100000);
 
-      const geminiResp = await fetch(geminiUrl, {
-        method: 'POST',
-        signal: controller.signal,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts }],
-          generationConfig: {
-            responseMimeType: 'application/json',
-            temperature: 0.7,
-            maxOutputTokens: 1000,
-            thinkingConfig: { thinkingBudget: 0 }
-          }
-        })
-      });
-      clearTimeout(timeout);
-
-      if (geminiResp.ok) {
-        const geminiData = await geminiResp.json();
-        const rawText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (rawText) {
-          parsed = JSON.parse(rawText);
-        }
-      } else {
-        const errText = await geminiResp.text().catch(() => '');
-        console.warn('Gemini API non-200, engaging smart fallback:', geminiResp.status, errText);
-      }
-    } catch (geminiErr) {
-      console.warn('Gemini API synthesis warning, engaging smart fallback:', geminiErr.message);
+    let heroCandidate = (cues && cues[0]) || heroCue || '';
+    if (!heroCandidate) {
+      heroCandidate = spark || userSlant || 'Editorial subject';
     }
+    heroCandidate = heroCandidate
+      .replace(/^#\d+\s*\[[^\]]+\]:?\s*/i, '')
+      .replace(/[^\w\s-]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (heroCandidate.length > 80) {
+      heroCandidate = heroCandidate.slice(0, 80).replace(/,[^,]*$/, '');
+    }
+
+    const isPerson = isLikelyPersonSubject(heroCandidate);
+    let coreSubject = '';
+    if (isPerson && isLookalike) {
+      coreSubject = `${heroCandidate} portrait likeness, painted editorial magazine illustration, realistic details, expressive lighting, no text`;
+    } else if (isPerson && characterRepresentation === 'silhouette') {
+      coreSubject = `${heroCandidate} minimalist silhouette outline, stark graphic contrast, editorial poster art, no text`;
+    } else if (isPerson) {
+      coreSubject = `${heroCandidate}, warm vivid realistic editorial illustration, expressive people with visible illuminated faces, natural daylight, detailed clothing, rich colors, no silhouettes, no dark shadows, no text`;
+    } else {
+      const isArchitecture = /court|building|parliament|monument|colonnade|facade|tower|temple|chamber/i.test(heroCandidate);
+      if (isArchitecture) {
+        coreSubject = `${heroCandidate} grand architectural facade, dramatic volumetric lighting, cinematic editorial poster art, no text`;
+      } else {
+        coreSubject = `${heroCandidate}, warm atmospheric lighting, cinematic editorial poster art, rich colors, no silhouettes, no text`;
+      }
+    }
+
+    const concisePrompt = `${countryTag}${coreSubject}`.slice(0, 300);
+    const hasExactPhoto = isExactPhoto && !!(imageBase64);
+
+    // 4. Concurrent Execution: Run Gemini 3.8 Flash (text) and Gemini 2.5 Flash Image (artwork) in parallel!
+    // Strict timeout ensures total function execution NEVER exceeds 6.8s (comfortably beating Vercel 10s Hobby cap)
+    const textPromise = (async () => {
+      try {
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 6500);
+
+        const geminiResp = await fetch(geminiUrl, {
+          method: 'POST',
+          signal: controller.signal,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts }],
+            generationConfig: {
+              responseMimeType: 'application/json',
+              temperature: 0.7,
+              maxOutputTokens: 1000,
+              thinkingConfig: { thinkingBudget: 0 }
+            }
+          })
+        });
+        clearTimeout(timeout);
+
+        if (geminiResp.ok) {
+          const geminiData = await geminiResp.json();
+          const rawText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (rawText) return JSON.parse(rawText);
+        }
+      } catch (geminiErr) {
+        console.warn('Gemini text synthesis warning:', geminiErr.message);
+      }
+      return null;
+    })();
+
+    const imagePromise = (async () => {
+      if (hasExactPhoto || !GEMINI_API_KEY) return null;
+      try {
+        return await generateGeminiEditorialArtwork({
+          prompt: concisePrompt,
+          imageBase64: (isLookalike ? imageBase64 : null),
+          imageMimeType,
+          timeoutMs: 5800 // 5.8s strict timeout
+        });
+      } catch (err) {
+        console.warn('Gemini concurrent artwork warning:', err.message);
+        return null;
+      }
+    })();
+
+    const [textResult, imageResult] = await Promise.allSettled([textPromise, imagePromise]);
+    let parsed = textResult.status === 'fulfilled' ? textResult.value : null;
+    let geminiArt = imageResult.status === 'fulfilled' ? imageResult.value : null;
 
     if (!parsed) {
       parsed = generateSmartFallbackSynthesis({
@@ -303,58 +385,6 @@ Respond strictly with valid JSON with this exact structure:
       });
     }
 
-    // 4. Construct high-aesthetic illustration artwork URL
-    const countryTag = (countryContext && countryContext !== 'Global') ? `${countryContext}, ` : '';
-    const isLookalike = (characterRepresentation === 'likeness' || characterRepresentation === 'lookalike');
-    const isExactPhoto = (characterRepresentation === 'exact');
-    const illustrationSeed = Math.floor(Math.random() * 899999 + 100000);
-
-    let illustrationUrl = '';
-    let concisePrompt = '';
-
-    if (parsed.illustrationPrompt && parsed.illustrationPrompt.trim().length > 15) {
-      let rawPrompt = parsed.illustrationPrompt.trim();
-      rawPrompt = rawPrompt.replace(/^(?:Cinematic\s+visual\s+art\s+prompt\s*:\s*|Visual\s+art\s+prompt\s*:\s*|Art\s+prompt\s*:\s*)/i, '');
-      if (characterRepresentation !== 'silhouette') {
-        // Aggressively strip out silhouette / dark shadow / ghost keywords
-        rawPrompt = rawPrompt
-          .replace(/\b(silhouetted?|silhouette|faceless|pitch[- ]black|shadowy figure|shadow figure|dark silhouette|creepy|ghost[- ]like|dark figures?|ominous|shadowy)\b/gi, '')
-          .replace(/\s+/g, ' ')
-          .trim();
-        rawPrompt = `${rawPrompt}, warm vivid realistic editorial illustration, expressive people with visible illuminated faces, natural lighting, beautiful colors, cheerful atmosphere, no silhouettes, no dark shadows, no text`;
-      }
-      concisePrompt = rawPrompt.slice(0, 450);
-    } else {
-      let heroCandidate = (parsed.heroCue || (cues && cues[0]) || parsed.adaptedHeadline || 'Editorial subject')
-        .replace(/[^\w\s-]/g, '')
-        .replace(/\s+/g, ' ')
-        .trim();
-      if (heroCandidate.length > 80) {
-        heroCandidate = heroCandidate.slice(0, 80).replace(/,[^,]*$/, '');
-      }
-
-      const isPerson = isLikelyPersonSubject(heroCandidate);
-
-      let coreSubject = '';
-      if (isPerson && isLookalike) {
-        coreSubject = `${heroCandidate} portrait likeness, painted editorial magazine illustration, realistic details, expressive lighting, no text`;
-      } else if (isPerson && characterRepresentation === 'silhouette') {
-        coreSubject = `${heroCandidate} minimalist silhouette outline, stark graphic contrast, editorial poster art, no text`;
-      } else if (isPerson) {
-        coreSubject = `${heroCandidate}, warm vivid realistic editorial illustration, expressive people with visible illuminated faces, natural daylight, detailed clothing, rich colors, no silhouettes, no dark shadows, no text`;
-      } else {
-        const isArchitecture = /court|building|parliament|monument|colonnade|facade|tower|temple|chamber/i.test(heroCandidate);
-        if (isArchitecture) {
-          coreSubject = `${heroCandidate} grand architectural facade, dramatic volumetric lighting, cinematic editorial poster art, no text`;
-        } else {
-          coreSubject = `${heroCandidate}, warm atmospheric lighting, cinematic editorial poster art, rich colors, no silhouettes, no text`;
-        }
-      }
-
-      concisePrompt = `${countryTag}${coreSubject}`.slice(0, 300);
-    }
-
-    const hasExactPhoto = isExactPhoto && !!(imageBase64);
     let finalIllustrationUrl = '';
     let finalIllustrationBase64 = null;
 
@@ -363,35 +393,18 @@ Respond strictly with valid JSON with this exact structure:
       finalIllustrationBase64 = imageBase64.startsWith('data:')
         ? imageBase64.split(',')[1]
         : imageBase64;
+    } else if (geminiArt) {
+      finalIllustrationBase64 = geminiArt.replace(/^data:image\/[^;]+;base64,/, '');
     } else {
-      // 1. Generate high-aesthetic editorial poster artwork via Gemini 2.5 Flash Image
-      try {
-        const geminiArt = await generateGeminiEditorialArtwork({
-          prompt: concisePrompt,
-          imageBase64: (isLookalike ? imageBase64 : null),
-          imageMimeType,
-          timeoutMs: 25000
-        });
-
-        if (geminiArt) {
-          finalIllustrationUrl = geminiArt;
-          finalIllustrationBase64 = geminiArt.replace(/^data:image\/[^;]+;base64,/, '');
-        }
-      } catch (geminiErr) {
-        console.warn('Gemini artwork generation caught error:', geminiErr.message);
-      }
-
-      // 2. Resilient curated editorial photo fallback if Gemini timed out or failed
-      if (!finalIllustrationUrl) {
-        finalIllustrationUrl = getCuratedEditorialPhoto({
-          heroCue: parsed.heroCue || (cues && cues[0]) || '',
-          motifCue: parsed.motifCue || (cues && cues[1]) || '',
-          prompt: concisePrompt,
-          text: `${userSlant} ${spark} ${parsed.adaptedHeadline || ''}`,
-          category: parsed.categoryBadge || '',
-          seed: illustrationSeed
-        });
-      }
+      // Curated photo fallback if Gemini image generation took longer than 5.8s
+      finalIllustrationUrl = getCuratedEditorialPhoto({
+        heroCue: parsed.heroCue || (cues && cues[0]) || '',
+        motifCue: parsed.motifCue || (cues && cues[1]) || '',
+        prompt: concisePrompt,
+        text: `${userSlant} ${spark} ${parsed.adaptedHeadline || ''}`,
+        category: parsed.categoryBadge || '',
+        seed: illustrationSeed
+      });
     }
 
     const finalCuratorTake = (refineCoreTake && parsed.curatorTake && parsed.curatorTake.trim().length > 10)
@@ -422,7 +435,8 @@ Respond strictly with valid JSON with this exact structure:
       cues: cues || [],
       characterRepresentation,
       hookCues: `#1 [HERO]: ${parsed.heroCue || (cues && cues[0]) || 'Central subject'}\n#2 [MOTIF]: ${parsed.motifCue || (cues && cues[1]) || 'Metaphor'}\n#3 [TENSION]: ${parsed.tensionCue || (cues && cues[2]) || 'Conflict'}\n#4 [ATMOSPHERE]: ${parsed.atmosphereCue || (cues && cues[3]) || 'Setting'}\n#5 [LIGHTING]: ${parsed.lightingCue || (cues && cues[4]) || 'Atmospheric light'}\n#6 [STYLE]: ${parsed.styleCue || (cues && cues[5]) || 'Editorial illustration'}`,
-      illustrationPrompt: parsed.illustrationPrompt || '',
+      illustrationPrompt: parsed.illustrationPrompt || concisePrompt || '',
+      artworkPending: (!hasExactPhoto && !finalIllustrationBase64),
       illustrationUrl: finalIllustrationBase64 ? '' : finalIllustrationUrl,
       illustrationBase64: finalIllustrationBase64,
       aiIllustrationUrl: finalIllustrationBase64 ? '' : finalIllustrationUrl,
