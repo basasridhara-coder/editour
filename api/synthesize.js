@@ -718,54 +718,69 @@ function isLikelyPersonSubject(name) {
 
 async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeType = 'image/jpeg', timeoutMs = 25000 }) {
   if (!GEMINI_API_KEY) return null;
-  try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${GEMINI_API_KEY}`;
-    const parts = [];
+  const imageModels = [
+    'gemini-3.1-flash-lite-image',
+    'gemini-2.5-flash-image',
+    'gemini-3.1-flash-image'
+  ];
 
-    if (imageBase64) {
-      const cleanData = imageBase64.includes(',') ? imageBase64.split(',')[1] : imageBase64;
-      parts.push({
-        inlineData: {
-          mimeType: imageMimeType,
-          data: cleanData
-        }
-      });
-      parts.push({
-        text: `Transform this reference image into a high-aesthetic cinematic editorial magazine poster: ${prompt}. Imposing visual composition, dramatic lighting, painterly texture, vivid color grading, masterwork, no typography, no letters, no text.`
-      });
-    } else {
-      parts.push({
-        text: `${prompt}, cinematic editorial poster art, dramatic atmospheric lighting, painterly texture, high aesthetic, vivid color grading, masterwork, no typography, no letters, no text.`
-      });
-    }
-
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-
-    const resp = await fetch(url, {
-      method: 'POST',
-      signal: controller.signal,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts }],
-        generationConfig: { responseModalities: ['IMAGE'] }
-      })
-    });
-    clearTimeout(timer);
-
-    if (resp.ok) {
-      const data = await resp.json();
-      const inlinePart = data.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
-      if (inlinePart && inlinePart.inlineData && inlinePart.inlineData.data) {
-        return `data:${inlinePart.inlineData.mimeType || 'image/png'};base64,${inlinePart.inlineData.data}`;
+  const parts = [];
+  if (imageBase64) {
+    const cleanData = imageBase64.includes(',') ? imageBase64.split(',')[1] : imageBase64;
+    parts.push({
+      inlineData: {
+        mimeType: imageMimeType,
+        data: cleanData
       }
-    } else {
-      const errText = await resp.text().catch(() => '');
-      console.warn('Gemini editorial image non-200:', resp.status, errText.slice(0, 180));
-    }
-  } catch (err) {
-    console.warn('Gemini editorial image generation skipped/timed out:', err.message);
+    });
+    parts.push({
+      text: `Transform this reference image into a high-aesthetic cinematic editorial magazine poster in 4:5 vertical portrait format: ${prompt}. Imposing visual composition, dramatic lighting, painterly texture, vivid color grading, masterwork, no typography, no letters, no text.`
+    });
+  } else {
+    parts.push({
+      text: `${prompt}, cinematic editorial poster art, 4:5 vertical portrait format, dramatic atmospheric lighting, painterly texture, high aesthetic, vivid color grading, masterwork, no typography, no letters, no text.`
+    });
   }
+
+  const payload = JSON.stringify({
+    contents: [{ parts }],
+    generationConfig: {
+      responseModalities: ['IMAGE'],
+      imageConfig: {
+        aspectRatio: '4:5'
+      }
+    }
+  });
+
+  for (const model of imageModels) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+      const resp = await fetch(url, {
+        method: 'POST',
+        signal: controller.signal,
+        headers: { 'Content-Type': 'application/json' },
+        body: payload
+      });
+      clearTimeout(timer);
+
+      if (resp.ok) {
+        const data = await resp.json();
+        const inlinePart = data.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
+        if (inlinePart && inlinePart.inlineData && inlinePart.inlineData.data) {
+          return `data:${inlinePart.inlineData.mimeType || 'image/png'};base64,${inlinePart.inlineData.data}`;
+        }
+      } else {
+        const errText = await resp.text().catch(() => '');
+        console.warn(`Gemini image generation with ${model} returned ${resp.status}:`, errText.slice(0, 160));
+      }
+    } catch (err) {
+      console.warn(`Gemini image model ${model} skipped:`, err.message);
+    }
+  }
+
   return null;
 }
 

@@ -2014,6 +2014,7 @@ Return ONLY valid JSON with this exact structure:
     // --- Primary: Native Google Gemini Image Generation Models ---
     if (effectiveApiKey != null && effectiveApiKey.isNotEmpty) {
       final googleImageModels = [
+        'gemini-3.1-flash-lite-image',
         'gemini-2.5-flash-image',
         'gemini-3.1-flash-image',
         'gemini-3-pro-image',
@@ -2036,7 +2037,7 @@ Return ONLY valid JSON with this exact structure:
             });
             parts.add({
               "text": "PORTRAIT LOOKALIKE & MYSTERY DIRECTIVE: The attached image is a reference photograph. "
-                  "Create an artistic stylized editorial illustration that echoes their recognizable likeness and facial characteristics, "
+                  "Create an artistic stylized editorial illustration in 4:5 vertical portrait format that echoes their recognizable likeness and facial characteristics, "
                   "blended with dramatic chiaroscuro noir shadow, painterly texture, and atmospheric mystery (looks like the person, but an artistic creation, not a flat photographic copy).\n\n"
                   "EDITORIAL POSTER ARTWORK:\n"
                   "$selectedStylePrefix. $cleanPrompt.\n\n"
@@ -2059,7 +2060,13 @@ Return ONLY valid JSON with this exact structure:
                 body: json.encode({
                   "contents": [
                     {"parts": parts}
-                  ]
+                  ],
+                  "generationConfig": {
+                    "responseModalities": ["IMAGE"],
+                    "imageConfig": {
+                      "aspectRatio": "4:5"
+                    }
+                  }
                 }),
               )
               .timeout(const Duration(seconds: 30));
