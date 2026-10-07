@@ -676,6 +676,8 @@ function openAuthModal(customDesc) {
   if (modal) {
     modal.classList.add('open');
     modal.classList.add('active');
+    const card = modal.querySelector('.slant-login-page-card');
+    if (card) card.scrollTop = 0;
   }
 
   // Populate dynamic post preview cards in the login showcase

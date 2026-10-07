@@ -3245,34 +3245,290 @@ header {
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
 }
 
-/* Responsive Media Queries */
+/* ============================================================
+   RESPONSIVE MOBILE LOGIN EXPERIENCE (Phase 1)
+   Prioritizes Auth Col at top, provides compact swipeable showcase
+   ============================================================ */
 @media (max-width: 860px) {
+  /* Overlay & Modal Card */
+  .slant-login-overlay {
+    align-items: flex-start;
+    padding: 10px 8px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .slant-login-page-card {
+    max-height: 94vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    margin: 8px auto;
+    border-radius: 20px;
+  }
+
+  .login-page-card-standalone {
+    border-radius: 20px;
+    overflow: visible;
+  }
+
+  .slant-login-close {
+    top: 10px;
+    right: 12px;
+    width: 34px;
+    height: 34px;
+    font-size: 18px;
+    z-index: 50;
+  }
+
+  .slant-login-topbar {
+    padding: 12px 48px 12px 16px; /* Clearance for close button on right */
+    gap: 8px;
+  }
+
+  .topbar-rule-left,
+  .topbar-rule-right {
+    display: none;
+  }
+
+  .topbar-tagline {
+    font-size: 13px;
+    letter-spacing: 0.2px;
+    white-space: normal;
+    text-align: center;
+  }
+
+  /* Grid turns into Column Flexbox with Auth prioritized on top */
   .slant-login-grid {
-    grid-template-columns: 1fr;
-    max-height: calc(92vh - 75px);
+    display: flex;
+    flex-direction: column;
+    overflow-y: visible;
+    max-height: none;
   }
 
-  .slant-login-showcase {
-    border-right: none;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    padding: 20px 18px;
-  }
-
-  [data-theme="daylight"] .slant-login-showcase {
-    border-bottom-color: #E2E8F0;
-  }
-
+  /* 1. Auth Column Comes First */
   .slant-login-auth-col {
-    padding: 24px 20px;
+    order: 1;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 24px 20px 22px 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   }
 
-  .login-preview-card {
-    flex: 0 0 220px;
-    height: 300px;
+  [data-theme="daylight"] .slant-login-auth-col {
+    border-bottom: 1px solid #E2E8F0;
+  }
+
+  .slant-login-auth-col .auth-header {
+    margin-bottom: 16px;
+  }
+
+  .slant-login-auth-col .auth-badge-icon {
+    width: 52px;
+    height: 52px;
+    margin-bottom: 10px;
+    border-radius: 14px;
+  }
+
+  .slant-login-auth-col .auth-badge-img {
+    width: 32px;
+    height: 32px;
+  }
+
+  .slant-login-auth-col .auth-title {
+    font-size: 22px;
+    margin-bottom: 6px;
+  }
+
+  .slant-login-auth-col .auth-desc {
+    font-size: 12.5px;
+    line-height: 1.42;
+    max-width: 100%;
+  }
+
+  .oauth-login-btn {
+    height: 46px;
+    font-size: 14px;
+  }
+
+  /* Enforce 16px input font to prevent iOS Safari auto-zoom */
+  .auth-field input,
+  #authEmailInput,
+  #loginPasswordInput {
+    font-size: 16px !important;
+    height: 46px;
+  }
+
+  .auth-primary-btn {
+    height: 46px;
+    font-size: 14px;
+  }
+
+  /* 2. Showcase Comes Second Below Auth */
+  .slant-login-showcase {
+    order: 2;
+    width: 100%;
+    box-sizing: border-box;
+    border-right: none;
+    border-bottom: none;
+    border-top: none;
+    padding: 20px 16px 26px 16px;
+    gap: 12px;
+  }
+
+  .showcase-header {
+    padding: 0 2px 8px 2px;
+  }
+
+  .showcase-title {
+    font-size: 20px;
+  }
+
+  /* Story Switcher Horizontal Scroll */
+  .login-stories-switcher {
+    padding: 2px 0 10px 0;
+    gap: 6px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .story-switch-pill {
+    padding: 5px 11px;
+    font-size: 10.5px;
+  }
+
+  /* Vertical Track & Post Rows on Mobile */
+  .login-vertical-track {
+    max-height: 460px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 12px 10px;
+    gap: 16px;
+    border-radius: 18px;
+  }
+
+  .login-post-row {
+    padding: 12px 12px 16px 12px;
+    border-radius: 16px;
+  }
+
+  .login-row-header {
+    padding: 0 2px 8px 2px;
+  }
+
+  .login-row-headline {
+    font-size: 12.5px;
+  }
+
+  .login-row-posters {
+    grid-template-columns: repeat(3, 260px);
+    gap: 12px;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 6px;
+  }
+
+  .login-poster-col {
+    height: 420px;
+    min-height: 420px;
+    border-radius: 14px;
+    scroll-snap-align: start;
+  }
+
+  .login-poster-col .slide-hook-content {
+    padding: 14px !important;
+  }
+
+  .login-poster-col .slide-hook-headline {
+    font-size: 15px !important;
+    line-height: 1.25 !important;
+  }
+
+  .login-poster-col .slide-critique {
+    padding: 14px !important;
+  }
+
+  .login-poster-col .critique-opinion-text {
+    font-size: 13px !important;
+    line-height: 1.4 !important;
+  }
+
+  .login-poster-col .slide-receipt {
+    padding: 12px 14px !important;
+  }
+
+  .login-poster-col .receipt-pub-title {
+    font-size: 14px !important;
+  }
+
+  .login-poster-col .receipt-headline {
+    font-size: 12px !important;
+    line-height: 1.25 !important;
+  }
+
+  .login-poster-col .receipt-p1 {
+    font-size: 10px !important;
+    line-height: 1.35 !important;
+    -webkit-line-clamp: 3 !important;
+  }
+
+  .login-poster-col .receipt-highlight {
+    padding: 4px 8px !important;
+    margin: 3px 0 !important;
+  }
+
+  .login-poster-col .highlighter-text {
+    font-size: 10px !important;
+    -webkit-line-clamp: 2 !important;
+  }
+
+  .login-poster-col .receipt-p3 {
+    font-size: 9.5px !important;
+    line-height: 1.35 !important;
+    -webkit-line-clamp: 3 !important;
   }
 
   .slant-architecture-bar {
     display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .slant-login-overlay {
+    padding: 0;
+  }
+
+  .slant-login-page-card {
+    max-height: 100vh;
+    height: 100%;
+    margin: 0;
+    border-radius: 0;
+    border: none;
+  }
+
+  .slant-login-auth-col {
+    padding: 20px 16px 18px 16px;
+  }
+
+  .slant-login-auth-col .auth-title {
+    font-size: 20px;
+  }
+
+  .slant-login-showcase {
+    padding: 16px 12px 24px 12px;
+  }
+
+  .login-vertical-track {
+    max-height: 400px;
+    padding: 10px 8px;
+  }
+
+  .login-row-posters {
+    grid-template-columns: repeat(3, 240px);
+    gap: 10px;
+  }
+
+  .login-poster-col {
+    height: 390px;
+    min-height: 390px;
   }
 }
 
