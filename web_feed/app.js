@@ -1029,7 +1029,7 @@ async function loadPosts() {
       }
     }
   } catch (e) {
-    console.warn('Could not load slant_feed.json, trying live Supabase:', e);
+    console.warn('Could not load slant_feed.json, trying live cloud:', e);
   }
 
   // 2. Merge locally cached user-created stories so they NEVER vanish across sign-ins/reloads
@@ -1048,63 +1048,84 @@ async function loadPosts() {
     renderFeed();
   }
 
-  // 3. Asynchronously check Supabase in background for any new posts published from mobile/web
-  checkLiveSupabaseUpdates(!loadedFromCache);
+  // 3. Immediately sync latest live posts from the cloud API so all devices (mobile, laptop) see new posts immediately!
+  await syncLiveCloudPosts(!loadedFromCache);
 }
 
-async function checkLiveSupabaseUpdates(forceRender = false) {
+async function syncLiveCloudPosts(forceRender = false) {
+  let fetchedPosts = null;
+
+  // 1. Primary: Fetch from /api/posts with timestamp and no-store to bypass any proxy/browser cache
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 6000); // 6s safe timeout so it never hangs
-
-    const resp = await fetch(`${SUPABASE_URL}/rest/v1/posts?select=*&order=created_at.desc&limit=45`, {
-      signal: controller.signal,
-      headers: {
-        'apikey': SUPABASE_KEY,
-        'Authorization': `Bearer ${SUPABASE_KEY}`
-      }
+    const apiResp = await fetch(`/api/posts?ts=${Date.now()}`, {
+      cache: 'no-store'
     });
-    clearTimeout(timeoutId);
-
-    if (resp.ok) {
-      const rows = await resp.json();
-      if (Array.isArray(rows) && rows.length > 0) {
-        const livePosts = rows.map(r => {
-          const p = r.data || r;
-          p.id = p.id || r.id;
-          p.createdAt = p.createdAt || r.created_at || new Date().toISOString();
-          return p;
-        }).filter(p => p && !p.deleted && !p.isDeleted && (p.adaptedHeadline || p.originalHeadline || p.summary));
-
-        const hasNew = mergeAndSortPosts(livePosts);
-        if (hasNew || forceRender) {
-          updateBadge(true, `Live Feed (${allPosts.length} posts)`);
-          updateAuthUI();
-          renderFeed();
-        }
-        return;
+    if (apiResp.ok) {
+      const data = await apiResp.json();
+      if (data && Array.isArray(data.posts) && data.posts.length > 0) {
+        fetchedPosts = data.posts;
       }
     }
-  } catch (err) {
-    console.info('Supabase background sync completed or timed out.');
+  } catch (apiErr) {
+    console.warn('/api/posts live sync error, trying direct Supabase fallback:', apiErr);
   }
 
-  // Fallback to /api/posts if nothing loaded yet
-  if (!allPosts || allPosts.length === 0) {
+  // 2. Resilient Fallback: If /api/posts failed or was unreachable, query Supabase directly
+  if (!fetchedPosts || fetchedPosts.length === 0) {
     try {
-      const resp = await fetch('/api/posts');
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
+      const resp = await fetch(`${SUPABASE_URL}/rest/v1/posts?select=*&order=created_at.desc&limit=45`, {
+        signal: controller.signal,
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': `Bearer ${SUPABASE_KEY}`
+        }
+      });
+      clearTimeout(timeoutId);
+
       if (resp.ok) {
-        const data = await resp.json();
-        if (data && data.posts && data.posts.length > 0) {
-          mergeAndSortPosts(data.posts);
-          updateBadge(true, `Live Feed (${allPosts.length} posts)`);
-          updateAuthUI();
-          renderFeed();
+        const rows = await resp.json();
+        if (Array.isArray(rows) && rows.length > 0) {
+          fetchedPosts = rows.map(r => {
+            const p = r.data || r;
+            p.id = p.id || r.id;
+            p.createdAt = p.createdAt || r.created_at || new Date().toISOString();
+            return p;
+          });
         }
       }
+    } catch (supaErr) {
+      console.warn('Direct Supabase live sync completed or timed out:', supaErr);
+    }
+  }
+
+  if (Array.isArray(fetchedPosts) && fetchedPosts.length > 0) {
+    const validPosts = fetchedPosts.filter(p => p && !p.deleted && !p.isDeleted && (p.adaptedHeadline || p.originalHeadline || p.summary));
+    const hasNew = mergeAndSortPosts(validPosts);
+
+    // Persist synced user-created stories into local cache so they persist offline & across sessions
+    try {
+      const userStories = validPosts.filter(p => p.isUserCreated || myCreatedPostIds.has(p.id));
+      if (userStories.length > 0) {
+        const existingLocal = JSON.parse(localStorage.getItem('slant_user_posts_cache') || '[]');
+        const map = new Map();
+        userStories.forEach(p => map.set(p.id, p));
+        existingLocal.forEach(p => { if (!map.has(p.id)) map.set(p.id, p); });
+        localStorage.setItem('slant_user_posts_cache', JSON.stringify(Array.from(map.values()).slice(0, 30)));
+      }
     } catch (_) {}
+
+    if (hasNew || forceRender) {
+      updateBadge(true, `Live Feed (${allPosts.length} posts)`);
+      updateAuthUI();
+      renderFeed();
+    }
   }
 }
+
+// Backward-compatible alias
+const checkLiveSupabaseUpdates = syncLiveCloudPosts;
 
 function updateBadge(connected, textOrCount) {
   const badge = document.getElementById('connectionBadge');
@@ -2471,12 +2492,12 @@ function setupRealtimeSubscription() {
     }
   }
 
-  // Refresh feed gently when user returns to tab (only if at least 2 minutes have passed)
+  // Refresh feed gently when user returns to tab (only if at least 15 seconds have passed)
   let lastRefreshTime = Date.now();
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && Date.now() - lastRefreshTime > 120000) {
+    if (document.visibilityState === 'visible' && Date.now() - lastRefreshTime > 15000) {
       lastRefreshTime = Date.now();
-      checkLiveSupabaseUpdates(false);
+      syncLiveCloudPosts(false);
     }
   });
 }

@@ -1455,7 +1455,7 @@ header {
 .slide-receipt {
   background: #F7F5EE;
   color: #1E293B;
-  padding: 14px 18px 10px;
+  padding: 12px 16px 8px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -1574,12 +1574,12 @@ header {
 
 .receipt-pub-title {
   font-family: 'Playfair Display', 'Merriweather', Georgia, serif;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 900;
-  letter-spacing: 2.4px;
+  letter-spacing: 2px;
   text-transform: uppercase;
   color: #0F172A;
-  margin: 3px 0 2px;
+  margin: 2px 0;
   text-align: center;
   white-space: nowrap;
   overflow: hidden;
@@ -1592,12 +1592,12 @@ header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 7.2px;
+  font-size: 7px;
   font-weight: 700;
   color: #334155;
   letter-spacing: 0.5px;
   font-family: 'Merriweather', Georgia, serif;
-  margin: 2px 0 4px;
+  margin: 2px 0 3px;
 }
 
 .receipt-rules-center {
@@ -1613,17 +1613,17 @@ header {
 }
 
 .receipts-headline-box {
-  margin-top: 6px;
+  margin-top: 4px;
   flex-shrink: 0;
 }
 
 .receipt-headline {
   font-family: 'Merriweather', 'Playfair Display', Georgia, serif;
-  font-size: 17.5px;
+  font-size: 15px;
   font-weight: 900;
-  line-height: 1.22;
+  line-height: 1.24;
   color: #0F172A;
-  margin: 0 0 4px;
+  margin: 0 0 3px;
   text-align: left;
   letter-spacing: -0.2px;
 }
@@ -1674,59 +1674,70 @@ header {
   flex: 1;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: flex-start;
   min-height: 0;
-  overflow: hidden;
-  padding: 4px 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  padding: 2px 0;
+  gap: 2px;
+}
+
+.receipt-paragraphs::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .receipt-spacer-top {
-  height: 8px;
+  height: 3px;
+  min-height: 2px;
   flex-shrink: 0;
 }
 
 .receipt-spacer-mid {
-  height: 12px;
+  height: 6px;
+  min-height: 3px;
   flex-shrink: 0;
 }
 
 .receipt-spacer-bottom {
-  height: 8px;
+  height: 3px;
+  min-height: 2px;
   flex-shrink: 0;
 }
 
 .receipt-p1 {
   font-family: 'Merriweather', Georgia, 'Times New Roman', serif;
-  font-size: 12.8px;
-  line-height: 1.55;
+  font-size: 11.2px;
+  line-height: 1.44;
   color: #1E293B;
   margin: 0;
-  display: -webkit-box;
-  -webkit-line-clamp: 5;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
   text-align: left;
+  flex-shrink: 0;
+  display: block;
 }
 
 .receipt-highlight {
   background: #FEF08A;
   border: 1px solid #FDE047;
   border-left: 5px solid #CA8A04;
-  padding: 10px 14px;
-  border-radius: 6px;
-  box-shadow: 0 2px 8px rgba(234, 179, 8, 0.25);
-  margin: 0;
+  padding: 8px 12px;
+  border-radius: 5px;
+  box-shadow: 0 2px 8px rgba(234, 179, 8, 0.22);
+  margin: 2px 0;
   text-align: left;
   flex-shrink: 0;
 }
 
 .highlighter-label {
-  font-size: 8.5px;
+  font-size: 8px;
   font-weight: 900;
   letter-spacing: 0.9px;
   color: #854D0E;
   text-transform: uppercase;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
   font-family: 'Merriweather', Georgia, serif;
   display: flex;
   align-items: center;
@@ -1735,32 +1746,27 @@ header {
 
 .highlighter-text {
   font-family: 'Merriweather', 'Playfair Display', Georgia, serif;
-  font-size: 13.5px;
+  font-size: 11.8px;
   font-weight: 800;
   color: #0F172A;
-  line-height: 1.45;
-  display: -webkit-box;
-  -webkit-line-clamp: 5;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  line-height: 1.38;
+  display: block;
 }
 
 .receipt-p3 {
   font-family: 'Merriweather', Georgia, 'Times New Roman', serif;
-  font-size: 12.5px;
-  line-height: 1.55;
+  font-size: 10.8px;
+  line-height: 1.44;
   color: #334155;
   margin: 0;
-  display: -webkit-box;
-  -webkit-line-clamp: 5;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
   text-align: left;
+  flex-shrink: 0;
+  display: block;
 }
 
 .receipt-footer {
   flex-shrink: 0;
-  margin-top: 4px;
+  margin-top: 3px;
 }
 
 .receipt-folio-rule {
@@ -2421,6 +2427,66 @@ header {
   }
   .topbar-tagline {
     font-size: 14px;
+  }
+
+  /* Slide 3 Broadsheet Mobile Optimization: Full Content Visible with Elegant Newspaper Styling */
+  .slide-receipt {
+    padding: 10px 14px 8px;
+  }
+  .receipt-pub-title {
+    font-size: 13.5px;
+    letter-spacing: 1.6px;
+    margin: 1px 0;
+  }
+  .receipt-rules {
+    font-size: 6.4px;
+    margin: 1px 0 2px;
+  }
+  .receipt-headline {
+    font-size: 13.5px;
+    line-height: 1.22;
+    margin: 0 0 2px;
+  }
+  .receipts-byline {
+    font-size: 6.8px;
+    margin-bottom: 2px;
+  }
+  .receipt-spacer-top {
+    height: 2px;
+  }
+  .receipt-spacer-mid {
+    height: 4px;
+  }
+  .receipt-spacer-bottom {
+    height: 2px;
+  }
+  .receipt-p1 {
+    font-size: 10px;
+    line-height: 1.36;
+  }
+  .receipt-highlight {
+    padding: 6px 10px;
+    border-radius: 4px;
+    border-left-width: 4px;
+    margin: 1px 0;
+  }
+  .highlighter-label {
+    font-size: 7.2px;
+    margin-bottom: 1px;
+  }
+  .highlighter-text {
+    font-size: 10.5px;
+    line-height: 1.32;
+  }
+  .receipt-p3 {
+    font-size: 9.6px;
+    line-height: 1.36;
+  }
+  .receipt-footer {
+    margin-top: 2px;
+  }
+  .receipt-folio-text {
+    font-size: 6.5px;
   }
 }
 
