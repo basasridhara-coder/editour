@@ -302,43 +302,80 @@ Respond strictly with valid JSON with this exact structure:
       });
     }
 
-    // 3. Pre-construct concise artwork prompt so text synthesis and image generation run concurrently
+    // 3. Construct predictable, multi-cue composite artwork prompt from all 6 visual dimensions
     const countryTag = (countryContext && countryContext !== 'Global') ? `${countryContext}, ` : '';
     const isLookalike = (characterRepresentation === 'likeness' || characterRepresentation === 'lookalike');
     const isExactPhoto = (characterRepresentation === 'exact');
     const illustrationSeed = Math.floor(Math.random() * 899999 + 100000);
 
-    let heroCandidate = (cues && cues[0]) || heroCue || '';
-    if (!heroCandidate) {
-      heroCandidate = spark || userSlant || 'Editorial subject';
-    }
-    heroCandidate = heroCandidate
-      .replace(/^#\d+\s*\[[^\]]+\]:?\s*/i, '')
-      .replace(/[^\w\s-]/g, '')
+    const cleanCueText = (str) => (str || '')
+      .replace(/^#\d+\s*\[?[A-Z]+\]?:?\s*/i, '')
+      .replace(/[^\w\s,.-]/g, '')
       .replace(/\s+/g, ' ')
       .trim();
+
+    let heroCandidate = cleanCueText((cues && cues[0]) || heroCue || spark || userSlant || 'Editorial subject');
+    let motifCandidate = cleanCueText(cues && cues[1]);
+    let tensionCandidate = cleanCueText(cues && cues[2]);
+    let atmosphereCandidate = cleanCueText(cues && cues[3]);
+    let lightingCandidate = cleanCueText(cues && cues[4]);
+    let styleCandidate = cleanCueText(cues && cues[5]);
+
     if (heroCandidate.length > 80) {
       heroCandidate = heroCandidate.slice(0, 80).replace(/,[^,]*$/, '');
     }
 
     const isPerson = isLikelyPersonSubject(heroCandidate);
-    let coreSubject = '';
+    const partsList = [];
+
+    // Dimension 6: STYLE & MEDIUM
+    if (styleCandidate) {
+      partsList.push(styleCandidate);
+    } else {
+      partsList.push('Cinematic editorial poster art');
+    }
+
+    // Dimension 1: HERO (Centerpiece protagonist or subject)
     if (isPerson && isLookalike) {
-      coreSubject = `${heroCandidate} portrait likeness, painted editorial magazine illustration, realistic details, expressive lighting, no text`;
+      partsList.push(`${heroCandidate} portrait likeness, painted magazine cover illustration, realistic recognizable features, expressive gaze`);
     } else if (isPerson && characterRepresentation === 'silhouette') {
-      coreSubject = `${heroCandidate} minimalist silhouette outline, stark graphic contrast, editorial poster art, no text`;
+      partsList.push(`${heroCandidate} minimalist silhouette outline, stark graphic contrast`);
     } else if (isPerson) {
-      coreSubject = `${heroCandidate}, warm vivid realistic editorial illustration, expressive people with visible illuminated faces, natural daylight, detailed clothing, rich colors, no silhouettes, no dark shadows, no text`;
+      partsList.push(`${heroCandidate}, warm vivid realism, visible illuminated face, natural human expression`);
     } else {
       const isArchitecture = /court|building|parliament|monument|colonnade|facade|tower|temple|chamber/i.test(heroCandidate);
       if (isArchitecture) {
-        coreSubject = `${heroCandidate} grand architectural facade, dramatic volumetric lighting, cinematic editorial poster art, no text`;
+        partsList.push(`${heroCandidate} grand architectural facade`);
       } else {
-        coreSubject = `${heroCandidate}, warm atmospheric lighting, cinematic editorial poster art, rich colors, no silhouettes, no text`;
+        partsList.push(heroCandidate);
       }
     }
 
-    const concisePrompt = `${countryTag}${coreSubject}`.slice(0, 300);
+    // Dimension 2: MOTIF (Symbolic artifact)
+    if (motifCandidate && motifCandidate !== heroCandidate) {
+      partsList.push(`juxtaposed with symbolic motif of ${motifCandidate}`);
+    }
+
+    // Dimension 3: TENSION (Visual conflict or friction)
+    if (tensionCandidate) {
+      partsList.push(`confronting dramatic tension of ${tensionCandidate}`);
+    }
+
+    // Dimension 4: ATMOSPHERE (Setting, geography, texture)
+    if (atmosphereCandidate) {
+      partsList.push(`set in ${atmosphereCandidate}`);
+    }
+
+    // Dimension 5: LIGHTING (Mood, chiaroscuro, temperature)
+    if (lightingCandidate) {
+      partsList.push(`illuminated by ${lightingCandidate}`);
+    }
+
+    if (countryTag) {
+      partsList.push(countryTag.trim().replace(/,$/, ''));
+    }
+
+    const concisePrompt = partsList.filter(Boolean).join(', ').slice(0, 420);
     const hasExactPhoto = isExactPhoto && !!(imageBase64);
 
     // 4. Concurrent Execution: Run Gemini 3.8 Flash (text) and Gemini 2.5 Flash Image (artwork) in parallel!
