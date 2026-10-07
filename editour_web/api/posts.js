@@ -35,45 +35,64 @@ module.exports = async function handler(req, res) {
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
 
-    // Parse limit parameter (default 12 for blazing fast mobile/web initial load, max 50)
-    let limit = 12;
+    // Parse limit parameter (default 6 for ultra-fast mobile load under 2s, max 10)
+    let limit = 6;
     try {
       const parsedUrl = new URL(req.url, 'http://localhost');
       const qLimit = parseInt(parsedUrl.searchParams.get('limit'), 10);
       if (!isNaN(qLimit) && qLimit > 0) {
-        limit = Math.min(qLimit, 50);
+        limit = Math.min(qLimit, 10);
       }
     } catch (_) {}
 
-    // 1. Primary: Direct Supabase query with safe batch limit
+    // 1. Primary: Direct Supabase query using resilient small chunks to avoid statement timeouts
     try {
-      const resp = await fetch(`${SUPABASE_URL}/rest/v1/posts?select=*&order=created_at.desc&limit=${limit}`, {
-        headers: {
-          'apikey': SUPABASE_KEY,
-          'Authorization': `Bearer ${SUPABASE_KEY}`
+      const fetchBatch = async (offset, count) => {
+        try {
+          const resp = await fetch(`${SUPABASE_URL}/rest/v1/posts?select=id,created_at,data&order=created_at.desc&offset=${offset}&limit=${count}`, {
+            headers: {
+              'apikey': SUPABASE_KEY,
+              'Authorization': `Bearer ${SUPABASE_KEY}`
+            }
+          });
+          if (!resp.ok) return [];
+          return await resp.json();
+        } catch (_) {
+          return [];
         }
-      });
-      if (resp.ok) {
-        const rows = await resp.json();
-        if (Array.isArray(rows) && rows.length > 0) {
-          const posts = rows.map(r => {
-            const p = r.data || r;
-            p.id = p.id || r.id;
-            p.createdAt = p.createdAt || r.created_at || new Date().toISOString();
-            // Clean up any motherboard or palette fallback URLs if present in older saved posts
-            if (p.illustrationUrl && (p.illustrationUrl.includes('photo-1518770660439') || p.illustrationUrl.includes('photo-1541872703'))) {
-              p.illustrationUrl = '';
-            }
-            if (p.aiIllustrationUrl && (p.aiIllustrationUrl.includes('photo-1518770660439') || p.aiIllustrationUrl.includes('photo-1541872703'))) {
-              p.aiIllustrationUrl = '';
-            }
-            // Strip duplicate multi-megabyte base64 string if present in multiple fields
-            if (p.illustrationBase64) {
-              if (p.illustrationUrl && p.illustrationUrl.startsWith('data:')) p.illustrationUrl = '';
-              if (p.aiIllustrationUrl && p.aiIllustrationUrl.startsWith('data:')) p.aiIllustrationUrl = '';
-            }
-            return p;
-          }).filter(p => p && !p.deleted && !p.isDeleted && (p.adaptedHeadline || p.originalHeadline || p.summary));
+      };
+
+      let rows = [];
+      if (limit <= 5) {
+        rows = await fetchBatch(0, limit);
+      } else {
+        const [c1, c2] = await Promise.all([
+          fetchBatch(0, 5),
+          fetchBatch(5, limit - 5)
+        ]);
+        rows = [...(Array.isArray(c1) ? c1 : []), ...(Array.isArray(c2) ? c2 : [])];
+      }
+
+      if (Array.isArray(rows) && rows.length > 0) {
+        const posts = rows.map(r => {
+          const p = r.data || r;
+          p.id = p.id || r.id;
+          p.createdAt = p.createdAt || r.created_at || new Date().toISOString();
+          // If post has illustrationBase64, always clear illustrationUrl so it never falls back to an unsplash image
+          if (p.illustrationBase64) {
+            p.illustrationUrl = '';
+            p.aiIllustrationUrl = '';
+          }
+          // Clean up any motherboard or palette fallback URLs if present in older saved posts
+          if (p.illustrationUrl && (p.illustrationUrl.includes('photo-1518770660439') || p.illustrationUrl.includes('photo-1541872703'))) {
+            p.illustrationUrl = '';
+          }
+          if (p.aiIllustrationUrl && (p.aiIllustrationUrl.includes('photo-1518770660439') || p.aiIllustrationUrl.includes('photo-1541872703'))) {
+            p.aiIllustrationUrl = '';
+          }
+          return p;
+        }).filter(p => p && !p.deleted && !p.isDeleted && (p.adaptedHeadline || p.originalHeadline || p.summary));
+        if (posts.length > 0) {
           return res.status(200).json({ status: 'ok', count: posts.length, posts });
         }
       }

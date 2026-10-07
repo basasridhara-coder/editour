@@ -1057,7 +1057,7 @@ async function syncLiveCloudPosts(forceRender = false) {
 
   // 1. Primary: Fetch from /api/posts with timestamp and no-store to bypass any proxy/browser cache
   try {
-    const apiResp = await fetch(`/api/posts?limit=12&ts=${Date.now()}`, {
+    const apiResp = await fetch(`/api/posts?limit=6&ts=${Date.now()}`, {
       cache: 'no-store'
     });
     if (apiResp.ok) {
@@ -1075,7 +1075,7 @@ async function syncLiveCloudPosts(forceRender = false) {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 8000);
-      const resp = await fetch(`${SUPABASE_URL}/rest/v1/posts?select=*&order=created_at.desc&limit=12`, {
+      const resp = await fetch(`${SUPABASE_URL}/rest/v1/posts?select=id,created_at,data&order=created_at.desc&limit=6`, {
         signal: controller.signal,
         headers: {
           'apikey': SUPABASE_KEY,
