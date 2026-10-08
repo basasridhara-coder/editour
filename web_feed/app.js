@@ -4825,8 +4825,17 @@ async function startAiSynthesis() {
     synthLoading.style.display = 'flex';
     const synthVideo = document.getElementById('synthesisLogoVideo');
     if (synthVideo) {
-      synthVideo.currentTime = 0;
-      synthVideo.play().catch(() => {});
+      requestAnimationFrame(() => {
+        try {
+          if (synthVideo.currentTime > 0.1) {
+            synthVideo.currentTime = 0;
+          }
+          const playPromise = synthVideo.play();
+          if (playPromise !== undefined) {
+            playPromise.catch(() => {});
+          }
+        } catch (_) {}
+      });
     }
   }
 

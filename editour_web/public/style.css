@@ -6734,6 +6734,11 @@ header {
   display: flex;
   align-items: center;
   justify-content: center;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  contain: paint;
 }
 
 [data-theme="obsidian"] .synthesis-video-wrap {
@@ -6747,6 +6752,11 @@ header {
   object-fit: cover;
   border-radius: 28px;
   display: block;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  will-change: transform;
 }
 
 .synthesis-orb-wrap {
@@ -8310,6 +8320,11 @@ header {
   display: flex;
   align-items: center;
   justify-content: center;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  contain: paint;
 }
 
 [data-theme="obsidian"] .feed-loader-video-wrap {
@@ -8323,6 +8338,11 @@ header {
   object-fit: cover;
   border-radius: 32px;
   display: block;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  will-change: transform;
 }
 
 .feed-loader-title {
