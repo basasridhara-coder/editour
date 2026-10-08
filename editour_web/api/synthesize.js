@@ -41,7 +41,7 @@ module.exports = async function handler(req, res) {
           prompt,
           imageBase64,
           imageMimeType,
-          timeoutMs: 8500
+          timeoutMs: 16000
         });
         if (geminiArt) {
           const cleanB64 = geminiArt.replace(/^data:image\/[^;]+;base64,/, '');
@@ -50,9 +50,18 @@ module.exports = async function handler(req, res) {
             illustrationBase64: cleanB64
           });
         }
-        return res.status(200).json({ success: false, error: 'Artwork generation timed out' });
+        // If direct Gemini generation timed out, provide prompt-matched AI illustration URL (never a sea photo!)
+        const promptUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt + ', cinematic editorial art, high aesthetic, no typography, no text')}?width=1080&height=1350&nologo=true`;
+        return res.status(200).json({
+          success: true,
+          illustrationUrl: promptUrl
+        });
       } catch (e) {
-        return res.status(500).json({ success: false, error: e.message });
+        const promptUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt + ', cinematic editorial art, high aesthetic, no typography, no text')}?width=1080&height=1350&nologo=true`;
+        return res.status(200).json({
+          success: true,
+          illustrationUrl: promptUrl
+        });
       }
     }
 
@@ -826,11 +835,12 @@ function isLikelyPersonSubject(name) {
   return personKeywords.some(w => lower.includes(w));
 }
 
-async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeType = 'image/jpeg', timeoutMs = 8000 }) {
+async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeType = 'image/jpeg', timeoutMs = 16000 }) {
   if (!GEMINI_API_KEY) return null;
   const imageModels = [
-    'gemini-3.1-flash-lite-image',
-    'gemini-2.5-flash-image'
+    'gemini-2.5-flash-image',
+    'gemini-3.1-flash-image',
+    'gemini-3.1-flash-lite-image'
   ];
 
   const parts = [];
@@ -952,13 +962,12 @@ function getCuratedEditorialPhoto({ heroCue = '', motifCue = '', prompt = '', te
     return 'https://images.unsplash.com/photo-1602216056096-3b40cc0c9944?auto=format&fit=crop&w=1200&q=80';
   }
 
-  const fallbacks = [
-    'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1200&q=80',
-    'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1200&q=80',
-    'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=80',
-    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=1200&q=80'
-  ];
-  return fallbacks[Math.abs(seed) % fallbacks.length];
+  // 3. Fallback: Prompt-tailored dynamic AI illustration so it ALWAYS matches the exact visual cue!
+  const promptSubject = (heroCue || motifCue || prompt || text || 'thoughtful editorial concept')
+    .slice(0, 180)
+    .replace(/["\n\r]/g, ' ')
+    .trim();
+  return `https://image.pollinations.ai/prompt/${encodeURIComponent(promptSubject + ', cinematic editorial art, high aesthetic, vivid color grading, masterwork, no letters, no text')}?width=1080&height=1350&nologo=true`;
 }
 
 function decodeHtmlEntities(str) {

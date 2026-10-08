@@ -1688,7 +1688,16 @@ function buildSlide1Html(post, index) {
       ? post.illustrationBase64
       : `data:image/png;base64,${post.illustrationBase64}`;
   } else if (post.illustrationUrl) {
-    bgImgSrc = post.illustrationUrl;
+    const isSeaPhoto = post.illustrationUrl.includes('photo-1507525428034');
+    const isActuallyBeach = /beach|coast|ocean|sea|shore|sand|surf/i.test((post.heroCue || '') + ' ' + (post.adaptedHeadline || '') + ' ' + (post.originalHeadline || ''));
+    if (!isSeaPhoto || isActuallyBeach) {
+      bgImgSrc = post.illustrationUrl;
+    } else {
+      const promptText = (post.illustrationPrompt || post.heroCue || post.adaptedHeadline || '').slice(0, 180).trim();
+      if (promptText) {
+        bgImgSrc = `https://image.pollinations.ai/prompt/${encodeURIComponent(promptText + ', cinematic editorial art, high aesthetic, no typography, no text')}?width=1080&height=1350&nologo=true`;
+      }
+    }
   }
 
   const imgHtml = bgImgSrc
@@ -1849,7 +1858,16 @@ function buildSlide2Html(post, index) {
       ? post.illustrationBase64
       : `data:image/png;base64,${post.illustrationBase64}`;
   } else if (post.illustrationUrl) {
-    bgCritiqueImgSrc = post.illustrationUrl;
+    const isSeaPhoto = post.illustrationUrl.includes('photo-1507525428034');
+    const isActuallyBeach = /beach|coast|ocean|sea|shore|sand|surf/i.test((post.heroCue || '') + ' ' + (post.adaptedHeadline || '') + ' ' + (post.originalHeadline || ''));
+    if (!isSeaPhoto || isActuallyBeach) {
+      bgCritiqueImgSrc = post.illustrationUrl;
+    } else {
+      const promptText = (post.illustrationPrompt || post.heroCue || post.adaptedHeadline || '').slice(0, 180).trim();
+      if (promptText) {
+        bgCritiqueImgSrc = `https://image.pollinations.ai/prompt/${encodeURIComponent(promptText + ', cinematic editorial art, high aesthetic, no typography, no text')}?width=1080&height=1350&nologo=true`;
+      }
+    }
   }
 
   const critiqueImgHtml = bgCritiqueImgSrc
@@ -5267,7 +5285,7 @@ async function startAiSynthesis() {
 
       try {
         const artController = new AbortController();
-        const artTimeout = setTimeout(() => artController.abort(), 11000);
+        const artTimeout = setTimeout(() => artController.abort(), 19000);
 
         const artResp = await fetch('/api/synthesize', {
           method: 'POST',
@@ -5284,9 +5302,15 @@ async function startAiSynthesis() {
 
         if (artResp.ok) {
           const artData = await artResp.json();
-          if (artData && artData.success && artData.illustrationBase64) {
-            currentSynthesizedPost.illustrationBase64 = artData.illustrationBase64;
-            currentSynthesizedPost.artworkPending = false;
+          if (artData && artData.success) {
+            if (artData.illustrationBase64) {
+              currentSynthesizedPost.illustrationBase64 = artData.illustrationBase64;
+              currentSynthesizedPost.artworkPending = false;
+            }
+            if (artData.illustrationUrl) {
+              currentSynthesizedPost.illustrationUrl = artData.illustrationUrl;
+              currentSynthesizedPost.aiIllustrationUrl = artData.illustrationUrl;
+            }
           }
         }
       } catch (artErr) {
@@ -5352,11 +5376,19 @@ async function enhancePosterArtworkInBackground(post) {
 
     if (resp.ok) {
       const data = await resp.json();
-      if (data && data.success && data.illustrationBase64) {
-        post.illustrationBase64 = data.illustrationBase64;
+      if (data && data.success) {
+        if (data.illustrationBase64) post.illustrationBase64 = data.illustrationBase64;
+        if (data.illustrationUrl) {
+          post.illustrationUrl = data.illustrationUrl;
+          post.aiIllustrationUrl = data.illustrationUrl;
+        }
         post.artworkPending = false;
         if (currentSynthesizedPost && currentSynthesizedPost.id === post.id) {
-          currentSynthesizedPost.illustrationBase64 = data.illustrationBase64;
+          if (data.illustrationBase64) currentSynthesizedPost.illustrationBase64 = data.illustrationBase64;
+          if (data.illustrationUrl) {
+            currentSynthesizedPost.illustrationUrl = data.illustrationUrl;
+            currentSynthesizedPost.aiIllustrationUrl = data.illustrationUrl;
+          }
           currentSynthesizedPost.artworkPending = false;
           renderCreatorPreview();
           showTemporaryToast('✨ AI Editorial Artwork successfully rendered!');

@@ -91,11 +91,12 @@ module.exports = async function handler(req, res) {
             p.aiIllustrationUrl = '';
           }
 
-          // Clean up any motherboard or palette fallback URLs if present in older saved posts
-          if (p.illustrationUrl && (p.illustrationUrl.includes('photo-1518770660439') || p.illustrationUrl.includes('photo-1541872703'))) {
+          // Clean up any motherboard, palette, or unrelated sea photo fallback URLs
+          const isActuallyBeach = /beach|coast|ocean|sea|shore|sand|surf/i.test((p.heroCue || '') + ' ' + (p.adaptedHeadline || ''));
+          if (p.illustrationUrl && (p.illustrationUrl.includes('photo-1518770660439') || p.illustrationUrl.includes('photo-1541872703') || (!isActuallyBeach && p.illustrationUrl.includes('photo-1507525428034')))) {
             p.illustrationUrl = '';
           }
-          if (p.aiIllustrationUrl && (p.aiIllustrationUrl.includes('photo-1518770660439') || p.aiIllustrationUrl.includes('photo-1541872703'))) {
+          if (p.aiIllustrationUrl && (p.aiIllustrationUrl.includes('photo-1518770660439') || p.aiIllustrationUrl.includes('photo-1541872703') || (!isActuallyBeach && p.aiIllustrationUrl.includes('photo-1507525428034')))) {
             p.aiIllustrationUrl = '';
           }
           return p;
@@ -136,8 +137,23 @@ module.exports = async function handler(req, res) {
         postData.createdAt = new Date().toISOString();
       }
 
-      // Strip redundant duplicate multi-megabyte base64 copies before saving
+      // Automatically persist poster to static files if illustrationBase64 is provided
       if (postData.illustrationBase64) {
+        try {
+          const cleanB64 = postData.illustrationBase64.replace(/^data:image\/[^;]+;base64,/, '');
+          const buf = Buffer.from(cleanB64, 'base64');
+          const targetDirs = [
+            path.join(__dirname, '../public/posters'),
+            path.join(__dirname, '../web_feed/posters')
+          ];
+          targetDirs.forEach(dir => {
+            if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+            fs.writeFileSync(path.join(dir, postData.id + '.png'), buf);
+          });
+          postData.illustrationUrl = '/posters/' + postData.id + '.png';
+          postData.aiIllustrationUrl = '/posters/' + postData.id + '.png';
+        } catch (_) {}
+
         if (postData.illustrationUrl && postData.illustrationUrl.startsWith('data:')) {
           postData.illustrationUrl = '';
         }
