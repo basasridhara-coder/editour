@@ -43,6 +43,17 @@
 </head>
 <body data-theme="daylight">
 
+  <!-- Initial Feed / Login Loading Screen with Animated Logo Video -->
+  <div class="feed-initial-loader" id="feedInitialLoader">
+    <div class="feed-loader-content">
+      <div class="feed-loader-video-wrap">
+        <video class="feed-loader-video" src="/slant_logo_video.mp4" autoplay loop muted playsinline webkit-playsinline></video>
+      </div>
+      <h3 class="feed-loader-title">Slant</h3>
+      <p class="feed-loader-subtitle" id="feedLoaderSubtitle">Loading editorial feed...</p>
+    </div>
+  </div>
+
   <!-- Sticky Top Navigation -->
   <header>
     <div class="nav-inner">
@@ -523,9 +534,8 @@
 
         <!-- Synthesis Loading State Overlay inside Step 2 -->
         <div class="synthesis-loading-state" id="synthesisLoadingState" style="display:none;">
-          <div class="synthesis-orb-wrap">
-            <div class="synthesis-orb"></div>
-            <div class="synthesis-rings"></div>
+          <div class="synthesis-video-wrap">
+            <video class="synthesis-logo-video" id="synthesisLogoVideo" src="/slant_logo_video.mp4" autoplay loop muted playsinline webkit-playsinline></video>
           </div>
           <h3 class="synthesis-loading-title">Synthesizing Editorial Deck</h3>
           <p class="synthesis-loading-subtitle" id="synthesisStepText">Reading source and distilling narrative arc...</p>

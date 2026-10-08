@@ -6720,7 +6720,33 @@ header {
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 50px 20px;
+  padding: 40px 20px;
+}
+
+.synthesis-video-wrap {
+  width: 120px;
+  height: 120px;
+  margin-bottom: 22px;
+  border-radius: 28px;
+  overflow: hidden;
+  box-shadow: 0 14px 40px -8px rgba(99, 102, 241, 0.45), 0 0 0 1px rgba(99, 102, 241, 0.2);
+  background: var(--bg-card, #FFFFFF);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+[data-theme="obsidian"] .synthesis-video-wrap {
+  background: #0D1527;
+  box-shadow: 0 18px 45px -8px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(99, 102, 241, 0.3);
+}
+
+.synthesis-logo-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 28px;
+  display: block;
 }
 
 .synthesis-orb-wrap {
@@ -8237,4 +8263,102 @@ header {
   height: 24px;
   flex-shrink: 0;
   pointer-events: none;
+}
+
+/* ========================================================
+   FEED INITIAL / LOGIN LOADING OVERLAY (Branded Logo Video)
+   ======================================================== */
+.feed-initial-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 999999;
+  background: var(--bg-base, #F8F5EE);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.45s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.45s ease;
+}
+
+[data-theme="obsidian"] .feed-initial-loader {
+  background: #050813;
+}
+
+.feed-initial-loader.fade-out {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.feed-loader-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 24px;
+}
+
+.feed-loader-video-wrap {
+  width: 140px;
+  height: 140px;
+  border-radius: 32px;
+  overflow: hidden;
+  box-shadow: 0 16px 45px -10px rgba(99, 102, 241, 0.45), 0 0 0 1px rgba(99, 102, 241, 0.2);
+  margin-bottom: 22px;
+  background: var(--bg-card, #FFFFFF);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+[data-theme="obsidian"] .feed-loader-video-wrap {
+  background: #0D1527;
+  box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(99, 102, 241, 0.35);
+}
+
+.feed-loader-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 32px;
+  display: block;
+}
+
+.feed-loader-title {
+  font-family: 'Space Grotesk', -apple-system, sans-serif;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  color: var(--text-primary, #0F172A);
+  margin: 0 0 6px 0;
+}
+
+.feed-loader-subtitle {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary, #64748B);
+  margin: 0;
+}
+
+/* Login Auth Badge Video */
+.auth-badge-video-wrap {
+  width: 72px;
+  height: 72px;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px -6px rgba(99, 102, 241, 0.4);
+  background: var(--bg-card, #FFFFFF);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+.auth-badge-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 20px;
+  display: block;
 }

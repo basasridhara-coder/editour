@@ -1368,6 +1368,7 @@ function renderFeed() {
           </div>
         </div>
       `;
+      dismissInitialFeedLoader();
       return;
     }
 
@@ -1378,6 +1379,7 @@ function renderFeed() {
         <div style="font-size:13px; margin-top:4px;">Snap a newspaper clipping or paste a news link in the PostCard app to publish here!</div>
       </div>
     `;
+    dismissInitialFeedLoader();
     return;
   }
 
@@ -1390,6 +1392,24 @@ function renderFeed() {
   // Pre-render top feed posters in background during idle time
   if (typeof queueBackgroundPosterPreRender === 'function') {
     queueBackgroundPosterPreRender(filtered);
+  }
+
+  dismissInitialFeedLoader();
+}
+
+function dismissInitialFeedLoader() {
+  const loader = document.getElementById('feedInitialLoader');
+  if (loader && !loader.classList.contains('fade-out')) {
+    const elapsed = Date.now() - (window._feedLoaderStartTime || Date.now());
+    const remaining = Math.max(0, 750 - elapsed);
+    setTimeout(() => {
+      if (loader) {
+        loader.classList.add('fade-out');
+        setTimeout(() => {
+          if (loader && loader.parentNode) loader.remove();
+        }, 500);
+      }
+    }, remaining);
   }
 }
 
@@ -4801,7 +4821,14 @@ async function startAiSynthesis() {
   const fill = document.getElementById('synthesisProgressFill');
 
   if (cuesContent) cuesContent.style.display = 'none';
-  if (synthLoading) synthLoading.style.display = 'flex';
+  if (synthLoading) {
+    synthLoading.style.display = 'flex';
+    const synthVideo = document.getElementById('synthesisLogoVideo');
+    if (synthVideo) {
+      synthVideo.currentTime = 0;
+      synthVideo.play().catch(() => {});
+    }
+  }
 
   if (stepText) stepText.textContent = 'Reading source and extracting core tension...';
   if (fill) fill.style.width = '25%';
@@ -5432,6 +5459,9 @@ async function publishSynthesizedPost() {
     publishBtn.innerHTML = '<span>Publish to slant.today 🚀</span>';
   }
 }
+
+window._feedLoaderStartTime = Date.now();
+setTimeout(dismissInitialFeedLoader, 3500);
 
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', init);
