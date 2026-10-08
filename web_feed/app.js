@@ -4942,6 +4942,8 @@ async function startAiSynthesis() {
 
     setTimeout(() => {
       try {
+        const synthVideo = document.getElementById('synthesisLogoVideo');
+        if (synthVideo) { try { synthVideo.pause(); } catch (_) {} }
         if (synthLoading) synthLoading.style.display = 'none';
         showStep3Preview();
       } catch (renderErr) {
@@ -4954,6 +4956,8 @@ async function startAiSynthesis() {
 
   } catch (err) {
     clearAllTimers();
+    const synthVideo = document.getElementById('synthesisLogoVideo');
+    if (synthVideo) { try { synthVideo.pause(); } catch (_) {} }
     console.error('AI Synthesis error:', err);
     const isTimeout = (err.name === 'AbortError' || err.message === 'Failed to fetch' || (err.message && (err.message.includes('fetch') || err.message.includes('timed out') || err.message.includes('timeout'))));
     const friendlyMsg = isTimeout
