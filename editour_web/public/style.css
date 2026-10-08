@@ -594,6 +594,37 @@ header {
 .icon-action-btn.clean-view-btn.active svg {
   stroke: var(--accent-cyan);
 }
+.icon-action-btn.delete-action-btn {
+  color: var(--text-muted);
+}
+.icon-action-btn.delete-action-btn:hover {
+  background: rgba(239, 68, 68, 0.14);
+  color: #EF4444;
+}
+.icon-action-btn.delete-action-btn:hover svg {
+  stroke: #EF4444;
+}
+
+.post-card-delete-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 3px 6px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.18s ease;
+  line-height: 1;
+}
+.post-card-delete-btn:hover {
+  color: #EF4444;
+  background: rgba(239, 68, 68, 0.12);
+}
+.post-card-delete-btn:hover svg {
+  stroke: #EF4444;
+}
 
 /* Native Instagram-Style Inline Carousel Dots */
 .carousel-dots-inline {

@@ -2157,6 +2157,7 @@ function createPostCardElement(post, index) {
   const isCarousel = true;
   const isClean = !!cleanViewState[index];
   const isSaved = savedPostIds.has(post.id);
+  const canDelete = canDeletePost(post);
   const hasPaperCut = post.sourceType === 'photo' 
     || !!post.paperCutImage 
     || !!post.hasPaperCut
@@ -2260,9 +2261,21 @@ function createPostCardElement(post, index) {
           </div>
         </div>
       </div>
-      <span class="category-tag">
-        ${escapeHtml(catBadge || 'Visual Story')}
-      </span>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span class="category-tag">
+          ${escapeHtml(catBadge || 'Visual Story')}
+        </span>
+        ${canDelete ? `
+          <button type="button" class="post-card-delete-btn" onclick="event.stopPropagation(); confirmDeletePost('${post.id}')" title="Delete this Slant">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              <line x1="10" y1="11" x2="10" y2="17"></line>
+              <line x1="14" y1="11" x2="14" y2="17"></line>
+            </svg>
+          </button>
+        ` : ''}
+      </div>
     </div>
 
     ${visualSectionHtml}
@@ -2347,6 +2360,16 @@ function createPostCardElement(post, index) {
             <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
           </svg>
         </button>
+
+        ${canDelete ? `
+          <!-- Delete Post Button -->
+          <button class="icon-action-btn delete-action-btn" onclick="event.stopPropagation(); confirmDeletePost('${post.id}')" title="Delete this Slant">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </svg>
+          </button>
+        ` : ''}
       </div>
     </div>
 
@@ -2541,6 +2564,11 @@ function openDetailModal(index) {
     paperCutBtn.style.display = hasPaper ? 'inline-flex' : 'none';
   }
 
+  const deleteBtn = document.getElementById('modalDeleteBtn');
+  if (deleteBtn) {
+    deleteBtn.style.display = canDeletePost(post) ? 'inline-flex' : 'none';
+  }
+
   // Update browser URL query without reload
   history.pushState(null, '', `?p=${post.id}`);
 
@@ -2566,6 +2594,103 @@ function copyCardShareLink(postId) {
   }).catch(() => {
     prompt('Copy this link:', shareUrl);
   });
+}
+
+function canDeletePost(post) {
+  if (!post || !post.id) return false;
+  // 1. Authored in this browser session or saved in local myCreatedPostIds
+  if (myCreatedPostIds && myCreatedPostIds.has(post.id)) return true;
+  // 2. Created by user flag
+  if (post.isUserCreated) return true;
+  // 3. User account match
+  if (currentUser) {
+    if (post.user_id && post.user_id === currentUser.id) return true;
+    if (post.userEmail && currentUser.email && post.userEmail.toLowerCase() === currentUser.email.toLowerCase()) return true;
+    const userHandle = (currentUser.user_metadata?.user_name || currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || '').toLowerCase().replace('@', '');
+    const postAuthor = (post.creatorHandle || '').toLowerCase().replace('@', '');
+    if (userHandle && postAuthor && userHandle === postAuthor) return true;
+  }
+  // 4. In "My Stories" tab, all listed items belong to this creator
+  if (currentFilter === 'my_stories') return true;
+  return false;
+}
+
+function handleDetailModalDelete() {
+  if (activePostIndex === null || !allPosts[activePostIndex]) return;
+  const post = allPosts[activePostIndex];
+  confirmDeletePost(post.id);
+}
+
+async function confirmDeletePost(postId) {
+  if (!postId) return;
+  const post = allPosts.find(p => p && p.id === postId);
+  const title = post ? (post.adaptedHeadline || post.originalHeadline || 'this Slant') : 'this Slant';
+
+  const confirmed = window.confirm(`Are you sure you want to delete this Slant?\n\n"${title.slice(0, 50)}..."\n\nThis will permanently remove it from the live feed.`);
+  if (!confirmed) return;
+
+  await executeDeletePost(postId);
+}
+
+async function executeDeletePost(postId) {
+  showTemporaryToast('🗑️ Deleting Slant...');
+
+  // 1. Immediately remove from local memory & UI for instant responsiveness
+  allPosts = allPosts.filter(p => p && p.id !== postId);
+  if (myCreatedPostIds) myCreatedPostIds.delete(postId);
+  if (savedPostIds) savedPostIds.delete(postId);
+
+  try {
+    localStorage.setItem('slant_my_posts', JSON.stringify(Array.from(myCreatedPostIds)));
+    localStorage.setItem('slant_saved_posts', JSON.stringify(Array.from(savedPostIds)));
+    const cachedPosts = JSON.parse(localStorage.getItem('slant_user_posts_cache') || '[]');
+    localStorage.setItem('slant_user_posts_cache', JSON.stringify(cachedPosts.filter(p => p && p.id !== postId)));
+  } catch (_) {}
+
+  closeDetailModal();
+  updateBadge(true, `Live Feed (${allPosts.length} posts)`);
+  renderFeed();
+
+  // 2. Call backend DELETE endpoint
+  try {
+    const resp = await fetch(`/api/posts?id=${encodeURIComponent(postId)}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: postId })
+    });
+    if (!resp.ok) {
+      console.warn('Backend DELETE returned status:', resp.status);
+    }
+  } catch (err) {
+    console.warn('Backend DELETE error:', err);
+  }
+
+  // 3. Resilient Direct Supabase delete / soft-delete
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.${encodeURIComponent(postId)}`, {
+      method: 'PATCH',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        data: { id: postId, deleted: true, isDeleted: true, deletedAt: new Date().toISOString() }
+      })
+    });
+  } catch (_) {}
+
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.${encodeURIComponent(postId)}`, {
+      method: 'DELETE',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`
+      }
+    });
+  } catch (_) {}
+
+  showTemporaryToast('🗑️ Slant deleted successfully');
 }
 
 /* ============================================================
