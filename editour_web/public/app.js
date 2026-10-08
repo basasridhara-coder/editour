@@ -3701,7 +3701,9 @@ function isLikelyPersonSubject(name) {
     'trump', 'musk', 'altman', 'biden', 'modi', 'pichai', 'nadella', 'cook',
     'huang', 'minister', 'president', 'judge', 'justice', 'officer', 'sweeper',
     'curator', 'citizen', 'woman', 'man', 'girl', 'boy', 'leader', 'doctor',
-    'worker', 'protagonist', 'figure', 'person', 'individual', 'portrait', 'lookalike'
+    'worker', 'protagonist', 'figure', 'person', 'individual', 'portrait', 'lookalike',
+    'founder', 'engineer', 'entrepreneur', 'student', 'youth', 'author', 'critic',
+    'analyst', 'politician', 'actor', 'young'
   ];
   return personKeywords.some(w => lower.includes(w));
 }
@@ -3734,6 +3736,82 @@ function detectPersonNameInContext(title, slant, content) {
   return null;
 }
 
+function detectAgeAndDemographics(text = '', headline = '', content = '') {
+  const combined = `${headline || ''} ${text || ''} ${content ? content.slice(0, 1000) : ''}`.toLowerCase();
+
+  // 1. Explicit age patterns: "25-year-old", "25 years old", "aged 25", "age 25", "25yo"
+  const ageMatch = combined.match(/\b(\d{1,2})\s*[-–—]?\s*(?:years?[- ]old|year[- ]old|yo\b)/i) ||
+                   combined.match(/\b(?:aged|age)\s+(\d{1,2})\b/i);
+  if (ageMatch) {
+    const age = parseInt(ageMatch[1], 10);
+    if (age >= 10 && age <= 105) {
+      if (age <= 21) {
+        return {
+          age,
+          category: 'youth',
+          label: `${age}-Year-Old Youth`,
+          shortDesc: `Youthful ${age}-Year-Old Protagonist`,
+          promptDesc: `youthful ${age}-year-old student, young fresh facial features, youthful hair, modern casual look, clear young skin, strictly no wrinkles or gray hair`
+        };
+      } else if (age <= 29) {
+        return {
+          age,
+          category: 'twenty_something',
+          label: `${age}-Year-Old`,
+          shortDesc: `Youthful ${age}-Year-Old Protagonist`,
+          promptDesc: `youthful ${age}-year-old young adult in their mid-20s, young contemporary facial features, modern vibrant styling, fresh young skin, strictly no wrinkles, no gray hair`
+        };
+      } else if (age <= 39) {
+        return {
+          age,
+          category: 'thirties',
+          label: `${age}-Year-Old`,
+          shortDesc: `${age}-Year-Old Professional`,
+          promptDesc: `young adult in their 30s (${age} years old), sharp modern facial features, dynamic contemporary styling`
+        };
+      } else if (age <= 55) {
+        return {
+          age,
+          category: 'middle_aged',
+          label: `${age}-Year-Old`,
+          shortDesc: `${age}-Year-Old Leader`,
+          promptDesc: `mature adult in their 40s-50s (${age} years old), confident seasoned expression, distinguished contemporary styling`
+        };
+      } else {
+        return {
+          age,
+          category: 'senior',
+          label: `${age}-Year-Old Senior`,
+          shortDesc: `Distinguished ${age}-Year-Old Elder`,
+          promptDesc: `distinguished ${age}-year-old senior with silver gray hair, dignified weathered facial features, wise expression`
+        };
+      }
+    }
+  }
+
+  // 2. Life-stage and demographic keywords
+  if (/\b(gen[- ]?z|college student|undergraduate|teenager|youth|young founder|young entrepreneur|young girl|young boy)\b/i.test(combined)) {
+    return {
+      age: 23,
+      category: 'twenty_something',
+      label: 'Gen-Z / Youth',
+      shortDesc: 'Youthful Gen-Z Protagonist',
+      promptDesc: `youthful 20-something young adult, Gen-Z contemporary styling, fresh young facial features, modern vibrant look, strictly no wrinkles or gray hair`
+    };
+  }
+  if (/\b(veteran|elderly|grandfather|grandmother|octogenarian|septuagenarian|retiree|pensioner)\b/i.test(combined)) {
+    return {
+      age: 72,
+      category: 'senior',
+      label: 'Senior Elder',
+      shortDesc: 'Distinguished Elder Protagonist',
+      promptDesc: `distinguished elder in their 70s, silver hair, weathered dignified facial features, wise expression`
+    };
+  }
+
+  return null;
+}
+
 // Fallback heuristic 6-dimension extractor matching VisualCueService.dart
 function extract6RankedCueDimensions(curatorAngle, newsHeadline, newsBody) {
   let cleanHeadline = (newsHeadline || '').trim();
@@ -3749,8 +3827,12 @@ function extract6RankedCueDimensions(curatorAngle, newsHeadline, newsBody) {
   // 1. HERO (Subject from headline or angle - never a URL!)
   let hero = '';
   const detectedPerson = detectPersonNameInContext(cleanHeadline, curatorAngle, newsBody);
+  const demographic = detectAgeAndDemographics(curatorAngle, cleanHeadline, newsBody);
+
   if (detectedPerson) {
-    hero = `${detectedPerson} (Editorial Portrait)`;
+    hero = demographic ? `${detectedPerson} (${demographic.label}, Editorial Portrait)` : `${detectedPerson} (Editorial Portrait)`;
+  } else if (demographic) {
+    hero = `${demographic.shortDesc} (Editorial Portrait)`;
   } else if (combined.includes('garbage') || combined.includes('trash') || combined.includes('waste') || combined.includes('clean')) {
     hero = isIndia ? 'Municipal Sweeper with Traditional Reed Broom' : 'Lone Sweeper with Traditional Broom';
   } else if (combined.includes('ai') || combined.includes('tech') || combined.includes('silicon') || combined.includes('data center') || combined.includes('model') || combined.includes('compute') || combined.includes('apple') || combined.includes('phone') || combined.includes('ipad')) {
@@ -4561,8 +4643,9 @@ async function triggerCueSuggest() {
       // If likeness is selected, enforce detected person in #1 HERO
       if (creatorCharacterRepresentation === 'likeness') {
         const detected = detectPersonNameInContext(articleTitle, slantTake, articleBody);
+        const demographic = detectAgeAndDemographics(slantTake, articleTitle, articleBody);
         if (detected && creatorCuePills.length > 0 && !creatorCuePills[0].toLowerCase().includes(detected.toLowerCase())) {
-          creatorCuePills[0] = `${detected} (Editorial Portrait)`;
+          creatorCuePills[0] = demographic ? `${detected} (${demographic.label}, Editorial Portrait)` : `${detected} (Editorial Portrait)`;
         }
       }
     } else {

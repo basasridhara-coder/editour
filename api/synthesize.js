@@ -189,6 +189,8 @@ module.exports = async function handler(req, res) {
    - Do NOT dumb it down like a children's primer. Keep the adult intelligence, wit, and conviction, but ensure any smart reader can grasp every single word instantly on their phone.`;
     }
 
+    const demographicInfo = detectAgeAndDemographics(userSlant, extractedTitle, extractedContent);
+
     const systemPrompt = `You are the lead editorial director and visual design curator for "Slant" (slant.today), an elite visual publication that distills complex stories into high-impact 3-poster social carousels.
 
 Input Details:
@@ -200,6 +202,7 @@ ${userSlant ? `- Curator's Slant / Take (Primary Stance & Angle): "${userSlant}"
 ${spark ? `- The Spark (Personal Context / Catalyst): "${spark}"` : ''}
 ${url ? `- Source Link: ${url}` : ''}
 ${pubName ? `- Publication / Domain: ${pubName}` : ''}
+${demographicInfo ? `- Featured Protagonist Age & Demographics: ${demographicInfo.promptDesc}` : ''}
 ${cues && cues.length > 0 ? `- Ranked Visual Cues: ${cues.map((c, i) => `#${i+1} ${c}`).join(' • ')}` : ''}
 - Character Portrayal Style: ${characterRepresentation === 'exact' 
   ? 'Use exact unedited news/attached photo directly' 
@@ -229,10 +232,10 @@ ${sourceType === 'inner_voice' ? `CRITICAL INNER VOICE & LIVED EXPERIENCE DIRECT
   * The Hook sentence must capture the excitement and relatable rush of preparing for the journey.
 - IN POSTER 2 ("THE CRITICAL PERSPECTIVE" / curatorTake):
   * Ground the conviction directly in their specific context (Kerala, the trip, the son's reminder, closing pending tasks, the relief of the break).
-  * STRICT BAN: NEVER echo the user's raw input slant verbatim! You MUST synthesize an articulate, elevated 2-sentence editorial conviction (EXACTLY 2 complete sentences, 22–35 words total, ending definitively with a period) that refines their thoughts into an inspiring insight.
+  * STRICT BAN: NEVER echo the user's raw input slant verbatim! You MUST synthesize an articulate, elevated 2-sentence editorial conviction (EXACTLY 2 complete sentences, 25–35 words total, ending definitively with a period) that refines their thoughts into an inspiring insight.
   * In "keyTakeaways", give 3 sharp, uplifting insights about breaking away, presence over perfection, and why the destination makes the frantic packing worth it.
 - IN POSTER 3 ("THE RECEIPTS & CORE CONVICTION" / resolvedArticleExcerpts):
-  * Deliver exactly 3 substantive, evocative broadsheet narrative paragraphs (each 28–45 words, 2–3 full sentences):
+  * Deliver exactly 3 substantive, evocative broadsheet narrative paragraphs (each 50–75 words, 3–4 full sentences):
     1. Paragraph 1 (Scene & Catalyst): Ground the situation in sensory detail around the spark ("${spark}")—the open suitcases, packing lists, children holding forgotten travel items, and the rush to close remaining tasks.
     2. Paragraph 2 (The Turning Point): The joyful realization when you realize work will never be 100% finished, but vacation countdown waits for no one.
     3. Paragraph 3 (The Lasting Truth): A deep, warm closing reflection on Kerala's tranquil backwaters, green hills, and why presence with family is the greatest luxury.
@@ -243,8 +246,8 @@ ${sourceType === 'inner_voice' ? `CRITICAL INNER VOICE & LIVED EXPERIENCE DIRECT
   * Describe a warm, colorful, sunny scene of real people packing or getting ready, with smiling illuminated faces, colorful room, suitcase, tropical palms visible through window, warm golden light.
   * Explicitly instruct: "Realistic people with clearly visible smiling faces, warm daylight, vibrant colors, Kerala palm trees, cheerful atmosphere, highly detailed, no silhouettes, no dark shadows, no faceless figures, no text".` : (userSlant ? (refineCoreTake ? `MANDATORY REFINEMENT DIRECTIVE (NEVER ECHO VERBATIM):
 - Poster 2 ("THE CRITICAL PERSPECTIVE" / Curator Take) MUST NEVER display the user's raw slant verbatim!
-- You MUST refine and extend the curator's unhedged take ("${userSlant}") into an articulate, model-synthesized editorial argument (EXACTLY 2 complete sentences, 22–35 words total, ending definitively with a period).
-- Ground it directly in the article's specific facts, actors, and structural implications.
+- You MUST completely rewrite and elevate the curator's raw perspective ("${userSlant}") into an articulate, model-synthesized editorial argument (EXACTLY 2 complete sentences, 25–35 words total, ending definitively with a period).
+- DO NOT copy or repeat phrases from the user's input. Synthesize an elevated argument that grounds their angle in the story's concrete facts, key actors, and structural implications.
 - Strictly adhere to the Vocabulary Directive: use vivid, emotionally resonant, easily understandable English without heavy SAT/GRE academic jargon. Return this elevated statement in "curatorTake".` : `VERBATIM DIRECTIVE:
 - Poster 2 ("THE CRITICAL PERSPECTIVE") MUST preserve the curator's exact typed words verbatim: "${userSlant}", ending with a period. Return this in "curatorTake".`) : '')}
 ${cues && cues.length > 0 ? `CRITICAL VISUAL RULE: The Hook poster artwork and cues MUST be anchored in #1 HERO: "${cues[0]}", incorporating #2 MOTIF: "${cues[1] || ''}" and #3 TENSION: "${cues[2] || ''}".` : ''}
@@ -256,7 +259,7 @@ Respond strictly with valid JSON with this exact structure:
   "publicationName": "${pubName || (sourceType === 'inner_voice' ? 'Inner Voice' : 'Curated Press')}",
   "categoryBadge": "UPPERCASE CATEGORY (e.g. DEEP TECH, CULTURE, OPINION, CLIMATE, ECONOMY, HEALTH)",
   "hook": "1-2 sentence gripping hook that stops the reader mid-scroll",
-  "curatorTake": "2 tight sentences (22-35 words) model-refined editorial critique synthesizing the curator's stance (or verbatim if refineCoreTake is false), ending with a period.",
+  "curatorTake": ${refineCoreTake ? `"EXACTLY 2 complete sentences (25-35 words) of elevated, model-synthesized editorial critique completely rephrasing and elevating the curator's raw thought into polished prose ending with a period (NEVER copy raw user words verbatim)."` : `"The curator's exact typed words verbatim: ${JSON.stringify(userSlant || 'Insight in motion.')}"`},
   "summary": "2-3 concise paragraphs of curator take and critique",
   "whyItMatters": "1-2 sharp sentences on the stakes and why this perspective matters right now",
   "keyTakeaways": [
@@ -266,9 +269,9 @@ Respond strictly with valid JSON with this exact structure:
   ],
   "receiptHighlightQuote": "Single poignant quote or core conviction sentence (18-30 words)",
   "resolvedArticleExcerpts": [
-    "Sensory scene-setting around catalyst (28-45 words, 2-3 full sentences, no labels)",
-    "Turning point conviction statement (25-40 words, 2-3 full sentences, no labels)",
-    "Reflective closing thought on presence and priorities (28-45 words, 2-3 full sentences, no labels)"
+    "Paragraph 1 (Factual scene-setting & core friction): 50-75 words, 3-4 complete sentences detailing the concrete events, actors, background context, and catalytic tension without labels.",
+    "Paragraph 2 (Pivotal evidentiary finding or key official quote): 35-50 words, 2-3 complete sentences capturing the crucial turning point, core metric, or verbatim reaction without labels.",
+    "Paragraph 3 (Structural impact & lasting stakes): 50-75 words, 3-4 complete sentences detailing the broader consequences, institutional fallout, and forward-looking reality without labels."
   ],
   "keyMetric": "Short impactful stat or metric (e.g. +42%, 1,072 Trees, 10x, 99.8% - or leave empty if none)",
   "visualMood": "Short aesthetic phrase (e.g. High-Contrast Editorial Risograph, Velvet Obsidian Chiaroscuro)",
@@ -278,7 +281,7 @@ Respond strictly with valid JSON with this exact structure:
   "atmosphereCue": "Environmental setting or mood",
   "lightingCue": "Dramatic lighting description",
   "styleCue": "Artistic medium description",
-  "illustrationPrompt": "Cinematic visual art prompt describing the scene with rich detail. People MUST have visible faces, warm natural lighting, and clear human form. Strictly avoid pitch-black silhouettes, faceless shadow figures, dark ghosts, or creepy silhouettes unless characterRepresentation is explicitly 'silhouette'. Do not include any text, letters, watermarks, or typography."
+  "illustrationPrompt": "Cinematic visual art prompt describing the scene with rich detail.${demographicInfo ? ` The central subject MUST be depicted accurately as ${demographicInfo.promptDesc}.` : ''} People MUST have visible faces, warm natural lighting, and clear human form. Strictly avoid pitch-black silhouettes, faceless shadow figures, dark ghosts, or creepy silhouettes unless characterRepresentation is explicitly 'silhouette'. Do not include any text, letters, watermarks, or typography."
 }`;
 
     const parts = [];
@@ -336,12 +339,13 @@ Respond strictly with valid JSON with this exact structure:
     }
 
     // Dimension 1: HERO (Centerpiece protagonist or subject)
+    const ageDesc = (demographicInfo && demographicInfo.promptDesc) ? `${demographicInfo.promptDesc}, ` : '';
     if (isPerson && isLookalike) {
-      partsList.push(`${heroCandidate} portrait likeness, painted magazine cover illustration, realistic recognizable features, expressive gaze`);
+      partsList.push(`${ageDesc}${heroCandidate} portrait likeness, painted magazine cover illustration, realistic recognizable features, expressive gaze`);
     } else if (isPerson && characterRepresentation === 'silhouette') {
-      partsList.push(`${heroCandidate} minimalist silhouette outline, stark graphic contrast`);
+      partsList.push(`${ageDesc}${heroCandidate} minimalist silhouette outline, stark graphic contrast`);
     } else if (isPerson) {
-      partsList.push(`${heroCandidate}, warm vivid realism, visible illuminated face, natural human expression`);
+      partsList.push(`${ageDesc}${heroCandidate}, warm vivid realism, visible illuminated face, natural human expression`);
     } else {
       const isArchitecture = /court|building|parliament|monument|colonnade|facade|tower|temple|chamber/i.test(heroCandidate);
       if (isArchitecture) {
@@ -482,9 +486,27 @@ Respond strictly with valid JSON with this exact structure:
       });
     }
 
-    const finalCuratorTake = (refineCoreTake && parsed.curatorTake && parsed.curatorTake.trim().length > 10)
+    let finalCuratorTake = (refineCoreTake && parsed.curatorTake && parsed.curatorTake.trim().length > 10)
       ? parsed.curatorTake.trim()
       : (userSlant || parsed.whyItMatters || 'Strategic structural shift in motion.');
+
+    // Duplicate take guard: If user requested AI refinement, ensure it didn't echo raw user input
+    if (refineCoreTake && userSlant && userSlant.trim().length > 8) {
+      const cleanUser = userSlant.toLowerCase().replace(/[^\w\s]/g, '').trim();
+      const cleanModel = finalCuratorTake.toLowerCase().replace(/[^\w\s]/g, '').trim();
+      if (cleanModel === cleanUser || cleanModel.startsWith(cleanUser) || (cleanUser.length > 20 && cleanModel === cleanUser.slice(0, cleanModel.length))) {
+        if (parsed.whyItMatters && parsed.whyItMatters.trim().length > 20 && !parsed.whyItMatters.toLowerCase().includes(cleanUser.slice(0, 30))) {
+          finalCuratorTake = parsed.whyItMatters.trim();
+        } else if (parsed.summary && parsed.summary.trim().length > 30) {
+          const sentences = parsed.summary.split(/(?<=[.!?])\s+/).filter(s => s.trim().length > 15);
+          if (sentences.length >= 2) {
+            finalCuratorTake = `${sentences[0]} ${sentences[1]}`;
+          } else {
+            finalCuratorTake = `${userSlant.trim()} This marks a pivotal turning point in how contemporary developments reshape the landscape.`;
+          }
+        }
+      }
+    }
 
     const rawExcerpts = Array.isArray(parsed.resolvedArticleExcerpts) ? parsed.resolvedArticleExcerpts : [];
     const cleanedExcerpts = rawExcerpts.map(e => String(e).replace(/^(the spark|curator stance|paragraph \d+)\s*:\s*["']?/i, '').replace(/["']?$/i, '').trim());
@@ -649,7 +671,7 @@ function generateSmartFallbackSynthesis({
       if (isFinanceMinisterTopic) {
         refinedTake = `Watching India's longest-serving Finance Minister engage in dialogue with Anand Ranganathan is a delight. The sharp questioning paired with the Finance Minister's characteristic conviction reveals honesty and a clear nation-first stance, while highlighting areas where reform must continue.`;
       } else {
-        refinedTake = `${userSlant.replace(/[.]+$/, '')}. The deeper shift occurs when critical observers examine the structural incentives behind the surface narrative.`;
+        refinedTake = `The immediate focus captures only the surface; the deeper transition emerges when examining the structural incentives and long-term consequences behind the narrative. True discernment requires separating transient friction from enduring systemic realignment.`;
       }
     } else {
       refinedTake = userSlant;
@@ -666,7 +688,7 @@ function generateSmartFallbackSynthesis({
   let p3 = '';
 
   if (extractedContent && extractedContent.length > 100) {
-    const lines = extractedContent.split(/\n+/).map(l => l.trim()).filter(l => l.length > 40 && !l.startsWith('#') && !l.startsWith('http'));
+    const lines = extractedContent.split(/\n+/).map(l => l.trim()).filter(l => l.length > 80 && !l.startsWith('#') && !l.startsWith('http'));
     if (lines.length >= 3) {
       p1 = lines[0];
       p2 = lines[1];
@@ -676,17 +698,17 @@ function generateSmartFallbackSynthesis({
     }
   }
 
-  if (!p1) {
+  if (!p1 || !p2 || !p3) {
     if (isFinanceMinisterTopic) {
-      p1 = `In this wide-ranging interactive session, Finance Minister Nirmala Sitharaman engages in direct dialogue with author and analyst Anand Ranganathan, examining national priorities, fiscal administration, and the balance between macroeconomic discipline and citizen aspirations.`;
-      p2 = `The conversation highlights the value of unapologetic inquiry meeting steady conviction—where sharp questions on policy execution and middle-class realities are addressed with candor and strategic long-term rationale.`;
-      p3 = `Beyond the immediate exchanges, the dialogue demonstrates the necessity of transparent engagement between governance architects and public intellectuals in charting India's developmental roadmap.`;
+      p1 = p1 || `In this wide-ranging interactive session, Finance Minister Nirmala Sitharaman engages in direct dialogue with author and analyst Anand Ranganathan, examining national priorities, fiscal administration, and the balance between macroeconomic discipline and citizen aspirations.`;
+      p2 = p2 || `The conversation highlights the value of unapologetic inquiry meeting steady conviction—where sharp questions on policy execution and middle-class realities are addressed with candor and strategic long-term rationale.`;
+      p3 = p3 || `Beyond the immediate exchanges, the dialogue demonstrates the necessity of transparent engagement between governance architects and public intellectuals in charting India's developmental roadmap.`;
     } else {
-      p1 = extractedTitle
-        ? `Primary reporting on "${extractedTitle}" reveals an accelerating transition across core institutional operators.`
-        : 'Primary reporting confirms that structural indicators diverged sharply from initial forecasts across core operations.';
-      p2 = 'Examining the operational balance and institutional disclosures shows strategic reallocation occurring far faster than conventional consensus had anticipated.';
-      p3 = 'Historical precedent confirms that early operational divergence inevitably forces systemic realignment before the broader public cycle concludes.';
+      p1 = p1 || (extractedTitle
+        ? `Primary reporting on "${extractedTitle}" reveals an accelerating transition across core institutional operators and foundational assumptions. As traditional structures yield to modern pressures, market and societal actors are being forced to recalculate their long-term commitments under unprecedented operational friction.`
+        : 'Primary reporting confirms that structural indicators diverged sharply from initial forecasts across core operations. As traditional assumptions encounter real-world resistance, stakeholders are re-evaluating long-held assumptions and establishing new frameworks to navigate the evolving institutional landscape with renewed discipline.');
+      p2 = p2 || 'Examining the operational balance and public disclosures shows strategic reallocation occurring far faster than conventional consensus had anticipated. While headline figures suggest stability, internal metrics indicate an urgent pivot toward resilient positioning and risk mitigation across every tier of execution.';
+      p3 = p3 || 'Historical precedent confirms that early operational divergence inevitably forces systemic realignment before the broader cycle concludes. Observers who recognize these structural shifts early gain a decisive vantage point, anticipating where governance, culture, and capital will inevitably converge in the months ahead.';
     }
   }
 
@@ -733,6 +755,68 @@ function generateSmartFallbackSynthesis({
   };
 }
 
+function detectAgeAndDemographics(text = '', headline = '', content = '') {
+  const combined = `${headline || ''} ${text || ''} ${content ? content.slice(0, 1000) : ''}`.toLowerCase();
+
+  // 1. Explicit age patterns: "25-year-old", "25 years old", "aged 25", "age 25", "25yo"
+  const ageMatch = combined.match(/\b(\d{1,2})\s*[-–—]?\s*(?:years?[- ]old|year[- ]old|yo\b)/i) ||
+                   combined.match(/\b(?:aged|age)\s+(\d{1,2})\b/i);
+  if (ageMatch) {
+    const age = parseInt(ageMatch[1], 10);
+    if (age >= 10 && age <= 105) {
+      if (age <= 21) {
+        return {
+          age,
+          category: 'youth',
+          promptDesc: `youthful ${age}-year-old student, young fresh facial features, youthful hair, modern casual look, clear young skin, strictly no wrinkles or gray hair`
+        };
+      } else if (age <= 29) {
+        return {
+          age,
+          category: 'twenty_something',
+          promptDesc: `youthful ${age}-year-old young adult in their mid-20s, young contemporary facial features, modern vibrant styling, fresh young skin, strictly no wrinkles, no gray hair`
+        };
+      } else if (age <= 39) {
+        return {
+          age,
+          category: 'thirties',
+          promptDesc: `young adult in their 30s (${age} years old), sharp modern facial features, dynamic contemporary styling`
+        };
+      } else if (age <= 55) {
+        return {
+          age,
+          category: 'middle_aged',
+          promptDesc: `mature adult in their 40s-50s (${age} years old), confident seasoned expression, distinguished contemporary styling`
+        };
+      } else {
+        return {
+          age,
+          category: 'senior',
+          promptDesc: `distinguished ${age}-year-old senior with silver gray hair, dignified weathered facial features, wise expression`
+        };
+      }
+    }
+  }
+
+  // 2. Life-stage and demographic keywords
+  if (/\b(gen[- ]?z|college student|undergraduate|teenager|youth|young founder|young entrepreneur|young girl|young boy)\b/i.test(combined)) {
+    return {
+      age: 23,
+      category: 'twenty_something',
+      promptDesc: `youthful 20-something young adult, Gen-Z contemporary styling, fresh young facial features, modern vibrant look, strictly no wrinkles or gray hair`
+    };
+  }
+  if (/\b(veteran|elderly|grandfather|grandmother|octogenarian|septuagenarian|retiree|pensioner)\b/i.test(combined)) {
+    return {
+      age: 72,
+      category: 'senior',
+      promptDesc: `distinguished elder in their 70s, silver hair, weathered dignified facial features, wise expression`
+    };
+  }
+
+  return null;
+}
+
 function isLikelyPersonSubject(name) {
   if (!name) return false;
   const lower = name.toLowerCase();
@@ -748,7 +832,8 @@ function isLikelyPersonSubject(name) {
     'trump', 'musk', 'altman', 'biden', 'modi', 'pichai', 'nadella', 'cook',
     'huang', 'minister', 'president', 'judge', 'justice', 'officer', 'sweeper',
     'curator', 'citizen', 'woman', 'man', 'girl', 'boy', 'leader', 'doctor',
-    'worker', 'protagonist', 'figure', 'person', 'individual', 'portrait', 'lookalike'
+    'worker', 'protagonist', 'figure', 'person', 'individual', 'portrait', 'lookalike',
+    'founder', 'engineer', 'entrepreneur', 'student', 'youth', 'actor', 'author', 'critic', 'analyst', 'politician'
   ];
   return personKeywords.some(w => lower.includes(w));
 }
