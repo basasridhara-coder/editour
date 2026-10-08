@@ -4809,22 +4809,17 @@ async function startAiSynthesis() {
   const ticker1 = setTimeout(() => {
     if (stepText) stepText.textContent = 'Synthesizing 3-poster narrative (Hook → Take → Receipts)...';
     if (fill) fill.style.width = '45%';
-  }, 2500);
+  }, 1200);
 
   const ticker2 = setTimeout(() => {
     if (stepText) stepText.textContent = 'Drafting visual metaphors & editorial composition...';
-    if (fill) fill.style.width = '65%';
-  }, 6000);
+    if (fill) fill.style.width = '70%';
+  }, 2600);
 
   const ticker3 = setTimeout(() => {
-    if (stepText) stepText.textContent = 'Rendering high-definition editorial poster artwork...';
-    if (fill) fill.style.width = '82%';
-  }, 11000);
-
-  const ticker4 = setTimeout(() => {
     if (stepText) stepText.textContent = 'Polishing broadsheet copy, typography & color grade...';
-    if (fill) fill.style.width = '94%';
-  }, 16000);
+    if (fill) fill.style.width = '88%';
+  }, 4200);
 
   // Author handle
   let userHandle = '@curator';

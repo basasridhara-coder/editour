@@ -82,78 +82,56 @@ module.exports = async function handler(req, res) {
     let extractedContent = scrapedContent || text || '';
     let pubName = '';
 
-    // 1. If digital link, attempt server-side extraction if content is thin, missing, or boilerplate
+    // 1. If digital link, only attempt fast extraction if title is completely missing
     if (sourceType === 'digital_link' && url) {
       try {
         const parsedUrl = new URL(url);
         pubName = parsedUrl.hostname.replace(/^www\./, '');
 
-        const isYouTube = parsedUrl.hostname.includes('youtube.com') || parsedUrl.hostname.includes('youtu.be');
-        const isJunkContent = !extractedContent || 
-                              extractedContent.length < 200 || 
-                              extractedContent.includes('About Press Copyright Contact us');
-
-        if (isYouTube && (isJunkContent || !extractedTitle)) {
-          const ytVideoId = extractYouTubeVideoId(url);
-          if (ytVideoId) {
-            try {
-              const ytData = await scrapeYouTubeUrl(url, ytVideoId);
-              if (ytData && ytData.title) {
-                if (!extractedTitle || extractedTitle.length < 5) extractedTitle = ytData.title;
-                extractedContent = ytData.content;
-                if (ytData.siteName) pubName = ytData.siteName;
-              }
-            } catch (ytErr) {
-              console.warn('YouTube scrape in synthesize failed:', ytErr.message);
+        if (!extractedTitle || extractedTitle.length < 5) {
+          const isYouTube = parsedUrl.hostname.includes('youtube.com') || parsedUrl.hostname.includes('youtu.be');
+          if (isYouTube) {
+            const ytVideoId = extractYouTubeVideoId(url);
+            if (ytVideoId) {
+              try {
+                const ytData = await scrapeYouTubeUrl(url, ytVideoId);
+                if (ytData && ytData.title) {
+                  extractedTitle = ytData.title;
+                  if (ytData.content && (!extractedContent || extractedContent.length < 100)) extractedContent = ytData.content;
+                  if (ytData.siteName) pubName = ytData.siteName;
+                }
+              } catch (_) {}
             }
           }
-        }
-        
-        if (!extractedContent || !extractedTitle || isJunkContent) {
-          const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), 2000);
-          const pageResp = await fetch(url, {
-            signal: controller.signal,
-            headers: {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 SlantBot/1.0'
+
+          if (!extractedTitle || extractedTitle.length < 5) {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 1200);
+            const pageResp = await fetch(url, {
+              signal: controller.signal,
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 SlantBot/1.0'
+              }
+            });
+            clearTimeout(timeout);
+
+            if (pageResp.ok) {
+              const html = await pageResp.text();
+              const titleMatch = html.match(/<meta property=["']og:title["'] content=["'](.*?)["']/i) ||
+                                 html.match(/<title>(.*?)<\/title>/i);
+              if (titleMatch && titleMatch[1]) {
+                extractedTitle = decodeHtmlEntities(titleMatch[1].trim());
+              }
+              const descMatch = html.match(/<meta property=["']og:description["'] content=["'](.*?)["']/i) ||
+                                html.match(/<meta name=["']description["'] content=["'](.*?)["']/i);
+              if (descMatch && descMatch[1] && (!extractedContent || extractedContent.length < 100)) {
+                extractedContent = decodeHtmlEntities(descMatch[1].trim());
+              }
+              const siteMatch = html.match(/<meta property=["']og:site_name["'] content=["'](.*?)["']/i);
+              if (siteMatch && siteMatch[1]) {
+                pubName = decodeHtmlEntities(siteMatch[1].trim());
+              }
             }
-          });
-          clearTimeout(timeout);
-
-          if (pageResp.ok) {
-            const html = await pageResp.text();
-            // Extract title
-            const titleMatch = html.match(/<meta property=["']og:title["'] content=["'](.*?)["']/i) ||
-                               html.match(/<title>(.*?)<\/title>/i);
-            if (titleMatch && titleMatch[1]) {
-              extractedTitle = decodeHtmlEntities(titleMatch[1].trim());
-            }
-
-            // Extract meta description / og:description
-            const descMatch = html.match(/<meta property=["']og:description["'] content=["'](.*?)["']/i) ||
-                              html.match(/<meta name=["']description["'] content=["'](.*?)["']/i);
-            let desc = descMatch && descMatch[1] ? decodeHtmlEntities(descMatch[1].trim()) : '';
-
-            // Extract site_name
-            const siteMatch = html.match(/<meta property=["']og:site_name["'] content=["'](.*?)["']/i);
-            if (siteMatch && siteMatch[1]) {
-              pubName = decodeHtmlEntities(siteMatch[1].trim());
-            }
-
-            // Strip HTML tags for clean body excerpt
-            let cleanBody = html
-              .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-              .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
-              .replace(/<[^>]+>/g, ' ')
-              .replace(/\s+/g, ' ')
-              .trim()
-              .slice(0, 3000);
-
-            if (cleanBody.length < 200 && desc) {
-              cleanBody = desc;
-            }
-
-            extractedContent = `Title: ${extractedTitle}\nDescription: ${desc}\n\nArticle Text:\n${cleanBody}`;
           }
         }
       } catch (err) {
@@ -382,13 +360,14 @@ Respond strictly with valid JSON with this exact structure:
     const concisePrompt = partsList.filter(Boolean).join(', ').slice(0, 420);
     const hasExactPhoto = isExactPhoto && !!(imageBase64);
 
-    // 4. Concurrent Execution: Run Gemini 3.8 Flash (text) and Gemini 2.5 Flash Image (artwork) in parallel!
-    // Extended timeout permits deep JSON synthesis and high-res image generation comfortably within serverless window
+    // 4. Ultra-Fast Editorial Text Synthesis (Phase 1)
+    // Runs with thinkingBudget: 0 to complete in 4-6s comfortably within Vercel 10s serverless limit.
+    // Artwork generation is handled asynchronously in Phase 2 via action: 'artwork_only'.
     const textPromise = (async () => {
       try {
         const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 40000);
+        const timeout = setTimeout(() => controller.abort(), 12000);
 
         const geminiResp = await fetch(geminiUrl, {
           method: 'POST',
@@ -399,7 +378,10 @@ Respond strictly with valid JSON with this exact structure:
             generationConfig: {
               responseMimeType: 'application/json',
               temperature: 0.7,
-              maxOutputTokens: 3500
+              maxOutputTokens: 2200,
+              thinkingConfig: {
+                thinkingBudget: 0
+              }
             }
           })
         });
@@ -430,24 +412,9 @@ Respond strictly with valid JSON with this exact structure:
       return null;
     })();
 
-    const imagePromise = (async () => {
-      if (hasExactPhoto || !GEMINI_API_KEY) return null;
-      try {
-        return await generateGeminiEditorialArtwork({
-          prompt: concisePrompt,
-          imageBase64: (isLookalike ? imageBase64 : null),
-          imageMimeType,
-          timeoutMs: 8000 // 8s budget; if longer, falls back and upgrades in background
-        });
-      } catch (err) {
-        console.warn('Gemini concurrent artwork warning:', err.message);
-        return null;
-      }
-    })();
-
-    const [textResult, imageResult] = await Promise.allSettled([textPromise, imagePromise]);
-    let parsed = textResult.status === 'fulfilled' ? textResult.value : null;
-    let geminiArt = imageResult.status === 'fulfilled' ? imageResult.value : null;
+    // In Phase 1, if exact photo is attached, use it directly; otherwise delegate AI illustration to background
+    let parsed = await textPromise;
+    let geminiArt = null;
 
     if (!parsed) {
       parsed = generateSmartFallbackSynthesis({
@@ -1116,21 +1083,6 @@ async function scrapeYouTubeUrl(targetUrl, videoId) {
   const rawDesc = playerObj?.videoDetails?.shortDescription || '';
   let desc = decodeHtmlEntities(rawDesc).trim();
 
-  // If description is missing, short, or generic, query grounded Gemini 3.8 Flash
-  if (!desc || desc.length < 150) {
-    const brief = await getGeminiVideoBrief(targetUrl, title, author);
-    if (brief && brief.length > 80) {
-      desc = brief;
-      const titleMatch = brief.match(/Exact Video Title:\*?\*?\s*(.+)$/m);
-      if (titleMatch && titleMatch[1] && (!title || title.length < 5)) {
-        title = titleMatch[1].replace(/[*#]/g, '').trim();
-      }
-      const authorMatch = brief.match(/(?:Channel Name|Author|Host):\*?\*?\s*(.+)$/m);
-      if (authorMatch && authorMatch[1] && (!author || author === 'YouTube')) {
-        author = authorMatch[1].replace(/[*#]/g, '').trim();
-      }
-    }
-  }
 
   const candidateThumbs = [
     videoId ? `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg` : null,
