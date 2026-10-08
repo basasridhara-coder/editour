@@ -77,83 +77,62 @@ module.exports = async function handler(req, res) {
       vocabularyStyle = 'punchy' // 'punchy' | 'conversational' | 'analytical'
     } = body || {};
 
-    const userSlant = slantTake || text || '';
-    let extractedTitle = scrapedTitle || '';
-    let extractedContent = scrapedContent || text || '';
+    const userSlant = (slantTake || text || '').trim();
+    const isDigitalLink = (sourceType === 'digital_link') && Boolean(url && String(url).trim().length > 3);
+    let extractedTitle = isDigitalLink ? (scrapedTitle || '').trim() : '';
+    let extractedContent = isDigitalLink ? (scrapedContent || '').trim() : (sourceType === 'photo' ? (text || '').trim() : '');
     let pubName = '';
 
-    // 1. If digital link, attempt server-side extraction if content is thin, missing, or boilerplate
+    // 1. If digital link, only attempt fast extraction if title is completely missing
     if (sourceType === 'digital_link' && url) {
       try {
         const parsedUrl = new URL(url);
         pubName = parsedUrl.hostname.replace(/^www\./, '');
 
-        const isYouTube = parsedUrl.hostname.includes('youtube.com') || parsedUrl.hostname.includes('youtu.be');
-        const isJunkContent = !extractedContent || 
-                              extractedContent.length < 200 || 
-                              extractedContent.includes('About Press Copyright Contact us');
-
-        if (isYouTube && (isJunkContent || !extractedTitle)) {
-          const ytVideoId = extractYouTubeVideoId(url);
-          if (ytVideoId) {
-            try {
-              const ytData = await scrapeYouTubeUrl(url, ytVideoId);
-              if (ytData && ytData.title) {
-                if (!extractedTitle || extractedTitle.length < 5) extractedTitle = ytData.title;
-                extractedContent = ytData.content;
-                if (ytData.siteName) pubName = ytData.siteName;
-              }
-            } catch (ytErr) {
-              console.warn('YouTube scrape in synthesize failed:', ytErr.message);
+        if (!extractedTitle || extractedTitle.length < 5) {
+          const isYouTube = parsedUrl.hostname.includes('youtube.com') || parsedUrl.hostname.includes('youtu.be');
+          if (isYouTube) {
+            const ytVideoId = extractYouTubeVideoId(url);
+            if (ytVideoId) {
+              try {
+                const ytData = await scrapeYouTubeUrl(url, ytVideoId);
+                if (ytData && ytData.title) {
+                  extractedTitle = ytData.title;
+                  if (ytData.content && (!extractedContent || extractedContent.length < 100)) extractedContent = ytData.content;
+                  if (ytData.siteName) pubName = ytData.siteName;
+                }
+              } catch (_) {}
             }
           }
-        }
-        
-        if (!extractedContent || !extractedTitle || isJunkContent) {
-          const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), 2000);
-          const pageResp = await fetch(url, {
-            signal: controller.signal,
-            headers: {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 SlantBot/1.0'
+
+          if (!extractedTitle || extractedTitle.length < 5) {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 1200);
+            const pageResp = await fetch(url, {
+              signal: controller.signal,
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 SlantBot/1.0'
+              }
+            });
+            clearTimeout(timeout);
+
+            if (pageResp.ok) {
+              const html = await pageResp.text();
+              const titleMatch = html.match(/<meta property=["']og:title["'] content=["'](.*?)["']/i) ||
+                                 html.match(/<title>(.*?)<\/title>/i);
+              if (titleMatch && titleMatch[1]) {
+                extractedTitle = decodeHtmlEntities(titleMatch[1].trim());
+              }
+              const descMatch = html.match(/<meta property=["']og:description["'] content=["'](.*?)["']/i) ||
+                                html.match(/<meta name=["']description["'] content=["'](.*?)["']/i);
+              if (descMatch && descMatch[1] && (!extractedContent || extractedContent.length < 100)) {
+                extractedContent = decodeHtmlEntities(descMatch[1].trim());
+              }
+              const siteMatch = html.match(/<meta property=["']og:site_name["'] content=["'](.*?)["']/i);
+              if (siteMatch && siteMatch[1]) {
+                pubName = decodeHtmlEntities(siteMatch[1].trim());
+              }
             }
-          });
-          clearTimeout(timeout);
-
-          if (pageResp.ok) {
-            const html = await pageResp.text();
-            // Extract title
-            const titleMatch = html.match(/<meta property=["']og:title["'] content=["'](.*?)["']/i) ||
-                               html.match(/<title>(.*?)<\/title>/i);
-            if (titleMatch && titleMatch[1]) {
-              extractedTitle = decodeHtmlEntities(titleMatch[1].trim());
-            }
-
-            // Extract meta description / og:description
-            const descMatch = html.match(/<meta property=["']og:description["'] content=["'](.*?)["']/i) ||
-                              html.match(/<meta name=["']description["'] content=["'](.*?)["']/i);
-            let desc = descMatch && descMatch[1] ? decodeHtmlEntities(descMatch[1].trim()) : '';
-
-            // Extract site_name
-            const siteMatch = html.match(/<meta property=["']og:site_name["'] content=["'](.*?)["']/i);
-            if (siteMatch && siteMatch[1]) {
-              pubName = decodeHtmlEntities(siteMatch[1].trim());
-            }
-
-            // Strip HTML tags for clean body excerpt
-            let cleanBody = html
-              .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-              .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
-              .replace(/<[^>]+>/g, ' ')
-              .replace(/\s+/g, ' ')
-              .trim()
-              .slice(0, 3000);
-
-            if (cleanBody.length < 200 && desc) {
-              cleanBody = desc;
-            }
-
-            extractedContent = `Title: ${extractedTitle}\nDescription: ${desc}\n\nArticle Text:\n${cleanBody}`;
           }
         }
       } catch (err) {
@@ -189,6 +168,8 @@ module.exports = async function handler(req, res) {
    - Do NOT dumb it down like a children's primer. Keep the adult intelligence, wit, and conviction, but ensure any smart reader can grasp every single word instantly on their phone.`;
     }
 
+    const demographicInfo = detectAgeAndDemographics(userSlant, extractedTitle, extractedContent);
+
     const systemPrompt = `You are the lead editorial director and visual design curator for "Slant" (slant.today), an elite visual publication that distills complex stories into high-impact 3-poster social carousels.
 
 Input Details:
@@ -200,6 +181,7 @@ ${userSlant ? `- Curator's Slant / Take (Primary Stance & Angle): "${userSlant}"
 ${spark ? `- The Spark (Personal Context / Catalyst): "${spark}"` : ''}
 ${url ? `- Source Link: ${url}` : ''}
 ${pubName ? `- Publication / Domain: ${pubName}` : ''}
+${demographicInfo ? `- Featured Protagonist Age & Demographics: ${demographicInfo.promptDesc}` : ''}
 ${cues && cues.length > 0 ? `- Ranked Visual Cues: ${cues.map((c, i) => `#${i+1} ${c}`).join(' • ')}` : ''}
 - Character Portrayal Style: ${characterRepresentation === 'exact' 
   ? 'Use exact unedited news/attached photo directly' 
@@ -229,10 +211,10 @@ ${sourceType === 'inner_voice' ? `CRITICAL INNER VOICE & LIVED EXPERIENCE DIRECT
   * The Hook sentence must capture the excitement and relatable rush of preparing for the journey.
 - IN POSTER 2 ("THE CRITICAL PERSPECTIVE" / curatorTake):
   * Ground the conviction directly in their specific context (Kerala, the trip, the son's reminder, closing pending tasks, the relief of the break).
-  * STRICT BAN: NEVER echo the user's raw input slant verbatim! You MUST synthesize an articulate, elevated 2-sentence editorial conviction (EXACTLY 2 complete sentences, 22–35 words total, ending definitively with a period) that refines their thoughts into an inspiring insight.
+  * STRICT BAN: NEVER echo the user's raw input slant verbatim! You MUST synthesize an articulate, elevated 2-sentence editorial conviction (EXACTLY 2 complete sentences, 25–35 words total, ending definitively with a period) that refines their thoughts into an inspiring insight.
   * In "keyTakeaways", give 3 sharp, uplifting insights about breaking away, presence over perfection, and why the destination makes the frantic packing worth it.
 - IN POSTER 3 ("THE RECEIPTS & CORE CONVICTION" / resolvedArticleExcerpts):
-  * Deliver exactly 3 substantive, evocative broadsheet narrative paragraphs (each 28–45 words, 2–3 full sentences):
+  * Deliver exactly 3 substantive, evocative broadsheet narrative paragraphs (each 50–75 words, 3–4 full sentences):
     1. Paragraph 1 (Scene & Catalyst): Ground the situation in sensory detail around the spark ("${spark}")—the open suitcases, packing lists, children holding forgotten travel items, and the rush to close remaining tasks.
     2. Paragraph 2 (The Turning Point): The joyful realization when you realize work will never be 100% finished, but vacation countdown waits for no one.
     3. Paragraph 3 (The Lasting Truth): A deep, warm closing reflection on Kerala's tranquil backwaters, green hills, and why presence with family is the greatest luxury.
@@ -243,8 +225,8 @@ ${sourceType === 'inner_voice' ? `CRITICAL INNER VOICE & LIVED EXPERIENCE DIRECT
   * Describe a warm, colorful, sunny scene of real people packing or getting ready, with smiling illuminated faces, colorful room, suitcase, tropical palms visible through window, warm golden light.
   * Explicitly instruct: "Realistic people with clearly visible smiling faces, warm daylight, vibrant colors, Kerala palm trees, cheerful atmosphere, highly detailed, no silhouettes, no dark shadows, no faceless figures, no text".` : (userSlant ? (refineCoreTake ? `MANDATORY REFINEMENT DIRECTIVE (NEVER ECHO VERBATIM):
 - Poster 2 ("THE CRITICAL PERSPECTIVE" / Curator Take) MUST NEVER display the user's raw slant verbatim!
-- You MUST refine and extend the curator's unhedged take ("${userSlant}") into an articulate, model-synthesized editorial argument (EXACTLY 2 complete sentences, 22–35 words total, ending definitively with a period).
-- Ground it directly in the article's specific facts, actors, and structural implications.
+- You MUST completely rewrite and elevate the curator's raw perspective ("${userSlant}") into an articulate, model-synthesized editorial argument (EXACTLY 2 complete sentences, 25–35 words total, ending definitively with a period).
+- DO NOT copy or repeat phrases from the user's input. Synthesize an elevated argument that grounds their angle in the story's concrete facts, key actors, and structural implications.
 - Strictly adhere to the Vocabulary Directive: use vivid, emotionally resonant, easily understandable English without heavy SAT/GRE academic jargon. Return this elevated statement in "curatorTake".` : `VERBATIM DIRECTIVE:
 - Poster 2 ("THE CRITICAL PERSPECTIVE") MUST preserve the curator's exact typed words verbatim: "${userSlant}", ending with a period. Return this in "curatorTake".`) : '')}
 ${cues && cues.length > 0 ? `CRITICAL VISUAL RULE: The Hook poster artwork and cues MUST be anchored in #1 HERO: "${cues[0]}", incorporating #2 MOTIF: "${cues[1] || ''}" and #3 TENSION: "${cues[2] || ''}".` : ''}
@@ -256,7 +238,7 @@ Respond strictly with valid JSON with this exact structure:
   "publicationName": "${pubName || (sourceType === 'inner_voice' ? 'Inner Voice' : 'Curated Press')}",
   "categoryBadge": "UPPERCASE CATEGORY (e.g. DEEP TECH, CULTURE, OPINION, CLIMATE, ECONOMY, HEALTH)",
   "hook": "1-2 sentence gripping hook that stops the reader mid-scroll",
-  "curatorTake": "2 tight sentences (22-35 words) model-refined editorial critique synthesizing the curator's stance (or verbatim if refineCoreTake is false), ending with a period.",
+  "curatorTake": ${refineCoreTake ? `"EXACTLY 2 complete sentences (25-35 words) of elevated, model-synthesized editorial critique completely rephrasing and elevating the curator's raw thought into polished prose ending with a period (NEVER copy raw user words verbatim)."` : `"The curator's exact typed words verbatim: ${JSON.stringify(userSlant || 'Insight in motion.')}"`},
   "summary": "2-3 concise paragraphs of curator take and critique",
   "whyItMatters": "1-2 sharp sentences on the stakes and why this perspective matters right now",
   "keyTakeaways": [
@@ -266,9 +248,9 @@ Respond strictly with valid JSON with this exact structure:
   ],
   "receiptHighlightQuote": "Single poignant quote or core conviction sentence (18-30 words)",
   "resolvedArticleExcerpts": [
-    "Sensory scene-setting around catalyst (28-45 words, 2-3 full sentences, no labels)",
-    "Turning point conviction statement (25-40 words, 2-3 full sentences, no labels)",
-    "Reflective closing thought on presence and priorities (28-45 words, 2-3 full sentences, no labels)"
+    "Paragraph 1 (Factual scene-setting & core friction): 50-75 words, 3-4 complete sentences detailing the concrete events, actors, background context, and catalytic tension without labels.",
+    "Paragraph 2 (Pivotal evidentiary finding or key official quote): 35-50 words, 2-3 complete sentences capturing the crucial turning point, core metric, or verbatim reaction without labels.",
+    "Paragraph 3 (Structural impact & lasting stakes): 50-75 words, 3-4 complete sentences detailing the broader consequences, institutional fallout, and forward-looking reality without labels."
   ],
   "keyMetric": "Short impactful stat or metric (e.g. +42%, 1,072 Trees, 10x, 99.8% - or leave empty if none)",
   "visualMood": "Short aesthetic phrase (e.g. High-Contrast Editorial Risograph, Velvet Obsidian Chiaroscuro)",
@@ -278,7 +260,7 @@ Respond strictly with valid JSON with this exact structure:
   "atmosphereCue": "Environmental setting or mood",
   "lightingCue": "Dramatic lighting description",
   "styleCue": "Artistic medium description",
-  "illustrationPrompt": "Cinematic visual art prompt describing the scene with rich detail. People MUST have visible faces, warm natural lighting, and clear human form. Strictly avoid pitch-black silhouettes, faceless shadow figures, dark ghosts, or creepy silhouettes unless characterRepresentation is explicitly 'silhouette'. Do not include any text, letters, watermarks, or typography."
+  "illustrationPrompt": "Cinematic visual art prompt describing the scene with rich detail.${demographicInfo ? ` The central subject MUST be depicted accurately as ${demographicInfo.promptDesc}.` : ''} People MUST have visible faces, warm natural lighting, and clear human form. Strictly avoid pitch-black silhouettes, faceless shadow figures, dark ghosts, or creepy silhouettes unless characterRepresentation is explicitly 'silhouette'. Do not include any text, letters, watermarks, or typography."
 }`;
 
     const parts = [];
@@ -295,8 +277,23 @@ Respond strictly with valid JSON with this exact structure:
       parts.push({
         text: `Here is a photograph of a printed news clipping, article, or document. OCR and analyze it, then synthesize the Slant 3-poster carousel as requested:\n\n${systemPrompt}`
       });
+    } else if (sourceType === 'inner_voice') {
+      const partsContent = [
+        `Curator's Personal Slant & Angle: "${userSlant || 'Personal reflection and conviction.'}"`,
+        spark ? `Personal Spark & Context: "${spark}"` : ''
+      ].filter(Boolean).join('\n\n');
+      parts.push({
+        text: `${systemPrompt}\n\nUser Input Content (Inner Voice Personal Reflection):\n${partsContent}`
+      });
     } else {
-      const userContent = extractedContent || extractedTitle || text || url || spark || 'Contemporary cultural reflection';
+      const contentParts = [
+        extractedTitle ? `Article Headline: ${extractedTitle}` : '',
+        extractedContent ? `Article Content / Excerpt: ${extractedContent}` : '',
+        userSlant ? `Curator's Slant / Angle: ${userSlant}` : '',
+        spark ? `Spark Context: ${spark}` : '',
+        url ? `Source Link: ${url}` : ''
+      ].filter(Boolean);
+      const userContent = contentParts.length > 0 ? contentParts.join('\n\n') : (text || spark || userSlant || 'Contemporary cultural reflection');
       parts.push({
         text: `${systemPrompt}\n\nUser Input Content:\n${userContent}`
       });
@@ -336,12 +333,13 @@ Respond strictly with valid JSON with this exact structure:
     }
 
     // Dimension 1: HERO (Centerpiece protagonist or subject)
+    const ageDesc = (demographicInfo && demographicInfo.promptDesc) ? `${demographicInfo.promptDesc}, ` : '';
     if (isPerson && isLookalike) {
-      partsList.push(`${heroCandidate} portrait likeness, painted magazine cover illustration, realistic recognizable features, expressive gaze`);
+      partsList.push(`${ageDesc}${heroCandidate} portrait likeness, painted magazine cover illustration, realistic recognizable features, expressive gaze`);
     } else if (isPerson && characterRepresentation === 'silhouette') {
-      partsList.push(`${heroCandidate} minimalist silhouette outline, stark graphic contrast`);
+      partsList.push(`${ageDesc}${heroCandidate} minimalist silhouette outline, stark graphic contrast`);
     } else if (isPerson) {
-      partsList.push(`${heroCandidate}, warm vivid realism, visible illuminated face, natural human expression`);
+      partsList.push(`${ageDesc}${heroCandidate}, warm vivid realism, visible illuminated face, natural human expression`);
     } else {
       const isArchitecture = /court|building|parliament|monument|colonnade|facade|tower|temple|chamber/i.test(heroCandidate);
       if (isArchitecture) {
@@ -378,13 +376,14 @@ Respond strictly with valid JSON with this exact structure:
     const concisePrompt = partsList.filter(Boolean).join(', ').slice(0, 420);
     const hasExactPhoto = isExactPhoto && !!(imageBase64);
 
-    // 4. Concurrent Execution: Run Gemini 3.8 Flash (text) and Gemini 2.5 Flash Image (artwork) in parallel!
-    // Extended timeout permits deep JSON synthesis and high-res image generation comfortably within serverless window
+    // 4. Ultra-Fast Editorial Text Synthesis (Phase 1)
+    // Runs with thinkingBudget: 0 to complete in 4-6s comfortably within Vercel 10s serverless limit.
+    // Artwork generation is handled asynchronously in Phase 2 via action: 'artwork_only'.
     const textPromise = (async () => {
       try {
         const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 6500);
+        const timeout = setTimeout(() => controller.abort(), 12000);
 
         const geminiResp = await fetch(geminiUrl, {
           method: 'POST',
@@ -395,7 +394,10 @@ Respond strictly with valid JSON with this exact structure:
             generationConfig: {
               responseMimeType: 'application/json',
               temperature: 0.7,
-              maxOutputTokens: 3500
+              maxOutputTokens: 2200,
+              thinkingConfig: {
+                thinkingBudget: 0
+              }
             }
           })
         });
@@ -416,6 +418,9 @@ Respond strictly with valid JSON with this exact structure:
               }
             }
           }
+        } else {
+          const errText = await geminiResp.text().catch(() => '');
+          console.warn('Gemini text synthesis HTTP error:', geminiResp.status, errText.slice(0, 300));
         }
       } catch (geminiErr) {
         console.warn('Gemini text synthesis warning:', geminiErr.message);
@@ -423,24 +428,9 @@ Respond strictly with valid JSON with this exact structure:
       return null;
     })();
 
-    const imagePromise = (async () => {
-      if (hasExactPhoto || !GEMINI_API_KEY) return null;
-      try {
-        return await generateGeminiEditorialArtwork({
-          prompt: concisePrompt,
-          imageBase64: (isLookalike ? imageBase64 : null),
-          imageMimeType,
-          timeoutMs: 4500 // 4.5s tight budget; if longer, falls back and upgrades in background
-        });
-      } catch (err) {
-        console.warn('Gemini concurrent artwork warning:', err.message);
-        return null;
-      }
-    })();
-
-    const [textResult, imageResult] = await Promise.allSettled([textPromise, imagePromise]);
-    let parsed = textResult.status === 'fulfilled' ? textResult.value : null;
-    let geminiArt = imageResult.status === 'fulfilled' ? imageResult.value : null;
+    // In Phase 1, if exact photo is attached, use it directly; otherwise delegate AI illustration to background
+    let parsed = await textPromise;
+    let geminiArt = null;
 
     if (!parsed) {
       parsed = generateSmartFallbackSynthesis({
@@ -482,9 +472,27 @@ Respond strictly with valid JSON with this exact structure:
       });
     }
 
-    const finalCuratorTake = (refineCoreTake && parsed.curatorTake && parsed.curatorTake.trim().length > 10)
+    let finalCuratorTake = (refineCoreTake && parsed.curatorTake && parsed.curatorTake.trim().length > 10)
       ? parsed.curatorTake.trim()
       : (userSlant || parsed.whyItMatters || 'Strategic structural shift in motion.');
+
+    // Duplicate take guard: If user requested AI refinement, ensure it didn't echo raw user input
+    if (refineCoreTake && userSlant && userSlant.trim().length > 8) {
+      const cleanUser = userSlant.toLowerCase().replace(/[^\w\s]/g, '').trim();
+      const cleanModel = finalCuratorTake.toLowerCase().replace(/[^\w\s]/g, '').trim();
+      if (cleanModel === cleanUser || cleanModel.startsWith(cleanUser) || (cleanUser.length > 20 && cleanModel === cleanUser.slice(0, cleanModel.length))) {
+        if (parsed.whyItMatters && parsed.whyItMatters.trim().length > 20 && !parsed.whyItMatters.toLowerCase().includes(cleanUser.slice(0, 30))) {
+          finalCuratorTake = parsed.whyItMatters.trim();
+        } else if (parsed.summary && parsed.summary.trim().length > 30) {
+          const sentences = parsed.summary.split(/(?<=[.!?])\s+/).filter(s => s.trim().length > 15);
+          if (sentences.length >= 2) {
+            finalCuratorTake = `${sentences[0]} ${sentences[1]}`;
+          } else {
+            finalCuratorTake = `${userSlant.trim()} This marks a pivotal turning point in how contemporary developments reshape the landscape.`;
+          }
+        }
+      }
+    }
 
     const rawExcerpts = Array.isArray(parsed.resolvedArticleExcerpts) ? parsed.resolvedArticleExcerpts : [];
     const cleanedExcerpts = rawExcerpts.map(e => String(e).replace(/^(the spark|curator stance|paragraph \d+)\s*:\s*["']?/i, '').replace(/["']?$/i, '').trim());
@@ -522,6 +530,7 @@ Respond strictly with valid JSON with this exact structure:
       slantTone: slantTone || 'mind',
       slantIcon: slantTone === 'heart' ? '❤️' : '🧠',
       creatorOpinion: finalCuratorTake,
+      curatorTake: finalCuratorTake,
       rawUserSlant: userSlant || '',
       refineCoreTake,
       vocabularyStyle: vocabularyStyle || 'punchy',
@@ -558,8 +567,8 @@ function generateSmartFallbackSynthesis({
   characterRepresentation,
   refineCoreTake = true
 }) {
+  const isStrictlyInnerVoice = (sourceType === 'inner_voice');
   const combined = `${userSlant || ''} ${spark || ''} ${extractedTitle || ''} ${extractedContent || ''}`.toLowerCase();
-  const isStrictlyInnerVoice = (sourceType === 'inner_voice') && !url && (!extractedTitle || extractedTitle.length < 5);
 
   const hero = (cues && cues[0]) || 'Solitary Focal Figure';
   const motif = (cues && cues[1]) || 'Symbolic Editorial Metaphor';
@@ -568,28 +577,44 @@ function generateSmartFallbackSynthesis({
   const lighting = (cues && cues[4]) || 'Dramatic Chiaroscuro Editorial Spotlight';
   const style = (cues && cues[5]) || 'Cinematic Warm Editorial Illustration';
 
-  // 1. Genuine Personal Reflection / Inner Voice Fallback (Only if explicitly inner voice without an external link)
+  // 1. Genuine Personal Reflection / Inner Voice Fallback
   if (isStrictlyInnerVoice) {
-    let headline = 'The Quiet Discipline of Alignment';
-    if (userSlant && userSlant.length > 5) {
-      const firstSentence = userSlant.split(/[.:;!?\n]/)[0].trim();
-      headline = firstSentence.length > 55 ? firstSentence.slice(0, 52) + '...' : firstSentence;
-    } else if (spark) {
-      headline = spark.slice(0, 50);
+    let headline = '';
+    if (spark && spark.length > 5) {
+      const firstClause = spark.split(/[.:;!?\n]/)[0].trim();
+      headline = firstClause.length > 50 ? firstClause.slice(0, 48) + '...' : firstClause;
+    } else if (userSlant && userSlant.length > 5) {
+      const firstClause = userSlant.split(/[.:;!?\n]/)[0].trim();
+      headline = firstClause.length > 50 ? firstClause.slice(0, 48) + '...' : firstClause;
+    } else {
+      headline = 'The Quiet Discipline of Alignment';
     }
 
-    let refinedTake = userSlant || 'True clarity begins when you step back from the noise and examine the underlying intention.';
-    if (refineCoreTake && userSlant && userSlant.length > 15) {
-      refinedTake = `${userSlant.replace(/[.]+$/, '')}. Stepping back from reflexive reactivity is where intentional conviction begins.`;
+    let refinedTake = '';
+    if (userSlant && userSlant.trim().length > 10) {
+      if (refineCoreTake) {
+        const sentences = userSlant.split(/(?<=[.!?])\s+/).filter(s => s.trim().length > 10);
+        if (sentences.length >= 2) {
+          refinedTake = `${sentences[0].trim()} ${sentences[1].trim()}`;
+        } else {
+          refinedTake = `${userSlant.trim().replace(/[.]+$/, '')}. Stepping back from reflexive reactivity is where intentional conviction begins.`;
+        }
+      } else {
+        refinedTake = userSlant.trim();
+      }
+    } else {
+      refinedTake = 'True clarity begins when you step back from the noise and examine the underlying intention.';
     }
 
-    const p1 = userSlant
-      ? `${userSlant}. In the rush of daily demands, there comes a decisive threshold where the background clutter must give way to intentional focus.`
-      : `In the rush of daily demands, there comes a decisive threshold where the background noise must give way to quiet clarity.`;
-    const p2 = spark
-      ? `The catalyst (${spark}) cuts through habit and forces a re-evaluation of what actually deserves priority.`
-      : `Stepping back is not passive withdrawal; it is an intentional boundary that separates authentic conviction from mere momentum.`;
-    const p3 = `Long after temporary deadlines and noise fade, the deliberate choices made with clarity and stillness are all that truly endure.`;
+    const p1 = spark
+      ? `${spark}. In the rush of daily demands, there comes a decisive threshold where the background clutter must give way to intentional focus.`
+      : (userSlant
+          ? `${userSlant}. In the rush of daily demands, there comes a decisive threshold where the background clutter must give way to intentional focus.`
+          : 'In the rush of daily demands, there comes a decisive threshold where the background noise must give way to quiet clarity.');
+    const p2 = userSlant
+      ? `Examining our reflexive habits reveals that we often mistake urgency for importance. ${userSlant.replace(/[.]+$/, '')}.`
+      : 'Stepping back is not passive withdrawal; it is an intentional boundary that separates authentic conviction from mere momentum.';
+    const p3 = `Long after temporary deadlines and external noise fade, the deliberate choices made with clarity and presence are all that truly endure.`;
 
     return {
       adaptedHeadline: headline,
@@ -619,26 +644,21 @@ function generateSmartFallbackSynthesis({
     };
   }
 
-  // 2. Curated Editorial Synthesis for External Sources (Videos, Articles, News)
-  const isFinanceMinisterTopic = combined.includes('sitharaman') || combined.includes('finance minister') || combined.includes('ranganathan') || (combined.includes('minister') && combined.includes('india'));
-  const isPolicy = isFinanceMinisterTopic || combined.includes('polic') || combined.includes('tax') || combined.includes('budget') || combined.includes('parliament') || combined.includes('govern');
-  const isTech = combined.includes('ai') || combined.includes('tech') || combined.includes('compute') || combined.includes('model') || combined.includes('software');
-  const isMarkets = combined.includes('market') || combined.includes('stock') || combined.includes('invest') || combined.includes('wealth') || combined.includes('capital');
-
+  // 2. Curated Editorial Synthesis for External Sources (Digital Links, News, Clippings)
   let defaultCategory = 'EDITORIAL & ANALYSIS';
-  if (isFinanceMinisterTopic) defaultCategory = 'POLICY & GOVERNANCE';
-  else if (isPolicy) defaultCategory = 'POLICY & GOVERNANCE';
-  else if (isTech) defaultCategory = 'TECHNOLOGY & SYSTEMS';
-  else if (isMarkets) defaultCategory = 'CAPITAL & MARKETS';
+  if (/\b(ai|tech|software|model|compute|algorithm|cyber|digital|chip|gpu)\b/i.test(combined)) defaultCategory = 'TECHNOLOGY & SYSTEMS';
+  else if (/\b(stock|market|invest|wealth|capital|fund|finance|economy|gdp|inflation|bank)\b/i.test(combined)) defaultCategory = 'CAPITAL & MARKETS';
+  else if (/\b(law|court|policy|governance|parliament|election|minister|justice|supreme court|constitution)\b/i.test(combined)) defaultCategory = 'POLICY & GOVERNANCE';
+  else if (/\b(climate|green|transit|urban|city|infra|energy|water|planet|nature|ecology)\b/i.test(combined)) defaultCategory = 'CITIES & ENVIRONMENT';
+  else if (/\b(art|cinema|film|music|design|culture|media|craft|creativ|jewel|luxury)\b/i.test(combined)) defaultCategory = 'CULTURE & PERSPECTIVE';
+  else if (/\b(health|medicine|wellness|science|biology)\b/i.test(combined)) defaultCategory = 'HEALTH & SCIENCE';
 
   let headline = '';
-  if (isFinanceMinisterTopic) {
-    headline = 'Conviction, Candor, and the Economic Long Game';
+  if (extractedTitle && !extractedTitle.startsWith('http') && extractedTitle.length > 5) {
+    headline = extractedTitle.split(/[:–—|]/)[0].trim();
   } else if (userSlant && userSlant.length > 8) {
     const firstSentence = userSlant.split(/[.:;!?\n]/)[0].trim();
     headline = firstSentence.length > 55 ? firstSentence.slice(0, 52) + '...' : firstSentence;
-  } else if (extractedTitle && !extractedTitle.startsWith('http')) {
-    headline = extractedTitle.split(/[:–—|]/)[0].trim();
   } else {
     headline = 'The Unspoken Friction Behind the Headline';
   }
@@ -646,27 +666,32 @@ function generateSmartFallbackSynthesis({
   let refinedTake = '';
   if (userSlant && userSlant.trim().length > 10) {
     if (refineCoreTake) {
-      if (isFinanceMinisterTopic) {
-        refinedTake = `Watching India's longest-serving Finance Minister engage in dialogue with Anand Ranganathan is a delight. The sharp questioning paired with the Finance Minister's characteristic conviction reveals honesty and a clear nation-first stance, while highlighting areas where reform must continue.`;
+      const sentences = userSlant.split(/(?<=[.!?])\s+/).filter(s => s.trim().length > 10);
+      if (sentences.length >= 2) {
+        refinedTake = `${sentences[0].trim()} ${sentences[1].trim()}`;
       } else {
-        refinedTake = `${userSlant.replace(/[.]+$/, '')}. The deeper shift occurs when critical observers examine the structural incentives behind the surface narrative.`;
+        refinedTake = `${userSlant.trim().replace(/[.]+$/, '')}. True discernment requires separating transient friction from enduring systemic realignment.`;
       }
     } else {
-      refinedTake = userSlant;
+      refinedTake = userSlant.trim();
     }
   } else {
-    refinedTake = isFinanceMinisterTopic
-      ? 'An unvarnished dialogue between public policy architects and sharp critics provides the transparent scrutiny vital for democratic governance.'
-      : 'Behind the headlines lies a deeper structural transition that conventional reporting often misses.';
+    refinedTake = 'The immediate narrative captures only the surface; the deeper transition emerges when examining the underlying incentives and long-term consequences.';
   }
 
-  // Extract dynamic paragraphs from scraped content if available
+  // Extract dynamic paragraphs from scraped content if available (strictly filtering out social URLs & metadata)
   let p1 = '';
   let p2 = '';
   let p3 = '';
 
   if (extractedContent && extractedContent.length > 100) {
-    const lines = extractedContent.split(/\n+/).map(l => l.trim()).filter(l => l.length > 40 && !l.startsWith('#') && !l.startsWith('http'));
+    const lines = extractedContent.split(/\n+/).map(l => l.trim()).filter(l => {
+      if (l.length < 80) return false;
+      if (l.startsWith('#') || l.startsWith('http')) return false;
+      if (/linkedin|twitter|instagram|facebook|youtube|t\.co|bit\.ly|youtu\.be|tiktok/i.test(l)) return false;
+      if (/utm_|subscribe|follow us|all rights reserved|cookie|privacy policy|terms of/i.test(l)) return false;
+      return true;
+    });
     if (lines.length >= 3) {
       p1 = lines[0];
       p2 = lines[1];
@@ -676,26 +701,17 @@ function generateSmartFallbackSynthesis({
     }
   }
 
-  if (!p1) {
-    if (isFinanceMinisterTopic) {
-      p1 = `In this wide-ranging interactive session, Finance Minister Nirmala Sitharaman engages in direct dialogue with author and analyst Anand Ranganathan, examining national priorities, fiscal administration, and the balance between macroeconomic discipline and citizen aspirations.`;
-      p2 = `The conversation highlights the value of unapologetic inquiry meeting steady conviction—where sharp questions on policy execution and middle-class realities are addressed with candor and strategic long-term rationale.`;
-      p3 = `Beyond the immediate exchanges, the dialogue demonstrates the necessity of transparent engagement between governance architects and public intellectuals in charting India's developmental roadmap.`;
-    } else {
-      p1 = extractedTitle
-        ? `Primary reporting on "${extractedTitle}" reveals an accelerating transition across core institutional operators.`
-        : 'Primary reporting confirms that structural indicators diverged sharply from initial forecasts across core operations.';
-      p2 = 'Examining the operational balance and institutional disclosures shows strategic reallocation occurring far faster than conventional consensus had anticipated.';
-      p3 = 'Historical precedent confirms that early operational divergence inevitably forces systemic realignment before the broader public cycle concludes.';
-    }
+  if (!p1 || !p2 || !p3) {
+    p1 = p1 || (extractedTitle
+      ? `Reporting on "${extractedTitle}" reveals an accelerating transition across core operators and foundational assumptions. As traditional structures encounter real-world friction, key participants are recalculating their strategic positions.`
+      : 'Primary observations confirm that real-world indicators diverged sharply from initial forecasts across core operations. As traditional assumptions encounter resistance, stakeholders are re-evaluating long-held conventions.');
+    p2 = p2 || (userSlant
+      ? `${userSlant.replace(/[.]+$/, '')}. This friction forces stakeholders to confront structural trade-offs that conventional headlines frequently minimize.`
+      : 'Examining the operational balance and public disclosures shows strategic realignment occurring far faster than consensus anticipated, signaling an urgent pivot toward resilient execution.');
+    p3 = p3 || 'Historical precedent confirms that early operational divergence inevitably forces systemic realignment before the broader cycle concludes. Observers who recognize these structural shifts early gain a decisive vantage point.';
   }
 
-  let hookText = '';
-  if (isFinanceMinisterTopic) {
-    hookText = `A rare, unvarnished dialogue between India's longest-serving Finance Minister and an incisive critic tests conviction against public scrutiny.`;
-  } else {
-    hookText = `${headline}. When the dominant narrative simplifies the stakes, the real structural disruption occurs quietly in the margins.`;
-  }
+  const hookText = `${headline}. When the dominant narrative simplifies the stakes, the real structural disruption occurs quietly in the margins.`;
 
   return {
     adaptedHeadline: headline.length > 55 ? headline.slice(0, 52) + '...' : headline,
@@ -705,23 +721,17 @@ function generateSmartFallbackSynthesis({
     hook: hookText,
     curatorTake: refinedTake,
     summary: `${userSlant || 'Behind the headlines lies a deeper structural transition.'}\n\nExamining the underlying incentives reveals that what appears as an isolated development is actually part of an accelerating systemic realignment.\n\nThe real differentiator is critical discernment—recognizing that automated consensus often obscures the human trade-offs at play.`,
-    whyItMatters: isFinanceMinisterTopic
-      ? 'High-level public scrutiny between sitting economic architects and incisive public intellectuals remains rare, setting an essential benchmark for democratic transparency.'
+    whyItMatters: userSlant
+      ? `Recognizing this friction reveals why the development around "${headline}" marks a lasting structural shift rather than a transient event.`
       : 'Understanding this shift separates passive consumers from strategic observers who anticipate where the conversation moves next.',
-    keyTakeaways: isFinanceMinisterTopic
-      ? [
-          'Conviction in Public Office: Clear articulation of nation-first principles provides stability through global uncertainty.',
-          'The Role of Incisive Critique: Hard, direct questioning tests policy assumptions against on-the-ground economic reality.',
-          'The Horizon for Improvement: Acknowledging domestic execution friction is the first prerequisite for lasting reform.'
-        ]
-      : [
-          'Structural Friction: The conventional framing misses the secondary systemic consequences already taking shape.',
-          'Incentive Misalignment: Key operators are optimizing for short-term narrative dominance rather than durable alignment.',
-          'Curator Horizon: Long-term value accrues to those who maintain independent conviction against herd consensus.'
-        ],
-    receiptHighlightQuote: userSlant || 'Conviction in governance requires listening to the sharpest critiques without losing sight of the national horizon.',
+    keyTakeaways: [
+      `Structural Friction: The conventional framing around "${headline}" misses the secondary consequences taking shape.`,
+      'Incentive Misalignment: Key operators are optimizing for short-term narrative dominance rather than durable alignment.',
+      'Strategic Horizon: Long-term value accrues to those who maintain independent conviction against herd consensus.'
+    ],
+    receiptHighlightQuote: userSlant || 'True discernment requires separating transient friction from enduring systemic realignment.',
     resolvedArticleExcerpts: [p1, p2, p3],
-    keyMetric: isFinanceMinisterTopic ? 'Conviction & Candor' : 'High Impact',
+    keyMetric: 'High Impact',
     visualMood: 'Chiaroscuro Risograph Editorial',
     heroCue: hero,
     motifCue: motif,
@@ -731,6 +741,68 @@ function generateSmartFallbackSynthesis({
     styleCue: style,
     illustrationPrompt: `Cinematic editorial poster art of ${hero.toLowerCase()}, ${motif.toLowerCase()}, ${tension.toLowerCase()}, ${atmosphere.toLowerCase()}, ${lighting.toLowerCase()}, ${style.toLowerCase()}, dramatic volumetric lighting, rich colors, no silhouettes, no text`
   };
+}
+
+function detectAgeAndDemographics(text = '', headline = '', content = '') {
+  const combined = `${headline || ''} ${text || ''} ${content ? content.slice(0, 1000) : ''}`.toLowerCase();
+
+  // 1. Explicit age patterns: "25-year-old", "25 years old", "aged 25", "age 25", "25yo"
+  const ageMatch = combined.match(/\b(\d{1,2})\s*[-–—]?\s*(?:years?[- ]old|year[- ]old|yo\b)/i) ||
+                   combined.match(/\b(?:aged|age)\s+(\d{1,2})\b/i);
+  if (ageMatch) {
+    const age = parseInt(ageMatch[1], 10);
+    if (age >= 10 && age <= 105) {
+      if (age <= 21) {
+        return {
+          age,
+          category: 'youth',
+          promptDesc: `youthful ${age}-year-old student, young fresh facial features, youthful hair, modern casual look, clear young skin, strictly no wrinkles or gray hair`
+        };
+      } else if (age <= 29) {
+        return {
+          age,
+          category: 'twenty_something',
+          promptDesc: `youthful ${age}-year-old young adult in their mid-20s, young contemporary facial features, modern vibrant styling, fresh young skin, strictly no wrinkles, no gray hair`
+        };
+      } else if (age <= 39) {
+        return {
+          age,
+          category: 'thirties',
+          promptDesc: `young adult in their 30s (${age} years old), sharp modern facial features, dynamic contemporary styling`
+        };
+      } else if (age <= 55) {
+        return {
+          age,
+          category: 'middle_aged',
+          promptDesc: `mature adult in their 40s-50s (${age} years old), confident seasoned expression, distinguished contemporary styling`
+        };
+      } else {
+        return {
+          age,
+          category: 'senior',
+          promptDesc: `distinguished ${age}-year-old senior with silver gray hair, dignified weathered facial features, wise expression`
+        };
+      }
+    }
+  }
+
+  // 2. Life-stage and demographic keywords
+  if (/\b(gen[- ]?z|college student|undergraduate|teenager|youth|young founder|young entrepreneur|young girl|young boy)\b/i.test(combined)) {
+    return {
+      age: 23,
+      category: 'twenty_something',
+      promptDesc: `youthful 20-something young adult, Gen-Z contemporary styling, fresh young facial features, modern vibrant look, strictly no wrinkles or gray hair`
+    };
+  }
+  if (/\b(veteran|elderly|grandfather|grandmother|octogenarian|septuagenarian|retiree|pensioner)\b/i.test(combined)) {
+    return {
+      age: 72,
+      category: 'senior',
+      promptDesc: `distinguished elder in their 70s, silver hair, weathered dignified facial features, wise expression`
+    };
+  }
+
+  return null;
 }
 
 function isLikelyPersonSubject(name) {
@@ -748,7 +820,8 @@ function isLikelyPersonSubject(name) {
     'trump', 'musk', 'altman', 'biden', 'modi', 'pichai', 'nadella', 'cook',
     'huang', 'minister', 'president', 'judge', 'justice', 'officer', 'sweeper',
     'curator', 'citizen', 'woman', 'man', 'girl', 'boy', 'leader', 'doctor',
-    'worker', 'protagonist', 'figure', 'person', 'individual', 'portrait', 'lookalike'
+    'worker', 'protagonist', 'figure', 'person', 'individual', 'portrait', 'lookalike',
+    'founder', 'engineer', 'entrepreneur', 'student', 'youth', 'actor', 'author', 'critic', 'analyst', 'politician'
   ];
   return personKeywords.some(w => lower.includes(w));
 }
@@ -999,21 +1072,6 @@ async function scrapeYouTubeUrl(targetUrl, videoId) {
   const rawDesc = playerObj?.videoDetails?.shortDescription || '';
   let desc = decodeHtmlEntities(rawDesc).trim();
 
-  // If description is missing, short, or generic, query grounded Gemini 3.8 Flash
-  if (!desc || desc.length < 150) {
-    const brief = await getGeminiVideoBrief(targetUrl, title, author);
-    if (brief && brief.length > 80) {
-      desc = brief;
-      const titleMatch = brief.match(/Exact Video Title:\*?\*?\s*(.+)$/m);
-      if (titleMatch && titleMatch[1] && (!title || title.length < 5)) {
-        title = titleMatch[1].replace(/[*#]/g, '').trim();
-      }
-      const authorMatch = brief.match(/(?:Channel Name|Author|Host):\*?\*?\s*(.+)$/m);
-      if (authorMatch && authorMatch[1] && (!author || author === 'YouTube')) {
-        author = authorMatch[1].replace(/[*#]/g, '').trim();
-      }
-    }
-  }
 
   const candidateThumbs = [
     videoId ? `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg` : null,

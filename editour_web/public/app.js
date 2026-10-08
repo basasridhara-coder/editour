@@ -1818,9 +1818,24 @@ function buildSlide2Html(post, index) {
   }
   const opinion = escapeHtml(rawOpinion);
 
-  const slideTitle = post.keyTakeaways && post.keyTakeaways.length > 0 && post.keyTakeaways[0].split(' ').length <= 12
-    ? escapeHtml(post.keyTakeaways[0].toUpperCase())
-    : (tier === 'tier3_opinion' ? (post.slantTone === 'heart' ? 'PERSONAL REFLECTION' : 'CORE CONVICTION') : "THE CRITICAL PERSPECTIVE");
+  let rawSlideTitle = (post.critiqueBadge && post.critiqueBadge.trim()) ? post.critiqueBadge.trim() : '';
+  if (!rawSlideTitle && post.keyTakeaways && post.keyTakeaways.length > 0) {
+    const firstTakeaway = String(post.keyTakeaways[0]).trim();
+    if (firstTakeaway.includes(':')) {
+      const prefix = firstTakeaway.split(':')[0].trim();
+      if (prefix.length >= 3 && prefix.length <= 40) {
+        rawSlideTitle = prefix;
+      }
+    } else if (firstTakeaway.split(/\s+/).length <= 6) {
+      rawSlideTitle = firstTakeaway;
+    }
+  }
+  if (!rawSlideTitle) {
+    rawSlideTitle = (tier === 'tier3_opinion')
+      ? (post.slantTone === 'heart' ? 'PERSONAL REFLECTION' : 'CORE CONVICTION')
+      : 'THE CRITICAL PERSPECTIVE';
+  }
+  const slideTitle = escapeHtml(rawSlideTitle.toUpperCase());
 
   const fallbackCritiqueCoverHtml = `
     <div class="slide-hook-fallback-bg" style="background: radial-gradient(circle at 50% 28%, #1e1b4b 0%, #0f172a 60%, #030712 100%);">
@@ -3243,6 +3258,9 @@ function openCreatorModal() {
     if (dropzoneText) dropzoneText.innerHTML = 'Drag and drop clipping photo or screenshot, or <span class="dropzone-link">browse</span>';
   }
 
+  // Clean creator state on opening fresh
+  resetCreatorState();
+
   // Sync anchor selection
   setAnchorMode(creatorSelectedSource || 'digital_link');
 
@@ -3275,6 +3293,18 @@ function handleCreatorOverlayClick(e) {
 }
 
 function setAnchorMode(mode) {
+  if (creatorSelectedSource !== mode) {
+    currentScrapedArticle = null;
+    creatorCuePills = [];
+    if (creatorSelectedCueIndices && creatorSelectedCueIndices.clear) {
+      creatorSelectedCueIndices.clear();
+    }
+    creatorLastSuggestedContextKey = '';
+    const urlInput = document.getElementById('creatorUrlInput');
+    if (urlInput) urlInput.value = '';
+    const urlPreview = document.getElementById('creatorUrlPreview');
+    if (urlPreview) { urlPreview.style.display = 'none'; urlPreview.innerHTML = ''; }
+  }
   creatorSelectedSource = mode;
 
   // 1. Highlight selected anchor card
@@ -3665,6 +3695,62 @@ let creatorReferenceImageSourceLabel = null;
 let currentScrapedArticle = null;
 let scrapeDebounceTimer = null;
 let isScrapingUrl = false;
+
+function resetCreatorState() {
+  currentScrapedArticle = null;
+  currentSynthesizedPost = null;
+  creatorCuePills = [];
+  if (creatorSelectedCueIndices && creatorSelectedCueIndices.clear) {
+    creatorSelectedCueIndices.clear();
+  }
+  creatorSelectedImageBase64 = null;
+  creatorSelectedImageMimeType = 'image/jpeg';
+  creatorReferenceImageBase64 = null;
+  creatorReferenceImageMimeType = 'image/jpeg';
+  creatorReferenceImageSourceLabel = null;
+  creatorLastSuggestedContextKey = '';
+  creatorActiveInspectedCueIndex = 0;
+  creatorCountryContext = null;
+  currentPreviewSlide = 0;
+
+  // Clear inputs in Step 1
+  const slantInput = document.getElementById('creatorSlantTakeInput');
+  if (slantInput) slantInput.value = '';
+  const sparkInput = document.getElementById('creatorSparkInput');
+  if (sparkInput) sparkInput.value = '';
+  const urlInput = document.getElementById('creatorUrlInput');
+  if (urlInput) urlInput.value = '';
+  const fileInput = document.getElementById('creatorFileInput');
+  if (fileInput) fileInput.value = '';
+  const cameraInput = document.getElementById('creatorCameraInput');
+  if (cameraInput) cameraInput.value = '';
+
+  // Clear previews
+  const thumb = document.getElementById('creatorImageThumb');
+  if (thumb) { thumb.src = ''; }
+  const dropPreview = document.getElementById('creatorDropzonePreview');
+  if (dropPreview) dropPreview.style.display = 'none';
+  const dropDefault = document.getElementById('creatorDropzoneDefault');
+  if (dropDefault) dropDefault.style.display = 'flex';
+  const urlPreview = document.getElementById('creatorUrlPreview');
+  if (urlPreview) { urlPreview.style.display = 'none'; urlPreview.innerHTML = ''; }
+
+  // Clear edit modal inputs
+  const editFieldIds = [
+    'editModalCategory', 'editModalPublication', 'editModalHeadline',
+    'editModalNewsExcerpt', 'editModalHandle', 'editModalS2Title',
+    'editModalOpinion', 'editModalWhyItMatters', 'editModalMetric',
+    'editModalS3Headline', 'editModalS3Quote', 'editModalS3Observation',
+    'editModalS3Reflection'
+  ];
+  editFieldIds.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+
+  // Reset to Step 1 UI
+  backToStep1();
+}
 
 function extractHeadlineFromUrl(url) {
   if (!url || typeof url !== 'string') return '';
@@ -4211,10 +4297,11 @@ async function goToVisualCuesStep() {
   }
 
   // Auto-detect and set geographic & cultural context
-  const articleTitle = currentScrapedArticle?.title || extractHeadlineFromUrl(url);
-  const articleBody = currentScrapedArticle?.content || '';
+  const isLink = (creatorSelectedSource === 'digital_link');
+  const articleTitle = isLink ? (currentScrapedArticle?.title || extractHeadlineFromUrl(url)) : '';
+  const articleBody = isLink ? (currentScrapedArticle?.content || '') : '';
   if (!creatorCountryContext) {
-    creatorCountryContext = detectGeographicContext(url, articleTitle, articleBody, slantTake);
+    creatorCountryContext = detectGeographicContext(isLink ? url : '', articleTitle, articleBody, slantTake);
   }
   updateCountryContextUI();
 
@@ -4699,8 +4786,9 @@ async function triggerCueSuggest() {
   const slantTake = slantTakeInput ? slantTakeInput.value.trim() : '';
   const spark = sparkInput ? sparkInput.value.trim() : '';
 
-  const articleTitle = currentScrapedArticle?.title || extractHeadlineFromUrl(url);
-  const articleBody = currentScrapedArticle?.content || '';
+  const isLink = (creatorSelectedSource === 'digital_link');
+  const articleTitle = isLink ? (currentScrapedArticle?.title || extractHeadlineFromUrl(url)) : '';
+  const articleBody = isLink ? (currentScrapedArticle?.content || '') : '';
 
   const suggestBtn = document.getElementById('cuesSuggestBtn');
   const suggestLabel = document.getElementById('cuesSuggestLabel');
@@ -4954,9 +5042,10 @@ async function startAiSynthesis() {
     ? (creatorReferenceImageMimeType || creatorSelectedImageMimeType || 'image/jpeg')
     : 'image/jpeg';
 
+  const isLink = (creatorSelectedSource === 'digital_link');
   const payload = {
     sourceType: creatorSelectedSource,
-    url,
+    url: isLink ? url : '',
     text: slantTake,
     slantTake: slantTake,
     imageBase64: effectiveImageBase64,
@@ -4971,8 +5060,8 @@ async function startAiSynthesis() {
     refineCoreTake: creatorRefineCoreTake,
     vocabularyStyle: creatorVocabularyStyle || 'punchy',
     countryContext: creatorCountryContext?.name || 'India',
-    scrapedTitle: currentScrapedArticle?.title || '',
-    scrapedContent: (currentScrapedArticle?.content || '').slice(0, 3000)
+    scrapedTitle: (isLink && url) ? (currentScrapedArticle?.title || '') : '',
+    scrapedContent: (isLink && url) ? (currentScrapedArticle?.content || '').slice(0, 3000) : ''
   };
 
   const synthController = new AbortController();
@@ -5022,6 +5111,24 @@ async function startAiSynthesis() {
     }
 
     currentSynthesizedPost = data.post;
+
+    // Immediately synchronize edit modal fields with this fresh post to ensure zero stale DOM values
+    const headInput = document.getElementById('editModalHeadline');
+    if (headInput) headInput.value = currentSynthesizedPost.adaptedHeadline || '';
+    const catInput = document.getElementById('editModalCategory');
+    if (catInput) catInput.value = currentSynthesizedPost.categoryBadge || 'OPINION';
+    const pubInput = document.getElementById('editModalPublication');
+    if (pubInput) pubInput.value = currentSynthesizedPost.publicationName || '';
+    const handleInput = document.getElementById('editModalHandle');
+    if (handleInput) handleInput.value = currentSynthesizedPost.creatorHandle || '@curator';
+    const opinionInput = document.getElementById('editModalOpinion');
+    if (opinionInput) opinionInput.value = currentSynthesizedPost.creatorOpinion || currentSynthesizedPost.curatorTake || '';
+    const whyInput = document.getElementById('editModalWhyItMatters');
+    if (whyInput) whyInput.value = currentSynthesizedPost.whyItMatters || '';
+    const metricInput = document.getElementById('editModalMetric');
+    if (metricInput) metricInput.value = currentSynthesizedPost.keyMetric || '';
+    const s2TitleInput = document.getElementById('editModalS2Title');
+    if (s2TitleInput) s2TitleInput.value = currentSynthesizedPost.critiqueBadge || (currentSynthesizedPost.keyTakeaways && currentSynthesizedPost.keyTakeaways[0] ? currentSynthesizedPost.keyTakeaways[0].toUpperCase() : 'THE CRITICAL PERSPECTIVE');
     if (creatorSelectedSource === 'photo' && (creatorSelectedImageBase64 || creatorReferenceImageBase64)) {
       currentSynthesizedPost.sourceType = 'photo';
       currentSynthesizedPost.originalPhotoBase64 = creatorSelectedImageBase64 || creatorReferenceImageBase64;
@@ -5472,17 +5579,6 @@ async function publishSynthesizedPost() {
     publishBtn.innerHTML = '<span>Publishing to Live Feed... ⏳</span>';
   }
 
-  // Final values from inputs or currentSynthesizedPost
-  const headline = document.getElementById('editModalHeadline')?.value?.trim() || currentSynthesizedPost.adaptedHeadline;
-  const category = document.getElementById('editModalCategory')?.value?.trim() || currentSynthesizedPost.categoryBadge;
-  const handle = document.getElementById('editModalHandle')?.value?.trim() || currentSynthesizedPost.creatorHandle;
-  const opinion = document.getElementById('editModalOpinion')?.value?.trim() || currentSynthesizedPost.creatorOpinion;
-
-  if (headline) currentSynthesizedPost.adaptedHeadline = headline;
-  if (category) currentSynthesizedPost.categoryBadge = category.toUpperCase();
-  if (handle) currentSynthesizedPost.creatorHandle = handle;
-  if (opinion) currentSynthesizedPost.creatorOpinion = opinion;
-
   if (currentUser) {
     currentSynthesizedPost.user_id = currentUser.id;
     currentSynthesizedPost.userEmail = currentUser.email;
@@ -5589,8 +5685,9 @@ async function publishSynthesizedPost() {
   updateAuthUI();
   renderFeed();
 
-  // 7. Close modal & show toast
+  // 7. Close modal & reset state & show toast
   closeCreatorModal();
+  resetCreatorState();
   showTemporaryToast('✨ Published! Your 3-poster Slant is live on slant.today');
 
   // Scroll smoothly to top so user sees their new post

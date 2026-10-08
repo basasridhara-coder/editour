@@ -40,12 +40,15 @@ module.exports = async function handler(req, res) {
     slantTone = 'mind'
   } = body || {};
 
+  const effectiveNewsHeadline = (sourceType === 'digital_link') ? (newsHeadline || '').trim() : '';
+  const effectiveNewsBody = (sourceType === 'digital_link') ? (newsBody || '').trim() : '';
+
   const isLikeness = (characterRepresentation === 'likeness' || characterRepresentation === 'lookalike');
   const isExact = (characterRepresentation === 'exact');
   const isSilhouette = (characterRepresentation === 'silhouette');
   const hasPersonFocus = isLikeness || isExact;
 
-  const combinedTopic = `${curatorAngle || ''} ${spark || ''} ${newsHeadline || ''} ${newsBody || ''}`.toLowerCase();
+  const combinedTopic = `${curatorAngle || ''} ${spark || ''} ${effectiveNewsHeadline} ${effectiveNewsBody}`.toLowerCase();
   const isPersonalStory = (sourceType === 'inner_voice') ||
     /\b(trip|vacation|kerala|holiday|travel|family|son|daughter|kid|child|parent|pack|luggage|flight|beach|home|rest|weekend|burnout|unplug)\b/i.test(combinedTopic);
 
@@ -120,8 +123,8 @@ Your job is to define the 6 ranked storytelling visual cue dimensions for Poster
 
 Curator's Slant / Perspective: "${curatorAngle || 'No specific angle specified'}"
 The Spark (Catalyst / Personal Context): "${spark || ''}"
-Article Title: "${newsHeadline || ''}"
-Article Excerpt / Context: "${newsBody ? newsBody.slice(0, 1500) : ''}"
+${effectiveNewsHeadline ? `Article Title: "${effectiveNewsHeadline}"` : ''}
+${effectiveNewsBody ? `Article Excerpt / Context: "${effectiveNewsBody.slice(0, 1500)}"` : ''}
 Source Type: ${sourceType}
 Slant Tone: ${slantTone === 'heart' ? 'Out of Heart (Emotive, Humanistic, Personal Reflection)' : 'Out of Mind (Analytical, Strategic, Systemic Broadsheet)'}
 Regional & Cultural Setting: ${countryContext || 'Global / Contextually Detected'}
@@ -217,7 +220,7 @@ Respond strictly with valid JSON with this exact schema:
 
   } catch (err) {
     console.warn('Gemini cues generation error, using smart fallback:', err.message);
-    const fallbacks = generateSmartFallbackCues(curatorAngle, spark, newsHeadline, newsBody, characterRepresentation, countryContext, sourceType, selectedIndices, existingCues);
+    const fallbacks = generateSmartFallbackCues(curatorAngle, spark, effectiveNewsHeadline, effectiveNewsBody, characterRepresentation, countryContext, sourceType, selectedIndices, existingCues);
     return res.status(200).json({
       success: true,
       cues: fallbacks,

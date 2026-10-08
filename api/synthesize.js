@@ -77,9 +77,10 @@ module.exports = async function handler(req, res) {
       vocabularyStyle = 'punchy' // 'punchy' | 'conversational' | 'analytical'
     } = body || {};
 
-    const userSlant = slantTake || text || '';
-    let extractedTitle = scrapedTitle || '';
-    let extractedContent = scrapedContent || text || '';
+    const userSlant = (slantTake || text || '').trim();
+    const isDigitalLink = (sourceType === 'digital_link') && Boolean(url && String(url).trim().length > 3);
+    let extractedTitle = isDigitalLink ? (scrapedTitle || '').trim() : '';
+    let extractedContent = isDigitalLink ? (scrapedContent || '').trim() : (sourceType === 'photo' ? (text || '').trim() : '');
     let pubName = '';
 
     // 1. If digital link, only attempt fast extraction if title is completely missing
@@ -276,8 +277,23 @@ Respond strictly with valid JSON with this exact structure:
       parts.push({
         text: `Here is a photograph of a printed news clipping, article, or document. OCR and analyze it, then synthesize the Slant 3-poster carousel as requested:\n\n${systemPrompt}`
       });
+    } else if (sourceType === 'inner_voice') {
+      const partsContent = [
+        `Curator's Personal Slant & Angle: "${userSlant || 'Personal reflection and conviction.'}"`,
+        spark ? `Personal Spark & Context: "${spark}"` : ''
+      ].filter(Boolean).join('\n\n');
+      parts.push({
+        text: `${systemPrompt}\n\nUser Input Content (Inner Voice Personal Reflection):\n${partsContent}`
+      });
     } else {
-      const userContent = extractedContent || extractedTitle || text || url || spark || 'Contemporary cultural reflection';
+      const contentParts = [
+        extractedTitle ? `Article Headline: ${extractedTitle}` : '',
+        extractedContent ? `Article Content / Excerpt: ${extractedContent}` : '',
+        userSlant ? `Curator's Slant / Angle: ${userSlant}` : '',
+        spark ? `Spark Context: ${spark}` : '',
+        url ? `Source Link: ${url}` : ''
+      ].filter(Boolean);
+      const userContent = contentParts.length > 0 ? contentParts.join('\n\n') : (text || spark || userSlant || 'Contemporary cultural reflection');
       parts.push({
         text: `${systemPrompt}\n\nUser Input Content:\n${userContent}`
       });
@@ -551,8 +567,8 @@ function generateSmartFallbackSynthesis({
   characterRepresentation,
   refineCoreTake = true
 }) {
+  const isStrictlyInnerVoice = (sourceType === 'inner_voice');
   const combined = `${userSlant || ''} ${spark || ''} ${extractedTitle || ''} ${extractedContent || ''}`.toLowerCase();
-  const isStrictlyInnerVoice = (sourceType === 'inner_voice') && !url && (!extractedTitle || extractedTitle.length < 5);
 
   const hero = (cues && cues[0]) || 'Solitary Focal Figure';
   const motif = (cues && cues[1]) || 'Symbolic Editorial Metaphor';
@@ -561,28 +577,44 @@ function generateSmartFallbackSynthesis({
   const lighting = (cues && cues[4]) || 'Dramatic Chiaroscuro Editorial Spotlight';
   const style = (cues && cues[5]) || 'Cinematic Warm Editorial Illustration';
 
-  // 1. Genuine Personal Reflection / Inner Voice Fallback (Only if explicitly inner voice without an external link)
+  // 1. Genuine Personal Reflection / Inner Voice Fallback
   if (isStrictlyInnerVoice) {
-    let headline = 'The Quiet Discipline of Alignment';
-    if (userSlant && userSlant.length > 5) {
-      const firstSentence = userSlant.split(/[.:;!?\n]/)[0].trim();
-      headline = firstSentence.length > 55 ? firstSentence.slice(0, 52) + '...' : firstSentence;
-    } else if (spark) {
-      headline = spark.slice(0, 50);
+    let headline = '';
+    if (spark && spark.length > 5) {
+      const firstClause = spark.split(/[.:;!?\n]/)[0].trim();
+      headline = firstClause.length > 50 ? firstClause.slice(0, 48) + '...' : firstClause;
+    } else if (userSlant && userSlant.length > 5) {
+      const firstClause = userSlant.split(/[.:;!?\n]/)[0].trim();
+      headline = firstClause.length > 50 ? firstClause.slice(0, 48) + '...' : firstClause;
+    } else {
+      headline = 'The Quiet Discipline of Alignment';
     }
 
-    let refinedTake = userSlant || 'True clarity begins when you step back from the noise and examine the underlying intention.';
-    if (refineCoreTake && userSlant && userSlant.length > 15) {
-      refinedTake = `${userSlant.replace(/[.]+$/, '')}. Stepping back from reflexive reactivity is where intentional conviction begins.`;
+    let refinedTake = '';
+    if (userSlant && userSlant.trim().length > 10) {
+      if (refineCoreTake) {
+        const sentences = userSlant.split(/(?<=[.!?])\s+/).filter(s => s.trim().length > 10);
+        if (sentences.length >= 2) {
+          refinedTake = `${sentences[0].trim()} ${sentences[1].trim()}`;
+        } else {
+          refinedTake = `${userSlant.trim().replace(/[.]+$/, '')}. Stepping back from reflexive reactivity is where intentional conviction begins.`;
+        }
+      } else {
+        refinedTake = userSlant.trim();
+      }
+    } else {
+      refinedTake = 'True clarity begins when you step back from the noise and examine the underlying intention.';
     }
 
-    const p1 = userSlant
-      ? `${userSlant}. In the rush of daily demands, there comes a decisive threshold where the background clutter must give way to intentional focus.`
-      : `In the rush of daily demands, there comes a decisive threshold where the background noise must give way to quiet clarity.`;
-    const p2 = spark
-      ? `The catalyst (${spark}) cuts through habit and forces a re-evaluation of what actually deserves priority.`
-      : `Stepping back is not passive withdrawal; it is an intentional boundary that separates authentic conviction from mere momentum.`;
-    const p3 = `Long after temporary deadlines and noise fade, the deliberate choices made with clarity and stillness are all that truly endure.`;
+    const p1 = spark
+      ? `${spark}. In the rush of daily demands, there comes a decisive threshold where the background clutter must give way to intentional focus.`
+      : (userSlant
+          ? `${userSlant}. In the rush of daily demands, there comes a decisive threshold where the background clutter must give way to intentional focus.`
+          : 'In the rush of daily demands, there comes a decisive threshold where the background noise must give way to quiet clarity.');
+    const p2 = userSlant
+      ? `Examining our reflexive habits reveals that we often mistake urgency for importance. ${userSlant.replace(/[.]+$/, '')}.`
+      : 'Stepping back is not passive withdrawal; it is an intentional boundary that separates authentic conviction from mere momentum.';
+    const p3 = `Long after temporary deadlines and external noise fade, the deliberate choices made with clarity and presence are all that truly endure.`;
 
     return {
       adaptedHeadline: headline,
@@ -612,24 +644,17 @@ function generateSmartFallbackSynthesis({
     };
   }
 
-  // 2. Curated Editorial Synthesis for External Sources (Videos, Articles, News)
-  const isFinanceMinisterTopic = combined.includes('sitharaman') || combined.includes('finance minister') || combined.includes('ranganathan') || (combined.includes('minister') && combined.includes('india'));
-  const isTravelTourism = combined.includes('travel') || combined.includes('touris') || combined.includes('clean') || combined.includes('waste') || combined.includes('infra') || combined.includes('toilet') || combined.includes('road') || combined.includes('garden') || combined.includes('culture');
-  const isPolicy = isFinanceMinisterTopic || combined.includes('polic') || combined.includes('tax') || combined.includes('budget') || combined.includes('parliament') || combined.includes('govern');
-  const isTech = combined.includes('ai') || combined.includes('tech') || combined.includes('compute') || combined.includes('model') || combined.includes('software');
-  const isMarkets = combined.includes('market') || combined.includes('stock') || combined.includes('invest') || combined.includes('wealth') || combined.includes('capital');
-
+  // 2. Curated Editorial Synthesis for External Sources (Digital Links, News, Clippings)
   let defaultCategory = 'EDITORIAL & ANALYSIS';
-  if (isFinanceMinisterTopic) defaultCategory = 'POLICY & GOVERNANCE';
-  else if (isTravelTourism) defaultCategory = 'TRAVEL & CIVIC INFRASTRUCTURE';
-  else if (isPolicy) defaultCategory = 'POLICY & GOVERNANCE';
-  else if (isTech) defaultCategory = 'TECHNOLOGY & SYSTEMS';
-  else if (isMarkets) defaultCategory = 'CAPITAL & MARKETS';
+  if (/\b(ai|tech|software|model|compute|algorithm|cyber|digital|chip|gpu)\b/i.test(combined)) defaultCategory = 'TECHNOLOGY & SYSTEMS';
+  else if (/\b(stock|market|invest|wealth|capital|fund|finance|economy|gdp|inflation|bank)\b/i.test(combined)) defaultCategory = 'CAPITAL & MARKETS';
+  else if (/\b(law|court|policy|governance|parliament|election|minister|justice|supreme court|constitution)\b/i.test(combined)) defaultCategory = 'POLICY & GOVERNANCE';
+  else if (/\b(climate|green|transit|urban|city|infra|energy|water|planet|nature|ecology)\b/i.test(combined)) defaultCategory = 'CITIES & ENVIRONMENT';
+  else if (/\b(art|cinema|film|music|design|culture|media|craft|creativ|jewel|luxury)\b/i.test(combined)) defaultCategory = 'CULTURE & PERSPECTIVE';
+  else if (/\b(health|medicine|wellness|science|biology)\b/i.test(combined)) defaultCategory = 'HEALTH & SCIENCE';
 
   let headline = '';
-  if (isFinanceMinisterTopic) {
-    headline = 'Conviction, Candor, and the Economic Long Game';
-  } else if (extractedTitle && !extractedTitle.startsWith('http') && extractedTitle.length > 5) {
+  if (extractedTitle && !extractedTitle.startsWith('http') && extractedTitle.length > 5) {
     headline = extractedTitle.split(/[:–—|]/)[0].trim();
   } else if (userSlant && userSlant.length > 8) {
     const firstSentence = userSlant.split(/[.:;!?\n]/)[0].trim();
@@ -641,22 +666,17 @@ function generateSmartFallbackSynthesis({
   let refinedTake = '';
   if (userSlant && userSlant.trim().length > 10) {
     if (refineCoreTake) {
-      if (isFinanceMinisterTopic) {
-        refinedTake = `Watching India's longest-serving Finance Minister engage in dialogue with Anand Ranganathan is a delight. The sharp questioning paired with the Finance Minister's characteristic conviction reveals honesty and a clear nation-first stance, while highlighting areas where reform must continue.`;
-      } else if (isTravelTourism) {
-        refinedTake = `Tourism ventures cannot thrive purely on slick branding when foundational civic amenities are neglected. Sustainable hospitality growth requires empowering local municipalities to ensure clean public spaces, robust roads, and authentic cultural stewardship.`;
+      const sentences = userSlant.split(/(?<=[.!?])\s+/).filter(s => s.trim().length > 10);
+      if (sentences.length >= 2) {
+        refinedTake = `${sentences[0].trim()} ${sentences[1].trim()}`;
       } else {
-        refinedTake = `The immediate focus captures only the surface; the deeper transition emerges when examining the structural incentives and long-term consequences behind the narrative. True discernment requires separating transient friction from enduring systemic realignment.`;
+        refinedTake = `${userSlant.trim().replace(/[.]+$/, '')}. True discernment requires separating transient friction from enduring systemic realignment.`;
       }
     } else {
-      refinedTake = userSlant;
+      refinedTake = userSlant.trim();
     }
   } else {
-    refinedTake = isFinanceMinisterTopic
-      ? 'An unvarnished dialogue between public policy architects and sharp critics provides the transparent scrutiny vital for democratic governance.'
-      : (isTravelTourism
-        ? 'Experiential tourism cannot scale without fixing baseline civic infrastructure and cultural preservation.'
-        : 'Behind the headlines lies a deeper structural transition that conventional reporting often misses.');
+    refinedTake = 'The immediate narrative captures only the surface; the deeper transition emerges when examining the underlying incentives and long-term consequences.';
   }
 
   // Extract dynamic paragraphs from scraped content if available (strictly filtering out social URLs & metadata)
@@ -682,33 +702,16 @@ function generateSmartFallbackSynthesis({
   }
 
   if (!p1 || !p2 || !p3) {
-    if (isFinanceMinisterTopic) {
-      p1 = p1 || `In this wide-ranging interactive session, Finance Minister Nirmala Sitharaman engages in direct dialogue with author and analyst Anand Ranganathan, examining national priorities, fiscal administration, and the balance between macroeconomic discipline and citizen aspirations.`;
-      p2 = p2 || `The conversation highlights the value of unapologetic inquiry meeting steady conviction—where sharp questions on policy execution and middle-class realities are addressed with candor and strategic long-term rationale.`;
-      p3 = p3 || `Beyond the immediate exchanges, the dialogue demonstrates the necessity of transparent engagement between governance architects and public intellectuals in charting India's developmental roadmap.`;
-    } else if (isTravelTourism) {
-      p1 = p1 || (extractedTitle
-        ? `Emerging initiatives around "${extractedTitle}" highlight an urgent crossroads for regional tourism and youth-led enterprise. While travelers seek authentic cultural experiences, the absence of foundational amenities—from walkable pathways to reliable sanitation—severely limits the sector's long-term commercial vitality.`
-        : 'Across emerging destinations, travel entrepreneurship has become a primary vehicle for regional economic renewal. However, when baseline civic amenities like clean public restrooms and maintained roads are missing, visitor satisfaction drops rapidly, preventing sustained industry expansion.');
-      p2 = p2 || 'Field observations confirm that destination loyalty hinges on basic dignity and hygiene rather than flashy advertising. Communities that empower local authorities to maintain public spaces see substantially higher repeat visitor traffic and enduring cultural pride.';
-      p3 = p3 || 'Unlocking sustainable tourism requires treating civic infrastructure as a core economic prerequisite rather than an afterthought. When local governance and entrepreneurship align around clean, welcoming public environments, both local heritage and commercial enterprise thrive together.';
-    } else {
-      p1 = p1 || (extractedTitle
-        ? `Primary reporting on "${extractedTitle}" reveals an accelerating transition across core institutional operators and foundational assumptions. As traditional structures yield to modern pressures, market and societal actors are being forced to recalculate their long-term commitments under unprecedented operational friction.`
-        : 'Primary reporting confirms that structural indicators diverged sharply from initial forecasts across core operations. As traditional assumptions encounter real-world resistance, stakeholders are re-evaluating long-held assumptions and establishing new frameworks to navigate the evolving institutional landscape with renewed discipline.');
-      p2 = p2 || 'Examining the operational balance and public disclosures shows strategic reallocation occurring far faster than conventional consensus had anticipated. While headline figures suggest stability, internal metrics indicate an urgent pivot toward resilient positioning and risk mitigation across every tier of execution.';
-      p3 = p3 || 'Historical precedent confirms that early operational divergence inevitably forces systemic realignment before the broader cycle concludes. Observers who recognize these structural shifts early gain a decisive vantage point, anticipating where governance, culture, and capital will inevitably converge in the months ahead.';
-    }
+    p1 = p1 || (extractedTitle
+      ? `Reporting on "${extractedTitle}" reveals an accelerating transition across core operators and foundational assumptions. As traditional structures encounter real-world friction, key participants are recalculating their strategic positions.`
+      : 'Primary observations confirm that real-world indicators diverged sharply from initial forecasts across core operations. As traditional assumptions encounter resistance, stakeholders are re-evaluating long-held conventions.');
+    p2 = p2 || (userSlant
+      ? `${userSlant.replace(/[.]+$/, '')}. This friction forces stakeholders to confront structural trade-offs that conventional headlines frequently minimize.`
+      : 'Examining the operational balance and public disclosures shows strategic realignment occurring far faster than consensus anticipated, signaling an urgent pivot toward resilient execution.');
+    p3 = p3 || 'Historical precedent confirms that early operational divergence inevitably forces systemic realignment before the broader cycle concludes. Observers who recognize these structural shifts early gain a decisive vantage point.';
   }
 
-  let hookText = '';
-  if (isFinanceMinisterTopic) {
-    hookText = `A rare, unvarnished dialogue between India's longest-serving Finance Minister and an incisive critic tests conviction against public scrutiny.`;
-  } else if (isTravelTourism) {
-    hookText = `Young entrepreneurs are targeting the tourism sector, but its largest barrier isn't curation—it is missing public infrastructure. Sustainable hospitality growth requires solving basic civic bottlenecks from the ground up.`;
-  } else {
-    hookText = `${headline}. When the dominant narrative simplifies the stakes, the real structural disruption occurs quietly in the margins.`;
-  }
+  const hookText = `${headline}. When the dominant narrative simplifies the stakes, the real structural disruption occurs quietly in the margins.`;
 
   return {
     adaptedHeadline: headline.length > 55 ? headline.slice(0, 52) + '...' : headline,
@@ -718,31 +721,17 @@ function generateSmartFallbackSynthesis({
     hook: hookText,
     curatorTake: refinedTake,
     summary: `${userSlant || 'Behind the headlines lies a deeper structural transition.'}\n\nExamining the underlying incentives reveals that what appears as an isolated development is actually part of an accelerating systemic realignment.\n\nThe real differentiator is critical discernment—recognizing that automated consensus often obscures the human trade-offs at play.`,
-    whyItMatters: isFinanceMinisterTopic
-      ? 'High-level public scrutiny between sitting economic architects and incisive public intellectuals remains rare, setting an essential benchmark for democratic transparency.'
-      : (isTravelTourism
-        ? 'Experiential tourism cannot scale purely through clever marketing when foundational civic infrastructure and sanitation are neglected. Real industry growth requires investing in basic amenities and local community empowerment.'
-        : 'Understanding this shift separates passive consumers from strategic observers who anticipate where the conversation moves next.'),
-    keyTakeaways: isFinanceMinisterTopic
-      ? [
-          'Conviction in Public Office: Clear articulation of nation-first principles provides stability through global uncertainty.',
-          'The Role of Incisive Critique: Hard, direct questioning tests policy assumptions against on-the-ground economic reality.',
-          'The Horizon for Improvement: Acknowledging domestic execution friction is the first prerequisite for lasting reform.'
-        ]
-      : (isTravelTourism
-        ? [
-            'Civic Foundations: Tourism growth is directly bottlenecked by public cleanliness, roads, and basic amenities.',
-            'Local Administrative Partnership: Enabling local authorities and communities to preserve culture creates lasting economic upside.',
-            'Beyond Surface Marketing: Sustainable visitor appeal depends on authentic ground-level upkeep over slick digital campaigns.'
-          ]
-        : [
-            'Structural Friction: The conventional framing misses the secondary systemic consequences already taking shape.',
-            'Incentive Misalignment: Key operators are optimizing for short-term narrative dominance rather than durable alignment.',
-            'Curator Horizon: Long-term value accrues to those who maintain independent conviction against herd consensus.'
-          ]),
-    receiptHighlightQuote: userSlant || 'Conviction in governance requires listening to the sharpest critiques without losing sight of the national horizon.',
+    whyItMatters: userSlant
+      ? `Recognizing this friction reveals why the development around "${headline}" marks a lasting structural shift rather than a transient event.`
+      : 'Understanding this shift separates passive consumers from strategic observers who anticipate where the conversation moves next.',
+    keyTakeaways: [
+      `Structural Friction: The conventional framing around "${headline}" misses the secondary consequences taking shape.`,
+      'Incentive Misalignment: Key operators are optimizing for short-term narrative dominance rather than durable alignment.',
+      'Strategic Horizon: Long-term value accrues to those who maintain independent conviction against herd consensus.'
+    ],
+    receiptHighlightQuote: userSlant || 'True discernment requires separating transient friction from enduring systemic realignment.',
     resolvedArticleExcerpts: [p1, p2, p3],
-    keyMetric: isFinanceMinisterTopic ? 'Conviction & Candor' : 'High Impact',
+    keyMetric: 'High Impact',
     visualMood: 'Chiaroscuro Risograph Editorial',
     heroCue: hero,
     motifCue: motif,
