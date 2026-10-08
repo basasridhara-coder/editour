@@ -4947,6 +4947,42 @@ async function startAiSynthesis() {
       currentSynthesizedPost.originalPhotoBase64 = creatorSelectedImageBase64 || creatorReferenceImageBase64;
       currentSynthesizedPost.hasPaperCut = true;
     }
+
+    // Wait for custom editorial illustration so the user lands directly on the finished artwork
+    if (currentSynthesizedPost && !currentSynthesizedPost.illustrationBase64 && currentSynthesizedPost.illustrationPrompt) {
+      if (stepText) stepText.textContent = 'Rendering custom editorial artwork & visual metaphors...';
+      if (fill) fill.style.width = '88%';
+
+      try {
+        const artController = new AbortController();
+        const artTimeout = setTimeout(() => artController.abort(), 11000);
+
+        const artResp = await fetch('/api/synthesize', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'artwork_only',
+            prompt: currentSynthesizedPost.illustrationPrompt,
+            imageBase64: (creatorCharacterRepresentation === 'likeness' || creatorCharacterRepresentation === 'lookalike') ? (creatorReferenceImageBase64 || null) : null,
+            imageMimeType: creatorReferenceImageMimeType || 'image/jpeg'
+          }),
+          signal: artController.signal
+        });
+        clearTimeout(artTimeout);
+
+        if (artResp.ok) {
+          const artData = await artResp.json();
+          if (artData && artData.success && artData.illustrationBase64) {
+            currentSynthesizedPost.illustrationBase64 = artData.illustrationBase64;
+            currentSynthesizedPost.artworkPending = false;
+          }
+        }
+      } catch (artErr) {
+        console.info('Artwork generation inline skipped or timed out, using curated fallback:', artErr.message);
+      }
+    }
+
+    if (stepText) stepText.textContent = 'Editorial deck finalized!';
     if (fill) fill.style.width = '100%';
 
     setTimeout(() => {
@@ -4961,7 +4997,7 @@ async function startAiSynthesis() {
         if (synthLoading) synthLoading.style.display = 'none';
         alert('Could not render posters: ' + renderErr.message);
       }
-    }, 400);
+    }, 350);
 
   } catch (err) {
     clearAllTimers();
