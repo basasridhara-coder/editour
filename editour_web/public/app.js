@@ -996,11 +996,13 @@ function mergeAndSortPosts(newPosts) {
       existingMap.set(postId, p);
       addedCount++;
     } else {
-      // Merge with existing to preserve local rich fields (like full illustrationBase64)
+      // Merge with existing ensuring fresh server/cloud fields overwrite stale local fields
       const existing = existingMap.get(postId);
-      const merged = { ...p, ...existing };
-      if (!merged.illustrationBase64 && p.illustrationBase64) {
-        merged.illustrationBase64 = p.illustrationBase64;
+      const merged = { ...existing, ...p };
+      merged.illustrationUrl = p.illustrationUrl || existing.illustrationUrl || '';
+      merged.aiIllustrationUrl = p.aiIllustrationUrl || existing.aiIllustrationUrl || '';
+      if (!merged.illustrationBase64 && existing.illustrationBase64) {
+        merged.illustrationBase64 = existing.illustrationBase64;
       }
       existingMap.set(postId, merged);
     }
@@ -1017,10 +1019,10 @@ function mergeAndSortPosts(newPosts) {
 }
 
 async function loadPosts() {
-  // 1. Instant Cache-First: Load pre-built lightweight slant_feed.json (140 KB, renders in ~20ms!)
+  // 1. Instant Cache-First: Load pre-built lightweight slant_feed.json (renders in ~20ms!)
   let loadedFromCache = false;
   try {
-    const fastResp = await fetch('slant_feed.json');
+    const fastResp = await fetch(`slant_feed.json?ts=${Date.now()}`, { cache: 'no-cache' });
     if (fastResp.ok) {
       const posts = await fastResp.json();
       if (Array.isArray(posts) && posts.length > 0) {
@@ -1057,9 +1059,13 @@ async function syncLiveCloudPosts(forceRender = false) {
 
   // 1. Primary: Fetch from /api/posts with timestamp and no-store to bypass any proxy/browser cache
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
     const apiResp = await fetch(`/api/posts?limit=6&ts=${Date.now()}`, {
-      cache: 'no-store'
+      cache: 'no-store',
+      signal: controller.signal
     });
+    clearTimeout(timeoutId);
     if (apiResp.ok) {
       const data = await apiResp.json();
       if (data && Array.isArray(data.posts) && data.posts.length > 0) {

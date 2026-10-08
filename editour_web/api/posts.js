@@ -78,11 +78,19 @@ module.exports = async function handler(req, res) {
           const p = r.data || r;
           p.id = p.id || r.id;
           p.createdAt = p.createdAt || r.created_at || new Date().toISOString();
-          // If post has illustrationBase64, always clear illustrationUrl so it never falls back to an unsplash image
-          if (p.illustrationBase64) {
+
+          // If static poster image exists in /posters/, serve ultra-fast static URL and strip 2.5MB base64 bloat
+          const posterFile = path.join(__dirname, '../public/posters', p.id + '.png');
+          if (fs.existsSync(posterFile) || (p.illustrationUrl && p.illustrationUrl.startsWith('/posters/'))) {
+            p.illustrationUrl = '/posters/' + p.id + '.png';
+            p.aiIllustrationUrl = '/posters/' + p.id + '.png';
+            delete p.illustrationBase64;
+            delete p.originalPhotoBase64;
+          } else if (p.illustrationBase64) {
             p.illustrationUrl = '';
             p.aiIllustrationUrl = '';
           }
+
           // Clean up any motherboard or palette fallback URLs if present in older saved posts
           if (p.illustrationUrl && (p.illustrationUrl.includes('photo-1518770660439') || p.illustrationUrl.includes('photo-1541872703'))) {
             p.illustrationUrl = '';
