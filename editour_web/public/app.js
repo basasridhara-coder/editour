@@ -4750,12 +4750,14 @@ async function startAiSynthesis() {
   }
 
   const isPhotoPortrayal = (creatorCharacterRepresentation === 'likeness' || creatorCharacterRepresentation === 'exact' || creatorCharacterRepresentation === 'lookalike');
-  const effectiveImageBase64 = (isPhotoPortrayal && creatorReferenceImageBase64)
-    ? creatorReferenceImageBase64
-    : (creatorSelectedImageBase64 || creatorReferenceImageBase64 || null);
-  const effectiveImageMime = (isPhotoPortrayal && creatorReferenceImageBase64)
-    ? (creatorReferenceImageMimeType || 'image/jpeg')
-    : (creatorSelectedImageMimeType || 'image/jpeg');
+  const shouldSendImage = (creatorSelectedSource === 'photo' && (creatorSelectedImageBase64 || creatorReferenceImageBase64)) ||
+                          (isPhotoPortrayal && creatorReferenceImageBase64);
+  const effectiveImageBase64 = shouldSendImage
+    ? (creatorReferenceImageBase64 || creatorSelectedImageBase64 || null)
+    : null;
+  const effectiveImageMime = shouldSendImage
+    ? (creatorReferenceImageMimeType || creatorSelectedImageMimeType || 'image/jpeg')
+    : 'image/jpeg';
 
   const payload = {
     sourceType: creatorSelectedSource,
@@ -4775,15 +4777,20 @@ async function startAiSynthesis() {
     vocabularyStyle: creatorVocabularyStyle || 'punchy',
     countryContext: creatorCountryContext?.name || 'India',
     scrapedTitle: currentScrapedArticle?.title || '',
-    scrapedContent: currentScrapedArticle?.content || ''
+    scrapedContent: (currentScrapedArticle?.content || '').slice(0, 3000)
   };
+
+  const synthController = new AbortController();
+  const synthTimer = setTimeout(() => synthController.abort(), 14000);
 
   try {
     const resp = await fetch('/api/synthesize', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
+      signal: synthController.signal
     });
+    clearTimeout(synthTimer);
 
     clearTimeout(ticker1);
     clearTimeout(ticker2);
@@ -4799,7 +4806,7 @@ async function startAiSynthesis() {
       } else {
         const text = await resp.text().catch(() => '');
         if (resp.status === 504 || text.includes('504')) {
-          errMsg = 'AI synthesis timed out. Please try again in a few moments.';
+          errMsg = 'AI synthesis timed out. Please tap Synthesize again.';
         } else {
           errMsg = `Server error (${resp.status}). Please try again.`;
         }
@@ -4830,16 +4837,20 @@ async function startAiSynthesis() {
     }, 400);
 
   } catch (err) {
+    clearTimeout(synthTimer);
     clearTimeout(ticker1);
     clearTimeout(ticker2);
     clearTimeout(ticker3);
     clearTimeout(ticker4);
-    const friendlyMsg = (err.message === 'Failed to fetch' || (err.message && err.message.includes('fetch')))
-      ? 'Network connection timed out. Please tap Synthesize again.'
+    const isTimeout = (err.name === 'AbortError' || err.message === 'Failed to fetch' || (err.message && (err.message.includes('fetch') || err.message.includes('timed out') || err.message.includes('timeout'))));
+    const friendlyMsg = isTimeout
+      ? 'The synthesis connection timed out. Tap Synthesize again to complete your posters.'
       : err.message;
-    alert('AI Synthesis Error: ' + friendlyMsg + '\n\nPlease check your input and try again.');
+    alert('AI Synthesis: ' + friendlyMsg);
     if (cuesContent) cuesContent.style.display = 'flex';
     if (synthLoading) synthLoading.style.display = 'none';
+    const synthBtn = document.getElementById('step2SynthBtn');
+    if (synthBtn) synthBtn.disabled = false;
   }
 }
 

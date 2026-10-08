@@ -111,7 +111,7 @@ module.exports = async function handler(req, res) {
         
         if (!extractedContent || !extractedTitle || isJunkContent) {
           const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), 4000);
+          const timeout = setTimeout(() => controller.abort(), 2000);
           const pageResp = await fetch(url, {
             signal: controller.signal,
             headers: {
@@ -384,7 +384,7 @@ Respond strictly with valid JSON with this exact structure:
       try {
         const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 28000);
+        const timeout = setTimeout(() => controller.abort(), 6500);
 
         const geminiResp = await fetch(geminiUrl, {
           method: 'POST',
@@ -430,7 +430,7 @@ Respond strictly with valid JSON with this exact structure:
           prompt: concisePrompt,
           imageBase64: (isLookalike ? imageBase64 : null),
           imageMimeType,
-          timeoutMs: 25000 // 25s timeout for high-definition Gemini 2.5 Flash Image
+          timeoutMs: 4500 // 4.5s tight budget; if longer, falls back and upgrades in background
         });
       } catch (err) {
         console.warn('Gemini concurrent artwork warning:', err.message);
@@ -753,12 +753,11 @@ function isLikelyPersonSubject(name) {
   return personKeywords.some(w => lower.includes(w));
 }
 
-async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeType = 'image/jpeg', timeoutMs = 25000 }) {
+async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeType = 'image/jpeg', timeoutMs = 8000 }) {
   if (!GEMINI_API_KEY) return null;
   const imageModels = [
     'gemini-3.1-flash-lite-image',
-    'gemini-2.5-flash-image',
-    'gemini-3.1-flash-image'
+    'gemini-2.5-flash-image'
   ];
 
   const parts = [];
@@ -789,11 +788,16 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
     }
   });
 
+  const startTime = Date.now();
   for (const model of imageModels) {
+    const elapsed = Date.now() - startTime;
+    const remainingTime = timeoutMs - elapsed;
+    if (remainingTime < 2000) break;
+
     try {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      const timer = setTimeout(() => controller.abort(), remainingTime);
 
       const resp = await fetch(url, {
         method: 'POST',
