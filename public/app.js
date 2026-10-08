@@ -4833,20 +4833,21 @@ async function startAiSynthesis() {
   if (stepText) stepText.textContent = 'Reading source and extracting core tension...';
   if (fill) fill.style.width = '25%';
 
-  const ticker1 = setTimeout(() => {
+  const tickers = [];
+  tickers.push(setTimeout(() => {
     if (stepText) stepText.textContent = 'Synthesizing 3-poster narrative (Hook → Take → Receipts)...';
     if (fill) fill.style.width = '45%';
-  }, 1200);
+  }, 1200));
 
-  const ticker2 = setTimeout(() => {
+  tickers.push(setTimeout(() => {
     if (stepText) stepText.textContent = 'Drafting visual metaphors & editorial composition...';
     if (fill) fill.style.width = '70%';
-  }, 2600);
+  }, 2600));
 
-  const ticker3 = setTimeout(() => {
+  tickers.push(setTimeout(() => {
     if (stepText) stepText.textContent = 'Polishing broadsheet copy, typography & color grade...';
     if (fill) fill.style.width = '88%';
-  }, 4200);
+  }, 4200));
 
   // Author handle
   let userHandle = '@curator';
@@ -4888,6 +4889,13 @@ async function startAiSynthesis() {
   const synthController = new AbortController();
   const synthTimer = setTimeout(() => synthController.abort(), 48000);
 
+  const clearAllTimers = () => {
+    try {
+      tickers.forEach(t => clearTimeout(t));
+      if (synthTimer) clearTimeout(synthTimer);
+    } catch (_) {}
+  };
+
   try {
     const resp = await fetch('/api/synthesize', {
       method: 'POST',
@@ -4895,12 +4903,7 @@ async function startAiSynthesis() {
       body: JSON.stringify(payload),
       signal: synthController.signal
     });
-    clearTimeout(synthTimer);
-
-    clearTimeout(ticker1);
-    clearTimeout(ticker2);
-    clearTimeout(ticker3);
-    clearTimeout(ticker4);
+    clearAllTimers();
 
     const contentType = resp.headers.get('content-type') || '';
     if (!resp.ok) {
@@ -4938,19 +4941,25 @@ async function startAiSynthesis() {
     if (fill) fill.style.width = '100%';
 
     setTimeout(() => {
-      showStep3Preview();
+      try {
+        if (synthLoading) synthLoading.style.display = 'none';
+        showStep3Preview();
+      } catch (renderErr) {
+        console.error('Error in showStep3Preview:', renderErr);
+        if (cuesContent) cuesContent.style.display = 'flex';
+        if (synthLoading) synthLoading.style.display = 'none';
+        alert('Could not render posters: ' + renderErr.message);
+      }
     }, 400);
 
   } catch (err) {
-    clearTimeout(synthTimer);
-    clearTimeout(ticker1);
-    clearTimeout(ticker2);
-    clearTimeout(ticker3);
-    clearTimeout(ticker4);
+    clearAllTimers();
+    console.error('AI Synthesis error:', err);
     const isTimeout = (err.name === 'AbortError' || err.message === 'Failed to fetch' || (err.message && (err.message.includes('fetch') || err.message.includes('timed out') || err.message.includes('timeout'))));
     const friendlyMsg = isTimeout
       ? 'The synthesis connection timed out. Tap Synthesize again to complete your posters.'
-      : err.message;
+      : (err.message || 'An error occurred during synthesis. Please try again.');
+    showTemporaryToast('⚠️ ' + friendlyMsg);
     alert('AI Synthesis: ' + friendlyMsg);
     if (cuesContent) cuesContent.style.display = 'flex';
     if (synthLoading) synthLoading.style.display = 'none';
