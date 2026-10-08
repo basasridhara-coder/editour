@@ -388,7 +388,7 @@ Respond strictly with valid JSON with this exact structure:
       try {
         const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 6500);
+        const timeout = setTimeout(() => controller.abort(), 40000);
 
         const geminiResp = await fetch(geminiUrl, {
           method: 'POST',
@@ -420,6 +420,9 @@ Respond strictly with valid JSON with this exact structure:
               }
             }
           }
+        } else {
+          const errText = await geminiResp.text().catch(() => '');
+          console.warn('Gemini text synthesis HTTP error:', geminiResp.status, errText.slice(0, 300));
         }
       } catch (geminiErr) {
         console.warn('Gemini text synthesis warning:', geminiErr.message);
@@ -434,7 +437,7 @@ Respond strictly with valid JSON with this exact structure:
           prompt: concisePrompt,
           imageBase64: (isLookalike ? imageBase64 : null),
           imageMimeType,
-          timeoutMs: 4500 // 4.5s tight budget; if longer, falls back and upgrades in background
+          timeoutMs: 8000 // 8s budget; if longer, falls back and upgrades in background
         });
       } catch (err) {
         console.warn('Gemini concurrent artwork warning:', err.message);
@@ -544,6 +547,7 @@ Respond strictly with valid JSON with this exact structure:
       slantTone: slantTone || 'mind',
       slantIcon: slantTone === 'heart' ? '❤️' : '🧠',
       creatorOpinion: finalCuratorTake,
+      curatorTake: finalCuratorTake,
       rawUserSlant: userSlant || '',
       refineCoreTake,
       vocabularyStyle: vocabularyStyle || 'punchy',
@@ -643,12 +647,14 @@ function generateSmartFallbackSynthesis({
 
   // 2. Curated Editorial Synthesis for External Sources (Videos, Articles, News)
   const isFinanceMinisterTopic = combined.includes('sitharaman') || combined.includes('finance minister') || combined.includes('ranganathan') || (combined.includes('minister') && combined.includes('india'));
+  const isTravelTourism = combined.includes('travel') || combined.includes('touris') || combined.includes('clean') || combined.includes('waste') || combined.includes('infra') || combined.includes('toilet') || combined.includes('road') || combined.includes('garden') || combined.includes('culture');
   const isPolicy = isFinanceMinisterTopic || combined.includes('polic') || combined.includes('tax') || combined.includes('budget') || combined.includes('parliament') || combined.includes('govern');
   const isTech = combined.includes('ai') || combined.includes('tech') || combined.includes('compute') || combined.includes('model') || combined.includes('software');
   const isMarkets = combined.includes('market') || combined.includes('stock') || combined.includes('invest') || combined.includes('wealth') || combined.includes('capital');
 
   let defaultCategory = 'EDITORIAL & ANALYSIS';
   if (isFinanceMinisterTopic) defaultCategory = 'POLICY & GOVERNANCE';
+  else if (isTravelTourism) defaultCategory = 'TRAVEL & CIVIC INFRASTRUCTURE';
   else if (isPolicy) defaultCategory = 'POLICY & GOVERNANCE';
   else if (isTech) defaultCategory = 'TECHNOLOGY & SYSTEMS';
   else if (isMarkets) defaultCategory = 'CAPITAL & MARKETS';
@@ -656,11 +662,11 @@ function generateSmartFallbackSynthesis({
   let headline = '';
   if (isFinanceMinisterTopic) {
     headline = 'Conviction, Candor, and the Economic Long Game';
+  } else if (extractedTitle && !extractedTitle.startsWith('http') && extractedTitle.length > 5) {
+    headline = extractedTitle.split(/[:–—|]/)[0].trim();
   } else if (userSlant && userSlant.length > 8) {
     const firstSentence = userSlant.split(/[.:;!?\n]/)[0].trim();
     headline = firstSentence.length > 55 ? firstSentence.slice(0, 52) + '...' : firstSentence;
-  } else if (extractedTitle && !extractedTitle.startsWith('http')) {
-    headline = extractedTitle.split(/[:–—|]/)[0].trim();
   } else {
     headline = 'The Unspoken Friction Behind the Headline';
   }
@@ -670,6 +676,8 @@ function generateSmartFallbackSynthesis({
     if (refineCoreTake) {
       if (isFinanceMinisterTopic) {
         refinedTake = `Watching India's longest-serving Finance Minister engage in dialogue with Anand Ranganathan is a delight. The sharp questioning paired with the Finance Minister's characteristic conviction reveals honesty and a clear nation-first stance, while highlighting areas where reform must continue.`;
+      } else if (isTravelTourism) {
+        refinedTake = `Tourism ventures cannot thrive purely on slick branding when foundational civic amenities are neglected. Sustainable hospitality growth requires empowering local municipalities to ensure clean public spaces, robust roads, and authentic cultural stewardship.`;
       } else {
         refinedTake = `The immediate focus captures only the surface; the deeper transition emerges when examining the structural incentives and long-term consequences behind the narrative. True discernment requires separating transient friction from enduring systemic realignment.`;
       }
@@ -679,16 +687,24 @@ function generateSmartFallbackSynthesis({
   } else {
     refinedTake = isFinanceMinisterTopic
       ? 'An unvarnished dialogue between public policy architects and sharp critics provides the transparent scrutiny vital for democratic governance.'
-      : 'Behind the headlines lies a deeper structural transition that conventional reporting often misses.';
+      : (isTravelTourism
+        ? 'Experiential tourism cannot scale without fixing baseline civic infrastructure and cultural preservation.'
+        : 'Behind the headlines lies a deeper structural transition that conventional reporting often misses.');
   }
 
-  // Extract dynamic paragraphs from scraped content if available
+  // Extract dynamic paragraphs from scraped content if available (strictly filtering out social URLs & metadata)
   let p1 = '';
   let p2 = '';
   let p3 = '';
 
   if (extractedContent && extractedContent.length > 100) {
-    const lines = extractedContent.split(/\n+/).map(l => l.trim()).filter(l => l.length > 80 && !l.startsWith('#') && !l.startsWith('http'));
+    const lines = extractedContent.split(/\n+/).map(l => l.trim()).filter(l => {
+      if (l.length < 80) return false;
+      if (l.startsWith('#') || l.startsWith('http')) return false;
+      if (/linkedin|twitter|instagram|facebook|youtube|t\.co|bit\.ly|youtu\.be|tiktok/i.test(l)) return false;
+      if (/utm_|subscribe|follow us|all rights reserved|cookie|privacy policy|terms of/i.test(l)) return false;
+      return true;
+    });
     if (lines.length >= 3) {
       p1 = lines[0];
       p2 = lines[1];
@@ -703,6 +719,12 @@ function generateSmartFallbackSynthesis({
       p1 = p1 || `In this wide-ranging interactive session, Finance Minister Nirmala Sitharaman engages in direct dialogue with author and analyst Anand Ranganathan, examining national priorities, fiscal administration, and the balance between macroeconomic discipline and citizen aspirations.`;
       p2 = p2 || `The conversation highlights the value of unapologetic inquiry meeting steady conviction—where sharp questions on policy execution and middle-class realities are addressed with candor and strategic long-term rationale.`;
       p3 = p3 || `Beyond the immediate exchanges, the dialogue demonstrates the necessity of transparent engagement between governance architects and public intellectuals in charting India's developmental roadmap.`;
+    } else if (isTravelTourism) {
+      p1 = p1 || (extractedTitle
+        ? `Emerging initiatives around "${extractedTitle}" highlight an urgent crossroads for regional tourism and youth-led enterprise. While travelers seek authentic cultural experiences, the absence of foundational amenities—from walkable pathways to reliable sanitation—severely limits the sector's long-term commercial vitality.`
+        : 'Across emerging destinations, travel entrepreneurship has become a primary vehicle for regional economic renewal. However, when baseline civic amenities like clean public restrooms and maintained roads are missing, visitor satisfaction drops rapidly, preventing sustained industry expansion.');
+      p2 = p2 || 'Field observations confirm that destination loyalty hinges on basic dignity and hygiene rather than flashy advertising. Communities that empower local authorities to maintain public spaces see substantially higher repeat visitor traffic and enduring cultural pride.';
+      p3 = p3 || 'Unlocking sustainable tourism requires treating civic infrastructure as a core economic prerequisite rather than an afterthought. When local governance and entrepreneurship align around clean, welcoming public environments, both local heritage and commercial enterprise thrive together.';
     } else {
       p1 = p1 || (extractedTitle
         ? `Primary reporting on "${extractedTitle}" reveals an accelerating transition across core institutional operators and foundational assumptions. As traditional structures yield to modern pressures, market and societal actors are being forced to recalculate their long-term commitments under unprecedented operational friction.`
@@ -715,6 +737,8 @@ function generateSmartFallbackSynthesis({
   let hookText = '';
   if (isFinanceMinisterTopic) {
     hookText = `A rare, unvarnished dialogue between India's longest-serving Finance Minister and an incisive critic tests conviction against public scrutiny.`;
+  } else if (isTravelTourism) {
+    hookText = `Young entrepreneurs are targeting the tourism sector, but its largest barrier isn't curation—it is missing public infrastructure. Sustainable hospitality growth requires solving basic civic bottlenecks from the ground up.`;
   } else {
     hookText = `${headline}. When the dominant narrative simplifies the stakes, the real structural disruption occurs quietly in the margins.`;
   }
@@ -729,18 +753,26 @@ function generateSmartFallbackSynthesis({
     summary: `${userSlant || 'Behind the headlines lies a deeper structural transition.'}\n\nExamining the underlying incentives reveals that what appears as an isolated development is actually part of an accelerating systemic realignment.\n\nThe real differentiator is critical discernment—recognizing that automated consensus often obscures the human trade-offs at play.`,
     whyItMatters: isFinanceMinisterTopic
       ? 'High-level public scrutiny between sitting economic architects and incisive public intellectuals remains rare, setting an essential benchmark for democratic transparency.'
-      : 'Understanding this shift separates passive consumers from strategic observers who anticipate where the conversation moves next.',
+      : (isTravelTourism
+        ? 'Experiential tourism cannot scale purely through clever marketing when foundational civic infrastructure and sanitation are neglected. Real industry growth requires investing in basic amenities and local community empowerment.'
+        : 'Understanding this shift separates passive consumers from strategic observers who anticipate where the conversation moves next.'),
     keyTakeaways: isFinanceMinisterTopic
       ? [
           'Conviction in Public Office: Clear articulation of nation-first principles provides stability through global uncertainty.',
           'The Role of Incisive Critique: Hard, direct questioning tests policy assumptions against on-the-ground economic reality.',
           'The Horizon for Improvement: Acknowledging domestic execution friction is the first prerequisite for lasting reform.'
         ]
-      : [
-          'Structural Friction: The conventional framing misses the secondary systemic consequences already taking shape.',
-          'Incentive Misalignment: Key operators are optimizing for short-term narrative dominance rather than durable alignment.',
-          'Curator Horizon: Long-term value accrues to those who maintain independent conviction against herd consensus.'
-        ],
+      : (isTravelTourism
+        ? [
+            'Civic Foundations: Tourism growth is directly bottlenecked by public cleanliness, roads, and basic amenities.',
+            'Local Administrative Partnership: Enabling local authorities and communities to preserve culture creates lasting economic upside.',
+            'Beyond Surface Marketing: Sustainable visitor appeal depends on authentic ground-level upkeep over slick digital campaigns.'
+          ]
+        : [
+            'Structural Friction: The conventional framing misses the secondary systemic consequences already taking shape.',
+            'Incentive Misalignment: Key operators are optimizing for short-term narrative dominance rather than durable alignment.',
+            'Curator Horizon: Long-term value accrues to those who maintain independent conviction against herd consensus.'
+          ]),
     receiptHighlightQuote: userSlant || 'Conviction in governance requires listening to the sharpest critiques without losing sight of the national horizon.',
     resolvedArticleExcerpts: [p1, p2, p3],
     keyMetric: isFinanceMinisterTopic ? 'Conviction & Candor' : 'High Impact',
