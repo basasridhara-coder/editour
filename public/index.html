@@ -180,7 +180,7 @@
                 <span id="slantHeroIcon">💭</span>
               </div>
               <div class="creator-card-titles">
-                <span class="creator-card-title" id="slantTakeLabel">Your Slant / Take (Optional)</span>
+                <span class="creator-card-title" id="slantTakeLabel">Your Slant / Take</span>
                 <span class="creator-card-subtitle" id="slantTakeSubtitle">Write your unique angle, stance, or critique on this story (or leave empty to let AI deduce it).</span>
               </div>
             </div>
@@ -196,7 +196,7 @@
               </div>
               <div class="slant-refine-text-wrap">
                 <div class="slant-refine-title-row">
-                  <span class="slant-refine-title" id="slantRefineTitle">Refine Core Take with AI</span>
+                  <span class="slant-refine-title" id="slantRefineTitle">Refine with AI</span>
                   <span class="slant-refine-badge" id="slantRefineBadge">Refined</span>
                 </div>
                 <div class="slant-refine-subtitle" id="slantRefineSubtitle">AI polishes and sharpens your raw thought into a punchy poster quote.</div>
@@ -218,7 +218,7 @@
                 <div class="slant-vocab-text-wrap">
                   <div class="slant-vocab-title-row">
                     <span class="slant-vocab-title">VOCABULARY & VOICE</span>
-                    <span class="slant-vocab-badge" id="slantVocabBadge">⚡ Punchy & Vivid</span>
+                    <span class="slant-vocab-badge" id="slantVocabBadge">⚡ Punchy</span>
                   </div>
                   <div class="slant-vocab-subtitle" id="slantVocabSubtitle">Emotional, vivid & clear. Strong verbs, zero academic jargon. Reads effortlessly.</div>
                 </div>
@@ -227,11 +227,11 @@
             <div class="slant-vocab-pills">
               <button type="button" class="slant-vocab-pill active" id="vocabPillPunchy" data-vocab="punchy" onclick="setVocabularyStyle('punchy')">
                 <span class="pill-icon">⚡</span>
-                <span class="pill-text">Punchy & Vivid</span>
+                <span class="pill-text">Punchy</span>
               </button>
               <button type="button" class="slant-vocab-pill" id="vocabPillConversational" data-vocab="conversational" onclick="setVocabularyStyle('conversational')">
                 <span class="pill-icon">💬</span>
-                <span class="pill-text">Conversational</span>
+                <span class="pill-text">Casual</span>
               </button>
               <button type="button" class="slant-vocab-pill" id="vocabPillAnalytical" data-vocab="analytical" onclick="setVocabularyStyle('analytical')">
                 <span class="pill-icon">🏛</span>
@@ -342,20 +342,8 @@
 
         <!-- 4. Bottom Navigation Bar (Step 1) -->
         <div class="creator-bottom-nav">
-          <button type="button" class="creator-nav-arrow disabled" id="step1NavLeftBtn" disabled title="Previous step">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="19" y1="12" x2="5" y2="12"></line>
-              <polyline points="12 19 5 12 12 5"></polyline>
-            </svg>
-          </button>
           <button type="button" class="creator-synthesize-btn creator-nav-main-btn" id="nextToCuesBtn" onclick="goToVisualCuesStep()">
             <span class="btn-text">Next: Visual Cues →</span>
-          </button>
-          <button type="button" class="creator-nav-arrow" id="step1NavRightBtn" onclick="goToVisualCuesStep()" title="Next: Visual Cues">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="5" y1="12" x2="19" y2="12"></line>
-              <polyline points="12 5 19 12 12 19"></polyline>
-            </svg>
           </button>
         </div>
       </div>

@@ -3058,7 +3058,7 @@ function toggleRefineCoreTake(val) {
 
   if (creatorRefineCoreTake) {
     if (icon) icon.textContent = '✨';
-    if (title) title.textContent = 'Refine Core Take with AI';
+    if (title) title.textContent = 'Refine with AI';
     if (badge) {
       badge.textContent = 'Refined';
       badge.className = 'slant-refine-badge';
@@ -3066,7 +3066,7 @@ function toggleRefineCoreTake(val) {
     if (sub) sub.textContent = 'AI polishes and sharpens your raw thought into a punchy poster quote.';
   } else {
     if (icon) icon.textContent = '❝';
-    if (title) title.textContent = 'Use Core Take As-Is';
+    if (title) title.textContent = 'Use Take As-Is';
     if (badge) {
       badge.textContent = 'Verbatim';
       badge.className = 'slant-refine-badge verbatim';
@@ -3087,14 +3087,14 @@ function setVocabularyStyle(style) {
   });
 
   if (style === 'conversational') {
-    if (badge) badge.textContent = '💬 Conversational';
+    if (badge) badge.textContent = '💬 Casual';
     if (sub) sub.textContent = 'Natural everyday English. Clean, grounded, and universally easy to read.';
   } else if (style === 'analytical') {
     if (badge) badge.textContent = '🏛 Analytical';
     if (sub) sub.textContent = 'Formal editorial broadsheet vocabulary for deep policy or structural critique.';
   } else {
     // punchy
-    if (badge) badge.textContent = '⚡ Punchy & Vivid';
+    if (badge) badge.textContent = '⚡ Punchy';
     if (sub) sub.textContent = 'Emotional, vivid & clear. Strong verbs, zero academic jargon. Reads effortlessly.';
   }
 }
@@ -3202,7 +3202,7 @@ function setAnchorMode(mode) {
     if (heroIcon) heroIcon.textContent = '💭';
     if (heroBox) heroBox.style.color = '#8B5CF6';
   } else if (mode === 'photo') {
-    if (label) label.textContent = 'Your Slant / Take (Optional)';
+    if (label) label.textContent = 'Your Slant / Take';
     if (badge) {
       badge.textContent = 'Optional';
       badge.className = 'creator-tag-badge';
@@ -3213,7 +3213,7 @@ function setAnchorMode(mode) {
     if (heroBox) heroBox.style.color = '#0D9488';
   } else {
     // digital_link
-    if (label) label.textContent = 'Your Slant / Take (Optional)';
+    if (label) label.textContent = 'Your Slant / Take';
     if (badge) {
       badge.textContent = 'Optional';
       badge.className = 'creator-tag-badge';
