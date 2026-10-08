@@ -1397,7 +1397,95 @@ function renderFeed() {
   dismissInitialFeedLoader();
 }
 
+function setupSeamlessVideoLoop(containerId, videoAId, videoBId, crossfadeLeadSec = 0.45) {
+  const container = document.getElementById(containerId);
+  const vA = document.getElementById(videoAId);
+  const vB = document.getElementById(videoBId);
+  if (!container || !vA || !vB) return null;
+
+  let activeVideo = vA;
+  let nextVideo = vB;
+  let isTransitioning = false;
+  let isRunning = false;
+  let rafId = null;
+
+  function tick() {
+    if (!isRunning) return;
+
+    if (activeVideo && !activeVideo.paused && !activeVideo.ended) {
+      const duration = activeVideo.duration;
+      const currentTime = activeVideo.currentTime;
+
+      // When active video reaches the settling crossfade window (duration - crossfadeLeadSec), seamlessly dissolve into next video
+      if (duration > 2 && (duration - currentTime) <= crossfadeLeadSec && !isTransitioning) {
+        isTransitioning = true;
+
+        nextVideo.currentTime = 0;
+        const playPromise = nextVideo.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(() => {});
+        }
+
+        nextVideo.classList.add('active');
+        activeVideo.classList.remove('active');
+
+        setTimeout(() => {
+          try {
+            activeVideo.pause();
+            activeVideo.currentTime = 0;
+          } catch (_) {}
+
+          // Swap active and next references
+          const temp = activeVideo;
+          activeVideo = nextVideo;
+          nextVideo = temp;
+          isTransitioning = false;
+        }, 360);
+      }
+    }
+
+    rafId = requestAnimationFrame(tick);
+  }
+
+  function start() {
+    isRunning = true;
+    isTransitioning = false;
+    vA.classList.add('active');
+    vB.classList.remove('active');
+    vA.currentTime = 0;
+    vB.currentTime = 0;
+    activeVideo = vA;
+    nextVideo = vB;
+
+    requestAnimationFrame(() => {
+      try {
+        const p = vA.play();
+        if (p !== undefined) p.catch(() => {});
+      } catch (_) {}
+    });
+
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = requestAnimationFrame(tick);
+  }
+
+  function stop() {
+    isRunning = false;
+    if (rafId) {
+      cancelAnimationFrame(rafId);
+      rafId = null;
+    }
+    try { vA.pause(); } catch (_) {}
+    try { vB.pause(); } catch (_) {}
+  }
+
+  return { start, stop };
+}
+
 function dismissInitialFeedLoader() {
+  if (window._feedVideoLoop) {
+    try { window._feedVideoLoop.stop(); } catch (_) {}
+    window._feedVideoLoop = null;
+  }
   const loader = document.getElementById('feedInitialLoader');
   if (loader && !loader.classList.contains('fade-out')) {
     const elapsed = Date.now() - (window._feedLoaderStartTime || Date.now());
@@ -4823,19 +4911,11 @@ async function startAiSynthesis() {
   if (cuesContent) cuesContent.style.display = 'none';
   if (synthLoading) {
     synthLoading.style.display = 'flex';
-    const synthVideo = document.getElementById('synthesisLogoVideo');
-    if (synthVideo) {
-      requestAnimationFrame(() => {
-        try {
-          if (synthVideo.currentTime > 0.1) {
-            synthVideo.currentTime = 0;
-          }
-          const playPromise = synthVideo.play();
-          if (playPromise !== undefined) {
-            playPromise.catch(() => {});
-          }
-        } catch (_) {}
-      });
+    if (!window._synthesisVideoLoop) {
+      window._synthesisVideoLoop = setupSeamlessVideoLoop('synthesisVideoWrap', 'synthesisLogoVideoA', 'synthesisLogoVideoB', 0.45);
+    }
+    if (window._synthesisVideoLoop) {
+      window._synthesisVideoLoop.start();
     }
   }
 
@@ -4987,8 +5067,10 @@ async function startAiSynthesis() {
 
     setTimeout(() => {
       try {
-        const synthVideo = document.getElementById('synthesisLogoVideo');
-        if (synthVideo) { try { synthVideo.pause(); } catch (_) {} }
+        if (window._synthesisVideoLoop) {
+          try { window._synthesisVideoLoop.stop(); } catch (_) {}
+          window._synthesisVideoLoop = null;
+        }
         if (synthLoading) synthLoading.style.display = 'none';
         showStep3Preview();
       } catch (renderErr) {
@@ -5001,8 +5083,10 @@ async function startAiSynthesis() {
 
   } catch (err) {
     clearAllTimers();
-    const synthVideo = document.getElementById('synthesisLogoVideo');
-    if (synthVideo) { try { synthVideo.pause(); } catch (_) {} }
+    if (window._synthesisVideoLoop) {
+      try { window._synthesisVideoLoop.stop(); } catch (_) {}
+      window._synthesisVideoLoop = null;
+    }
     console.error('AI Synthesis error:', err);
     const isTimeout = (err.name === 'AbortError' || err.message === 'Failed to fetch' || (err.message && (err.message.includes('fetch') || err.message.includes('timed out') || err.message.includes('timeout'))));
     const friendlyMsg = isTimeout
@@ -5519,6 +5603,10 @@ async function publishSynthesizedPost() {
 }
 
 window._feedLoaderStartTime = Date.now();
+try {
+  window._feedVideoLoop = setupSeamlessVideoLoop('feedLoaderVideoWrap', 'feedInitialVideoA', 'feedInitialVideoB', 0.45);
+  if (window._feedVideoLoop) window._feedVideoLoop.start();
+} catch (_) {}
 setTimeout(dismissInitialFeedLoader, 3500);
 
 if (document.readyState === 'loading') {
