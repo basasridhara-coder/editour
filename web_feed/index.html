@@ -47,8 +47,7 @@
   <div class="feed-initial-loader" id="feedInitialLoader">
     <div class="feed-loader-content">
       <div class="feed-loader-video-wrap" id="feedLoaderVideoWrap">
-        <video class="feed-loader-video active" id="feedInitialVideoA" src="/slant_logo_video.mp4" poster="/logo.png" autoplay loop muted playsinline webkit-playsinline preload="auto"></video>
-        <video class="feed-loader-video" id="feedInitialVideoB" src="/slant_logo_video.mp4" poster="/logo.png" loop muted playsinline webkit-playsinline preload="auto"></video>
+        <video class="feed-loader-video active" id="feedInitialVideo" src="/slantlogovideo.mp4" poster="/logo.png" autoplay loop muted playsinline webkit-playsinline preload="auto"></video>
       </div>
       <h3 class="feed-loader-title">Slant</h3>
       <p class="feed-loader-subtitle" id="feedLoaderSubtitle">Loading editorial feed...</p>
@@ -141,6 +140,16 @@
   <main class="feed-container" id="feedContainer">
     <!-- Rendered dynamically via app.js -->
   </main>
+
+  <!-- Feed Batch Loader (Between batches of 12) -->
+  <div class="feed-batch-loader" id="feedBatchLoader" style="display: none;">
+    <div class="feed-batch-loader-content">
+      <div class="feed-batch-video-wrap">
+        <video class="feed-batch-video" src="/slantlogovideo.mp4" poster="/logo.png" autoplay loop muted playsinline webkit-playsinline></video>
+      </div>
+      <p class="feed-batch-loader-text">Loading next editorial batch...</p>
+    </div>
+  </div>
 
   <!-- Floating Action Button for Mobile / Quick Create -->
   <button class="fab-create-btn" id="fabCreateBtn" onclick="openCreatorModal()" title="Create New Slant">
@@ -536,8 +545,7 @@
         <!-- Synthesis Loading State Overlay inside Step 2 -->
         <div class="synthesis-loading-state" id="synthesisLoadingState" style="display:none;">
           <div class="synthesis-video-wrap" id="synthesisVideoWrap">
-            <video class="synthesis-logo-video active" id="synthesisLogoVideoA" src="/slant_logo_video.mp4" poster="/logo.png" autoplay loop muted playsinline webkit-playsinline preload="auto"></video>
-            <video class="synthesis-logo-video" id="synthesisLogoVideoB" src="/slant_logo_video.mp4" poster="/logo.png" loop muted playsinline webkit-playsinline preload="auto"></video>
+            <video class="synthesis-logo-video active" id="synthesisLogoVideo" src="/slantlogovideo.mp4" poster="/logo.png" autoplay loop muted playsinline webkit-playsinline preload="auto"></video>
           </div>
           <h3 class="synthesis-loading-title">Synthesizing Editorial Deck</h3>
           <p class="synthesis-loading-subtitle" id="synthesisStepText">Reading source and distilling narrative arc...</p>

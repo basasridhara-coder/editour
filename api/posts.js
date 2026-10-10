@@ -35,13 +35,18 @@ module.exports = async function handler(req, res) {
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
 
-    // Parse limit parameter (default 6 for ultra-fast mobile load under 2s, max 10)
-    let limit = 6;
+    // Parse limit and offset parameters (default 12 for clean batched feed)
+    let limit = 12;
+    let baseOffset = 0;
     try {
       const parsedUrl = new URL(req.url, 'http://localhost');
       const qLimit = parseInt(parsedUrl.searchParams.get('limit'), 10);
       if (!isNaN(qLimit) && qLimit > 0) {
-        limit = Math.min(qLimit, 10);
+        limit = Math.min(qLimit, 24);
+      }
+      const qOffset = parseInt(parsedUrl.searchParams.get('offset'), 10);
+      if (!isNaN(qOffset) && qOffset >= 0) {
+        baseOffset = qOffset;
       }
     } catch (_) {}
 
@@ -63,12 +68,13 @@ module.exports = async function handler(req, res) {
       };
 
       let rows = [];
-      if (limit <= 5) {
-        rows = await fetchBatch(0, limit);
+      if (limit <= 6) {
+        rows = await fetchBatch(baseOffset, limit);
       } else {
+        const half = Math.ceil(limit / 2);
         const [c1, c2] = await Promise.all([
-          fetchBatch(0, 5),
-          fetchBatch(5, limit - 5)
+          fetchBatch(baseOffset, half),
+          fetchBatch(baseOffset + half, limit - half)
         ]);
         rows = [...(Array.isArray(c1) ? c1 : []), ...(Array.isArray(c2) ? c2 : [])];
       }
@@ -99,6 +105,14 @@ module.exports = async function handler(req, res) {
           if (p.aiIllustrationUrl && (p.aiIllustrationUrl.includes('photo-1518770660439') || p.aiIllustrationUrl.includes('photo-1541872703') || (!isActuallyBeach && p.aiIllustrationUrl.includes('photo-1507525428034')))) {
             p.aiIllustrationUrl = '';
           }
+
+          // Strict guarantee: Never return a post with an empty poster image
+          if (!p.illustrationUrl && !p.illustrationBase64) {
+            const promptSubject = (p.illustrationPrompt || p.heroCue || p.adaptedHeadline || 'editorial idea').slice(0, 160).replace(/["\n\r]/g, ' ').trim();
+            p.illustrationUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(promptSubject + ', cinematic editorial art, high aesthetic, vivid color grading, masterwork, no letters, no text')}?width=1080&height=1350&nologo=true`;
+            p.aiIllustrationUrl = p.illustrationUrl;
+          }
+
           return p;
         }).filter(p => p && !p.deleted && !p.isDeleted && (p.adaptedHeadline || p.originalHeadline || p.summary));
         if (posts.length > 0) {

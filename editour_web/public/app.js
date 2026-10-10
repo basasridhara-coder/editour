@@ -1061,7 +1061,7 @@ async function syncLiveCloudPosts(forceRender = false) {
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 6000);
-    const apiResp = await fetch(`/api/posts?limit=6&ts=${Date.now()}`, {
+    const apiResp = await fetch(`/api/posts?limit=12&ts=${Date.now()}`, {
       cache: 'no-store',
       signal: controller.signal
     });
@@ -1081,7 +1081,7 @@ async function syncLiveCloudPosts(forceRender = false) {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 8000);
-      const resp = await fetch(`${SUPABASE_URL}/rest/v1/posts?select=id,created_at,data&order=created_at.desc&limit=6`, {
+      const resp = await fetch(`${SUPABASE_URL}/rest/v1/posts?select=id,created_at,data&order=created_at.desc&limit=12`, {
         signal: controller.signal,
         headers: {
           'apikey': SUPABASE_KEY,
@@ -1298,10 +1298,143 @@ window.addEventListener('hashchange', () => {
     }
   }
 });
+/* ============================================================
+   BATCHED 12-POST FEED ENGINE & PRE-CACHE LOADER
+   - Feed is presented in strict, verified batches of 12
+   - While batch 1 is downloading/decoding, slantlogovideo.mp4 loops
+   - Next batch of 12 is silently pre-cached in background
+   - Bottom logo loader seamlessly displays if user scrolls before ready
+   ============================================================ */
 
-function renderFeed() {
+const FEED_BATCH_SIZE = 12;
+let currentRenderedBatch = 0;
+let currentBatchFilteredPosts = [];
+let isBatchLoading = false;
+let nextBatchPreloadPromise = null;
+let feedInfiniteScrollInitialized = false;
+
+function getPostCardImageUrl(post) {
+  if (!post) return '';
+  if (post.illustrationBase64) {
+    return post.illustrationBase64.startsWith('data:')
+      ? post.illustrationBase64
+      : `data:image/png;base64,${post.illustrationBase64}`;
+  }
+  return post.illustrationUrl || post.aiIllustrationUrl || '';
+}
+
+function preloadSingleImage(url) {
+  if (!url) return Promise.resolve(false);
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.src = url;
+    if (img.complete && img.naturalWidth > 0) return resolve(true);
+    img.onload = () => resolve(true);
+    img.onerror = () => resolve(false);
+    setTimeout(() => resolve(false), 2500); // 2.5s safety cap
+  });
+}
+
+async function preloadBatchImages(posts) {
+  if (!posts || posts.length === 0) return;
+  const urls = posts.map(getPostCardImageUrl).filter(Boolean);
+  await Promise.all(urls.map(preloadSingleImage));
+}
+
+function renderBatchCards(posts, offset = 0) {
   const container = document.getElementById('feedContainer');
+  if (!container || !posts) return;
+  posts.forEach((post, i) => {
+    const cardIndex = offset + i;
+    const card = createPostCardElement(post, cardIndex);
+    container.appendChild(card);
+    setupCarouselGestures(cardIndex);
+  });
+}
+
+async function loadNextFeedBatch() {
+  if (isBatchLoading) return;
+  if (!currentBatchFilteredPosts || currentBatchFilteredPosts.length === 0) return;
+
+  const nextStartIdx = (currentRenderedBatch + 1) * FEED_BATCH_SIZE;
+  if (nextStartIdx >= currentBatchFilteredPosts.length) {
+    const batchLoader = document.getElementById('feedBatchLoader');
+    if (batchLoader) batchLoader.style.display = 'none';
+    return;
+  }
+
+  isBatchLoading = true;
+  const nextBatch = currentBatchFilteredPosts.slice(nextStartIdx, nextStartIdx + FEED_BATCH_SIZE);
+
+  // Show bottom logo video batch loader
+  const batchLoader = document.getElementById('feedBatchLoader');
+  if (batchLoader) {
+    batchLoader.style.display = 'flex';
+    const bVid = batchLoader.querySelector('video');
+    if (bVid) {
+      try { bVid.play().catch(() => {}); } catch (_) {}
+    }
+  }
+
+  try {
+    if (nextBatchPreloadPromise) {
+      await nextBatchPreloadPromise;
+    } else {
+      await preloadBatchImages(nextBatch);
+    }
+  } catch (err) {
+    console.warn('Batch preload warning:', err);
+  }
+
+  renderBatchCards(nextBatch, nextStartIdx);
+  currentRenderedBatch++;
+
+  if (batchLoader) {
+    batchLoader.style.display = 'none';
+  }
+  isBatchLoading = false;
+
+  // Silently pre-cache upcoming batch in background
+  const upcomingStartIdx = (currentRenderedBatch + 1) * FEED_BATCH_SIZE;
+  const upcomingBatch = currentBatchFilteredPosts.slice(upcomingStartIdx, upcomingStartIdx + FEED_BATCH_SIZE);
+  if (upcomingBatch.length > 0) {
+    nextBatchPreloadPromise = preloadBatchImages(upcomingBatch);
+  } else {
+    nextBatchPreloadPromise = null;
+  }
+}
+
+function setupFeedInfiniteScroll() {
+  if (feedInfiniteScrollInitialized) return;
+  feedInfiniteScrollInitialized = true;
+
+  window.addEventListener('scroll', () => {
+    const container = document.getElementById('feedContainer');
+    if (!container) return;
+    const scrollY = window.scrollY || window.pageYOffset;
+    const windowHeight = window.innerHeight;
+    const documentHeight = document.documentElement.scrollHeight;
+    if (scrollY + windowHeight >= documentHeight - 700) {
+      loadNextFeedBatch();
+    }
+  }, { passive: true });
+}
+
+function getPostFromIndexOrId(indexOrId) {
+  if (typeof indexOrId === 'number' || (typeof indexOrId === 'string' && /^\d+$/.test(indexOrId))) {
+    const idx = parseInt(indexOrId, 10);
+    return currentBatchFilteredPosts[idx] || allPosts[idx] || null;
+  }
+  return allPosts.find(p => p && p.id === indexOrId) || null;
+}
+
+async function renderFeed() {
+  const container = document.getElementById('feedContainer');
+  if (!container) return;
   container.innerHTML = '';
+  currentRenderedBatch = 0;
+  nextBatchPreloadPromise = null;
 
   const filtered = allPosts.filter(post => {
     if (currentFilter === 'saved') {
@@ -1344,6 +1477,8 @@ function renderFeed() {
     return true;
   });
 
+  currentBatchFilteredPosts = filtered;
+
   if (filtered.length === 0) {
     if (currentFilter === 'saved') {
       container.innerHTML = `
@@ -1355,6 +1490,7 @@ function renderFeed() {
           </div>
         </div>
       `;
+      dismissInitialFeedLoader();
       return;
     }
 
@@ -1383,18 +1519,36 @@ function renderFeed() {
     return;
   }
 
-  filtered.forEach((post, index) => {
-    const card = createPostCardElement(post, index);
-    container.appendChild(card);
-    setupCarouselGestures(index);
-  });
+  // BATCH 1: Slice first 12 posts
+  const batch1 = filtered.slice(0, FEED_BATCH_SIZE);
 
-  // Pre-render top feed posters in background during idle time
-  if (typeof queueBackgroundPosterPreRender === 'function') {
-    queueBackgroundPosterPreRender(filtered);
+  // Guarantee loop video is playing while preloading Batch 1
+  const initVid = document.getElementById('feedInitialVideo') || document.getElementById('feedInitialVideoA');
+  if (initVid) {
+    try { initVid.play().catch(() => {}); } catch (_) {}
   }
 
+  // Preload all 12 poster images in Batch 1
+  try {
+    await preloadBatchImages(batch1);
+  } catch (e) {
+    console.warn('Batch 1 image preload warning:', e);
+  }
+
+  // Render Batch 1 cards
+  renderBatchCards(batch1, 0);
+
+  // Dismiss loader with smooth fade-out
   dismissInitialFeedLoader();
+
+  // Set up infinite scroll observer for subsequent batches
+  setupFeedInfiniteScroll();
+
+  // In background, pre-cache Batch 2 (cards 13 to 24)
+  const batch2 = filtered.slice(FEED_BATCH_SIZE, FEED_BATCH_SIZE * 2);
+  if (batch2.length > 0) {
+    nextBatchPreloadPromise = preloadBatchImages(batch2);
+  }
 }
 
 function setupSeamlessVideoLoop(containerId, videoAId, videoBId, crossfadeLeadSec = 0.45) {
@@ -1486,10 +1640,14 @@ function dismissInitialFeedLoader() {
     try { window._feedVideoLoop.stop(); } catch (_) {}
     window._feedVideoLoop = null;
   }
+  const initVid = document.getElementById('feedInitialVideo') || document.getElementById('feedInitialVideoA');
+  if (initVid) {
+    try { initVid.pause(); } catch (_) {}
+  }
   const loader = document.getElementById('feedInitialLoader');
   if (loader && !loader.classList.contains('fade-out')) {
     const elapsed = Date.now() - (window._feedLoaderStartTime || Date.now());
-    const remaining = Math.max(0, 750 - elapsed);
+    const remaining = Math.max(0, 600 - elapsed);
     setTimeout(() => {
       if (loader) {
         loader.classList.add('fade-out');
@@ -2543,7 +2701,7 @@ function toggleLike(btn) {
 function openDetailModal(index) {
   if (index === 'preview') return;
   activePostIndex = index;
-  const post = allPosts[index];
+  const post = getPostFromIndexOrId(index);
   if (!post) return;
 
   document.getElementById('modalAudienceBadge').textContent = '🎯 Target: ' + (post.targetAudience || 'General');
@@ -2726,6 +2884,18 @@ let isPreRendering = false;
 let currentSharePost = null;
 let currentShareFiles = null;
 
+async function fetchAsBlobUrl(url) {
+  if (!url || url.startsWith('data:') || url.startsWith('blob:')) return url;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return url;
+    const blob = await res.blob();
+    return URL.createObjectURL(blob);
+  } catch (e) {
+    return url;
+  }
+}
+
 async function capturePostSlidesAsFiles(post, index) {
   if (typeof html2canvas === 'undefined') {
     throw new Error('html2canvas library is not loaded');
@@ -2735,10 +2905,24 @@ async function capturePostSlidesAsFiles(post, index) {
   const exportWidth = 440;
   const exportHeight = 550;
 
+  // Convert poster image to local blob URL to bypass any CORS taint or delay in html2canvas
+  let exportPost = { ...post };
+  const rawPosterUrl = post.illustrationUrl || post.aiIllustrationUrl || '';
+  let createdBlobUrl = null;
+  if (!post.illustrationBase64 && rawPosterUrl) {
+    try {
+      const bUrl = await fetchAsBlobUrl(rawPosterUrl);
+      if (bUrl && bUrl !== rawPosterUrl) {
+        createdBlobUrl = bUrl;
+        exportPost.illustrationUrl = bUrl;
+      }
+    } catch (_) {}
+  }
+
   const slideConfigs = [
-    { num: 1, class: 'slide-hook', bg: '#0B0F17', html: buildSlide1Html(post, index) },
-    { num: 2, class: 'slide-critique', bg: '#0B0F17', html: buildSlide2Html(post, index) },
-    { num: 3, class: 'slide-receipt', bg: '#F7F5EE', html: buildSlide3Html(post, index) }
+    { num: 1, class: 'slide-hook', bg: '#0B0F17', html: buildSlide1Html(exportPost, index) },
+    { num: 2, class: 'slide-critique', bg: '#0B0F17', html: buildSlide2Html(exportPost, index) },
+    { num: 3, class: 'slide-receipt', bg: '#F7F5EE', html: buildSlide3Html(exportPost, index) }
   ];
 
   const rawHeadline = post.adaptedHeadline || post.originalHeadline || post.hook || 'slant';
@@ -2770,21 +2954,19 @@ async function capturePostSlidesAsFiles(post, index) {
         </div>
       `;
 
-      // Wait for images inside to load
+      // Wait for images inside to load with 4.5s safe timeout
       const imgs = Array.from(container.querySelectorAll('img'));
       await Promise.all(imgs.map(img => {
-        if (!img.src) return Promise.resolve();
-        if (img.complete && img.naturalWidth > 0) return Promise.resolve();
+        if (!img.src) return Promise.resolve(true);
+        if (img.complete && img.naturalWidth > 0) return Promise.resolve(true);
         return new Promise(res => {
-          img.onload = res;
-          img.onerror = res;
-          setTimeout(res, 600);
+          img.onload = () => res(true);
+          img.onerror = () => res(false);
+          setTimeout(() => res(false), 4500);
         });
       }));
 
-      // CRITICAL: html2canvas does not support CSS object-fit: cover, which causes human faces
-      // and backgrounds to be vertically stretched/squashed! We calculate the exact un-stretched
-      // dimensions and offsets based on natural aspect ratio to guarantee 100% natural proportions.
+      // Calculate un-stretched dimensions
       const bgImgs = container.querySelectorAll('.slide-hook-bg');
       bgImgs.forEach(img => {
         const natW = img.naturalWidth || img.width;
@@ -2793,7 +2975,6 @@ async function capturePostSlidesAsFiles(post, index) {
           const rImg = natW / natH;
           const rBox = exportWidth / exportHeight; // 440 / 550 = 0.8
           if (rImg >= rBox) {
-            // Image is wider than 4:5 (e.g. 1:1 square or 16:9 landscape)
             const rw = Math.round(exportHeight * rImg);
             const rh = exportHeight;
             const left = Math.round((exportWidth - rw) / 2);
@@ -2806,7 +2987,6 @@ async function capturePostSlidesAsFiles(post, index) {
             img.style.setProperty('max-height', 'none', 'important');
             img.style.setProperty('object-fit', 'fill', 'important');
           } else {
-            // Image is taller than 4:5 (e.g. 9:16 portrait)
             const rw = exportWidth;
             const rh = Math.round(exportWidth / rImg);
             const top = Math.round((exportHeight - rh) / 2);
@@ -2880,6 +3060,9 @@ async function capturePostSlidesAsFiles(post, index) {
   };
 
   const files = (await Promise.all(slideConfigs.map(renderSlide))).filter(Boolean);
+  if (createdBlobUrl) {
+    try { URL.revokeObjectURL(createdBlobUrl); } catch (_) {}
+  }
   return files;
 }
 
@@ -2895,8 +3078,8 @@ async function getPostSlidesFiles(post, index) {
   const renderPromise = (async () => {
     try {
       const files = await capturePostSlidesAsFiles(post, index);
-      if (files && files.length > 0) {
-        // Enforce cache limit to prevent memory bloat on mobile browsers
+      // STRICT REQUIREMENT: Only cache if all 3 files generated successfully
+      if (files && files.length === 3) {
         if (posterFilesCache.size >= 25) {
           const oldestKey = posterFilesCache.keys().next().value;
           posterFilesCache.delete(oldestKey);
@@ -2914,22 +3097,12 @@ async function getPostSlidesFiles(post, index) {
 }
 
 function queueBackgroundPosterPreRender(posts) {
-  if (!posts || posts.length === 0) return;
-  // Queue top 4 posts on initial feed load
-  const toQueue = posts.slice(0, 4);
-  toQueue.forEach((post, i) => {
-    const key = post.id || `idx-${i}`;
-    if (!posterFilesCache.has(key) && !posterRenderPromises.has(key) && !preRenderQueue.some(item => item.key === key)) {
-      preRenderQueue.push({ post, index: i, key });
-    }
-  });
-  scheduleNextPreRender();
+  // Disabled premature on-mount pre-render to avoid resource contention with feed image decoding
+  return;
 }
 
 function triggerPostPreRender(postIndex) {
-  const post = (typeof postIndex === 'number' || (typeof postIndex === 'string' && /^\d+$/.test(postIndex)))
-    ? allPosts[parseInt(postIndex, 10)]
-    : allPosts.find(p => p && p.id === postIndex);
+  const post = getPostFromIndexOrId(postIndex);
   if (!post) return;
   const key = post.id || `idx-${postIndex}`;
   if (posterFilesCache.has(key) || posterRenderPromises.has(key)) return;
@@ -2969,9 +3142,7 @@ function scheduleNextPreRender() {
 }
 
 async function sharePosters(indexOrId) {
-  const post = (typeof indexOrId === 'number' || (typeof indexOrId === 'string' && /^\d+$/.test(indexOrId)))
-    ? allPosts[parseInt(indexOrId, 10)]
-    : allPosts.find(p => p && p.id === indexOrId);
+  const post = getPostFromIndexOrId(indexOrId);
 
   if (!post) {
     showTemporaryToast('Post not found to share');
@@ -3128,9 +3299,7 @@ window.closeSharePostersModal = closeSharePostersModal;
 window.downloadShareFiles = downloadShareFiles;
 
 function openPaperCutModal(indexOrId) {
-  const post = (typeof indexOrId === 'number' || (typeof indexOrId === 'string' && /^\d+$/.test(indexOrId)))
-    ? allPosts[parseInt(indexOrId, 10)]
-    : allPosts.find(p => p && p.id === indexOrId);
+  const post = getPostFromIndexOrId(indexOrId);
   if (!post) return;
 
   const imgEl = document.getElementById('paperCutImg');
@@ -5142,11 +5311,12 @@ async function startAiSynthesis() {
   if (cuesContent) cuesContent.style.display = 'none';
   if (synthLoading) {
     synthLoading.style.display = 'flex';
-    if (!window._synthesisVideoLoop) {
-      window._synthesisVideoLoop = setupSeamlessVideoLoop('synthesisVideoWrap', 'synthesisLogoVideoA', 'synthesisLogoVideoB', 0.45);
-    }
-    if (window._synthesisVideoLoop) {
-      window._synthesisVideoLoop.start();
+    const sVid = document.getElementById('synthesisLogoVideo') || document.getElementById('synthesisLogoVideoA');
+    if (sVid) {
+      try {
+        sVid.currentTime = 0;
+        sVid.play().catch(() => {});
+      } catch (_) {}
     }
   }
 
@@ -5323,9 +5493,9 @@ async function startAiSynthesis() {
 
     setTimeout(() => {
       try {
-        if (window._synthesisVideoLoop) {
-          try { window._synthesisVideoLoop.stop(); } catch (_) {}
-          window._synthesisVideoLoop = null;
+        const sVid = document.getElementById('synthesisLogoVideo') || document.getElementById('synthesisLogoVideoA');
+        if (sVid) {
+          try { sVid.pause(); } catch (_) {}
         }
         if (synthLoading) synthLoading.style.display = 'none';
         showStep3Preview();
@@ -5339,9 +5509,9 @@ async function startAiSynthesis() {
 
   } catch (err) {
     clearAllTimers();
-    if (window._synthesisVideoLoop) {
-      try { window._synthesisVideoLoop.stop(); } catch (_) {}
-      window._synthesisVideoLoop = null;
+    const sVid = document.getElementById('synthesisLogoVideo') || document.getElementById('synthesisLogoVideoA');
+    if (sVid) {
+      try { sVid.pause(); } catch (_) {}
     }
     console.error('AI Synthesis error:', err);
     const isTimeout = (err.name === 'AbortError' || err.message === 'Failed to fetch' || (err.message && (err.message.includes('fetch') || err.message.includes('timed out') || err.message.includes('timeout'))));
@@ -5858,10 +6028,14 @@ async function publishSynthesizedPost() {
 
 window._feedLoaderStartTime = Date.now();
 try {
-  window._feedVideoLoop = setupSeamlessVideoLoop('feedLoaderVideoWrap', 'feedInitialVideoA', 'feedInitialVideoB', 0.45);
-  if (window._feedVideoLoop) window._feedVideoLoop.start();
+  const initVid = document.getElementById('feedInitialVideo') || document.getElementById('feedInitialVideoA');
+  if (initVid) {
+    initVid.currentTime = 0;
+    const playPromise = initVid.play();
+    if (playPromise !== undefined) playPromise.catch(() => {});
+  }
 } catch (_) {}
-setTimeout(dismissInitialFeedLoader, 3500);
+setTimeout(dismissInitialFeedLoader, 6000);
 
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', init);

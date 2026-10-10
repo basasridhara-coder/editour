@@ -8431,3 +8431,59 @@ header {
   border-radius: 20px;
   display: block;
 }
+
+/* Bottom Batch Loader for Batched Feed of 12 */
+.feed-batch-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 36px 16px 56px;
+  width: 100%;
+  animation: fadeInBatch 0.3s ease;
+}
+
+.feed-batch-loader-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.feed-batch-video-wrap {
+  width: 76px;
+  height: 76px;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 10px 28px -6px rgba(99, 102, 241, 0.4), 0 0 0 1px rgba(99, 102, 241, 0.25);
+  background: var(--bg-card, #FFFFFF);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+[data-theme="obsidian"] .feed-batch-video-wrap {
+  background: #0D1527;
+  box-shadow: 0 12px 32px -6px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(99, 102, 241, 0.35);
+}
+
+.feed-batch-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 20px;
+  display: block;
+}
+
+.feed-batch-loader-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.2px;
+  margin: 0;
+}
+
+@keyframes fadeInBatch {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
