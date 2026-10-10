@@ -8451,11 +8451,11 @@ header {
 }
 
 .feed-batch-video-wrap {
-  width: 76px;
-  height: 76px;
-  border-radius: 20px;
+  width: 108px;
+  height: 108px;
+  border-radius: 26px;
   overflow: hidden;
-  box-shadow: 0 10px 28px -6px rgba(99, 102, 241, 0.4), 0 0 0 1px rgba(99, 102, 241, 0.25);
+  box-shadow: 0 14px 34px -6px rgba(99, 102, 241, 0.45), 0 0 0 1px rgba(99, 102, 241, 0.25);
   background: var(--bg-card, #FFFFFF);
   display: flex;
   align-items: center;
@@ -8464,19 +8464,19 @@ header {
 
 [data-theme="obsidian"] .feed-batch-video-wrap {
   background: #0D1527;
-  box-shadow: 0 12px 32px -6px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(99, 102, 241, 0.35);
+  box-shadow: 0 16px 40px -6px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(99, 102, 241, 0.35);
 }
 
 .feed-batch-video {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  border-radius: 20px;
+  border-radius: 26px;
   display: block;
 }
 
 .feed-batch-loader-text {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--text-muted);
   letter-spacing: 0.2px;
@@ -8486,4 +8486,104 @@ header {
 @keyframes fadeInBatch {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+/* Batch End Barrier (Swipe Blocked at Post 12) */
+.feed-batch-end-barrier {
+  width: 100%;
+  max-width: 580px;
+  margin: 32px auto 60px;
+  padding: 0 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.batch-barrier-card {
+  width: 100%;
+  background: var(--bg-card, #FFFFFF);
+  border: 1px solid var(--border-subtle, rgba(0, 0, 0, 0.08));
+  border-radius: 24px;
+  padding: 28px 20px;
+  box-shadow: 0 12px 36px -8px rgba(0, 0, 0, 0.06);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  box-sizing: border-box;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+[data-theme="obsidian"] .batch-barrier-card {
+  background: #0D1527;
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 16px 40px -10px rgba(0, 0, 0, 0.7);
+}
+
+.batch-barrier-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: #6366F1;
+  background: rgba(99, 102, 241, 0.1);
+  padding: 5px 14px;
+  border-radius: 999px;
+}
+
+.batch-barrier-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 4px 0 0;
+  letter-spacing: -0.3px;
+}
+
+.batch-barrier-sub {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 0;
+  max-width: 320px;
+  line-height: 1.45;
+}
+
+.batch-barrier-action-btn {
+  margin-top: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: #111827;
+  color: #FFFFFF;
+  border: none;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 13px 28px;
+  border-radius: 999px;
+  cursor: pointer;
+  box-shadow: 0 8px 24px -4px rgba(17, 24, 39, 0.35);
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+[data-theme="obsidian"] .batch-barrier-action-btn {
+  background: #6366F1;
+  box-shadow: 0 8px 24px -4px rgba(99, 102, 241, 0.45);
+}
+
+.batch-barrier-action-btn:active {
+  transform: scale(0.96);
+}
+
+.batch-barrier-arrow {
+  display: inline-block;
+  transition: transform 0.2s ease;
+}
+
+.batch-barrier-action-btn:hover .batch-barrier-arrow {
+  transform: translateX(3px);
 }

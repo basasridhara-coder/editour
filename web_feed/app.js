@@ -1406,19 +1406,57 @@ function renderBatchCards(posts, offset = 0) {
   });
 }
 
-async function loadNextFeedBatch() {
+let isNextBatchReady = false;
+let swipeBlockedListenerAttached = false;
+
+function appendBatchEndBarrier(batchIndex, currentCount, totalCount) {
+  const container = document.getElementById('feedContainer');
+  if (!container) return;
+
+  const existing = document.getElementById('feedBatchEndBarrier');
+  if (existing) existing.remove();
+
+  const barrier = document.createElement('div');
+  barrier.className = 'feed-batch-end-barrier';
+  barrier.id = 'feedBatchEndBarrier';
+
+  if (currentCount >= totalCount) {
+    barrier.innerHTML = `
+      <div class="batch-barrier-card">
+        <div class="batch-barrier-pill">✦ ALL STORIES CAUGHT UP ✦</div>
+        <h4 class="batch-barrier-title">You've reached the end of the feed</h4>
+        <p class="batch-barrier-sub">All ${totalCount} original editorial stories have been read. Check back soon for new slants!</p>
+      </div>
+    `;
+  } else {
+    barrier.innerHTML = `
+      <div class="batch-barrier-card">
+        <div class="batch-barrier-pill">✦ BATCH ${batchIndex + 1} COMPLETE (${currentCount} OF ${totalCount} STORIES) ✦</div>
+        <h4 class="batch-barrier-title">Swipe up to load next 12 stories</h4>
+        <p class="batch-barrier-sub">The next set of 12 original editorial postcards is ready.</p>
+        <button class="batch-barrier-action-btn" id="loadNextBatchBtn" onclick="triggerNextFeedBatch()">
+          <span>Load Next 12 Stories</span>
+          <span class="batch-barrier-arrow">➔</span>
+        </button>
+      </div>
+    `;
+  }
+  container.appendChild(barrier);
+}
+
+async function triggerNextFeedBatch() {
   if (isBatchLoading) return;
   if (!currentBatchFilteredPosts || currentBatchFilteredPosts.length === 0) return;
 
   const nextStartIdx = (currentRenderedBatch + 1) * FEED_BATCH_SIZE;
   if (nextStartIdx >= currentBatchFilteredPosts.length) {
-    const batchLoader = document.getElementById('feedBatchLoader');
-    if (batchLoader) batchLoader.style.display = 'none';
+    showTemporaryToast('You are all caught up! ✨');
     return;
   }
 
   isBatchLoading = true;
   const nextBatch = currentBatchFilteredPosts.slice(nextStartIdx, nextStartIdx + FEED_BATCH_SIZE);
+  const wasAlreadyReady = isNextBatchReady;
 
   // Show bottom logo video batch loader
   const batchLoader = document.getElementById('feedBatchLoader');
@@ -1426,50 +1464,120 @@ async function loadNextFeedBatch() {
     batchLoader.style.display = 'flex';
     const bVid = batchLoader.querySelector('video');
     if (bVid) {
-      try { bVid.play().catch(() => {}); } catch (_) {}
+      try {
+        bVid.currentTime = 0;
+        const p = bVid.play();
+        if (p !== undefined) p.catch(() => {});
+      } catch (_) {}
     }
   }
 
+  // If next batch was NOT ready, logo video keeps looping until ALL 12 are loaded!
   try {
     if (nextBatchPreloadPromise) {
       await nextBatchPreloadPromise;
     } else {
-      await preloadBatchImages(nextBatch);
+      await preloadBatchImages(nextBatch, 15000);
+    }
+    // If it had to wait on network, give smooth 1.2s minimum loop transition so it doesn't jerk
+    if (!wasAlreadyReady) {
+      await new Promise(r => setTimeout(r, 1200));
     }
   } catch (err) {
     console.warn('Batch preload warning:', err);
   }
 
+  // Remove old barrier
+  const oldBarrier = document.getElementById('feedBatchEndBarrier');
+  if (oldBarrier) oldBarrier.remove();
+
+  // Hide batch video loader
+  if (batchLoader) {
+    batchLoader.style.display = 'none';
+    const bVid = batchLoader.querySelector('video');
+    if (bVid) {
+      try { bVid.pause(); } catch (_) {}
+    }
+  }
+
+  // Render the next 12 cards
   renderBatchCards(nextBatch, nextStartIdx);
   currentRenderedBatch++;
 
-  if (batchLoader) {
-    batchLoader.style.display = 'none';
-  }
+  // Place the new barrier at the end of this batch
+  appendBatchEndBarrier(currentRenderedBatch, Math.min((currentRenderedBatch + 1) * FEED_BATCH_SIZE, currentBatchFilteredPosts.length), currentBatchFilteredPosts.length);
+
   isBatchLoading = false;
+  isNextBatchReady = false;
+
+  // Smoothly scroll to the first card of the new batch
+  const firstNewCard = document.getElementById(`post-card-${nextStartIdx}`);
+  if (firstNewCard) {
+    firstNewCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 
   // Silently pre-cache upcoming batch in background
   const upcomingStartIdx = (currentRenderedBatch + 1) * FEED_BATCH_SIZE;
   const upcomingBatch = currentBatchFilteredPosts.slice(upcomingStartIdx, upcomingStartIdx + FEED_BATCH_SIZE);
   if (upcomingBatch.length > 0) {
-    nextBatchPreloadPromise = preloadBatchImages(upcomingBatch);
+    nextBatchPreloadPromise = preloadBatchImages(upcomingBatch, 15000).then(() => {
+      isNextBatchReady = true;
+    });
   } else {
     nextBatchPreloadPromise = null;
   }
 }
 
-function setupFeedInfiniteScroll() {
-  if (feedInfiniteScrollInitialized) return;
-  feedInfiniteScrollInitialized = true;
+// Global alias for compatibility
+const loadNextFeedBatch = triggerNextFeedBatch;
 
-  window.addEventListener('scroll', () => {
-    const container = document.getElementById('feedContainer');
-    if (!container) return;
+function setupSwipeBlockedListener() {
+  if (swipeBlockedListenerAttached) return;
+  swipeBlockedListenerAttached = true;
+
+  let touchStartY = 0;
+  let isTriggering = false;
+
+  window.addEventListener('touchstart', (e) => {
+    if (e.touches && e.touches[0]) {
+      touchStartY = e.touches[0].clientY;
+    }
+  }, { passive: true });
+
+  window.addEventListener('touchmove', (e) => {
+    if (isBatchLoading || isTriggering) return;
+    const barrier = document.getElementById('feedBatchEndBarrier');
+    if (!barrier) return;
+
     const scrollY = window.scrollY || window.pageYOffset;
     const windowHeight = window.innerHeight;
     const documentHeight = document.documentElement.scrollHeight;
-    if (scrollY + windowHeight >= documentHeight - 700) {
-      loadNextFeedBatch();
+    const isAtBottom = (scrollY + windowHeight >= documentHeight - 50);
+
+    if (isAtBottom && e.touches && e.touches[0]) {
+      const currentY = e.touches[0].clientY;
+      const diff = touchStartY - currentY; // positive = dragged up against bottom block
+      if (diff > 50) {
+        isTriggering = true;
+        triggerNextFeedBatch();
+        setTimeout(() => { isTriggering = false; }, 1500);
+      }
+    }
+  }, { passive: true });
+
+  // On desktop / trackpad: wheel scroll past bottom
+  window.addEventListener('wheel', (e) => {
+    if (isBatchLoading || isTriggering || e.deltaY <= 25) return;
+    const barrier = document.getElementById('feedBatchEndBarrier');
+    if (!barrier) return;
+
+    const scrollY = window.scrollY || window.pageYOffset;
+    const windowHeight = window.innerHeight;
+    const documentHeight = document.documentElement.scrollHeight;
+    if (scrollY + windowHeight >= documentHeight - 30) {
+      isTriggering = true;
+      triggerNextFeedBatch();
+      setTimeout(() => { isTriggering = false; }, 1500);
     }
   }, { passive: true });
 }
@@ -1601,19 +1709,27 @@ async function renderFeed(isInitial = false) {
     }
   }
 
-  // Render Batch 1 cards
+  // Render Batch 1 cards (strictly 12 posts)
   renderBatchCards(batch1, 0);
+
+  // Strictly append Batch End Barrier directly below the 12th card (posts end at 12!)
+  appendBatchEndBarrier(0, batch1.length, filtered.length);
 
   // Smoothly fade out initial logo video loader now that all 12 posters are ready
   dismissInitialFeedLoader();
 
-  // Set up infinite scroll observer for subsequent batches
-  setupFeedInfiniteScroll();
+  // Attach swipe blocked trigger listener
+  setupSwipeBlockedListener();
 
-  // In background, pre-cache Batch 2 (cards 13 to 24)
+  // In background, pre-cache Batch 2 (cards 12 to 23)
   const batch2 = filtered.slice(FEED_BATCH_SIZE, FEED_BATCH_SIZE * 2);
   if (batch2.length > 0) {
-    nextBatchPreloadPromise = preloadBatchImages(batch2, 10000);
+    isNextBatchReady = false;
+    nextBatchPreloadPromise = preloadBatchImages(batch2, 15000).then(() => {
+      isNextBatchReady = true;
+    });
+  } else {
+    nextBatchPreloadPromise = null;
   }
 }
 
