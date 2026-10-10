@@ -494,9 +494,9 @@ function renderLoginPostsPreview() {
           </div>
         </div>
 
-        <!-- Poster 3: The Primary Receipts -->
-        <div class="login-poster-col poster-receipts" onclick="previewPostFromLogin('${post.id}')" title="Poster 3: The Receipts • Click to read in feed">
-          <span class="login-poster-label">03 • RECEIPTS</span>
+        <!-- Poster 3: Slant Minute (1-Min Read) -->
+        <div class="login-poster-col poster-receipts" onclick="previewPostFromLogin('${post.id}')" title="Poster 3: Slant Minute (1-Min Read) • Click to read in feed">
+          <span class="login-poster-label">03 • SLANT MINUTE</span>
           <div class="carousel-slide slide-receipt">
             ${slide3Content}
           </div>
@@ -2256,7 +2256,7 @@ function buildSlide3Html(post, index) {
   const tier = getSourceTier(post);
   const cleanHost = getCleanDomain(post.digitalLink);
   const handle = escapeHtml(post.creatorHandle || '@curator');
-  const slantIcon = post.slantIcon || (post.slantTone === 'heart' ? '❤️' : '💭');
+  const slantIcon = (post.slantIcon && post.slantIcon !== '💭') ? post.slantIcon : (post.slantTone === 'heart' ? '❤️' : '🧠');
 
   let pubName = post.publicationName || 'THE FINANCIAL CHRONICLE';
   if (pubName.includes('•')) {
@@ -2265,16 +2265,14 @@ function buildSlide3Html(post, index) {
   }
   pubName = pubName.replace(/^(NEWSPAPER|ARTICLE|BOOK|MAGAZINE|PRESS):\s*/i, '').trim();
   if (!pubName) pubName = 'THE NEW INDIAN EXPRESS';
-  pubName = escapeHtml(pubName.toUpperCase());
+  const cleanPubUpper = escapeHtml(pubName.toUpperCase());
 
   const headline = escapeHtml(
     (tier === 'tier3_opinion'
       ? (post.adaptedHeadline || post.originalHeadline)
-      : (post.originalHeadline || post.adaptedHeadline)) || 'Original News Source'
+      : (post.originalHeadline || post.adaptedHeadline)) || 'Curated Editorial'
   );
-  const quote = escapeHtml(post.receiptHighlightQuote || post.pullQuote || 'Primary reporting confirmed that recorded structural indicators diverged sharply from initial forecasts across core operations.');
 
-  // Clean any residual label prefixes like "The spark:", "Curator stance:"
   const cleanExcerpt = (txt) => {
     if (!txt) return '';
     return String(txt)
@@ -2283,92 +2281,59 @@ function buildSlide3Html(post, index) {
       .trim();
   };
 
-  // Extract 3 section excerpt statements
+  // 1. Curator's Conviction / Stance
+  const curatorTake = cleanExcerpt(post.curatorTake || post.spark || post.pullQuote || post.hook || '');
+
+  // 2. Extract synthesis paragraphs from summary or spark
+  let summaryParas = [];
+  if (post.summary && typeof post.summary === 'string') {
+    summaryParas = post.summary.split(/\n\s*\n/).map(p => cleanExcerpt(p)).filter(p => p.length > 15);
+  }
+  if (summaryParas.length === 0 && post.summary) {
+    summaryParas = [cleanExcerpt(post.summary)];
+  }
+
+  // Lead paragraph with broadsheet dropcap
+  const leadRaw = summaryParas[0] || post.spark || 'Primary reporting confirmed recorded structural indicators diverged sharply from initial forecasts across core operations.';
+  const firstChar = leadRaw.charAt(0).toUpperCase();
+  const restLead = leadRaw.slice(1);
+  const leadHtml = `<p class="receipt-p1"><span class="broadsheet-dropcap">${escapeHtml(firstChar)}</span>${escapeHtml(restLead)}</p>`;
+
+  // Curator Stance Box (if available and distinct from lead)
+  let curatorBoxHtml = '';
+  if (curatorTake && !leadRaw.includes(curatorTake.slice(0, 30))) {
+    curatorBoxHtml = `
+      <div class="slant-minute-take-box">
+        <div class="slant-take-label">${slantIcon} CURATOR'S CONVICTION</div>
+        <div class="slant-take-quote">“${escapeHtml(curatorTake)}”</div>
+      </div>
+    `;
+  }
+
+  // Source context & reporting excerpts
   let excerpts = post.resolvedArticleExcerpts || post.articleExcerpts || [];
   if (!Array.isArray(excerpts) || excerpts.length === 0) {
-    if (post.summary) {
-      const extra = post.summary.split(/\n\s*\n/).map(p => p.trim()).filter(p => p.length > 20);
-      excerpts = [...extra];
+    if (summaryParas.length > 1) {
+      excerpts = summaryParas.slice(1);
     }
   }
-  const p1 = escapeHtml(cleanExcerpt((excerpts.length > 0 && excerpts[0]) ? excerpts[0] : quote));
-  const p2 = escapeHtml(cleanExcerpt((excerpts.length > 1 && excerpts[1]) ? excerpts[1] : ((post.receiptHighlightQuote && post.receiptHighlightQuote !== p1) ? post.receiptHighlightQuote : quote)));
-  const p3 = escapeHtml(cleanExcerpt((excerpts.length > 2 && excerpts[2]) ? excerpts[2] : (post.summary && post.summary !== p1 && post.summary !== p2 ? post.summary : 'Corroborating records confirmed key indicators aligned with official administrative filings.')));
 
-  // Tier-specific broadsheet configurations:
-  let stampHtml = '';
-  let mastheadTitle = pubName;
-  let rulesCenter = 'ACTUAL NEWSPAPER EXCERPTS';
-  let rulesLeft = 'VOL. CLXXIV • NO. 48,210';
-  let bylineLeft = 'BY SPECIAL CORRESPONDENT & WIRE BUREAU';
-  let bylineTag = '<span class="receipts-archive-tag">VERIFIED ARCHIVE</span>';
-  let highlightIcon = '✏️';
-  let highlightTitle = 'KEY SECTION EXCERPT';
-  let folioSource = 'AUTHENTIC ARTICLE EXCERPTS • PRIMARY SOURCE';
-  let folioAuthor = `ARCHIVED BY ${handle}`;
-
-  if (tier === 'tier1_press') {
-    stampHtml = `
-      <div class="stamp-verified">
-        <div>★ VERIFIED ★</div>
-        <div>PRESS ARCHIVE</div>
-      </div>
-    `;
-    mastheadTitle = pubName;
-    rulesCenter = 'ACTUAL NEWSPAPER EXCERPTS';
-    rulesLeft = 'VOL. CLXXIV • NO. 48,210';
-    bylineLeft = 'BY SPECIAL CORRESPONDENT & WIRE BUREAU';
-    bylineTag = '<span class="receipts-archive-tag">VERIFIED ARCHIVE</span>';
-    highlightTitle = 'KEY SECTION EXCERPT';
-    folioSource = 'AUTHENTIC ARTICLE EXCERPTS • PRIMARY SOURCE';
-    folioAuthor = `ARCHIVED BY ${handle}`;
-  } else if (tier === 'tier2_web') {
-    stampHtml = `
-      <div class="stamp-web-citation">
-        <div>🌐 WEB</div>
-        <div>COMMENTARY</div>
-      </div>
-    `;
-    mastheadTitle = cleanHost ? `${escapeHtml(cleanHost.toUpperCase())} • WEB COMMENTARY` : 'WEB COMMENTARY';
-    rulesCenter = 'WEB COMMENTARY & CITATION';
-    rulesLeft = 'ONLINE CITATION';
-    bylineLeft = `SOURCED FROM ${escapeHtml(cleanHost || 'ONLINE PUBLICATION')}`;
-    bylineTag = '<span class="receipts-web-tag">WEB COMMENTARY</span>';
-    highlightTitle = 'KEY ARTICLE EXCERPT';
-    folioSource = 'DIGITAL COMMENTARY CITATION • EXTERNAL LINK';
-    folioAuthor = `CURATED BY ${handle}`;
-  } else if (tier === 'tier3_opinion') {
-    stampHtml = `
-      <div class="stamp-opinion">
-        <div>${slantIcon} PERSONAL TAKE</div>
-        <div>INNER VOICE</div>
-      </div>
-    `;
-    mastheadTitle = `INNER VOICE`;
-    rulesCenter = post.slantTone === 'heart' ? 'OUT OF HEART • PERSONAL ESSAY' : 'OUT OF MIND • PERSONAL ESSAY';
-    rulesLeft = 'FIRST-PERSON REFLECTION';
-    bylineLeft = `AUTHORED BY ${handle}`;
-    bylineTag = '<span class="receipts-opinion-tag">PERSONAL PERSPECTIVE</span>';
-    highlightIcon = slantIcon;
-    highlightTitle = 'THE CORE CONVICTION';
-    folioSource = 'FIRST-PERSON REFLECTION';
-    folioAuthor = `BY ${handle}`;
-  } else if (tier === 'tier_book') {
-    stampHtml = `
-      <div class="stamp-book">
-        <div>📖 LITERARY</div>
-        <div>EXCERPT</div>
-      </div>
-    `;
-    mastheadTitle = 'CLASSIC LITERATURE ARCHIVE';
-    rulesCenter = escapeHtml((post.bookTitle || 'LITERARY EXCERPT').toUpperCase());
-    rulesLeft = 'CANONICAL FOLIO';
-    bylineLeft = `WRITTEN BY ${escapeHtml((post.bookAuthor || 'MARCUS AURELIUS').toUpperCase())}`;
-    bylineTag = '<span class="receipts-book-tag">BOOK EXCERPT</span>';
-    highlightIcon = '📖';
-    highlightTitle = 'CORE PASSAGE';
-    folioSource = 'LITERARY EXCERPT • CLASSICAL ARCHIVE';
-    folioAuthor = `EXCERPTED BY ${handle}`;
+  let excerptsHtml = '';
+  if (Array.isArray(excerpts) && excerpts.length > 0) {
+    const p2Text = cleanExcerpt(excerpts[0]);
+    if (p2Text && !leadRaw.includes(p2Text.slice(0, 30)) && !curatorTake.includes(p2Text.slice(0, 30))) {
+      excerptsHtml += `<p class="receipt-p3">${escapeHtml(p2Text)}</p>`;
+    }
+    if (excerpts.length > 1) {
+      const p3Text = cleanExcerpt(excerpts[1]);
+      if (p3Text && p3Text !== p2Text) {
+        excerptsHtml += `<p class="receipt-p3">${escapeHtml(p3Text)}</p>`;
+      }
+    }
+  } else if (summaryParas.length > 1) {
+    summaryParas.slice(1, 3).forEach(sp => {
+      excerptsHtml += `<p class="receipt-p3">${escapeHtml(sp)}</p>`;
+    });
   }
 
   // Evidentiary metric badge
@@ -2376,7 +2341,7 @@ function buildSlide3Html(post, index) {
   if (post.keyMetric && String(post.keyMetric).trim()) {
     metricHtml = `
       <div class="receipt-metric-row">
-        <span class="receipt-metric-badge">KEY METRIC</span>
+        <span class="receipt-metric-badge">RECORDED METRIC</span>
         <span class="receipt-metric-val">${escapeHtml(String(post.keyMetric).trim())}</span>
       </div>
     `;
@@ -2386,12 +2351,12 @@ function buildSlide3Html(post, index) {
   let takeawaysHtml = '';
   const takeaways = Array.isArray(post.keyTakeaways) ? post.keyTakeaways.filter(Boolean) : [];
   if (takeaways.length > 0) {
-    const topTakeaways = takeaways.slice(0, 2);
+    const topTakeaways = takeaways.slice(0, 3);
     takeawaysHtml = `
       <div class="receipt-takeaways-card">
         <div class="takeaways-header">
           <span class="takeaways-icon">⚖️</span>
-          <span class="takeaways-title">${tier === 'tier3_opinion' ? 'CURATOR CONVICTIONS' : 'EVIDENTIARY TAKEAWAYS'}</span>
+          <span class="takeaways-title">${tier === 'tier3_opinion' ? 'CURATOR CONVICTIONS' : 'KEY TAKEAWAYS'}</span>
         </div>
         <div class="takeaways-list">
           ${topTakeaways.map(t => {
@@ -2420,63 +2385,65 @@ function buildSlide3Html(post, index) {
   }
 
   return `
-    ${stampHtml}
-
-    <!-- 4-Corner Branding Top Row: Top-Left Logo + Brand, Top-Right Creator + Slide -->
-    <div class="receipt-brand-corner-bar">
-      <div class="receipt-corner-brand">
-        <img src="/logo.png" class="receipt-corner-logo" alt="Slant">
-        <span class="receipt-brand-text">SLANT</span>
-      </div>
-      <div class="receipt-corner-creator">
-        <span class="receipt-creator-name">${handle}</span>
-        <span class="receipt-corner-slide-num">03 / 03</span>
-      </div>
-    </div>
-
-    <!-- 1. Classic Broadsheet Masthead Header -->
-    <div class="receipt-header">
-      <div class="receipt-masthead-thick"></div>
-      <div class="receipt-masthead-thin"></div>
-      <div class="receipt-pub-title">${mastheadTitle}</div>
-      <div class="receipt-rules">
-        <span>${rulesLeft}</span>
-        <span class="receipt-rules-center">${rulesCenter}</span>
-        <span>VERIFIED ARCHIVE</span>
-      </div>
-      <div class="receipt-masthead-bottom"></div>
-    </div>
-    
-    <!-- 2. Original Article Headline & Wire Byline -->
-    <div class="receipts-headline-box">
-      <h4 class="receipt-headline">${headline}</h4>
-      <div class="receipts-byline">
-        <span>${bylineLeft}</span>
-        ${bylineTag}
-      </div>
-      <div class="receipts-hairline"></div>
-    </div>
-
-    <!-- 3. Continuous Actual Newspaper Excerpts & Evidentiary Findings -->
-    <div class="receipt-paragraphs">
-      ${metricHtml}
-      <p class="receipt-p1">${p1}</p>
-      <div class="receipt-highlight">
-        <div class="highlighter-label">
-          <span>${highlightIcon}</span> ${highlightTitle}
+    <div class="slant-minute-scroll-viewport" onscroll="window._lastSlantMinuteScroll = Date.now()">
+      <!-- 4-Corner Branding Top Row: Top-Left Logo + Brand, Top-Right Creator + Slide -->
+      <div class="receipt-brand-corner-bar">
+        <div class="receipt-corner-brand">
+          <img src="/logo.png" class="receipt-corner-logo" alt="Slant">
+          <span class="receipt-brand-text">SLANT MINUTE</span>
         </div>
-        <div class="highlighter-text">“${p2}”</div>
+        <div class="receipt-corner-creator">
+          <span class="receipt-creator-name">${handle}</span>
+          <span class="receipt-corner-slide-num">⏱️ 1-MIN • 03 / 03</span>
+        </div>
       </div>
-      ${(p3 && p3 !== p1 && p3 !== p2) ? `<p class="receipt-p3">${p3}</p>` : ''}
-      ${takeawaysHtml}
-    </div>
 
-    <!-- 4. Broadsheet Archival Bottom Folio (Bottom-Left: slant.today | Bottom-Right: Your conviction in 3 frames) -->
-    <div class="receipt-footer">
-      <div class="receipt-folio-rule"></div>
-      <div class="receipt-folio-text" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-        <span class="receipt-folio-source" style="font-weight: 800; letter-spacing: 0.8px; color: #0F172A;">slant.today</span>
-        <span class="receipt-folio-author" style="font-style: italic; letter-spacing: 0.4px; color: #475569;">Your conviction in 3 frames</span>
+      <!-- 1. Classic Broadsheet Masthead Header -->
+      <div class="receipt-header">
+        <div class="receipt-masthead-thick"></div>
+        <div class="receipt-masthead-thin"></div>
+        <div class="receipt-pub-title">SLANT MINUTE</div>
+        <div class="receipt-rules">
+          <span>VOL. I • NO. 1</span>
+          <span class="receipt-rules-center">CURATED EDITORIAL SYNTHESIS</span>
+          <span>60-SEC BROADSHEET</span>
+        </div>
+        <div class="receipt-masthead-bottom"></div>
+      </div>
+      
+      <!-- 2. Story Headline & Editorial Byline -->
+      <div class="receipts-headline-box">
+        <h4 class="receipt-headline">${headline}</h4>
+        <div class="receipts-byline">
+          <span>BY ${handle} • SOURCE: ${cleanPubUpper}</span>
+          <span class="receipts-archive-tag">SYNTHESIS</span>
+        </div>
+        <div class="receipts-hairline"></div>
+      </div>
+
+      <!-- 3. Synthesized Editorial Content: Lead + Curator Take + Source Excerpts + Takeaways -->
+      <div class="receipt-paragraphs" style="overflow: visible;">
+        ${metricHtml}
+        ${leadHtml}
+        ${curatorBoxHtml}
+        ${excerptsHtml}
+        ${takeawaysHtml}
+      </div>
+
+      <!-- 4. Primary Source Proof Vault Invitation Button -->
+      <div class="slant-minute-proof-invite">
+        <button type="button" class="slant-minute-inspect-btn" onclick="event.stopPropagation(); openDetailModal('${index}')">
+          <span>🏛️ Inspect Source Proof & Artifacts ↗</span>
+        </button>
+      </div>
+
+      <!-- 5. Broadsheet Archival Bottom Folio -->
+      <div class="receipt-footer">
+        <div class="receipt-folio-rule"></div>
+        <div class="receipt-folio-text" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+          <span class="receipt-folio-source" style="font-weight: 800; letter-spacing: 0.8px; color: #0F172A;">slant.today</span>
+          <span class="receipt-folio-author" style="font-style: italic; letter-spacing: 0.4px; color: #475569;">Your conviction in 3 frames • Scroll broadsheet ↕</span>
+        </div>
       </div>
     </div>
   `;
@@ -2814,6 +2781,9 @@ function setupCarouselGestures(postIndex) {
     isSwiping = false;
     const diffX = e.changedTouches[0].clientX - startX;
     const diffY = e.changedTouches[0].clientY - startY;
+    if (Math.abs(diffX) > 10 || Math.abs(diffY) > 10) {
+      window._justSwipedCarousel = Date.now();
+    }
     if (Math.abs(diffX) > 35 && Math.abs(diffX) > Math.abs(diffY)) {
       if (diffX < 0) {
         changeSlide(null, postIndex, 1);
@@ -2837,6 +2807,9 @@ function setupCarouselGestures(postIndex) {
     isMouseDown = false;
     const diffX = e.clientX - startX;
     const diffY = e.clientY - startY;
+    if (Math.abs(diffX) > 10 || Math.abs(diffY) > 10) {
+      window._justSwipedCarousel = Date.now();
+    }
     if (Math.abs(diffX) > 35 && Math.abs(diffX) > Math.abs(diffY)) {
       if (diffX < 0) {
         changeSlide(null, postIndex, 1);
@@ -2885,49 +2858,289 @@ document.addEventListener('click', (e) => {
    MODALS & ACTIONS
    ============================================================ */
 
+function getYouTubeEmbedUrl(url) {
+  if (!url) return null;
+  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+  const match = String(url).match(regExp);
+  return (match && match[2].length === 11) ? `https://www.youtube.com/embed/${match[2]}` : null;
+}
+
 function openDetailModal(index) {
   if (index === 'preview') return;
+  // Guard against accidental opening while scrolling the Slant Minute broadsheet or swiping
+  if (window._justSwipedCarousel && (Date.now() - window._justSwipedCarousel < 300)) {
+    return;
+  }
+  if (window._lastSlantMinuteScroll && (Date.now() - window._lastSlantMinuteScroll < 300)) {
+    return;
+  }
   activePostIndex = index;
   const post = getPostFromIndexOrId(index);
   if (!post) return;
 
-  document.getElementById('modalAudienceBadge').textContent = '🎯 Target: ' + (post.targetAudience || 'General');
-  document.getElementById('modalTitle').textContent = post.adaptedHeadline || post.originalHeadline || 'Story Overview';
-  document.getElementById('modalWhyText').textContent = post.whyItMatters || 'Essential high-signal insight for ' + (post.targetAudience || 'readers') + '.';
-  
-  const listEl = document.getElementById('modalTakeawaysList');
-  listEl.innerHTML = '';
-  const takeaways = post.keyTakeaways || [];
-  takeaways.forEach(item => {
-    const li = document.createElement('li');
-    li.innerHTML = `<span class="bullet-icon">✓</span> <span>${escapeHtml(item)}</span>`;
-    listEl.appendChild(li);
-  });
+  const tier = getSourceTier(post);
+  const cleanHost = getCleanDomain(post.digitalLink);
+  const handle = escapeHtml(post.creatorHandle || '@curator');
+  const slantIcon = (post.slantIcon && post.slantIcon !== '💭') ? post.slantIcon : (post.slantTone === 'heart' ? '❤️' : '🧠');
 
-  document.getElementById('modalSummary').textContent = post.summary || 'Summary unavailable.';
-  document.getElementById('modalPubSource').textContent = 'Publication: ' + (post.publicationName || 'Press Wire');
+  const hasPaper = post.sourceType === 'photo' 
+    || !!post.paperCutImage 
+    || !!post.hasPaperCut
+    || (post.originalPhotoUrl && (post.originalPhotoUrl.includes('clipping') || post.sourceType === 'photo'))
+    || (post.originalPhotoBase64 && post.originalPhotoBase64.length > 50)
+    || (post.originalPhotoPath && !post.originalPhotoPath.startsWith('http') && post.originalPhotoPath !== post.digitalLink)
+    || (post.id && ['692d99fc-d140-4d1c-9275-3263a7c187b7', '79cb4873-7c1b-402c-aebb-71fcebbefa5d', '83940fae-4ad7-43f6-9329-91cd17752f78', '9b55d7ea-8a78-4ef1-a068-cec226e200fd'].includes(post.id));
 
-  const extLink = document.getElementById('modalExternalLink');
-  if (post.digitalLink) {
-    extLink.href = post.digitalLink;
-    extLink.style.display = 'inline-flex';
+  const isVideo = post.sourceType === 'youtube'
+    || !!post.videoUrl
+    || !!post.isVideo
+    || (post.digitalLink && (post.digitalLink.includes('youtube.com') || post.digitalLink.includes('youtu.be') || post.digitalLink.includes('vimeo.com')));
+
+  const isBook = post.sourceType === 'book_excerpt';
+
+  let pubName = post.publicationName || 'THE FINANCIAL CHRONICLE';
+  if (pubName.includes('•')) {
+    const parts = pubName.split('•');
+    pubName = parts[parts.length - 1].trim();
+  }
+  pubName = pubName.replace(/^(NEWSPAPER|ARTICLE|BOOK|MAGAZINE|PRESS):\s*/i, '').trim();
+  if (!pubName) pubName = 'THE NEW INDIAN EXPRESS';
+  const cleanPubUpper = escapeHtml(pubName.toUpperCase());
+
+  let stampHtml = '';
+  let mastheadTitle = cleanPubUpper;
+  let ruleVol = 'VOL. CLXXIV • NO. 48,210';
+  let ruleCenter = 'PRIMARY SOURCE EVIDENCE';
+  let ruleArchive = 'VERIFIED ARCHIVE';
+  let bylineText = 'BY SPECIAL CORRESPONDENT & WIRE BUREAU';
+  let archiveTagText = 'AS-IS RECORD';
+
+  if (hasPaper) {
+    stampHtml = `
+      <div class="stamp-verified">
+        <div>★ VERIFIED ★</div>
+        <div>PHYSICAL PRESS ARCHIVE</div>
+      </div>
+    `;
+    mastheadTitle = cleanPubUpper;
+    ruleCenter = 'PHYSICAL PRINT ARCHIVE';
+    bylineText = 'PHYSICAL PRINT BROADSHEET • AS-IS CLIPPING';
+    archiveTagText = 'PRINT ARCHIVE';
+  } else if (isVideo) {
+    stampHtml = `
+      <div class="stamp-verified" style="border-color:#DC2626; color:#DC2626; background:rgba(220,38,38,0.08);">
+        <div>▶ VERIFIED</div>
+        <div>BROADCAST / VIDEO</div>
+      </div>
+    `;
+    mastheadTitle = cleanPubUpper || 'BROADCAST VIDEO ARCHIVE';
+    ruleCenter = 'AUDIOVISUAL EVIDENCE';
+    bylineText = 'BROADCAST TRANSMISSION • RECORDED SEGMENT';
+    archiveTagText = 'BROADCAST';
+  } else if (tier === 'tier3_opinion') {
+    stampHtml = `
+      <div class="stamp-opinion">
+        <div>${slantIcon} PERSONAL TAKE</div>
+        <div>INNER VOICE</div>
+      </div>
+    `;
+    mastheadTitle = 'INNER VOICE • ARCHIVE';
+    ruleCenter = 'FIRST-PERSON REFLECTION';
+    bylineText = `AUTHORED BY ${handle}`;
+    archiveTagText = 'PERSONAL REFLECTION';
+  } else if (isBook) {
+    stampHtml = `
+      <div class="stamp-book">
+        <div>📖 LITERARY</div>
+        <div>EXCERPT</div>
+      </div>
+    `;
+    mastheadTitle = 'CLASSIC LITERATURE ARCHIVE';
+    ruleCenter = escapeHtml((post.bookTitle || 'LITERARY PASSAGE').toUpperCase());
+    bylineText = `WRITTEN BY ${escapeHtml((post.bookAuthor || 'AUTHOR').toUpperCase())}`;
+    archiveTagText = 'BOOK ARCHIVE';
   } else {
-    extLink.style.display = 'none';
+    stampHtml = `
+      <div class="stamp-web-citation">
+        <div>🌐 VERIFIED</div>
+        <div>DIGITAL CITATION</div>
+      </div>
+    `;
+    mastheadTitle = cleanHost ? `${escapeHtml(cleanHost.toUpperCase())} • DIGITAL DISPATCH` : cleanPubUpper;
+    ruleCenter = 'PRIMARY REPORTING RECORD';
+    bylineText = `SOURCED FROM ${escapeHtml(cleanHost || 'ONLINE PUBLICATION')}`;
+    archiveTagText = 'DIGITAL CITATION';
   }
 
-  const paperCutBtn = document.getElementById('modalPaperCutBtn');
-  if (paperCutBtn) {
-    const hasPaper = post.sourceType === 'photo' 
-      || !!post.paperCutImage 
-      || !!post.hasPaperCut
-      || (post.originalPhotoUrl && (post.originalPhotoUrl.includes('clipping') || post.sourceType === 'photo'))
-      || (post.originalPhotoBase64 && post.originalPhotoBase64.length > 50)
-      || (post.originalPhotoPath && !post.originalPhotoPath.startsWith('http') && post.originalPhotoPath !== post.digitalLink)
-      || (post.id && ['692d99fc-d140-4d1c-9275-3263a7c187b7', '79cb4873-7c1b-402c-aebb-71fcebbefa5d', '83940fae-4ad7-43f6-9329-91cd17752f78', '9b55d7ea-8a78-4ef1-a068-cec226e200fd'].includes(post.id));
-    paperCutBtn.style.display = hasPaper ? 'inline-flex' : 'none';
+  const stampContainer = document.getElementById('proofStampContainer');
+  if (stampContainer) stampContainer.innerHTML = stampHtml;
+
+  const pubTitleEl = document.getElementById('proofPubTitle');
+  if (pubTitleEl) pubTitleEl.textContent = mastheadTitle;
+
+  const ruleVolEl = document.getElementById('proofRuleVol');
+  if (ruleVolEl) ruleVolEl.textContent = ruleVol;
+
+  const ruleCenterEl = document.getElementById('proofRuleCenter');
+  if (ruleCenterEl) ruleCenterEl.textContent = ruleCenter;
+
+  const ruleArchiveEl = document.getElementById('proofRuleArchive');
+  if (ruleArchiveEl) ruleArchiveEl.textContent = ruleArchive;
+
+  const headlineEl = document.getElementById('proofHeadline');
+  if (headlineEl) headlineEl.textContent = post.originalHeadline || post.spark || post.adaptedHeadline || 'Original News Source';
+
+  const bylineEl = document.getElementById('proofByline');
+  if (bylineEl) bylineEl.textContent = bylineText;
+
+  const archiveTagEl = document.getElementById('proofArchiveTag');
+  if (archiveTagEl) archiveTagEl.textContent = archiveTagText;
+
+  // 1. Paper Cut Image Artifact
+  const paperCutSection = document.getElementById('proofPaperCutSection');
+  const paperCutImg = document.getElementById('proofPaperCutImg');
+  if (paperCutSection) {
+    if (hasPaper) {
+      paperCutSection.style.display = 'block';
+      let imgSrc = '';
+      if (post.originalPhotoBase64 && post.originalPhotoBase64.length > 50) {
+        imgSrc = post.originalPhotoBase64.startsWith('data:') 
+          ? post.originalPhotoBase64 
+          : 'data:image/jpeg;base64,' + post.originalPhotoBase64;
+      } else if (post.originalPhotoUrl) {
+        imgSrc = post.originalPhotoUrl.startsWith('/') || post.originalPhotoUrl.startsWith('http')
+          ? post.originalPhotoUrl
+          : `/${post.originalPhotoUrl}`;
+      } else if (post.paperCutImage) {
+        imgSrc = post.paperCutImage;
+      } else if (post.originalPhotoPath && (post.originalPhotoPath.startsWith('http') || post.originalPhotoPath.startsWith('data:'))) {
+        imgSrc = post.originalPhotoPath;
+      } else if (post.id) {
+        imgSrc = `/clippings/${post.id}.jpg`;
+      }
+      if (paperCutImg) {
+        paperCutImg.src = imgSrc || '';
+        paperCutImg.onerror = () => {
+          paperCutSection.style.display = 'none';
+        };
+      }
+    } else {
+      paperCutSection.style.display = 'none';
+      if (paperCutImg) paperCutImg.src = '';
+    }
   }
 
-  const deleteBtn = document.getElementById('modalDeleteBtn');
+  // 2. Video Embed Artifact
+  const videoSection = document.getElementById('proofVideoSection');
+  const videoEmbedWrap = document.getElementById('proofVideoEmbedWrap');
+  if (videoSection) {
+    if (isVideo) {
+      videoSection.style.display = 'block';
+      const videoUrl = post.videoUrl || post.digitalLink || '';
+      const ytEmbed = getYouTubeEmbedUrl(videoUrl);
+      if (ytEmbed && videoEmbedWrap) {
+        videoEmbedWrap.innerHTML = `<iframe src="${ytEmbed}?autoplay=0" title="Source Video" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
+      } else if (videoEmbedWrap) {
+        videoEmbedWrap.innerHTML = `
+          <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; color:#CBD5E1; text-align:center; padding:20px;">
+            <span style="font-size:32px; margin-bottom:8px;">▶</span>
+            <span style="font-weight:700;">Broadcast / Video Source</span>
+            <a href="${escapeHtml(videoUrl)}" target="_blank" rel="noopener noreferrer" style="margin-top:8px; color:#818CF8; text-decoration:underline; font-size:12px;">Watch on host site &nearr;</a>
+          </div>
+        `;
+      }
+    } else {
+      videoSection.style.display = 'none';
+      if (videoEmbedWrap) videoEmbedWrap.innerHTML = '';
+    }
+  }
+
+  // 3. Primary Reporting Excerpts (As Published)
+  const cleanExcerpt = (txt) => {
+    if (!txt) return '';
+    return String(txt)
+      .replace(/^(the spark|curator stance|paragraph \d+)\s*:\s*["']?/i, '')
+      .replace(/["']?$/i, '')
+      .trim();
+  };
+
+  let excerpts = post.resolvedArticleExcerpts || post.articleExcerpts || [];
+  if (!Array.isArray(excerpts) || excerpts.length === 0) {
+    if (post.summary) {
+      excerpts = post.summary.split(/\n\s*\n/).map(p => p.trim()).filter(p => p.length > 20);
+    }
+  }
+  if (excerpts.length === 0 && post.spark) {
+    excerpts = [post.spark];
+  }
+
+  const proofParagraphsEl = document.getElementById('proofParagraphs');
+  if (proofParagraphsEl) {
+    let paragraphsHtml = '';
+    if (excerpts.length > 0) {
+      excerpts.forEach((exc, pIdx) => {
+        const cleanText = escapeHtml(cleanExcerpt(exc));
+        if (cleanText) {
+          paragraphsHtml += `<div class="proof-p"><span class="proof-para-marker">§ ${pIdx + 1}</span>${cleanText}</div>`;
+        }
+      });
+    }
+
+    const quote = post.receiptHighlightQuote || post.pullQuote;
+    if (quote && cleanExcerpt(quote)) {
+      const cleanQuote = escapeHtml(cleanExcerpt(quote));
+      paragraphsHtml += `
+        <div class="proof-highlight-card">
+          <div class="highlighter-label"><span>✏️</span> PRIMARY REPORTED QUOTE</div>
+          <div class="highlighter-text">“${cleanQuote}”</div>
+        </div>
+      `;
+    }
+
+    if (post.whyItMatters && String(post.whyItMatters).trim()) {
+      paragraphsHtml += `
+        <div class="receipt-takeaways-card" style="margin-top:6px;">
+          <div class="takeaways-header">
+            <span class="takeaways-icon">🔍</span>
+            <span class="takeaways-title">CORROBORATING CONTEXT</span>
+          </div>
+          <p class="takeaway-why-text">${escapeHtml(String(post.whyItMatters).trim())}</p>
+        </div>
+      `;
+    }
+
+    proofParagraphsEl.innerHTML = paragraphsHtml || '<div class="proof-p">Original source text confirmed by archival records.</div>';
+  }
+
+  // 4. Recorded Metric
+  const metricRow = document.getElementById('proofMetricRow');
+  const metricVal = document.getElementById('proofMetricVal');
+  if (metricRow && metricVal) {
+    if (post.keyMetric && String(post.keyMetric).trim()) {
+      metricRow.style.display = 'flex';
+      metricVal.textContent = String(post.keyMetric).trim();
+    } else {
+      metricRow.style.display = 'none';
+    }
+  }
+
+  // 5. Actions & Footer
+  const archivedByEl = document.getElementById('proofArchivedBy');
+  if (archivedByEl) {
+    archivedByEl.textContent = `Archived by ${handle}`;
+  }
+
+  const extLink = document.getElementById('proofExternalLink');
+  if (extLink) {
+    if (post.digitalLink && !post.digitalLink.startsWith('blob:') && !post.digitalLink.startsWith('data:')) {
+      extLink.href = post.digitalLink;
+      extLink.style.display = 'inline-flex';
+    } else {
+      extLink.style.display = 'none';
+    }
+  }
+
+  const deleteBtn = document.getElementById('proofDeleteBtn');
   if (deleteBtn) {
     deleteBtn.style.display = canDeletePost(post) ? 'inline-flex' : 'none';
   }
@@ -2940,6 +3153,8 @@ function openDetailModal(index) {
 
 function closeDetailModal() {
   document.getElementById('detailModal').classList.remove('open');
+  const videoEmbed = document.getElementById('proofVideoEmbedWrap');
+  if (videoEmbed) videoEmbed.innerHTML = '';
   history.pushState(null, '', window.location.pathname);
   activePostIndex = null;
 }

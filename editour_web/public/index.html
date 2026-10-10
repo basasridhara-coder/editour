@@ -800,44 +800,89 @@
     </div>
   </div>
 
-  <!-- Detail Modal -->
+  <!-- Primary Source Proof Window (Broadsheet Format) -->
   <div class="modal-overlay" id="detailModal">
-    <div class="modal-card">
+    <div class="modal-card broadsheet-proof-modal">
       <button class="modal-close" onclick="closeDetailModal()">&times;</button>
-      <div class="modal-audience-badge" id="modalAudienceBadge">🎯 Target: General</div>
-      <h2 class="modal-title" id="modalTitle">Story Headline</h2>
       
-      <div class="modal-why-box" id="modalWhyBox">
-        <strong>Why It Matters:</strong> <span id="modalWhyText">Explanation</span>
+      <!-- Proof Stamp: Physical Press Archive / Web Citation / Video / Personal Essay -->
+      <div id="proofStampContainer"></div>
+
+      <!-- Broadsheet Masthead Header -->
+      <div class="proof-broadsheet-header">
+        <div class="receipt-masthead-thick"></div>
+        <div class="receipt-masthead-thin"></div>
+        <div class="proof-pub-title" id="proofPubTitle">THE NEW INDIAN EXPRESS</div>
+        <div class="receipt-rules">
+          <span id="proofRuleVol">VOL. CLXXIV • NO. 48,210</span>
+          <span class="receipt-rules-center" id="proofRuleCenter">PRIMARY SOURCE EVIDENCE</span>
+          <span id="proofRuleArchive">VERIFIED ARCHIVE</span>
+        </div>
+        <div class="receipt-masthead-bottom"></div>
       </div>
 
-      <div class="modal-section-title">Key High-Signal Takeaways</div>
-      <ul class="modal-takeaways-list" id="modalTakeawaysList"></ul>
-
-      <div class="modal-section-title" style="margin-top:8px; display:flex; align-items:center; justify-content:space-between;">
-        <span>Curator's 1-Minute Briefing</span>
-        <span style="font-size:11px; font-weight:700; color:#818CF8; background:rgba(99,102,241,0.15); padding:2px 8px; border-radius:10px;">⏱️ 1-Min Read</span>
+      <!-- Original Source Headline & Wire Byline -->
+      <div class="proof-headline-box">
+        <h2 class="proof-headline" id="proofHeadline">Original Source Headline</h2>
+        <div class="receipts-byline">
+          <span id="proofByline">BY SPECIAL CORRESPONDENT & WIRE BUREAU</span>
+          <span class="receipts-archive-tag" id="proofArchiveTag">AS-IS RECORD</span>
+        </div>
+        <div class="receipts-hairline"></div>
       </div>
-      <div class="modal-full-summary" id="modalSummary"></div>
 
-      <div class="modal-footer">
-        <span class="modal-pub-source" id="modalPubSource">Source: Reuters</span>
-        <div style="display:flex; gap:8px; flex-wrap: wrap;">
-          <button id="modalPaperCutBtn" onclick="openPaperCutModal(activePostIndex)" class="tag-action-btn" style="display:none; color:#D97706; border-color:rgba(217,119,6,0.4);">
-            📰 View Paper
-          </button>
-          <button class="tag-action-btn" onclick="sharePosters(activePostIndex)" style="color:#6366F1; border-color:rgba(99,102,241,0.4);">
-            📤 Share 3 Posters
-          </button>
-          <button class="tag-action-btn" onclick="copyShareLink()">
-            🔗 Copy Link
-          </button>
-          <button id="modalDeleteBtn" class="tag-action-btn" onclick="handleDetailModalDelete()" style="display:none; color:#EF4444; border-color:rgba(239,68,68,0.4);" title="Permanently delete this Slant">
-            🗑️ Delete Slant
-          </button>
-          <a id="modalExternalLink" href="#" target="_blank" class="tag-action-btn">
-            🌐 View Original &nearr;
+      <!-- Primary Source Proof Artifacts As-Is -->
+      <div class="proof-body-content">
+        <!-- 1. If Paper Cut / Physical Clipping -->
+        <div id="proofPaperCutSection" style="display:none;">
+          <div class="proof-clipping-card">
+            <div class="proof-clipping-badge">📰 PHYSICAL NEWSPAPER CLIPPING AS-IS</div>
+            <div class="proof-clipping-img-wrap" onclick="openPaperCutModal(activePostIndex)" style="cursor:pointer;" title="Click to view full-resolution clipping">
+              <img id="proofPaperCutImg" src="" alt="Physical Newspaper Clipping" class="proof-clipping-img">
+            </div>
+            <div class="proof-clipping-sub">Tap image to zoom physical print clipping</div>
+          </div>
+        </div>
+
+        <!-- 2. If Video Source -->
+        <div id="proofVideoSection" style="display:none;">
+          <div class="proof-video-card">
+            <div class="proof-video-badge">▶ VERIFIED BROADCAST / VIDEO SOURCE</div>
+            <div id="proofVideoEmbedWrap" class="proof-video-embed-wrap"></div>
+          </div>
+        </div>
+
+        <!-- 3. Primary Reporting Excerpts (As Published) -->
+        <div class="proof-excerpts-box" id="proofExcerptsBox">
+          <div class="proof-section-label">PRIMARY SOURCE REPORTING & QUOTES</div>
+          <div class="proof-paragraphs" id="proofParagraphs"></div>
+        </div>
+
+        <!-- 4. Key Evidentiary Findings / Metrics -->
+        <div id="proofMetricRow" class="receipt-metric-row" style="display:none; margin: 8px 0;">
+          <span class="receipt-metric-badge">RECORDED METRIC</span>
+          <span class="receipt-metric-val" id="proofMetricVal"></span>
+        </div>
+      </div>
+
+      <!-- Broadsheet Footer & Actions -->
+      <div class="proof-modal-footer">
+        <div class="proof-footer-left">
+          <span class="proof-archived-by" id="proofArchivedBy">Archived by @curator</span>
+        </div>
+        <div class="proof-footer-actions">
+          <a id="proofExternalLink" href="#" target="_blank" rel="noopener noreferrer" class="tag-action-btn primary-source-link" style="display:none;">
+            <span>🌐 Open Source Link &nearr;</span>
           </a>
+          <button type="button" class="tag-action-btn" onclick="sharePosters(activePostIndex)">
+            <span>📤 Share Proof</span>
+          </button>
+          <button type="button" class="tag-action-btn" onclick="copyShareLink()">
+            <span>🔗 Copy Link</span>
+          </button>
+          <button type="button" id="proofDeleteBtn" class="tag-action-btn text-danger" onclick="handleDetailModalDelete()" style="display:none;">
+            <span>🗑️ Delete</span>
+          </button>
         </div>
       </div>
     </div>
