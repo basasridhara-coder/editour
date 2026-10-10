@@ -1933,14 +1933,62 @@ function getCleanDomain(link) {
   }
 }
 
-function getSourceTier(post) {
-  // Tier 3: My Slant / Inner Voice / Personal Opinion
-  if (post.sourceType === 'inner_voice' || post.sourceType === 'my_slant' || post.sourceType === 'opinion' || post.categoryBadge === 'OPINION' || post.categoryBadge === 'MY SLANT' || post.categoryBadge === 'INNER VOICE' || post.categoryBadge === 'PERSPECTIVE' || (post.publicationName && post.publicationName.toLowerCase() === 'my slant') || (post.publicationName && post.publicationName.toLowerCase() === 'inner voice')) {
-    return 'tier3_opinion';
+function getYouTubeEmbedUrl(url) {
+  if (!url) return null;
+  const str = String(url).trim();
+  // Matches youtube.com/shorts/ID, youtube.com/watch?v=ID, youtu.be/ID, youtube.com/embed/ID, etc.
+  const m = str.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|shorts\/))([\w-]{11})/i);
+  return (m && m[1]) ? `https://www.youtube.com/embed/${m[1]}` : null;
+}
+
+function getVimeoEmbedUrl(url) {
+  if (!url) return null;
+  const str = String(url).trim();
+  const m = str.match(/vimeo\.com\/(?:video\/)?(\d+)/i);
+  return (m && m[1]) ? `https://player.vimeo.com/video/${m[1]}` : null;
+}
+
+function isInnerVoicePost(post) {
+  if (!post) return false;
+  // If it has an external link, video, or physical paper cut, it HAS an external source!
+  if (post.digitalLink || post.videoUrl || post.paperCutImage || post.hasPaperCut || post.sourceType === 'photo' || post.sourceType === 'youtube' || post.sourceType === 'digital_link') {
+    return false;
   }
+  if (post.sourceType === 'inner_voice' || post.sourceType === 'my_slant') return true;
+  if (post.isMySlant === true) return true;
+  const pub = (post.publicationName || '').toLowerCase().trim();
+  if (pub === 'inner voice' || pub === 'my slant' || pub === 'personal reflection' || pub === 'first-person essay') return true;
+  return post.categoryBadge === 'OPINION' || post.sourceType === 'opinion';
+}
+
+function getSourceTier(post) {
   // Book Excerpt
   if (post.sourceType === 'book_excerpt') {
     return 'tier_book';
+  }
+
+  // Physical newspaper cut
+  const hasPaper = post.sourceType === 'photo' 
+    || !!post.paperCutImage 
+    || !!post.hasPaperCut
+    || (post.originalPhotoUrl && (post.originalPhotoUrl.includes('clipping') || post.sourceType === 'photo'))
+    || (post.originalPhotoBase64 && post.originalPhotoBase64.length > 50)
+    || (post.originalPhotoPath && !post.originalPhotoPath.startsWith('http') && post.originalPhotoPath !== post.digitalLink)
+    || (post.id && ['692d99fc-d140-4d1c-9275-3263a7c187b7', '79cb4873-7c1b-402c-aebb-71fcebbefa5d', '83940fae-4ad7-43f6-9329-91cd17752f78', '9b55d7ea-8a78-4ef1-a068-cec226e200fd'].includes(post.id));
+
+  if (hasPaper) {
+    return 'tier1_press';
+  }
+
+  // Video source (YouTube, Vimeo, broadcast)
+  const videoUrl = post.videoUrl || post.digitalLink || '';
+  if (post.sourceType === 'youtube' || post.sourceType === 'video' || !!post.videoUrl || !!post.isVideo || !!getYouTubeEmbedUrl(videoUrl) || !!getVimeoEmbedUrl(videoUrl)) {
+    return 'tier_video';
+  }
+
+  // Pure Inner Voice / Personal Reflection (no external source)
+  if (isInnerVoicePost(post)) {
+    return 'tier3_opinion';
   }
 
   const pub = (post.publicationName || '').toLowerCase();
@@ -2384,6 +2432,8 @@ function buildSlide3Html(post, index) {
     `;
   }
 
+  const isInnerVoice = isInnerVoicePost(post);
+
   return `
     <div class="slant-minute-scroll-viewport" onscroll="window._lastSlantMinuteScroll = Date.now()">
       <!-- 4-Corner Branding Top Row: Top-Left Logo + Brand, Top-Right Creator + Slide -->
@@ -2405,7 +2455,7 @@ function buildSlide3Html(post, index) {
         <div class="receipt-pub-title">SLANT MINUTE</div>
         <div class="receipt-rules">
           <span>VOL. I • NO. 1</span>
-          <span class="receipt-rules-center">CURATED EDITORIAL SYNTHESIS</span>
+          <span class="receipt-rules-center">${isInnerVoice ? 'FIRST-PERSON REFLECTION' : (tier === 'tier_video' ? 'BROADCAST SYNTHESIS' : 'CURATED EDITORIAL SYNTHESIS')}</span>
           <span>60-SEC BROADSHEET</span>
         </div>
         <div class="receipt-masthead-bottom"></div>
@@ -2415,8 +2465,9 @@ function buildSlide3Html(post, index) {
       <div class="receipts-headline-box">
         <h4 class="receipt-headline">${headline}</h4>
         <div class="receipts-byline">
-          <span>BY ${handle} • SOURCE: ${cleanPubUpper}</span>
-          <span class="receipts-archive-tag">SYNTHESIS</span>
+          ${isInnerVoice 
+            ? `<span>BY ${handle}</span><span class="receipts-opinion-tag">${slantIcon} INNER VOICE</span>` 
+            : `<span>BY ${handle} • SOURCE: ${cleanPubUpper}</span><span class="receipts-archive-tag">SYNTHESIS</span>`}
         </div>
         <div class="receipts-hairline"></div>
       </div>
@@ -2430,14 +2481,7 @@ function buildSlide3Html(post, index) {
         ${takeawaysHtml}
       </div>
 
-      <!-- 4. Primary Source Proof Vault Invitation Button -->
-      <div class="slant-minute-proof-invite">
-        <button type="button" class="slant-minute-inspect-btn" onclick="event.stopPropagation(); openDetailModal('${index}')">
-          <span>🏛️ Inspect Source Proof & Artifacts ↗</span>
-        </button>
-      </div>
-
-      <!-- 5. Broadsheet Archival Bottom Folio -->
+      <!-- 4. Broadsheet Archival Bottom Folio -->
       <div class="receipt-footer">
         <div class="receipt-folio-rule"></div>
         <div class="receipt-folio-text" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
@@ -2528,17 +2572,19 @@ function createPostCardElement(post, index) {
     sourceBadgeText = post.bookTitle || pubName || 'Classical Literature';
   }
 
+  const isInnerVoice = isInnerVoicePost(post);
+
   // 3-Poster Carousel Trio Frame in 3:4 Aspect Ratio (Clean, Unobstructed Editorial Artwork)
   const visualSectionHtml = `
     <div class="carousel-view ${isClean ? 'clean-view' : ''}" id="carousel-${index}" data-post-index="${index}" data-current-slide="0">
       <div class="carousel-track" id="track-${index}">
-        <div class="carousel-slide slide-hook" onclick="openDetailModal('${index}')">
+        <div class="carousel-slide slide-hook" ${isInnerVoice ? 'style="cursor: default;"' : `onclick="openDetailModal('${index}')" style="cursor: pointer;"`}>
           ${buildSlide1Html(post, index)}
         </div>
-        <div class="carousel-slide slide-critique" onclick="openDetailModal('${index}')">
+        <div class="carousel-slide slide-critique" ${isInnerVoice ? 'style="cursor: default;"' : `onclick="openDetailModal('${index}')" style="cursor: pointer;"`}>
           ${buildSlide2Html(post, index)}
         </div>
-        <div class="carousel-slide slide-receipt" onclick="openDetailModal('${index}')">
+        <div class="carousel-slide slide-receipt" style="cursor: default;">
           ${buildSlide3Html(post, index)}
         </div>
       </div>
@@ -2685,10 +2731,10 @@ function createPostCardElement(post, index) {
 
     <!-- Instagram-style Caption Area: Creator Handle + Summary Starting Lines + '... more' -->
     <div class="post-content">
-      <div class="post-summary-snippet" onclick="openDetailModal('${index}')" style="cursor:pointer;">
+      <div class="post-summary-snippet" onclick="${isInnerVoice ? `goToSlide(event, '${index}', 2)` : `openDetailModal('${index}')`}" style="cursor:pointer;">
         <span class="post-creator-handle"><strong>${escapeHtml(handle)}</strong></span>
         <span class="post-caption-text">${escapeHtml(getStartingLines(summary))}</span>
-        <button class="read-more-btn" onclick="event.stopPropagation(); openDetailModal('${index}')">... more</button>
+        <button class="read-more-btn" onclick="event.stopPropagation(); ${isInnerVoice ? `goToSlide(event, '${index}', 2);` : `openDetailModal('${index}');`}">... more</button>
       </div>
     </div>
   `;
@@ -2858,13 +2904,6 @@ document.addEventListener('click', (e) => {
    MODALS & ACTIONS
    ============================================================ */
 
-function getYouTubeEmbedUrl(url) {
-  if (!url) return null;
-  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-  const match = String(url).match(regExp);
-  return (match && match[2].length === 11) ? `https://www.youtube.com/embed/${match[2]}` : null;
-}
-
 function openDetailModal(index) {
   if (index === 'preview') return;
   // Guard against accidental opening while scrolling the Slant Minute broadsheet or swiping
@@ -2878,23 +2917,28 @@ function openDetailModal(index) {
   const post = getPostFromIndexOrId(index);
   if (!post) return;
 
+  // Let there not be source proof reporting for inner voice posts
+  if (isInnerVoicePost(post)) {
+    return;
+  }
+
   const tier = getSourceTier(post);
   const cleanHost = getCleanDomain(post.digitalLink);
   const handle = escapeHtml(post.creatorHandle || '@curator');
   const slantIcon = (post.slantIcon && post.slantIcon !== '💭') ? post.slantIcon : (post.slantTone === 'heart' ? '❤️' : '🧠');
 
-  const hasPaper = post.sourceType === 'photo' 
+  const videoUrl = post.videoUrl || post.digitalLink || '';
+  const ytEmbed = getYouTubeEmbedUrl(videoUrl);
+  const vimeoEmbed = getVimeoEmbedUrl(videoUrl);
+  const isVideo = !!ytEmbed || !!vimeoEmbed || post.sourceType === 'youtube' || post.sourceType === 'video' || !!post.videoUrl || (videoUrl && /\.(mp4|webm|mov)(\?.*)?$/i.test(videoUrl));
+
+  const hasPaper = !isVideo && (post.sourceType === 'photo' 
     || !!post.paperCutImage 
     || !!post.hasPaperCut
     || (post.originalPhotoUrl && (post.originalPhotoUrl.includes('clipping') || post.sourceType === 'photo'))
     || (post.originalPhotoBase64 && post.originalPhotoBase64.length > 50)
     || (post.originalPhotoPath && !post.originalPhotoPath.startsWith('http') && post.originalPhotoPath !== post.digitalLink)
-    || (post.id && ['692d99fc-d140-4d1c-9275-3263a7c187b7', '79cb4873-7c1b-402c-aebb-71fcebbefa5d', '83940fae-4ad7-43f6-9329-91cd17752f78', '9b55d7ea-8a78-4ef1-a068-cec226e200fd'].includes(post.id));
-
-  const isVideo = post.sourceType === 'youtube'
-    || !!post.videoUrl
-    || !!post.isVideo
-    || (post.digitalLink && (post.digitalLink.includes('youtube.com') || post.digitalLink.includes('youtu.be') || post.digitalLink.includes('vimeo.com')));
+    || (post.id && ['692d99fc-d140-4d1c-9275-3263a7c187b7', '79cb4873-7c1b-402c-aebb-71fcebbefa5d', '83940fae-4ad7-43f6-9329-91cd17752f78', '9b55d7ea-8a78-4ef1-a068-cec226e200fd'].includes(post.id)));
 
   const isBook = post.sourceType === 'book_excerpt';
 
@@ -2915,7 +2959,18 @@ function openDetailModal(index) {
   let bylineText = 'BY SPECIAL CORRESPONDENT & WIRE BUREAU';
   let archiveTagText = 'AS-IS RECORD';
 
-  if (hasPaper) {
+  if (isVideo) {
+    stampHtml = `
+      <div class="stamp-verified" style="border-color:#DC2626; color:#DC2626; background:rgba(220,38,38,0.08);">
+        <div>▶ VERIFIED</div>
+        <div>BROADCAST / VIDEO</div>
+      </div>
+    `;
+    mastheadTitle = (cleanHost && cleanHost.includes('youtube')) ? 'YOUTUBE • PRIMARY BROADCAST' : (cleanPubUpper || 'BROADCAST VIDEO ARCHIVE');
+    ruleCenter = 'AUDIOVISUAL EVIDENCE';
+    bylineText = 'RECORDED BROADCAST TRANSMISSION • PRIMARY SOURCE';
+    archiveTagText = 'BROADCAST';
+  } else if (hasPaper) {
     stampHtml = `
       <div class="stamp-verified">
         <div>★ VERIFIED ★</div>
@@ -2926,28 +2981,6 @@ function openDetailModal(index) {
     ruleCenter = 'PHYSICAL PRINT ARCHIVE';
     bylineText = 'PHYSICAL PRINT BROADSHEET • AS-IS CLIPPING';
     archiveTagText = 'PRINT ARCHIVE';
-  } else if (isVideo) {
-    stampHtml = `
-      <div class="stamp-verified" style="border-color:#DC2626; color:#DC2626; background:rgba(220,38,38,0.08);">
-        <div>▶ VERIFIED</div>
-        <div>BROADCAST / VIDEO</div>
-      </div>
-    `;
-    mastheadTitle = cleanPubUpper || 'BROADCAST VIDEO ARCHIVE';
-    ruleCenter = 'AUDIOVISUAL EVIDENCE';
-    bylineText = 'BROADCAST TRANSMISSION • RECORDED SEGMENT';
-    archiveTagText = 'BROADCAST';
-  } else if (tier === 'tier3_opinion') {
-    stampHtml = `
-      <div class="stamp-opinion">
-        <div>${slantIcon} PERSONAL TAKE</div>
-        <div>INNER VOICE</div>
-      </div>
-    `;
-    mastheadTitle = 'INNER VOICE • ARCHIVE';
-    ruleCenter = 'FIRST-PERSON REFLECTION';
-    bylineText = `AUTHORED BY ${handle}`;
-    archiveTagText = 'PERSONAL REFLECTION';
   } else if (isBook) {
     stampHtml = `
       <div class="stamp-book">
@@ -3000,7 +3033,7 @@ function openDetailModal(index) {
   const paperCutSection = document.getElementById('proofPaperCutSection');
   const paperCutImg = document.getElementById('proofPaperCutImg');
   if (paperCutSection) {
-    if (hasPaper) {
+    if (hasPaper && !isVideo) {
       paperCutSection.style.display = 'block';
       let imgSrc = '';
       if (post.originalPhotoBase64 && post.originalPhotoBase64.length > 50) {
@@ -3036,16 +3069,36 @@ function openDetailModal(index) {
   if (videoSection) {
     if (isVideo) {
       videoSection.style.display = 'block';
-      const videoUrl = post.videoUrl || post.digitalLink || '';
-      const ytEmbed = getYouTubeEmbedUrl(videoUrl);
       if (ytEmbed && videoEmbedWrap) {
-        videoEmbedWrap.innerHTML = `<iframe src="${ytEmbed}?autoplay=0" title="Source Video" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
+        videoEmbedWrap.innerHTML = `
+          <iframe 
+            src="${ytEmbed}?autoplay=0&rel=0&modestbranding=1" 
+            title="Source Video" 
+            style="width:100%; height:100%; min-height:240px; border:none;" 
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+            allowfullscreen>
+          </iframe>
+        `;
+      } else if (vimeoEmbed && videoEmbedWrap) {
+        videoEmbedWrap.innerHTML = `
+          <iframe 
+            src="${vimeoEmbed}" 
+            title="Source Video" 
+            style="width:100%; height:100%; min-height:240px; border:none;" 
+            allow="autoplay; fullscreen; picture-in-picture" 
+            allowfullscreen>
+          </iframe>
+        `;
+      } else if (videoUrl && /\.(mp4|webm|mov)(\?.*)?$/i.test(videoUrl) && videoEmbedWrap) {
+        videoEmbedWrap.innerHTML = `
+          <video src="${escapeHtml(videoUrl)}" controls playsinline style="width:100%; height:100%; max-height:300px; background:#000; border-radius:4px;"></video>
+        `;
       } else if (videoEmbedWrap) {
         videoEmbedWrap.innerHTML = `
-          <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; color:#CBD5E1; text-align:center; padding:20px;">
-            <span style="font-size:32px; margin-bottom:8px;">▶</span>
+          <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:160px; color:#CBD5E1; text-align:center; padding:16px;">
+            <span style="font-size:30px; margin-bottom:6px;">▶</span>
             <span style="font-weight:700;">Broadcast / Video Source</span>
-            <a href="${escapeHtml(videoUrl)}" target="_blank" rel="noopener noreferrer" style="margin-top:8px; color:#818CF8; text-decoration:underline; font-size:12px;">Watch on host site &nearr;</a>
+            <a href="${escapeHtml(videoUrl)}" target="_blank" rel="noopener noreferrer" style="margin-top:6px; color:#818CF8; text-decoration:underline; font-size:12px;">Watch on host platform &nearr;</a>
           </div>
         `;
       }
@@ -3138,11 +3191,6 @@ function openDetailModal(index) {
     } else {
       extLink.style.display = 'none';
     }
-  }
-
-  const deleteBtn = document.getElementById('proofDeleteBtn');
-  if (deleteBtn) {
-    deleteBtn.style.display = canDeletePost(post) ? 'inline-flex' : 'none';
   }
 
   // Update browser URL query without reload
