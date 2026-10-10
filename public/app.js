@@ -2595,32 +2595,46 @@ function createPostCardElement(post, index) {
         <div class="creator-avatar">
           <div class="avatar-inner">${initial}</div>
         </div>
-        <div class="creator-names">
-          <div class="creator-handle-row">
-            <span class="creator-handle">${escapeHtml(handle)}</span>
-            <span class="post-time">• Today</span>
-          </div>
-          <div class="pub-source-badge ${hasPaperCut ? 'source-badge-clickable' : ''}" ${hasPaperCut ? `onclick="openPaperCutModal('${index}')" title="Click to view original newspaper clipping"` : ''}>
-            <span>${hasPaperCut ? '📰' : sourceBadgeIcon}</span>
-            <span>${escapeHtml(sourceBadgeText)}</span>
-            ${hasPaperCut ? `<span class="source-view-pill">View Paper ↗</span>` : ''}
-          </div>
-        </div>
+        <span class="creator-handle">${escapeHtml(handle)}</span>
       </div>
-      <div style="display:flex; align-items:center; gap:8px;">
-        <span class="category-tag">
-          ${escapeHtml(catBadge || 'Visual Story')}
-        </span>
-        ${canDelete ? `
-          <button type="button" class="post-card-delete-btn" onclick="event.stopPropagation(); confirmDeletePost('${post.id}')" title="Delete this Slant">
+      <div class="post-menu-container">
+        <button type="button" class="post-menu-btn" onclick="event.stopPropagation(); togglePostMenu('${index}')" title="More options" aria-label="More options">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="1.5"></circle>
+            <circle cx="19" cy="12" r="1.5"></circle>
+            <circle cx="5" cy="12" r="1.5"></circle>
+          </svg>
+        </button>
+        <div class="post-menu-dropdown" id="post-menu-${index}">
+          ${canDelete ? `
+            <button type="button" class="post-menu-item text-danger" onclick="event.stopPropagation(); closeAllPostMenus(); confirmDeletePost('${post.id}')">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                <line x1="10" y1="11" x2="10" y2="17"></line>
+                <line x1="14" y1="11" x2="14" y2="17"></line>
+              </svg>
+              <span>Delete Slant</span>
+            </button>
+          ` : ''}
+          <button type="button" class="post-menu-item" onclick="event.stopPropagation(); closeAllPostMenus(); sharePosters('${index}')">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="3 6 5 6 21 6"></polyline>
-              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-              <line x1="10" y1="11" x2="10" y2="17"></line>
-              <line x1="14" y1="11" x2="14" y2="17"></line>
+              <circle cx="18" cy="5" r="3"></circle>
+              <circle cx="6" cy="12" r="3"></circle>
+              <circle cx="18" cy="19" r="3"></circle>
+              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+              <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
             </svg>
+            <span>Share Slant</span>
           </button>
-        ` : ''}
+          <button type="button" class="post-menu-item" onclick="event.stopPropagation(); closeAllPostMenus(); copyCardShareLink('${post.id}')">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+            </svg>
+            <span>Copy Link</span>
+          </button>
+        </div>
       </div>
     </div>
 
@@ -2846,6 +2860,26 @@ function toggleLike(btn) {
     countSpan.textContent = Math.max(0, val - 1);
   }
 }
+
+function togglePostMenu(index) {
+  const menu = document.getElementById(`post-menu-${index}`);
+  if (!menu) return;
+  const isShowing = menu.classList.contains('show');
+  closeAllPostMenus();
+  if (!isShowing) {
+    menu.classList.add('show');
+  }
+}
+
+function closeAllPostMenus() {
+  document.querySelectorAll('.post-menu-dropdown.show').forEach(m => m.classList.remove('show'));
+}
+
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.post-menu-container')) {
+    closeAllPostMenus();
+  }
+});
 
 /* ============================================================
    MODALS & ACTIONS
