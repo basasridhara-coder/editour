@@ -2473,7 +2473,7 @@ function buildSlide3Html(post, index) {
       </div>
 
       <!-- 3. Synthesized Editorial Content: Lead + Curator Take + Source Excerpts + Takeaways -->
-      <div class="receipt-paragraphs" style="overflow: visible;">
+      <div class="receipt-paragraphs" style="flex: none; min-height: auto; height: auto; overflow: visible;">
         ${metricHtml}
         ${leadHtml}
         ${curatorBoxHtml}
@@ -2482,9 +2482,9 @@ function buildSlide3Html(post, index) {
       </div>
 
       <!-- 4. Broadsheet Archival Bottom Folio -->
-      <div class="receipt-footer">
-        <div class="receipt-folio-rule"></div>
-        <div class="receipt-folio-text" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+      <div class="receipt-footer" style="flex-shrink: 0; margin-top: auto; padding-top: 18px; padding-bottom: 6px; width: 100%; clear: both;">
+        <div class="receipt-folio-rule" style="width: 100%; height: 1px; background: #0F172A; margin: 0 0 6px 0;"></div>
+        <div class="receipt-folio-text" style="display: flex; justify-content: space-between; align-items: center; width: 100%; margin-top: 0; line-height: 1.3;">
           <span class="receipt-folio-source" style="font-weight: 800; letter-spacing: 0.8px; color: #0F172A;">slant.today</span>
           <span class="receipt-folio-author" style="font-style: italic; letter-spacing: 0.4px; color: #475569;">Your conviction in 3 frames • Scroll broadsheet ↕</span>
         </div>
