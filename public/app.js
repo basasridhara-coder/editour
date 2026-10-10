@@ -1019,22 +1019,53 @@ function mergeAndSortPosts(newPosts) {
 }
 
 async function loadPosts() {
-  // 1. Instant Cache-First: Load pre-built lightweight slant_feed.json (renders in ~20ms!)
-  let loadedFromCache = false;
+  // 1. Start logo video immediately in initial loader
+  const initVid = document.getElementById('feedInitialVideo') || document.getElementById('feedInitialVideoA');
+  if (initVid) {
+    try {
+      initVid.currentTime = 0;
+      const playP = initVid.play();
+      if (playP !== undefined) playP.catch(() => {});
+    } catch (_) {}
+  }
+
+  // 2. Fetch authoritative batch of 12 posts from /api/posts?limit=12 (with resilient fallback to slant_feed.json)
+  let fetchedLiveBatch = null;
   try {
-    const fastResp = await fetch(`slant_feed.json?ts=${Date.now()}`, { cache: 'no-cache' });
-    if (fastResp.ok) {
-      const posts = await fastResp.json();
-      if (Array.isArray(posts) && posts.length > 0) {
-        mergeAndSortPosts(posts);
-        loadedFromCache = true;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
+    const apiResp = await fetch(`/api/posts?limit=${FEED_BATCH_SIZE}&ts=${Date.now()}`, {
+      cache: 'no-store',
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+    if (apiResp.ok) {
+      const data = await apiResp.json();
+      if (data && Array.isArray(data.posts) && data.posts.length > 0) {
+        fetchedLiveBatch = data.posts;
       }
     }
   } catch (e) {
-    console.warn('Could not load slant_feed.json, trying live cloud:', e);
+    console.warn('Fast /api/posts fetch notice, falling back to slant_feed.json:', e);
   }
 
-  // 2. Merge locally cached user-created stories so they NEVER vanish across sign-ins/reloads
+  if (fetchedLiveBatch && fetchedLiveBatch.length > 0) {
+    mergeAndSortPosts(fetchedLiveBatch);
+  } else {
+    try {
+      const fastResp = await fetch(`slant_feed.json?ts=${Date.now()}`, { cache: 'no-cache' });
+      if (fastResp.ok) {
+        const posts = await fastResp.json();
+        if (Array.isArray(posts) && posts.length > 0) {
+          mergeAndSortPosts(posts);
+        }
+      }
+    } catch (e) {
+      console.warn('Could not load slant_feed.json:', e);
+    }
+  }
+
+  // Merge locally cached user stories so they never vanish
   try {
     const localCache = JSON.parse(localStorage.getItem('slant_user_posts_cache') || '[]');
     if (Array.isArray(localCache) && localCache.length > 0) {
@@ -1044,14 +1075,17 @@ async function loadPosts() {
     console.warn('Error merging local user posts cache:', e);
   }
 
+  // 3. Render Batch 1 of 12 posts and WAIT for all 12 posters + video loop before dismissing loader
   if (allPosts.length > 0) {
     updateBadge(true, `Live Feed (${allPosts.length} posts)`);
     updateAuthUI();
-    renderFeed();
+    await renderFeed(true);
+  } else {
+    dismissInitialFeedLoader();
   }
 
-  // 3. Immediately sync latest live posts from the cloud API so all devices (mobile, laptop) see new posts immediately!
-  await syncLiveCloudPosts(!loadedFromCache);
+  // 4. In background, silently sync remaining posts from cloud
+  syncLiveCloudPosts(false);
 }
 
 async function syncLiveCloudPosts(forceRender = false) {
@@ -1122,10 +1156,13 @@ async function syncLiveCloudPosts(forceRender = false) {
       }
     } catch (_) {}
 
-    if (hasNew || forceRender) {
+    if (forceRender) {
       updateBadge(true, `Live Feed (${allPosts.length} posts)`);
       updateAuthUI();
       renderFeed();
+    } else {
+      updateBadge(true, `Live Feed (${allPosts.length} posts)`);
+      updateAuthUI();
     }
   }
 }
@@ -1327,19 +1364,35 @@ function preloadSingleImage(url) {
   if (!url) return Promise.resolve(false);
   return new Promise((resolve) => {
     const img = new Image();
-    img.crossOrigin = 'anonymous';
+    const onDone = () => {
+      if (typeof img.decode === 'function') {
+        img.decode().then(() => resolve(true)).catch(() => resolve(true));
+      } else {
+        resolve(true);
+      }
+    };
+    img.onload = onDone;
+    img.onerror = () => {
+      console.warn('Preload notice: could not load', url);
+      resolve(false);
+    };
     img.src = url;
-    if (img.complete && img.naturalWidth > 0) return resolve(true);
-    img.onload = () => resolve(true);
-    img.onerror = () => resolve(false);
-    setTimeout(() => resolve(false), 2500); // 2.5s safety cap
+    if (img.complete && img.naturalWidth > 0) {
+      onDone();
+    }
   });
 }
 
-async function preloadBatchImages(posts) {
+async function preloadBatchImages(posts, timeoutMs = 8000) {
   if (!posts || posts.length === 0) return;
   const urls = posts.map(getPostCardImageUrl).filter(Boolean);
-  await Promise.all(urls.map(preloadSingleImage));
+  if (urls.length === 0) return;
+  const preloadPromises = urls.map(preloadSingleImage);
+  const timeoutPromise = new Promise(resolve => setTimeout(resolve, timeoutMs));
+  await Promise.race([
+    Promise.all(preloadPromises),
+    timeoutPromise
+  ]);
 }
 
 function renderBatchCards(posts, offset = 0) {
@@ -1429,7 +1482,7 @@ function getPostFromIndexOrId(indexOrId) {
   return allPosts.find(p => p && p.id === indexOrId) || null;
 }
 
-async function renderFeed() {
+async function renderFeed(isInitial = false) {
   const container = document.getElementById('feedContainer');
   if (!container) return;
   container.innerHTML = '';
@@ -1528,17 +1581,30 @@ async function renderFeed() {
     try { initVid.play().catch(() => {}); } catch (_) {}
   }
 
-  // Preload all 12 poster images in Batch 1
-  try {
-    await preloadBatchImages(batch1);
-  } catch (e) {
-    console.warn('Batch 1 image preload warning:', e);
+  if (isInitial) {
+    // Deliberate UX Flow: Keep logo video looping for at least 1 full cycle (~1.8s)
+    // AND wait until all 12 original posters are completely loaded and decoded into memory
+    const minVideoCycle = new Promise(resolve => setTimeout(resolve, 1800));
+    try {
+      await Promise.all([
+        minVideoCycle,
+        preloadBatchImages(batch1, 8000)
+      ]);
+    } catch (e) {
+      console.warn('Batch 1 image preload notice:', e);
+    }
+  } else {
+    try {
+      await preloadBatchImages(batch1, 3000);
+    } catch (e) {
+      console.warn('Batch 1 image preload notice:', e);
+    }
   }
 
   // Render Batch 1 cards
   renderBatchCards(batch1, 0);
 
-  // Dismiss loader with smooth fade-out
+  // Smoothly fade out initial logo video loader now that all 12 posters are ready
   dismissInitialFeedLoader();
 
   // Set up infinite scroll observer for subsequent batches
@@ -1547,7 +1613,7 @@ async function renderFeed() {
   // In background, pre-cache Batch 2 (cards 13 to 24)
   const batch2 = filtered.slice(FEED_BATCH_SIZE, FEED_BATCH_SIZE * 2);
   if (batch2.length > 0) {
-    nextBatchPreloadPromise = preloadBatchImages(batch2);
+    nextBatchPreloadPromise = preloadBatchImages(batch2, 10000);
   }
 }
 
@@ -1640,22 +1706,16 @@ function dismissInitialFeedLoader() {
     try { window._feedVideoLoop.stop(); } catch (_) {}
     window._feedVideoLoop = null;
   }
-  const initVid = document.getElementById('feedInitialVideo') || document.getElementById('feedInitialVideoA');
-  if (initVid) {
-    try { initVid.pause(); } catch (_) {}
-  }
   const loader = document.getElementById('feedInitialLoader');
   if (loader && !loader.classList.contains('fade-out')) {
-    const elapsed = Date.now() - (window._feedLoaderStartTime || Date.now());
-    const remaining = Math.max(0, 600 - elapsed);
+    loader.classList.add('fade-out');
     setTimeout(() => {
-      if (loader) {
-        loader.classList.add('fade-out');
-        setTimeout(() => {
-          if (loader && loader.parentNode) loader.remove();
-        }, 500);
+      if (loader && loader.parentNode) loader.remove();
+      const initVid = document.getElementById('feedInitialVideo') || document.getElementById('feedInitialVideoA');
+      if (initVid) {
+        try { initVid.pause(); } catch (_) {}
       }
-    }, remaining);
+    }, 500);
   }
 }
 
@@ -6037,7 +6097,7 @@ try {
     if (playPromise !== undefined) playPromise.catch(() => {});
   }
 } catch (_) {}
-setTimeout(dismissInitialFeedLoader, 6000);
+setTimeout(dismissInitialFeedLoader, 15000); // 15s absolute safety fallback
 
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', init);
