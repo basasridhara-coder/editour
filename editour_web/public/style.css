@@ -597,12 +597,8 @@ header {
 .icon-action-btn.delete-action-btn {
   color: var(--text-muted);
 }
-.icon-action-btn.delete-action-btn:hover {
-  background: rgba(239, 68, 68, 0.14);
-  color: #EF4444;
-}
-.icon-action-btn.delete-action-btn:hover svg {
-  stroke: #EF4444;
+.icon-action-btn.delete-action-btn {
+  display: none !important;
 }
 
 .post-card-delete-btn {
@@ -626,12 +622,9 @@ header {
   stroke: #EF4444;
 }
 
-/* Native Instagram-Style Inline Carousel Dots */
+/* Duplicate inline dots hidden - only dots inside poster are displayed */
 .carousel-dots-inline {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-left: 6px;
+  display: none !important;
 }
 .carousel-dots-inline .carousel-dot {
   width: 5px;
