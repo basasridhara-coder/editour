@@ -50,34 +50,42 @@ module.exports = async function handler(req, res) {
       }
     } catch (_) {}
 
-    // 1. Primary: Direct Supabase query using resilient small chunks to avoid statement timeouts
+    // 1. Primary: Fast 2-step retrieval (fetch lightweight IDs first, then point lookups)
+    // This avoids Postgres statement timeout (57014) caused by ordering huge 2.5MB JSONB toast rows
     try {
-      const fetchBatch = async (offset, count) => {
-        try {
-          const resp = await fetch(`${SUPABASE_URL}/rest/v1/posts?select=id,created_at,data&order=created_at.desc&offset=${offset}&limit=${count}`, {
-            headers: {
-              'apikey': SUPABASE_KEY,
-              'Authorization': `Bearer ${SUPABASE_KEY}`
+      const idResp = await fetch(`${SUPABASE_URL}/rest/v1/posts?select=id,created_at&order=created_at.desc&offset=${baseOffset}&limit=${limit}`, {
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': `Bearer ${SUPABASE_KEY}`
+        }
+      });
+
+      if (idResp.ok) {
+        const idRows = await idResp.json();
+        if (Array.isArray(idRows) && idRows.length > 0) {
+          const orderedIds = idRows.map(r => r.id);
+
+          // Fetch individual rows concurrently with point lookups (fast & resilient)
+          const postPromises = orderedIds.map(async (id) => {
+            try {
+              const pResp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.${encodeURIComponent(id)}`, {
+                headers: {
+                  'apikey': SUPABASE_KEY,
+                  'Authorization': `Bearer ${SUPABASE_KEY}`
+                }
+              });
+              if (!pResp.ok) return null;
+              const pRows = await pResp.json();
+              return pRows && pRows[0] ? pRows[0] : null;
+            } catch (_) {
+              return null;
             }
           });
-          if (!resp.ok) return [];
-          return await resp.json();
-        } catch (_) {
-          return [];
-        }
-      };
 
-      let rows = [];
-      if (limit <= 6) {
-        rows = await fetchBatch(baseOffset, limit);
-      } else {
-        const half = Math.ceil(limit / 2);
-        const [c1, c2] = await Promise.all([
-          fetchBatch(baseOffset, half),
-          fetchBatch(baseOffset + half, limit - half)
-        ]);
-        rows = [...(Array.isArray(c1) ? c1 : []), ...(Array.isArray(c2) ? c2 : [])];
-      }
+          const fetchedRows = (await Promise.all(postPromises)).filter(Boolean);
+          const rowsMap = new Map();
+          fetchedRows.forEach(r => rowsMap.set(r.id, r));
+          const rows = orderedIds.map(id => rowsMap.get(id)).filter(Boolean);
 
       if (Array.isArray(rows) && rows.length > 0) {
         const posts = rows.map(r => {
@@ -125,6 +133,8 @@ module.exports = async function handler(req, res) {
         }).filter(p => p && !p.deleted && !p.isDeleted && (p.adaptedHeadline || p.originalHeadline || p.summary));
         if (posts.length > 0) {
           return res.status(200).json({ status: 'ok', count: posts.length, posts });
+        }
+          }
         }
       }
     } catch (err) {

@@ -1018,6 +1018,56 @@ function mergeAndSortPosts(newPosts) {
   return addedCount > 0;
 }
 
+async function fetchDirectSupabasePosts(limit = 12) {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
+    const idResp = await fetch(`${SUPABASE_URL}/rest/v1/posts?select=id,created_at&order=created_at.desc&limit=${limit}`, {
+      signal: controller.signal,
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`
+      }
+    });
+    clearTimeout(timeoutId);
+    if (!idResp.ok) return [];
+    const idRows = await idResp.json();
+    if (!Array.isArray(idRows) || idRows.length === 0) return [];
+    const orderedIds = idRows.map(r => r.id);
+
+    // Fetch individual posts concurrently with point lookups (bypasses Postgres toast table sort timeout)
+    const postPromises = orderedIds.map(async (id) => {
+      try {
+        const pResp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.${encodeURIComponent(id)}`, {
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`
+          }
+        });
+        if (!pResp.ok) return null;
+        const pRows = await pResp.json();
+        return pRows && pRows[0] ? pRows[0] : null;
+      } catch (_) {
+        return null;
+      }
+    });
+
+    const fetchedRows = (await Promise.all(postPromises)).filter(Boolean);
+    const rowsMap = new Map();
+    fetchedRows.forEach(r => rowsMap.set(r.id, r));
+    const orderedRows = orderedIds.map(id => rowsMap.get(id)).filter(Boolean);
+    return orderedRows.map(r => {
+      const p = r.data || r;
+      p.id = p.id || r.id;
+      p.createdAt = p.createdAt || r.created_at || new Date().toISOString();
+      return p;
+    });
+  } catch (err) {
+    console.warn('fetchDirectSupabasePosts notice:', err);
+    return [];
+  }
+}
+
 async function loadPosts() {
   // 1. Start logo video immediately in initial loader
   const initVid = document.getElementById('feedInitialVideo') || document.getElementById('feedInitialVideoA');
@@ -1029,7 +1079,7 @@ async function loadPosts() {
     } catch (_) {}
   }
 
-  // 2. Fetch authoritative batch of 12 posts from /api/posts?limit=12 (with resilient fallback to slant_feed.json)
+  // 2. Fetch authoritative batch of 12 posts from /api/posts?limit=12 (with resilient fallback to direct Supabase)
   let fetchedLiveBatch = null;
   try {
     const controller = new AbortController();
@@ -1046,7 +1096,17 @@ async function loadPosts() {
       }
     }
   } catch (e) {
-    console.warn('Fast /api/posts fetch notice, falling back to slant_feed.json:', e);
+    console.warn('Fast /api/posts fetch notice, falling back:', e);
+  }
+
+  // If /api/posts didn't return, fetch direct from Supabase via fast point lookups
+  if (!fetchedLiveBatch || fetchedLiveBatch.length === 0) {
+    try {
+      const supaPosts = await fetchDirectSupabasePosts(FEED_BATCH_SIZE);
+      if (Array.isArray(supaPosts) && supaPosts.length > 0) {
+        fetchedLiveBatch = supaPosts;
+      }
+    } catch (_) {}
   }
 
   if (fetchedLiveBatch && fetchedLiveBatch.length > 0) {
@@ -1094,8 +1154,8 @@ async function syncLiveCloudPosts(forceRender = false) {
   // 1. Primary: Fetch from /api/posts with timestamp and no-store to bypass any proxy/browser cache
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 6000);
-    const apiResp = await fetch(`/api/posts?limit=12&ts=${Date.now()}`, {
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const apiResp = await fetch(`/api/posts?limit=15&ts=${Date.now()}`, {
       cache: 'no-store',
       signal: controller.signal
     });
@@ -1110,30 +1170,12 @@ async function syncLiveCloudPosts(forceRender = false) {
     console.warn('/api/posts live sync error, trying direct Supabase fallback:', apiErr);
   }
 
-  // 2. Resilient Fallback: If /api/posts failed or was unreachable, query Supabase directly
+  // 2. Resilient Fallback: If /api/posts failed or was unreachable, query Supabase directly via fast point lookups
   if (!fetchedPosts || fetchedPosts.length === 0) {
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000);
-      const resp = await fetch(`${SUPABASE_URL}/rest/v1/posts?select=id,created_at,data&order=created_at.desc&limit=12`, {
-        signal: controller.signal,
-        headers: {
-          'apikey': SUPABASE_KEY,
-          'Authorization': `Bearer ${SUPABASE_KEY}`
-        }
-      });
-      clearTimeout(timeoutId);
-
-      if (resp.ok) {
-        const rows = await resp.json();
-        if (Array.isArray(rows) && rows.length > 0) {
-          fetchedPosts = rows.map(r => {
-            const p = r.data || r;
-            p.id = p.id || r.id;
-            p.createdAt = p.createdAt || r.created_at || new Date().toISOString();
-            return p;
-          });
-        }
+      const supaPosts = await fetchDirectSupabasePosts(15);
+      if (Array.isArray(supaPosts) && supaPosts.length > 0) {
+        fetchedPosts = supaPosts;
       }
     } catch (supaErr) {
       console.warn('Direct Supabase live sync completed or timed out:', supaErr);
@@ -6423,24 +6465,27 @@ async function publishSynthesizedPost() {
     }
   }
 
-  // 4. Local storage persistent backup: Save full post objects so stories NEVER vanish across reloads/sign-ins
+  // 4. Local storage persistent backup: Save post so stories NEVER vanish across reloads/sign-ins
   try {
+    const sanitizeForCache = (p) => {
+      if (!p) return null;
+      const copy = { ...p };
+      delete copy.originalPhotoBase64;
+      if (copy.illustrationBase64 && copy.illustrationBase64.length > 50000) {
+        delete copy.illustrationBase64;
+      }
+      if (!copy.illustrationUrl) {
+        copy.illustrationUrl = '/posters/' + copy.id + '.png';
+        copy.aiIllustrationUrl = copy.illustrationUrl;
+      }
+      return copy;
+    };
+
     const localPosts = JSON.parse(localStorage.getItem('slant_user_posts_cache') || '[]');
-    const filtered = localPosts.filter(p => p && p.id !== currentSynthesizedPost.id);
-    filtered.unshift(currentSynthesizedPost);
-    try {
-      localStorage.setItem('slant_user_posts_cache', JSON.stringify(filtered.slice(0, 25)));
-    } catch (quotaErr) {
-      // If quota exceeded due to large base64 strings, save lightweight copies
-      const lightweight = filtered.map(p => {
-        if (p.illustrationBase64 && p.illustrationBase64.length > 50000) {
-          const { illustrationBase64, ...rest } = p;
-          return rest;
-        }
-        return p;
-      });
-      localStorage.setItem('slant_user_posts_cache', JSON.stringify(lightweight.slice(0, 25)));
-    }
+    const filtered = localPosts.filter(p => p && p.id !== currentSynthesizedPost.id).map(sanitizeForCache).filter(Boolean);
+    const sanitizedCurrent = sanitizeForCache(currentSynthesizedPost);
+    if (sanitizedCurrent) filtered.unshift(sanitizedCurrent);
+    localStorage.setItem('slant_user_posts_cache', JSON.stringify(filtered.slice(0, 30)));
   } catch (lsErr) {
     console.warn('Could not cache user post to localStorage:', lsErr);
   }
