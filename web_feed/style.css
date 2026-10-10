@@ -3190,15 +3190,15 @@ header {
 
   /* Slide 3 Broadsheet Mobile Optimization: Full Content Visible with Elegant Newspaper Styling */
   .slide-receipt {
-    padding: 10px 14px 8px;
+    padding: 0 !important;
   }
   .receipt-pub-title {
-    font-size: 13.5px;
-    letter-spacing: 1.6px;
-    margin: 1px 0;
+    font-size: 16px;
+    letter-spacing: 2px;
+    margin: 2px 0 1px;
   }
   .receipt-rules {
-    font-size: 6.4px;
+    font-size: 6.8px;
     margin: 1px 0 2px;
   }
   .receipt-headline {
