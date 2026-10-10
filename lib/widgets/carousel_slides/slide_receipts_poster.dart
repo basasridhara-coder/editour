@@ -307,7 +307,7 @@ class SlideReceiptsPoster extends StatelessWidget {
     final isFlush = borderRadius == BorderRadius.zero;
 
     return AspectRatio(
-      aspectRatio: 4 / 5,
+      aspectRatio: 3 / 4,
       child: Container(
         decoration: BoxDecoration(
           color: const Color(0xFFF7F5EE), // Authentic vintage newsprint broadsheet paper

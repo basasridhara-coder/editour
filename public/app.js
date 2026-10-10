@@ -2113,7 +2113,6 @@ function buildSlide1Html(post, index) {
         </div>
       </div>
       <div class="slide-hook-bottom">
-        ${newsFragmentHtml}
         <h3 class="slide-hook-headline">${headline}</h3>
         <!-- Bottom-Left: slant.today | Bottom-Right: Your conviction in 3 frames -->
         <div class="poster-brand-footer">
@@ -2215,7 +2214,7 @@ function buildSlide2Html(post, index) {
   return `
     ${bgHtml}
     <div class="slide-hook-top-scrim"></div>
-    <div class="slide-hook-bottom-scrim" style="height: 42%; background: linear-gradient(to bottom, transparent 0%, rgba(7,11,18,0.52) 22%, rgba(7,11,18,0.95) 100%);"></div>
+    <div class="slide-hook-bottom-scrim" style="height: 32%; background: linear-gradient(to bottom, transparent 0%, rgba(7,11,18,0.6) 28%, rgba(7,11,18,0.96) 100%);"></div>
     <div class="slide-hook-content" style="justify-content: space-between;">
       <div class="slide-hook-top" style="justify-content: space-between; width: 100%;">
         <!-- Top-Left (The Brand Identity): <logo> -->
@@ -2554,23 +2553,8 @@ function createPostCardElement(post, index) {
     sourceBadgeText = post.bookTitle || pubName || 'Classical Literature';
   }
 
-  // 3-Poster Carousel Trio Frame with Interactive Tabs & Arrows (Universal 3-Slide Social Poster Series)
+  // 3-Poster Carousel Trio Frame in 3:4 Aspect Ratio (Clean, Unobstructed Editorial Artwork)
   const visualSectionHtml = `
-    <div class="carousel-slide-tabs" id="tabs-${index}">
-      <button class="carousel-tab-btn active" onclick="goToSlide(event, '${index}', 0)" title="Slide 1: Visual Hook">
-        <span class="tab-icon">🎨</span>
-        <span class="tab-text">Hook</span>
-      </button>
-      <button class="carousel-tab-btn" onclick="goToSlide(event, '${index}', 1)" title="Slide 2: Curator Take">
-        <span class="tab-icon">⚖️</span>
-        <span class="tab-text">Take</span>
-      </button>
-      <button class="carousel-tab-btn" onclick="goToSlide(event, '${index}', 2)" title="${escapeHtml(tab3Title)}">
-        <span class="tab-icon">${tab3Icon}</span>
-        <span class="tab-text">${escapeHtml(tab3Label)}</span>
-      </button>
-    </div>
-
     <div class="carousel-view ${isClean ? 'clean-view' : ''}" id="carousel-${index}" data-post-index="${index}" data-current-slide="0">
       <div class="carousel-track" id="track-${index}">
         <div class="carousel-slide slide-hook" onclick="openDetailModal('${index}')">
@@ -3079,9 +3063,9 @@ async function capturePostSlidesAsFiles(post, index) {
     throw new Error('html2canvas library is not loaded');
   }
 
-  // Exact 4:5 social ratio (440x550) matching the web app feed card dimensions
-  const exportWidth = 440;
-  const exportHeight = 550;
+  // Exact 3:4 social ratio (450x600) matching the web app feed card dimensions
+  const exportWidth = 450;
+  const exportHeight = 600;
 
   // Convert poster image to local blob URL to bypass any CORS taint or delay in html2canvas
   let exportPost = { ...post };

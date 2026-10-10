@@ -86,7 +86,7 @@ class SlideCritiquePoster extends StatelessWidget {
     final isFlush = borderRadius == BorderRadius.zero;
 
     final posterWidget = AspectRatio(
-      aspectRatio: 4 / 5,
+      aspectRatio: 3 / 4,
       child: Container(
         decoration: BoxDecoration(
           color: const Color(0xFF070B12),

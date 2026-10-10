@@ -863,7 +863,7 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
     generationConfig: {
       responseModalities: ['IMAGE'],
       imageConfig: {
-        aspectRatio: '4:5'
+        aspectRatio: '3:4'
       }
     }
   });

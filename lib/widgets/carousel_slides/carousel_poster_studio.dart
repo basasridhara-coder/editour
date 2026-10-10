@@ -344,9 +344,9 @@ class CarouselPosterStudioState extends State<CarouselPosterStudio> {
               ),
             ),
 
-            // Swipeable 4:5 Poster Deck
+            // Swipeable 3:4 Poster Deck
             AspectRatio(
-              aspectRatio: 4 / 5,
+              aspectRatio: 3 / 4,
               child: PageView(
                 controller: _pageController,
                 physics: const BouncingScrollPhysics(),

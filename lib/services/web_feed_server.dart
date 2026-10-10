@@ -454,11 +454,11 @@ class WebFeedServer {
       margin-top: 1px;
     }
 
-    /* 4:5 Poster Carousel Viewport */
+    /* 3:4 Poster Carousel Viewport */
     .carousel-viewport {
       position: relative;
       width: 100%;
-      aspect-ratio: 4 / 5;
+      aspect-ratio: 3 / 4;
       overflow: hidden;
       background: #060911;
       border-top: 1px solid rgba(255, 255, 255, 0.08);

@@ -47,13 +47,13 @@ class _CompleteInfographicVisualState extends State<CompleteInfographicVisual> {
   Widget build(BuildContext context) {
     if (widget.item.isCarouselTrio) {
       return AspectRatio(
-        aspectRatio: 4 / 5,
+        aspectRatio: 3 / 4,
         child: FittedBox(
           fit: BoxFit.contain,
           alignment: Alignment.center,
           child: SizedBox(
             width: 360,
-            height: 450,
+            height: 480,
             child: PageView.builder(
               controller: _pageController,
               physics: const BouncingScrollPhysics(),
@@ -88,15 +88,15 @@ class _CompleteInfographicVisualState extends State<CompleteInfographicVisual> {
       );
     }
 
-    // Single poster format: 4:5 complete poster
+    // Single poster format: 3:4 complete poster
     return AspectRatio(
-      aspectRatio: 4 / 5,
+      aspectRatio: 3 / 4,
       child: FittedBox(
         fit: BoxFit.contain,
         alignment: Alignment.center,
         child: SizedBox(
           width: 360,
-          height: 450,
+          height: 480,
           child: SlideHookPoster(
             item: widget.item,
             config: widget.config,
