@@ -2041,40 +2041,47 @@ function buildSlide1Html(post, index) {
 
   const bgHtml = `${fallbackCoverHtml}${imgHtml}`;
 
-  // Tactile Ripped Newspaper Clipping Fragment (Actual News Excerpt / Headline)
+  // 1. The Headline Excerpt of Source (Original Article / News Wire / Spark Excerpt)
   let rawNews = '';
   if (tier === 'tier3_opinion') {
     rawNews = (post.spark && post.spark.trim())
       ? post.spark.trim()
-      : ((post.userContext && post.userContext.trim())
-          ? post.userContext.trim()
-          : ((post.originalHeadline && post.originalHeadline.trim() !== (post.adaptedHeadline || '').trim())
-              ? post.originalHeadline.trim()
-              : (post.hook || '')));
+      : ((post.originalHeadline && post.originalHeadline.trim())
+          ? post.originalHeadline.trim()
+          : ((post.userContext && post.userContext.trim())
+              ? post.userContext.trim()
+              : (post.receiptHighlightQuote || post.pullQuote || post.hook || '')));
   } else {
-    rawNews = (post.originalHeadline && post.originalHeadline.trim().length > 0 && post.originalHeadline.trim() !== (post.adaptedHeadline || '').trim())
-      ? post.originalHeadline.trim()
-      : ((post.hook && post.hook.trim().length > 0 && post.hook.trim() !== headline)
-          ? post.hook.trim()
-          : '');
+    // For news & web sources: pick authentic original source headline or high-signal excerpt
+    if (post.originalHeadline && post.originalHeadline.trim() && post.originalHeadline.trim() !== (post.adaptedHeadline || '').trim()) {
+      rawNews = post.originalHeadline.trim();
+    } else if (post.receiptHighlightQuote && post.receiptHighlightQuote.trim() && post.receiptHighlightQuote.trim() !== (post.adaptedHeadline || '').trim()) {
+      rawNews = post.receiptHighlightQuote.trim();
+    } else if (post.pullQuote && post.pullQuote.trim() && post.pullQuote.trim() !== (post.adaptedHeadline || '').trim()) {
+      rawNews = post.pullQuote.trim();
+    } else if (post.originalHeadline && post.originalHeadline.trim()) {
+      rawNews = post.originalHeadline.trim();
+    } else if (post.hook && post.hook.trim()) {
+      rawNews = post.hook.trim();
+    }
   }
   if (rawNews) {
-    rawNews = rawNews.replace(/^the spark\s*:\s*["']?/i, '').replace(/["']?$/i, '').trim();
+    rawNews = rawNews.replace(/^(the spark|curator stance|source headline)\s*:\s*["']?/i, '').replace(/["']?$/i, '').trim();
   }
 
   let newsFragmentHtml = '';
   if (rawNews) {
     const words = rawNews.split(/\s+/);
-    const formattedNews = words.length > 13 ? words.slice(0, 13).join(' ') + '...' : rawNews;
+    const formattedNews = words.length > 14 ? words.slice(0, 14).join(' ') + '...' : rawNews;
     
     let fragIcon = '🗞️';
-    let fragTitle = `NEWS CLIPPING • ${pubName.toUpperCase()}`;
+    let fragTitle = `SOURCE HEADLINE • ${pubName.toUpperCase()}`;
     if (tier === 'tier2_web') {
       fragIcon = '🌐';
-      fragTitle = `WEB COMMENTARY • ${(cleanHost || 'ONLINE').toUpperCase()}`;
+      fragTitle = `SOURCE HEADLINE • ${(cleanHost || 'ONLINE').toUpperCase()}`;
     } else if (tier === 'tier3_opinion') {
       fragIcon = slantIcon;
-      fragTitle = `PERSPECTIVE • THE SPARK`;
+      fragTitle = `SOURCE INSPIRATION • THE SPARK`;
     } else if (tier === 'tier_book') {
       fragIcon = '📖';
       fragTitle = `LITERARY EXCERPT • CLASSICAL TEXT`;
@@ -2113,6 +2120,7 @@ function buildSlide1Html(post, index) {
         </div>
       </div>
       <div class="slide-hook-bottom">
+        ${newsFragmentHtml}
         <h3 class="slide-hook-headline">${headline}</h3>
         <!-- Bottom-Left: slant.today | Bottom-Right: Your conviction in 3 frames -->
         <div class="poster-brand-footer">
