@@ -1846,15 +1846,16 @@ function buildSlide1Html(post, index) {
       ? post.illustrationBase64
       : `data:image/png;base64,${post.illustrationBase64}`;
   } else if (post.illustrationUrl) {
-    const isSeaPhoto = post.illustrationUrl.includes('photo-1507525428034');
+    let cleanUrl = post.illustrationUrl;
+    if (cleanUrl.includes('pollinations.ai')) {
+      cleanUrl = `/posters/${post.id}.png`;
+    }
+    const isSeaPhoto = cleanUrl.includes('photo-1507525428034');
     const isActuallyBeach = /beach|coast|ocean|sea|shore|sand|surf/i.test((post.heroCue || '') + ' ' + (post.adaptedHeadline || '') + ' ' + (post.originalHeadline || ''));
     if (!isSeaPhoto || isActuallyBeach) {
-      bgImgSrc = post.illustrationUrl;
+      bgImgSrc = cleanUrl;
     } else {
-      const promptText = (post.illustrationPrompt || post.heroCue || post.adaptedHeadline || '').slice(0, 180).trim();
-      if (promptText) {
-        bgImgSrc = `https://image.pollinations.ai/prompt/${encodeURIComponent(promptText + ', cinematic editorial art, high aesthetic, no typography, no text')}?width=1080&height=1350&nologo=true`;
-      }
+      bgImgSrc = `/posters/${post.id}.png`;
     }
   }
 
@@ -2016,15 +2017,16 @@ function buildSlide2Html(post, index) {
       ? post.illustrationBase64
       : `data:image/png;base64,${post.illustrationBase64}`;
   } else if (post.illustrationUrl) {
-    const isSeaPhoto = post.illustrationUrl.includes('photo-1507525428034');
+    let cleanUrl = post.illustrationUrl;
+    if (cleanUrl.includes('pollinations.ai')) {
+      cleanUrl = `/posters/${post.id}.png`;
+    }
+    const isSeaPhoto = cleanUrl.includes('photo-1507525428034');
     const isActuallyBeach = /beach|coast|ocean|sea|shore|sand|surf/i.test((post.heroCue || '') + ' ' + (post.adaptedHeadline || '') + ' ' + (post.originalHeadline || ''));
     if (!isSeaPhoto || isActuallyBeach) {
-      bgCritiqueImgSrc = post.illustrationUrl;
+      bgCritiqueImgSrc = cleanUrl;
     } else {
-      const promptText = (post.illustrationPrompt || post.heroCue || post.adaptedHeadline || '').slice(0, 180).trim();
-      if (promptText) {
-        bgCritiqueImgSrc = `https://image.pollinations.ai/prompt/${encodeURIComponent(promptText + ', cinematic editorial art, high aesthetic, no typography, no text')}?width=1080&height=1350&nologo=true`;
-      }
+      bgCritiqueImgSrc = `/posters/${post.id}.png`;
     }
   }
 

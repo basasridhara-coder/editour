@@ -50,17 +50,14 @@ module.exports = async function handler(req, res) {
             illustrationBase64: cleanB64
           });
         }
-        // If direct Gemini generation timed out, provide prompt-matched AI illustration URL (never a sea photo!)
-        const promptUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt + ', cinematic editorial art, high aesthetic, no typography, no text')}?width=1080&height=1350&nologo=true`;
         return res.status(200).json({
-          success: true,
-          illustrationUrl: promptUrl
+          success: false,
+          error: 'Gemini artwork synthesis timed out'
         });
       } catch (e) {
-        const promptUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt + ', cinematic editorial art, high aesthetic, no typography, no text')}?width=1080&height=1350&nologo=true`;
         return res.status(200).json({
-          success: true,
-          illustrationUrl: promptUrl
+          success: false,
+          error: e.message || 'Artwork synthesis failed'
         });
       }
     }
@@ -962,12 +959,8 @@ function getCuratedEditorialPhoto({ heroCue = '', motifCue = '', prompt = '', te
     return 'https://images.unsplash.com/photo-1602216056096-3b40cc0c9944?auto=format&fit=crop&w=1200&q=80';
   }
 
-  // 3. Fallback: Prompt-tailored dynamic AI illustration so it ALWAYS matches the exact visual cue!
-  const promptSubject = (heroCue || motifCue || prompt || text || 'thoughtful editorial concept')
-    .slice(0, 180)
-    .replace(/["\n\r]/g, ' ')
-    .trim();
-  return `https://image.pollinations.ai/prompt/${encodeURIComponent(promptSubject + ', cinematic editorial art, high aesthetic, vivid color grading, masterwork, no letters, no text')}?width=1080&height=1350&nologo=true`;
+  // 3. Fallback: High aesthetic architectural/editorial photo
+  return 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1200&q=80';
 }
 
 function decodeHtmlEntities(str) {

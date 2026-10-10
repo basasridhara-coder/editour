@@ -2097,34 +2097,6 @@ Return ONLY valid JSON with this exact structure:
       }
     }
 
-    // --- Fallback: Pollinations AI (FLUX) for offline / network resilience ---
-    try {
-      debugPrint('🎨 [Fallback] Generating artwork via Pollinations FLUX (seed: $effectiveSeed)...');
-      final sanitizedArtPrompt = cleanPrompt
-          .replaceAll(RegExp(r'#\d+\s*\[[^\]]+\]:?'), '')
-          .replaceAll('•', ',')
-          .replaceAll(RegExp(r'\s+'), ' ')
-          .trim();
-      final artKeywords = sanitizedArtPrompt.length > 350
-          ? sanitizedArtPrompt.substring(0, 350)
-          : sanitizedArtPrompt;
-
-      final fullPrompt = '$selectedStylePrefix. $artKeywords';
-      final encodedPrompt = Uri.encodeComponent(fullPrompt);
-
-      final pollUri = Uri.parse(
-        'https://image.pollinations.ai/prompt/$encodedPrompt?width=720&height=900&nologo=true&seed=$effectiveSeed&model=flux',
-      );
-
-      final pollResponse = await http.get(pollUri).timeout(const Duration(seconds: 15));
-      if (pollResponse.statusCode == 200 && pollResponse.bodyBytes.length > 5000) {
-        debugPrint('✅ [Fallback] Successfully generated illustration via Pollinations FLUX (${pollResponse.bodyBytes.length} bytes)!');
-        return pollResponse.bodyBytes;
-      }
-    } catch (e) {
-      debugPrint('Pollinations AI fallback exception: $e');
-    }
-
     return null;
   }
 

@@ -88,8 +88,8 @@ module.exports = async function handler(req, res) {
           // If static poster image exists in /posters/, serve ultra-fast static URL and strip 2.5MB base64 bloat
           const posterFile = path.join(__dirname, '../public/posters', p.id + '.png');
           if (fs.existsSync(posterFile) || (p.illustrationUrl && p.illustrationUrl.startsWith('/posters/'))) {
-            p.illustrationUrl = '/posters/' + p.id + '.png';
-            p.aiIllustrationUrl = '/posters/' + p.id + '.png';
+            p.illustrationUrl = '/posters/' + p.id + '.png?v=2';
+            p.aiIllustrationUrl = '/posters/' + p.id + '.png?v=2';
             delete p.illustrationBase64;
             delete p.originalPhotoBase64;
           } else if (p.illustrationBase64) {
@@ -106,10 +106,18 @@ module.exports = async function handler(req, res) {
             p.aiIllustrationUrl = '';
           }
 
-          // Strict guarantee: Never return a post with an empty poster image
+          // Sanitize any legacy pollinations URLs
+          if (p.illustrationUrl && p.illustrationUrl.includes('pollinations.ai')) {
+            p.illustrationUrl = '/posters/' + p.id + '.png';
+            p.aiIllustrationUrl = p.illustrationUrl;
+          }
+          if (p.aiIllustrationUrl && p.aiIllustrationUrl.includes('pollinations.ai')) {
+            p.aiIllustrationUrl = p.illustrationUrl || ('/posters/' + p.id + '.png');
+          }
+
+          // Strict guarantee: Never return a post with an empty poster image or third-party placeholder
           if (!p.illustrationUrl && !p.illustrationBase64) {
-            const promptSubject = (p.illustrationPrompt || p.heroCue || p.adaptedHeadline || 'editorial idea').slice(0, 160).replace(/["\n\r]/g, ' ').trim();
-            p.illustrationUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(promptSubject + ', cinematic editorial art, high aesthetic, vivid color grading, masterwork, no letters, no text')}?width=1080&height=1350&nologo=true`;
+            p.illustrationUrl = '/posters/' + p.id + '.png';
             p.aiIllustrationUrl = p.illustrationUrl;
           }
 
