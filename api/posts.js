@@ -65,27 +65,22 @@ module.exports = async function handler(req, res) {
         if (Array.isArray(idRows) && idRows.length > 0) {
           const orderedIds = idRows.map(r => r.id);
 
-          // Fetch individual rows concurrently with point lookups (fast & resilient)
-          const postPromises = orderedIds.map(async (id) => {
-            try {
-              const pResp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.${encodeURIComponent(id)}`, {
-                headers: {
-                  'apikey': SUPABASE_KEY,
-                  'Authorization': `Bearer ${SUPABASE_KEY}`
-                }
-              });
-              if (!pResp.ok) return null;
-              const pRows = await pResp.json();
-              return pRows && pRows[0] ? pRows[0] : null;
-            } catch (_) {
-              return null;
+          // Single indexed primary-key query for all ordered IDs (fast & zero dropped rows)
+          const inFilter = orderedIds.map(id => '%22' + encodeURIComponent(id) + '%22').join(',');
+          const pResp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=in.(${inFilter})`, {
+            headers: {
+              'apikey': SUPABASE_KEY,
+              'Authorization': `Bearer ${SUPABASE_KEY}`
             }
           });
 
-          const fetchedRows = (await Promise.all(postPromises)).filter(Boolean);
-          const rowsMap = new Map();
-          fetchedRows.forEach(r => rowsMap.set(r.id, r));
-          const rows = orderedIds.map(id => rowsMap.get(id)).filter(Boolean);
+          let rows = [];
+          if (pResp.ok) {
+            const pRows = await pResp.json();
+            const rowsMap = new Map();
+            pRows.forEach(r => rowsMap.set(r.id, r));
+            rows = orderedIds.map(id => rowsMap.get(id)).filter(Boolean);
+          }
 
       if (Array.isArray(rows) && rows.length > 0) {
         const posts = rows.map(r => {
@@ -93,34 +88,36 @@ module.exports = async function handler(req, res) {
           p.id = p.id || r.id;
           p.createdAt = p.createdAt || r.created_at || new Date().toISOString();
 
-          // If static poster image exists in /posters/, serve ultra-fast static URL and strip 2.5MB base64 bloat
+          // Strip any Unsplash or placeholder fallback URLs completely
+          if (p.illustrationUrl && p.illustrationUrl.includes('unsplash.com')) {
+            p.illustrationUrl = '';
+          }
+          if (p.aiIllustrationUrl && p.aiIllustrationUrl.includes('unsplash.com')) {
+            p.aiIllustrationUrl = '';
+          }
+
+          // If static poster image exists in /posters/ or illustrationBase64 is present
           const posterFile = path.join(__dirname, '../public/posters', p.id + '.png');
           if (fs.existsSync(posterFile) || (p.illustrationUrl && p.illustrationUrl.startsWith('/posters/'))) {
-            p.illustrationUrl = '/posters/' + p.id + '.png?v=2';
-            p.aiIllustrationUrl = '/posters/' + p.id + '.png?v=2';
+            p.illustrationUrl = '/posters/' + p.id + '.png';
+            p.aiIllustrationUrl = '/posters/' + p.id + '.png';
             delete p.illustrationBase64;
             delete p.originalPhotoBase64;
           } else if (p.illustrationBase64) {
-            p.illustrationUrl = '';
-            p.aiIllustrationUrl = '';
-          }
-
-          // Clean up any motherboard, palette, or unrelated sea photo fallback URLs
-          const isActuallyBeach = /beach|coast|ocean|sea|shore|sand|surf/i.test((p.heroCue || '') + ' ' + (p.adaptedHeadline || ''));
-          if (p.illustrationUrl && (p.illustrationUrl.includes('photo-1518770660439') || p.illustrationUrl.includes('photo-1541872703') || (!isActuallyBeach && p.illustrationUrl.includes('photo-1507525428034')))) {
-            p.illustrationUrl = '';
-          }
-          if (p.aiIllustrationUrl && (p.aiIllustrationUrl.includes('photo-1518770660439') || p.aiIllustrationUrl.includes('photo-1541872703') || (!isActuallyBeach && p.aiIllustrationUrl.includes('photo-1507525428034')))) {
-            p.aiIllustrationUrl = '';
-          }
-
-          // Sanitize any legacy pollinations URLs
-          if (p.illustrationUrl && p.illustrationUrl.includes('pollinations.ai')) {
+            try {
+              const cleanB64 = p.illustrationBase64.replace(/^data:image\/[^;]+;base64,/, '');
+              const buf = Buffer.from(cleanB64, 'base64');
+              const targetDirs = [
+                path.join(__dirname, '../public/posters'),
+                path.join(__dirname, '../web_feed/posters')
+              ];
+              targetDirs.forEach(dir => {
+                if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+                fs.writeFileSync(path.join(dir, p.id + '.png'), buf);
+              });
+            } catch (_) {}
             p.illustrationUrl = '/posters/' + p.id + '.png';
-            p.aiIllustrationUrl = p.illustrationUrl;
-          }
-          if (p.aiIllustrationUrl && p.aiIllustrationUrl.includes('pollinations.ai')) {
-            p.aiIllustrationUrl = p.illustrationUrl || ('/posters/' + p.id + '.png');
+            p.aiIllustrationUrl = '/posters/' + p.id + '.png';
           }
 
           // Strict guarantee: Never return a post with an empty poster image or third-party placeholder

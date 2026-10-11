@@ -467,15 +467,8 @@ Respond strictly with valid JSON with this exact structure:
     } else if (geminiArt) {
       finalIllustrationBase64 = geminiArt.replace(/^data:image\/[^;]+;base64,/, '');
     } else {
-      // Curated photo fallback if Gemini image generation took longer than 5.8s
-      finalIllustrationUrl = getCuratedEditorialPhoto({
-        heroCue: parsed.heroCue || (cues && cues[0]) || '',
-        motifCue: parsed.motifCue || (cues && cues[1]) || '',
-        prompt: concisePrompt,
-        text: `${userSlant} ${spark} ${parsed.adaptedHeadline || ''}`,
-        category: parsed.categoryBadge || '',
-        seed: illustrationSeed
-      });
+      // Never substitute generic stock photos. Custom artwork will be rendered directly via Gemini
+      finalIllustrationUrl = '';
     }
 
     let finalCuratorTake = (refineCoreTake && parsed.curatorTake && parsed.curatorTake.trim().length > 10)
@@ -905,62 +898,9 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
   return null;
 }
 
-function getCuratedEditorialPhoto({ heroCue = '', motifCue = '', prompt = '', text = '', category = '', seed = 1 }) {
-  const heroLower = (heroCue || '').toLowerCase();
-  const motifLower = (motifCue || '').toLowerCase();
-  const promptLower = (prompt || '').toLowerCase();
-  const generalLower = `${text} ${category}`.toLowerCase();
-
-  // 1. HIGHEST PRIORITY: The #1 HERO Visual Cue (Centerpiece Subject)
-  // Parent closing laptop / open suitcase / packing tension
-  if (/laptop|computer|screen|desk|work|office|task/.test(heroLower)) {
-    return 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=1200&q=80';
-  }
-  if (/pack|suitcase|luggage|baggage|departure|traveler/.test(heroLower) || /pack|suitcase|luggage/.test(motifLower)) {
-    return 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=1200&q=80';
-  }
-  if (/parent|father|mother|family|child|son|daughter/.test(heroLower)) {
-    return 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=1200&q=80';
-  }
-
-  // Legal / Court / Justice
-  if (/court|law|judge|justice|supreme|legal|constitution|verdict|bench/.test(heroLower)) {
-    return 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=1200&q=80';
-  }
-
-  // Government / Politics / Statecraft
-  if (/parliament|politics|government|minister|election|state|policy|democracy/.test(heroLower)) {
-    return 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=1200&q=80';
-  }
-
-  // Technology / AI / Silicon
-  if (/ai|artificial|tech|algorithm|chip|computer|code|software|cyber|digital|robot|server/.test(heroLower)) {
-    return 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1200&q=80';
-  }
-
-  // Markets / Finance
-  if (/market|stock|finance|economy|business|money|bank|investment|fund/.test(heroLower)) {
-    return 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1200&q=80';
-  }
-
-  // 2. SECONDARY PRIORITY: Geography / Landscape ONLY if the HERO itself is a place/setting
-  if (/kerala|backwater|houseboat|alleppey|kumarakom|munnar/.test(heroLower) || (/kerala/.test(promptLower) && /river|water|lake|boat/.test(heroLower))) {
-    return 'https://images.unsplash.com/photo-1602216056096-3b40cc0c9944?auto=format&fit=crop&w=1200&q=80';
-  }
-  if (/beach|coast|ocean|sea|shore|island|surf|sand/.test(heroLower)) {
-    return 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=80';
-  }
-  if (/mountain|hills?|trek|hiking|nature|forest|greenery/.test(heroLower)) {
-    return 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1200&q=80';
-  }
-
-  // 3. Fallback: general topic match
-  if (/kerala/.test(generalLower)) {
-    return 'https://images.unsplash.com/photo-1602216056096-3b40cc0c9944?auto=format&fit=crop&w=1200&q=80';
-  }
-
-  // 3. Fallback: High aesthetic architectural/editorial photo
-  return 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1200&q=80';
+function getCuratedEditorialPhoto() {
+  // Completely eliminated external stock photo fallbacks
+  return '';
 }
 
 function decodeHtmlEntities(str) {

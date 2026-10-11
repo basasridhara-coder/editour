@@ -1035,31 +1035,37 @@ async function fetchDirectSupabasePosts(limit = 12) {
     if (!Array.isArray(idRows) || idRows.length === 0) return [];
     const orderedIds = idRows.map(r => r.id);
 
-    // Fetch individual posts concurrently with point lookups (bypasses Postgres toast table sort timeout)
-    const postPromises = orderedIds.map(async (id) => {
-      try {
-        const pResp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.${encodeURIComponent(id)}`, {
-          headers: {
-            'apikey': SUPABASE_KEY,
-            'Authorization': `Bearer ${SUPABASE_KEY}`
-          }
-        });
-        if (!pResp.ok) return null;
-        const pRows = await pResp.json();
-        return pRows && pRows[0] ? pRows[0] : null;
-      } catch (_) {
-        return null;
+    // Fetch posts via single indexed primary-key query (fast & resilient)
+    const inFilter = orderedIds.map(id => '%22' + encodeURIComponent(id) + '%22').join(',');
+    const pResp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=in.(${inFilter})`, {
+      signal: controller.signal,
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`
       }
     });
 
-    const fetchedRows = (await Promise.all(postPromises)).filter(Boolean);
-    const rowsMap = new Map();
-    fetchedRows.forEach(r => rowsMap.set(r.id, r));
-    const orderedRows = orderedIds.map(id => rowsMap.get(id)).filter(Boolean);
+    let orderedRows = [];
+    if (pResp.ok) {
+      const pRows = await pResp.json();
+      const rowsMap = new Map();
+      pRows.forEach(r => rowsMap.set(r.id, r));
+      orderedRows = orderedIds.map(id => rowsMap.get(id)).filter(Boolean);
+    }
     return orderedRows.map(r => {
       const p = r.data || r;
       p.id = p.id || r.id;
       p.createdAt = p.createdAt || r.created_at || new Date().toISOString();
+      if (p.illustrationUrl && (p.illustrationUrl.includes('unsplash.com') || p.illustrationUrl.includes('pollinations.ai'))) {
+        p.illustrationUrl = '';
+      }
+      if (p.aiIllustrationUrl && (p.aiIllustrationUrl.includes('unsplash.com') || p.aiIllustrationUrl.includes('pollinations.ai'))) {
+        p.aiIllustrationUrl = '';
+      }
+      if (!p.illustrationUrl && !p.illustrationBase64) {
+        p.illustrationUrl = `/posters/${p.id}.png`;
+        p.aiIllustrationUrl = p.illustrationUrl;
+      }
       return p;
     });
   } catch (err) {
@@ -1141,7 +1147,7 @@ async function loadPosts() {
     updateAuthUI();
     await renderFeed(true);
   } else {
-    dismissInitialFeedLoader();
+    dismissInitialFeedLoader(true);
   }
 
   // 4. In background, silently sync remaining posts from cloud
@@ -1190,10 +1196,23 @@ async function syncLiveCloudPosts(forceRender = false) {
     try {
       const userStories = validPosts.filter(p => p.isUserCreated || myCreatedPostIds.has(p.id));
       if (userStories.length > 0) {
+        const sanitizeForCache = (p) => {
+          if (!p) return null;
+          const copy = { ...p };
+          delete copy.originalPhotoBase64;
+          if (copy.illustrationBase64 && copy.illustrationBase64.length > 50000) {
+            delete copy.illustrationBase64;
+          }
+          if (!copy.illustrationUrl) {
+            copy.illustrationUrl = '/posters/' + copy.id + '.png';
+            copy.aiIllustrationUrl = copy.illustrationUrl;
+          }
+          return copy;
+        };
         const existingLocal = JSON.parse(localStorage.getItem('slant_user_posts_cache') || '[]');
         const map = new Map();
-        userStories.forEach(p => map.set(p.id, p));
-        existingLocal.forEach(p => { if (!map.has(p.id)) map.set(p.id, p); });
+        userStories.map(sanitizeForCache).filter(Boolean).forEach(p => map.set(p.id, p));
+        existingLocal.map(sanitizeForCache).filter(Boolean).forEach(p => { if (!map.has(p.id)) map.set(p.id, p); });
         localStorage.setItem('slant_user_posts_cache', JSON.stringify(Array.from(map.values()).slice(0, 30)));
       }
     } catch (_) {}
@@ -1399,22 +1418,36 @@ function getPostCardImageUrl(post) {
       ? post.illustrationBase64
       : `data:image/png;base64,${post.illustrationBase64}`;
   }
-  return post.illustrationUrl || post.aiIllustrationUrl || '';
+  let url = post.illustrationUrl || post.aiIllustrationUrl || '';
+  if (url.includes('unsplash.com') || url.includes('pollinations.ai')) {
+    url = `/posters/${post.id}.png`;
+  }
+  if (!url && post.id) {
+    url = `/posters/${post.id}.png`;
+  }
+  return url;
 }
 
 function preloadSingleImage(url) {
   if (!url) return Promise.resolve(false);
   return new Promise((resolve) => {
     const img = new Image();
+    let settled = false;
     const onDone = () => {
+      if (settled) return;
+      settled = true;
       if (typeof img.decode === 'function') {
-        img.decode().then(() => resolve(true)).catch(() => resolve(true));
+        img.decode()
+          .then(() => resolve(img.naturalWidth > 0))
+          .catch(() => resolve(img.naturalWidth > 0));
       } else {
-        resolve(true);
+        resolve(img.naturalWidth > 0);
       }
     };
     img.onload = onDone;
     img.onerror = () => {
+      if (settled) return;
+      settled = true;
       console.warn('Preload notice: could not load', url);
       resolve(false);
     };
@@ -1693,7 +1726,8 @@ async function renderFeed(isInitial = false) {
           </div>
         </div>
       `;
-      dismissInitialFeedLoader();
+      initialFeedBatchReady = true;
+      dismissInitialFeedLoader(true);
       return;
     }
 
@@ -1707,7 +1741,8 @@ async function renderFeed(isInitial = false) {
           </div>
         </div>
       `;
-      dismissInitialFeedLoader();
+      initialFeedBatchReady = true;
+      dismissInitialFeedLoader(true);
       return;
     }
 
@@ -1718,7 +1753,8 @@ async function renderFeed(isInitial = false) {
         <div style="font-size:13px; margin-top:4px;">Snap a newspaper clipping or paste a news link in the PostCard app to publish here!</div>
       </div>
     `;
-    dismissInitialFeedLoader();
+    initialFeedBatchReady = true;
+    dismissInitialFeedLoader(true);
     return;
   }
 
@@ -1732,17 +1768,18 @@ async function renderFeed(isInitial = false) {
   }
 
   if (isInitial) {
-    // Deliberate UX Flow: Keep logo video looping for at least 1 full cycle (~1.8s)
+    // Deliberate UX Flow: Keep logo video looping for at least 1 full cycle (~2.2s)
     // AND wait until all 12 original posters are completely loaded and decoded into memory
-    const minVideoCycle = new Promise(resolve => setTimeout(resolve, 1800));
+    const minVideoCycle = new Promise(resolve => setTimeout(resolve, 2200));
     try {
       await Promise.all([
         minVideoCycle,
-        preloadBatchImages(batch1, 8000)
+        preloadBatchImages(batch1, 10000)
       ]);
     } catch (e) {
       console.warn('Batch 1 image preload notice:', e);
     }
+    initialFeedBatchReady = true;
   } else {
     try {
       await preloadBatchImages(batch1, 3000);
@@ -1859,7 +1896,12 @@ function setupSeamlessVideoLoop(containerId, videoAId, videoBId, crossfadeLeadSe
   return { start, stop };
 }
 
-function dismissInitialFeedLoader() {
+let initialFeedBatchReady = false;
+
+function dismissInitialFeedLoader(force = false) {
+  if (!force && !initialFeedBatchReady) {
+    return;
+  }
   if (window._feedVideoLoop) {
     try { window._feedVideoLoop.stop(); } catch (_) {}
     window._feedVideoLoop = null;
@@ -2113,7 +2155,7 @@ function buildSlide1Html(post, index) {
       : `data:image/png;base64,${post.illustrationBase64}`;
   } else if (post.illustrationUrl) {
     let cleanUrl = post.illustrationUrl;
-    if (cleanUrl.includes('pollinations.ai')) {
+    if (cleanUrl.includes('pollinations.ai') || cleanUrl.includes('unsplash.com')) {
       cleanUrl = `/posters/${post.id}.png`;
     }
     const isSeaPhoto = cleanUrl.includes('photo-1507525428034');
@@ -2123,6 +2165,8 @@ function buildSlide1Html(post, index) {
     } else {
       bgImgSrc = `/posters/${post.id}.png`;
     }
+  } else if (post.id) {
+    bgImgSrc = `/posters/${post.id}.png`;
   }
 
   const imgHtml = bgImgSrc
@@ -6530,7 +6574,7 @@ try {
     if (playPromise !== undefined) playPromise.catch(() => {});
   }
 } catch (_) {}
-setTimeout(dismissInitialFeedLoader, 15000); // 15s absolute safety fallback
+setTimeout(() => dismissInitialFeedLoader(true), 15000); // 15s absolute safety fallback
 
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', init);

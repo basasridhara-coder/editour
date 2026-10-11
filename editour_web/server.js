@@ -5,6 +5,7 @@ const postsHandler = require('./api/posts');
 let synthesizeHandler;
 let scrapeHandler;
 let cuesHandler;
+let posterHandler;
 try {
   synthesizeHandler = require('./api/synthesize');
 } catch (e) {
@@ -19,6 +20,11 @@ try {
   cuesHandler = require('./api/cues');
 } catch (e) {
   console.warn('Could not load cuesHandler:', e.message);
+}
+try {
+  posterHandler = require('./api/poster');
+} catch (e) {
+  console.warn('Could not load posterHandler:', e.message);
 }
 
 const PORT = process.env.PORT || 3000;
@@ -130,9 +136,27 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // API Route: Poster
+  if (url.pathname.startsWith('/api/poster') && posterHandler) {
+    await posterHandler(req, res);
+    return;
+  }
+
+  // Handle /posters/* files dynamically if not already on disk
+  if (url.pathname.startsWith('/posters/') && posterHandler) {
+    const posterFile = path.join(PUBLIC_DIR, url.pathname);
+    if (!fs.existsSync(posterFile)) {
+      const match = url.pathname.match(/\/posters\/([^\/]+)/);
+      if (match) {
+        req.url = `/api/poster?id=${encodeURIComponent(match[1])}`;
+        await posterHandler(req, res);
+        return;
+      }
+    }
+  }
+
   // Static files
-  let subPath = url.pathname === '/' ? 'index.html' : (url.pathname === '/login' ? 'login.html' : url.pathname);
-  let filePath = path.join(PUBLIC_DIR, subPath);
+  let filePath = path.join(PUBLIC_DIR, url.pathname === '/' ? 'index.html' : url.pathname);
   const ext = path.extname(filePath).toLowerCase();
 
   fs.readFile(filePath, (err, content) => {

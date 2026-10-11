@@ -12,10 +12,15 @@
     },
     "api/posts.js": {
       "maxDuration": 60
+    },
+    "api/poster.js": {
+      "maxDuration": 60
     }
   },
   "rewrites": [
-    { "source": "/login", "destination": "/login.html" }
+    { "source": "/login", "destination": "/login.html" },
+    { "source": "/posters/:id.png", "destination": "/api/poster?id=:id" },
+    { "source": "/posters/:id", "destination": "/api/poster?id=:id" }
   ],
   "headers": [
     {
