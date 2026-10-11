@@ -1880,7 +1880,7 @@ async function renderFeed(isInitial = false) {
   }
 }
 
-function setupSeamlessVideoLoop(containerId, videoAId, videoBId, crossfadeLeadSec = 0.45) {
+function setupSeamlessVideoLoop(containerId, videoAId, videoBId, crossfadeLeadSec = 0.50) {
   const container = document.getElementById(containerId);
   const vA = document.getElementById(videoAId);
   const vB = document.getElementById(videoBId);
@@ -1899,7 +1899,8 @@ function setupSeamlessVideoLoop(containerId, videoAId, videoBId, crossfadeLeadSe
       const duration = activeVideo.duration;
       const currentTime = activeVideo.currentTime;
 
-      // When active video reaches the settling crossfade window (duration - crossfadeLeadSec), seamlessly dissolve into next video
+      // Solid-Underlay Dissolve: Next video smoothly dissolves IN ON TOP (z-index 2) over active video
+      // Active video stays 100% solid (opacity 1) underneath, so the logo pen nib NEVER becomes semi-transparent or washed out!
       if (duration > 2 && (duration - currentTime) <= crossfadeLeadSec && !isTransitioning) {
         isTransitioning = true;
 
@@ -1909,21 +1910,27 @@ function setupSeamlessVideoLoop(containerId, videoAId, videoBId, crossfadeLeadSe
           playPromise.catch(() => {});
         }
 
-        nextVideo.classList.add('active');
-        activeVideo.classList.remove('active');
+        // Overlay nextVideo on top with smooth fade-in
+        nextVideo.classList.remove('base');
+        nextVideo.classList.add('fade-in');
 
+        // Only after nextVideo is 100% opaque (440ms > 420ms transition), silently pause activeVideo and switch roles
         setTimeout(() => {
           try {
             activeVideo.pause();
             activeVideo.currentTime = 0;
+            activeVideo.classList.remove('base', 'fade-in');
           } catch (_) {}
+
+          nextVideo.classList.remove('fade-in');
+          nextVideo.classList.add('base');
 
           // Swap active and next references
           const temp = activeVideo;
           activeVideo = nextVideo;
           nextVideo = temp;
           isTransitioning = false;
-        }, 360);
+        }, 440);
       }
     }
 
@@ -1933,8 +1940,9 @@ function setupSeamlessVideoLoop(containerId, videoAId, videoBId, crossfadeLeadSe
   function start() {
     isRunning = true;
     isTransitioning = false;
-    vA.classList.add('active');
-    vB.classList.remove('active');
+    vA.classList.remove('fade-in');
+    vA.classList.add('base');
+    vB.classList.remove('base', 'fade-in');
     vA.currentTime = 0;
     vB.currentTime = 0;
     activeVideo = vA;

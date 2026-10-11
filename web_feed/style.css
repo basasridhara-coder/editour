@@ -7296,17 +7296,24 @@ header {
   border-radius: 36px;
   display: block;
   opacity: 0;
-  transition: opacity 0.38s cubic-bezier(0.4, 0, 0.2, 1);
   transform: translateZ(0);
   -webkit-transform: translateZ(0);
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
-  will-change: opacity;
   pointer-events: none;
+  z-index: 1;
 }
 
-.synthesis-logo-video.active {
+.synthesis-logo-video.base {
   opacity: 1;
+  z-index: 1;
+  transition: none;
+}
+
+.synthesis-logo-video.fade-in {
+  opacity: 1;
+  z-index: 2;
+  transition: opacity 0.42s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .synthesis-orb-wrap {
@@ -8893,17 +8900,24 @@ header {
   border-radius: 36px;
   display: block;
   opacity: 0;
-  transition: opacity 0.38s cubic-bezier(0.4, 0, 0.2, 1);
   transform: translateZ(0);
   -webkit-transform: translateZ(0);
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
-  will-change: opacity;
   pointer-events: none;
+  z-index: 1;
 }
 
-.feed-loader-video.active {
+.feed-loader-video.base {
   opacity: 1;
+  z-index: 1;
+  transition: none;
+}
+
+.feed-loader-video.fade-in {
+  opacity: 1;
+  z-index: 2;
+  transition: opacity 0.42s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .feed-loader-title {

@@ -120,11 +120,11 @@ module.exports = async function handler(req, res) {
             p.aiIllustrationUrl = '/posters/' + p.id + '.png';
           }
 
-          // Strict guarantee: Never return a post with an empty poster image or third-party placeholder
-          if (!p.illustrationUrl && !p.illustrationBase64) {
-            p.illustrationUrl = '/posters/' + p.id + '.png';
-            p.aiIllustrationUrl = p.illustrationUrl;
-          }
+          // Strict guarantee: Set poster endpoint and strip multi-megabyte base64 strings from JSON response
+          p.illustrationUrl = '/posters/' + p.id + '.png';
+          p.aiIllustrationUrl = '/posters/' + p.id + '.png';
+          delete p.illustrationBase64;
+          delete p.originalPhotoBase64;
 
           return p;
         }).filter(p => p && !p.deleted && !p.isDeleted && (p.adaptedHeadline || p.originalHeadline || p.summary));
