@@ -1458,6 +1458,41 @@ function preloadSingleImage(url) {
   });
 }
 
+function waitForCardImageDecode(cardElement) {
+  if (!cardElement) return Promise.resolve(true);
+  const img = cardElement.querySelector('.slide-hook-bg');
+  if (!img || !img.src) return Promise.resolve(true);
+
+  return new Promise((resolve) => {
+    if (img.complete && img.naturalWidth > 0) {
+      if (typeof img.decode === 'function') {
+        img.decode().then(() => resolve(true)).catch(() => resolve(true));
+      } else {
+        resolve(true);
+      }
+      return;
+    }
+
+    let settled = false;
+    const onDone = () => {
+      if (settled) return;
+      settled = true;
+      if (typeof img.decode === 'function') {
+        img.decode().then(() => resolve(true)).catch(() => resolve(true));
+      } else {
+        resolve(true);
+      }
+    };
+
+    img.addEventListener('load', onDone, { once: true });
+    img.addEventListener('error', () => {
+      if (settled) return;
+      settled = true;
+      resolve(false);
+    }, { once: true });
+  });
+}
+
 async function preloadBatchImages(posts, timeoutMs = 8000) {
   if (!posts || posts.length === 0) return;
   const urls = posts.map(getPostCardImageUrl).filter(Boolean);
@@ -1767,38 +1802,64 @@ async function renderFeed(isInitial = false) {
     try { initVid.play().catch(() => {}); } catch (_) {}
   }
 
-  if (isInitial) {
-    // Deliberate UX Flow: Keep logo video looping for at least 1 full cycle (~2.2s)
-    // AND wait until all 12 original posters are completely loaded and decoded into memory
-    const minVideoCycle = new Promise(resolve => setTimeout(resolve, 2200));
-    try {
-      await Promise.all([
-        minVideoCycle,
-        preloadBatchImages(batch1, 10000)
-      ]);
-    } catch (e) {
-      console.warn('Batch 1 image preload notice:', e);
-    }
-    initialFeedBatchReady = true;
-  } else {
-    try {
-      await preloadBatchImages(batch1, 3000);
-    } catch (e) {
-      console.warn('Batch 1 image preload notice:', e);
-    }
-  }
-
-  // Render Batch 1 cards (strictly 12 posts)
+  // 1. Render Batch 1 cards (strictly 12 posts) into DOM immediately behind the video loader
   renderBatchCards(batch1, 0);
 
   // Strictly append Batch End Barrier directly below the 12th card (posts end at 12!)
   appendBatchEndBarrier(0, batch1.length, filtered.length);
 
-  // Smoothly fade out initial logo video loader now that all 12 posters are ready
-  dismissInitialFeedLoader();
-
   // Attach swipe blocked trigger listener
   setupSwipeBlockedListener();
+
+  if (isInitial) {
+    // Deliberate UX Flow: Keep logo video looping for at least 1 full cycle (~2.2s)
+    // AND strictly wait until Card 1 (and the priority swipe cards) are 100% downloaded & decoded in the DOM
+    const minVideoCycle = new Promise(resolve => setTimeout(resolve, 2200));
+
+    const cards = container.querySelectorAll('.postcard');
+    const priorityCards = Array.from(cards).slice(0, 3); // Cards 1, 2, 3
+    const priorityPromises = priorityCards.map(waitForCardImageDecode);
+
+    // Wait until Card 1 (and priority cards) + minVideoCycle are completely finished!
+    // The logo video will keep looping seamlessly until the actual DOM image of Card 1 is fully ready!
+    try {
+      await Promise.all([
+        minVideoCycle,
+        Promise.race([
+          Promise.all(priorityPromises),
+          new Promise(resolve => setTimeout(resolve, 18000)) // 18s safety threshold
+        ])
+      ]);
+    } catch (e) {
+      console.warn('Initial card decode notice:', e);
+    }
+
+    // Pre-decode remaining batch cards in background
+    const remainingCards = Array.from(cards).slice(3);
+    if (remainingCards.length > 0) {
+      try {
+        await Promise.race([
+          Promise.all(remainingCards.map(waitForCardImageDecode)),
+          new Promise(resolve => setTimeout(resolve, 3000))
+        ]);
+      } catch (_) {}
+    }
+
+    initialFeedBatchReady = true;
+  } else {
+    // Non-initial render (e.g. category switch or refresh): ensure Card 1 is decoded
+    const cards = container.querySelectorAll('.postcard');
+    const priorityCards = Array.from(cards).slice(0, 2);
+    try {
+      await Promise.race([
+        Promise.all(priorityCards.map(waitForCardImageDecode)),
+        new Promise(resolve => setTimeout(resolve, 3000))
+      ]);
+    } catch (_) {}
+  }
+
+  // Smoothly fade out initial logo video loader now that all posters are ready and physically painted in DOM
+  dismissInitialFeedLoader();
 
   // In background, pre-cache Batch 2 (cards 12 to 23)
   const batch2 = filtered.slice(FEED_BATCH_SIZE, FEED_BATCH_SIZE * 2);
@@ -2170,8 +2231,8 @@ function buildSlide1Html(post, index) {
   }
 
   const imgHtml = bgImgSrc
-    ? `<img class="slide-hook-bg" src="${escapeHtml(bgImgSrc)}" alt="" loading="eager" referrerpolicy="no-referrer" crossorigin="anonymous" onerror="handlePosterImageError(this, '${escapeHtml(post.categoryBadge || '')}')">`
-    : `<img class="slide-hook-bg" src="" alt="" style="display:none;" loading="eager" referrerpolicy="no-referrer" crossorigin="anonymous" onerror="handlePosterImageError(this, '${escapeHtml(post.categoryBadge || '')}')">`;
+    ? `<img class="slide-hook-bg" src="${escapeHtml(bgImgSrc)}" alt="" loading="eager" referrerpolicy="no-referrer" onerror="handlePosterImageError(this, '${escapeHtml(post.categoryBadge || '')}')">`
+    : `<img class="slide-hook-bg" src="" alt="" style="display:none;" loading="eager" referrerpolicy="no-referrer" onerror="handlePosterImageError(this, '${escapeHtml(post.categoryBadge || '')}')">`;
 
   const bgHtml = `${fallbackCoverHtml}${imgHtml}`;
 
@@ -2348,8 +2409,8 @@ function buildSlide2Html(post, index) {
   }
 
   const critiqueImgHtml = bgCritiqueImgSrc
-    ? `<img class="slide-hook-bg" src="${escapeHtml(bgCritiqueImgSrc)}" alt="" loading="eager" referrerpolicy="no-referrer" crossorigin="anonymous" onerror="handlePosterImageError(this, '${escapeHtml(post.categoryBadge || '')}')">`
-    : `<img class="slide-hook-bg" src="" alt="" style="display:none;" loading="eager" referrerpolicy="no-referrer" crossorigin="anonymous" onerror="handlePosterImageError(this, '${escapeHtml(post.categoryBadge || '')}')">`;
+    ? `<img class="slide-hook-bg" src="${escapeHtml(bgCritiqueImgSrc)}" alt="" loading="eager" referrerpolicy="no-referrer" onerror="handlePosterImageError(this, '${escapeHtml(post.categoryBadge || '')}')">`
+    : `<img class="slide-hook-bg" src="" alt="" style="display:none;" loading="eager" referrerpolicy="no-referrer" onerror="handlePosterImageError(this, '${escapeHtml(post.categoryBadge || '')}')">`;
 
   const bgHtml = `${fallbackCritiqueCoverHtml}${critiqueImgHtml}`;
 
@@ -6574,7 +6635,7 @@ try {
     if (playPromise !== undefined) playPromise.catch(() => {});
   }
 } catch (_) {}
-setTimeout(() => dismissInitialFeedLoader(true), 15000); // 15s absolute safety fallback
+setTimeout(() => dismissInitialFeedLoader(true), 25000); // 25s absolute safety fallback
 
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', init);
