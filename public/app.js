@@ -1880,7 +1880,7 @@ async function renderFeed(isInitial = false) {
   }
 }
 
-function setupSeamlessVideoLoop(containerId, videoAId, videoBId, crossfadeLeadSec = 0.50) {
+function setupSeamlessVideoLoop(containerId, videoAId, videoBId, crossfadeLeadSec = 0.48) {
   const container = document.getElementById(containerId);
   const vA = document.getElementById(videoAId);
   const vB = document.getElementById(videoBId);
@@ -1899,38 +1899,41 @@ function setupSeamlessVideoLoop(containerId, videoAId, videoBId, crossfadeLeadSe
       const duration = activeVideo.duration;
       const currentTime = activeVideo.currentTime;
 
-      // Solid-Underlay Dissolve: Next video smoothly dissolves IN ON TOP (z-index 2) over active video
-      // Active video stays 100% solid (opacity 1) underneath, so the logo pen nib NEVER becomes semi-transparent or washed out!
+      // Solid-Underlay Ping-Pong Dissolve:
+      // activeVideo stays 100% solid (opacity 1) at z-index 1 (.behind)
+      // nextVideo dissolves smoothly IN ON TOP at z-index 2 (.active)
       if (duration > 2 && (duration - currentTime) <= crossfadeLeadSec && !isTransitioning) {
         isTransitioning = true;
 
+        // Keep activeVideo solid at z-index 1 underneath
+        activeVideo.classList.remove('active');
+        activeVideo.classList.add('behind');
+
+        // Rewind and start nextVideo
         nextVideo.currentTime = 0;
         const playPromise = nextVideo.play();
         if (playPromise !== undefined) {
           playPromise.catch(() => {});
         }
 
-        // Overlay nextVideo on top with smooth fade-in
-        nextVideo.classList.remove('base');
-        nextVideo.classList.add('fade-in');
+        // Dissolve nextVideo in on top (z-index 2)
+        nextVideo.classList.remove('behind');
+        nextVideo.classList.add('active');
 
-        // Only after nextVideo is 100% opaque (440ms > 420ms transition), silently pause activeVideo and switch roles
+        // After nextVideo has completely faded in (380ms > 360ms transition)
         setTimeout(() => {
           try {
             activeVideo.pause();
             activeVideo.currentTime = 0;
-            activeVideo.classList.remove('base', 'fade-in');
+            activeVideo.classList.remove('behind', 'active');
           } catch (_) {}
-
-          nextVideo.classList.remove('fade-in');
-          nextVideo.classList.add('base');
 
           // Swap active and next references
           const temp = activeVideo;
           activeVideo = nextVideo;
           nextVideo = temp;
           isTransitioning = false;
-        }, 440);
+        }, 380);
       }
     }
 
@@ -1940,9 +1943,9 @@ function setupSeamlessVideoLoop(containerId, videoAId, videoBId, crossfadeLeadSe
   function start() {
     isRunning = true;
     isTransitioning = false;
-    vA.classList.remove('fade-in');
-    vA.classList.add('base');
-    vB.classList.remove('base', 'fade-in');
+    vA.classList.remove('behind');
+    vA.classList.add('active');
+    vB.classList.remove('behind', 'active');
     vA.currentTime = 0;
     vB.currentTime = 0;
     activeVideo = vA;
@@ -6547,6 +6550,43 @@ function handleStep3Download() {
   }
 }
 
+async function compressImageForCloud(base64Data, maxWidth = 900, quality = 0.82) {
+  if (!base64Data || typeof base64Data !== 'string' || !base64Data.startsWith('data:image')) {
+    return base64Data;
+  }
+  return new Promise((resolve) => {
+    try {
+      const img = new Image();
+      img.onload = () => {
+        try {
+          let w = img.width;
+          let h = img.height;
+          if (w > maxWidth) {
+            h = Math.round((h * maxWidth) / w);
+            w = maxWidth;
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+          let result = canvas.toDataURL('image/webp', quality);
+          if (!result || !result.startsWith('data:image/webp')) {
+            result = canvas.toDataURL('image/jpeg', quality);
+          }
+          resolve(result);
+        } catch (_) {
+          resolve(base64Data);
+        }
+      };
+      img.onerror = () => resolve(base64Data);
+      img.src = base64Data;
+    } catch (_) {
+      resolve(base64Data);
+    }
+  });
+}
+
 async function publishSynthesizedPost() {
   if (!currentSynthesizedPost) return;
 
@@ -6563,24 +6603,19 @@ async function publishSynthesizedPost() {
   currentSynthesizedPost.createdAt = new Date().toISOString();
   currentSynthesizedPost.isUserCreated = true;
 
-  // 1. Clean payload: remove redundant duplicate multi-megabyte image strings
+  // 1. Clean & compress payload: store crisp ~60KB WebP so Supabase rows never trigger timeout
   const postToSave = { ...currentSynthesizedPost };
-  if (currentSynthesizedPost.originalPhotoBase64) {
-    postToSave.originalPhotoBase64 = currentSynthesizedPost.originalPhotoBase64;
-    postToSave.hasPaperCut = true;
+  const rawPoster = currentSynthesizedPost.illustrationBase64 || currentSynthesizedPost.originalPhotoBase64;
+  if (rawPoster) {
+    try {
+      const compressed = await compressImageForCloud(rawPoster, 900, 0.82);
+      postToSave.posterBase64 = compressed;
+    } catch (_) {}
   }
-  if (currentSynthesizedPost.sourceType === 'photo') {
-    postToSave.sourceType = 'photo';
-    postToSave.hasPaperCut = true;
-  }
-  if (postToSave.illustrationBase64) {
-    if (postToSave.illustrationUrl && postToSave.illustrationUrl.startsWith('data:')) {
-      postToSave.illustrationUrl = '';
-    }
-    if (postToSave.aiIllustrationUrl && postToSave.aiIllustrationUrl.startsWith('data:')) {
-      postToSave.aiIllustrationUrl = '';
-    }
-  }
+  delete postToSave.illustrationBase64;
+  delete postToSave.originalPhotoBase64;
+  postToSave.illustrationUrl = '/posters/' + postToSave.id + '.png';
+  postToSave.aiIllustrationUrl = '/posters/' + postToSave.id + '.png';
 
   // 2. Primary cloud save: POST to /api/posts
   let savedToCloud = false;

@@ -125,6 +125,7 @@ module.exports = async function handler(req, res) {
           p.aiIllustrationUrl = '/posters/' + p.id + '.png';
           delete p.illustrationBase64;
           delete p.originalPhotoBase64;
+          delete p.posterBase64;
 
           return p;
         }).filter(p => p && !p.deleted && !p.isDeleted && (p.adaptedHeadline || p.originalHeadline || p.summary));
@@ -179,17 +180,19 @@ module.exports = async function handler(req, res) {
             if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
             fs.writeFileSync(path.join(dir, postData.id + '.png'), buf);
           });
-          postData.illustrationUrl = '/posters/' + postData.id + '.png';
-          postData.aiIllustrationUrl = '/posters/' + postData.id + '.png';
         } catch (_) {}
 
-        if (postData.illustrationUrl && postData.illustrationUrl.startsWith('data:')) {
-          postData.illustrationUrl = '';
-        }
-        if (postData.aiIllustrationUrl && postData.aiIllustrationUrl.startsWith('data:')) {
-          postData.aiIllustrationUrl = '';
+        if (!postData.posterBase64 && postData.illustrationBase64.length < 300000) {
+          postData.posterBase64 = postData.illustrationBase64;
         }
       }
+
+      postData.illustrationUrl = '/posters/' + postData.id + '.png';
+      postData.aiIllustrationUrl = '/posters/' + postData.id + '.png';
+
+      // Always strip giant uncompressed base64 strings so Supabase never exceeds statement timeout
+      delete postData.illustrationBase64;
+      delete postData.originalPhotoBase64;
 
       // Upsert into Supabase
       try {

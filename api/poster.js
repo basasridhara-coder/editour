@@ -33,6 +33,7 @@ module.exports = async function handler(req, res) {
     }
 
     if (!id) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       if (res.status) return res.status(400).send('Missing poster id');
       res.statusCode = 400;
       return res.end('Missing poster id');
@@ -69,7 +70,7 @@ module.exports = async function handler(req, res) {
       const post = (row && (row.data || row)) || null;
 
       if (post) {
-        const rawB64 = post.illustrationBase64 || post.originalPhotoBase64;
+        const rawB64 = post.posterBase64 || post.illustrationBase64 || post.originalPhotoBase64;
         if (rawB64) {
           const cleanB64 = rawB64.replace(/^data:image\/[^;]+;base64,/, '');
           const buf = Buffer.from(cleanB64, 'base64');
@@ -78,11 +79,13 @@ module.exports = async function handler(req, res) {
       }
     }
 
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     if (res.status) return res.status(404).send('Poster image not found');
     res.statusCode = 404;
     return res.end('Poster image not found');
   } catch (err) {
     console.error('Poster endpoint error:', err);
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     if (res.status) return res.status(500).send('Error serving poster');
     res.statusCode = 500;
     return res.end('Error serving poster');

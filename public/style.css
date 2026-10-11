@@ -7264,8 +7264,8 @@ header {
 
 .synthesis-video-wrap {
   position: relative;
-  width: 156px;
-  height: 156px;
+  width: 162px;
+  height: 162px;
   margin-bottom: 24px;
   border-radius: 36px;
   overflow: hidden;
@@ -7274,8 +7274,8 @@ header {
   display: flex;
   align-items: center;
   justify-content: center;
-  transform: translateZ(0);
-  -webkit-transform: translateZ(0);
+  transform: translate3d(0, 0, 0);
+  -webkit-transform: translate3d(0, 0, 0);
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
   contain: paint;
@@ -7288,7 +7288,8 @@ header {
 
 .synthesis-logo-video {
   position: absolute;
-  inset: 0;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -7296,24 +7297,25 @@ header {
   border-radius: 36px;
   display: block;
   opacity: 0;
-  transform: translateZ(0);
-  -webkit-transform: translateZ(0);
+  z-index: 0;
+  transform: translate3d(0, 0, 0);
+  -webkit-transform: translate3d(0, 0, 0);
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
   pointer-events: none;
-  z-index: 1;
+  transition: opacity 0.36s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: opacity;
 }
 
-.synthesis-logo-video.base {
+.synthesis-logo-video.active {
+  opacity: 1;
+  z-index: 2;
+}
+
+.synthesis-logo-video.behind {
   opacity: 1;
   z-index: 1;
   transition: none;
-}
-
-.synthesis-logo-video.fade-in {
-  opacity: 1;
-  z-index: 2;
-  transition: opacity 0.42s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .synthesis-orb-wrap {
@@ -8868,8 +8870,8 @@ header {
 
 .feed-loader-video-wrap {
   position: relative;
-  width: 156px;
-  height: 156px;
+  width: 162px;
+  height: 162px;
   border-radius: 36px;
   overflow: hidden;
   box-shadow: 0 18px 48px -10px rgba(99, 102, 241, 0.45), 0 0 0 1px rgba(99, 102, 241, 0.2);
@@ -8878,8 +8880,8 @@ header {
   display: flex;
   align-items: center;
   justify-content: center;
-  transform: translateZ(0);
-  -webkit-transform: translateZ(0);
+  transform: translate3d(0, 0, 0);
+  -webkit-transform: translate3d(0, 0, 0);
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
   contain: paint;
@@ -8892,7 +8894,8 @@ header {
 
 .feed-loader-video {
   position: absolute;
-  inset: 0;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -8900,24 +8903,25 @@ header {
   border-radius: 36px;
   display: block;
   opacity: 0;
-  transform: translateZ(0);
-  -webkit-transform: translateZ(0);
+  z-index: 0;
+  transform: translate3d(0, 0, 0);
+  -webkit-transform: translate3d(0, 0, 0);
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
   pointer-events: none;
-  z-index: 1;
+  transition: opacity 0.36s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: opacity;
 }
 
-.feed-loader-video.base {
+.feed-loader-video.active {
+  opacity: 1;
+  z-index: 2;
+}
+
+.feed-loader-video.behind {
   opacity: 1;
   z-index: 1;
   transition: none;
-}
-
-.feed-loader-video.fade-in {
-  opacity: 1;
-  z-index: 2;
-  transition: opacity 0.42s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .feed-loader-title {
