@@ -1077,10 +1077,19 @@ async function fetchDirectSupabasePosts(limit = 12) {
 async function loadPosts() {
   // 1. Start seamless jerk-free logo video loop in initial loader
   if (!window._feedVideoLoop) {
-    window._feedVideoLoop = setupSeamlessVideoLoop('feedInitialVideo', 'feedLoaderCanvas', 0.40);
+    window._feedVideoLoop = setupSeamlessVideoLoop('feedLoaderVideoWrap', 'feedInitialVideoA', 'feedInitialVideoB', 0.45);
   }
   if (window._feedVideoLoop) {
     window._feedVideoLoop.start();
+  } else {
+    const initVid = document.getElementById('feedInitialVideoA') || document.getElementById('feedInitialVideo');
+    if (initVid) {
+      try {
+        initVid.currentTime = 0;
+        const playP = initVid.play();
+        if (playP !== undefined) playP.catch(() => {});
+      } catch (_) {}
+    }
   }
 
   // 2. Fetch authoritative batch of 12 posts from /api/posts?limit=12 (with resilient fallback to direct Supabase)
@@ -1871,18 +1880,14 @@ async function renderFeed(isInitial = false) {
   }
 }
 
-function setupSeamlessVideoLoop(videoId, canvasId, leadTimeSec = 0.40) {
-  const video = document.getElementById(videoId);
-  const canvas = document.getElementById(canvasId);
-  if (!video) return null;
+function setupSeamlessVideoLoop(containerId, videoAId, videoBId, crossfadeLeadSec = 0.45) {
+  const container = document.getElementById(containerId);
+  const vA = document.getElementById(videoAId);
+  const vB = document.getElementById(videoBId);
+  if (!container || !vA || !vB) return null;
 
-  let ctx = null;
-  if (canvas && canvas.getContext) {
-    try {
-      ctx = canvas.getContext('2d');
-    } catch (_) {}
-  }
-
+  let activeVideo = vA;
+  let nextVideo = vB;
   let isTransitioning = false;
   let isRunning = false;
   let rafId = null;
@@ -1890,39 +1895,35 @@ function setupSeamlessVideoLoop(videoId, canvasId, leadTimeSec = 0.40) {
   function tick() {
     if (!isRunning) return;
 
-    if (!video.paused && !video.ended && video.duration > 2) {
-      const remaining = video.duration - video.currentTime;
+    if (activeVideo && !activeVideo.paused && !activeVideo.ended) {
+      const duration = activeVideo.duration;
+      const currentTime = activeVideo.currentTime;
 
-      // 1. Right before the video cycle ends, snap the ending frame onto the canvas
-      if (remaining <= leadTimeSec && !isTransitioning && ctx) {
+      // When active video reaches the settling crossfade window (duration - crossfadeLeadSec), seamlessly dissolve into next video
+      if (duration > 2 && (duration - currentTime) <= crossfadeLeadSec && !isTransitioning) {
         isTransitioning = true;
-        try {
-          const vw = video.videoWidth || 1280;
-          const vh = video.videoHeight || 720;
-          if (canvas.width !== vw || canvas.height !== vh) {
-            canvas.width = vw;
-            canvas.height = vh;
-          }
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-          canvas.style.transition = 'none';
-          canvas.style.opacity = '1';
 
-          // Rewind video invisibly under the frozen canvas snapshot
-          video.currentTime = 0;
-          const p = video.play();
-          if (p !== undefined) p.catch(() => {});
-        } catch (_) {
+        nextVideo.currentTime = 0;
+        const playPromise = nextVideo.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(() => {});
+        }
+
+        nextVideo.classList.add('active');
+        activeVideo.classList.remove('active');
+
+        setTimeout(() => {
+          try {
+            activeVideo.pause();
+            activeVideo.currentTime = 0;
+          } catch (_) {}
+
+          // Swap active and next references
+          const temp = activeVideo;
+          activeVideo = nextVideo;
+          nextVideo = temp;
           isTransitioning = false;
-        }
-      }
-
-      // 2. Once video has smoothly started frame 0 under the canvas, dissolve the canvas out
-      if (isTransitioning && video.currentTime > 0.04 && video.currentTime < (video.duration - 1.0)) {
-        isTransitioning = false;
-        if (canvas) {
-          canvas.style.transition = 'opacity 0.38s cubic-bezier(0.4, 0, 0.2, 1)';
-          canvas.style.opacity = '0';
-        }
+        }, 360);
       }
     }
 
@@ -1932,18 +1933,19 @@ function setupSeamlessVideoLoop(videoId, canvasId, leadTimeSec = 0.40) {
   function start() {
     isRunning = true;
     isTransitioning = false;
-    if (canvas) {
-      canvas.style.transition = 'none';
-      canvas.style.opacity = '0';
-    }
-    try {
-      video.muted = true;
-      video.defaultMuted = true;
-      video.playsInline = true;
-      video.currentTime = 0;
-      const p = video.play();
-      if (p !== undefined) p.catch(() => {});
-    } catch (_) {}
+    vA.classList.add('active');
+    vB.classList.remove('active');
+    vA.currentTime = 0;
+    vB.currentTime = 0;
+    activeVideo = vA;
+    nextVideo = vB;
+
+    requestAnimationFrame(() => {
+      try {
+        const p = vA.play();
+        if (p !== undefined) p.catch(() => {});
+      } catch (_) {}
+    });
 
     if (rafId) cancelAnimationFrame(rafId);
     rafId = requestAnimationFrame(tick);
@@ -1955,11 +1957,8 @@ function setupSeamlessVideoLoop(videoId, canvasId, leadTimeSec = 0.40) {
       cancelAnimationFrame(rafId);
       rafId = null;
     }
-    if (canvas) {
-      canvas.style.transition = 'none';
-      canvas.style.opacity = '0';
-    }
-    try { video.pause(); } catch (_) {}
+    try { vA.pause(); } catch (_) {}
+    try { vB.pause(); } catch (_) {}
   }
 
   return { start, stop };
@@ -5917,10 +5916,18 @@ async function startAiSynthesis() {
   if (synthLoading) {
     synthLoading.style.display = 'flex';
     if (!window._synthVideoLoop) {
-      window._synthVideoLoop = setupSeamlessVideoLoop('synthesisLogoVideo', 'synthesisLogoCanvas', 0.40);
+      window._synthVideoLoop = setupSeamlessVideoLoop('synthesisVideoWrap', 'synthesisLogoVideoA', 'synthesisLogoVideoB', 0.45);
     }
     if (window._synthVideoLoop) {
       window._synthVideoLoop.start();
+    } else {
+      const sVid = document.getElementById('synthesisLogoVideoA') || document.getElementById('synthesisLogoVideo');
+      if (sVid) {
+        try {
+          sVid.currentTime = 0;
+          sVid.play().catch(() => {});
+        } catch (_) {}
+      }
     }
   }
 
@@ -6101,7 +6108,7 @@ async function startAiSynthesis() {
           try { window._synthVideoLoop.stop(); } catch (_) {}
           window._synthVideoLoop = null;
         }
-        const sVid = document.getElementById('synthesisLogoVideo');
+        const sVid = document.getElementById('synthesisLogoVideoA') || document.getElementById('synthesisLogoVideo');
         if (sVid) {
           try { sVid.pause(); } catch (_) {}
         }
@@ -6121,7 +6128,7 @@ async function startAiSynthesis() {
       try { window._synthVideoLoop.stop(); } catch (_) {}
       window._synthVideoLoop = null;
     }
-    const sVid = document.getElementById('synthesisLogoVideo');
+    const sVid = document.getElementById('synthesisLogoVideoA') || document.getElementById('synthesisLogoVideo');
     if (sVid) {
       try { sVid.pause(); } catch (_) {}
     }
@@ -6644,10 +6651,17 @@ async function publishSynthesizedPost() {
 window._feedLoaderStartTime = Date.now();
 try {
   if (!window._feedVideoLoop) {
-    window._feedVideoLoop = setupSeamlessVideoLoop('feedInitialVideo', 'feedLoaderCanvas', 0.40);
+    window._feedVideoLoop = setupSeamlessVideoLoop('feedLoaderVideoWrap', 'feedInitialVideoA', 'feedInitialVideoB', 0.45);
   }
   if (window._feedVideoLoop) {
     window._feedVideoLoop.start();
+  } else {
+    const initVid = document.getElementById('feedInitialVideoA') || document.getElementById('feedInitialVideo');
+    if (initVid) {
+      initVid.currentTime = 0;
+      const playPromise = initVid.play();
+      if (playPromise !== undefined) playPromise.catch(() => {});
+    }
   }
 } catch (_) {}
 setTimeout(() => dismissInitialFeedLoader(true), 25000); // 25s absolute safety fallback
