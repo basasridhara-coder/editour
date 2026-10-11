@@ -1075,14 +1075,21 @@ async function fetchDirectSupabasePosts(limit = 12) {
 }
 
 async function loadPosts() {
-  // 1. Start logo video immediately in initial loader
-  const initVid = document.getElementById('feedInitialVideo') || document.getElementById('feedInitialVideoA');
-  if (initVid) {
-    try {
-      initVid.currentTime = 0;
-      const playP = initVid.play();
-      if (playP !== undefined) playP.catch(() => {});
-    } catch (_) {}
+  // 1. Start seamless jerk-free logo video loop in initial loader
+  if (!window._feedVideoLoop) {
+    window._feedVideoLoop = setupSeamlessVideoLoop('feedLoaderVideoWrap', 'feedInitialVideoA', 'feedInitialVideoB', 0.45);
+  }
+  if (window._feedVideoLoop) {
+    window._feedVideoLoop.start();
+  } else {
+    const initVid = document.getElementById('feedInitialVideoA') || document.getElementById('feedInitialVideo');
+    if (initVid) {
+      try {
+        initVid.currentTime = 0;
+        const playP = initVid.play();
+        if (playP !== undefined) playP.catch(() => {});
+      } catch (_) {}
+    }
   }
 
   // 2. Fetch authoritative batch of 12 posts from /api/posts?limit=12 (with resilient fallback to direct Supabase)
@@ -5908,12 +5915,19 @@ async function startAiSynthesis() {
   if (cuesContent) cuesContent.style.display = 'none';
   if (synthLoading) {
     synthLoading.style.display = 'flex';
-    const sVid = document.getElementById('synthesisLogoVideo') || document.getElementById('synthesisLogoVideoA');
-    if (sVid) {
-      try {
-        sVid.currentTime = 0;
-        sVid.play().catch(() => {});
-      } catch (_) {}
+    if (!window._synthVideoLoop) {
+      window._synthVideoLoop = setupSeamlessVideoLoop('synthesisVideoWrap', 'synthesisLogoVideoA', 'synthesisLogoVideoB', 0.45);
+    }
+    if (window._synthVideoLoop) {
+      window._synthVideoLoop.start();
+    } else {
+      const sVid = document.getElementById('synthesisLogoVideoA') || document.getElementById('synthesisLogoVideo');
+      if (sVid) {
+        try {
+          sVid.currentTime = 0;
+          sVid.play().catch(() => {});
+        } catch (_) {}
+      }
     }
   }
 
@@ -6090,7 +6104,11 @@ async function startAiSynthesis() {
 
     setTimeout(() => {
       try {
-        const sVid = document.getElementById('synthesisLogoVideo') || document.getElementById('synthesisLogoVideoA');
+        if (window._synthVideoLoop) {
+          try { window._synthVideoLoop.stop(); } catch (_) {}
+          window._synthVideoLoop = null;
+        }
+        const sVid = document.getElementById('synthesisLogoVideoA') || document.getElementById('synthesisLogoVideo');
         if (sVid) {
           try { sVid.pause(); } catch (_) {}
         }
@@ -6106,7 +6124,11 @@ async function startAiSynthesis() {
 
   } catch (err) {
     clearAllTimers();
-    const sVid = document.getElementById('synthesisLogoVideo') || document.getElementById('synthesisLogoVideoA');
+    if (window._synthVideoLoop) {
+      try { window._synthVideoLoop.stop(); } catch (_) {}
+      window._synthVideoLoop = null;
+    }
+    const sVid = document.getElementById('synthesisLogoVideoA') || document.getElementById('synthesisLogoVideo');
     if (sVid) {
       try { sVid.pause(); } catch (_) {}
     }
@@ -6628,11 +6650,18 @@ async function publishSynthesizedPost() {
 
 window._feedLoaderStartTime = Date.now();
 try {
-  const initVid = document.getElementById('feedInitialVideo') || document.getElementById('feedInitialVideoA');
-  if (initVid) {
-    initVid.currentTime = 0;
-    const playPromise = initVid.play();
-    if (playPromise !== undefined) playPromise.catch(() => {});
+  if (!window._feedVideoLoop) {
+    window._feedVideoLoop = setupSeamlessVideoLoop('feedLoaderVideoWrap', 'feedInitialVideoA', 'feedInitialVideoB', 0.45);
+  }
+  if (window._feedVideoLoop) {
+    window._feedVideoLoop.start();
+  } else {
+    const initVid = document.getElementById('feedInitialVideoA') || document.getElementById('feedInitialVideo');
+    if (initVid) {
+      initVid.currentTime = 0;
+      const playPromise = initVid.play();
+      if (playPromise !== undefined) playPromise.catch(() => {});
+    }
   }
 } catch (_) {}
 setTimeout(() => dismissInitialFeedLoader(true), 25000); // 25s absolute safety fallback

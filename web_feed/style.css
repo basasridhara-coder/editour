@@ -7292,15 +7292,17 @@ header {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: 50% 50%;
   border-radius: 36px;
   display: block;
   opacity: 0;
-  transition: opacity 0.35s ease-in-out;
+  transition: opacity 0.38s cubic-bezier(0.4, 0, 0.2, 1);
   transform: translateZ(0);
   -webkit-transform: translateZ(0);
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
-  will-change: opacity, transform;
+  will-change: opacity;
+  pointer-events: none;
 }
 
 .synthesis-logo-video.active {
@@ -8887,15 +8889,17 @@ header {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: 50% 50%;
   border-radius: 36px;
   display: block;
   opacity: 0;
-  transition: opacity 0.35s ease-in-out;
+  transition: opacity 0.38s cubic-bezier(0.4, 0, 0.2, 1);
   transform: translateZ(0);
   -webkit-transform: translateZ(0);
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
-  will-change: opacity, transform;
+  will-change: opacity;
+  pointer-events: none;
 }
 
 .feed-loader-video.active {
