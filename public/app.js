@@ -1940,10 +1940,33 @@ function setupSeamlessVideoLoop(containerId, videoAId, videoBId, crossfadeLeadSe
     activeVideo = vA;
     nextVideo = vB;
 
+    [vA, vB].forEach(v => {
+      try {
+        v.muted = true;
+        v.defaultMuted = true;
+        v.playsInline = true;
+        v.setAttribute('playsinline', '');
+        v.setAttribute('webkit-playsinline', '');
+      } catch (_) {}
+    });
+
     requestAnimationFrame(() => {
       try {
         const p = vA.play();
         if (p !== undefined) p.catch(() => {});
+      } catch (_) {}
+
+      // Pre-warm Video B on mobile so frame 0 is decoded in GPU memory before transition
+      try {
+        const pB = vB.play();
+        if (pB !== undefined) {
+          pB.then(() => {
+            if (!isTransitioning && activeVideo !== vB) {
+              vB.pause();
+              vB.currentTime = 0;
+            }
+          }).catch(() => {});
+        }
       } catch (_) {}
     });
 
