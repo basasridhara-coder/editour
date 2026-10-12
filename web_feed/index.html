@@ -27,7 +27,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Merriweather:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,400;1,600;1,700;1,900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261011_2355">
+  <link rel="stylesheet" href="style.css?v=20261012_0730">
   <!-- Favicon & Brand Icons -->
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
@@ -926,6 +926,45 @@
     </div>
   </div>
 
+  <!-- Generation Inputs & Context Drawer / Modal (Author Only) -->
+  <div class="modal-overlay gen-context-overlay" id="generationContextModal" style="display:none;" onclick="if(event.target===this) closeGenerationContextModal()">
+    <div class="modal-card gen-context-card" onclick="event.stopPropagation()">
+      <div class="gen-context-header">
+        <div class="gen-context-header-titles">
+          <div class="gen-context-badge">
+            <span class="gen-badge-icon">🔒</span>
+            <span>AUTHOR STUDIO ARCHIVE</span>
+          </div>
+          <h2 class="gen-context-title">Generation Inputs & Context</h2>
+          <p class="gen-context-subtitle">Private studio inputs used to synthesize this Slant. Hidden from public feed.</p>
+        </div>
+        <button class="modal-close" onclick="closeGenerationContextModal()" title="Close">&times;</button>
+      </div>
+
+      <div class="gen-context-body" id="genContextBody">
+        <!-- Rendered dynamically by renderGenerationContextModal() -->
+      </div>
+
+      <div class="gen-context-footer">
+        <button type="button" class="gen-context-btn secondary" onclick="copyGenerationContextToClipboard()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+          </svg>
+          <span>Copy Context</span>
+        </button>
+        <button type="button" class="gen-context-btn primary" id="loadToRegenerateBtn" onclick="loadPostIntoStudioToRegenerate()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="23 4 23 10 17 10"></polyline>
+            <polyline points="1 20 1 14 7 14"></polyline>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+          </svg>
+          <span>Load into Studio to Regenerate</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Slant Login Page / Editorial Gateway Modal -->
   <div class="modal-overlay slant-login-overlay" id="authModal" onclick="handleAuthOverlayClick(event)">
     <div class="modal-card slant-login-page-card" onclick="event.stopPropagation()">
@@ -1198,6 +1237,6 @@
     </div>
   </aside>
 
-  <script src="app.js?v=20261011_2355"></script>
+  <script src="app.js?v=20261012_0730"></script>
 </body>
 </html>

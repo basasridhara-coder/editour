@@ -538,7 +538,28 @@ Respond strictly with valid JSON with this exact structure:
       originalPhotoBase64: (sourceType === 'photo' && imageBase64) ? imageBase64 : null,
       hasPaperCut: (sourceType === 'photo' && !!imageBase64),
       userContext: spark || '',
-      spark: spark || ''
+      spark: spark || '',
+      countryContext: countryContext || 'India',
+      contextProvided: userSlant || extractedContent || spark || '',
+      userSlantTake: userSlant || '',
+      sourceContext: extractedContent || '',
+      generationInputs: {
+        slantTake: userSlant || '',
+        sourceUrl: url || '',
+        sourceType: sourceType,
+        spark: spark || '',
+        cues: cues || [],
+        heroCue: parsed.heroCue || (cues && cues[0]) || '',
+        characterRepresentation,
+        refineCoreTake,
+        vocabularyStyle: vocabularyStyle || 'punchy',
+        countryContext: countryContext || 'India',
+        scrapedTitle: extractedTitle || '',
+        scrapedContent: extractedContent || '',
+        contextProvided: userSlant || extractedContent || spark || '',
+        illustrationPrompt: parsed.illustrationPrompt || concisePrompt || '',
+        originalHeadline: (sourceType === 'inner_voice' && spark) ? (parsed.originalHeadline || spark) : (parsed.originalHeadline || extractedTitle || parsed.adaptedHeadline)
+      }
     };
 
     return res.status(200).json({

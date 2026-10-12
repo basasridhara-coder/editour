@@ -1096,7 +1096,7 @@ async function loadPosts() {
   let fetchedLiveBatch = null;
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 4000);
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
     const apiResp = await fetch(`/api/posts?limit=${FEED_BATCH_SIZE}&ts=${Date.now()}`, {
       cache: 'no-store',
       signal: controller.signal
@@ -2808,6 +2808,16 @@ function createPostCardElement(post, index) {
         </button>
         <div class="post-menu-dropdown" id="post-menu-${index}">
           ${canDelete ? `
+            <button type="button" class="post-menu-item text-primary-action" onclick="event.stopPropagation(); closeAllPostMenus(); openGenerationContextModal('${post.id}')" title="Inspect generation inputs and regenerate">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <line x1="16" y1="13" x2="8" y2="13"></line>
+                <line x1="16" y1="17" x2="8" y2="17"></line>
+                <polyline points="10 9 9 9 8 9"></polyline>
+              </svg>
+              <span>Generation Inputs</span>
+            </button>
             <button type="button" class="post-menu-item text-danger" onclick="event.stopPropagation(); closeAllPostMenus(); confirmDeletePost('${post.id}')">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="3 6 5 6 21 6"></polyline>
@@ -3414,19 +3424,426 @@ function canDeletePost(post) {
   if (!post || !post.id) return false;
   // 1. Authored in this browser session or saved in local myCreatedPostIds
   if (myCreatedPostIds && myCreatedPostIds.has(post.id)) return true;
-  // 2. Created by user flag
-  if (post.isUserCreated) return true;
-  // 3. User account match
+  // 2. User account match
   if (currentUser) {
     if (post.user_id && post.user_id === currentUser.id) return true;
+    if (post.userId && post.userId === currentUser.id) return true;
     if (post.userEmail && currentUser.email && post.userEmail.toLowerCase() === currentUser.email.toLowerCase()) return true;
-    const userHandle = (currentUser.user_metadata?.user_name || currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || '').toLowerCase().replace('@', '');
-    const postAuthor = (post.creatorHandle || '').toLowerCase().replace('@', '');
+    const userHandle = (currentUser.user_metadata?.user_name || currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || '').toLowerCase().replace('@', '').trim();
+    const postAuthor = (post.creatorHandle || '').toLowerCase().replace('@', '').trim();
     if (userHandle && postAuthor && userHandle === postAuthor) return true;
   }
-  // 4. In "My Stories" tab, all listed items belong to this creator
+  // 3. In "My Stories" tab, all listed items belong to this creator
   if (currentFilter === 'my_stories') return true;
   return false;
+}
+
+// ============================================================
+// GENERATION INPUTS & CONTEXT DRAWER CONTROLLER (AUTHOR ONLY)
+// ============================================================
+window._activeGenContextPostId = null;
+window._activeGenContextText = '';
+
+function getPostGenerationInputs(post) {
+  if (!post) return null;
+  const raw = post.generationInputs || {};
+  const slantTake = raw.slantTake || post.userSlantTake || post.rawUserSlant || post.curatorTake || post.creatorOpinion || '';
+  const sourceUrl = raw.sourceUrl || post.digitalLink || post.webUrl || post.sourceUrl || '';
+  let sourceType = raw.sourceType || post.sourceType;
+  if (!sourceType) {
+    if (sourceUrl) sourceType = 'digital_link';
+    else if (post.originalPhotoUrl || post.originalPhotoBase64 || post.hasPaperCut) sourceType = 'photo';
+    else sourceType = 'inner_voice';
+  }
+  const spark = raw.spark || post.spark || post.userContext || '';
+  const cues = (raw.cues && Array.isArray(raw.cues) && raw.cues.length) ? raw.cues : (post.cues && Array.isArray(post.cues) && post.cues.length ? post.cues : (post.keyTakeaways || []));
+  const heroCue = raw.heroCue || cues[0] || post.heroCue || '';
+  const characterRepresentation = raw.characterRepresentation || post.characterRepresentation || 'realistic';
+  const refineCoreTake = (typeof raw.refineCoreTake === 'boolean') ? raw.refineCoreTake : (typeof post.refineCoreTake === 'boolean' ? post.refineCoreTake : true);
+  const vocabularyStyle = raw.vocabularyStyle || post.vocabularyStyle || 'punchy';
+  const countryContext = raw.countryContext || post.countryContext || 'India';
+  const scrapedTitle = raw.scrapedTitle || post.publicationName || post.originalHeadline || '';
+  const scrapedContent = raw.scrapedContent || post.sourceContext || post.newsExcerpt || post.summary || '';
+  const contextProvided = raw.contextProvided || post.contextProvided || slantTake || scrapedContent || spark || '';
+  const illustrationPrompt = raw.illustrationPrompt || post.illustrationPrompt || '';
+  const originalHeadline = raw.originalHeadline || post.originalHeadline || post.adaptedHeadline || '';
+
+  return {
+    slantTake,
+    sourceUrl,
+    sourceType,
+    spark,
+    cues,
+    heroCue,
+    characterRepresentation,
+    refineCoreTake,
+    vocabularyStyle,
+    countryContext,
+    scrapedTitle,
+    scrapedContent,
+    contextProvided,
+    illustrationPrompt,
+    originalHeadline
+  };
+}
+
+function openGenerationContextModal(postId) {
+  if (!postId) return;
+  const post = allPosts.find(p => p && p.id === postId);
+  if (!post) {
+    showTemporaryToast('Post not found');
+    return;
+  }
+
+  window._activeGenContextPostId = postId;
+  const inputs = getPostGenerationInputs(post);
+  const container = document.getElementById('genContextBody');
+  if (!container) return;
+
+  // Build copyable summary text
+  const copyLines = [];
+  copyLines.push('=== SLANT GENERATION INPUTS & CONTEXT ===');
+  copyLines.push(`Post ID: ${post.id}`);
+  copyLines.push(`Headline: ${post.adaptedHeadline || post.originalHeadline || 'Untitled'}`);
+  copyLines.push(`Source Anchor: ${inputs.sourceType}`);
+  if (inputs.slantTake) copyLines.push(`\n[CURATOR'S SLANT / TAKE]:\n${inputs.slantTake}`);
+  if (inputs.spark) copyLines.push(`\n[THE SPARK]:\n${inputs.spark}`);
+  if (inputs.sourceUrl) copyLines.push(`\n[SOURCE URL]:\n${inputs.sourceUrl}`);
+  if (inputs.scrapedTitle) copyLines.push(`[SOURCE TITLE]: ${inputs.scrapedTitle}`);
+  if (inputs.scrapedContent) copyLines.push(`\n[SOURCE CONTENT EXCERPT]:\n${inputs.scrapedContent.slice(0, 1000)}...`);
+  if (inputs.cues && inputs.cues.length) {
+    copyLines.push(`\n[VISUAL CUES & METAPHORS]:`);
+    inputs.cues.forEach((c, idx) => copyLines.push(`  ${idx + 1}. ${c}${idx === 0 ? ' (HERO)' : ''}`));
+  }
+  if (inputs.illustrationPrompt) copyLines.push(`\n[ART DIRECTION PROMPT]:\n${inputs.illustrationPrompt}`);
+  copyLines.push(`\n[STUDIO PARAMETERS]:`);
+  copyLines.push(`  - Core Take: ${inputs.refineCoreTake ? 'Refined with AI' : 'Use As-Is (Verbatim)'}`);
+  copyLines.push(`  - Vocabulary: ${inputs.vocabularyStyle}`);
+  copyLines.push(`  - Setting / Region: ${inputs.countryContext}`);
+  copyLines.push(`  - Portrayal: ${inputs.characterRepresentation}`);
+  window._activeGenContextText = copyLines.join('\n');
+
+  // Human-readable labels
+  let sourceLabel = '🌐 Web Citation Link';
+  if (inputs.sourceType === 'photo') sourceLabel = '📰 Press Clipping / Magazine';
+  else if (inputs.sourceType === 'inner_voice') sourceLabel = '💭 Inner Voice & Personal Take';
+
+  let vocabLabel = '⚡ Punchy Voice';
+  if (inputs.vocabularyStyle === 'conversational') vocabLabel = '💬 Casual Voice';
+  else if (inputs.vocabularyStyle === 'analytical') vocabLabel = '🏛 Analytical Voice';
+
+  let portrayalLabel = '🎨 Editorial Realism';
+  if (inputs.characterRepresentation === 'likeness' || inputs.characterRepresentation === 'lookalike') portrayalLabel = '👤 Portrait / Likeness';
+  else if (inputs.characterRepresentation === 'exact') portrayalLabel = '📷 Direct Photo';
+  else if (inputs.characterRepresentation === 'silhouette') portrayalLabel = '👥 Minimalist Silhouette';
+
+  let html = `
+    <!-- Top Headline & Meta -->
+    <div class="gen-section-card" style="background: rgba(99, 102, 241, 0.05); border-color: rgba(99, 102, 241, 0.2);">
+      <div class="gen-section-header">
+        <div class="gen-section-title-wrap">
+          <span class="gen-section-icon">📌</span>
+          <span class="gen-section-label">PUBLISHED POST</span>
+        </div>
+        <span class="gen-cue-tag" style="font-size: 11px;">${escapeHtml(post.id)}</span>
+      </div>
+      <div style="font-family: 'Newsreader', serif; font-size: 17px; font-weight: 700; line-height: 1.35; color: var(--text-primary, #F8FAFC);">
+        "${escapeHtml(post.adaptedHeadline || post.originalHeadline || 'Untitled')}"
+      </div>
+    </div>
+  `;
+
+  // 1. Curator's Slant / Angle (The core input)
+  if (inputs.slantTake) {
+    html += `
+      <div class="gen-section-card">
+        <div class="gen-section-header">
+          <div class="gen-section-title-wrap">
+            <span class="gen-section-icon">💭</span>
+            <span class="gen-section-label">CURATOR'S RAW SLANT / TAKE</span>
+          </div>
+          <button type="button" class="gen-copy-btn" onclick="copyGenerationContextToClipboard(${JSON.stringify(inputs.slantTake)})" title="Copy slant take">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+            <span>Copy</span>
+          </button>
+        </div>
+        <div class="gen-take-box">
+          ${escapeHtml(inputs.slantTake)}
+        </div>
+      </div>
+    `;
+  }
+
+  // 2. The Spark
+  if (inputs.spark) {
+    html += `
+      <div class="gen-section-card">
+        <div class="gen-section-header">
+          <div class="gen-section-title-wrap">
+            <span class="gen-section-icon">⚡</span>
+            <span class="gen-section-label">THE SPARK (TRIGGERING OBSERVATION)</span>
+          </div>
+          <button type="button" class="gen-copy-btn" onclick="copyGenerationContextToClipboard(${JSON.stringify(inputs.spark)})" title="Copy spark">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+            <span>Copy</span>
+          </button>
+        </div>
+        <div style="font-size: 13.5px; color: var(--text-primary, #F1F5F9); line-height: 1.5; font-style: italic;">
+          "${escapeHtml(inputs.spark)}"
+        </div>
+      </div>
+    `;
+  }
+
+  // 3. Source Anchor & Scraped Content
+  if (inputs.sourceUrl || inputs.scrapedContent || inputs.scrapedTitle) {
+    html += `
+      <div class="gen-section-card">
+        <div class="gen-section-header">
+          <div class="gen-section-title-wrap">
+            <span class="gen-section-icon">🔗</span>
+            <span class="gen-section-label">ROOT SOURCE CONTEXT</span>
+          </div>
+          ${inputs.sourceUrl ? `
+            <a href="${escapeHtml(inputs.sourceUrl)}" target="_blank" rel="noopener noreferrer" class="gen-copy-btn" style="text-decoration:none;">
+              <span>Visit Link ↗</span>
+            </a>
+          ` : ''}
+        </div>
+        ${inputs.sourceUrl ? `
+          <div class="gen-source-row">
+            <span>🌐</span>
+            <a href="${escapeHtml(inputs.sourceUrl)}" target="_blank" rel="noopener noreferrer" class="gen-source-link">${escapeHtml(inputs.sourceUrl)}</a>
+          </div>
+        ` : ''}
+        ${inputs.scrapedTitle ? `
+          <div style="font-size: 13px; font-weight: 600; color: var(--text-primary, #F8FAFC); margin-top: 4px;">
+            ${escapeHtml(inputs.scrapedTitle)}
+          </div>
+        ` : ''}
+        ${inputs.scrapedContent ? `
+          <div class="gen-context-text" title="Scraped article / Source excerpt">${escapeHtml(inputs.scrapedContent)}</div>
+        ` : ''}
+      </div>
+    `;
+  }
+
+  // 4. Visual Cues & Metaphors
+  if (inputs.cues && inputs.cues.length > 0) {
+    html += `
+      <div class="gen-section-card">
+        <div class="gen-section-header">
+          <div class="gen-section-title-wrap">
+            <span class="gen-section-icon">🎨</span>
+            <span class="gen-section-label">VISUAL CUES & METAPHORS (${inputs.cues.length})</span>
+          </div>
+        </div>
+        <div class="gen-cues-list">
+          ${inputs.cues.map((cue, i) => `
+            <div class="gen-cue-row">
+              <span class="gen-cue-tag" style="${i === 0 ? 'background: rgba(245, 158, 11, 0.2); color: #FBBF24; font-weight: 900;' : ''}">${i === 0 ? '⭐ HERO' : '#' + (i + 1)}</span>
+              <span class="gen-cue-val">${escapeHtml(cue)}</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  // 5. Illustration Prompt (if available)
+  if (inputs.illustrationPrompt) {
+    html += `
+      <div class="gen-section-card">
+        <div class="gen-section-header">
+          <div class="gen-section-title-wrap">
+            <span class="gen-section-icon">✨</span>
+            <span class="gen-section-label">AI ART DIRECTION PROMPT</span>
+          </div>
+          <button type="button" class="gen-copy-btn" onclick="copyGenerationContextToClipboard(${JSON.stringify(inputs.illustrationPrompt)})" title="Copy prompt">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+            <span>Copy</span>
+          </button>
+        </div>
+        <div class="gen-context-text" style="font-family: monospace; font-size: 12px; max-height: 120px;">
+          ${escapeHtml(inputs.illustrationPrompt)}
+        </div>
+      </div>
+    `;
+  }
+
+  // 6. Studio Parameters Grid
+  html += `
+    <div class="gen-section-card">
+      <div class="gen-section-header">
+        <div class="gen-section-title-wrap">
+          <span class="gen-section-icon">⚙️</span>
+          <span class="gen-section-label">STUDIO SYNTHESIS PARAMETERS</span>
+        </div>
+      </div>
+      <div class="gen-params-grid">
+        <div class="gen-param-item">
+          <span class="gen-param-label">Source Mode</span>
+          <span class="gen-param-value">${escapeHtml(sourceLabel)}</span>
+        </div>
+        <div class="gen-param-item">
+          <span class="gen-param-label">Core Take Mode</span>
+          <span class="gen-param-value">${inputs.refineCoreTake ? '✨ Refine with AI' : '❝ Use As-Is'}</span>
+        </div>
+        <div class="gen-param-item">
+          <span class="gen-param-label">Voice / Tone</span>
+          <span class="gen-param-value">${escapeHtml(vocabLabel)}</span>
+        </div>
+        <div class="gen-param-item">
+          <span class="gen-param-label">Setting / Region</span>
+          <span class="gen-param-value">📍 ${escapeHtml(inputs.countryContext)}</span>
+        </div>
+        <div class="gen-param-item">
+          <span class="gen-param-label">Character Portrayal</span>
+          <span class="gen-param-value">${escapeHtml(portrayalLabel)}</span>
+        </div>
+      </div>
+    </div>
+  `;
+
+  container.innerHTML = html;
+
+  const modal = document.getElementById('generationContextModal');
+  if (modal) {
+    modal.style.display = 'flex';
+    modal.classList.add('open');
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+  }
+}
+
+function closeGenerationContextModal() {
+  const modal = document.getElementById('generationContextModal');
+  if (modal) {
+    modal.classList.remove('open');
+    modal.classList.remove('active');
+    setTimeout(() => {
+      if (!modal.classList.contains('open')) {
+        modal.style.display = 'none';
+      }
+    }, 220);
+  }
+  document.body.style.overflow = '';
+}
+
+function copyGenerationContextToClipboard(customText) {
+  const textToCopy = (typeof customText === 'string' && customText.length)
+    ? customText
+    : (window._activeGenContextText || '');
+  if (!textToCopy) {
+    showTemporaryToast('Nothing to copy');
+    return;
+  }
+  if (navigator && navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(textToCopy).then(() => {
+      showTemporaryToast('📋 Copied to clipboard!');
+    }).catch(() => {
+      fallbackCopyText(textToCopy);
+    });
+  } else {
+    fallbackCopyText(textToCopy);
+  }
+}
+
+function fallbackCopyText(text) {
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    showTemporaryToast('📋 Copied to clipboard!');
+  } catch (_) {
+    prompt('Copy context text:', text);
+  }
+}
+
+function loadPostIntoStudioToRegenerate(postId) {
+  const targetId = postId || window._activeGenContextPostId;
+  if (!targetId) return;
+  const post = allPosts.find(p => p && p.id === targetId);
+  if (!post) {
+    showTemporaryToast('Post not found');
+    return;
+  }
+
+  const inputs = getPostGenerationInputs(post);
+
+  // Close context drawer
+  closeGenerationContextModal();
+
+  // Open Creator Studio
+  openCreatorModal();
+
+  // 1. Set source mode
+  setAnchorMode(inputs.sourceType || 'digital_link');
+
+  // 2. Populate Slant Take
+  const slantInput = document.getElementById('creatorSlantTakeInput');
+  if (slantInput) {
+    slantInput.value = inputs.slantTake || '';
+  }
+
+  // 3. Populate Spark
+  const sparkInput = document.getElementById('creatorSparkInput');
+  if (sparkInput) {
+    sparkInput.value = inputs.spark || '';
+  }
+
+  // 4. Populate Source URL
+  const urlInput = document.getElementById('creatorUrlInput');
+  if (urlInput) {
+    urlInput.value = inputs.sourceUrl || '';
+  }
+
+  // 5. Vocabulary style
+  setVocabularyStyle(inputs.vocabularyStyle || 'punchy');
+
+  // 6. Refine switch
+  toggleRefineCoreTake(inputs.refineCoreTake !== false);
+
+  // 7. Regional Setting
+  const countryCodeMap = {
+    'India': 'IN',
+    'United States': 'US',
+    'United Kingdom': 'GB',
+    'Japan': 'JP',
+    'Europe': 'EU',
+    'Global': 'GLOBAL'
+  };
+  const cCode = countryCodeMap[inputs.countryContext] || (inputs.countryContext && inputs.countryContext.length === 2 ? inputs.countryContext : 'GLOBAL');
+  const sel = document.getElementById('countryContextSelect');
+  if (sel) sel.value = cCode;
+  if (typeof changeCountryContext === 'function') {
+    changeCountryContext(cCode);
+  }
+
+  // 8. Character Representation
+  selectCharacterRepresentation(inputs.characterRepresentation || 'realistic');
+
+  // 9. Cues Deck
+  if (inputs.cues && Array.isArray(inputs.cues) && inputs.cues.length > 0) {
+    creatorCuePills = [...inputs.cues];
+    renderCuesDeck();
+  }
+
+  // 10. Scraped article state
+  if (inputs.scrapedContent || inputs.scrapedTitle) {
+    currentScrapedArticle = {
+      title: inputs.scrapedTitle || '',
+      content: inputs.scrapedContent || '',
+      url: inputs.sourceUrl || ''
+    };
+  }
+
+  showTemporaryToast('✨ Loaded inputs into Creator Studio! Tweak or regenerate 🚀');
 }
 
 function handleDetailModalDelete() {
@@ -6069,6 +6486,28 @@ async function startAiSynthesis() {
     }
 
     currentSynthesizedPost = data.post;
+    if (!currentSynthesizedPost.generationInputs) {
+      currentSynthesizedPost.generationInputs = {
+        slantTake: slantTake || '',
+        sourceUrl: isLink ? url : '',
+        sourceType: creatorSelectedSource,
+        spark: spark || '',
+        cues: [...creatorCuePills],
+        heroCue: creatorCuePills[0] || '',
+        characterRepresentation: creatorCharacterRepresentation,
+        refineCoreTake: creatorRefineCoreTake,
+        vocabularyStyle: creatorVocabularyStyle || 'punchy',
+        countryContext: creatorCountryContext?.name || 'India',
+        scrapedTitle: (isLink && url) ? (currentScrapedArticle?.title || '') : '',
+        scrapedContent: (isLink && url) ? (currentScrapedArticle?.content || '').slice(0, 3000) : '',
+        contextProvided: slantTake || (currentScrapedArticle?.content || '').slice(0, 3000) || spark || '',
+        illustrationPrompt: currentSynthesizedPost.illustrationPrompt || '',
+        originalHeadline: currentSynthesizedPost.originalHeadline || currentSynthesizedPost.adaptedHeadline || ''
+      };
+    }
+    currentSynthesizedPost.contextProvided = currentSynthesizedPost.generationInputs.contextProvided || slantTake || (currentScrapedArticle?.content || '').slice(0, 3000) || spark || '';
+    currentSynthesizedPost.userSlantTake = slantTake || '';
+    currentSynthesizedPost.sourceContext = (isLink && url) ? (currentScrapedArticle?.content || '').slice(0, 3000) : '';
 
     // Immediately synchronize edit modal fields with this fresh post to ensure zero stale DOM values
     const headInput = document.getElementById('editModalHeadline');
@@ -6551,8 +6990,13 @@ function handleStep3Download() {
 }
 
 async function compressImageForCloud(base64Data, maxWidth = 900, quality = 0.82) {
-  if (!base64Data || typeof base64Data !== 'string' || !base64Data.startsWith('data:image')) {
+  if (!base64Data || typeof base64Data !== 'string') {
     return base64Data;
+  }
+  let src = base64Data;
+  if (!src.startsWith('data:image')) {
+    const isPng = src.startsWith('iVBORw');
+    src = `data:image/${isPng ? 'png' : 'jpeg'};base64,${src}`;
   }
   return new Promise((resolve) => {
     try {
@@ -6580,7 +7024,7 @@ async function compressImageForCloud(base64Data, maxWidth = 900, quality = 0.82)
         }
       };
       img.onerror = () => resolve(base64Data);
-      img.src = base64Data;
+      img.src = src;
     } catch (_) {
       resolve(base64Data);
     }
@@ -6605,6 +7049,18 @@ async function publishSynthesizedPost() {
 
   // 1. Clean & compress payload: store crisp ~60KB WebP so Supabase rows never trigger timeout
   const postToSave = { ...currentSynthesizedPost };
+  if (currentSynthesizedPost.generationInputs) {
+    postToSave.generationInputs = currentSynthesizedPost.generationInputs;
+  }
+  if (currentSynthesizedPost.contextProvided) {
+    postToSave.contextProvided = currentSynthesizedPost.contextProvided;
+  }
+  if (currentSynthesizedPost.userSlantTake) {
+    postToSave.userSlantTake = currentSynthesizedPost.userSlantTake;
+  }
+  if (currentSynthesizedPost.sourceContext) {
+    postToSave.sourceContext = currentSynthesizedPost.sourceContext;
+  }
   const rawPoster = currentSynthesizedPost.illustrationBase64 || currentSynthesizedPost.originalPhotoBase64;
   if (rawPoster) {
     try {
