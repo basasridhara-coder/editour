@@ -4,8 +4,17 @@ const path = require('path');
 const SUPABASE_URL = 'https://fsuukgpizuipxxwatkbo.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZzdXVrZ3BpenVpcHh4d2F0a2JvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTExMzE4NjEsImV4cCI6MjEwNjcwNzg2MX0.NPnTDhGyiigPZIvror8JGqjCMVKuJ8OZaDN2pGuVfM8';
 
-function sendImageBuffer(res, buf) {
-  res.setHeader('Content-Type', 'image/png');
+function sendImageBuffer(res, buf, mimeType = 'image/png') {
+  if (buf && buf.length > 4) {
+    if (buf[0] === 0xFF && buf[1] === 0xD8 && buf[2] === 0xFF) {
+      mimeType = 'image/jpeg';
+    } else if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4E && buf[3] === 0x47) {
+      mimeType = 'image/png';
+    } else if (buf[0] === 0x52 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x46) {
+      mimeType = 'image/webp';
+    }
+  }
+  res.setHeader('Content-Type', mimeType);
   res.setHeader('Cache-Control', 'public, max-age=31536000, s-maxage=31536000, immutable');
   if (typeof res.send === 'function') {
     return res.status ? res.status(200).send(buf) : res.send(buf);
