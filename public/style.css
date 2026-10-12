@@ -1845,7 +1845,7 @@ header {
    • Top-Left (The Brand Identity): <logo>
    • Top-Right (The Creator): @<curatorname>
    • Bottom-Left (The Domain Platform): slant.today
-   • Bottom-Right (The Punchline): Your conviction in 3 frames
+   • Bottom-Right (The Punchline): Every thought deserves a frame
    ============================================================ */
 
 .poster-brand-corner {
@@ -1905,11 +1905,11 @@ header {
   white-space: nowrap;
 }
 
-/* Bottom 2 Corners: slant.today & Your conviction in 3 frames */
+/* Bottom 2 Corners: slant.today & Every thought deserves a frame */
 .poster-brand-footer {
   width: 100%;
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
   padding-top: 5px;
   margin-top: 4px;
@@ -1919,21 +1919,17 @@ header {
 }
 
 .poster-footer-domain {
-  font-size: 9.5px;
-  font-weight: 800;
-  color: #E2E8F0;
-  letter-spacing: 0.8px;
-  text-transform: lowercase;
-  opacity: 0.95;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+  display: none !important;
 }
 
 .poster-footer-punchline {
+  margin-left: auto;
   font-size: 8.5px;
   font-weight: 700;
   color: #CBD5E1;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.5px;
   opacity: 0.9;
+  font-style: italic;
   text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
 }
 
@@ -2617,9 +2613,7 @@ header {
 }
 
 .receipt-folio-source {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  display: none !important;
 }
 
 .receipt-folio-author {
@@ -2627,6 +2621,7 @@ header {
   overflow: hidden;
   text-overflow: ellipsis;
   text-align: right;
+  margin-left: auto;
 }
 
 /* ============================================================

@@ -2358,10 +2358,9 @@ function buildSlide1Html(post, index) {
       <div class="slide-hook-bottom">
         ${newsFragmentHtml}
         <h3 class="slide-hook-headline">${headline}</h3>
-        <!-- Bottom-Left: slant.today | Bottom-Right: Your conviction in 3 frames -->
+        <!-- Bottom-Left: slant.today disabled for now | Bottom-Right: Every thought deserves a frame -->
         <div class="poster-brand-footer">
-          <span class="poster-footer-domain">slant.today</span>
-          <span class="poster-footer-punchline">Your conviction in 3 frames</span>
+          <span class="poster-footer-punchline" style="margin-left: auto;">Every thought deserves a frame</span>
         </div>
       </div>
     </div>
@@ -2478,10 +2477,9 @@ function buildSlide2Html(post, index) {
           <span style="font-size:10px; font-weight:800; color:#F59E0B; letter-spacing:0.8px;">${slideTitle}</span>
         </div>
         <p class="critique-opinion-text" style="font-size:13.5px; font-weight:700; color:#F8FAFC; line-height:1.42; margin:0;">${opinion}</p>
-        <!-- Bottom-Left: slant.today | Bottom-Right: Your conviction in 3 frames -->
+        <!-- Bottom-Left: slant.today disabled for now | Bottom-Right: Every thought deserves a frame -->
         <div class="poster-brand-footer">
-          <span class="poster-footer-domain">slant.today</span>
-          <span class="poster-footer-punchline">Your conviction in 3 frames</span>
+          <span class="poster-footer-punchline" style="margin-left: auto;">Every thought deserves a frame</span>
         </div>
       </div>
     </div>
@@ -2672,9 +2670,8 @@ function buildSlide3Html(post, index) {
       <!-- 4. Broadsheet Archival Bottom Folio -->
       <div class="receipt-footer" style="flex-shrink: 0; margin-top: auto; padding-top: 18px; padding-bottom: 6px; width: 100%; clear: both;">
         <div class="receipt-folio-rule" style="width: 100%; height: 1px; background: #0F172A; margin: 0 0 6px 0;"></div>
-        <div class="receipt-folio-text" style="display: flex; justify-content: space-between; align-items: center; width: 100%; margin-top: 0; line-height: 1.3;">
-          <span class="receipt-folio-source" style="font-weight: 800; letter-spacing: 0.8px; color: #0F172A;">slant.today</span>
-          <span class="receipt-folio-author" style="font-style: italic; letter-spacing: 0.4px; color: #475569;">Your conviction in 3 frames • Scroll broadsheet ↕</span>
+        <div class="receipt-folio-text" style="display: flex; justify-content: flex-end; align-items: center; width: 100%; margin-top: 0; line-height: 1.3;">
+          <span class="receipt-folio-author" style="font-style: italic; letter-spacing: 0.4px; color: #475569; margin-left: auto;">Every thought deserves a frame • Scroll broadsheet ↕</span>
         </div>
       </div>
     </div>
@@ -3956,9 +3953,15 @@ async function capturePostSlidesAsFiles(post, index) {
     throw new Error('html2canvas library is not loaded');
   }
 
-  // Exact 3:4 social ratio (450x600) matching the web app feed card dimensions
-  const exportWidth = 450;
-  const exportHeight = 600;
+  // Exact 3:4 social ratio (480x640 canvas with framed 450x600 card inside)
+  // Outer canvas has background #F8F5EE (the signature default light theme color)
+  // The inner card has rounded corners (16px), subtle border, and shadow matching the in-app post card!
+  const canvasWidth = 480;
+  const canvasHeight = 640;
+  const cardWidth = 450;
+  const cardHeight = 600;
+  const padX = 15; // (480 - 450) / 2 = 15px
+  const padY = 20; // (640 - 600) / 2 = 20px
 
   // Convert poster image to local blob URL to bypass any CORS taint or delay in html2canvas
   let exportPost = { ...post };
@@ -3991,21 +3994,27 @@ async function capturePostSlidesAsFiles(post, index) {
       position: fixed !important;
       left: -9999px !important;
       top: 0 !important;
-      width: ${exportWidth}px !important;
-      height: ${exportHeight}px !important;
+      width: ${canvasWidth}px !important;
+      height: ${canvasHeight}px !important;
       overflow: hidden !important;
       z-index: -9999 !important;
-      background: ${cfg.bg} !important;
-      padding: 0 !important;
+      background: #F8F5EE !important;
+      padding: ${padY}px ${padX}px !important;
       margin: 0 !important;
       border: none !important;
+      box-sizing: border-box !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
     `;
     document.body.appendChild(container);
 
     try {
       container.innerHTML = `
-        <div class="carousel-slide ${cfg.class}" style="width: ${exportWidth}px !important; height: ${exportHeight}px !important; position: relative !important; left: 0 !important; top: 0 !important; transform: none !important; flex: none !important; display: flex !important;">
-          ${cfg.html}
+        <div class="share-card-frame" style="width: ${cardWidth}px !important; height: ${cardHeight}px !important; border-radius: 16px !important; overflow: hidden !important; border: 1px solid rgba(15, 23, 42, 0.12) !important; box-shadow: 0 10px 28px -4px rgba(0, 0, 0, 0.18), 0 2px 6px rgba(0, 0, 0, 0.06) !important; position: relative !important; background: ${cfg.bg} !important; display: flex !important; box-sizing: border-box !important;">
+          <div class="carousel-slide ${cfg.class}" style="width: ${cardWidth}px !important; height: ${cardHeight}px !important; position: relative !important; left: 0 !important; top: 0 !important; transform: none !important; flex: none !important; display: flex !important; border-radius: 15px !important; overflow: hidden !important;">
+            ${cfg.html}
+          </div>
         </div>
       `;
 
@@ -4028,11 +4037,11 @@ async function capturePostSlidesAsFiles(post, index) {
         const natH = img.naturalHeight || img.height;
         if (natW > 0 && natH > 0) {
           const rImg = natW / natH;
-          const rBox = exportWidth / exportHeight; // 440 / 550 = 0.8
+          const rBox = cardWidth / cardHeight; // 450 / 600 = 0.75
           if (rImg >= rBox) {
-            const rw = Math.round(exportHeight * rImg);
-            const rh = exportHeight;
-            const left = Math.round((exportWidth - rw) / 2);
+            const rw = Math.round(cardHeight * rImg);
+            const rh = cardHeight;
+            const left = Math.round((cardWidth - rw) / 2);
             img.style.setProperty('position', 'absolute', 'important');
             img.style.setProperty('width', rw + 'px', 'important');
             img.style.setProperty('height', rh + 'px', 'important');
@@ -4042,9 +4051,9 @@ async function capturePostSlidesAsFiles(post, index) {
             img.style.setProperty('max-height', 'none', 'important');
             img.style.setProperty('object-fit', 'fill', 'important');
           } else {
-            const rw = exportWidth;
-            const rh = Math.round(exportWidth / rImg);
-            const top = Math.round((exportHeight - rh) / 2);
+            const rw = cardWidth;
+            const rh = Math.round(cardWidth / rImg);
+            const top = Math.round((cardHeight - rh) / 2);
             img.style.setProperty('position', 'absolute', 'important');
             img.style.setProperty('width', rw + 'px', 'important');
             img.style.setProperty('height', rh + 'px', 'important');
@@ -4063,24 +4072,24 @@ async function capturePostSlidesAsFiles(post, index) {
       let canvas;
       try {
         canvas = await html2canvas(container, {
-          scale: 2.4545, // 440 * 2.4545 = 1080, 550 * 2.4545 = 1350 (Ultra HD 1080x1350)
+          scale: 2.25, // 480 * 2.25 = 1080, 640 * 2.25 = 1440 (Ultra HD 1080x1440, perfect 3:4 Instagram portrait)
           useCORS: true,
           allowTaint: true,
-          backgroundColor: cfg.bg,
+          backgroundColor: '#F8F5EE',
           logging: false,
-          width: exportWidth,
-          height: exportHeight
+          width: canvasWidth,
+          height: canvasHeight
         });
       } catch (renderErr) {
         console.warn('html2canvas primary render failed, retrying without taint:', renderErr);
         canvas = await html2canvas(container, {
-          scale: 2.4545,
+          scale: 2.25,
           useCORS: true,
           allowTaint: false,
-          backgroundColor: cfg.bg,
+          backgroundColor: '#F8F5EE',
           logging: false,
-          width: exportWidth,
-          height: exportHeight
+          width: canvasWidth,
+          height: canvasHeight
         });
       }
 
@@ -4274,7 +4283,7 @@ function openSharePostersModal(post, files) {
     files.forEach((file, i) => {
       const url = URL.createObjectURL(file);
       const wrap = document.createElement('div');
-      wrap.style.cssText = 'position:relative; width:92px; height:115px; border-radius:8px; overflow:hidden; border:1px solid rgba(255,255,255,0.15); background:#111; box-shadow:0 4px 12px rgba(0,0,0,0.4);';
+      wrap.style.cssText = 'position:relative; width:90px; height:120px; border-radius:8px; overflow:hidden; border:1px solid rgba(255,255,255,0.15); background:#111; box-shadow:0 4px 12px rgba(0,0,0,0.4);';
       wrap.innerHTML = `
         <img src="${url}" style="width:100%; height:100%; object-fit:cover; display:block;" alt="Slide ${i+1}">
         <span style="position:absolute; bottom:4px; right:4px; font-size:9px; font-weight:800; background:rgba(0,0,0,0.75); color:#fff; padding:1px 5px; border-radius:4px; backdrop-filter:blur(2px);">0${i+1}/03</span>
