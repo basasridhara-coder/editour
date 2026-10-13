@@ -999,25 +999,55 @@ function openPrivatePreviewGateModal(email = '') {
   const modal = document.getElementById('privatePreviewGateModal');
   const emailEl = document.getElementById('gateModalEmailText');
   if (emailEl) emailEl.textContent = email;
-  if (modal) modal.style.display = 'flex';
+  if (!modal) return;
+  modal.style.display = 'flex';
+  modal.style.opacity = '1';
+  modal.style.visibility = 'visible';
+  modal.style.pointerEvents = 'auto';
+  modal.classList.add('open');
+  modal.classList.add('active');
+  document.body.style.overflow = 'hidden';
 }
 
 function closePrivatePreviewGateModal() {
   const modal = document.getElementById('privatePreviewGateModal');
-  if (modal) modal.style.display = 'none';
+  if (!modal) return;
+  modal.classList.remove('open');
+  modal.classList.remove('active');
+  modal.style.display = 'none';
+  modal.style.opacity = '';
+  modal.style.visibility = '';
+  modal.style.pointerEvents = '';
+  document.body.style.overflow = '';
 }
 
 function openAdminBetaModal() {
-  if (!isCurrentUserAdmin) return;
+  if (typeof closeDrawer === 'function') closeDrawer();
   const modal = document.getElementById('adminBetaModal');
-  if (!modal) return;
+  if (!modal) {
+    console.error('adminBetaModal element not found in DOM');
+    return;
+  }
   modal.style.display = 'flex';
+  modal.style.opacity = '1';
+  modal.style.visibility = 'visible';
+  modal.style.pointerEvents = 'auto';
+  modal.classList.add('open');
+  modal.classList.add('active');
+  document.body.style.overflow = 'hidden';
   loadAdminBetaData(true);
 }
 
 function closeAdminBetaModal() {
   const modal = document.getElementById('adminBetaModal');
-  if (modal) modal.style.display = 'none';
+  if (!modal) return;
+  modal.classList.remove('open');
+  modal.classList.remove('active');
+  modal.style.display = 'none';
+  modal.style.opacity = '';
+  modal.style.visibility = '';
+  modal.style.pointerEvents = '';
+  document.body.style.overflow = '';
 }
 
 async function loadAdminBetaPendingCount() {
@@ -1073,7 +1103,7 @@ async function loadAdminBetaData(forceRefresh = false) {
         const lastSeen = log?.lastLogin ? new Date(log.lastLogin).toLocaleDateString(undefined, { month:'short', day:'numeric' }) : 'Invited';
 
         const row = document.createElement('div');
-        row.style.cssText = 'display:flex; justify-content:space-between; align-items:center; padding:8px 12px; background:rgba(15,23,42,0.03); border:1px solid var(--border-color, rgba(15,23,42,0.08)); border-radius:8px; font-size:13px;';
+        row.style.cssText = 'display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:var(--bg-card, rgba(255,255,255,0.05)); border:1px solid var(--border-subtle, rgba(255,255,255,0.1)); border-radius:10px; font-size:13px;';
         row.innerHTML = `
           <div style="display:flex; align-items:center; gap:8px; overflow:hidden;">
             <span style="font-size:14px;">${isMaster ? '👑' : '👤'}</span>

@@ -890,6 +890,21 @@ header {
   opacity: 1;
 }
 
+#adminBetaModal,
+#privatePreviewGateModal {
+  z-index: 1500 !important;
+}
+
+#adminBetaModal.open,
+#adminBetaModal.active,
+#privatePreviewGateModal.open,
+#privatePreviewGateModal.active {
+  display: flex !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
+
 .modal-card {
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);

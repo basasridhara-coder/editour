@@ -27,7 +27,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Merriweather:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,400;1,600;1,700;1,900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261013_2100">
+  <link rel="stylesheet" href="style.css?v=20261013_2255">
   <!-- Favicon & Brand Icons -->
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
@@ -964,7 +964,7 @@
   </div>
 
   <!-- Private Preview Access Gate Modal (Shown when an uninvited user tries to sign in) -->
-  <div class="modal-overlay" id="privatePreviewGateModal" style="display:none;" onclick="if(event.target===this) closePrivatePreviewGateModal()">
+  <div class="modal-overlay" id="privatePreviewGateModal" onclick="if(event.target===this) closePrivatePreviewGateModal()">
     <div class="modal-card" style="max-width: 440px; padding: 28px 22px; text-align: center; border-radius: 20px;" onclick="event.stopPropagation()">
       <div style="display:inline-flex; align-items:center; justify-content:center; width:52px; height:52px; border-radius:50%; background:rgba(99,102,241,0.12); color:#818CF8; font-size:26px; margin-bottom:14px;">
         🔒
@@ -990,14 +990,14 @@
   </div>
 
   <!-- Admin Beta Access & Invites Modal (Exclusive to Master Admin) -->
-  <div class="modal-overlay" id="adminBetaModal" style="display:none;" onclick="if(event.target===this) closeAdminBetaModal()">
+  <div class="modal-overlay" id="adminBetaModal" onclick="if(event.target===this) closeAdminBetaModal()">
     <div class="modal-card" style="max-width: 540px; max-height: 85vh; display: flex; flex-direction: column; padding: 24px; border-radius: 20px; text-align: left;" onclick="event.stopPropagation()">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border-color, rgba(15,23,42,0.1));">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border-subtle, rgba(15,23,42,0.1));">
         <div>
           <div style="font-size: 10.5px; font-weight: 800; color: #818CF8; letter-spacing: 0.8px; text-transform: uppercase;">Curator Admin Panel</div>
           <h2 style="font-size: 18px; font-weight: 800; color: var(--text-primary); margin: 2px 0 0;">Beta Access & Invites</h2>
         </div>
-        <button class="modal-close" onclick="closeAdminBetaModal()">&times;</button>
+        <button class="modal-close" onclick="closeAdminBetaModal()" style="color:var(--text-primary); background:rgba(128,128,128,0.15); font-size:22px; cursor:pointer;" aria-label="Close">&times;</button>
       </div>
 
       <div style="overflow-y: auto; flex: 1; padding-right: 4px; display: flex; flex-direction: column; gap: 18px;">
@@ -1005,7 +1005,7 @@
         <div>
           <label style="font-size: 12px; font-weight: 700; color: var(--text-primary); display: block; margin-bottom: 6px;">Invite Friend by Gmail</label>
           <div style="display: flex; gap: 8px;">
-            <input type="email" id="adminNewInviteEmail" placeholder="friend@gmail.com" style="flex: 1; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--border-color, #CBD5E1); background: var(--bg-card, #FFF); color: var(--text-primary, #0F172A); font-size: 13.5px;" onkeydown="if(event.key==='Enter') handleAdminAddEmail()">
+            <input type="email" id="adminNewInviteEmail" placeholder="friend@gmail.com" style="flex: 1; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--border-subtle, #CBD5E1); background: var(--bg-card, #FFF); color: var(--text-primary, #0F172A); font-size: 13.5px;" onkeydown="if(event.key==='Enter') handleAdminAddEmail()">
             <button type="button" class="creator-publish-btn" style="padding: 10px 18px; font-size: 13px; white-space: nowrap;" onclick="handleAdminAddEmail()">
               + Invite
             </button>
@@ -1240,7 +1240,7 @@
               <span class="row-label">My Published Stories</span>
               <span class="row-pill" id="drawerMyCount">0</span>
             </button>
-            <button class="drawer-menu-row drawer-admin-row" id="drawerAdminBetaRow" style="display:none;" onclick="closeDrawer(); openAdminBetaModal();">
+            <button class="drawer-menu-row drawer-admin-row" id="drawerAdminBetaRow" style="display:none;" onclick="openAdminBetaModal();">
               <span class="row-icon">🛡️</span>
               <span class="row-label">Beta Access & Invites</span>
               <span class="row-pill" id="drawerPendingBadge" style="background:#EF4444; color:#fff; display:none; padding:1px 7px; border-radius:10px; font-size:11px; font-weight:800;">0</span>
@@ -1326,6 +1326,6 @@
     </div>
   </aside>
 
-  <script src="app.js?v=20261013_2245"></script>
+  <script src="app.js?v=20261013_2255"></script>
 </body>
 </html>
