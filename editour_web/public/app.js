@@ -164,7 +164,7 @@ async function verifyUserWhitelist(user) {
   const email = user.email.toLowerCase().trim();
 
   // Fast-track Master Admin: never blocked even if offline
-  if (email === 'basasridhara@gmail.com') {
+  if (email === 'shridharoct16@gmail.com' || email === 'basasridhara@gmail.com') {
     return { allowed: true, isAdmin: true };
   }
 
@@ -1023,7 +1023,7 @@ function closeAdminBetaModal() {
 async function loadAdminBetaPendingCount() {
   if (!isCurrentUserAdmin) return;
   try {
-    const adminEmail = currentUser?.email || 'basasridhara@gmail.com';
+    const adminEmail = currentUser?.email || 'shridharoct16@gmail.com';
     const resp = await fetch(`/api/whitelist?admin=${encodeURIComponent(adminEmail)}`);
     if (resp.ok) {
       const data = await resp.json();
@@ -1042,7 +1042,7 @@ async function loadAdminBetaPendingCount() {
 }
 
 async function loadAdminBetaData(forceRefresh = false) {
-  const adminEmail = currentUser?.email || 'basasridhara@gmail.com';
+  const adminEmail = currentUser?.email || 'shridharoct16@gmail.com';
   const allowedList = document.getElementById('adminAllowedList');
   const allowedCount = document.getElementById('adminAllowedCountText');
   const pendingSection = document.getElementById('adminPendingSection');
@@ -1058,7 +1058,7 @@ async function loadAdminBetaData(forceRefresh = false) {
     if (!resp.ok) throw new Error('Could not load whitelist roster');
     const data = await resp.json();
 
-    const allowedEmails = Array.isArray(data.allowedEmails) ? data.allowedEmails : ['basasridhara@gmail.com'];
+    const allowedEmails = Array.isArray(data.allowedEmails) ? data.allowedEmails : ['shridharoct16@gmail.com', 'basasridhara@gmail.com'];
     const pending = Array.isArray(data.pendingRequests) ? data.pendingRequests : [];
     const accessLogs = Array.isArray(data.accessLogs) ? data.accessLogs : [];
     const logsMap = new Map();
@@ -1068,7 +1068,7 @@ async function loadAdminBetaData(forceRefresh = false) {
     if (allowedList) {
       allowedList.innerHTML = '';
       allowedEmails.forEach(email => {
-        const isMaster = email.toLowerCase() === 'basasridhara@gmail.com';
+        const isMaster = email.toLowerCase() === 'shridharoct16@gmail.com' || email.toLowerCase() === 'basasridhara@gmail.com';
         const log = logsMap.get(email.toLowerCase());
         const lastSeen = log?.lastLogin ? new Date(log.lastLogin).toLocaleDateString(undefined, { month:'short', day:'numeric' }) : 'Invited';
 
@@ -1130,7 +1130,7 @@ async function handleAdminAddEmail() {
     alert('Please enter a valid Gmail address.');
     return;
   }
-  const adminEmail = currentUser?.email || 'basasridhara@gmail.com';
+  const adminEmail = currentUser?.email || 'shridharoct16@gmail.com';
   try {
     const resp = await fetch('/api/whitelist', {
       method: 'POST',
@@ -1152,7 +1152,7 @@ async function handleAdminAddEmail() {
 
 async function handleAdminRemoveEmail(email) {
   if (!confirm(`Are you sure you want to revoke access for ${email}?`)) return;
-  const adminEmail = currentUser?.email || 'basasridhara@gmail.com';
+  const adminEmail = currentUser?.email || 'shridharoct16@gmail.com';
   try {
     const resp = await fetch('/api/whitelist', {
       method: 'POST',
@@ -1169,7 +1169,7 @@ async function handleAdminRemoveEmail(email) {
 }
 
 async function handleAdminApproveRequest(email) {
-  const adminEmail = currentUser?.email || 'basasridhara@gmail.com';
+  const adminEmail = currentUser?.email || 'shridharoct16@gmail.com';
   try {
     const resp = await fetch('/api/whitelist', {
       method: 'POST',
@@ -1186,7 +1186,7 @@ async function handleAdminApproveRequest(email) {
 }
 
 async function handleAdminDenyRequest(email) {
-  const adminEmail = currentUser?.email || 'basasridhara@gmail.com';
+  const adminEmail = currentUser?.email || 'shridharoct16@gmail.com';
   try {
     const resp = await fetch('/api/whitelist', {
       method: 'POST',
