@@ -890,9 +890,12 @@ header {
   opacity: 1;
 }
 
-#adminBetaModal,
-#privatePreviewGateModal {
+#adminBetaModal {
   z-index: 1500 !important;
+}
+
+#privatePreviewGateModal {
+  z-index: 10000000 !important;
 }
 
 #adminBetaModal.open,

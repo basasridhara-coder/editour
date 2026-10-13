@@ -128,6 +128,10 @@ async function init() {
   }, 60000);
 
   initAuth();
+  const gateEmail = sessionStorage.getItem('slant_gate_active_email');
+  if (gateEmail) {
+    openPrivatePreviewGateModal(gateEmail);
+  }
   await loadPosts();
   setupEventListeners();
   setupPullToRefresh();
@@ -196,6 +200,7 @@ async function verifyUserWhitelist(user) {
 }
 
 let suppressSignOutNotice = false;
+let isUninvitedGateActive = false;
 
 async function handleUninvitedUser(user) {
   if (!user) return;
@@ -203,7 +208,17 @@ async function handleUninvitedUser(user) {
   const uninvitedName = getUserDisplayName(user);
   const uninvitedAvatar = getUserAvatarUrl(user);
 
-  // 1. Submit access request to server
+  isUninvitedGateActive = true;
+  try {
+    sessionStorage.setItem('slant_gate_active_email', uninvitedEmail);
+  } catch (_) {}
+
+  // 1. Immediately dismiss any full-screen loading video / splash overlay
+  if (typeof dismissInitialFeedLoader === 'function') {
+    dismissInitialFeedLoader(true);
+  }
+
+  // 2. Submit access request to server
   try {
     fetch('/api/whitelist', {
       method: 'POST',
@@ -217,7 +232,14 @@ async function handleUninvitedUser(user) {
     });
   } catch (_) {}
 
-  // 2. Prevent confusing "Signed out successfully" toast from overwriting gate message
+  // 3. Clear URL hash so checkDeepLink doesn't trigger auth modal
+  try {
+    if (window.location.hash) {
+      history.replaceState(null, '', window.location.pathname);
+    }
+  } catch (_) {}
+
+  // 4. Prevent confusing "Signed out successfully" toast from overwriting gate message
   suppressSignOutNotice = true;
   try {
     await supabaseClient.auth.signOut();
@@ -230,9 +252,13 @@ async function handleUninvitedUser(user) {
   closeAuthModal();
   updateAuthUI();
 
-  // 3. Immediately display the locked Private Preview Gate modal with requester's email
+  // 5. Open the locked Private Preview Gate modal with requester's email (z-index 10000000)
   openPrivatePreviewGateModal(uninvitedEmail);
-  showTemporaryToast(`🔒 Access Restricted: ${uninvitedEmail} is not on the invited curator list.`, 5000);
+  setTimeout(() => {
+    openPrivatePreviewGateModal(uninvitedEmail);
+  }, 120);
+
+  showTemporaryToast(`🔒 Access Restricted: ${uninvitedEmail} is not on the invited curator list.`, 6000);
 }
 
 async function initAuth() {
@@ -909,6 +935,14 @@ async function handleEmailAuth(e) {
   const email = emailInput?.value?.trim();
   if (!email) return;
 
+  // Intercept uninvited email logins before requesting OTP or password
+  const check = await verifyUserWhitelist({ email });
+  if (!check.allowed) {
+    closeAuthModal();
+    await handleUninvitedUser({ email });
+    return;
+  }
+
   const submitBtn = document.getElementById('emailAuthBtn');
   const origBtnHtml = submitBtn ? submitBtn.innerHTML : '';
 
@@ -1021,10 +1055,15 @@ document.addEventListener('click', (e) => {
    ============================================================ */
 
 function openPrivatePreviewGateModal(email = '') {
+  isUninvitedGateActive = true;
+  if (typeof dismissInitialFeedLoader === 'function') {
+    dismissInitialFeedLoader(true);
+  }
   const modal = document.getElementById('privatePreviewGateModal');
   const emailEl = document.getElementById('gateModalEmailText');
-  if (emailEl) emailEl.textContent = email;
+  if (emailEl) emailEl.textContent = email || 'your account';
   if (!modal) return;
+  modal.style.zIndex = '10000000';
   modal.style.display = 'flex';
   modal.style.opacity = '1';
   modal.style.visibility = 'visible';
@@ -1035,6 +1074,11 @@ function openPrivatePreviewGateModal(email = '') {
 }
 
 function closePrivatePreviewGateModal() {
+  isUninvitedGateActive = false;
+  try {
+    sessionStorage.removeItem('slant_gate_active_email');
+    sessionStorage.setItem('slant_guest_explored', 'true');
+  } catch (e) {}
   const modal = document.getElementById('privatePreviewGateModal');
   if (!modal) return;
   modal.classList.remove('open');
@@ -1837,6 +1881,10 @@ function checkDeepLink() {
   }
 
   // Check login deep link / direct route or first-time visitor gateway
+  if (isUninvitedGateActive || sessionStorage.getItem('slant_gate_active_email')) {
+    return;
+  }
+
   const isExplicitLogin = params.get('auth') === 'login' ||
     params.get('login') === 'true' ||
     window.location.hash === '#login' ||
