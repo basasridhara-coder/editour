@@ -27,7 +27,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Merriweather:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,400;1,600;1,700;1,900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261012_0845">
+  <link rel="stylesheet" href="style.css?v=20261013_2100">
   <!-- Favicon & Brand Icons -->
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
@@ -47,8 +47,7 @@
   <div class="feed-initial-loader" id="feedInitialLoader">
     <div class="feed-loader-content">
       <div class="feed-loader-video-wrap" id="feedLoaderVideoWrap">
-        <video class="feed-loader-video active" id="feedInitialVideoA" src="/slantlogovideo.mp4?v=20261011_2355" autoplay muted playsinline webkit-playsinline preload="auto"></video>
-        <video class="feed-loader-video" id="feedInitialVideoB" src="/slantlogovideo.mp4?v=20261011_2355" muted playsinline webkit-playsinline preload="auto"></video>
+        <img class="feed-loader-video active" id="feedInitialLogo" src="/slanlogo.svg?v=20261013_2100" alt="Slant Logo" width="1024" height="1024">
       </div>
       <h3 class="feed-loader-title">Slant</h3>
       <p class="feed-loader-subtitle" id="feedLoaderSubtitle">Loading editorial feed...</p>
@@ -146,7 +145,7 @@
   <div class="feed-batch-loader" id="feedBatchLoader" style="display: none;">
     <div class="feed-batch-loader-content">
       <div class="feed-batch-video-wrap">
-        <video class="feed-batch-video" src="/slantlogovideo.mp4?v=20261011_2315" poster="/videoposter.png?v=20261011_2315" autoplay loop muted playsinline webkit-playsinline></video>
+        <img class="feed-batch-video" src="/slanlogo.svg?v=20261013_2100" alt="Loading batch..." width="1024" height="1024">
       </div>
       <p class="feed-batch-loader-text">Loading next editorial batch...</p>
     </div>
@@ -546,8 +545,7 @@
         <!-- Synthesis Loading State Overlay inside Step 2 -->
         <div class="synthesis-loading-state" id="synthesisLoadingState" style="display:none;">
           <div class="synthesis-video-wrap" id="synthesisVideoWrap">
-            <video class="synthesis-logo-video active" id="synthesisLogoVideoA" src="/slantlogovideo.mp4?v=20261011_2355" autoplay muted playsinline webkit-playsinline preload="auto"></video>
-            <video class="synthesis-logo-video" id="synthesisLogoVideoB" src="/slantlogovideo.mp4?v=20261011_2355" muted playsinline webkit-playsinline preload="auto"></video>
+            <img class="synthesis-logo-video active" id="synthesisLogoImg" src="/slanlogo.svg?v=20261013_2100" alt="Synthesizing Slant..." width="1024" height="1024">
           </div>
           <h3 class="synthesis-loading-title">Synthesizing Editorial Deck</h3>
           <p class="synthesis-loading-subtitle" id="synthesisStepText">Reading source and distilling narrative arc...</p>
@@ -1027,7 +1025,7 @@
         <div class="slant-login-auth-col">
           <div class="auth-header">
             <div class="auth-badge-icon">
-              <img src="/logo.png" alt="Slant Logo" class="auth-badge-img">
+              <img src="/slanlogo.svg?v=20261013_2100" alt="Slant Logo" class="auth-badge-img">
             </div>
             <h2 class="auth-title">Welcome to Slant</h2>
             <p class="auth-desc" id="authModalDesc">Sign in to save your favorite visual stories, customize your reading atmosphere, and publish your own editorials.</p>
@@ -1237,6 +1235,6 @@
     </div>
   </aside>
 
-  <script src="app.js?v=20261012_0845"></script>
+  <script src="app.js?v=20261013_2100"></script>
 </body>
 </html>
