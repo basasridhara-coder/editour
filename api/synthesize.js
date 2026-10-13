@@ -126,13 +126,13 @@ module.exports = async function handler(req, res) {
     }
 
     const userSlant = (slantTake || text || '').trim();
-    const isDigitalLink = (sourceType === 'digital_link') && Boolean(url && String(url).trim().length > 3);
+    const isDigitalLink = (sourceType === 'digital_link' || sourceType === 'video_audio') && Boolean(url && String(url).trim().length > 3);
     let extractedTitle = isDigitalLink ? (scrapedTitle || '').trim() : '';
     let extractedContent = isDigitalLink ? (scrapedContent || '').trim() : (sourceType === 'photo' ? (text || '').trim() : '');
     let pubName = '';
 
-    // 1. If digital link, only attempt fast extraction if title is completely missing
-    if (sourceType === 'digital_link' && url) {
+    // 1. If digital link or video/audio, only attempt fast extraction if title is completely missing
+    if ((sourceType === 'digital_link' || sourceType === 'video_audio') && url) {
       try {
         const parsedUrl = new URL(url);
         pubName = parsedUrl.hostname.replace(/^www\./, '');
@@ -277,13 +277,19 @@ ${sourceType === 'inner_voice' ? `CRITICAL INNER VOICE & LIVED EXPERIENCE DIRECT
 - DO NOT copy or repeat phrases from the user's input. Synthesize an elevated argument that grounds their angle in the story's concrete facts, key actors, and structural implications.
 - Strictly adhere to the Vocabulary Directive: use vivid, emotionally resonant, easily understandable English without heavy SAT/GRE academic jargon. Return this elevated statement in "curatorTake".` : `VERBATIM DIRECTIVE:
 - Poster 2 ("THE CRITICAL PERSPECTIVE") MUST preserve the curator's exact typed words verbatim: "${userSlant}", ending with a period. Return this in "curatorTake".`) : '')}
+${sourceType === 'video_audio' ? `CRITICAL VIDEO & AUDIO BROADCAST DIRECTIVE:
+- This slant is rooted in a VIDEO or AUDIO broadcast (e.g. YouTube interview, podcast episode, keynote, or debate).
+- Mental model: "I watched/listened to something that sparked a reaction."
+- Frame the adapted headline with the immediacy, conversational tension, or contrarian takeaway of a spoken dialogue.
+- Poster 2 ("THE CRITICAL PERSPECTIVE" / curatorTake): Capture the key realization, counter-slant, or pushback against what was said in the broadcast.
+- Poster 3 ("THE RECEIPTS" / resolvedArticleExcerpts): Cite spoken quotes, arguments, or timestamped moments from the broadcast to anchor the critique.` : ''}
 ${cues && cues.length > 0 ? `CRITICAL VISUAL RULE: The Hook poster artwork and cues MUST be anchored in #1 HERO: "${cues[0]}", incorporating #2 MOTIF: "${cues[1] || ''}" and #3 TENSION: "${cues[2] || ''}".` : ''}
 
 Respond strictly with valid JSON with this exact structure:
 {
   "adaptedHeadline": "5-10 word bold, memorable editorial headline",
   "originalHeadline": "Original title or subject (or spark hook if Inner Voice)",
-  "publicationName": "${pubName || (sourceType === 'inner_voice' ? 'Inner Voice' : 'Curated Press')}",
+  "publicationName": "${pubName || (sourceType === 'inner_voice' ? 'Inner Voice' : (sourceType === 'video_audio' ? 'Broadcast Slant' : 'Curated Press'))}",
   "categoryBadge": "UPPERCASE CATEGORY (e.g. DEEP TECH, CULTURE, OPINION, CLIMATE, ECONOMY, HEALTH)",
   "hook": "1-2 sentence gripping hook that stops the reader mid-scroll",
   "curatorTake": ${refineCoreTake ? `"EXACTLY 2 complete sentences (25-35 words) of elevated, model-synthesized editorial critique completely rephrasing and elevating the curator's raw thought into polished prose ending with a period (NEVER copy raw user words verbatim)."` : `"The curator's exact typed words verbatim: ${JSON.stringify(userSlant || 'Insight in motion.')}"`},

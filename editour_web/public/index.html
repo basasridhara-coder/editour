@@ -27,7 +27,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Merriweather:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,400;1,600;1,700;1,900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261013_2255">
+  <link rel="stylesheet" href="style.css?v=20261014_0015">
   <!-- Favicon & Brand Icons -->
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
@@ -269,82 +269,56 @@
             <span class="anchor-tag">Source Anchor</span>
           </div>
           <div class="creator-anchor-grid">
-            <!-- 1. Magazine -->
-            <button type="button" class="anchor-card" data-mode="photo" id="anchorMagazineBtn" onclick="setAnchorMode('photo')">
-              <div class="anchor-icon-circle anchor-magazine">
-                <span id="anchorPhotoIcon">📖</span>
-              </div>
-              <div class="anchor-card-title" id="anchorPhotoTitle">Magazine</div>
-              <div class="anchor-card-subtitle" id="anchorPhotoSub">Print clipping</div>
+            <!-- 1. Video / Audio Link -->
+            <button type="button" class="anchor-card" data-mode="video_audio" id="anchorMediaBtn" onclick="setAnchorMode('video_audio')">
+              <div class="anchor-icon-circle anchor-media">🎬</div>
+              <div class="anchor-card-title">Video / Audio</div>
+              <div class="anchor-card-subtitle">YouTube, Podcast</div>
             </button>
 
-            <!-- 2. Web Commentary -->
+            <!-- 2. Read / Web Link -->
             <button type="button" class="anchor-card active" data-mode="digital_link" id="anchorWebBtn" onclick="setAnchorMode('digital_link')">
-              <div class="anchor-icon-circle anchor-web">🌐</div>
-              <div class="anchor-card-title">Web</div>
-              <div class="anchor-card-subtitle">Citation link</div>
+              <div class="anchor-icon-circle anchor-web">📰</div>
+              <div class="anchor-card-title">Read / Web</div>
+              <div class="anchor-card-subtitle">Articles, Op-Eds</div>
             </button>
 
             <!-- 3. Inner Voice -->
             <button type="button" class="anchor-card" data-mode="inner_voice" id="anchorVoiceBtn" onclick="setAnchorMode('inner_voice')">
               <div class="anchor-icon-circle anchor-voice">💭</div>
               <div class="anchor-card-title">Inner Voice</div>
-              <div class="anchor-card-subtitle">Personal take</div>
+              <div class="anchor-card-subtitle">Pure reflection</div>
             </button>
+          </div>
+
+          <!-- Dynamic Mental Model Banner -->
+          <div class="anchor-mental-model-card" id="anchorMentalModelCard">
+            <div class="mental-model-inner">
+              <div class="mental-model-badge-row">
+                <span class="mental-model-badge" id="anchorMentalModelBadge">MENTAL MODEL</span>
+                <span class="mental-model-pill" id="anchorMentalModelPill">Read / Web Link</span>
+              </div>
+              <p class="mental-model-quote" id="anchorMentalModelText">
+                "I read an analysis or news story and have a counter-slant."
+              </p>
+            </div>
           </div>
         </div>
 
         <!-- 3. Dynamic Lower Panel (Trigger Panel) -->
         <div class="creator-trigger-panel">
-          <!-- Web Anchor Trigger Panel -->
+          <!-- Web & Video/Audio Anchor Trigger Panel -->
           <div class="trigger-section" id="triggerWebSection">
             <div class="trigger-header">
               <div class="trigger-title-row">
-                <span class="trigger-icon">🔗</span>
-                <span class="trigger-title">Source Web Link</span>
+                <span class="trigger-icon" id="triggerLinkIcon">🔗</span>
+                <span class="trigger-title" id="triggerLinkTitle">Source Article / Newsletter Link</span>
               </div>
-              <span class="trigger-sub">Paste & Fetch</span>
+              <span class="trigger-sub" id="triggerLinkSub">Paste & Fetch</span>
             </div>
-            <input type="url" id="creatorUrlInput" class="creator-input" placeholder="https://www.nytimes.com/... or https://techcrunch.com/..." autocomplete="off">
+            <input type="url" id="creatorUrlInput" class="creator-input" placeholder="https://www.nytimes.com/... or Substack, Op-Ed URL" autocomplete="off">
             <!-- Scrape Status Indicator (Matches Mobile App Exactly) -->
             <div id="urlScrapeIndicator" class="url-scrape-indicator" style="display:none;"></div>
-          </div>
-
-          <!-- Magazine / Photo Anchor Trigger Panel -->
-          <div class="trigger-section" id="triggerPhotoSection" style="display:none;">
-            <div class="trigger-header">
-              <div class="trigger-title-row">
-                <span class="trigger-icon">📰</span>
-                <span class="trigger-title">Source Clipping Photo</span>
-              </div>
-              <span class="trigger-sub" id="photoTriggerSub">Camera or Gallery</span>
-            </div>
-
-            <!-- Mobile Specific Camera Trigger (visible on mobile) -->
-            <div class="mobile-camera-prompt" id="mobileCameraPrompt" style="display:none;">
-              <button type="button" class="creator-camera-btn" onclick="document.getElementById('creatorCameraInput').click()">
-                <span class="cam-icon">📸</span>
-                <span class="cam-text">Snap News Clipping or Book Page</span>
-              </button>
-              <input type="file" id="creatorCameraInput" accept="image/*" capture="environment" style="display:none;" onchange="handleImageSelection(event)">
-              <div class="mobile-or-divider"><span>OR SELECT FROM GALLERY</span></div>
-            </div>
-
-            <!-- Drag & Drop Zone / Browse (Desktop & Mobile Library) -->
-            <div class="creator-dropzone" id="creatorDropzone" onclick="document.getElementById('creatorFileInput').click()">
-              <input type="file" id="creatorFileInput" accept="image/png, image/jpeg, image/webp" style="display:none;" onchange="handleImageSelection(event)">
-              <div class="dropzone-content" id="dropzoneEmpty">
-                <div class="dropzone-icon">📷</div>
-                <div class="dropzone-text" id="dropzoneText">Drag and drop clipping photo or screenshot, or <span class="dropzone-link">browse</span></div>
-                <div class="dropzone-sub">Supports PNG, JPG, WebP</div>
-              </div>
-              <div class="dropzone-preview" id="dropzonePreview" style="display:none;">
-                <img id="creatorImageThumb" src="" alt="Source preview">
-                <div class="dropzone-preview-overlay">
-                  <button type="button" class="dropzone-remove-btn" onclick="removeSelectedImage(event)" title="Remove image">✕</button>
-                </div>
-              </div>
-            </div>
           </div>
 
           <!-- Inner Voice Trigger Panel: The Spark -->
@@ -1326,6 +1300,6 @@
     </div>
   </aside>
 
-  <script src="app.js?v=20261013_2255"></script>
+  <script src="app.js?v=20261014_0015"></script>
 </body>
 </html>

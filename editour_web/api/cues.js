@@ -74,8 +74,8 @@ module.exports = async function handler(req, res) {
     return res.status(403).json({ error: 'Slant Studio is currently in Private Preview by invitation only.' });
   }
 
-  const effectiveNewsHeadline = (sourceType === 'digital_link') ? (newsHeadline || '').trim() : '';
-  const effectiveNewsBody = (sourceType === 'digital_link') ? (newsBody || '').trim() : '';
+  const effectiveNewsHeadline = (sourceType === 'digital_link' || sourceType === 'video_audio') ? (newsHeadline || '').trim() : '';
+  const effectiveNewsBody = (sourceType === 'digital_link' || sourceType === 'video_audio') ? (newsBody || '').trim() : '';
 
   const isLikeness = (characterRepresentation === 'likeness' || characterRepresentation === 'lookalike');
   const isExact = (characterRepresentation === 'exact');

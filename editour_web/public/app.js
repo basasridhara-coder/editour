@@ -4987,37 +4987,10 @@ function openCreatorModal() {
   const modal = document.getElementById('creatorModal');
   if (!modal) return;
 
-  const isMobile = isMobileDevice();
-  const mobileCameraPrompt = document.getElementById('mobileCameraPrompt');
-  const dropzoneText = document.getElementById('dropzoneText');
-  const anchorPhotoTitle = document.getElementById('anchorPhotoTitle');
-  const anchorPhotoSub = document.getElementById('anchorPhotoSub');
-  const photoTriggerSub = document.getElementById('photoTriggerSub');
-  const anchorPhotoIcon = document.getElementById('anchorPhotoIcon');
-
-  // Device-adaptive adjustments:
-  // Mobile gets camera snap prompt & camera icon
-  // Laptop/desktop gets upload / drag-and-drop file zone
-  if (isMobile) {
-    if (anchorPhotoTitle) anchorPhotoTitle.textContent = 'Magazine';
-    if (anchorPhotoSub) anchorPhotoSub.textContent = 'Camera / Print';
-    if (photoTriggerSub) photoTriggerSub.textContent = 'Camera or Gallery';
-    if (anchorPhotoIcon) anchorPhotoIcon.textContent = '📸';
-    if (mobileCameraPrompt) mobileCameraPrompt.style.display = 'block';
-    if (dropzoneText) dropzoneText.innerHTML = 'Or choose an image from your library';
-  } else {
-    if (anchorPhotoTitle) anchorPhotoTitle.textContent = 'Magazine / Photo';
-    if (anchorPhotoSub) anchorPhotoSub.textContent = 'Print clipping';
-    if (photoTriggerSub) photoTriggerSub.textContent = 'Upload / Drop Image';
-    if (anchorPhotoIcon) anchorPhotoIcon.textContent = '📰';
-    if (mobileCameraPrompt) mobileCameraPrompt.style.display = 'none';
-    if (dropzoneText) dropzoneText.innerHTML = 'Drag and drop clipping photo or screenshot, or <span class="dropzone-link">browse</span>';
-  }
-
   // Clean creator state on opening fresh
   resetCreatorState();
 
-  // Sync anchor selection
+  // Sync anchor selection (default to digital_link or active mode)
   setAnchorMode(creatorSelectedSource || 'digital_link');
 
   // Reset to Step 1
@@ -5060,6 +5033,8 @@ function setAnchorMode(mode) {
     if (urlInput) urlInput.value = '';
     const urlPreview = document.getElementById('creatorUrlPreview');
     if (urlPreview) { urlPreview.style.display = 'none'; urlPreview.innerHTML = ''; }
+    const urlIndicator = document.getElementById('urlScrapeIndicator');
+    if (urlIndicator) urlIndicator.style.display = 'none';
   }
   creatorSelectedSource = mode;
 
@@ -5068,16 +5043,81 @@ function setAnchorMode(mode) {
     card.classList.toggle('active', card.getAttribute('data-mode') === mode);
   });
 
-  // 2. Toggle trigger sections
+  // 2. Update Mental Model Banner
+  const mentalPill = document.getElementById('anchorMentalModelPill');
+  const mentalText = document.getElementById('anchorMentalModelText');
+  const mentalBadge = document.getElementById('anchorMentalModelBadge');
+  const mentalCard = document.getElementById('anchorMentalModelCard');
+
+  if (mode === 'video_audio') {
+    if (mentalPill) {
+      mentalPill.textContent = 'Video / Audio Link';
+      mentalPill.style.background = 'rgba(239, 68, 68, 0.12)';
+      mentalPill.style.color = '#EF4444';
+    }
+    if (mentalText) mentalText.textContent = '"I watched/listened to something that sparked a reaction."';
+    if (mentalBadge) mentalBadge.style.color = '#EF4444';
+    if (mentalCard) {
+      mentalCard.style.background = 'rgba(239, 68, 68, 0.05)';
+      mentalCard.style.borderColor = 'rgba(239, 68, 68, 0.18)';
+    }
+  } else if (mode === 'digital_link') {
+    if (mentalPill) {
+      mentalPill.textContent = 'Read / Web Link';
+      mentalPill.style.background = 'rgba(2, 132, 199, 0.12)';
+      mentalPill.style.color = '#0284C7';
+    }
+    if (mentalText) mentalText.textContent = '"I read an analysis or news story and have a counter-slant."';
+    if (mentalBadge) mentalBadge.style.color = '#0284C7';
+    if (mentalCard) {
+      mentalCard.style.background = 'rgba(2, 132, 199, 0.05)';
+      mentalCard.style.borderColor = 'rgba(2, 132, 199, 0.18)';
+    }
+  } else if (mode === 'inner_voice') {
+    if (mentalPill) {
+      mentalPill.textContent = 'Inner Voice';
+      mentalPill.style.background = 'rgba(139, 92, 246, 0.12)';
+      mentalPill.style.color = '#8B5CF6';
+    }
+    if (mentalText) mentalText.textContent = '"This came from my own head/life; no link needed."';
+    if (mentalBadge) mentalBadge.style.color = '#8B5CF6';
+    if (mentalCard) {
+      mentalCard.style.background = 'rgba(139, 92, 246, 0.05)';
+      mentalCard.style.borderColor = 'rgba(139, 92, 246, 0.18)';
+    }
+  }
+
+  // 3. Toggle trigger sections
   const secLink = document.getElementById('triggerWebSection');
-  const secPhoto = document.getElementById('triggerPhotoSection');
   const secVoice = document.getElementById('triggerVoiceSection');
+  const linkIcon = document.getElementById('triggerLinkIcon');
+  const linkTitle = document.getElementById('triggerLinkTitle');
+  const linkSub = document.getElementById('triggerLinkSub');
+  const urlInput = document.getElementById('creatorUrlInput');
 
-  if (secLink) secLink.style.display = mode === 'digital_link' ? 'flex' : 'none';
-  if (secPhoto) secPhoto.style.display = mode === 'photo' ? 'flex' : 'none';
-  if (secVoice) secVoice.style.display = mode === 'inner_voice' ? 'flex' : 'none';
+  if (mode === 'inner_voice') {
+    if (secLink) secLink.style.display = 'none';
+    if (secVoice) secVoice.style.display = 'flex';
+  } else {
+    // Both video_audio and digital_link use link input
+    if (secLink) secLink.style.display = 'flex';
+    if (secVoice) secVoice.style.display = 'none';
 
-  // 3. Update Hero Card prompts matching Flutter mobile app exactly:
+    if (mode === 'video_audio') {
+      if (linkIcon) linkIcon.textContent = '🎬';
+      if (linkTitle) linkTitle.textContent = 'Video / Audio Link';
+      if (linkSub) linkSub.textContent = 'YouTube, Podcast Timestamps';
+      if (urlInput) urlInput.placeholder = 'Paste YouTube (e.g. https://youtu.be/... or podcast link)';
+    } else {
+      // digital_link
+      if (linkIcon) linkIcon.textContent = '📰';
+      if (linkTitle) linkTitle.textContent = 'Source Article / Newsletter Link';
+      if (linkSub) linkSub.textContent = 'Articles, Newsletters, Op-Eds';
+      if (urlInput) urlInput.placeholder = 'https://www.nytimes.com/... or Substack, Op-Ed URL';
+    }
+  }
+
+  // 4. Update Hero Card prompts:
   const label = document.getElementById('slantTakeLabel');
   const badge = document.getElementById('slantTakeBadge');
   const sub = document.getElementById('slantTakeSubtitle');
@@ -5095,16 +5135,16 @@ function setAnchorMode(mode) {
     if (input) input.placeholder = 'What perspective demands to be shared? e.g. The real risk of AI isn’t superintelligence taking over, it’s that we surrender our curiosity and critical judgment to automated convenience...';
     if (heroIcon) heroIcon.textContent = '💭';
     if (heroBox) heroBox.style.color = '#8B5CF6';
-  } else if (mode === 'photo') {
-    if (label) label.textContent = 'Your Slant / Take';
+  } else if (mode === 'video_audio') {
+    if (label) label.textContent = 'Your Slant / Reaction';
     if (badge) {
       badge.textContent = 'Optional';
       badge.className = 'creator-tag-badge';
     }
-    if (sub) sub.textContent = 'A few sentences framing your angle, critique, or why this clipping matters.';
-    if (input) input.placeholder = 'e.g. Beyond the raw numbers, this shifts the balance of power between legacy media and digital creators...';
-    if (heroIcon) heroIcon.textContent = '💡';
-    if (heroBox) heroBox.style.color = '#0D9488';
+    if (sub) sub.textContent = 'Framing your angle, counter-slant, or reaction to what you watched/listened to.';
+    if (input) input.placeholder = 'e.g. The speaker makes a compelling case for centralization, but completely overlooks how open protocols protect user autonomy...';
+    if (heroIcon) heroIcon.textContent = '🎬';
+    if (heroBox) heroBox.style.color = '#EF4444';
   } else {
     // digital_link
     if (label) label.textContent = 'Your Slant / Take';
@@ -5114,7 +5154,7 @@ function setAnchorMode(mode) {
     }
     if (sub) sub.textContent = 'A few sentences framing your angle, critique, or why this article matters.';
     if (input) input.placeholder = 'e.g. The headline misses the real structural disruption happening behind the scenes...';
-    if (heroIcon) heroIcon.textContent = '🌐';
+    if (heroIcon) heroIcon.textContent = '📰';
     if (heroBox) heroBox.style.color = '#0284C7';
   }
 }
@@ -5993,26 +6033,30 @@ async function goToVisualCuesStep() {
   const url = urlInput ? urlInput.value.trim() : '';
   const slantTake = slantTakeInput ? slantTakeInput.value.trim() : '';
 
-  // Validation matching Flutter mobile app exactly
+  // Validation
   if (creatorSelectedSource === 'inner_voice') {
     if (!slantTake) {
       alert('Please write your slant or perspective above first');
       if (slantTakeInput) slantTakeInput.focus();
       return;
     }
-  } else if (creatorSelectedSource === 'photo') {
-    if (!creatorSelectedImageBase64) {
-      alert('Please snap or upload a magazine or print clipping photo first');
+  } else if (creatorSelectedSource === 'video_audio') {
+    if (!url && !slantTake) {
+      alert('Please paste a YouTube or Podcast link, or type your reaction above');
+      if (urlInput) urlInput.focus();
       return;
     }
+    if (url && !currentScrapedArticle) {
+      await handleUrlInput(url);
+    }
   } else if (creatorSelectedSource === 'digital_link') {
-    if (!url) {
-      alert('Please enter or paste a news article URL first');
+    if (!url && !slantTake) {
+      alert('Please enter or paste an article URL or your slant first');
       if (urlInput) urlInput.focus();
       return;
     }
     // If not scraped yet, scrape now!
-    if (!currentScrapedArticle) {
+    if (url && !currentScrapedArticle) {
       await handleUrlInput(url);
     }
   }
@@ -6798,16 +6842,11 @@ async function startAiSynthesis() {
   }
 
   const isPhotoPortrayal = (creatorCharacterRepresentation === 'likeness' || creatorCharacterRepresentation === 'exact' || creatorCharacterRepresentation === 'lookalike');
-  const shouldSendImage = (creatorSelectedSource === 'photo' && (creatorSelectedImageBase64 || creatorReferenceImageBase64)) ||
-                          (isPhotoPortrayal && creatorReferenceImageBase64);
-  const effectiveImageBase64 = shouldSendImage
-    ? (creatorReferenceImageBase64 || creatorSelectedImageBase64 || null)
-    : null;
-  const effectiveImageMime = shouldSendImage
-    ? (creatorReferenceImageMimeType || creatorSelectedImageMimeType || 'image/jpeg')
-    : 'image/jpeg';
+  const shouldSendImage = isPhotoPortrayal && Boolean(creatorReferenceImageBase64);
+  const effectiveImageBase64 = shouldSendImage ? (creatorReferenceImageBase64 || null) : null;
+  const effectiveImageMime = shouldSendImage ? (creatorReferenceImageMimeType || 'image/jpeg') : 'image/jpeg';
 
-  const isLink = (creatorSelectedSource === 'digital_link');
+  const isLink = (creatorSelectedSource === 'digital_link' || creatorSelectedSource === 'video_audio');
   const payload = {
     sourceType: creatorSelectedSource,
     url: isLink ? url : '',
@@ -6917,11 +6956,6 @@ async function startAiSynthesis() {
     if (metricInput) metricInput.value = currentSynthesizedPost.keyMetric || '';
     const s2TitleInput = document.getElementById('editModalS2Title');
     if (s2TitleInput) s2TitleInput.value = currentSynthesizedPost.critiqueBadge || (currentSynthesizedPost.keyTakeaways && currentSynthesizedPost.keyTakeaways[0] ? currentSynthesizedPost.keyTakeaways[0].toUpperCase() : 'THE CRITICAL PERSPECTIVE');
-    if (creatorSelectedSource === 'photo' && (creatorSelectedImageBase64 || creatorReferenceImageBase64)) {
-      currentSynthesizedPost.sourceType = 'photo';
-      currentSynthesizedPost.originalPhotoBase64 = creatorSelectedImageBase64 || creatorReferenceImageBase64;
-      currentSynthesizedPost.hasPaperCut = true;
-    }
 
     // Wait for custom editorial illustration so the user lands directly on the finished artwork
     if (currentSynthesizedPost && !currentSynthesizedPost.illustrationBase64 && currentSynthesizedPost.illustrationPrompt) {
@@ -7084,10 +7118,10 @@ function showStep3Preview() {
   if (prevTab2) {
     if (creatorSelectedSource === 'inner_voice') {
       prevTab2.innerHTML = '<span>💭</span> Poster 3: Inner Voice';
-    } else if (creatorSelectedSource === 'photo') {
-      prevTab2.innerHTML = '<span>📰</span> Poster 3: Receipts';
+    } else if (creatorSelectedSource === 'video_audio') {
+      prevTab2.innerHTML = '<span>🎬</span> Poster 3: Broadcast Receipts';
     } else {
-      prevTab2.innerHTML = '<span>🌐</span> Poster 3: Web Receipts';
+      prevTab2.innerHTML = '<span>📰</span> Poster 3: Web Receipts';
     }
   }
 

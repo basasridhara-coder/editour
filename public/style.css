@@ -5990,16 +5990,16 @@ header {
   color: var(--text-muted);
 }
 
-/* Anchor card specific colors matching Flutter */
-.anchor-card[data-mode="photo"] .anchor-magazine {
-  background: rgba(13, 148, 136, 0.15);
-  color: #0D9488;
+/* Anchor card specific colors */
+.anchor-card[data-mode="video_audio"] .anchor-media {
+  background: rgba(239, 68, 68, 0.15);
+  color: #EF4444;
 }
 
-.anchor-card[data-mode="photo"].active {
-  border-color: #0D9488;
-  background: rgba(13, 148, 136, 0.10);
-  box-shadow: 0 0 16px rgba(13, 148, 136, 0.2);
+.anchor-card[data-mode="video_audio"].active {
+  border-color: #EF4444;
+  background: rgba(239, 68, 68, 0.10);
+  box-shadow: 0 0 16px rgba(239, 68, 68, 0.2);
 }
 
 .anchor-card[data-mode="digital_link"] .anchor-web {
@@ -6022,6 +6022,56 @@ header {
   border-color: #8B5CF6;
   background: rgba(139, 92, 246, 0.10);
   box-shadow: 0 0 16px rgba(139, 92, 246, 0.2);
+}
+
+/* Dynamic Mental Model Card */
+.anchor-mental-model-card {
+  margin-top: 10px;
+  padding: 11px 14px;
+  background: rgba(99, 102, 241, 0.05);
+  border: 1px solid rgba(99, 102, 241, 0.16);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  transition: all 0.25s ease;
+}
+
+.mental-model-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}
+
+.mental-model-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mental-model-badge {
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: #818CF8;
+}
+
+.mental-model-pill {
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 6px;
+  background: rgba(99, 102, 241, 0.12);
+  color: var(--text-primary);
+}
+
+.mental-model-quote {
+  font-size: 12.5px;
+  color: var(--text-primary);
+  font-style: italic;
+  margin: 0;
+  line-height: 1.45;
 }
 
 /* Dynamic Trigger Panel */
