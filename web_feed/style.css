@@ -905,6 +905,63 @@ header {
   pointer-events: auto !important;
 }
 
+/* Header Admin Beta & Invites Quick Access */
+.header-admin-beta-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(99, 102, 241, 0.12);
+  border: 1px solid rgba(99, 102, 241, 0.35);
+  color: #818CF8;
+  padding: 6px 12px;
+  border-radius: 9999px;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+
+.header-admin-beta-btn:hover {
+  background: rgba(99, 102, 241, 0.22);
+  border-color: #818CF8;
+  transform: translateY(-1px);
+}
+
+.header-pending-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9999px;
+  background: #EF4444;
+  color: #FFFFFF;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.header-pending-badge.pulse {
+  animation: adminPulse 1.8s infinite;
+}
+
+@keyframes adminPulse {
+  0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6); }
+  70% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+
+@media (max-width: 600px) {
+  .header-admin-btn-text {
+    display: none;
+  }
+  .header-admin-beta-btn {
+    padding: 6px 9px;
+  }
+}
+
 .modal-card {
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);

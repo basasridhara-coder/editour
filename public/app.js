@@ -195,6 +195,46 @@ async function verifyUserWhitelist(user) {
   return { allowed: false, isAdmin: false };
 }
 
+let suppressSignOutNotice = false;
+
+async function handleUninvitedUser(user) {
+  if (!user) return;
+  const uninvitedEmail = (user.email || '').toLowerCase().trim();
+  const uninvitedName = getUserDisplayName(user);
+  const uninvitedAvatar = getUserAvatarUrl(user);
+
+  // 1. Submit access request to server
+  try {
+    fetch('/api/whitelist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'request_access',
+        email: uninvitedEmail,
+        name: uninvitedName,
+        avatar: uninvitedAvatar
+      })
+    });
+  } catch (_) {}
+
+  // 2. Prevent confusing "Signed out successfully" toast from overwriting gate message
+  suppressSignOutNotice = true;
+  try {
+    await supabaseClient.auth.signOut();
+  } catch (_) {}
+
+  currentUser = null;
+  isCurrentUserAdmin = false;
+  isUserWhitelistAllowed = false;
+
+  closeAuthModal();
+  updateAuthUI();
+
+  // 3. Immediately display the locked Private Preview Gate modal with requester's email
+  openPrivatePreviewGateModal(uninvitedEmail);
+  showTemporaryToast(`🔒 Access Restricted: ${uninvitedEmail} is not on the invited curator list.`, 5000);
+}
+
 async function initAuth() {
   if (!supabaseClient) {
     updateAuthUI();
@@ -210,10 +250,8 @@ async function initAuth() {
         isCurrentUserAdmin = check.isAdmin;
         isUserWhitelistAllowed = true;
       } else {
-        await supabaseClient.auth.signOut();
-        currentUser = null;
-        isCurrentUserAdmin = false;
-        isUserWhitelistAllowed = false;
+        await handleUninvitedUser(session.user);
+        return;
       }
     } else {
       currentUser = null;
@@ -272,31 +310,7 @@ async function initAuth() {
             loadAdminBetaPendingCount();
           }
         } else {
-          // Uninvited user: queue pending request, sign out, and show Private Preview gate modal
-          const uninvitedEmail = (session.user.email || '').toLowerCase().trim();
-          const uninvitedName = getUserDisplayName(session.user);
-          const uninvitedAvatar = getUserAvatarUrl(session.user);
-
-          try {
-            fetch('/api/whitelist', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                action: 'request_access',
-                email: uninvitedEmail,
-                name: uninvitedName,
-                avatar: uninvitedAvatar
-              })
-            });
-          } catch (_) {}
-
-          await supabaseClient.auth.signOut();
-          currentUser = null;
-          isCurrentUserAdmin = false;
-          isUserWhitelistAllowed = false;
-          closeAuthModal();
-          updateAuthUI();
-          openPrivatePreviewGateModal(uninvitedEmail);
+          await handleUninvitedUser(session.user);
         }
       }
     } else if (event === 'SIGNED_OUT') {
@@ -305,7 +319,10 @@ async function initAuth() {
       isUserWhitelistAllowed = false;
       closeAuthModal();
       updateAuthUI();
-      showTemporaryToast('Signed out successfully.');
+      if (!suppressSignOutNotice) {
+        showTemporaryToast('Signed out successfully.');
+      }
+      suppressSignOutNotice = false;
       if (currentFilter === 'my_stories') {
         selectCategory('all');
       } else {
@@ -417,6 +434,11 @@ function updateAuthUI() {
     if (drawerAdminBetaRow) {
       drawerAdminBetaRow.style.display = isCurrentUserAdmin ? 'flex' : 'none';
     }
+
+    const headerAdminBetaBtn = document.getElementById('headerAdminBetaBtn');
+    if (headerAdminBetaBtn) {
+      headerAdminBetaBtn.style.display = isCurrentUserAdmin ? 'inline-flex' : 'none';
+    }
   } else {
     if (signInBtn) signInBtn.style.display = 'inline-flex';
     if (userMenuWrap) userMenuWrap.style.display = 'none';
@@ -433,6 +455,9 @@ function updateAuthUI() {
 
     const drawerAdminBetaRow = document.getElementById('drawerAdminBetaRow');
     if (drawerAdminBetaRow) drawerAdminBetaRow.style.display = 'none';
+
+    const headerAdminBetaBtn = document.getElementById('headerAdminBetaBtn');
+    if (headerAdminBetaBtn) headerAdminBetaBtn.style.display = 'none';
   }
 }
 
@@ -1051,24 +1076,67 @@ function closeAdminBetaModal() {
 }
 
 async function loadAdminBetaPendingCount() {
-  if (!isCurrentUserAdmin) return;
+  const headerBtn = document.getElementById('headerAdminBetaBtn');
+  if (!isCurrentUserAdmin) {
+    if (headerBtn) headerBtn.style.display = 'none';
+    return;
+  }
+  if (headerBtn) headerBtn.style.display = 'inline-flex';
+
   try {
     const adminEmail = currentUser?.email || 'shridharoct16@gmail.com';
     const resp = await fetch(`/api/whitelist?admin=${encodeURIComponent(adminEmail)}`);
     if (resp.ok) {
       const data = await resp.json();
       const pending = Array.isArray(data.pendingRequests) ? data.pendingRequests : [];
-      const badge = document.getElementById('drawerPendingBadge');
-      if (badge) {
-        if (pending.length > 0) {
-          badge.textContent = pending.length;
-          badge.style.display = 'inline-block';
+      const pendingCount = pending.length;
+
+      // 1. Update Drawer badge
+      const drawerBadge = document.getElementById('drawerPendingBadge');
+      if (drawerBadge) {
+        if (pendingCount > 0) {
+          drawerBadge.textContent = pendingCount;
+          drawerBadge.style.display = 'inline-block';
         } else {
-          badge.style.display = 'none';
+          drawerBadge.style.display = 'none';
         }
+      }
+
+      // 2. Update Header badge
+      const headerBadge = document.getElementById('headerPendingBadge');
+      if (headerBadge) {
+        if (pendingCount > 0) {
+          headerBadge.textContent = pendingCount;
+          headerBadge.style.display = 'inline-flex';
+          headerBadge.classList.add('pulse');
+        } else {
+          headerBadge.style.display = 'none';
+          headerBadge.classList.remove('pulse');
+        }
+      }
+
+      // 3. If pending requests exist, alert the admin with an interactive banner toast
+      if (pendingCount > 0 && !sessionStorage.getItem('admin_notified_' + pendingCount)) {
+        sessionStorage.setItem('admin_notified_' + pendingCount, 'true');
+        const latestRequester = pending[0]?.email || 'A user';
+        const alertMsg = pendingCount === 1
+          ? `🔔 <strong>1 access request pending</strong> from <span style="color:#818CF8;">${escapeHtml(latestRequester)}</span>. Tap to review.`
+          : `🔔 <strong>${pendingCount} access requests pending</strong> (including <span style="color:#818CF8;">${escapeHtml(latestRequester)}</span>). Tap to review.`;
+        showTemporaryToast(alertMsg, 8000, true, () => {
+          openAdminBetaModal();
+        });
       }
     }
   } catch (_) {}
+}
+
+// Periodic live poll for admin so new friend requests appear in real time
+if (!window._adminBetaPollInterval) {
+  window._adminBetaPollInterval = setInterval(() => {
+    if (isCurrentUserAdmin) {
+      loadAdminBetaPendingCount();
+    }
+  }, 25000);
 }
 
 async function loadAdminBetaData(forceRefresh = false) {
@@ -1299,7 +1367,7 @@ function toggleBookmark(event, postId) {
   }
 }
 
-function showTemporaryToast(message) {
+function showTemporaryToast(message, duration = 2800, isHtml = false, onClickHandler = null) {
   let toast = document.getElementById('slantToast') || document.getElementById('editourToast');
   if (!toast) {
     toast = document.createElement('div');
@@ -1309,9 +1377,9 @@ function showTemporaryToast(message) {
       bottom: 24px;
       left: 50%;
       transform: translateX(-50%) translateY(20px);
-      background: var(--bg-surface);
-      color: var(--text-primary);
-      border: 1px solid var(--border-subtle);
+      background: var(--bg-surface, #1E293B);
+      color: var(--text-primary, #F8FAFC);
+      border: 1px solid var(--border-subtle, rgba(255,255,255,0.12));
       box-shadow: 0 10px 30px rgba(0,0,0,0.4);
       padding: 10px 18px;
       border-radius: 999px;
@@ -1320,15 +1388,36 @@ function showTemporaryToast(message) {
       z-index: 9999;
       opacity: 0;
       transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-      pointer-events: none;
       display: flex;
       align-items: center;
       gap: 8px;
       white-space: nowrap;
+      max-width: 90vw;
+      box-sizing: border-box;
     `;
     document.body.appendChild(toast);
   }
-  toast.textContent = message;
+
+  if (isHtml) {
+    toast.innerHTML = message;
+  } else {
+    toast.textContent = message;
+  }
+
+  if (typeof onClickHandler === 'function') {
+    toast.style.pointerEvents = 'auto';
+    toast.style.cursor = 'pointer';
+    toast.onclick = () => {
+      onClickHandler();
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateX(-50%) translateY(20px)';
+    };
+  } else {
+    toast.style.pointerEvents = 'none';
+    toast.style.cursor = 'default';
+    toast.onclick = null;
+  }
+
   toast.style.opacity = '1';
   toast.style.transform = 'translateX(-50%) translateY(0)';
   
@@ -1336,7 +1425,8 @@ function showTemporaryToast(message) {
   toast._timeout = setTimeout(() => {
     toast.style.opacity = '0';
     toast.style.transform = 'translateX(-50%) translateY(20px)';
-  }, 2800);
+    toast.onclick = null;
+  }, duration);
 }
 
 function mergeAndSortPosts(newPosts) {
