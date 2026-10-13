@@ -6,6 +6,30 @@ const DEFAULT_KEY_B64 = 'QVEuQWI4Uk42STR5WnQzMEl6NGpLRkQ2SndaYVlSeThQYlVtWXpDYUN
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || Buffer.from(DEFAULT_KEY_B64, 'base64').toString('utf8');
 const GEMINI_MODEL = 'gemini-3.8-flash';
 
+const SUPABASE_URL = 'https://fsuukgpizuipxxwatkbo.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZzdXVrZ3BpenVpcHh4d2F0a2JvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTExMzE4NjEsImV4cCI6MjEwNjcwNzg2MX0.NPnTDhGyiigPZIvror8JGqjCMVKuJ8OZaDN2pGuVfM8';
+const MASTER_ADMINS = ['basasridhara@gmail.com'];
+
+async function verifyEmailIsWhitelisted(email) {
+  if (!email) return false;
+  const clean = String(email).toLowerCase().trim();
+  if (MASTER_ADMINS.includes(clean)) return true;
+  try {
+    const resp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.system_beta_whitelist&select=data`, {
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+    });
+    if (resp.ok) {
+      const rows = await resp.json();
+      const list = rows?.[0]?.data?.allowed_emails || [];
+      const admins = rows?.[0]?.data?.admin_emails || [];
+      return list.map(e => e.toLowerCase()).includes(clean) || admins.map(e => e.toLowerCase()).includes(clean);
+    }
+  } catch (err) {
+    console.warn('Synthesize whitelist check notice:', err);
+  }
+  return false;
+}
+
 module.exports = async function handler(req, res) {
   // CORS configuration
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -32,7 +56,15 @@ module.exports = async function handler(req, res) {
 
     // Direct Single-Purpose Endpoint: Generate artwork only in background (has dedicated full execution window)
     if (body && body.action === 'artwork_only') {
-      const { prompt = '', imageBase64 = null, imageMimeType = 'image/jpeg' } = body;
+      const { prompt = '', imageBase64 = null, imageMimeType = 'image/jpeg', creatorEmail = '' } = body;
+      const userEmail = (creatorEmail || '').toLowerCase().trim();
+      if (!userEmail) {
+        return res.status(401).json({ error: 'Slant Studio is currently in Private Preview. Please sign in with your invited Google account.' });
+      }
+      const isAllowed = await verifyEmailIsWhitelisted(userEmail);
+      if (!isAllowed) {
+        return res.status(403).json({ error: 'Slant Studio is currently in Private Preview by invitation only.' });
+      }
       if (!prompt) {
         return res.status(400).json({ error: 'Missing prompt for artwork generation' });
       }
@@ -74,6 +106,7 @@ module.exports = async function handler(req, res) {
       slantTone = 'mind', // 'mind' | 'heart'
       spark = '',
       creatorHandle = '@curator',
+      creatorEmail = '',
       cues = [],
       heroCue = '',
       characterRepresentation = 'realistic',
@@ -82,6 +115,15 @@ module.exports = async function handler(req, res) {
       countryContext = '',
       vocabularyStyle = 'punchy' // 'punchy' | 'conversational' | 'analytical'
     } = body || {};
+
+    const userEmail = (creatorEmail || '').toLowerCase().trim();
+    if (!userEmail) {
+      return res.status(401).json({ error: 'Slant Studio is currently in Private Preview. Please sign in with your invited Google account.' });
+    }
+    const isAllowed = await verifyEmailIsWhitelisted(userEmail);
+    if (!isAllowed) {
+      return res.status(403).json({ error: 'Slant Studio is currently in Private Preview by invitation only.' });
+    }
 
     const userSlant = (slantTake || text || '').trim();
     const isDigitalLink = (sourceType === 'digital_link') && Boolean(url && String(url).trim().length > 3);
@@ -538,7 +580,28 @@ Respond strictly with valid JSON with this exact structure:
       originalPhotoBase64: (sourceType === 'photo' && imageBase64) ? imageBase64 : null,
       hasPaperCut: (sourceType === 'photo' && !!imageBase64),
       userContext: spark || '',
-      spark: spark || ''
+      spark: spark || '',
+      countryContext: countryContext || 'India',
+      contextProvided: userSlant || extractedContent || spark || '',
+      userSlantTake: userSlant || '',
+      sourceContext: extractedContent || '',
+      generationInputs: {
+        slantTake: userSlant || '',
+        sourceUrl: url || '',
+        sourceType: sourceType,
+        spark: spark || '',
+        cues: cues || [],
+        heroCue: parsed.heroCue || (cues && cues[0]) || '',
+        characterRepresentation,
+        refineCoreTake,
+        vocabularyStyle: vocabularyStyle || 'punchy',
+        countryContext: countryContext || 'India',
+        scrapedTitle: extractedTitle || '',
+        scrapedContent: extractedContent || '',
+        contextProvided: userSlant || extractedContent || spark || '',
+        illustrationPrompt: parsed.illustrationPrompt || concisePrompt || '',
+        originalHeadline: (sourceType === 'inner_voice' && spark) ? (parsed.originalHeadline || spark) : (parsed.originalHeadline || extractedTitle || parsed.adaptedHeadline)
+      }
     };
 
     return res.status(200).json({

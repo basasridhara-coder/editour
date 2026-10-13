@@ -150,12 +150,50 @@ if (window.supabase && typeof window.supabase.createClient === 'function') {
 
 // User session state & saved bookmarks
 let currentUser = null;
+let isCurrentUserAdmin = false;
+let isUserWhitelistAllowed = false;
 let savedPostIds = new Set(JSON.parse(localStorage.getItem('slant_saved_posts') || localStorage.getItem('editour_saved_posts') || '[]'));
 let myCreatedPostIds = new Set(JSON.parse(localStorage.getItem('slant_my_posts') || '[]'));
 
 // ============================================================
 // AUTHENTICATION & USER PROFILE CONTROLLER
 // ============================================================
+
+async function verifyUserWhitelist(user) {
+  if (!user || !user.email) return { allowed: false, isAdmin: false };
+  const email = user.email.toLowerCase().trim();
+
+  // Fast-track Master Admin: never blocked even if offline
+  if (email === 'basasridhara@gmail.com') {
+    return { allowed: true, isAdmin: true };
+  }
+
+  try {
+    const resp = await fetch(`/api/whitelist?email=${encodeURIComponent(email)}`);
+    if (resp.ok) {
+      const data = await resp.json();
+      return { allowed: Boolean(data.allowed), isAdmin: Boolean(data.isAdmin) };
+    }
+  } catch (err) {
+    console.warn('Whitelist API check notice, falling back to direct Supabase:', err);
+  }
+
+  // Resilient fallback: direct Supabase point lookup
+  try {
+    const supaResp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.system_beta_whitelist&select=data`, {
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+    });
+    if (supaResp.ok) {
+      const rows = await supaResp.json();
+      const list = rows?.[0]?.data?.allowed_emails || [];
+      const admins = rows?.[0]?.data?.admin_emails || [];
+      const isAllowed = list.map(e => e.toLowerCase()).includes(email) || admins.map(e => e.toLowerCase()).includes(email);
+      return { allowed: isAllowed, isAdmin: admins.map(e => e.toLowerCase()).includes(email) };
+    }
+  } catch (_) {}
+
+  return { allowed: false, isAdmin: false };
+}
 
 async function initAuth() {
   if (!supabaseClient) {
@@ -165,34 +203,108 @@ async function initAuth() {
 
   try {
     const { data: { session } } = await supabaseClient.auth.getSession();
-    currentUser = session?.user || null;
+    if (session?.user) {
+      const check = await verifyUserWhitelist(session.user);
+      if (check.allowed) {
+        currentUser = session.user;
+        isCurrentUserAdmin = check.isAdmin;
+        isUserWhitelistAllowed = true;
+      } else {
+        await supabaseClient.auth.signOut();
+        currentUser = null;
+        isCurrentUserAdmin = false;
+        isUserWhitelistAllowed = false;
+      }
+    } else {
+      currentUser = null;
+      isCurrentUserAdmin = false;
+      isUserWhitelistAllowed = false;
+    }
     updateAuthUI();
+    if (isCurrentUserAdmin) {
+      loadAdminBetaPendingCount();
+    }
   } catch (err) {
     console.warn('Error fetching initial session:', err);
   }
 
-  supabaseClient.auth.onAuthStateChange((event, session) => {
-    currentUser = session?.user || null;
-    updateAuthUI();
+  supabaseClient.auth.onAuthStateChange(async (event, session) => {
     if (event === 'SIGNED_IN') {
-      closeAuthModal();
-      showTemporaryToast(`Welcome, ${escapeHtml(getUserDisplayName())}! ✨`);
-      // Restore cloud-saved bookmarks and authored stories from user metadata
-      if (currentUser?.user_metadata) {
-        const cloudSaved = currentUser.user_metadata.saved_posts;
-        if (Array.isArray(cloudSaved) && cloudSaved.length > 0) {
-          cloudSaved.forEach(id => savedPostIds.add(id));
-          localStorage.setItem('slant_saved_posts', JSON.stringify(Array.from(savedPostIds)));
-        }
-        const cloudMy = currentUser.user_metadata.my_posts;
-        if (Array.isArray(cloudMy) && cloudMy.length > 0) {
-          cloudMy.forEach(id => myCreatedPostIds.add(id));
-          localStorage.setItem('slant_my_posts', JSON.stringify(Array.from(myCreatedPostIds)));
+      if (session?.user) {
+        const check = await verifyUserWhitelist(session.user);
+        if (check.allowed) {
+          currentUser = session.user;
+          isCurrentUserAdmin = check.isAdmin;
+          isUserWhitelistAllowed = true;
+          closeAuthModal();
+          showTemporaryToast(`Welcome to Slant, ${escapeHtml(getUserDisplayName())}! ✨`);
+
+          // Log access timestamp
+          try {
+            fetch('/api/whitelist', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                action: 'log_access',
+                email: session.user.email,
+                name: getUserDisplayName(),
+                avatar: getUserAvatarUrl()
+              })
+            });
+          } catch (_) {}
+
+          // Restore cloud-saved bookmarks and authored stories from user metadata
+          if (currentUser?.user_metadata) {
+            const cloudSaved = currentUser.user_metadata.saved_posts;
+            if (Array.isArray(cloudSaved) && cloudSaved.length > 0) {
+              cloudSaved.forEach(id => savedPostIds.add(id));
+              localStorage.setItem('slant_saved_posts', JSON.stringify(Array.from(savedPostIds)));
+            }
+            const cloudMy = currentUser.user_metadata.my_posts;
+            if (Array.isArray(cloudMy) && cloudMy.length > 0) {
+              cloudMy.forEach(id => myCreatedPostIds.add(id));
+              localStorage.setItem('slant_my_posts', JSON.stringify(Array.from(myCreatedPostIds)));
+            }
+          }
+          checkLiveSupabaseUpdates(true);
+          updateAuthUI();
+          if (isCurrentUserAdmin) {
+            loadAdminBetaPendingCount();
+          }
+        } else {
+          // Uninvited user: queue pending request, sign out, and show Private Preview gate modal
+          const uninvitedEmail = (session.user.email || '').toLowerCase().trim();
+          const uninvitedName = getUserDisplayName(session.user);
+          const uninvitedAvatar = getUserAvatarUrl(session.user);
+
+          try {
+            fetch('/api/whitelist', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                action: 'request_access',
+                email: uninvitedEmail,
+                name: uninvitedName,
+                avatar: uninvitedAvatar
+              })
+            });
+          } catch (_) {}
+
+          await supabaseClient.auth.signOut();
+          currentUser = null;
+          isCurrentUserAdmin = false;
+          isUserWhitelistAllowed = false;
+          closeAuthModal();
+          updateAuthUI();
+          openPrivatePreviewGateModal(uninvitedEmail);
         }
       }
-      checkLiveSupabaseUpdates(true);
     } else if (event === 'SIGNED_OUT') {
+      currentUser = null;
+      isCurrentUserAdmin = false;
+      isUserWhitelistAllowed = false;
       closeAuthModal();
+      updateAuthUI();
       showTemporaryToast('Signed out successfully.');
       if (currentFilter === 'my_stories') {
         selectCategory('all');
@@ -300,6 +412,11 @@ function updateAuthUI() {
     if (drawerUserAvatar) drawerUserAvatar.textContent = (displayName[0] || 'U').toUpperCase();
     if (drawerSavedCount) drawerSavedCount.textContent = savedCount;
     if (drawerMyCount) drawerMyCount.textContent = myPostsCount;
+
+    const drawerAdminBetaRow = document.getElementById('drawerAdminBetaRow');
+    if (drawerAdminBetaRow) {
+      drawerAdminBetaRow.style.display = isCurrentUserAdmin ? 'flex' : 'none';
+    }
   } else {
     if (signInBtn) signInBtn.style.display = 'inline-flex';
     if (userMenuWrap) userMenuWrap.style.display = 'none';
@@ -313,6 +430,9 @@ function updateAuthUI() {
     const drawerAuthUser = document.getElementById('drawerAuthUser');
     if (drawerAuthGuest) drawerAuthGuest.style.display = 'flex';
     if (drawerAuthUser) drawerAuthUser.style.display = 'none';
+
+    const drawerAdminBetaRow = document.getElementById('drawerAdminBetaRow');
+    if (drawerAdminBetaRow) drawerAdminBetaRow.style.display = 'none';
   }
 }
 
@@ -871,6 +991,226 @@ document.addEventListener('click', (e) => {
   }
 });
 
+/* ============================================================
+   BETA ACCESS & INVITES CONTROLLER (ADMIN ONLY)
+   ============================================================ */
+
+function openPrivatePreviewGateModal(email = '') {
+  const modal = document.getElementById('privatePreviewGateModal');
+  const emailEl = document.getElementById('gateModalEmailText');
+  if (emailEl) emailEl.textContent = email;
+  if (modal) modal.style.display = 'flex';
+}
+
+function closePrivatePreviewGateModal() {
+  const modal = document.getElementById('privatePreviewGateModal');
+  if (modal) modal.style.display = 'none';
+}
+
+function openAdminBetaModal() {
+  if (!isCurrentUserAdmin) return;
+  const modal = document.getElementById('adminBetaModal');
+  if (!modal) return;
+  modal.style.display = 'flex';
+  loadAdminBetaData(true);
+}
+
+function closeAdminBetaModal() {
+  const modal = document.getElementById('adminBetaModal');
+  if (modal) modal.style.display = 'none';
+}
+
+async function loadAdminBetaPendingCount() {
+  if (!isCurrentUserAdmin) return;
+  try {
+    const adminEmail = currentUser?.email || 'basasridhara@gmail.com';
+    const resp = await fetch(`/api/whitelist?admin=${encodeURIComponent(adminEmail)}`);
+    if (resp.ok) {
+      const data = await resp.json();
+      const pending = Array.isArray(data.pendingRequests) ? data.pendingRequests : [];
+      const badge = document.getElementById('drawerPendingBadge');
+      if (badge) {
+        if (pending.length > 0) {
+          badge.textContent = pending.length;
+          badge.style.display = 'inline-block';
+        } else {
+          badge.style.display = 'none';
+        }
+      }
+    }
+  } catch (_) {}
+}
+
+async function loadAdminBetaData(forceRefresh = false) {
+  const adminEmail = currentUser?.email || 'basasridhara@gmail.com';
+  const allowedList = document.getElementById('adminAllowedList');
+  const allowedCount = document.getElementById('adminAllowedCountText');
+  const pendingSection = document.getElementById('adminPendingSection');
+  const pendingList = document.getElementById('adminPendingList');
+  const pendingCount = document.getElementById('adminPendingCountText');
+
+  if (allowedList && forceRefresh) {
+    allowedList.innerHTML = '<div style="font-size:12px; color:var(--text-secondary); padding:8px;">Loading member roster...</div>';
+  }
+
+  try {
+    const resp = await fetch(`/api/whitelist?admin=${encodeURIComponent(adminEmail)}`);
+    if (!resp.ok) throw new Error('Could not load whitelist roster');
+    const data = await resp.json();
+
+    const allowedEmails = Array.isArray(data.allowedEmails) ? data.allowedEmails : ['basasridhara@gmail.com'];
+    const pending = Array.isArray(data.pendingRequests) ? data.pendingRequests : [];
+    const accessLogs = Array.isArray(data.accessLogs) ? data.accessLogs : [];
+    const logsMap = new Map();
+    accessLogs.forEach(l => logsMap.set(l.email?.toLowerCase(), l));
+
+    if (allowedCount) allowedCount.textContent = allowedEmails.length;
+    if (allowedList) {
+      allowedList.innerHTML = '';
+      allowedEmails.forEach(email => {
+        const isMaster = email.toLowerCase() === 'basasridhara@gmail.com';
+        const log = logsMap.get(email.toLowerCase());
+        const lastSeen = log?.lastLogin ? new Date(log.lastLogin).toLocaleDateString(undefined, { month:'short', day:'numeric' }) : 'Invited';
+
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex; justify-content:space-between; align-items:center; padding:8px 12px; background:rgba(15,23,42,0.03); border:1px solid var(--border-color, rgba(15,23,42,0.08)); border-radius:8px; font-size:13px;';
+        row.innerHTML = `
+          <div style="display:flex; align-items:center; gap:8px; overflow:hidden;">
+            <span style="font-size:14px;">${isMaster ? '👑' : '👤'}</span>
+            <div style="overflow:hidden;">
+              <strong style="color:var(--text-primary); display:block; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${escapeHtml(email)}</strong>
+              <span style="font-size:10.5px; color:var(--text-secondary);">${isMaster ? 'Master Curator' : (log?.name ? `${escapeHtml(log.name)} • Active ${lastSeen}` : 'Pending first sign-in')}</span>
+            </div>
+          </div>
+          <div>
+            ${isMaster ? '<span style="font-size:11px; font-weight:700; color:#818CF8; background:rgba(99,102,241,0.1); padding:2px 6px; border-radius:4px;">Owner</span>' : `<button type="button" onclick="handleAdminRemoveEmail('${escapeHtml(email)}')" style="background:none; border:none; color:#EF4444; font-size:12px; font-weight:700; cursor:pointer; padding:4px 6px;">Revoke</button>`}
+          </div>
+        `;
+        allowedList.appendChild(row);
+      });
+    }
+
+    // Pending Section
+    if (pendingSection && pendingList && pendingCount) {
+      if (pending.length > 0) {
+        pendingCount.textContent = pending.length;
+        pendingSection.style.display = 'block';
+        pendingList.innerHTML = '';
+        pending.forEach(item => {
+          const pRow = document.createElement('div');
+          pRow.style.cssText = 'display:flex; justify-content:space-between; align-items:center; padding:8px 10px; background:var(--bg-card, #fff); border:1px solid rgba(239,68,68,0.25); border-radius:8px; font-size:12.5px;';
+          pRow.innerHTML = `
+            <div>
+              <strong style="color:var(--text-primary); display:block;">${escapeHtml(item.name || item.email)}</strong>
+              <span style="font-size:11px; color:#818CF8;">${escapeHtml(item.email)}</span>
+            </div>
+            <div style="display:flex; gap:6px;">
+              <button type="button" onclick="handleAdminApproveRequest('${escapeHtml(item.email)}')" style="background:#10B981; color:#fff; border:none; padding:4px 10px; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer;">Approve ✓</button>
+              <button type="button" onclick="handleAdminDenyRequest('${escapeHtml(item.email)}')" style="background:rgba(239,68,68,0.1); color:#EF4444; border:none; padding:4px 8px; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer;">✕</button>
+            </div>
+          `;
+          pendingList.appendChild(pRow);
+        });
+      } else {
+        pendingSection.style.display = 'none';
+      }
+    }
+
+    loadAdminBetaPendingCount();
+  } catch (err) {
+    console.error('Error loading admin beta data:', err);
+    if (allowedList) allowedList.innerHTML = '<div style="font-size:12px; color:#EF4444; padding:8px;">Error loading roster. Tap refresh.</div>';
+  }
+}
+
+async function handleAdminAddEmail() {
+  const input = document.getElementById('adminNewInviteEmail');
+  const email = (input?.value || '').trim().toLowerCase();
+  if (!email || !email.includes('@')) {
+    alert('Please enter a valid Gmail address.');
+    return;
+  }
+  const adminEmail = currentUser?.email || 'basasridhara@gmail.com';
+  try {
+    const resp = await fetch('/api/whitelist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'add_email', adminEmail, email })
+    });
+    if (resp.ok) {
+      if (input) input.value = '';
+      showTemporaryToast(`✨ Added ${email} to whitelist!`);
+      loadAdminBetaData(false);
+    } else {
+      const err = await resp.json().catch(() => ({}));
+      alert(err.error || 'Failed to add email');
+    }
+  } catch (e) {
+    alert('Network error while adding email');
+  }
+}
+
+async function handleAdminRemoveEmail(email) {
+  if (!confirm(`Are you sure you want to revoke access for ${email}?`)) return;
+  const adminEmail = currentUser?.email || 'basasridhara@gmail.com';
+  try {
+    const resp = await fetch('/api/whitelist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'remove_email', adminEmail, email })
+    });
+    if (resp.ok) {
+      showTemporaryToast(`Revoked access for ${email}`);
+      loadAdminBetaData(false);
+    }
+  } catch (e) {
+    alert('Error revoking email');
+  }
+}
+
+async function handleAdminApproveRequest(email) {
+  const adminEmail = currentUser?.email || 'basasridhara@gmail.com';
+  try {
+    const resp = await fetch('/api/whitelist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'approve_request', adminEmail, email })
+    });
+    if (resp.ok) {
+      showTemporaryToast(`✨ Approved access for ${email}!`);
+      loadAdminBetaData(false);
+    }
+  } catch (e) {
+    alert('Error approving request');
+  }
+}
+
+async function handleAdminDenyRequest(email) {
+  const adminEmail = currentUser?.email || 'basasridhara@gmail.com';
+  try {
+    const resp = await fetch('/api/whitelist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'deny_request', adminEmail, email })
+    });
+    if (resp.ok) {
+      showTemporaryToast(`Dismissed request from ${email}`);
+      loadAdminBetaData(false);
+    }
+  } catch (e) {
+    alert('Error denying request');
+  }
+}
+
+function copyPersonalInviteMessage() {
+  const text = `Hey! I've been building Slant (a visual editorial journal for ideas & perspectives). I've added your Gmail to our Private Preview whitelist so you can test it. Try it out here: https://www.slant.today`;
+  navigator.clipboard.writeText(text).then(() => {
+    showTemporaryToast('📋 Invite message copied to clipboard!');
+  }).catch(() => {
+    prompt('Copy your invite message:', text);
+  });
+}
+
 function selectUserFilter(filterKey) {
   const menu = document.getElementById('userDropdownMenu');
   if (menu) menu.classList.remove('open');
@@ -1033,7 +1373,7 @@ async function fetchDirectSupabasePosts(limit = 12) {
     if (!idResp.ok) return [];
     const idRows = await idResp.json();
     if (!Array.isArray(idRows) || idRows.length === 0) return [];
-    const orderedIds = idRows.map(r => r.id);
+    const orderedIds = idRows.map(r => r.id).filter(id => id && !id.startsWith('system_'));
 
     // Fetch posts via single indexed primary-key query (fast & resilient)
     const inFilter = orderedIds.map(id => '%22' + encodeURIComponent(id) + '%22').join(',');
@@ -4604,6 +4944,16 @@ function isMobileDevice() {
 }
 
 function openCreatorModal() {
+  if (!currentUser || !isUserWhitelistAllowed) {
+    if (typeof openAuthModal === 'function') {
+      openAuthModal('🔒 Slant Studio is currently in Private Preview by invitation only. Please sign in with your invited Google account.');
+    }
+    if (typeof showTemporaryToast === 'function') {
+      showTemporaryToast('🔒 Slant Studio is in Private Preview. Please sign in with your invited Google account.');
+    }
+    return;
+  }
+
   const modal = document.getElementById('creatorModal');
   if (!modal) return;
 
@@ -6189,6 +6539,7 @@ async function triggerCueSuggest() {
         existingCues: creatorCuePills,
         countryContext: creatorCountryContext?.name || 'India',
         countryCode: creatorCountryContext?.code || 'IN',
+        creatorEmail: currentUser?.email || '',
         vocabularyStyle: creatorVocabularyStyle || 'punchy',
         slantTone: (creatorSelectedSource === 'inner_voice' || /\b(family|child|love|heart|trip|vacation|weekend|pack|burnout|unplug|memoir|personal)\b/i.test(`${slantTake} ${spark}`)) ? 'heart' : 'mind'
       })
@@ -6438,6 +6789,7 @@ async function startAiSynthesis() {
     slantTone: (creatorSelectedSource === 'inner_voice' || /\b(family|child|love|heart|trip|vacation|weekend|pack|burnout|unplug|memoir|personal)\b/i.test(`${slantTake} ${spark}`)) ? 'heart' : 'mind',
     spark,
     creatorHandle: userHandle,
+    creatorEmail: currentUser?.email || '',
     cues: creatorCuePills,
     heroCue: creatorCuePills[0] || '',
     characterRepresentation: creatorCharacterRepresentation,
@@ -6555,6 +6907,7 @@ async function startAiSynthesis() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             action: 'artwork_only',
+            creatorEmail: currentUser?.email || '',
             prompt: currentSynthesizedPost.illustrationPrompt,
             imageBase64: (creatorCharacterRepresentation === 'likeness' || creatorCharacterRepresentation === 'lookalike') ? (creatorReferenceImageBase64 || null) : null,
             imageMimeType: creatorReferenceImageMimeType || 'image/jpeg'
@@ -6639,6 +6992,7 @@ async function enhancePosterArtworkInBackground(post) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         action: 'artwork_only',
+        creatorEmail: currentUser?.email || '',
         prompt: post.illustrationPrompt,
         imageBase64: (creatorCharacterRepresentation === 'likeness' || creatorCharacterRepresentation === 'lookalike') ? (creatorReferenceImageBase64 || null) : null,
         imageMimeType: creatorReferenceImageMimeType || 'image/jpeg'

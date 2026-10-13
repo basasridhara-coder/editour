@@ -26,6 +26,12 @@ try {
 } catch (e) {
   console.warn('Could not load posterHandler:', e.message);
 }
+let whitelistHandler;
+try {
+  whitelistHandler = require('./api/whitelist');
+} catch (e) {
+  console.warn('Could not load whitelistHandler:', e.message);
+}
 
 const PORT = process.env.PORT || 3000;
 const PUBLIC_DIR = path.join(__dirname, 'public');
@@ -139,6 +145,27 @@ const server = http.createServer(async (req, res) => {
   // API Route: Poster
   if (url.pathname.startsWith('/api/poster') && posterHandler) {
     await posterHandler(req, res);
+    return;
+  }
+
+  // API Route: Whitelist
+  if (url.pathname.startsWith('/api/whitelist') && whitelistHandler) {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', async () => {
+      req.body = body;
+      res.status = (code) => {
+        res.statusCode = code;
+        return {
+          json: (data) => {
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify(data));
+          },
+          end: (str) => res.end(str)
+        };
+      };
+      await whitelistHandler(req, res);
+    });
     return;
   }
 

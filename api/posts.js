@@ -63,7 +63,7 @@ module.exports = async function handler(req, res) {
       if (idResp.ok) {
         const idRows = await idResp.json();
         if (Array.isArray(idRows) && idRows.length > 0) {
-          const orderedIds = idRows.map(r => r.id);
+          const orderedIds = idRows.map(r => r.id).filter(id => id && !id.startsWith('system_'));
 
           // Single indexed primary-key query for all ordered IDs (fast & zero dropped rows)
           const inFilter = orderedIds.map(id => '%22' + encodeURIComponent(id) + '%22').join(',');

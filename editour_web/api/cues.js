@@ -7,6 +7,30 @@ const DEFAULT_KEY_B64 = 'QVEuQWI4Uk42STR5WnQzMEl6NGpLRkQ2SndaYVlSeThQYlVtWXpDYUN
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || Buffer.from(DEFAULT_KEY_B64, 'base64').toString('utf8');
 const GEMINI_MODEL = 'gemini-3.5-flash-lite';
 
+const SUPABASE_URL = 'https://fsuukgpizuipxxwatkbo.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZzdXVrZ3BpenVpcHh4d2F0a2JvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTExMzE4NjEsImV4cCI6MjEwNjcwNzg2MX0.NPnTDhGyiigPZIvror8JGqjCMVKuJ8OZaDN2pGuVfM8';
+const MASTER_ADMINS = ['basasridhara@gmail.com'];
+
+async function verifyEmailIsWhitelisted(email) {
+  if (!email) return false;
+  const clean = String(email).toLowerCase().trim();
+  if (MASTER_ADMINS.includes(clean)) return true;
+  try {
+    const resp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.system_beta_whitelist&select=data`, {
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+    });
+    if (resp.ok) {
+      const rows = await resp.json();
+      const list = rows?.[0]?.data?.allowed_emails || [];
+      const admins = rows?.[0]?.data?.admin_emails || [];
+      return list.map(e => e.toLowerCase()).includes(clean) || admins.map(e => e.toLowerCase()).includes(clean);
+    }
+  } catch (err) {
+    console.warn('Cues whitelist check notice:', err);
+  }
+  return false;
+}
+
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -37,8 +61,18 @@ module.exports = async function handler(req, res) {
     countryContext = '',
     countryCode = '',
     vocabularyStyle = 'punchy',
-    slantTone = 'mind'
+    slantTone = 'mind',
+    creatorEmail = ''
   } = body || {};
+
+  const userEmail = (creatorEmail || '').toLowerCase().trim();
+  if (!userEmail) {
+    return res.status(401).json({ error: 'Slant Studio is currently in Private Preview. Please sign in with your invited Google account.' });
+  }
+  const isAllowed = await verifyEmailIsWhitelisted(userEmail);
+  if (!isAllowed) {
+    return res.status(403).json({ error: 'Slant Studio is currently in Private Preview by invitation only.' });
+  }
 
   const effectiveNewsHeadline = (sourceType === 'digital_link') ? (newsHeadline || '').trim() : '';
   const effectiveNewsBody = (sourceType === 'digital_link') ? (newsBody || '').trim() : '';

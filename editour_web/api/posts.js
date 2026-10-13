@@ -63,7 +63,7 @@ module.exports = async function handler(req, res) {
       if (idResp.ok) {
         const idRows = await idResp.json();
         if (Array.isArray(idRows) && idRows.length > 0) {
-          const orderedIds = idRows.map(r => r.id);
+          const orderedIds = idRows.map(r => r.id).filter(id => id && !id.startsWith('system_'));
 
           // Single indexed primary-key query for all ordered IDs (fast & zero dropped rows)
           const inFilter = orderedIds.map(id => '%22' + encodeURIComponent(id) + '%22').join(',');
@@ -96,35 +96,24 @@ module.exports = async function handler(req, res) {
             p.aiIllustrationUrl = '';
           }
 
-          // If static poster image exists in /posters/ or illustrationBase64 is present
+          // If static poster image exists in /posters/, serve high-speed CDN asset; otherwise serve compressed posterBase64
           const posterFile = path.join(__dirname, '../public/posters', p.id + '.png');
-          if (fs.existsSync(posterFile) || (p.illustrationUrl && p.illustrationUrl.startsWith('/posters/'))) {
-            p.illustrationUrl = '/posters/' + p.id + '.png';
-            p.aiIllustrationUrl = '/posters/' + p.id + '.png';
-            delete p.illustrationBase64;
-            delete p.originalPhotoBase64;
-          } else if (p.illustrationBase64) {
-            try {
-              const cleanB64 = p.illustrationBase64.replace(/^data:image\/[^;]+;base64,/, '');
-              const buf = Buffer.from(cleanB64, 'base64');
-              const targetDirs = [
-                path.join(__dirname, '../public/posters'),
-                path.join(__dirname, '../web_feed/posters')
-              ];
-              targetDirs.forEach(dir => {
-                if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-                fs.writeFileSync(path.join(dir, p.id + '.png'), buf);
-              });
-            } catch (_) {}
-            p.illustrationUrl = '/posters/' + p.id + '.png';
-            p.aiIllustrationUrl = '/posters/' + p.id + '.png';
-          }
+          const hasStaticPosterOnDisk = fs.existsSync(posterFile);
 
-          // Strict guarantee: Never return a post with an empty poster image or third-party placeholder
-          if (!p.illustrationUrl && !p.illustrationBase64) {
+          if (hasStaticPosterOnDisk) {
             p.illustrationUrl = '/posters/' + p.id + '.png';
+            p.aiIllustrationUrl = '/posters/' + p.id + '.png';
+            delete p.posterBase64;
+          } else if (p.posterBase64 && p.posterBase64.length > 50) {
+            // Fallback: serve compressed WebP/JPEG inline so newly published stories render instantly across all devices without 404
+            p.illustrationUrl = p.posterBase64;
+            p.aiIllustrationUrl = p.posterBase64;
+          } else if (p.illustrationUrl && p.illustrationUrl.startsWith('/posters/')) {
             p.aiIllustrationUrl = p.illustrationUrl;
           }
+
+          delete p.illustrationBase64;
+          delete p.originalPhotoBase64;
 
           return p;
         }).filter(p => p && !p.deleted && !p.isDeleted && (p.adaptedHeadline || p.originalHeadline || p.summary));
@@ -179,17 +168,19 @@ module.exports = async function handler(req, res) {
             if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
             fs.writeFileSync(path.join(dir, postData.id + '.png'), buf);
           });
-          postData.illustrationUrl = '/posters/' + postData.id + '.png';
-          postData.aiIllustrationUrl = '/posters/' + postData.id + '.png';
         } catch (_) {}
 
-        if (postData.illustrationUrl && postData.illustrationUrl.startsWith('data:')) {
-          postData.illustrationUrl = '';
-        }
-        if (postData.aiIllustrationUrl && postData.aiIllustrationUrl.startsWith('data:')) {
-          postData.aiIllustrationUrl = '';
+        if (!postData.posterBase64 && postData.illustrationBase64.length < 300000) {
+          postData.posterBase64 = postData.illustrationBase64;
         }
       }
+
+      postData.illustrationUrl = '/posters/' + postData.id + '.png';
+      postData.aiIllustrationUrl = '/posters/' + postData.id + '.png';
+
+      // Always strip giant uncompressed base64 strings so Supabase never exceeds statement timeout
+      delete postData.illustrationBase64;
+      delete postData.originalPhotoBase64;
 
       // Upsert into Supabase
       try {

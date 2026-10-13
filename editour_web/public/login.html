@@ -295,18 +295,51 @@
       <span><a href="/" style="color:#818CF8; text-decoration:none;" onclick="sessionStorage.setItem('slant_guest_explored', 'true')">Back to Live Feed &rarr;</a></span>
     </div>
 
+  <!-- Private Preview Access Gate Modal (Shown when an uninvited user tries to sign in) -->
+  <div class="modal-overlay" id="privatePreviewGateModal" style="display:none;" onclick="if(event.target===this) closePrivatePreviewGateModal()">
+    <div class="modal-card" style="max-width: 440px; padding: 28px 22px; text-align: center; border-radius: 20px;" onclick="event.stopPropagation()">
+      <div style="display:inline-flex; align-items:center; justify-content:center; width:52px; height:52px; border-radius:50%; background:rgba(99,102,241,0.12); color:#818CF8; font-size:26px; margin-bottom:14px;">
+        🔒
+      </div>
+      <h3 style="font-size: 19px; font-weight: 800; color: var(--text-primary); margin: 0 0 6px;">Slant Private Preview</h3>
+      <p style="font-size: 13.5px; color: var(--text-secondary); margin: 0 0 16px; line-height: 1.5;">
+        Welcome to Slant! We are currently in closed preview for an invited circle of curators.
+      </p>
+
+      <div style="background: rgba(99,102,241,0.06); border: 1px solid rgba(99,102,241,0.2); border-radius: 12px; padding: 14px; margin-bottom: 20px; font-size: 12.5px; text-align: left; line-height: 1.45;">
+        <div style="font-weight: 800; color: var(--text-primary); margin-bottom: 4px; display:flex; align-items:center; gap:6px;">
+          <span>⏳</span> <span>Access Request Queued</span>
+        </div>
+        <div style="color: var(--text-secondary);">
+          Your account (<strong id="gateModalEmailText" style="color: #818CF8;"></strong>) has been placed on the curator review roster. Once approved, you can sign in directly with Google.
+        </div>
+      </div>
+
+      <button class="creator-publish-btn" style="width: 100%; padding: 13px; font-size: 14.5px; display: flex; align-items: center; justify-content: center; gap: 8px;" onclick="window.location.href='/'">
+        <span>Explore Public Feed as Guest</span> <span>&rarr;</span>
+      </button>
+    </div>
+  </div>
+
   </main>
 
-  <script src="app.js?v=20261013_2100"></script>
+  <script src="app.js?v=20261013_2235"></script>
   <script>
     // Ensure the post preview is rendered immediately upon loading login.html
     window.addEventListener('DOMContentLoaded', () => {
       renderLoginPostsPreview();
-      // If already logged in, redirect to home
+      // If already logged in and whitelisted, redirect to home
       if (typeof supabaseClient !== 'undefined' && supabaseClient) {
-        supabaseClient.auth.getSession().then(({ data: { session } }) => {
+        supabaseClient.auth.getSession().then(async ({ data: { session } }) => {
           if (session?.user) {
-            window.location.href = '/';
+            if (typeof verifyUserWhitelist === 'function') {
+              const check = await verifyUserWhitelist(session.user);
+              if (check && check.allowed) {
+                window.location.href = '/';
+              }
+            } else {
+              window.location.href = '/';
+            }
           }
         });
       }
