@@ -15,9 +15,17 @@
     },
     "api/poster.js": {
       "maxDuration": 60
+    },
+    "api/ledger.js": {
+      "maxDuration": 60
+    },
+    "api/scrape.js": {
+      "maxDuration": 60
     }
   },
   "rewrites": [
+    { "source": "/api/ledger", "destination": "/api/ledger.js" },
+    { "source": "/api/scrape", "destination": "/api/scrape.js" },
     { "source": "/login", "destination": "/login.html" },
     { "source": "/posters/:id.png", "destination": "/api/poster?id=:id" },
     { "source": "/posters/:id", "destination": "/api/poster?id=:id" }

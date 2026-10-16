@@ -42,7 +42,19 @@ module.exports = async function handler(req, res) {
     try {
       const ytResult = await scrapeYouTubeUrl(targetUrl, ytVideoId);
       if (ytResult && ytResult.title) {
-        return res.status(200).json(ytResult);
+        let ledger = null;
+        try {
+          const ledgerModule = require('./ledger');
+          if (ledgerModule && typeof ledgerModule.generateLedger === 'function') {
+            ledger = await ledgerModule.generateLedger(ytResult.title, ytResult.content, ytResult.url, ytResult.siteName);
+          }
+        } catch (lErr) {
+          console.warn('YouTube scrape ledger generation error:', lErr.message);
+        }
+        return res.status(200).json({
+          ...ytResult,
+          ledger
+        });
       }
     } catch (ytErr) {
       console.warn('Specialized YouTube scrape failed, falling back to standard scrape:', ytErr.message);
@@ -159,6 +171,16 @@ module.exports = async function handler(req, res) {
   }
 
   if (title || cleanText) {
+    let ledger = null;
+    try {
+      const ledgerModule = require('./ledger');
+      if (ledgerModule && typeof ledgerModule.generateLedger === 'function') {
+        ledger = await ledgerModule.generateLedger(title, cleanText, targetUrl, domain);
+      }
+    } catch (lErr) {
+      console.warn('Article scrape ledger generation error:', lErr.message);
+    }
+
     return res.status(200).json({
       success: true,
       url: targetUrl,
@@ -168,7 +190,8 @@ module.exports = async function handler(req, res) {
       content: cleanText || '',
       imageUrl: imageUrl && imageUrl.startsWith('http') ? imageUrl : null,
       imageBase64,
-      imageMimeType
+      imageMimeType,
+      ledger
     });
   }
 

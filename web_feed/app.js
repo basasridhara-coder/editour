@@ -5816,7 +5816,11 @@ async function handleUrlInput(val) {
         indicator.style.display = 'flex';
       }
       // Trigger Objective Editorial Research Assistant Ledger
-      triggerSourceLedgerGeneration(data);
+      if (data && data.ledger) {
+        renderSourceLedger(data.ledger);
+      } else {
+        triggerSourceLedgerGeneration(data);
+      }
     }
   } catch (err) {
     console.warn('URL scrape error:', err.message);

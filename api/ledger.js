@@ -8,37 +8,13 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY || Buffer.from(DEFAULT_KEY_B64
 const PRIMARY_MODEL = 'gemini-3.5-flash-lite';
 const FALLBACK_MODEL = 'gemini-3.8-flash';
 
-module.exports = async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  let body = req.body;
-  if (typeof body === 'string') {
-    try { body = JSON.parse(body); } catch (_) {}
-  }
-
-  const {
-    url = '',
-    title = '',
-    content = '',
-    siteName = ''
-  } = body || {};
-
+async function generateLedgerForSource(title = '', content = '', url = '', siteName = '') {
   const cleanTitle = (title || '').trim();
   const cleanContent = (content || '').trim().slice(0, 10000);
   const cleanUrl = (url || '').trim();
 
   if (!cleanTitle && !cleanContent && !cleanUrl) {
-    return res.status(400).json({ error: 'Source URL, title, or content is required' });
+    return null;
   }
 
   const isVideo = cleanUrl.includes('youtube.com') || cleanUrl.includes('youtu.be') || (siteName || '').toLowerCase().includes('youtube') || cleanContent.includes('YouTube Video');
@@ -115,23 +91,52 @@ Return pure valid JSON matching this schema:
     const ledger = await callGeminiLedger(systemPrompt, sourceContext, PRIMARY_MODEL)
       .catch(() => callGeminiLedger(systemPrompt, sourceContext, FALLBACK_MODEL));
 
-    const evaluated = evaluateLedgerCompleteness(ledger, defaultScope);
-    return res.status(200).json({
-      success: true,
-      ledger: evaluated
-    });
-
+    return evaluateLedgerCompleteness(ledger, defaultScope);
   } catch (err) {
     console.warn('Gemini ledger error, building fallback ledger:', err.message);
     const fallbackLedger = buildFallbackLedger(cleanTitle, cleanContent, siteName, defaultScope);
-    const evaluated = evaluateLedgerCompleteness(fallbackLedger, defaultScope);
-    return res.status(200).json({
-      success: true,
-      ledger: evaluated,
-      fallback: true
-    });
+    return evaluateLedgerCompleteness(fallbackLedger, defaultScope);
   }
-};
+}
+
+async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  let body = req.body;
+  if (typeof body === 'string') {
+    try { body = JSON.parse(body); } catch (_) {}
+  }
+
+  const {
+    url = '',
+    title = '',
+    content = '',
+    siteName = ''
+  } = body || {};
+
+  const evaluated = await generateLedgerForSource(title, content, url, siteName);
+  if (!evaluated) {
+    return res.status(400).json({ error: 'Source URL, title, or content is required' });
+  }
+
+  return res.status(200).json({
+    success: true,
+    ledger: evaluated
+  });
+}
+
+handler.generateLedger = generateLedgerForSource;
+module.exports = handler;
 
 async function callGeminiLedger(systemPrompt, sourceContext, modelName) {
   const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${GEMINI_API_KEY}`;
