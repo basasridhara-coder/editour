@@ -6376,13 +6376,17 @@ header {
   border: 1px solid var(--border-subtle);
   border-left: 3.5px solid #6366F1;
   border-radius: 14px;
-  padding: 14px 16px;
+  padding: 12px 14px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
   animation: fadeIn 0.25s ease-out;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .source-ledger-card.ledger-loading {
-  padding: 14px;
+  padding: 12px 14px;
   background: rgba(99, 102, 241, 0.04);
   border: 1px dashed rgba(99, 102, 241, 0.35);
   border-left: 3.5px solid #6366F1;
@@ -6391,7 +6395,7 @@ header {
 .ledger-loading-inner {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .ledger-loading-spinner {
@@ -6408,6 +6412,7 @@ header {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  min-width: 0;
 }
 
 .ledger-loading-title {
@@ -6419,100 +6424,101 @@ header {
 .ledger-loading-sub {
   font-size: 11px;
   color: var(--text-muted);
+  line-height: 1.4;
 }
 
 .ledger-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  padding-bottom: 11px;
+  gap: 8px;
+  padding-bottom: 10px;
   border-bottom: 1px solid var(--border-subtle);
-  margin-bottom: 12px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
 }
 
 .ledger-header-left {
   display: flex;
-  align-items: flex-start;
-  gap: 9px;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
-.ledger-icon {
-  font-size: 18px;
+.ledger-header-icon {
+  font-size: 16px;
   line-height: 1;
-  margin-top: 1px;
+  flex-shrink: 0;
 }
 
-.ledger-header-titles {
+.ledger-header-meta {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  min-width: 0;
 }
 
-.ledger-badge-row {
+.ledger-title-line {
   display: flex;
   align-items: center;
   gap: 6px;
   flex-wrap: wrap;
 }
 
-.ledger-badge {
-  font-size: 9.5px;
-  font-weight: 800;
-  letter-spacing: 0.6px;
-  text-transform: uppercase;
-  color: #6366F1;
-}
-
-.ledger-pill {
-  font-size: 9px;
+.ledger-title {
+  font-size: 13px;
   font-weight: 700;
-  padding: 1px 5px;
-  border-radius: 4px;
-  background: rgba(16, 185, 129, 0.12);
-  color: #10B981;
-  border: 1px solid rgba(16, 185, 129, 0.25);
+  color: var(--text-primary);
+  white-space: nowrap;
 }
 
 .ledger-scope-pill {
-  font-size: 9px;
+  font-size: 9.5px;
   font-weight: 700;
-  padding: 1px 6px;
+  padding: 1.5px 6px;
   border-radius: 4px;
   background: rgba(99, 102, 241, 0.10);
   color: #818CF8;
   border: 1px solid rgba(99, 102, 241, 0.22);
+  white-space: nowrap;
 }
 
-.ledger-title {
-  font-size: 13.5px;
-  font-weight: 700;
-  color: var(--text-primary);
+[data-theme="daylight"] .ledger-scope-pill {
+  color: #4F46E5;
+  background: rgba(79, 70, 229, 0.08);
+  border-color: rgba(79, 70, 229, 0.22);
 }
 
-.ledger-rating-badge {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 2px;
+.ledger-sub-meta {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.2px;
+}
+
+.ledger-substance-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(245, 158, 11, 0.10);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  border-radius: 6px;
+  padding: 2.5px 7px;
   flex-shrink: 0;
 }
 
 .ledger-stars {
-  font-size: 13px;
-  letter-spacing: 2px;
+  font-size: 11px;
+  letter-spacing: 1px;
   color: #F59E0B;
   line-height: 1;
 }
 
-.ledger-rating-text {
+.ledger-stars-label {
   font-size: 9.5px;
   font-weight: 700;
   color: var(--text-secondary);
-  background: rgba(245, 158, 11, 0.1);
-  padding: 1.5px 6px;
-  border-radius: 6px;
-  border: 1px solid rgba(245, 158, 11, 0.25);
   white-space: nowrap;
 }
 
@@ -6520,12 +6526,21 @@ header {
 .ledger-tabs-bar {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   background: rgba(0, 0, 0, 0.04);
   border: 1px solid var(--border-subtle);
-  border-radius: 10px;
+  border-radius: 9px;
   padding: 3px;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
+  width: 100%;
+  box-sizing: border-box;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.ledger-tabs-bar::-webkit-scrollbar {
+  display: none;
 }
 
 [data-theme="obsidian"] .ledger-tabs-bar {
@@ -6533,12 +6548,13 @@ header {
 }
 
 .ledger-tab-btn {
-  flex: 1;
+  flex: 1 1 0;
+  min-width: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 7px 8px;
+  gap: 4px;
+  padding: 6px 4px;
   border-radius: 7px;
   border: none;
   background: transparent;
@@ -6564,8 +6580,14 @@ header {
 }
 
 .ledger-tab-icon {
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1;
+  flex-shrink: 0;
+}
+
+.ledger-tab-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .ledger-tab-count {
@@ -6575,6 +6597,7 @@ header {
   color: var(--primary);
   padding: 1px 5px;
   border-radius: 8px;
+  flex-shrink: 0;
 }
 
 .ledger-tab-btn.active .ledger-tab-count {
@@ -6586,77 +6609,48 @@ header {
 .ledger-tab-panel {
   display: none;
   animation: fadeIn 0.2s ease-out;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .ledger-tab-panel.active {
   display: block;
 }
 
-.ledger-panel-label-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8px;
-}
-
-.ledger-panel-label {
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.6px;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.ledger-panel-label.tension-label {
-  color: #D97706;
-}
-
-.ledger-thesis-box {
-  background: rgba(99, 102, 241, 0.04);
-  border: 1px solid rgba(99, 102, 241, 0.15);
-  border-radius: 10px;
-  padding: 12px 14px;
-}
-
-.ledger-thesis-text {
-  font-size: 12.5px;
-  line-height: 1.6;
-  color: var(--text-primary);
-  margin: 0;
-}
-
-.ledger-thesis-grid {
+.ledger-thesis-unified {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .ledger-sub-card {
   background: var(--bg-card);
   border: 1px solid var(--border-subtle);
-  border-radius: 10px;
-  padding: 11px 13px;
+  border-radius: 9px;
+  padding: 9px 11px;
+  box-sizing: border-box;
+  width: 100%;
   transition: all 0.2s ease;
 }
 
 .ledger-sub-card.highlight {
   background: rgba(99, 102, 241, 0.04);
-  border-color: rgba(99, 102, 241, 0.22);
+  border-color: rgba(99, 102, 241, 0.25);
 }
 
 .ledger-sub-card-header {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-bottom: 6px;
+  gap: 5px;
+  margin-bottom: 5px;
 }
 
 .ledger-sub-card-icon {
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1;
+  flex-shrink: 0;
 }
 
 .ledger-sub-card-title {
@@ -6671,27 +6665,36 @@ header {
   color: #6366F1;
 }
 
+[data-theme="daylight"] .ledger-sub-card.highlight .ledger-sub-card-title {
+  color: #4F46E5;
+}
+
 .ledger-sub-card-text {
-  font-size: 12.5px;
-  line-height: 1.6;
+  font-size: 12px;
+  line-height: 1.5;
   color: var(--text-primary);
   margin: 0;
+  word-break: break-word;
 }
 
 .ledger-claims-container {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 7px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .ledger-claim-card {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
+  gap: 9px;
   background: var(--bg-card);
   border: 1px solid var(--border-subtle);
-  border-radius: 10px;
-  padding: 10px 12px;
+  border-radius: 9px;
+  padding: 9px 11px;
+  box-sizing: border-box;
+  width: 100%;
   transition: all 0.2s ease;
 }
 
@@ -6700,12 +6703,12 @@ header {
 }
 
 .ledger-claim-badge {
-  width: 22px;
-  height: 22px;
-  border-radius: 6px;
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
   background: rgba(99, 102, 241, 0.12);
   color: #6366F1;
-  font-size: 10.5px;
+  font-size: 10px;
   font-weight: 800;
   display: flex;
   align-items: center;
@@ -6723,30 +6726,36 @@ header {
 }
 
 .ledger-claim-title {
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 700;
   color: var(--text-primary);
-  line-height: 1.4;
+  line-height: 1.35;
+  word-break: break-word;
 }
 
 .ledger-claim-text {
-  font-size: 12px;
-  line-height: 1.55;
-  color: var(--text-primary);
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--text-secondary);
   margin: 0;
+  word-break: break-word;
 }
 
 .ledger-tension-stack {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 7px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .ledger-tension-card {
   background: var(--bg-card);
   border: 1px solid var(--border-subtle);
-  border-radius: 10px;
-  padding: 11px 13px;
+  border-radius: 9px;
+  padding: 9px 11px;
+  box-sizing: border-box;
+  width: 100%;
   transition: all 0.2s ease;
 }
 
@@ -6757,16 +6766,16 @@ header {
 .ledger-tension-card-header {
   display: flex;
   align-items: center;
-  margin-bottom: 6px;
+  margin-bottom: 5px;
 }
 
 .ledger-tension-badge {
   font-size: 9.5px;
   font-weight: 800;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.3px;
   text-transform: uppercase;
-  padding: 2.5px 7px;
-  border-radius: 5px;
+  padding: 2px 6px;
+  border-radius: 4px;
 }
 
 .ledger-tension-badge.badge-conflict {
@@ -6787,39 +6796,33 @@ header {
   border: 1px solid rgba(139, 92, 246, 0.25);
 }
 
-.ledger-tension-box {
-  background: rgba(245, 158, 11, 0.06);
-  border: 1px solid rgba(245, 158, 11, 0.25);
-  border-radius: 10px;
-  padding: 12px 14px;
-}
-
 .ledger-tension-text {
-  font-size: 12.5px;
-  font-weight: 500;
-  line-height: 1.6;
+  font-size: 11.5px;
+  line-height: 1.5;
   color: var(--text-primary);
   margin: 0;
+  word-break: break-word;
 }
 
 .ledger-panel-nav {
-  margin-top: 12px;
+  margin-top: 10px;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 6px;
 }
 
 .ledger-tab-nav-btn {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  font-size: 11px;
+  gap: 4px;
+  font-size: 10.5px;
   font-weight: 700;
   color: var(--primary);
   background: rgba(99, 102, 241, 0.08);
   border: 1px solid rgba(99, 102, 241, 0.2);
-  border-radius: 7px;
-  padding: 5px 11px;
+  border-radius: 6px;
+  padding: 4px 9px;
   cursor: pointer;
   transition: all 0.2s ease;
   font-family: inherit;
@@ -6831,14 +6834,15 @@ header {
 }
 
 .ledger-footer-tip {
-  margin-top: 12px;
-  padding-top: 9px;
+  margin-top: 10px;
+  padding-top: 8px;
   border-top: 1px dashed var(--border-subtle);
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 11px;
+  font-size: 10.5px;
   color: var(--text-muted);
+  line-height: 1.4;
 }
 
 /* Synthesize CTA Button */

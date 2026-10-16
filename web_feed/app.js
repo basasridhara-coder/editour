@@ -6076,8 +6076,8 @@ function renderSourceLedgerLoading() {
     <div class="ledger-loading-inner">
       <div class="ledger-loading-spinner"></div>
       <div class="ledger-loading-text">
-        <span class="ledger-loading-title">⚖️ Objective Research Assistant</span>
-        <span class="ledger-loading-sub">Analyzing source thesis, verified evidence, and underlying tensions...</span>
+        <span class="ledger-loading-title">⚖️ Analyzing Source Ledger</span>
+        <span class="ledger-loading-sub">Extracting verified thesis, core claims, and key tensions...</span>
       </div>
     </div>
   `;
@@ -6099,7 +6099,17 @@ function renderSourceLedger(ledger) {
   const starsCount = Math.min(3, Math.max(1, Number(ledger.stars || ledger.completeness_score || 3)));
   const starsHtml = '★'.repeat(starsCount) + '☆'.repeat(3 - starsCount);
   const starsLabel = ledger.stars_label || (starsCount === 3 ? '3/3 High Substance Anchor' : `${starsCount}/3 Anchor`);
-  const scopeLabel = ledger.source_scope || 'Curated Source';
+  const rawScope = ledger.source_scope || 'Curated Source';
+  let scopeClean = rawScope;
+  if (/youtube/i.test(scopeClean)) {
+    scopeClean = 'YouTube Video';
+  } else if (/investigation/i.test(scopeClean)) {
+    scopeClean = 'Investigation';
+  } else if (/analysis/i.test(scopeClean)) {
+    scopeClean = 'Analysis';
+  } else if (scopeClean.length > 20) {
+    scopeClean = scopeClean.slice(0, 18) + '…';
+  }
 
   // 1. Thesis extraction (support both object and legacy string)
   let contextText = '';
@@ -6112,29 +6122,33 @@ function renderSourceLedger(ledger) {
   }
 
   let thesisHtml = '';
-  if (contextText && thesisText) {
+  if (contextText || thesisText) {
     thesisHtml = `
-      <div class="ledger-thesis-grid">
-        <div class="ledger-sub-card">
-          <div class="ledger-sub-card-header">
-            <span class="ledger-sub-card-icon">📌</span>
-            <span class="ledger-sub-card-title">Context & Background</span>
+      <div class="ledger-thesis-unified">
+        ${contextText ? `
+          <div class="ledger-sub-card">
+            <div class="ledger-sub-card-header">
+              <span class="ledger-sub-card-icon">📌</span>
+              <span class="ledger-sub-card-title">Context</span>
+            </div>
+            <p class="ledger-sub-card-text">${escapeHtml(contextText)}</p>
           </div>
-          <p class="ledger-sub-card-text">${escapeHtml(contextText)}</p>
-        </div>
-        <div class="ledger-sub-card highlight">
-          <div class="ledger-sub-card-header">
-            <span class="ledger-sub-card-icon">🎯</span>
-            <span class="ledger-sub-card-title">Central Thesis & Core Argument</span>
+        ` : ''}
+        ${thesisText ? `
+          <div class="ledger-sub-card highlight">
+            <div class="ledger-sub-card-header">
+              <span class="ledger-sub-card-icon">🎯</span>
+              <span class="ledger-sub-card-title">Central Thesis</span>
+            </div>
+            <p class="ledger-sub-card-text">${escapeHtml(thesisText)}</p>
           </div>
-          <p class="ledger-sub-card-text">${escapeHtml(thesisText)}</p>
-        </div>
+        ` : ''}
       </div>
     `;
   } else {
     thesisHtml = `
-      <div class="ledger-thesis-box">
-        <p class="ledger-thesis-text">${escapeHtml(thesisText || contextText || 'No central thesis provided in source.')}</p>
+      <div class="ledger-sub-card">
+        <p class="ledger-sub-card-text">No central thesis extracted from source.</p>
       </div>
     `;
   }
@@ -6199,7 +6213,7 @@ function renderSourceLedger(ledger) {
         ${primaryConflict ? `
           <div class="ledger-tension-card">
             <div class="ledger-tension-card-header">
-              <span class="ledger-tension-badge badge-conflict">⚡ Core Structural Friction</span>
+              <span class="ledger-tension-badge badge-conflict">⚡ Friction</span>
             </div>
             <p class="ledger-tension-text">${escapeHtml(primaryConflict)}</p>
           </div>
@@ -6207,7 +6221,7 @@ function renderSourceLedger(ledger) {
         ${tradeoffs ? `
           <div class="ledger-tension-card">
             <div class="ledger-tension-card-header">
-              <span class="ledger-tension-badge badge-tradeoffs">⚖️ Tradeoffs & Compromises</span>
+              <span class="ledger-tension-badge badge-tradeoffs">⚖️ Tradeoffs</span>
             </div>
             <p class="ledger-tension-text">${escapeHtml(tradeoffs)}</p>
           </div>
@@ -6215,7 +6229,7 @@ function renderSourceLedger(ledger) {
         ${counterQuestions ? `
           <div class="ledger-tension-card">
             <div class="ledger-tension-card-header">
-              <span class="ledger-tension-badge badge-questions">❓ Counter-Perspectives & Inquiries</span>
+              <span class="ledger-tension-badge badge-questions">❓ Counter-Perspective</span>
             </div>
             <p class="ledger-tension-text">${escapeHtml(counterQuestions)}</p>
           </div>
@@ -6224,7 +6238,7 @@ function renderSourceLedger(ledger) {
     `;
   } else {
     tensionHtml = `
-      <div class="ledger-tension-box">
+      <div class="ledger-tension-card">
         <p class="ledger-tension-text">No explicit tension or counter-perspective highlighted.</p>
       </div>
     `;
@@ -6235,19 +6249,18 @@ function renderSourceLedger(ledger) {
   card.innerHTML = `
     <div class="ledger-header">
       <div class="ledger-header-left">
-        <span class="ledger-icon">⚖️</span>
-        <div class="ledger-header-titles">
-          <div class="ledger-badge-row">
-            <span class="ledger-badge">EDITORIAL RESEARCH ASSISTANT</span>
-            <span class="ledger-pill">Strictly Neutral</span>
-            <span class="ledger-scope-pill">${escapeHtml(scopeLabel)}</span>
+        <span class="ledger-header-icon">⚖️</span>
+        <div class="ledger-header-meta">
+          <div class="ledger-title-line">
+            <span class="ledger-title">Source Summary</span>
+            <span class="ledger-scope-pill">${escapeHtml(scopeClean)}</span>
           </div>
-          <span class="ledger-title">Objective Source Ledger</span>
+          <span class="ledger-sub-meta">Neutral Editorial Ledger</span>
         </div>
       </div>
-      <div class="ledger-rating-badge" title="${escapeHtml(starsLabel)}">
+      <div class="ledger-substance-badge" title="${escapeHtml(starsLabel)}">
         <span class="ledger-stars">${starsHtml}</span>
-        <span class="ledger-rating-text">${escapeHtml(starsLabel)}</span>
+        <span class="ledger-stars-label">${starsCount}/3 Anchor</span>
       </div>
     </div>
 
@@ -6255,81 +6268,61 @@ function renderSourceLedger(ledger) {
     <div class="ledger-tabs-bar" role="tablist">
       <button type="button" class="ledger-tab-btn ${activeTab === 'thesis' ? 'active' : ''}" data-ledger-tab="thesis" onclick="switchLedgerTab('thesis')">
         <span class="ledger-tab-icon">🎯</span>
-        <span>Thesis</span>
+        <span class="ledger-tab-label">Thesis</span>
       </button>
       <button type="button" class="ledger-tab-btn ${activeTab === 'claims' ? 'active' : ''}" data-ledger-tab="claims" onclick="switchLedgerTab('claims')">
         <span class="ledger-tab-icon">📊</span>
-        <span>Claims & Evidence</span>
+        <span class="ledger-tab-label">Claims</span>
         <span class="ledger-tab-count">${claimsCount}</span>
       </button>
       <button type="button" class="ledger-tab-btn ${activeTab === 'tension' ? 'active' : ''}" data-ledger-tab="tension" onclick="switchLedgerTab('tension')">
         <span class="ledger-tab-icon">⚖️</span>
-        <span>Tension & Tradeoffs</span>
+        <span class="ledger-tab-label">Tensions</span>
       </button>
     </div>
 
     <!-- Tab 1: Subject & Thesis -->
     <div class="ledger-tab-panel ${activeTab === 'thesis' ? 'active' : ''}" id="ledgerPanel_thesis" style="display:${activeTab === 'thesis' ? 'block' : 'none'};">
-      <div class="ledger-panel-label-row">
-        <span class="ledger-panel-label">
-          <span class="ledger-num">1</span>
-          <span>SUBJECT & CENTRAL THESIS</span>
-        </span>
-      </div>
       ${thesisHtml}
       <div class="ledger-panel-nav">
         <span></span>
         <button type="button" class="ledger-tab-nav-btn" onclick="switchLedgerTab('claims')">
-          <span>Next: Claims & Evidence (${claimsCount})</span>
-          <span>→</span>
+          <span>Claims (${claimsCount}) →</span>
         </button>
       </div>
     </div>
 
     <!-- Tab 2: Core Claims & Evidence -->
     <div class="ledger-tab-panel ${activeTab === 'claims' ? 'active' : ''}" id="ledgerPanel_claims" style="display:${activeTab === 'claims' ? 'block' : 'none'};">
-      <div class="ledger-panel-label-row">
-        <span class="ledger-panel-label">
-          <span class="ledger-num">2</span>
-          <span>CORE CLAIMS, RECEIPTS & EVIDENCE</span>
-        </span>
-      </div>
       <div class="ledger-claims-container">
         ${claimsCardsHtml}
       </div>
       <div class="ledger-panel-nav">
         <button type="button" class="ledger-tab-nav-btn" onclick="switchLedgerTab('thesis')">
-          <span>← Back to Thesis</span>
+          <span>← Thesis</span>
         </button>
         <button type="button" class="ledger-tab-nav-btn" onclick="switchLedgerTab('tension')">
-          <span>Next: Tension & Tradeoffs</span>
-          <span>→</span>
+          <span>Tensions →</span>
         </button>
       </div>
     </div>
 
     <!-- Tab 3: Underlying Tension or Question -->
     <div class="ledger-tab-panel ${activeTab === 'tension' ? 'active' : ''}" id="ledgerPanel_tension" style="display:${activeTab === 'tension' ? 'block' : 'none'};">
-      <div class="ledger-panel-label-row">
-        <span class="ledger-panel-label tension-label">
-          <span class="ledger-num">3</span>
-          <span>UNDERLYING TENSIONS & TRADEOFFS</span>
-        </span>
-      </div>
       ${tensionHtml}
       <div class="ledger-panel-nav">
         <button type="button" class="ledger-tab-nav-btn" onclick="switchLedgerTab('claims')">
-          <span>← Back to Claims</span>
+          <span>← Claims</span>
         </button>
         <button type="button" class="ledger-tab-nav-btn" onclick="switchLedgerTab('thesis')">
-          <span>Review Thesis ↺</span>
+          <span>Thesis ↺</span>
         </button>
       </div>
     </div>
 
     <div class="ledger-footer-tip">
       <span class="tip-icon">💡</span>
-      <span class="tip-text">Ground your unique counter-slant or reaction below based on this breakdown ↓</span>
+      <span class="tip-text">Ground your unique slant below using this factual breakdown ↓</span>
     </div>
   `;
 }
