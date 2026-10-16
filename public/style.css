@@ -7771,30 +7771,58 @@ header {
   font-weight: 700;
 }
 
-/* 5. Save: Rose #FB7185 / Emerald #10B981 */
+/* 2. Save: Warm Amber #F59E0B */
 .action-icon-btn.save .action-icon-circle {
-  background: rgba(251, 113, 133, 0.12);
-  border: 1px solid rgba(251, 113, 133, 0.32);
-  color: #FB7185;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.32);
+  color: #F59E0B;
 }
 .action-icon-btn.save:hover .action-icon-circle,
 .action-icon-btn.save:active .action-icon-circle {
-  background: rgba(251, 113, 133, 0.26);
-  border-color: rgba(251, 113, 133, 0.85);
-  box-shadow: 0 2px 10px rgba(251, 113, 133, 0.35);
+  background: rgba(245, 158, 11, 0.26);
+  border-color: rgba(245, 158, 11, 0.85);
+  box-shadow: 0 2px 10px rgba(245, 158, 11, 0.35);
   transform: translateY(-2px);
-  color: #FECDD3;
+  color: #FDE68A;
 }
 .action-icon-btn.save:hover .action-icon-label {
-  color: #FB7185;
+  color: #F59E0B;
   font-weight: 700;
 }
 .action-icon-btn.save.active .action-icon-circle {
-  background: rgba(16, 185, 129, 0.24);
+  background: rgba(245, 158, 11, 0.28);
+  border-color: #F59E0B;
+  color: #F59E0B;
+}
+.action-icon-btn.save.active .action-icon-label {
+  color: #F59E0B;
+  font-weight: 700;
+}
+
+/* 5. Publish: Vibrant Emerald #10B981 */
+.action-icon-btn.publish .action-icon-circle {
+  background: rgba(16, 185, 129, 0.14);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  color: #10B981;
+}
+.action-icon-btn.publish:hover .action-icon-circle,
+.action-icon-btn.publish:active .action-icon-circle {
+  background: rgba(16, 185, 129, 0.28);
+  border-color: rgba(16, 185, 129, 0.9);
+  box-shadow: 0 2px 10px rgba(16, 185, 129, 0.35);
+  transform: translateY(-2px);
+  color: #A7F3D0;
+}
+.action-icon-btn.publish:hover .action-icon-label {
+  color: #10B981;
+  font-weight: 700;
+}
+.action-icon-btn.publish.active .action-icon-circle {
+  background: rgba(16, 185, 129, 0.28);
   border-color: #10B981;
   color: #10B981;
 }
-.action-icon-btn.save.active .action-icon-label {
+.action-icon-btn.publish.active .action-icon-label {
   color: #10B981;
   font-weight: 700;
 }

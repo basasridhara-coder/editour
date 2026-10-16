@@ -2223,6 +2223,12 @@ async function renderFeed(isInitial = false) {
   nextBatchPreloadPromise = null;
 
   const filtered = allPosts.filter(post => {
+    // If a post is a private draft, it must ONLY be visible to its author in 'my_stories'
+    const isPrivateDraft = post.isDraft === true || post.isPrivate === true || post.status === 'draft';
+    if (isPrivateDraft && currentFilter !== 'my_stories') {
+      return false;
+    }
+
     if (currentFilter === 'saved') {
       return savedPostIds.has(post.id);
     }
@@ -3302,6 +3308,7 @@ function createPostCardElement(post, index) {
           <div class="avatar-inner">${initial}</div>
         </div>
         <span class="creator-handle">${escapeHtml(handle)}</span>
+        ${(post.isDraft || post.status === 'draft' || post.isPrivate) ? '<span class="post-draft-badge" style="display:inline-flex; align-items:center; gap:4px; font-size:10px; font-weight:700; background:rgba(245, 158, 11, 0.16); color:#F59E0B; border:1px solid rgba(245, 158, 11, 0.4); padding:2px 7px; border-radius:8px; margin-left:8px; letter-spacing:0.3px;">🔖 PRIVATE DRAFT</span>' : ''}
       </div>
       <div class="post-menu-container">
         <button type="button" class="post-menu-btn" onclick="event.stopPropagation(); togglePostMenu('${index}')" title="More options" aria-label="More options">
@@ -5617,7 +5624,7 @@ function changeCountryContext(code) {
 
   creatorCountryContext = options[code] || options['GLOBAL'];
   updateCountryContextUI();
-  triggerCueSuggest();
+  // Visual cues must NOT auto change unless user explicitly clicks "Suggest"
 }
 
 // Reference Photo Likeness State
@@ -6243,14 +6250,16 @@ async function goToVisualCuesStep() {
   }
   updateCountryContextUI();
 
-  // AI-suggest cues if context changed or empty
-  const contextKey = `${creatorSelectedSource}::${articleTitle}::${slantTake}::${creatorCharacterRepresentation}::${creatorCountryContext?.code}`;
+  // Context key strictly tracks the selected source and the user's text/URL context
+  const sourceContextKey = `${creatorSelectedSource}::${(url || '').trim()}::${(slantTake || '').trim()}`;
 
-  if (creatorCuePills.length === 0 || creatorLastSuggestedContextKey !== contextKey) {
-    creatorLastSuggestedContextKey = contextKey;
+  // Only auto-suggest if visual cues are empty OR source/context has changed
+  if (creatorCuePills.length === 0 || creatorLastSuggestedContextKey !== sourceContextKey) {
+    creatorLastSuggestedContextKey = sourceContextKey;
     renderCuesDeck(); // initial render
     await triggerCueSuggest(); // call Gemini AI model for rich cues!
   } else {
+    // Context or source has NOT changed: preserve all existing visual cues completely
     if (creatorCharacterRepresentation === 'likeness') {
       const detected = detectPersonNameInContext(articleTitle, slantTake, currentScrapedArticle?.content);
       if (detected && creatorCuePills.length > 0 && !creatorCuePills[0].toLowerCase().includes(detected.toLowerCase())) {
@@ -6799,6 +6808,11 @@ async function triggerCueSuggest() {
     }
   } finally {
     if (suggestBtn) suggestBtn.disabled = false;
+    if (suggestLabel) suggestLabel.textContent = 'Suggest All';
+    if (suggestIcon) suggestIcon.textContent = '✨';
+    const finalUrl = urlInput ? urlInput.value.trim() : '';
+    const finalSlant = slantTakeInput ? slantTakeInput.value.trim() : '';
+    creatorLastSuggestedContextKey = `${creatorSelectedSource}::${finalUrl}::${finalSlant}`;
     renderCuesDeck();
   }
 }
@@ -7334,8 +7348,8 @@ function switchPreviewSlide(slideIdx) {
 // --- Step 3 Toolbar Actions (Matches Flutter create_postcard_screen.dart:3417-3490) ---
 
 function handleStep3Regenerate() {
-  // 1. Regenerate: Return to Step 2 Visual Cues Studio to tweak cues and regenerate
-  goToVisualCuesStep();
+  // Reopen the editor deck from the beginning (Step 1) without changing visual cues
+  backToStep1();
 }
 
 function openEditPosterModal(initialTab = null) {
@@ -7499,6 +7513,32 @@ function saveEditedSlideContent() {
 
 async function handleStep3Share() {
   if (!currentSynthesizedPost) return;
+
+  try {
+    showTemporaryToast('📸 Preparing posters to share...');
+    const files = await capturePostSlidesAsFiles(currentSynthesizedPost, 0);
+    if (files && files.length > 0) {
+      if (navigator.canShare && navigator.canShare({ files })) {
+        try {
+          await navigator.share({
+            files,
+            title: currentSynthesizedPost.adaptedHeadline || 'Slant Editorial Carousel',
+            text: `${currentSynthesizedPost.creatorHandle || '@curator'}: "${currentSynthesizedPost.creatorOpinion || currentSynthesizedPost.adaptedHeadline}"`
+          });
+          showTemporaryToast('✨ 3 Slide Posters shared!');
+          return;
+        } catch (err) {
+          if (err.name === 'AbortError') return; // User closed share sheet
+        }
+      }
+      openSharePostersModal(currentSynthesizedPost, files);
+      return;
+    }
+  } catch (err) {
+    console.warn('capturePostSlidesAsFiles error during share:', err);
+  }
+
+  // Fallback to text/URL share sheet
   const shareData = {
     title: currentSynthesizedPost.adaptedHeadline || 'Slant Editorial Carousel',
     text: `${currentSynthesizedPost.creatorHandle || '@curator'}: "${currentSynthesizedPost.creatorOpinion || currentSynthesizedPost.adaptedHeadline}"`,
@@ -7530,17 +7570,34 @@ function copyShareUrlFallback() {
   }
 }
 
-function handleStep3Download() {
+async function handleStep3Download() {
   if (!currentSynthesizedPost) return;
   const dlBtn = document.getElementById('step3DownloadBtn');
   const dlLbl = document.getElementById('step3DownloadLabel');
 
-  const imgUrl = currentSynthesizedPost.illustrationUrl || currentSynthesizedPost.imageUrl;
+  try {
+    showTemporaryToast('📥 Rendering 3 high-res posters for your gallery...');
+    if (dlLbl) dlLbl.textContent = 'Saving...';
+
+    const files = await capturePostSlidesAsFiles(currentSynthesizedPost, 0);
+    if (files && files.length > 0) {
+      downloadShareFiles(files);
+      if (dlBtn) dlBtn.classList.add('active');
+      if (dlLbl) dlLbl.textContent = 'Downloaded';
+      showTemporaryToast('✅ 3 posters saved to your gallery / downloads!');
+      return;
+    }
+  } catch (err) {
+    console.warn('High-res trio render failed, falling back to direct poster download:', err);
+  }
+
+  // Resilient fallback: direct image download
+  const imgUrl = currentSynthesizedPost.illustrationUrl || currentSynthesizedPost.posterBase64 || currentSynthesizedPost.imageUrl;
   if (imgUrl) {
     const a = document.createElement('a');
     a.href = imgUrl;
     const slug = (currentSynthesizedPost.categoryBadge || 'slant').toLowerCase().replace(/[^a-z0-9]+/g, '-');
-    a.download = `${slug}-poster-slide${currentPreviewSlide + 1}.png`;
+    a.download = `${slug}-poster-slide${(currentPreviewSlide || 0) + 1}.png`;
     a.target = '_blank';
     document.body.appendChild(a);
     a.click();
@@ -7548,7 +7605,7 @@ function handleStep3Download() {
 
     if (dlBtn) dlBtn.classList.add('active');
     if (dlLbl) dlLbl.textContent = 'Downloaded';
-    showTemporaryToast('📥 Poster downloaded to your device!');
+    showTemporaryToast('📥 Poster saved to your gallery / downloads!');
   } else {
     showTemporaryToast('📥 Poster ready for export!');
   }
@@ -7596,14 +7653,13 @@ async function compressImageForCloud(base64Data, maxWidth = 900, quality = 0.82)
   });
 }
 
-async function publishSynthesizedPost() {
+async function saveSynthesizedPost() {
   if (!currentSynthesizedPost) return;
 
-  const publishBtn = document.getElementById('publishBtn');
-  if (publishBtn) {
-    publishBtn.disabled = true;
-    publishBtn.innerHTML = '<span>Publishing to Live Feed... ⏳</span>';
-  }
+  const saveBtn = document.getElementById('step3SaveBtn');
+  const saveLbl = document.getElementById('step3SaveLabel');
+  if (saveBtn) saveBtn.disabled = true;
+  if (saveLbl) saveLbl.textContent = 'Saving...';
 
   if (currentUser) {
     currentSynthesizedPost.user_id = currentUser.id;
@@ -7611,6 +7667,9 @@ async function publishSynthesizedPost() {
   }
   currentSynthesizedPost.createdAt = new Date().toISOString();
   currentSynthesizedPost.isUserCreated = true;
+  currentSynthesizedPost.isDraft = true;
+  currentSynthesizedPost.isPrivate = true;
+  currentSynthesizedPost.status = 'draft';
 
   // 1. Clean & compress payload: store crisp ~60KB WebP so Supabase rows never trigger timeout
   const postToSave = { ...currentSynthesizedPost };
@@ -7626,6 +7685,142 @@ async function publishSynthesizedPost() {
   if (currentSynthesizedPost.sourceContext) {
     postToSave.sourceContext = currentSynthesizedPost.sourceContext;
   }
+  postToSave.isDraft = true;
+  postToSave.isPrivate = true;
+  postToSave.status = 'draft';
+
+  const rawPoster = currentSynthesizedPost.illustrationBase64 || currentSynthesizedPost.originalPhotoBase64;
+  if (rawPoster) {
+    try {
+      const compressed = await compressImageForCloud(rawPoster, 900, 0.82);
+      postToSave.posterBase64 = compressed;
+    } catch (_) {}
+  }
+  delete postToSave.illustrationBase64;
+  delete postToSave.originalPhotoBase64;
+  postToSave.illustrationUrl = '/posters/' + postToSave.id + '.png';
+  postToSave.aiIllustrationUrl = '/posters/' + postToSave.id + '.png';
+
+  // 2. Cloud save: POST to /api/posts
+  let savedToCloud = false;
+  try {
+    const resp = await fetch('/api/posts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(postToSave)
+    });
+    if (resp.ok) savedToCloud = true;
+  } catch (err) {
+    console.warn('Backend save call error:', err);
+  }
+
+  // 3. Fallback: Direct Supabase write
+  if (!savedToCloud) {
+    try {
+      const supaResp = await fetch(`${SUPABASE_URL}/rest/v1/posts`, {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'resolution=merge-duplicates'
+        },
+        body: JSON.stringify({ id: postToSave.id, data: postToSave })
+      });
+      if (supaResp.ok) savedToCloud = true;
+    } catch (supaErr) {
+      console.warn('Direct Supabase save error:', supaErr);
+    }
+  }
+
+  // 4. Local storage persistent cache for user profile
+  try {
+    const sanitizeForCache = (p) => {
+      if (!p) return null;
+      const copy = { ...p };
+      delete copy.originalPhotoBase64;
+      if (copy.illustrationBase64 && copy.illustrationBase64.length > 50000) {
+        delete copy.illustrationBase64;
+      }
+      if (!copy.illustrationUrl) {
+        copy.illustrationUrl = '/posters/' + copy.id + '.png';
+        copy.aiIllustrationUrl = copy.illustrationUrl;
+      }
+      return copy;
+    };
+
+    const localPosts = JSON.parse(localStorage.getItem('slant_user_posts_cache') || '[]');
+    const filtered = localPosts.filter(p => p && p.id !== currentSynthesizedPost.id).map(sanitizeForCache).filter(Boolean);
+    const sanitizedCurrent = sanitizeForCache(currentSynthesizedPost);
+    if (sanitizedCurrent) filtered.unshift(sanitizedCurrent);
+    localStorage.setItem('slant_user_posts_cache', JSON.stringify(filtered.slice(0, 30)));
+  } catch (lsErr) {
+    console.warn('Could not cache user draft to localStorage:', lsErr);
+  }
+
+  // 5. Track in local storage ID set & sync with cloud profile
+  myCreatedPostIds.add(currentSynthesizedPost.id);
+  localStorage.setItem('slant_my_posts', JSON.stringify(Array.from(myCreatedPostIds)));
+  syncUserMetadataToCloud();
+
+  if (saveBtn) {
+    saveBtn.disabled = false;
+    saveBtn.classList.add('active');
+  }
+  if (saveLbl) saveLbl.textContent = 'Saved';
+
+  // 6. Merge & sort chronologically into allPosts
+  mergeAndSortPosts([currentSynthesizedPost]);
+  updateAuthUI();
+  renderFeed();
+
+  // 7. Close modal & reset state & notify user
+  closeCreatorModal();
+  resetCreatorState();
+  showTemporaryToast('🔖 Saved to your profile! Only you can see this in "My Stories".');
+}
+
+async function publishSynthesizedPost() {
+  if (!currentSynthesizedPost) return;
+
+  const publishBtn = document.getElementById('publishBtn');
+  const actionPublishBtn = document.getElementById('step3PublishActionBtn');
+  const actionPublishLbl = document.getElementById('step3PublishActionLabel');
+  if (publishBtn) {
+    publishBtn.disabled = true;
+    publishBtn.innerHTML = '<span>Publishing to Live Feed... ⏳</span>';
+  }
+  if (actionPublishBtn) actionPublishBtn.disabled = true;
+  if (actionPublishLbl) actionPublishLbl.textContent = 'Publishing...';
+
+  if (currentUser) {
+    currentSynthesizedPost.user_id = currentUser.id;
+    currentSynthesizedPost.userEmail = currentUser.email;
+  }
+  currentSynthesizedPost.createdAt = new Date().toISOString();
+  currentSynthesizedPost.isUserCreated = true;
+  currentSynthesizedPost.isDraft = false;
+  currentSynthesizedPost.isPrivate = false;
+  currentSynthesizedPost.status = 'published';
+
+  // 1. Clean & compress payload: store crisp ~60KB WebP so Supabase rows never trigger timeout
+  const postToSave = { ...currentSynthesizedPost };
+  if (currentSynthesizedPost.generationInputs) {
+    postToSave.generationInputs = currentSynthesizedPost.generationInputs;
+  }
+  if (currentSynthesizedPost.contextProvided) {
+    postToSave.contextProvided = currentSynthesizedPost.contextProvided;
+  }
+  if (currentSynthesizedPost.userSlantTake) {
+    postToSave.userSlantTake = currentSynthesizedPost.userSlantTake;
+  }
+  if (currentSynthesizedPost.sourceContext) {
+    postToSave.sourceContext = currentSynthesizedPost.sourceContext;
+  }
+  postToSave.isDraft = false;
+  postToSave.isPrivate = false;
+  postToSave.status = 'published';
+
   const rawPoster = currentSynthesizedPost.illustrationBase64 || currentSynthesizedPost.originalPhotoBase64;
   if (rawPoster) {
     try {
@@ -7709,11 +7904,12 @@ async function publishSynthesizedPost() {
   localStorage.setItem('slant_my_posts', JSON.stringify(Array.from(myCreatedPostIds)));
   syncUserMetadataToCloud();
 
-  // Update Step 3 Save button state
-  const saveBtn = document.getElementById('step3SaveBtn');
-  const saveLbl = document.getElementById('step3SaveLabel');
-  if (saveBtn) saveBtn.classList.add('active');
-  if (saveLbl) saveLbl.textContent = 'Saved';
+  // Update Step 3 Publish button state
+  if (actionPublishBtn) {
+    actionPublishBtn.disabled = false;
+    actionPublishBtn.classList.add('active');
+  }
+  if (actionPublishLbl) actionPublishLbl.textContent = 'Published';
 
   // 6. Merge & sort chronologically, then render feed
   mergeAndSortPosts([currentSynthesizedPost]);

@@ -27,7 +27,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Merriweather:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,400;1,600;1,700;1,900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261014_0135">
+  <link rel="stylesheet" href="style.css?v=20261016_1345">
   <!-- Favicon & Brand Icons -->
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
@@ -557,56 +557,34 @@
             <!-- Rendered dynamically -->
           </div>
 
-          <!-- Sleek Compact Action Toolbar (Matches Android App Exactly) -->
+          <!-- Sleek Action Toolbar: Only Regen, Save, Download, Share, Publish -->
           <div class="creator-result-action-panel" id="creatorResultActionPanel">
-            <!-- 1. Regenerate -->
-            <button type="button" class="action-icon-btn regen" onclick="handleStep3Regenerate()" title="Regenerate / Tweak Cues">
+            <!-- 1. Regen -->
+            <button type="button" class="action-icon-btn regen" id="step3RegenBtn" onclick="handleStep3Regenerate()" title="Reopen from beginning without changing visual cues">
               <div class="action-icon-circle">
-                <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M23 4v6h-6"></path>
                   <path d="M1 20v-6h6"></path>
                   <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
                 </svg>
               </div>
-              <span class="action-icon-label">Regen</span>
+              <span class="action-icon-label" id="step3RegenLabel">Regen</span>
             </button>
 
-            <!-- 2. Edit -->
-            <button type="button" class="action-icon-btn edit" onclick="openEditPosterModal()" title="Edit Content & Slant">
+            <!-- 2. Save (Private to user's profile) -->
+            <button type="button" class="action-icon-btn save" id="step3SaveBtn" onclick="saveSynthesizedPost()" title="Save privately to your profile (not in public feed)">
               <div class="action-icon-circle">
-                <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                  <line x1="4" y1="21" x2="4" y2="14"></line>
-                  <line x1="4" y1="10" x2="4" y2="3"></line>
-                  <line x1="12" y1="21" x2="12" y2="12"></line>
-                  <line x1="12" y1="8" x2="12" y2="3"></line>
-                  <line x1="20" y1="21" x2="20" y2="16"></line>
-                  <line x1="20" y1="12" x2="20" y2="3"></line>
-                  <line x1="1" y1="14" x2="7" y2="14"></line>
-                  <line x1="9" y1="8" x2="15" y2="8"></line>
-                  <line x1="17" y1="16" x2="23" y2="16"></line>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
                 </svg>
               </div>
-              <span class="action-icon-label">Edit</span>
+              <span class="action-icon-label" id="step3SaveLabel">Save</span>
             </button>
 
-            <!-- 3. Share -->
-            <button type="button" class="action-icon-btn share" onclick="handleStep3Share()" title="Share Carousel Trio">
+            <!-- 3. Download (To gallery) -->
+            <button type="button" class="action-icon-btn download" id="step3DownloadBtn" onclick="handleStep3Download()" title="Download posters into gallery">
               <div class="action-icon-circle">
-                <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                  <circle cx="18" cy="5" r="3"></circle>
-                  <circle cx="6" cy="12" r="3"></circle>
-                  <circle cx="18" cy="19" r="3"></circle>
-                  <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
-                  <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
-                </svg>
-              </div>
-              <span class="action-icon-label">Share</span>
-            </button>
-
-            <!-- 4. Download -->
-            <button type="button" class="action-icon-btn download" id="step3DownloadBtn" onclick="handleStep3Download()" title="Download Posters">
-              <div class="action-icon-circle">
-                <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                   <polyline points="7 10 12 15 17 10"></polyline>
                   <line x1="12" y1="15" x2="12" y2="3"></line>
@@ -615,14 +593,29 @@
               <span class="action-icon-label" id="step3DownloadLabel">Download</span>
             </button>
 
-            <!-- 5. Save / Publish -->
-            <button type="button" class="action-icon-btn save" id="step3SaveBtn" onclick="publishSynthesizedPost()" title="Publish to slant.today">
+            <!-- 4. Share (With shareable app) -->
+            <button type="button" class="action-icon-btn share" id="step3ShareBtn" onclick="handleStep3Share()" title="Share with apps">
               <div class="action-icon-circle">
-                <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="18" cy="5" r="3"></circle>
+                  <circle cx="6" cy="12" r="3"></circle>
+                  <circle cx="18" cy="19" r="3"></circle>
+                  <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                  <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
                 </svg>
               </div>
-              <span class="action-icon-label" id="step3SaveLabel">Save</span>
+              <span class="action-icon-label" id="step3ShareLabel">Share</span>
+            </button>
+
+            <!-- 5. Publish (To live feed for others) -->
+            <button type="button" class="action-icon-btn publish" id="step3PublishActionBtn" onclick="publishSynthesizedPost()" title="Publish to feed for others to see">
+              <div class="action-icon-circle">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="22" y1="2" x2="11" y2="13"></line>
+                  <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                </svg>
+              </div>
+              <span class="action-icon-label" id="step3PublishActionLabel">Publish</span>
             </button>
           </div>
 
@@ -1311,6 +1304,6 @@
     </div>
   </aside>
 
-  <script src="app.js?v=20261014_0135"></script>
+  <script src="app.js?v=20261016_1345"></script>
 </body>
 </html>

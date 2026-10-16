@@ -116,7 +116,7 @@ module.exports = async function handler(req, res) {
           delete p.originalPhotoBase64;
 
           return p;
-        }).filter(p => p && !p.deleted && !p.isDeleted && (p.adaptedHeadline || p.originalHeadline || p.summary));
+        }).filter(p => p && !p.deleted && !p.isDeleted && !p.isDraft && !p.isPrivate && p.status !== 'draft' && (p.adaptedHeadline || p.originalHeadline || p.summary));
         if (posts.length > 0) {
           return res.status(200).json({ status: 'ok', count: posts.length, posts });
         }
@@ -128,7 +128,7 @@ module.exports = async function handler(req, res) {
     }
 
     // 2. Return fallback posts (synced with actual app posts)
-    const slicedFallback = fallbackPosts.slice(0, limit);
+    const slicedFallback = fallbackPosts.filter(p => p && !p.deleted && !p.isDeleted && !p.isDraft && !p.isPrivate && p.status !== 'draft').slice(0, limit);
     return res.status(200).json({
       status: 'ok',
       count: slicedFallback.length,
