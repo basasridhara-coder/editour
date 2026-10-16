@@ -6245,6 +6245,234 @@ header {
   white-space: nowrap;
 }
 
+/* Objective Editorial Research Assistant Ledger Card */
+.source-ledger-card {
+  margin-top: 12px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-left: 3.5px solid #6366F1;
+  border-radius: 12px;
+  padding: 13px 15px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  animation: fadeIn 0.25s ease-out;
+}
+
+.source-ledger-card.ledger-loading {
+  padding: 14px;
+  background: rgba(99, 102, 241, 0.04);
+  border: 1px dashed rgba(99, 102, 241, 0.35);
+  border-left: 3.5px solid #6366F1;
+}
+
+.ledger-loading-inner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ledger-loading-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(99, 102, 241, 0.2);
+  border-top-color: #6366F1;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+.ledger-loading-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ledger-loading-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.ledger-loading-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.ledger-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-subtle);
+  margin-bottom: 10px;
+}
+
+.ledger-header-left {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+}
+
+.ledger-icon {
+  font-size: 17px;
+  line-height: 1;
+  margin-top: 1px;
+}
+
+.ledger-header-titles {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ledger-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ledger-badge {
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: #6366F1;
+}
+
+.ledger-pill {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(16, 185, 129, 0.12);
+  color: #10B981;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.ledger-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.ledger-rating-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.ledger-stars {
+  font-size: 13px;
+  letter-spacing: 2px;
+  color: #F59E0B;
+  line-height: 1;
+}
+
+.ledger-rating-text {
+  font-size: 9.5px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  background: rgba(245, 158, 11, 0.1);
+  padding: 1.5px 6px;
+  border-radius: 6px;
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  white-space: nowrap;
+}
+
+.ledger-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ledger-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ledger-section-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.ledger-num {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: rgba(99, 102, 241, 0.14);
+  color: #6366F1;
+  font-size: 8.5px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ledger-text {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.ledger-claims-list {
+  margin: 0;
+  padding-left: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.ledger-claim-item {
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--text-primary);
+}
+
+.ledger-tension-box {
+  background: rgba(245, 158, 11, 0.06);
+  border: 1px solid rgba(245, 158, 11, 0.22);
+  border-radius: 9px;
+  padding: 9px 11px;
+}
+
+.ledger-section-label.tension-label {
+  color: #D97706;
+}
+
+.ledger-section-label.tension-label .ledger-num {
+  background: rgba(245, 158, 11, 0.2);
+  color: #D97706;
+}
+
+.ledger-tension-text {
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.45;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.ledger-footer-tip {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border-subtle);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10.5px;
+  color: var(--text-muted);
+}
+
 /* Synthesize CTA Button */
 .creator-footer {
   margin-top: 12px;

@@ -4355,6 +4355,9 @@ function loadPostIntoStudioToRegenerate(postId) {
       url: inputs.sourceUrl || ''
     };
   }
+  if (inputs.sourceLedger) {
+    renderSourceLedger(inputs.sourceLedger);
+  }
 
   showTemporaryToast('✨ Loaded inputs into Creator Studio! Tweak or regenerate 🚀');
 }
@@ -5170,6 +5173,8 @@ function handleCreatorOverlayClick(e) {
 function setAnchorMode(mode) {
   if (creatorSelectedSource !== mode) {
     currentScrapedArticle = null;
+    currentSourceLedger = null;
+    renderSourceLedger(null);
     creatorCuePills = [];
     if (creatorSelectedCueIndices && creatorSelectedCueIndices.clear) {
       creatorSelectedCueIndices.clear();
@@ -5220,6 +5225,7 @@ function setAnchorMode(mode) {
       mentalCard.style.borderColor = 'rgba(2, 132, 199, 0.18)';
     }
   } else if (mode === 'inner_voice') {
+    renderSourceLedger(null);
     if (mentalPill) {
       mentalPill.textContent = 'Inner Voice';
       mentalPill.style.background = 'rgba(139, 92, 246, 0.12)';
@@ -5635,11 +5641,15 @@ let creatorReferenceImageSourceLabel = null;
 
 // Live Scraped Article State
 let currentScrapedArticle = null;
+let currentSourceLedger = null;
+let isGeneratingLedger = false;
 let scrapeDebounceTimer = null;
 let isScrapingUrl = false;
 
 function resetCreatorState() {
   currentScrapedArticle = null;
+  currentSourceLedger = null;
+  renderSourceLedger(null);
   currentSynthesizedPost = null;
   creatorCuePills = [];
   if (creatorSelectedCueIndices && creatorSelectedCueIndices.clear) {
@@ -5743,6 +5753,8 @@ function setupCreatorUrlListener() {
       const indicator = document.getElementById('urlScrapeIndicator');
       if (indicator) indicator.style.display = 'none';
       currentScrapedArticle = null;
+      currentSourceLedger = null;
+      renderSourceLedger(null);
     }
   });
 
@@ -5760,6 +5772,8 @@ async function handleUrlInput(val) {
   if (!clean || (!clean.startsWith('http://') && !clean.startsWith('https://') && !clean.includes('.'))) {
     if (indicator) indicator.style.display = 'none';
     currentScrapedArticle = null;
+    currentSourceLedger = null;
+    renderSourceLedger(null);
     return;
   }
 
@@ -5801,6 +5815,8 @@ async function handleUrlInput(val) {
         `;
         indicator.style.display = 'flex';
       }
+      // Trigger Objective Editorial Research Assistant Ledger
+      triggerSourceLedgerGeneration(data);
     }
   } catch (err) {
     console.warn('URL scrape error:', err.message);
@@ -5817,9 +5833,156 @@ async function handleUrlInput(val) {
       `;
       indicator.style.display = 'flex';
     }
+    // Trigger Objective Editorial Research Assistant Ledger even with minimal data
+    triggerSourceLedgerGeneration(currentScrapedArticle);
   } finally {
     isScrapingUrl = false;
   }
+}
+
+function renderSourceLedgerLoading() {
+  const card = document.getElementById('sourceLedgerCard');
+  if (!card) return;
+  card.style.display = 'block';
+  card.className = 'source-ledger-card ledger-loading';
+  card.innerHTML = `
+    <div class="ledger-loading-inner">
+      <div class="ledger-loading-spinner"></div>
+      <div class="ledger-loading-text">
+        <span class="ledger-loading-title">⚖️ Objective Research Assistant</span>
+        <span class="ledger-loading-sub">Analyzing source thesis, core claims, and underlying tensions...</span>
+      </div>
+    </div>
+  `;
+}
+
+function renderSourceLedger(ledger) {
+  const card = document.getElementById('sourceLedgerCard');
+  if (!card) return;
+  if (!ledger) {
+    card.style.display = 'none';
+    card.innerHTML = '';
+    return;
+  }
+
+  currentSourceLedger = ledger;
+  card.style.display = 'block';
+  card.className = 'source-ledger-card';
+
+  const starsCount = Math.min(3, Math.max(1, Number(ledger.stars || ledger.completeness_score || 3)));
+  const starsHtml = '★'.repeat(starsCount) + '☆'.repeat(3 - starsCount);
+  const starsLabel = ledger.stars_label || (starsCount === 3 ? '3/3 High Substance Anchor' : `${starsCount}/3 Anchor`);
+
+  const claimsHtml = (ledger.core_claims_and_evidence || []).map(claim => {
+    return `<li class="ledger-claim-item">${escapeHtml(claim)}</li>`;
+  }).join('');
+
+  card.innerHTML = `
+    <div class="ledger-header">
+      <div class="ledger-header-left">
+        <span class="ledger-icon">⚖️</span>
+        <div class="ledger-header-titles">
+          <div class="ledger-badge-row">
+            <span class="ledger-badge">EDITORIAL RESEARCH ASSISTANT</span>
+            <span class="ledger-pill">Strictly Neutral</span>
+          </div>
+          <span class="ledger-title">Objective Source Ledger</span>
+        </div>
+      </div>
+      <div class="ledger-rating-badge" title="${escapeHtml(starsLabel)}">
+        <span class="ledger-stars">${starsHtml}</span>
+        <span class="ledger-rating-text">${escapeHtml(starsLabel)}</span>
+      </div>
+    </div>
+
+    <div class="ledger-body">
+      <!-- 1. Subject & Thesis -->
+      <div class="ledger-section">
+        <div class="ledger-section-label">
+          <span class="ledger-num">1</span>
+          <span>SUBJECT & CENTRAL THESIS</span>
+        </div>
+        <p class="ledger-text">${escapeHtml(ledger.subject_and_thesis || 'No central thesis provided in source.')}</p>
+      </div>
+
+      <!-- 2. Core Claims & Evidence -->
+      <div class="ledger-section">
+        <div class="ledger-section-label">
+          <span class="ledger-num">2</span>
+          <span>CORE CLAIMS & EVIDENCE</span>
+        </div>
+        <ul class="ledger-claims-list">
+          ${claimsHtml || '<li class="ledger-claim-item">Source does not provide detailed empirical evidence or cited data.</li>'}
+        </ul>
+      </div>
+
+      <!-- 3. Underlying Tension or Question -->
+      <div class="ledger-section ledger-tension-box">
+        <div class="ledger-section-label tension-label">
+          <span class="ledger-num">3</span>
+          <span>UNDERLYING TENSION / COUNTER-PERSPECTIVE</span>
+        </div>
+        <p class="ledger-tension-text">${escapeHtml(ledger.underlying_tension_or_question || 'No explicit tension highlighted.')}</p>
+      </div>
+    </div>
+
+    <div class="ledger-footer-tip">
+      <span class="tip-icon">💡</span>
+      <span class="tip-text">Use this neutral ledger to anchor your unique counter-slant or reaction below ↓</span>
+    </div>
+  `;
+}
+
+async function triggerSourceLedgerGeneration(articleData) {
+  if (!articleData) return;
+  const url = articleData.url || '';
+  const title = articleData.title || '';
+  const content = articleData.content || '';
+  const siteName = articleData.siteName || '';
+
+  if (!url && !title && !content) return;
+
+  renderSourceLedgerLoading();
+  isGeneratingLedger = true;
+
+  try {
+    const resp = await fetch('/api/ledger', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url, title, content, siteName })
+    });
+
+    if (!resp.ok) throw new Error('Ledger endpoint returned ' + resp.status);
+    const data = await resp.json();
+
+    if (data && data.success && data.ledger) {
+      renderSourceLedger(data.ledger);
+    } else {
+      throw new Error('Ledger data invalid');
+    }
+  } catch (err) {
+    console.warn('Objective ledger generation error, using fallback:', err.message);
+    const fallbackLedger = buildClientFallbackLedger(title, content, siteName);
+    renderSourceLedger(fallbackLedger);
+  } finally {
+    isGeneratingLedger = false;
+  }
+}
+
+function buildClientFallbackLedger(title, content, siteName) {
+  const headline = title || 'Source Material';
+  const name = siteName || 'The reporting source';
+  return {
+    subject_and_thesis: `${name} examines developments surrounding "${headline}".`,
+    core_claims_and_evidence: [
+      `${name} reports on primary announcements and public facts related to this topic.`,
+      `Contextual data points and stakeholder statements are highlighted across the report.`
+    ],
+    underlying_tension_or_question: `What tradeoffs or policy counter-perspectives arise from this development?`,
+    completeness_score: 2,
+    stars: 2,
+    stars_label: '2/3 Developing Anchor'
+  };
 }
 
 function isLikelyPersonSubject(name) {
@@ -7000,6 +7163,7 @@ async function startAiSynthesis() {
     refineCoreTake: creatorRefineCoreTake,
     vocabularyStyle: creatorVocabularyStyle || 'punchy',
     countryContext: creatorCountryContext?.name || 'India',
+    sourceLedger: currentSourceLedger || null,
     scrapedTitle: (isLink && url) ? (currentScrapedArticle?.title || '') : '',
     scrapedContent: (isLink && url) ? (currentScrapedArticle?.content || '').slice(0, 3000) : ''
   };
@@ -7063,6 +7227,7 @@ async function startAiSynthesis() {
         refineCoreTake: creatorRefineCoreTake,
         vocabularyStyle: creatorVocabularyStyle || 'punchy',
         countryContext: creatorCountryContext?.name || 'India',
+        sourceLedger: currentSourceLedger || null,
         scrapedTitle: (isLink && url) ? (currentScrapedArticle?.title || '') : '',
         scrapedContent: (isLink && url) ? (currentScrapedArticle?.content || '').slice(0, 3000) : '',
         contextProvided: slantTake || (currentScrapedArticle?.content || '').slice(0, 3000) || spark || '',

@@ -27,7 +27,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Merriweather:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,400;1,600;1,700;1,900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261016_1435">
+  <link rel="stylesheet" href="style.css?v=20261016_1545">
   <!-- Favicon & Brand Icons -->
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
@@ -199,12 +199,87 @@
       <!-- STEP 1 CONTAINER: Slant & Source (Matches Mobile App Exact Sequence) -->
       <div class="creator-step-content" id="creatorStep1">
         
-        <!-- 1. Top Hero: The Slant / Angle Prompt Box (Same as Mobile Hero Card) -->
+        <!-- 1. ROOT YOUR SLANT IN (Source Anchor Selector) -->
+        <div class="creator-anchor-section">
+          <div class="creator-anchor-header">
+            <span class="anchor-label">ROOT YOUR SLANT IN</span>
+            <span class="anchor-tag">Source Anchor</span>
+          </div>
+          <div class="creator-anchor-grid">
+            <!-- 1. Video / Audio Link -->
+            <button type="button" class="anchor-card" data-mode="video_audio" id="anchorMediaBtn" onclick="setAnchorMode('video_audio')">
+              <div class="anchor-icon-circle anchor-media">🎬</div>
+              <div class="anchor-card-title">Video / Audio</div>
+              <div class="anchor-card-subtitle">YouTube, Podcast</div>
+            </button>
+
+            <!-- 2. Read / Web Link -->
+            <button type="button" class="anchor-card active" data-mode="digital_link" id="anchorWebBtn" onclick="setAnchorMode('digital_link')">
+              <div class="anchor-icon-circle anchor-web">📰</div>
+              <div class="anchor-card-title">Read / Web</div>
+              <div class="anchor-card-subtitle">Articles, Op-Eds</div>
+            </button>
+
+            <!-- 3. Inner Voice -->
+            <button type="button" class="anchor-card" data-mode="inner_voice" id="anchorVoiceBtn" onclick="setAnchorMode('inner_voice')">
+              <div class="anchor-icon-circle anchor-voice">💭</div>
+              <div class="anchor-card-title">Inner Voice</div>
+              <div class="anchor-card-subtitle">Pure reflection</div>
+            </button>
+          </div>
+
+          <!-- Dynamic Mental Model Banner -->
+          <div class="anchor-mental-model-card" id="anchorMentalModelCard">
+            <div class="mental-model-inner">
+              <div class="mental-model-badge-row">
+                <span class="mental-model-badge" id="anchorMentalModelBadge">MENTAL MODEL</span>
+                <span class="mental-model-pill" id="anchorMentalModelPill">Read / Web Link</span>
+              </div>
+              <p class="mental-model-quote" id="anchorMentalModelText">
+                "I read an analysis or news story and have a counter-slant."
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. Dynamic Lower Panel (Trigger Panel & Source Ledger) -->
+        <div class="creator-trigger-panel">
+          <!-- Web & Video/Audio Anchor Trigger Panel -->
+          <div class="trigger-section" id="triggerWebSection">
+            <div class="trigger-header">
+              <div class="trigger-title-row">
+                <span class="trigger-icon" id="triggerLinkIcon">🔗</span>
+                <span class="trigger-title" id="triggerLinkTitle">Source Article / Newsletter Link</span>
+              </div>
+              <span class="trigger-sub" id="triggerLinkSub">Paste & Fetch</span>
+            </div>
+            <input type="url" id="creatorUrlInput" class="creator-input" placeholder="https://www.nytimes.com/... or Substack, Op-Ed URL" autocomplete="off">
+            <!-- Scrape Status Indicator (Matches Mobile App Exactly) -->
+            <div id="urlScrapeIndicator" class="url-scrape-indicator" style="display:none;"></div>
+            <!-- Objective Editorial Research Assistant Ledger Card -->
+            <div id="sourceLedgerCard" class="source-ledger-card" style="display:none;"></div>
+          </div>
+
+          <!-- Inner Voice Trigger Panel: The Spark -->
+          <div class="trigger-section" id="triggerVoiceSection" style="display:none;">
+            <div class="trigger-header">
+              <div class="trigger-title-row">
+                <span class="trigger-icon" style="color: #F59E0B;">⚡</span>
+                <span class="trigger-title">The Spark (What sparked this?)</span>
+              </div>
+              <span class="trigger-sub">Optional • Under 15 words</span>
+            </div>
+            <p class="trigger-desc">The real-world observation, memory, or moment that triggered this perspective.</p>
+            <input type="text" id="creatorSparkInput" class="creator-input" placeholder="e.g. A conversation with an old colleague about vanishing craft...">
+          </div>
+        </div>
+
+        <!-- 3. Slant Reaction Section: The Slant / Take -->
         <div class="creator-hero-slant-card">
           <div class="creator-card-header">
             <div class="creator-card-title-row">
               <div class="creator-icon-box" id="slantIconBox">
-                <span id="slantHeroIcon">💭</span>
+                <span id="slantHeroIcon">💬</span>
               </div>
               <div class="creator-card-titles">
                 <span class="creator-card-title" id="slantTakeLabel">Your Slant / Take</span>
@@ -265,79 +340,6 @@
                 <span class="pill-text">Analytical</span>
               </button>
             </div>
-          </div>
-        </div>
-
-        <!-- 2. Middle: ROOT YOUR SLANT IN (Source Anchor Selector) -->
-        <div class="creator-anchor-section">
-          <div class="creator-anchor-header">
-            <span class="anchor-label">ROOT YOUR SLANT IN</span>
-            <span class="anchor-tag">Source Anchor</span>
-          </div>
-          <div class="creator-anchor-grid">
-            <!-- 1. Video / Audio Link -->
-            <button type="button" class="anchor-card" data-mode="video_audio" id="anchorMediaBtn" onclick="setAnchorMode('video_audio')">
-              <div class="anchor-icon-circle anchor-media">🎬</div>
-              <div class="anchor-card-title">Video / Audio</div>
-              <div class="anchor-card-subtitle">YouTube, Podcast</div>
-            </button>
-
-            <!-- 2. Read / Web Link -->
-            <button type="button" class="anchor-card active" data-mode="digital_link" id="anchorWebBtn" onclick="setAnchorMode('digital_link')">
-              <div class="anchor-icon-circle anchor-web">📰</div>
-              <div class="anchor-card-title">Read / Web</div>
-              <div class="anchor-card-subtitle">Articles, Op-Eds</div>
-            </button>
-
-            <!-- 3. Inner Voice -->
-            <button type="button" class="anchor-card" data-mode="inner_voice" id="anchorVoiceBtn" onclick="setAnchorMode('inner_voice')">
-              <div class="anchor-icon-circle anchor-voice">💭</div>
-              <div class="anchor-card-title">Inner Voice</div>
-              <div class="anchor-card-subtitle">Pure reflection</div>
-            </button>
-          </div>
-
-          <!-- Dynamic Mental Model Banner -->
-          <div class="anchor-mental-model-card" id="anchorMentalModelCard">
-            <div class="mental-model-inner">
-              <div class="mental-model-badge-row">
-                <span class="mental-model-badge" id="anchorMentalModelBadge">MENTAL MODEL</span>
-                <span class="mental-model-pill" id="anchorMentalModelPill">Read / Web Link</span>
-              </div>
-              <p class="mental-model-quote" id="anchorMentalModelText">
-                "I read an analysis or news story and have a counter-slant."
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <!-- 3. Dynamic Lower Panel (Trigger Panel) -->
-        <div class="creator-trigger-panel">
-          <!-- Web & Video/Audio Anchor Trigger Panel -->
-          <div class="trigger-section" id="triggerWebSection">
-            <div class="trigger-header">
-              <div class="trigger-title-row">
-                <span class="trigger-icon" id="triggerLinkIcon">🔗</span>
-                <span class="trigger-title" id="triggerLinkTitle">Source Article / Newsletter Link</span>
-              </div>
-              <span class="trigger-sub" id="triggerLinkSub">Paste & Fetch</span>
-            </div>
-            <input type="url" id="creatorUrlInput" class="creator-input" placeholder="https://www.nytimes.com/... or Substack, Op-Ed URL" autocomplete="off">
-            <!-- Scrape Status Indicator (Matches Mobile App Exactly) -->
-            <div id="urlScrapeIndicator" class="url-scrape-indicator" style="display:none;"></div>
-          </div>
-
-          <!-- Inner Voice Trigger Panel: The Spark -->
-          <div class="trigger-section" id="triggerVoiceSection" style="display:none;">
-            <div class="trigger-header">
-              <div class="trigger-title-row">
-                <span class="trigger-icon" style="color: #F59E0B;">⚡</span>
-                <span class="trigger-title">The Spark (What sparked this?)</span>
-              </div>
-              <span class="trigger-sub">Optional • Under 15 words</span>
-            </div>
-            <p class="trigger-desc">The real-world observation, memory, or moment that triggered this perspective.</p>
-            <input type="text" id="creatorSparkInput" class="creator-input" placeholder="e.g. A conversation with an old colleague about vanishing craft...">
           </div>
         </div>
 
@@ -1262,6 +1264,6 @@
     </div>
   </aside>
 
-  <script src="app.js?v=20261016_1435"></script>
+  <script src="app.js?v=20261016_1545"></script>
 </body>
 </html>
