@@ -20,6 +20,42 @@ try {
   console.warn('Could not read slant_feed.json:', e);
 }
 
+function formatPostRow(r) {
+  if (!r) return null;
+  const p = r.data || r;
+  p.id = p.id || r.id;
+  p.createdAt = p.createdAt || r.created_at || new Date().toISOString();
+
+  // Strip any Unsplash or placeholder fallback URLs completely
+  if (p.illustrationUrl && p.illustrationUrl.includes('unsplash.com')) {
+    p.illustrationUrl = '';
+  }
+  if (p.aiIllustrationUrl && p.aiIllustrationUrl.includes('unsplash.com')) {
+    p.aiIllustrationUrl = '';
+  }
+
+  // If static poster image exists in /posters/, serve high-speed CDN asset; otherwise serve compressed posterBase64
+  const posterFile = path.join(__dirname, '../public/posters', p.id + '.png');
+  const hasStaticPosterOnDisk = fs.existsSync(posterFile);
+
+  if (hasStaticPosterOnDisk) {
+    p.illustrationUrl = '/posters/' + p.id + '.png';
+    p.aiIllustrationUrl = '/posters/' + p.id + '.png';
+    delete p.posterBase64;
+  } else if (p.posterBase64 && p.posterBase64.length > 50) {
+    // Fallback: serve compressed WebP/JPEG inline so newly published stories render instantly across all devices without 404
+    p.illustrationUrl = p.posterBase64;
+    p.aiIllustrationUrl = p.posterBase64;
+  } else if (p.illustrationUrl && p.illustrationUrl.startsWith('/posters/')) {
+    p.aiIllustrationUrl = p.illustrationUrl;
+  }
+
+  delete p.illustrationBase64;
+  delete p.originalPhotoBase64;
+
+  return p;
+}
+
 module.exports = async function handler(req, res) {
   // CORS configuration
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -35,11 +71,15 @@ module.exports = async function handler(req, res) {
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
 
-    // Parse limit and offset parameters (default 12 for clean batched feed)
+    // Parse parameters
     let limit = 12;
     let baseOffset = 0;
+    let singleId = null;
+    let multiIds = null;
     try {
       const parsedUrl = new URL(req.url, 'http://localhost');
+      singleId = parsedUrl.searchParams.get('id');
+      multiIds = parsedUrl.searchParams.get('ids');
       const qLimit = parseInt(parsedUrl.searchParams.get('limit'), 10);
       if (!isNaN(qLimit) && qLimit > 0) {
         limit = Math.min(qLimit, 24);
@@ -49,6 +89,52 @@ module.exports = async function handler(req, res) {
         baseOffset = qOffset;
       }
     } catch (_) {}
+
+    // Direct single-ID point query (supports drafts & direct deep link verification)
+    if (singleId) {
+      try {
+        const sResp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.${encodeURIComponent(singleId)}&select=*`, {
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`
+          }
+        });
+        if (sResp.ok) {
+          const sRows = await sResp.json();
+          if (Array.isArray(sRows) && sRows.length > 0) {
+            const formatted = formatPostRow(sRows[0]);
+            return res.status(200).json({ status: 'ok', count: 1, post: formatted, posts: [formatted] });
+          }
+        }
+        return res.status(404).json({ status: 'error', error: 'Post not found' });
+      } catch (sErr) {
+        console.error('Point lookup error:', sErr);
+        return res.status(500).json({ status: 'error', error: sErr.message });
+      }
+    }
+
+    // Direct multi-ID query (supports refreshing author's drafts)
+    if (multiIds) {
+      try {
+        const idList = multiIds.split(',').map(s => s.trim()).filter(Boolean).slice(0, 30);
+        if (idList.length > 0) {
+          const inFilter = idList.map(id => '%22' + encodeURIComponent(id) + '%22').join(',');
+          const mResp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=in.(${inFilter})&select=*`, {
+            headers: {
+              'apikey': SUPABASE_KEY,
+              'Authorization': `Bearer ${SUPABASE_KEY}`
+            }
+          });
+          if (mResp.ok) {
+            const mRows = await mResp.json();
+            const posts = (mRows || []).map(formatPostRow).filter(Boolean);
+            return res.status(200).json({ status: 'ok', count: posts.length, posts });
+          }
+        }
+      } catch (mErr) {
+        console.error('Multi-ID lookup error:', mErr);
+      }
+    }
 
     // 1. Primary: Fast 2-step retrieval (fetch lightweight IDs first, then point lookups)
     // This avoids Postgres statement timeout (57014) caused by ordering huge 2.5MB JSONB toast rows
@@ -83,40 +169,7 @@ module.exports = async function handler(req, res) {
           }
 
       if (Array.isArray(rows) && rows.length > 0) {
-        const posts = rows.map(r => {
-          const p = r.data || r;
-          p.id = p.id || r.id;
-          p.createdAt = p.createdAt || r.created_at || new Date().toISOString();
-
-          // Strip any Unsplash or placeholder fallback URLs completely
-          if (p.illustrationUrl && p.illustrationUrl.includes('unsplash.com')) {
-            p.illustrationUrl = '';
-          }
-          if (p.aiIllustrationUrl && p.aiIllustrationUrl.includes('unsplash.com')) {
-            p.aiIllustrationUrl = '';
-          }
-
-          // If static poster image exists in /posters/, serve high-speed CDN asset; otherwise serve compressed posterBase64
-          const posterFile = path.join(__dirname, '../public/posters', p.id + '.png');
-          const hasStaticPosterOnDisk = fs.existsSync(posterFile);
-
-          if (hasStaticPosterOnDisk) {
-            p.illustrationUrl = '/posters/' + p.id + '.png';
-            p.aiIllustrationUrl = '/posters/' + p.id + '.png';
-            delete p.posterBase64;
-          } else if (p.posterBase64 && p.posterBase64.length > 50) {
-            // Fallback: serve compressed WebP/JPEG inline so newly published stories render instantly across all devices without 404
-            p.illustrationUrl = p.posterBase64;
-            p.aiIllustrationUrl = p.posterBase64;
-          } else if (p.illustrationUrl && p.illustrationUrl.startsWith('/posters/')) {
-            p.aiIllustrationUrl = p.illustrationUrl;
-          }
-
-          delete p.illustrationBase64;
-          delete p.originalPhotoBase64;
-
-          return p;
-        }).filter(p => p && !p.deleted && !p.isDeleted && !p.isDraft && !p.isPrivate && p.status !== 'draft' && (p.adaptedHeadline || p.originalHeadline || p.summary));
+        const posts = rows.map(formatPostRow).filter(p => p && !p.deleted && !p.isDeleted && !p.isDraft && !p.isPrivate && p.status !== 'draft' && (p.adaptedHeadline || p.originalHeadline || p.summary));
         if (posts.length > 0) {
           return res.status(200).json({ status: 'ok', count: posts.length, posts });
         }

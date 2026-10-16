@@ -1737,6 +1737,56 @@ async function syncLiveCloudPosts(forceRender = false) {
       updateAuthUI();
     }
   }
+
+  // 3. Always refresh author's created stories & private drafts directly from Supabase
+  if (myCreatedPostIds && myCreatedPostIds.size > 0) {
+    try {
+      const myIdsArray = Array.from(myCreatedPostIds).slice(0, 30);
+      const inFilter = myIdsArray.map(id => '%22' + encodeURIComponent(id) + '%22').join(',');
+      const myResp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=in.(${inFilter})`, {
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': `Bearer ${SUPABASE_KEY}`
+        }
+      });
+      if (myResp.ok) {
+        const myRows = await myResp.json();
+        if (Array.isArray(myRows) && myRows.length > 0) {
+          const freshUserPosts = myRows.map(r => {
+            const p = r.data || r;
+            p.id = p.id || r.id;
+            p.createdAt = p.createdAt || r.created_at || new Date().toISOString();
+            return p;
+          });
+          const hasDraftUpdates = mergeAndSortPosts(freshUserPosts);
+          // Overwrite localStorage cache with fresh copies from Supabase
+          const sanitizeForCache = (p) => {
+            if (!p) return null;
+            const copy = { ...p };
+            delete copy.originalPhotoBase64;
+            if (copy.illustrationBase64 && copy.illustrationBase64.length > 50000) {
+              delete copy.illustrationBase64;
+            }
+            if (!copy.illustrationUrl) {
+              copy.illustrationUrl = '/posters/' + copy.id + '.png';
+              copy.aiIllustrationUrl = copy.illustrationUrl;
+            }
+            return copy;
+          };
+          const existingLocal = JSON.parse(localStorage.getItem('slant_user_posts_cache') || '[]');
+          const map = new Map();
+          existingLocal.map(sanitizeForCache).filter(Boolean).forEach(p => map.set(p.id, p));
+          freshUserPosts.map(sanitizeForCache).filter(Boolean).forEach(p => map.set(p.id, p));
+          localStorage.setItem('slant_user_posts_cache', JSON.stringify(Array.from(map.values()).slice(0, 30)));
+          if (hasDraftUpdates || currentFilter === 'my_stories') {
+            renderFeed();
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('Sync user drafts error:', err);
+    }
+  }
 }
 
 // Backward-compatible alias
@@ -1869,14 +1919,37 @@ function handleSearch(query) {
   renderFeed();
 }
 
-function checkDeepLink() {
+async function checkDeepLink() {
   const params = new URLSearchParams(window.location.search);
   const postId = params.get('p');
-  if (postId && allPosts.length > 0) {
-    const idx = allPosts.findIndex(p => p.id === postId);
+  if (postId) {
+    let idx = allPosts.findIndex(p => p && p.id === postId);
     if (idx >= 0) {
       setTimeout(() => openDetailModal(idx), 300);
       return;
+    }
+    // Deep-linked post is not in initial batch - fetch directly from cloud so deep links always resolve
+    try {
+      const resp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.${encodeURIComponent(postId)}&select=*`, {
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+      });
+      if (resp.ok) {
+        const rows = await resp.json();
+        if (Array.isArray(rows) && rows.length > 0) {
+          const p = rows[0].data || rows[0];
+          p.id = p.id || rows[0].id;
+          p.createdAt = p.createdAt || rows[0].created_at || new Date().toISOString();
+          mergeAndSortPosts([p]);
+          renderFeed();
+          idx = allPosts.findIndex(x => x && x.id === postId);
+          if (idx >= 0) {
+            setTimeout(() => openDetailModal(idx), 200);
+            return;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Deep link cloud point fetch failed:', e);
     }
   }
 
@@ -2769,6 +2842,10 @@ function buildSlide1Html(post, index) {
     bgImgSrc = post.illustrationBase64.startsWith('data:')
       ? post.illustrationBase64
       : `data:image/png;base64,${post.illustrationBase64}`;
+  } else if (post.posterBase64) {
+    bgImgSrc = post.posterBase64.startsWith('data:')
+      ? post.posterBase64
+      : `data:image/png;base64,${post.posterBase64}`;
   } else if (post.illustrationUrl) {
     let cleanUrl = post.illustrationUrl;
     if (cleanUrl.includes('pollinations.ai') || cleanUrl.includes('unsplash.com')) {
@@ -2948,6 +3025,10 @@ function buildSlide2Html(post, index) {
     bgCritiqueImgSrc = post.illustrationBase64.startsWith('data:')
       ? post.illustrationBase64
       : `data:image/png;base64,${post.illustrationBase64}`;
+  } else if (post.posterBase64) {
+    bgCritiqueImgSrc = post.posterBase64.startsWith('data:')
+      ? post.posterBase64
+      : `data:image/png;base64,${post.posterBase64}`;
   } else if (post.illustrationUrl) {
     let cleanUrl = post.illustrationUrl;
     if (cleanUrl.includes('pollinations.ai')) {
