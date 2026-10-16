@@ -6251,8 +6251,8 @@ header {
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   border-left: 3.5px solid #6366F1;
-  border-radius: 12px;
-  padding: 13px 15px;
+  border-radius: 14px;
+  padding: 14px 16px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
   animation: fadeIn 0.25s ease-out;
 }
@@ -6302,9 +6302,9 @@ header {
   align-items: flex-start;
   justify-content: space-between;
   gap: 10px;
-  padding-bottom: 10px;
+  padding-bottom: 11px;
   border-bottom: 1px solid var(--border-subtle);
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 
 .ledger-header-left {
@@ -6314,7 +6314,7 @@ header {
 }
 
 .ledger-icon {
-  font-size: 17px;
+  font-size: 18px;
   line-height: 1;
   margin-top: 1px;
 }
@@ -6329,6 +6329,7 @@ header {
   display: flex;
   align-items: center;
   gap: 6px;
+  flex-wrap: wrap;
 }
 
 .ledger-badge {
@@ -6349,8 +6350,18 @@ header {
   border: 1px solid rgba(16, 185, 129, 0.25);
 }
 
+.ledger-scope-pill {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(99, 102, 241, 0.10);
+  color: #818CF8;
+  border: 1px solid rgba(99, 102, 241, 0.22);
+}
+
 .ledger-title {
-  font-size: 13px;
+  font-size: 13.5px;
   font-weight: 700;
   color: var(--text-primary);
 }
@@ -6381,95 +6392,213 @@ header {
   white-space: nowrap;
 }
 
-.ledger-body {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.ledger-section {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.ledger-section-label {
+/* 3-Category Tabs */
+.ledger-tabs-bar {
   display: flex;
   align-items: center;
-  gap: 5px;
-  font-size: 9.5px;
-  font-weight: 800;
-  letter-spacing: 0.5px;
-  color: var(--text-muted);
-  text-transform: uppercase;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.04);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 3px;
+  margin-bottom: 12px;
 }
 
-.ledger-num {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: rgba(99, 102, 241, 0.14);
-  color: #6366F1;
-  font-size: 8.5px;
-  font-weight: 800;
-  display: inline-flex;
+[data-theme="obsidian"] .ledger-tabs-bar {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.ledger-tab-btn {
+  flex: 1;
+  display: flex;
   align-items: center;
   justify-content: center;
+  gap: 6px;
+  padding: 7px 8px;
+  border-radius: 7px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  font-family: inherit;
 }
 
-.ledger-text {
+.ledger-tab-btn:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.ledger-tab-btn.active {
+  background: var(--bg-card);
+  color: var(--primary);
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.ledger-tab-icon {
+  font-size: 13px;
+  line-height: 1;
+}
+
+.ledger-tab-count {
+  font-size: 9.5px;
+  font-weight: 800;
+  background: rgba(99, 102, 241, 0.15);
+  color: var(--primary);
+  padding: 1px 5px;
+  border-radius: 8px;
+}
+
+.ledger-tab-btn.active .ledger-tab-count {
+  background: var(--primary);
+  color: #FFFFFF;
+}
+
+/* Tab Panels */
+.ledger-tab-panel {
+  display: none;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.ledger-tab-panel.active {
+  display: block;
+}
+
+.ledger-panel-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.ledger-panel-label {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ledger-panel-label.tension-label {
+  color: #D97706;
+}
+
+.ledger-thesis-box {
+  background: rgba(99, 102, 241, 0.04);
+  border: 1px solid rgba(99, 102, 241, 0.15);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+.ledger-thesis-text {
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.ledger-claims-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ledger-claim-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 10px 12px;
+  transition: all 0.2s ease;
+}
+
+.ledger-claim-card:hover {
+  border-color: rgba(99, 102, 241, 0.3);
+}
+
+.ledger-claim-badge {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  background: rgba(99, 102, 241, 0.12);
+  color: #6366F1;
+  font-size: 10px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.ledger-claim-text {
   font-size: 12px;
   line-height: 1.5;
   color: var(--text-primary);
   margin: 0;
-}
-
-.ledger-claims-list {
-  margin: 0;
-  padding-left: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-
-.ledger-claim-item {
-  font-size: 11.5px;
-  line-height: 1.45;
-  color: var(--text-primary);
+  flex: 1;
 }
 
 .ledger-tension-box {
   background: rgba(245, 158, 11, 0.06);
-  border: 1px solid rgba(245, 158, 11, 0.22);
-  border-radius: 9px;
-  padding: 9px 11px;
-}
-
-.ledger-section-label.tension-label {
-  color: #D97706;
-}
-
-.ledger-section-label.tension-label .ledger-num {
-  background: rgba(245, 158, 11, 0.2);
-  color: #D97706;
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  border-radius: 10px;
+  padding: 12px 14px;
 }
 
 .ledger-tension-text {
-  font-size: 11.5px;
-  font-weight: 600;
-  line-height: 1.45;
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.6;
   color: var(--text-primary);
   margin: 0;
 }
 
+.ledger-panel-nav {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ledger-tab-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--primary);
+  background: rgba(99, 102, 241, 0.08);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: 7px;
+  padding: 5px 11px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.ledger-tab-nav-btn:hover {
+  background: rgba(99, 102, 241, 0.16);
+  border-color: var(--primary);
+}
+
 .ledger-footer-tip {
-  margin-top: 10px;
-  padding-top: 8px;
+  margin-top: 12px;
+  padding-top: 9px;
   border-top: 1px dashed var(--border-subtle);
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 10.5px;
+  font-size: 11px;
   color: var(--text-muted);
 }
 

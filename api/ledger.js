@@ -2,6 +2,7 @@
 // Objective Editorial Research Assistant for Slant.today
 // Reads extracted article text or video transcript and generates a strictly neutral,
 // non-partisan, 3-part ledger summarizing the source with 1-3 star completeness rating.
+// Elaborates depth and scope based on content/video length, structured into 3 distinct categories.
 
 const DEFAULT_KEY_B64 = 'QVEuQWI4Uk42STR5WnQzMEl6NGpLRkQ2SndaYVlSeThQYlVtWXpDYUNuMzU3alIyUU9KbFE=';
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || Buffer.from(DEFAULT_KEY_B64, 'base64').toString('utf8');
@@ -34,17 +35,23 @@ module.exports = async function handler(req, res) {
   } = body || {};
 
   const cleanTitle = (title || '').trim();
-  const cleanContent = (content || '').trim().slice(0, 7000);
+  const cleanContent = (content || '').trim().slice(0, 9000);
   const cleanUrl = (url || '').trim();
 
   if (!cleanTitle && !cleanContent && !cleanUrl) {
     return res.status(400).json({ error: 'Source URL, title, or content is required' });
   }
 
+  const isVideo = cleanUrl.includes('youtube.com') || cleanUrl.includes('youtu.be') || (siteName || '').toLowerCase().includes('youtube') || cleanContent.includes('YouTube Video');
+  const defaultScope = isVideo
+    ? (cleanContent.includes('Duration:') ? cleanContent.match(/Duration:\s*([^\n\r]+)/)?.[1]?.trim() + ' Video Analysis' : 'Video Analysis')
+    : (cleanContent.length > 2500 ? 'Long-Form Article' : 'Curated Web Source');
+
   const sourceContext = `
 SOURCE TITLE: ${cleanTitle || 'Source Article / Video'}
-SOURCE DOMAIN / SITE: ${siteName || 'Web Source'}
+SOURCE DOMAIN / SITE: ${siteName || (isVideo ? 'YouTube Video' : 'Web Source')}
 SOURCE URL: ${cleanUrl}
+SOURCE TYPE: ${isVideo ? 'Video Transcript / Chapters' : 'Article / Essay'}
 SOURCE TEXT:
 ${cleanContent || cleanTitle || cleanUrl}
 `.trim();
@@ -53,31 +60,40 @@ ${cleanContent || cleanTitle || cleanUrl}
 Your job is to read an extracted article or video transcript and generate a strictly neutral, non-partisan, 3-part ledger summarizing the source.
 
 GOAL:
-Provide the user with an accurate, completely unbiased breakdown of what the source discusses so they can quickly form and articulate their own stance.
+Provide the user with an accurate, completely unbiased, elaborate breakdown of what the source discusses so they can quickly form and articulate their own stance.
+
+SCALE & ELABORATION (BASED ON SIZE/DEPTH OF THE VIDEO OR ARTICLE):
+- Scale the elaboration and depth based on the duration, length, and substance of the source (especially for long-form YouTube videos, podcast interviews, or in-depth analytical pieces).
+- For longer or multi-topic pieces, provide a thorough, comprehensive summary for each of the 3 categories rather than terse one-liners, giving full context to the speaker/author's assertions.
+- Subject & Thesis: 2 to 4 neutral sentences outlining the topic, context, speakers/parties involved, and the central thesis or focus.
+- Core Claims & Evidence: Provide 3 to 6 detailed assertions, directly citing specific figures, data points, quotes, incidents, or chapter topics cited by the author/speaker.
+- Underlying Tension or Tradeoff: 2 to 3 sentences framing the central conflict, systemic tradeoffs, policy dilemmas, or counter-perspectives highlighted by or arising from the piece.
 
 STRICT CONSTRAINTS:
 1. ABSOLUTE NEUTRALITY: Do not take a side, endorse, or debunk any claim.
-2. NO EVALUATIVE ADJECTIVES: Never use judgmental terms such as "insightful", "biased", "compelling", "flawed", "failed", or "brilliant". Use neutral descriptive verbs ("examines", "asserts", "reports", "questions").
-3. ATTRIBUTION RULE: Every claim, assertion, or opinion must be explicitly attributed to the creator/author (e.g., "The creator contends that...", "The author cites...").
+2. NO EVALUATIVE ADJECTIVES: Never use judgmental terms such as "insightful", "biased", "compelling", "flawed", "failed", or "brilliant". Use neutral descriptive verbs ("examines", "asserts", "reports", "questions", "outlines", "articulates").
+3. ATTRIBUTION RULE: Every claim, assertion, or opinion must be explicitly attributed to the creator/author (e.g., "The creator contends that...", "The speaker notes...", "The author cites...").
 4. ZERO HALLUCINATION: Only include information, data points, or tensions that exist directly within the supplied text.
 
 OUTPUT FORMAT:
 Return pure valid JSON matching this schema:
 {
-  "subject_and_thesis": "1-2 neutral sentences stating the topic, context, and the central claim or focus of the source.",
+  "subject_and_thesis": "Elaborate 2-4 neutral sentences stating the topic, context, speakers/parties, and the central claim or focus of the source.",
   "core_claims_and_evidence": [
-    "Direct assertion with the specific data point, quote, or incident cited by the author.",
-    "Direct assertion with the specific data point, quote, or incident cited by the author.",
-    "Direct assertion with the specific data point, quote, or incident cited by the author."
+    "Detailed assertion 1 with specific data point, quote, or incident cited by author/speaker.",
+    "Detailed assertion 2 with specific data point, quote, or incident cited by author/speaker.",
+    "Detailed assertion 3 with specific data point, quote, or incident cited by author/speaker.",
+    "Detailed assertion 4 with specific data point, quote, or incident cited by author/speaker."
   ],
-  "underlying_tension_or_question": "1 concise sentence framing the central conflict, unresolved tradeoff, or counter-perspective highlighted by or arising from the piece."
+  "underlying_tension_or_question": "Elaborate 2-3 sentences framing the central conflict, unresolved tradeoff, or counter-perspective highlighted by or arising from the piece.",
+  "source_scope": "e.g. 28-min Video Analysis or Long-form Article"
 }`;
 
   try {
     const ledger = await callGeminiLedger(systemPrompt, sourceContext, PRIMARY_MODEL)
       .catch(() => callGeminiLedger(systemPrompt, sourceContext, FALLBACK_MODEL));
 
-    const evaluated = evaluateLedgerCompleteness(ledger);
+    const evaluated = evaluateLedgerCompleteness(ledger, defaultScope);
     return res.status(200).json({
       success: true,
       ledger: evaluated
@@ -85,8 +101,8 @@ Return pure valid JSON matching this schema:
 
   } catch (err) {
     console.warn('Gemini ledger error, building fallback ledger:', err.message);
-    const fallbackLedger = buildFallbackLedger(cleanTitle, cleanContent, siteName);
-    const evaluated = evaluateLedgerCompleteness(fallbackLedger);
+    const fallbackLedger = buildFallbackLedger(cleanTitle, cleanContent, siteName, defaultScope);
+    const evaluated = evaluateLedgerCompleteness(fallbackLedger, defaultScope);
     return res.status(200).json({
       success: true,
       ledger: evaluated,
@@ -98,7 +114,7 @@ Return pure valid JSON matching this schema:
 async function callGeminiLedger(systemPrompt, sourceContext, modelName) {
   const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${GEMINI_API_KEY}`;
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 20000);
+  const timeout = setTimeout(() => controller.abort(), 25000);
 
   const resp = await fetch(geminiUrl, {
     method: 'POST',
@@ -113,7 +129,7 @@ async function callGeminiLedger(systemPrompt, sourceContext, modelName) {
       ],
       generationConfig: {
         temperature: 0.15,
-        maxOutputTokens: 1024,
+        maxOutputTokens: 2048,
         responseMimeType: 'application/json'
       }
     })
@@ -136,7 +152,7 @@ async function callGeminiLedger(systemPrompt, sourceContext, modelName) {
   return parsed;
 }
 
-function evaluateLedgerCompleteness(ledger) {
+function evaluateLedgerCompleteness(ledger, defaultScope = 'Curated Source') {
   const cleanLedger = {
     subject_and_thesis: (ledger && typeof ledger.subject_and_thesis === 'string') ? ledger.subject_and_thesis.trim() : '',
     core_claims_and_evidence: (ledger && Array.isArray(ledger.core_claims_and_evidence))
@@ -144,7 +160,10 @@ function evaluateLedgerCompleteness(ledger) {
       : [],
     underlying_tension_or_question: (ledger && typeof ledger.underlying_tension_or_question === 'string')
       ? ledger.underlying_tension_or_question.trim()
-      : ''
+      : '',
+    source_scope: (ledger && typeof ledger.source_scope === 'string' && ledger.source_scope.trim())
+      ? ledger.source_scope.trim()
+      : defaultScope
   };
 
   // Evaluate star points:
@@ -183,7 +202,7 @@ function evaluateLedgerCompleteness(ledger) {
   };
 }
 
-function buildFallbackLedger(title, content, siteName) {
+function buildFallbackLedger(title, content, siteName, defaultScope = 'Curated Source') {
   const headline = title || 'Reported News Development';
   const sourceName = siteName || 'The reporting source';
 
@@ -191,15 +210,16 @@ function buildFallbackLedger(title, content, siteName) {
     .split(/(?<=[.!?])\s+/)
     .map(s => s.trim())
     .filter(s => s.length > 20 && !s.includes('cookie') && !s.includes('subscribe'))
-    .slice(0, 4);
+    .slice(0, 5);
 
   const claims = sentences.length > 0
-    ? sentences.slice(0, 3).map(s => `${sourceName} reports that ${s.replace(/^[A-Z]/, c => c.toLowerCase())}`)
+    ? sentences.map(s => `${sourceName} reports that ${s.replace(/^[A-Z]/, c => c.toLowerCase())}`)
     : [`${sourceName} highlights developments regarding "${headline}".`];
 
   return {
-    subject_and_thesis: `${sourceName} examines "${headline}", presenting current facts and contextual background.`,
+    subject_and_thesis: `${sourceName} examines "${headline}", presenting current factual background and key statements.`,
     core_claims_and_evidence: claims,
-    underlying_tension_or_question: `What are the broader long-term implications and tradeoffs emerging from "${headline}"?`
+    underlying_tension_or_question: `What are the broader long-term implications, tradeoffs, and counter-perspectives emerging from "${headline}"?`,
+    source_scope: defaultScope
   };
 }

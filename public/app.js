@@ -5840,6 +5840,32 @@ async function handleUrlInput(val) {
   }
 }
 
+let currentLedgerActiveTab = 'thesis';
+
+function switchLedgerTab(tabName) {
+  currentLedgerActiveTab = tabName;
+  const card = document.getElementById('sourceLedgerCard');
+  if (!card) return;
+
+  card.querySelectorAll('.ledger-tab-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.getAttribute('data-ledger-tab') === tabName);
+  });
+
+  const panels = ['thesis', 'claims', 'tension'];
+  panels.forEach(p => {
+    const el = document.getElementById(`ledgerPanel_${p}`);
+    if (el) {
+      if (p === tabName) {
+        el.style.display = 'block';
+        el.classList.add('active');
+      } else {
+        el.style.display = 'none';
+        el.classList.remove('active');
+      }
+    }
+  });
+}
+
 function renderSourceLedgerLoading() {
   const card = document.getElementById('sourceLedgerCard');
   if (!card) return;
@@ -5850,7 +5876,7 @@ function renderSourceLedgerLoading() {
       <div class="ledger-loading-spinner"></div>
       <div class="ledger-loading-text">
         <span class="ledger-loading-title">⚖️ Objective Research Assistant</span>
-        <span class="ledger-loading-sub">Analyzing source thesis, core claims, and underlying tensions...</span>
+        <span class="ledger-loading-sub">Analyzing source thesis, verified evidence, and underlying tensions...</span>
       </div>
     </div>
   `;
@@ -5872,10 +5898,26 @@ function renderSourceLedger(ledger) {
   const starsCount = Math.min(3, Math.max(1, Number(ledger.stars || ledger.completeness_score || 3)));
   const starsHtml = '★'.repeat(starsCount) + '☆'.repeat(3 - starsCount);
   const starsLabel = ledger.stars_label || (starsCount === 3 ? '3/3 High Substance Anchor' : `${starsCount}/3 Anchor`);
+  const scopeLabel = ledger.source_scope || 'Curated Source';
 
-  const claimsHtml = (ledger.core_claims_and_evidence || []).map(claim => {
-    return `<li class="ledger-claim-item">${escapeHtml(claim)}</li>`;
-  }).join('');
+  const claimsList = Array.isArray(ledger.core_claims_and_evidence) ? ledger.core_claims_and_evidence : [];
+  const claimsCount = claimsList.length;
+
+  const claimsCardsHtml = claimsList.length > 0
+    ? claimsList.map((claim, idx) => `
+        <div class="ledger-claim-card">
+          <div class="ledger-claim-badge">${idx + 1}</div>
+          <p class="ledger-claim-text">${escapeHtml(claim)}</p>
+        </div>
+      `).join('')
+    : `
+        <div class="ledger-claim-card">
+          <div class="ledger-claim-badge">ℹ</div>
+          <p class="ledger-claim-text">Source does not provide detailed empirical evidence or cited data.</p>
+        </div>
+      `;
+
+  const activeTab = currentLedgerActiveTab || 'thesis';
 
   card.innerHTML = `
     <div class="ledger-header">
@@ -5885,6 +5927,7 @@ function renderSourceLedger(ledger) {
           <div class="ledger-badge-row">
             <span class="ledger-badge">EDITORIAL RESEARCH ASSISTANT</span>
             <span class="ledger-pill">Strictly Neutral</span>
+            <span class="ledger-scope-pill">${escapeHtml(scopeLabel)}</span>
           </div>
           <span class="ledger-title">Objective Source Ledger</span>
         </div>
@@ -5895,40 +5938,89 @@ function renderSourceLedger(ledger) {
       </div>
     </div>
 
-    <div class="ledger-body">
-      <!-- 1. Subject & Thesis -->
-      <div class="ledger-section">
-        <div class="ledger-section-label">
+    <!-- 3-Category Tabs Bar -->
+    <div class="ledger-tabs-bar" role="tablist">
+      <button type="button" class="ledger-tab-btn ${activeTab === 'thesis' ? 'active' : ''}" data-ledger-tab="thesis" onclick="switchLedgerTab('thesis')">
+        <span class="ledger-tab-icon">🎯</span>
+        <span>Thesis</span>
+      </button>
+      <button type="button" class="ledger-tab-btn ${activeTab === 'claims' ? 'active' : ''}" data-ledger-tab="claims" onclick="switchLedgerTab('claims')">
+        <span class="ledger-tab-icon">📊</span>
+        <span>Claims & Evidence</span>
+        <span class="ledger-tab-count">${claimsCount}</span>
+      </button>
+      <button type="button" class="ledger-tab-btn ${activeTab === 'tension' ? 'active' : ''}" data-ledger-tab="tension" onclick="switchLedgerTab('tension')">
+        <span class="ledger-tab-icon">⚖️</span>
+        <span>Tension & Tradeoffs</span>
+      </button>
+    </div>
+
+    <!-- Tab 1: Subject & Thesis -->
+    <div class="ledger-tab-panel ${activeTab === 'thesis' ? 'active' : ''}" id="ledgerPanel_thesis" style="display:${activeTab === 'thesis' ? 'block' : 'none'};">
+      <div class="ledger-panel-label-row">
+        <span class="ledger-panel-label">
           <span class="ledger-num">1</span>
           <span>SUBJECT & CENTRAL THESIS</span>
-        </div>
-        <p class="ledger-text">${escapeHtml(ledger.subject_and_thesis || 'No central thesis provided in source.')}</p>
+        </span>
       </div>
+      <div class="ledger-thesis-box">
+        <p class="ledger-thesis-text">${escapeHtml(ledger.subject_and_thesis || 'No central thesis provided in source.')}</p>
+      </div>
+      <div class="ledger-panel-nav">
+        <span></span>
+        <button type="button" class="ledger-tab-nav-btn" onclick="switchLedgerTab('claims')">
+          <span>Next: Claims & Evidence (${claimsCount})</span>
+          <span>→</span>
+        </button>
+      </div>
+    </div>
 
-      <!-- 2. Core Claims & Evidence -->
-      <div class="ledger-section">
-        <div class="ledger-section-label">
+    <!-- Tab 2: Core Claims & Evidence -->
+    <div class="ledger-tab-panel ${activeTab === 'claims' ? 'active' : ''}" id="ledgerPanel_claims" style="display:${activeTab === 'claims' ? 'block' : 'none'};">
+      <div class="ledger-panel-label-row">
+        <span class="ledger-panel-label">
           <span class="ledger-num">2</span>
-          <span>CORE CLAIMS & EVIDENCE</span>
-        </div>
-        <ul class="ledger-claims-list">
-          ${claimsHtml || '<li class="ledger-claim-item">Source does not provide detailed empirical evidence or cited data.</li>'}
-        </ul>
+          <span>CORE CLAIMS, RECEIPTS & EVIDENCE</span>
+        </span>
       </div>
+      <div class="ledger-claims-container">
+        ${claimsCardsHtml}
+      </div>
+      <div class="ledger-panel-nav">
+        <button type="button" class="ledger-tab-nav-btn" onclick="switchLedgerTab('thesis')">
+          <span>← Back to Thesis</span>
+        </button>
+        <button type="button" class="ledger-tab-nav-btn" onclick="switchLedgerTab('tension')">
+          <span>Next: Tension & Tradeoffs</span>
+          <span>→</span>
+        </button>
+      </div>
+    </div>
 
-      <!-- 3. Underlying Tension or Question -->
-      <div class="ledger-section ledger-tension-box">
-        <div class="ledger-section-label tension-label">
+    <!-- Tab 3: Underlying Tension or Question -->
+    <div class="ledger-tab-panel ${activeTab === 'tension' ? 'active' : ''}" id="ledgerPanel_tension" style="display:${activeTab === 'tension' ? 'block' : 'none'};">
+      <div class="ledger-panel-label-row">
+        <span class="ledger-panel-label tension-label">
           <span class="ledger-num">3</span>
-          <span>UNDERLYING TENSION / COUNTER-PERSPECTIVE</span>
-        </div>
+          <span>UNDERLYING TENSION & COUNTER-PERSPECTIVE</span>
+        </span>
+      </div>
+      <div class="ledger-tension-box">
         <p class="ledger-tension-text">${escapeHtml(ledger.underlying_tension_or_question || 'No explicit tension highlighted.')}</p>
+      </div>
+      <div class="ledger-panel-nav">
+        <button type="button" class="ledger-tab-nav-btn" onclick="switchLedgerTab('claims')">
+          <span>← Back to Claims</span>
+        </button>
+        <button type="button" class="ledger-tab-nav-btn" onclick="switchLedgerTab('thesis')">
+          <span>Review Thesis ↺</span>
+        </button>
       </div>
     </div>
 
     <div class="ledger-footer-tip">
       <span class="tip-icon">💡</span>
-      <span class="tip-text">Use this neutral ledger to anchor your unique counter-slant or reaction below ↓</span>
+      <span class="tip-text">Ground your unique counter-slant or reaction below based on this breakdown ↓</span>
     </div>
   `;
 }
