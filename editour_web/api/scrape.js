@@ -366,40 +366,39 @@ async function scrapeWithJinaReader(targetUrl) {
   }
 }
 
-async function getGeminiVideoBrief(targetUrl, title, author) {
-  if (!GEMINI_API_KEY) return '';
+let YoutubeTranscript = null;
+try {
+  YoutubeTranscript = require('youtube-transcript').YoutubeTranscript;
+} catch (_) {}
+
+async function fetchPrimaryYouTubeTranscript(videoId) {
+  if (!videoId || !YoutubeTranscript) return '';
   try {
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${GEMINI_API_KEY}`;
-    const prompt = `You are an investigative research journalist. Research and provide a comprehensive, fact-dense editorial briefing for this YouTube video: ${targetUrl || title} (${title ? `titled "${title}"` : ''} by ${author || 'creator'}).
-Extract and provide:
-1. Exact video title, host/channel name, and featured guest(s)
-2. Core thesis and comprehensive narrative summary
-3. Key quotes and primary data points/receipts
-4. Chapter breakdown or key thematic transitions`;
+    const chunks = await YoutubeTranscript.fetchTranscript(videoId, { lang: 'en' })
+      .catch(() => YoutubeTranscript.fetchTranscript(videoId));
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 9500);
+    if (!chunks || chunks.length === 0) return '';
 
-    const resp = await fetch(geminiUrl, {
-      method: 'POST',
-      signal: controller.signal,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        tools: [{ google_search: {} }],
-        generationConfig: { maxOutputTokens: 1000, temperature: 0.2 }
-      })
-    });
-    clearTimeout(timeout);
-
-    if (resp.ok) {
-      const data = await resp.json();
-      return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    let formatted = '';
+    let lastSec = -999;
+    for (const chunk of chunks) {
+      const sec = Math.floor((chunk.offset || 0) / 1000);
+      if (sec - lastSec >= 60) {
+        const m = Math.floor(sec / 60);
+        const s = sec % 60;
+        const stamp = '[' + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0') + ']';
+        formatted += '\n\n' + stamp + ' ';
+        lastSec = sec;
+      }
+      formatted += (chunk.text || '').replace(/\n+/g, ' ') + ' ';
     }
-  } catch (e) {
-    console.warn('Gemini video research brief failed, falling back:', e.message);
+    const clean = formatted.trim();
+    // Return up to 35,000 characters (~7,000 words, covering ~45-60 min speech comfortably)
+    return clean.slice(0, 35000);
+  } catch (err) {
+    console.warn(`Primary YouTube transcript fetch unavailable for ${videoId}:`, err.message);
+    return '';
   }
-  return '';
 }
 
 async function scrapeYouTubeUrl(targetUrl, videoId) {
@@ -451,27 +450,10 @@ async function scrapeYouTubeUrl(targetUrl, videoId) {
       : `${mins} min${mins === 1 ? '' : 's'}`;
   }
 
-  // Check if description has genuine chapter timestamps or educational breakdown
-  const hasChaptersOrTranscript = desc && (
-    desc.includes('0:00') || desc.includes('00:00') ||
-    desc.match(/\b\d{1,2}:\d{2}\b/)
-  ) && desc.length > 500;
-
-  // If description is missing, short, or just promo/social links,
-  // query Gemini with Google Search Grounding to extract full factual briefing & receipts!
-  if (!hasChaptersOrTranscript) {
-    const brief = await getGeminiVideoBrief(targetUrl, title, author);
-    if (brief && brief.length > 80) {
-      desc = (desc ? `${desc}\n\n=== FACTUAL EDITORIAL DOSSIER & TRANSCRIPT BREAKDOWN ===\n` : '') + brief;
-      const titleMatch = brief.match(/Exact Video Title:\*?\*?\s*(.+)$/m);
-      if (titleMatch && titleMatch[1] && (!title || title.length < 5)) {
-        title = titleMatch[1].replace(/[*#]/g, '').trim();
-      }
-      const authorMatch = brief.match(/(?:Channel Name|Author|Host):\*?\*?\s*(.+)$/m);
-      if (authorMatch && authorMatch[1] && (!author || author === 'YouTube')) {
-        author = authorMatch[1].replace(/[*#]/g, '').trim();
-      }
-    }
+  // Primary Source: Fetch direct verbatim transcript from YouTube (100% unbiased primary words)
+  let transcript = '';
+  if (videoId) {
+    transcript = await fetchPrimaryYouTubeTranscript(videoId);
   }
 
   // Candidate Thumbnails
@@ -515,7 +497,8 @@ async function scrapeYouTubeUrl(targetUrl, videoId) {
     `Channel / Speaker: ${author}`,
     `Platform: YouTube Video`,
     durationStr ? `Video Duration: ${durationStr}` : '',
-    desc ? `\nVideo Context, Highlights, Primary Receipts & Chapters:\n${desc}` : ''
+    desc ? `\nCreator Published Description & Notes:\n${desc}` : '',
+    transcript ? `\n\n=== VERBATIM PRIMARY VIDEO TRANSCRIPT (FROM SPEAKER) ===\n${transcript}` : ''
   ].filter(Boolean).join('\n').trim();
 
   const shortDesc = desc ? (desc.slice(0, 450).replace(/\s+/g, ' ') + (desc.length > 450 ? '...' : '')) : '';

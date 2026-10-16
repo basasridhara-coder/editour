@@ -1007,42 +1007,6 @@ function extractYouTubeVideoId(url) {
   return null;
 }
 
-async function getGeminiVideoBrief(targetUrl, title, author) {
-  if (!GEMINI_API_KEY) return '';
-  try {
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${GEMINI_API_KEY}`;
-    const prompt = `You are an investigative research journalist. Research and provide a comprehensive, fact-dense editorial briefing for this YouTube video: ${targetUrl || title} (${title ? `titled "${title}"` : ''} by ${author || 'creator'}).
-Extract and provide:
-1. Exact video title, host/channel name, and featured guest(s)
-2. Core thesis and comprehensive narrative summary
-3. Key quotes and primary data points/receipts
-4. Chapter breakdown or key thematic transitions`;
-
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 9500);
-
-    const resp = await fetch(geminiUrl, {
-      method: 'POST',
-      signal: controller.signal,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        tools: [{ google_search: {} }],
-        generationConfig: { maxOutputTokens: 1000, temperature: 0.2 }
-      })
-    });
-    clearTimeout(timeout);
-
-    if (resp.ok) {
-      const data = await resp.json();
-      return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    }
-  } catch (e) {
-    console.warn('Gemini video research brief in synthesize failed, falling back:', e.message);
-  }
-  return '';
-}
-
 async function scrapeYouTubeUrl(targetUrl, videoId) {
   let oembed = {};
   try {

@@ -4,5 +4,8 @@
   "description": "Editour • Visual Editorial & Infographic PostCard Feed (editour.app)",
   "scripts": {
     "start": "node server.js"
+  },
+  "dependencies": {
+    "youtube-transcript": "^1.3.1"
   }
 }
