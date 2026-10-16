@@ -1,8 +1,7 @@
 // Serverless Function: /api/ledger
 // Objective Editorial Research Assistant for Slant.today
 // Reads extracted article text or video transcript and generates a strictly neutral,
-// non-partisan, 3-part ledger summarizing the source with 1-3 star completeness rating.
-// Elaborates depth and scope based on content/video length, structured into 3 distinct categories.
+// non-partisan, highly elaborate 3-part ledger with 1-3 star completeness rating.
 
 const DEFAULT_KEY_B64 = 'QVEuQWI4Uk42STR5WnQzMEl6NGpLRkQ2SndaYVlSeThQYlVtWXpDYUNuMzU3alIyUU9KbFE=';
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || Buffer.from(DEFAULT_KEY_B64, 'base64').toString('utf8');
@@ -35,7 +34,7 @@ module.exports = async function handler(req, res) {
   } = body || {};
 
   const cleanTitle = (title || '').trim();
-  const cleanContent = (content || '').trim().slice(0, 9000);
+  const cleanContent = (content || '').trim().slice(0, 10000);
   const cleanUrl = (url || '').trim();
 
   if (!cleanTitle && !cleanContent && !cleanUrl) {
@@ -43,9 +42,11 @@ module.exports = async function handler(req, res) {
   }
 
   const isVideo = cleanUrl.includes('youtube.com') || cleanUrl.includes('youtu.be') || (siteName || '').toLowerCase().includes('youtube') || cleanContent.includes('YouTube Video');
+  const detectedDuration = cleanContent.match(/Video Duration:\s*([^\n\r]+)/)?.[1]?.trim() ||
+                           cleanContent.match(/Duration:\s*([^\n\r]+)/)?.[1]?.trim() || '';
   const defaultScope = isVideo
-    ? (cleanContent.includes('Duration:') ? cleanContent.match(/Duration:\s*([^\n\r]+)/)?.[1]?.trim() + ' Video Analysis' : 'Video Analysis')
-    : (cleanContent.length > 2500 ? 'Long-Form Article' : 'Curated Web Source');
+    ? (detectedDuration ? `${detectedDuration} Video Analysis` : 'In-Depth Video Analysis')
+    : (cleanContent.length > 2500 ? 'Long-Form Investigation' : 'Curated Source Analysis');
 
   const sourceContext = `
 SOURCE TITLE: ${cleanTitle || 'Source Article / Video'}
@@ -57,17 +58,19 @@ ${cleanContent || cleanTitle || cleanUrl}
 `.trim();
 
   const systemPrompt = `You are an objective editorial research assistant for Slant.today.
-Your job is to read an extracted article or video transcript and generate a strictly neutral, non-partisan, 3-part ledger summarizing the source.
+Your job is to read an extracted article or video transcript and generate a strictly neutral, non-partisan, highly elaborate 3-part ledger summarizing the source.
 
 GOAL:
-Provide the user with an accurate, completely unbiased, elaborate breakdown of what the source discusses so they can quickly form and articulate their own stance.
+Provide the user with an exhaustive, deep, and completely unbiased breakdown of what the source discusses so they can quickly form and articulate their own stance.
 
-SCALE & ELABORATION (BASED ON SIZE/DEPTH OF THE VIDEO OR ARTICLE):
-- Scale the elaboration and depth based on the duration, length, and substance of the source (especially for long-form YouTube videos, podcast interviews, or in-depth analytical pieces).
-- For longer or multi-topic pieces, provide a thorough, comprehensive summary for each of the 3 categories rather than terse one-liners, giving full context to the speaker/author's assertions.
-- Subject & Thesis: 2 to 4 neutral sentences outlining the topic, context, speakers/parties involved, and the central thesis or focus.
-- Core Claims & Evidence: Provide 3 to 6 detailed assertions, directly citing specific figures, data points, quotes, incidents, or chapter topics cited by the author/speaker.
-- Underlying Tension or Tradeoff: 2 to 3 sentences framing the central conflict, systemic tradeoffs, policy dilemmas, or counter-perspectives highlighted by or arising from the piece.
+ELABORATION & DEPTH REQUIREMENT:
+DO NOT PROVIDE TERSE OR SUPERFICIAL SUMMARIES. The user specifically requests an elaborate, multi-dimensional breakdown.
+- In 'subject_and_thesis', provide both the background context (2-3 sentences) AND the detailed central thesis (2-3 sentences).
+- In 'core_claims_and_evidence', provide 4 to 6 rich, detailed claims. Each claim MUST have a clear bold title and an elaborate 2-3 sentence explanation citing specific data points, quotes, incidents, or receipts with explicit author attribution.
+- In 'underlying_tensions', provide 3 distinct dimensions:
+  1. primary_conflict: The core structural or philosophical friction.
+  2. tradeoffs: Key economic, operational, or policy compromises and unintended consequences.
+  3. counter_questions: The opposing counter-perspectives or unresolved critical inquiries.
 
 STRICT CONSTRAINTS:
 1. ABSOLUTE NEUTRALITY: Do not take a side, endorse, or debunk any claim.
@@ -78,15 +81,34 @@ STRICT CONSTRAINTS:
 OUTPUT FORMAT:
 Return pure valid JSON matching this schema:
 {
-  "subject_and_thesis": "Elaborate 2-4 neutral sentences stating the topic, context, speakers/parties, and the central claim or focus of the source.",
+  "subject_and_thesis": {
+    "context": "2-3 neutral sentences explaining the background, entities involved, and setting.",
+    "thesis": "2-3 neutral sentences articulating the core thesis and overarching argument."
+  },
   "core_claims_and_evidence": [
-    "Detailed assertion 1 with specific data point, quote, or incident cited by author/speaker.",
-    "Detailed assertion 2 with specific data point, quote, or incident cited by author/speaker.",
-    "Detailed assertion 3 with specific data point, quote, or incident cited by author/speaker.",
-    "Detailed assertion 4 with specific data point, quote, or incident cited by author/speaker."
+    {
+      "title": "Short bold title for assertion 1",
+      "evidence": "Detailed 2-3 sentences with specific data point, quote, or incident cited with author attribution."
+    },
+    {
+      "title": "Short bold title for assertion 2",
+      "evidence": "Detailed 2-3 sentences with specific data point, quote, or incident cited with author attribution."
+    },
+    {
+      "title": "Short bold title for assertion 3",
+      "evidence": "Detailed 2-3 sentences with specific data point, quote, or incident cited with author attribution."
+    },
+    {
+      "title": "Short bold title for assertion 4",
+      "evidence": "Detailed 2-3 sentences with specific data point, quote, or incident cited with author attribution."
+    }
   ],
-  "underlying_tension_or_question": "Elaborate 2-3 sentences framing the central conflict, unresolved tradeoff, or counter-perspective highlighted by or arising from the piece.",
-  "source_scope": "e.g. 28-min Video Analysis or Long-form Article"
+  "underlying_tensions": {
+    "primary_conflict": "Detailed 1-2 sentences framing the core structural friction.",
+    "tradeoffs": "Detailed 1-2 sentences explaining unintended consequences or economic/policy compromises.",
+    "counter_questions": "Detailed 1-2 sentences framing the opposing counter-perspective or unresolved questions."
+  },
+  "source_scope": "e.g. 28-min Video Analysis or Long-form Investigation"
 }`;
 
   try {
@@ -153,27 +175,59 @@ async function callGeminiLedger(systemPrompt, sourceContext, modelName) {
 }
 
 function evaluateLedgerCompleteness(ledger, defaultScope = 'Curated Source') {
-  const cleanLedger = {
-    subject_and_thesis: (ledger && typeof ledger.subject_and_thesis === 'string') ? ledger.subject_and_thesis.trim() : '',
-    core_claims_and_evidence: (ledger && Array.isArray(ledger.core_claims_and_evidence))
-      ? ledger.core_claims_and_evidence.map(c => String(c).trim()).filter(Boolean)
-      : [],
-    underlying_tension_or_question: (ledger && typeof ledger.underlying_tension_or_question === 'string')
-      ? ledger.underlying_tension_or_question.trim()
-      : '',
-    source_scope: (ledger && typeof ledger.source_scope === 'string' && ledger.source_scope.trim())
-      ? ledger.source_scope.trim()
-      : defaultScope
-  };
+  let subject_and_thesis = { context: '', thesis: '' };
+  if (ledger && typeof ledger.subject_and_thesis === 'object' && ledger.subject_and_thesis !== null) {
+    subject_and_thesis = {
+      context: String(ledger.subject_and_thesis.context || '').trim(),
+      thesis: String(ledger.subject_and_thesis.thesis || '').trim()
+    };
+  } else if (ledger && typeof ledger.subject_and_thesis === 'string') {
+    subject_and_thesis = {
+      context: '',
+      thesis: ledger.subject_and_thesis.trim()
+    };
+  }
 
-  // Evaluate star points:
-  // Point 1: Has substantiated subject & thesis (> 15 chars)
-  const hasThesis = cleanLedger.subject_and_thesis.length >= 15;
-  // Point 2: Has core claims & evidence (at least 2 evidence points, or 1 substantial point > 25 chars)
-  const hasClaims = cleanLedger.core_claims_and_evidence.length >= 2 ||
-    (cleanLedger.core_claims_and_evidence.length === 1 && cleanLedger.core_claims_and_evidence[0].length >= 25);
-  // Point 3: Has underlying tension or tradeoff framing (> 15 chars)
-  const hasTension = cleanLedger.underlying_tension_or_question.length >= 15;
+  let core_claims_and_evidence = [];
+  if (ledger && Array.isArray(ledger.core_claims_and_evidence)) {
+    core_claims_and_evidence = ledger.core_claims_and_evidence.map(item => {
+      if (typeof item === 'object' && item !== null) {
+        return {
+          title: String(item.title || '').trim(),
+          evidence: String(item.evidence || item.text || item.claim || '').trim()
+        };
+      }
+      const str = String(item).trim();
+      const parts = str.split(/:\s*(.+)/);
+      if (parts.length >= 2) {
+        return { title: parts[0].trim(), evidence: parts[1].trim() };
+      }
+      return { title: '', evidence: str };
+    }).filter(c => c.evidence.length > 0);
+  }
+
+  let underlying_tensions = { primary_conflict: '', tradeoffs: '', counter_questions: '' };
+  if (ledger && typeof ledger.underlying_tensions === 'object' && ledger.underlying_tensions !== null) {
+    underlying_tensions = {
+      primary_conflict: String(ledger.underlying_tensions.primary_conflict || '').trim(),
+      tradeoffs: String(ledger.underlying_tensions.tradeoffs || '').trim(),
+      counter_questions: String(ledger.underlying_tensions.counter_questions || '').trim()
+    };
+  } else if (ledger && typeof ledger.underlying_tension_or_question === 'string') {
+    underlying_tensions = {
+      primary_conflict: ledger.underlying_tension_or_question.trim(),
+      tradeoffs: '',
+      counter_questions: ''
+    };
+  }
+
+  const scope = (ledger && typeof ledger.source_scope === 'string' && ledger.source_scope.trim())
+    ? ledger.source_scope.trim()
+    : defaultScope;
+
+  const hasThesis = (subject_and_thesis.thesis.length >= 20 || subject_and_thesis.context.length >= 20);
+  const hasClaims = core_claims_and_evidence.length >= 2;
+  const hasTension = (underlying_tensions.primary_conflict.length >= 15 || underlying_tensions.tradeoffs.length >= 15);
 
   let points = 0;
   if (hasThesis) points++;
@@ -181,16 +235,15 @@ function evaluateLedgerCompleteness(ledger, defaultScope = 'Curated Source') {
   if (hasTension) points++;
 
   const stars = Math.min(3, Math.max(1, points));
-
   let stars_label = '3/3 High Substance Anchor';
-  if (stars === 2) {
-    stars_label = '2/3 Developing Anchor';
-  } else if (stars === 1) {
-    stars_label = '1/3 Preliminary Anchor';
-  }
+  if (stars === 2) stars_label = '2/3 Developing Anchor';
+  if (stars === 1) stars_label = '1/3 Preliminary Anchor';
 
   return {
-    ...cleanLedger,
+    subject_and_thesis,
+    core_claims_and_evidence,
+    underlying_tensions,
+    source_scope: scope,
     completeness_score: stars,
     stars,
     stars_label,
@@ -210,16 +263,26 @@ function buildFallbackLedger(title, content, siteName, defaultScope = 'Curated S
     .split(/(?<=[.!?])\s+/)
     .map(s => s.trim())
     .filter(s => s.length > 20 && !s.includes('cookie') && !s.includes('subscribe'))
-    .slice(0, 5);
+    .slice(0, 6);
 
   const claims = sentences.length > 0
-    ? sentences.map(s => `${sourceName} reports that ${s.replace(/^[A-Z]/, c => c.toLowerCase())}`)
-    : [`${sourceName} highlights developments regarding "${headline}".`];
+    ? sentences.map((s, idx) => ({
+        title: `Observation ${idx + 1}`,
+        evidence: `${sourceName} reports that ${s.replace(/^[A-Z]/, c => c.toLowerCase())}`
+      }))
+    : [{ title: 'Primary Report', evidence: `${sourceName} highlights developments regarding "${headline}".` }];
 
   return {
-    subject_and_thesis: `${sourceName} examines "${headline}", presenting current factual background and key statements.`,
+    subject_and_thesis: {
+      context: `${sourceName} presents reporting and contextual developments surrounding "${headline}".`,
+      thesis: `The piece details primary events and ongoing policy or market dynamics regarding "${headline}".`
+    },
     core_claims_and_evidence: claims,
-    underlying_tension_or_question: `What are the broader long-term implications, tradeoffs, and counter-perspectives emerging from "${headline}"?`,
+    underlying_tensions: {
+      primary_conflict: `The central friction centers on how stakeholders navigate the shifting balance between current actions and future expectations.`,
+      tradeoffs: `Immediate decisions involve compromises regarding resources, allocation priorities, and regulatory timelines.`,
+      counter_questions: `What counter-perspectives exist among competing analysts, and how will long-term outcomes be evaluated?`
+    },
     source_scope: defaultScope
   };
 }

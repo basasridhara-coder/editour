@@ -442,12 +442,27 @@ async function scrapeYouTubeUrl(targetUrl, videoId) {
   const rawDesc = playerObj?.videoDetails?.shortDescription || '';
   let desc = decodeHtmlEntities(rawDesc).trim();
 
-  // If description is missing, short (<150 chars), or just boilerplate,
-  // query Gemini with Google Search Grounding to extract full factual briefing & transcripts!
-  if (!desc || desc.length < 150) {
+  const lengthSeconds = parseInt(playerObj?.videoDetails?.lengthSeconds || '0', 10);
+  let durationStr = '';
+  if (lengthSeconds > 0) {
+    const mins = Math.floor(lengthSeconds / 60);
+    durationStr = mins >= 60
+      ? `${Math.floor(mins / 60)}h ${mins % 60}m`
+      : `${mins} min${mins === 1 ? '' : 's'}`;
+  }
+
+  // Check if description has genuine chapter timestamps or educational breakdown
+  const hasChaptersOrTranscript = desc && (
+    desc.includes('0:00') || desc.includes('00:00') ||
+    desc.match(/\b\d{1,2}:\d{2}\b/)
+  ) && desc.length > 500;
+
+  // If description is missing, short, or just promo/social links,
+  // query Gemini with Google Search Grounding to extract full factual briefing & receipts!
+  if (!hasChaptersOrTranscript) {
     const brief = await getGeminiVideoBrief(targetUrl, title, author);
     if (brief && brief.length > 80) {
-      desc = brief;
+      desc = (desc ? `${desc}\n\n=== FACTUAL EDITORIAL DOSSIER & TRANSCRIPT BREAKDOWN ===\n` : '') + brief;
       const titleMatch = brief.match(/Exact Video Title:\*?\*?\s*(.+)$/m);
       if (titleMatch && titleMatch[1] && (!title || title.length < 5)) {
         title = titleMatch[1].replace(/[*#]/g, '').trim();
@@ -499,6 +514,7 @@ async function scrapeYouTubeUrl(targetUrl, videoId) {
     `Title: ${title}`,
     `Channel / Speaker: ${author}`,
     `Platform: YouTube Video`,
+    durationStr ? `Video Duration: ${durationStr}` : '',
     desc ? `\nVideo Context, Highlights, Primary Receipts & Chapters:\n${desc}` : ''
   ].filter(Boolean).join('\n').trim();
 

@@ -5900,22 +5900,134 @@ function renderSourceLedger(ledger) {
   const starsLabel = ledger.stars_label || (starsCount === 3 ? '3/3 High Substance Anchor' : `${starsCount}/3 Anchor`);
   const scopeLabel = ledger.source_scope || 'Curated Source';
 
+  // 1. Thesis extraction (support both object and legacy string)
+  let contextText = '';
+  let thesisText = '';
+  if (ledger.subject_and_thesis && typeof ledger.subject_and_thesis === 'object') {
+    contextText = ledger.subject_and_thesis.context || '';
+    thesisText = ledger.subject_and_thesis.thesis || '';
+  } else if (typeof ledger.subject_and_thesis === 'string') {
+    thesisText = ledger.subject_and_thesis;
+  }
+
+  let thesisHtml = '';
+  if (contextText && thesisText) {
+    thesisHtml = `
+      <div class="ledger-thesis-grid">
+        <div class="ledger-sub-card">
+          <div class="ledger-sub-card-header">
+            <span class="ledger-sub-card-icon">📌</span>
+            <span class="ledger-sub-card-title">Context & Background</span>
+          </div>
+          <p class="ledger-sub-card-text">${escapeHtml(contextText)}</p>
+        </div>
+        <div class="ledger-sub-card highlight">
+          <div class="ledger-sub-card-header">
+            <span class="ledger-sub-card-icon">🎯</span>
+            <span class="ledger-sub-card-title">Central Thesis & Core Argument</span>
+          </div>
+          <p class="ledger-sub-card-text">${escapeHtml(thesisText)}</p>
+        </div>
+      </div>
+    `;
+  } else {
+    thesisHtml = `
+      <div class="ledger-thesis-box">
+        <p class="ledger-thesis-text">${escapeHtml(thesisText || contextText || 'No central thesis provided in source.')}</p>
+      </div>
+    `;
+  }
+
+  // 2. Claims & Evidence extraction (support both object {title, evidence} and strings)
   const claimsList = Array.isArray(ledger.core_claims_and_evidence) ? ledger.core_claims_and_evidence : [];
   const claimsCount = claimsList.length;
 
   const claimsCardsHtml = claimsList.length > 0
-    ? claimsList.map((claim, idx) => `
-        <div class="ledger-claim-card">
-          <div class="ledger-claim-badge">${idx + 1}</div>
-          <p class="ledger-claim-text">${escapeHtml(claim)}</p>
-        </div>
-      `).join('')
+    ? claimsList.map((claim, idx) => {
+        let title = '';
+        let evidence = '';
+        if (claim && typeof claim === 'object') {
+          title = claim.title || '';
+          evidence = claim.evidence || claim.text || '';
+        } else {
+          const str = String(claim || '');
+          const colonIdx = str.indexOf(':');
+          if (colonIdx > 0 && colonIdx < 60) {
+            title = str.slice(0, colonIdx).trim();
+            evidence = str.slice(colonIdx + 1).trim();
+          } else {
+            evidence = str;
+          }
+        }
+        return `
+          <div class="ledger-claim-card">
+            <div class="ledger-claim-badge">${idx + 1}</div>
+            <div class="ledger-claim-content">
+              ${title ? `<div class="ledger-claim-title">${escapeHtml(title)}</div>` : ''}
+              <p class="ledger-claim-text">${escapeHtml(evidence)}</p>
+            </div>
+          </div>
+        `;
+      }).join('')
     : `
         <div class="ledger-claim-card">
           <div class="ledger-claim-badge">ℹ</div>
-          <p class="ledger-claim-text">Source does not provide detailed empirical evidence or cited data.</p>
+          <div class="ledger-claim-content">
+            <p class="ledger-claim-text">Source does not provide detailed empirical evidence or cited data.</p>
+          </div>
         </div>
       `;
+
+  // 3. Tension & Tradeoffs extraction (support object {primary_conflict, tradeoffs, counter_questions} and legacy string)
+  let primaryConflict = '';
+  let tradeoffs = '';
+  let counterQuestions = '';
+
+  if (ledger.underlying_tensions && typeof ledger.underlying_tensions === 'object') {
+    primaryConflict = ledger.underlying_tensions.primary_conflict || '';
+    tradeoffs = ledger.underlying_tensions.tradeoffs || '';
+    counterQuestions = ledger.underlying_tensions.counter_questions || '';
+  } else if (typeof ledger.underlying_tension_or_question === 'string') {
+    primaryConflict = ledger.underlying_tension_or_question;
+  }
+
+  let tensionHtml = '';
+  if (primaryConflict || tradeoffs || counterQuestions) {
+    tensionHtml = `
+      <div class="ledger-tension-stack">
+        ${primaryConflict ? `
+          <div class="ledger-tension-card">
+            <div class="ledger-tension-card-header">
+              <span class="ledger-tension-badge badge-conflict">⚡ Core Structural Friction</span>
+            </div>
+            <p class="ledger-tension-text">${escapeHtml(primaryConflict)}</p>
+          </div>
+        ` : ''}
+        ${tradeoffs ? `
+          <div class="ledger-tension-card">
+            <div class="ledger-tension-card-header">
+              <span class="ledger-tension-badge badge-tradeoffs">⚖️ Tradeoffs & Compromises</span>
+            </div>
+            <p class="ledger-tension-text">${escapeHtml(tradeoffs)}</p>
+          </div>
+        ` : ''}
+        ${counterQuestions ? `
+          <div class="ledger-tension-card">
+            <div class="ledger-tension-card-header">
+              <span class="ledger-tension-badge badge-questions">❓ Counter-Perspectives & Inquiries</span>
+            </div>
+            <p class="ledger-tension-text">${escapeHtml(counterQuestions)}</p>
+          </div>
+        ` : ''}
+      </div>
+    `;
+  } else {
+    tensionHtml = `
+      <div class="ledger-tension-box">
+        <p class="ledger-tension-text">No explicit tension or counter-perspective highlighted.</p>
+      </div>
+    `;
+  }
 
   const activeTab = currentLedgerActiveTab || 'thesis';
 
@@ -5963,9 +6075,7 @@ function renderSourceLedger(ledger) {
           <span>SUBJECT & CENTRAL THESIS</span>
         </span>
       </div>
-      <div class="ledger-thesis-box">
-        <p class="ledger-thesis-text">${escapeHtml(ledger.subject_and_thesis || 'No central thesis provided in source.')}</p>
-      </div>
+      ${thesisHtml}
       <div class="ledger-panel-nav">
         <span></span>
         <button type="button" class="ledger-tab-nav-btn" onclick="switchLedgerTab('claims')">
@@ -6002,12 +6112,10 @@ function renderSourceLedger(ledger) {
       <div class="ledger-panel-label-row">
         <span class="ledger-panel-label tension-label">
           <span class="ledger-num">3</span>
-          <span>UNDERLYING TENSION & COUNTER-PERSPECTIVE</span>
+          <span>UNDERLYING TENSIONS & TRADEOFFS</span>
         </span>
       </div>
-      <div class="ledger-tension-box">
-        <p class="ledger-tension-text">${escapeHtml(ledger.underlying_tension_or_question || 'No explicit tension highlighted.')}</p>
-      </div>
+      ${tensionHtml}
       <div class="ledger-panel-nav">
         <button type="button" class="ledger-tab-nav-btn" onclick="switchLedgerTab('claims')">
           <span>← Back to Claims</span>
