@@ -6351,23 +6351,38 @@ header {
 .cues-suggest-btn {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 5px 12px;
-  border-radius: 8px;
-  background: rgba(99, 102, 241, 0.14);
-  color: #818CF8;
-  border: 1px solid rgba(99, 102, 241, 0.35);
+  gap: 6px;
+  padding: 7px 16px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #6366F1, #8B5CF6);
+  color: #FFFFFF !important;
+  border: 1px solid rgba(255, 255, 255, 0.25);
   font-family: inherit;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 10px rgba(99, 102, 241, 0.4);
+  white-space: nowrap;
 }
 
 .cues-suggest-btn:hover {
-  background: rgba(99, 102, 241, 0.25);
-  border-color: var(--primary);
+  background: linear-gradient(135deg, #4F46E5, #7C3AED);
+  border-color: rgba(255, 255, 255, 0.4);
+  color: #FFFFFF !important;
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.55);
   transform: translateY(-1px);
+}
+
+.cues-suggest-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 4px rgba(99, 102, 241, 0.3);
+}
+
+.cues-suggest-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .cues-deck-container {

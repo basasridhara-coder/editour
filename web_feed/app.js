@@ -6447,7 +6447,7 @@ function renderCuesDeck() {
         <a href="javascript:void(0)" onclick="clearCueSelection()" style="color:var(--text-muted);text-decoration:underline;">Clear</a>
       `;
     }
-    if (suggestLabel) suggestLabel.textContent = `Suggest (${creatorSelectedCueIndices.size})`;
+    if (suggestLabel) suggestLabel.textContent = `Generate Selected (${creatorSelectedCueIndices.size})`;
     if (suggestIcon) suggestIcon.textContent = '🔄';
   } else {
     if (infoText) {
@@ -6456,7 +6456,7 @@ function renderCuesDeck() {
         <span>Tap any cue to inspect meaning & edit below • Hold & drag ⠿ to re-rank</span>
       `;
     }
-    if (suggestLabel) suggestLabel.textContent = 'Suggest All';
+    if (suggestLabel) suggestLabel.textContent = 'Generate Visual Cues';
     if (suggestIcon) suggestIcon.textContent = '✨';
   }
 
@@ -6756,7 +6756,7 @@ async function triggerCueSuggest() {
   const suggestIcon = document.getElementById('cuesSuggestIcon');
 
   if (suggestBtn) suggestBtn.disabled = true;
-  if (suggestLabel) suggestLabel.textContent = 'Thinking with Gemini...';
+  if (suggestLabel) suggestLabel.textContent = 'Generating Visual Cues...';
   if (suggestIcon) suggestIcon.textContent = '⏳';
 
   try {
@@ -6822,7 +6822,7 @@ async function triggerCueSuggest() {
     }
   } finally {
     if (suggestBtn) suggestBtn.disabled = false;
-    if (suggestLabel) suggestLabel.textContent = 'Suggest All';
+    if (suggestLabel) suggestLabel.textContent = 'Generate Visual Cues';
     if (suggestIcon) suggestIcon.textContent = '✨';
     const finalUrl = urlInput ? urlInput.value.trim() : '';
     const finalSlant = slantTakeInput ? slantTakeInput.value.trim() : '';
