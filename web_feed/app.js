@@ -3199,7 +3199,7 @@ function buildSlide3Html(post, index) {
       <div class="receipt-highlight" style="margin-top: 6px; margin-bottom: 6px;">
         <div class="highlighter-label">
           <span>✨</span>
-          <span>${isInnerVoice ? 'CORE CONVICTION' : 'EDITORIAL CONVICTION'}</span>
+          <span>CORE CONVICTION</span>
         </div>
         <div class="highlighter-text" style="font-size: 10.5px; font-weight: 600; line-height: 1.4;">
           “${escapeHtml(quoteText)}”
@@ -3228,7 +3228,7 @@ function buildSlide3Html(post, index) {
       <div class="receipt-takeaways-card" style="margin-top: 6px;">
         <div class="takeaways-header">
           <span class="takeaways-icon">⚖️</span>
-          <span class="takeaways-title">${isInnerVoice ? 'PERSONAL CONVICTIONS' : 'CURATOR CONVICTIONS'}</span>
+          <span class="takeaways-title">KEY PRINCIPLES</span>
         </div>
         <div class="takeaways-list">
           ${topTakeaways.map(t => {

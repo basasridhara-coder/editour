@@ -7959,6 +7959,8 @@ header {
   gap: 10px;
   margin-top: 14px;
   width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .creator-nav-arrow {
@@ -7996,13 +7998,15 @@ header {
 }
 
 .creator-nav-main-btn {
-  flex: 1;
+  flex: 1 1 0;
+  min-width: 0;
   margin-top: 0 !important;
   height: 52px;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
+  overflow: hidden;
 }
 
 /* Synthesis Loading Screen */
@@ -9589,17 +9593,32 @@ header {
     margin-bottom: 8px;
     padding-bottom: 0;
     width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    flex-shrink: 0;
+    gap: 8px;
+  }
+
+  .creator-nav-arrow {
+    width: 44px;
+    height: 48px;
+    border-radius: 12px;
     flex-shrink: 0;
   }
 
   .creator-nav-main-btn {
-    height: 50px;
-    font-size: 14.5px;
+    height: 48px;
+    font-size: 14px;
     font-weight: 800;
+    min-width: 0;
+    flex: 1 1 0;
+    padding: 0 12px;
   }
 
   .creator-nav-main-btn .btn-text {
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     letter-spacing: -0.2px;
   }
 
