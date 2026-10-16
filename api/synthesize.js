@@ -287,12 +287,22 @@ ${userSlant && sourceType !== 'inner_voice' ? `CRITICAL POSTER 3 DIRECTIVE (ELAB
 - Poster 3 is the curator's broadsheet essay where the curator's stance/take is ELABORATED IN DIRECT CONNECTION WITH THE ATTACHED SOURCE.
 - It must NOT be a dry, third-person summary or detached book report of the source piece (the objective source ledger is already accessible to the reader on tap from Posters 1 & 2).
 - Poster 3 must synthesize the curator's perspective into a substantive 3-paragraph broadsheet editorial:
-  * Paragraph 1 (The Catalyst & The Modern Friction): The curator's opening thesis connecting their personal conviction/angle to the core dilemma explored by the source author/speaker.
-  * Paragraph 2 (Engaging the Source in Depth): Directly engage with the author's/speaker's concrete concepts, arguments, or data points (e.g. citing specific teachings, findings, or claims), using them to substantiate and deepen the curator's stance.
-  * Paragraph 3 (The Human Stakes & Prescriptive Resolution): Detail the deeper personal, familial, or societal implications, offering an intentional boundary or forward-looking resolution.
+  * Paragraph 1 (The Catalyst & The Modern Friction): The curator's opening thesis connecting their personal conviction/angle to the core dilemma explored by the source author/speaker (exactly 50–60 words, 3 concise sentences with strong opening for dropcap).
+  * Paragraph 2 (Engaging the Source in Depth): Directly engage with the author's/speaker's concrete concepts, arguments, or data points (e.g. citing specific teachings, findings, or claims), using them to substantiate and deepen the curator's stance (exactly 45–55 words, 2–3 sentences).
+  * Paragraph 3 (The Human Stakes & Prescriptive Resolution): Detail the deeper personal, familial, or societal implications, offering an intentional boundary or forward-looking resolution (exactly 40–50 words, 2 sentences).
 - STRICT BAN: Never echo the user's raw slant verbatim across paragraphs! Elaborate the thought with depth, narrative richness, and intellectual conviction. Output pure broadsheet paragraphs without labels like "Paragraph 1:".
-- "keyTakeaways": Exactly 3 sharp, structured conviction principles formulated from the elaborated take in dialogue with the source (each with a bold title prefix, e.g. "Title: Core insight").
-- "receiptHighlightQuote": A poignant, high-impact core conviction sentence (18-28 words) capturing the heart of the curator's stance in connection with the source.` : ''}
+- "keyTakeaways": Exactly 3 sharp, structured conviction principles formulated from the elaborated take in dialogue with the source (each exactly 10–13 words with bold title prefix, e.g. "Title: Core insight").
+- "receiptHighlightQuote": A poignant, high-impact core conviction sentence (exactly 18–22 words) capturing the heart of the curator's stance in connection with the source.` : ''}
+
+CRITICAL POSTER 3 "1-MINUTE READ" WORD BUDGET DIRECTIVE:
+Poster 3 ("SLANT MINUTE" / 60-SEC BROADSHEET) MUST strictly target 180 to 220 words total across all elements:
+- Paragraph 1: exactly 50–60 words
+- Paragraph 2: exactly 45–55 words
+- Paragraph 3: exactly 40–50 words
+- Total 3-paragraph essay: 135–165 words
+- Highlight Quote: exactly 18–22 words
+- 3 Key Takeaways: exactly 30–40 words total (~10–13 words each)
+GRAND TOTAL: 180–220 words for an authentic 60-second read. Never exceed 60 words in any single paragraph.
 ${cues && cues.length > 0 ? `CRITICAL VISUAL RULE: The Hook poster artwork and cues MUST be anchored in #1 HERO: "${cues[0]}", incorporating #2 MOTIF: "${cues[1] || ''}" and #3 TENSION: "${cues[2] || ''}".` : ''}
 
 Respond strictly with valid JSON with this exact structure:
@@ -303,18 +313,18 @@ Respond strictly with valid JSON with this exact structure:
   "categoryBadge": "UPPERCASE CATEGORY (e.g. DEEP TECH, CULTURE, OPINION, CLIMATE, ECONOMY, HEALTH)",
   "hook": "1-2 sentence gripping hook that stops the reader mid-scroll",
   "curatorTake": ${refineCoreTake ? `"EXACTLY 2 complete sentences (25-35 words) of elevated, model-synthesized editorial critique completely rephrasing and elevating the curator's raw thought into polished prose ending with a period (NEVER copy raw user words verbatim)."` : `"The curator's exact typed words verbatim: ${JSON.stringify(userSlant || 'Insight in motion.')}"`},
-  "summary": "${sourceType === 'inner_voice' ? '2-3 concise paragraphs of lived experience reflection and personal context' : (userSlant ? '3 substantive broadsheet editorial paragraphs elaborating the curator\'s take in direct connection with the attached source (engaging source arguments to develop the curator\'s perspective, personal stakes, and resolution). NEVER a dry 3rd-person book report.' : '2-3 concise paragraphs of strictly objective journalistic reporting summarizing what the source piece/speaker/article reported and asserted.')}",
-  "whyItMatters": "1-2 sharp sentences on the stakes and why this perspective matters right now",
+  "summary": "${sourceType === 'inner_voice' ? 'Exactly 3 broadsheet paragraphs of lived experience reflection (50-60, 45-55, 40-50 words; 135-165 words total).' : (userSlant ? 'Exactly 3 broadsheet paragraphs elaborating the curator\'s take in direct connection with the attached source (50-60, 45-55, 40-50 words; 135-165 words total). Never an objective book report.' : 'Exactly 3 broadsheet paragraphs of objective journalistic reporting (50-60, 45-55, 40-50 words; 135-165 words total).')}",
+  "whyItMatters": "1-2 sharp sentences on the stakes and why this perspective matters right now (18-28 words)",
   "keyTakeaways": [
-    "${sourceType === 'inner_voice' ? 'First personal takeaway' : (userSlant ? 'First core conviction principle connecting the take and source (e.g. Title: Insight)' : 'First key source finding or verified claim from the reporting (concise, high-impact)')}",
-    "${sourceType === 'inner_voice' ? 'Second personal takeaway' : (userSlant ? 'Second core conviction principle detailing the human/personal stakes' : 'Second key source finding or central trade-off from the source')}",
-    "${sourceType === 'inner_voice' ? 'Third personal takeaway' : (userSlant ? 'Third core conviction principle offering an intentional boundary or forward path' : 'Third structural implication or question raised by the source')}"
+    "${sourceType === 'inner_voice' ? 'First personal takeaway (10-13 words, Title: Insight)' : (userSlant ? 'First core conviction principle connecting take and source (10-13 words, Title: Insight)' : 'First key source finding (10-13 words, Title: Finding)')}",
+    "${sourceType === 'inner_voice' ? 'Second personal takeaway (10-13 words, Title: Insight)' : (userSlant ? 'Second core conviction principle detailing human/personal stakes (10-13 words, Title: Insight)' : 'Second key source finding or trade-off (10-13 words, Title: Insight)')}",
+    "${sourceType === 'inner_voice' ? 'Third personal takeaway (10-13 words, Title: Insight)' : (userSlant ? 'Third core conviction principle offering an intentional boundary (10-13 words, Title: Insight)' : 'Third structural implication (10-13 words, Title: Implication)')}"
   ],
-  "receiptHighlightQuote": "${sourceType === 'inner_voice' ? 'Single poignant core conviction sentence (18-30 words)' : (userSlant ? 'A poignant core conviction sentence (18-28 words) capturing the heart of the curator stance in dialogue with the source' : 'A direct quote, core factual assertion, or official thesis directly from the source author/speaker (18-30 words).')}",
+  "receiptHighlightQuote": "${sourceType === 'inner_voice' ? 'Single poignant core conviction sentence (18-22 words)' : (userSlant ? 'A poignant core conviction sentence capturing the heart of the curator stance in dialogue with the source (18-22 words)' : 'A direct quote, core factual assertion, or official thesis directly from the source author/speaker (18-22 words).')}",
   "resolvedArticleExcerpts": [
-    "${sourceType === 'inner_voice' ? 'Paragraph 1 (Scene & Catalyst): 50-75 words detailing personal scene without labels.' : (userSlant ? 'Paragraph 1 (Catalyst & Friction): 55-80 words elaborating the curator\'s opening thesis in dialogue with the source topic without labels.' : 'Paragraph 1 (Source Subject & Context): 50-75 words detailing the author\'s/speaker\'s core topic, factual background, and central thesis without labels.')}",
-    "${sourceType === 'inner_voice' ? 'Paragraph 2 (The Turning Point): 35-50 words capturing turning point without labels.' : (userSlant ? 'Paragraph 2 (Engaging Source Claims): 55-80 words engaging speaker/author concepts to substantiate the critique without labels.' : 'Paragraph 2 (Core Source Evidence & Claims): 40-60 words citing specific facts, speaker assertions, or data points presented in the source without labels.')}",
-    "${sourceType === 'inner_voice' ? 'Paragraph 3 (The Lasting Truth): 50-75 words closing reflection without labels.' : (userSlant ? 'Paragraph 3 (Human Stakes & Resolution): 50-75 words detailing personal/family impact and lasting resolution without labels.' : 'Paragraph 3 (Underlying Conflict or Trade-offs): 40-60 words highlighting the systemic tension or unresolved questions raised by the piece without labels.')}"
+    "${sourceType === 'inner_voice' ? 'Paragraph 1 (Scene & Catalyst): exactly 50-60 words without labels.' : (userSlant ? 'Paragraph 1 (Catalyst & Friction): exactly 50-60 words elaborating opening thesis in dialogue with source topic without labels.' : 'Paragraph 1 (Source Subject & Context): exactly 50-60 words without labels.')}",
+    "${sourceType === 'inner_voice' ? 'Paragraph 2 (The Turning Point): exactly 45-55 words without labels.' : (userSlant ? 'Paragraph 2 (Engaging Source Claims): exactly 45-55 words engaging source concepts to substantiate critique without labels.' : 'Paragraph 2 (Core Evidence & Claims): exactly 45-55 words without labels.')}",
+    "${sourceType === 'inner_voice' ? 'Paragraph 3 (The Lasting Truth): exactly 40-50 words without labels.' : (userSlant ? 'Paragraph 3 (Human Stakes & Resolution): exactly 40-50 words detailing personal/family impact and lasting resolution without labels.' : 'Paragraph 3 (Underlying Conflict or Trade-offs): exactly 40-50 words without labels.')}"
   ],
   "keyMetric": "Short impactful stat or metric (e.g. +42%, 1,072 Trees, 10x, 99.8% - or leave empty if none)",
   "visualMood": "Short aesthetic phrase (e.g. High-Contrast Editorial Risograph, Velvet Obsidian Chiaroscuro)",
