@@ -113,7 +113,8 @@ module.exports = async function handler(req, res) {
       scrapedTitle = '',
       scrapedContent = '',
       countryContext = '',
-      vocabularyStyle = 'punchy' // 'punchy' | 'conversational' | 'analytical'
+      vocabularyStyle = 'punchy', // 'punchy' | 'conversational' | 'analytical'
+      sourceLedger = null
     } = body || {};
 
     const userEmail = (creatorEmail || '').toLowerCase().trim();
@@ -293,18 +294,18 @@ Respond strictly with valid JSON with this exact structure:
   "categoryBadge": "UPPERCASE CATEGORY (e.g. DEEP TECH, CULTURE, OPINION, CLIMATE, ECONOMY, HEALTH)",
   "hook": "1-2 sentence gripping hook that stops the reader mid-scroll",
   "curatorTake": ${refineCoreTake ? `"EXACTLY 2 complete sentences (25-35 words) of elevated, model-synthesized editorial critique completely rephrasing and elevating the curator's raw thought into polished prose ending with a period (NEVER copy raw user words verbatim)."` : `"The curator's exact typed words verbatim: ${JSON.stringify(userSlant || 'Insight in motion.')}"`},
-  "summary": "2-3 concise paragraphs of curator take and critique",
+  "summary": "${sourceType === 'inner_voice' ? '2-3 concise paragraphs of lived experience reflection and personal context' : '2-3 concise paragraphs of strictly objective journalistic reporting summarizing what the source piece/speaker/article reported and asserted. NEVER repeat or summarize the curator take here—the curator take belongs exclusively in curatorTake on Poster 2.'}",
   "whyItMatters": "1-2 sharp sentences on the stakes and why this perspective matters right now",
   "keyTakeaways": [
-    "First critical takeaway (concise, high-impact)",
-    "Second critical takeaway (counter-narrative or strategic insight)",
-    "Third critical takeaway (future implication or action)"
+    "${sourceType === 'inner_voice' ? 'First personal takeaway' : 'First key source finding or verified claim from the reporting (concise, high-impact)'}",
+    "${sourceType === 'inner_voice' ? 'Second personal takeaway' : 'Second key source finding or central trade-off from the source'}",
+    "${sourceType === 'inner_voice' ? 'Third personal takeaway' : 'Third structural implication or question raised by the source'}"
   ],
-  "receiptHighlightQuote": "Single poignant quote or core conviction sentence (18-30 words)",
+  "receiptHighlightQuote": "${sourceType === 'inner_voice' ? 'Single poignant core conviction sentence (18-30 words)' : 'A direct quote, core factual assertion, or official thesis directly from the source author/speaker (18-30 words). NEVER use the curator take.'}",
   "resolvedArticleExcerpts": [
-    "Paragraph 1 (Factual scene-setting & core friction): 50-75 words, 3-4 complete sentences detailing the concrete events, actors, background context, and catalytic tension without labels.",
-    "Paragraph 2 (Pivotal evidentiary finding or key official quote): 35-50 words, 2-3 complete sentences capturing the crucial turning point, core metric, or verbatim reaction without labels.",
-    "Paragraph 3 (Structural impact & lasting stakes): 50-75 words, 3-4 complete sentences detailing the broader consequences, institutional fallout, and forward-looking reality without labels."
+    "${sourceType === 'inner_voice' ? 'Paragraph 1 (Scene & Catalyst): 50-75 words detailing personal scene without labels.' : 'Paragraph 1 (Source Subject & Context): 50-75 words detailing the author\'s/speaker\'s core topic, factual background, and central thesis without labels.'}",
+    "${sourceType === 'inner_voice' ? 'Paragraph 2 (The Turning Point): 35-50 words capturing turning point without labels.' : 'Paragraph 2 (Core Source Evidence & Claims): 40-60 words citing specific facts, speaker assertions, or data points presented in the source without labels.'}",
+    "${sourceType === 'inner_voice' ? 'Paragraph 3 (The Lasting Truth): 50-75 words closing reflection without labels.' : 'Paragraph 3 (Underlying Conflict or Trade-offs): 40-60 words highlighting the systemic tension or unresolved questions raised by the piece without labels.'}"
   ],
   "keyMetric": "Short impactful stat or metric (e.g. +42%, 1,072 Trees, 10x, 99.8% - or leave empty if none)",
   "visualMood": "Short aesthetic phrase (e.g. High-Contrast Editorial Risograph, Velvet Obsidian Chiaroscuro)",
@@ -347,6 +348,28 @@ Respond strictly with valid JSON with this exact structure:
         spark ? `Spark Context: ${spark}` : '',
         url ? `Source Link: ${url}` : ''
       ].filter(Boolean);
+
+      if (sourceLedger) {
+        let ledgerLines = [];
+        if (sourceLedger.subject_and_thesis) {
+          const s = sourceLedger.subject_and_thesis;
+          ledgerLines.push(`Source Subject & Thesis: ${typeof s === 'object' ? `${s.context || ''} - ${s.thesis || ''}` : s}`);
+        }
+        if (Array.isArray(sourceLedger.core_claims_and_evidence) && sourceLedger.core_claims_and_evidence.length > 0) {
+          ledgerLines.push('Verified Source Claims & Evidence:');
+          sourceLedger.core_claims_and_evidence.forEach((c, i) => {
+            ledgerLines.push(`  ${i + 1}. ${typeof c === 'object' ? `${c.title ? c.title + ': ' : ''}${c.evidence || c.text || ''}` : c}`);
+          });
+        }
+        if (sourceLedger.underlying_tensions) {
+          const t = sourceLedger.underlying_tensions;
+          ledgerLines.push(`Underlying Tension & Trade-offs: ${typeof t === 'object' ? `${t.primary_conflict || ''} ${t.tradeoffs || ''}` : t}`);
+        }
+        if (ledgerLines.length > 0) {
+          contentParts.push(`OBJECTIVE SOURCE LEDGER (Verified Ground Truth from Source):\n${ledgerLines.join('\n')}`);
+        }
+      }
+
       const userContent = contentParts.length > 0 ? contentParts.join('\n\n') : (text || spark || userSlant || 'Contemporary cultural reflection');
       parts.push({
         text: `${systemPrompt}\n\nUser Input Content:\n${userContent}`
@@ -500,7 +523,8 @@ Respond strictly with valid JSON with this exact structure:
         spark,
         creatorHandle,
         characterRepresentation,
-        refineCoreTake
+        refineCoreTake,
+        sourceLedger
       });
     }
 
@@ -521,24 +545,10 @@ Respond strictly with valid JSON with this exact structure:
 
     let finalCuratorTake = (refineCoreTake && parsed.curatorTake && parsed.curatorTake.trim().length > 10)
       ? parsed.curatorTake.trim()
-      : (userSlant || parsed.whyItMatters || 'Strategic structural shift in motion.');
+      : (userSlant || 'Strategic structural shift in motion.');
 
-    // Duplicate take guard: If user requested AI refinement, ensure it didn't echo raw user input
-    if (refineCoreTake && userSlant && userSlant.trim().length > 8) {
-      const cleanUser = userSlant.toLowerCase().replace(/[^\w\s]/g, '').trim();
-      const cleanModel = finalCuratorTake.toLowerCase().replace(/[^\w\s]/g, '').trim();
-      if (cleanModel === cleanUser || cleanModel.startsWith(cleanUser) || (cleanUser.length > 20 && cleanModel === cleanUser.slice(0, cleanModel.length))) {
-        if (parsed.whyItMatters && parsed.whyItMatters.trim().length > 20 && !parsed.whyItMatters.toLowerCase().includes(cleanUser.slice(0, 30))) {
-          finalCuratorTake = parsed.whyItMatters.trim();
-        } else if (parsed.summary && parsed.summary.trim().length > 30) {
-          const sentences = parsed.summary.split(/(?<=[.!?])\s+/).filter(s => s.trim().length > 15);
-          if (sentences.length >= 2) {
-            finalCuratorTake = `${sentences[0]} ${sentences[1]}`;
-          } else {
-            finalCuratorTake = `${userSlant.trim()} This marks a pivotal turning point in how contemporary developments reshape the landscape.`;
-          }
-        }
-      }
+    if (!finalCuratorTake.endsWith('.') && !finalCuratorTake.endsWith('!') && !finalCuratorTake.endsWith('?')) {
+      finalCuratorTake += '.';
     }
 
     const rawExcerpts = Array.isArray(parsed.resolvedArticleExcerpts) ? parsed.resolvedArticleExcerpts : [];
@@ -605,9 +615,11 @@ Respond strictly with valid JSON with this exact structure:
         scrapedTitle: extractedTitle || '',
         scrapedContent: extractedContent || '',
         contextProvided: userSlant || extractedContent || spark || '',
+        sourceLedger: sourceLedger || null,
         illustrationPrompt: parsed.illustrationPrompt || concisePrompt || '',
         originalHeadline: (sourceType === 'inner_voice' && spark) ? (parsed.originalHeadline || spark) : (parsed.originalHeadline || extractedTitle || parsed.adaptedHeadline)
-      }
+      },
+      sourceLedger: sourceLedger || null
     };
 
     return res.status(200).json({
@@ -633,7 +645,8 @@ function generateSmartFallbackSynthesis({
   spark,
   creatorHandle,
   characterRepresentation,
-  refineCoreTake = true
+  refineCoreTake = true,
+  sourceLedger = null
 }) {
   const isStrictlyInnerVoice = (sourceType === 'inner_voice');
   const combined = `${userSlant || ''} ${spark || ''} ${extractedTitle || ''} ${extractedContent || ''}`.toLowerCase();
@@ -734,11 +747,12 @@ function generateSmartFallbackSynthesis({
   let refinedTake = '';
   if (userSlant && userSlant.trim().length > 10) {
     if (refineCoreTake) {
-      const sentences = userSlant.split(/(?<=[.!?])\s+/).filter(s => s.trim().length > 10);
+      const cleanSlant = userSlant.replace(/[\n\r]+/g, ' ').replace(/\s+/g, ' ').trim();
+      const sentences = cleanSlant.split(/(?<=[.!?])\s+/).filter(s => s.trim().length > 10);
       if (sentences.length >= 2) {
         refinedTake = `${sentences[0].trim()} ${sentences[1].trim()}`;
       } else {
-        refinedTake = `${userSlant.trim().replace(/[.]+$/, '')}. True discernment requires separating transient friction from enduring systemic realignment.`;
+        refinedTake = `${cleanSlant.replace(/[.]+$/, '')}. Discerning this friction is essential for separating transient noise from enduring conviction.`;
       }
     } else {
       refinedTake = userSlant.trim();
@@ -746,13 +760,42 @@ function generateSmartFallbackSynthesis({
   } else {
     refinedTake = 'The immediate narrative captures only the surface; the deeper transition emerges when examining the underlying incentives and long-term consequences.';
   }
+  if (!refinedTake.endsWith('.') && !refinedTake.endsWith('!') && !refinedTake.endsWith('?')) {
+    refinedTake += '.';
+  }
 
-  // Extract dynamic paragraphs from scraped content if available (strictly filtering out social URLs & metadata)
+  // Extract dynamic paragraphs from sourceLedger or scraped content (strictly objective reporting)
   let p1 = '';
   let p2 = '';
   let p3 = '';
 
-  if (extractedContent && extractedContent.length > 100) {
+  if (sourceLedger) {
+    if (sourceLedger.subject_and_thesis) {
+      if (typeof sourceLedger.subject_and_thesis === 'object') {
+        const ctx = sourceLedger.subject_and_thesis.context ? `${sourceLedger.subject_and_thesis.context} ` : '';
+        p1 = `${ctx}${sourceLedger.subject_and_thesis.thesis || ''}`.trim();
+      } else {
+        p1 = String(sourceLedger.subject_and_thesis).trim();
+      }
+    }
+    const claims = Array.isArray(sourceLedger.core_claims_and_evidence) ? sourceLedger.core_claims_and_evidence : [];
+    if (claims.length > 0) {
+      const c0 = claims[0];
+      p2 = typeof c0 === 'object' ? `${c0.title ? c0.title + ': ' : ''}${c0.evidence || c0.text || ''}`.trim() : String(c0).trim();
+    }
+    if (claims.length > 1) {
+      const c1 = claims[1];
+      p3 = typeof c1 === 'object' ? `${c1.title ? c1.title + ': ' : ''}${c1.evidence || c1.text || ''}`.trim() : String(c1).trim();
+    } else if (sourceLedger.underlying_tensions) {
+      if (typeof sourceLedger.underlying_tensions === 'object') {
+        p3 = `${sourceLedger.underlying_tensions.primary_conflict || ''} ${sourceLedger.underlying_tensions.tradeoffs || ''}`.trim();
+      } else {
+        p3 = String(sourceLedger.underlying_tensions).trim();
+      }
+    }
+  }
+
+  if (extractedContent && extractedContent.length > 100 && (!p1 || !p2 || !p3)) {
     const lines = extractedContent.split(/\n+/).map(l => l.trim()).filter(l => {
       if (l.length < 80) return false;
       if (l.startsWith('#') || l.startsWith('http')) return false;
@@ -760,26 +803,41 @@ function generateSmartFallbackSynthesis({
       if (/utm_|subscribe|follow us|all rights reserved|cookie|privacy policy|terms of/i.test(l)) return false;
       return true;
     });
-    if (lines.length >= 3) {
-      p1 = lines[0];
-      p2 = lines[1];
-      p3 = lines[2];
-    } else if (lines.length >= 1) {
-      p1 = lines[0];
-    }
+    if (!p1 && lines.length > 0) p1 = lines[0];
+    if (!p2 && lines.length > 1) p2 = lines[1];
+    if (!p3 && lines.length > 2) p3 = lines[2];
   }
 
   if (!p1 || !p2 || !p3) {
     p1 = p1 || (extractedTitle
-      ? `Reporting on "${extractedTitle}" reveals an accelerating transition across core operators and foundational assumptions. As traditional structures encounter real-world friction, key participants are recalculating their strategic positions.`
+      ? `Reporting on "${extractedTitle}" examines foundational assumptions across core operators and participants. As traditional frameworks encounter real-world friction, key observers are recalculating their strategic positions.`
       : 'Primary observations confirm that real-world indicators diverged sharply from initial forecasts across core operations. As traditional assumptions encounter resistance, stakeholders are re-evaluating long-held conventions.');
-    p2 = p2 || (userSlant
-      ? `${userSlant.replace(/[.]+$/, '')}. This friction forces stakeholders to confront structural trade-offs that conventional headlines frequently minimize.`
+    p2 = p2 || (extractedContent && extractedContent.length > 50
+      ? extractedContent.slice(0, 200).replace(/\s+/g, ' ').trim()
       : 'Examining the operational balance and public disclosures shows strategic realignment occurring far faster than consensus anticipated, signaling an urgent pivot toward resilient execution.');
     p3 = p3 || 'Historical precedent confirms that early operational divergence inevitably forces systemic realignment before the broader cycle concludes. Observers who recognize these structural shifts early gain a decisive vantage point.';
   }
 
   const hookText = `${headline}. When the dominant narrative simplifies the stakes, the real structural disruption occurs quietly in the margins.`;
+
+  const fallbackSummary = (sourceLedger && p1 && p2)
+    ? `${p1}\n\n${p2}\n\n${p3 || 'Critical analysis requires evaluating verified source evidence and examining the underlying trade-offs.'}`
+    : `Reporting on "${headline}" examines key structural developments and observed outcomes.\n\nPrimary evidence indicates that underlying indicators diverged significantly from conventional forecasts, prompting stakeholders to reassess long-held assumptions.\n\nThe broader tension centers on navigating these operational transitions while maintaining long-term stability.`;
+
+  const fallbackQuote = (sourceLedger && Array.isArray(sourceLedger.core_claims_and_evidence) && sourceLedger.core_claims_and_evidence[0])
+    ? (typeof sourceLedger.core_claims_and_evidence[0] === 'object' ? (sourceLedger.core_claims_and_evidence[0].evidence || sourceLedger.core_claims_and_evidence[0].title) : String(sourceLedger.core_claims_and_evidence[0]))
+    : (p1 ? (p1.length > 140 ? p1.slice(0, 137) + '...' : p1) : 'True discernment requires separating transient friction from enduring systemic realignment.');
+
+  const fallbackTakeaways = (sourceLedger && Array.isArray(sourceLedger.core_claims_and_evidence) && sourceLedger.core_claims_and_evidence.length > 0)
+    ? sourceLedger.core_claims_and_evidence.slice(0, 3).map((c, i) => {
+        if (typeof c === 'object') return `${c.title || `Claim ${i+1}`}: ${c.evidence || c.text || ''}`;
+        return String(c);
+      })
+    : [
+        `Structural Evidence: The reporting around "${headline}" documents significant shifts in fundamental operational dynamics.`,
+        'Operational Divergence: Documented observations diverge from consensus projections, forcing strategic recalibration.',
+        'Systemic Horizon: Long-term durability accrues to those who navigate these structural trade-offs early.'
+      ];
 
   return {
     adaptedHeadline: headline.length > 55 ? headline.slice(0, 52) + '...' : headline,
@@ -788,16 +846,12 @@ function generateSmartFallbackSynthesis({
     categoryBadge: defaultCategory,
     hook: hookText,
     curatorTake: refinedTake,
-    summary: `${userSlant || 'Behind the headlines lies a deeper structural transition.'}\n\nExamining the underlying incentives reveals that what appears as an isolated development is actually part of an accelerating systemic realignment.\n\nThe real differentiator is critical discernment—recognizing that automated consensus often obscures the human trade-offs at play.`,
-    whyItMatters: userSlant
-      ? `Recognizing this friction reveals why the development around "${headline}" marks a lasting structural shift rather than a transient event.`
-      : 'Understanding this shift separates passive consumers from strategic observers who anticipate where the conversation moves next.',
-    keyTakeaways: [
-      `Structural Friction: The conventional framing around "${headline}" misses the secondary consequences taking shape.`,
-      'Incentive Misalignment: Key operators are optimizing for short-term narrative dominance rather than durable alignment.',
-      'Strategic Horizon: Long-term value accrues to those who maintain independent conviction against herd consensus.'
-    ],
-    receiptHighlightQuote: userSlant || 'True discernment requires separating transient friction from enduring systemic realignment.',
+    summary: fallbackSummary,
+    whyItMatters: (sourceLedger && sourceLedger.underlying_tensions)
+      ? (typeof sourceLedger.underlying_tensions === 'object' ? (sourceLedger.underlying_tensions.primary_conflict || sourceLedger.underlying_tensions.tradeoffs) : String(sourceLedger.underlying_tensions))
+      : `Understanding this development around "${headline}" separates passive observers from those who identify structural shifts early.`,
+    keyTakeaways: fallbackTakeaways,
+    receiptHighlightQuote: fallbackQuote,
     resolvedArticleExcerpts: [p1, p2, p3],
     keyMetric: 'High Impact',
     visualMood: 'Chiaroscuro Risograph Editorial',
