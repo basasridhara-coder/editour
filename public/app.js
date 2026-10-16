@@ -3098,19 +3098,9 @@ function isDuplicateOfUserTake(candidateText, post) {
   for (const take of userTakeCandidates) {
     const cleanTake = clean(take);
     if (cleanTake.length < 15) continue;
-    const sampleCand = cleanCand.slice(0, 35);
-    const sampleTake = cleanTake.slice(0, 35);
-    if (cleanCand.includes(sampleTake) || cleanTake.includes(sampleCand)) return true;
-
-    const candWords = new Set(cleanCand.split(/\s+/).filter(w => w.length > 3));
-    const takeWords = new Set(cleanTake.split(/\s+/).filter(w => w.length > 3));
-    if (candWords.size >= 5 && takeWords.size >= 5) {
-      let overlap = 0;
-      for (const w of candWords) {
-        if (takeWords.has(w)) overlap++;
-      }
-      if (overlap / Math.min(candWords.size, takeWords.size) >= 0.4) return true;
-    }
+    if (cleanCand === cleanTake) return true;
+    if (cleanCand.length <= cleanTake.length + 10 && cleanTake.includes(cleanCand)) return true;
+    if (cleanTake.length <= cleanCand.length + 10 && cleanCand.includes(cleanTake)) return true;
   }
   return false;
 }
@@ -3145,140 +3135,77 @@ function buildSlide3Html(post, index) {
   };
 
   const isInnerVoice = isInnerVoicePost(post);
-  const ledger = post.sourceLedger || post.generationInputs?.sourceLedger;
 
   // Extract synthesis paragraphs from summary or spark
   let summaryParas = [];
   if (post.summary && typeof post.summary === 'string') {
-    summaryParas = post.summary.split(/\n\s*\n/).map(p => cleanExcerpt(p)).filter(p => p.length > 15);
+    summaryParas = post.summary.split(/\n\s*\n/).map(p => cleanExcerpt(p)).filter(p => p.length > 20);
   }
   if (summaryParas.length === 0 && post.summary) {
     summaryParas = [cleanExcerpt(post.summary)];
   }
 
-  // De-duplicate summary paragraphs against user's slant on Poster 2 (unless inner_voice)
-  if (!isInnerVoice) {
-    summaryParas = summaryParas.filter(p => !isDuplicateOfUserTake(p, post));
-  }
+  // De-duplicate summary paragraphs against user's short stance on Poster 2
+  summaryParas = summaryParas.filter(p => !isDuplicateOfUserTake(p, post));
 
   // Source context & reporting excerpts
   let excerpts = post.resolvedArticleExcerpts || post.articleExcerpts || [];
   if (Array.isArray(excerpts)) {
     excerpts = excerpts.map(e => cleanExcerpt(e)).filter(Boolean);
-    if (!isInnerVoice) {
-      excerpts = excerpts.filter(e => !isDuplicateOfUserTake(e, post));
-    }
+    excerpts = excerpts.filter(e => !isDuplicateOfUserTake(e, post));
   } else {
     excerpts = [];
   }
 
-  // 1. If structured sourceLedger is present, render the objective 3-part broadsheet ledger
-  let leadHtml = '';
-  let claimsHtml = '';
-  let tensionHtml = '';
-
-  if (ledger && !isInnerVoice) {
-    let thesisText = '';
-    let contextText = '';
-    if (ledger.subject_and_thesis && typeof ledger.subject_and_thesis === 'object') {
-      contextText = cleanExcerpt(ledger.subject_and_thesis.context || '');
-      thesisText = cleanExcerpt(ledger.subject_and_thesis.thesis || '');
-    } else if (ledger.subject_and_thesis) {
-      thesisText = cleanExcerpt(String(ledger.subject_and_thesis));
-    }
-
-    const ledgerClaims = Array.isArray(ledger.core_claims_and_evidence) ? ledger.core_claims_and_evidence : [];
-
-    let tensionText = '';
-    if (ledger.underlying_tensions && typeof ledger.underlying_tensions === 'object') {
-      tensionText = cleanExcerpt([ledger.underlying_tensions.primary_conflict, ledger.underlying_tensions.tradeoffs].filter(Boolean).join(' '));
-    } else if (ledger.underlying_tensions) {
-      tensionText = cleanExcerpt(String(ledger.underlying_tensions));
-    }
-
-    const leadRaw = (contextText && thesisText)
-      ? `${contextText} ${thesisText}`
-      : (thesisText || contextText || summaryParas[0] || (excerpts.length > 0 ? excerpts[0] : null) || `Reporting on "${headline}" examines foundational evidence across core operations.`);
-    const firstChar = leadRaw.charAt(0).toUpperCase();
-    const restLead = leadRaw.slice(1);
-    leadHtml = `<p class="receipt-p1"><span class="broadsheet-dropcap">${escapeHtml(firstChar)}</span>${escapeHtml(restLead)}</p>`;
-
-    if (ledgerClaims.length > 0) {
-      claimsHtml = `
-        <div class="receipt-takeaways-card" style="margin-top: 5px;">
-          <div class="takeaways-header">
-            <span class="takeaways-icon">📌</span>
-            <span class="takeaways-title">VERIFIED SOURCE CLAIMS & EVIDENCE</span>
-          </div>
-          <div class="takeaways-list">
-            ${ledgerClaims.slice(0, 3).map((claim, idx) => {
-              let title = '';
-              let evidence = '';
-              if (claim && typeof claim === 'object') {
-                title = claim.title || '';
-                evidence = claim.evidence || claim.text || '';
-              } else {
-                const str = String(claim || '');
-                const colonIdx = str.indexOf(':');
-                if (colonIdx > 0 && colonIdx < 45) {
-                  title = str.slice(0, colonIdx).trim();
-                  evidence = str.slice(colonIdx + 1).trim();
-                } else {
-                  evidence = str;
-                }
-              }
-              return `
-                <div class="takeaway-item">
-                  <span class="takeaway-dot">▪</span>
-                  <span class="takeaway-text">${title ? `<strong>${escapeHtml(title)}:</strong> ` : ''}${escapeHtml(evidence)}</span>
-                </div>
-              `;
-            }).join('')}
-          </div>
-        </div>
-      `;
-    }
-
-    if (tensionText) {
-      tensionHtml = `
-        <div class="receipt-highlight" style="margin-top: 5px;">
-          <div class="highlighter-label">
-            <span>⚖️</span>
-            <span>CENTRAL CONFLICT & TRADE-OFF</span>
-          </div>
-          <div class="highlighter-text" style="font-size: 10.5px; font-weight: 600; line-height: 1.4;">
-            ${escapeHtml(tensionText)}
-          </div>
-        </div>
-      `;
-    }
-  } else {
-    // Standard broadsheet rendering from summaryParas & excerpts
-    const leadRaw = summaryParas[0] || (excerpts.length > 0 ? excerpts[0] : null) || post.spark || `Reporting on "${headline}" examines key structural developments and observed outcomes.`;
-    const firstChar = leadRaw.charAt(0).toUpperCase();
-    const restLead = leadRaw.slice(1);
-    leadHtml = `<p class="receipt-p1"><span class="broadsheet-dropcap">${escapeHtml(firstChar)}</span>${escapeHtml(restLead)}</p>`;
+  // Consolidate broadsheet essay paragraphs
+  let essayParas = [];
+  if (summaryParas.length > 0) {
+    essayParas = [...summaryParas];
+  } else if (excerpts.length > 0) {
+    essayParas = [...excerpts];
+  } else if (post.spark) {
+    essayParas = [cleanExcerpt(post.spark)];
   }
 
-  // Fallback excerpts HTML if structured claims are not rendered
-  let excerptsHtml = '';
-  if (!claimsHtml) {
-    if (excerpts.length > 0) {
-      const p2Text = excerpts[0];
-      if (p2Text && !leadHtml.includes(escapeHtml(p2Text.slice(0, 30)))) {
-        excerptsHtml += `<p class="receipt-p3">${escapeHtml(p2Text)}</p>`;
+  if (essayParas.length === 0) {
+    essayParas = [`Reporting on "${headline}" examines key structural developments and observed outcomes.`];
+  }
+
+  const leadRaw = essayParas[0];
+  const firstChar = leadRaw.charAt(0).toUpperCase();
+  const restLead = leadRaw.slice(1);
+  const leadHtml = `<p class="receipt-p1"><span class="broadsheet-dropcap">${escapeHtml(firstChar)}</span>${escapeHtml(restLead)}</p>`;
+
+  let essayBodyHtml = '';
+  if (essayParas.length > 1) {
+    essayParas.slice(1).forEach(p => {
+      if (p && p !== leadRaw) {
+        essayBodyHtml += `<p class="receipt-p3">${escapeHtml(p)}</p>`;
       }
-      if (excerpts.length > 1) {
-        const p3Text = excerpts[1];
-        if (p3Text && p3Text !== p2Text) {
-          excerptsHtml += `<p class="receipt-p3">${escapeHtml(p3Text)}</p>`;
-        }
+    });
+  } else if (excerpts.length > 1) {
+    excerpts.slice(1).forEach(p => {
+      if (p && p !== leadRaw) {
+        essayBodyHtml += `<p class="receipt-p3">${escapeHtml(p)}</p>`;
       }
-    } else if (summaryParas.length > 1) {
-      summaryParas.slice(1, 3).forEach(sp => {
-        excerptsHtml += `<p class="receipt-p3">${escapeHtml(sp)}</p>`;
-      });
-    }
+    });
+  }
+
+  // Highlight Quote
+  let quoteHtml = '';
+  const quoteText = cleanExcerpt(post.receiptHighlightQuote || post.pullQuote);
+  if (quoteText && !isDuplicateOfUserTake(quoteText, post) && !leadRaw.includes(quoteText.slice(0, 30))) {
+    quoteHtml = `
+      <div class="receipt-highlight" style="margin-top: 6px; margin-bottom: 6px;">
+        <div class="highlighter-label">
+          <span>✨</span>
+          <span>${isInnerVoice ? 'CORE CONVICTION' : 'EDITORIAL CONVICTION'}</span>
+        </div>
+        <div class="highlighter-text" style="font-size: 10.5px; font-weight: 600; line-height: 1.4;">
+          “${escapeHtml(quoteText)}”
+        </div>
+      </div>
+    `;
   }
 
   // Evidentiary metric badge
@@ -3292,43 +3219,41 @@ function buildSlide3Html(post, index) {
     `;
   }
 
-  // Structured takeaways card (if tension card not already shown)
+  // Structured takeaways card
   let takeawaysHtml = '';
-  if (!tensionHtml) {
-    const takeaways = Array.isArray(post.keyTakeaways) ? post.keyTakeaways.filter(Boolean) : [];
-    if (takeaways.length > 0) {
-      const topTakeaways = takeaways.slice(0, 3);
-      takeawaysHtml = `
-        <div class="receipt-takeaways-card">
-          <div class="takeaways-header">
-            <span class="takeaways-icon">⚖️</span>
-            <span class="takeaways-title">${tier === 'tier3_opinion' ? 'CURATOR CONVICTIONS' : 'KEY TAKEAWAYS'}</span>
-          </div>
-          <div class="takeaways-list">
-            ${topTakeaways.map(t => {
-              const str = String(t).trim();
-              const colonIdx = str.indexOf(':');
-              if (colonIdx > 0 && colonIdx < 35) {
-                const prefix = escapeHtml(str.slice(0, colonIdx).trim());
-                const rest = escapeHtml(str.slice(colonIdx + 1).trim());
-                return `<div class="takeaway-item"><span class="takeaway-dot">▪</span><span class="takeaway-text"><strong>${prefix}:</strong> ${rest}</span></div>`;
-              }
-              return `<div class="takeaway-item"><span class="takeaway-dot">▪</span><span class="takeaway-text">${escapeHtml(str)}</span></div>`;
-            }).join('')}
-          </div>
+  const takeaways = Array.isArray(post.keyTakeaways) ? post.keyTakeaways.filter(Boolean) : [];
+  if (takeaways.length > 0) {
+    const topTakeaways = takeaways.slice(0, 3);
+    takeawaysHtml = `
+      <div class="receipt-takeaways-card" style="margin-top: 6px;">
+        <div class="takeaways-header">
+          <span class="takeaways-icon">⚖️</span>
+          <span class="takeaways-title">${isInnerVoice ? 'PERSONAL CONVICTIONS' : 'CURATOR CONVICTIONS'}</span>
         </div>
-      `;
-    } else if (post.whyItMatters && String(post.whyItMatters).trim()) {
-      takeawaysHtml = `
-        <div class="receipt-takeaways-card">
-          <div class="takeaways-header">
-            <span class="takeaways-icon">🔍</span>
-            <span class="takeaways-title">WHY THIS MATTERS</span>
-          </div>
-          <p class="takeaway-why-text">${escapeHtml(String(post.whyItMatters).trim())}</p>
+        <div class="takeaways-list">
+          ${topTakeaways.map(t => {
+            const str = String(t).trim();
+            const colonIdx = str.indexOf(':');
+            if (colonIdx > 0 && colonIdx < 35) {
+              const prefix = escapeHtml(str.slice(0, colonIdx).trim());
+              const rest = escapeHtml(str.slice(colonIdx + 1).trim());
+              return `<div class="takeaway-item"><span class="takeaway-dot">▪</span><span class="takeaway-text"><strong>${prefix}:</strong> ${rest}</span></div>`;
+            }
+            return `<div class="takeaway-item"><span class="takeaway-dot">▪</span><span class="takeaway-text">${escapeHtml(str)}</span></div>`;
+          }).join('')}
         </div>
-      `;
-    }
+      </div>
+    `;
+  } else if (post.whyItMatters && String(post.whyItMatters).trim()) {
+    takeawaysHtml = `
+      <div class="receipt-takeaways-card" style="margin-top: 6px;">
+        <div class="takeaways-header">
+          <span class="takeaways-icon">🔍</span>
+          <span class="takeaways-title">WHY THIS MATTERS</span>
+        </div>
+        <p class="takeaway-why-text">${escapeHtml(String(post.whyItMatters).trim())}</p>
+      </div>
+    `;
   }
 
   return `
@@ -3352,7 +3277,7 @@ function buildSlide3Html(post, index) {
         <div class="receipt-pub-title">SLANT MINUTE</div>
         <div class="receipt-rules">
           <span>VOL. I • NO. 1</span>
-          <span class="receipt-rules-center">${isInnerVoice ? 'FIRST-PERSON REFLECTION' : (tier === 'tier_video' ? 'BROADCAST SYNTHESIS' : 'CURATED EDITORIAL SYNTHESIS')}</span>
+          <span class="receipt-rules-center">${isInnerVoice ? 'FIRST-PERSON REFLECTION' : (tier === 'tier_video' ? 'BROADCAST EDITORIAL ESSAY' : 'BROADSHEET EDITORIAL ESSAY')}</span>
           <span>60-SEC BROADSHEET</span>
         </div>
         <div class="receipt-masthead-bottom"></div>
@@ -3364,7 +3289,7 @@ function buildSlide3Html(post, index) {
         <div class="receipts-byline">
           ${isInnerVoice 
             ? `<span>BY ${handle}</span><span class="receipts-opinion-tag">${slantIcon} INNER VOICE</span>` 
-            : `<span>BY ${handle} • SOURCE: ${cleanPubUpper}</span><span class="receipts-archive-tag">SYNTHESIS</span>`}
+            : `<span>BY ${handle} • IN DIALOGUE WITH: ${cleanPubUpper}</span><span class="receipts-archive-tag">EDITORIAL ESSAY</span>`}
         </div>
         <div class="receipts-hairline"></div>
       </div>
@@ -3373,8 +3298,9 @@ function buildSlide3Html(post, index) {
       <div class="receipt-paragraphs" style="flex: none; min-height: auto; height: auto; overflow: visible;">
         ${metricHtml}
         ${leadHtml}
-        ${claimsHtml || excerptsHtml}
-        ${tensionHtml || takeawaysHtml}
+        ${essayBodyHtml}
+        ${quoteHtml}
+        ${takeawaysHtml}
       </div>
 
       <!-- 4. Broadsheet Archival Bottom Folio -->
@@ -4037,36 +3963,109 @@ function openDetailModal(index) {
   const proofParagraphsEl = document.getElementById('proofParagraphs');
   if (proofParagraphsEl) {
     let paragraphsHtml = '';
-    if (excerpts.length > 0) {
-      excerpts.forEach((exc, pIdx) => {
-        const cleanText = escapeHtml(cleanExcerpt(exc));
-        if (cleanText) {
-          paragraphsHtml += `<div class="proof-p"><span class="proof-para-marker">§ ${pIdx + 1}</span>${cleanText}</div>`;
-        }
-      });
-    }
+    const ledger = post.sourceLedger || post.generationInputs?.sourceLedger;
 
-    const quote = post.receiptHighlightQuote || post.pullQuote;
-    if (quote && cleanExcerpt(quote)) {
-      const cleanQuote = escapeHtml(cleanExcerpt(quote));
-      paragraphsHtml += `
-        <div class="proof-highlight-card">
-          <div class="highlighter-label"><span>✏️</span> PRIMARY REPORTED QUOTE</div>
-          <div class="highlighter-text">“${cleanQuote}”</div>
-        </div>
-      `;
-    }
-
-    if (post.whyItMatters && String(post.whyItMatters).trim()) {
-      paragraphsHtml += `
-        <div class="receipt-takeaways-card" style="margin-top:6px;">
-          <div class="takeaways-header">
-            <span class="takeaways-icon">🔍</span>
-            <span class="takeaways-title">CORROBORATING CONTEXT</span>
+    if (ledger) {
+      let thesisText = '';
+      let contextText = '';
+      if (ledger.subject_and_thesis && typeof ledger.subject_and_thesis === 'object') {
+        contextText = cleanExcerpt(ledger.subject_and_thesis.context || '');
+        thesisText = cleanExcerpt(ledger.subject_and_thesis.thesis || '');
+      } else if (ledger.subject_and_thesis) {
+        thesisText = cleanExcerpt(String(ledger.subject_and_thesis));
+      }
+      if (thesisText || contextText) {
+        paragraphsHtml += `
+          <div class="proof-p" style="margin-bottom: 8px;">
+            <span class="proof-para-marker">§ CENTRAL THESIS</span>
+            ${contextText ? `<strong>${escapeHtml(contextText)}</strong> ` : ''}${escapeHtml(thesisText)}
           </div>
-          <p class="takeaway-why-text">${escapeHtml(String(post.whyItMatters).trim())}</p>
-        </div>
-      `;
+        `;
+      }
+
+      const ledgerClaims = Array.isArray(ledger.core_claims_and_evidence) ? ledger.core_claims_and_evidence : [];
+      if (ledgerClaims.length > 0) {
+        paragraphsHtml += `
+          <div class="receipt-takeaways-card" style="margin: 8px 0;">
+            <div class="takeaways-header">
+              <span class="takeaways-icon">📌</span>
+              <span class="takeaways-title">VERIFIED SOURCE CLAIMS & EVIDENCE</span>
+            </div>
+            <div class="takeaways-list">
+              ${ledgerClaims.map((claim, idx) => {
+                let title = '';
+                let evidence = '';
+                if (claim && typeof claim === 'object') {
+                  title = claim.title || '';
+                  evidence = claim.evidence || claim.text || '';
+                } else {
+                  const str = String(claim || '');
+                  const colonIdx = str.indexOf(':');
+                  if (colonIdx > 0 && colonIdx < 45) {
+                    title = str.slice(0, colonIdx).trim();
+                    evidence = str.slice(colonIdx + 1).trim();
+                  } else {
+                    evidence = str;
+                  }
+                }
+                return `
+                  <div class="takeaway-item">
+                    <span class="takeaway-dot">▪</span>
+                    <span class="takeaway-text">${title ? `<strong>${escapeHtml(title)}:</strong> ` : ''}${escapeHtml(evidence)}</span>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
+        `;
+      }
+
+      let tensionText = '';
+      if (ledger.underlying_tensions && typeof ledger.underlying_tensions === 'object') {
+        tensionText = cleanExcerpt([ledger.underlying_tensions.primary_conflict, ledger.underlying_tensions.tradeoffs].filter(Boolean).join(' '));
+      } else if (ledger.underlying_tensions) {
+        tensionText = cleanExcerpt(String(ledger.underlying_tensions));
+      }
+      if (tensionText) {
+        paragraphsHtml += `
+          <div class="proof-highlight-card" style="margin-top: 8px;">
+            <div class="highlighter-label"><span>⚖️</span> CENTRAL CONFLICT & TRADE-OFF</div>
+            <div class="highlighter-text">${escapeHtml(tensionText)}</div>
+          </div>
+        `;
+      }
+    } else {
+      if (excerpts.length > 0) {
+        excerpts.forEach((exc, pIdx) => {
+          const cleanText = escapeHtml(cleanExcerpt(exc));
+          if (cleanText) {
+            paragraphsHtml += `<div class="proof-p"><span class="proof-para-marker">§ ${pIdx + 1}</span>${cleanText}</div>`;
+          }
+        });
+      }
+
+      const quote = post.receiptHighlightQuote || post.pullQuote;
+      if (quote && cleanExcerpt(quote)) {
+        const cleanQuote = escapeHtml(cleanExcerpt(quote));
+        paragraphsHtml += `
+          <div class="proof-highlight-card">
+            <div class="highlighter-label"><span>✏️</span> PRIMARY REPORTED QUOTE</div>
+            <div class="highlighter-text">“${cleanQuote}”</div>
+          </div>
+        `;
+      }
+
+      if (post.whyItMatters && String(post.whyItMatters).trim()) {
+        paragraphsHtml += `
+          <div class="receipt-takeaways-card" style="margin-top:6px;">
+            <div class="takeaways-header">
+              <span class="takeaways-icon">🔍</span>
+              <span class="takeaways-title">CORROBORATING CONTEXT</span>
+            </div>
+            <p class="takeaway-why-text">${escapeHtml(String(post.whyItMatters).trim())}</p>
+          </div>
+        `;
+      }
     }
 
     proofParagraphsEl.innerHTML = paragraphsHtml || '<div class="proof-p">Original source text confirmed by archival records.</div>';

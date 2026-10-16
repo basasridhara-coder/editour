@@ -282,8 +282,17 @@ ${sourceType === 'video_audio' ? `CRITICAL VIDEO & AUDIO BROADCAST DIRECTIVE:
 - This slant is rooted in a VIDEO or AUDIO broadcast (e.g. YouTube interview, podcast episode, keynote, or debate).
 - Mental model: "I watched/listened to something that sparked a reaction."
 - Frame the adapted headline with the immediacy, conversational tension, or contrarian takeaway of a spoken dialogue.
-- Poster 2 ("THE CRITICAL PERSPECTIVE" / curatorTake): Capture the key realization, counter-slant, or pushback against what was said in the broadcast.
-- Poster 3 ("THE RECEIPTS" / resolvedArticleExcerpts): Cite spoken quotes, arguments, or timestamped moments from the broadcast to anchor the critique.` : ''}
+- Poster 2 ("THE CRITICAL PERSPECTIVE" / curatorTake): Capture the key realization, counter-slant, or pushback against what was said in the broadcast.` : ''}
+${userSlant && sourceType !== 'inner_voice' ? `CRITICAL POSTER 3 DIRECTIVE (ELABORATED USER TAKE IN DIALOGUE WITH SOURCE):
+- Poster 3 is the curator's broadsheet essay where the curator's stance/take is ELABORATED IN DIRECT CONNECTION WITH THE ATTACHED SOURCE.
+- It must NOT be a dry, third-person summary or detached book report of the source piece (the objective source ledger is already accessible to the reader on tap from Posters 1 & 2).
+- Poster 3 must synthesize the curator's perspective into a substantive 3-paragraph broadsheet editorial:
+  * Paragraph 1 (The Catalyst & The Modern Friction): The curator's opening thesis connecting their personal conviction/angle to the core dilemma explored by the source author/speaker.
+  * Paragraph 2 (Engaging the Source in Depth): Directly engage with the author's/speaker's concrete concepts, arguments, or data points (e.g. citing specific teachings, findings, or claims), using them to substantiate and deepen the curator's stance.
+  * Paragraph 3 (The Human Stakes & Prescriptive Resolution): Detail the deeper personal, familial, or societal implications, offering an intentional boundary or forward-looking resolution.
+- STRICT BAN: Never echo the user's raw slant verbatim across paragraphs! Elaborate the thought with depth, narrative richness, and intellectual conviction. Output pure broadsheet paragraphs without labels like "Paragraph 1:".
+- "keyTakeaways": Exactly 3 sharp, structured conviction principles formulated from the elaborated take in dialogue with the source (each with a bold title prefix, e.g. "Title: Core insight").
+- "receiptHighlightQuote": A poignant, high-impact core conviction sentence (18-28 words) capturing the heart of the curator's stance in connection with the source.` : ''}
 ${cues && cues.length > 0 ? `CRITICAL VISUAL RULE: The Hook poster artwork and cues MUST be anchored in #1 HERO: "${cues[0]}", incorporating #2 MOTIF: "${cues[1] || ''}" and #3 TENSION: "${cues[2] || ''}".` : ''}
 
 Respond strictly with valid JSON with this exact structure:
@@ -294,18 +303,18 @@ Respond strictly with valid JSON with this exact structure:
   "categoryBadge": "UPPERCASE CATEGORY (e.g. DEEP TECH, CULTURE, OPINION, CLIMATE, ECONOMY, HEALTH)",
   "hook": "1-2 sentence gripping hook that stops the reader mid-scroll",
   "curatorTake": ${refineCoreTake ? `"EXACTLY 2 complete sentences (25-35 words) of elevated, model-synthesized editorial critique completely rephrasing and elevating the curator's raw thought into polished prose ending with a period (NEVER copy raw user words verbatim)."` : `"The curator's exact typed words verbatim: ${JSON.stringify(userSlant || 'Insight in motion.')}"`},
-  "summary": "${sourceType === 'inner_voice' ? '2-3 concise paragraphs of lived experience reflection and personal context' : '2-3 concise paragraphs of strictly objective journalistic reporting summarizing what the source piece/speaker/article reported and asserted. NEVER repeat or summarize the curator take here—the curator take belongs exclusively in curatorTake on Poster 2.'}",
+  "summary": "${sourceType === 'inner_voice' ? '2-3 concise paragraphs of lived experience reflection and personal context' : (userSlant ? '3 substantive broadsheet editorial paragraphs elaborating the curator\'s take in direct connection with the attached source (engaging source arguments to develop the curator\'s perspective, personal stakes, and resolution). NEVER a dry 3rd-person book report.' : '2-3 concise paragraphs of strictly objective journalistic reporting summarizing what the source piece/speaker/article reported and asserted.')}",
   "whyItMatters": "1-2 sharp sentences on the stakes and why this perspective matters right now",
   "keyTakeaways": [
-    "${sourceType === 'inner_voice' ? 'First personal takeaway' : 'First key source finding or verified claim from the reporting (concise, high-impact)'}",
-    "${sourceType === 'inner_voice' ? 'Second personal takeaway' : 'Second key source finding or central trade-off from the source'}",
-    "${sourceType === 'inner_voice' ? 'Third personal takeaway' : 'Third structural implication or question raised by the source'}"
+    "${sourceType === 'inner_voice' ? 'First personal takeaway' : (userSlant ? 'First core conviction principle connecting the take and source (e.g. Title: Insight)' : 'First key source finding or verified claim from the reporting (concise, high-impact)')}",
+    "${sourceType === 'inner_voice' ? 'Second personal takeaway' : (userSlant ? 'Second core conviction principle detailing the human/personal stakes' : 'Second key source finding or central trade-off from the source')}",
+    "${sourceType === 'inner_voice' ? 'Third personal takeaway' : (userSlant ? 'Third core conviction principle offering an intentional boundary or forward path' : 'Third structural implication or question raised by the source')}"
   ],
-  "receiptHighlightQuote": "${sourceType === 'inner_voice' ? 'Single poignant core conviction sentence (18-30 words)' : 'A direct quote, core factual assertion, or official thesis directly from the source author/speaker (18-30 words). NEVER use the curator take.'}",
+  "receiptHighlightQuote": "${sourceType === 'inner_voice' ? 'Single poignant core conviction sentence (18-30 words)' : (userSlant ? 'A poignant core conviction sentence (18-28 words) capturing the heart of the curator stance in dialogue with the source' : 'A direct quote, core factual assertion, or official thesis directly from the source author/speaker (18-30 words).')}",
   "resolvedArticleExcerpts": [
-    "${sourceType === 'inner_voice' ? 'Paragraph 1 (Scene & Catalyst): 50-75 words detailing personal scene without labels.' : 'Paragraph 1 (Source Subject & Context): 50-75 words detailing the author\'s/speaker\'s core topic, factual background, and central thesis without labels.'}",
-    "${sourceType === 'inner_voice' ? 'Paragraph 2 (The Turning Point): 35-50 words capturing turning point without labels.' : 'Paragraph 2 (Core Source Evidence & Claims): 40-60 words citing specific facts, speaker assertions, or data points presented in the source without labels.'}",
-    "${sourceType === 'inner_voice' ? 'Paragraph 3 (The Lasting Truth): 50-75 words closing reflection without labels.' : 'Paragraph 3 (Underlying Conflict or Trade-offs): 40-60 words highlighting the systemic tension or unresolved questions raised by the piece without labels.'}"
+    "${sourceType === 'inner_voice' ? 'Paragraph 1 (Scene & Catalyst): 50-75 words detailing personal scene without labels.' : (userSlant ? 'Paragraph 1 (Catalyst & Friction): 55-80 words elaborating the curator\'s opening thesis in dialogue with the source topic without labels.' : 'Paragraph 1 (Source Subject & Context): 50-75 words detailing the author\'s/speaker\'s core topic, factual background, and central thesis without labels.')}",
+    "${sourceType === 'inner_voice' ? 'Paragraph 2 (The Turning Point): 35-50 words capturing turning point without labels.' : (userSlant ? 'Paragraph 2 (Engaging Source Claims): 55-80 words engaging speaker/author concepts to substantiate the critique without labels.' : 'Paragraph 2 (Core Source Evidence & Claims): 40-60 words citing specific facts, speaker assertions, or data points presented in the source without labels.')}",
+    "${sourceType === 'inner_voice' ? 'Paragraph 3 (The Lasting Truth): 50-75 words closing reflection without labels.' : (userSlant ? 'Paragraph 3 (Human Stakes & Resolution): 50-75 words detailing personal/family impact and lasting resolution without labels.' : 'Paragraph 3 (Underlying Conflict or Trade-offs): 40-60 words highlighting the systemic tension or unresolved questions raised by the piece without labels.')}"
   ],
   "keyMetric": "Short impactful stat or metric (e.g. +42%, 1,072 Trees, 10x, 99.8% - or leave empty if none)",
   "visualMood": "Short aesthetic phrase (e.g. High-Contrast Editorial Risograph, Velvet Obsidian Chiaroscuro)",
@@ -764,80 +773,122 @@ function generateSmartFallbackSynthesis({
     refinedTake += '.';
   }
 
-  // Extract dynamic paragraphs from sourceLedger or scraped content (strictly objective reporting)
+  // Extract dynamic paragraphs from userSlant in connection with sourceLedger or scraped content
   let p1 = '';
   let p2 = '';
   let p3 = '';
+  let fallbackTakeaways = [];
+  let fallbackQuote = '';
 
-  if (sourceLedger) {
-    if (sourceLedger.subject_and_thesis) {
-      if (typeof sourceLedger.subject_and_thesis === 'object') {
-        const ctx = sourceLedger.subject_and_thesis.context ? `${sourceLedger.subject_and_thesis.context} ` : '';
-        p1 = `${ctx}${sourceLedger.subject_and_thesis.thesis || ''}`.trim();
-      } else {
-        p1 = String(sourceLedger.subject_and_thesis).trim();
+  const hasUserSlant = Boolean(userSlant && userSlant.trim().length > 10);
+
+  if (hasUserSlant) {
+    const cleanSlant = userSlant.replace(/[\n\r]+/g, ' ').replace(/\s+/g, ' ').trim();
+    const sentences = cleanSlant.split(/(?<=[.!?])\s+/).filter(s => s.trim().length > 10);
+    const firstSentence = sentences[0] ? sentences[0].trim().replace(/[.]+$/, '') : cleanSlant.slice(0, 80);
+    const secondSentence = sentences[1] ? sentences[1].trim() : '';
+
+    // Paragraph 1: Catalyst & The Friction connecting stance to headline
+    p1 = `${firstSentence}. In the face of continuous inputs around "${headline}", the primary friction is not a lack of information, but the relentless pressure to react to superficial noise. When every waking moment is captured by trivial updates, it generates an insidious mental clutter that crowds out genuine clarity and presence.`;
+
+    // Paragraph 2: Engaging the Source / Evidence in Depth
+    let sourceAssertion = '';
+    if (sourceLedger && sourceLedger.subject_and_thesis) {
+      const th = typeof sourceLedger.subject_and_thesis === 'object' ? sourceLedger.subject_and_thesis.thesis : sourceLedger.subject_and_thesis;
+      sourceAssertion = String(th).replace(/[.]+$/, '');
+    } else if (sourceLedger && Array.isArray(sourceLedger.core_claims_and_evidence) && sourceLedger.core_claims_and_evidence[0]) {
+      const c0 = sourceLedger.core_claims_and_evidence[0];
+      sourceAssertion = typeof c0 === 'object' ? (c0.evidence || c0.text) : String(c0);
+    }
+
+    if (sourceAssertion) {
+      p2 = `This critique directly engages the underlying source reality—specifically that ${sourceAssertion}. Passive willpower alone cannot overcome environments engineered for perpetual engagement; without deliberate boundaries, mental bandwidth is systematically hijacked before we can address what truly matters.`;
+    } else if (secondSentence) {
+      p2 = `${secondSentence} Examining the deeper structural incentives reveals why stepping back is an active discipline. When reflexive reactivity becomes the default posture, intentional focus and emotional availability are the first casualties.`;
+    } else {
+      p2 = `Stepping back from reflexive reactivity requires understanding that passive willpower is never enough against continuous stimulation. Without intentional daily boundaries, superficial noise systematically crowds out authentic focus and real-world connection.`;
+    }
+
+    // Paragraph 3: Deeper Human Stakes & Resolution
+    p3 = `Reclaiming authentic peace demands intentional, practiced disengagement rather than continuous reaction. Long after transient headlines and notification loops fade, the deliberate boundaries we establish to protect inner stillness, family presence, and personal conviction are all that truly endure.`;
+
+    fallbackTakeaways = [
+      `Reflexive Reactivity: Continuous inputs train the mind to mistake superficial noise for vital importance.`,
+      `Displaced Presence: Mental clutter from irrelevant demands systematically crowds out authentic connection and personal peace.`,
+      `Practiced Boundaries: True mental autonomy requires intentional, daily discipline rather than relying on spontaneous willpower.`
+    ];
+
+    fallbackQuote = (cleanSlant.length > 140 ? cleanSlant.slice(0, 137) + '...' : cleanSlant);
+  } else {
+    // Strictly objective reporting fallback if no user take is provided
+    if (sourceLedger) {
+      if (sourceLedger.subject_and_thesis) {
+        if (typeof sourceLedger.subject_and_thesis === 'object') {
+          const ctx = sourceLedger.subject_and_thesis.context ? `${sourceLedger.subject_and_thesis.context} ` : '';
+          p1 = `${ctx}${sourceLedger.subject_and_thesis.thesis || ''}`.trim();
+        } else {
+          p1 = String(sourceLedger.subject_and_thesis).trim();
+        }
+      }
+      const claims = Array.isArray(sourceLedger.core_claims_and_evidence) ? sourceLedger.core_claims_and_evidence : [];
+      if (claims.length > 0) {
+        const c0 = claims[0];
+        p2 = typeof c0 === 'object' ? `${c0.title ? c0.title + ': ' : ''}${c0.evidence || c0.text || ''}`.trim() : String(c0).trim();
+      }
+      if (claims.length > 1) {
+        const c1 = claims[1];
+        p3 = typeof c1 === 'object' ? `${c1.title ? c1.title + ': ' : ''}${c1.evidence || c1.text || ''}`.trim() : String(c1).trim();
+      } else if (sourceLedger.underlying_tensions) {
+        if (typeof sourceLedger.underlying_tensions === 'object') {
+          p3 = `${sourceLedger.underlying_tensions.primary_conflict || ''} ${sourceLedger.underlying_tensions.tradeoffs || ''}`.trim();
+        } else {
+          p3 = String(sourceLedger.underlying_tensions).trim();
+        }
       }
     }
-    const claims = Array.isArray(sourceLedger.core_claims_and_evidence) ? sourceLedger.core_claims_and_evidence : [];
-    if (claims.length > 0) {
-      const c0 = claims[0];
-      p2 = typeof c0 === 'object' ? `${c0.title ? c0.title + ': ' : ''}${c0.evidence || c0.text || ''}`.trim() : String(c0).trim();
-    }
-    if (claims.length > 1) {
-      const c1 = claims[1];
-      p3 = typeof c1 === 'object' ? `${c1.title ? c1.title + ': ' : ''}${c1.evidence || c1.text || ''}`.trim() : String(c1).trim();
-    } else if (sourceLedger.underlying_tensions) {
-      if (typeof sourceLedger.underlying_tensions === 'object') {
-        p3 = `${sourceLedger.underlying_tensions.primary_conflict || ''} ${sourceLedger.underlying_tensions.tradeoffs || ''}`.trim();
-      } else {
-        p3 = String(sourceLedger.underlying_tensions).trim();
-      }
-    }
-  }
 
-  if (extractedContent && extractedContent.length > 100 && (!p1 || !p2 || !p3)) {
-    const lines = extractedContent.split(/\n+/).map(l => l.trim()).filter(l => {
-      if (l.length < 80) return false;
-      if (l.startsWith('#') || l.startsWith('http')) return false;
-      if (/linkedin|twitter|instagram|facebook|youtube|t\.co|bit\.ly|youtu\.be|tiktok/i.test(l)) return false;
-      if (/utm_|subscribe|follow us|all rights reserved|cookie|privacy policy|terms of/i.test(l)) return false;
-      return true;
-    });
-    if (!p1 && lines.length > 0) p1 = lines[0];
-    if (!p2 && lines.length > 1) p2 = lines[1];
-    if (!p3 && lines.length > 2) p3 = lines[2];
-  }
+    if (extractedContent && extractedContent.length > 100 && (!p1 || !p2 || !p3)) {
+      const lines = extractedContent.split(/\n+/).map(l => l.trim()).filter(l => {
+        if (l.length < 80) return false;
+        if (l.startsWith('#') || l.startsWith('http')) return false;
+        if (/linkedin|twitter|instagram|facebook|youtube|t\.co|bit\.ly|youtu\.be|tiktok/i.test(l)) return false;
+        if (/utm_|subscribe|follow us|all rights reserved|cookie|privacy policy|terms of/i.test(l)) return false;
+        return true;
+      });
+      if (!p1 && lines.length > 0) p1 = lines[0];
+      if (!p2 && lines.length > 1) p2 = lines[1];
+      if (!p3 && lines.length > 2) p3 = lines[2];
+    }
 
-  if (!p1 || !p2 || !p3) {
-    p1 = p1 || (extractedTitle
-      ? `Reporting on "${extractedTitle}" examines foundational assumptions across core operators and participants. As traditional frameworks encounter real-world friction, key observers are recalculating their strategic positions.`
-      : 'Primary observations confirm that real-world indicators diverged sharply from initial forecasts across core operations. As traditional assumptions encounter resistance, stakeholders are re-evaluating long-held conventions.');
-    p2 = p2 || (extractedContent && extractedContent.length > 50
-      ? extractedContent.slice(0, 200).replace(/\s+/g, ' ').trim()
-      : 'Examining the operational balance and public disclosures shows strategic realignment occurring far faster than consensus anticipated, signaling an urgent pivot toward resilient execution.');
-    p3 = p3 || 'Historical precedent confirms that early operational divergence inevitably forces systemic realignment before the broader cycle concludes. Observers who recognize these structural shifts early gain a decisive vantage point.';
+    if (!p1 || !p2 || !p3) {
+      p1 = p1 || (extractedTitle
+        ? `Reporting on "${extractedTitle}" examines foundational assumptions across core operators and participants. As traditional frameworks encounter real-world friction, key observers are recalculating their strategic positions.`
+        : 'Primary observations confirm that real-world indicators diverged sharply from initial forecasts across core operations. As traditional assumptions encounter resistance, stakeholders are re-evaluating long-held conventions.');
+      p2 = p2 || (extractedContent && extractedContent.length > 50
+        ? extractedContent.slice(0, 200).replace(/\s+/g, ' ').trim()
+        : 'Examining the operational balance and public disclosures shows strategic realignment occurring far faster than consensus anticipated, signaling an urgent pivot toward resilient execution.');
+      p3 = p3 || 'Historical precedent confirms that early operational divergence inevitably forces systemic realignment before the broader cycle concludes. Observers who recognize these structural shifts early gain a decisive vantage point.';
+    }
+
+    fallbackQuote = (sourceLedger && Array.isArray(sourceLedger.core_claims_and_evidence) && sourceLedger.core_claims_and_evidence[0])
+      ? (typeof sourceLedger.core_claims_and_evidence[0] === 'object' ? (sourceLedger.core_claims_and_evidence[0].evidence || sourceLedger.core_claims_and_evidence[0].title) : String(sourceLedger.core_claims_and_evidence[0]))
+      : (p1 ? (p1.length > 140 ? p1.slice(0, 137) + '...' : p1) : 'True discernment requires separating transient friction from enduring systemic realignment.');
+
+    fallbackTakeaways = (sourceLedger && Array.isArray(sourceLedger.core_claims_and_evidence) && sourceLedger.core_claims_and_evidence.length > 0)
+      ? sourceLedger.core_claims_and_evidence.slice(0, 3).map((c, i) => {
+          if (typeof c === 'object') return `${c.title || `Claim ${i+1}`}: ${c.evidence || c.text || ''}`;
+          return String(c);
+        })
+      : [
+          `Structural Evidence: The reporting around "${headline}" documents significant shifts in fundamental operational dynamics.`,
+          'Operational Divergence: Documented observations diverge from consensus projections, forcing strategic recalibration.',
+          'Systemic Horizon: Long-term durability accrues to those who navigate these structural trade-offs early.'
+        ];
   }
 
   const hookText = `${headline}. When the dominant narrative simplifies the stakes, the real structural disruption occurs quietly in the margins.`;
 
-  const fallbackSummary = (sourceLedger && p1 && p2)
-    ? `${p1}\n\n${p2}\n\n${p3 || 'Critical analysis requires evaluating verified source evidence and examining the underlying trade-offs.'}`
-    : `Reporting on "${headline}" examines key structural developments and observed outcomes.\n\nPrimary evidence indicates that underlying indicators diverged significantly from conventional forecasts, prompting stakeholders to reassess long-held assumptions.\n\nThe broader tension centers on navigating these operational transitions while maintaining long-term stability.`;
-
-  const fallbackQuote = (sourceLedger && Array.isArray(sourceLedger.core_claims_and_evidence) && sourceLedger.core_claims_and_evidence[0])
-    ? (typeof sourceLedger.core_claims_and_evidence[0] === 'object' ? (sourceLedger.core_claims_and_evidence[0].evidence || sourceLedger.core_claims_and_evidence[0].title) : String(sourceLedger.core_claims_and_evidence[0]))
-    : (p1 ? (p1.length > 140 ? p1.slice(0, 137) + '...' : p1) : 'True discernment requires separating transient friction from enduring systemic realignment.');
-
-  const fallbackTakeaways = (sourceLedger && Array.isArray(sourceLedger.core_claims_and_evidence) && sourceLedger.core_claims_and_evidence.length > 0)
-    ? sourceLedger.core_claims_and_evidence.slice(0, 3).map((c, i) => {
-        if (typeof c === 'object') return `${c.title || `Claim ${i+1}`}: ${c.evidence || c.text || ''}`;
-        return String(c);
-      })
-    : [
-        `Structural Evidence: The reporting around "${headline}" documents significant shifts in fundamental operational dynamics.`,
-        'Operational Divergence: Documented observations diverge from consensus projections, forcing strategic recalibration.',
-        'Systemic Horizon: Long-term durability accrues to those who navigate these structural trade-offs early.'
-      ];
+  const fallbackSummary = `${p1}\n\n${p2}\n\n${p3}`;
 
   return {
     adaptedHeadline: headline.length > 55 ? headline.slice(0, 52) + '...' : headline,

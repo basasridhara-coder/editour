@@ -77,14 +77,14 @@ module.exports = async function handler(req, res) {
     let singleId = null;
     let multiIds = null;
     try {
-      const parsedUrl = new URL(req.url, 'http://localhost');
-      singleId = parsedUrl.searchParams.get('id');
-      multiIds = parsedUrl.searchParams.get('ids');
-      const qLimit = parseInt(parsedUrl.searchParams.get('limit'), 10);
+      const parsedUrl = new URL(req.url || '/', 'http://localhost');
+      singleId = (req.query && req.query.id) || parsedUrl.searchParams.get('id');
+      multiIds = (req.query && req.query.ids) || parsedUrl.searchParams.get('ids');
+      const qLimit = parseInt((req.query && req.query.limit) || parsedUrl.searchParams.get('limit'), 10);
       if (!isNaN(qLimit) && qLimit > 0) {
         limit = Math.min(qLimit, 24);
       }
-      const qOffset = parseInt(parsedUrl.searchParams.get('offset'), 10);
+      const qOffset = parseInt((req.query && req.query.offset) || parsedUrl.searchParams.get('offset'), 10);
       if (!isNaN(qOffset) && qOffset >= 0) {
         baseOffset = qOffset;
       }
