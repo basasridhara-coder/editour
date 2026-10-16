@@ -7639,9 +7639,9 @@ header {
 /* Matches Flutter create_postcard_screen.dart:3417-3490 */
 .creator-result-action-panel {
   width: 100%;
-  max-width: 480px;
+  max-width: 520px;
   margin: 16px auto 14px auto;
-  padding: 10px 8px;
+  padding: 10px 6px;
   background: rgba(15, 23, 42, 0.92);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 18px;
@@ -7650,6 +7650,7 @@ header {
   justify-content: space-around;
   align-items: center;
   backdrop-filter: blur(12px);
+  gap: 2px;
 }
 
 .action-icon-btn {
@@ -7661,11 +7662,12 @@ header {
   align-items: center;
   justify-content: center;
   gap: 5px;
-  padding: 4px 8px;
+  padding: 4px 6px;
   border-radius: 14px;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   user-select: none;
   outline: none;
+  min-width: 52px;
 }
 
 .action-icon-circle {
@@ -7771,32 +7773,55 @@ header {
   font-weight: 700;
 }
 
-/* 2. Save: Warm Amber #F59E0B */
+/* 3. Save: Coral / Rose #FB7185 */
 .action-icon-btn.save .action-icon-circle {
-  background: rgba(245, 158, 11, 0.12);
-  border: 1px solid rgba(245, 158, 11, 0.32);
-  color: #F59E0B;
+  background: rgba(251, 113, 133, 0.12);
+  border: 1px solid rgba(251, 113, 133, 0.32);
+  color: #FB7185;
 }
 .action-icon-btn.save:hover .action-icon-circle,
 .action-icon-btn.save:active .action-icon-circle {
-  background: rgba(245, 158, 11, 0.26);
-  border-color: rgba(245, 158, 11, 0.85);
-  box-shadow: 0 2px 10px rgba(245, 158, 11, 0.35);
+  background: rgba(251, 113, 133, 0.26);
+  border-color: rgba(251, 113, 133, 0.85);
+  box-shadow: 0 2px 10px rgba(251, 113, 133, 0.35);
   transform: translateY(-2px);
-  color: #FDE68A;
+  color: #FECDD3;
 }
 .action-icon-btn.save:hover .action-icon-label {
-  color: #F59E0B;
+  color: #FB7185;
   font-weight: 700;
 }
 .action-icon-btn.save.active .action-icon-circle {
-  background: rgba(245, 158, 11, 0.28);
-  border-color: #F59E0B;
-  color: #F59E0B;
+  background: rgba(251, 113, 133, 0.28);
+  border-color: #FB7185;
+  color: #FB7185;
 }
 .action-icon-btn.save.active .action-icon-label {
-  color: #F59E0B;
+  color: #FB7185;
   font-weight: 700;
+}
+
+.preview-card-edit-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(251, 191, 36, 0.14);
+  border: 1px solid rgba(251, 191, 36, 0.45);
+  color: #FBBF24;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 20px;
+  margin-left: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  line-height: 1;
+}
+.preview-card-edit-btn:hover {
+  background: rgba(251, 191, 36, 0.28);
+  border-color: #FBBF24;
+  color: #FEF08A;
+  transform: translateY(-1px);
 }
 
 /* 5. Publish: Vibrant Emerald #10B981 */

@@ -27,7 +27,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Merriweather:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,400;1,600;1,700;1,900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261016_1345">
+  <link rel="stylesheet" href="style.css?v=20261016_1410">
   <!-- Favicon & Brand Icons -->
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
@@ -398,7 +398,7 @@
             <div class="cues-actions-right">
               <button type="button" class="cues-suggest-btn" id="cuesSuggestBtn" onclick="triggerCueSuggest()">
                 <span class="suggest-icon" id="cuesSuggestIcon">✨</span>
-                <span id="cuesSuggestLabel">Suggest All</span>
+                <span id="cuesSuggestLabel">Generate Visual Cues</span>
               </button>
             </div>
           </div>
@@ -557,7 +557,7 @@
             <!-- Rendered dynamically -->
           </div>
 
-          <!-- Sleek Action Toolbar: Only Regen, Save, Download, Share, Publish -->
+          <!-- Sleek Action Toolbar: Regen, Edit, Save, Download, Share, Publish -->
           <div class="creator-result-action-panel" id="creatorResultActionPanel">
             <!-- 1. Regen -->
             <button type="button" class="action-icon-btn regen" id="step3RegenBtn" onclick="handleStep3Regenerate()" title="Reopen from beginning without changing visual cues">
@@ -571,7 +571,18 @@
               <span class="action-icon-label" id="step3RegenLabel">Regen</span>
             </button>
 
-            <!-- 2. Save (Private to user's profile) -->
+            <!-- 2. Edit (Edit content of the posters) -->
+            <button type="button" class="action-icon-btn edit" id="step3EditBtn" onclick="openEditPosterModal()" title="Edit poster headlines, takes, and receipts">
+              <div class="action-icon-circle">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                </svg>
+              </div>
+              <span class="action-icon-label" id="step3EditLabel">Edit</span>
+            </button>
+
+            <!-- 3. Save (Private to user's profile) -->
             <button type="button" class="action-icon-btn save" id="step3SaveBtn" onclick="saveSynthesizedPost()" title="Save privately to your profile (not in public feed)">
               <div class="action-icon-circle">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -1304,6 +1315,6 @@
     </div>
   </aside>
 
-  <script src="app.js?v=20261016_1345"></script>
+  <script src="app.js?v=20261016_1410"></script>
 </body>
 </html>

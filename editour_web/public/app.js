@@ -3308,7 +3308,8 @@ function createPostCardElement(post, index) {
           <div class="avatar-inner">${initial}</div>
         </div>
         <span class="creator-handle">${escapeHtml(handle)}</span>
-        ${(post.isDraft || post.status === 'draft' || post.isPrivate) ? '<span class="post-draft-badge" style="display:inline-flex; align-items:center; gap:4px; font-size:10px; font-weight:700; background:rgba(245, 158, 11, 0.16); color:#F59E0B; border:1px solid rgba(245, 158, 11, 0.4); padding:2px 7px; border-radius:8px; margin-left:8px; letter-spacing:0.3px;">🔖 PRIVATE DRAFT</span>' : ''}
+        ${index === 'preview' ? `<button type="button" class="preview-card-edit-btn" onclick="event.stopPropagation(); openEditPosterModal(currentPreviewSlide || 0)" title="Edit poster headlines, takes, and receipts">✏️ Edit Content</button>` : ''}
+        ${(post.isDraft || post.status === 'draft' || post.isPrivate) && index !== 'preview' ? '<span class="post-draft-badge" style="display:inline-flex; align-items:center; gap:4px; font-size:10px; font-weight:700; background:rgba(245, 158, 11, 0.16); color:#F59E0B; border:1px solid rgba(245, 158, 11, 0.4); padding:2px 7px; border-radius:8px; margin-left:8px; letter-spacing:0.3px;">🔖 PRIVATE DRAFT</span>' : ''}
       </div>
       <div class="post-menu-container">
         <button type="button" class="post-menu-btn" onclick="event.stopPropagation(); togglePostMenu('${index}')" title="More options" aria-label="More options">
@@ -6250,24 +6251,15 @@ async function goToVisualCuesStep() {
   }
   updateCountryContextUI();
 
-  // Context key strictly tracks the selected source and the user's text/URL context
-  const sourceContextKey = `${creatorSelectedSource}::${(url || '').trim()}::${(slantTake || '').trim()}`;
-
-  // Only auto-suggest if visual cues are empty OR source/context has changed
-  if (creatorCuePills.length === 0 || creatorLastSuggestedContextKey !== sourceContextKey) {
-    creatorLastSuggestedContextKey = sourceContextKey;
-    renderCuesDeck(); // initial render
-    await triggerCueSuggest(); // call Gemini AI model for rich cues!
-  } else {
-    // Context or source has NOT changed: preserve all existing visual cues completely
-    if (creatorCharacterRepresentation === 'likeness') {
-      const detected = detectPersonNameInContext(articleTitle, slantTake, currentScrapedArticle?.content);
-      if (detected && creatorCuePills.length > 0 && !creatorCuePills[0].toLowerCase().includes(detected.toLowerCase())) {
-        creatorCuePills[0] = `${detected} (Editorial Portrait)`;
-      }
+  // STRICT USER DIRECTIVE: Visual cues NEVER auto-generate on page entry in any case.
+  // Visual cues are generated ONLY when the user explicitly clicks the "Generate Visual Cues" / "Suggest All" button.
+  if (creatorCuePills.length > 0 && creatorCharacterRepresentation === 'likeness') {
+    const detected = detectPersonNameInContext(articleTitle, slantTake, currentScrapedArticle?.content);
+    if (detected && !creatorCuePills[0].toLowerCase().includes(detected.toLowerCase())) {
+      creatorCuePills[0] = `${detected} (Editorial Portrait)`;
     }
-    renderCuesDeck();
   }
+  renderCuesDeck();
 }
 
 function renderCuesDeck() {
@@ -6276,14 +6268,26 @@ function renderCuesDeck() {
 
   container.innerHTML = '';
 
-  // Ensure inspected index is valid
-  if (creatorCuePills.length > 0) {
+  if (creatorCuePills.length === 0) {
+    container.innerHTML = `
+      <div class="cues-empty-deck-prompt" style="text-align:center; padding:32px 18px; background:rgba(15,23,42,0.6); border:1.5px dashed rgba(167,139,250,0.35); border-radius:16px; margin:6px 0 14px 0;">
+        <div style="font-size:36px; margin-bottom:10px;">🎨</div>
+        <div style="font-size:15px; font-weight:700; color:#F1F5F9; margin-bottom:6px;">Visual Cues Not Generated Yet</div>
+        <p style="font-size:12.5px; color:#94A3B8; max-width:380px; margin:0 auto 16px auto; line-height:1.5;">
+          Click the button below to generate 6 layered visual cues tailored to your slant, or add custom visual cues manually below.
+        </p>
+        <button type="button" class="primary-creator-btn" style="width:auto; margin:0 auto; padding:9px 22px; font-size:13px; font-weight:700; display:inline-flex; align-items:center; gap:8px;" onclick="triggerCueSuggest()">
+          <span>✨</span> <span>Generate Visual Cues</span>
+        </button>
+      </div>
+    `;
+  } else {
+    // Ensure inspected index is valid
     if (creatorActiveInspectedCueIndex < 0 || creatorActiveInspectedCueIndex >= creatorCuePills.length) {
       creatorActiveInspectedCueIndex = 0;
     }
-  }
 
-  creatorCuePills.forEach((cueText, index) => {
+    creatorCuePills.forEach((cueText, index) => {
     const isSelected = creatorSelectedCueIndices.has(index);
     const isInspected = (creatorActiveInspectedCueIndex === index);
     const rankConfig = CUE_RANK_CONFIGS[index] || {
@@ -6417,15 +6421,25 @@ function renderCuesDeck() {
       });
     }
 
-    container.appendChild(row);
-  });
+      container.appendChild(row);
+    });
+  }
 
   // Update Action Bar info & suggest button
   const infoText = document.getElementById('cuesInfoText');
   const suggestLabel = document.getElementById('cuesSuggestLabel');
   const suggestIcon = document.getElementById('cuesSuggestIcon');
 
-  if (creatorSelectedCueIndices.size > 0) {
+  if (creatorCuePills.length === 0) {
+    if (infoText) {
+      infoText.innerHTML = `
+        <span class="cues-info-icon">💡</span>
+        <span>Click <strong>Generate Visual Cues</strong> or add your own cues below</span>
+      `;
+    }
+    if (suggestLabel) suggestLabel.textContent = 'Generate Visual Cues';
+    if (suggestIcon) suggestIcon.textContent = '✨';
+  } else if (creatorSelectedCueIndices.size > 0) {
     if (infoText) {
       infoText.innerHTML = `
         <span style="color:var(--primary);font-weight:700;">${creatorSelectedCueIndices.size} selected</span>
@@ -6456,9 +6470,9 @@ function renderCueInspector() {
 
   if (creatorCuePills.length === 0) {
     container.innerHTML = `
-      <div class="cue-inspector-empty">
-        <span class="cue-inspector-empty-icon">🎨</span>
-        <span>No visual cues yet. Click <strong>✨ Suggest All</strong> above to generate editorial cues.</span>
+      <div class="cue-inspector-empty" style="text-align:center; padding:18px; color:var(--text-muted); font-size:12px;">
+        <span class="cue-inspector-empty-icon" style="font-size:22px; display:block; margin-bottom:4px;">✨</span>
+        <span>No cues to inspect yet. Click <strong>Generate Visual Cues</strong> above to generate editorial cues.</span>
       </div>
     `;
     return;
