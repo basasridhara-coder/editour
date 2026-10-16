@@ -6367,15 +6367,29 @@ function buildClientFallbackLedger(title, content, siteName) {
   const headline = title || 'Source Material';
   const name = siteName || 'The reporting source';
   return {
-    subject_and_thesis: `${name} examines developments surrounding "${headline}".`,
+    subject_and_thesis: {
+      context: `${name} presents reporting and ongoing context regarding "${headline}".`,
+      thesis: `The piece examines principal announcements and policy implications concerning "${headline}".`
+    },
     core_claims_and_evidence: [
-      `${name} reports on primary announcements and public facts related to this topic.`,
-      `Contextual data points and stakeholder statements are highlighted across the report.`
+      {
+        title: 'Core Reporting',
+        evidence: `${name} details the foundational timeline and primary stakeholder statements.`
+      },
+      {
+        title: 'Market & Public Impact',
+        evidence: `The source outlines practical ramifications and observable real-world shifts.`
+      }
     ],
-    underlying_tension_or_question: `What tradeoffs or policy counter-perspectives arise from this development?`,
+    underlying_tensions: {
+      primary_conflict: `Balancing immediate policy implementation with broader long-term structural impacts.`,
+      tradeoffs: `Allocating resources toward this initiative may limit alternative strategic priorities.`,
+      counter_questions: `How will competing analysts evaluate the sustainability of these outcomes over time?`
+    },
     completeness_score: 2,
     stars: 2,
-    stars_label: '2/3 Developing Anchor'
+    stars_label: '2/3 Developing Anchor',
+    source_scope: 'Curated Source'
   };
 }
 
