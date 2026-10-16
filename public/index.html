@@ -27,7 +27,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Merriweather:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,400;1,600;1,700;1,900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261016_1415">
+  <link rel="stylesheet" href="style.css?v=20261016_1435">
   <!-- Favicon & Brand Icons -->
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
@@ -389,7 +389,34 @@
             </div>
           </div>
 
-          <!-- 2. Action Bar: Selection Info + Suggest Button -->
+          <!-- 2. Character & Image Portrayal Card -->
+          <div class="character-rep-card">
+            <div class="character-rep-header">
+              <span class="rep-icon">👤</span>
+              <div class="rep-titles">
+                <span class="rep-title">Character & Image Portrayal</span>
+                <span class="rep-subtitle">Select how characters and subjects are portrayed in the Hook poster.</span>
+              </div>
+            </div>
+            <div class="character-rep-options">
+              <div class="rep-option active" id="repOptionRealistic" onclick="selectCharacterRepresentation('realistic')">
+                <div class="rep-radio-circle"></div>
+                <div class="rep-option-body">
+                  <span class="rep-option-title">Vivid Editorial Realism (Realistic & Expressive)</span>
+                  <span class="rep-option-desc">Warm, realistic editorial illustration with clear human subjects, natural lighting, and tangible environments. No dark or faceless silhouettes.</span>
+                </div>
+              </div>
+              <div class="rep-option" id="repOptionSilhouette" onclick="selectCharacterRepresentation('silhouette')">
+                <div class="rep-radio-circle"></div>
+                <div class="rep-option-body">
+                  <span class="rep-option-title">Stylized Minimalist Silhouette (Shadow Art)</span>
+                  <span class="rep-option-desc">Minimalist dark silhouettes, architectural shadows, or high-contrast noir profiles for conceptual themes only.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 3. Action Bar: Selection Info + Suggest Button -->
           <div class="cues-action-bar">
             <div class="cues-info-text" id="cuesInfoText">
               <span class="cues-info-icon">👁️</span>
@@ -403,101 +430,21 @@
             </div>
           </div>
 
-          <!-- 3. Cues Reorderable Deck List -->
+          <!-- 4. Cues Reorderable Deck List -->
           <div class="cues-deck-container" id="cuesDeckContainer">
             <!-- Dynamically populated 6 cue category rows -->
           </div>
 
-          <!-- 3b. Active Cue Detail & Modulation Inspector Panel -->
+          <!-- 4b. Active Cue Detail & Modulation Inspector Panel -->
           <div class="cue-inspector-card" id="cueInspectorCard">
             <!-- Dynamically populated by renderCueInspector() -->
           </div>
 
-          <!-- 4. Add Custom Cue Field -->
+          <!-- 5. Add Custom Cue Field -->
           <div class="cues-add-row">
             <span class="cues-add-icon">＋</span>
             <input type="text" id="customCueInput" class="cues-add-input" placeholder="Type custom cue or metaphor..." onkeydown="if(event.key==='Enter'){event.preventDefault();addCustomCue();}">
             <button type="button" class="cues-add-btn" onclick="addCustomCue()">Add Cue</button>
-          </div>
-
-          <!-- 5. Character & Image Portrayal Card -->
-          <div class="character-rep-card">
-            <div class="character-rep-header">
-              <span class="rep-icon">👤</span>
-              <div class="rep-titles">
-                <span class="rep-title">Character & Image Portrayal</span>
-                <span class="rep-subtitle">Select how characters and images are portrayed in the Hook poster.</span>
-              </div>
-            </div>
-            <div class="character-rep-options">
-              <div class="rep-option active" id="repOptionRealistic" onclick="selectCharacterRepresentation('realistic')">
-                <div class="rep-radio-circle"></div>
-                <div class="rep-option-body">
-                  <span class="rep-option-title">Vivid Editorial Realism (Realistic & Expressive)</span>
-                  <span class="rep-option-desc">Warm, realistic editorial illustration with clear human subjects, natural lighting, and tangible environments. No dark or faceless silhouettes.</span>
-                </div>
-              </div>
-              <div class="rep-option" id="repOptionLikeness" onclick="selectCharacterRepresentation('likeness')">
-                <div class="rep-radio-circle"></div>
-                <div class="rep-option-body">
-                  <span class="rep-option-title">Lookalike & Portrait (AI Editorial Art)</span>
-                  <span class="rep-option-desc">Generates an artistic poster portrait—matches likeness of named public figures or reference photo.</span>
-                </div>
-              </div>
-              <div class="rep-option" id="repOptionExact" onclick="selectCharacterRepresentation('exact')">
-                <div class="rep-radio-circle"></div>
-                <div class="rep-option-body">
-                  <span class="rep-option-title">Use Exact Photo (Direct Image)</span>
-                  <span class="rep-option-desc">Uses the exact unedited news photo or uploaded photograph directly as the primary poster image.</span>
-                </div>
-              </div>
-              <div class="rep-option" id="repOptionSilhouette" onclick="selectCharacterRepresentation('silhouette')">
-                <div class="rep-radio-circle"></div>
-                <div class="rep-option-body">
-                  <span class="rep-option-title">Stylized Minimalist Silhouette (Shadow Art)</span>
-                  <span class="rep-option-desc">Minimalist dark silhouettes, architectural shadows, or high-contrast noir profiles for conceptual themes only.</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Reference Photo Conditioning Panel (Visible when Match Real Person Face is selected) -->
-            <div class="ref-photo-section" id="characterRefPhotoSection" style="display:none;">
-              <!-- State A: Reference Photo Ready (Thumbnail + Change Button) -->
-              <div class="ref-photo-card ref-photo-ready" id="refPhotoActiveCard" style="display:none;">
-                <div class="ref-photo-thumb-wrap">
-                  <img id="refPhotoThumb" class="ref-photo-thumb" src="" alt="Reference Photo" referrerpolicy="no-referrer" crossorigin="anonymous">
-                </div>
-                <div class="ref-photo-info">
-                  <div class="ref-photo-status">
-                    <span class="ref-check-icon">✓</span>
-                    <span class="ref-status-title" id="refPhotoTitle">Reference Photo Ready</span>
-                  </div>
-                  <span class="ref-photo-desc" id="refPhotoDesc">Face structure will be captured and styled into poster art.</span>
-                </div>
-                <button type="button" class="ref-photo-change-btn" onclick="triggerReferencePhotoUpload()">Change</button>
-              </div>
-
-              <!-- State B: No Photo Attached Yet -->
-              <div class="ref-photo-card ref-photo-empty" id="refPhotoEmptyCard" style="display:none;">
-                <div class="ref-empty-header">
-                  <span class="ref-empty-icon">📷</span>
-                  <span class="ref-empty-title">Attach Reference Photo</span>
-                </div>
-                <p class="ref-empty-desc">Upload a portrait photo or snap the person's photo to preserve their facial likeness.</p>
-                <div class="ref-empty-actions">
-                  <button type="button" class="ref-upload-btn" onclick="triggerReferencePhotoUpload()">
-                    <span>📁 Upload / Browse</span>
-                  </button>
-                  <button type="button" class="ref-camera-btn" id="refCameraBtn" style="display:none;" onclick="triggerReferencePhotoCamera()">
-                    <span>📸 Camera</span>
-                  </button>
-                </div>
-              </div>
-
-              <!-- Hidden file inputs for reference photo selection -->
-              <input type="file" id="faceLikenessFileInput" accept="image/png, image/jpeg, image/webp" style="display:none;" onchange="handleReferenceImageSelection(event)">
-              <input type="file" id="faceLikenessCameraInput" accept="image/*" capture="environment" style="display:none;" onchange="handleReferenceImageSelection(event)">
-            </div>
           </div>
 
           <!-- 6. Bottom Navigation Bar (Step 2: Left Arrow + Action Button + Right Arrow) -->
@@ -1315,6 +1262,6 @@
     </div>
   </aside>
 
-  <script src="app.js?v=20261016_1415"></script>
+  <script src="app.js?v=20261016_1435"></script>
 </body>
 </html>

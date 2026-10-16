@@ -6896,46 +6896,15 @@ function updateReferencePhotoUI() {
 }
 
 function selectCharacterRepresentation(type) {
+  if (type !== 'realistic' && type !== 'silhouette') {
+    type = 'realistic';
+  }
   creatorCharacterRepresentation = type;
   const optReal = document.getElementById('repOptionRealistic');
   const optSil = document.getElementById('repOptionSilhouette');
-  const optLik = document.getElementById('repOptionLikeness');
-  const optExact = document.getElementById('repOptionExact');
 
   if (optReal) optReal.classList.toggle('active', type === 'realistic');
   if (optSil) optSil.classList.toggle('active', type === 'silhouette');
-  if (optLik) optLik.classList.toggle('active', type === 'likeness');
-  if (optExact) optExact.classList.toggle('active', type === 'exact');
-
-  if (type === 'likeness' || type === 'exact') {
-    // If no reference photo is explicitly set yet, auto-extract from sources:
-    if (!creatorReferenceImageBase64 && creatorSelectedImageBase64) {
-      creatorReferenceImageBase64 = creatorSelectedImageBase64;
-      creatorReferenceImageMimeType = creatorSelectedImageMimeType || 'image/jpeg';
-      creatorReferenceImageSourceLabel = 'Print Clipping Photo';
-    } else if (currentScrapedArticle && (currentScrapedArticle.imageBase64 || currentScrapedArticle.imageUrl)) {
-      if (!creatorReferenceImageBase64 || creatorReferenceImageSourceLabel?.startsWith('Article Lead Photo')) {
-        creatorReferenceImageBase64 = currentScrapedArticle.imageBase64 || currentScrapedArticle.imageUrl;
-        creatorReferenceImageMimeType = currentScrapedArticle.imageMimeType || 'image/jpeg';
-        creatorReferenceImageSourceLabel = 'Article Lead Photo (' + (currentScrapedArticle.siteName || 'Web') + ')';
-      }
-    }
-
-    // Immediately condition #1 HERO cue to detected person from story/slant
-    const urlInput = document.getElementById('creatorUrlInput');
-    const slantTakeInput = document.getElementById('creatorSlantTakeInput');
-    const url = urlInput ? urlInput.value.trim() : '';
-    const slantTake = slantTakeInput ? slantTakeInput.value.trim() : '';
-    const articleTitle = currentScrapedArticle?.title || extractHeadlineFromUrl(url);
-    const detectedPerson = detectPersonNameInContext(articleTitle, slantTake, currentScrapedArticle?.content);
-
-    if (detectedPerson && creatorCuePills.length > 0) {
-      creatorCuePills[0] = (type === 'likeness')
-        ? `${detectedPerson} Lookalike (Editorial Portrait)`
-        : `${detectedPerson} (Lead Photo Focus)`;
-      renderCuesDeck();
-    }
-  }
 
   updateReferencePhotoUI();
 }
