@@ -3747,7 +3747,7 @@ function openDetailModal(index) {
     return;
   }
   activePostIndex = index;
-  const post = getPostFromIndexOrId(index);
+  const post = getPostFromIndexOrId(index) || (typeof allPosts !== 'undefined' && allPosts.find(p => p && p.id === index));
   if (!post) return;
 
   // Let there not be source proof reporting for inner voice posts
@@ -3755,193 +3755,83 @@ function openDetailModal(index) {
     return;
   }
 
-  const tier = getSourceTier(post);
-  const cleanHost = getCleanDomain(post.digitalLink);
+  const cleanHost = getCleanDomain(post.digitalLink || post.videoUrl || '');
   const handle = escapeHtml(post.creatorHandle || '@curator');
-  const slantIcon = (post.slantIcon && post.slantIcon !== '💭') ? post.slantIcon : (post.slantTone === 'heart' ? '❤️' : '🧠');
+  const ledger = post.sourceLedger || post.generationInputs?.sourceLedger;
 
-  const videoUrl = post.videoUrl || post.digitalLink || '';
-  const ytEmbed = getYouTubeEmbedUrl(videoUrl);
-  const vimeoEmbed = getVimeoEmbedUrl(videoUrl);
-  const isVideo = !!ytEmbed || !!vimeoEmbed || post.sourceType === 'youtube' || post.sourceType === 'video' || !!post.videoUrl || (videoUrl && /\.(mp4|webm|mov)(\?.*)?$/i.test(videoUrl));
+  // 1. Stars Badge (Top Banner)
+  const starsBadge = document.getElementById('proofStarsBadge');
+  if (starsBadge) {
+    if (ledger) {
+      const starsCount = Math.min(3, Math.max(1, Number(ledger.stars || ledger.completeness_score || 3)));
+      const starsHtml = '★'.repeat(starsCount) + '☆'.repeat(3 - starsCount);
+      const label = ledger.stars_label || (starsCount === 3 ? '3/3 High Substance Anchor' : `${starsCount}/3 Anchor`);
+      starsBadge.innerHTML = `<span>${starsHtml}</span> <span>${escapeHtml(label)}</span>`;
+      starsBadge.style.display = 'inline-flex';
+    } else {
+      starsBadge.style.display = 'none';
+    }
+  }
 
-  const hasPaper = !isVideo && (post.sourceType === 'photo' 
-    || !!post.paperCutImage 
-    || !!post.hasPaperCut
-    || (post.originalPhotoUrl && (post.originalPhotoUrl.includes('clipping') || post.sourceType === 'photo'))
-    || (post.originalPhotoBase64 && post.originalPhotoBase64.length > 50)
-    || (post.originalPhotoPath && !post.originalPhotoPath.startsWith('http') && post.originalPhotoPath !== post.digitalLink)
-    || (post.id && ['692d99fc-d140-4d1c-9275-3263a7c187b7', '79cb4873-7c1b-402c-aebb-71fcebbefa5d', '83940fae-4ad7-43f6-9329-91cd17752f78', '9b55d7ea-8a78-4ef1-a068-cec226e200fd'].includes(post.id)));
-
-  const isBook = post.sourceType === 'book_excerpt';
-
+  // 2. Publication & Source Attribution
   let pubName = post.publicationName || 'THE FINANCIAL CHRONICLE';
   if (pubName.includes('•')) {
     const parts = pubName.split('•');
     pubName = parts[parts.length - 1].trim();
   }
   pubName = pubName.replace(/^(NEWSPAPER|ARTICLE|BOOK|MAGAZINE|PRESS):\s*/i, '').trim();
-  if (!pubName) pubName = 'THE NEW INDIAN EXPRESS';
-  const cleanPubUpper = escapeHtml(pubName.toUpperCase());
+  if (!pubName) pubName = 'PRIMARY SOURCE RECORD';
 
-  let stampHtml = '';
-  let mastheadTitle = cleanPubUpper;
-  let ruleVol = 'VOL. CLXXIV • NO. 48,210';
-  let ruleCenter = 'PRIMARY SOURCE EVIDENCE';
-  let ruleArchive = 'VERIFIED ARCHIVE';
-  let bylineText = 'BY SPECIAL CORRESPONDENT & WIRE BUREAU';
-  let archiveTagText = 'AS-IS RECORD';
-
-  if (isVideo) {
-    stampHtml = `
-      <div class="stamp-verified" style="border-color:#DC2626; color:#DC2626; background:rgba(220,38,38,0.08);">
-        <div>▶ VERIFIED</div>
-        <div>BROADCAST / VIDEO</div>
-      </div>
-    `;
-    mastheadTitle = (cleanHost && cleanHost.includes('youtube')) ? 'YOUTUBE • PRIMARY BROADCAST' : (cleanPubUpper || 'BROADCAST VIDEO ARCHIVE');
-    ruleCenter = 'AUDIOVISUAL EVIDENCE';
-    bylineText = 'RECORDED BROADCAST TRANSMISSION • PRIMARY SOURCE';
-    archiveTagText = 'BROADCAST';
-  } else if (hasPaper) {
-    stampHtml = `
-      <div class="stamp-verified">
-        <div>★ VERIFIED ★</div>
-        <div>PHYSICAL PRESS ARCHIVE</div>
-      </div>
-    `;
-    mastheadTitle = cleanPubUpper;
-    ruleCenter = 'PHYSICAL PRINT ARCHIVE';
-    bylineText = 'PHYSICAL PRINT BROADSHEET • AS-IS CLIPPING';
-    archiveTagText = 'PRINT ARCHIVE';
-  } else if (isBook) {
-    stampHtml = `
-      <div class="stamp-book">
-        <div>📖 LITERARY</div>
-        <div>EXCERPT</div>
-      </div>
-    `;
-    mastheadTitle = 'CLASSIC LITERATURE ARCHIVE';
-    ruleCenter = escapeHtml((post.bookTitle || 'LITERARY PASSAGE').toUpperCase());
-    bylineText = `WRITTEN BY ${escapeHtml((post.bookAuthor || 'AUTHOR').toUpperCase())}`;
-    archiveTagText = 'BOOK ARCHIVE';
-  } else {
-    stampHtml = `
-      <div class="stamp-web-citation">
-        <div>🌐 VERIFIED</div>
-        <div>DIGITAL CITATION</div>
-      </div>
-    `;
-    mastheadTitle = cleanHost ? `${escapeHtml(cleanHost.toUpperCase())} • DIGITAL DISPATCH` : cleanPubUpper;
-    ruleCenter = 'PRIMARY REPORTING RECORD';
-    bylineText = `SOURCED FROM ${escapeHtml(cleanHost || 'ONLINE PUBLICATION')}`;
-    archiveTagText = 'DIGITAL CITATION';
+  let speakerOrAuthor = '';
+  if (post.publicationName && post.publicationName.includes('•')) {
+    speakerOrAuthor = post.publicationName.split('•')[0].trim();
+  } else if (post.bookAuthor) {
+    speakerOrAuthor = post.bookAuthor.trim();
+  } else if (ledger && ledger.source_scope && !ledger.source_scope.toLowerCase().includes('analysis')) {
+    speakerOrAuthor = ledger.source_scope.trim();
   }
-
-  const stampContainer = document.getElementById('proofStampContainer');
-  if (stampContainer) stampContainer.innerHTML = stampHtml;
 
   const pubTitleEl = document.getElementById('proofPubTitle');
-  if (pubTitleEl) pubTitleEl.textContent = mastheadTitle;
-
-  const ruleVolEl = document.getElementById('proofRuleVol');
-  if (ruleVolEl) ruleVolEl.textContent = ruleVol;
-
-  const ruleCenterEl = document.getElementById('proofRuleCenter');
-  if (ruleCenterEl) ruleCenterEl.textContent = ruleCenter;
-
-  const ruleArchiveEl = document.getElementById('proofRuleArchive');
-  if (ruleArchiveEl) ruleArchiveEl.textContent = ruleArchive;
+  if (pubTitleEl) {
+    const channelOrDomain = (cleanHost && cleanHost.includes('youtube')) ? (speakerOrAuthor ? `${speakerOrAuthor.toUpperCase()} • YOUTUBE` : 'YOUTUBE RECORD') : (cleanHost || pubName).toUpperCase();
+    pubTitleEl.textContent = channelOrDomain;
+  }
 
   const headlineEl = document.getElementById('proofHeadline');
-  if (headlineEl) headlineEl.textContent = post.originalHeadline || post.spark || post.adaptedHeadline || 'Original News Source';
+  if (headlineEl) {
+    headlineEl.textContent = post.originalHeadline || post.spark || post.adaptedHeadline || 'Original News Source';
+  }
 
   const bylineEl = document.getElementById('proofByline');
-  if (bylineEl) bylineEl.textContent = bylineText;
+  if (bylineEl) {
+    if (speakerOrAuthor) {
+      bylineEl.textContent = `Attributed to ${speakerOrAuthor} • Strictly Non-Partisan Record`;
+    } else if (cleanHost) {
+      bylineEl.textContent = `Attributed to ${cleanHost} • Strictly Non-Partisan Record`;
+    } else {
+      bylineEl.textContent = `Attributed to Primary Source • Strictly Non-Partisan Record`;
+    }
+  }
 
-  const archiveTagEl = document.getElementById('proofArchiveTag');
-  if (archiveTagEl) archiveTagEl.textContent = archiveTagText;
+  // Hidden legacy elements for safety
+  const ruleVolEl = document.getElementById('proofRuleVol');
+  if (ruleVolEl) ruleVolEl.textContent = '';
+  const ruleCenterEl = document.getElementById('proofRuleCenter');
+  if (ruleCenterEl) ruleCenterEl.textContent = '';
+  const ruleArchiveEl = document.getElementById('proofRuleArchive');
+  if (ruleArchiveEl) ruleArchiveEl.textContent = '';
+  const stampContainer = document.getElementById('proofStampContainer');
+  if (stampContainer) stampContainer.innerHTML = '';
 
-  // 1. Paper Cut Image Artifact
+  // 3. Keep paper cut & video sections hidden so 1-minute read is uninterrupted
   const paperCutSection = document.getElementById('proofPaperCutSection');
-  const paperCutImg = document.getElementById('proofPaperCutImg');
-  if (paperCutSection) {
-    if (hasPaper && !isVideo) {
-      paperCutSection.style.display = 'block';
-      let imgSrc = '';
-      if (post.originalPhotoBase64 && post.originalPhotoBase64.length > 50) {
-        imgSrc = post.originalPhotoBase64.startsWith('data:') 
-          ? post.originalPhotoBase64 
-          : 'data:image/jpeg;base64,' + post.originalPhotoBase64;
-      } else if (post.originalPhotoUrl) {
-        imgSrc = post.originalPhotoUrl.startsWith('/') || post.originalPhotoUrl.startsWith('http')
-          ? post.originalPhotoUrl
-          : `/${post.originalPhotoUrl}`;
-      } else if (post.paperCutImage) {
-        imgSrc = post.paperCutImage;
-      } else if (post.originalPhotoPath && (post.originalPhotoPath.startsWith('http') || post.originalPhotoPath.startsWith('data:'))) {
-        imgSrc = post.originalPhotoPath;
-      } else if (post.id) {
-        imgSrc = `/clippings/${post.id}.jpg`;
-      }
-      if (paperCutImg) {
-        paperCutImg.src = imgSrc || '';
-        paperCutImg.onerror = () => {
-          paperCutSection.style.display = 'none';
-        };
-      }
-    } else {
-      paperCutSection.style.display = 'none';
-      if (paperCutImg) paperCutImg.src = '';
-    }
-  }
-
-  // 2. Video Embed Artifact
+  if (paperCutSection) paperCutSection.style.display = 'none';
   const videoSection = document.getElementById('proofVideoSection');
+  if (videoSection) videoSection.style.display = 'none';
   const videoEmbedWrap = document.getElementById('proofVideoEmbedWrap');
-  if (videoSection) {
-    if (isVideo) {
-      videoSection.style.display = 'block';
-      if (ytEmbed && videoEmbedWrap) {
-        videoEmbedWrap.innerHTML = `
-          <iframe 
-            src="${ytEmbed}?autoplay=0&rel=0&modestbranding=1" 
-            title="Source Video" 
-            style="width:100%; height:100%; min-height:240px; border:none;" 
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
-            allowfullscreen>
-          </iframe>
-        `;
-      } else if (vimeoEmbed && videoEmbedWrap) {
-        videoEmbedWrap.innerHTML = `
-          <iframe 
-            src="${vimeoEmbed}" 
-            title="Source Video" 
-            style="width:100%; height:100%; min-height:240px; border:none;" 
-            allow="autoplay; fullscreen; picture-in-picture" 
-            allowfullscreen>
-          </iframe>
-        `;
-      } else if (videoUrl && /\.(mp4|webm|mov)(\?.*)?$/i.test(videoUrl) && videoEmbedWrap) {
-        videoEmbedWrap.innerHTML = `
-          <video src="${escapeHtml(videoUrl)}" controls playsinline style="width:100%; height:100%; max-height:300px; background:#000; border-radius:4px;"></video>
-        `;
-      } else if (videoEmbedWrap) {
-        videoEmbedWrap.innerHTML = `
-          <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:160px; color:#CBD5E1; text-align:center; padding:16px;">
-            <span style="font-size:30px; margin-bottom:6px;">▶</span>
-            <span style="font-weight:700;">Broadcast / Video Source</span>
-            <a href="${escapeHtml(videoUrl)}" target="_blank" rel="noopener noreferrer" style="margin-top:6px; color:#818CF8; text-decoration:underline; font-size:12px;">Watch on host platform &nearr;</a>
-          </div>
-        `;
-      }
-    } else {
-      videoSection.style.display = 'none';
-      if (videoEmbedWrap) videoEmbedWrap.innerHTML = '';
-    }
-  }
+  if (videoEmbedWrap) videoEmbedWrap.innerHTML = '';
 
-  // 3. Primary Reporting Excerpts (As Published)
+  // 4. Primary Unbiased 1-Minute Read Sections
   const cleanExcerpt = (txt) => {
     if (!txt) return '';
     return String(txt)
@@ -3963,9 +3853,9 @@ function openDetailModal(index) {
   const proofParagraphsEl = document.getElementById('proofParagraphs');
   if (proofParagraphsEl) {
     let paragraphsHtml = '';
-    const ledger = post.sourceLedger || post.generationInputs?.sourceLedger;
 
     if (ledger) {
+      // Section 1: Subject & Central Thesis
       let thesisText = '';
       let contextText = '';
       if (ledger.subject_and_thesis && typeof ledger.subject_and_thesis === 'object') {
@@ -3974,24 +3864,29 @@ function openDetailModal(index) {
       } else if (ledger.subject_and_thesis) {
         thesisText = cleanExcerpt(String(ledger.subject_and_thesis));
       }
+
       if (thesisText || contextText) {
         paragraphsHtml += `
-          <div class="proof-p" style="margin-bottom: 8px;">
-            <span class="proof-para-marker">§ CENTRAL THESIS</span>
-            ${contextText ? `<strong>${escapeHtml(contextText)}</strong> ` : ''}${escapeHtml(thesisText)}
+          <div class="unbiased-summary-section">
+            <div class="unbiased-section-label">
+              <span>🎯</span> § 1 • SUBJECT & CENTRAL THESIS
+            </div>
+            <p class="unbiased-text">
+              ${contextText ? `<strong>${escapeHtml(contextText)}</strong> ` : ''}${escapeHtml(thesisText)}
+            </p>
           </div>
         `;
       }
 
+      // Section 2: Core Claims & Verified Evidence
       const ledgerClaims = Array.isArray(ledger.core_claims_and_evidence) ? ledger.core_claims_and_evidence : [];
       if (ledgerClaims.length > 0) {
         paragraphsHtml += `
-          <div class="receipt-takeaways-card" style="margin: 8px 0;">
-            <div class="takeaways-header">
-              <span class="takeaways-icon">📌</span>
-              <span class="takeaways-title">VERIFIED SOURCE CLAIMS & EVIDENCE</span>
+          <div class="unbiased-summary-section">
+            <div class="unbiased-section-label">
+              <span>📊</span> § 2 • CORE CLAIMS & EVIDENCE
             </div>
-            <div class="takeaways-list">
+            <div class="unbiased-claims-list">
               ${ledgerClaims.map((claim, idx) => {
                 let title = '';
                 let evidence = '';
@@ -4009,9 +3904,11 @@ function openDetailModal(index) {
                   }
                 }
                 return `
-                  <div class="takeaway-item">
-                    <span class="takeaway-dot">▪</span>
-                    <span class="takeaway-text">${title ? `<strong>${escapeHtml(title)}:</strong> ` : ''}${escapeHtml(evidence)}</span>
+                  <div class="unbiased-claim-item">
+                    <span class="claim-bullet">▪</span>
+                    <div class="claim-content">
+                      ${title ? `<strong>${escapeHtml(title)}:</strong> ` : ''}${escapeHtml(evidence)}
+                    </div>
                   </div>
                 `;
               }).join('')}
@@ -4020,58 +3917,78 @@ function openDetailModal(index) {
         `;
       }
 
+      // Section 3: Central Conflict & Trade-offs
       let tensionText = '';
+      let counterQuestions = '';
       if (ledger.underlying_tensions && typeof ledger.underlying_tensions === 'object') {
         tensionText = cleanExcerpt([ledger.underlying_tensions.primary_conflict, ledger.underlying_tensions.tradeoffs].filter(Boolean).join(' '));
+        counterQuestions = cleanExcerpt(ledger.underlying_tensions.counter_questions || '');
       } else if (ledger.underlying_tensions) {
         tensionText = cleanExcerpt(String(ledger.underlying_tensions));
       }
-      if (tensionText) {
+
+      if (tensionText || counterQuestions) {
         paragraphsHtml += `
-          <div class="proof-highlight-card" style="margin-top: 8px;">
-            <div class="highlighter-label"><span>⚖️</span> CENTRAL CONFLICT & TRADE-OFF</div>
-            <div class="highlighter-text">${escapeHtml(tensionText)}</div>
+          <div class="unbiased-summary-section">
+            <div class="unbiased-section-label">
+              <span>⚖️</span> § 3 • CENTRAL CONFLICT & TRADE-OFFS
+            </div>
+            ${tensionText ? `<p class="unbiased-text">${escapeHtml(tensionText)}</p>` : ''}
+            ${counterQuestions ? `
+              <div style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed rgba(203, 213, 225, 0.6); font-family: 'Merriweather', Georgia, serif; font-size: 11.5px; color: #475569; font-style: italic;">
+                ❓ ${escapeHtml(counterQuestions)}
+              </div>
+            ` : ''}
           </div>
         `;
       }
     } else {
+      // Clean fallback for older posts
       if (excerpts.length > 0) {
-        excerpts.forEach((exc, pIdx) => {
-          const cleanText = escapeHtml(cleanExcerpt(exc));
-          if (cleanText) {
-            paragraphsHtml += `<div class="proof-p"><span class="proof-para-marker">§ ${pIdx + 1}</span>${cleanText}</div>`;
-          }
-        });
+        paragraphsHtml += `
+          <div class="unbiased-summary-section">
+            <div class="unbiased-section-label">
+              <span>📰</span> PRIMARY REPORTING RECORD
+            </div>
+            <div style="display:flex; flex-direction:column; gap:8px;">
+              ${excerpts.map((exc, pIdx) => `<p class="unbiased-text">${escapeHtml(cleanExcerpt(exc))}</p>`).join('')}
+            </div>
+          </div>
+        `;
       }
 
       const quote = post.receiptHighlightQuote || post.pullQuote;
       if (quote && cleanExcerpt(quote)) {
-        const cleanQuote = escapeHtml(cleanExcerpt(quote));
         paragraphsHtml += `
-          <div class="proof-highlight-card">
-            <div class="highlighter-label"><span>✏️</span> PRIMARY REPORTED QUOTE</div>
-            <div class="highlighter-text">“${cleanQuote}”</div>
+          <div class="unbiased-summary-section" style="border-left: 3px solid #B45309;">
+            <div class="unbiased-section-label"><span>✏️</span> PRIMARY QUOTE</div>
+            <p class="unbiased-text" style="font-style: italic;">“${escapeHtml(cleanExcerpt(quote))}”</p>
           </div>
         `;
       }
 
       if (post.whyItMatters && String(post.whyItMatters).trim()) {
         paragraphsHtml += `
-          <div class="receipt-takeaways-card" style="margin-top:6px;">
-            <div class="takeaways-header">
-              <span class="takeaways-icon">🔍</span>
-              <span class="takeaways-title">CORROBORATING CONTEXT</span>
-            </div>
-            <p class="takeaway-why-text">${escapeHtml(String(post.whyItMatters).trim())}</p>
+          <div class="unbiased-summary-section">
+            <div class="unbiased-section-label"><span>🔍</span> CORROBORATING CONTEXT</div>
+            <p class="unbiased-text">${escapeHtml(String(post.whyItMatters).trim())}</p>
           </div>
         `;
       }
     }
 
-    proofParagraphsEl.innerHTML = paragraphsHtml || '<div class="proof-p">Original source text confirmed by archival records.</div>';
+    proofParagraphsEl.innerHTML = paragraphsHtml || '<div class="unbiased-summary-section"><p class="unbiased-text">Original source text confirmed by archival records.</p></div>';
+
+    // Word count & read time indicator
+    const rawText = proofParagraphsEl.innerText || proofParagraphsEl.textContent || '';
+    const wordCount = rawText.trim().split(/\s+/).filter(Boolean).length;
+    const readTimeEl = document.getElementById('proofReadTime');
+    if (readTimeEl) {
+      readTimeEl.textContent = `⏱️ 1-MIN READ (${wordCount} words)`;
+    }
   }
 
-  // 4. Recorded Metric
+  // 5. Recorded Metric (Optional)
   const metricRow = document.getElementById('proofMetricRow');
   const metricVal = document.getElementById('proofMetricVal');
   if (metricRow && metricVal) {
@@ -4083,7 +4000,7 @@ function openDetailModal(index) {
     }
   }
 
-  // 5. Actions & Footer
+  // 6. Actions & Footer
   const archivedByEl = document.getElementById('proofArchivedBy');
   if (archivedByEl) {
     archivedByEl.textContent = `Archived by ${handle}`;
@@ -4091,8 +4008,10 @@ function openDetailModal(index) {
 
   const extLink = document.getElementById('proofExternalLink');
   if (extLink) {
-    if (post.digitalLink && !post.digitalLink.startsWith('blob:') && !post.digitalLink.startsWith('data:')) {
-      extLink.href = post.digitalLink;
+    const rawLink = post.digitalLink || post.videoUrl || '';
+    if (rawLink && !rawLink.startsWith('blob:') && !rawLink.startsWith('data:')) {
+      extLink.href = rawLink;
+      extLink.innerHTML = '<span>🌐 Open Original Source &nearr;</span>';
       extLink.style.display = 'inline-flex';
     } else {
       extLink.style.display = 'none';

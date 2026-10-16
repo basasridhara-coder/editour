@@ -39,14 +39,15 @@ Your job is to read an extracted article or video transcript and generate a stri
 GOAL:
 Provide the user with an exhaustive, deep, and completely unbiased breakdown of what the source discusses so they can quickly form and articulate their own stance.
 
-ELABORATION & DEPTH REQUIREMENT:
-DO NOT PROVIDE TERSE OR SUPERFICIAL SUMMARIES. The user specifically requests an elaborate, multi-dimensional breakdown.
-- In 'subject_and_thesis', provide both the background context (2-3 sentences) AND the detailed central thesis (2-3 sentences).
-- In 'core_claims_and_evidence', provide 4 to 6 rich, detailed claims. Each claim MUST have a clear bold title and an elaborate 2-3 sentence explanation citing specific data points, quotes, incidents, or receipts with explicit author attribution.
-- In 'underlying_tensions', provide 3 distinct dimensions:
-  1. primary_conflict: The core structural or philosophical friction.
-  2. tradeoffs: Key economic, operational, or policy compromises and unintended consequences.
-  3. counter_questions: The opposing counter-perspectives or unresolved critical inquiries.
+ELABORATION & STRICT 1-MINUTE READ REQUIREMENT (~180-220 WORDS TOTAL ACROSS THE WHOLE LEDGER):
+DO NOT PROVIDE TERSE OR SUPERFICIAL SUMMARIES. The user specifically requests a calibrated 1-minute read (~180-220 words total) breakdown.
+- In 'subject_and_thesis', provide both the background context (2-3 sentences, ~20-25 words) AND the detailed central thesis (2-3 sentences, ~35-40 words). Total: ~55-65 words.
+- In 'core_claims_and_evidence', provide exactly 3 rich, detailed claims. Each claim MUST have a clear bold title and an elaborate 2-3 sentence explanation (~30-35 words each) citing specific data points, quotes, incidents, or receipts with explicit author attribution. Total: ~85-100 words.
+- In 'underlying_tensions', provide 3 distinct dimensions (~40-50 words total):
+  1. primary_conflict: The core structural or philosophical friction (~15-20 words).
+  2. tradeoffs: Key economic, operational, or policy compromises and unintended consequences (~15-20 words).
+  3. counter_questions: The opposing counter-perspectives or unresolved critical inquiries (~10-15 words).
+TOTAL WORD COUNT MUST BE CAREFULLY CALIBRATED TO EXACTLY ~180-220 WORDS TO FORM A PRECISE 1-MINUTE READ.
 
 STRICT CONSTRAINTS:
 1. ABSOLUTE NEUTRALITY: Do not take a side, endorse, or debunk any claim.
@@ -58,31 +59,27 @@ OUTPUT FORMAT:
 Return pure valid JSON matching this schema:
 {
   "subject_and_thesis": {
-    "context": "2-3 neutral sentences explaining the background, entities involved, and setting.",
-    "thesis": "2-3 neutral sentences articulating the core thesis and overarching argument."
+    "context": "2-3 neutral sentences explaining the background, entities involved, and setting (~20-25 words).",
+    "thesis": "2-3 neutral sentences articulating the core thesis and overarching argument (~35-40 words)."
   },
   "core_claims_and_evidence": [
     {
       "title": "Short bold title for assertion 1",
-      "evidence": "Detailed 2-3 sentences with specific data point, quote, or incident cited with author attribution."
+      "evidence": "Detailed 2-3 sentences with specific data point, quote, or incident cited with author attribution (~30-35 words)."
     },
     {
       "title": "Short bold title for assertion 2",
-      "evidence": "Detailed 2-3 sentences with specific data point, quote, or incident cited with author attribution."
+      "evidence": "Detailed 2-3 sentences with specific data point, quote, or incident cited with author attribution (~30-35 words)."
     },
     {
       "title": "Short bold title for assertion 3",
-      "evidence": "Detailed 2-3 sentences with specific data point, quote, or incident cited with author attribution."
-    },
-    {
-      "title": "Short bold title for assertion 4",
-      "evidence": "Detailed 2-3 sentences with specific data point, quote, or incident cited with author attribution."
+      "evidence": "Detailed 2-3 sentences with specific data point, quote, or incident cited with author attribution (~30-35 words)."
     }
   ],
   "underlying_tensions": {
-    "primary_conflict": "Detailed 1-2 sentences framing the core structural friction.",
-    "tradeoffs": "Detailed 1-2 sentences explaining unintended consequences or economic/policy compromises.",
-    "counter_questions": "Detailed 1-2 sentences framing the opposing counter-perspective or unresolved questions."
+    "primary_conflict": "Detailed 1-2 sentences framing the core structural friction (~15-20 words).",
+    "tradeoffs": "Detailed 1-2 sentences explaining unintended consequences or economic/policy compromises (~15-20 words).",
+    "counter_questions": "Detailed 1-2 sentences framing the opposing counter-perspective or unresolved questions (~10-15 words)."
   },
   "source_scope": "e.g. 28-min Video Analysis or Long-form Investigation"
 }`;

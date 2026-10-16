@@ -27,7 +27,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Merriweather:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,400;1,600;1,700;1,900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261016_2025">
+  <link rel="stylesheet" href="style.css?v=20261016_2230">
   <!-- Favicon & Brand Icons -->
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
@@ -733,40 +733,47 @@
     </div>
   </div>
 
-  <!-- Primary Source Proof Window (Broadsheet Format) -->
+  <!-- Primary Source Proof Window / Unbiased Summary 1-Min Read -->
   <div class="modal-overlay" id="detailModal">
     <div class="modal-card broadsheet-proof-modal">
       <button class="modal-close" onclick="closeDetailModal()">&times;</button>
       
-      <!-- Proof Stamp: Physical Press Archive / Web Citation / Video / Personal Essay -->
-      <div id="proofStampContainer"></div>
+      <!-- Hidden legacy hooks for compatibility -->
+      <div id="proofStampContainer" style="display:none;"></div>
 
-      <!-- Broadsheet Masthead Header -->
-      <div class="proof-broadsheet-header">
-        <div class="receipt-masthead-thick"></div>
-        <div class="receipt-masthead-thin"></div>
-        <div class="proof-pub-title" id="proofPubTitle">THE NEW INDIAN EXPRESS</div>
-        <div class="receipt-rules">
-          <span id="proofRuleVol">VOL. CLXXIV • NO. 48,210</span>
-          <span class="receipt-rules-center" id="proofRuleCenter">PRIMARY SOURCE EVIDENCE</span>
-          <span id="proofRuleArchive">VERIFIED ARCHIVE</span>
+      <!-- Unbiased Source Summary Top Banner -->
+      <div class="summary-top-banner">
+        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+          <span class="summary-badge">⚖️ UNBIASED SOURCE SUMMARY</span>
+          <span class="summary-read-time" id="proofReadTime">⏱️ 1-MIN READ</span>
         </div>
-        <div class="receipt-masthead-bottom"></div>
+        <div id="proofStarsBadge" class="summary-stars-badge" style="display:none;">
+          ★★★ 3/3 High Substance Anchor
+        </div>
       </div>
 
-      <!-- Original Source Headline & Wire Byline -->
-      <div class="proof-headline-box">
-        <h2 class="proof-headline" id="proofHeadline">Original Source Headline</h2>
-        <div class="receipts-byline">
-          <span id="proofByline">BY SPECIAL CORRESPONDENT & WIRE BUREAU</span>
-          <span class="receipts-archive-tag" id="proofArchiveTag">AS-IS RECORD</span>
+      <!-- Source Channel / Publication Masthead Header -->
+      <div class="proof-broadsheet-header" style="margin-bottom: 6px;">
+        <div class="proof-pub-title" id="proofPubTitle" style="font-size: 11px; letter-spacing: 1px; color: #64748B; font-weight: 700; text-transform: uppercase;">PRIMARY SOURCE RECORD</div>
+        <div style="display:none;">
+          <span id="proofRuleVol"></span>
+          <span id="proofRuleCenter"></span>
+          <span id="proofRuleArchive"></span>
         </div>
-        <div class="receipts-hairline"></div>
       </div>
 
-      <!-- Primary Source Proof Artifacts As-Is -->
+      <!-- Original Source Headline & Attributed Byline -->
+      <div class="proof-headline-box" style="margin-bottom: 12px;">
+        <h2 class="proof-headline" id="proofHeadline" style="font-size: 16px; line-height: 1.35; margin: 0 0 6px 0; color: #0F172A; font-weight: 800;">Original Source Headline</h2>
+        <div class="receipts-byline" style="display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: #64748B;">
+          <span id="proofByline">Attributed to Primary Source • Strictly Non-Partisan Record</span>
+          <span class="receipts-archive-tag" id="proofArchiveTag" style="display:none;">AS-IS RECORD</span>
+        </div>
+      </div>
+
+      <!-- Primary Source Proof Content (Clean 1-Min Read Summary) -->
       <div class="proof-body-content">
-        <!-- 1. If Paper Cut / Physical Clipping -->
+        <!-- 1. Paper Cut (Hidden in 1-min summary view so reading is uninterrupted) -->
         <div id="proofPaperCutSection" style="display:none;">
           <div class="proof-clipping-card">
             <div class="proof-clipping-badge">📰 PHYSICAL NEWSPAPER CLIPPING AS-IS</div>
@@ -777,21 +784,19 @@
           </div>
         </div>
 
-        <!-- 2. If Video Source -->
+        <!-- 2. Video Player (Hidden in 1-min summary view so reading is uninterrupted) -->
         <div id="proofVideoSection" style="display:none;">
           <div class="proof-video-card">
-            <div class="proof-video-badge">▶ VERIFIED BROADCAST / VIDEO SOURCE</div>
             <div id="proofVideoEmbedWrap" class="proof-video-embed-wrap"></div>
           </div>
         </div>
 
-        <!-- 3. Primary Reporting Excerpts (As Published) -->
+        <!-- 3. Unbiased 1-Minute Read Sections -->
         <div class="proof-excerpts-box" id="proofExcerptsBox">
-          <div class="proof-section-label">PRIMARY SOURCE REPORTING & QUOTES</div>
           <div class="proof-paragraphs" id="proofParagraphs"></div>
         </div>
 
-        <!-- 4. Key Evidentiary Findings / Metrics -->
+        <!-- 4. Key Evidentiary Findings / Metrics (Optional) -->
         <div id="proofMetricRow" class="receipt-metric-row" style="display:none; margin: 8px 0;">
           <span class="receipt-metric-badge">RECORDED METRIC</span>
           <span class="receipt-metric-val" id="proofMetricVal"></span>
@@ -805,7 +810,7 @@
         </div>
         <div class="proof-footer-actions">
           <a id="proofExternalLink" href="#" target="_blank" rel="noopener noreferrer" class="tag-action-btn primary-source-link" style="display:none;">
-            <span>🌐 Open Source Link &nearr;</span>
+            <span>🌐 Open Original Source &nearr;</span>
           </a>
         </div>
       </div>
@@ -1264,6 +1269,6 @@
     </div>
   </aside>
 
-  <script src="app.js?v=20261016_2045"></script>
+  <script src="app.js?v=20261016_2230"></script>
 </body>
 </html>
