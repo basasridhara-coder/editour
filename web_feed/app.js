@@ -3823,13 +3823,96 @@ function openDetailModal(index) {
   const stampContainer = document.getElementById('proofStampContainer');
   if (stampContainer) stampContainer.innerHTML = '';
 
-  // 3. Keep paper cut & video sections hidden so 1-minute read is uninterrupted
-  const paperCutSection = document.getElementById('proofPaperCutSection');
-  if (paperCutSection) paperCutSection.style.display = 'none';
+  // 3. Video Embed & Paper Cut Sections
+  const videoUrl = post.videoUrl || post.digitalLink || '';
+  const ytEmbed = getYouTubeEmbedUrl(videoUrl);
+  const vimeoEmbed = getVimeoEmbedUrl(videoUrl);
+  const isVideo = !!ytEmbed || !!vimeoEmbed || post.sourceType === 'youtube' || post.sourceType === 'video' || !!post.videoUrl || (videoUrl && /\.(mp4|webm|mov)(\?.*)?$/i.test(videoUrl));
+
+  const hasPaper = !isVideo && (post.sourceType === 'photo' 
+    || !!post.paperCutImage 
+    || !!post.hasPaperCut
+    || (post.originalPhotoUrl && (post.originalPhotoUrl.includes('clipping') || post.sourceType === 'photo'))
+    || (post.originalPhotoBase64 && post.originalPhotoBase64.length > 50)
+    || (post.originalPhotoPath && !post.originalPhotoPath.startsWith('http') && post.originalPhotoPath !== post.digitalLink)
+    || (post.id && ['692d99fc-d140-4d1c-9275-3263a7c187b7', '79cb4873-7c1b-402c-aebb-71fcebbefa5d', '83940fae-4ad7-43f6-9329-91cd17752f78', '9b55d7ea-8a78-4ef1-a068-cec226e200fd'].includes(post.id)));
+
   const videoSection = document.getElementById('proofVideoSection');
-  if (videoSection) videoSection.style.display = 'none';
   const videoEmbedWrap = document.getElementById('proofVideoEmbedWrap');
-  if (videoEmbedWrap) videoEmbedWrap.innerHTML = '';
+  if (videoSection) {
+    if (isVideo) {
+      videoSection.style.display = 'block';
+      if (ytEmbed && videoEmbedWrap) {
+        videoEmbedWrap.innerHTML = `
+          <iframe 
+            src="${ytEmbed}?autoplay=0&rel=0&modestbranding=1" 
+            title="Source Video" 
+            style="width:100%; height:100%; border:none;" 
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+            allowfullscreen>
+          </iframe>
+        `;
+      } else if (vimeoEmbed && videoEmbedWrap) {
+        videoEmbedWrap.innerHTML = `
+          <iframe 
+            src="${vimeoEmbed}" 
+            title="Source Video" 
+            style="width:100%; height:100%; border:none;" 
+            allow="autoplay; fullscreen; picture-in-picture" 
+            allowfullscreen>
+          </iframe>
+        `;
+      } else if (videoUrl && /\.(mp4|webm|mov)(\?.*)?$/i.test(videoUrl) && videoEmbedWrap) {
+        videoEmbedWrap.innerHTML = `
+          <video src="${escapeHtml(videoUrl)}" controls playsinline style="width:100%; height:100%; max-height:480px; background:#000; border-radius:6px;"></video>
+        `;
+      } else if (videoEmbedWrap) {
+        videoEmbedWrap.innerHTML = `
+          <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:160px; color:#CBD5E1; text-align:center; padding:16px;">
+            <span style="font-size:30px; margin-bottom:6px;">▶</span>
+            <span style="font-weight:700;">Broadcast / Video Source</span>
+            <a href="${escapeHtml(videoUrl)}" target="_blank" rel="noopener noreferrer" style="margin-top:6px; color:#818CF8; text-decoration:underline; font-size:12px;">Watch on host platform &nearr;</a>
+          </div>
+        `;
+      }
+    } else {
+      videoSection.style.display = 'none';
+      if (videoEmbedWrap) videoEmbedWrap.innerHTML = '';
+    }
+  }
+
+  const paperCutSection = document.getElementById('proofPaperCutSection');
+  const paperCutImg = document.getElementById('proofPaperCutImg');
+  if (paperCutSection) {
+    if (hasPaper && !isVideo) {
+      paperCutSection.style.display = 'block';
+      let imgSrc = '';
+      if (post.originalPhotoBase64 && post.originalPhotoBase64.length > 50) {
+        imgSrc = post.originalPhotoBase64.startsWith('data:') 
+          ? post.originalPhotoBase64 
+          : 'data:image/jpeg;base64,' + post.originalPhotoBase64;
+      } else if (post.originalPhotoUrl) {
+        imgSrc = post.originalPhotoUrl.startsWith('/') || post.originalPhotoUrl.startsWith('http')
+          ? post.originalPhotoUrl
+          : `/${post.originalPhotoUrl}`;
+      } else if (post.paperCutImage) {
+        imgSrc = post.paperCutImage;
+      } else if (post.originalPhotoPath && (post.originalPhotoPath.startsWith('http') || post.originalPhotoPath.startsWith('data:'))) {
+        imgSrc = post.originalPhotoPath;
+      } else if (post.id) {
+        imgSrc = `/clippings/${post.id}.jpg`;
+      }
+      if (paperCutImg) {
+        paperCutImg.src = imgSrc || '';
+        paperCutImg.onerror = () => {
+          paperCutSection.style.display = 'none';
+        };
+      }
+    } else {
+      paperCutSection.style.display = 'none';
+      if (paperCutImg) paperCutImg.src = '';
+    }
+  }
 
   // 4. Primary Unbiased 1-Minute Read Sections
   const cleanExcerpt = (txt) => {
