@@ -2787,6 +2787,14 @@ function formatCuratorTakeApt(text) {
   s = s.replace(/^["'“”‘’«»]+|["'“”‘’«»]+$/g, '');
   s = s.replace(/^(my take|curator take|curator conviction|editorial conviction|take|slant|curator stance|opinion|perspective|spark)\s*:\s*/i, '');
 
+  // Strip leading dashes
+  s = s.replace(/^[—–―\s-]+/, '');
+
+  // Strip em-dashes (—), en-dashes (–), horizontal bars (―), double hyphens (--), and spaced hyphens ( - )
+  // These give an artificial, robotic "AI-generated" impression. Replace with natural commas so the writing flows organically.
+  s = s.replace(/\s*([—–―]|--)\s*/g, ', ');
+  s = s.replace(/\s+-\s+/g, ', ');
+
   // Normalize all whitespaces and linebreaks into clean single spaces
   s = s.replace(/[\r\n\t]+/g, ' ').replace(/\s{2,}/g, ' ').trim();
 
@@ -2796,6 +2804,11 @@ function formatCuratorTakeApt(text) {
   // Fix missing space after punctuation when directly touching a word (e.g. 'today,but' -> 'today, but')
   s = s.replace(/([,;:])([A-Za-z])/g, '$1 $2');
   s = s.replace(/([.!?])([A-Za-z])/g, '$1 $2');
+
+  // Clean duplicate commas or punctuation collisions created by dash replacement
+  s = s.replace(/,\s*,+/g, ',');
+  s = s.replace(/,\s*([.!?])/g, '$1');
+  s = s.replace(/([.!?])\s*,+/g, '$1 ');
 
   // Normalize duplicate commas/periods (e.g. ',,' -> ',', '..' -> '.')
   s = s.replace(/,{2,}/g, ',');
@@ -2868,8 +2881,8 @@ function formatCuratorTakeApt(text) {
   // Capitalize first letter of every sentence
   s = s.replace(/(^|[.!?]\s+)([a-z])/g, (match, prefix, char) => prefix + char.toUpperCase());
 
-  // Clean trailing punctuation: remove dangling commas, colons, semicolons, hyphens
-  s = s.replace(/[,;:\-\s]+$/, '');
+  // Clean trailing punctuation: remove dangling commas, colons, semicolons, hyphens, and em-dashes
+  s = s.replace(/[,;:\-\s—–―]+$/, '');
 
   // Ensure apt sentence completion
   if (!/[.!?]$/.test(s)) {

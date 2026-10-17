@@ -113,7 +113,8 @@ Your sole job is to polish their exact text into grammatically correct, natural,
 - STRICT RULE 1 (ZERO OPINION FABRICATION): DO NOT change, enhance, add to, or modify the author's opinion, stance, or logic. Do NOT introduce new arguments, buzzwords, or unsolicited ideas.
 - STRICT RULE 2 (ZERO CUTTING SHORT): DO NOT cut short, truncate, compress, or omit the author's opinion. Every single point, argument, nuance, and example must be retained in the exact same sequence.
 - STRICT RULE 3 (APT ENGLISH & PHRASING): Fix comma splices, run-on sentences, awkward phrasing, word choices, subject-verb agreements, casing, and punctuation so it flows naturally and authoritatively.
-- STRICT RULE 4 (PURE OUTPUT): Return ONLY the polished take text. Do NOT add quotation marks, do NOT add introductory conversational words, and do NOT wrap in markdown or backticks.
+- STRICT RULE 4 (STRICT BAN ON EM-DASHES & ARTIFICIAL HYPHENS): NEVER use em-dashes ("—"), en-dashes ("–"), or double hyphens ("--")! LLM hyphens make human text look artificially AI-generated. Connect clauses with natural commas, semicolons, conjunctions, or separate sentences.
+- STRICT RULE 5 (PURE OUTPUT): Return ONLY the polished take text. Do NOT add quotation marks, do NOT add introductory conversational words, and do NOT wrap in markdown or backticks.
 
 Author's Raw Take:
 """${rawText}"""`;
@@ -351,6 +352,7 @@ ${sourceType === 'inner_voice' ? `CRITICAL INNER VOICE & LIVED EXPERIENCE DIRECT
   * 100% PRESERVATION: Retain 100% of the curator's original thoughts, arguments, conviction, personal voice, style, and full length.
   * ZERO SUMMARIZATION: Do NOT summarize, cut short, or compress their take into 2 sentences.
   * ZERO ALTERATION: Do NOT change the curator's stance or introduce unsolicited opinions. It is purely gentle grammar and phrase correction.
+  * ZERO EM-DASHES: NEVER use em-dashes ("—"), en-dashes ("–"), or double hyphens ("--"). They scream artificial AI generation. Connect clauses with natural commas, semicolons, or standard punctuation so it feels authentic and human.
 CRITICAL POSTER 2 DIRECTIVE (CURATED TAKE DERIVED FROM INPUT):
 - Poster 2 ("THE CRITICAL PERSPECTIVE" / Curator Take) MUST be an articulate, model-synthesized editorial conviction derived directly from the curator's perspective ("${userSlant}").
 - It MUST be EXACTLY 2 complete sentences (25–35 words total, ending definitively with a period).
@@ -768,6 +770,14 @@ function formatCuratorTakeApt(text) {
   s = s.replace(/^["'“”‘’«»]+|["'“”‘’«»]+$/g, '');
   s = s.replace(/^(my take|curator take|curator conviction|editorial conviction|take|slant|curator stance|opinion|perspective|spark)\s*:\s*/i, '');
 
+  // Strip leading dashes
+  s = s.replace(/^[—–―\s-]+/, '');
+
+  // Strip em-dashes (—), en-dashes (–), horizontal bars (―), double hyphens (--), and spaced hyphens ( - )
+  // These give an artificial, robotic "AI-generated" impression. Replace with natural commas so the writing flows organically.
+  s = s.replace(/\s*([—–―]|--)\s*/g, ', ');
+  s = s.replace(/\s+-\s+/g, ', ');
+
   // Normalize all whitespaces and linebreaks into clean single spaces
   s = s.replace(/[\r\n\t]+/g, ' ').replace(/\s{2,}/g, ' ').trim();
 
@@ -777,6 +787,11 @@ function formatCuratorTakeApt(text) {
   // Fix missing space after punctuation when directly touching a word
   s = s.replace(/([,;:])([A-Za-z])/g, '$1 $2');
   s = s.replace(/([.!?])([A-Za-z])/g, '$1 $2');
+
+  // Clean duplicate commas or punctuation collisions created by dash replacement
+  s = s.replace(/,\s*,+/g, ',');
+  s = s.replace(/,\s*([.!?])/g, '$1');
+  s = s.replace(/([.!?])\s*,+/g, '$1 ');
 
   // Normalize duplicate commas/periods
   s = s.replace(/,{2,}/g, ',');
@@ -847,8 +862,8 @@ function formatCuratorTakeApt(text) {
   // Capitalize first letter of every sentence
   s = s.replace(/(^|[.!?]\s+)([a-z])/g, (match, prefix, char) => prefix + char.toUpperCase());
 
-  // Clean trailing punctuation
-  s = s.replace(/[,;:\-\s]+$/, '');
+  // Clean trailing punctuation: remove dangling commas, colons, semicolons, hyphens, and em-dashes
+  s = s.replace(/[,;:\-\s—–―]+$/, '');
 
   // Ensure apt sentence completion
   if (!/[.!?]$/.test(s)) {
