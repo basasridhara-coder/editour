@@ -27,7 +27,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Merriweather:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,400;1,600;1,700;1,900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261017_0007">
+  <link rel="stylesheet" href="style.css?v=20261017_0010">
   <!-- Favicon & Brand Icons -->
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
@@ -190,7 +190,7 @@
           <span class="step-text">Visual Cues</span>
         </div>
         <div class="creator-step-divider" id="stepDiv2"></div>
-        <div class="creator-step-dot" id="stepDot3">
+        <div class="creator-step-dot" id="stepDot3" onclick="goToPostersStep()" style="cursor:pointer;">
           <span class="step-num">3</span>
           <span class="step-text">3 Posters</span>
         </div>
@@ -251,7 +251,10 @@
                 <span class="trigger-icon" id="triggerLinkIcon">🔗</span>
                 <span class="trigger-title" id="triggerLinkTitle">Source Article / Newsletter Link</span>
               </div>
-              <span class="trigger-sub" id="triggerLinkSub">Paste & Fetch</span>
+              <div class="trigger-header-right" style="display:flex; align-items:center; gap:8px;">
+                <span class="creator-tag-badge badge-required" id="triggerLinkBadge">Required</span>
+                <span class="trigger-sub" id="triggerLinkSub">Paste & Fetch</span>
+              </div>
             </div>
             <input type="url" id="creatorUrlInput" class="creator-input" placeholder="https://www.nytimes.com/... or Substack, Op-Ed URL" autocomplete="off">
             <!-- Scrape Status Indicator (Matches Mobile App Exactly) -->
@@ -1328,6 +1331,6 @@
     </div>
   </aside>
 
-  <script src="app.js?v=20261017_0009"></script>
+  <script src="app.js?v=20261017_0010"></script>
 </body>
 </html>

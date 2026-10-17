@@ -5891,6 +5891,72 @@ header {
   box-shadow: 0 0 0 3px var(--primary-glow);
 }
 
+/* Mandatory Field Validation Prompts & Highlights */
+@keyframes fieldMandatoryShake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-6px); }
+  40%, 80% { transform: translateX(6px); }
+}
+
+@keyframes fieldMandatoryGlow {
+  0%, 100% {
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.45), 0 0 16px rgba(239, 68, 68, 0.25);
+  }
+  50% {
+    box-shadow: 0 0 0 5px rgba(239, 68, 68, 0.7), 0 0 24px rgba(239, 68, 68, 0.45);
+  }
+}
+
+.creator-input.input-mandatory-error,
+.creator-textarea.input-mandatory-error {
+  border-color: #EF4444 !important;
+  animation: fieldMandatoryShake 0.42s cubic-bezier(0.36, 0.07, 0.19, 0.97) both, fieldMandatoryGlow 1.8s ease-in-out infinite !important;
+  outline: none !important;
+}
+
+.cues-suggest-btn.btn-mandatory-error {
+  border-color: #EF4444 !important;
+  animation: fieldMandatoryShake 0.42s cubic-bezier(0.36, 0.07, 0.19, 0.97) both, fieldMandatoryGlow 1.8s ease-in-out infinite !important;
+}
+
+.field-mandatory-prompt-callout {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #FCA5A5;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  margin-top: 8px;
+  animation: fadeInPrompt 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+  line-height: 1.4;
+}
+
+[data-theme="daylight"] .field-mandatory-prompt-callout {
+  background: #FEF2F2;
+  border-color: #FECACA;
+  color: #DC2626;
+}
+
+@keyframes fadeInPrompt {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.field-mandatory-prompt-callout .prompt-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
 .creator-textarea {
   resize: vertical;
   min-height: 90px;

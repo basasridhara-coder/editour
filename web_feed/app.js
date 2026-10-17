@@ -5673,9 +5673,20 @@ function openCreatorModal() {
   // Attach drag-drop & url scrape listeners
   setupCreatorDropzone();
   setupCreatorUrlListener();
+
+  const slantInput = document.getElementById('creatorSlantTakeInput');
+  if (slantInput && !slantInput.dataset.errorCleanAttached) {
+    slantInput.dataset.errorCleanAttached = 'true';
+    slantInput.addEventListener('input', () => {
+      if (typeof clearMandatoryError === 'function') clearMandatoryError(slantInput);
+    });
+  }
 }
 
 function closeCreatorModal() {
+  if (typeof clearMandatoryFieldPrompts === 'function') {
+    clearMandatoryFieldPrompts();
+  }
   const modal = document.getElementById('creatorModal');
   if (modal) {
     modal.classList.remove('open');
@@ -5691,6 +5702,9 @@ function handleCreatorOverlayClick(e) {
 }
 
 function setAnchorMode(mode) {
+  if (typeof clearMandatoryFieldPrompts === 'function') {
+    clearMandatoryFieldPrompts();
+  }
   if (creatorSelectedSource !== mode) {
     currentScrapedArticle = null;
     currentSourceLedger = null;
@@ -5766,15 +5780,22 @@ function setAnchorMode(mode) {
   const linkIcon = document.getElementById('triggerLinkIcon');
   const linkTitle = document.getElementById('triggerLinkTitle');
   const linkSub = document.getElementById('triggerLinkSub');
+  const linkBadge = document.getElementById('triggerLinkBadge');
   const urlInput = document.getElementById('creatorUrlInput');
 
   if (mode === 'inner_voice') {
     if (secLink) secLink.style.display = 'none';
     if (secVoice) secVoice.style.display = 'flex';
+    if (linkBadge) linkBadge.style.display = 'none';
   } else {
     // Both video_audio and digital_link use link input
     if (secLink) secLink.style.display = 'flex';
     if (secVoice) secVoice.style.display = 'none';
+    if (linkBadge) {
+      linkBadge.style.display = 'inline-block';
+      linkBadge.textContent = 'Required';
+      linkBadge.className = 'creator-tag-badge badge-required';
+    }
 
     if (mode === 'video_audio') {
       if (linkIcon) linkIcon.textContent = '🎬';
@@ -6000,6 +6021,9 @@ function setupCreatorDropzone() {
 }
 
 function backToStep1() {
+  if (typeof clearMandatoryFieldPrompts === 'function') {
+    clearMandatoryFieldPrompts();
+  }
   const s1 = document.getElementById('creatorStep1');
   const s2 = document.getElementById('creatorStep2');
   const s3 = document.getElementById('creatorStep3');
@@ -6013,7 +6037,7 @@ function backToStep1() {
 
   if (d1) { d1.className = 'creator-step-dot active'; }
   if (d2) { d2.className = 'creator-step-dot'; }
-  if (d3) { d3.className = 'creator-step-dot'; }
+  if (d3) { d3.className = currentSynthesizedPost ? 'creator-step-dot completed' : 'creator-step-dot'; }
 }
 
 // Visual Cues Studio State
@@ -6230,6 +6254,9 @@ let scrapeDebounceTimer = null;
 let isScrapingUrl = false;
 
 function resetCreatorState() {
+  if (typeof clearMandatoryFieldPrompts === 'function') {
+    clearMandatoryFieldPrompts();
+  }
   currentScrapedArticle = null;
   currentSourceLedger = null;
   renderSourceLedger(null);
@@ -6330,6 +6357,9 @@ function setupCreatorUrlListener() {
   urlInput.dataset.listenerAttached = 'true';
 
   urlInput.addEventListener('input', (e) => {
+    if (typeof clearMandatoryError === 'function') {
+      clearMandatoryError(urlInput);
+    }
     clearTimeout(scrapeDebounceTimer);
     const val = e.target.value.trim();
     if (val.startsWith('http://') || val.startsWith('https://') || val.includes('.')) {
@@ -6346,6 +6376,9 @@ function setupCreatorUrlListener() {
   });
 
   urlInput.addEventListener('paste', () => {
+    if (typeof clearMandatoryError === 'function') {
+      clearMandatoryError(urlInput);
+    }
     setTimeout(() => {
       const val = urlInput.value.trim();
       if (val) handleUrlInput(val);
@@ -7136,39 +7169,184 @@ function getCueExplainer(index) {
   };
 }
 
+// --- Mandatory Field Validation & Interactive Guidance Helpers ---
+
+function clearMandatoryFieldPrompts() {
+  document.querySelectorAll('.input-mandatory-error, .btn-mandatory-error').forEach(item => {
+    item.classList.remove('input-mandatory-error', 'btn-mandatory-error');
+  });
+  document.querySelectorAll('.field-mandatory-prompt-callout').forEach(item => item.remove());
+}
+
+function clearMandatoryError(el) {
+  if (!el) return;
+  el.classList.remove('input-mandatory-error', 'btn-mandatory-error');
+  const parent = el.closest('.trigger-section') || el.closest('.creator-hero-slant-card') || el.closest('.cues-action-bar') || el.parentElement;
+  if (parent) {
+    const existingCallouts = parent.querySelectorAll('.field-mandatory-prompt-callout');
+    existingCallouts.forEach(c => c.remove());
+  }
+}
+
+function promptMandatoryField(el, message) {
+  if (!el) return;
+
+  clearMandatoryFieldPrompts();
+
+  const isButton = (el.tagName === 'BUTTON' || el.classList.contains('cues-suggest-btn'));
+  if (isButton) {
+    el.classList.add('btn-mandatory-error');
+  } else {
+    el.classList.add('input-mandatory-error');
+  }
+
+  const callout = document.createElement('div');
+  callout.className = 'field-mandatory-prompt-callout';
+  callout.innerHTML = `<span class="prompt-icon">⚠️</span><span>${escapeHtml(message)}</span>`;
+
+  if (el.nextSibling) {
+    el.parentNode.insertBefore(callout, el.nextSibling);
+  } else {
+    el.parentNode.appendChild(callout);
+  }
+
+  // Smooth scroll directly to the missing mandatory input
+  try {
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  } catch (_) {
+    el.scrollIntoView();
+  }
+
+  // Focus if input or textarea
+  if (!isButton && typeof el.focus === 'function') {
+    setTimeout(() => {
+      try { el.focus(); } catch (_) {}
+    }, 150);
+  }
+
+  // Toast notification
+  showTemporaryToast(`⚠️ ${message}`, 3500);
+
+  // Auto-cleanup on interaction
+  const cleanupHandler = () => {
+    clearMandatoryError(el);
+    el.removeEventListener('input', cleanupHandler);
+    el.removeEventListener('change', cleanupHandler);
+    el.removeEventListener('click', cleanupHandler);
+  };
+  el.addEventListener('input', cleanupHandler);
+  el.addEventListener('change', cleanupHandler);
+  el.addEventListener('click', cleanupHandler);
+}
+
+function isValidWebUrl(str) {
+  if (!str) return false;
+  const s = str.trim();
+  if (/^https?:\/\/[^\s/$.?#].[^\s]*$/i.test(s)) return true;
+  if (/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(\/.*)?$/i.test(s)) return true;
+  return false;
+}
+
+function validateCreatorStage1(showPrompt = true) {
+  const urlInput = document.getElementById('creatorUrlInput');
+  const slantTakeInput = document.getElementById('creatorSlantTakeInput');
+  const url = urlInput ? urlInput.value.trim() : '';
+  const slantTake = slantTakeInput ? slantTakeInput.value.trim() : '';
+
+  if (creatorSelectedSource === 'inner_voice') {
+    if (!slantTake) {
+      if (showPrompt) {
+        promptMandatoryField(slantTakeInput, 'Please share your slant or perspective to continue.');
+      }
+      return false;
+    }
+  } else if (creatorSelectedSource === 'video_audio') {
+    if (!url) {
+      if (showPrompt) {
+        promptMandatoryField(urlInput, 'Please provide a YouTube or podcast link to anchor your slant.');
+      }
+      return false;
+    }
+    if (!isValidWebUrl(url)) {
+      if (showPrompt) {
+        promptMandatoryField(urlInput, 'Please enter a valid video or audio URL (e.g. https://youtu.be/... or podcast link).');
+      }
+      return false;
+    }
+  } else {
+    // digital_link
+    if (!url) {
+      if (showPrompt) {
+        promptMandatoryField(urlInput, 'Please provide an article or newsletter link to anchor your slant.');
+      }
+      return false;
+    }
+    if (!isValidWebUrl(url)) {
+      if (showPrompt) {
+        promptMandatoryField(urlInput, 'Please enter a valid article URL (e.g. https://www.nytimes.com/... or substack link).');
+      }
+      return false;
+    }
+  }
+
+  clearMandatoryFieldPrompts();
+  return true;
+}
+
+function validateCreatorStage2(showPrompt = true) {
+  const hasCues = Array.isArray(creatorCuePills) && creatorCuePills.length > 0;
+  if (!hasCues) {
+    if (showPrompt) {
+      const suggestBtn = document.getElementById('cuesSuggestBtn') || document.getElementById('cuesDeckContainer');
+      promptMandatoryField(suggestBtn, 'Visual cues are mandatory. Click "Generate Visual Cues" or add custom cues below before proceeding.');
+    }
+    return false;
+  }
+  clearMandatoryFieldPrompts();
+  return true;
+}
+
+function goToPostersStep() {
+  // 1. Stage 1 validation
+  if (!validateCreatorStage1(false)) {
+    backToStep1();
+    validateCreatorStage1(true);
+    return;
+  }
+
+  // 2. Stage 2 validation
+  if (!validateCreatorStage2(false)) {
+    const s2 = document.getElementById('creatorStep2');
+    if (!s2 || s2.style.display === 'none') {
+      goToVisualCuesStep();
+    }
+    validateCreatorStage2(true);
+    return;
+  }
+
+  // 3. Stage 3
+  if (currentSynthesizedPost) {
+    showStep3Preview();
+  } else {
+    startAiSynthesis();
+  }
+}
+
 async function goToVisualCuesStep() {
+  // Validate Stage 1 mandatory inputs
+  if (!validateCreatorStage1(true)) {
+    return;
+  }
+
   const urlInput = document.getElementById('creatorUrlInput');
   const slantTakeInput = document.getElementById('creatorSlantTakeInput');
 
   const url = urlInput ? urlInput.value.trim() : '';
   const slantTake = slantTakeInput ? slantTakeInput.value.trim() : '';
 
-  // Validation
-  if (creatorSelectedSource === 'inner_voice') {
-    if (!slantTake) {
-      alert('Please write your slant or perspective above first');
-      if (slantTakeInput) slantTakeInput.focus();
-      return;
-    }
-  } else if (creatorSelectedSource === 'video_audio') {
-    if (!url && !slantTake) {
-      alert('Please paste a YouTube or Podcast link, or type your reaction above');
-      if (urlInput) urlInput.focus();
-      return;
-    }
-    if (url && !currentScrapedArticle) {
-      await handleUrlInput(url);
-    }
-  } else if (creatorSelectedSource === 'digital_link') {
-    if (!url && !slantTake) {
-      alert('Please enter or paste an article URL or your slant first');
-      if (urlInput) urlInput.focus();
-      return;
-    }
-    // If not scraped yet, scrape now!
-    if (url && !currentScrapedArticle) {
-      await handleUrlInput(url);
-    }
+  // If URL is provided and not scraped yet, scrape now!
+  if (creatorSelectedSource !== 'inner_voice' && url && !currentScrapedArticle) {
+    await handleUrlInput(url);
   }
 
   // Switch step indicators
@@ -7189,7 +7367,7 @@ async function goToVisualCuesStep() {
 
   if (d1) d1.className = 'creator-step-dot completed';
   if (d2) d2.className = 'creator-step-dot active';
-  if (d3) d3.className = 'creator-step-dot';
+  if (d3) d3.className = currentSynthesizedPost ? 'creator-step-dot completed' : 'creator-step-dot';
 
   if (currentScrapedArticle && (currentScrapedArticle.imageBase64 || currentScrapedArticle.imageUrl)) {
     if (!creatorReferenceImageBase64 || creatorReferenceImageSourceLabel?.startsWith('Article Lead Photo')) {
@@ -7693,6 +7871,10 @@ function addCustomCue() {
   const val = input ? input.value.trim() : '';
   if (!val) return;
 
+  if (typeof clearMandatoryFieldPrompts === 'function') {
+    clearMandatoryFieldPrompts();
+  }
+
   creatorCuePills.push(val);
   creatorActiveInspectedCueIndex = creatorCuePills.length - 1;
   if (input) input.value = '';
@@ -7704,6 +7886,9 @@ function addCustomCue() {
 }
 
 async function triggerCueSuggest() {
+  if (typeof clearMandatoryFieldPrompts === 'function') {
+    clearMandatoryFieldPrompts();
+  }
   const urlInput = document.getElementById('creatorUrlInput');
   const slantTakeInput = document.getElementById('creatorSlantTakeInput');
   const sparkInput = document.getElementById('creatorSparkInput');
@@ -7878,6 +8063,9 @@ function selectCharacterRepresentation(type) {
 }
 
 function handleStep2NavRight() {
+  if (!validateCreatorStage2(true)) {
+    return;
+  }
   if (currentSynthesizedPost) {
     showStep3Preview();
   } else {
@@ -7886,6 +8074,15 @@ function handleStep2NavRight() {
 }
 
 async function startAiSynthesis() {
+  if (!validateCreatorStage1(false)) {
+    backToStep1();
+    validateCreatorStage1(true);
+    return;
+  }
+  if (!validateCreatorStage2(true)) {
+    return;
+  }
+
   const urlInput = document.getElementById('creatorUrlInput');
   const slantTakeInput = document.getElementById('creatorSlantTakeInput');
   const sparkInput = document.getElementById('creatorSparkInput');
