@@ -6559,19 +6559,20 @@ header {
 
 /* Slide 3 Scene Photo Frame on Poster 3 */
 .receipt-scene-box {
-  margin: 8px 0 10px 0;
+  margin: 10px 0 12px 0;
   background: #F8FAFC;
   border: 1px solid #CBD5E1;
-  border-radius: 8px;
-  padding: 8px;
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.04);
+  border-radius: 6px;
+  padding: 6px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .receipt-scene-photo {
   width: 100%;
-  max-height: 190px;
+  aspect-ratio: 16 / 9;
+  max-height: 180px;
   object-fit: cover;
-  border-radius: 5px;
+  border-radius: 4px;
   display: block;
 }
 
@@ -6580,10 +6581,10 @@ header {
   align-items: center;
   gap: 5px;
   margin-top: 6px;
-  font-size: 9px;
+  font-size: 8.5px;
   font-weight: 800;
-  letter-spacing: 0.5px;
-  color: #64748B;
+  letter-spacing: 0.6px;
+  color: #475569;
   text-transform: uppercase;
   font-family: inherit;
 }
@@ -9522,6 +9523,133 @@ header {
   flex-shrink: 0;
 }
 
+/* Perspective Focus Selector Card */
+.slant-perspective-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 14px;
+  transition: all 0.2s ease;
+}
+
+.slant-perspective-card:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.slant-perspective-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.slant-perspective-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.slant-perspective-icon-box {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  background: rgba(245, 158, 11, 0.15);
+  color: #F59E0B;
+  flex-shrink: 0;
+}
+
+.slant-perspective-text-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.slant-perspective-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.slant-perspective-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-main);
+  letter-spacing: -0.1px;
+}
+
+.slant-perspective-badge {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  padding: 1.5px 7px;
+  border-radius: 4px;
+  background: rgba(245, 158, 11, 0.18);
+  color: #F59E0B;
+  transition: all 0.2s ease;
+}
+
+.slant-perspective-subtitle {
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--text-muted);
+}
+
+.slant-perspective-pills {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  width: 100%;
+}
+
+.slant-perspective-pill {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 8px 6px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.slant-perspective-pill:hover {
+  background: rgba(255, 255, 255, 0.09);
+  color: #F8FAFC;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.slant-perspective-pill.active {
+  background: rgba(245, 158, 11, 0.22);
+  border-color: #F59E0B;
+  color: #FFFFFF;
+  font-weight: 700;
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.25);
+}
+
+.slant-perspective-pill .pill-icon {
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
 /* iOS/Android style Switch Toggle */
 .switch-toggle {
   position: relative;
@@ -9812,6 +9940,42 @@ header {
   border-color: #6366F1;
   color: #3730A3;
   box-shadow: 0 2px 8px rgba(99, 102, 241, 0.15);
+}
+
+[data-theme="daylight"] .slant-perspective-card {
+  background: #F8FAFC;
+  border-color: #E2E8F0;
+}
+
+[data-theme="daylight"] .slant-perspective-title {
+  color: #0F172A;
+}
+
+[data-theme="daylight"] .slant-perspective-subtitle {
+  color: #64748B;
+}
+
+[data-theme="daylight"] .slant-perspective-badge {
+  background: #FEF3C7;
+  color: #D97706;
+  border: 1px solid rgba(217, 119, 6, 0.25);
+}
+
+[data-theme="daylight"] .slant-perspective-pill {
+  background: #FFFFFF;
+  border-color: #E2E8F0;
+  color: #475569;
+}
+
+[data-theme="daylight"] .slant-perspective-pill:hover {
+  background: #F1F5F9;
+  color: #0F172A;
+}
+
+[data-theme="daylight"] .slant-perspective-pill.active {
+  background: #FEF3C7;
+  border-color: #D97706;
+  color: #92400E;
 }
 
 [data-theme="daylight"] .slant-polish-review-card {

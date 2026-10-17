@@ -403,6 +403,38 @@
               </button>
             </div>
           </div>
+
+          <!-- Perspective Focus Selector Card -->
+          <div class="slant-perspective-card" id="slantPerspectiveCard">
+            <div class="slant-perspective-top">
+              <div class="slant-perspective-left">
+                <div class="slant-perspective-icon-box">
+                  <span id="slantPerspectiveIcon">⚖️</span>
+                </div>
+                <div class="slant-perspective-text-wrap">
+                  <div class="slant-perspective-title-row">
+                    <span class="slant-perspective-title">PERSPECTIVE FOCUS</span>
+                    <span class="slant-perspective-badge" id="slantPerspectiveBadge">⚖️ Hybrid Contrast</span>
+                  </div>
+                  <div class="slant-perspective-subtitle" id="slantPerspectiveSubtitle">Balances the objective source report with your critical counter-slant and metaphor.</div>
+                </div>
+              </div>
+            </div>
+            <div class="slant-perspective-pills">
+              <button type="button" class="slant-perspective-pill" id="perspectivePillCurator" data-perspective="curator" onclick="setPerspectiveMode('curator')">
+                <span class="pill-icon">⚡</span>
+                <span class="pill-text">Curator Angle</span>
+              </button>
+              <button type="button" class="slant-perspective-pill active" id="perspectivePillHybrid" data-perspective="hybrid" onclick="setPerspectiveMode('hybrid')">
+                <span class="pill-icon">⚖️</span>
+                <span class="pill-text">Hybrid Blend</span>
+              </button>
+              <button type="button" class="slant-perspective-pill" id="perspectivePillSource" data-perspective="source" onclick="setPerspectiveMode('source')">
+                <span class="pill-icon">📰</span>
+                <span class="pill-text">Source Grounded</span>
+              </button>
+            </div>
+          </div>
         </div>
 
         <!-- 4. Bottom Navigation Bar (Step 1) -->

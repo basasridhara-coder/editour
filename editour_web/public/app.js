@@ -3477,25 +3477,47 @@ function buildSlide3Html(post, index) {
     essayParas = [`Reporting on "${headline}" examines key structural developments and observed outcomes.`];
   }
 
-  // Catalyst Scene Photo on Poster 3 for Inner Voice
+  // Newspaper Inset Photo on Poster 3 (Authentic Broadsheet Press Photo / Wire Dispatch / Video Still)
   let scenePhotoHtml = '';
-  if (isInnerVoice) {
-    const rawPhoto = post.catalystPhoto || post.catalystPhotoBase64 || post.originalPhotoBase64 || post.originalPhotoUrl || post.generationInputs?.catalystPhoto || post.generationInputs?.catalystPhotoBase64 || post.generationInputs?.innerVoiceImageBase64;
-    if (rawPhoto && typeof rawPhoto === 'string' && rawPhoto.length > 20) {
-      let imgSrc = rawPhoto;
-      if (!rawPhoto.startsWith('data:') && !rawPhoto.startsWith('http') && !rawPhoto.startsWith('/')) {
-        imgSrc = `data:${post.originalPhotoMimeType || post.catalystPhotoMimeType || 'image/jpeg'};base64,` + rawPhoto;
-      }
-      scenePhotoHtml = `
-        <div class="receipt-scene-box">
-          <img src="${imgSrc}" class="receipt-scene-photo" alt="Catalyst Scene">
-          <div class="receipt-scene-caption">
-            <span class="scene-caption-icon">📸</span>
-            <span class="scene-caption-text">ARCHIVAL CATALYST SNAPSHOT</span>
-          </div>
-        </div>
-      `;
+  const rawPhoto = post.sourceImageBase64
+    || post.sourceImageUrl
+    || post.catalystPhoto
+    || post.catalystPhotoBase64
+    || post.originalPhotoBase64
+    || post.originalPhotoUrl
+    || post.paperCutImage
+    || post.referencePhotoUrl
+    || post.generationInputs?.sourceImageBase64
+    || post.generationInputs?.sourceImageUrl
+    || post.generationInputs?.catalystPhoto
+    || post.generationInputs?.catalystPhotoBase64
+    || post.generationInputs?.innerVoiceImageBase64;
+
+  if (rawPhoto && typeof rawPhoto === 'string' && rawPhoto.length > 20) {
+    let imgSrc = rawPhoto;
+    if (!rawPhoto.startsWith('data:') && !rawPhoto.startsWith('http') && !rawPhoto.startsWith('/')) {
+      imgSrc = `data:${post.sourceImageMimeType || post.originalPhotoMimeType || post.catalystPhotoMimeType || 'image/jpeg'};base64,` + rawPhoto;
     }
+
+    let captionIcon = '📰';
+    let captionText = `ARCHIVAL WIRE PHOTO • ${cleanPubUpper || 'PRESS DISPATCH'}`;
+    if (isInnerVoice) {
+      captionIcon = '📸';
+      captionText = 'ARCHIVAL CATALYST SNAPSHOT';
+    } else if (tier === 'tier_video' || post.sourceType === 'video_audio') {
+      captionIcon = '🎬';
+      captionText = `BROADCAST STILL • ${cleanPubUpper || 'SOURCE DISPATCH'}`;
+    }
+
+    scenePhotoHtml = `
+      <div class="receipt-scene-box">
+        <img src="${escapeHtml(imgSrc)}" class="receipt-scene-photo" alt="Editorial Wire Photo" onerror="this.parentElement.style.display='none'">
+        <div class="receipt-scene-caption">
+          <span class="scene-caption-icon">${captionIcon}</span>
+          <span class="scene-caption-text">${escapeHtml(captionText)}</span>
+        </div>
+      </div>
+    `;
   }
 
   const leadRaw = essayParas[0];
@@ -4588,7 +4610,9 @@ function getPostGenerationInputs(post) {
     scrapedContent,
     contextProvided,
     illustrationPrompt,
-    originalHeadline
+    originalHeadline,
+    perspectiveMode: raw.perspectiveMode || post.perspectiveMode || 'hybrid',
+    sourceImageUrl: raw.sourceImageUrl || post.sourceImageUrl || post.originalPhotoUrl || ''
   };
 }
 
@@ -4622,6 +4646,7 @@ function openGenerationContextModal(postId) {
   }
   if (inputs.illustrationPrompt) copyLines.push(`\n[ART DIRECTION PROMPT]:\n${inputs.illustrationPrompt}`);
   copyLines.push(`\n[STUDIO PARAMETERS]:`);
+  copyLines.push(`  - Perspective Focus: ${inputs.perspectiveMode === 'curator' ? 'Curator Angle' : (inputs.perspectiveMode === 'source' ? 'Source Grounded' : 'Hybrid Contrast')}`);
   copyLines.push(`  - Core Take: ${inputs.refineCoreTake ? 'Refined with AI' : 'Use As-Is (Verbatim)'}`);
   copyLines.push(`  - Vocabulary: ${inputs.vocabularyStyle}`);
   copyLines.push(`  - Setting / Region: ${inputs.countryContext}`);
@@ -4789,6 +4814,10 @@ function openGenerationContextModal(postId) {
         <div class="gen-param-item">
           <span class="gen-param-label">Source Mode</span>
           <span class="gen-param-value">${escapeHtml(sourceLabel)}</span>
+        </div>
+        <div class="gen-param-item">
+          <span class="gen-param-label">Perspective Focus</span>
+          <span class="gen-param-value">${inputs.perspectiveMode === 'curator' ? '⚡ Curator Angle' : (inputs.perspectiveMode === 'source' ? '📰 Source Grounded' : '⚖️ Hybrid Contrast')}</span>
         </div>
         <div class="gen-param-item">
           <span class="gen-param-label">Core Take Mode</span>
@@ -5802,6 +5831,37 @@ function setVocabularyStyle(style) {
   }
 }
 
+let creatorPerspectiveMode = 'hybrid'; // 'curator' | 'hybrid' | 'source'
+
+function setPerspectiveMode(mode) {
+  if (mode !== 'curator' && mode !== 'source' && mode !== 'hybrid') {
+    mode = 'hybrid';
+  }
+  creatorPerspectiveMode = mode;
+  const badge = document.getElementById('slantPerspectiveBadge');
+  const sub = document.getElementById('slantPerspectiveSubtitle');
+  const icon = document.getElementById('slantPerspectiveIcon');
+
+  document.querySelectorAll('.slant-perspective-pill').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.perspective === mode);
+  });
+
+  if (mode === 'curator') {
+    if (icon) icon.textContent = '⚡';
+    if (badge) badge.textContent = '⚡ Curator Angle';
+    if (sub) sub.textContent = 'Artwork and narrative revolve 100% around your personal take, critique, and metaphor.';
+  } else if (mode === 'source') {
+    if (icon) icon.textContent = '📰';
+    if (badge) badge.textContent = '📰 Source Grounded';
+    if (sub) sub.textContent = 'Stays faithful to the core news event, real-world subjects, and authentic article photo.';
+  } else {
+    // hybrid
+    if (icon) icon.textContent = '⚖️';
+    if (badge) badge.textContent = '⚖️ Hybrid Contrast';
+    if (sub) sub.textContent = 'Balances the objective source report with your critical counter-slant and metaphor.';
+  }
+}
+
 function isMobileDevice() {
   return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
     (navigator.maxTouchPoints && navigator.maxTouchPoints > 1 && window.innerWidth <= 820);
@@ -6440,6 +6500,7 @@ function resetCreatorState() {
   creatorActiveInspectedCueIndex = 0;
   creatorCountryContext = null;
   currentPreviewSlide = 0;
+  setPerspectiveMode('hybrid');
 
   // Clear inputs in Step 1
   const slantInput = document.getElementById('creatorSlantTakeInput');
@@ -8199,6 +8260,7 @@ async function triggerCueSuggest() {
         countryCode: creatorCountryContext?.code || 'IN',
         creatorEmail: currentUser?.email || '',
         vocabularyStyle: creatorVocabularyStyle || 'punchy',
+        perspectiveMode: creatorPerspectiveMode || 'hybrid',
         slantTone: (creatorSelectedSource === 'inner_voice' || /\b(family|child|love|heart|trip|vacation|weekend|pack|burnout|unplug|memoir|personal)\b/i.test(`${slantTake} ${spark}`)) ? 'heart' : 'mind',
         imageBase64: (creatorSelectedSource === 'inner_voice') ? innerVoicePhotoBase64 : null,
         imageMimeType: innerVoicePhotoMimeType || 'image/jpeg',
@@ -8444,6 +8506,10 @@ async function startAiSynthesis() {
     url: isLink ? url : '',
     text: slantTake,
     slantTake: slantTake,
+    perspectiveMode: creatorPerspectiveMode || 'hybrid',
+    sourceImageUrl: (isLink && currentScrapedArticle) ? (currentScrapedArticle.imageUrl || null) : null,
+    sourceImageBase64: (isLink && currentScrapedArticle) ? (currentScrapedArticle.imageBase64 || null) : null,
+    sourceImageMimeType: (isLink && currentScrapedArticle) ? (currentScrapedArticle.imageMimeType || 'image/jpeg') : 'image/jpeg',
     imageBase64: effectiveImageBase64 || (creatorSelectedSource === 'inner_voice' ? innerVoicePhotoBase64 : null),
     imageMimeType: effectiveImageMime || innerVoicePhotoMimeType || 'image/jpeg',
     innerVoiceImageBase64: (creatorSelectedSource === 'inner_voice') ? innerVoicePhotoBase64 : null,
@@ -8511,6 +8577,12 @@ async function startAiSynthesis() {
     }
 
     currentSynthesizedPost = data.post;
+    currentSynthesizedPost.perspectiveMode = creatorPerspectiveMode || 'hybrid';
+    if (isLink && currentScrapedArticle) {
+      currentSynthesizedPost.sourceImageUrl = currentSynthesizedPost.sourceImageUrl || currentScrapedArticle.imageUrl || null;
+      currentSynthesizedPost.sourceImageBase64 = currentSynthesizedPost.sourceImageBase64 || currentScrapedArticle.imageBase64 || null;
+      currentSynthesizedPost.sourceImageMimeType = currentSynthesizedPost.sourceImageMimeType || currentScrapedArticle.imageMimeType || 'image/jpeg';
+    }
     if (creatorSelectedSource === 'inner_voice' && innerVoicePhotoBase64) {
       currentSynthesizedPost.catalystPhoto = innerVoicePhotoBase64;
       currentSynthesizedPost.catalystPhotoBase64 = innerVoicePhotoBase64;
@@ -8524,6 +8596,9 @@ async function startAiSynthesis() {
         slantTake: effectiveSlantTake,
         sourceUrl: isLink ? url : '',
         sourceType: creatorSelectedSource,
+        perspectiveMode: creatorPerspectiveMode || 'hybrid',
+        sourceImageUrl: currentSynthesizedPost.sourceImageUrl || null,
+        sourceImageBase64: currentSynthesizedPost.sourceImageBase64 || null,
         spark: spark || '',
         cues: [...creatorCuePills],
         heroCue: creatorCuePills[0] || '',
@@ -8540,6 +8615,10 @@ async function startAiSynthesis() {
       };
     } else {
       currentSynthesizedPost.generationInputs.slantTake = effectiveSlantTake;
+      currentSynthesizedPost.generationInputs.perspectiveMode = creatorPerspectiveMode || 'hybrid';
+      if (currentSynthesizedPost.sourceImageUrl) {
+        currentSynthesizedPost.generationInputs.sourceImageUrl = currentSynthesizedPost.sourceImageUrl;
+      }
     }
     currentSynthesizedPost.contextProvided = currentSynthesizedPost.generationInputs.contextProvided || effectiveSlantTake || (currentScrapedArticle?.content || '').slice(0, 3000) || spark || '';
     currentSynthesizedPost.userSlantTake = effectiveSlantTake;

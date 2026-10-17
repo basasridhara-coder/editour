@@ -184,6 +184,10 @@ Author's Raw Take:
       scrapedContent = '',
       countryContext = '',
       vocabularyStyle = 'punchy', // 'punchy' | 'conversational' | 'analytical'
+      perspectiveMode = 'hybrid', // 'curator' | 'hybrid' | 'source'
+      sourceImageUrl = null,
+      sourceImageBase64 = null,
+      sourceImageMimeType = 'image/jpeg',
       sourceLedger = null
     } = body || {};
 
@@ -290,12 +294,30 @@ Author's Raw Take:
    - Do NOT dumb it down like a children's primer. Keep the adult intelligence, wit, and conviction, but ensure any smart reader can grasp every single word instantly on their phone.`;
     }
 
+    const perspectiveDirective = (perspectiveMode === 'curator')
+      ? `CRITICAL PERSPECTIVE DIRECTIVE (CURATOR ANGLE):
+- The curator selected CURATOR ANGLE mode.
+- In Poster 1 ("VISUAL HOOK"): The adapted headline and hook must be driven 100% by the curator's unique, provocative perspective ("${userSlant}").
+- In Poster 2 ("THE CRITICAL PERSPECTIVE"): Elevate and highlight the curator's personal thesis as the centerpiece.
+- In Poster 3 ("THE RECEIPTS"): Use the source facts and observations to substantiate and prove the curator's stance.`
+      : (perspectiveMode === 'source')
+      ? `CRITICAL PERSPECTIVE DIRECTIVE (SOURCE GROUNDED):
+- The curator selected SOURCE GROUNDED mode.
+- In Poster 1 ("VISUAL HOOK"): The adapted headline and hook must strictly report the primary development, event, or facts of the source article/video.
+- In Poster 2 ("KEY DEVELOPMENTS / TAKEAWAYS"): Synthesize the core findings, developments, and implications of the reportage.
+- In Poster 3 ("THE RECEIPTS / BROADSHEET REPORT"): Deliver verified broadsheet excerpts and quotes directly faithful to the source material.`
+      : `CRITICAL PERSPECTIVE DIRECTIVE (HYBRID CONTRAST - THE SLANT SIGNATURE):
+- In Poster 1 ("VISUAL HOOK"): Present a high-tension blend of the core news subject and the curator's critical angle.
+- In Poster 2 ("THE CRITICAL PERSPECTIVE"): Deliver the curator's elevated conviction in counterpoint to the news.
+- In Poster 3 ("BROADSHEET IN DIALOGUE"): Put the curator's voice in deep, thoughtful dialogue with the source's findings.`;
+
     const demographicInfo = detectAgeAndDemographics(userSlant, extractedTitle, extractedContent);
 
     const systemPrompt = `You are the lead editorial director and visual design curator for "Slant" (slant.today), an elite visual publication that distills complex stories into high-impact 3-poster social carousels.
 
 Input Details:
 - Source Type: ${sourceType}
+- Perspective Focus: ${perspectiveMode === 'curator' ? 'Curator Angle' : (perspectiveMode === 'source' ? 'Source Grounded' : 'Hybrid Contrast')}
 - Target Audience: ${targetAudience}
 - Tone / Slant: ${toneDescription}
 - Vocabulary & Voice Style: ${vocabularyStyle}
@@ -322,6 +344,8 @@ Synthesize this input into a compelling 3-poster social carousel deck:
 1. Poster 1 (The Visual Hook): A bold adapted headline (5-10 words, unforgettable), a gripping 1-2 sentence hook, category badge, and dominant visual metaphor.
 2. Poster 2 (The Curator's Take): A punchy perspective directly emphasizing the curator's slant/take, why it matters right now, and exactly 3 distinct high-signal takeaways.
 3. Poster 3 (The Receipts / Core Conviction): A single powerful highlight quote, and 3 verified excerpt bullet points backing the stance.
+
+${perspectiveDirective}
 ${sourceType === 'inner_voice' ? `CRITICAL INNER VOICE & LIVED EXPERIENCE DIRECTIVE:
 - This is an INNER VOICE perspective rooted in the curator's personal life, emotional experience, philosophical stance, or daily human reality (e.g. travel anticipation, family moments, work-life balance, craft, relief).
 - MATCH THE EMOTIONAL ENERGY OF THE USER'S CONTEXT:
@@ -714,6 +738,10 @@ Respond strictly with valid JSON with this exact structure:
       rawUserSlant: userSlant || '',
       refineCoreTake,
       vocabularyStyle: vocabularyStyle || 'punchy',
+      perspectiveMode: perspectiveMode || 'hybrid',
+      sourceImageUrl: sourceImageUrl || null,
+      sourceImageBase64: sourceImageBase64 || null,
+      sourceImageMimeType: sourceImageMimeType || 'image/jpeg',
       isUserCreated: true,
       sourceType: sourceType,
       originalPhotoBase64: (sourceType === 'photo' && imageBase64) ? imageBase64 : (sourceType === 'inner_voice' && effectiveCatalystImage ? effectiveCatalystImage : null),
@@ -731,6 +759,9 @@ Respond strictly with valid JSON with this exact structure:
         slantTake: finalPolishedCuratorTake || userSlant || '',
         sourceUrl: url || '',
         sourceType: sourceType,
+        perspectiveMode: perspectiveMode || 'hybrid',
+        sourceImageUrl: sourceImageUrl || null,
+        sourceImageBase64: sourceImageBase64 || null,
         spark: spark || '',
         catalystPhoto: (sourceType === 'inner_voice' && effectiveCatalystImage) ? effectiveCatalystImage : null,
         catalystPhotoBase64: (sourceType === 'inner_voice' && effectiveCatalystImage) ? effectiveCatalystImage : null,

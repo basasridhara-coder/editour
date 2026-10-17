@@ -62,6 +62,7 @@ module.exports = async function handler(req, res) {
     countryCode = '',
     vocabularyStyle = 'punchy',
     slantTone = 'mind',
+    perspectiveMode = 'hybrid',
     creatorEmail = '',
     imageBase64 = null,
     imageMimeType = 'image/jpeg',
@@ -159,6 +160,21 @@ ${existingCues.map((c, i) => `${dimensionNames[i] || `#${i + 1}`}: "${c}"`).join
 Explore a fresh artistic perspective, novel symbolic motifs, or alternative lighting/atmosphere. Do NOT repeat identical phrases.`;
   }
 
+  const perspectiveDirective = (perspectiveMode === 'curator')
+    ? `CRITICAL PERSPECTIVE DIRECTIVE (CURATOR ANGLE):
+The curator selected CURATOR ANGLE mode. The visual storytelling must be 100% anchored in the curator's personal thesis, philosophical critique, and evocative metaphor ("${curatorAngle}").
+- #1 HERO: Must directly embody the curator's core insight, thesis, or central metaphor (e.g. an elderly farmer planting a sapling, an artisan at a workbench, an individual standing against an algorithm). Do NOT default to dry newspaper buildings unless that is the curator's metaphor.
+- #2 MOTIF & #3 TENSION: Expand the curator's conceptual tension, friction, and critique.`
+    : (perspectiveMode === 'source')
+    ? `CRITICAL PERSPECTIVE DIRECTIVE (SOURCE GROUNDED):
+The curator selected SOURCE GROUNDED mode. The visual storytelling must stay 100% faithful to the authentic news event, literal physical subjects, concrete persons, real locations, and primary reportage in the source ("${effectiveNewsHeadline}").
+- #1 HERO: Must strictly depict the primary physical subject, institution, or protagonist of the source piece. Do NOT substitute abstract allegories.
+- #2 MOTIF & #3 TENSION: Grounded directly in the observed real-world conflict or dilemma reported in the source.`
+    : `CRITICAL PERSPECTIVE DIRECTIVE (HYBRID CONTRAST - THE SLANT SIGNATURE):
+The curator selected HYBRID CONTRAST mode.
+- #1 HERO: Anchored in the concrete real-world news subject or primary event.
+- #2 MOTIF & #3 TENSION: Infused with the curator's counter-slant, conceptual metaphor, and critical friction ("${curatorAngle}").`;
+
   const photoDirective = effectivePhoto
     ? `CRITICAL REAL-WORLD SCENE MULTIMODAL GROUNDING DIRECTIVE:
 The curator has provided an authentic real-world photograph of the scene, moment, or physical catalyst that sparked this thought.
@@ -180,9 +196,12 @@ The Spark (Catalyst / Personal Context): "${spark || ''}"
 ${effectiveNewsHeadline ? `Article Title: "${effectiveNewsHeadline}"` : ''}
 ${effectiveNewsBody ? `Article Excerpt / Context: "${effectiveNewsBody.slice(0, 1500)}"` : ''}
 Source Type: ${sourceType}
+Perspective Focus: ${perspectiveMode === 'curator' ? 'Curator Angle' : (perspectiveMode === 'source' ? 'Source Grounded' : 'Hybrid Contrast')}
 Slant Tone: ${slantTone === 'heart' ? 'Out of Heart (Emotive, Humanistic, Personal Reflection)' : 'Out of Mind (Analytical, Strategic, Systemic Broadsheet)'}
 Regional & Cultural Setting: ${countryContext || 'Global / Contextually Detected'}
 Character Portrayal Style: ${isExact ? 'EXACT PHOTO FOCUS' : (isLikeness ? 'LOOKALIKE & PORTRAIT (ARTISTIC EDITORIAL PORTRAIT)' : (isSilhouette ? 'Stylized Minimalist Silhouette' : 'Vivid Editorial Realism (Realistic & Expressive Human Subjects)'))}
+
+${perspectiveDirective}
 
 ${photoDirective}
 
