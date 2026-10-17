@@ -6465,6 +6465,14 @@ async function handleUrlInput(val) {
 }
 
 let currentLedgerActiveTab = 'thesis';
+let currentLedgerViewMode = 'summary'; // 'summary' | 'detailed'
+
+function switchLedgerViewMode(mode) {
+  currentLedgerViewMode = (mode === 'detailed') ? 'detailed' : 'summary';
+  if (currentSourceLedger) {
+    renderSourceLedger(currentSourceLedger, currentLedgerActiveTab || 'thesis');
+  }
+}
 
 function switchLedgerTab(tabName) {
   currentLedgerActiveTab = tabName;
@@ -6506,18 +6514,20 @@ function renderSourceLedgerLoading() {
   `;
 }
 
-function renderSourceLedger(ledger) {
+function renderSourceLedger(ledger, activeTabOverride) {
   const card = document.getElementById('sourceLedgerCard');
   if (!card) return;
   if (!ledger) {
     card.style.display = 'none';
     card.innerHTML = '';
     currentLedgerActiveTab = 'thesis';
+    currentLedgerViewMode = 'summary';
     return;
   }
 
   currentSourceLedger = ledger;
-  currentLedgerActiveTab = 'thesis';
+  currentLedgerActiveTab = activeTabOverride || 'thesis';
+  const isDetailed = (currentLedgerViewMode === 'detailed');
   card.style.display = 'block';
   card.className = 'source-ledger-card';
 
@@ -6536,6 +6546,27 @@ function renderSourceLedger(ledger) {
     scopeClean = scopeClean.slice(0, 18) + '…';
   }
 
+  // Detailed facts and claims extraction
+  const detailedData = ledger.detailed || null;
+  const keyFactsList = (detailedData && Array.isArray(detailedData.key_facts)) ? detailedData.key_facts : [];
+  const detailedClaimsList = (detailedData && Array.isArray(detailedData.detailed_claims)) ? detailedData.detailed_claims : [];
+
+  // Mode Switcher Bar HTML (⚡ Summary vs 🔍 Detailed Facts)
+  const switcherBarHtml = `
+    <div class="ledger-mode-switcher-bar">
+      <div class="ledger-mode-toggle-group" role="group" aria-label="Summary granularity">
+        <button type="button" class="ledger-mode-toggle-btn ${!isDetailed ? 'active' : ''}" onclick="switchLedgerViewMode('summary')">
+          <span>⚡ Summary</span>
+        </button>
+        <button type="button" class="ledger-mode-toggle-btn ${isDetailed ? 'active' : ''}" onclick="switchLedgerViewMode('detailed')">
+          <span>🔍 Detailed Facts</span>
+          ${keyFactsList.length > 0 ? `<span class="mode-btn-pill">${keyFactsList.length}</span>` : ''}
+        </button>
+      </div>
+      <span class="ledger-mode-hint">${isDetailed ? 'Deep-dive with key figures, quotes & legal facts' : 'Calibrated ~1-min fast read'}</span>
+    </div>
+  `;
+
   // 1. Thesis extraction (support both object and legacy string)
   let contextText = '';
   let thesisText = '';
@@ -6546,8 +6577,29 @@ function renderSourceLedger(ledger) {
     thesisText = ledger.subject_and_thesis;
   }
 
+  // Key Facts HTML (shown in Detailed mode)
+  let keyFactsHtml = '';
+  if (isDetailed && keyFactsList.length > 0) {
+    keyFactsHtml = `
+      <div class="ledger-detailed-facts-box">
+        <div class="detailed-facts-header">
+          <span>📌</span>
+          <span>Key Facts, Entities & Disclosures</span>
+        </div>
+        <div class="detailed-facts-grid">
+          ${keyFactsList.map(fact => `
+            <div class="detailed-fact-item">
+              <span class="fact-bullet">▪</span>
+              <span>${escapeHtml(fact)}</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }
+
   let thesisHtml = '';
-  if (contextText || thesisText) {
+  if (contextText || thesisText || keyFactsHtml) {
     thesisHtml = `
       <div class="ledger-thesis-unified">
         ${contextText ? `
@@ -6568,6 +6620,7 @@ function renderSourceLedger(ledger) {
             <p class="ledger-sub-card-text">${escapeHtml(thesisText)}</p>
           </div>
         ` : ''}
+        ${keyFactsHtml}
       </div>
     `;
   } else {
@@ -6578,17 +6631,20 @@ function renderSourceLedger(ledger) {
     `;
   }
 
-  // 2. Claims & Evidence extraction (support both object {title, evidence} and strings)
+  // 2. Claims & Evidence extraction (switch between detailed deep-dive claims with quotes and summary claims)
   const claimsList = Array.isArray(ledger.core_claims_and_evidence) ? ledger.core_claims_and_evidence : [];
-  const claimsCount = claimsList.length;
+  const activeClaimsList = (isDetailed && detailedClaimsList.length > 0) ? detailedClaimsList : claimsList;
+  const claimsCount = activeClaimsList.length;
 
-  const claimsCardsHtml = claimsList.length > 0
-    ? claimsList.map((claim, idx) => {
+  const claimsCardsHtml = activeClaimsList.length > 0
+    ? activeClaimsList.map((claim, idx) => {
         let title = '';
         let evidence = '';
+        let quote = '';
         if (claim && typeof claim === 'object') {
           title = claim.title || '';
           evidence = claim.evidence || claim.text || '';
+          quote = claim.quote || '';
         } else {
           const str = String(claim || '');
           const colonIdx = str.indexOf(':');
@@ -6600,11 +6656,17 @@ function renderSourceLedger(ledger) {
           }
         }
         return `
-          <div class="ledger-claim-card">
+          <div class="ledger-claim-card ${isDetailed ? 'detailed-claim' : ''}">
             <div class="ledger-claim-badge">${idx + 1}</div>
             <div class="ledger-claim-content">
               ${title ? `<div class="ledger-claim-title">${escapeHtml(title)}</div>` : ''}
               <p class="ledger-claim-text">${escapeHtml(evidence)}</p>
+              ${quote ? `
+                <div class="ledger-claim-quote">
+                  <span class="quote-mark">“</span>
+                  <span>${escapeHtml(quote)}</span>
+                </div>
+              ` : ''}
             </div>
           </div>
         `;
@@ -6618,7 +6680,7 @@ function renderSourceLedger(ledger) {
         </div>
       `;
 
-  // 3. Tension & Tradeoffs extraction (support object {primary_conflict, tradeoffs, counter_questions} and legacy string)
+  // 3. Tension & Tradeoffs extraction
   let primaryConflict = '';
   let tradeoffs = '';
   let counterQuestions = '';
@@ -6689,6 +6751,9 @@ function renderSourceLedger(ledger) {
       </div>
     </div>
 
+    <!-- Mode Switcher (⚡ Summary vs 🔍 Detailed Facts) -->
+    ${switcherBarHtml}
+
     <!-- 3-Category Tabs Bar -->
     <div class="ledger-tabs-bar" role="tablist">
       <button type="button" class="ledger-tab-btn ${activeTab === 'thesis' ? 'active' : ''}" data-ledger-tab="thesis" onclick="switchLedgerTab('thesis')">
@@ -6750,7 +6815,7 @@ function renderSourceLedger(ledger) {
       <span class="tip-text">Ground your unique slant below using this factual breakdown ↓</span>
     </div>
   `;
-  switchLedgerTab('thesis');
+  switchLedgerTab(activeTab);
 }
 
 async function triggerSourceLedgerGeneration(articleData) {
@@ -6776,14 +6841,16 @@ async function triggerSourceLedgerGeneration(articleData) {
     const data = await resp.json();
 
     if (data && data.success && data.ledger) {
-      renderSourceLedger(data.ledger);
+      currentLedgerViewMode = 'summary';
+      renderSourceLedger(data.ledger, 'thesis');
     } else {
       throw new Error('Ledger data invalid');
     }
   } catch (err) {
     console.warn('Objective ledger generation error, using fallback:', err.message);
     const fallbackLedger = buildClientFallbackLedger(title, content, siteName);
-    renderSourceLedger(fallbackLedger);
+    currentLedgerViewMode = 'summary';
+    renderSourceLedger(fallbackLedger, 'thesis');
   } finally {
     isGeneratingLedger = false;
   }
@@ -6811,6 +6878,24 @@ function buildClientFallbackLedger(title, content, siteName) {
       primary_conflict: `Balancing immediate policy implementation with broader long-term structural impacts.`,
       tradeoffs: `Allocating resources toward this initiative may limit alternative strategic priorities.`,
       counter_questions: `How will competing analysts evaluate the sustainability of these outcomes over time?`
+    },
+    detailed: {
+      key_facts: [
+        `Reporting originated by ${name}.`,
+        `Subject focus: "${headline}".`
+      ],
+      detailed_claims: [
+        {
+          title: 'Core Reporting Breakdown',
+          evidence: `${name} details the foundational timeline and primary stakeholder statements.`,
+          quote: ''
+        },
+        {
+          title: 'Market & Public Impact',
+          evidence: `The source outlines practical ramifications and observable real-world shifts.`,
+          quote: ''
+        }
+      ]
     },
     completeness_score: 2,
     stars: 2,

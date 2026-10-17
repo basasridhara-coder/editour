@@ -34,20 +34,20 @@ ${cleanContent || cleanTitle || cleanUrl}
 `.trim();
 
   const systemPrompt = `You are an objective editorial research assistant for Slant.today.
-Your job is to read an extracted article or video transcript and generate a strictly neutral, non-partisan, highly elaborate 3-part ledger summarizing the source.
+Your job is to read an extracted article or video transcript and generate a strictly neutral, non-partisan, dual-granularity ledger summarizing the source.
 
 GOAL:
-Provide the user with an exhaustive, deep, and completely unbiased breakdown of what the source discusses so they can quickly form and articulate their own stance.
+Provide the user with an objective, deep breakdown of what the source discusses so they can quickly form and articulate their own stance.
 
-ELABORATION & STRICT 1-MINUTE READ REQUIREMENT (~180-220 WORDS TOTAL ACROSS THE WHOLE LEDGER):
-DO NOT PROVIDE TERSE OR SUPERFICIAL SUMMARIES. The user specifically requests a calibrated 1-minute read (~180-220 words total) breakdown.
-- In 'subject_and_thesis', provide both the background context (2-3 sentences, ~20-25 words) AND the detailed central thesis (2-3 sentences, ~35-40 words). Total: ~55-65 words.
-- In 'core_claims_and_evidence', provide exactly 3 rich, detailed claims. Each claim MUST have a clear bold title and an elaborate 2-3 sentence explanation (~30-35 words each) citing specific data points, quotes, incidents, or receipts with explicit author attribution. Total: ~85-100 words.
-- In 'underlying_tensions', provide 3 distinct dimensions (~40-50 words total):
-  1. primary_conflict: The core structural or philosophical friction (~15-20 words).
-  2. tradeoffs: Key economic, operational, or policy compromises and unintended consequences (~15-20 words).
-  3. counter_questions: The opposing counter-perspectives or unresolved critical inquiries (~10-15 words).
-TOTAL WORD COUNT MUST BE CAREFULLY CALIBRATED TO EXACTLY ~180-220 WORDS TO FORM A PRECISE 1-MINUTE READ.
+DUAL-GRANULARITY REQUIREMENT:
+1. SUMMARY MODE (Calibrated ~180-220 words total):
+   - 'subject_and_thesis': background context (2-3 sentences, ~20-25 words) AND central thesis (2-3 sentences, ~35-40 words).
+   - 'core_claims_and_evidence': exactly 3 rich claims (bold title + 2-3 sentences evidence, ~30-35 words each).
+   - 'underlying_tensions': primary_conflict (~15-20 words), tradeoffs (~15-20 words), counter_questions (~10-15 words).
+
+2. DETAILED FACTS MODE (Deep-Dive Granular Receipts & Key Specifics):
+   - 'key_facts': A list of 4-6 specific, concrete factual elements from the source: exact named figures/institutions, legal/statutory sections (e.g. Section 164), metrics, dates, pen drives, documents, or physical evidence cited.
+   - 'detailed_claims': 3-4 in-depth claims. Each claim MUST have a bold title, an elaborate 3-4 sentence evidence breakdown providing exact names, sequence of events, and receipts, and where available a 'quote' containing a key verbatim statement or translated quote from the speaker/author.
 
 STRICT CONSTRAINTS:
 1. ABSOLUTE NEUTRALITY: Do not take a side, endorse, or debunk any claim.
@@ -81,7 +81,32 @@ Return pure valid JSON matching this schema:
     "tradeoffs": "Detailed 1-2 sentences explaining unintended consequences or economic/policy compromises (~15-20 words).",
     "counter_questions": "Detailed 1-2 sentences framing the opposing counter-perspective or unresolved questions (~10-15 words)."
   },
-  "source_scope": "e.g. 28-min Video Analysis or Long-form Investigation"
+  "detailed": {
+    "key_facts": [
+      "Specific concrete fact, metric, named figure, legal section, or verified date 1",
+      "Specific concrete fact, metric, named figure, legal section, or verified date 2",
+      "Specific concrete fact, metric, named figure, legal section, or verified date 3",
+      "Specific concrete fact, metric, named figure, legal section, or verified date 4"
+    ],
+    "detailed_claims": [
+      {
+        "title": "In-depth claim title 1",
+        "evidence": "Deep-dive factual breakdown with exact named entities, sequence of events, and receipts as stated in source.",
+        "quote": "Verbatim key quote or translated exact statement from speaker/author."
+      },
+      {
+        "title": "In-depth claim title 2",
+        "evidence": "Deep-dive factual breakdown with exact named entities, sequence of events, and receipts as stated in source.",
+        "quote": "Verbatim key quote or translated exact statement from speaker/author."
+      },
+      {
+        "title": "In-depth claim title 3",
+        "evidence": "Deep-dive factual breakdown with exact named entities, sequence of events, and receipts as stated in source.",
+        "quote": "Verbatim key quote or translated exact statement from speaker/author."
+      }
+    ]
+  },
+  "source_scope": "e.g. 12-min Video Analysis or Long-form Investigation"
 }`;
 
   try {
@@ -223,6 +248,35 @@ function evaluateLedgerCompleteness(ledger, defaultScope = 'Curated Source') {
     };
   }
 
+  let detailed = null;
+  if (ledger && typeof ledger.detailed === 'object' && ledger.detailed !== null) {
+    let key_facts = [];
+    if (Array.isArray(ledger.detailed.key_facts)) {
+      key_facts = ledger.detailed.key_facts.map(f => String(f).trim()).filter(Boolean);
+    } else if (typeof ledger.detailed.key_facts === 'object' && ledger.detailed.key_facts !== null) {
+      key_facts = Object.entries(ledger.detailed.key_facts).map(([k, v]) => `${k.replace(/_/g, ' ')}: ${v}`);
+    }
+
+    let detailed_claims = [];
+    if (Array.isArray(ledger.detailed.detailed_claims)) {
+      detailed_claims = ledger.detailed.detailed_claims.map(c => {
+        if (typeof c === 'object' && c !== null) {
+          return {
+            title: String(c.title || c.claim || '').trim(),
+            evidence: String(c.evidence || c.context || '').trim(),
+            quote: String(c.quote || '').trim()
+          };
+        }
+        return { title: '', evidence: String(c).trim(), quote: '' };
+      }).filter(c => c.evidence.length > 0 || c.title.length > 0);
+    }
+
+    detailed = {
+      key_facts,
+      detailed_claims
+    };
+  }
+
   const scope = (ledger && typeof ledger.source_scope === 'string' && ledger.source_scope.trim())
     ? ledger.source_scope.trim()
     : defaultScope;
@@ -245,6 +299,7 @@ function evaluateLedgerCompleteness(ledger, defaultScope = 'Curated Source') {
     subject_and_thesis,
     core_claims_and_evidence,
     underlying_tensions,
+    detailed,
     source_scope: scope,
     completeness_score: stars,
     stars,
