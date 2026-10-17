@@ -7216,6 +7216,8 @@ function extract6RankedCueDimensions(curatorAngle, newsHeadline, newsBody) {
     hero = demographic ? `${detectedPerson} (${demographic.label}, Editorial Portrait)` : `${detectedPerson} (Editorial Portrait)`;
   } else if (demographic) {
     hero = `${demographic.shortDesc} (Editorial Portrait)`;
+  } else if (combined.includes('farmer') || combined.includes('tree') || combined.includes('mango') || combined.includes('plant') || combined.includes('harvest') || combined.includes('seed') || combined.includes('soil') || combined.includes('village')) {
+    hero = isIndia ? 'Elderly Farmer Beside Sprouting Sapling' : 'Farmer Tending Young Sapling';
   } else if (combined.includes('garbage') || combined.includes('trash') || combined.includes('waste') || combined.includes('clean')) {
     hero = isIndia ? 'Municipal Sweeper with Traditional Reed Broom' : 'Lone Sweeper with Traditional Broom';
   } else if (combined.includes('ai') || combined.includes('tech') || combined.includes('silicon') || combined.includes('data center') || combined.includes('model') || combined.includes('compute') || combined.includes('apple') || combined.includes('phone') || combined.includes('ipad')) {
@@ -7226,6 +7228,8 @@ function extract6RankedCueDimensions(curatorAngle, newsHeadline, newsBody) {
     hero = isIndia ? 'Indian Parliament Sandstone Colonnade' : 'Solitary Figure at Microphone';
   } else if (combined.includes('court') || combined.includes('judge') || combined.includes('law') || combined.includes('case') || combined.includes('crime') || combined.includes('goon')) {
     hero = isIndia ? 'Supreme Court of India Pillared Portico' : (isUK ? 'Old Bailey Gilded Scales of Justice' : 'Gavel & Broken Stone Pillar');
+  } else if (combined.includes('family') || combined.includes('child') || combined.includes('trip') || combined.includes('parent') || combined.includes('memoir')) {
+    hero = 'Solitary Reflective Observer in Contemplation';
   } else if (cleanHeadline && cleanHeadline.length > 3 && !cleanHeadline.startsWith('http')) {
     hero = cleanHeadline.split(/[:–—\-]/)[0].trim();
     if (hero.length > 38) hero = hero.substring(0, 35) + '...';
@@ -7238,13 +7242,17 @@ function extract6RankedCueDimensions(curatorAngle, newsHeadline, newsBody) {
 
   // 2. MOTIF (Core Metaphor from Curator Angle)
   let motif = '';
-  if (combined.includes('court') || combined.includes('judge') || combined.includes('law') || combined.includes('crime') || combined.includes('scale') || combined.includes('justice') || combined.includes('balance') || combined.includes('fair')) {
+  if (combined.includes('farmer') || combined.includes('tree') || combined.includes('mango') || combined.includes('plant') || combined.includes('seed') || combined.includes('root')) {
+    motif = 'Ancient Roots Entwined in Fertile Soil';
+  } else if (combined.includes('court') || combined.includes('judge') || combined.includes('law') || combined.includes('crime') || combined.includes('scale') || combined.includes('justice') || combined.includes('balance') || combined.includes('fair')) {
     motif = isIndia ? 'Ashoka Lion Capital & Scales of Justice' : 'Tipping Brass Balance Scales';
   } else if (combined.includes('taste') || combined.includes('craft') || combined.includes('art') || combined.includes('design')) {
     motif = 'Sculptor Chisel against Uncarved Marble';
+  } else if (combined.includes('family') || combined.includes('love') || combined.includes('heart') || combined.includes('home') || combined.includes('memoir')) {
+    motif = 'Worn Keepsakes and Handwritten Letters';
   } else if (combined.includes('puppet') || combined.includes('control') || combined.includes('manipulat')) {
     motif = 'Tangled Marionette Puppet Strings';
-  } else if (combined.includes('hourglass') || combined.includes('time') || combined.includes('delay') || combined.includes('wait')) {
+  } else if (combined.includes('hourglass') || combined.includes('time') || combined.includes('delay') || combined.includes('wait') || combined.includes('patience')) {
     motif = 'Crumbling Glass Hourglass';
   } else if (combined.includes('power') || combined.includes('grid') || combined.includes('cable') || combined.includes('energy')) {
     motif = 'Tangled High-Voltage Transmission Cables';
@@ -7258,7 +7266,9 @@ function extract6RankedCueDimensions(curatorAngle, newsHeadline, newsBody) {
 
   // 3. TENSION (Conflict / Friction / Obstacle)
   let tension = '';
-  if (combined.includes('court') || combined.includes('crime')) {
+  if (combined.includes('farmer') || combined.includes('tree') || combined.includes('labor') || combined.includes('plant') || combined.includes('effort') || combined.includes('work')) {
+    tension = 'Years of Quiet Unseen Labor';
+  } else if (combined.includes('court') || combined.includes('crime')) {
     tension = 'Swarm of Shadows around Court Gates';
   } else if (combined.includes('storm') || combined.includes('threat') || combined.includes('crisis')) {
     tension = 'Approaching Storm Wall on Horizon';
@@ -7270,13 +7280,17 @@ function extract6RankedCueDimensions(curatorAngle, newsHeadline, newsBody) {
     tension = 'Relentless Tidal Wave of Noise';
   } else if (combined.includes('greed') || combined.includes('inequal') || combined.includes('shadow')) {
     tension = 'Looming Corporate Glass Shadow';
+  } else if (combined.includes('family') || combined.includes('time') || combined.includes('age') || combined.includes('old')) {
+    tension = 'Relentless March of Passing Seasons';
   } else {
     tension = 'Friction & Opposing Cast Shadows';
   }
 
   // 4. ATMOSPHERE (Setting / Environment)
   let atmosphere = '';
-  if (combined.includes('street') || combined.includes('city') || combined.includes('road') || combined.includes('urban')) {
+  if (combined.includes('farmer') || combined.includes('tree') || combined.includes('mango') || combined.includes('village') || combined.includes('field') || combined.includes('rural') || combined.includes('orchard')) {
+    atmosphere = isIndia ? 'Sunlit Village Orchard Canopy at Dawn' : 'Sun-Drenched Country Orchard at Dawn';
+  } else if (combined.includes('street') || combined.includes('city') || combined.includes('road') || combined.includes('urban')) {
     atmosphere = isIndia ? 'Dusk over New Delhi Red Sandstone Corridor' : 'Damp Rain-Slicked City Boulevard';
   } else if (combined.includes('board') || combined.includes('exec') || combined.includes('corp')) {
     atmosphere = 'Smoke-Filled High-Rise Boardroom';
@@ -7284,13 +7298,19 @@ function extract6RankedCueDimensions(curatorAngle, newsHeadline, newsBody) {
     atmosphere = 'Brutalist Concrete Server Canyon';
   } else if (combined.includes('trade') || combined.includes('stock') || combined.includes('wall street')) {
     atmosphere = isIndia ? 'Dalal Street Trading Floor at Dusk' : 'Empty Trading Floor at Dusk';
+  } else if (combined.includes('court') || combined.includes('law') || combined.includes('judge')) {
+    atmosphere = isIndia ? 'Monsoon-Drenched New Delhi Court Corridor' : 'Rain-Mist Westminster Stone Embankment';
+  } else if (combined.includes('family') || combined.includes('home') || combined.includes('personal') || combined.includes('quiet')) {
+    atmosphere = 'Quiet Sunlit Veranda with Distant Hills';
   } else {
-    atmosphere = isIndia ? 'Monsoon-Drenched New Delhi Court Corridor' : (isUK ? 'Rain-Mist Westminster Stone Embankment' : (isJapan ? 'Shinjuku Neon Alleyway in Dusk Rain' : 'Atmospheric Minimalist Crossroads'));
+    atmosphere = isIndia ? 'Timeless Weathered Stone Courtyard' : (isUK ? 'Rain-Mist Westminster Stone Embankment' : (isJapan ? 'Shinjuku Neon Alleyway in Dusk Rain' : 'Atmospheric Minimalist Crossroads'));
   }
 
   // 5. LIGHTING (Chiaroscuro & Mood)
   let lighting = '';
-  if (combined.includes('neon') || combined.includes('cyber') || combined.includes('future') || combined.includes('tech') || combined.includes('ai')) {
+  if (combined.includes('farmer') || combined.includes('tree') || combined.includes('orchard') || combined.includes('plant') || combined.includes('nature')) {
+    lighting = 'Golden Morning Light Through Leaf Canopy';
+  } else if (combined.includes('neon') || combined.includes('cyber') || combined.includes('future') || combined.includes('tech') || combined.includes('ai')) {
     lighting = 'Cyan Terminal Glare and Charcoal Shadows';
   } else if (combined.includes('dark') || combined.includes('noir') || combined.includes('secret') || combined.includes('investig') || combined.includes('court') || combined.includes('crime')) {
     lighting = 'Stark High-Contrast Noir Rim Light';
@@ -7304,7 +7324,11 @@ function extract6RankedCueDimensions(curatorAngle, newsHeadline, newsBody) {
 
   // 6. STYLE (Print Medium & Movement)
   let style = '';
-  if (isIndia) {
+  if (combined.includes('farmer') || combined.includes('tree') || combined.includes('village') || combined.includes('nature') || combined.includes('soil')) {
+    style = isIndia ? 'Warm Earthy Woodcut Editorial Illustration' : 'Textured Linocut Editorial Print';
+  } else if (combined.includes('family') || combined.includes('memoir') || combined.includes('home') || combined.includes('personal')) {
+    style = 'Warm Nostalgic Watercolor Editorial Art';
+  } else if (isIndia) {
     style = 'Editorial Sandstone & Indigo Broadsheet Woodcut';
   } else if (combined.includes('tech') || combined.includes('modern') || combined.includes('future')) {
     style = 'Bauhaus Geometric Vector Poster';
@@ -8183,7 +8207,22 @@ async function triggerCueSuggest() {
       })
     });
 
-    if (!resp.ok) throw new Error('AI cues request failed');
+    if (!resp.ok) {
+      let errorMsg = `HTTP ${resp.status}`;
+      try {
+        const errJson = await resp.json();
+        if (errJson && errJson.error) errorMsg = errJson.error;
+      } catch (_) {}
+
+      if (resp.status === 402) {
+        showTemporaryToast('⚠️ Cloud deployment paused (Vercel spend limit or billing required). Loaded offline cues.', 7000);
+      } else if (resp.status === 401 || resp.status === 403) {
+        showTemporaryToast(errorMsg || '⚠️ Please sign in with an invited Google account to generate live AI cues.', 6000);
+      } else {
+        showTemporaryToast(`⚠️ AI cues service unavailable (${errorMsg}). Loaded offline cues.`, 5000);
+      }
+      throw new Error(errorMsg);
+    }
     const data = await resp.json();
 
     if (data && data.success && Array.isArray(data.cues) && data.cues.length > 0) {
@@ -8214,6 +8253,9 @@ async function triggerCueSuggest() {
     }
   } catch (err) {
     console.warn('AI cue suggestion fallback:', err.message);
+    if (!err.message.includes('402') && !err.message.includes('401') && !err.message.includes('403') && !err.message.includes('unavailable')) {
+      showTemporaryToast('⚠️ Could not connect to AI cues service. Loaded offline cues.', 4500);
+    }
     const fallbacks = extract6RankedCueDimensions(slantTake, articleTitle, articleBody);
     if (creatorSelectedCueIndices.size > 0 && creatorCuePills.length > 0) {
       creatorSelectedCueIndices.forEach(idx => {
