@@ -727,6 +727,12 @@ header {
 .icon-action-btn.clean-view-btn.active svg {
   stroke: var(--accent-cyan);
 }
+.icon-action-btn.source-summary-action-btn:hover {
+  background: rgba(2, 132, 199, 0.16);
+}
+.icon-action-btn.source-summary-action-btn:hover svg {
+  stroke: #38BDF8;
+}
 .icon-action-btn.delete-action-btn {
   color: var(--text-muted);
 }

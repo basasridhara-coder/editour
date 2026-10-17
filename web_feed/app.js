@@ -3869,7 +3869,7 @@ function createPostCardElement(post, index) {
         </button>
       </div>
 
-      <!-- Minimalist Action Icons: Book Cover, World Web Link, Newspaper Paper Cut -->
+      <!-- Minimalist Action Icons: Book Cover, Source Summary, Newspaper Paper Cut -->
       <div class="action-group-right">
         ${isBook ? `
           <button class="icon-action-btn" onclick="openDetailModal('${index}')" title="View Book Cover & Source">
@@ -3880,14 +3880,16 @@ function createPostCardElement(post, index) {
           </button>
         ` : ''}
 
-        ${digitalUrl ? `
-          <a href="${escapeHtml(digitalUrl)}" target="_blank" rel="noopener noreferrer" class="icon-action-btn" title="Open Web Article (${escapeHtml(cleanDomain(digitalUrl))})">
+        ${(!isInnerVoice && !isBook) ? `
+          <button type="button" class="icon-action-btn source-summary-action-btn" onclick="openDetailModal('${index}')" title="View Source Summary & Facts" aria-label="View Source Summary & Facts">
             <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#0284C7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="10"></circle>
-              <line x1="2" y1="12" x2="22" y2="12"></line>
-              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+              <polyline points="10 9 9 9 8 9"></polyline>
             </svg>
-          </a>
+          </button>
         ` : ''}
 
         ${hasPaperCut ? `
