@@ -6393,10 +6393,12 @@ function renderSourceLedger(ledger) {
   if (!ledger) {
     card.style.display = 'none';
     card.innerHTML = '';
+    currentLedgerActiveTab = 'thesis';
     return;
   }
 
   currentSourceLedger = ledger;
+  currentLedgerActiveTab = 'thesis';
   card.style.display = 'block';
   card.className = 'source-ledger-card';
 
@@ -6629,6 +6631,7 @@ function renderSourceLedger(ledger) {
       <span class="tip-text">Ground your unique slant below using this factual breakdown ↓</span>
     </div>
   `;
+  switchLedgerTab('thesis');
 }
 
 async function triggerSourceLedgerGeneration(articleData) {
