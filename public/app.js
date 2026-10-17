@@ -5460,7 +5460,100 @@ let creatorSlantTone = 'mind'; // 'mind' | 'heart'
 let creatorAudience = 'General Public';
 let currentSynthesizedPost = null;
 let currentPreviewSlide = 0;
+let lastPolishedTake = '';
 let creatorRefineCoreTake = true;
+
+async function polishUserTake() {
+  const input = document.getElementById('creatorSlantTakeInput');
+  const btn = document.getElementById('slantPolishActionBtn');
+  const reviewCard = document.getElementById('slantPolishReviewCard');
+  const display = document.getElementById('slantPolishedTextDisplay');
+
+  if (!input) return;
+  const rawText = input.value.trim();
+  if (!rawText || rawText.length < 10) {
+    showTemporaryToast('⚠️ Please write your take first before reviewing.');
+    input.focus();
+    return;
+  }
+
+  // Set loading state on button
+  const originalBtnHtml = btn ? btn.innerHTML : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<span class="btn-spark-icon spinning">⏳</span> Polishing phrasing & grammar...`;
+  }
+
+  try {
+    const resp = await fetch('/api/synthesize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'polish_take',
+        text: rawText
+      })
+    });
+
+    let polished = '';
+    if (resp.ok) {
+      const data = await resp.json();
+      if (data && data.polished) {
+        polished = data.polished;
+      }
+    }
+
+    // Fallback if API returned empty
+    if (!polished) {
+      polished = formatCuratorTakeApt(rawText);
+    }
+
+    lastPolishedTake = polished;
+
+    if (display) {
+      display.textContent = polished;
+    }
+    if (reviewCard) {
+      reviewCard.style.display = 'flex';
+      reviewCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+    showTemporaryToast('✨ Take polished for review. Check below!');
+  } catch (err) {
+    console.warn('Polish take error, using client-side formatting:', err);
+    const polished = formatCuratorTakeApt(rawText);
+    lastPolishedTake = polished;
+    if (display) display.textContent = polished;
+    if (reviewCard) {
+      reviewCard.style.display = 'flex';
+      reviewCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = originalBtnHtml;
+    }
+  }
+}
+
+function acceptPolishedTake() {
+  const input = document.getElementById('creatorSlantTakeInput');
+  const reviewCard = document.getElementById('slantPolishReviewCard');
+  if (input && lastPolishedTake) {
+    input.value = lastPolishedTake;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+  if (reviewCard) {
+    reviewCard.style.display = 'none';
+  }
+  showTemporaryToast('✓ Polished take applied to your slant!');
+}
+
+function rejectPolishedTake() {
+  const reviewCard = document.getElementById('slantPolishReviewCard');
+  if (reviewCard) {
+    reviewCard.style.display = 'none';
+  }
+  showTemporaryToast('Original take kept.');
+}
 
 function toggleRefineCoreTake(val) {
   if (typeof val === 'boolean') {
@@ -6073,6 +6166,9 @@ function resetCreatorState() {
   // Clear inputs in Step 1
   const slantInput = document.getElementById('creatorSlantTakeInput');
   if (slantInput) slantInput.value = '';
+  const reviewCard = document.getElementById('slantPolishReviewCard');
+  if (reviewCard) reviewCard.style.display = 'none';
+  lastPolishedTake = '';
   const sparkInput = document.getElementById('creatorSparkInput');
   if (sparkInput) sparkInput.value = '';
   const urlInput = document.getElementById('creatorUrlInput');

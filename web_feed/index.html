@@ -27,7 +27,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Merriweather:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,400;1,600;1,700;1,900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261017_0006">
+  <link rel="stylesheet" href="style.css?v=20261017_0007">
   <!-- Favicon & Brand Icons -->
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
@@ -289,6 +289,34 @@
             <span class="creator-tag-badge" id="slantTakeBadge">Optional</span>
           </div>
           <textarea id="creatorSlantTakeInput" class="creator-textarea hero-textarea" rows="4" placeholder="e.g. Beyond the raw numbers, this shifts the balance of power between legacy media and digital creators..."></textarea>
+
+          <div class="slant-take-action-bar">
+            <button type="button" class="slant-polish-action-btn" id="slantPolishActionBtn" onclick="polishUserTake()">
+              <span class="btn-spark-icon">✨</span>
+              <span class="btn-text">Review & Polish Phrasing</span>
+            </button>
+            <span class="slant-take-hint">Grammar & phrasing check • Preserves 100% your voice</span>
+          </div>
+
+          <!-- Review & Approve Polished Take Card -->
+          <div class="slant-polish-review-card" id="slantPolishReviewCard" style="display: none;">
+            <div class="review-card-header">
+              <div class="review-card-title-wrap">
+                <span class="review-sparkle">✨</span>
+                <span class="review-title">REVIEW & POLISH TAKE</span>
+              </div>
+              <span class="review-fidelity-badge">100% Your Voice • Neatly Phrased</span>
+            </div>
+            <div class="review-card-body" id="slantPolishedTextDisplay"></div>
+            <div class="review-card-actions">
+              <button type="button" class="review-btn review-btn-accept" onclick="acceptPolishedTake()">
+                <span>✓ Accept & Use</span>
+              </button>
+              <button type="button" class="review-btn review-btn-reject" onclick="rejectPolishedTake()">
+                <span>✕ Keep Original</span>
+              </button>
+            </div>
+          </div>
 
           <!-- Core Take Representation Mode: Refine with AI vs Use As-Is (Matches Android App) -->
           <div class="slant-refine-toggle-card refined" id="slantRefineToggleCard" onclick="toggleRefineCoreTake()">
@@ -1269,6 +1297,6 @@
     </div>
   </aside>
 
-  <script src="app.js?v=20261017_0006"></script>
+  <script src="app.js?v=20261017_0007"></script>
 </body>
 </html>

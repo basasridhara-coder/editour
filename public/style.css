@@ -8743,8 +8743,147 @@ header {
   max-width: 480px;
   margin: 0 auto;
   display: flex;
-  gap: 10px;
   margin-top: 4px;
+}
+
+/* Slant Take Action Bar & Review Card */
+.slant-take-action-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.slant-polish-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 9px;
+  font-size: 12.5px;
+  font-weight: 700;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.22), rgba(168, 85, 247, 0.22));
+  color: #C084FC;
+  border: 1px solid rgba(168, 85, 247, 0.4);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.slant-polish-action-btn:hover {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.32), rgba(168, 85, 247, 0.32));
+  border-color: rgba(168, 85, 247, 0.65);
+  transform: translateY(-1px);
+  color: #F3E8FF;
+}
+
+.slant-polish-action-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.slant-take-hint {
+  font-size: 11px;
+  color: var(--text-muted, #94A3B8);
+  letter-spacing: 0.2px;
+}
+
+.slant-polish-review-card {
+  margin-top: 12px;
+  padding: 14px 16px;
+  background: rgba(15, 23, 42, 0.78);
+  border: 1px solid rgba(168, 85, 247, 0.4);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  animation: fadeIn 0.25s ease-out;
+}
+
+.review-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.review-card-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  color: #C084FC;
+  text-transform: uppercase;
+}
+
+.review-fidelity-badge {
+  font-size: 10px;
+  font-weight: 700;
+  background: rgba(168, 85, 247, 0.15);
+  color: #D8B4FE;
+  padding: 2px 7px;
+  border-radius: 6px;
+  border: 1px solid rgba(168, 85, 247, 0.25);
+}
+
+.review-card-body {
+  font-size: 13.5px;
+  line-height: 1.52;
+  color: #F8FAFC;
+  background: rgba(0, 0, 0, 0.25);
+  padding: 12px;
+  border-radius: 8px;
+  border-left: 3px solid #A855F7;
+  max-height: 220px;
+  overflow-y: auto;
+  word-break: break-word;
+}
+
+.review-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 2px;
+}
+
+.review-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: none;
+}
+
+.review-btn-accept {
+  background: #059669;
+  color: #FFFFFF;
+}
+
+.review-btn-accept:hover {
+  background: #10B981;
+}
+
+.review-btn-reject {
+  background: rgba(255, 255, 255, 0.08);
+  color: #CBD5E1;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.review-btn-reject:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: #FFFFFF;
 }
 
 /* Core Take Refinement Toggle Card (Matches Android App create_postcard_screen.dart) */
@@ -9257,8 +9396,36 @@ header {
   background: #EEF2FF;
   border-color: #6366F1;
   color: #3730A3;
-  font-weight: 800;
   box-shadow: 0 2px 8px rgba(99, 102, 241, 0.15);
+}
+
+[data-theme="daylight"] .slant-polish-review-card {
+  background: #FAF5FF;
+  border-color: rgba(168, 85, 247, 0.35);
+  box-shadow: 0 4px 16px rgba(168, 85, 247, 0.08);
+}
+
+[data-theme="daylight"] .review-card-body {
+  background: #FFFFFF;
+  color: #1E293B;
+  border-left-color: #9333EA;
+}
+
+[data-theme="daylight"] .slant-polish-action-btn {
+  background: #F3E8FF;
+  color: #7E22CE;
+  border-color: #D8B4FE;
+}
+
+[data-theme="daylight"] .slant-polish-action-btn:hover {
+  background: #E9D5FF;
+  color: #6B21A8;
+}
+
+[data-theme="daylight"] .review-btn-reject {
+  background: #F1F5F9;
+  color: #475569;
+  border-color: #CBD5E1;
 }
 
 [data-theme="daylight"] .anchor-card {

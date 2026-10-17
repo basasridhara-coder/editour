@@ -94,6 +94,73 @@ module.exports = async function handler(req, res) {
       }
     }
 
+    // Direct Single-Purpose Endpoint: Polish & Review Take (Strict Copy-Editing, No Opinion Alteration)
+    if (body && (body.action === 'polish_take' || body.action === 'review_take')) {
+      const { text = '', slantTake = '' } = body;
+      const rawText = String(text || slantTake || '').trim();
+      if (!rawText || rawText.length < 5) {
+        return res.status(400).json({ error: 'Please enter a take to polish.' });
+      }
+
+      // Fast baseline polish using rule-based formatter
+      const baselinePolished = formatCuratorTakeApt(rawText);
+
+      // Call Gemini for high-precision, nuanced English copy-editing with thinkingBudget: 0 for speed (<2s)
+      try {
+        const copyEditPrompt = `You are a world-class literary copy-editor and phrasing specialist.
+The author has written their personal conviction / take on a topic.
+Your sole job is to polish their exact text into grammatically correct, natural, and apt English:
+- STRICT RULE 1 (ZERO OPINION FABRICATION): DO NOT change, enhance, add to, or modify the author's opinion, stance, or logic. Do NOT introduce new arguments, buzzwords, or unsolicited ideas.
+- STRICT RULE 2 (ZERO CUTTING SHORT): DO NOT cut short, truncate, compress, or omit the author's opinion. Every single point, argument, nuance, and example must be retained in the exact same sequence.
+- STRICT RULE 3 (APT ENGLISH & PHRASING): Fix comma splices, run-on sentences, awkward phrasing, word choices, subject-verb agreements, casing, and punctuation so it flows naturally and authoritatively.
+- STRICT RULE 4 (PURE OUTPUT): Return ONLY the polished take text. Do NOT add quotation marks, do NOT add introductory conversational words, and do NOT wrap in markdown or backticks.
+
+Author's Raw Take:
+"""${rawText}"""`;
+
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 6000);
+
+        const geminiResp = await fetch(geminiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: copyEditPrompt }] }],
+            generationConfig: {
+              temperature: 0.1,
+              thinkingConfig: { thinkingBudget: 0 },
+              maxOutputTokens: 1024
+            }
+          }),
+          signal: controller.signal
+        });
+        clearTimeout(timeout);
+
+        if (geminiResp.ok) {
+          const geminiData = await geminiResp.json();
+          let candidate = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          candidate = candidate.trim().replace(/^["'“”‘’«»]+|["'“”‘’«»]+$/g, '').trim();
+          if (candidate.length > 10) {
+            return res.status(200).json({
+              success: true,
+              original: rawText,
+              polished: formatCuratorTakeApt(candidate)
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('Gemini copy-edit notice, falling back to rule-based polish:', err.message);
+      }
+
+      // Graceful fallback to rule-based polish
+      return res.status(200).json({
+        success: true,
+        original: rawText,
+        polished: baselinePolished
+      });
+    }
+
     const {
       sourceType = 'inner_voice', // 'digital_link' | 'inner_voice' | 'photo'
       url = '',
