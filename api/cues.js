@@ -62,8 +62,15 @@ module.exports = async function handler(req, res) {
     countryCode = '',
     vocabularyStyle = 'punchy',
     slantTone = 'mind',
-    creatorEmail = ''
+    creatorEmail = '',
+    imageBase64 = null,
+    imageMimeType = 'image/jpeg',
+    innerVoiceImageBase64 = null,
+    innerVoiceImageMimeType = 'image/jpeg'
   } = body || {};
+
+  const effectivePhoto = innerVoiceImageBase64 || imageBase64 || null;
+  const effectivePhotoMime = innerVoiceImageMimeType || imageMimeType || 'image/jpeg';
 
   const userEmail = (creatorEmail || '').toLowerCase().trim();
   if (!userEmail) {
@@ -152,6 +159,19 @@ ${existingCues.map((c, i) => `${dimensionNames[i] || `#${i + 1}`}: "${c}"`).join
 Explore a fresh artistic perspective, novel symbolic motifs, or alternative lighting/atmosphere. Do NOT repeat identical phrases.`;
   }
 
+  const photoDirective = effectivePhoto
+    ? `CRITICAL REAL-WORLD SCENE MULTIMODAL GROUNDING DIRECTIVE:
+The curator has provided an authentic real-world photograph of the scene, moment, or physical catalyst that sparked this thought.
+1. Visually analyze the photograph: recognize the focal physical subjects, real-world setting, environment, architectural materials, spatial textures, and lighting mood.
+2. Relate this physical reality directly with the curator's written perspective ("${curatorAngle}") and spark ("${spark}").
+3. Fuse BOTH the real scene and the written stance into the 6 visual cue dimensions:
+   - #1 HERO: Must elevate the key physical subject or centerpiece seen in the photograph (e.g. the specific object, person, or architecture captured in the snapshot).
+   - #2 MOTIF: The symbolic metaphor connecting this physical reality to the curator's deeper philosophical stance.
+   - #3 TENSION: The conceptual or structural friction embodied in this captured moment.
+   - #4 ATMOSPHERE: The authentic physical environment, textures, and setting derived directly from the photograph.
+   - #5 LIGHTING: The real-world lighting mood, shadows, or color temperature visible in the snapshot.`
+    : '';
+
   const prompt = `You are the lead visual art director for "Slant" (slant.today), an elite editorial publication.
 Your job is to define the 6 ranked storytelling visual cue dimensions for Poster 1 (The Hook Poster).
 
@@ -163,6 +183,8 @@ Source Type: ${sourceType}
 Slant Tone: ${slantTone === 'heart' ? 'Out of Heart (Emotive, Humanistic, Personal Reflection)' : 'Out of Mind (Analytical, Strategic, Systemic Broadsheet)'}
 Regional & Cultural Setting: ${countryContext || 'Global / Contextually Detected'}
 Character Portrayal Style: ${isExact ? 'EXACT PHOTO FOCUS' : (isLikeness ? 'LOOKALIKE & PORTRAIT (ARTISTIC EDITORIAL PORTRAIT)' : (isSilhouette ? 'Stylized Minimalist Silhouette' : 'Vivid Editorial Realism (Realistic & Expressive Human Subjects)'))}
+
+${photoDirective}
 
 ${personalDirective}
 
@@ -202,12 +224,24 @@ Respond strictly with valid JSON with this exact schema:
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 25000);
 
+    const parts = [];
+    if (effectivePhoto) {
+      const cleanData = effectivePhoto.includes(',') ? effectivePhoto.split(',')[1] : effectivePhoto;
+      parts.push({
+        inlineData: {
+          mimeType: effectivePhotoMime,
+          data: cleanData
+        }
+      });
+    }
+    parts.push({ text: prompt });
+
     const apiResp = await fetch(geminiUrl, {
       method: 'POST',
       signal: controller.signal,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        contents: [{ role: 'user', parts }],
         generationConfig: {
           temperature: 0.75,
           maxOutputTokens: 2048,

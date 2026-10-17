@@ -260,17 +260,48 @@
             <div id="sourceLedgerCard" class="source-ledger-card" style="display:none;"></div>
           </div>
 
-          <!-- Inner Voice Trigger Panel: The Spark -->
+          <!-- Inner Voice Trigger Panel: The Spark & Real-World Scene -->
           <div class="trigger-section" id="triggerVoiceSection" style="display:none;">
             <div class="trigger-header">
               <div class="trigger-title-row">
                 <span class="trigger-icon" style="color: #F59E0B;">⚡</span>
                 <span class="trigger-title">The Spark (What sparked this?)</span>
               </div>
-              <span class="trigger-sub">Optional • Under 15 words</span>
+              <span class="trigger-sub">Optional • Words or Scene</span>
             </div>
             <p class="trigger-desc">The real-world observation, memory, or moment that triggered this perspective.</p>
             <input type="text" id="creatorSparkInput" class="creator-input" placeholder="e.g. A conversation with an old colleague about vanishing craft...">
+
+            <!-- Scene Photo / Camera Input for Inner Voice -->
+            <div class="inner-voice-photo-wrap" id="innerVoicePhotoWrap">
+              <input type="file" id="innerVoiceCameraInput" accept="image/*" capture="environment" style="display:none;" onchange="handleInnerVoicePhotoSelect(event)">
+              <input type="file" id="innerVoiceFileInput" accept="image/*" style="display:none;" onchange="handleInnerVoicePhotoSelect(event)">
+              
+              <!-- Empty state: action buttons -->
+              <div class="inner-voice-photo-empty" id="innerVoicePhotoEmpty">
+                <button type="button" class="inner-voice-photo-btn" onclick="triggerInnerVoiceCamera()">
+                  <span class="btn-icon">📷</span>
+                  <span class="btn-label">Snap Scene</span>
+                </button>
+                <button type="button" class="inner-voice-photo-btn" onclick="triggerInnerVoiceUpload()">
+                  <span class="btn-icon">🖼️</span>
+                  <span class="btn-label">Upload Photo</span>
+                </button>
+                <span class="inner-voice-photo-hint">Snap what's in front of you to guide visual cues</span>
+              </div>
+
+              <!-- Attached state: preview card -->
+              <div class="inner-voice-photo-preview" id="innerVoicePhotoPreview" style="display:none;">
+                <div class="photo-preview-left">
+                  <img id="innerVoicePhotoThumb" class="photo-preview-thumb" src="" alt="Catalyst Scene">
+                  <div class="photo-preview-info">
+                    <div class="photo-preview-badge">📸 Catalyst Scene Attached</div>
+                    <div class="photo-preview-sub">AI will identify this scene & fuse it with your written slant</div>
+                  </div>
+                </div>
+                <button type="button" class="photo-preview-remove" onclick="removeInnerVoicePhoto(event)" title="Remove photo">✕</button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -1297,6 +1328,6 @@
     </div>
   </aside>
 
-  <script src="app.js?v=20261017_0008"></script>
+  <script src="app.js?v=20261017_0009"></script>
 </body>
 </html>

@@ -2921,12 +2921,17 @@ function getSourceTier(post) {
     return 'tier_book';
   }
 
+  // Pure Inner Voice / Personal Reflection (no external source)
+  if (isInnerVoicePost(post)) {
+    return 'tier3_opinion';
+  }
+
   // Physical newspaper cut
   const hasPaper = post.sourceType === 'photo' 
     || !!post.paperCutImage 
     || !!post.hasPaperCut
     || (post.originalPhotoUrl && (post.originalPhotoUrl.includes('clipping') || post.sourceType === 'photo'))
-    || (post.originalPhotoBase64 && post.originalPhotoBase64.length > 50)
+    || (post.originalPhotoBase64 && post.originalPhotoBase64.length > 50 && post.sourceType !== 'inner_voice')
     || (post.originalPhotoPath && !post.originalPhotoPath.startsWith('http') && post.originalPhotoPath !== post.digitalLink)
     || (post.id && ['692d99fc-d140-4d1c-9275-3263a7c187b7', '79cb4873-7c1b-402c-aebb-71fcebbefa5d', '83940fae-4ad7-43f6-9329-91cd17752f78', '9b55d7ea-8a78-4ef1-a068-cec226e200fd'].includes(post.id));
 
@@ -2938,11 +2943,6 @@ function getSourceTier(post) {
   const videoUrl = post.videoUrl || post.digitalLink || '';
   if (post.sourceType === 'youtube' || post.sourceType === 'video' || !!post.videoUrl || !!post.isVideo || !!getYouTubeEmbedUrl(videoUrl) || !!getVimeoEmbedUrl(videoUrl)) {
     return 'tier_video';
-  }
-
-  // Pure Inner Voice / Personal Reflection (no external source)
-  if (isInnerVoicePost(post)) {
-    return 'tier3_opinion';
   }
 
   const pub = (post.publicationName || '').toLowerCase();
@@ -3352,6 +3352,27 @@ function buildSlide3Html(post, index) {
     essayParas = [`Reporting on "${headline}" examines key structural developments and observed outcomes.`];
   }
 
+  // Catalyst Scene Photo on Poster 3 for Inner Voice
+  let scenePhotoHtml = '';
+  if (isInnerVoice) {
+    const rawPhoto = post.catalystPhoto || post.catalystPhotoBase64 || post.originalPhotoBase64 || post.originalPhotoUrl || post.generationInputs?.catalystPhoto || post.generationInputs?.catalystPhotoBase64 || post.generationInputs?.innerVoiceImageBase64;
+    if (rawPhoto && typeof rawPhoto === 'string' && rawPhoto.length > 20) {
+      let imgSrc = rawPhoto;
+      if (!rawPhoto.startsWith('data:') && !rawPhoto.startsWith('http') && !rawPhoto.startsWith('/')) {
+        imgSrc = `data:${post.originalPhotoMimeType || post.catalystPhotoMimeType || 'image/jpeg'};base64,` + rawPhoto;
+      }
+      scenePhotoHtml = `
+        <div class="receipt-scene-box">
+          <img src="${imgSrc}" class="receipt-scene-photo" alt="Catalyst Scene">
+          <div class="receipt-scene-caption">
+            <span class="scene-caption-icon">📸</span>
+            <span class="scene-caption-text">ARCHIVAL CATALYST SNAPSHOT</span>
+          </div>
+        </div>
+      `;
+    }
+  }
+
   const leadRaw = essayParas[0];
   const firstChar = leadRaw.charAt(0).toUpperCase();
   const restLead = leadRaw.slice(1);
@@ -3477,6 +3498,7 @@ function buildSlide3Html(post, index) {
 
       <!-- 3. Synthesized Editorial Content: Receipts Broadsheet -->
       <div class="receipt-paragraphs" style="flex: none; min-height: auto; height: auto; overflow: visible;">
+        ${scenePhotoHtml}
         ${metricHtml}
         ${leadHtml}
         ${essayBodyHtml}
@@ -5673,6 +5695,7 @@ function setAnchorMode(mode) {
     currentScrapedArticle = null;
     currentSourceLedger = null;
     renderSourceLedger(null);
+    removeInnerVoicePhoto();
     creatorCuePills = [];
     if (creatorSelectedCueIndices && creatorSelectedCueIndices.clear) {
       creatorSelectedCueIndices.clear();
@@ -5889,6 +5912,64 @@ function removeSelectedImage(event) {
   if (thumb) thumb.src = '';
   if (emptyBox) emptyBox.style.display = 'block';
   if (previewBox) previewBox.style.display = 'none';
+}
+
+function triggerInnerVoiceCamera() {
+  const cam = document.getElementById('innerVoiceCameraInput');
+  if (cam) cam.click();
+}
+
+function triggerInnerVoiceUpload() {
+  const file = document.getElementById('innerVoiceFileInput');
+  if (file) file.click();
+}
+
+function handleInnerVoicePhotoSelect(event) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+
+  compressImage(file, 1200, 0.82, function(base64Data, mimeType) {
+    innerVoicePhotoBase64 = base64Data;
+    innerVoicePhotoMimeType = mimeType || 'image/jpeg';
+
+    if (!creatorReferenceImageBase64 || creatorReferenceImageSourceLabel === 'Catalyst Scene Photo') {
+      creatorReferenceImageBase64 = base64Data;
+      creatorReferenceImageMimeType = mimeType || 'image/jpeg';
+      creatorReferenceImageSourceLabel = 'Catalyst Scene Photo';
+      updateReferencePhotoUI();
+    }
+
+    const thumb = document.getElementById('innerVoicePhotoThumb');
+    if (thumb) thumb.src = base64Data;
+    const preview = document.getElementById('innerVoicePhotoPreview');
+    if (preview) preview.style.display = 'flex';
+    const emptyBox = document.getElementById('innerVoicePhotoEmpty');
+    if (emptyBox) emptyBox.style.display = 'none';
+  });
+}
+
+function removeInnerVoicePhoto(event) {
+  if (event) event.stopPropagation();
+  innerVoicePhotoBase64 = null;
+  innerVoicePhotoMimeType = 'image/jpeg';
+
+  const cam = document.getElementById('innerVoiceCameraInput');
+  if (cam) cam.value = '';
+  const file = document.getElementById('innerVoiceFileInput');
+  if (file) file.value = '';
+
+  const thumb = document.getElementById('innerVoicePhotoThumb');
+  if (thumb) thumb.src = '';
+  const preview = document.getElementById('innerVoicePhotoPreview');
+  if (preview) preview.style.display = 'none';
+  const emptyBox = document.getElementById('innerVoicePhotoEmpty');
+  if (emptyBox) emptyBox.style.display = 'flex';
+
+  if (creatorReferenceImageSourceLabel === 'Catalyst Scene Photo') {
+    creatorReferenceImageBase64 = null;
+    creatorReferenceImageSourceLabel = null;
+    updateReferencePhotoUI();
+  }
 }
 
 let dropzoneInitialized = false;
@@ -6137,6 +6218,10 @@ let creatorReferenceImageBase64 = null;
 let creatorReferenceImageMimeType = 'image/jpeg';
 let creatorReferenceImageSourceLabel = null;
 
+// Inner Voice Scene Photo State
+let innerVoicePhotoBase64 = null;
+let innerVoicePhotoMimeType = 'image/jpeg';
+
 // Live Scraped Article State
 let currentScrapedArticle = null;
 let currentSourceLedger = null;
@@ -6148,6 +6233,7 @@ function resetCreatorState() {
   currentScrapedArticle = null;
   currentSourceLedger = null;
   renderSourceLedger(null);
+  removeInnerVoicePhoto();
   currentSynthesizedPost = null;
   creatorCuePills = [];
   if (creatorSelectedCueIndices && creatorSelectedCueIndices.clear) {
@@ -7654,7 +7740,11 @@ async function triggerCueSuggest() {
         countryCode: creatorCountryContext?.code || 'IN',
         creatorEmail: currentUser?.email || '',
         vocabularyStyle: creatorVocabularyStyle || 'punchy',
-        slantTone: (creatorSelectedSource === 'inner_voice' || /\b(family|child|love|heart|trip|vacation|weekend|pack|burnout|unplug|memoir|personal)\b/i.test(`${slantTake} ${spark}`)) ? 'heart' : 'mind'
+        slantTone: (creatorSelectedSource === 'inner_voice' || /\b(family|child|love|heart|trip|vacation|weekend|pack|burnout|unplug|memoir|personal)\b/i.test(`${slantTake} ${spark}`)) ? 'heart' : 'mind',
+        imageBase64: (creatorSelectedSource === 'inner_voice') ? innerVoicePhotoBase64 : null,
+        imageMimeType: innerVoicePhotoMimeType || 'image/jpeg',
+        innerVoiceImageBase64: (creatorSelectedSource === 'inner_voice') ? innerVoicePhotoBase64 : null,
+        innerVoiceImageMimeType: innerVoicePhotoMimeType || 'image/jpeg'
       })
     });
 
@@ -7865,8 +7955,10 @@ async function startAiSynthesis() {
     url: isLink ? url : '',
     text: slantTake,
     slantTake: slantTake,
-    imageBase64: effectiveImageBase64,
-    imageMimeType: effectiveImageMime,
+    imageBase64: effectiveImageBase64 || (creatorSelectedSource === 'inner_voice' ? innerVoicePhotoBase64 : null),
+    imageMimeType: effectiveImageMime || innerVoicePhotoMimeType || 'image/jpeg',
+    innerVoiceImageBase64: (creatorSelectedSource === 'inner_voice') ? innerVoicePhotoBase64 : null,
+    innerVoiceImageMimeType: innerVoicePhotoMimeType || 'image/jpeg',
     targetAudience: 'General Public',
     slantTone: (creatorSelectedSource === 'inner_voice' || /\b(family|child|love|heart|trip|vacation|weekend|pack|burnout|unplug|memoir|personal)\b/i.test(`${slantTake} ${spark}`)) ? 'heart' : 'mind',
     spark,
@@ -7930,6 +8022,12 @@ async function startAiSynthesis() {
     }
 
     currentSynthesizedPost = data.post;
+    if (creatorSelectedSource === 'inner_voice' && innerVoicePhotoBase64) {
+      currentSynthesizedPost.catalystPhoto = innerVoicePhotoBase64;
+      currentSynthesizedPost.catalystPhotoBase64 = innerVoicePhotoBase64;
+      currentSynthesizedPost.originalPhotoBase64 = innerVoicePhotoBase64;
+      currentSynthesizedPost.originalPhotoMimeType = innerVoicePhotoMimeType || 'image/jpeg';
+    }
     if (!currentSynthesizedPost.generationInputs) {
       currentSynthesizedPost.generationInputs = {
         slantTake: slantTake || '',
@@ -8559,6 +8657,14 @@ async function saveSynthesizedPost() {
       postToSave.posterBase64 = compressed;
     } catch (_) {}
   }
+  if (currentSynthesizedPost.catalystPhoto || currentSynthesizedPost.catalystPhotoBase64) {
+    const rawCat = currentSynthesizedPost.catalystPhoto || currentSynthesizedPost.catalystPhotoBase64;
+    try {
+      postToSave.catalystPhoto = await compressImageForCloud(rawCat, 600, 0.75);
+    } catch (_) {
+      postToSave.catalystPhoto = rawCat;
+    }
+  }
   delete postToSave.illustrationBase64;
   delete postToSave.originalPhotoBase64;
   postToSave.illustrationUrl = '/posters/' + postToSave.id + '.png';
@@ -8690,6 +8796,14 @@ async function publishSynthesizedPost() {
       const compressed = await compressImageForCloud(rawPoster, 900, 0.82);
       postToSave.posterBase64 = compressed;
     } catch (_) {}
+  }
+  if (currentSynthesizedPost.catalystPhoto || currentSynthesizedPost.catalystPhotoBase64) {
+    const rawCat = currentSynthesizedPost.catalystPhoto || currentSynthesizedPost.catalystPhotoBase64;
+    try {
+      postToSave.catalystPhoto = await compressImageForCloud(rawCat, 600, 0.75);
+    } catch (_) {
+      postToSave.catalystPhoto = rawCat;
+    }
   }
   delete postToSave.illustrationBase64;
   delete postToSave.originalPhotoBase64;

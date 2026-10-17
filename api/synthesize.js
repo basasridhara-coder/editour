@@ -169,6 +169,8 @@ Author's Raw Take:
       refineCoreTake = true,
       imageBase64 = null,
       imageMimeType = 'image/jpeg',
+      innerVoiceImageBase64 = null,
+      innerVoiceImageMimeType = 'image/jpeg',
       targetAudience = 'General',
       slantTone = 'mind', // 'mind' | 'heart'
       spark = '',
@@ -183,6 +185,9 @@ Author's Raw Take:
       vocabularyStyle = 'punchy', // 'punchy' | 'conversational' | 'analytical'
       sourceLedger = null
     } = body || {};
+
+    const effectiveCatalystImage = (sourceType === 'inner_voice') ? (innerVoiceImageBase64 || imageBase64) : null;
+    const effectiveCatalystMime = innerVoiceImageMimeType || imageMimeType || 'image/jpeg';
 
     const userEmail = (creatorEmail || '').toLowerCase().trim();
     if (!userEmail) {
@@ -417,9 +422,19 @@ Respond strictly with valid JSON with this exact structure:
         text: `Here is a photograph of a printed news clipping, article, or document. OCR and analyze it, then synthesize the Slant 3-poster carousel as requested:\n\n${systemPrompt}`
       });
     } else if (sourceType === 'inner_voice') {
+      if (effectiveCatalystImage) {
+        const cleanData = effectiveCatalystImage.includes(',') ? effectiveCatalystImage.split(',')[1] : effectiveCatalystImage;
+        parts.push({
+          inlineData: {
+            mimeType: effectiveCatalystMime,
+            data: cleanData
+          }
+        });
+      }
       const partsContent = [
         `Curator's Personal Slant & Angle: "${userSlant || 'Personal reflection and conviction.'}"`,
-        spark ? `Personal Spark & Context: "${spark}"` : ''
+        spark ? `Personal Spark & Context: "${spark}"` : '',
+        effectiveCatalystImage ? `Real-World Catalyst Scene Photo: [Attached image depicts the physical real-world scene, moment, or subject that sparked this inner voice reflection. Visually identify what is in this scene and weave its tangible elements, lighting, and environmental contrast into the headline, hook, takeaways, and illustrationPrompt.]` : ''
       ].filter(Boolean).join('\n\n');
       parts.push({
         text: `${systemPrompt}\n\nUser Input Content (Inner Voice Personal Reflection):\n${partsContent}`
@@ -681,7 +696,10 @@ Respond strictly with valid JSON with this exact structure:
       vocabularyStyle: vocabularyStyle || 'punchy',
       isUserCreated: true,
       sourceType: sourceType,
-      originalPhotoBase64: (sourceType === 'photo' && imageBase64) ? imageBase64 : null,
+      originalPhotoBase64: (sourceType === 'photo' && imageBase64) ? imageBase64 : (sourceType === 'inner_voice' && effectiveCatalystImage ? effectiveCatalystImage : null),
+      originalPhotoMimeType: (sourceType === 'inner_voice' && effectiveCatalystImage) ? effectiveCatalystMime : (imageMimeType || 'image/jpeg'),
+      catalystPhoto: (sourceType === 'inner_voice' && effectiveCatalystImage) ? effectiveCatalystImage : null,
+      catalystPhotoBase64: (sourceType === 'inner_voice' && effectiveCatalystImage) ? effectiveCatalystImage : null,
       hasPaperCut: (sourceType === 'photo' && !!imageBase64),
       userContext: spark || '',
       spark: spark || '',
@@ -694,6 +712,10 @@ Respond strictly with valid JSON with this exact structure:
         sourceUrl: url || '',
         sourceType: sourceType,
         spark: spark || '',
+        catalystPhoto: (sourceType === 'inner_voice' && effectiveCatalystImage) ? effectiveCatalystImage : null,
+        catalystPhotoBase64: (sourceType === 'inner_voice' && effectiveCatalystImage) ? effectiveCatalystImage : null,
+        innerVoiceImageBase64: effectiveCatalystImage || null,
+        innerVoiceImageMimeType: effectiveCatalystImage ? effectiveCatalystMime : null,
         cues: cues || [],
         heroCue: parsed.heroCue || (cues && cues[0]) || '',
         characterRepresentation,
