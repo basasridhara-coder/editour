@@ -26,7 +26,9 @@
   "rewrites": [
     { "source": "/login", "destination": "/login.html" },
     { "source": "/posters/:id.png", "destination": "/api/poster?id=:id" },
-    { "source": "/posters/:id", "destination": "/api/poster?id=:id" }
+    { "source": "/posters/:id", "destination": "/api/poster?id=:id" },
+    { "source": "/post/:id", "destination": "/index.html" },
+    { "source": "/p/:id", "destination": "/index.html" }
   ],
   "headers": [
     {
@@ -40,8 +42,7 @@
     {
       "source": "/posters/(.*)",
       "headers": [
-        { "key": "Access-Control-Allow-Origin", "value": "*" },
-        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+        { "key": "Access-Control-Allow-Origin", "value": "*" }
       ]
     },
     {

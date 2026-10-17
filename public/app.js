@@ -1578,6 +1578,53 @@ async function fetchDirectSupabasePosts(limit = 12) {
   }
 }
 
+// ============================================================
+// DEEP LINKING & DIRECT POST NAVIGATION
+// ============================================================
+function getDeepLinkedPostId() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const fromQuery = params.get('p') || params.get('post') || params.get('id');
+    if (fromQuery && fromQuery.trim()) {
+      return fromQuery.trim();
+    }
+
+    // Check path: /post/:id or /p/:id
+    const pathMatch = window.location.pathname.match(/^\/(?:post|p)\/([^/?#]+)/i);
+    if (pathMatch && pathMatch[1]) {
+      return decodeURIComponent(pathMatch[1]).trim();
+    }
+
+    // Check hash: #post-... or #p=... or #...
+    if (window.location.hash) {
+      const hash = window.location.hash;
+      const hashPost = hash.match(/#(?:post[-_]|p=)?([a-f0-9-]{8,})/i);
+      if (hashPost && hashPost[1]) {
+        return hashPost[1].trim();
+      }
+    }
+  } catch (err) {
+    console.warn('Error reading deep link post ID:', err);
+  }
+  return null;
+}
+
+function scrollToPostElement(targetCard) {
+  if (!targetCard) return;
+  const header = document.querySelector('header');
+  const headerHeight = header ? header.offsetHeight : 60;
+  const rect = targetCard.getBoundingClientRect();
+  const screenHeight = window.innerHeight;
+
+  let targetY;
+  if (rect.height + headerHeight + 40 < screenHeight) {
+    targetY = window.pageYOffset + rect.top - ((screenHeight - rect.height) / 2);
+  } else {
+    targetY = window.pageYOffset + rect.top - headerHeight - 16;
+  }
+  window.scrollTo({ top: Math.max(0, targetY), behavior: 'smooth' });
+}
+
 async function loadPosts() {
   // 1. Start seamless jerk-free logo video loop in initial loader
   if (!window._feedVideoLoop) {
@@ -1650,6 +1697,38 @@ async function loadPosts() {
     }
   } catch (e) {
     console.warn('Error merging local user posts cache:', e);
+  }
+
+  // Pre-fetch deep-linked post from cloud if not yet in memory
+  const deepPostId = getDeepLinkedPostId();
+  if (deepPostId) {
+    currentFilter = 'all';
+    const exists = allPosts.some(p => p && p.id === deepPostId);
+    if (!exists) {
+      try {
+        const resp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.${encodeURIComponent(deepPostId)}&select=*`, {
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`
+          }
+        });
+        if (resp.ok) {
+          const rows = await resp.json();
+          if (Array.isArray(rows) && rows.length > 0) {
+            const p = rows[0].data || rows[0];
+            p.id = p.id || rows[0].id;
+            p.createdAt = p.createdAt || rows[0].created_at || new Date().toISOString();
+            if (!p.illustrationUrl && !p.illustrationBase64) {
+              p.illustrationUrl = `/posters/${p.id}.png`;
+              p.aiIllustrationUrl = p.illustrationUrl;
+            }
+            mergeAndSortPosts([p]);
+          }
+        }
+      } catch (e) {
+        console.warn('Error pre-fetching deep-linked post before initial render:', e);
+      }
+    }
   }
 
   // 3. Render Batch 1 of 12 posts and WAIT for all 12 posters + video loop before dismissing loader
@@ -1920,37 +1999,46 @@ function handleSearch(query) {
 }
 
 async function checkDeepLink() {
-  const params = new URLSearchParams(window.location.search);
-  const postId = params.get('p');
-  if (postId) {
-    let idx = allPosts.findIndex(p => p && p.id === postId);
-    if (idx >= 0) {
-      setTimeout(() => openDetailModal(idx), 300);
-      return;
-    }
-    // Deep-linked post is not in initial batch - fetch directly from cloud so deep links always resolve
-    try {
-      const resp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.${encodeURIComponent(postId)}&select=*`, {
-        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-      });
-      if (resp.ok) {
-        const rows = await resp.json();
-        if (Array.isArray(rows) && rows.length > 0) {
-          const p = rows[0].data || rows[0];
-          p.id = p.id || rows[0].id;
-          p.createdAt = p.createdAt || rows[0].created_at || new Date().toISOString();
-          mergeAndSortPosts([p]);
-          renderFeed();
-          idx = allPosts.findIndex(x => x && x.id === postId);
-          if (idx >= 0) {
-            setTimeout(() => openDetailModal(idx), 200);
-            return;
+  const deepPostId = getDeepLinkedPostId();
+  if (deepPostId) {
+    function tryFocusDeepLinkedPost(attempts = 10) {
+      const targetCard = document.getElementById('post-' + deepPostId) || document.querySelector(`[data-post-id="${deepPostId}"]`);
+      if (targetCard) {
+        dismissInitialFeedLoader(true);
+        setTimeout(() => {
+          scrollToPostElement(targetCard);
+          targetCard.classList.add('deep-link-highlight');
+          showTemporaryToast('📍 Viewing shared post');
+
+          const targetPost = allPosts.find(p => p && p.id === deepPostId);
+          if (targetPost) {
+            const headline = targetPost.adaptedHeadline || targetPost.originalHeadline;
+            if (headline) {
+              document.title = `${headline} • Slant`;
+            }
           }
-        }
+
+          // Check if caller explicitly requested source proof modal open (?proof=true)
+          const params = new URLSearchParams(window.location.search);
+          if (params.get('proof') === 'true' || params.get('source') === 'proof') {
+            const idx = allPosts.findIndex(p => p && p.id === deepPostId);
+            if (idx >= 0) setTimeout(() => openDetailModal(idx), 400);
+          }
+
+          setTimeout(() => {
+            targetCard.classList.remove('deep-link-highlight');
+          }, 3500);
+        }, 300);
+        return;
       }
-    } catch (e) {
-      console.warn('Deep link cloud point fetch failed:', e);
+
+      if (attempts > 0) {
+        setTimeout(() => tryFocusDeepLinkedPost(attempts - 1), 250);
+      }
     }
+
+    tryFocusDeepLinkedPost(10);
+    return;
   }
 
   // Check login deep link / direct route or first-time visitor gateway
@@ -1968,12 +2056,12 @@ async function checkDeepLink() {
     hasExplored = sessionStorage.getItem('slant_guest_explored') === 'true';
   } catch (e) {}
 
-  if (isExplicitLogin || (!currentUser && !hasExplored && !postId)) {
+  if (isExplicitLogin || (!currentUser && !hasExplored && !deepPostId)) {
     setTimeout(() => openAuthModal(), 200);
   }
 }
 
-// Listen for browser navigation / hashchange for #login
+// Listen for browser navigation / hashchange for #login or deep-linked post
 window.addEventListener('hashchange', () => {
   if (window.location.hash === '#login') {
     openAuthModal();
@@ -1981,6 +2069,15 @@ window.addEventListener('hashchange', () => {
     const modal = document.getElementById('authModal');
     if (modal && (modal.classList.contains('open') || modal.classList.contains('active'))) {
       closeAuthModal();
+    }
+    const deepId = getDeepLinkedPostId();
+    if (deepId) {
+      const card = document.getElementById('post-' + deepId) || document.querySelector(`[data-post-id="${deepId}"]`);
+      if (card) {
+        scrollToPostElement(card);
+        card.classList.add('deep-link-highlight');
+        setTimeout(() => card.classList.remove('deep-link-highlight'), 3500);
+      }
     }
   }
 });
@@ -2388,8 +2485,16 @@ async function renderFeed(isInitial = false) {
     return;
   }
 
-  // BATCH 1: Slice first 12 posts
-  const batch1 = filtered.slice(0, FEED_BATCH_SIZE);
+  // BATCH 1: Slice first 12 posts (or expand to include deep-linked post)
+  const deepPostId = getDeepLinkedPostId();
+  let initialRenderCount = FEED_BATCH_SIZE;
+  if (deepPostId) {
+    const targetIdx = filtered.findIndex(p => p && p.id === deepPostId);
+    if (targetIdx >= FEED_BATCH_SIZE) {
+      initialRenderCount = Math.min(filtered.length, targetIdx + 2);
+    }
+  }
+  const batch1 = filtered.slice(0, initialRenderCount);
 
   // Guarantee loop video is playing while preloading Batch 1
   const initVid = document.getElementById('feedInitialVideo') || document.getElementById('feedInitialVideoA');
@@ -3524,6 +3629,10 @@ function buildSlide3Html(post, index) {
 function createPostCardElement(post, index) {
   const card = document.createElement('article');
   card.className = 'post-card';
+  if (post && post.id) {
+    card.id = `post-${post.id}`;
+    card.setAttribute('data-post-id', post.id);
+  }
 
   const handle = post.creatorHandle || '@curator';
   const initial = handle.replace('@', '').charAt(0).toUpperCase() || 'C';
@@ -4352,12 +4461,46 @@ function copyShareLink() {
 }
 
 function copyCardShareLink(postId) {
-  const shareUrl = `${window.location.origin}/?p=${postId}`;
-  navigator.clipboard.writeText(shareUrl).then(() => {
-    alert(`📋 Shareable link copied: ${shareUrl}`);
-  }).catch(() => {
-    prompt('Copy this link:', shareUrl);
-  });
+  if (!postId) return;
+  const shareUrl = `${window.location.origin}/?p=${encodeURIComponent(postId)}`;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      showTemporaryToast('🔗 Direct link to post copied!');
+    }).catch(() => {
+      fallbackCopyText(shareUrl);
+    });
+  } else {
+    fallbackCopyText(shareUrl);
+  }
+}
+
+function copyModalShareLink() {
+  if (currentSharePost && currentSharePost.id) {
+    copyCardShareLink(currentSharePost.id);
+  } else if (activePostIndex !== null && allPosts[activePostIndex]) {
+    copyCardShareLink(allPosts[activePostIndex].id);
+  } else {
+    showTemporaryToast('Post link unavailable');
+  }
+}
+
+function fallbackCopyText(text) {
+  try {
+    const input = document.createElement('textarea');
+    input.value = text;
+    input.style.position = 'fixed';
+    input.style.opacity = '0';
+    document.body.appendChild(input);
+    input.focus();
+    input.select();
+    const successful = document.execCommand('copy');
+    document.body.removeChild(input);
+    if (successful) {
+      showTemporaryToast('🔗 Direct link to post copied!');
+      return;
+    }
+  } catch (_) {}
+  window.prompt('Copy direct link to this post:', text);
 }
 
 function canDeletePost(post) {

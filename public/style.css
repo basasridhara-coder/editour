@@ -308,6 +308,38 @@ header {
   border-color: rgba(255, 255, 255, 0.14);
 }
 
+/* Deep Link Direct Post Highlight */
+.post-card.deep-link-highlight {
+  border-color: #6366F1 !important;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.4), 0 12px 36px rgba(99, 102, 241, 0.25) !important;
+  animation: deepLinkPulse 3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+[data-theme="daylight"] .post-card.deep-link-highlight {
+  border-color: #4F46E5 !important;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.35), 0 12px 36px rgba(79, 70, 229, 0.2) !important;
+}
+
+@keyframes deepLinkPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.8), 0 12px 36px rgba(99, 102, 241, 0.3);
+    transform: translateY(-2px);
+  }
+  30% {
+    box-shadow: 0 0 0 6px rgba(99, 102, 241, 0.5), 0 16px 44px rgba(99, 102, 241, 0.35);
+    transform: translateY(-2px);
+  }
+  70% {
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25), 0 8px 24px rgba(99, 102, 241, 0.15);
+    transform: translateY(0);
+  }
+  100% {
+    box-shadow: var(--shadow-card);
+    border-color: var(--border-subtle);
+    transform: translateY(0);
+  }
+}
+
 /* Post Header */
 .post-header {
   padding: 12px 16px;
