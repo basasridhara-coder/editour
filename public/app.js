@@ -2881,10 +2881,10 @@ function formatCuratorTakeApt(text) {
 
 function getCuratorTakeText(post) {
   if (!post) return '';
-  // Prioritize the actual take provided by the curator
-  let text = (post.rawUserSlant && post.rawUserSlant.trim())
-    || (post.curatorTake && post.curatorTake.trim())
+  // Strictly prioritize the polished, elevated editorial curator take
+  let text = (post.curatorTake && post.curatorTake.trim())
     || (post.creatorOpinion && post.creatorOpinion.trim())
+    || (post.rawUserSlant && post.rawUserSlant.trim())
     || (post.userSlantTake && post.userSlantTake.trim())
     || (post.generationInputs?.slantTake && post.generationInputs.slantTake.trim());
 
@@ -3266,11 +3266,13 @@ function buildSlide2Html(post, index) {
   }
 
   // Combine into a single, punchy, elegant paragraph (no redundant WHY IT MATTERS box)
-  let rawOpinion = (post.creatorOpinion && post.creatorOpinion.trim())
-    ? post.creatorOpinion.trim()
-    : ((post.whyItMatters && post.whyItMatters.trim())
-        ? post.whyItMatters.trim()
-        : (post.hook || 'Strategic structural shift in motion.'));
+  let rawOpinion = (post.curatorTake && post.curatorTake.trim())
+    ? post.curatorTake.trim()
+    : ((post.creatorOpinion && post.creatorOpinion.trim())
+        ? post.creatorOpinion.trim()
+        : ((post.whyItMatters && post.whyItMatters.trim())
+            ? post.whyItMatters.trim()
+            : (post.hook || 'Strategic structural shift in motion.')));
   while (rawOpinion.endsWith('.') || rawOpinion.endsWith('…')) {
     if (rawOpinion.endsWith('...')) rawOpinion = rawOpinion.slice(0, -3).trim();
     else if (rawOpinion.endsWith('…')) rawOpinion = rawOpinion.slice(0, -1).trim();
