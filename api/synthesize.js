@@ -344,7 +344,14 @@ ${sourceType === 'inner_voice' ? `CRITICAL INNER VOICE & LIVED EXPERIENCE DIRECT
   * Set to the spark statement or a refined 6–12 word hook of the spark (e.g. "When a forgotten packing item breaks the work trance and signals the escape"). NEVER set to the raw user slant.
 - IN "illustrationPrompt":
   * Describe a warm, colorful, sunny scene of real people packing or getting ready, with smiling illuminated faces, colorful room, suitcase, tropical palms visible through window, warm golden light.
-  * Explicitly instruct: "Realistic people with clearly visible smiling faces, warm daylight, vibrant colors, Kerala palm trees, cheerful atmosphere, highly detailed, no silhouettes, no dark shadows, no faceless figures, no text".` : (userSlant ? `CRITICAL POSTER 2 DIRECTIVE (CURATED TAKE DERIVED FROM INPUT):
+  * Explicitly instruct: "Realistic people with clearly visible smiling faces, warm daylight, vibrant colors, Kerala palm trees, cheerful atmosphere, highly detailed, no silhouettes, no dark shadows, no faceless figures, no text".` : (userSlant ? `CRITICAL POLISHED CURATOR INPUT DIRECTIVE:
+- The curator provided their authentic stance: "${userSlant}".
+- In "polishedCuratorTake": Polish the curator's exact input for grammar, spelling, punctuation, capitalization, and smooth phrasing flow.
+- STRICT REQUIREMENTS FOR "polishedCuratorTake":
+  * 100% PRESERVATION: Retain 100% of the curator's original thoughts, arguments, conviction, personal voice, style, and full length.
+  * ZERO SUMMARIZATION: Do NOT summarize, cut short, or compress their take into 2 sentences.
+  * ZERO ALTERATION: Do NOT change the curator's stance or introduce unsolicited opinions. It is purely gentle grammar and phrase correction.
+CRITICAL POSTER 2 DIRECTIVE (CURATED TAKE DERIVED FROM INPUT):
 - Poster 2 ("THE CRITICAL PERSPECTIVE" / Curator Take) MUST be an articulate, model-synthesized editorial conviction derived directly from the curator's perspective ("${userSlant}").
 - It MUST be EXACTLY 2 complete sentences (25–35 words total, ending definitively with a period).
 - Elevate and synthesize the core thesis of the curator's stance into a high-impact, punchy pull-quote that fits an editorial poster frame without filling the entire poster. Return this in "curatorTake".` : '')}
@@ -382,6 +389,7 @@ Respond strictly with valid JSON with this exact structure:
   "publicationName": "${pubName || (sourceType === 'inner_voice' ? 'Inner Voice' : (sourceType === 'video_audio' ? 'Broadcast Slant' : 'Curated Press'))}",
   "categoryBadge": "UPPERCASE CATEGORY (e.g. DEEP TECH, CULTURE, OPINION, CLIMATE, ECONOMY, HEALTH)",
   "hook": "1-2 sentence gripping hook that stops the reader mid-scroll",
+  "polishedCuratorTake": "${userSlant ? 'The curator\'s exact full-length input with gentle grammar, spelling, and phrase corrections applied (preserving 100% of their voice, thoughts, and length).' : ''}",
   "curatorTake": "EXACTLY 2 complete sentences (25-35 words total, ending with a period) of elevated, punchy editorial conviction derived directly from the curator's perspective (do NOT dump long raw text here).",
   "summary": "${sourceType === 'inner_voice' ? 'Exactly 3 broadsheet paragraphs of lived experience reflection (50-60, 45-55, 40-50 words; 135-165 words total).' : (userSlant ? 'Exactly 3 broadsheet paragraphs elaborating the curator\'s take in direct connection with the attached source (50-60, 45-55, 40-50 words; 135-165 words total). Never an objective book report.' : 'Exactly 3 broadsheet paragraphs of objective journalistic reporting (50-60, 45-55, 40-50 words; 135-165 words total).')}",
   "whyItMatters": "1-2 sharp sentences on the stakes and why this perspective matters right now (18-28 words)",
@@ -642,6 +650,15 @@ Respond strictly with valid JSON with this exact structure:
       finalIllustrationUrl = '';
     }
 
+    // 1. Polished Curator Input (for native lines below the post card & Generation Inputs)
+    let finalPolishedCuratorTake = '';
+    if (parsed.polishedCuratorTake && parsed.polishedCuratorTake.trim().length > 5) {
+      finalPolishedCuratorTake = formatCuratorTakeApt(parsed.polishedCuratorTake.trim());
+    } else if (userSlant && userSlant.trim().length > 0) {
+      finalPolishedCuratorTake = formatCuratorTakeApt(userSlant.trim());
+    }
+
+    // 2. Poster 2 Curated Take (2-sentence punchy visual pull-quote framed for Slide 2 card)
     let finalCuratorTake = (parsed.curatorTake && parsed.curatorTake.trim().length > 10)
       ? parsed.curatorTake.trim()
       : (userSlant || 'Strategic structural shift in motion.');
@@ -689,8 +706,9 @@ Respond strictly with valid JSON with this exact structure:
       creatorHandle: creatorHandle || '@curator',
       slantTone: slantTone || 'mind',
       slantIcon: slantTone === 'heart' ? '❤️' : '🧠',
-      creatorOpinion: finalCuratorTake,
+      creatorOpinion: finalPolishedCuratorTake || finalCuratorTake,
       curatorTake: finalCuratorTake,
+      polishedCuratorTake: finalPolishedCuratorTake || formatCuratorTakeApt(userSlant || finalCuratorTake),
       rawUserSlant: userSlant || '',
       refineCoreTake,
       vocabularyStyle: vocabularyStyle || 'punchy',
@@ -705,10 +723,10 @@ Respond strictly with valid JSON with this exact structure:
       spark: spark || '',
       countryContext: countryContext || 'India',
       contextProvided: userSlant || extractedContent || spark || '',
-      userSlantTake: userSlant || '',
+      userSlantTake: finalPolishedCuratorTake || userSlant || '',
       sourceContext: extractedContent || '',
       generationInputs: {
-        slantTake: userSlant || '',
+        slantTake: finalPolishedCuratorTake || userSlant || '',
         sourceUrl: url || '',
         sourceType: sourceType,
         spark: spark || '',
@@ -912,7 +930,8 @@ function generateSmartFallbackSynthesis({
       categoryBadge: 'PERSPECTIVE',
       hook: `${headline}. When the pace of external demands accelerates, genuine presence becomes an act of quiet rebellion.`,
       curatorTake: formatCuratorTakeApt(refinedTake),
-      creatorOpinion: formatCuratorTakeApt(refinedTake),
+      polishedCuratorTake: formatCuratorTakeApt(userSlant || refinedTake),
+      creatorOpinion: formatCuratorTakeApt(userSlant || refinedTake),
       summary: `${userSlant || 'True restoration begins when you accept that work can wait, but presence cannot.'}\n\nExamining our reflexive habits reveals that we often mistake urgency for importance.\n\nThe real discipline is establishing intentional boundaries before exhaustion makes the choice for us.`,
       whyItMatters: 'Without intentional boundaries, external noise will always consume the mental space needed for genuine reflection.',
       keyTakeaways: [
@@ -1097,7 +1116,8 @@ function generateSmartFallbackSynthesis({
     categoryBadge: defaultCategory,
     hook: hookText,
     curatorTake: formatCuratorTakeApt(refinedTake),
-    creatorOpinion: formatCuratorTakeApt(refinedTake),
+    polishedCuratorTake: formatCuratorTakeApt(userSlant || refinedTake),
+    creatorOpinion: formatCuratorTakeApt(userSlant || refinedTake),
     summary: fallbackSummary,
     whyItMatters: (sourceLedger && sourceLedger.underlying_tensions)
       ? (typeof sourceLedger.underlying_tensions === 'object' ? (sourceLedger.underlying_tensions.primary_conflict || sourceLedger.underlying_tensions.tradeoffs) : String(sourceLedger.underlying_tensions))

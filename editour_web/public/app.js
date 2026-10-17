@@ -2881,13 +2881,17 @@ function formatCuratorTakeApt(text) {
 
 function getCuratorTakeText(post) {
   if (!post) return '';
-  // Strictly prioritize the polished, elevated editorial curator take
-  let text = (post.curatorTake && post.curatorTake.trim())
-    || (post.creatorOpinion && post.creatorOpinion.trim())
-    || (post.rawUserSlant && post.rawUserSlant.trim())
+  // Strictly prioritize the polished curator input (full length, original voice & thoughts with gentle grammar/phrase correction)
+  let text = (post.polishedCuratorTake && post.polishedCuratorTake.trim())
     || (post.userSlantTake && post.userSlantTake.trim())
-    || (post.generationInputs?.slantTake && post.generationInputs.slantTake.trim());
+    || (post.generationInputs?.slantTake && post.generationInputs.slantTake.trim())
+    || (post.rawUserSlant && post.rawUserSlant.trim());
 
+  // Fallback to elevated curator take / hook / summary ONLY when no curator slant exists
+  if (!text) {
+    text = (post.curatorTake && post.curatorTake.trim())
+      || (post.creatorOpinion && post.creatorOpinion.trim());
+  }
   if (!text && (post.sourceType === 'inner_voice' || post.publicationName === 'Inner Voice')) {
     text = (post.summary && post.summary.trim()) || (post.hook && post.hook.trim()) || '';
   }
@@ -3376,6 +3380,7 @@ function isDuplicateOfUserTake(candidateText, post) {
   if (cleanCand.length < 15) return false;
 
   const userTakeCandidates = [
+    post.polishedCuratorTake,
     post.curatorTake,
     post.creatorOpinion,
     post.rawUserSlant,
@@ -4532,7 +4537,7 @@ window._activeGenContextText = '';
 function getPostGenerationInputs(post) {
   if (!post) return null;
   const raw = post.generationInputs || {};
-  const slantTake = raw.slantTake || post.userSlantTake || post.rawUserSlant || post.curatorTake || post.creatorOpinion || '';
+  const slantTake = raw.slantTake || post.polishedCuratorTake || post.userSlantTake || post.rawUserSlant || post.curatorTake || post.creatorOpinion || '';
   const sourceUrl = raw.sourceUrl || post.digitalLink || post.webUrl || post.sourceUrl || '';
   let sourceType = raw.sourceType || post.sourceType;
   if (!sourceType) {
@@ -4645,7 +4650,7 @@ function openGenerationContextModal(postId) {
         <div class="gen-section-header">
           <div class="gen-section-title-wrap">
             <span class="gen-section-icon">💭</span>
-            <span class="gen-section-label">CURATOR'S RAW SLANT / TAKE</span>
+            <span class="gen-section-label">CURATOR'S SLANT / TAKE</span>
           </div>
           <button type="button" class="gen-copy-btn" onclick="copyGenerationContextToClipboard(${JSON.stringify(inputs.slantTake)})" title="Copy slant take">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
@@ -8455,9 +8460,11 @@ async function startAiSynthesis() {
       currentSynthesizedPost.originalPhotoBase64 = innerVoicePhotoBase64;
       currentSynthesizedPost.originalPhotoMimeType = innerVoicePhotoMimeType || 'image/jpeg';
     }
+    const effectiveSlantTake = currentSynthesizedPost.polishedCuratorTake || slantTake || '';
+
     if (!currentSynthesizedPost.generationInputs) {
       currentSynthesizedPost.generationInputs = {
-        slantTake: slantTake || '',
+        slantTake: effectiveSlantTake,
         sourceUrl: isLink ? url : '',
         sourceType: creatorSelectedSource,
         spark: spark || '',
@@ -8470,13 +8477,16 @@ async function startAiSynthesis() {
         sourceLedger: currentSourceLedger || null,
         scrapedTitle: (isLink && url) ? (currentScrapedArticle?.title || '') : '',
         scrapedContent: (isLink && url) ? (currentScrapedArticle?.content || '').slice(0, 3000) : '',
-        contextProvided: slantTake || (currentScrapedArticle?.content || '').slice(0, 3000) || spark || '',
+        contextProvided: effectiveSlantTake || (currentScrapedArticle?.content || '').slice(0, 3000) || spark || '',
         illustrationPrompt: currentSynthesizedPost.illustrationPrompt || '',
         originalHeadline: currentSynthesizedPost.originalHeadline || currentSynthesizedPost.adaptedHeadline || ''
       };
+    } else {
+      currentSynthesizedPost.generationInputs.slantTake = effectiveSlantTake;
     }
-    currentSynthesizedPost.contextProvided = currentSynthesizedPost.generationInputs.contextProvided || slantTake || (currentScrapedArticle?.content || '').slice(0, 3000) || spark || '';
-    currentSynthesizedPost.userSlantTake = slantTake || '';
+    currentSynthesizedPost.contextProvided = currentSynthesizedPost.generationInputs.contextProvided || effectiveSlantTake || (currentScrapedArticle?.content || '').slice(0, 3000) || spark || '';
+    currentSynthesizedPost.userSlantTake = effectiveSlantTake;
+    currentSynthesizedPost.polishedCuratorTake = effectiveSlantTake;
     currentSynthesizedPost.sourceContext = (isLink && url) ? (currentScrapedArticle?.content || '').slice(0, 3000) : '';
 
     // Immediately synchronize edit modal fields with this fresh post to ensure zero stale DOM values
@@ -9061,6 +9071,13 @@ async function saveSynthesizedPost() {
 
   // 1. Clean & compress payload: store crisp ~60KB WebP so Supabase rows never trigger timeout
   const postToSave = { ...currentSynthesizedPost };
+  const savedSlantTake = currentSynthesizedPost.polishedCuratorTake || currentSynthesizedPost.generationInputs?.slantTake || currentSynthesizedPost.userSlantTake || '';
+  if (savedSlantTake) {
+    postToSave.polishedCuratorTake = savedSlantTake;
+    postToSave.userSlantTake = savedSlantTake;
+    if (!postToSave.generationInputs) postToSave.generationInputs = {};
+    postToSave.generationInputs.slantTake = savedSlantTake;
+  }
   if (currentSynthesizedPost.generationInputs) {
     postToSave.generationInputs = currentSynthesizedPost.generationInputs;
   }
@@ -9201,6 +9218,13 @@ async function publishSynthesizedPost() {
 
   // 1. Clean & compress payload: store crisp ~60KB WebP so Supabase rows never trigger timeout
   const postToSave = { ...currentSynthesizedPost };
+  const savedSlantTake = currentSynthesizedPost.polishedCuratorTake || currentSynthesizedPost.generationInputs?.slantTake || currentSynthesizedPost.userSlantTake || '';
+  if (savedSlantTake) {
+    postToSave.polishedCuratorTake = savedSlantTake;
+    postToSave.userSlantTake = savedSlantTake;
+    if (!postToSave.generationInputs) postToSave.generationInputs = {};
+    postToSave.generationInputs.slantTake = savedSlantTake;
+  }
   if (currentSynthesizedPost.generationInputs) {
     postToSave.generationInputs = currentSynthesizedPost.generationInputs;
   }

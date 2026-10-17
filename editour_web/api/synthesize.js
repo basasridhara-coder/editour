@@ -94,6 +94,73 @@ module.exports = async function handler(req, res) {
       }
     }
 
+    // Direct Single-Purpose Endpoint: Polish & Review Take (Strict Copy-Editing, No Opinion Alteration)
+    if (body && (body.action === 'polish_take' || body.action === 'review_take')) {
+      const { text = '', slantTake = '' } = body;
+      const rawText = String(text || slantTake || '').trim();
+      if (!rawText || rawText.length < 5) {
+        return res.status(400).json({ error: 'Please enter a take to polish.' });
+      }
+
+      // Fast baseline polish using rule-based formatter
+      const baselinePolished = formatCuratorTakeApt(rawText);
+
+      // Call Gemini for high-precision, nuanced English copy-editing with thinkingBudget: 0 for speed (<2s)
+      try {
+        const copyEditPrompt = `You are a world-class literary copy-editor and phrasing specialist.
+The author has written their personal conviction / take on a topic.
+Your sole job is to polish their exact text into grammatically correct, natural, and apt English:
+- STRICT RULE 1 (ZERO OPINION FABRICATION): DO NOT change, enhance, add to, or modify the author's opinion, stance, or logic. Do NOT introduce new arguments, buzzwords, or unsolicited ideas.
+- STRICT RULE 2 (ZERO CUTTING SHORT): DO NOT cut short, truncate, compress, or omit the author's opinion. Every single point, argument, nuance, and example must be retained in the exact same sequence.
+- STRICT RULE 3 (APT ENGLISH & PHRASING): Fix comma splices, run-on sentences, awkward phrasing, word choices, subject-verb agreements, casing, and punctuation so it flows naturally and authoritatively.
+- STRICT RULE 4 (PURE OUTPUT): Return ONLY the polished take text. Do NOT add quotation marks, do NOT add introductory conversational words, and do NOT wrap in markdown or backticks.
+
+Author's Raw Take:
+"""${rawText}"""`;
+
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 6000);
+
+        const geminiResp = await fetch(geminiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: copyEditPrompt }] }],
+            generationConfig: {
+              temperature: 0.1,
+              thinkingConfig: { thinkingBudget: 0 },
+              maxOutputTokens: 1024
+            }
+          }),
+          signal: controller.signal
+        });
+        clearTimeout(timeout);
+
+        if (geminiResp.ok) {
+          const geminiData = await geminiResp.json();
+          let candidate = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          candidate = candidate.trim().replace(/^["'“”‘’«»]+|["'“”‘’«»]+$/g, '').trim();
+          if (candidate.length > 10) {
+            return res.status(200).json({
+              success: true,
+              original: rawText,
+              polished: formatCuratorTakeApt(candidate)
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('Gemini copy-edit notice, falling back to rule-based polish:', err.message);
+      }
+
+      // Graceful fallback to rule-based polish
+      return res.status(200).json({
+        success: true,
+        original: rawText,
+        polished: baselinePolished
+      });
+    }
+
     const {
       sourceType = 'inner_voice', // 'digital_link' | 'inner_voice' | 'photo'
       url = '',
@@ -102,6 +169,8 @@ module.exports = async function handler(req, res) {
       refineCoreTake = true,
       imageBase64 = null,
       imageMimeType = 'image/jpeg',
+      innerVoiceImageBase64 = null,
+      innerVoiceImageMimeType = 'image/jpeg',
       targetAudience = 'General',
       slantTone = 'mind', // 'mind' | 'heart'
       spark = '',
@@ -116,6 +185,9 @@ module.exports = async function handler(req, res) {
       vocabularyStyle = 'punchy', // 'punchy' | 'conversational' | 'analytical'
       sourceLedger = null
     } = body || {};
+
+    const effectiveCatalystImage = (sourceType === 'inner_voice') ? (innerVoiceImageBase64 || imageBase64) : null;
+    const effectiveCatalystMime = innerVoiceImageMimeType || imageMimeType || 'image/jpeg';
 
     const userEmail = (creatorEmail || '').toLowerCase().trim();
     if (!userEmail) {
@@ -272,12 +344,17 @@ ${sourceType === 'inner_voice' ? `CRITICAL INNER VOICE & LIVED EXPERIENCE DIRECT
   * Set to the spark statement or a refined 6–12 word hook of the spark (e.g. "When a forgotten packing item breaks the work trance and signals the escape"). NEVER set to the raw user slant.
 - IN "illustrationPrompt":
   * Describe a warm, colorful, sunny scene of real people packing or getting ready, with smiling illuminated faces, colorful room, suitcase, tropical palms visible through window, warm golden light.
-  * Explicitly instruct: "Realistic people with clearly visible smiling faces, warm daylight, vibrant colors, Kerala palm trees, cheerful atmosphere, highly detailed, no silhouettes, no dark shadows, no faceless figures, no text".` : (userSlant ? (refineCoreTake ? `MANDATORY REFINEMENT DIRECTIVE (NEVER ECHO VERBATIM):
-- Poster 2 ("THE CRITICAL PERSPECTIVE" / Curator Take) MUST NEVER display the user's raw slant verbatim!
-- You MUST completely rewrite and elevate the curator's raw perspective ("${userSlant}") into an articulate, model-synthesized editorial argument (EXACTLY 2 complete sentences, 25–35 words total, ending definitively with a period).
-- DO NOT copy or repeat phrases from the user's input. Synthesize an elevated argument that grounds their angle in the story's concrete facts, key actors, and structural implications.
-- Strictly adhere to the Vocabulary Directive: use vivid, emotionally resonant, easily understandable English without heavy SAT/GRE academic jargon. Return this elevated statement in "curatorTake".` : `VERBATIM DIRECTIVE:
-- Poster 2 ("THE CRITICAL PERSPECTIVE") MUST preserve the curator's exact typed words verbatim: "${userSlant}", ending with a period. Return this in "curatorTake".`) : '')}
+  * Explicitly instruct: "Realistic people with clearly visible smiling faces, warm daylight, vibrant colors, Kerala palm trees, cheerful atmosphere, highly detailed, no silhouettes, no dark shadows, no faceless figures, no text".` : (userSlant ? `CRITICAL POLISHED CURATOR INPUT DIRECTIVE:
+- The curator provided their authentic stance: "${userSlant}".
+- In "polishedCuratorTake": Polish the curator's exact input for grammar, spelling, punctuation, capitalization, and smooth phrasing flow.
+- STRICT REQUIREMENTS FOR "polishedCuratorTake":
+  * 100% PRESERVATION: Retain 100% of the curator's original thoughts, arguments, conviction, personal voice, style, and full length.
+  * ZERO SUMMARIZATION: Do NOT summarize, cut short, or compress their take into 2 sentences.
+  * ZERO ALTERATION: Do NOT change the curator's stance or introduce unsolicited opinions. It is purely gentle grammar and phrase correction.
+CRITICAL POSTER 2 DIRECTIVE (CURATED TAKE DERIVED FROM INPUT):
+- Poster 2 ("THE CRITICAL PERSPECTIVE" / Curator Take) MUST be an articulate, model-synthesized editorial conviction derived directly from the curator's perspective ("${userSlant}").
+- It MUST be EXACTLY 2 complete sentences (25–35 words total, ending definitively with a period).
+- Elevate and synthesize the core thesis of the curator's stance into a high-impact, punchy pull-quote that fits an editorial poster frame without filling the entire poster. Return this in "curatorTake".` : '')}
 ${sourceType === 'video_audio' ? `CRITICAL VIDEO & AUDIO BROADCAST DIRECTIVE:
 - This slant is rooted in a VIDEO or AUDIO broadcast (e.g. YouTube interview, podcast episode, keynote, or debate).
 - Mental model: "I watched/listened to something that sparked a reaction."
@@ -312,7 +389,8 @@ Respond strictly with valid JSON with this exact structure:
   "publicationName": "${pubName || (sourceType === 'inner_voice' ? 'Inner Voice' : (sourceType === 'video_audio' ? 'Broadcast Slant' : 'Curated Press'))}",
   "categoryBadge": "UPPERCASE CATEGORY (e.g. DEEP TECH, CULTURE, OPINION, CLIMATE, ECONOMY, HEALTH)",
   "hook": "1-2 sentence gripping hook that stops the reader mid-scroll",
-  "curatorTake": ${refineCoreTake ? `"EXACTLY 2 complete sentences (25-35 words) of elevated, model-synthesized editorial critique completely rephrasing and elevating the curator's raw thought into polished prose ending with a period (NEVER copy raw user words verbatim)."` : `"The curator's exact typed words verbatim: ${JSON.stringify(userSlant || 'Insight in motion.')}"`},
+  "polishedCuratorTake": "${userSlant ? 'The curator\'s exact full-length input with gentle grammar, spelling, and phrase corrections applied (preserving 100% of their voice, thoughts, and length).' : ''}",
+  "curatorTake": "EXACTLY 2 complete sentences (25-35 words total, ending with a period) of elevated, punchy editorial conviction derived directly from the curator's perspective (do NOT dump long raw text here).",
   "summary": "${sourceType === 'inner_voice' ? 'Exactly 3 broadsheet paragraphs of lived experience reflection (50-60, 45-55, 40-50 words; 135-165 words total).' : (userSlant ? 'Exactly 3 broadsheet paragraphs elaborating the curator\'s take in direct connection with the attached source (50-60, 45-55, 40-50 words; 135-165 words total). Never an objective book report.' : 'Exactly 3 broadsheet paragraphs of objective journalistic reporting (50-60, 45-55, 40-50 words; 135-165 words total).')}",
   "whyItMatters": "1-2 sharp sentences on the stakes and why this perspective matters right now (18-28 words)",
   "keyTakeaways": [
@@ -352,9 +430,19 @@ Respond strictly with valid JSON with this exact structure:
         text: `Here is a photograph of a printed news clipping, article, or document. OCR and analyze it, then synthesize the Slant 3-poster carousel as requested:\n\n${systemPrompt}`
       });
     } else if (sourceType === 'inner_voice') {
+      if (effectiveCatalystImage) {
+        const cleanData = effectiveCatalystImage.includes(',') ? effectiveCatalystImage.split(',')[1] : effectiveCatalystImage;
+        parts.push({
+          inlineData: {
+            mimeType: effectiveCatalystMime,
+            data: cleanData
+          }
+        });
+      }
       const partsContent = [
         `Curator's Personal Slant & Angle: "${userSlant || 'Personal reflection and conviction.'}"`,
-        spark ? `Personal Spark & Context: "${spark}"` : ''
+        spark ? `Personal Spark & Context: "${spark}"` : '',
+        effectiveCatalystImage ? `Real-World Catalyst Scene Photo: [Attached image depicts the physical real-world scene, moment, or subject that sparked this inner voice reflection. Visually identify what is in this scene and weave its tangible elements, lighting, and environmental contrast into the headline, hook, takeaways, and illustrationPrompt.]` : ''
       ].filter(Boolean).join('\n\n');
       parts.push({
         text: `${systemPrompt}\n\nUser Input Content (Inner Voice Personal Reflection):\n${partsContent}`
@@ -562,12 +650,25 @@ Respond strictly with valid JSON with this exact structure:
       finalIllustrationUrl = '';
     }
 
-    let finalCuratorTake = (refineCoreTake && parsed.curatorTake && parsed.curatorTake.trim().length > 10)
+    // 1. Polished Curator Input (for native lines below the post card & Generation Inputs)
+    let finalPolishedCuratorTake = '';
+    if (parsed.polishedCuratorTake && parsed.polishedCuratorTake.trim().length > 5) {
+      finalPolishedCuratorTake = formatCuratorTakeApt(parsed.polishedCuratorTake.trim());
+    } else if (userSlant && userSlant.trim().length > 0) {
+      finalPolishedCuratorTake = formatCuratorTakeApt(userSlant.trim());
+    }
+
+    // 2. Poster 2 Curated Take (2-sentence punchy visual pull-quote framed for Slide 2 card)
+    let finalCuratorTake = (parsed.curatorTake && parsed.curatorTake.trim().length > 10)
       ? parsed.curatorTake.trim()
       : (userSlant || 'Strategic structural shift in motion.');
 
-    if (!finalCuratorTake.endsWith('.') && !finalCuratorTake.endsWith('!') && !finalCuratorTake.endsWith('?')) {
-      finalCuratorTake += '.';
+    finalCuratorTake = formatCuratorTakeApt(finalCuratorTake);
+
+    // Ensure Poster 2 curated take stays strictly within 2-sentence visual budget (25-35 words)
+    const takeSents = finalCuratorTake.split(/(?<=[.!?])\s+/);
+    if (takeSents.length > 2 && finalCuratorTake.length > 220) {
+      finalCuratorTake = takeSents.slice(0, 2).join(' ');
     }
 
     const rawExcerpts = Array.isArray(parsed.resolvedArticleExcerpts) ? parsed.resolvedArticleExcerpts : [];
@@ -605,26 +706,34 @@ Respond strictly with valid JSON with this exact structure:
       creatorHandle: creatorHandle || '@curator',
       slantTone: slantTone || 'mind',
       slantIcon: slantTone === 'heart' ? '❤️' : '🧠',
-      creatorOpinion: finalCuratorTake,
+      creatorOpinion: finalPolishedCuratorTake || finalCuratorTake,
       curatorTake: finalCuratorTake,
+      polishedCuratorTake: finalPolishedCuratorTake || formatCuratorTakeApt(userSlant || finalCuratorTake),
       rawUserSlant: userSlant || '',
       refineCoreTake,
       vocabularyStyle: vocabularyStyle || 'punchy',
       isUserCreated: true,
       sourceType: sourceType,
-      originalPhotoBase64: (sourceType === 'photo' && imageBase64) ? imageBase64 : null,
+      originalPhotoBase64: (sourceType === 'photo' && imageBase64) ? imageBase64 : (sourceType === 'inner_voice' && effectiveCatalystImage ? effectiveCatalystImage : null),
+      originalPhotoMimeType: (sourceType === 'inner_voice' && effectiveCatalystImage) ? effectiveCatalystMime : (imageMimeType || 'image/jpeg'),
+      catalystPhoto: (sourceType === 'inner_voice' && effectiveCatalystImage) ? effectiveCatalystImage : null,
+      catalystPhotoBase64: (sourceType === 'inner_voice' && effectiveCatalystImage) ? effectiveCatalystImage : null,
       hasPaperCut: (sourceType === 'photo' && !!imageBase64),
       userContext: spark || '',
       spark: spark || '',
       countryContext: countryContext || 'India',
       contextProvided: userSlant || extractedContent || spark || '',
-      userSlantTake: userSlant || '',
+      userSlantTake: finalPolishedCuratorTake || userSlant || '',
       sourceContext: extractedContent || '',
       generationInputs: {
-        slantTake: userSlant || '',
+        slantTake: finalPolishedCuratorTake || userSlant || '',
         sourceUrl: url || '',
         sourceType: sourceType,
         spark: spark || '',
+        catalystPhoto: (sourceType === 'inner_voice' && effectiveCatalystImage) ? effectiveCatalystImage : null,
+        catalystPhotoBase64: (sourceType === 'inner_voice' && effectiveCatalystImage) ? effectiveCatalystImage : null,
+        innerVoiceImageBase64: effectiveCatalystImage || null,
+        innerVoiceImageMimeType: effectiveCatalystImage ? effectiveCatalystMime : null,
         cues: cues || [],
         heroCue: parsed.heroCue || (cues && cues[0]) || '',
         characterRepresentation,
@@ -650,6 +759,104 @@ Respond strictly with valid JSON with this exact structure:
     return res.status(500).json({ error: 'Server synthesis error: ' + error.message });
   }
 };
+
+function formatCuratorTakeApt(text) {
+  if (!text || typeof text !== 'string') return '';
+  let s = text.trim();
+
+  // Strip wrapping quotes, markdown brackets, or label prefixes
+  s = s.replace(/^["'“”‘’«»]+|["'“”‘’«»]+$/g, '');
+  s = s.replace(/^(my take|curator take|curator conviction|editorial conviction|take|slant|curator stance|opinion|perspective|spark)\s*:\s*/i, '');
+
+  // Normalize all whitespaces and linebreaks into clean single spaces
+  s = s.replace(/[\r\n\t]+/g, ' ').replace(/\s{2,}/g, ' ').trim();
+
+  // Fix spacing before punctuation marks
+  s = s.replace(/\s+([.,;:!?])/g, '$1');
+
+  // Fix missing space after punctuation when directly touching a word
+  s = s.replace(/([,;:])([A-Za-z])/g, '$1 $2');
+  s = s.replace(/([.!?])([A-Za-z])/g, '$1 $2');
+
+  // Normalize duplicate commas/periods
+  s = s.replace(/,{2,}/g, ',');
+  s = s.replace(/(?<!\.)\.{2}(?!\.)/g, '.');
+
+  // Subtle English grammar, contraction, and phrasing adjustments without altering substance
+  const subtleFixes = [
+    [/\bdont\b/gi, "don't"],
+    [/\bcant\b/gi, "can't"],
+    [/\bwont\b/gi, "won't"],
+    [/\bdidnt\b/gi, "didn't"],
+    [/\bdoesnt\b/gi, "doesn't"],
+    [/\bisnt\b/gi, "isn't"],
+    [/\barent\b/gi, "aren't"],
+    [/\bwasnt\b/gi, "wasn't"],
+    [/\bwerent\b/gi, "weren't"],
+    [/\bhasnt\b/gi, "hasn't"],
+    [/\bhavent\b/gi, "haven't"],
+    [/\bcouldnt\b/gi, "couldn't"],
+    [/\bwouldnt\b/gi, "wouldn't"],
+    [/\bshouldnt\b/gi, "shouldn't"],
+    [/\byoure\b/gi, "you're"],
+    [/\btheyre\b/gi, "they're"],
+    [/\bweve\b/gi, "we've"],
+    [/\bive\b/gi, "I've"],
+    [/\bim\b/g, "I'm"],
+    [/\bIm\b/g, "I'm"],
+    [/\bi\b/g, 'I'],
+    [/\bdoesn't realizes\b/gi, "doesn't realize"],
+    [/\bdoes not realizes\b/gi, "does not realize"],
+    [/\bdidn't got\b/gi, "didn't get"],
+    [/\bdid not got\b/gi, "did not get"],
+    [/\bdidn't lived\b/gi, "didn't live"],
+    [/\bdid not lived\b/gi, "did not live"],
+    [/\bspend it's time\b/gi, 'spend its time'],
+    [/\bhumanly nature\b/gi, 'human nature'],
+    [/\bquiet a natural\b/gi, 'quite a natural'],
+    [/\bcausing the earth inhabitable\b/gi, 'making the Earth uninhabitable'],
+    [/\bcausing the earth to be inhabitable\b/gi, 'making the Earth uninhabitable'],
+    [/\bunsecured future feeling\b/gi, 'a feeling of an insecure future'],
+    [/\bbehavioural change of people\b/gi, 'behavioural changes of people'],
+    [/\bHigh time all work\b/gi, 'It is high time we all work'],
+    [/\bhigh time all work\b/gi, 'it is high time we all work'],
+    [/\ba act\b/gi, 'an act'],
+    [/\ba expected\b/gi, 'an expected'],
+    [/\ba insecure\b/gi, 'an insecure'],
+    [/\bpurpose less\b/gi, 'purposeless'],
+    [/\binspite of\b/gi, 'in spite of'],
+    [/\bacross world\b/gi, 'across the world'],
+    [/\baddeessal\b/gi, 'addressal'],
+    [/\bthis projects turns out\b/gi, 'this project turns out'],
+    [/\bneed to be take ownership\b/gi, 'need to take ownership'],
+    [/\bother can't escape\b/gi, "others can't escape"],
+    [/\bother cannot escape\b/gi, 'others cannot escape']
+  ];
+
+  for (const [pattern, replacement] of subtleFixes) {
+    s = s.replace(pattern, replacement);
+  }
+
+  // Break run-on comma splices where a new sentence clearly starts
+  s = s.replace(/,\s*(All of these are|Every living being|It is high time|High time|Rather|This is|There must be|True elegance|True sanctity)\b/g, (match, p1) => '. ' + p1);
+
+  // Capitalize proper nouns
+  s = s.replace(/\bthe earth\b/g, 'the Earth');
+  s = s.replace(/\bthe earth's\b/g, "the Earth's");
+
+  // Capitalize first letter of every sentence
+  s = s.replace(/(^|[.!?]\s+)([a-z])/g, (match, prefix, char) => prefix + char.toUpperCase());
+
+  // Clean trailing punctuation
+  s = s.replace(/[,;:\-\s]+$/, '');
+
+  // Ensure apt sentence completion
+  if (!/[.!?]$/.test(s)) {
+    s += '.';
+  }
+
+  return s;
+}
 
 function generateSmartFallbackSynthesis({
   sourceType,
@@ -722,7 +929,9 @@ function generateSmartFallbackSynthesis({
       publicationName: 'Inner Voice',
       categoryBadge: 'PERSPECTIVE',
       hook: `${headline}. When the pace of external demands accelerates, genuine presence becomes an act of quiet rebellion.`,
-      curatorTake: refinedTake,
+      curatorTake: formatCuratorTakeApt(refinedTake),
+      polishedCuratorTake: formatCuratorTakeApt(userSlant || refinedTake),
+      creatorOpinion: formatCuratorTakeApt(userSlant || refinedTake),
       summary: `${userSlant || 'True restoration begins when you accept that work can wait, but presence cannot.'}\n\nExamining our reflexive habits reveals that we often mistake urgency for importance.\n\nThe real discipline is establishing intentional boundaries before exhaustion makes the choice for us.`,
       whyItMatters: 'Without intentional boundaries, external noise will always consume the mental space needed for genuine reflection.',
       keyTakeaways: [
@@ -906,7 +1115,9 @@ function generateSmartFallbackSynthesis({
     publicationName: pubName || (url ? (new URL(url).hostname.replace(/^www\./, '')) : 'Curated Press'),
     categoryBadge: defaultCategory,
     hook: hookText,
-    curatorTake: refinedTake,
+    curatorTake: formatCuratorTakeApt(refinedTake),
+    polishedCuratorTake: formatCuratorTakeApt(userSlant || refinedTake),
+    creatorOpinion: formatCuratorTakeApt(userSlant || refinedTake),
     summary: fallbackSummary,
     whyItMatters: (sourceLedger && sourceLedger.underlying_tensions)
       ? (typeof sourceLedger.underlying_tensions === 'object' ? (sourceLedger.underlying_tensions.primary_conflict || sourceLedger.underlying_tensions.tradeoffs) : String(sourceLedger.underlying_tensions))
