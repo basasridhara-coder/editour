@@ -339,11 +339,10 @@ ${sourceType === 'inner_voice' ? `CRITICAL INNER VOICE & LIVED EXPERIENCE DIRECT
   * Set to the spark statement or a refined 6–12 word hook of the spark (e.g. "When a forgotten packing item breaks the work trance and signals the escape"). NEVER set to the raw user slant.
 - IN "illustrationPrompt":
   * Describe a warm, colorful, sunny scene of real people packing or getting ready, with smiling illuminated faces, colorful room, suitcase, tropical palms visible through window, warm golden light.
-  * Explicitly instruct: "Realistic people with clearly visible smiling faces, warm daylight, vibrant colors, Kerala palm trees, cheerful atmosphere, highly detailed, no silhouettes, no dark shadows, no faceless figures, no text".` : (userSlant ? `CURATOR TAKE PHRASING & GRAMMAR DIRECTIVE:
-- Poster 2 ("THE CRITICAL PERSPECTIVE" / Curator Take) MUST represent the curator's actual take provided in their own voice: "${userSlant}".
-- Make it grammatically correct and phrase it out neatly without changing or adding anything more to it: neither elaborate into new ideas nor cut it short.
-- Polish it into apt, natural, fluid English with subtle grammatical, punctuation, and structural fixes (fixing run-on sentences, proper capitalization, fixing typos, and ensuring proper sentence endings).
-- Preserve all of the curator's original thoughts, specific examples, and convictions in their authentic voice. Return this in "curatorTake".` : '')}
+  * Explicitly instruct: "Realistic people with clearly visible smiling faces, warm daylight, vibrant colors, Kerala palm trees, cheerful atmosphere, highly detailed, no silhouettes, no dark shadows, no faceless figures, no text".` : (userSlant ? `CRITICAL POSTER 2 DIRECTIVE (CURATED TAKE DERIVED FROM INPUT):
+- Poster 2 ("THE CRITICAL PERSPECTIVE" / Curator Take) MUST be an articulate, model-synthesized editorial conviction derived directly from the curator's perspective ("${userSlant}").
+- It MUST be EXACTLY 2 complete sentences (25–35 words total, ending definitively with a period).
+- Elevate and synthesize the core thesis of the curator's stance into a high-impact, punchy pull-quote that fits an editorial poster frame without filling the entire poster. Return this in "curatorTake".` : '')}
 ${sourceType === 'video_audio' ? `CRITICAL VIDEO & AUDIO BROADCAST DIRECTIVE:
 - This slant is rooted in a VIDEO or AUDIO broadcast (e.g. YouTube interview, podcast episode, keynote, or debate).
 - Mental model: "I watched/listened to something that sparked a reaction."
@@ -378,7 +377,7 @@ Respond strictly with valid JSON with this exact structure:
   "publicationName": "${pubName || (sourceType === 'inner_voice' ? 'Inner Voice' : (sourceType === 'video_audio' ? 'Broadcast Slant' : 'Curated Press'))}",
   "categoryBadge": "UPPERCASE CATEGORY (e.g. DEEP TECH, CULTURE, OPINION, CLIMATE, ECONOMY, HEALTH)",
   "hook": "1-2 sentence gripping hook that stops the reader mid-scroll",
-  "curatorTake": ${userSlant ? `"The curator's actual take in their own voice, made grammatically correct and phrased out neatly without changing or adding anything more to it, neither elaborating nor cutting short, with subtle adjustments into apt English ending with a period."` : `"1-2 sharp sentences capturing the primary critical perspective."`},
+  "curatorTake": "EXACTLY 2 complete sentences (25-35 words total, ending with a period) of elevated, punchy editorial conviction derived directly from the curator's perspective (do NOT dump long raw text here).",
   "summary": "${sourceType === 'inner_voice' ? 'Exactly 3 broadsheet paragraphs of lived experience reflection (50-60, 45-55, 40-50 words; 135-165 words total).' : (userSlant ? 'Exactly 3 broadsheet paragraphs elaborating the curator\'s take in direct connection with the attached source (50-60, 45-55, 40-50 words; 135-165 words total). Never an objective book report.' : 'Exactly 3 broadsheet paragraphs of objective journalistic reporting (50-60, 45-55, 40-50 words; 135-165 words total).')}",
   "whyItMatters": "1-2 sharp sentences on the stakes and why this perspective matters right now (18-28 words)",
   "keyTakeaways": [
@@ -633,6 +632,12 @@ Respond strictly with valid JSON with this exact structure:
       : (userSlant || 'Strategic structural shift in motion.');
 
     finalCuratorTake = formatCuratorTakeApt(finalCuratorTake);
+
+    // Ensure Poster 2 curated take stays strictly within 2-sentence visual budget (25-35 words)
+    const takeSents = finalCuratorTake.split(/(?<=[.!?])\s+/);
+    if (takeSents.length > 2 && finalCuratorTake.length > 220) {
+      finalCuratorTake = takeSents.slice(0, 2).join(' ');
+    }
 
     const rawExcerpts = Array.isArray(parsed.resolvedArticleExcerpts) ? parsed.resolvedArticleExcerpts : [];
     const cleanedExcerpts = rawExcerpts.map(e => String(e).replace(/^(the spark|curator stance|paragraph \d+)\s*:\s*["']?/i, '').replace(/["']?$/i, '').trim());
