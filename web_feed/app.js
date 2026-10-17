@@ -2281,11 +2281,12 @@ function setupSwipeBlockedListener() {
 }
 
 function getPostFromIndexOrId(indexOrId) {
+  if (indexOrId === 'preview') return (typeof currentSynthesizedPost !== 'undefined' ? currentSynthesizedPost : null);
   if (typeof indexOrId === 'number' || (typeof indexOrId === 'string' && /^\d+$/.test(indexOrId))) {
     const idx = parseInt(indexOrId, 10);
-    return currentBatchFilteredPosts[idx] || allPosts[idx] || null;
+    return (typeof currentBatchFilteredPosts !== 'undefined' && currentBatchFilteredPosts[idx]) || (typeof allPosts !== 'undefined' && allPosts[idx]) || null;
   }
-  return allPosts.find(p => p && p.id === indexOrId) || null;
+  return (typeof allPosts !== 'undefined' && allPosts.find(p => p && p.id === indexOrId)) || null;
 }
 
 async function renderFeed(isInitial = false) {
@@ -2671,6 +2672,186 @@ function getStartingLines(fullText) {
     return fullText.substring(0, cutoff);
   }
   return fullText.substring(0, 120);
+}
+
+function formatCuratorTakeApt(text) {
+  if (!text || typeof text !== 'string') return '';
+  let s = text.trim();
+
+  // Strip wrapping quotes, markdown brackets, or label prefixes
+  s = s.replace(/^["'“”‘’«»]+|["'“”‘’«»]+$/g, '');
+  s = s.replace(/^(my take|curator take|curator conviction|editorial conviction|take|slant|curator stance|opinion|perspective|spark)\s*:\s*/i, '');
+
+  // Normalize all whitespaces and linebreaks into clean single spaces
+  s = s.replace(/[\r\n\t]+/g, ' ').replace(/\s{2,}/g, ' ').trim();
+
+  // Fix spacing before punctuation marks (e.g. 'crisis , and' -> 'crisis, and')
+  s = s.replace(/\s+([.,;:!?])/g, '$1');
+
+  // Fix missing space after punctuation when directly touching a word (e.g. 'today,but' -> 'today, but')
+  s = s.replace(/([,;:])([A-Za-z])/g, '$1 $2');
+  s = s.replace(/([.!?])([A-Za-z])/g, '$1 $2');
+
+  // Normalize duplicate commas/periods (e.g. ',,' -> ',', '..' -> '.')
+  s = s.replace(/,{2,}/g, ',');
+  s = s.replace(/(?<!\.)\.{2}(?!\.)/g, '.');
+
+  // Subtle English grammar, contraction, and phrasing adjustments without changing substance
+  const subtleFixes = [
+    // Standard Contractions
+    [/\bdont\b/gi, "don't"],
+    [/\bcant\b/gi, "can't"],
+    [/\bwont\b/gi, "won't"],
+    [/\bdidnt\b/gi, "didn't"],
+    [/\bdoesnt\b/gi, "doesn't"],
+    [/\bisnt\b/gi, "isn't"],
+    [/\barent\b/gi, "aren't"],
+    [/\bwasnt\b/gi, "wasn't"],
+    [/\bwerent\b/gi, "weren't"],
+    [/\bhasnt\b/gi, "hasn't"],
+    [/\bhavent\b/gi, "haven't"],
+    [/\bcouldnt\b/gi, "couldn't"],
+    [/\bwouldnt\b/gi, "wouldn't"],
+    [/\bshouldnt\b/gi, "shouldn't"],
+    [/\byoure\b/gi, "you're"],
+    [/\btheyre\b/gi, "they're"],
+    [/\bweve\b/gi, "we've"],
+    [/\bive\b/gi, "I've"],
+    [/\bim\b/g, "I'm"],
+    [/\bIm\b/g, "I'm"],
+    [/\bi\b/g, 'I'],
+    // Subject-verb agreement & common phrasing fixes
+    [/\bdoesn't realizes\b/gi, "doesn't realize"],
+    [/\bdoes not realizes\b/gi, "does not realize"],
+    [/\bdidn't got\b/gi, "didn't get"],
+    [/\bdid not got\b/gi, "did not get"],
+    [/\bdidn't lived\b/gi, "didn't live"],
+    [/\bdid not lived\b/gi, "did not live"],
+    [/\bspend it's time\b/gi, 'spend its time'],
+    [/\bhumanly nature\b/gi, 'human nature'],
+    [/\bquiet a natural\b/gi, 'quite a natural'],
+    [/\bcausing the earth inhabitable\b/gi, 'making the Earth uninhabitable'],
+    [/\bcausing the earth to be inhabitable\b/gi, 'making the Earth uninhabitable'],
+    [/\bunsecured future feeling\b/gi, 'a feeling of an insecure future'],
+    [/\bbehavioural change of people\b/gi, 'behavioural changes of people'],
+    [/\bHigh time all work\b/gi, 'It is high time we all work'],
+    [/\bhigh time all work\b/gi, 'it is high time we all work'],
+    [/\ba act\b/gi, 'an act'],
+    [/\ba expected\b/gi, 'an expected'],
+    [/\ba insecure\b/gi, 'an insecure'],
+    [/\bpurpose less\b/gi, 'purposeless'],
+    [/\binspite of\b/gi, 'in spite of'],
+    [/\bacross world\b/gi, 'across the world'],
+    [/\baddeessal\b/gi, 'addressal'],
+    [/\bthis projects turns out\b/gi, 'this project turns out'],
+    [/\bneed to be take ownership\b/gi, 'need to take ownership'],
+    [/\bother can't escape\b/gi, "others can't escape"],
+    [/\bother cannot escape\b/gi, 'others cannot escape']
+  ];
+
+  for (const [pattern, replacement] of subtleFixes) {
+    s = s.replace(pattern, replacement);
+  }
+
+  // Break run-on comma splices where a new sentence clearly starts
+  s = s.replace(/,\s*(All of these are|Every living being|It is high time|High time|Rather|This is|There must be|True elegance|True sanctity)\b/g, (match, p1) => '. ' + p1);
+
+  // Capitalize proper nouns
+  s = s.replace(/\bthe earth\b/g, 'the Earth');
+  s = s.replace(/\bthe earth's\b/g, "the Earth's");
+
+  // Capitalize first letter of every sentence
+  s = s.replace(/(^|[.!?]\s+)([a-z])/g, (match, prefix, char) => prefix + char.toUpperCase());
+
+  // Clean trailing punctuation: remove dangling commas, colons, semicolons, hyphens
+  s = s.replace(/[,;:\-\s]+$/, '');
+
+  // Ensure apt sentence completion
+  if (!/[.!?]$/.test(s)) {
+    s += '.';
+  }
+
+  return s;
+}
+
+function getCuratorTakeText(post) {
+  if (!post) return '';
+  // Prioritize the actual take provided by the curator
+  let text = (post.rawUserSlant && post.rawUserSlant.trim())
+    || (post.curatorTake && post.curatorTake.trim())
+    || (post.creatorOpinion && post.creatorOpinion.trim())
+    || (post.userSlantTake && post.userSlantTake.trim())
+    || (post.generationInputs?.slantTake && post.generationInputs.slantTake.trim());
+
+  if (!text && (post.sourceType === 'inner_voice' || post.publicationName === 'Inner Voice')) {
+    text = (post.summary && post.summary.trim()) || (post.hook && post.hook.trim()) || '';
+  }
+  if (!text) {
+    text = (post.hook && post.hook.trim()) || (post.summary && post.summary.trim()) || '';
+  }
+  return formatCuratorTakeApt(text);
+}
+
+function getCaptionSnippet(text, maxLen = 140) {
+  if (!text) return '';
+  if (text.length <= maxLen) return text;
+  const cutoff = text.lastIndexOf(' ', maxLen);
+  let s = (cutoff !== -1 && cutoff >= 80) ? text.substring(0, cutoff) : text.substring(0, maxLen);
+  s = s.replace(/[,;:\-\s]+$/, '');
+  // Trim dangling prepositions or conjunctions before ellipsis
+  s = s.replace(/\s+(of|to|in|for|with|a|an|the|and|but|or|as|by|on|at|that|which)$/i, '');
+  return s.replace(/[,;:\-\s]+$/, '');
+}
+
+window.expandedCaptionsState = window.expandedCaptionsState || {};
+
+function toggleCaptionExpand(index, shouldExpand) {
+  if (typeof shouldExpand !== 'boolean') {
+    shouldExpand = !window.expandedCaptionsState[index];
+  }
+  window.expandedCaptionsState[index] = shouldExpand;
+
+  const snippetEl = document.getElementById(`caption-snippet-${index}`);
+  if (!snippetEl) return;
+
+  const post = getPostFromIndexOrId(index);
+  if (!post) return;
+
+  const handle = post.creatorHandle || '@curator';
+  const fullText = getCuratorTakeText(post);
+  const isLong = fullText.length > 160;
+
+  if (!isLong) {
+    snippetEl.classList.remove('is-expanded');
+    snippetEl.onclick = null;
+    snippetEl.style.cursor = 'default';
+    snippetEl.innerHTML = `
+      <span class="post-creator-handle"><strong>${escapeHtml(handle)}</strong></span>
+      <span class="post-caption-text" id="caption-text-${index}">${escapeHtml(fullText)}</span>
+    `;
+    return;
+  }
+
+  if (shouldExpand) {
+    snippetEl.classList.add('is-expanded');
+    snippetEl.onclick = null;
+    snippetEl.style.cursor = 'default';
+    snippetEl.innerHTML = `
+      <span class="post-creator-handle"><strong>${escapeHtml(handle)}</strong></span>
+      <span class="post-caption-text" id="caption-text-${index}">${escapeHtml(fullText)}</span>
+      <button type="button" class="read-more-btn" onclick="event.stopPropagation(); toggleCaptionExpand('${index}', false)">less</button>
+    `;
+  } else {
+    snippetEl.classList.remove('is-expanded');
+    snippetEl.onclick = () => toggleCaptionExpand(index, true);
+    snippetEl.style.cursor = 'pointer';
+    const collapsedSnippet = getCaptionSnippet(fullText, 140);
+    snippetEl.innerHTML = `
+      <span class="post-creator-handle"><strong>${escapeHtml(handle)}</strong></span>
+      <span class="post-caption-text" id="caption-text-${index}">${escapeHtml(collapsedSnippet)}</span>
+      <button type="button" class="read-more-btn" onclick="event.stopPropagation(); toggleCaptionExpand('${index}', true)">... more</button>
+    `;
+  }
 }
 
 /* ============================================================
@@ -3423,6 +3604,35 @@ function createPostCardElement(post, index) {
     </div>
   `;
 
+  // Instagram-style Caption Area: Creator Handle + Curator Take + Native Inline Expand
+  const curatorTakeClean = getCuratorTakeText(post);
+  const isCaptionExpanded = !!(window.expandedCaptionsState && window.expandedCaptionsState[index]);
+  const isLongCaption = curatorTakeClean.length > 160;
+
+  let captionSnippetHtml = '';
+  if (!isLongCaption) {
+    // Concise take (1-2 sentences): display fully with zero ellipsis or truncation
+    captionSnippetHtml = `
+      <span class="post-creator-handle"><strong>${escapeHtml(handle)}</strong></span>
+      <span class="post-caption-text" id="caption-text-${index}">${escapeHtml(curatorTakeClean)}</span>
+    `;
+  } else if (isCaptionExpanded) {
+    // Expanded inline state: show complete text with subtle 'less' toggle
+    captionSnippetHtml = `
+      <span class="post-creator-handle"><strong>${escapeHtml(handle)}</strong></span>
+      <span class="post-caption-text" id="caption-text-${index}">${escapeHtml(curatorTakeClean)}</span>
+      <button type="button" class="read-more-btn" onclick="event.stopPropagation(); toggleCaptionExpand('${index}', false)">less</button>
+    `;
+  } else {
+    // Collapsed state: neat word-aligned snippet with '... more' button
+    const collapsedSnippet = getCaptionSnippet(curatorTakeClean, 140);
+    captionSnippetHtml = `
+      <span class="post-creator-handle"><strong>${escapeHtml(handle)}</strong></span>
+      <span class="post-caption-text" id="caption-text-${index}">${escapeHtml(collapsedSnippet)}</span>
+      <button type="button" class="read-more-btn" onclick="event.stopPropagation(); toggleCaptionExpand('${index}', true)">... more</button>
+    `;
+  }
+
   card.innerHTML = `
     <div class="post-header">
       <div class="creator-info">
@@ -3562,12 +3772,10 @@ function createPostCardElement(post, index) {
       </div>
     </div>
 
-    <!-- Instagram-style Caption Area: Creator Handle + Summary Starting Lines + '... more' -->
+    <!-- Instagram-style Caption Area: Creator Handle + Curator Take + Native Inline Expand -->
     <div class="post-content">
-      <div class="post-summary-snippet" onclick="${isInnerVoice ? `goToSlide(event, '${index}', 2)` : `openDetailModal('${index}')`}" style="cursor:pointer;">
-        <span class="post-creator-handle"><strong>${escapeHtml(handle)}</strong></span>
-        <span class="post-caption-text">${escapeHtml(getStartingLines(summary))}</span>
-        <button class="read-more-btn" onclick="event.stopPropagation(); ${isInnerVoice ? `goToSlide(event, '${index}', 2);` : `openDetailModal('${index}');`}">... more</button>
+      <div class="post-summary-snippet ${isCaptionExpanded ? 'is-expanded' : ''}" id="caption-snippet-${index}" ${isLongCaption && !isCaptionExpanded ? `onclick="toggleCaptionExpand('${index}', true)" style="cursor: pointer;"` : ''}>
+        ${captionSnippetHtml}
       </div>
     </div>
   `;

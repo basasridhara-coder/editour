@@ -838,33 +838,41 @@ header {
 }
 
 .post-summary-snippet {
-  font-size: 13px;
-  line-height: 1.46;
+  font-size: 13.5px;
+  line-height: 1.48;
   color: #CBD5E1;
-  margin-top: 1px;
+  margin-top: 2px;
+  transition: all 0.2s ease;
+}
+
+.post-summary-snippet.is-expanded {
+  white-space: normal;
 }
 
 .post-creator-handle {
   font-weight: 700;
   color: #F8FAFC;
-  margin-right: 4px;
+  margin-right: 5px;
 }
 
 .post-caption-text {
-  color: rgba(241, 245, 249, 0.88);
+  color: rgba(241, 245, 249, 0.92);
+  word-break: break-word;
 }
 
 .read-more-btn {
-  color: var(--primary);
+  color: var(--primary, #38BDF8);
   background: none;
   border: none;
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
   margin-left: 4px;
+  padding: 0 2px;
 }
 .read-more-btn:hover {
   text-decoration: underline;
+  opacity: 0.85;
 }
 
 /* Modals */
@@ -2962,6 +2970,18 @@ header {
 
 [data-theme="daylight"] .post-summary-snippet {
   color: #334155;
+}
+
+[data-theme="daylight"] .post-creator-handle {
+  color: #0F172A;
+}
+
+[data-theme="daylight"] .post-caption-text {
+  color: #334155;
+}
+
+[data-theme="daylight"] .read-more-btn {
+  color: #0284C7;
 }
 
 [data-theme="daylight"] .post-curated-angle-box {

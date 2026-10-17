@@ -272,12 +272,11 @@ ${sourceType === 'inner_voice' ? `CRITICAL INNER VOICE & LIVED EXPERIENCE DIRECT
   * Set to the spark statement or a refined 6–12 word hook of the spark (e.g. "When a forgotten packing item breaks the work trance and signals the escape"). NEVER set to the raw user slant.
 - IN "illustrationPrompt":
   * Describe a warm, colorful, sunny scene of real people packing or getting ready, with smiling illuminated faces, colorful room, suitcase, tropical palms visible through window, warm golden light.
-  * Explicitly instruct: "Realistic people with clearly visible smiling faces, warm daylight, vibrant colors, Kerala palm trees, cheerful atmosphere, highly detailed, no silhouettes, no dark shadows, no faceless figures, no text".` : (userSlant ? (refineCoreTake ? `MANDATORY REFINEMENT DIRECTIVE (NEVER ECHO VERBATIM):
-- Poster 2 ("THE CRITICAL PERSPECTIVE" / Curator Take) MUST NEVER display the user's raw slant verbatim!
-- You MUST completely rewrite and elevate the curator's raw perspective ("${userSlant}") into an articulate, model-synthesized editorial argument (EXACTLY 2 complete sentences, 25–35 words total, ending definitively with a period).
-- DO NOT copy or repeat phrases from the user's input. Synthesize an elevated argument that grounds their angle in the story's concrete facts, key actors, and structural implications.
-- Strictly adhere to the Vocabulary Directive: use vivid, emotionally resonant, easily understandable English without heavy SAT/GRE academic jargon. Return this elevated statement in "curatorTake".` : `VERBATIM DIRECTIVE:
-- Poster 2 ("THE CRITICAL PERSPECTIVE") MUST preserve the curator's exact typed words verbatim: "${userSlant}", ending with a period. Return this in "curatorTake".`) : '')}
+  * Explicitly instruct: "Realistic people with clearly visible smiling faces, warm daylight, vibrant colors, Kerala palm trees, cheerful atmosphere, highly detailed, no silhouettes, no dark shadows, no faceless figures, no text".` : (userSlant ? `CURATOR TAKE PHRASING & GRAMMAR DIRECTIVE:
+- Poster 2 ("THE CRITICAL PERSPECTIVE" / Curator Take) MUST represent the curator's actual take provided in their own voice: "${userSlant}".
+- Make it grammatically correct and phrase it out neatly without changing or adding anything more to it: neither elaborate into new ideas nor cut it short.
+- Polish it into apt, natural, fluid English with subtle grammatical, punctuation, and structural fixes (fixing run-on sentences, proper capitalization, fixing typos, and ensuring proper sentence endings).
+- Preserve all of the curator's original thoughts, specific examples, and convictions in their authentic voice. Return this in "curatorTake".` : '')}
 ${sourceType === 'video_audio' ? `CRITICAL VIDEO & AUDIO BROADCAST DIRECTIVE:
 - This slant is rooted in a VIDEO or AUDIO broadcast (e.g. YouTube interview, podcast episode, keynote, or debate).
 - Mental model: "I watched/listened to something that sparked a reaction."
@@ -312,7 +311,7 @@ Respond strictly with valid JSON with this exact structure:
   "publicationName": "${pubName || (sourceType === 'inner_voice' ? 'Inner Voice' : (sourceType === 'video_audio' ? 'Broadcast Slant' : 'Curated Press'))}",
   "categoryBadge": "UPPERCASE CATEGORY (e.g. DEEP TECH, CULTURE, OPINION, CLIMATE, ECONOMY, HEALTH)",
   "hook": "1-2 sentence gripping hook that stops the reader mid-scroll",
-  "curatorTake": ${refineCoreTake ? `"EXACTLY 2 complete sentences (25-35 words) of elevated, model-synthesized editorial critique completely rephrasing and elevating the curator's raw thought into polished prose ending with a period (NEVER copy raw user words verbatim)."` : `"The curator's exact typed words verbatim: ${JSON.stringify(userSlant || 'Insight in motion.')}"`},
+  "curatorTake": ${userSlant ? `"The curator's actual take in their own voice, made grammatically correct and phrased out neatly without changing or adding anything more to it, neither elaborating nor cutting short, with subtle adjustments into apt English ending with a period."` : `"1-2 sharp sentences capturing the primary critical perspective."`},
   "summary": "${sourceType === 'inner_voice' ? 'Exactly 3 broadsheet paragraphs of lived experience reflection (50-60, 45-55, 40-50 words; 135-165 words total).' : (userSlant ? 'Exactly 3 broadsheet paragraphs elaborating the curator\'s take in direct connection with the attached source (50-60, 45-55, 40-50 words; 135-165 words total). Never an objective book report.' : 'Exactly 3 broadsheet paragraphs of objective journalistic reporting (50-60, 45-55, 40-50 words; 135-165 words total).')}",
   "whyItMatters": "1-2 sharp sentences on the stakes and why this perspective matters right now (18-28 words)",
   "keyTakeaways": [
@@ -562,13 +561,11 @@ Respond strictly with valid JSON with this exact structure:
       finalIllustrationUrl = '';
     }
 
-    let finalCuratorTake = (refineCoreTake && parsed.curatorTake && parsed.curatorTake.trim().length > 10)
+    let finalCuratorTake = (parsed.curatorTake && parsed.curatorTake.trim().length > 10)
       ? parsed.curatorTake.trim()
       : (userSlant || 'Strategic structural shift in motion.');
 
-    if (!finalCuratorTake.endsWith('.') && !finalCuratorTake.endsWith('!') && !finalCuratorTake.endsWith('?')) {
-      finalCuratorTake += '.';
-    }
+    finalCuratorTake = formatCuratorTakeApt(finalCuratorTake);
 
     const rawExcerpts = Array.isArray(parsed.resolvedArticleExcerpts) ? parsed.resolvedArticleExcerpts : [];
     const cleanedExcerpts = rawExcerpts.map(e => String(e).replace(/^(the spark|curator stance|paragraph \d+)\s*:\s*["']?/i, '').replace(/["']?$/i, '').trim());
@@ -651,6 +648,104 @@ Respond strictly with valid JSON with this exact structure:
   }
 };
 
+function formatCuratorTakeApt(text) {
+  if (!text || typeof text !== 'string') return '';
+  let s = text.trim();
+
+  // Strip wrapping quotes, markdown brackets, or label prefixes
+  s = s.replace(/^["'“”‘’«»]+|["'“”‘’«»]+$/g, '');
+  s = s.replace(/^(my take|curator take|curator conviction|editorial conviction|take|slant|curator stance|opinion|perspective|spark)\s*:\s*/i, '');
+
+  // Normalize all whitespaces and linebreaks into clean single spaces
+  s = s.replace(/[\r\n\t]+/g, ' ').replace(/\s{2,}/g, ' ').trim();
+
+  // Fix spacing before punctuation marks
+  s = s.replace(/\s+([.,;:!?])/g, '$1');
+
+  // Fix missing space after punctuation when directly touching a word
+  s = s.replace(/([,;:])([A-Za-z])/g, '$1 $2');
+  s = s.replace(/([.!?])([A-Za-z])/g, '$1 $2');
+
+  // Normalize duplicate commas/periods
+  s = s.replace(/,{2,}/g, ',');
+  s = s.replace(/(?<!\.)\.{2}(?!\.)/g, '.');
+
+  // Subtle English grammar, contraction, and phrasing adjustments without altering substance
+  const subtleFixes = [
+    [/\bdont\b/gi, "don't"],
+    [/\bcant\b/gi, "can't"],
+    [/\bwont\b/gi, "won't"],
+    [/\bdidnt\b/gi, "didn't"],
+    [/\bdoesnt\b/gi, "doesn't"],
+    [/\bisnt\b/gi, "isn't"],
+    [/\barent\b/gi, "aren't"],
+    [/\bwasnt\b/gi, "wasn't"],
+    [/\bwerent\b/gi, "weren't"],
+    [/\bhasnt\b/gi, "hasn't"],
+    [/\bhavent\b/gi, "haven't"],
+    [/\bcouldnt\b/gi, "couldn't"],
+    [/\bwouldnt\b/gi, "wouldn't"],
+    [/\bshouldnt\b/gi, "shouldn't"],
+    [/\byoure\b/gi, "you're"],
+    [/\btheyre\b/gi, "they're"],
+    [/\bweve\b/gi, "we've"],
+    [/\bive\b/gi, "I've"],
+    [/\bim\b/g, "I'm"],
+    [/\bIm\b/g, "I'm"],
+    [/\bi\b/g, 'I'],
+    [/\bdoesn't realizes\b/gi, "doesn't realize"],
+    [/\bdoes not realizes\b/gi, "does not realize"],
+    [/\bdidn't got\b/gi, "didn't get"],
+    [/\bdid not got\b/gi, "did not get"],
+    [/\bdidn't lived\b/gi, "didn't live"],
+    [/\bdid not lived\b/gi, "did not live"],
+    [/\bspend it's time\b/gi, 'spend its time'],
+    [/\bhumanly nature\b/gi, 'human nature'],
+    [/\bquiet a natural\b/gi, 'quite a natural'],
+    [/\bcausing the earth inhabitable\b/gi, 'making the Earth uninhabitable'],
+    [/\bcausing the earth to be inhabitable\b/gi, 'making the Earth uninhabitable'],
+    [/\bunsecured future feeling\b/gi, 'a feeling of an insecure future'],
+    [/\bbehavioural change of people\b/gi, 'behavioural changes of people'],
+    [/\bHigh time all work\b/gi, 'It is high time we all work'],
+    [/\bhigh time all work\b/gi, 'it is high time we all work'],
+    [/\ba act\b/gi, 'an act'],
+    [/\ba expected\b/gi, 'an expected'],
+    [/\ba insecure\b/gi, 'an insecure'],
+    [/\bpurpose less\b/gi, 'purposeless'],
+    [/\binspite of\b/gi, 'in spite of'],
+    [/\bacross world\b/gi, 'across the world'],
+    [/\baddeessal\b/gi, 'addressal'],
+    [/\bthis projects turns out\b/gi, 'this project turns out'],
+    [/\bneed to be take ownership\b/gi, 'need to take ownership'],
+    [/\bother can't escape\b/gi, "others can't escape"],
+    [/\bother cannot escape\b/gi, 'others cannot escape']
+  ];
+
+  for (const [pattern, replacement] of subtleFixes) {
+    s = s.replace(pattern, replacement);
+  }
+
+  // Break run-on comma splices where a new sentence clearly starts
+  s = s.replace(/,\s*(All of these are|Every living being|It is high time|High time|Rather|This is|There must be|True elegance|True sanctity)\b/g, (match, p1) => '. ' + p1);
+
+  // Capitalize proper nouns
+  s = s.replace(/\bthe earth\b/g, 'the Earth');
+  s = s.replace(/\bthe earth's\b/g, "the Earth's");
+
+  // Capitalize first letter of every sentence
+  s = s.replace(/(^|[.!?]\s+)([a-z])/g, (match, prefix, char) => prefix + char.toUpperCase());
+
+  // Clean trailing punctuation
+  s = s.replace(/[,;:\-\s]+$/, '');
+
+  // Ensure apt sentence completion
+  if (!/[.!?]$/.test(s)) {
+    s += '.';
+  }
+
+  return s;
+}
+
 function generateSmartFallbackSynthesis({
   sourceType,
   url,
@@ -722,7 +817,8 @@ function generateSmartFallbackSynthesis({
       publicationName: 'Inner Voice',
       categoryBadge: 'PERSPECTIVE',
       hook: `${headline}. When the pace of external demands accelerates, genuine presence becomes an act of quiet rebellion.`,
-      curatorTake: refinedTake,
+      curatorTake: formatCuratorTakeApt(refinedTake),
+      creatorOpinion: formatCuratorTakeApt(refinedTake),
       summary: `${userSlant || 'True restoration begins when you accept that work can wait, but presence cannot.'}\n\nExamining our reflexive habits reveals that we often mistake urgency for importance.\n\nThe real discipline is establishing intentional boundaries before exhaustion makes the choice for us.`,
       whyItMatters: 'Without intentional boundaries, external noise will always consume the mental space needed for genuine reflection.',
       keyTakeaways: [
@@ -906,7 +1002,8 @@ function generateSmartFallbackSynthesis({
     publicationName: pubName || (url ? (new URL(url).hostname.replace(/^www\./, '')) : 'Curated Press'),
     categoryBadge: defaultCategory,
     hook: hookText,
-    curatorTake: refinedTake,
+    curatorTake: formatCuratorTakeApt(refinedTake),
+    creatorOpinion: formatCuratorTakeApt(refinedTake),
     summary: fallbackSummary,
     whyItMatters: (sourceLedger && sourceLedger.underlying_tensions)
       ? (typeof sourceLedger.underlying_tensions === 'object' ? (sourceLedger.underlying_tensions.primary_conflict || sourceLedger.underlying_tensions.tradeoffs) : String(sourceLedger.underlying_tensions))

@@ -391,7 +391,7 @@ class _InstagramPostCardWidgetState extends State<InstagramPostCardWidget> {
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                   TextSpan(
-                    text: _getStartingLines(widget.item.summary),
+                    text: _getStartingLines((widget.item.creatorOpinion != null && widget.item.creatorOpinion!.trim().isNotEmpty) ? widget.item.creatorOpinion! : widget.item.summary),
                   ),
                   TextSpan(
                     text: ' ... more',
