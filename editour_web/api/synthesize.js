@@ -162,7 +162,7 @@ Author's Raw Take:
       });
     }
 
-    const {
+    let {
       sourceType = 'inner_voice', // 'digital_link' | 'inner_voice' | 'photo'
       url = '',
       text = '',
