@@ -166,10 +166,13 @@ The curator selected CURATOR ANGLE mode. The visual storytelling must be 100% an
 - #1 HERO: Must directly embody the curator's core insight, thesis, or central metaphor (e.g. an elderly farmer planting a sapling, an artisan at a workbench, an individual standing against an algorithm). Do NOT default to dry newspaper buildings unless that is the curator's metaphor.
 - #2 MOTIF & #3 TENSION: Expand the curator's conceptual tension, friction, and critique.`
     : (perspectiveMode === 'source')
-    ? `CRITICAL PERSPECTIVE DIRECTIVE (SOURCE GROUNDED):
-The curator selected SOURCE GROUNDED mode. The visual storytelling must stay 100% faithful to the authentic news event, literal physical subjects, concrete persons, real locations, and primary reportage in the source ("${effectiveNewsHeadline}").
-- #1 HERO: Must strictly depict the primary physical subject, institution, or protagonist of the source piece. Do NOT substitute abstract allegories.
-- #2 MOTIF & #3 TENSION: Grounded directly in the observed real-world conflict or dilemma reported in the source.`
+    ? `CRITICAL PERSPECTIVE DIRECTIVE (SOURCE GROUNDED - STRICT PHYSICAL REALITY):
+The curator selected SOURCE GROUNDED mode.
+STRICT RULE: The visual storytelling and all 6 visual cues MUST stay 100% faithful to the authentic news event, literal physical subjects, concrete persons, real locations, and primary reportage in the source ("${effectiveNewsHeadline}").
+- If the curator's written take mentions unrelated concepts or personal commentary (e.g. technical college degrees, engineering studies, philosophical commentary), DO NOT let that override the actual real-world news protagonist, institutional setting, or event!
+- #1 HERO: Must strictly depict the primary physical subject, named public figure/politician, institution, or protagonist of the source piece (e.g. "Indian politician addressing news microphones", "Election rally leader at podium"). Do NOT substitute fictitious students, engineers, or abstract allegories!
+- #2 MOTIF & #3 TENSION: Grounded directly in the observed real-world conflict, physical symbols, or banners reported in the source (e.g. "Orange flags fluttering in wind", "Political banners overshadowing academic halls").
+- #4 ATMOSPHERE & #5 LIGHTING: Derived strictly from the real-world news setting (e.g. "Crowded university press conference setting", "Harsh outdoor news camera flash").`
     : `CRITICAL PERSPECTIVE DIRECTIVE (HYBRID CONTRAST - THE SLANT SIGNATURE):
 The curator selected HYBRID CONTRAST mode.
 - #1 HERO: Anchored in the concrete real-world news subject or primary event.
@@ -177,15 +180,20 @@ The curator selected HYBRID CONTRAST mode.
 
   const photoDirective = effectivePhoto
     ? `CRITICAL REAL-WORLD SCENE MULTIMODAL GROUNDING DIRECTIVE:
-The curator has provided an authentic real-world photograph of the scene, moment, or physical catalyst that sparked this thought.
-1. Visually analyze the photograph: recognize the focal physical subjects, real-world setting, environment, architectural materials, spatial textures, and lighting mood.
-2. Relate this physical reality directly with the curator's written perspective ("${curatorAngle}") and spark ("${spark}").
+The curator has provided an authentic real-world photograph / news video thumbnail of the primary source event or spark.
+1. Visually analyze the photograph: recognize the focal physical subjects (e.g. specific politicians, public figures, news microphones, flags, banners, crowds), real-world setting, and lighting mood.
+${perspectiveMode === 'source' ? `2. STRICT SOURCE GROUNDING: Ground the 6 visual cue dimensions directly in the physical reality visible in this photograph and the source news headline:
+   - #1 HERO: Must elevate the key physical protagonist or centerpiece seen in the photograph (e.g. the specific public figure, speaker, or institution captured in the image).
+   - #2 MOTIF: The physical objects or symbols visible in the scene (e.g. campaign flags, press microphones, podium banners).
+   - #3 TENSION: The real-world political or societal friction visible or reported in the event.
+   - #4 ATMOSPHERE: The authentic physical environment, textures, and setting derived directly from the photograph.
+   - #5 LIGHTING: The real-world lighting mood, camera flashes, or daylight visible in the snapshot.` : `2. Relate this physical reality directly with the curator's written perspective ("${curatorAngle}") and spark ("${spark}").
 3. Fuse BOTH the real scene and the written stance into the 6 visual cue dimensions:
    - #1 HERO: Must elevate the key physical subject or centerpiece seen in the photograph (e.g. the specific object, person, or architecture captured in the snapshot).
    - #2 MOTIF: The symbolic metaphor connecting this physical reality to the curator's deeper philosophical stance.
    - #3 TENSION: The conceptual or structural friction embodied in this captured moment.
    - #4 ATMOSPHERE: The authentic physical environment, textures, and setting derived directly from the photograph.
-   - #5 LIGHTING: The real-world lighting mood, shadows, or color temperature visible in the snapshot.`
+   - #5 LIGHTING: The real-world lighting mood, shadows, or color temperature visible in the snapshot.`}`
     : '';
 
   const prompt = `You are the lead visual art director for "Slant" (slant.today), an elite editorial publication.

@@ -5860,6 +5860,7 @@ function setPerspectiveMode(mode) {
     if (badge) badge.textContent = '⚖️ Hybrid Contrast';
     if (sub) sub.textContent = 'Balances the objective source report with your critical counter-slant and metaphor.';
   }
+  updateReferencePhotoUI();
 }
 
 function isMobileDevice() {
@@ -6477,11 +6478,13 @@ let currentSourceLedger = null;
 let isGeneratingLedger = false;
 let scrapeDebounceTimer = null;
 let isScrapingUrl = false;
+let activeScrapePromise = null;
 
 function resetCreatorState() {
   if (typeof clearMandatoryFieldPrompts === 'function') {
     clearMandatoryFieldPrompts();
   }
+  activeScrapePromise = null;
   currentScrapedArticle = null;
   currentSourceLedger = null;
   renderSourceLedger(null);
@@ -6630,64 +6633,69 @@ async function handleUrlInput(val) {
     indicator.style.display = 'flex';
   }
 
-  try {
-    const resp = await fetch('/api/scrape', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: clean })
-    });
+  activeScrapePromise = (async () => {
+    try {
+      const resp = await fetch('/api/scrape', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: clean })
+      });
 
-    if (!resp.ok) throw new Error('Scrape request failed');
-    const data = await resp.json();
+      if (!resp.ok) throw new Error('Scrape request failed');
+      const data = await resp.json();
 
-    if (data && data.success) {
-      currentScrapedArticle = data;
-      const scrapedImg = data.imageBase64 || data.imageUrl;
-      if (scrapedImg && (!creatorReferenceImageBase64 || creatorReferenceImageSourceLabel?.startsWith('Article Lead Photo'))) {
-        creatorReferenceImageBase64 = scrapedImg;
-        creatorReferenceImageMimeType = data.imageMimeType || 'image/jpeg';
-        creatorReferenceImageSourceLabel = `Article Lead Photo (${data.siteName || 'Web'})`;
-        updateReferencePhotoUI();
+      if (data && data.success) {
+        currentScrapedArticle = data;
+        const scrapedImg = data.imageBase64 || data.imageUrl;
+        if (scrapedImg) {
+          creatorReferenceImageBase64 = scrapedImg;
+          creatorReferenceImageMimeType = data.imageMimeType || 'image/jpeg';
+          creatorReferenceImageSourceLabel = (creatorSelectedSource === 'video_audio' ? 'Video Thumbnail' : 'Article Lead Photo') + ` (${data.siteName || 'Web'})`;
+          updateReferencePhotoUI();
+        }
+        const isFull = (data.content && data.content.length > 200) || (!data.fallback);
+        if (indicator) {
+          indicator.className = isFull ? 'url-scrape-indicator success' : 'url-scrape-indicator info';
+          indicator.innerHTML = `
+            <span class="scrape-icon">${isFull ? '✓' : 'ℹ'}</span>
+            <div class="scrape-text-wrap">
+              <span class="scrape-title">${isFull ? 'Full article retrieved' : 'Headline extracted'} (${escapeHtml(data.siteName || 'Web')})</span>
+              <span class="scrape-sub">${escapeHtml(data.title || clean)}</span>
+            </div>
+          `;
+          indicator.style.display = 'flex';
+        }
+        // Trigger Objective Editorial Research Assistant Ledger
+        if (data && data.ledger) {
+          renderSourceLedger(data.ledger);
+        } else {
+          triggerSourceLedgerGeneration(data);
+        }
       }
-      const isFull = (data.content && data.content.length > 200) || (!data.fallback);
+    } catch (err) {
+      console.warn('URL scrape error:', err.message);
+      const slugTitle = extractHeadlineFromUrl(clean);
+      currentScrapedArticle = { url: clean, title: slugTitle, siteName: getCleanDomain(clean), content: '' };
       if (indicator) {
-        indicator.className = isFull ? 'url-scrape-indicator success' : 'url-scrape-indicator info';
+        indicator.className = 'url-scrape-indicator info';
         indicator.innerHTML = `
-          <span class="scrape-icon">${isFull ? '✓' : 'ℹ'}</span>
+          <span class="scrape-icon">ℹ</span>
           <div class="scrape-text-wrap">
-            <span class="scrape-title">${isFull ? 'Full article retrieved' : 'Headline extracted'} (${escapeHtml(data.siteName || 'Web')})</span>
-            <span class="scrape-sub">${escapeHtml(data.title || clean)}</span>
+            <span class="scrape-title">Citation link saved (${escapeHtml(currentScrapedArticle.siteName)})</span>
+            <span class="scrape-sub">${escapeHtml(slugTitle || clean)}</span>
           </div>
         `;
         indicator.style.display = 'flex';
       }
-      // Trigger Objective Editorial Research Assistant Ledger
-      if (data && data.ledger) {
-        renderSourceLedger(data.ledger);
-      } else {
-        triggerSourceLedgerGeneration(data);
-      }
+      // Trigger Objective Editorial Research Assistant Ledger even with minimal data
+      triggerSourceLedgerGeneration(currentScrapedArticle);
+    } finally {
+      isScrapingUrl = false;
+      activeScrapePromise = null;
     }
-  } catch (err) {
-    console.warn('URL scrape error:', err.message);
-    const slugTitle = extractHeadlineFromUrl(clean);
-    currentScrapedArticle = { url: clean, title: slugTitle, siteName: getCleanDomain(clean), content: '' };
-    if (indicator) {
-      indicator.className = 'url-scrape-indicator info';
-      indicator.innerHTML = `
-        <span class="scrape-icon">ℹ</span>
-        <div class="scrape-text-wrap">
-          <span class="scrape-title">Citation link saved (${escapeHtml(currentScrapedArticle.siteName)})</span>
-          <span class="scrape-sub">${escapeHtml(slugTitle || clean)}</span>
-        </div>
-      `;
-      indicator.style.display = 'flex';
-    }
-    // Trigger Objective Editorial Research Assistant Ledger even with minimal data
-    triggerSourceLedgerGeneration(currentScrapedArticle);
-  } finally {
-    isScrapingUrl = false;
-  }
+  })();
+
+  return activeScrapePromise;
 }
 
 let currentLedgerActiveTab = 'thesis';
@@ -7679,9 +7687,13 @@ async function goToVisualCuesStep() {
   const url = urlInput ? urlInput.value.trim() : '';
   const slantTake = slantTakeInput ? slantTakeInput.value.trim() : '';
 
-  // If URL is provided and not scraped yet, scrape now!
-  if (creatorSelectedSource !== 'inner_voice' && url && !currentScrapedArticle) {
-    await handleUrlInput(url);
+  // If URL is provided and not scraped yet, scrape now or await in-flight scrape!
+  if (creatorSelectedSource !== 'inner_voice' && url) {
+    if (!currentScrapedArticle && !isScrapingUrl) {
+      await handleUrlInput(url);
+    } else if (isScrapingUrl && activeScrapePromise) {
+      try { await activeScrapePromise; } catch (_) {}
+    }
   }
 
   // Switch step indicators
@@ -7705,11 +7717,9 @@ async function goToVisualCuesStep() {
   if (d3) d3.className = currentSynthesizedPost ? 'creator-step-dot completed' : 'creator-step-dot';
 
   if (currentScrapedArticle && (currentScrapedArticle.imageBase64 || currentScrapedArticle.imageUrl)) {
-    if (!creatorReferenceImageBase64 || creatorReferenceImageSourceLabel?.startsWith('Article Lead Photo')) {
-      creatorReferenceImageBase64 = currentScrapedArticle.imageBase64 || currentScrapedArticle.imageUrl;
-      creatorReferenceImageMimeType = currentScrapedArticle.imageMimeType || 'image/jpeg';
-      creatorReferenceImageSourceLabel = `Article Lead Photo (${currentScrapedArticle.siteName || 'Web'})`;
-    }
+    creatorReferenceImageBase64 = currentScrapedArticle.imageBase64 || currentScrapedArticle.imageUrl;
+    creatorReferenceImageMimeType = currentScrapedArticle.imageMimeType || 'image/jpeg';
+    creatorReferenceImageSourceLabel = (creatorSelectedSource === 'video_audio' ? 'Video Thumbnail' : 'Article Lead Photo') + ` (${currentScrapedArticle.siteName || 'Web'})`;
   }
 
   updateReferencePhotoUI();
@@ -7720,7 +7730,7 @@ async function goToVisualCuesStep() {
   }
 
   // Auto-detect and set geographic & cultural context
-  const isLink = (creatorSelectedSource === 'digital_link');
+  const isLink = (creatorSelectedSource === 'digital_link' || creatorSelectedSource === 'video_audio');
   const articleTitle = isLink ? (currentScrapedArticle?.title || extractHeadlineFromUrl(url)) : '';
   const articleBody = isLink ? (currentScrapedArticle?.content || '') : '';
   if (!creatorCountryContext) {
@@ -8231,9 +8241,21 @@ async function triggerCueSuggest() {
   const slantTake = slantTakeInput ? slantTakeInput.value.trim() : '';
   const spark = sparkInput ? sparkInput.value.trim() : '';
 
-  const isLink = (creatorSelectedSource === 'digital_link');
+  // If scrape in flight, await it before generating cues
+  if (isScrapingUrl && activeScrapePromise) {
+    try { await activeScrapePromise; } catch (_) {}
+  }
+
+  const isLink = (creatorSelectedSource === 'digital_link' || creatorSelectedSource === 'video_audio');
   const articleTitle = isLink ? (currentScrapedArticle?.title || extractHeadlineFromUrl(url)) : '';
   const articleBody = isLink ? (currentScrapedArticle?.content || '') : '';
+
+  const effectiveCuesImage = (creatorSelectedSource === 'inner_voice')
+    ? innerVoicePhotoBase64
+    : (creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || null);
+  const effectiveCuesMime = (creatorSelectedSource === 'inner_voice')
+    ? (innerVoicePhotoMimeType || 'image/jpeg')
+    : (creatorReferenceImageMimeType || currentScrapedArticle?.imageMimeType || 'image/jpeg');
 
   const suggestBtn = document.getElementById('cuesSuggestBtn');
   const suggestLabel = document.getElementById('cuesSuggestLabel');
@@ -8262,8 +8284,8 @@ async function triggerCueSuggest() {
         vocabularyStyle: creatorVocabularyStyle || 'punchy',
         perspectiveMode: creatorPerspectiveMode || 'hybrid',
         slantTone: (creatorSelectedSource === 'inner_voice' || /\b(family|child|love|heart|trip|vacation|weekend|pack|burnout|unplug|memoir|personal)\b/i.test(`${slantTake} ${spark}`)) ? 'heart' : 'mind',
-        imageBase64: (creatorSelectedSource === 'inner_voice') ? innerVoicePhotoBase64 : null,
-        imageMimeType: innerVoicePhotoMimeType || 'image/jpeg',
+        imageBase64: effectiveCuesImage,
+        imageMimeType: effectiveCuesMime,
         innerVoiceImageBase64: (creatorSelectedSource === 'inner_voice') ? innerVoicePhotoBase64 : null,
         innerVoiceImageMimeType: innerVoicePhotoMimeType || 'image/jpeg'
       })
@@ -8361,58 +8383,63 @@ function handleReferenceImageSelection(event) {
 }
 
 function updateReferencePhotoUI() {
-  const section = document.getElementById('characterRefPhotoSection');
-  const activeCard = document.getElementById('refPhotoActiveCard');
-  const emptyCard = document.getElementById('refPhotoEmptyCard');
-  const thumb = document.getElementById('refPhotoThumb');
-  const title = document.getElementById('refPhotoTitle');
-  const cameraBtn = document.getElementById('refCameraBtn');
+  const photoCard = document.getElementById('sourcePhotoAttachedCard');
+  const photoThumb = document.getElementById('sourcePhotoThumb');
+  const photoBadge = document.getElementById('sourcePhotoBadge');
+  const photoLabel = document.getElementById('sourcePhotoLabel');
+  const optExact = document.getElementById('repOptionExact');
+  const repRealTitle = document.getElementById('repRealisticTitle');
+  const repRealDesc = document.getElementById('repRealisticDesc');
 
-  if (!section) return;
+  const hasPhoto = Boolean(creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || currentScrapedArticle?.imageUrl);
+  const photoSrc = creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || currentScrapedArticle?.imageUrl || null;
 
-  if (creatorCharacterRepresentation !== 'likeness' && creatorCharacterRepresentation !== 'exact') {
-    section.style.display = 'none';
-    return;
-  }
-
-  section.style.display = 'block';
-
-  const desc = document.getElementById('refPhotoDesc');
-  if (desc) {
-    const firstCue = creatorCuePills[0] || '';
-    const isPerson = isLikelyPersonSubject(firstCue);
-    if (creatorCharacterRepresentation === 'exact') {
-      desc.textContent = 'Exact unedited photo will be used directly as the primary poster image.';
-    } else if (isPerson) {
-      desc.textContent = 'Face features will guide AI to generate an artistic lookalike portrait with mystery.';
+  if (photoCard && photoThumb) {
+    if (hasPhoto && photoSrc) {
+      photoCard.style.display = 'flex';
+      photoThumb.src = photoSrc;
+      if (photoBadge) {
+        photoBadge.textContent = (creatorSelectedSource === 'video_audio')
+          ? '🎬 Authentic Video Thumbnail Attached'
+          : '📰 Authentic Source Photo Attached';
+      }
+      if (photoLabel) {
+        photoLabel.textContent = creatorReferenceImageSourceLabel || (currentScrapedArticle?.siteName ? `Lead visual from ${currentScrapedArticle.siteName}` : 'Grounding visual cues & poster flow in physical reality');
+      }
     } else {
-      desc.textContent = 'Subject will guide AI to generate a cinematic architectural/editorial poster illustration.';
+      photoCard.style.display = 'none';
     }
   }
 
-  if (creatorReferenceImageBase64) {
-    if (activeCard) activeCard.style.display = 'flex';
-    if (emptyCard) emptyCard.style.display = 'none';
-    if (thumb) thumb.src = creatorReferenceImageBase64;
-    if (title) title.textContent = creatorReferenceImageSourceLabel || (creatorCharacterRepresentation === 'exact' ? 'Exact Photo Attached' : 'Reference Photo Ready');
-  } else {
-    if (activeCard) activeCard.style.display = 'none';
-    if (emptyCard) emptyCard.style.display = 'block';
-    if (cameraBtn) cameraBtn.style.display = isMobileDevice() ? 'inline-flex' : 'none';
+  if (optExact) {
+    optExact.style.display = hasPhoto ? 'flex' : 'none';
+    if (!hasPhoto && creatorCharacterRepresentation === 'exact') {
+      creatorCharacterRepresentation = 'realistic';
+    }
   }
+
+  if (repRealTitle && repRealDesc) {
+    if (creatorPerspectiveMode === 'source') {
+      repRealTitle.textContent = '🎨 Source-Grounded Artwork (AI Illustration)';
+      repRealDesc.textContent = 'Editorial broadsheet art physically anchored in the real source protagonists, press setting, and flags.';
+    } else {
+      repRealTitle.textContent = 'Vivid Editorial Realism (Artwork)';
+      repRealDesc.textContent = 'Warm, realistic editorial illustration with clear human subjects, natural lighting, and tangible environments. No dark or faceless silhouettes.';
+    }
+  }
+
+  const optReal = document.getElementById('repOptionRealistic');
+  const optSil = document.getElementById('repOptionSilhouette');
+  if (optReal) optReal.classList.toggle('active', creatorCharacterRepresentation === 'realistic');
+  if (optSil) optSil.classList.toggle('active', creatorCharacterRepresentation === 'silhouette');
+  if (optExact) optExact.classList.toggle('active', creatorCharacterRepresentation === 'exact');
 }
 
 function selectCharacterRepresentation(type) {
-  if (type !== 'realistic' && type !== 'silhouette') {
+  if (type !== 'realistic' && type !== 'silhouette' && type !== 'exact') {
     type = 'realistic';
   }
   creatorCharacterRepresentation = type;
-  const optReal = document.getElementById('repOptionRealistic');
-  const optSil = document.getElementById('repOptionSilhouette');
-
-  if (optReal) optReal.classList.toggle('active', type === 'realistic');
-  if (optSil) optSil.classList.toggle('active', type === 'silhouette');
-
   updateReferencePhotoUI();
 }
 
@@ -8495,10 +8522,11 @@ async function startAiSynthesis() {
     userHandle = '@' + (currentUser.user_metadata?.user_name || currentUser.user_metadata?.name || currentUser.email.split('@')[0]);
   }
 
-  const isPhotoPortrayal = (creatorCharacterRepresentation === 'likeness' || creatorCharacterRepresentation === 'exact' || creatorCharacterRepresentation === 'lookalike');
-  const shouldSendImage = isPhotoPortrayal && Boolean(creatorReferenceImageBase64);
-  const effectiveImageBase64 = shouldSendImage ? (creatorReferenceImageBase64 || null) : null;
-  const effectiveImageMime = shouldSendImage ? (creatorReferenceImageMimeType || 'image/jpeg') : 'image/jpeg';
+  const isPhotoPortrayal = (creatorPerspectiveMode === 'source' || creatorCharacterRepresentation === 'likeness' || creatorCharacterRepresentation === 'exact' || creatorCharacterRepresentation === 'lookalike');
+  const rawSourceImg = creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || currentScrapedArticle?.imageUrl || null;
+  const shouldSendImage = isPhotoPortrayal && Boolean(rawSourceImg);
+  const effectiveImageBase64 = shouldSendImage ? (creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || null) : null;
+  const effectiveImageMime = shouldSendImage ? (creatorReferenceImageMimeType || currentScrapedArticle?.imageMimeType || 'image/jpeg') : 'image/jpeg';
 
   const isLink = (creatorSelectedSource === 'digital_link' || creatorSelectedSource === 'video_audio');
   const payload = {
@@ -8507,9 +8535,9 @@ async function startAiSynthesis() {
     text: slantTake,
     slantTake: slantTake,
     perspectiveMode: creatorPerspectiveMode || 'hybrid',
-    sourceImageUrl: (isLink && currentScrapedArticle) ? (currentScrapedArticle.imageUrl || null) : null,
-    sourceImageBase64: (isLink && currentScrapedArticle) ? (currentScrapedArticle.imageBase64 || null) : null,
-    sourceImageMimeType: (isLink && currentScrapedArticle) ? (currentScrapedArticle.imageMimeType || 'image/jpeg') : 'image/jpeg',
+    sourceImageUrl: (isLink && currentScrapedArticle) ? (currentScrapedArticle.imageUrl || null) : (creatorReferenceImageBase64?.startsWith('http') ? creatorReferenceImageBase64 : null),
+    sourceImageBase64: (isLink && currentScrapedArticle) ? (currentScrapedArticle.imageBase64 || null) : (creatorReferenceImageBase64?.startsWith('data:') ? creatorReferenceImageBase64 : null),
+    sourceImageMimeType: (isLink && currentScrapedArticle) ? (currentScrapedArticle.imageMimeType || 'image/jpeg') : (creatorReferenceImageMimeType || 'image/jpeg'),
     imageBase64: effectiveImageBase64 || (creatorSelectedSource === 'inner_voice' ? innerVoicePhotoBase64 : null),
     imageMimeType: effectiveImageMime || innerVoicePhotoMimeType || 'image/jpeg',
     innerVoiceImageBase64: (creatorSelectedSource === 'inner_voice') ? innerVoicePhotoBase64 : null,
@@ -8578,16 +8606,25 @@ async function startAiSynthesis() {
 
     currentSynthesizedPost = data.post;
     currentSynthesizedPost.perspectiveMode = creatorPerspectiveMode || 'hybrid';
-    if (isLink && currentScrapedArticle) {
-      currentSynthesizedPost.sourceImageUrl = currentSynthesizedPost.sourceImageUrl || currentScrapedArticle.imageUrl || null;
-      currentSynthesizedPost.sourceImageBase64 = currentSynthesizedPost.sourceImageBase64 || currentScrapedArticle.imageBase64 || null;
-      currentSynthesizedPost.sourceImageMimeType = currentSynthesizedPost.sourceImageMimeType || currentScrapedArticle.imageMimeType || 'image/jpeg';
+    if (isLink) {
+      currentSynthesizedPost.sourceImageUrl = currentSynthesizedPost.sourceImageUrl || currentScrapedArticle?.imageUrl || (creatorReferenceImageBase64?.startsWith('http') ? creatorReferenceImageBase64 : null) || null;
+      currentSynthesizedPost.sourceImageBase64 = currentSynthesizedPost.sourceImageBase64 || currentScrapedArticle?.imageBase64 || (creatorReferenceImageBase64?.startsWith('data:') ? creatorReferenceImageBase64 : null) || null;
+      currentSynthesizedPost.sourceImageMimeType = currentSynthesizedPost.sourceImageMimeType || currentScrapedArticle?.imageMimeType || creatorReferenceImageMimeType || 'image/jpeg';
     }
     if (creatorSelectedSource === 'inner_voice' && innerVoicePhotoBase64) {
       currentSynthesizedPost.catalystPhoto = innerVoicePhotoBase64;
       currentSynthesizedPost.catalystPhotoBase64 = innerVoicePhotoBase64;
       currentSynthesizedPost.originalPhotoBase64 = innerVoicePhotoBase64;
       currentSynthesizedPost.originalPhotoMimeType = innerVoicePhotoMimeType || 'image/jpeg';
+    }
+    currentSynthesizedPost.referencePhotoUrl = currentSynthesizedPost.referencePhotoUrl
+      || currentSynthesizedPost.sourceImageUrl
+      || (currentSynthesizedPost.sourceImageBase64 ? (currentSynthesizedPost.sourceImageBase64.startsWith('data:') ? currentSynthesizedPost.sourceImageBase64 : `data:${currentSynthesizedPost.sourceImageMimeType || 'image/jpeg'};base64,${currentSynthesizedPost.sourceImageBase64}`) : null)
+      || null;
+
+    if (creatorCharacterRepresentation === 'exact' && currentSynthesizedPost.referencePhotoUrl) {
+      currentSynthesizedPost.illustrationUrl = currentSynthesizedPost.referencePhotoUrl;
+      currentSynthesizedPost.artworkPending = false;
     }
     const effectiveSlantTake = currentSynthesizedPost.polishedCuratorTake || slantTake || '';
 
@@ -8599,6 +8636,7 @@ async function startAiSynthesis() {
         perspectiveMode: creatorPerspectiveMode || 'hybrid',
         sourceImageUrl: currentSynthesizedPost.sourceImageUrl || null,
         sourceImageBase64: currentSynthesizedPost.sourceImageBase64 || null,
+        referencePhotoUrl: currentSynthesizedPost.referencePhotoUrl || null,
         spark: spark || '',
         cues: [...creatorCuePills],
         heroCue: creatorCuePills[0] || '',
@@ -8618,6 +8656,12 @@ async function startAiSynthesis() {
       currentSynthesizedPost.generationInputs.perspectiveMode = creatorPerspectiveMode || 'hybrid';
       if (currentSynthesizedPost.sourceImageUrl) {
         currentSynthesizedPost.generationInputs.sourceImageUrl = currentSynthesizedPost.sourceImageUrl;
+      }
+      if (currentSynthesizedPost.sourceImageBase64) {
+        currentSynthesizedPost.generationInputs.sourceImageBase64 = currentSynthesizedPost.sourceImageBase64;
+      }
+      if (currentSynthesizedPost.referencePhotoUrl) {
+        currentSynthesizedPost.generationInputs.referencePhotoUrl = currentSynthesizedPost.referencePhotoUrl;
       }
     }
     currentSynthesizedPost.contextProvided = currentSynthesizedPost.generationInputs.contextProvided || effectiveSlantTake || (currentScrapedArticle?.content || '').slice(0, 3000) || spark || '';
@@ -8659,8 +8703,10 @@ async function startAiSynthesis() {
             action: 'artwork_only',
             creatorEmail: currentUser?.email || '',
             prompt: currentSynthesizedPost.illustrationPrompt,
-            imageBase64: (creatorCharacterRepresentation === 'likeness' || creatorCharacterRepresentation === 'lookalike') ? (creatorReferenceImageBase64 || null) : null,
-            imageMimeType: creatorReferenceImageMimeType || 'image/jpeg'
+            imageBase64: (creatorPerspectiveMode === 'source' || creatorCharacterRepresentation === 'likeness' || creatorCharacterRepresentation === 'lookalike' || creatorCharacterRepresentation === 'exact')
+              ? (creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || currentSynthesizedPost?.sourceImageBase64 || null)
+              : null,
+            imageMimeType: creatorReferenceImageMimeType || currentScrapedArticle?.imageMimeType || currentSynthesizedPost?.sourceImageMimeType || 'image/jpeg'
           }),
           signal: artController.signal
         });
@@ -8744,8 +8790,10 @@ async function enhancePosterArtworkInBackground(post) {
         action: 'artwork_only',
         creatorEmail: currentUser?.email || '',
         prompt: post.illustrationPrompt,
-        imageBase64: (creatorCharacterRepresentation === 'likeness' || creatorCharacterRepresentation === 'lookalike') ? (creatorReferenceImageBase64 || null) : null,
-        imageMimeType: creatorReferenceImageMimeType || 'image/jpeg'
+        imageBase64: (creatorPerspectiveMode === 'source' || creatorCharacterRepresentation === 'likeness' || creatorCharacterRepresentation === 'lookalike' || creatorCharacterRepresentation === 'exact')
+          ? (creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || post?.sourceImageBase64 || null)
+          : null,
+        imageMimeType: creatorReferenceImageMimeType || currentScrapedArticle?.imageMimeType || post?.sourceImageMimeType || 'image/jpeg'
       })
     });
 

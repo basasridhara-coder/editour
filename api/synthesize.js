@@ -215,23 +215,28 @@ Author's Raw Take:
         const parsedUrl = new URL(url);
         pubName = parsedUrl.hostname.replace(/^www\./, '');
 
-        if (!extractedTitle || extractedTitle.length < 5) {
+        if (!extractedTitle || extractedTitle.length < 5 || !sourceImageUrl || !sourceImageBase64) {
           const isYouTube = parsedUrl.hostname.includes('youtube.com') || parsedUrl.hostname.includes('youtu.be');
           if (isYouTube) {
             const ytVideoId = extractYouTubeVideoId(url);
             if (ytVideoId) {
               try {
                 const ytData = await scrapeYouTubeUrl(url, ytVideoId);
-                if (ytData && ytData.title) {
-                  extractedTitle = ytData.title;
+                if (ytData) {
+                  if (ytData.title && (!extractedTitle || extractedTitle.length < 5)) extractedTitle = ytData.title;
                   if (ytData.content && (!extractedContent || extractedContent.length < 100)) extractedContent = ytData.content;
                   if (ytData.siteName) pubName = ytData.siteName;
+                  if (!sourceImageUrl && ytData.imageUrl) sourceImageUrl = ytData.imageUrl;
+                  if (!sourceImageBase64 && ytData.imageBase64) {
+                    sourceImageBase64 = ytData.imageBase64;
+                    sourceImageMimeType = ytData.imageMimeType || 'image/jpeg';
+                  }
                 }
               } catch (_) {}
             }
           }
 
-          if (!extractedTitle || extractedTitle.length < 5) {
+          if (!extractedTitle || extractedTitle.length < 5 || !sourceImageUrl) {
             const controller = new AbortController();
             const timeout = setTimeout(() => controller.abort(), 1200);
             const pageResp = await fetch(url, {
@@ -246,7 +251,7 @@ Author's Raw Take:
               const html = await pageResp.text();
               const titleMatch = html.match(/<meta property=["']og:title["'] content=["'](.*?)["']/i) ||
                                  html.match(/<title>(.*?)<\/title>/i);
-              if (titleMatch && titleMatch[1]) {
+              if (titleMatch && titleMatch[1] && (!extractedTitle || extractedTitle.length < 5)) {
                 extractedTitle = decodeHtmlEntities(titleMatch[1].trim());
               }
               const descMatch = html.match(/<meta property=["']og:description["'] content=["'](.*?)["']/i) ||
@@ -257,6 +262,13 @@ Author's Raw Take:
               const siteMatch = html.match(/<meta property=["']og:site_name["'] content=["'](.*?)["']/i);
               if (siteMatch && siteMatch[1]) {
                 pubName = decodeHtmlEntities(siteMatch[1].trim());
+              }
+              if (!sourceImageUrl) {
+                const imgMatch = html.match(/<meta property=["']og:image["'] content=["'](.*?)["']/i) ||
+                                 html.match(/<meta name=["']twitter:image["'] content=["'](.*?)["']/i);
+                if (imgMatch && imgMatch[1]) {
+                  sourceImageUrl = imgMatch[1].trim();
+                }
               }
             }
           }
@@ -474,12 +486,25 @@ Respond strictly with valid JSON with this exact structure:
         text: `${systemPrompt}\n\nUser Input Content (Inner Voice Personal Reflection):\n${partsContent}`
       });
     } else {
+      if ((sourceType === 'digital_link' || sourceType === 'video_audio') && sourceImageBase64) {
+        const cleanData = sourceImageBase64.includes(',') ? sourceImageBase64.split(',')[1] : sourceImageBase64;
+        parts.push({
+          inlineData: {
+            mimeType: sourceImageMimeType || 'image/jpeg',
+            data: cleanData
+          }
+        });
+      }
+
       const contentParts = [
         extractedTitle ? `Article Headline: ${extractedTitle}` : '',
         extractedContent ? `Article Content / Excerpt: ${extractedContent}` : '',
         userSlant ? `Curator's Slant / Angle: ${userSlant}` : '',
         spark ? `Spark Context: ${spark}` : '',
-        url ? `Source Link: ${url}` : ''
+        url ? `Source Link: ${url}` : '',
+        ((sourceType === 'digital_link' || sourceType === 'video_audio') && sourceImageBase64)
+          ? `[ATTACHED AUTHENTIC SOURCE PHOTO / VIDEO THUMBNAIL: The attached image is the authentic photo or YouTube video thumbnail from the source. In SOURCE GROUNDED mode, your visual cues and illustrationPrompt MUST be physically grounded in this real-world scene, literal persons/speakers (e.g. named political leaders, press conference microphones, election flags, rally banners), and setting visible in this image. DO NOT invent fictitious engineering or unrelated workbench scenes.]`
+          : ''
       ].filter(Boolean);
 
       if (sourceLedger) {
@@ -742,6 +767,7 @@ Respond strictly with valid JSON with this exact structure:
       sourceImageUrl: sourceImageUrl || null,
       sourceImageBase64: sourceImageBase64 || null,
       sourceImageMimeType: sourceImageMimeType || 'image/jpeg',
+      referencePhotoUrl: sourceImageUrl || (sourceImageBase64 ? (sourceImageBase64.startsWith('data:') ? sourceImageBase64 : `data:${sourceImageMimeType || 'image/jpeg'};base64,${sourceImageBase64}`) : null),
       isUserCreated: true,
       sourceType: sourceType,
       originalPhotoBase64: (sourceType === 'photo' && imageBase64) ? imageBase64 : (sourceType === 'inner_voice' && effectiveCatalystImage ? effectiveCatalystImage : null),
@@ -762,6 +788,7 @@ Respond strictly with valid JSON with this exact structure:
         perspectiveMode: perspectiveMode || 'hybrid',
         sourceImageUrl: sourceImageUrl || null,
         sourceImageBase64: sourceImageBase64 || null,
+        referencePhotoUrl: sourceImageUrl || (sourceImageBase64 ? (sourceImageBase64.startsWith('data:') ? sourceImageBase64 : `data:${sourceImageMimeType || 'image/jpeg'};base64,${sourceImageBase64}`) : null),
         spark: spark || '',
         catalystPhoto: (sourceType === 'inner_voice' && effectiveCatalystImage) ? effectiveCatalystImage : null,
         catalystPhotoBase64: (sourceType === 'inner_voice' && effectiveCatalystImage) ? effectiveCatalystImage : null,
@@ -1334,6 +1361,11 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
     } catch (err) {
       console.warn(`Gemini image model ${model} skipped:`, err.message);
     }
+  }
+
+  // If image-conditioned attempt returned nothing (e.g. policy block / IMAGE_OTHER on real faces), fallback to text prompt
+  if (imageBase64) {
+    return generateGeminiEditorialArtwork({ prompt, imageBase64: null, timeoutMs });
   }
 
   return null;

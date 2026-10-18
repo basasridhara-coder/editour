@@ -494,12 +494,27 @@
                 <span class="rep-subtitle">Select how characters and subjects are portrayed in the Hook poster.</span>
               </div>
             </div>
+            <!-- Source Photo Detected Banner -->
+            <div class="source-photo-attached-card" id="sourcePhotoAttachedCard" style="display:none;">
+              <img id="sourcePhotoThumb" class="source-photo-thumb" alt="Source Photograph">
+              <div class="source-photo-meta">
+                <span class="source-photo-badge" id="sourcePhotoBadge">📷 Authentic Source Photo Detected</span>
+                <span class="source-photo-label" id="sourcePhotoLabel">Grounding visual cues & poster flow in physical reality</span>
+              </div>
+            </div>
             <div class="character-rep-options">
               <div class="rep-option active" id="repOptionRealistic" onclick="selectCharacterRepresentation('realistic')">
                 <div class="rep-radio-circle"></div>
                 <div class="rep-option-body">
-                  <span class="rep-option-title">Vivid Editorial Realism (Realistic & Expressive)</span>
-                  <span class="rep-option-desc">Warm, realistic editorial illustration with clear human subjects, natural lighting, and tangible environments. No dark or faceless silhouettes.</span>
+                  <span class="rep-option-title" id="repRealisticTitle">Vivid Editorial Realism (Artwork)</span>
+                  <span class="rep-option-desc" id="repRealisticDesc">Warm, realistic editorial illustration physically grounded in the real-world source scene and protagonists. No dark or faceless silhouettes.</span>
+                </div>
+              </div>
+              <div class="rep-option" id="repOptionExact" onclick="selectCharacterRepresentation('exact')" style="display:none;">
+                <div class="rep-radio-circle"></div>
+                <div class="rep-option-body">
+                  <span class="rep-option-title">📷 Authentic Source Photo (Direct Photo)</span>
+                  <span class="rep-option-desc">Use the authentic news photo or YouTube thumbnail directly as Poster 1's hook visual without AI generation.</span>
                 </div>
               </div>
               <div class="rep-option" id="repOptionSilhouette" onclick="selectCharacterRepresentation('silhouette')">
