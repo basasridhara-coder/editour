@@ -11117,3 +11117,114 @@ header {
     width: 100%;
   }
 }
+
+/* ============================================================
+   DEEP LINK GUEST FEED GATE BARRIER
+   ============================================================ */
+
+.deep-link-feed-gate {
+  width: 100%;
+  max-width: 580px;
+  margin: 32px auto 80px;
+  padding: 0 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.deep-link-gate-card {
+  width: 100%;
+  background: var(--bg-card, #FFFFFF);
+  border: 1px solid var(--border-subtle, rgba(0, 0, 0, 0.08));
+  border-radius: 24px;
+  padding: 32px 24px;
+  box-shadow: 0 16px 40px -8px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  box-sizing: border-box;
+  text-align: center;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+[data-theme="obsidian"] .deep-link-gate-card {
+  background: #0D1527;
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 20px 48px -10px rgba(0, 0, 0, 0.8);
+}
+
+.deep-link-gate-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: #6366F1;
+  background: rgba(99, 102, 241, 0.12);
+  padding: 5px 14px;
+  border-radius: 999px;
+}
+
+.deep-link-gate-icon {
+  font-size: 34px;
+  line-height: 1;
+  margin: 6px 0 2px;
+}
+
+.deep-link-gate-title {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--text-primary, #FFFFFF);
+  margin: 0;
+  letter-spacing: -0.3px;
+}
+
+.deep-link-gate-sub {
+  font-size: 13.5px;
+  color: var(--text-muted, #94A3B8);
+  margin: 0;
+  max-width: 380px;
+  line-height: 1.5;
+}
+
+.deep-link-gate-btn {
+  margin-top: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: #6366F1;
+  color: #FFFFFF;
+  border: none;
+  font-size: 14.5px;
+  font-weight: 700;
+  padding: 13px 30px;
+  border-radius: 999px;
+  cursor: pointer;
+  box-shadow: 0 8px 24px -4px rgba(99, 102, 241, 0.45);
+  transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.deep-link-gate-btn:hover {
+  background: #4F46E5;
+  box-shadow: 0 10px 28px -4px rgba(99, 102, 241, 0.6);
+  transform: translateY(-1px);
+}
+
+.deep-link-gate-btn:active {
+  transform: scale(0.97);
+}
+
+.deep-link-gate-arrow {
+  display: inline-block;
+  transition: transform 0.2s ease;
+}
+
+.deep-link-gate-btn:hover .deep-link-gate-arrow {
+  transform: translateX(4px);
+}

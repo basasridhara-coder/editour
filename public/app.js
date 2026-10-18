@@ -330,6 +330,23 @@ async function initAuth() {
               localStorage.setItem('slant_my_posts', JSON.stringify(Array.from(myCreatedPostIds)));
             }
           }
+
+          if (isDeepLinkScrollGated) {
+            isDeepLinkScrollGated = false;
+            const gate = document.getElementById('deepLinkFeedGate');
+            if (gate) gate.remove();
+          }
+
+          const returnUrl = sessionStorage.getItem('slant_auth_redirect_url');
+          if (returnUrl) {
+            sessionStorage.removeItem('slant_auth_redirect_url');
+            try {
+              if (window.location.href !== returnUrl) {
+                history.replaceState(null, '', returnUrl);
+              }
+            } catch (_) {}
+          }
+
           checkLiveSupabaseUpdates(true);
           updateAuthUI();
           if (isCurrentUserAdmin) {
@@ -343,6 +360,13 @@ async function initAuth() {
       currentUser = null;
       isCurrentUserAdmin = false;
       isUserWhitelistAllowed = false;
+      const deepPostId = typeof getDeepLinkedPostId === 'function' ? getDeepLinkedPostId() : null;
+      if (deepPostId) {
+        isDeepLinkScrollGated = true;
+        if (typeof setupDeepLinkScrollGate === 'function') {
+          setupDeepLinkScrollGate();
+        }
+      }
       closeAuthModal();
       updateAuthUI();
       if (!suppressSignOutNotice) {
@@ -854,8 +878,9 @@ function openAuthModal(customDesc) {
   // Populate dynamic post preview cards in the login showcase
   renderLoginPostsPreview();
 
-  // Push #login to URL hash if not already present
-  if (window.location.hash !== '#login') {
+  // Push #login to URL hash if not already present and not deep-linked
+  const deepId = typeof getDeepLinkedPostId === 'function' ? getDeepLinkedPostId() : null;
+  if (!deepId && window.location.hash !== '#login') {
     try {
       history.replaceState(null, '', '#login');
     } catch (e) {}
@@ -910,6 +935,11 @@ async function signInWithGoogle() {
   if (btn) btn.style.opacity = '0.6';
   showAuthStatus('Connecting to Google...', 'normal');
   try {
+    if (window.location.href) {
+      try {
+        sessionStorage.setItem('slant_auth_redirect_url', window.location.href);
+      } catch (_) {}
+    }
     const { error } = await supabaseClient.auth.signInWithOAuth({
       provider: 'google',
       options: {
@@ -1360,6 +1390,10 @@ function selectUserFilter(filterKey) {
 }
 
 function selectCategory(categoryKey) {
+  if (isDeepLinkScrollGated && !currentUser) {
+    openAuthModal('Sign in to explore category feeds on Slant.');
+    return;
+  }
   currentFilter = categoryKey;
   document.querySelectorAll('.filter-pill').forEach(pill => {
     pill.classList.toggle('active', pill.getAttribute('data-cat') === categoryKey);
@@ -1594,7 +1628,7 @@ function getDeepLinkedPostId() {
     const params = new URLSearchParams(window.location.search);
     const fromQuery = params.get('p') || params.get('post') || params.get('id');
     if (fromQuery && fromQuery.trim()) {
-      return fromQuery.trim();
+      return decodeURIComponent(fromQuery.trim());
     }
 
     // Check path: /post/:id or /p/:id
@@ -1603,18 +1637,176 @@ function getDeepLinkedPostId() {
       return decodeURIComponent(pathMatch[1]).trim();
     }
 
-    // Check hash: #post-... or #p=... or #...
+    // Check hash: #slant-... or #post-... or #p=... or raw #id
     if (window.location.hash) {
-      const hash = window.location.hash;
-      const hashPost = hash.match(/#(?:post[-_]|p=)?([a-f0-9-]{8,})/i);
-      if (hashPost && hashPost[1]) {
-        return hashPost[1].trim();
+      const rawHash = window.location.hash.replace(/^#\/?/, '').trim();
+      const nonPostHashes = ['login', 'stories', 'feed', 'create', 'mystories', 'profile', 'admin', 'whitelist', 'gate'];
+      if (rawHash && !nonPostHashes.includes(rawHash.toLowerCase())) {
+        const cleaned = rawHash.replace(/^(?:post[-_]|p=)/i, '').trim();
+        if (cleaned.length >= 3) {
+          return decodeURIComponent(cleaned);
+        }
       }
     }
   } catch (err) {
     console.warn('Error reading deep link post ID:', err);
   }
   return null;
+}
+
+function getPostShareUrl(post) {
+  if (!post || !post.id) return window.location.origin;
+  return `${window.location.origin}/?p=${encodeURIComponent(post.id)}`;
+}
+
+function getPostShareText(post) {
+  if (!post) return '';
+  const headline = (post.adaptedHeadline || post.originalHeadline || 'Curated Story').trim();
+  const url = getPostShareUrl(post);
+  return `"${headline}"\n\nRead the full story & receipts on Slant:\n${url}`;
+}
+
+function buildSharePayload(files, title, text, url) {
+  if (!navigator.share) return null;
+
+  if (files && files.length > 0 && navigator.canShare) {
+    // 1. Try full: files + title + text + url
+    const fullPayload = { files, title, text, url };
+    if (navigator.canShare(fullPayload)) {
+      return fullPayload;
+    }
+    // 2. Try files + title + text (text already has the link embedded)
+    const filesWithText = { files, title, text };
+    if (navigator.canShare(filesWithText)) {
+      return filesWithText;
+    }
+    // 3. Try files only
+    const filesOnly = { files };
+    if (navigator.canShare(filesOnly)) {
+      return filesOnly;
+    }
+  }
+
+  // Fallback to text & URL without files
+  const textPayload = { title, text, url };
+  if (navigator.canShare && navigator.canShare(textPayload)) {
+    return textPayload;
+  }
+  return null;
+}
+
+// SCROLL GATE FOR DEEP-LINKED POST GUESTS
+let isDeepLinkScrollGated = false;
+let deepLinkScrollGateListenersAttached = false;
+let lastScrollGatePromptTime = 0;
+let gateTouchStartY = 0;
+let gateTouchStartX = 0;
+
+function isAnyModalOpen() {
+  const modal = document.querySelector('.modal-overlay.open, .modal-overlay.active, .modal-card.open');
+  return !!modal;
+}
+
+function setupDeepLinkScrollGate() {
+  if (deepLinkScrollGateListenersAttached) return;
+  deepLinkScrollGateListenersAttached = true;
+
+  // Vertical scroll detection
+  window.addEventListener('scroll', () => {
+    if (!isDeepLinkScrollGated || currentUser) return;
+    if (isAnyModalOpen()) return;
+    const currentY = window.pageYOffset || document.documentElement.scrollTop || 0;
+    if (currentY > 30) {
+      triggerDeepLinkScrollGate('scroll');
+    }
+  }, { passive: true });
+
+  // Mouse wheel / trackpad scroll detection
+  window.addEventListener('wheel', (e) => {
+    if (!isDeepLinkScrollGated || currentUser) return;
+    if (isAnyModalOpen()) return;
+    if (Math.abs(e.deltaY) > 8) {
+      e.preventDefault();
+      triggerDeepLinkScrollGate('wheel');
+    }
+  }, { passive: false });
+
+  // Touch gesture detection (allow horizontal carousel swipes, intercept vertical scrolls)
+  window.addEventListener('touchstart', (e) => {
+    if (!isDeepLinkScrollGated || currentUser) return;
+    if (e.touches && e.touches.length > 0) {
+      gateTouchStartY = e.touches[0].clientY;
+      gateTouchStartX = e.touches[0].clientX;
+    }
+  }, { passive: true });
+
+  window.addEventListener('touchmove', (e) => {
+    if (!isDeepLinkScrollGated || currentUser) return;
+    if (isAnyModalOpen()) return;
+    if (e.touches && e.touches.length > 0) {
+      const diffY = Math.abs(e.touches[0].clientY - gateTouchStartY);
+      const diffX = Math.abs(e.touches[0].clientX - gateTouchStartX);
+      if (diffY > 18 && diffY > diffX) {
+        e.preventDefault();
+        triggerDeepLinkScrollGate('touch');
+      }
+    }
+  }, { passive: false });
+
+  // Keyboard navigation keys
+  window.addEventListener('keydown', (e) => {
+    if (!isDeepLinkScrollGated || currentUser) return;
+    if (isAnyModalOpen()) return;
+    const scrollKeys = ['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp', 'Space', 'Home', 'End'];
+    if (scrollKeys.includes(e.code) || scrollKeys.includes(e.key)) {
+      e.preventDefault();
+      triggerDeepLinkScrollGate('key');
+    }
+  }, { passive: false });
+}
+
+function triggerDeepLinkScrollGate(reason = 'scroll') {
+  if (!isDeepLinkScrollGated || currentUser) return;
+
+  // Snap back to top of the shared post
+  try {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  } catch (_) {}
+
+  const now = Date.now();
+  if (now - lastScrollGatePromptTime < 2200) {
+    return;
+  }
+  lastScrollGatePromptTime = now;
+
+  openAuthModal('Sign in to explore more visual stories on Slant.');
+}
+
+function appendDeepLinkFeedGate() {
+  const container = document.getElementById('feedContainer');
+  if (!container) return;
+
+  const existing = document.getElementById('deepLinkFeedGate');
+  if (existing) existing.remove();
+
+  const barrier = document.createElement('div');
+  barrier.className = 'deep-link-feed-gate';
+  barrier.id = 'deepLinkFeedGate';
+  barrier.innerHTML = `
+    <div class="deep-link-gate-card">
+      <div class="deep-link-gate-pill">✦ CURATED STORY SPOTLIGHT ✦</div>
+      <div class="deep-link-gate-icon">🔒</div>
+      <h3 class="deep-link-gate-title">Explore More Visual Stories</h3>
+      <p class="deep-link-gate-sub">
+        Sign in with Google to explore the full editorial feed, verify source receipts, and craft your own visual stories.
+      </p>
+      <button type="button" class="deep-link-gate-btn" onclick="openAuthModal('Sign in to explore more stories on Slant.')">
+        <span>Sign in with Google</span>
+        <span class="deep-link-gate-arrow">&rarr;</span>
+      </button>
+    </div>
+  `;
+  container.appendChild(barrier);
 }
 
 function scrollToPostElement(targetCard) {
@@ -1736,6 +1928,13 @@ async function loadPosts() {
       } catch (e) {
         console.warn('Error pre-fetching deep-linked post before initial render:', e);
       }
+    }
+
+    // Promote deep-linked post to the very front so visitor immediately sees it
+    const deepIndex = allPosts.findIndex(p => p && p.id === deepPostId);
+    if (deepIndex > 0) {
+      const [deepPost] = allPosts.splice(deepIndex, 1);
+      allPosts.unshift(deepPost);
     }
   }
 
@@ -2007,8 +2206,14 @@ function handleSearch(query) {
 }
 
 async function checkDeepLink() {
+  const params = new URLSearchParams(window.location.search);
   const deepPostId = getDeepLinkedPostId();
   if (deepPostId) {
+    if (!currentUser) {
+      isDeepLinkScrollGated = true;
+      setupDeepLinkScrollGate();
+    }
+
     function tryFocusDeepLinkedPost(attempts = 10) {
       const targetCard = document.getElementById('post-' + deepPostId) || document.querySelector(`[data-post-id="${deepPostId}"]`);
       if (targetCard) {
@@ -2027,7 +2232,6 @@ async function checkDeepLink() {
           }
 
           // Check if caller explicitly requested source proof modal open (?proof=true)
-          const params = new URLSearchParams(window.location.search);
           if (params.get('proof') === 'true' || params.get('source') === 'proof') {
             const idx = allPosts.findIndex(p => p && p.id === deepPostId);
             if (idx >= 0) setTimeout(() => openDetailModal(idx), 400);
@@ -2493,14 +2697,24 @@ async function renderFeed(isInitial = false) {
     return;
   }
 
-  // BATCH 1: Slice first 12 posts (or expand to include deep-linked post)
+  // BATCH 1: Slice first 12 posts (or isolate deep-linked post for guests)
   const deepPostId = getDeepLinkedPostId();
   let initialRenderCount = FEED_BATCH_SIZE;
   if (deepPostId) {
     const targetIdx = filtered.findIndex(p => p && p.id === deepPostId);
-    if (targetIdx >= FEED_BATCH_SIZE) {
-      initialRenderCount = Math.min(filtered.length, targetIdx + 2);
+    if (targetIdx > 0) {
+      const [deepPost] = filtered.splice(targetIdx, 1);
+      filtered.unshift(deepPost);
     }
+    if (!currentUser) {
+      isDeepLinkScrollGated = true;
+      initialRenderCount = 1;
+      setupDeepLinkScrollGate();
+    } else {
+      isDeepLinkScrollGated = false;
+    }
+  } else {
+    isDeepLinkScrollGated = false;
   }
   const batch1 = filtered.slice(0, initialRenderCount);
 
@@ -2510,14 +2724,17 @@ async function renderFeed(isInitial = false) {
     try { initVid.play().catch(() => {}); } catch (_) {}
   }
 
-  // 1. Render Batch 1 cards (strictly 12 posts) into DOM immediately behind the video loader
+  // 1. Render Batch 1 cards into DOM immediately behind the video loader
   renderBatchCards(batch1, 0);
 
-  // Strictly append Batch End Barrier directly below the 12th card (posts end at 12!)
-  appendBatchEndBarrier(0, batch1.length, filtered.length);
-
-  // Attach swipe blocked trigger listener
-  setupSwipeBlockedListener();
+  if (isDeepLinkScrollGated && !currentUser) {
+    appendDeepLinkFeedGate();
+  } else {
+    // Strictly append Batch End Barrier directly below the 12th card (posts end at 12!)
+    appendBatchEndBarrier(0, batch1.length, filtered.length);
+    // Attach swipe blocked trigger listener
+    setupSwipeBlockedListener();
+  }
 
   if (isInitial) {
     // Deliberate UX Flow: Keep logo video looping for at least 1 full cycle (~2.2s)
@@ -5377,16 +5594,18 @@ async function sharePosters(indexOrId) {
   }
 
   const cacheKey = post.id || `idx-${indexOrId}`;
+  const shareUrl = getPostShareUrl(post);
+  const headline = post.adaptedHeadline || post.originalHeadline || 'Curated Story';
+  const shareText = getPostShareText(post);
 
   // INSTANT-FIRE: If already pre-rendered, navigator.share fires synchronously with 0ms delay!
   // This preserves the active user gesture on iOS Safari & Android Chrome 100% of the time.
   if (posterFilesCache.has(cacheKey)) {
     const cachedFiles = posterFilesCache.get(cacheKey);
-    if (navigator.canShare && navigator.canShare({ files: cachedFiles })) {
+    const sharePayload = buildSharePayload(cachedFiles, headline, shareText, shareUrl);
+    if (sharePayload) {
       try {
-        await navigator.share({
-          files: cachedFiles
-        });
+        await navigator.share(sharePayload);
         showTemporaryToast('✨ 3 Slide Posters shared!');
         return;
       } catch (err) {
@@ -5409,16 +5628,17 @@ async function sharePosters(indexOrId) {
     }
 
     // Try direct native share
-    if (navigator.canShare && navigator.canShare({ files })) {
+    const sharePayload = buildSharePayload(files, headline, shareText, shareUrl);
+    if (sharePayload) {
       try {
-        await navigator.share({ files });
+        await navigator.share(sharePayload);
         showTemporaryToast('✨ 3 Slide Posters shared!');
         return;
       } catch (err) {
         if (err.name === 'AbortError') {
           return;
         }
-        console.warn('Direct share after render failed (gesture token expired or OS blocked), opening share modal:', err);
+        console.warn('Direct share after render failed, opening share modal:', err);
       }
     }
 
@@ -5438,8 +5658,14 @@ function openSharePostersModal(post, files) {
   const thumbsRow = document.getElementById('sharePostersThumbsRow');
   const nativeBtn = document.getElementById('modalNativeShareBtn');
   const saveBtn = document.getElementById('modalSavePhotosBtn');
+  const copyBtn = document.getElementById('modalCopyLinkBtn');
+  const preview = document.getElementById('modalShareLinkPreview');
 
   if (!modal) return;
+
+  const shareUrl = getPostShareUrl(post);
+  const headline = post?.adaptedHeadline || post?.originalHeadline || 'Curated Story';
+  const shareText = getPostShareText(post);
 
   if (thumbsRow && files && files.length > 0) {
     thumbsRow.innerHTML = '';
@@ -5457,12 +5683,13 @@ function openSharePostersModal(post, files) {
 
   // Setup Share button (User clicking this button generates a guaranteed fresh user gesture!)
   if (nativeBtn) {
-    if (navigator.canShare && navigator.canShare({ files })) {
+    const sharePayload = buildSharePayload(files, headline, shareText, shareUrl);
+    if (sharePayload) {
       nativeBtn.style.display = 'flex';
-      nativeBtn.innerHTML = '<span>📤</span> <span>Share to Instagram & Apps</span>';
+      nativeBtn.innerHTML = '<span>📤</span> <span>Share Posters & Link</span>';
       nativeBtn.onclick = async () => {
         try {
-          await navigator.share({ files });
+          await navigator.share(sharePayload);
           closeSharePostersModal();
           showTemporaryToast('✨ 3 Slide Posters shared!');
         } catch (err) {
@@ -5488,6 +5715,19 @@ function openSharePostersModal(post, files) {
       downloadShareFiles(files);
       closeSharePostersModal();
     };
+  }
+
+  // Setup Copy Link button
+  if (copyBtn && post && post.id) {
+    copyBtn.onclick = () => {
+      copyCardShareLink(post.id);
+    };
+  }
+
+  // Display clean share URL preview
+  if (preview && shareUrl) {
+    preview.style.display = 'block';
+    preview.textContent = shareUrl;
   }
 
   modal.classList.add('open');
@@ -9232,24 +9472,26 @@ function saveEditedSlideContent() {
 async function handleStep3Share() {
   if (!currentSynthesizedPost) return;
 
+  const post = currentSynthesizedPost;
+  const shareUrl = getPostShareUrl(post);
+  const headline = post.adaptedHeadline || post.originalHeadline || 'Slant Editorial Carousel';
+  const shareText = getPostShareText(post);
+
   try {
     showTemporaryToast('📸 Preparing posters to share...');
-    const files = await capturePostSlidesAsFiles(currentSynthesizedPost, 0);
+    const files = await capturePostSlidesAsFiles(post, 0);
     if (files && files.length > 0) {
-      if (navigator.canShare && navigator.canShare({ files })) {
+      const sharePayload = buildSharePayload(files, headline, shareText, shareUrl);
+      if (sharePayload) {
         try {
-          await navigator.share({
-            files,
-            title: currentSynthesizedPost.adaptedHeadline || 'Slant Editorial Carousel',
-            text: `${currentSynthesizedPost.creatorHandle || '@curator'}: "${currentSynthesizedPost.creatorOpinion || currentSynthesizedPost.adaptedHeadline}"`
-          });
+          await navigator.share(sharePayload);
           showTemporaryToast('✨ 3 Slide Posters shared!');
           return;
         } catch (err) {
           if (err.name === 'AbortError') return; // User closed share sheet
         }
       }
-      openSharePostersModal(currentSynthesizedPost, files);
+      openSharePostersModal(post, files);
       return;
     }
   } catch (err) {
@@ -9258,9 +9500,9 @@ async function handleStep3Share() {
 
   // Fallback to text/URL share sheet
   const shareData = {
-    title: currentSynthesizedPost.adaptedHeadline || 'Slant Editorial Carousel',
-    text: `${currentSynthesizedPost.creatorHandle || '@curator'}: "${currentSynthesizedPost.creatorOpinion || currentSynthesizedPost.adaptedHeadline}"`,
-    url: window.location.origin
+    title: headline,
+    text: shareText,
+    url: shareUrl
   };
 
   if (navigator.share) {
@@ -9268,23 +9510,24 @@ async function handleStep3Share() {
       await navigator.share(shareData);
     } catch (err) {
       if (err.name !== 'AbortError') {
-        copyShareUrlFallback();
+        copyShareUrlFallback(shareUrl);
       }
     }
   } else {
-    copyShareUrlFallback();
+    copyShareUrlFallback(shareUrl);
   }
 }
 
-function copyShareUrlFallback() {
-  if (navigator.clipboard && window.location.origin) {
-    navigator.clipboard.writeText(window.location.origin).then(() => {
+function copyShareUrlFallback(customUrl) {
+  const urlToCopy = customUrl || window.location.origin;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(urlToCopy).then(() => {
       showTemporaryToast('📋 Share link copied to clipboard!');
     }).catch(() => {
-      showTemporaryToast('📋 Link: ' + window.location.origin);
+      showTemporaryToast('📋 Link: ' + urlToCopy);
     });
   } else {
-    showTemporaryToast('📋 Link: ' + window.location.origin);
+    showTemporaryToast('📋 Link: ' + urlToCopy);
   }
 }
 
