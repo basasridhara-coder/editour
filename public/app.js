@@ -1666,12 +1666,16 @@ function getPostShareText(post) {
   return `"${headline}"\n\nRead the full story & receipts on Slant:\n${url}`;
 }
 
-function buildSharePayload(files, title, text, url) {
+function buildSharePayload(files, title, text, url, mode = 'status') {
   if (!navigator.share) return null;
 
-  // Reverse files for native sharing so messaging apps (such as WhatsApp) that read
-  // incoming file streams in LIFO/reverse order place Poster 1 as the primary thumbnail and caption anchor.
-  const shareFiles = (files && files.length > 0) ? [...files].reverse() : null;
+  let shareFiles = files;
+  if (files && files.length > 0) {
+    // In 'chat' mode, reverse files so messaging apps (such as WhatsApp) that read
+    // incoming file streams in LIFO/reverse order place Poster 1 as the primary thumbnail and caption anchor.
+    // In 'status' mode, preserve natural 1 -> 2 -> 3 sequential order so WhatsApp Status & Instagram Stories play in order.
+    shareFiles = (mode === 'chat') ? [...files].reverse() : [...files];
+  }
 
   if (shareFiles && shareFiles.length > 0 && navigator.canShare) {
     // 1. Try files + title + text (text already has the link embedded; omitting the separate
@@ -5599,27 +5603,10 @@ async function sharePosters(indexOrId) {
   }
 
   const cacheKey = post.id || `idx-${indexOrId}`;
-  const shareUrl = getPostShareUrl(post);
-  const headline = post.adaptedHeadline || post.originalHeadline || 'Curated Story';
-  const shareText = getPostShareText(post);
 
-  // INSTANT-FIRE: If already pre-rendered, navigator.share fires synchronously with 0ms delay!
-  // This preserves the active user gesture on iOS Safari & Android Chrome 100% of the time.
+  // If already pre-rendered, open share modal immediately with cached posters
   if (posterFilesCache.has(cacheKey)) {
     const cachedFiles = posterFilesCache.get(cacheKey);
-    const sharePayload = buildSharePayload(cachedFiles, headline, shareText, shareUrl);
-    if (sharePayload) {
-      try {
-        await navigator.share(sharePayload);
-        showTemporaryToast('✨ 3 Slide Posters shared!');
-        return;
-      } catch (err) {
-        if (err.name === 'AbortError') {
-          return; // User dismissed share sheet
-        }
-        console.warn('Instant native share failed, falling back to share modal:', err);
-      }
-    }
     openSharePostersModal(post, cachedFiles);
     return;
   }
@@ -5631,23 +5618,6 @@ async function sharePosters(indexOrId) {
     if (!files || files.length === 0) {
       throw new Error('Failed to generate poster images');
     }
-
-    // Try direct native share
-    const sharePayload = buildSharePayload(files, headline, shareText, shareUrl);
-    if (sharePayload) {
-      try {
-        await navigator.share(sharePayload);
-        showTemporaryToast('✨ 3 Slide Posters shared!');
-        return;
-      } catch (err) {
-        if (err.name === 'AbortError') {
-          return;
-        }
-        console.warn('Direct share after render failed, opening share modal:', err);
-      }
-    }
-
-    // Dedicated modal gives the user a guaranteed fresh gesture to share or save
     openSharePostersModal(post, files);
   } catch (err) {
     console.error('Error generating posters:', err);
@@ -5661,7 +5631,8 @@ function openSharePostersModal(post, files) {
 
   const modal = document.getElementById('posterShareModal');
   const thumbsRow = document.getElementById('sharePostersThumbsRow');
-  const nativeBtn = document.getElementById('modalNativeShareBtn');
+  const chatBtn = document.getElementById('modalShareChatBtn');
+  const statusBtn = document.getElementById('modalShareStatusBtn');
   const saveBtn = document.getElementById('modalSavePhotosBtn');
   const copyBtn = document.getElementById('modalCopyLinkBtn');
   const preview = document.getElementById('modalShareLinkPreview');
@@ -5686,32 +5657,50 @@ function openSharePostersModal(post, files) {
     });
   }
 
-  // Setup Share button (User clicking this button generates a guaranteed fresh user gesture!)
-  if (nativeBtn) {
-    const sharePayload = buildSharePayload(files, headline, shareText, shareUrl);
-    if (sharePayload) {
-      nativeBtn.style.display = 'flex';
-      nativeBtn.innerHTML = '<span>📤</span> <span>Share Posters & Link</span>';
-      nativeBtn.onclick = async () => {
+  // Setup Share to Chat button (Reverses file array so messaging apps like WhatsApp anchor Poster 1 as thumbnail & caption)
+  if (chatBtn) {
+    const chatPayload = buildSharePayload(files, headline, shareText, shareUrl, 'chat');
+    chatBtn.onclick = async () => {
+      if (chatPayload && navigator.share) {
         try {
-          await navigator.share(sharePayload);
+          await navigator.share(chatPayload);
           closeSharePostersModal();
-          showTemporaryToast('✨ 3 Slide Posters shared!');
+          showTemporaryToast('✨ Posters shared to chat!');
         } catch (err) {
           if (err.name !== 'AbortError') {
+            console.warn('Native share error, falling back to download:', err);
             downloadShareFiles(files);
           }
         }
-      };
-    } else {
-      // If desktop browser doesn't support file sharing, label it as Download Posters for Instagram
-      nativeBtn.style.display = 'flex';
-      nativeBtn.innerHTML = '<span>📥</span> <span>Download 3 Posters for Instagram</span>';
-      nativeBtn.onclick = () => {
+      } else {
         downloadShareFiles(files);
+        copyCardShareLink(post?.id);
         closeSharePostersModal();
-      };
-    }
+      }
+    };
+  }
+
+  // Setup Share for Status / Story button (Preserves natural 1 -> 2 -> 3 sequential order)
+  if (statusBtn) {
+    const statusPayload = buildSharePayload(files, headline, shareText, shareUrl, 'status');
+    statusBtn.onclick = async () => {
+      if (statusPayload && navigator.share) {
+        try {
+          await navigator.share(statusPayload);
+          closeSharePostersModal();
+          showTemporaryToast('✨ Posters shared for status / story!');
+        } catch (err) {
+          if (err.name !== 'AbortError') {
+            console.warn('Native share error, falling back to download:', err);
+            downloadShareFiles(files);
+          }
+        }
+      } else {
+        downloadShareFiles(files);
+        copyCardShareLink(post?.id);
+        closeSharePostersModal();
+      }
+    };
   }
 
   // Setup Save / Download button
@@ -9495,16 +9484,6 @@ async function handleStep3Share() {
     showTemporaryToast('📸 Preparing posters to share...');
     const files = await capturePostSlidesAsFiles(post, 0);
     if (files && files.length > 0) {
-      const sharePayload = buildSharePayload(files, headline, shareText, shareUrl);
-      if (sharePayload) {
-        try {
-          await navigator.share(sharePayload);
-          showTemporaryToast('✨ 3 Slide Posters shared!');
-          return;
-        } catch (err) {
-          if (err.name === 'AbortError') return; // User closed share sheet
-        }
-      }
       openSharePostersModal(post, files);
       return;
     }
