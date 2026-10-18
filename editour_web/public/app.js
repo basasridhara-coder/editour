@@ -1669,28 +1669,33 @@ function getPostShareText(post) {
 function buildSharePayload(files, title, text, url) {
   if (!navigator.share) return null;
 
-  if (files && files.length > 0 && navigator.canShare) {
-    // 1. Try full: files + title + text + url
-    const fullPayload = { files, title, text, url };
-    if (navigator.canShare(fullPayload)) {
-      return fullPayload;
-    }
-    // 2. Try files + title + text (text already has the link embedded)
-    const filesWithText = { files, title, text };
+  // Reverse files for native sharing so messaging apps (such as WhatsApp) that read
+  // incoming file streams in LIFO/reverse order place Poster 1 as the primary thumbnail and caption anchor.
+  const shareFiles = (files && files.length > 0) ? [...files].reverse() : null;
+
+  if (shareFiles && shareFiles.length > 0 && navigator.canShare) {
+    // 1. Try files + title + text (text already has the link embedded; omitting the separate
+    // 'url' property prevents mobile browsers and WhatsApp from appending the link a second time)
+    const filesWithText = { files: shareFiles, title, text };
     if (navigator.canShare(filesWithText)) {
       return filesWithText;
     }
-    // 3. Try files only
-    const filesOnly = { files };
+    // 2. Try files only if text + files is rejected by device
+    const filesOnly = { files: shareFiles };
     if (navigator.canShare(filesOnly)) {
       return filesOnly;
     }
   }
 
-  // Fallback to text & URL without files
-  const textPayload = { title, text, url };
+  // Fallback to text only without files (text already embeds the link, so omit redundant url)
+  const textPayload = { title, text };
   if (navigator.canShare && navigator.canShare(textPayload)) {
     return textPayload;
+  }
+  // Ultimate text fallback if app strictly requires url property
+  const fullTextPayload = { title, text, url };
+  if (navigator.canShare && navigator.canShare(fullTextPayload)) {
+    return fullTextPayload;
   }
   return null;
 }
@@ -9507,15 +9512,17 @@ async function handleStep3Share() {
     console.warn('capturePostSlidesAsFiles error during share:', err);
   }
 
-  // Fallback to text/URL share sheet
+  // Fallback to text share sheet (text already embeds the link, so omit separate url to avoid duplicate)
   const shareData = {
     title: headline,
-    text: shareText,
-    url: shareUrl
+    text: shareText
   };
 
   if (navigator.share) {
     try {
+      if (navigator.canShare && !navigator.canShare(shareData)) {
+        shareData.url = shareUrl;
+      }
       await navigator.share(shareData);
     } catch (err) {
       if (err.name !== 'AbortError') {
