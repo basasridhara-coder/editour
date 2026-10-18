@@ -332,7 +332,7 @@ Author's Raw Take:
    - NEVER use pretentious Latinate words or academic clichés: "hegemony", "panopticon", "paradigm", "Kafkaesque", "dichotomy", "juxtaposition", "inexorable", "obfuscate", "surreptitious", "monolithic", "harbinger", "verisimilitude", "disenfranchised", "quagmire", "ubiquitous", "pervasive", "machinations", "epistemic".
    - If a word sounds like a PhD dissertation or corporate report, replace it with a direct, everyday equivalent.
 2. CONVEY RAW EMOTION THROUGH CLEAR, GUT-PUNCH LANGUAGE:
-   - Convey feeling through high human stakes, tension, vivid imagery, and clear cause-and-effect—NOT through rare multi-syllabic adjectives.
+   - Convey feeling through high human stakes, tension, vivid imagery, and clear cause-and-effect, not through rare multi-syllabic adjectives.
    - Use punchy, active verbs and concrete nouns (e.g., choke, crush, hollow out, bankroll, shield, silence, fracture, bet, gamble, trap, blindspot, flashpoint).
 3. SMART YET EFFORTLESSLY UNDERSTANDABLE:
    - Do NOT dumb it down like a children's primer. Keep the adult intelligence, wit, and conviction, but ensure any smart reader can grasp every single word instantly on their phone.`;
@@ -353,6 +353,9 @@ Author's Raw Take:
 
     const demographicInfo = detectAgeAndDemographics(userSlant, extractedTitle, extractedContent);
 
+    const isCinematicPhoto = (characterRepresentation === 'cinematic' || characterRepresentation === 'cinematic_photo' || characterRepresentation === 'likeness' || (Boolean(effectiveCatalystImage || sourceImageBase64) && characterRepresentation !== 'painting' && characterRepresentation !== 'exact' && characterRepresentation !== 'silhouette' && characterRepresentation !== 'realistic'));
+    const isArtisticPainting = (characterRepresentation === 'painting');
+
     const systemPrompt = `You are the lead editorial director and visual design curator for "Slant" (slant.today), an elite visual publication that distills complex stories into high-impact 3-poster social carousels.
 
 Input Details:
@@ -369,19 +372,29 @@ ${demographicInfo ? `- Featured Protagonist Age & Demographics: ${demographicInf
 ${cues && cues.length > 0 ? `- Ranked Visual Cues: ${cues.map((c, i) => `#${i+1} ${c}`).join(' • ')}` : ''}
 - Character Portrayal Style: ${characterRepresentation === 'exact' 
   ? 'Use exact unedited news/attached photo directly' 
-  : ((characterRepresentation === 'likeness' || characterRepresentation === 'lookalike') 
-    ? 'Artistic Likeness (Privacy-Safe Artwork): Analyze the attached photo and capture the key subjects recognizable facial structure, hairstyle, eye expression, and clothing in an artistic painted broadsheet illustration without biometric tracking.' 
-    : (characterRepresentation === 'silhouette'
-      ? 'Minimalist silhouette / stark shadow figures (ONLY if explicitly demanded)'
-      : 'Vivid Editorial Realism & Expressive People: Warm, realistic, expressive human beings with clearly visible faces, natural skin tones, clear clothing, and bright warm ambient lighting. STRICT BAN: NEVER pitch-black silhouettes, NEVER faceless shadows, NEVER dark doorway shadow figures, NEVER creepy ghost-like phantoms!'))}
-${(characterRepresentation === 'likeness' || characterRepresentation === 'lookalike' || (perspectiveMode === 'hybrid' && (effectiveCatalystImage || sourceImageBase64))) ? `CRITICAL ARTISTIC LIKENESS & FACIAL STRUCTURE DIRECTIVE (PRIVACY-SAFE EDITORIAL ARTWORK):
-- An authentic real-world photograph is attached. The curator requested Artistic Likeness / Hybrid Likeness portrayal for Poster 1 artwork.
+  : (isCinematicPhoto
+    ? 'Cinematic Editorial Photo (Picture-Like Quality, Zero Digital Footprint): 35mm documentary film still capturing the key subjects recognizable facial structure, hairstyle, eye expression, and clothing with natural camera fidelity and authentic skin textures.'
+    : (isArtisticPainting
+      ? 'Artistic Broadsheet Painting (Artwork): Warm painted broadsheet illustration in gouache and oil style capturing the scene and figures in rich painted pigments.' 
+      : (characterRepresentation === 'silhouette'
+        ? 'Minimalist silhouette / stark shadow figures (ONLY if explicitly demanded)'
+        : 'Vivid Editorial Realism & Expressive People: Warm, realistic, expressive human beings with clearly visible faces, natural skin tones, clear clothing, and bright warm ambient lighting. STRICT BAN: NEVER pitch-black silhouettes, NEVER faceless shadows, NEVER dark doorway shadow figures, NEVER creepy ghost-like phantoms!')))}
+${isCinematicPhoto && (effectiveCatalystImage || sourceImageBase64) ? `CRITICAL CINEMATIC EDITORIAL PHOTOGRAPHY DIRECTIVE (PICTURE-LIKE QUALITY, ZERO DIGITAL FOOTPRINT):
+- An authentic real-world photograph is attached. The curator requested Cinematic Editorial Photo portrayal for Poster 1 (picture-like photographic quality).
+- In "illustrationPrompt", perform an astute visual analysis of the key people and environment visible in the attached photo to produce an award-winning 35mm editorial documentary photograph / film still:
+  1. CAMERA & PHOTOGRAPHIC MEDIUM: 35mm editorial documentary photography, sharp focal depth, natural skin pores and realistic skin textures, gentle natural optical bokeh, lifelike documentary photojournalism. STRICT BAN: NO painterly brushstrokes, NO canvas textures, NO gouache or oil painting effects, NO cartoon or illustration styles! Must look like a real, high-resolution magazine photo.
+  2. FACIAL STRUCTURE & EXPRESSIONS: Describe the face shape (e.g. oval, soft round cheeks, structured jaw), warm skin tones, dark almond eyes, natural eye gaze, and authentic thoughtful or joyful expressions.
+  3. HAIR & POSTURE: Describe haircut, texture, parting, and color (e.g. dark straight fringe, wavy side-parted hair), height difference, age group, and body posture (e.g. brotherly arm over shoulder).
+  4. CLOTHING & SETTING: Describe clothing colors and styles (e.g. vibrant blue graphic t-shirt, light shorts, white tank top) set in the authentic physical environment (e.g. bright sunlit domestic veranda, wooden carved door, granite floor, stainless steel railing) with natural ambient midday sunlight.
+  5. PRIVACY & SAFETY CONSTRAINT: DO NOT use real names, do not use words like "clone", "replica", or "deepfake". Describe them as archetypal human subjects so the photo captures their scene and presence with complete privacy.` : ''}
+${isArtisticPainting && (effectiveCatalystImage || sourceImageBase64) ? `CRITICAL ARTISTIC BROADSHEET PAINTING DIRECTIVE (PAINTED ARTWORK):
+- An authentic real-world photograph is attached. The curator requested Artistic Broadsheet Painting portrayal for Poster 1.
 - In "illustrationPrompt", perform an astute visual analysis of the key people visible in the attached photo to describe their physical facial characteristics, hairstyle, age, stature, and clothing:
-  1. FACIAL STRUCTURE & FEATURES: Describe the face shape (e.g. oval, soft round cheeks, squared jawline), skin tone, eye shape, gaze, smile or expression (e.g. thoughtful, attentive, cheerful).
-  2. HAIR & HEAD: Describe haircut, hair texture, part, and color (e.g. dark straight fringe, wavy side-parted hair, neat crop).
-  3. RELATIVE STATURE & CLOTHING: Describe the age gap, height difference, clothing colors and styles (e.g. cobalt blue graphic t-shirt, beige shorts, white tank top).
-  4. ENVIRONMENT & LIGHTING: Describe the setting (e.g. sunny home entrance porch, wooden carved door, granite steps, stainless steel railing) bathed in natural midday sunlight.
-  5. ARTISTIC MEDIUM (ZERO BIOMETRIC FOOTPRINT): Frame the prompt as an expressive masterpiece editorial painting (e.g. "Warm cinematic editorial gouache and oil painting with rich textures, vivid color grading, lifelike human expression").
+  1. FACIAL STRUCTURE & FEATURES: Describe the face shape, skin tone, eye shape, gaze, smile or expression.
+  2. HAIR & HEAD: Describe haircut, hair texture, part, and color.
+  3. RELATIVE STATURE & CLOTHING: Describe the age gap, height difference, clothing colors and styles.
+  4. ENVIRONMENT & LIGHTING: Describe the setting bathed in natural midday sunlight.
+  5. ARTISTIC MEDIUM: Frame the prompt as an expressive masterpiece editorial painting (e.g. "Warm cinematic editorial gouache and oil painting with rich textures, vivid color grading, lifelike human expression").
   6. PRIVACY & SAFETY CONSTRAINT: DO NOT use real names, do not use words like "clone", "replica", or "deepfake". Describe them as artistic archetypal protagonists so the artwork captures their recognizable essence and warmth while protecting their privacy.` : ''}
 ${characterRepresentation === 'exact' ? 'CRITICAL EXACT PHOTO DIRECTIVE: Character Portrayal is set to USE EXACT PHOTO. The heroCue should highlight the central photographic subject of the unedited news photo.' : ''}
 
@@ -493,8 +506,7 @@ Respond strictly with valid JSON with this exact structure:
   "tensionCue": "Opposing visual force or conflict",
   "atmosphereCue": "Environmental setting or mood",
   "lightingCue": "Dramatic lighting description",
-  "styleCue": "Artistic medium description",
-  "illustrationPrompt": "${(characterRepresentation === 'likeness' || characterRepresentation === 'lookalike' || (perspectiveMode === 'hybrid' && (effectiveCatalystImage || sourceImageBase64))) ? 'Masterpiece editorial broadsheet painted illustration describing the scene in vivid detail. Specifically incorporate the observed facial structures, hairstyles, expressions, clothing colors, and postures from the attached photo into a rich painterly composition. Clear, warmly lit faces, lifelike human expression, no text, no letters.' : 'Cinematic visual art prompt describing the scene with rich detail. People MUST have visible faces, warm natural lighting, and clear human form. Strictly avoid pitch-black silhouettes, faceless shadow figures, dark ghosts, or creepy silhouettes unless characterRepresentation is explicitly silhouette. Do not include any text, letters, watermarks, or typography.'}"
+  "illustrationPrompt": "${isCinematicPhoto ? 'Award-winning 35mm editorial news photograph in 4:5 vertical portrait format, sharp camera focus, natural skin textures, lifelike human expressions, realistic clothing and environment observed from the attached photo. Natural ambient lighting, cinematic color grading, strictly no painterly brushstrokes, no canvas textures, no oil paint, no text, no letters.' : (isArtisticPainting ? 'Masterpiece editorial broadsheet painted illustration describing the scene in vivid detail. Specifically incorporate the observed facial structures, hairstyles, expressions, clothing colors, and postures from the attached photo into a rich painterly composition. Clear, warmly lit faces, lifelike human expression, no text, no letters.' : 'Cinematic visual art prompt describing the scene with rich detail. People MUST have visible faces, warm natural lighting, and clear human form. Strictly avoid pitch-black silhouettes, faceless shadow figures, dark ghosts, or creepy silhouettes unless characterRepresentation is explicitly silhouette. Do not include any text, letters, watermarks, or typography.')}"
 }`;
 
     const parts = [];
@@ -613,8 +625,10 @@ Respond strictly with valid JSON with this exact structure:
 
     // Dimension 1: HERO (Centerpiece protagonist or subject)
     const ageDesc = (demographicInfo && demographicInfo.promptDesc) ? `${demographicInfo.promptDesc}, ` : '';
-    if (isPerson && isLookalike) {
-      partsList.push(`${ageDesc}${heroCandidate} portrait likeness, painted magazine cover illustration, realistic recognizable features, expressive gaze`);
+    if (isPerson && isCinematicPhoto) {
+      partsList.push(`${ageDesc}${heroCandidate} 35mm editorial documentary portrait, sharp focal depth, realistic skin textures, expressive gaze, authentic ambient lighting`);
+    } else if (isPerson && (isLookalike || isArtisticPainting)) {
+      partsList.push(`${ageDesc}${heroCandidate} painted broadsheet illustration, rich gouache and oil texture, recognizable presence`);
     } else if (isPerson && characterRepresentation === 'silhouette') {
       partsList.push(`${ageDesc}${heroCandidate} minimalist silhouette outline, stark graphic contrast`);
     } else if (isPerson) {
@@ -1060,7 +1074,7 @@ function generateSmartFallbackSynthesis({
         'The Grounding Threshold: Small moments of clarity reveal what truly matters far faster than productivity tricks.',
         'The Discipline of Alignment: True peace is an active boundary you defend, not a passive reward at the end of a checklist.'
       ],
-      receiptHighlightQuote: userSlant || 'Clarity is not found in the noise—it is cultivated in the pauses between demands.',
+      receiptHighlightQuote: userSlant || 'Clarity is not found in the noise, it is cultivated in the pauses between demands.',
       resolvedArticleExcerpts: [p1, p2, p3],
       keyMetric: 'Clarity Over Noise',
       visualMood: 'Warm Twilight Editorial Realism',
@@ -1142,7 +1156,7 @@ function generateSmartFallbackSynthesis({
     }
 
     if (sourceAssertion) {
-      p2 = `This critique directly engages the underlying source reality—specifically that ${sourceAssertion}. Passive willpower alone cannot overcome environments engineered for perpetual engagement; without deliberate boundaries, mental bandwidth is systematically hijacked before we can address what truly matters.`;
+      p2 = `This critique directly engages the underlying source reality, specifically that ${sourceAssertion}. Passive willpower alone cannot overcome environments engineered for perpetual engagement; without deliberate boundaries, mental bandwidth is systematically hijacked before we can address what truly matters.`;
     } else if (secondSentence) {
       p2 = `${secondSentence} Examining the deeper structural incentives reveals why stepping back is an active discipline. When reflexive reactivity becomes the default posture, intentional focus and emotional availability are the first casualties.`;
     } else {
@@ -1351,6 +1365,11 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
     'gemini-3.1-flash-lite-image'
   ];
 
+  const isPhotoMedium = /photograph|film still|35mm|photojournalism|documentary|editorial portrait photograph/i.test(prompt);
+  const textureStyle = isPhotoMedium
+    ? 'sharp focus, natural skin textures, 35mm film grain, authentic ambient lighting'
+    : 'painterly texture, dramatic lighting';
+
   const parts = [];
   if (imageBase64) {
     const cleanData = imageBase64.includes(',') ? imageBase64.split(',')[1] : imageBase64;
@@ -1361,11 +1380,11 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
       }
     });
     parts.push({
-      text: `Transform this reference image into a high-aesthetic cinematic editorial magazine poster in 4:5 vertical portrait format: ${prompt}. Imposing visual composition, dramatic lighting, painterly texture, vivid color grading, masterwork, no typography, no letters, no text.`
+      text: `Transform this reference image into a high-aesthetic cinematic editorial magazine poster in 4:5 vertical portrait format: ${prompt}. Imposing visual composition, ${textureStyle}, vivid color grading, masterwork, no typography, no letters, no text.`
     });
   } else {
     parts.push({
-      text: `${prompt}, cinematic editorial poster art, 4:5 vertical portrait format, dramatic atmospheric lighting, painterly texture, high aesthetic, vivid color grading, masterwork, no typography, no letters, no text.`
+      text: `${prompt}, 4:5 vertical portrait format, dramatic atmospheric mood, ${textureStyle}, high aesthetic, vivid color grading, masterwork, no typography, no letters, no text.`
     });
   }
 

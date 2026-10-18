@@ -6449,7 +6449,7 @@ function handleInnerVoicePhotoSelect(event) {
       creatorReferenceImageBase64 = base64Data;
       creatorReferenceImageMimeType = mimeType || 'image/jpeg';
       creatorReferenceImageSourceLabel = 'Catalyst Scene Photo';
-      creatorCharacterRepresentation = 'likeness';
+      creatorCharacterRepresentation = 'cinematic';
       updateReferencePhotoUI();
     }
 
@@ -6539,7 +6539,7 @@ function backToStep1() {
 // Visual Cues Studio State
 let creatorCuePills = [];
 let creatorSelectedCueIndices = new Set();
-let creatorCharacterRepresentation = 'realistic'; // 'realistic' | 'likeness' | 'exact' | 'silhouette'
+let creatorCharacterRepresentation = 'realistic'; // 'realistic' | 'cinematic' | 'painting' | 'exact' | 'silhouette' | 'likeness'
 let creatorLastSuggestedContextKey = '';
 let creatorCuesSourceFingerprint = null;
 
@@ -8092,7 +8092,7 @@ async function goToVisualCuesStep() {
     renderCuesDeck();
     triggerCueSuggest();
   } else {
-    if (creatorCuePills.length > 0 && creatorCharacterRepresentation === 'likeness') {
+    if (creatorCuePills.length > 0 && (creatorCharacterRepresentation === 'cinematic' || creatorCharacterRepresentation === 'likeness')) {
       const detected = detectPersonNameInContext(articleTitle, slantTake, currentScrapedArticle?.content);
       if (detected && !creatorCuePills[0].toLowerCase().includes(detected.toLowerCase())) {
         creatorCuePills[0] = `${detected} (Editorial Portrait)`;
@@ -8677,8 +8677,8 @@ async function triggerCueSuggest() {
         creatorCuePills = data.cues;
       }
 
-      // If likeness is selected, enforce detected person in #1 HERO
-      if (creatorCharacterRepresentation === 'likeness') {
+      // If cinematic or likeness is selected, enforce detected person in #1 HERO
+      if (creatorCharacterRepresentation === 'cinematic' || creatorCharacterRepresentation === 'likeness') {
         const detected = detectPersonNameInContext(articleTitle, slantTake, articleBody);
         const demographic = detectAgeAndDemographics(slantTake, articleTitle, articleBody);
         if (detected && creatorCuePills.length > 0 && !creatorCuePills[0].toLowerCase().includes(detected.toLowerCase())) {
@@ -8739,6 +8739,7 @@ function handleReferenceImageSelection(event) {
     creatorReferenceImageBase64 = base64Data;
     creatorReferenceImageMimeType = mimeType || 'image/jpeg';
     creatorReferenceImageSourceLabel = 'Custom Portrait Photo';
+    creatorCharacterRepresentation = 'cinematic';
     updateReferencePhotoUI();
   });
 }
@@ -8748,6 +8749,8 @@ function updateReferencePhotoUI() {
   const photoThumb = document.getElementById('sourcePhotoThumb');
   const photoBadge = document.getElementById('sourcePhotoBadge');
   const photoLabel = document.getElementById('sourcePhotoLabel');
+  const optCinematic = document.getElementById('repOptionCinematic');
+  const optPainting = document.getElementById('repOptionPainting');
   const optLikeness = document.getElementById('repOptionLikeness');
   const optExact = document.getElementById('repOptionExact');
   const optReal = document.getElementById('repOptionRealistic');
@@ -8775,6 +8778,14 @@ function updateReferencePhotoUI() {
     }
   }
 
+  if (optCinematic) {
+    optCinematic.style.display = hasPhoto ? 'flex' : 'none';
+  }
+
+  if (optPainting) {
+    optPainting.style.display = hasPhoto ? 'flex' : 'none';
+  }
+
   if (optLikeness) {
     optLikeness.style.display = hasPhoto ? 'flex' : 'none';
   }
@@ -8784,7 +8795,7 @@ function updateReferencePhotoUI() {
   }
 
   if (!hasPhoto) {
-    if (creatorCharacterRepresentation === 'likeness' || creatorCharacterRepresentation === 'exact') {
+    if (creatorCharacterRepresentation === 'cinematic' || creatorCharacterRepresentation === 'painting' || creatorCharacterRepresentation === 'likeness' || creatorCharacterRepresentation === 'exact') {
       creatorCharacterRepresentation = 'realistic';
     }
   }
@@ -8816,14 +8827,17 @@ function updateReferencePhotoUI() {
     }
   }
 
-  if (optLikeness) optLikeness.classList.toggle('active', creatorCharacterRepresentation === 'likeness');
+  const isCinematicActive = (creatorCharacterRepresentation === 'cinematic' || creatorCharacterRepresentation === 'likeness');
+  if (optCinematic) optCinematic.classList.toggle('active', isCinematicActive);
+  if (optLikeness) optLikeness.classList.toggle('active', isCinematicActive);
+  if (optPainting) optPainting.classList.toggle('active', creatorCharacterRepresentation === 'painting');
   if (optReal) optReal.classList.toggle('active', creatorCharacterRepresentation === 'realistic');
   if (optSil) optSil.classList.toggle('active', creatorCharacterRepresentation === 'silhouette');
   if (optExact) optExact.classList.toggle('active', creatorCharacterRepresentation === 'exact');
 }
 
 function selectCharacterRepresentation(type) {
-  if (type !== 'realistic' && type !== 'silhouette' && type !== 'exact' && type !== 'likeness') {
+  if (type !== 'realistic' && type !== 'silhouette' && type !== 'exact' && type !== 'cinematic' && type !== 'painting' && type !== 'likeness') {
     type = 'realistic';
   }
   creatorCharacterRepresentation = type;
@@ -8914,7 +8928,7 @@ async function startAiSynthesis() {
     try { await activeScrapePromise; } catch (_) {}
   }
 
-  const isPhotoPortrayal = (creatorPerspectiveMode === 'source' || creatorCharacterRepresentation === 'likeness' || creatorCharacterRepresentation === 'exact' || creatorCharacterRepresentation === 'lookalike');
+  const isPhotoPortrayal = (creatorPerspectiveMode === 'source' || creatorCharacterRepresentation === 'cinematic' || creatorCharacterRepresentation === 'painting' || creatorCharacterRepresentation === 'likeness' || creatorCharacterRepresentation === 'exact' || creatorCharacterRepresentation === 'lookalike');
   const rawSourceImg = creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || currentScrapedArticle?.imageUrl || null;
   const shouldSendImage = isPhotoPortrayal && Boolean(rawSourceImg);
   const effectiveImageBase64 = shouldSendImage ? (creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || null) : null;

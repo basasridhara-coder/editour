@@ -85,10 +85,11 @@ module.exports = async function handler(req, res) {
   const effectiveNewsHeadline = (sourceType === 'digital_link' || sourceType === 'video_audio') ? (newsHeadline || '').trim() : '';
   const effectiveNewsBody = (sourceType === 'digital_link' || sourceType === 'video_audio') ? (newsBody || '').trim() : '';
 
-  const isLikeness = (characterRepresentation === 'likeness' || characterRepresentation === 'lookalike');
+  const isCinematic = (characterRepresentation === 'cinematic' || characterRepresentation === 'cinematic_photo' || characterRepresentation === 'likeness' || characterRepresentation === 'lookalike' || (effectivePhoto && characterRepresentation !== 'painting' && characterRepresentation !== 'exact' && characterRepresentation !== 'silhouette' && characterRepresentation !== 'realistic'));
+  const isPainting = (characterRepresentation === 'painting');
   const isExact = (characterRepresentation === 'exact');
   const isSilhouette = (characterRepresentation === 'silhouette');
-  const hasPersonFocus = isLikeness || isExact;
+  const hasPersonFocus = isCinematic || isPainting || isExact;
 
   const combinedTopic = `${curatorAngle || ''} ${spark || ''} ${effectiveNewsHeadline} ${effectiveNewsBody}`.toLowerCase();
   const isPersonalStory = (sourceType === 'inner_voice') ||
@@ -131,15 +132,19 @@ This slant is a personal reflection, lived moment, family story, or lifestyle ex
 The visual cues MUST authentically capture the human situation, intimate setting, and specific objects from their slant and spark (e.g. travel bags, packing lists, children holding items, home office desks with glowing screens, sunset horizons, tropical palms, departure doorways) rather than forcing abstract courtrooms or government monuments!`
     : '';
 
-  const personDirective = isLikeness
+  const personDirective = isCinematic
     ? (isPersonalStory && effectivePhoto
-        ? 'CRITICAL ARTISTIC LIKENESS DIRECTIVE (PRIVACY-SAFE): The curator requested ARTISTIC LIKENESS portrayal from the attached photo. The #1 HERO cue MUST specify the key subjects from the photo with their relationship, age group, and artistic portrait framing (e.g. "Two Young Brothers on Sunlit Veranda", "Father and Daughter in Studio Portrait"). Ground in human warmth and vivid editorial realism.'
-        : 'CRITICAL PERSON LOOKALIKE & PORTRAIT DIRECTIVE: The curator requested LOOKALIKE & PORTRAIT portrayal. The #1 HERO cue MUST specify the central real-world individual named in the headline or context (e.g. "Donald Trump Lookalike Editorial Portrait", "Elon Musk Lookalike Editorial Portrait") styled as an artistic editorial magazine portrait. Do NOT substitute with an abstract building!')
-    : (isExact
-      ? 'CRITICAL EXACT PHOTO DIRECTIVE: The curator requested to USE THE EXACT PHOTO. The #1 HERO cue should specify the primary photographic subject (e.g. "Donald Trump (Lead Photo Focus)").'
-      : (isSilhouette
-        ? 'MINIMALIST SILHOUETTE DIRECTIVE: The curator explicitly requested silhouette portrayal. #1 HERO should use minimalist shadow outlines.'
-        : 'VIVID EDITORIAL REALISM DIRECTIVE: All human subjects MUST be depicted as warm, realistic, expressive people with visible faces, natural lighting, and tangible environments. NEVER suggest pitch-black silhouettes, faceless shadow phantoms, or creepy dark figures!'));
+        ? 'CRITICAL CINEMATIC EDITORIAL PHOTO DIRECTIVE (PICTURE-LIKE QUALITY, ZERO DIGITAL FOOTPRINT): The curator requested CINEMATIC EDITORIAL PHOTO portrayal from the attached photo. The #1 HERO cue MUST specify the key subjects from the photo with their relationship, age group, and realistic photographic framing (e.g. "Two Young Brothers on Sunlit Veranda", "Father and Daughter in Studio Portrait"). #6 STYLE MUST be "Cinematic 35mm Editorial Photography" or "35mm Documentary Film Still". Strictly NO painterly brushstrokes or canvas.'
+        : 'CRITICAL PERSON LOOKALIKE & PORTRAIT DIRECTIVE: The curator requested LOOKALIKE & PORTRAIT portrayal. The #1 HERO cue MUST specify the central real-world individual named in the headline or context (e.g. "Donald Trump Lookalike Editorial Portrait", "Elon Musk Lookalike Editorial Portrait") styled as a crisp editorial magazine photograph.')
+    : (isPainting
+      ? (isPersonalStory && effectivePhoto
+        ? 'CRITICAL ARTISTIC BROADSHEET PAINTING DIRECTIVE (PAINTED ARTWORK): The curator requested ARTISTIC BROADSHEET PAINTING portrayal from the attached photo. The #1 HERO cue MUST specify the key subjects from the photo. #6 STYLE MUST be "Warm Cinematic Editorial Gouache Painting" or "Editorial Oil and Gouache Broadsheet Art".'
+        : 'CRITICAL ARTISTIC PAINTING DIRECTIVE: The #1 HERO cue should portray the subject in broadsheet painted editorial art style.')
+      : (isExact
+        ? 'CRITICAL EXACT PHOTO DIRECTIVE: The curator requested to USE THE EXACT PHOTO. The #1 HERO cue should specify the primary photographic subject (e.g. "Donald Trump (Lead Photo Focus)").'
+        : (isSilhouette
+          ? 'MINIMALIST SILHOUETTE DIRECTIVE: The curator explicitly requested silhouette portrayal. #1 HERO should use minimalist shadow outlines.'
+          : 'VIVID EDITORIAL REALISM DIRECTIVE: All human subjects MUST be depicted as warm, realistic, expressive people with visible faces, natural lighting, and tangible environments. NEVER suggest pitch-black silhouettes, faceless shadow phantoms, or creepy dark figures!')));
 
   const dimensionNames = ['#1 HERO', '#2 MOTIF', '#3 TENSION', '#4 ATMOSPHERE', '#5 LIGHTING', '#6 STYLE'];
   let variationDirective = '';
@@ -209,7 +214,7 @@ Source Type: ${sourceType}
 Visual Focus: ${perspectiveMode === 'curator' ? 'Curator Angle (Metaphor)' : (perspectiveMode === 'source' ? 'Source Grounded (Physical Reality)' : 'Hybrid Blend')}
 Slant Tone: ${slantTone === 'heart' ? 'Out of Heart (Emotive, Humanistic, Personal Reflection)' : 'Out of Mind (Analytical, Strategic, Systemic Broadsheet)'}
 Regional & Cultural Setting: ${countryContext || 'Global / Contextually Detected'}
-Character Portrayal Style: ${isExact ? 'EXACT PHOTO FOCUS' : (isLikeness ? 'LOOKALIKE & PORTRAIT (ARTISTIC EDITORIAL PORTRAIT)' : (isSilhouette ? 'Stylized Minimalist Silhouette' : 'Vivid Editorial Realism (Realistic & Expressive Human Subjects)'))}
+Character Portrayal Style: ${isExact ? 'EXACT PHOTO FOCUS' : (isCinematic ? 'CINEMATIC EDITORIAL PHOTO (35MM CAMERA FIDELITY)' : (isPainting ? 'ARTISTIC BROADSHEET PAINTING (GOUACHE & OIL)' : (isSilhouette ? 'Stylized Minimalist Silhouette' : 'Vivid Editorial Realism (Realistic & Expressive Human Subjects)')))}
 
 ${perspectiveDirective}
 
@@ -231,7 +236,7 @@ STRICT VISUAL CUE REQUIREMENTS (Must be short, punchy 3-6 word phrases):
 3. TENSION: Opposing visual friction, conflict, shadow, crisis, or counter-force (e.g. "Work Deadlines Clashing with Escape", "Relentless Tidal Wave of Noise", "Cracking Stone Foundation", "Looming Corporate Shadow").
 4. ATMOSPHERE: Setting, environmental scale, weather, or time of day (e.g. "Cluttered Study with Kerala Palms", "Damp Rain-Slicked City Boulevard", "Smoke-Filled High-Rise Boardroom").
 5. LIGHTING: Evocative 3-6 word lighting mood strictly reflecting the topic and emotional stance (e.g. "Cold Steel-Blue Chiaroscuro Rim", "Forensic Overhead Halogen Grid", "Soft Fog-Diffused Morning Light", "Dramatic Low-Angle Razor Spotlight"). STRICTLY AVOID generic "Golden Hour" or "Warm Sunset" cliches unless an outdoor sunset is explicitly central to the narrative!
-6. STYLE: Specific high-aesthetic visual medium (e.g. "Cinematic Warm Editorial Illustration", "High-Contrast Noir Risograph Print", "Bauhaus Geometric Vector Art").
+6. STYLE: Specific high-aesthetic visual medium (e.g. ${isCinematic ? '"Cinematic 35mm Editorial Photography"' : (isPainting ? '"Warm Cinematic Editorial Gouache Painting"' : '"Cinematic Warm Editorial Illustration"')}, "High-Contrast Noir Risograph Print", "Bauhaus Geometric Vector Art").
 
 CRITICAL RULE: Under no circumstances output URLs, web links, "https", or technical domain strings. Every cue must be evocative visual imagery.
 VOCABULARY DIRECTIVE: Use crisp, vivid, easily understood visual English. NEVER use pretentious academic jargon or obscure Latinate words. Ground every cue in tangible, emotional, concrete reality.
