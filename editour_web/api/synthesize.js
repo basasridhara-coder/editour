@@ -191,6 +191,10 @@ Author's Raw Take:
       sourceLedger = null
     } = body || {};
 
+    if (sourceImageUrl && typeof sourceImageUrl === 'string') {
+      sourceImageUrl = decodeHtmlEntities(sourceImageUrl).replace(/&amp;/g, '&').trim();
+    }
+
     const effectiveCatalystImage = (sourceType === 'inner_voice') ? (innerVoiceImageBase64 || imageBase64) : null;
     const effectiveCatalystMime = innerVoiceImageMimeType || imageMimeType || 'image/jpeg';
 
@@ -267,7 +271,7 @@ Author's Raw Take:
                 const imgMatch = html.match(/<meta property=["']og:image["'] content=["'](.*?)["']/i) ||
                                  html.match(/<meta name=["']twitter:image["'] content=["'](.*?)["']/i);
                 if (imgMatch && imgMatch[1]) {
-                  sourceImageUrl = imgMatch[1].trim();
+                  sourceImageUrl = decodeHtmlEntities(imgMatch[1].trim()).replace(/&amp;/g, '&');
                 }
               }
             }
@@ -275,6 +279,34 @@ Author's Raw Take:
         }
       } catch (err) {
         console.warn('URL metadata fetch skipped or timed out:', err.message);
+      }
+
+      // Sanitize sourceImageUrl and pre-fetch sourceImageBase64 if not already present
+      if (sourceImageUrl && typeof sourceImageUrl === 'string') {
+        sourceImageUrl = decodeHtmlEntities(sourceImageUrl).replace(/&amp;/g, '&').trim();
+      }
+      if (sourceImageUrl && sourceImageUrl.startsWith('http') && !sourceImageBase64) {
+        try {
+          const imgCtrl = new AbortController();
+          const imgTimer = setTimeout(() => imgCtrl.abort(), 3500);
+          const cleanFetchUrl = sourceImageUrl.replace(/&amp;/g, '&');
+          const imgResp = await fetch(cleanFetchUrl, {
+            signal: imgCtrl.signal,
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+              'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8'
+            }
+          });
+          clearTimeout(imgTimer);
+          if (imgResp.ok) {
+            const contentType = imgResp.headers.get('content-type') || 'image/jpeg';
+            sourceImageMimeType = contentType.split(';')[0];
+            const buffer = await imgResp.arrayBuffer();
+            if (buffer.byteLength > 1000 && buffer.byteLength < 5 * 1024 * 1024) {
+              sourceImageBase64 = `data:${sourceImageMimeType};base64,` + Buffer.from(buffer).toString('base64');
+            }
+          }
+        } catch (_) {}
       }
     }
 

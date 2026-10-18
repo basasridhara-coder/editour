@@ -145,6 +145,7 @@ module.exports = async function handler(req, res) {
 
   // Pre-fetch Lead Image Buffer if image URL exists
   if (imageUrl && imageUrl.startsWith('http')) {
+    imageUrl = imageUrl.replace(/&amp;/g, '&');
     try {
       const imgCtrl = new AbortController();
       const imgTimer = setTimeout(() => imgCtrl.abort(), 4500);
@@ -293,10 +294,13 @@ function extractMetaImage(html, baseUrl) {
     } catch (_) {}
   }
 
-  if (img && baseUrl) {
-    try {
-      img = new URL(img, baseUrl).href;
-    } catch (_) {}
+  if (img) {
+    img = decodeHtmlEntities(img).replace(/&amp;/g, '&').trim();
+    if (baseUrl) {
+      try {
+        img = new URL(img, baseUrl).href;
+      } catch (_) {}
+    }
   }
   return img || '';
 }
@@ -327,8 +331,13 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY || Buffer.from(DEFAULT_KEY_B64
 
 async function scrapeWithJinaReader(targetUrl) {
   try {
+    const lowerUrl = (targetUrl || '').toLowerCase();
+    if (lowerUrl.includes('linkedin.com') || lowerUrl.includes('twitter.com') || lowerUrl.includes('x.com')) {
+      return null;
+    }
+
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 7500);
+    const timeout = setTimeout(() => controller.abort(), 4000);
 
     const jinaResp = await fetch(`https://r.jina.ai/${targetUrl}`, {
       signal: controller.signal,

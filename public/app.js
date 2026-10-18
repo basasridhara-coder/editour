@@ -1496,6 +1496,14 @@ function mergeAndSortPosts(newPosts) {
     p.id = postId;
     p.createdAt = p.createdAt || raw.created_at || raw.createdAt || new Date().toISOString();
 
+    // Sanitize image URLs (clean corrupted &amp; XML entities)
+    if (typeof p.sourceImageUrl === 'string') p.sourceImageUrl = p.sourceImageUrl.replace(/&amp;/g, '&');
+    if (typeof p.referencePhotoUrl === 'string') p.referencePhotoUrl = p.referencePhotoUrl.replace(/&amp;/g, '&');
+    if (p.generationInputs) {
+      if (typeof p.generationInputs.sourceImageUrl === 'string') p.generationInputs.sourceImageUrl = p.generationInputs.sourceImageUrl.replace(/&amp;/g, '&');
+      if (typeof p.generationInputs.referencePhotoUrl === 'string') p.generationInputs.referencePhotoUrl = p.generationInputs.referencePhotoUrl.replace(/&amp;/g, '&');
+    }
+
     if (!existingMap.has(postId)) {
       existingMap.set(postId, p);
       addedCount++;
@@ -3497,6 +3505,8 @@ function buildSlide3Html(post, index) {
     let imgSrc = rawPhoto;
     if (!rawPhoto.startsWith('data:') && !rawPhoto.startsWith('http') && !rawPhoto.startsWith('/')) {
       imgSrc = `data:${post.sourceImageMimeType || post.originalPhotoMimeType || post.catalystPhotoMimeType || 'image/jpeg'};base64,` + rawPhoto;
+    } else if (rawPhoto.startsWith('http')) {
+      imgSrc = rawPhoto.replace(/&amp;/g, '&');
     }
 
     let captionIcon = '📰';
@@ -6646,9 +6656,15 @@ async function handleUrlInput(val) {
       const data = await resp.json();
 
       if (data && data.success) {
+        if (typeof data.imageUrl === 'string') {
+          data.imageUrl = data.imageUrl.replace(/&amp;/g, '&');
+        }
         currentScrapedArticle = data;
-        const scrapedImg = data.imageBase64 || data.imageUrl;
+        let scrapedImg = data.imageBase64 || data.imageUrl;
         if (scrapedImg) {
+          if (typeof scrapedImg === 'string' && scrapedImg.startsWith('http')) {
+            scrapedImg = scrapedImg.replace(/&amp;/g, '&');
+          }
           creatorReferenceImageBase64 = scrapedImg;
           creatorReferenceImageMimeType = data.imageMimeType || 'image/jpeg';
           creatorReferenceImageSourceLabel = (creatorSelectedSource === 'video_audio' ? 'Video Thumbnail' : 'Article Lead Photo') + ` (${data.siteName || 'Web'})`;
@@ -8523,6 +8539,11 @@ async function startAiSynthesis() {
     userHandle = '@' + (currentUser.user_metadata?.user_name || currentUser.user_metadata?.name || currentUser.email.split('@')[0]);
   }
 
+  // If URL scrape is in flight, await it so lead image and title are ready
+  if (isScrapingUrl && activeScrapePromise) {
+    try { await activeScrapePromise; } catch (_) {}
+  }
+
   const isPhotoPortrayal = (creatorPerspectiveMode === 'source' || creatorCharacterRepresentation === 'likeness' || creatorCharacterRepresentation === 'exact' || creatorCharacterRepresentation === 'lookalike');
   const rawSourceImg = creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || currentScrapedArticle?.imageUrl || null;
   const shouldSendImage = isPhotoPortrayal && Boolean(rawSourceImg);
@@ -8530,13 +8551,16 @@ async function startAiSynthesis() {
   const effectiveImageMime = shouldSendImage ? (creatorReferenceImageMimeType || currentScrapedArticle?.imageMimeType || 'image/jpeg') : 'image/jpeg';
 
   const isLink = (creatorSelectedSource === 'digital_link' || creatorSelectedSource === 'video_audio');
+  const rawSourceImgUrl = (isLink && currentScrapedArticle) ? (currentScrapedArticle.imageUrl || null) : (creatorReferenceImageBase64?.startsWith('http') ? creatorReferenceImageBase64 : null);
+  const cleanSourceImgUrl = (rawSourceImgUrl && typeof rawSourceImgUrl === 'string') ? rawSourceImgUrl.replace(/&amp;/g, '&') : null;
+
   const payload = {
     sourceType: creatorSelectedSource,
     url: isLink ? url : '',
     text: slantTake,
     slantTake: slantTake,
     perspectiveMode: creatorPerspectiveMode || 'hybrid',
-    sourceImageUrl: (isLink && currentScrapedArticle) ? (currentScrapedArticle.imageUrl || null) : (creatorReferenceImageBase64?.startsWith('http') ? creatorReferenceImageBase64 : null),
+    sourceImageUrl: cleanSourceImgUrl,
     sourceImageBase64: (isLink && currentScrapedArticle) ? (currentScrapedArticle.imageBase64 || null) : (creatorReferenceImageBase64?.startsWith('data:') ? creatorReferenceImageBase64 : null),
     sourceImageMimeType: (isLink && currentScrapedArticle) ? (currentScrapedArticle.imageMimeType || 'image/jpeg') : (creatorReferenceImageMimeType || 'image/jpeg'),
     imageBase64: effectiveImageBase64 || (creatorSelectedSource === 'inner_voice' ? innerVoicePhotoBase64 : null),
@@ -8608,7 +8632,8 @@ async function startAiSynthesis() {
     currentSynthesizedPost = data.post;
     currentSynthesizedPost.perspectiveMode = creatorPerspectiveMode || 'hybrid';
     if (isLink) {
-      currentSynthesizedPost.sourceImageUrl = currentSynthesizedPost.sourceImageUrl || currentScrapedArticle?.imageUrl || (creatorReferenceImageBase64?.startsWith('http') ? creatorReferenceImageBase64 : null) || null;
+      const candidateUrl = currentSynthesizedPost.sourceImageUrl || currentScrapedArticle?.imageUrl || (creatorReferenceImageBase64?.startsWith('http') ? creatorReferenceImageBase64 : null) || null;
+      currentSynthesizedPost.sourceImageUrl = (candidateUrl && typeof candidateUrl === 'string') ? candidateUrl.replace(/&amp;/g, '&') : null;
       currentSynthesizedPost.sourceImageBase64 = currentSynthesizedPost.sourceImageBase64 || currentScrapedArticle?.imageBase64 || (creatorReferenceImageBase64?.startsWith('data:') ? creatorReferenceImageBase64 : null) || null;
       currentSynthesizedPost.sourceImageMimeType = currentSynthesizedPost.sourceImageMimeType || currentScrapedArticle?.imageMimeType || creatorReferenceImageMimeType || 'image/jpeg';
     }
@@ -8618,10 +8643,14 @@ async function startAiSynthesis() {
       currentSynthesizedPost.originalPhotoBase64 = innerVoicePhotoBase64;
       currentSynthesizedPost.originalPhotoMimeType = innerVoicePhotoMimeType || 'image/jpeg';
     }
-    currentSynthesizedPost.referencePhotoUrl = currentSynthesizedPost.referencePhotoUrl
+    let refPhotoCandidate = currentSynthesizedPost.referencePhotoUrl
       || currentSynthesizedPost.sourceImageUrl
       || (currentSynthesizedPost.sourceImageBase64 ? (currentSynthesizedPost.sourceImageBase64.startsWith('data:') ? currentSynthesizedPost.sourceImageBase64 : `data:${currentSynthesizedPost.sourceImageMimeType || 'image/jpeg'};base64,${currentSynthesizedPost.sourceImageBase64}`) : null)
       || null;
+    if (refPhotoCandidate && typeof refPhotoCandidate === 'string' && refPhotoCandidate.startsWith('http')) {
+      refPhotoCandidate = refPhotoCandidate.replace(/&amp;/g, '&');
+    }
+    currentSynthesizedPost.referencePhotoUrl = refPhotoCandidate;
 
     if (creatorCharacterRepresentation === 'exact' && currentSynthesizedPost.referencePhotoUrl) {
       currentSynthesizedPost.illustrationUrl = currentSynthesizedPost.referencePhotoUrl;
