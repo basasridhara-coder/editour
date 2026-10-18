@@ -3731,6 +3731,14 @@ function buildSlide3Html(post, index) {
     }
   }
 
+  // If still fewer than 3 paragraphs, incorporate quote or reflection if available
+  if (essayParas.length < 3 && post.receiptHighlightQuote && String(post.receiptHighlightQuote).trim()) {
+    const cleanQuote = cleanExcerpt(post.receiptHighlightQuote);
+    if (!essayParas.some(p => p.toLowerCase().includes(cleanQuote.slice(0, 30).toLowerCase()))) {
+      essayParas.push(cleanQuote);
+    }
+  }
+
   // If still fewer than 3 paragraphs and excerpts are available, incorporate excerpts to enrich the essay
   if (essayParas.length < 3 && excerpts.length > 0) {
     excerpts.forEach(e => {
@@ -3760,9 +3768,9 @@ function buildSlide3Html(post, index) {
   // Calculate total character count to dynamically adapt photo size and font cadence
   const totalChars = essayParas.reduce((acc, p) => acc + (p ? p.length : 0), 0);
   let densityClass = 'essay-density-medium';
-  if (totalChars < 550) {
+  if (totalChars < 680) {
     densityClass = 'essay-density-light';
-  } else if (totalChars > 1000) {
+  } else if (totalChars > 1100) {
     densityClass = 'essay-density-dense';
   }
 
@@ -3785,7 +3793,7 @@ function buildSlide3Html(post, index) {
   if (rawPhoto && typeof rawPhoto === 'string' && rawPhoto.length > 20) {
     let imgSrc = rawPhoto;
     if (!rawPhoto.startsWith('data:') && !rawPhoto.startsWith('http') && !rawPhoto.startsWith('/')) {
-      imgSrc = `data:${post.sourceImageMimeType || post.originalPhotoMimeType || post.catalystPhotoMimeType || 'image/jpeg'};base64,` + rawPhoto;
+      imgSrc = `data:${post.sourceImageMimeType || post.originalPhotoMimeType || post.catalystPhotoMimeType || post.generationInputs?.innerVoiceImageMimeType || 'image/jpeg'};base64,` + rawPhoto;
     } else if (rawPhoto.startsWith('http')) {
       imgSrc = rawPhoto.replace(/&amp;/g, '&');
     }
@@ -3828,8 +3836,8 @@ function buildSlide3Html(post, index) {
   const restLead = leadText.slice(1);
   essayHtml += `<p class="receipt-p1"><span class="broadsheet-dropcap">${escapeHtml(firstChar)}</span>${escapeHtml(restLead)}</p>`;
 
-  // Subsequent essay paragraphs
-  const maxExtraParas = hasPhoto ? 2 : 3;
+  // Subsequent essay paragraphs: if total text is concise (<=1000 chars), include up to 3 extra paragraphs so the essay is rich and page is full
+  const maxExtraParas = (hasPhoto && totalChars > 1000) ? 2 : 3;
   const extraParas = essayParas.slice(1, maxExtraParas + 1);
   extraParas.forEach(p => {
     if (p && p !== leadRaw) {
