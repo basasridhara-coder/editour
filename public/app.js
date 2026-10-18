@@ -4830,8 +4830,8 @@ function openGenerationContextModal(postId) {
           <span class="gen-param-value">${inputs.perspectiveMode === 'curator' ? '⚡ Curator Angle' : (inputs.perspectiveMode === 'source' ? '📰 Source Grounded' : '⚖️ Hybrid Contrast')}</span>
         </div>
         <div class="gen-param-item">
-          <span class="gen-param-label">Core Take Mode</span>
-          <span class="gen-param-value">${inputs.refineCoreTake ? '✨ Refine with AI' : '❝ Use As-Is'}</span>
+          <span class="gen-param-label">Poster 2 Take</span>
+          <span class="gen-param-value">${inputs.refineCoreTake ? '✨ Refine with AI' : '❝ Use As-Is (Verbatim)'}</span>
         </div>
         <div class="gen-param-item">
           <span class="gen-param-label">Voice / Tone</span>
@@ -5800,20 +5800,20 @@ function toggleRefineCoreTake(val) {
 
   if (creatorRefineCoreTake) {
     if (icon) icon.textContent = '✨';
-    if (title) title.textContent = 'Refine with AI';
+    if (title) title.textContent = 'Refine Poster 2 Take';
     if (badge) {
       badge.textContent = 'Refined';
       badge.className = 'slant-refine-badge';
     }
-    if (sub) sub.textContent = 'AI polishes and sharpens your raw thought into a punchy poster quote.';
+    if (sub) sub.textContent = 'Polishes your typed thoughts into a punchy 2-sentence quote for Poster 2.';
   } else {
     if (icon) icon.textContent = '❝';
-    if (title) title.textContent = 'Use Take As-Is';
+    if (title) title.textContent = 'Use Poster 2 Take As-Is';
     if (badge) {
       badge.textContent = 'Verbatim';
       badge.className = 'slant-refine-badge verbatim';
     }
-    if (sub) sub.textContent = 'Keeps your exact typed words verbatim on the poster slides without rephrasing.';
+    if (sub) sub.textContent = 'Keeps your exact typed words verbatim on Poster 2 without rephrasing.';
   }
 }
 
