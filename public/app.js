@@ -3645,6 +3645,22 @@ function isDuplicateOfUserTake(candidateText, post) {
   return false;
 }
 
+function handleReceiptPhotoLoad(img) {
+  if (!img || !img.naturalWidth || !img.naturalHeight) return;
+  const ratio = img.naturalWidth / img.naturalHeight;
+  const box = img.closest('.receipt-scene-box');
+  if (!box) return;
+
+  if (ratio < 1.15) {
+    box.classList.add('photo-aspect-portrait');
+    box.classList.remove('photo-aspect-landscape');
+  } else {
+    box.classList.add('photo-aspect-landscape');
+    box.classList.remove('photo-aspect-portrait');
+  }
+}
+window.handleReceiptPhotoLoad = handleReceiptPhotoLoad;
+
 function buildSlide3Html(post, index) {
   const tier = getSourceTier(post);
   const cleanHost = getCleanDomain(post.digitalLink);
@@ -3741,6 +3757,15 @@ function buildSlide3Html(post, index) {
     essayParas = [`Reporting examines key structural developments and observed outcomes.`];
   }
 
+  // Calculate total character count to dynamically adapt photo size and font cadence
+  const totalChars = essayParas.reduce((acc, p) => acc + (p ? p.length : 0), 0);
+  let densityClass = 'essay-density-medium';
+  if (totalChars < 550) {
+    densityClass = 'essay-density-light';
+  } else if (totalChars > 1000) {
+    densityClass = 'essay-density-dense';
+  }
+
   // Newspaper Inset Photo on Poster 3 (Authentic Broadsheet Press Photo / Wire Dispatch / Video Still)
   let scenePhotoHtml = '';
   const rawPhoto = post.sourceImageBase64
@@ -3775,9 +3800,16 @@ function buildSlide3Html(post, index) {
       captionText = `BROADCAST STILL • ${cleanPubUpper || 'SOURCE DISPATCH'}`;
     }
 
+    const isVideoOrWide = tier === 'tier_video'
+      || post.sourceType === 'video_audio'
+      || (typeof rawPhoto === 'string' && (rawPhoto.includes('ytimg.com') || rawPhoto.includes('youtube')));
+    const initialAspectClass = isVideoOrWide ? 'photo-aspect-landscape' : 'photo-aspect-auto';
+
     scenePhotoHtml = `
-      <div class="receipt-scene-box">
-        <img src="${escapeHtml(imgSrc)}" class="receipt-scene-photo" alt="Editorial Wire Photo" onerror="this.parentElement.style.display='none'">
+      <div class="receipt-scene-box ${initialAspectClass}">
+        <div class="receipt-scene-frame">
+          <img src="${escapeHtml(imgSrc)}" class="receipt-scene-photo" alt="Editorial Wire Photo" onload="window.handleReceiptPhotoLoad && window.handleReceiptPhotoLoad(this)" onerror="this.closest('.receipt-scene-box').style.display='none'">
+        </div>
         <div class="receipt-scene-caption">
           <span class="scene-caption-icon">${captionIcon}</span>
           <span class="scene-caption-text">${escapeHtml(captionText)}</span>
@@ -3806,7 +3838,7 @@ function buildSlide3Html(post, index) {
   });
 
   return `
-    <div class="slant-minute-scroll-viewport ${hasPhoto ? 'has-inset-photo' : ''}" onscroll="window._lastSlantMinuteScroll = Date.now()">
+    <div class="slant-minute-scroll-viewport ${hasPhoto ? 'has-inset-photo' : ''} ${densityClass}" onscroll="window._lastSlantMinuteScroll = Date.now()">
       <!-- 4-Corner Branding Top Row: Top-Left Logo + Brand, Top-Right Creator + Slide -->
       <div class="receipt-brand-corner-bar">
         <div class="receipt-corner-brand">
@@ -4158,6 +4190,13 @@ function goToSlide(event, postIndex, slideIndex) {
 
   carousel.setAttribute('data-current-slide', slideIndex);
   track.style.transform = `translateX(-${slideIndex * 33.333333}%)`;
+
+  if (slideIndex === 2) {
+    const receiptImg = track.querySelector('.receipt-scene-photo');
+    if (receiptImg && receiptImg.complete && receiptImg.naturalWidth) {
+      handleReceiptPhotoLoad(receiptImg);
+    }
+  }
 
   if (badge) {
     const titles = ['1 / 3 • Hook', '2 / 3 • Curator Take', '3 / 3 • The Receipt'];
@@ -5355,6 +5394,11 @@ async function capturePostSlidesAsFiles(post, index) {
           setTimeout(() => res(false), 4500);
         });
       }));
+
+      // Adjust aspect ratio framing for Poster 3 receipt photos in export
+      container.querySelectorAll('.receipt-scene-photo').forEach(img => {
+        handleReceiptPhotoLoad(img);
+      });
 
       // Calculate un-stretched dimensions
       const bgImgs = container.querySelectorAll('.slide-hook-bg');
