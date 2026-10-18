@@ -404,11 +404,11 @@ ${sourceType === 'inner_voice' ? `CRITICAL INNER VOICE & LIVED EXPERIENCE DIRECT
   * The Hook sentence must capture the excitement and relatable rush of preparing for the journey.
 - IN POSTER 2 ("THE CRITICAL PERSPECTIVE" / curatorTake):
   * Ground the conviction directly in their specific context (Kerala, the trip, the son's reminder, closing pending tasks, the relief of the break).
-  * STRICT BAN: NEVER echo the user's raw input slant verbatim! You MUST synthesize an articulate, elevated 2-sentence editorial conviction (EXACTLY 2 complete sentences, 25–35 words total, ending definitively with a period) that refines their thoughts into an inspiring insight.
+  * STRICT BAN: NEVER echo the user's raw input slant verbatim! You MUST synthesize an articulate, elevated 2-sentence editorial conviction (EXACTLY 2 complete sentences, 25-35 words total, ending definitively with a period) that refines their thoughts into an inspiring insight.
   * In "keyTakeaways", give 3 sharp, uplifting insights about breaking away, presence over perfection, and why the destination makes the frantic packing worth it.
 - IN POSTER 3 ("THE RECEIPTS & CORE CONVICTION" / resolvedArticleExcerpts):
-  * Deliver exactly 3 substantive, evocative broadsheet narrative paragraphs (each 50–75 words, 3–4 full sentences):
-    1. Paragraph 1 (Scene & Catalyst): Ground the situation in sensory detail around the spark ("${spark}")—the open suitcases, packing lists, children holding forgotten travel items, and the rush to close remaining tasks.
+  * Deliver exactly 3 substantive, evocative broadsheet narrative paragraphs (each 60-75 words, 3-4 full sentences; 180-220 words total):
+    1. Paragraph 1 (Scene & Catalyst): Ground the situation in sensory detail around the spark ("${spark}"): the open suitcases, packing lists, children holding forgotten travel items, and the rush to close remaining tasks.
     2. Paragraph 2 (The Turning Point): The joyful realization when you realize work will never be 100% finished, but vacation countdown waits for no one.
     3. Paragraph 3 (The Lasting Truth): A deep, warm closing reflection on Kerala's tranquil backwaters, green hills, and why presence with family is the greatest luxury.
   * STRICT BAN: NEVER prefix paragraphs with labels like "The spark:", "Curator stance:", "Paragraph 1:", or bullet points! Output pure, narrative broadsheet text.
@@ -445,15 +445,15 @@ ${userSlant && sourceType !== 'inner_voice' ? `CRITICAL POSTER 3 DIRECTIVE (ELAB
 - "keyTakeaways": Exactly 3 sharp, structured conviction principles formulated from the elaborated take in dialogue with the source (each exactly 10–13 words with bold title prefix, e.g. "Title: Core insight").
 - "receiptHighlightQuote": A poignant, high-impact core conviction sentence (exactly 18–22 words) capturing the heart of the curator's stance in connection with the source.` : ''}
 
-CRITICAL POSTER 3 "1-MINUTE READ" WORD BUDGET DIRECTIVE:
-Poster 3 ("SLANT MINUTE" / 60-SEC BROADSHEET) MUST strictly target 180 to 220 words total across all elements:
-- Paragraph 1: exactly 50–60 words
-- Paragraph 2: exactly 45–55 words
-- Paragraph 3: exactly 40–50 words
-- Total 3-paragraph essay: 135–165 words
-- Highlight Quote: exactly 18–22 words
-- 3 Key Takeaways: exactly 30–40 words total (~10–13 words each)
-GRAND TOTAL: 180–220 words for an authentic 60-second read. Never exceed 60 words in any single paragraph.
+CRITICAL POSTER 3 "1-MINUTE READ" ESSAY DIRECTIVE:
+Poster 3 ("SLANT MINUTE" / 60-SEC BROADSHEET) is a pure, substantive broadsheet essay in paragraphs.
+It MUST strictly target 180 to 220 words total for the 3-paragraph essay itself in "summary" (and "resolvedArticleExcerpts"):
+- Paragraph 1: 60-70 words (strong opening for broadsheet dropcap)
+- Paragraph 2: 60-75 words (core elaboration and conceptual depth)
+- Paragraph 3: 55-70 words (human stakes, lasting conviction, and forward-looking resolution)
+TOTAL ESSAY: 180-220 words for an authentic 1-minute read.
+The curator's intellectual perspective, conviction, and provided context must be deeply carried and elaborated throughout.
+If a catalyst photo is attached, subtly ground the atmosphere where natural, but NEVER compromise the curator's perspective or intellectual depth for scene description filler.
 ${cues && cues.length > 0 ? `CRITICAL VISUAL RULE: The Hook poster artwork and cues MUST be anchored in #1 HERO: "${cues[0]}", incorporating #2 MOTIF: "${cues[1] || ''}" and #3 TENSION: "${cues[2] || ''}".` : ''}
 
 Respond strictly with valid JSON with this exact structure:
@@ -465,7 +465,7 @@ Respond strictly with valid JSON with this exact structure:
   "hook": "1-2 sentence gripping hook that stops the reader mid-scroll",
   "polishedCuratorTake": "${userSlant ? 'The curator\'s exact full-length input with gentle grammar, spelling, and phrase corrections applied (preserving 100% of their voice, thoughts, and length).' : ''}",
   "curatorTake": "EXACTLY 2 complete sentences (25-35 words total, ending with a period) of elevated, punchy editorial conviction derived directly from the curator's perspective (do NOT dump long raw text here).",
-  "summary": "${sourceType === 'inner_voice' ? 'Exactly 3 broadsheet paragraphs of lived experience reflection (50-60, 45-55, 40-50 words; 135-165 words total).' : (userSlant ? 'Exactly 3 broadsheet paragraphs elaborating the curator\'s take in direct connection with the attached source (50-60, 45-55, 40-50 words; 135-165 words total). Never an objective book report.' : 'Exactly 3 broadsheet paragraphs of objective journalistic reporting (50-60, 45-55, 40-50 words; 135-165 words total).')}",
+  "summary": "${sourceType === 'inner_voice' ? 'Exactly 3 broadsheet paragraphs of lived experience reflection deeply elaborating the curator perspective and context (60-70, 60-75, 55-70 words; 180-220 words total). Never sacrifice curator perspective for scene filler.' : (userSlant ? 'Exactly 3 broadsheet paragraphs carrying and deeply elaborating the curator take in direct dialogue with the attached source (60-70, 60-75, 55-70 words; 180-220 words total). Never an objective book report.' : 'Exactly 3 broadsheet paragraphs of objective journalistic reporting (60-70, 60-75, 55-70 words; 180-220 words total).')}",
   "whyItMatters": "1-2 sharp sentences on the stakes and why this perspective matters right now (18-28 words)",
   "keyTakeaways": [
     "${sourceType === 'inner_voice' ? 'First personal takeaway (10-13 words, Title: Insight)' : (userSlant ? 'First core conviction principle connecting take and source (10-13 words, Title: Insight)' : 'First key source finding (10-13 words, Title: Finding)')}",
@@ -474,9 +474,9 @@ Respond strictly with valid JSON with this exact structure:
   ],
   "receiptHighlightQuote": "${sourceType === 'inner_voice' ? 'Single poignant core conviction sentence (18-22 words)' : (userSlant ? 'A poignant core conviction sentence capturing the heart of the curator stance in dialogue with the source (18-22 words)' : 'A direct quote, core factual assertion, or official thesis directly from the source author/speaker (18-22 words).')}",
   "resolvedArticleExcerpts": [
-    "${sourceType === 'inner_voice' ? 'Paragraph 1 (Scene & Catalyst): exactly 50-60 words without labels.' : (userSlant ? 'Paragraph 1 (Catalyst & Friction): exactly 50-60 words elaborating opening thesis in dialogue with source topic without labels.' : 'Paragraph 1 (Source Subject & Context): exactly 50-60 words without labels.')}",
-    "${sourceType === 'inner_voice' ? 'Paragraph 2 (The Turning Point): exactly 45-55 words without labels.' : (userSlant ? 'Paragraph 2 (Engaging Source Claims): exactly 45-55 words engaging source concepts to substantiate critique without labels.' : 'Paragraph 2 (Core Evidence & Claims): exactly 45-55 words without labels.')}",
-    "${sourceType === 'inner_voice' ? 'Paragraph 3 (The Lasting Truth): exactly 40-50 words without labels.' : (userSlant ? 'Paragraph 3 (Human Stakes & Resolution): exactly 40-50 words detailing personal/family impact and lasting resolution without labels.' : 'Paragraph 3 (Underlying Conflict or Trade-offs): exactly 40-50 words without labels.')}"
+    "${sourceType === 'inner_voice' ? 'Paragraph 1 (Scene & Catalyst): 60-70 words without labels.' : (userSlant ? 'Paragraph 1 (Catalyst & Friction): 60-70 words elaborating opening thesis in dialogue with source topic without labels.' : 'Paragraph 1 (Source Subject & Context): 60-70 words without labels.')}",
+    "${sourceType === 'inner_voice' ? 'Paragraph 2 (The Turning Point): 60-75 words without labels.' : (userSlant ? 'Paragraph 2 (Engaging Source Claims): 60-75 words engaging source concepts to substantiate critique without labels.' : 'Paragraph 2 (Core Evidence & Claims): 60-75 words without labels.')}",
+    "${sourceType === 'inner_voice' ? 'Paragraph 3 (The Lasting Truth): 55-70 words without labels.' : (userSlant ? 'Paragraph 3 (Human Stakes & Resolution): 55-70 words detailing personal/family impact and lasting resolution without labels.' : 'Paragraph 3 (Underlying Conflict or Trade-offs): 55-70 words without labels.')}"
   ],
   "keyMetric": "Short impactful stat or metric (e.g. +42%, 1,072 Trees, 10x, 99.8% - or leave empty if none)",
   "visualMood": "Short aesthetic phrase (e.g. High-Contrast Editorial Risograph, Velvet Obsidian Chiaroscuro)",
@@ -516,7 +516,7 @@ Respond strictly with valid JSON with this exact structure:
       const partsContent = [
         `Curator's Personal Slant & Angle: "${userSlant || 'Personal reflection and conviction.'}"`,
         spark ? `Personal Spark & Context: "${spark}"` : '',
-        effectiveCatalystImage ? `Real-World Catalyst Scene Photo: [Attached image depicts the physical real-world scene, moment, or subject that sparked this inner voice reflection. Visually identify what is in this scene and weave its tangible elements, lighting, and environmental contrast into the headline, hook, takeaways, and illustrationPrompt.]` : ''
+        effectiveCatalystImage ? `Real-World Catalyst Scene Photo: [Attached image depicts the physical real-world scene or moment that sparked this reflection. Use this scene to subtly ground the atmosphere where natural, but the curator's intellectual perspective, conviction, and context MUST remain the primary driving force of the essay. Never sacrifice the curator's perspective or depth for unnecessary scene descriptions.]` : ''
       ].filter(Boolean).join('\n\n');
       parts.push({
         text: `${systemPrompt}\n\nUser Input Content (Inner Voice Personal Reflection):\n${partsContent}`

@@ -3836,8 +3836,8 @@ function buildSlide3Html(post, index) {
   const restLead = leadText.slice(1);
   essayHtml += `<p class="receipt-p1"><span class="broadsheet-dropcap">${escapeHtml(firstChar)}</span>${escapeHtml(restLead)}</p>`;
 
-  // Subsequent essay paragraphs: if total text is concise (<=1000 chars), include up to 3 extra paragraphs so the essay is rich and page is full
-  const maxExtraParas = (hasPhoto && totalChars > 1000) ? 2 : 3;
+  // Subsequent essay paragraphs: include all available paragraphs (up to 4 total) for an authentic 1-minute read
+  const maxExtraParas = 3;
   const extraParas = essayParas.slice(1, maxExtraParas + 1);
   extraParas.forEach(p => {
     if (p && p !== leadRaw) {
