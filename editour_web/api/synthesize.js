@@ -306,22 +306,18 @@ Author's Raw Take:
    - Do NOT dumb it down like a children's primer. Keep the adult intelligence, wit, and conviction, but ensure any smart reader can grasp every single word instantly on their phone.`;
     }
 
-    const perspectiveDirective = (perspectiveMode === 'curator')
-      ? `CRITICAL PERSPECTIVE DIRECTIVE (CURATOR ANGLE):
-- The curator selected CURATOR ANGLE mode.
-- In Poster 1 ("VISUAL HOOK"): The adapted headline and hook must be driven 100% by the curator's unique, provocative perspective ("${userSlant}").
-- In Poster 2 ("THE CRITICAL PERSPECTIVE"): Elevate and highlight the curator's personal thesis as the centerpiece.
-- In Poster 3 ("THE RECEIPTS"): Use the source facts and observations to substantiate and prove the curator's stance.`
-      : (perspectiveMode === 'source')
-      ? `CRITICAL PERSPECTIVE DIRECTIVE (SOURCE GROUNDED):
-- The curator selected SOURCE GROUNDED mode.
-- In Poster 1 ("VISUAL HOOK"): The adapted headline and hook must strictly report the primary development, event, or facts of the source article/video.
-- In Poster 2 ("KEY DEVELOPMENTS / TAKEAWAYS"): Synthesize the core findings, developments, and implications of the reportage.
-- In Poster 3 ("THE RECEIPTS / BROADSHEET REPORT"): Deliver verified broadsheet excerpts and quotes directly faithful to the source material.`
-      : `CRITICAL PERSPECTIVE DIRECTIVE (HYBRID CONTRAST - THE SLANT SIGNATURE):
-- In Poster 1 ("VISUAL HOOK"): Present a high-tension blend of the core news subject and the curator's critical angle.
-- In Poster 2 ("THE CRITICAL PERSPECTIVE"): Deliver the curator's elevated conviction in counterpoint to the news.
-- In Poster 3 ("BROADSHEET IN DIALOGUE"): Put the curator's voice in deep, thoughtful dialogue with the source's findings.`;
+    const visualFocusDirective = (perspectiveMode === 'source')
+      ? `CRITICAL VISUAL FOCUS DIRECTIVE (POSTER 1 ARTWORK ONLY - SOURCE GROUNDED):
+- Visual Focus is set to SOURCE GROUNDED. This controls the VISUAL ARTWORK only, NOT the text narrative.
+- The illustrationPrompt for Poster 1 MUST describe a concrete, realistic scene physically anchored in the real-world news event, setting, protagonists, political figures, microphones, flags, or authentic broadcast environment depicted in the source.
+- Do NOT invent fictitious engineering workbenches or unrelated personal allegories for Poster 1 artwork unless that is the actual news topic.`
+      : (perspectiveMode === 'curator')
+      ? `CRITICAL VISUAL FOCUS DIRECTIVE (POSTER 1 ARTWORK ONLY - CURATOR ANGLE METAPHOR):
+- Visual Focus is set to CURATOR ANGLE. This controls the VISUAL ARTWORK only, NOT the text narrative.
+- The illustrationPrompt for Poster 1 should translate the curator's conceptual thesis, metaphor, and critique into an evocative, high-aesthetic editorial composition (e.g. symbolic objects, dramatic tension, metaphorical craftsmanship).`
+      : `CRITICAL VISUAL FOCUS DIRECTIVE (POSTER 1 ARTWORK ONLY - HYBRID BLEND):
+- Visual Focus is set to HYBRID BLEND. This controls the VISUAL ARTWORK only, NOT the text narrative.
+- The illustrationPrompt for Poster 1 should blend the concrete real-world news subject with the curator's symbolic tension and visual metaphor.`;
 
     const demographicInfo = detectAgeAndDemographics(userSlant, extractedTitle, extractedContent);
 
@@ -329,7 +325,7 @@ Author's Raw Take:
 
 Input Details:
 - Source Type: ${sourceType}
-- Perspective Focus: ${perspectiveMode === 'curator' ? 'Curator Angle' : (perspectiveMode === 'source' ? 'Source Grounded' : 'Hybrid Contrast')}
+- Visual Focus (Poster 1 Artwork & Cues): ${perspectiveMode === 'curator' ? 'Curator Angle (Metaphor)' : (perspectiveMode === 'source' ? 'Source Grounded (Physical Reality)' : 'Hybrid Blend')}
 - Target Audience: ${targetAudience}
 - Tone / Slant: ${toneDescription}
 - Vocabulary & Voice Style: ${vocabularyStyle}
@@ -357,7 +353,14 @@ Synthesize this input into a compelling 3-poster social carousel deck:
 2. Poster 2 (The Curator's Take): A punchy perspective directly emphasizing the curator's slant/take, why it matters right now, and exactly 3 distinct high-signal takeaways.
 3. Poster 3 (The Receipts / Core Conviction): A single powerful highlight quote, and 3 verified excerpt bullet points backing the stance.
 
-${perspectiveDirective}
+CRITICAL SLANT EDITORIAL CONTRACT (CURATOR THOUGHTS IN SUBSTANTIVE DIALOGUE WITH SOURCE DATA):
+- Slant is fundamentally about the curator's thoughts on the source topic.
+- The written narrative across all 3 posters must ALWAYS play around the curator's provided take/context in tight, substantive connection with the source facts and data.
+- In Poster 1 ("VISUAL HOOK"): Deliver an adapted headline (5-10 words) that captures the curator's critical perspective on the source event or data, accompanied by a gripping 1-2 sentence hook. The headline must unite the curator's insight with the subject so the reader immediately grasps the core conviction.
+- In Poster 2 ("THE CRITICAL PERSPECTIVE" / Curator Take): Deliver an articulate editorial conviction derived directly from the curator's perspective ("${userSlant}"). It MUST be EXACTLY 2 complete sentences (25-35 words total, ending definitively with a period). Deliver exactly 3 sharp, structured conviction principles in "keyTakeaways".
+- In Poster 3 ("THE RECEIPTS & BROADSHEET REPORT"): Deliver a rich, substantive 3-paragraph broadsheet editorial where the curator's stance is ELABORATED IN DIRECT, DETAILED DIALOGUE WITH THE SOURCE FACTS, DATA, AND ARGUMENTS. Directly engage with the author's/speaker's concrete concepts, figures, claims, or institutional developments, using them to substantiate, deepen, and prove the curator's stance.
+
+${visualFocusDirective}
 ${sourceType === 'inner_voice' ? `CRITICAL INNER VOICE & LIVED EXPERIENCE DIRECTIVE:
 - This is an INNER VOICE perspective rooted in the curator's personal life, emotional experience, philosophical stance, or daily human reality (e.g. travel anticipation, family moments, work-life balance, craft, relief).
 - MATCH THE EMOTIONAL ENERGY OF THE USER'S CONTEXT:

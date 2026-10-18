@@ -5838,28 +5838,29 @@ function setPerspectiveMode(mode) {
     mode = 'hybrid';
   }
   creatorPerspectiveMode = mode;
-  const badge = document.getElementById('slantPerspectiveBadge');
-  const sub = document.getElementById('slantPerspectiveSubtitle');
-  const icon = document.getElementById('slantPerspectiveIcon');
 
   document.querySelectorAll('.slant-perspective-pill').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.perspective === mode);
   });
 
+  let iconText = '⚖️';
+  let badgeText = '⚖️ Hybrid Blend';
+  let subText = 'Controls Poster 1 Artwork & Cues: Blends the real-world news subject with your visual metaphor.';
+
   if (mode === 'curator') {
-    if (icon) icon.textContent = '⚡';
-    if (badge) badge.textContent = '⚡ Curator Angle';
-    if (sub) sub.textContent = 'Artwork and narrative revolve 100% around your personal take, critique, and metaphor.';
+    iconText = '⚡';
+    badgeText = '⚡ Curator Angle';
+    subText = 'Controls Poster 1 Artwork & Cues: Artwork reflects your conceptual metaphor and critique.';
   } else if (mode === 'source') {
-    if (icon) icon.textContent = '📰';
-    if (badge) badge.textContent = '📰 Source Grounded';
-    if (sub) sub.textContent = 'Stays faithful to the core news event, real-world subjects, and authentic article photo.';
-  } else {
-    // hybrid
-    if (icon) icon.textContent = '⚖️';
-    if (badge) badge.textContent = '⚖️ Hybrid Contrast';
-    if (sub) sub.textContent = 'Balances the objective source report with your critical counter-slant and metaphor.';
+    iconText = '📰';
+    badgeText = '📰 Source Grounded';
+    subText = 'Controls Poster 1 Artwork & Cues: Artwork stays 100% faithful to the authentic news event, subjects, and photo.';
   }
+
+  document.querySelectorAll('#slantPerspectiveIcon, .slant-perspective-icon').forEach(el => { el.textContent = iconText; });
+  document.querySelectorAll('#slantPerspectiveBadge, .slant-perspective-badge-dyn').forEach(el => { el.textContent = badgeText; });
+  document.querySelectorAll('#slantPerspectiveSubtitle, .slant-perspective-sub-dyn').forEach(el => { el.textContent = subText; });
+
   updateReferencePhotoUI();
 }
 

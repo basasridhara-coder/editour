@@ -204,7 +204,7 @@ The Spark (Catalyst / Personal Context): "${spark || ''}"
 ${effectiveNewsHeadline ? `Article Title: "${effectiveNewsHeadline}"` : ''}
 ${effectiveNewsBody ? `Article Excerpt / Context: "${effectiveNewsBody.slice(0, 1500)}"` : ''}
 Source Type: ${sourceType}
-Perspective Focus: ${perspectiveMode === 'curator' ? 'Curator Angle' : (perspectiveMode === 'source' ? 'Source Grounded' : 'Hybrid Contrast')}
+Visual Focus: ${perspectiveMode === 'curator' ? 'Curator Angle (Metaphor)' : (perspectiveMode === 'source' ? 'Source Grounded (Physical Reality)' : 'Hybrid Blend')}
 Slant Tone: ${slantTone === 'heart' ? 'Out of Heart (Emotive, Humanistic, Personal Reflection)' : 'Out of Mind (Analytical, Strategic, Systemic Broadsheet)'}
 Regional & Cultural Setting: ${countryContext || 'Global / Contextually Detected'}
 Character Portrayal Style: ${isExact ? 'EXACT PHOTO FOCUS' : (isLikeness ? 'LOOKALIKE & PORTRAIT (ARTISTIC EDITORIAL PORTRAIT)' : (isSilhouette ? 'Stylized Minimalist Silhouette' : 'Vivid Editorial Realism (Realistic & Expressive Human Subjects)'))}
