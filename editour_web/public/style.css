@@ -6759,28 +6759,28 @@ header {
 .receipt-scene-box:not(.photo-aspect-portrait) .receipt-scene-frame {
   width: 100%;
   aspect-ratio: 16 / 9;
-  max-height: 165px;
+  max-height: 175px;
 }
 
 /* Base Portrait / Square Floated Photo (Preserves Natural 3:4 Subject Framing) */
 .receipt-scene-box.photo-aspect-portrait {
   float: right;
-  width: 42%;
-  max-width: 175px;
-  margin: 2px 0 8px 14px;
-  padding: 3.5px;
+  width: 44%;
+  max-width: 190px;
+  margin: 2px 0 10px 16px;
+  padding: 4px;
   clear: none;
 }
 
 .receipt-scene-box.photo-aspect-portrait .receipt-scene-frame {
   width: 100%;
   aspect-ratio: 3 / 4;
-  max-height: 195px;
+  max-height: 225px;
 }
 
 /* Base Proportions for Slide 3 Broadsheet (Medium Density: ~140-200 words) */
 .slant-minute-scroll-viewport.has-inset-photo {
-  padding: 16px 20px 14px 20px;
+  padding: 16px 20px 16px 20px;
   gap: 6px;
 }
 
@@ -6794,7 +6794,7 @@ header {
 }
 
 .slant-minute-scroll-viewport.has-inset-photo .broadsheet-dropcap {
-  font-size: 36px;
+  font-size: 38px;
   line-height: 0.8;
   padding-top: 2px;
   padding-right: 6px;
@@ -6804,9 +6804,9 @@ header {
 
 .slant-minute-scroll-viewport.has-inset-photo .receipt-p1,
 .slant-minute-scroll-viewport.has-inset-photo .receipt-p3 {
-  font-size: 12.8px;
-  line-height: 1.54;
-  margin-bottom: 6px;
+  font-size: 13.6px;
+  line-height: 1.58;
+  margin-bottom: 7px;
   text-align: justify;
   text-justify: inter-word;
   hyphens: auto;
@@ -6826,54 +6826,54 @@ header {
 /* Light Density Base (~100-140 words): larger photo and typography to complete page */
 .slant-minute-scroll-viewport.essay-density-light .receipt-scene-box.photo-aspect-landscape .receipt-scene-frame,
 .slant-minute-scroll-viewport.essay-density-light .receipt-scene-box:not(.photo-aspect-portrait) .receipt-scene-frame {
-  max-height: 190px;
+  max-height: 195px;
 }
 
 .slant-minute-scroll-viewport.essay-density-light .receipt-scene-box.photo-aspect-portrait {
-  max-width: 190px;
-  margin: 2px 0 10px 16px;
+  max-width: 205px;
+  margin: 2px 0 12px 18px;
 }
 .slant-minute-scroll-viewport.essay-density-light .receipt-scene-box.photo-aspect-portrait .receipt-scene-frame {
-  max-height: 220px;
+  max-height: 245px;
   aspect-ratio: 3 / 4;
 }
 
 .slant-minute-scroll-viewport.essay-density-light.has-inset-photo .broadsheet-dropcap {
-  font-size: 40px;
+  font-size: 42px;
 }
 
 .slant-minute-scroll-viewport.essay-density-light.has-inset-photo .receipt-p1,
 .slant-minute-scroll-viewport.essay-density-light.has-inset-photo .receipt-p3 {
-  font-size: 13.5px;
-  line-height: 1.6;
-  margin-bottom: 8px;
+  font-size: 14.2px;
+  line-height: 1.64;
+  margin-bottom: 9px;
   color: #1E293B;
 }
 
 /* Dense Text Base (>200 words): compact photo and concise text */
 .slant-minute-scroll-viewport.essay-density-dense .receipt-scene-box.photo-aspect-landscape .receipt-scene-frame,
 .slant-minute-scroll-viewport.essay-density-dense .receipt-scene-box:not(.photo-aspect-portrait) .receipt-scene-frame {
-  max-height: 135px;
+  max-height: 140px;
 }
 
 .slant-minute-scroll-viewport.essay-density-dense .receipt-scene-box.photo-aspect-portrait {
-  max-width: 150px;
+  max-width: 160px;
   margin: 2px 0 6px 12px;
 }
 .slant-minute-scroll-viewport.essay-density-dense .receipt-scene-box.photo-aspect-portrait .receipt-scene-frame {
-  max-height: 165px;
+  max-height: 180px;
   aspect-ratio: 3 / 4;
 }
 
 .slant-minute-scroll-viewport.essay-density-dense.has-inset-photo .broadsheet-dropcap {
-  font-size: 30px;
+  font-size: 32px;
 }
 
 .slant-minute-scroll-viewport.essay-density-dense.has-inset-photo .receipt-p1,
 .slant-minute-scroll-viewport.essay-density-dense.has-inset-photo .receipt-p3 {
-  font-size: 11.6px;
-  line-height: 1.44;
-  margin-bottom: 4px;
+  font-size: 12px;
+  line-height: 1.48;
+  margin-bottom: 5px;
   color: #1E293B;
 }
 

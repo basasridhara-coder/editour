@@ -3713,9 +3713,13 @@ function buildSlide3Html(post, index) {
     excerpts = [];
   }
 
-  // Consolidate broadsheet essay paragraphs
+  // Consolidate broadsheet essay paragraphs: prioritize whichever source has the full 3-paragraph essay
   let essayParas = [];
-  if (summaryParas.length > 0) {
+  if (summaryParas.length >= 3) {
+    essayParas = [...summaryParas];
+  } else if (excerpts.length >= 3) {
+    essayParas = [...excerpts];
+  } else if (summaryParas.length > 0) {
     essayParas = [...summaryParas];
   } else if (excerpts.length > 0) {
     essayParas = [...excerpts];
@@ -3723,8 +3727,17 @@ function buildSlide3Html(post, index) {
     essayParas = [cleanExcerpt(post.spark)];
   }
 
+  // If fewer than 3 paragraphs and excerpts are available, incorporate remaining excerpts first
+  if (essayParas.length < 3 && excerpts.length > 0) {
+    excerpts.forEach(e => {
+      if (e && !essayParas.some(p => p.toLowerCase().includes(e.slice(0, 30).toLowerCase()))) {
+        essayParas.push(e);
+      }
+    });
+  }
+
   // If whyItMatters is present, append as concluding reflection paragraph if not already in essay
-  if (post.whyItMatters && String(post.whyItMatters).trim()) {
+  if (post.whyItMatters && String(post.whyItMatters).trim() && essayParas.length < 4) {
     const cleanWhy = cleanExcerpt(post.whyItMatters);
     if (!essayParas.some(p => p.toLowerCase().includes(cleanWhy.slice(0, 30).toLowerCase()))) {
       essayParas.push(cleanWhy);
@@ -3737,15 +3750,6 @@ function buildSlide3Html(post, index) {
     if (!essayParas.some(p => p.toLowerCase().includes(cleanQuote.slice(0, 30).toLowerCase()))) {
       essayParas.push(cleanQuote);
     }
-  }
-
-  // If still fewer than 3 paragraphs and excerpts are available, incorporate excerpts to enrich the essay
-  if (essayParas.length < 3 && excerpts.length > 0) {
-    excerpts.forEach(e => {
-      if (e && !essayParas.some(p => p.toLowerCase().includes(e.slice(0, 30).toLowerCase()))) {
-        essayParas.push(e);
-      }
-    });
   }
 
   // If only one long paragraph exists, break into two paragraphs for broadsheet cadence
