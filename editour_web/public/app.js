@@ -3724,6 +3724,19 @@ function buildSlide3Html(post, index) {
     });
   }
 
+  // If only one long paragraph exists, break into two paragraphs for broadsheet cadence
+  if (essayParas.length === 1 && essayParas[0].length > 220) {
+    const sentences = essayParas[0].match(/[^.!?]+[.!?]+["']?|\s*[^.!?]+$/g) || [];
+    if (sentences.length >= 3) {
+      const mid = Math.ceil(sentences.length / 2);
+      const p1 = sentences.slice(0, mid).join('').trim();
+      const p2 = sentences.slice(mid).join('').trim();
+      if (p1 && p2) {
+        essayParas = [p1, p2];
+      }
+    }
+  }
+
   if (essayParas.length === 0) {
     essayParas = [`Reporting examines key structural developments and observed outcomes.`];
   }
@@ -3807,7 +3820,7 @@ function buildSlide3Html(post, index) {
       </div>
 
       <!-- Pure Editorial Broadsheet Essay -->
-      <div class="receipt-paragraphs" style="flex: 1; display: flex; flex-direction: column; justify-content: flex-start; min-height: auto; height: auto; overflow: visible;">
+      <div class="receipt-paragraphs">
         ${scenePhotoHtml}
         ${essayHtml}
       </div>

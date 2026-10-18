@@ -2300,10 +2300,10 @@ header {
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
-  padding: 12px 14px 18px;
+  padding: 14px 18px 12px;
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 6px;
   box-sizing: border-box;
   scrollbar-width: thin;
   scrollbar-color: rgba(15, 23, 42, 0.25) transparent;
@@ -2338,16 +2338,16 @@ header {
   min-height: auto !important;
   height: auto !important;
   overflow: visible !important;
-  padding: 4px 0 0 !important;
-  gap: 8px !important;
+  padding: 0 !important;
+  gap: 6px !important;
   margin: 0 !important;
 }
 
 .slant-minute-scroll-viewport .receipt-footer {
   flex-shrink: 0 !important;
   margin-top: auto !important;
-  padding-top: 18px !important;
-  padding-bottom: 6px !important;
+  padding-top: 10px !important;
+  padding-bottom: 4px !important;
   width: 100% !important;
   position: relative !important;
   clear: both !important;
@@ -2358,7 +2358,7 @@ header {
   width: 100% !important;
   height: 1px !important;
   background: #0F172A !important;
-  margin: 0 0 6px 0 !important;
+  margin: 0 0 5px 0 !important;
   display: block !important;
 }
 
@@ -2366,7 +2366,7 @@ header {
   display: flex !important;
   justify-content: space-between !important;
   align-items: center !important;
-  font-size: 7.2px !important;
+  font-size: 8px !important;
   font-weight: 800 !important;
   color: #334155 !important;
   letter-spacing: 0.4px !important;
@@ -2716,10 +2716,10 @@ header {
 
 .receipt-p1 {
   font-family: 'Merriweather', Georgia, 'Times New Roman', serif;
-  font-size: 11px;
-  line-height: 1.48;
+  font-size: 14px;
+  line-height: 1.6;
   color: #1E293B;
-  margin: 0;
+  margin: 0 0 8px 0;
   text-align: justify;
   text-justify: inter-word;
   hyphens: auto;
@@ -2764,11 +2764,11 @@ header {
 
 .receipt-p3 {
   font-family: 'Merriweather', Georgia, 'Times New Roman', serif;
-  font-size: 10.5px;
-  line-height: 1.46;
+  font-size: 13.5px;
+  line-height: 1.56;
   color: #334155;
-  margin: 0;
-  text-indent: 14px;
+  margin: 0 0 8px 0;
+  text-indent: 18px;
   text-align: justify;
   text-justify: inter-word;
   hyphens: auto;
@@ -3517,97 +3517,110 @@ header {
     font-size: 14px;
   }
 
-  /* Slide 3 Broadsheet Mobile Optimization: Full Content Visible with Elegant Newspaper Styling */
-  .slide-receipt {
+  /* Slide 3 Broadsheet Mobile In-App Carousel: Complete fit without overflow or cut-off */
+  .carousel-view .slide-receipt {
     padding: 0 !important;
   }
-  .receipt-pub-title {
-    font-size: 16px;
-    letter-spacing: 2px;
-    margin: 2px 0 1px;
+  .carousel-view .slant-minute-scroll-viewport {
+    padding: 8px 12px 20px 12px !important;
+    gap: 4px !important;
+    overflow-y: hidden !important;
   }
-  .receipt-rules {
-    font-size: 6.8px;
-    margin: 1px 0 2px;
+  .carousel-view .slant-minute-scroll-viewport .receipt-brand-corner-bar {
+    margin-bottom: 2px !important;
   }
-  .receipt-headline {
-    font-size: 13.5px;
-    line-height: 1.22;
-    margin: 0 0 2px;
+  .carousel-view .slant-minute-scroll-viewport .receipt-corner-brand {
+    gap: 4px !important;
+    font-size: 8.5px !important;
   }
-  .receipts-byline {
-    font-size: 6.8px;
-    margin-bottom: 2px;
+  .carousel-view .slant-minute-scroll-viewport .receipt-corner-logo {
+    width: 14px !important;
+    height: 14px !important;
   }
-  .receipt-paragraphs {
-    gap: 5px;
-    padding: 3px 0 1px;
+  .carousel-view .slant-minute-scroll-viewport .receipt-brand-text {
+    font-size: 9px !important;
   }
-  .receipt-metric-row {
-    padding: 3px 6px;
-    gap: 6px;
+  .carousel-view .slant-minute-scroll-viewport .receipt-creator-name {
+    font-size: 8px !important;
   }
-  .receipt-metric-badge {
-    font-size: 7px;
-    padding: 1px 4px;
+  .carousel-view .slant-minute-scroll-viewport .receipt-corner-slide-num {
+    font-size: 7px !important;
+    padding: 1px 4px !important;
   }
-  .receipt-metric-val {
-    font-size: 10px;
+  .carousel-view .receipt-scene-box {
+    margin: 2px 0 4px 0 !important;
+    padding: 3px !important;
+    border-radius: 4px !important;
   }
-  .receipt-p1 {
-    font-size: 10px;
-    line-height: 1.36;
+  .carousel-view .receipt-scene-photo {
+    height: 68px !important;
+    max-height: 68px !important;
+    border-radius: 2px !important;
   }
-  .receipt-highlight {
-    padding: 5px 8px;
-    border-radius: 4px;
-    border-left-width: 4px;
-    margin: 0;
-  }
-  .highlighter-label {
-    font-size: 7.2px;
-    margin-bottom: 1px;
-  }
-  .highlighter-text {
-    font-size: 10.5px;
-    line-height: 1.32;
-  }
-  .receipt-p3 {
-    font-size: 9.6px;
-    line-height: 1.36;
-  }
-  .receipt-takeaways-card {
-    padding: 4px 7px;
-  }
-  .takeaways-header {
-    font-size: 7px;
-    margin-bottom: 2px;
-  }
-  .takeaway-item {
-    font-size: 9.2px;
-    line-height: 1.3;
-  }
-  .takeaway-why-text {
-    font-size: 9.2px;
-    line-height: 1.32;
-  }
-  .receipt-p3 {
-    font-size: 9.6px;
-    line-height: 1.36;
-  }
-  .receipt-footer {
-    margin-top: 2px;
-  }
-  .receipt-folio-text {
-    font-size: 6.5px;
-  }
-  .slant-minute-scroll-viewport .receipt-footer {
-    margin-top: auto !important;
-    padding-top: 14px !important;
-    padding-bottom: 6px !important;
-  }
-  .slant-minute-scroll-viewport .receipt-folio-text {
+  .carousel-view .receipt-scene-caption {
     font-size: 6.8px !important;
+    gap: 3px !important;
+    margin-top: 2px !important;
+    line-height: 1.15 !important;
+  }
+  .carousel-view .scene-caption-icon {
+    font-size: 8px !important;
+  }
+  .carousel-view .slant-minute-scroll-viewport .receipt-paragraphs {
+    gap: 3px !important;
+    padding: 0 !important;
+  }
+  .carousel-view .slant-minute-scroll-viewport.has-inset-photo .broadsheet-dropcap {
+    font-size: 22px !important;
+    line-height: 0.8 !important;
+    padding-top: 1px !important;
+    padding-right: 4px !important;
+    padding-bottom: 0 !important;
+  }
+  .carousel-view .slant-minute-scroll-viewport.has-inset-photo .receipt-p1 {
+    font-size: 9.6px !important;
+    line-height: 1.34 !important;
+    margin-bottom: 3px !important;
+    text-align: justify !important;
+    text-justify: inter-word !important;
+  }
+  .carousel-view .slant-minute-scroll-viewport.has-inset-photo .receipt-p3 {
+    font-size: 9.2px !important;
+    line-height: 1.32 !important;
+    text-indent: 10px !important;
+    margin-bottom: 3px !important;
+    text-align: justify !important;
+    text-justify: inter-word !important;
+  }
+  .carousel-view .slant-minute-scroll-viewport:not(.has-inset-photo) .broadsheet-dropcap {
+    font-size: 28px !important;
+    line-height: 0.8 !important;
+    padding-top: 1px !important;
+    padding-right: 5px !important;
+  }
+  .carousel-view .slant-minute-scroll-viewport:not(.has-inset-photo) .receipt-p1 {
+    font-size: 11px !important;
+    line-height: 1.42 !important;
+    margin-bottom: 5px !important;
+  }
+  .carousel-view .slant-minute-scroll-viewport:not(.has-inset-photo) .receipt-p3 {
+    font-size: 10.4px !important;
+    line-height: 1.38 !important;
+    text-indent: 12px !important;
+    margin-bottom: 5px !important;
+  }
+  .carousel-view .slant-minute-scroll-viewport .receipt-footer {
+    margin-top: auto !important;
+    padding-top: 6px !important;
+    padding-bottom: 2px !important;
+  }
+  .carousel-view .slant-minute-scroll-viewport .receipt-folio-rule {
+    height: 0.8px !important;
+    margin: 0 0 3px 0 !important;
+  }
+  .carousel-view .slant-minute-scroll-viewport .receipt-folio-text {
+    font-size: 6.5px !important;
+    line-height: 1.2 !important;
   }
 
   /* 4-Corner Poster Brand Mobile Adjustments */
@@ -6564,9 +6577,9 @@ header {
   color: #FFFFFF;
 }
 
-/* Slide 3 Scene Photo Frame on Poster 3 (Compact Inset to prevent text cropping) */
+/* Slide 3 Scene Photo Frame on Poster 3 */
 .receipt-scene-box {
-  margin: 4px 0 6px 0;
+  margin: 5px 0 7px 0;
   background: #F8FAFC;
   border: 1px solid #CBD5E1;
   border-radius: 5px;
@@ -6577,8 +6590,8 @@ header {
 
 .receipt-scene-photo {
   width: 100%;
-  height: 82px;
-  max-height: 82px;
+  height: 110px;
+  max-height: 110px;
   object-fit: cover;
   border-radius: 3px;
   display: block;
@@ -6588,8 +6601,8 @@ header {
   display: flex;
   align-items: center;
   gap: 4px;
-  margin-top: 3px;
-  font-size: 7.5px;
+  margin-top: 3.5px;
+  font-size: 8px;
   font-weight: 800;
   letter-spacing: 0.5px;
   color: #475569;
@@ -6613,43 +6626,228 @@ header {
   font-family: 'Merriweather', Georgia, serif;
 }
 
-/* Rules when Poster 3 includes an inset photo to fit pure essay within 3:4 shareable frame */
+/* Base Inset Photo Proportions for Slide 3 Broadsheet */
 .slant-minute-scroll-viewport.has-inset-photo {
-  padding: 10px 14px 8px !important;
-  gap: 5px !important;
+  padding: 14px 18px 12px;
+  gap: 6px;
 }
 
 .slant-minute-scroll-viewport.has-inset-photo .receipt-brand-corner-bar {
-  margin-bottom: 3px !important;
+  margin-bottom: 5px;
 }
 
 .slant-minute-scroll-viewport.has-inset-photo .receipt-paragraphs {
-  gap: 5px !important;
-  padding: 2px 0 0 !important;
+  gap: 6px;
+  padding: 0;
 }
 
 .slant-minute-scroll-viewport.has-inset-photo .broadsheet-dropcap {
-  font-size: 26px !important;
-  line-height: 0.8 !important;
-  padding-right: 5px !important;
+  font-size: 36px;
+  line-height: 0.8;
+  padding-right: 7px;
 }
 
 .slant-minute-scroll-viewport.has-inset-photo .receipt-p1 {
-  font-size: 10.4px !important;
-  line-height: 1.44 !important;
-  margin-bottom: 5px !important;
+  font-size: 12.4px;
+  line-height: 1.54;
+  margin-bottom: 6px;
 }
 
 .slant-minute-scroll-viewport.has-inset-photo .receipt-p3 {
-  font-size: 10.2px !important;
-  line-height: 1.42 !important;
-  text-indent: 12px !important;
-  margin-bottom: 5px !important;
+  font-size: 12px;
+  line-height: 1.52;
+  text-indent: 16px;
+  margin-bottom: 6px;
 }
 
 .slant-minute-scroll-viewport.has-inset-photo .receipt-footer {
-  padding-top: 6px !important;
-  padding-bottom: 2px !important;
+  padding-top: 10px;
+  padding-bottom: 4px;
+}
+
+/* ============================================================
+   POSTER EXPORT SANDBOX: 1080x1440 HD 3:4 BROADSHEET POSTER
+   Guarantees full, rich, complete broadsheet layout on all devices
+   ============================================================ */
+.poster-export-sandbox .slide-receipt {
+  padding: 0 !important;
+  background: #F7F5EE !important;
+}
+
+.poster-export-sandbox .slant-minute-scroll-viewport {
+  width: 100% !important;
+  height: 100% !important;
+  padding: 16px 22px 14px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+}
+
+.poster-export-sandbox .receipt-brand-corner-bar {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  margin-bottom: 6px !important;
+  width: 100% !important;
+  flex-shrink: 0 !important;
+}
+
+.poster-export-sandbox .receipt-corner-brand {
+  gap: 6px !important;
+  font-size: 11px !important;
+  font-weight: 900 !important;
+}
+
+.poster-export-sandbox .receipt-corner-logo {
+  width: 18px !important;
+  height: 18px !important;
+}
+
+.poster-export-sandbox .receipt-brand-text {
+  font-size: 11.5px !important;
+  letter-spacing: 1.2px !important;
+}
+
+.poster-export-sandbox .receipt-creator-name {
+  font-size: 10.5px !important;
+  font-weight: 800 !important;
+}
+
+.poster-export-sandbox .receipt-corner-slide-num {
+  font-size: 9px !important;
+  font-weight: 800 !important;
+  padding: 2px 7px !important;
+  border-radius: 8px !important;
+}
+
+.poster-export-sandbox .receipt-scene-box {
+  margin: 6px 0 8px 0 !important;
+  background: #F8FAFC !important;
+  border: 1px solid #CBD5E1 !important;
+  border-radius: 6px !important;
+  padding: 5px !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06) !important;
+  flex-shrink: 0 !important;
+}
+
+.poster-export-sandbox .receipt-scene-photo {
+  width: 100% !important;
+  height: 112px !important;
+  max-height: 112px !important;
+  object-fit: cover !important;
+  border-radius: 4px !important;
+  display: block !important;
+}
+
+.poster-export-sandbox .receipt-scene-caption {
+  font-size: 8.5px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.6px !important;
+  margin-top: 4px !important;
+  line-height: 1.25 !important;
+}
+
+.poster-export-sandbox .scene-caption-icon {
+  font-size: 10px !important;
+}
+
+.poster-export-sandbox .receipt-paragraphs {
+  flex: none !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: flex-start !important;
+  gap: 7px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  overflow: visible !important;
+}
+
+.poster-export-sandbox .slant-minute-scroll-viewport.has-inset-photo .broadsheet-dropcap {
+  font-size: 38px !important;
+  line-height: 0.8 !important;
+  padding-top: 2px !important;
+  padding-right: 7px !important;
+  padding-bottom: 0 !important;
+  font-weight: 900 !important;
+}
+
+.poster-export-sandbox .slant-minute-scroll-viewport.has-inset-photo .receipt-p1 {
+  font-size: 12.6px !important;
+  line-height: 1.54 !important;
+  margin-bottom: 7px !important;
+  text-align: justify !important;
+  text-justify: inter-word !important;
+  hyphens: auto !important;
+  -webkit-hyphens: auto !important;
+  color: #1E293B !important;
+}
+
+.poster-export-sandbox .slant-minute-scroll-viewport.has-inset-photo .receipt-p3 {
+  font-size: 12.2px !important;
+  line-height: 1.52 !important;
+  text-indent: 16px !important;
+  margin-bottom: 7px !important;
+  text-align: justify !important;
+  text-justify: inter-word !important;
+  hyphens: auto !important;
+  -webkit-hyphens: auto !important;
+  color: #334155 !important;
+}
+
+.poster-export-sandbox .slant-minute-scroll-viewport:not(.has-inset-photo) .broadsheet-dropcap {
+  font-size: 46px !important;
+  line-height: 0.8 !important;
+  padding-top: 2px !important;
+  padding-right: 9px !important;
+  padding-bottom: 0 !important;
+  font-weight: 900 !important;
+}
+
+.poster-export-sandbox .slant-minute-scroll-viewport:not(.has-inset-photo) .receipt-p1 {
+  font-size: 14.2px !important;
+  line-height: 1.62 !important;
+  margin-bottom: 10px !important;
+  text-align: justify !important;
+  text-justify: inter-word !important;
+  color: #1E293B !important;
+}
+
+.poster-export-sandbox .slant-minute-scroll-viewport:not(.has-inset-photo) .receipt-p3 {
+  font-size: 13.6px !important;
+  line-height: 1.58 !important;
+  text-indent: 20px !important;
+  margin-bottom: 10px !important;
+  text-align: justify !important;
+  text-justify: inter-word !important;
+  color: #334155 !important;
+}
+
+.poster-export-sandbox .receipt-footer {
+  flex-shrink: 0 !important;
+  margin-top: auto !important;
+  padding-top: 10px !important;
+  padding-bottom: 4px !important;
+  width: 100% !important;
+}
+
+.poster-export-sandbox .receipt-folio-rule {
+  width: 100% !important;
+  height: 1px !important;
+  background: #0F172A !important;
+  margin: 0 0 5px 0 !important;
+}
+
+.poster-export-sandbox .receipt-folio-text {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  font-size: 8.5px !important;
+  font-weight: 800 !important;
+  color: #334155 !important;
+  letter-spacing: 0.5px !important;
+  line-height: 1.3 !important;
 }
 
 /* URL Scrape Status Indicator */
