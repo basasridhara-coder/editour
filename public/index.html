@@ -511,24 +511,31 @@
                 </div>
               </div>
               <div class="character-rep-options">
-                <div class="rep-option active" id="repOptionRealistic" onclick="selectCharacterRepresentation('realistic')">
+                <div class="rep-option" id="repOptionLikeness" onclick="selectCharacterRepresentation('likeness')" style="display:none;">
                   <div class="rep-radio-circle"></div>
                   <div class="rep-option-body">
-                    <span class="rep-option-title" id="repRealisticTitle">Vivid Editorial Realism (Artwork)</span>
-                    <span class="rep-option-desc" id="repRealisticDesc">Warm, realistic editorial illustration physically grounded in the real-world source scene and protagonists. No dark or faceless silhouettes.</span>
+                    <span class="rep-option-title" id="repLikenessTitle">🎨 Artistic Likeness (Privacy-Safe Artwork)</span>
+                    <span class="rep-option-desc" id="repLikenessDesc">Paints a warm editorial illustration capturing the facial structure, hairstyle, and clothing of the people in your photo without biometric tracking or internet footprint.</span>
                   </div>
                 </div>
                 <div class="rep-option" id="repOptionExact" onclick="selectCharacterRepresentation('exact')" style="display:none;">
                   <div class="rep-radio-circle"></div>
                   <div class="rep-option-body">
-                    <span class="rep-option-title">📷 Authentic Source Photo (Direct Photo)</span>
-                    <span class="rep-option-desc">Use the authentic news photo or YouTube thumbnail directly as Poster 1's hook visual without AI generation.</span>
+                    <span class="rep-option-title" id="repExactTitle">📷 Authentic Source Photo (Direct Photo)</span>
+                    <span class="rep-option-desc" id="repExactDesc">Use the authentic photograph directly as Poster 1's hook visual without AI generation.</span>
+                  </div>
+                </div>
+                <div class="rep-option active" id="repOptionRealistic" onclick="selectCharacterRepresentation('realistic')">
+                  <div class="rep-radio-circle"></div>
+                  <div class="rep-option-body">
+                    <span class="rep-option-title" id="repRealisticTitle">👤 Generic Human Realism (Artwork)</span>
+                    <span class="rep-option-desc" id="repRealisticDesc">Warm, expressive human beings representing the general theme rather than matching the photo's subjects.</span>
                   </div>
                 </div>
                 <div class="rep-option" id="repOptionSilhouette" onclick="selectCharacterRepresentation('silhouette')">
                   <div class="rep-radio-circle"></div>
                   <div class="rep-option-body">
-                    <span class="rep-option-title">Stylized Minimalist Silhouette (Shadow Art)</span>
+                    <span class="rep-option-title">👥 Stylized Minimalist Silhouette (Shadow Art)</span>
                     <span class="rep-option-desc">Minimalist dark silhouettes, architectural shadows, or high-contrast noir profiles for conceptual themes only.</span>
                   </div>
                 </div>
@@ -1403,6 +1410,6 @@
     </div>
   </aside>
 
-  <script src="app.js?v=20261018_0100"></script>
+  <script src="app.js?v=20261019_0025"></script>
 </body>
 </html>

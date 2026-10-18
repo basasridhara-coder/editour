@@ -6094,9 +6094,13 @@ function setPerspectiveMode(mode, fromUserClick = false) {
     btn.classList.toggle('active', btn.dataset.perspective === mode);
   });
 
+  const hasPhoto = Boolean(creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || currentScrapedArticle?.imageUrl);
+
   let iconText = '⚖️';
-  let badgeText = '⚖️ Hybrid Blend';
-  let subText = 'Controls Poster 1 Artwork & Cues: Blends the real-world news subject with your visual metaphor.';
+  let badgeText = hasPhoto ? '⚖️ Hybrid Likeness' : '⚖️ Hybrid Blend';
+  let subText = hasPhoto
+    ? 'Controls Poster 1 Artwork & Cues: Blends your personal take with the facial structure, setting, and people in your photo (Zero Digital Footprint).'
+    : 'Controls Poster 1 Artwork & Cues: Blends the real-world news subject with your visual metaphor.';
 
   if (mode === 'curator') {
     iconText = '⚡';
@@ -6445,6 +6449,7 @@ function handleInnerVoicePhotoSelect(event) {
       creatorReferenceImageBase64 = base64Data;
       creatorReferenceImageMimeType = mimeType || 'image/jpeg';
       creatorReferenceImageSourceLabel = 'Catalyst Scene Photo';
+      creatorCharacterRepresentation = 'likeness';
       updateReferencePhotoUI();
     }
 
@@ -8743,7 +8748,10 @@ function updateReferencePhotoUI() {
   const photoThumb = document.getElementById('sourcePhotoThumb');
   const photoBadge = document.getElementById('sourcePhotoBadge');
   const photoLabel = document.getElementById('sourcePhotoLabel');
+  const optLikeness = document.getElementById('repOptionLikeness');
   const optExact = document.getElementById('repOptionExact');
+  const optReal = document.getElementById('repOptionRealistic');
+  const optSil = document.getElementById('repOptionSilhouette');
   const repRealTitle = document.getElementById('repRealisticTitle');
   const repRealDesc = document.getElementById('repRealisticDesc');
 
@@ -8757,7 +8765,7 @@ function updateReferencePhotoUI() {
       if (photoBadge) {
         photoBadge.textContent = (creatorSelectedSource === 'video_audio')
           ? '🎬 Authentic Video Thumbnail Attached'
-          : '📰 Authentic Source Photo Attached';
+          : (creatorSelectedSource === 'inner_voice' ? '📸 Archival Catalyst Photo Attached' : '📰 Authentic Source Photo Attached');
       }
       if (photoLabel) {
         photoLabel.textContent = creatorReferenceImageSourceLabel || (currentScrapedArticle?.siteName ? `Lead visual from ${currentScrapedArticle.siteName}` : 'Grounding visual cues & poster flow in physical reality');
@@ -8767,10 +8775,34 @@ function updateReferencePhotoUI() {
     }
   }
 
+  if (optLikeness) {
+    optLikeness.style.display = hasPhoto ? 'flex' : 'none';
+  }
+
   if (optExact) {
     optExact.style.display = hasPhoto ? 'flex' : 'none';
-    if (!hasPhoto && creatorCharacterRepresentation === 'exact') {
+  }
+
+  if (!hasPhoto) {
+    if (creatorCharacterRepresentation === 'likeness' || creatorCharacterRepresentation === 'exact') {
       creatorCharacterRepresentation = 'realistic';
+    }
+  }
+
+  // Update Visual Focus pills and labels dynamically based on photo presence
+  const pillHybrid = document.getElementById('perspectivePillHybridStage2');
+  if (pillHybrid) {
+    const textEl = pillHybrid.querySelector('.pill-text');
+    if (textEl) textEl.textContent = hasPhoto ? 'Hybrid Likeness' : 'Hybrid Blend';
+  }
+  const badgeEl = document.getElementById('slantPerspectiveBadgeStage2');
+  const subEl = document.getElementById('slantPerspectiveSubtitleStage2');
+  if (creatorPerspectiveMode === 'hybrid') {
+    if (badgeEl) badgeEl.textContent = hasPhoto ? '⚖️ Hybrid Likeness' : '⚖️ Hybrid Blend';
+    if (subEl) {
+      subEl.textContent = hasPhoto
+        ? 'Controls Poster 1 Artwork & Cues: Blends your personal take with the facial structure, setting, and people in your photo (Zero Digital Footprint).'
+        : 'Controls Poster 1 Artwork & Cues: Blends the real-world news subject with your visual metaphor.';
     }
   }
 
@@ -8779,20 +8811,19 @@ function updateReferencePhotoUI() {
       repRealTitle.textContent = '🎨 Source-Grounded Artwork (AI Illustration)';
       repRealDesc.textContent = 'Editorial broadsheet art physically anchored in the real source protagonists, press setting, and flags.';
     } else {
-      repRealTitle.textContent = 'Vivid Editorial Realism (Artwork)';
-      repRealDesc.textContent = 'Warm, realistic editorial illustration with clear human subjects, natural lighting, and tangible environments. No dark or faceless silhouettes.';
+      repRealTitle.textContent = '👤 Generic Human Realism (Artwork)';
+      repRealDesc.textContent = 'Warm, expressive human beings representing the general theme rather than matching the photo\'s subjects.';
     }
   }
 
-  const optReal = document.getElementById('repOptionRealistic');
-  const optSil = document.getElementById('repOptionSilhouette');
+  if (optLikeness) optLikeness.classList.toggle('active', creatorCharacterRepresentation === 'likeness');
   if (optReal) optReal.classList.toggle('active', creatorCharacterRepresentation === 'realistic');
   if (optSil) optSil.classList.toggle('active', creatorCharacterRepresentation === 'silhouette');
   if (optExact) optExact.classList.toggle('active', creatorCharacterRepresentation === 'exact');
 }
 
 function selectCharacterRepresentation(type) {
-  if (type !== 'realistic' && type !== 'silhouette' && type !== 'exact') {
+  if (type !== 'realistic' && type !== 'silhouette' && type !== 'exact' && type !== 'likeness') {
     type = 'realistic';
   }
   creatorCharacterRepresentation = type;
@@ -9072,7 +9103,7 @@ async function startAiSynthesis() {
             action: 'artwork_only',
             creatorEmail: currentUser?.email || '',
             prompt: currentSynthesizedPost.illustrationPrompt,
-            imageBase64: (creatorPerspectiveMode === 'source' || creatorCharacterRepresentation === 'likeness' || creatorCharacterRepresentation === 'lookalike' || creatorCharacterRepresentation === 'exact')
+            imageBase64: (creatorPerspectiveMode === 'source' || creatorCharacterRepresentation === 'exact')
               ? (creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || currentSynthesizedPost?.sourceImageBase64 || null)
               : null,
             imageMimeType: creatorReferenceImageMimeType || currentScrapedArticle?.imageMimeType || currentSynthesizedPost?.sourceImageMimeType || 'image/jpeg'
@@ -9159,7 +9190,7 @@ async function enhancePosterArtworkInBackground(post) {
         action: 'artwork_only',
         creatorEmail: currentUser?.email || '',
         prompt: post.illustrationPrompt,
-        imageBase64: (creatorPerspectiveMode === 'source' || creatorCharacterRepresentation === 'likeness' || creatorCharacterRepresentation === 'lookalike' || creatorCharacterRepresentation === 'exact')
+        imageBase64: (creatorPerspectiveMode === 'source' || creatorCharacterRepresentation === 'exact')
           ? (creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || post?.sourceImageBase64 || null)
           : null,
         imageMimeType: creatorReferenceImageMimeType || currentScrapedArticle?.imageMimeType || post?.sourceImageMimeType || 'image/jpeg'

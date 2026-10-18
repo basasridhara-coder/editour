@@ -132,7 +132,9 @@ The visual cues MUST authentically capture the human situation, intimate setting
     : '';
 
   const personDirective = isLikeness
-    ? 'CRITICAL PERSON LOOKALIKE & PORTRAIT DIRECTIVE: The curator requested LOOKALIKE & PORTRAIT portrayal. The #1 HERO cue MUST specify the central real-world individual named in the headline or context (e.g. "Donald Trump Lookalike Editorial Portrait", "Elon Musk Lookalike Editorial Portrait") styled as an artistic editorial magazine portrait. Do NOT substitute with an abstract building!'
+    ? (isPersonalStory && effectivePhoto
+        ? 'CRITICAL ARTISTIC LIKENESS DIRECTIVE (PRIVACY-SAFE): The curator requested ARTISTIC LIKENESS portrayal from the attached photo. The #1 HERO cue MUST specify the key subjects from the photo with their relationship, age group, and artistic portrait framing (e.g. "Two Young Brothers on Sunlit Veranda", "Father and Daughter in Studio Portrait"). Ground in human warmth and vivid editorial realism.'
+        : 'CRITICAL PERSON LOOKALIKE & PORTRAIT DIRECTIVE: The curator requested LOOKALIKE & PORTRAIT portrayal. The #1 HERO cue MUST specify the central real-world individual named in the headline or context (e.g. "Donald Trump Lookalike Editorial Portrait", "Elon Musk Lookalike Editorial Portrait") styled as an artistic editorial magazine portrait. Do NOT substitute with an abstract building!')
     : (isExact
       ? 'CRITICAL EXACT PHOTO DIRECTIVE: The curator requested to USE THE EXACT PHOTO. The #1 HERO cue should specify the primary photographic subject (e.g. "Donald Trump (Lead Photo Focus)").'
       : (isSilhouette

@@ -370,11 +370,19 @@ ${cues && cues.length > 0 ? `- Ranked Visual Cues: ${cues.map((c, i) => `#${i+1}
 - Character Portrayal Style: ${characterRepresentation === 'exact' 
   ? 'Use exact unedited news/attached photo directly' 
   : ((characterRepresentation === 'likeness' || characterRepresentation === 'lookalike') 
-    ? 'Lookalike & Portrait: Match real person face and likeness from source photo with artistic painted editorial style' 
+    ? 'Artistic Likeness (Privacy-Safe Artwork): Analyze the attached photo and capture the key subjects recognizable facial structure, hairstyle, eye expression, and clothing in an artistic painted broadsheet illustration without biometric tracking.' 
     : (characterRepresentation === 'silhouette'
       ? 'Minimalist silhouette / stark shadow figures (ONLY if explicitly demanded)'
       : 'Vivid Editorial Realism & Expressive People: Warm, realistic, expressive human beings with clearly visible faces, natural skin tones, clear clothing, and bright warm ambient lighting. STRICT BAN: NEVER pitch-black silhouettes, NEVER faceless shadows, NEVER dark doorway shadow figures, NEVER creepy ghost-like phantoms!'))}
-${(characterRepresentation === 'likeness' || characterRepresentation === 'lookalike') ? 'CRITICAL PERSON LOOKALIKE & MYSTERY DIRECTIVE: Character Portrayal is set to LOOKALIKE & PORTRAIT. The heroCue MUST specify the primary real-world individual named in the article/slant (e.g. "Donald Trump Lookalike (Editorial Portrait)"). The artwork must be an editorial painterly illustration blending recognizable likeness with artistic magazine portraiture.' : ''}
+${(characterRepresentation === 'likeness' || characterRepresentation === 'lookalike' || (perspectiveMode === 'hybrid' && (effectiveCatalystImage || sourceImageBase64))) ? `CRITICAL ARTISTIC LIKENESS & FACIAL STRUCTURE DIRECTIVE (PRIVACY-SAFE EDITORIAL ARTWORK):
+- An authentic real-world photograph is attached. The curator requested Artistic Likeness / Hybrid Likeness portrayal for Poster 1 artwork.
+- In "illustrationPrompt", perform an astute visual analysis of the key people visible in the attached photo to describe their physical facial characteristics, hairstyle, age, stature, and clothing:
+  1. FACIAL STRUCTURE & FEATURES: Describe the face shape (e.g. oval, soft round cheeks, squared jawline), skin tone, eye shape, gaze, smile or expression (e.g. thoughtful, attentive, cheerful).
+  2. HAIR & HEAD: Describe haircut, hair texture, part, and color (e.g. dark straight fringe, wavy side-parted hair, neat crop).
+  3. RELATIVE STATURE & CLOTHING: Describe the age gap, height difference, clothing colors and styles (e.g. cobalt blue graphic t-shirt, beige shorts, white tank top).
+  4. ENVIRONMENT & LIGHTING: Describe the setting (e.g. sunny home entrance porch, wooden carved door, granite steps, stainless steel railing) bathed in natural midday sunlight.
+  5. ARTISTIC MEDIUM (ZERO BIOMETRIC FOOTPRINT): Frame the prompt as an expressive masterpiece editorial painting (e.g. "Warm cinematic editorial gouache and oil painting with rich textures, vivid color grading, lifelike human expression").
+  6. PRIVACY & SAFETY CONSTRAINT: DO NOT use real names, do not use words like "clone", "replica", or "deepfake". Describe them as artistic archetypal protagonists so the artwork captures their recognizable essence and warmth while protecting their privacy.` : ''}
 ${characterRepresentation === 'exact' ? 'CRITICAL EXACT PHOTO DIRECTIVE: Character Portrayal is set to USE EXACT PHOTO. The heroCue should highlight the central photographic subject of the unedited news photo.' : ''}
 
 ${vocabDirective}
@@ -486,7 +494,7 @@ Respond strictly with valid JSON with this exact structure:
   "atmosphereCue": "Environmental setting or mood",
   "lightingCue": "Dramatic lighting description",
   "styleCue": "Artistic medium description",
-  "illustrationPrompt": "Cinematic visual art prompt describing the scene with rich detail.${demographicInfo ? ` The central subject MUST be depicted accurately as ${demographicInfo.promptDesc}.` : ''} People MUST have visible faces, warm natural lighting, and clear human form. Strictly avoid pitch-black silhouettes, faceless shadow figures, dark ghosts, or creepy silhouettes unless characterRepresentation is explicitly 'silhouette'. Do not include any text, letters, watermarks, or typography."
+  "illustrationPrompt": "${(characterRepresentation === 'likeness' || characterRepresentation === 'lookalike' || (perspectiveMode === 'hybrid' && (effectiveCatalystImage || sourceImageBase64))) ? 'Masterpiece editorial broadsheet painted illustration describing the scene in vivid detail. Specifically incorporate the observed facial structures, hairstyles, expressions, clothing colors, and postures from the attached photo into a rich painterly composition. Clear, warmly lit faces, lifelike human expression, no text, no letters.' : 'Cinematic visual art prompt describing the scene with rich detail. People MUST have visible faces, warm natural lighting, and clear human form. Strictly avoid pitch-black silhouettes, faceless shadow figures, dark ghosts, or creepy silhouettes unless characterRepresentation is explicitly silhouette. Do not include any text, letters, watermarks, or typography.'}"
 }`;
 
     const parts = [];
@@ -1328,7 +1336,9 @@ function isLikelyPersonSubject(name) {
     'huang', 'minister', 'president', 'judge', 'justice', 'officer', 'sweeper',
     'curator', 'citizen', 'woman', 'man', 'girl', 'boy', 'leader', 'doctor',
     'worker', 'protagonist', 'figure', 'person', 'individual', 'portrait', 'lookalike',
-    'founder', 'engineer', 'entrepreneur', 'student', 'youth', 'actor', 'author', 'critic', 'analyst', 'politician'
+    'founder', 'engineer', 'entrepreneur', 'student', 'youth', 'actor', 'author', 'critic', 'analyst', 'politician',
+    'brother', 'brothers', 'sister', 'sisters', 'child', 'children', 'family', 'son', 'sons', 'daughter', 'daughters',
+    'parent', 'parents', 'kid', 'kids', 'toddler', 'baby'
   ];
   return personKeywords.some(w => lower.includes(w));
 }
