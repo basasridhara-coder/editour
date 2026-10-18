@@ -425,9 +425,10 @@ ${sourceType === 'inner_voice' ? `CRITICAL INNER VOICE & LIVED EXPERIENCE DIRECT
   * ZERO ALTERATION: Do NOT change the curator's stance or introduce unsolicited opinions. It is purely gentle grammar and phrase correction.
   * ZERO EM-DASHES: NEVER use em-dashes ("—"), en-dashes ("–"), or double hyphens ("--"). They scream artificial AI generation. Connect clauses with natural commas, semicolons, or standard punctuation so it feels authentic and human.
 CRITICAL POSTER 2 DIRECTIVE (CURATED TAKE DERIVED FROM INPUT):
-- Poster 2 ("THE CRITICAL PERSPECTIVE" / Curator Take) MUST be an articulate, model-synthesized editorial conviction derived directly from the curator's perspective ("${userSlant}").
-- It MUST be EXACTLY 2 complete sentences (25–35 words total, ending definitively with a period).
-- Elevate and synthesize the core thesis of the curator's stance into a high-impact, punchy pull-quote that fits an editorial poster frame without filling the entire poster. Return this in "curatorTake".` : '')}
+${refineCoreTake ? `- Poster 2 ("THE CRITICAL PERSPECTIVE" / Curator Take) MUST be an articulate, model-synthesized editorial conviction derived directly from the curator's perspective ("${userSlant}").
+- It MUST be EXACTLY 2 complete sentences (25-35 words total, ending definitively with a period).
+- Elevate and synthesize the core thesis of the curator's stance into a high-impact, punchy pull-quote that fits an editorial poster frame without filling the entire poster. Return this in "curatorTake".` : `- USE TAKE AS-IS (VERBATIM): The curator chose to keep their exact typed take as-is on Poster 2.
+- In "curatorTake", you MUST output the curator's authentic take: "${userSlant}" verbatim without rephrasing or altering their sentence structure.`}` : '')}
 ${sourceType === 'video_audio' ? `CRITICAL VIDEO & AUDIO BROADCAST DIRECTIVE:
 - This slant is rooted in a VIDEO or AUDIO broadcast (e.g. YouTube interview, podcast episode, keynote, or debate).
 - Mental model: "I watched/listened to something that sparked a reaction."
@@ -745,16 +746,20 @@ Respond strictly with valid JSON with this exact structure:
     }
 
     // 2. Poster 2 Curated Take (2-sentence punchy visual pull-quote framed for Slide 2 card)
-    let finalCuratorTake = (parsed.curatorTake && parsed.curatorTake.trim().length > 10)
-      ? parsed.curatorTake.trim()
-      : (userSlant || 'Strategic structural shift in motion.');
+    let finalCuratorTake = (!refineCoreTake && userSlant && userSlant.trim().length > 0)
+      ? userSlant.trim()
+      : ((parsed.curatorTake && parsed.curatorTake.trim().length > 10)
+          ? parsed.curatorTake.trim()
+          : (userSlant || 'Strategic structural shift in motion.'));
 
     finalCuratorTake = formatCuratorTakeApt(finalCuratorTake);
 
-    // Ensure Poster 2 curated take stays strictly within 2-sentence visual budget (25-35 words)
-    const takeSents = finalCuratorTake.split(/(?<=[.!?])\s+/);
-    if (takeSents.length > 2 && finalCuratorTake.length > 220) {
-      finalCuratorTake = takeSents.slice(0, 2).join(' ');
+    // Ensure Poster 2 curated take stays strictly within 2-sentence visual budget (25-35 words) only when refineCoreTake is true
+    if (refineCoreTake) {
+      const takeSents = finalCuratorTake.split(/(?<=[.!?])\s+/);
+      if (takeSents.length > 2 && finalCuratorTake.length > 220) {
+        finalCuratorTake = takeSents.slice(0, 2).join(' ');
+      }
     }
 
     const rawExcerpts = Array.isArray(parsed.resolvedArticleExcerpts) ? parsed.resolvedArticleExcerpts : [];
