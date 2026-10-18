@@ -178,16 +178,16 @@
         <button class="modal-close" onclick="closeCreatorModal()">&times;</button>
       </div>
 
-      <!-- Step Indicator Bar (Matches Mobile App Exactly) -->
+      <!-- Step Indicator Bar -->
       <div class="creator-steps-bar">
         <div class="creator-step-dot active" id="stepDot1" onclick="backToStep1()" style="cursor:pointer;">
           <span class="step-num">1</span>
-          <span class="step-text">Slant & Source</span>
+          <span class="step-text">Source & Thoughts</span>
         </div>
         <div class="creator-step-divider" id="stepDiv1"></div>
         <div class="creator-step-dot" id="stepDot2" onclick="goToVisualCuesStep()" style="cursor:pointer;">
           <span class="step-num">2</span>
-          <span class="step-text">Visual Cues</span>
+          <span class="step-text">Art & Cues</span>
         </div>
         <div class="creator-step-divider" id="stepDiv2"></div>
         <div class="creator-step-dot" id="stepDot3" onclick="goToPostersStep()" style="cursor:pointer;">
@@ -372,81 +372,18 @@
             </label>
           </div>
 
-          <!-- Vocabulary & Voice Style Selector Card -->
-          <div class="slant-vocab-card" id="slantVocabCard">
-            <div class="slant-vocab-top">
-              <div class="slant-vocab-left">
-                <div class="slant-vocab-icon-box">
-                  <span id="slantVocabIcon">✍️</span>
-                </div>
-                <div class="slant-vocab-text-wrap">
-                  <div class="slant-vocab-title-row">
-                    <span class="slant-vocab-title">VOCABULARY & VOICE</span>
-                    <span class="slant-vocab-badge" id="slantVocabBadge">⚡ Punchy</span>
-                  </div>
-                  <div class="slant-vocab-subtitle" id="slantVocabSubtitle">Emotional, vivid & clear. Strong verbs, zero academic jargon. Reads effortlessly.</div>
-                </div>
-              </div>
-            </div>
-            <div class="slant-vocab-pills">
-              <button type="button" class="slant-vocab-pill active" id="vocabPillPunchy" data-vocab="punchy" onclick="setVocabularyStyle('punchy')">
-                <span class="pill-icon">⚡</span>
-                <span class="pill-text">Punchy</span>
-              </button>
-              <button type="button" class="slant-vocab-pill" id="vocabPillConversational" data-vocab="conversational" onclick="setVocabularyStyle('conversational')">
-                <span class="pill-icon">💬</span>
-                <span class="pill-text">Casual</span>
-              </button>
-              <button type="button" class="slant-vocab-pill" id="vocabPillAnalytical" data-vocab="analytical" onclick="setVocabularyStyle('analytical')">
-                <span class="pill-icon">🏛</span>
-                <span class="pill-text">Analytical</span>
-              </button>
-            </div>
-          </div>
-
-          <!-- Perspective Focus Selector Card -->
-          <div class="slant-perspective-card" id="slantPerspectiveCard">
-            <div class="slant-perspective-top">
-              <div class="slant-perspective-left">
-                <div class="slant-perspective-icon-box">
-                  <span id="slantPerspectiveIcon">⚖️</span>
-                </div>
-                <div class="slant-perspective-text-wrap">
-                  <div class="slant-perspective-title-row">
-                    <span class="slant-perspective-title">VISUAL FOCUS</span>
-                    <span class="slant-perspective-badge" id="slantPerspectiveBadge">⚖️ Hybrid Blend</span>
-                  </div>
-                  <div class="slant-perspective-subtitle" id="slantPerspectiveSubtitle">Controls Poster 1 Artwork & Cues: Blends the real-world news subject with your visual metaphor.</div>
-                </div>
-              </div>
-            </div>
-            <div class="slant-perspective-pills">
-              <button type="button" class="slant-perspective-pill" id="perspectivePillCurator" data-perspective="curator" onclick="setPerspectiveMode('curator', true)">
-                <span class="pill-icon">⚡</span>
-                <span class="pill-text">Curator Angle</span>
-              </button>
-              <button type="button" class="slant-perspective-pill active" id="perspectivePillHybrid" data-perspective="hybrid" onclick="setPerspectiveMode('hybrid', true)">
-                <span class="pill-icon">⚖️</span>
-                <span class="pill-text">Hybrid Blend</span>
-              </button>
-              <button type="button" class="slant-perspective-pill" id="perspectivePillSource" data-perspective="source" onclick="setPerspectiveMode('source', true)">
-                <span class="pill-icon">📰</span>
-                <span class="pill-text">Source Grounded</span>
-              </button>
-            </div>
-          </div>
         </div>
 
         <!-- 4. Bottom Navigation Bar (Step 1) -->
         <div class="creator-bottom-nav">
           <button type="button" class="creator-synthesize-btn creator-nav-main-btn" id="nextToCuesBtn" onclick="goToVisualCuesStep()">
-            <span class="btn-text">Next: Visual Cues →</span>
+            <span class="btn-text">Next: Art & Cues →</span>
           </button>
         </div>
         <div class="creator-scroll-spacer"></div>
       </div>
 
-      <!-- STEP 2 CONTAINER: DEDICATED VISUAL CUES & METAPHOR STUDIO -->
+      <!-- STEP 2 CONTAINER: ART DIRECTION & CUES STUDIO -->
       <div class="creator-step-content" id="creatorStep2" style="display:none;">
         <div class="creator-cues-studio" id="cuesStudioContent">
           <!-- 1. Header -->
@@ -455,108 +392,157 @@
               <span>🎨</span>
             </div>
             <div class="cues-header-titles">
-              <h3 class="cues-title">Visual Cues & Metaphor Studio</h3>
-              <p class="cues-subtitle">Visual cues guide your Hook Poster. The #1 Hero cue drives primary artwork.</p>
+              <h3 class="cues-title">Art Direction & Cues</h3>
+              <p class="cues-subtitle">Shape the visual metaphor, editorial voice, and art direction for your 3-poster set.</p>
             </div>
           </div>
 
-          <!-- Geographic & Cultural Setting Card -->
-          <div class="country-context-card" id="countryContextCard">
-            <div class="country-context-left">
-              <span class="country-context-flag" id="countryContextFlag">🇮🇳</span>
-              <div class="country-context-info">
-                <div class="country-context-title-row">
-                  <span class="country-context-label">REGIONAL & CULTURAL SETTING:</span>
-                  <span class="country-context-name" id="countryContextName">India</span>
-                  <span class="country-context-badge" id="countryContextBadge">Auto-detected</span>
-                </div>
-                <span class="country-context-desc" id="countryContextDesc">Grounds visual cues, architecture, and lighting in authentic Indian institutional and environmental motifs.</span>
-              </div>
+          <!-- Creative Direction Control Matrix (Visual Focus, Voice, Setting, Character Portrayal) -->
+          <div class="creative-direction-panel">
+            <div class="creative-direction-header">
+              <span class="creative-direction-badge">EDITORIAL & ART DIRECTION</span>
+              <span class="creative-direction-sub">Dial in your angle, vocabulary, cultural setting, and character portrayal</span>
             </div>
-            <div class="country-context-right">
-              <select id="countryContextSelect" class="country-context-select" onchange="changeCountryContext(this.value)">
-                <option value="IN">🇮🇳 India</option>
-                <option value="US">🇺🇸 United States</option>
-                <option value="GB">🇬🇧 United Kingdom</option>
-                <option value="JP">🇯🇵 Japan</option>
-                <option value="EU">🇪🇺 Europe</option>
-                <option value="GLOBAL">🌐 Global / Universal</option>
-              </select>
-            </div>
-          </div>
 
-          <!-- 2. Character & Image Portrayal Card -->
-          <div class="character-rep-card">
-            <div class="character-rep-header">
-              <span class="rep-icon">👤</span>
-              <div class="rep-titles">
-                <span class="rep-title">Character & Image Portrayal</span>
-                <span class="rep-subtitle">Select how characters and subjects are portrayed in the Hook poster.</span>
-              </div>
-            </div>
-            <!-- Source Photo Detected Banner -->
-            <div class="source-photo-attached-card" id="sourcePhotoAttachedCard" style="display:none;">
-              <img id="sourcePhotoThumb" class="source-photo-thumb" alt="Source Photograph">
-              <div class="source-photo-meta">
-                <span class="source-photo-badge" id="sourcePhotoBadge">📷 Authentic Source Photo Detected</span>
-                <span class="source-photo-label" id="sourcePhotoLabel">Grounding visual cues & poster flow in physical reality</span>
-              </div>
-            </div>
-            <div class="character-rep-options">
-              <div class="rep-option active" id="repOptionRealistic" onclick="selectCharacterRepresentation('realistic')">
-                <div class="rep-radio-circle"></div>
-                <div class="rep-option-body">
-                  <span class="rep-option-title" id="repRealisticTitle">Vivid Editorial Realism (Artwork)</span>
-                  <span class="rep-option-desc" id="repRealisticDesc">Warm, realistic editorial illustration physically grounded in the real-world source scene and protagonists. No dark or faceless silhouettes.</span>
-                </div>
-              </div>
-              <div class="rep-option" id="repOptionExact" onclick="selectCharacterRepresentation('exact')" style="display:none;">
-                <div class="rep-radio-circle"></div>
-                <div class="rep-option-body">
-                  <span class="rep-option-title">📷 Authentic Source Photo (Direct Photo)</span>
-                  <span class="rep-option-desc">Use the authentic news photo or YouTube thumbnail directly as Poster 1's hook visual without AI generation.</span>
-                </div>
-              </div>
-              <div class="rep-option" id="repOptionSilhouette" onclick="selectCharacterRepresentation('silhouette')">
-                <div class="rep-radio-circle"></div>
-                <div class="rep-option-body">
-                  <span class="rep-option-title">Stylized Minimalist Silhouette (Shadow Art)</span>
-                  <span class="rep-option-desc">Minimalist dark silhouettes, architectural shadows, or high-contrast noir profiles for conceptual themes only.</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- 2b. Visual Focus in Stage 2 (Curator Angle vs Hybrid vs Source Grounded) -->
-          <div class="slant-perspective-card" id="slantPerspectiveCardStage2" style="margin-top: 14px; margin-bottom: 16px;">
-            <div class="slant-perspective-header">
-              <div class="slant-perspective-left">
-                <div class="slant-perspective-icon-box">
-                  <span class="slant-perspective-icon" id="slantPerspectiveIconStage2">⚖️</span>
-                </div>
-                <div class="slant-perspective-text-wrap">
-                  <div class="slant-perspective-title-row">
-                    <span class="slant-perspective-title">VISUAL FOCUS</span>
-                    <span class="slant-perspective-badge slant-perspective-badge-dyn" id="slantPerspectiveBadgeStage2">⚖️ Hybrid Blend</span>
+            <!-- 1. Visual Focus (Curator Angle vs Hybrid vs Source Grounded) -->
+            <div class="slant-perspective-card" id="slantPerspectiveCardStage2">
+              <div class="slant-perspective-header">
+                <div class="slant-perspective-left">
+                  <div class="slant-perspective-icon-box">
+                    <span class="slant-perspective-icon" id="slantPerspectiveIconStage2">⚖️</span>
                   </div>
-                  <div class="slant-perspective-subtitle slant-perspective-sub-dyn" id="slantPerspectiveSubtitleStage2">Controls Poster 1 Artwork & Cues: Blends the real-world news subject with your visual metaphor.</div>
+                  <div class="slant-perspective-text-wrap">
+                    <div class="slant-perspective-title-row">
+                      <span class="slant-perspective-title">VISUAL FOCUS</span>
+                      <span class="slant-perspective-badge slant-perspective-badge-dyn" id="slantPerspectiveBadgeStage2">⚖️ Hybrid Blend</span>
+                    </div>
+                    <div class="slant-perspective-subtitle slant-perspective-sub-dyn" id="slantPerspectiveSubtitleStage2">Controls Poster 1 Artwork & Cues: Blends the real-world news subject with your visual metaphor.</div>
+                  </div>
+                </div>
+              </div>
+              <div class="slant-perspective-pills">
+                <button type="button" class="slant-perspective-pill" id="perspectivePillCuratorStage2" data-perspective="curator" onclick="setPerspectiveMode('curator', true)">
+                  <span class="pill-icon">⚡</span>
+                  <span class="pill-text">Curator Angle</span>
+                </button>
+                <button type="button" class="slant-perspective-pill active" id="perspectivePillHybridStage2" data-perspective="hybrid" onclick="setPerspectiveMode('hybrid', true)">
+                  <span class="pill-icon">⚖️</span>
+                  <span class="pill-text">Hybrid Blend</span>
+                </button>
+                <button type="button" class="slant-perspective-pill" id="perspectivePillSourceStage2" data-perspective="source" onclick="setPerspectiveMode('source', true)">
+                  <span class="pill-icon">📰</span>
+                  <span class="pill-text">Source Grounded</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- 2. Vocabulary & Voice Style Selector Card -->
+            <div class="slant-vocab-card" id="slantVocabCard">
+              <div class="slant-vocab-top">
+                <div class="slant-vocab-left">
+                  <div class="slant-vocab-icon-box">
+                    <span id="slantVocabIcon">✍️</span>
+                  </div>
+                  <div class="slant-vocab-text-wrap">
+                    <div class="slant-vocab-title-row">
+                      <span class="slant-vocab-title">VOCABULARY & VOICE</span>
+                      <span class="slant-vocab-badge" id="slantVocabBadge">⚡ Punchy</span>
+                    </div>
+                    <div class="slant-vocab-subtitle" id="slantVocabSubtitle">Emotional, vivid & clear. Strong verbs, zero academic jargon. Reads effortlessly.</div>
+                  </div>
+                </div>
+              </div>
+              <div class="slant-vocab-pills">
+                <button type="button" class="slant-vocab-pill active" id="vocabPillPunchy" data-vocab="punchy" onclick="setVocabularyStyle('punchy')">
+                  <span class="pill-icon">⚡</span>
+                  <span class="pill-text">Punchy</span>
+                </button>
+                <button type="button" class="slant-vocab-pill" id="vocabPillConversational" data-vocab="conversational" onclick="setVocabularyStyle('conversational')">
+                  <span class="pill-icon">💬</span>
+                  <span class="pill-text">Casual</span>
+                </button>
+                <button type="button" class="slant-vocab-pill" id="vocabPillAnalytical" data-vocab="analytical" onclick="setVocabularyStyle('analytical')">
+                  <span class="pill-icon">🏛</span>
+                  <span class="pill-text">Analytical</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- 3. Geographic & Cultural Setting Card -->
+            <div class="country-context-card" id="countryContextCard">
+              <div class="country-context-left">
+                <span class="country-context-flag" id="countryContextFlag">🇮🇳</span>
+                <div class="country-context-info">
+                  <div class="country-context-title-row">
+                    <span class="country-context-label">REGIONAL & CULTURAL SETTING:</span>
+                    <span class="country-context-name" id="countryContextName">India</span>
+                    <span class="country-context-badge" id="countryContextBadge">Auto-detected</span>
+                  </div>
+                  <span class="country-context-desc" id="countryContextDesc">Grounds visual cues, architecture, and lighting in authentic Indian institutional and environmental motifs.</span>
+                </div>
+              </div>
+              <div class="country-context-right">
+                <select id="countryContextSelect" class="country-context-select" onchange="changeCountryContext(this.value)">
+                  <option value="IN">🇮🇳 India</option>
+                  <option value="US">🇺🇸 United States</option>
+                  <option value="GB">🇬🇧 United Kingdom</option>
+                  <option value="JP">🇯🇵 Japan</option>
+                  <option value="EU">🇪🇺 Europe</option>
+                  <option value="GLOBAL">🌐 Global / Universal</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- 4. Character & Image Portrayal Card -->
+            <div class="character-rep-card" id="characterRepCard">
+              <div class="character-rep-header">
+                <span class="rep-icon">👤</span>
+                <div class="rep-titles">
+                  <span class="rep-title">Character & Image Portrayal</span>
+                  <span class="rep-subtitle">Select how characters and subjects are portrayed in the Hook poster.</span>
+                </div>
+              </div>
+              <!-- Source Photo Detected Banner -->
+              <div class="source-photo-attached-card" id="sourcePhotoAttachedCard" style="display:none;">
+                <img id="sourcePhotoThumb" class="source-photo-thumb" alt="Source Photograph">
+                <div class="source-photo-meta">
+                  <span class="source-photo-badge" id="sourcePhotoBadge">📷 Authentic Source Photo Detected</span>
+                  <span class="source-photo-label" id="sourcePhotoLabel">Grounding visual cues & poster flow in physical reality</span>
+                </div>
+              </div>
+              <div class="character-rep-options">
+                <div class="rep-option active" id="repOptionRealistic" onclick="selectCharacterRepresentation('realistic')">
+                  <div class="rep-radio-circle"></div>
+                  <div class="rep-option-body">
+                    <span class="rep-option-title" id="repRealisticTitle">Vivid Editorial Realism (Artwork)</span>
+                    <span class="rep-option-desc" id="repRealisticDesc">Warm, realistic editorial illustration physically grounded in the real-world source scene and protagonists. No dark or faceless silhouettes.</span>
+                  </div>
+                </div>
+                <div class="rep-option" id="repOptionExact" onclick="selectCharacterRepresentation('exact')" style="display:none;">
+                  <div class="rep-radio-circle"></div>
+                  <div class="rep-option-body">
+                    <span class="rep-option-title">📷 Authentic Source Photo (Direct Photo)</span>
+                    <span class="rep-option-desc">Use the authentic news photo or YouTube thumbnail directly as Poster 1's hook visual without AI generation.</span>
+                  </div>
+                </div>
+                <div class="rep-option" id="repOptionSilhouette" onclick="selectCharacterRepresentation('silhouette')">
+                  <div class="rep-radio-circle"></div>
+                  <div class="rep-option-body">
+                    <span class="rep-option-title">Stylized Minimalist Silhouette (Shadow Art)</span>
+                    <span class="rep-option-desc">Minimalist dark silhouettes, architectural shadows, or high-contrast noir profiles for conceptual themes only.</span>
+                  </div>
                 </div>
               </div>
             </div>
-            <div class="slant-perspective-pills">
-              <button type="button" class="slant-perspective-pill" id="perspectivePillCuratorStage2" data-perspective="curator" onclick="setPerspectiveMode('curator', true)">
-                <span class="pill-icon">⚡</span>
-                <span class="pill-text">Curator Angle</span>
-              </button>
-              <button type="button" class="slant-perspective-pill active" id="perspectivePillHybridStage2" data-perspective="hybrid" onclick="setPerspectiveMode('hybrid', true)">
-                <span class="pill-icon">⚖️</span>
-                <span class="pill-text">Hybrid Blend</span>
-              </button>
-              <button type="button" class="slant-perspective-pill" id="perspectivePillSourceStage2" data-perspective="source" onclick="setPerspectiveMode('source', true)">
-                <span class="pill-icon">📰</span>
-                <span class="pill-text">Source Grounded</span>
-              </button>
+          </div>
+
+          <!-- Visual Cues & Metaphors Section Header -->
+          <div class="cues-section-header">
+            <div class="cues-section-title-wrap">
+              <span class="cues-section-icon">🎯</span>
+              <span class="cues-section-title">VISUAL METAPHORS & CUES</span>
             </div>
+            <span class="cues-section-badge">Hero Cue #1 Drives Poster 1</span>
           </div>
 
           <!-- 3. Action Bar: Selection Info + Suggest Button -->

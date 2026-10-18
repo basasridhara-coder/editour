@@ -6539,6 +6539,9 @@ function backToStep1() {
   if (d1) { d1.className = 'creator-step-dot active'; }
   if (d2) { d2.className = 'creator-step-dot'; }
   if (d3) { d3.className = currentSynthesizedPost ? 'creator-step-dot completed' : 'creator-step-dot'; }
+
+  const modalCard = document.querySelector('.creator-modal-card');
+  if (modalCard) modalCard.scrollTop = 0;
 }
 
 // Visual Cues Studio State
@@ -8063,6 +8066,9 @@ async function goToVisualCuesStep() {
   if (d2) d2.className = 'creator-step-dot active';
   if (d3) d3.className = currentSynthesizedPost ? 'creator-step-dot completed' : 'creator-step-dot';
 
+  const modalCard = document.querySelector('.creator-modal-card');
+  if (modalCard) modalCard.scrollTop = 0;
+
   if (currentScrapedArticle && (currentScrapedArticle.imageBase64 || currentScrapedArticle.imageUrl)) {
     creatorReferenceImageBase64 = currentScrapedArticle.imageBase64 || currentScrapedArticle.imageUrl;
     creatorReferenceImageMimeType = currentScrapedArticle.imageMimeType || 'image/jpeg';
@@ -9211,6 +9217,9 @@ function showStep3Preview() {
   if (s3) s3.style.display = 'flex';
   if (d2) { d2.className = 'creator-step-dot completed'; }
   if (d3) { d3.className = 'creator-step-dot active'; }
+
+  const modalCard = document.querySelector('.creator-modal-card');
+  if (modalCard) modalCard.scrollTop = 0;
 
   // Reset action toolbar states
   const dlBtn = document.getElementById('step3DownloadBtn');
