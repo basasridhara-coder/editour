@@ -3756,46 +3756,68 @@ function buildSlide3Html(post, index) {
     `;
   }
 
+  const hasPhoto = Boolean(scenePhotoHtml);
+
   const leadRaw = essayParas[0];
-  const firstChar = leadRaw.charAt(0).toUpperCase();
-  const restLead = leadRaw.slice(1);
+  let leadText = leadRaw;
+  if (hasPhoto && leadText.length > 210) {
+    const sentenceMatch = leadText.match(/^([^.!?]+[.!?]\s*[^.!?]+[.!?])/);
+    if (sentenceMatch && sentenceMatch[1].length <= 240) {
+      leadText = sentenceMatch[1].trim();
+    } else {
+      const trimmed = leadText.slice(0, 200);
+      const lastSpace = trimmed.lastIndexOf(' ');
+      leadText = (lastSpace > 130 ? trimmed.slice(0, lastSpace) : trimmed).trim() + '...';
+    }
+  }
+
+  const firstChar = leadText.charAt(0).toUpperCase();
+  const restLead = leadText.slice(1);
   const leadHtml = `<p class="receipt-p1"><span class="broadsheet-dropcap">${escapeHtml(firstChar)}</span>${escapeHtml(restLead)}</p>`;
 
   let essayBodyHtml = '';
-  if (essayParas.length > 1) {
-    essayParas.slice(1).forEach(p => {
-      if (p && p !== leadRaw) {
-        essayBodyHtml += `<p class="receipt-p3">${escapeHtml(p)}</p>`;
-      }
-    });
-  } else if (excerpts.length > 1) {
-    excerpts.slice(1).forEach(p => {
-      if (p && p !== leadRaw) {
-        essayBodyHtml += `<p class="receipt-p3">${escapeHtml(p)}</p>`;
-      }
-    });
+  // When photo is present, omit extra body paragraphs to prevent outgrowing the shareable poster
+  if (!hasPhoto) {
+    if (essayParas.length > 1) {
+      essayParas.slice(1).forEach(p => {
+        if (p && p !== leadRaw) {
+          essayBodyHtml += `<p class="receipt-p3">${escapeHtml(p)}</p>`;
+        }
+      });
+    } else if (excerpts.length > 1) {
+      excerpts.slice(1).forEach(p => {
+        if (p && p !== leadRaw) {
+          essayBodyHtml += `<p class="receipt-p3">${escapeHtml(p)}</p>`;
+        }
+      });
+    }
   }
 
   // Highlight Quote
   let quoteHtml = '';
   const quoteText = cleanExcerpt(post.receiptHighlightQuote || post.pullQuote);
-  if (quoteText && !isDuplicateOfUserTake(quoteText, post) && !leadRaw.includes(quoteText.slice(0, 30))) {
+  const takeaways = Array.isArray(post.keyTakeaways) ? post.keyTakeaways.filter(Boolean) : [];
+  const hasTakeaways = takeaways.length > 0 || Boolean(post.whyItMatters && String(post.whyItMatters).trim());
+
+  // If photo is present, only show quote if there are no structured takeaways to prevent height overflow
+  if ((!hasPhoto || !hasTakeaways) && quoteText && !isDuplicateOfUserTake(quoteText, post) && !leadRaw.includes(quoteText.slice(0, 30))) {
+    const cleanQuote = hasPhoto && quoteText.length > 120 ? quoteText.slice(0, 115).trim() + '...' : quoteText;
     quoteHtml = `
-      <div class="receipt-highlight" style="margin-top: 6px; margin-bottom: 6px;">
+      <div class="receipt-highlight" style="margin-top: ${hasPhoto ? '3px' : '6px'}; margin-bottom: ${hasPhoto ? '3px' : '6px'};">
         <div class="highlighter-label">
           <span>✨</span>
           <span>CORE CONVICTION</span>
         </div>
-        <div class="highlighter-text" style="font-size: 10.5px; font-weight: 600; line-height: 1.4;">
-          “${escapeHtml(quoteText)}”
+        <div class="highlighter-text" style="font-size: ${hasPhoto ? '9.5px' : '10.5px'}; font-weight: 600; line-height: 1.35;">
+          “${escapeHtml(cleanQuote)}”
         </div>
       </div>
     `;
   }
 
-  // Evidentiary metric badge
+  // Evidentiary metric badge (only when no photo, or if no quote and no takeaways, to avoid crowding)
   let metricHtml = '';
-  if (post.keyMetric && String(post.keyMetric).trim()) {
+  if ((!hasPhoto || (!quoteHtml && !hasTakeaways)) && post.keyMetric && String(post.keyMetric).trim()) {
     metricHtml = `
       <div class="receipt-metric-row">
         <span class="receipt-metric-badge">RECORDED METRIC</span>
@@ -3806,18 +3828,21 @@ function buildSlide3Html(post, index) {
 
   // Structured takeaways card
   let takeawaysHtml = '';
-  const takeaways = Array.isArray(post.keyTakeaways) ? post.keyTakeaways.filter(Boolean) : [];
   if (takeaways.length > 0) {
-    const topTakeaways = takeaways.slice(0, 3);
+    // When photo is present, cap to top 2 takeaways and truncate extra long bullet text
+    const topTakeaways = hasPhoto ? takeaways.slice(0, 2) : takeaways.slice(0, 3);
     takeawaysHtml = `
-      <div class="receipt-takeaways-card" style="margin-top: 6px;">
+      <div class="receipt-takeaways-card" style="margin-top: ${hasPhoto ? '3px' : '6px'};">
         <div class="takeaways-header">
           <span class="takeaways-icon">⚖️</span>
           <span class="takeaways-title">KEY PRINCIPLES</span>
         </div>
         <div class="takeaways-list">
           ${topTakeaways.map(t => {
-            const str = String(t).trim();
+            let str = String(t).trim();
+            if (hasPhoto && str.length > 105) {
+              str = str.slice(0, 100).trim() + '...';
+            }
             const colonIdx = str.indexOf(':');
             if (colonIdx > 0 && colonIdx < 35) {
               const prefix = escapeHtml(str.slice(0, colonIdx).trim());
@@ -3830,19 +3855,23 @@ function buildSlide3Html(post, index) {
       </div>
     `;
   } else if (post.whyItMatters && String(post.whyItMatters).trim()) {
+    let whyText = String(post.whyItMatters).trim();
+    if (hasPhoto && whyText.length > 130) {
+      whyText = whyText.slice(0, 125).trim() + '...';
+    }
     takeawaysHtml = `
-      <div class="receipt-takeaways-card" style="margin-top: 6px;">
+      <div class="receipt-takeaways-card" style="margin-top: ${hasPhoto ? '3px' : '6px'};">
         <div class="takeaways-header">
           <span class="takeaways-icon">🔍</span>
           <span class="takeaways-title">WHY THIS MATTERS</span>
         </div>
-        <p class="takeaway-why-text">${escapeHtml(String(post.whyItMatters).trim())}</p>
+        <p class="takeaway-why-text">${escapeHtml(whyText)}</p>
       </div>
     `;
   }
 
   return `
-    <div class="slant-minute-scroll-viewport" onscroll="window._lastSlantMinuteScroll = Date.now()">
+    <div class="slant-minute-scroll-viewport ${hasPhoto ? 'has-inset-photo' : ''}" onscroll="window._lastSlantMinuteScroll = Date.now()">
       <!-- 4-Corner Branding Top Row: Top-Left Logo + Brand, Top-Right Creator + Slide -->
       <div class="receipt-brand-corner-bar">
         <div class="receipt-corner-brand">
@@ -3890,10 +3919,10 @@ function buildSlide3Html(post, index) {
       </div>
 
       <!-- 4. Broadsheet Archival Bottom Folio -->
-      <div class="receipt-footer" style="flex-shrink: 0; margin-top: auto; padding-top: 18px; padding-bottom: 6px; width: 100%; clear: both;">
-        <div class="receipt-folio-rule" style="width: 100%; height: 1px; background: #0F172A; margin: 0 0 6px 0;"></div>
+      <div class="receipt-footer" style="flex-shrink: 0; margin-top: auto; padding-top: ${hasPhoto ? '6px' : '18px'}; padding-bottom: 4px; width: 100%; clear: both;">
+        <div class="receipt-folio-rule" style="width: 100%; height: 1px; background: #0F172A; margin: 0 0 ${hasPhoto ? '3px' : '6px'} 0;"></div>
         <div class="receipt-folio-text" style="display: flex; justify-content: flex-end; align-items: center; width: 100%; margin-top: 0; line-height: 1.3;">
-          <span class="receipt-folio-author" style="font-style: italic; letter-spacing: 0.4px; color: #475569; margin-left: auto;">Every thought deserves a frame • Scroll broadsheet ↕</span>
+          <span class="receipt-folio-author" style="font-style: italic; letter-spacing: 0.4px; color: #475569; margin-left: auto;">${hasPhoto ? 'Every thought deserves a frame • Slant Minute' : 'Every thought deserves a frame • Scroll broadsheet ↕'}</span>
         </div>
       </div>
     </div>

@@ -6557,36 +6557,118 @@ header {
   color: #FFFFFF;
 }
 
-/* Slide 3 Scene Photo Frame on Poster 3 */
+/* Slide 3 Scene Photo Frame on Poster 3 (Compact Inset to prevent text cropping) */
 .receipt-scene-box {
-  margin: 10px 0 12px 0;
+  margin: 4px 0 6px 0;
   background: #F8FAFC;
   border: 1px solid #CBD5E1;
-  border-radius: 6px;
-  padding: 6px;
+  border-radius: 5px;
+  padding: 4px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  flex-shrink: 0;
 }
 
 .receipt-scene-photo {
   width: 100%;
-  aspect-ratio: 16 / 9;
-  max-height: 180px;
+  height: 82px;
+  max-height: 82px;
   object-fit: cover;
-  border-radius: 4px;
+  border-radius: 3px;
   display: block;
 }
 
 .receipt-scene-caption {
   display: flex;
   align-items: center;
-  gap: 5px;
-  margin-top: 6px;
-  font-size: 8.5px;
+  gap: 4px;
+  margin-top: 3px;
+  font-size: 7.5px;
   font-weight: 800;
-  letter-spacing: 0.6px;
+  letter-spacing: 0.5px;
   color: #475569;
   text-transform: uppercase;
   font-family: inherit;
+  line-height: 1.2;
+}
+
+/* Compact rules when Poster 3 includes an inset photo to fit within 3:4 shareable frame */
+.slant-minute-scroll-viewport.has-inset-photo {
+  padding: 10px 12px 8px !important;
+  gap: 4px !important;
+}
+
+.slant-minute-scroll-viewport.has-inset-photo .receipt-brand-corner-bar {
+  margin-bottom: 2px !important;
+}
+
+.slant-minute-scroll-viewport.has-inset-photo .receipt-pub-title {
+  font-size: 15px !important;
+  letter-spacing: 1.5px !important;
+}
+
+.slant-minute-scroll-viewport.has-inset-photo .receipt-rules {
+  font-size: 6.8px !important;
+  padding: 2px 0 !important;
+}
+
+.slant-minute-scroll-viewport.has-inset-photo .receipts-headline-box {
+  margin-bottom: 2px !important;
+}
+
+.slant-minute-scroll-viewport.has-inset-photo .receipt-headline {
+  font-size: 12.5px !important;
+  line-height: 1.22 !important;
+  margin: 0 0 2px 0 !important;
+  display: -webkit-box !important;
+  -webkit-line-clamp: 3 !important;
+  -webkit-box-orient: vertical !important;
+  overflow: hidden !important;
+}
+
+.slant-minute-scroll-viewport.has-inset-photo .receipts-byline {
+  font-size: 7px !important;
+  margin-top: 2px !important;
+}
+
+.slant-minute-scroll-viewport.has-inset-photo .receipt-paragraphs {
+  gap: 4px !important;
+  padding: 2px 0 0 !important;
+}
+
+.slant-minute-scroll-viewport.has-inset-photo .broadsheet-dropcap {
+  font-size: 24px !important;
+  line-height: 0.8 !important;
+  padding-right: 4px !important;
+}
+
+.slant-minute-scroll-viewport.has-inset-photo .receipt-p1 {
+  font-size: 10px !important;
+  line-height: 1.35 !important;
+}
+
+.slant-minute-scroll-viewport.has-inset-photo .receipt-takeaways-card {
+  padding: 4px 7px !important;
+  margin-top: 2px !important;
+}
+
+.slant-minute-scroll-viewport.has-inset-photo .takeaways-header {
+  font-size: 7px !important;
+  margin-bottom: 2px !important;
+}
+
+.slant-minute-scroll-viewport.has-inset-photo .takeaway-item {
+  font-size: 9px !important;
+  line-height: 1.25 !important;
+}
+
+.slant-minute-scroll-viewport.has-inset-photo .takeaway-why-text {
+  font-size: 9px !important;
+  line-height: 1.28 !important;
+}
+
+.slant-minute-scroll-viewport.has-inset-photo .receipt-footer {
+  padding-top: 6px !important;
+  padding-bottom: 2px !important;
 }
 
 /* URL Scrape Status Indicator */
