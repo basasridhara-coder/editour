@@ -3760,14 +3760,15 @@ function buildSlide3Html(post, index) {
 
   const leadRaw = essayParas[0];
   let leadText = leadRaw;
-  if (hasPhoto && leadText.length > 210) {
+  // If lead is extraordinarily long, ensure it stays within readable bounds
+  if (leadText.length > 280) {
     const sentenceMatch = leadText.match(/^([^.!?]+[.!?]\s*[^.!?]+[.!?])/);
-    if (sentenceMatch && sentenceMatch[1].length <= 240) {
+    if (sentenceMatch && sentenceMatch[1].length <= 300) {
       leadText = sentenceMatch[1].trim();
     } else {
-      const trimmed = leadText.slice(0, 200);
+      const trimmed = leadText.slice(0, 260);
       const lastSpace = trimmed.lastIndexOf(' ');
-      leadText = (lastSpace > 130 ? trimmed.slice(0, lastSpace) : trimmed).trim() + '...';
+      leadText = (lastSpace > 160 ? trimmed.slice(0, lastSpace) : trimmed).trim() + '...';
     }
   }
 
@@ -3776,21 +3777,29 @@ function buildSlide3Html(post, index) {
   const leadHtml = `<p class="receipt-p1"><span class="broadsheet-dropcap">${escapeHtml(firstChar)}</span>${escapeHtml(restLead)}</p>`;
 
   let essayBodyHtml = '';
-  // When photo is present, omit extra body paragraphs to prevent outgrowing the shareable poster
-  if (!hasPhoto) {
-    if (essayParas.length > 1) {
-      essayParas.slice(1).forEach(p => {
-        if (p && p !== leadRaw) {
-          essayBodyHtml += `<p class="receipt-p3">${escapeHtml(p)}</p>`;
+  // Since bold SLANT MINUTE and duplicate headline are removed, we have ample room for the 1-min read essay body!
+  const maxBodyParas = hasPhoto ? 1 : 2;
+  const remainingParas = essayParas.slice(1);
+  if (remainingParas.length > 0) {
+    remainingParas.slice(0, maxBodyParas).forEach(p => {
+      if (p && p !== leadRaw) {
+        let pText = p;
+        if (hasPhoto && pText.length > 220) {
+          pText = pText.slice(0, 215).trim() + '...';
         }
-      });
-    } else if (excerpts.length > 1) {
-      excerpts.slice(1).forEach(p => {
-        if (p && p !== leadRaw) {
-          essayBodyHtml += `<p class="receipt-p3">${escapeHtml(p)}</p>`;
+        essayBodyHtml += `<p class="receipt-p3">${escapeHtml(pText)}</p>`;
+      }
+    });
+  } else if (excerpts.length > 1) {
+    excerpts.slice(1, maxBodyParas + 1).forEach(p => {
+      if (p && p !== leadRaw) {
+        let pText = p;
+        if (hasPhoto && pText.length > 220) {
+          pText = pText.slice(0, 215).trim() + '...';
         }
-      });
-    }
+        essayBodyHtml += `<p class="receipt-p3">${escapeHtml(pText)}</p>`;
+      }
+    });
   }
 
   // Highlight Quote
@@ -3799,11 +3808,11 @@ function buildSlide3Html(post, index) {
   const takeaways = Array.isArray(post.keyTakeaways) ? post.keyTakeaways.filter(Boolean) : [];
   const hasTakeaways = takeaways.length > 0 || Boolean(post.whyItMatters && String(post.whyItMatters).trim());
 
-  // If photo is present, only show quote if there are no structured takeaways to prevent height overflow
+  // Show quote if available and not redundant
   if ((!hasPhoto || !hasTakeaways) && quoteText && !isDuplicateOfUserTake(quoteText, post) && !leadRaw.includes(quoteText.slice(0, 30))) {
-    const cleanQuote = hasPhoto && quoteText.length > 120 ? quoteText.slice(0, 115).trim() + '...' : quoteText;
+    const cleanQuote = hasPhoto && quoteText.length > 130 ? quoteText.slice(0, 125).trim() + '...' : quoteText;
     quoteHtml = `
-      <div class="receipt-highlight" style="margin-top: ${hasPhoto ? '3px' : '6px'}; margin-bottom: ${hasPhoto ? '3px' : '6px'};">
+      <div class="receipt-highlight" style="margin-top: ${hasPhoto ? '3px' : '5px'}; margin-bottom: ${hasPhoto ? '3px' : '5px'};">
         <div class="highlighter-label">
           <span>✨</span>
           <span>CORE CONVICTION</span>
@@ -3815,7 +3824,7 @@ function buildSlide3Html(post, index) {
     `;
   }
 
-  // Evidentiary metric badge (only when no photo, or if no quote and no takeaways, to avoid crowding)
+  // Evidentiary metric badge
   let metricHtml = '';
   if ((!hasPhoto || (!quoteHtml && !hasTakeaways)) && post.keyMetric && String(post.keyMetric).trim()) {
     metricHtml = `
@@ -3829,10 +3838,9 @@ function buildSlide3Html(post, index) {
   // Structured takeaways card
   let takeawaysHtml = '';
   if (takeaways.length > 0) {
-    // When photo is present, cap to top 2 takeaways and truncate extra long bullet text
     const topTakeaways = hasPhoto ? takeaways.slice(0, 2) : takeaways.slice(0, 3);
     takeawaysHtml = `
-      <div class="receipt-takeaways-card" style="margin-top: ${hasPhoto ? '3px' : '6px'};">
+      <div class="receipt-takeaways-card" style="margin-top: ${hasPhoto ? '3px' : '5px'};">
         <div class="takeaways-header">
           <span class="takeaways-icon">⚖️</span>
           <span class="takeaways-title">KEY PRINCIPLES</span>
@@ -3840,8 +3848,8 @@ function buildSlide3Html(post, index) {
         <div class="takeaways-list">
           ${topTakeaways.map(t => {
             let str = String(t).trim();
-            if (hasPhoto && str.length > 105) {
-              str = str.slice(0, 100).trim() + '...';
+            if (hasPhoto && str.length > 110) {
+              str = str.slice(0, 105).trim() + '...';
             }
             const colonIdx = str.indexOf(':');
             if (colonIdx > 0 && colonIdx < 35) {
@@ -3856,11 +3864,11 @@ function buildSlide3Html(post, index) {
     `;
   } else if (post.whyItMatters && String(post.whyItMatters).trim()) {
     let whyText = String(post.whyItMatters).trim();
-    if (hasPhoto && whyText.length > 130) {
-      whyText = whyText.slice(0, 125).trim() + '...';
+    if (hasPhoto && whyText.length > 140) {
+      whyText = whyText.slice(0, 135).trim() + '...';
     }
     takeawaysHtml = `
-      <div class="receipt-takeaways-card" style="margin-top: ${hasPhoto ? '3px' : '6px'};">
+      <div class="receipt-takeaways-card" style="margin-top: ${hasPhoto ? '3px' : '5px'};">
         <div class="takeaways-header">
           <span class="takeaways-icon">🔍</span>
           <span class="takeaways-title">WHY THIS MATTERS</span>
@@ -3884,45 +3892,34 @@ function buildSlide3Html(post, index) {
         </div>
       </div>
 
-      <!-- 1. Classic Broadsheet Masthead Header -->
-      <div class="receipt-header">
-        <div class="receipt-masthead-thick"></div>
-        <div class="receipt-masthead-thin"></div>
-        <div class="receipt-pub-title">SLANT MINUTE</div>
-        <div class="receipt-rules">
-          <span>VOL. I • NO. 1</span>
-          <span class="receipt-rules-center">${isInnerVoice ? 'FIRST-PERSON REFLECTION' : (tier === 'tier_video' ? 'BROADCAST EDITORIAL ESSAY' : 'BROADSHEET EDITORIAL ESSAY')}</span>
-          <span>60-SEC BROADSHEET</span>
+      <!-- Classic Broadsheet Dateline & Byline Header -->
+      <div class="broadsheet-dispatch-header">
+        <div class="broadsheet-masthead-rule-thick"></div>
+        <div class="broadsheet-masthead-rule-thin"></div>
+        <div class="broadsheet-byline-bar">
+          <span class="broadsheet-byline-author">BY ${handle.toUpperCase()}</span>
+          <span class="broadsheet-byline-meta">${isInnerVoice ? 'PERSONAL ESSAY & REFLECTION' : `DISPATCH • IN DIALOGUE WITH ${cleanPubUpper}`}</span>
+          <span class="broadsheet-byline-tag">${isInnerVoice ? `${slantIcon} INNER VOICE` : '60-SEC ESSAY'}</span>
         </div>
-        <div class="receipt-masthead-bottom"></div>
-      </div>
-      
-      <!-- 2. Story Headline & Editorial Byline -->
-      <div class="receipts-headline-box">
-        <h4 class="receipt-headline">${headline}</h4>
-        <div class="receipts-byline">
-          ${isInnerVoice 
-            ? `<span>BY ${handle}</span><span class="receipts-opinion-tag">${slantIcon} INNER VOICE</span>` 
-            : `<span>BY ${handle} • IN DIALOGUE WITH: ${cleanPubUpper}</span><span class="receipts-archive-tag">EDITORIAL ESSAY</span>`}
-        </div>
-        <div class="receipts-hairline"></div>
+        <div class="broadsheet-masthead-rule-bottom"></div>
       </div>
 
-      <!-- 3. Synthesized Editorial Content: Receipts Broadsheet -->
+      <!-- Synthesized Editorial Content: Receipts Broadsheet -->
       <div class="receipt-paragraphs" style="flex: none; min-height: auto; height: auto; overflow: visible;">
         ${scenePhotoHtml}
-        ${metricHtml}
         ${leadHtml}
         ${essayBodyHtml}
         ${quoteHtml}
+        ${metricHtml}
         ${takeawaysHtml}
       </div>
 
-      <!-- 4. Broadsheet Archival Bottom Folio -->
-      <div class="receipt-footer" style="flex-shrink: 0; margin-top: auto; padding-top: ${hasPhoto ? '6px' : '18px'}; padding-bottom: 4px; width: 100%; clear: both;">
-        <div class="receipt-folio-rule" style="width: 100%; height: 1px; background: #0F172A; margin: 0 0 ${hasPhoto ? '3px' : '6px'} 0;"></div>
-        <div class="receipt-folio-text" style="display: flex; justify-content: flex-end; align-items: center; width: 100%; margin-top: 0; line-height: 1.3;">
-          <span class="receipt-folio-author" style="font-style: italic; letter-spacing: 0.4px; color: #475569; margin-left: auto;">${hasPhoto ? 'Every thought deserves a frame • Slant Minute' : 'Every thought deserves a frame • Scroll broadsheet ↕'}</span>
+      <!-- Broadsheet Archival Bottom Folio -->
+      <div class="receipt-footer">
+        <div class="receipt-folio-rule"></div>
+        <div class="receipt-folio-text">
+          <span class="receipt-folio-left">SLANT DISPATCH • 60-SEC BROADSHEET</span>
+          <span class="receipt-folio-right">Every thought deserves a frame • 03 / 03</span>
         </div>
       </div>
     </div>
