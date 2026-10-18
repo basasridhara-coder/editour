@@ -3707,8 +3707,25 @@ function buildSlide3Html(post, index) {
     essayParas = [cleanExcerpt(post.spark)];
   }
 
+  // If whyItMatters is present, append as concluding reflection paragraph if not already in essay
+  if (post.whyItMatters && String(post.whyItMatters).trim()) {
+    const cleanWhy = cleanExcerpt(post.whyItMatters);
+    if (!essayParas.some(p => p.toLowerCase().includes(cleanWhy.slice(0, 30).toLowerCase()))) {
+      essayParas.push(cleanWhy);
+    }
+  }
+
+  // If still fewer than 3 paragraphs and excerpts are available, incorporate excerpts to enrich the essay
+  if (essayParas.length < 3 && excerpts.length > 0) {
+    excerpts.forEach(e => {
+      if (e && !essayParas.some(p => p.toLowerCase().includes(e.slice(0, 30).toLowerCase()))) {
+        essayParas.push(e);
+      }
+    });
+  }
+
   if (essayParas.length === 0) {
-    essayParas = [`Reporting on "${headline}" examines key structural developments and observed outcomes.`];
+    essayParas = [`Reporting examines key structural developments and observed outcomes.`];
   }
 
   // Newspaper Inset Photo on Poster 3 (Authentic Broadsheet Press Photo / Wire Dispatch / Video Still)
@@ -3758,125 +3775,22 @@ function buildSlide3Html(post, index) {
 
   const hasPhoto = Boolean(scenePhotoHtml);
 
+  // Build pure broadsheet essay paragraphs (pure essay in paragraphs, photo if involved)
+  let essayHtml = '';
   const leadRaw = essayParas[0];
   let leadText = leadRaw;
-  // If lead is extraordinarily long, ensure it stays within readable bounds
-  if (leadText.length > 280) {
-    const sentenceMatch = leadText.match(/^([^.!?]+[.!?]\s*[^.!?]+[.!?])/);
-    if (sentenceMatch && sentenceMatch[1].length <= 300) {
-      leadText = sentenceMatch[1].trim();
-    } else {
-      const trimmed = leadText.slice(0, 260);
-      const lastSpace = trimmed.lastIndexOf(' ');
-      leadText = (lastSpace > 160 ? trimmed.slice(0, lastSpace) : trimmed).trim() + '...';
-    }
-  }
-
   const firstChar = leadText.charAt(0).toUpperCase();
   const restLead = leadText.slice(1);
-  const leadHtml = `<p class="receipt-p1"><span class="broadsheet-dropcap">${escapeHtml(firstChar)}</span>${escapeHtml(restLead)}</p>`;
+  essayHtml += `<p class="receipt-p1"><span class="broadsheet-dropcap">${escapeHtml(firstChar)}</span>${escapeHtml(restLead)}</p>`;
 
-  let essayBodyHtml = '';
-  // Since bold SLANT MINUTE and duplicate headline are removed, we have ample room for the 1-min read essay body!
-  const maxBodyParas = hasPhoto ? 1 : 2;
-  const remainingParas = essayParas.slice(1);
-  if (remainingParas.length > 0) {
-    remainingParas.slice(0, maxBodyParas).forEach(p => {
-      if (p && p !== leadRaw) {
-        let pText = p;
-        if (hasPhoto && pText.length > 220) {
-          pText = pText.slice(0, 215).trim() + '...';
-        }
-        essayBodyHtml += `<p class="receipt-p3">${escapeHtml(pText)}</p>`;
-      }
-    });
-  } else if (excerpts.length > 1) {
-    excerpts.slice(1, maxBodyParas + 1).forEach(p => {
-      if (p && p !== leadRaw) {
-        let pText = p;
-        if (hasPhoto && pText.length > 220) {
-          pText = pText.slice(0, 215).trim() + '...';
-        }
-        essayBodyHtml += `<p class="receipt-p3">${escapeHtml(pText)}</p>`;
-      }
-    });
-  }
-
-  // Highlight Quote
-  let quoteHtml = '';
-  const quoteText = cleanExcerpt(post.receiptHighlightQuote || post.pullQuote);
-  const takeaways = Array.isArray(post.keyTakeaways) ? post.keyTakeaways.filter(Boolean) : [];
-  const hasTakeaways = takeaways.length > 0 || Boolean(post.whyItMatters && String(post.whyItMatters).trim());
-
-  // Show quote if available and not redundant
-  if ((!hasPhoto || !hasTakeaways) && quoteText && !isDuplicateOfUserTake(quoteText, post) && !leadRaw.includes(quoteText.slice(0, 30))) {
-    const cleanQuote = hasPhoto && quoteText.length > 130 ? quoteText.slice(0, 125).trim() + '...' : quoteText;
-    quoteHtml = `
-      <div class="receipt-highlight" style="margin-top: ${hasPhoto ? '3px' : '5px'}; margin-bottom: ${hasPhoto ? '3px' : '5px'};">
-        <div class="highlighter-label">
-          <span>✨</span>
-          <span>CORE CONVICTION</span>
-        </div>
-        <div class="highlighter-text" style="font-size: ${hasPhoto ? '9.5px' : '10.5px'}; font-weight: 600; line-height: 1.35;">
-          “${escapeHtml(cleanQuote)}”
-        </div>
-      </div>
-    `;
-  }
-
-  // Evidentiary metric badge
-  let metricHtml = '';
-  if ((!hasPhoto || (!quoteHtml && !hasTakeaways)) && post.keyMetric && String(post.keyMetric).trim()) {
-    metricHtml = `
-      <div class="receipt-metric-row">
-        <span class="receipt-metric-badge">RECORDED METRIC</span>
-        <span class="receipt-metric-val">${escapeHtml(String(post.keyMetric).trim())}</span>
-      </div>
-    `;
-  }
-
-  // Structured takeaways card
-  let takeawaysHtml = '';
-  if (takeaways.length > 0) {
-    const topTakeaways = hasPhoto ? takeaways.slice(0, 2) : takeaways.slice(0, 3);
-    takeawaysHtml = `
-      <div class="receipt-takeaways-card" style="margin-top: ${hasPhoto ? '3px' : '5px'};">
-        <div class="takeaways-header">
-          <span class="takeaways-icon">⚖️</span>
-          <span class="takeaways-title">KEY PRINCIPLES</span>
-        </div>
-        <div class="takeaways-list">
-          ${topTakeaways.map(t => {
-            let str = String(t).trim();
-            if (hasPhoto && str.length > 110) {
-              str = str.slice(0, 105).trim() + '...';
-            }
-            const colonIdx = str.indexOf(':');
-            if (colonIdx > 0 && colonIdx < 35) {
-              const prefix = escapeHtml(str.slice(0, colonIdx).trim());
-              const rest = escapeHtml(str.slice(colonIdx + 1).trim());
-              return `<div class="takeaway-item"><span class="takeaway-dot">▪</span><span class="takeaway-text"><strong>${prefix}:</strong> ${rest}</span></div>`;
-            }
-            return `<div class="takeaway-item"><span class="takeaway-dot">▪</span><span class="takeaway-text">${escapeHtml(str)}</span></div>`;
-          }).join('')}
-        </div>
-      </div>
-    `;
-  } else if (post.whyItMatters && String(post.whyItMatters).trim()) {
-    let whyText = String(post.whyItMatters).trim();
-    if (hasPhoto && whyText.length > 140) {
-      whyText = whyText.slice(0, 135).trim() + '...';
+  // Subsequent essay paragraphs
+  const maxExtraParas = hasPhoto ? 2 : 3;
+  const extraParas = essayParas.slice(1, maxExtraParas + 1);
+  extraParas.forEach(p => {
+    if (p && p !== leadRaw) {
+      essayHtml += `<p class="receipt-p3">${escapeHtml(p)}</p>`;
     }
-    takeawaysHtml = `
-      <div class="receipt-takeaways-card" style="margin-top: ${hasPhoto ? '3px' : '5px'};">
-        <div class="takeaways-header">
-          <span class="takeaways-icon">🔍</span>
-          <span class="takeaways-title">WHY THIS MATTERS</span>
-        </div>
-        <p class="takeaway-why-text">${escapeHtml(whyText)}</p>
-      </div>
-    `;
-  }
+  });
 
   return `
     <div class="slant-minute-scroll-viewport ${hasPhoto ? 'has-inset-photo' : ''}" onscroll="window._lastSlantMinuteScroll = Date.now()">
@@ -3892,33 +3806,17 @@ function buildSlide3Html(post, index) {
         </div>
       </div>
 
-      <!-- Classic Broadsheet Dateline & Byline Header -->
-      <div class="broadsheet-dispatch-header">
-        <div class="broadsheet-masthead-rule-thick"></div>
-        <div class="broadsheet-masthead-rule-thin"></div>
-        <div class="broadsheet-byline-bar">
-          <span class="broadsheet-byline-author">BY ${handle.toUpperCase()}</span>
-          <span class="broadsheet-byline-meta">${isInnerVoice ? 'PERSONAL ESSAY & REFLECTION' : `DISPATCH • IN DIALOGUE WITH ${cleanPubUpper}`}</span>
-          <span class="broadsheet-byline-tag">${isInnerVoice ? `${slantIcon} INNER VOICE` : '60-SEC ESSAY'}</span>
-        </div>
-        <div class="broadsheet-masthead-rule-bottom"></div>
-      </div>
-
-      <!-- Synthesized Editorial Content: Receipts Broadsheet -->
-      <div class="receipt-paragraphs" style="flex: none; min-height: auto; height: auto; overflow: visible;">
+      <!-- Pure Editorial Broadsheet Essay -->
+      <div class="receipt-paragraphs" style="flex: 1; display: flex; flex-direction: column; justify-content: flex-start; min-height: auto; height: auto; overflow: visible;">
         ${scenePhotoHtml}
-        ${leadHtml}
-        ${essayBodyHtml}
-        ${quoteHtml}
-        ${metricHtml}
-        ${takeawaysHtml}
+        ${essayHtml}
       </div>
 
       <!-- Broadsheet Archival Bottom Folio -->
       <div class="receipt-footer">
         <div class="receipt-folio-rule"></div>
         <div class="receipt-folio-text">
-          <span class="receipt-folio-left">SLANT DISPATCH • 60-SEC BROADSHEET</span>
+          <span class="receipt-folio-left">${isInnerVoice ? `PERSONAL ESSAY • ${handle.toUpperCase()}` : (cleanPubUpper ? `IN DIALOGUE WITH ${cleanPubUpper}` : 'EDITORIAL ESSAY')}</span>
           <span class="receipt-folio-right">Every thought deserves a frame • 03 / 03</span>
         </div>
       </div>
