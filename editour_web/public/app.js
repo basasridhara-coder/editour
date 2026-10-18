@@ -4972,13 +4972,26 @@ function loadPostIntoStudioToRegenerate(postId) {
   // 8. Character Representation
   selectCharacterRepresentation(inputs.characterRepresentation || 'realistic');
 
-  // 9. Cues Deck
+  // 9. Visual Focus (Perspective Mode)
+  setPerspectiveMode(inputs.perspectiveMode || 'hybrid', false);
+
+  // 10. Cues Deck
   if (inputs.cues && Array.isArray(inputs.cues) && inputs.cues.length > 0) {
     creatorCuePills = [...inputs.cues];
     renderCuesDeck();
   }
 
-  // 10. Scraped article state
+  // Stamp context fingerprint of the loaded post so we know what these cues were designed for
+  creatorCuesSourceFingerprint = {
+    sourceType: inputs.sourceType || 'digital_link',
+    url: (inputs.sourceUrl || '').trim(),
+    perspectiveMode: inputs.perspectiveMode || 'hybrid',
+    slantTake: (inputs.slantTake || '').trim(),
+    spark: (inputs.spark || '').trim()
+  };
+  creatorLastSuggestedContextKey = `${creatorCuesSourceFingerprint.sourceType}::${creatorCuesSourceFingerprint.url}::${creatorCuesSourceFingerprint.slantTake}`;
+
+  // 11. Scraped article state
   if (inputs.scrapedContent || inputs.scrapedTitle) {
     currentScrapedArticle = {
       title: inputs.scrapedTitle || '',
@@ -5843,10 +5856,11 @@ function setVocabularyStyle(style) {
 
 let creatorPerspectiveMode = 'hybrid'; // 'curator' | 'hybrid' | 'source'
 
-function setPerspectiveMode(mode) {
+function setPerspectiveMode(mode, fromUserClick = false) {
   if (mode !== 'curator' && mode !== 'source' && mode !== 'hybrid') {
     mode = 'hybrid';
   }
+  const prevMode = creatorPerspectiveMode;
   creatorPerspectiveMode = mode;
 
   document.querySelectorAll('.slant-perspective-pill').forEach(btn => {
@@ -5872,6 +5886,15 @@ function setPerspectiveMode(mode) {
   document.querySelectorAll('#slantPerspectiveSubtitle, .slant-perspective-sub-dyn').forEach(el => { el.textContent = subText; });
 
   updateReferencePhotoUI();
+
+  // If user clicked a different Visual Focus while inside Stage 2 and cues exist, auto-refresh cues to match
+  const isClick = fromUserClick || (typeof window !== 'undefined' && window.event && (window.event.type === 'click' || window.event.type === 'pointerdown'));
+  const s2 = document.getElementById('creatorStep2');
+  const isStage2Visible = s2 && s2.style.display !== 'none';
+  if (isClick && mode !== prevMode && isStage2Visible && creatorCuePills.length > 0) {
+    showTemporaryToast(`🔄 Visual focus set to ${badgeText}: Updating visual cues...`);
+    triggerCueSuggest();
+  }
 }
 
 function isMobileDevice() {
@@ -5952,6 +5975,7 @@ function setAnchorMode(mode) {
       creatorSelectedCueIndices.clear();
     }
     creatorLastSuggestedContextKey = '';
+    creatorCuesSourceFingerprint = null;
     const urlInput = document.getElementById('creatorUrlInput');
     if (urlInput) urlInput.value = '';
     const urlPreview = document.getElementById('creatorUrlPreview');
@@ -6282,6 +6306,71 @@ let creatorCuePills = [];
 let creatorSelectedCueIndices = new Set();
 let creatorCharacterRepresentation = 'realistic'; // 'realistic' | 'likeness' | 'exact' | 'silhouette'
 let creatorLastSuggestedContextKey = '';
+let creatorCuesSourceFingerprint = null;
+
+function normalizeUrlForComparison(url) {
+  if (!url) return '';
+  return String(url).toLowerCase().trim().replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/+$/, '');
+}
+
+function isSignificantTextChange(strA, strB) {
+  const cleanA = String(strA || '').trim().toLowerCase();
+  const cleanB = String(strB || '').trim().toLowerCase();
+  if (cleanA === cleanB) return false;
+  if (!cleanA && !cleanB) return false;
+  if ((!cleanA && cleanB.length > 20) || (!cleanB && cleanA.length > 20)) return true;
+  
+  const wordsA = new Set(cleanA.split(/\s+/).filter(w => w.length > 3));
+  const wordsB = new Set(cleanB.split(/\s+/).filter(w => w.length > 3));
+  if (wordsA.size === 0 && wordsB.size === 0) return false;
+  let matches = 0;
+  wordsA.forEach(w => { if (wordsB.has(w)) matches++; });
+  const total = Math.max(wordsA.size, wordsB.size);
+  const similarity = total > 0 ? (matches / total) : 1;
+  return similarity < 0.5;
+}
+
+function hasMajorCuesContextShift() {
+  if (!creatorCuesSourceFingerprint) {
+    return false;
+  }
+  const urlInput = document.getElementById('creatorUrlInput');
+  const slantTakeInput = document.getElementById('creatorSlantTakeInput');
+  const sparkInput = document.getElementById('creatorSparkInput');
+
+  const currentUrl = (urlInput ? urlInput.value.trim() : '');
+  const currentSlant = (slantTakeInput ? slantTakeInput.value.trim() : '');
+  const currentSpark = (sparkInput ? sparkInput.value.trim() : '');
+
+  // 1. Source Anchor type changed
+  if (creatorSelectedSource !== creatorCuesSourceFingerprint.sourceType) {
+    return true;
+  }
+
+  // 2. URL changed (different article/link entirely)
+  if (creatorSelectedSource !== 'inner_voice') {
+    if (normalizeUrlForComparison(currentUrl) !== normalizeUrlForComparison(creatorCuesSourceFingerprint.url)) {
+      return true;
+    }
+  }
+
+  // 3. Visual Focus changed (e.g. from Curator Angle to Source Grounded or Hybrid)
+  if ((creatorPerspectiveMode || 'hybrid') !== (creatorCuesSourceFingerprint.perspectiveMode || 'hybrid')) {
+    return true;
+  }
+
+  // 4. Slant Take completely changed
+  if (isSignificantTextChange(currentSlant, creatorCuesSourceFingerprint.slantTake)) {
+    return true;
+  }
+
+  // 5. Spark completely changed (for inner_voice)
+  if (creatorSelectedSource === 'inner_voice' && isSignificantTextChange(currentSpark, creatorCuesSourceFingerprint.spark)) {
+    return true;
+  }
+
+  return false;
+}
 let draggedCueIndex = null;
 let creatorActiveInspectedCueIndex = 0;
 
@@ -6511,6 +6600,7 @@ function resetCreatorState() {
   creatorReferenceImageMimeType = 'image/jpeg';
   creatorReferenceImageSourceLabel = null;
   creatorLastSuggestedContextKey = '';
+  creatorCuesSourceFingerprint = null;
   creatorActiveInspectedCueIndex = 0;
   creatorCountryContext = null;
   currentPreviewSlide = 0;
@@ -7755,15 +7845,23 @@ async function goToVisualCuesStep() {
   }
   updateCountryContextUI();
 
-  // STRICT USER DIRECTIVE: Visual cues NEVER auto-generate on page entry in any case.
-  // Visual cues are generated ONLY when the user explicitly clicks the "Generate Visual Cues" / "Suggest All" button.
-  if (creatorCuePills.length > 0 && creatorCharacterRepresentation === 'likeness') {
-    const detected = detectPersonNameInContext(articleTitle, slantTake, currentScrapedArticle?.content);
-    if (detected && !creatorCuePills[0].toLowerCase().includes(detected.toLowerCase())) {
-      creatorCuePills[0] = `${detected} (Editorial Portrait)`;
+  // Smart Auto-Regenerate on Major Context Shift (Option A)
+  // If inputs changed since cues were generated or loaded from a previous post, refresh cues for the new context
+  const hasShift = hasMajorCuesContextShift();
+  if (hasShift && creatorCuePills.length > 0) {
+    showTemporaryToast('🔄 Inputs changed: Updating visual cues for the new context...');
+    creatorCuePills = [];
+    renderCuesDeck();
+    triggerCueSuggest();
+  } else {
+    if (creatorCuePills.length > 0 && creatorCharacterRepresentation === 'likeness') {
+      const detected = detectPersonNameInContext(articleTitle, slantTake, currentScrapedArticle?.content);
+      if (detected && !creatorCuePills[0].toLowerCase().includes(detected.toLowerCase())) {
+        creatorCuePills[0] = `${detected} (Editorial Portrait)`;
+      }
     }
+    renderCuesDeck();
   }
-  renderCuesDeck();
 }
 
 function renderCuesDeck() {
@@ -8372,6 +8470,14 @@ async function triggerCueSuggest() {
     if (suggestIcon) suggestIcon.textContent = '✨';
     const finalUrl = urlInput ? urlInput.value.trim() : '';
     const finalSlant = slantTakeInput ? slantTakeInput.value.trim() : '';
+    const finalSpark = sparkInput ? sparkInput.value.trim() : '';
+    creatorCuesSourceFingerprint = {
+      sourceType: creatorSelectedSource,
+      url: finalUrl,
+      perspectiveMode: creatorPerspectiveMode || 'hybrid',
+      slantTake: finalSlant,
+      spark: finalSpark
+    };
     creatorLastSuggestedContextKey = `${creatorSelectedSource}::${finalUrl}::${finalSlant}`;
     renderCuesDeck();
   }
