@@ -527,10 +527,13 @@ ${sourceType === 'inner_voice' ? `CRITICAL INNER VOICE & LIVED EXPERIENCE DIRECT
   * ZERO SUMMARIZATION: Do NOT summarize, cut short, or compress their take into 2 sentences.
   * ZERO ALTERATION: Do NOT change the curator's stance or introduce unsolicited opinions. It is purely gentle grammar and phrase correction.
   * ZERO EM-DASHES: NEVER use em-dashes ("—"), en-dashes ("–"), or double hyphens ("--"). They scream artificial AI generation. Connect clauses with natural commas, semicolons, or standard punctuation so it feels authentic and human.
-CRITICAL POSTER 2 DIRECTIVE (CURATED TAKE DERIVED FROM INPUT):
-${refineCoreTake ? `- Poster 2 ("THE CRITICAL PERSPECTIVE" / Curator Take) MUST be an articulate, model-synthesized editorial conviction derived directly from the curator's perspective ("${userSlant}").
-- It MUST be EXACTLY 2 complete sentences (25-35 words total, ending definitively with a period).
-- Elevate and synthesize the core thesis of the curator's stance into a high-impact, punchy pull-quote that fits an editorial poster frame without filling the entire poster. Return this in "curatorTake".` : `- USE TAKE AS-IS (VERBATIM): The curator chose to keep their exact typed take as-is on Poster 2.
+CRITICAL POSTER 2 DIRECTIVE (PULL-QUOTE DERIVED DIRECTLY FROM CURATOR INPUT):
+${refineCoreTake ? `- Poster 2 ("THE CRITICAL PERSPECTIVE" / curatorTake) is an authentic, high-impact PULL-QUOTE (EXACTLY 2 complete sentences, 25-35 words total, ending definitively with a period).
+- EDITORIAL PULL-QUOTE METHOD (CULL & TIGHTEN, NEVER REINVENT):
+  * DO NOT throw away the user's authentic words to invent stiff corporate or NGO rhetoric (e.g. NEVER write "Unprecedented deluges remind us that...", "natural systems pushed beyond capacity", or "cooperative sustainable living").
+  * Identify the author's STRONGEST, MOST VIVID core lines from: "${userSlant}".
+  * RETAIN their powerful metaphors, idioms, and contrasts (e.g. "bring the richest and strongest among us to their knees", "what humanity is truly worth in front of nature", "narrow perspective", "small mistakes", "live selflessly").
+  * Polish the grammar, articles, and prepositions so their authentic voice rings with crisp, effortless, natural English.` : `- USE TAKE AS-IS (VERBATIM): The curator chose to keep their exact typed take as-is on Poster 2.
 - In "curatorTake", you MUST output the curator's authentic take: "${userSlant}" verbatim without rephrasing or altering their sentence structure.`}` : '')}
 ${sourceType === 'video_audio' ? `CRITICAL VIDEO & AUDIO BROADCAST DIRECTIVE:
 - This slant is rooted in a VIDEO or AUDIO broadcast (e.g. YouTube interview, podcast episode, keynote, or debate).
@@ -541,12 +544,12 @@ ${userSlant && sourceType !== 'inner_voice' ? `CRITICAL POSTER 3 DIRECTIVE (ELAB
 - Poster 3 is the curator's broadsheet essay where the curator's stance/take is ELABORATED IN DIRECT CONNECTION WITH THE ATTACHED SOURCE.
 - It must NOT be a dry, third-person summary or detached book report of the source piece (the objective source ledger is already accessible to the reader on tap from Posters 1 & 2).
 - Poster 3 must synthesize the curator's perspective into a substantive 3-paragraph broadsheet editorial:
-  * Paragraph 1 (The Catalyst & The Modern Friction): The curator's opening thesis connecting their personal conviction/angle to the core dilemma explored by the source author/speaker (exactly 50–60 words, 3 concise sentences with strong opening for dropcap).
-  * Paragraph 2 (Engaging the Source in Depth): Directly engage with the author's/speaker's concrete concepts, arguments, or data points (e.g. citing specific teachings, findings, or claims), using them to substantiate and deepen the curator's stance (exactly 45–55 words, 2–3 sentences).
-  * Paragraph 3 (The Human Stakes & Prescriptive Resolution): Detail the deeper personal, familial, or societal implications, offering an intentional boundary or forward-looking resolution (exactly 40–50 words, 2 sentences).
+  * Paragraph 1 (The Catalyst & The Modern Friction): The curator's opening thesis connecting their personal conviction/angle to the core dilemma explored by the source author/speaker (exactly 50-60 words, 3 concise sentences with strong opening for dropcap).
+  * Paragraph 2 (Engaging the Source in Depth): Directly engage with the author's/speaker's concrete concepts, arguments, or data points (e.g. citing specific teachings, findings, or claims), using them to substantiate and deepen the curator's stance (exactly 45-55 words, 2-3 sentences).
+  * Paragraph 3 (The Human Stakes & Prescriptive Resolution): Detail the deeper personal, familial, or societal implications, offering an intentional boundary or forward-looking resolution (exactly 40-50 words, 2 sentences).
 - STRICT BAN: Never echo the user's raw slant verbatim across paragraphs! Elaborate the thought with depth, narrative richness, and intellectual conviction. Output pure broadsheet paragraphs without labels like "Paragraph 1:".
-- "keyTakeaways": Exactly 3 sharp, structured conviction principles formulated from the elaborated take in dialogue with the source (each exactly 10–13 words with bold title prefix, e.g. "Title: Core insight").
-- "receiptHighlightQuote": A poignant, high-impact core conviction sentence (exactly 18–22 words) capturing the heart of the curator's stance in connection with the source.` : ''}
+- "keyTakeaways": Exactly 3 sharp, structured conviction principles formulated from the elaborated take in dialogue with the source (each exactly 10-13 words with bold title prefix, e.g. "Title: Core insight").
+- "receiptHighlightQuote": A poignant, high-impact core conviction sentence (exactly 18-22 words) capturing the heart of the curator's stance in connection with the source.` : ''}
 
 CRITICAL POSTER 3 "1-MINUTE READ" ESSAY DIRECTIVE:
 Poster 3 ("SLANT MINUTE" / 60-SEC BROADSHEET) is a pure, substantive broadsheet essay in paragraphs.
@@ -567,7 +570,7 @@ Respond strictly with valid JSON with this exact structure:
   "categoryBadge": "UPPERCASE CATEGORY (e.g. DEEP TECH, CULTURE, OPINION, CLIMATE, ECONOMY, HEALTH)",
   "hook": "1-2 sentence gripping hook that stops the reader mid-scroll",
   "polishedCuratorTake": "${userSlant ? 'The curator\'s exact full-length input with gentle grammar, spelling, and phrase corrections applied (preserving 100% of their voice, thoughts, and length).' : ''}",
-  "curatorTake": "EXACTLY 2 complete sentences (25-35 words total, ending with a period) of elevated, punchy editorial conviction derived directly from the curator's perspective (do NOT dump long raw text here).",
+  "curatorTake": "EXACTLY 2 complete sentences (25-35 words total, ending with a period) capturing the author's strongest, most poignant lines from their input. Retain their vivid human phrasing and metaphors without inventing stiff academic summaries.",
   "summary": "${sourceType === 'inner_voice' ? 'Exactly 3 broadsheet paragraphs of lived experience reflection deeply elaborating the curator perspective and context (60-70, 60-75, 55-70 words; 180-220 words total). Never sacrifice curator perspective for scene filler.' : (userSlant ? 'Exactly 3 broadsheet paragraphs carrying and deeply elaborating the curator take in direct dialogue with the attached source (60-70, 60-75, 55-70 words; 180-220 words total). Never an objective book report.' : 'Exactly 3 broadsheet paragraphs of objective journalistic reporting (60-70, 60-75, 55-70 words; 180-220 words total).')}",
   "whyItMatters": "1-2 sharp sentences on the stakes and why this perspective matters right now (18-28 words)",
   "keyTakeaways": [
