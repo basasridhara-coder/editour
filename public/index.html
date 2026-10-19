@@ -27,7 +27,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Merriweather:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,400;1,600;1,700;1,900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261019_1845">
+  <link rel="stylesheet" href="style.css?v=20261019_1910">
   <!-- Favicon & Brand Icons -->
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
@@ -352,30 +352,34 @@
               </div>
             </div>
 
-            <!-- Correction Legend Bar -->
+            <!-- Correction Legend Bar with Touch Filtering -->
             <div class="polish-legend-bar" id="polishLegendBar">
-              <span class="polish-legend-title">Legend:</span>
+              <span class="polish-legend-title">Filter by:</span>
               <div class="polish-legend-chips">
-                <span class="polish-legend-chip chip-spelling" title="Typos, spelling variants, and capitalization">
+                <button type="button" class="polish-legend-chip chip-all active" id="filterChipAll" onclick="filterPolishHighlights('all')" title="Show all corrections">
+                  <span class="legend-name">All</span>
+                  <span class="legend-badge" id="countAll">0</span>
+                </button>
+                <button type="button" class="polish-legend-chip chip-spelling" id="filterChipSpelling" onclick="filterPolishHighlights('spelling')" title="Show only spelling corrections">
                   <span class="legend-dot dot-spelling"></span>
                   <span class="legend-name">Spelling</span>
                   <span class="legend-badge" id="countSpelling">0</span>
-                </span>
-                <span class="polish-legend-chip chip-grammar" title="Verb tense, agreement, and syntax">
+                </button>
+                <button type="button" class="polish-legend-chip chip-grammar" id="filterChipGrammar" onclick="filterPolishHighlights('grammar')" title="Show only grammar corrections">
                   <span class="legend-dot dot-grammar"></span>
                   <span class="legend-name">Grammar</span>
                   <span class="legend-badge" id="countGrammar">0</span>
-                </span>
-                <span class="polish-legend-chip chip-punctuation" title="Commas, periods, and sentence boundaries">
+                </button>
+                <button type="button" class="polish-legend-chip chip-punctuation" id="filterChipPunctuation" onclick="filterPolishHighlights('punctuation')" title="Show only punctuation corrections">
                   <span class="legend-dot dot-punctuation"></span>
                   <span class="legend-name">Punctuation</span>
                   <span class="legend-badge" id="countPunctuation">0</span>
-                </span>
-                <span class="polish-legend-chip chip-phrasing" title="Natural idioms and smoother transitions">
+                </button>
+                <button type="button" class="polish-legend-chip chip-phrasing" id="filterChipPhrasing" onclick="filterPolishHighlights('phrasing')" title="Show only phrasing corrections">
                   <span class="legend-dot dot-phrasing"></span>
                   <span class="legend-name">Phrasing</span>
                   <span class="legend-badge" id="countPhrasing">0</span>
-                </span>
+                </button>
               </div>
             </div>
 
@@ -1569,6 +1573,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261019_1845"></script>
+  <script src="app.js?v=20261019_1910"></script>
 </body>
 </html>

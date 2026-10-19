@@ -6187,6 +6187,7 @@ async function polishUserTake() {
     lastPolishDisplayMode = 'highlighted';
 
     // Update legend counts
+    const countAllEl = document.getElementById('countAll');
     const countSpellEl = document.getElementById('countSpelling');
     const countGramEl = document.getElementById('countGrammar');
     const countPunctEl = document.getElementById('countPunctuation');
@@ -6194,6 +6195,7 @@ async function polishUserTake() {
     const countTotalEl = document.getElementById('polishTotalCorrectionsCount');
     const fidelityBadge = document.getElementById('reviewFidelityBadge');
 
+    if (countAllEl) countAllEl.textContent = counts.total;
     if (countSpellEl) countSpellEl.textContent = counts.spelling;
     if (countGramEl) countGramEl.textContent = counts.grammar;
     if (countPunctEl) countPunctEl.textContent = counts.punctuation;
@@ -6206,6 +6208,12 @@ async function polishUserTake() {
         fidelityBadge.textContent = '100% Your Voice';
       }
     }
+
+    // Reset touch filter to 'all' on fresh polish
+    currentPolishFilter = 'all';
+    if (display) display.removeAttribute('data-filter');
+    const allChips = document.querySelectorAll('.polish-legend-chip');
+    allChips.forEach(chip => chip.classList.toggle('active', chip.id === 'filterChipAll'));
 
     // Reset toggle buttons
     const btnHighlight = document.getElementById('reviewToggleHighlighted');
@@ -6270,6 +6278,50 @@ function attachPolishMarkListeners(container) {
   });
 }
 
+let currentPolishFilter = 'all'; // 'all' | 'spelling' | 'grammar' | 'punctuation' | 'phrasing'
+
+function filterPolishHighlights(category) {
+  const display = document.getElementById('slantPolishedTextDisplay');
+  hidePolishPopover();
+
+  // If tapping already active specific category, toggle back to 'all'
+  if (currentPolishFilter === category && category !== 'all') {
+    category = 'all';
+  }
+  currentPolishFilter = category;
+
+  // Update chip active classes
+  const chips = document.querySelectorAll('.polish-legend-chip');
+  chips.forEach(chip => chip.classList.remove('active'));
+
+  const capName = category.charAt(0).toUpperCase() + category.slice(1);
+  const activeChip = document.getElementById(`filterChip${capName}`);
+  if (activeChip) activeChip.classList.add('active');
+
+  // Apply or remove data-filter attribute on display
+  if (display) {
+    if (category === 'all') {
+      display.removeAttribute('data-filter');
+    } else {
+      display.setAttribute('data-filter', category);
+    }
+  }
+
+  // If in clean mode, switch to highlighted so user sees the filtered highlights
+  if (lastPolishDisplayMode !== 'highlighted') {
+    setReviewDisplayMode('highlighted');
+  }
+
+  const categoryLabels = {
+    all: 'all corrections',
+    spelling: 'spelling corrections',
+    grammar: 'grammar corrections',
+    punctuation: 'punctuation corrections',
+    phrasing: 'phrasing corrections'
+  };
+  showTemporaryToast(`Filtering by ${categoryLabels[category] || category}`);
+}
+
 function setReviewDisplayMode(mode) {
   lastPolishDisplayMode = mode;
   const display = document.getElementById('slantPolishedTextDisplay');
@@ -6285,8 +6337,14 @@ function setReviewDisplayMode(mode) {
     if (mode === 'highlighted') {
       display.innerHTML = lastHighlightedHtml;
       attachPolishMarkListeners(display);
+      if (currentPolishFilter && currentPolishFilter !== 'all') {
+        display.setAttribute('data-filter', currentPolishFilter);
+      } else {
+        display.removeAttribute('data-filter');
+      }
     } else {
       display.textContent = lastPolishedTake;
+      display.removeAttribute('data-filter');
     }
   }
 }

@@ -10086,12 +10086,80 @@ header {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 2px 7px;
+  padding: 3px 8px;
   border-radius: 12px;
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 700;
+  font-family: inherit;
   background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.16s ease;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  line-height: 1.2;
+}
+
+.polish-legend-chip:hover {
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.polish-legend-chip:active {
+  transform: scale(0.96);
+}
+
+.chip-all {
+  color: #E2E8F0;
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Active Selected Pill States */
+.polish-legend-chip.active {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.15), 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.chip-all.active {
+  background: rgba(255, 255, 255, 0.22);
+  border-color: #FFFFFF;
+  color: #FFFFFF;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+}
+
+.chip-spelling.active {
+  background: rgba(239, 68, 68, 0.35);
+  border-color: #EF4444;
+  color: #FFFFFF;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.4);
+}
+
+.chip-grammar.active {
+  background: rgba(245, 158, 11, 0.35);
+  border-color: #F59E0B;
+  color: #FFFFFF;
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.4);
+}
+
+.chip-punctuation.active {
+  background: rgba(56, 189, 248, 0.35);
+  border-color: #38BDF8;
+  color: #FFFFFF;
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.4);
+}
+
+.chip-phrasing.active {
+  background: rgba(16, 185, 129, 0.35);
+  border-color: #10B981;
+  color: #FFFFFF;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.4);
+}
+
+.polish-legend-chip.active .legend-badge {
+  background: rgba(255, 255, 255, 0.3);
+  color: #FFFFFF;
 }
 
 .legend-dot {
@@ -10122,6 +10190,21 @@ header {
 
 .chip-phrasing { color: #6EE7B7; background: rgba(16, 185, 129, 0.12); border-color: rgba(16, 185, 129, 0.25); }
 .dot-phrasing { background: #10B981; }
+
+/* Touch Filter Mechanism: Unfiltered marks display as clean plain text */
+#slantPolishedTextDisplay[data-filter="spelling"] mark.polish-mark:not(.polish-type-spelling),
+#slantPolishedTextDisplay[data-filter="grammar"] mark.polish-mark:not(.polish-type-grammar),
+#slantPolishedTextDisplay[data-filter="punctuation"] mark.polish-mark:not(.polish-type-punctuation),
+#slantPolishedTextDisplay[data-filter="phrasing"] mark.polish-mark:not(.polish-type-phrasing) {
+  background: transparent !important;
+  color: inherit !important;
+  border-bottom: none !important;
+  cursor: text !important;
+  padding: 0 !important;
+  font-weight: inherit !important;
+  box-shadow: none !important;
+  pointer-events: none !important;
+}
 
 /* Review Card Body Wrap & Interactive Highlighters */
 .review-card-body-wrap {
@@ -11343,10 +11426,16 @@ mark.polish-mark:hover, mark.polish-mark.active {
   border-color: #E2E8F0;
 }
 
+[data-theme="daylight"] .chip-all { color: #334155; background: #F1F5F9; border-color: #CBD5E1; }
+[data-theme="daylight"] .chip-all.active { background: #334155; color: #FFFFFF; border-color: #0F172A; }
 [data-theme="daylight"] .chip-spelling { color: #DC2626; background: #FEE2E2; border-color: #FCA5A5; }
+[data-theme="daylight"] .chip-spelling.active { background: #DC2626; color: #FFFFFF; border-color: #B91C1C; }
 [data-theme="daylight"] .chip-grammar { color: #D97706; background: #FEF3C7; border-color: #FCD34D; }
+[data-theme="daylight"] .chip-grammar.active { background: #D97706; color: #FFFFFF; border-color: #B45309; }
 [data-theme="daylight"] .chip-punctuation { color: #0284C7; background: #E0F2FE; border-color: #7DD3FC; }
+[data-theme="daylight"] .chip-punctuation.active { background: #0284C7; color: #FFFFFF; border-color: #0369A1; }
 [data-theme="daylight"] .chip-phrasing { color: #059669; background: #D1FAE5; border-color: #6EE7B7; }
+[data-theme="daylight"] .chip-phrasing.active { background: #059669; color: #FFFFFF; border-color: #047857; }
 
 [data-theme="daylight"] mark.polish-type-spelling {
   background: #FEE2E2;
