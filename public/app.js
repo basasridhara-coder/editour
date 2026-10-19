@@ -127,7 +127,7 @@ async function init() {
     }
   }, 60000);
 
-  initAuth();
+  await initAuth();
   const gateEmail = sessionStorage.getItem('slant_gate_active_email');
   if (gateEmail) {
     openPrivatePreviewGateModal(gateEmail);
@@ -135,7 +135,7 @@ async function init() {
   await loadPosts();
   setupEventListeners();
   setupPullToRefresh();
-  checkDeepLink();
+  await checkDeepLink();
   setupRealtimeSubscription();
 }
 
@@ -275,6 +275,10 @@ async function initAuth() {
         currentUser = session.user;
         isCurrentUserAdmin = check.isAdmin;
         isUserWhitelistAllowed = true;
+        try {
+          sessionStorage.setItem('slant_guest_explored', 'true');
+        } catch (_) {}
+        closeAuthModal();
       } else {
         await handleUninvitedUser(session.user);
         return;
@@ -300,6 +304,9 @@ async function initAuth() {
           currentUser = session.user;
           isCurrentUserAdmin = check.isAdmin;
           isUserWhitelistAllowed = true;
+          try {
+            sessionStorage.setItem('slant_guest_explored', 'true');
+          } catch (_) {}
           closeAuthModal();
           showTemporaryToast(`Welcome to Slant, ${escapeHtml(getUserDisplayName())}! ✨`);
 
@@ -337,13 +344,25 @@ async function initAuth() {
             if (gate) gate.remove();
           }
 
-          const returnUrl = sessionStorage.getItem('slant_auth_redirect_url');
+          let returnUrl = sessionStorage.getItem('slant_auth_redirect_url');
           if (returnUrl) {
             sessionStorage.removeItem('slant_auth_redirect_url');
+            returnUrl = returnUrl
+              .replace(/#login.*$/, '')
+              .replace(/([?&])(auth=login|login=true)(&|$)/, '$1')
+              .replace(/[?&]$/, '');
             try {
-              if (window.location.href !== returnUrl) {
+              if (returnUrl && window.location.href !== returnUrl && !returnUrl.endsWith('#login')) {
                 history.replaceState(null, '', returnUrl);
+              } else if (window.location.hash === '#login') {
+                const cleanUrl = window.location.pathname + window.location.search;
+                history.replaceState(null, '', cleanUrl);
               }
+            } catch (_) {}
+          } else if (window.location.hash === '#login') {
+            try {
+              const cleanUrl = window.location.pathname + window.location.search;
+              history.replaceState(null, '', cleanUrl);
             } catch (_) {}
           }
 
@@ -856,6 +875,9 @@ function previewPostFromLogin(postId) {
 }
 
 function openAuthModal(customDesc) {
+  if (currentUser) {
+    return;
+  }
   const modal = document.getElementById('authModal');
   const descEl = document.getElementById('authModalDesc');
   const statusEl = document.getElementById('authStatusMsg');
@@ -937,7 +959,11 @@ async function signInWithGoogle() {
   try {
     if (window.location.href) {
       try {
-        sessionStorage.setItem('slant_auth_redirect_url', window.location.href);
+        const cleanUrl = window.location.href
+          .replace(/#login.*$/, '')
+          .replace(/([?&])(auth=login|login=true)(&|$)/, '$1')
+          .replace(/[?&]$/, '');
+        sessionStorage.setItem('slant_auth_redirect_url', cleanUrl || window.location.origin);
       } catch (_) {}
     }
     const { error } = await supabaseClient.auth.signInWithOAuth({
@@ -2277,14 +2303,28 @@ async function checkDeepLink() {
     hasExplored = sessionStorage.getItem('slant_guest_explored') === 'true';
   } catch (e) {}
 
-  if (isExplicitLogin || (!currentUser && !hasExplored && !deepPostId)) {
-    setTimeout(() => openAuthModal(), 200);
+  if (!currentUser && (isExplicitLogin || (!hasExplored && !deepPostId))) {
+    setTimeout(() => {
+      if (!currentUser) openAuthModal();
+    }, 200);
+  } else if (currentUser && window.location.hash === '#login') {
+    try {
+      const cleanUrl = window.location.pathname + window.location.search;
+      history.replaceState(null, '', cleanUrl);
+    } catch (_) {}
   }
 }
 
 // Listen for browser navigation / hashchange for #login or deep-linked post
 window.addEventListener('hashchange', () => {
   if (window.location.hash === '#login') {
+    if (currentUser) {
+      try {
+        const cleanUrl = window.location.pathname + window.location.search;
+        history.replaceState(null, '', cleanUrl);
+      } catch (_) {}
+      return;
+    }
     openAuthModal();
   } else {
     const modal = document.getElementById('authModal');
