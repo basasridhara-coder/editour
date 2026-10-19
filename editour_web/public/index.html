@@ -332,16 +332,75 @@
             <span class="slant-take-hint">Grammar & phrasing check • Preserves 100% your voice</span>
           </div>
 
-          <!-- Review & Approve Polished Take Card -->
+          <!-- Review & Approve Polished Take Card with Pedagogical Coaching Highlighters -->
           <div class="slant-polish-review-card" id="slantPolishReviewCard" style="display: none;">
             <div class="review-card-header">
               <div class="review-card-title-wrap">
                 <span class="review-sparkle">✨</span>
-                <span class="review-title">REVIEW & POLISH TAKE</span>
+                <span class="review-title">COACHING & POLISHED TAKE</span>
               </div>
-              <span class="review-fidelity-badge">100% Your Voice • Neatly Phrased</span>
+              <div class="review-header-right">
+                <div class="review-view-toggles">
+                  <button type="button" class="review-toggle-btn active" id="reviewToggleHighlighted" onclick="setReviewDisplayMode('highlighted')">
+                    Highlights (<span id="polishTotalCorrectionsCount">0</span>)
+                  </button>
+                  <button type="button" class="review-toggle-btn" id="reviewToggleClean" onclick="setReviewDisplayMode('clean')">
+                    Clean Text
+                  </button>
+                </div>
+                <span class="review-fidelity-badge">100% Your Voice</span>
+              </div>
             </div>
-            <div class="review-card-body" id="slantPolishedTextDisplay"></div>
+
+            <!-- Correction Legend Bar -->
+            <div class="polish-legend-bar" id="polishLegendBar">
+              <span class="polish-legend-title">Legend:</span>
+              <div class="polish-legend-chips">
+                <span class="polish-legend-chip chip-spelling" title="Typos, spelling variants, and capitalization">
+                  <span class="legend-dot dot-spelling"></span>
+                  <span class="legend-name">Spelling</span>
+                  <span class="legend-badge" id="countSpelling">0</span>
+                </span>
+                <span class="polish-legend-chip chip-grammar" title="Verb tense, agreement, and syntax">
+                  <span class="legend-dot dot-grammar"></span>
+                  <span class="legend-name">Grammar</span>
+                  <span class="legend-badge" id="countGrammar">0</span>
+                </span>
+                <span class="polish-legend-chip chip-punctuation" title="Commas, periods, and sentence boundaries">
+                  <span class="legend-dot dot-punctuation"></span>
+                  <span class="legend-name">Punctuation</span>
+                  <span class="legend-badge" id="countPunctuation">0</span>
+                </span>
+                <span class="polish-legend-chip chip-phrasing" title="Natural idioms and smoother transitions">
+                  <span class="legend-dot dot-phrasing"></span>
+                  <span class="legend-name">Phrasing</span>
+                  <span class="legend-badge" id="countPhrasing">0</span>
+                </span>
+              </div>
+            </div>
+
+            <!-- Review Card Body & Tooltip Container -->
+            <div class="review-card-body-wrap">
+              <div class="review-card-body" id="slantPolishedTextDisplay"></div>
+              <div class="polish-popover" id="polishPopover" style="display: none;">
+                <div class="popover-header">
+                  <span class="popover-badge" id="popoverBadge">Spelling</span>
+                  <button type="button" class="popover-close-btn" onclick="hidePolishPopover()">&times;</button>
+                </div>
+                <div class="popover-diff">
+                  <div class="popover-diff-row original-row">
+                    <span class="diff-tag">Original:</span>
+                    <span class="diff-val" id="popoverOriginal"></span>
+                  </div>
+                  <div class="popover-diff-row corrected-row">
+                    <span class="diff-tag">Polished:</span>
+                    <span class="diff-val" id="popoverReplacement"></span>
+                  </div>
+                </div>
+                <div class="popover-reason" id="popoverReason"></div>
+              </div>
+            </div>
+
             <div class="review-card-actions">
               <button type="button" class="review-btn review-btn-accept" onclick="acceptPolishedTake()">
                 <span>✓ Accept & Use</span>
@@ -349,6 +408,7 @@
               <button type="button" class="review-btn review-btn-reject" onclick="rejectPolishedTake()">
                 <span>✕ Keep Original</span>
               </button>
+              <span class="review-tap-hint">Tap any highlighted word to inspect why it was polished</span>
             </div>
           </div>
 
@@ -1336,6 +1396,11 @@
               <span class="row-label">Beta Access & Invites</span>
               <span class="row-pill" id="drawerPendingBadge" style="background:#EF4444; color:#fff; display:none; padding:1px 7px; border-radius:10px; font-size:11px; font-weight:800;">0</span>
             </button>
+            <button class="drawer-menu-row" id="drawerStyleProfileRow" onclick="closeDrawer(); openCuratorStyleModal();">
+              <span class="row-icon">🧬</span>
+              <span class="row-label">Curator Style & Writing Growth</span>
+              <span class="row-pill" style="background:rgba(168,85,247,0.2); color:#C084FC; font-size:10px; font-weight:700; padding:2px 8px; border-radius:10px;">DNA</span>
+            </button>
             <button class="drawer-menu-row drawer-sign-out" onclick="closeDrawer(); handleSignOut();">
               <span class="row-icon">🚪</span>
               <span class="row-label">Sign Out</span>
@@ -1417,6 +1482,80 @@
     </div>
   </aside>
 
-  <script src="app.js?v=20261019_1235"></script>
+  <!-- Curator Writing Style & Longitudinal Observation Modal -->
+  <div class="curator-style-modal-overlay" id="curatorStyleModalOverlay" onclick="closeCuratorStyleModal()" style="display: none;"></div>
+  <div class="curator-style-modal" id="curatorStyleModal" style="display: none;" role="dialog" aria-modal="true">
+    <div class="curator-style-modal-header">
+      <div class="curator-style-title-wrap">
+        <span class="curator-style-sparkle">🧬</span>
+        <div>
+          <div class="curator-style-title">Curator Style DNA & Writing Growth</div>
+          <div class="curator-style-subtitle">Longitudinal observations of your writing method & evolving craft</div>
+        </div>
+      </div>
+      <button type="button" class="curator-style-close-btn" onclick="closeCuratorStyleModal()">&times;</button>
+    </div>
+
+    <div class="curator-style-modal-body">
+      <!-- 1. The 3 Core Pillars: Structure, Vocabulary, Tone -->
+      <div class="style-dna-grid">
+        <div class="style-dna-card card-structure">
+          <div class="dna-card-header">
+            <span class="dna-card-icon">📐</span>
+            <span class="dna-card-badge">STRUCTURE</span>
+          </div>
+          <div class="dna-card-title" id="dnaStructureName">Observational Contrast</div>
+          <p class="dna-card-desc" id="dnaStructureDesc">
+            Opens with an honest, real-world observation from daily life or building experience, contrasts it with human reality or friction, and concludes with a pragmatic, solution-first takeaway.
+          </p>
+          <div class="dna-card-tag">Pattern: Observation &rarr; Contrast &rarr; Pragmatic Takeaway</div>
+        </div>
+
+        <div class="style-dna-card card-vocabulary">
+          <div class="dna-card-header">
+            <span class="dna-card-icon">💬</span>
+            <span class="dna-card-badge">VOCABULARY</span>
+          </div>
+          <div class="dna-card-title" id="dnaVocabName">Everyday Plainspoken English</div>
+          <p class="dna-card-desc" id="dnaVocabDesc">
+            Crisp, conversational vocabulary. Zero academic, think-tank, or corporate buzzwords. Concrete real-world nouns and grounded phrasing.
+          </p>
+          <div class="dna-card-tag">Standard: 5th to 8th Grade Clarity</div>
+        </div>
+
+        <div class="style-dna-card card-tone">
+          <div class="dna-card-header">
+            <span class="dna-card-icon">🧠</span>
+            <span class="dna-card-badge">TONE & STANCE</span>
+          </div>
+          <div class="dna-card-title" id="dnaToneName">Pragmatic & Solution-Oriented</div>
+          <p class="dna-card-desc" id="dnaToneDesc">
+            Calm, constructive, and grounded. Balances healthy skepticism of hype with optimistic, hands-on building: solutions must be the focus.
+          </p>
+          <div class="dna-card-tag">Motto: Solutions over theoretical debates</div>
+        </div>
+      </div>
+
+      <!-- 2. Weekly Observation & Evolution Log -->
+      <div class="style-timeline-section">
+        <div class="style-timeline-header">
+          <div class="timeline-header-left">
+            <span class="timeline-title-icon">📅</span>
+            <div>
+              <div class="timeline-title-text">Weekly Growth & Observation Log</div>
+              <div class="timeline-subtext">Significant stylistic shifts tracked across rolling weekly milestones</div>
+            </div>
+          </div>
+          <span class="timeline-badge">Observation Log</span>
+        </div>
+
+        <div class="style-timeline-list" id="curatorStyleTimelineList">
+          <!-- Rendered dynamically via app.js -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js?v=20261019_1315"></script>
 </body>
 </html>

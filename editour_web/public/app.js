@@ -5968,6 +5968,10 @@ let currentSynthesizedPost = null;
 let currentPreviewSlide = 0;
 let lastPolishedTake = '';
 let creatorRefineCoreTake = true;
+let lastHighlightedHtml = '';
+let lastCorrectionsList = [];
+let lastPolishDisplayMode = 'highlighted';
+let curatorStyleProfileCache = null;
 
 async function polishUserTake() {
   const input = document.getElementById('creatorSlantTakeInput');
@@ -5987,7 +5991,7 @@ async function polishUserTake() {
   const originalBtnHtml = btn ? btn.innerHTML : '';
   if (btn) {
     btn.disabled = true;
-    btn.innerHTML = `<span class="btn-spark-icon spinning">⏳</span> Polishing phrasing & grammar...`;
+    btn.innerHTML = `<span class="btn-spark-icon spinning">⏳</span> Analyzing phrasing, grammar & rhythm...`;
   }
 
   try {
@@ -6001,32 +6005,66 @@ async function polishUserTake() {
     });
 
     let polished = '';
+    let highlightedHtml = '';
+    let corrections = [];
+    let counts = { spelling: 0, grammar: 0, punctuation: 0, phrasing: 0, total: 0 };
+
     if (resp.ok) {
       const data = await resp.json();
       if (data && data.polished) {
         polished = data.polished;
+        highlightedHtml = data.highlightedHtml || '';
+        corrections = Array.isArray(data.corrections) ? data.corrections : [];
+        if (data.counts) counts = data.counts;
       }
     }
 
-    // Fallback if API returned empty
     if (!polished) {
       polished = formatCuratorTakeApt(rawText);
+      highlightedHtml = escapeHtml(polished);
     }
 
     lastPolishedTake = polished;
+    lastHighlightedHtml = highlightedHtml || escapeHtml(polished);
+    lastCorrectionsList = corrections;
+    lastPolishDisplayMode = 'highlighted';
 
+    // Update legend counts
+    const countSpellEl = document.getElementById('countSpelling');
+    const countGramEl = document.getElementById('countGrammar');
+    const countPunctEl = document.getElementById('countPunctuation');
+    const countPhraseEl = document.getElementById('countPhrasing');
+    const countTotalEl = document.getElementById('polishTotalCorrectionsCount');
+
+    if (countSpellEl) countSpellEl.textContent = counts.spelling;
+    if (countGramEl) countGramEl.textContent = counts.grammar;
+    if (countPunctEl) countPunctEl.textContent = counts.punctuation;
+    if (countPhraseEl) countPhraseEl.textContent = counts.phrasing;
+    if (countTotalEl) countTotalEl.textContent = counts.total;
+
+    // Reset toggle buttons
+    const btnHighlight = document.getElementById('reviewToggleHighlighted');
+    const btnClean = document.getElementById('reviewToggleClean');
+    if (btnHighlight) btnHighlight.classList.add('active');
+    if (btnClean) btnClean.classList.remove('active');
+
+    // Render marked-up content or fallback to clean
     if (display) {
-      display.textContent = polished;
+      display.innerHTML = lastHighlightedHtml;
+      attachPolishMarkListeners(display);
     }
+
     if (reviewCard) {
       reviewCard.style.display = 'flex';
       reviewCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
-    showTemporaryToast('✨ Take polished for review. Check below!');
+    showTemporaryToast(`✨ Review ready with ${counts.total} coaching notes. Tap any highlighted word!`);
   } catch (err) {
     console.warn('Polish take error, using client-side formatting:', err);
     const polished = formatCuratorTakeApt(rawText);
     lastPolishedTake = polished;
+    lastHighlightedHtml = escapeHtml(polished);
+    lastCorrectionsList = [];
     if (display) display.textContent = polished;
     if (reviewCard) {
       reviewCard.style.display = 'flex';
@@ -6038,6 +6076,173 @@ async function polishUserTake() {
       btn.innerHTML = originalBtnHtml;
     }
   }
+}
+
+function attachPolishMarkListeners(container) {
+  if (!container) return;
+  const marks = container.querySelectorAll('.polish-mark');
+  marks.forEach(mark => {
+    mark.addEventListener('click', (e) => {
+      e.stopPropagation();
+      marks.forEach(m => m.classList.remove('active'));
+      mark.classList.add('active');
+      const original = mark.getAttribute('data-original') || '';
+      const replacement = mark.textContent || '';
+      const type = mark.getAttribute('data-type') || 'phrasing';
+      const reason = mark.getAttribute('data-reason') || 'Improved phrasing and flow';
+      showPolishPopover(mark, original, replacement, type, reason);
+    });
+  });
+}
+
+function setReviewDisplayMode(mode) {
+  lastPolishDisplayMode = mode;
+  const display = document.getElementById('slantPolishedTextDisplay');
+  const btnHighlight = document.getElementById('reviewToggleHighlighted');
+  const btnClean = document.getElementById('reviewToggleClean');
+
+  if (btnHighlight) btnHighlight.classList.toggle('active', mode === 'highlighted');
+  if (btnClean) btnClean.classList.toggle('active', mode === 'clean');
+
+  hidePolishPopover();
+
+  if (display) {
+    if (mode === 'highlighted') {
+      display.innerHTML = lastHighlightedHtml;
+      attachPolishMarkListeners(display);
+    } else {
+      display.textContent = lastPolishedTake;
+    }
+  }
+}
+
+function showPolishPopover(targetEl, original, replacement, type, reason) {
+  const popover = document.getElementById('polishPopover');
+  const badge = document.getElementById('popoverBadge');
+  const origEl = document.getElementById('popoverOriginal');
+  const repEl = document.getElementById('popoverReplacement');
+  const reasonEl = document.getElementById('popoverReason');
+
+  if (!popover) return;
+
+  if (badge) {
+    badge.textContent = type.toUpperCase();
+    badge.className = `popover-badge ${type}`;
+  }
+  if (origEl) origEl.textContent = original || '(omitted)';
+  if (repEl) repEl.textContent = replacement;
+  if (reasonEl) reasonEl.textContent = reason;
+
+  popover.style.display = 'block';
+}
+
+function hidePolishPopover() {
+  const popover = document.getElementById('polishPopover');
+  if (popover) popover.style.display = 'none';
+  const activeMarks = document.querySelectorAll('.polish-mark.active');
+  activeMarks.forEach(m => m.classList.remove('active'));
+}
+
+// Curator Style & Growth Modal Controllers
+async function openCuratorStyleModal() {
+  const modal = document.getElementById('curatorStyleModal');
+  const overlay = document.getElementById('curatorStyleModalOverlay');
+  if (modal) modal.style.display = 'flex';
+  if (overlay) overlay.style.display = 'block';
+
+  await loadCuratorStyleProfile();
+}
+
+function closeCuratorStyleModal() {
+  const modal = document.getElementById('curatorStyleModal');
+  const overlay = document.getElementById('curatorStyleModalOverlay');
+  if (modal) modal.style.display = 'none';
+  if (overlay) overlay.style.display = 'none';
+}
+
+async function loadCuratorStyleProfile() {
+  const userIdentifier = (currentUser && currentUser.email) || '@Shridhar Reddy';
+  try {
+    const resp = await fetch('/api/synthesize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'get_curator_style',
+        userIdentifier
+      })
+    });
+    if (resp.ok) {
+      const data = await resp.json();
+      if (data && data.profile) {
+        curatorStyleProfileCache = data.profile;
+        renderCuratorStyleProfile(data.profile);
+        return;
+      }
+    }
+  } catch (err) {
+    console.warn('Failed to load curator style profile:', err);
+  }
+
+  // Fallback to default render
+  renderCuratorStyleProfile();
+}
+
+function renderCuratorStyleProfile(profile) {
+  const dna = profile?.style_dna;
+  const observations = profile?.weekly_observations || [];
+
+  if (dna) {
+    const sName = document.getElementById('dnaStructureName');
+    const sDesc = document.getElementById('dnaStructureDesc');
+    const vName = document.getElementById('dnaVocabName');
+    const vDesc = document.getElementById('dnaVocabDesc');
+    const tName = document.getElementById('dnaToneName');
+    const tDesc = document.getElementById('dnaToneDesc');
+
+    if (sName && dna.structure?.name) sName.textContent = dna.structure.name;
+    if (sDesc && dna.structure?.description) sDesc.textContent = dna.structure.description;
+    if (vName && dna.vocabulary?.level) vName.textContent = dna.vocabulary.level;
+    if (vDesc && dna.vocabulary?.description) vDesc.textContent = dna.vocabulary.description;
+    if (tName && dna.tone?.stance) tName.textContent = dna.tone.stance;
+    if (tDesc && dna.tone?.description) tDesc.textContent = dna.tone.description;
+  }
+
+  const listEl = document.getElementById('curatorStyleTimelineList');
+  if (!listEl) return;
+
+  if (observations.length === 0) {
+    listEl.innerHTML = `<div style="text-align:center; padding:20px; color:#94A3B8; font-size:12px;">No weekly observation milestones recorded yet. Publish your slants to observe stylistic growth over time.</div>`;
+    return;
+  }
+
+  listEl.innerHTML = observations.map(obs => `
+    <div class="timeline-card">
+      <div class="timeline-period-row">
+        <span class="timeline-period-badge">📅 ${escapeHtml(obs.period || 'Milestone')}</span>
+      </div>
+      <div class="timeline-summary">${escapeHtml(obs.summary || '')}</div>
+      <div class="timeline-details-grid">
+        ${obs.structure_growth ? `
+          <div class="timeline-detail-item">
+            <span class="detail-label">📐 Structure</span>
+            ${escapeHtml(obs.structure_growth)}
+          </div>
+        ` : ''}
+        ${obs.vocabulary_growth ? `
+          <div class="timeline-detail-item">
+            <span class="detail-label">💬 Vocabulary</span>
+            ${escapeHtml(obs.vocabulary_growth)}
+          </div>
+        ` : ''}
+        ${obs.tone_milestone ? `
+          <div class="timeline-detail-item">
+            <span class="detail-label">🧠 Tone Milestone</span>
+            ${escapeHtml(obs.tone_milestone)}
+          </div>
+        ` : ''}
+      </div>
+    </div>
+  `).join('');
 }
 
 function acceptPolishedTake() {

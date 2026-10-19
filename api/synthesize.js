@@ -94,7 +94,50 @@ module.exports = async function handler(req, res) {
       }
     }
 
-    // Direct Single-Purpose Endpoint: Polish & Review Take (Strict Copy-Editing, No Opinion Alteration)
+    // Endpoint: Get or Save Curator Style Profile & Longitudinal Observations
+    if (body && body.action === 'get_curator_style') {
+      const { userIdentifier = 'default' } = body;
+      const profileId = 'curator_style_' + String(userIdentifier).toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+      try {
+        const resp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.${encodeURIComponent(profileId)}&select=data`, {
+          headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+        });
+        if (resp.ok) {
+          const rows = await resp.json();
+          if (rows && rows[0] && rows[0].data) {
+            return res.status(200).json({ success: true, profile: rows[0].data });
+          }
+        }
+      } catch (err) {
+        console.warn('Get curator style error:', err.message);
+      }
+      return res.status(200).json({
+        success: true,
+        profile: getDefaultCuratorStyle(userIdentifier)
+      });
+    }
+
+    if (body && body.action === 'save_curator_style') {
+      const { userIdentifier = 'default', profile } = body;
+      const profileId = 'curator_style_' + String(userIdentifier).toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+      try {
+        await fetch(`${SUPABASE_URL}/rest/v1/posts`, {
+          method: 'POST',
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'resolution=merge-duplicates'
+          },
+          body: JSON.stringify({ id: profileId, data: profile })
+        });
+        return res.status(200).json({ success: true, profile });
+      } catch (err) {
+        return res.status(500).json({ success: false, error: err.message });
+      }
+    }
+
+    // Direct Single-Purpose Endpoint: Polish & Review Take with Pedagogical Highlighters
     if (body && (body.action === 'polish_take' || body.action === 'review_take')) {
       const { text = '', slantTake = '' } = body;
       const rawText = String(text || slantTake || '').trim();
@@ -105,23 +148,44 @@ module.exports = async function handler(req, res) {
       // Fast baseline polish using rule-based formatter
       const baselinePolished = formatCuratorTakeApt(rawText);
 
-      // Call Gemini for high-precision, nuanced English copy-editing with thinkingBudget: 0 for speed (<2s)
+      // Call Gemini for high-precision, categorized copy-editing and inline highlighting
       try {
-        const copyEditPrompt = `You are a world-class literary copy-editor and phrasing specialist.
+        const copyEditPrompt = `You are a world-class literary copy-editor and writing coach.
 The author has written their personal conviction / take on a topic.
-Your sole job is to polish their exact text into grammatically correct, natural, and apt English:
+Your job is to polish their text into grammatically correct, natural, and apt English while highlighting the exact corrections made:
 - STRICT RULE 1 (ZERO OPINION FABRICATION): DO NOT change, enhance, add to, or modify the author's opinion, stance, or logic. Do NOT introduce new arguments, buzzwords, or unsolicited ideas.
 - STRICT RULE 2 (ZERO CUTTING SHORT): DO NOT cut short, truncate, compress, or omit the author's opinion. Every single point, argument, nuance, and example must be retained in the exact same sequence.
 - STRICT RULE 3 (APT ENGLISH & PHRASING): Fix comma splices, run-on sentences, awkward phrasing, word choices, subject-verb agreements, casing, and punctuation so it flows naturally and authoritatively.
-- STRICT RULE 4 (STRICT BAN ON EM-DASHES & ARTIFICIAL HYPHENS): NEVER use em-dashes ("—"), en-dashes ("–"), or double hyphens ("--")! LLM hyphens make human text look artificially AI-generated. Connect clauses with natural commas, semicolons, conjunctions, or separate sentences.
-- STRICT RULE 5 (PURE OUTPUT): Return ONLY the polished take text. Do NOT add quotation marks, do NOT add introductory conversational words, and do NOT wrap in markdown or backticks.
+- STRICT RULE 4 (STRICT BAN ON EM DASHES AND ARTIFICIAL HYPHENS): NEVER use em dashes, en dashes, or double hyphens ("--")! Connect clauses with natural commas, semicolons, conjunctions, or separate sentences.
+- STRICT RULE 5 (CORRECTION CATEGORIES & LEGEND): Categorize every change into exactly one of:
+  * "spelling": Typos, word capitalization, spelling variants.
+  * "grammar": Verb tense, subject-verb agreement, singular/plural, missing articles or prepositions.
+  * "punctuation": Commas, periods, splitting run-ons, quotes.
+  * "phrasing": Smoother idioms, natural word order, removing clunky transitions while preserving exact thought.
+- STRICT RULE 6 (MARKED-UP HTML): In "highlightedHtml", wrap each corrected word or phrase in:
+  <mark class="polish-mark polish-type-[CATEGORY]" data-type="[CATEGORY]" data-original="[EXACT_OLD_TEXT]" data-reason="[CONCISE_REASON]">[NEW_TEXT]</mark>
+  Unchanged text remains plain text. Ensure the HTML is valid and safe.
 
 Author's Raw Take:
-"""${rawText}"""`;
+"""${rawText}"""
+
+Respond strictly with valid JSON with this exact structure:
+{
+  "polished": "full polished text string without any tags",
+  "highlightedHtml": "full text string with <mark> tags wrapping every correction",
+  "corrections": [
+    {
+      "original": "old text",
+      "replacement": "new text",
+      "type": "spelling|grammar|punctuation|phrasing",
+      "reason": "concise explanation of why this was corrected"
+    }
+  ]
+}`;
 
         const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 6000);
+        const timeout = setTimeout(() => controller.abort(), 12000);
 
         const geminiResp = await fetch(geminiUrl, {
           method: 'POST',
@@ -131,7 +195,7 @@ Author's Raw Take:
             generationConfig: {
               temperature: 0.1,
               thinkingConfig: { thinkingBudget: 0 },
-              maxOutputTokens: 1024
+              responseMimeType: 'application/json'
             }
           }),
           signal: controller.signal
@@ -141,12 +205,35 @@ Author's Raw Take:
         if (geminiResp.ok) {
           const geminiData = await geminiResp.json();
           let candidate = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
-          candidate = candidate.trim().replace(/^["'“”‘’«»]+|["'“”‘’«»]+$/g, '').trim();
-          if (candidate.length > 10) {
+          let parsed = null;
+          try {
+            parsed = JSON.parse(candidate);
+          } catch (_) {}
+
+          if (parsed && parsed.polished) {
+            const rawCorrections = Array.isArray(parsed.corrections) ? parsed.corrections : [];
+            const corrections = rawCorrections.map(c => ({
+              original: String(c.original || ''),
+              replacement: String(c.replacement || ''),
+              type: ['spelling', 'grammar', 'punctuation', 'phrasing'].includes(c.type) ? c.type : 'phrasing',
+              reason: String(c.reason || 'Improved phrasing and flow')
+            }));
+
+            const counts = {
+              spelling: corrections.filter(c => c.type === 'spelling').length,
+              grammar: corrections.filter(c => c.type === 'grammar').length,
+              punctuation: corrections.filter(c => c.type === 'punctuation').length,
+              phrasing: corrections.filter(c => c.type === 'phrasing').length,
+              total: corrections.length
+            };
+
             return res.status(200).json({
               success: true,
               original: rawText,
-              polished: formatCuratorTakeApt(candidate)
+              polished: formatCuratorTakeApt(parsed.polished),
+              highlightedHtml: parsed.highlightedHtml || '',
+              corrections,
+              counts
             });
           }
         }
@@ -158,7 +245,10 @@ Author's Raw Take:
       return res.status(200).json({
         success: true,
         original: rawText,
-        polished: baselinePolished
+        polished: baselinePolished,
+        highlightedHtml: baselinePolished,
+        corrections: [],
+        counts: { spelling: 0, grammar: 0, punctuation: 0, phrasing: 0, total: 0 }
       });
     }
 
@@ -315,28 +405,20 @@ Author's Raw Take:
       ? 'Out of Heart: Deeply reflective, philosophical, emotive, humanistic, and conviction-driven.'
       : 'Out of Mind: Sharp, analytical, strategic, counter-intuitive, high-signal, and intellectually rigorous.';
 
-    let vocabDirective = '';
-    if (vocabularyStyle === 'conversational') {
-      vocabDirective = `VOCABULARY STYLE: CONVERSATIONAL & DIRECT
-- Use natural, everyday conversational English.
-- Avoid academic jargon, convoluted sentences, or high-brow SAT words.
-- Write with the warmth, clarity, and directness of a smart friend explaining the stakes over coffee.`;
-    } else if (vocabularyStyle === 'analytical') {
-      vocabDirective = `VOCABULARY STYLE: IN-DEPTH & ANALYTICAL
-- Formal, structural broadsheet analysis with intellectual rigor.
-- Nuanced vocabulary suitable for policy institutes, think-tanks, and macro analyses.`;
-    } else {
-      // Default: 'punchy' (Visceral, emotional, easily understandable yet not childish)
-      vocabDirective = `CRITICAL EDITORIAL VOCABULARY & EMOTIONAL IMPACT DIRECTIVE (PUNCHY, EMOTIONAL & VIVID):
-1. BANISH HEAVY / POMPOUS SAT JARGON:
-   - NEVER use pretentious Latinate words or academic clichés: "hegemony", "panopticon", "paradigm", "Kafkaesque", "dichotomy", "juxtaposition", "inexorable", "obfuscate", "surreptitious", "monolithic", "harbinger", "verisimilitude", "disenfranchised", "quagmire", "ubiquitous", "pervasive", "machinations", "epistemic".
-   - If a word sounds like a PhD dissertation or corporate report, replace it with a direct, everyday equivalent.
-2. CONVEY RAW EMOTION THROUGH CLEAR, GUT-PUNCH LANGUAGE:
-   - Convey feeling through high human stakes, tension, vivid imagery, and clear cause-and-effect, not through rare multi-syllabic adjectives.
-   - Use punchy, active verbs and concrete nouns (e.g., choke, crush, hollow out, bankroll, shield, silence, fracture, bet, gamble, trap, blindspot, flashpoint).
-3. SMART YET EFFORTLESSLY UNDERSTANDABLE:
-   - Do NOT dumb it down like a children's primer. Keep the adult intelligence, wit, and conviction, but ensure any smart reader can grasp every single word instantly on their phone.`;
-    }
+    let vocabDirective = `CRITICAL CURATOR WRITING VOICE & PLAIN ENGLISH DIRECTIVE:
+1. AUTHENTIC CURATOR STYLE:
+   - Structure: Connect real-world observations directly to human stakes, ending with a grounded, solution-first takeaway.
+   - Vocabulary: Plainspoken, clear, everyday English (5th to 8th grade reading level). If an idea can be stated in simpler words, use the simpler words.
+   - Tone: Pragmatic, calm, observant, and constructive. Keep the focus on real builders, real people, and tangible solutions. "Solutions must be the talk of the town, not problems."
+2. BANISH HEAVY / POMPOUS ACADEMIC & THINK-TANK JARGON:
+   - NEVER use pretentious Latinate words, corporate buzzwords, or academic clichés: "shallow dichotomy", "apocalyptic dread", "algorithmic convenience", "opaque corporate server racks", "not reactionary; it is vital self-defense", "human agency", "hegemony", "panopticon", "paradigm", "Kafkaesque", "juxtaposition", "inexorable", "obfuscate", "surreptitious", "monolithic", "harbinger", "verisimilitude", "disenfranchised", "quagmire", "ubiquitous", "pervasive", "machinations", "epistemic".
+   - If a phrase sounds like a university research paper, think-tank brief, or corporate whitepaper, replace it with direct, everyday conversational English.
+3. POSTER 2 ("THE CRITICAL PERSPECTIVE" / curatorTake):
+   - Exactly 2 complete sentences (25-35 words total, ending with a period).
+   - Must sound like the curator's punchy, authentic voice, vocabulary, and constructive mindset.
+4. POSTER 3 ("SLANT MINUTE" BROADSHEET ESSAY / summary & resolvedArticleExcerpts):
+   - Exactly 3 paragraphs (180-220 words total) translating the source concepts into accessible everyday language that reads effortlessly on a mobile screen.
+   - Ground the facts and figures in practical human terms, clear cause-and-effect, and common sense.`;
 
     const visualFocusDirective = (perspectiveMode === 'source')
       ? `CRITICAL VISUAL FOCUS DIRECTIVE (POSTER 1 ARTWORK ONLY - SOURCE GROUNDED):
@@ -1548,3 +1630,52 @@ async function scrapeYouTubeUrl(targetUrl, videoId) {
     imageUrl
   };
 }
+
+function getDefaultCuratorStyle(userIdentifier) {
+  return {
+    handle: '@Shridhar Reddy',
+    name: 'Shridhar Reddy',
+    updatedAt: new Date().toISOString(),
+    style_dna: {
+      structure: {
+        name: 'Observational Contrast & Grounded Resolution',
+        description: 'Opens with an honest, real-world observation from daily life or building experience, contrasts it with human reality or institutional friction, and concludes with a pragmatic, solution-first takeaway.',
+        pattern: 'Real-World Observation -> Human Reality Contrast -> Pragmatic Takeaway'
+      },
+      vocabulary: {
+        level: 'Everyday Plainspoken English (5th to 8th Grade)',
+        description: 'Crisp, accessible conversational words. Zero academic, think-tank, or corporate buzzwords. Concrete real-world nouns and grounded phrasing.',
+        favorite_idioms: ['talk of the town', 'in due course', 'down the line', 'whole equation', 'humbling reminder', 'pinch of salt', 'concrete problems', 'on the ground', 'at our level']
+      },
+      tone: {
+        stance: 'Pragmatic, Observant & Solution-Oriented',
+        description: 'Calm, constructive, and grounded. Balances healthy skepticism of hype with optimistic, hands-on building: solutions must be the focus, not endless theoretical debates.',
+        voice_adjectives: ['Thoughtful', 'Constructive', 'Unpretentious', 'Grounded', 'Human-Centered']
+      }
+    },
+    weekly_observations: [
+      {
+        period: 'October 2026 • Week 3',
+        summary: 'High-impact focus on practical builders and population-scale tools. Sentence length tight and disciplined.',
+        structure_growth: 'Clean separation between macro observations and immediate local builder agency.',
+        vocabulary_growth: 'Strong preference for direct idioms ("talk of the town", "in due course") over abstract technical jargon.',
+        tone_milestone: 'Established a signature constructive stance: recognizing complexity without succumbing to doom or hype.'
+      },
+      {
+        period: 'October 2026 • Week 2',
+        summary: 'Explored personal travel narratives across Kerala with sensory grounding and family observations.',
+        structure_growth: 'Mastered the gentle shift from external scenery (Munnar hills, Alleppey backwaters) to internal life priorities.',
+        vocabulary_growth: 'Natural conversational cadence; run-on clauses gracefully divided into evocative reflections.',
+        tone_milestone: 'Warm, philosophical voice emphasizing presence, relationships, and slowing down.'
+      },
+      {
+        period: 'October 2026 • Week 1',
+        summary: 'Initial exploration of creator identity and community building fundamentals.',
+        structure_growth: 'Posed sharp rhetorical questions exploring selfless collaboration versus monetized interest.',
+        vocabulary_growth: 'Identified core thematic vocabulary centered around trust, authentic craft, and peer connection.',
+        tone_milestone: 'Curious, probing, and deeply values-driven.'
+      }
+    ]
+  };
+}
+

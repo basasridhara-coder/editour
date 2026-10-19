@@ -4,8 +4,17 @@ const path = require('path');
 const SUPABASE_URL = 'https://fsuukgpizuipxxwatkbo.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZzdXVrZ3BpenVpcHh4d2F0a2JvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTExMzE4NjEsImV4cCI6MjEwNjcwNzg2MX0.NPnTDhGyiigPZIvror8JGqjCMVKuJ8OZaDN2pGuVfM8';
 
-function sendImageBuffer(res, buf) {
-  res.setHeader('Content-Type', 'image/png');
+function sendImageBuffer(res, buf, mimeType = 'image/png') {
+  if (buf && buf.length > 4) {
+    if (buf[0] === 0xFF && buf[1] === 0xD8 && buf[2] === 0xFF) {
+      mimeType = 'image/jpeg';
+    } else if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4E && buf[3] === 0x47) {
+      mimeType = 'image/png';
+    } else if (buf[0] === 0x52 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x46) {
+      mimeType = 'image/webp';
+    }
+  }
+  res.setHeader('Content-Type', mimeType);
   res.setHeader('Cache-Control', 'public, max-age=31536000, s-maxage=31536000, immutable');
   if (typeof res.send === 'function') {
     return res.status ? res.status(200).send(buf) : res.send(buf);
@@ -33,6 +42,7 @@ module.exports = async function handler(req, res) {
     }
 
     if (!id) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       if (res.status) return res.status(400).send('Missing poster id');
       res.statusCode = 400;
       return res.end('Missing poster id');
@@ -69,7 +79,7 @@ module.exports = async function handler(req, res) {
       const post = (row && (row.data || row)) || null;
 
       if (post) {
-        const rawB64 = post.illustrationBase64 || post.originalPhotoBase64;
+        const rawB64 = post.posterBase64 || post.illustrationBase64 || post.originalPhotoBase64;
         if (rawB64) {
           const cleanB64 = rawB64.replace(/^data:image\/[^;]+;base64,/, '');
           const buf = Buffer.from(cleanB64, 'base64');
@@ -78,11 +88,13 @@ module.exports = async function handler(req, res) {
       }
     }
 
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     if (res.status) return res.status(404).send('Poster image not found');
     res.statusCode = 404;
     return res.end('Poster image not found');
   } catch (err) {
     console.error('Poster endpoint error:', err);
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     if (res.status) return res.status(500).send('Error serving poster');
     res.statusCode = 500;
     return res.end('Error serving poster');
