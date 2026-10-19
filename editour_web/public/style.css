@@ -1547,6 +1547,100 @@ header {
   background: #FEE2E2;
 }
 
+/* Dedicated Source Anchor Card (Towards End of Summary) */
+.proof-source-anchor-card {
+  margin-top: 14px;
+  padding: 14px 16px;
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.proof-source-anchor-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  flex: 1;
+}
+
+.proof-source-anchor-badge {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  color: #64748B;
+  text-transform: uppercase;
+}
+
+.proof-source-anchor-host {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #0F172A;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.proof-source-anchor-url {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 11px;
+  color: #64748B;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.proof-source-anchor-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 15px;
+  background: #0F172A;
+  color: #FFFFFF !important;
+  border-radius: 8px;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+  transition: all 0.15s ease;
+}
+
+.proof-source-anchor-btn:hover {
+  background: #1E293B;
+  transform: translateY(-1px);
+}
+
+[data-theme="dark"] .proof-source-anchor-card {
+  background: #1E293B;
+  border-color: #334155;
+}
+
+[data-theme="dark"] .proof-source-anchor-host {
+  color: #F8FAFC;
+}
+
+[data-theme="dark"] .proof-source-anchor-url,
+[data-theme="dark"] .proof-source-anchor-badge {
+  color: #94A3B8;
+}
+
+[data-theme="dark"] .proof-source-anchor-btn {
+  background: #3B82F6;
+}
+
+[data-theme="dark"] .proof-source-anchor-btn:hover {
+  background: #2563EB;
+}
+
 /* Paper Cut Lightbox */
 .lightbox-img-wrap {
   width: 100%;

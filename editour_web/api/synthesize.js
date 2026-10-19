@@ -400,6 +400,23 @@ Respond strictly with valid JSON with this exact structure:
       }
     }
 
+    // Auto-generate sourceLedger if missing for digital or video sources
+    if (!sourceLedger && (url || extractedContent || extractedTitle) && (sourceType === 'digital_link' || sourceType === 'video_audio' || url)) {
+      try {
+        const ledgerModule = require('./ledger.js');
+        if (ledgerModule && typeof ledgerModule.generateLedger === 'function') {
+          sourceLedger = await ledgerModule.generateLedger(
+            extractedTitle || originalHeadline || '',
+            extractedContent || '',
+            url || '',
+            pubName || ''
+          );
+        }
+      } catch (lErr) {
+        console.warn('Backend auto-ledger generation notice:', lErr.message);
+      }
+    }
+
     // 2. Build Prompt for Gemini 3.8 Flash
     const toneDescription = slantTone === 'heart'
       ? 'Out of Heart: Deeply reflective, philosophical, emotive, humanistic, and conviction-driven.'

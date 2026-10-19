@@ -3286,8 +3286,8 @@ function getCleanDomain(link) {
 function getYouTubeEmbedUrl(url) {
   if (!url) return null;
   const str = String(url).trim();
-  // Matches youtube.com/shorts/ID, youtube.com/watch?v=ID, youtu.be/ID, youtube.com/embed/ID, etc.
-  const m = str.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|shorts\/))([\w-]{11})/i);
+  // Matches youtube.com/shorts/ID, youtube.com/live/ID, youtube.com/watch?v=ID, youtu.be/ID, etc.
+  const m = str.match(/(?:youtu\.be\/|(?:www\.|m\.)?youtube(?:-nocookie)?\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|shorts\/|live\/))([\w-]{11})/i);
   return (m && m[1]) ? `https://www.youtube.com/embed/${m[1]}` : null;
 }
 
@@ -4384,6 +4384,145 @@ document.addEventListener('click', (e) => {
    MODALS & ACTIONS
    ============================================================ */
 
+function cleanSourceExcerpt(txt) {
+  if (!txt) return '';
+  return String(txt)
+    .replace(/^(the spark|curator stance|paragraph \d+)\s*:\s*["']?/i, '')
+    .replace(/["']?$/i, '')
+    .trim();
+}
+
+function cleanSourceParagraphs(rawText) {
+  if (!rawText) return [];
+  return String(rawText)
+    .split(/\n\s*\n/)
+    .map(p => p.trim())
+    .filter(p => p.length > 25 && !p.toLowerCase().includes('cookie') && !p.toLowerCase().includes('all rights reserved'))
+    .slice(0, 4);
+}
+
+function renderProofSummarySections(post, ledger) {
+  let paragraphsHtml = '';
+
+  if (ledger) {
+    // Section 1: Subject & Central Thesis
+    let thesisText = '';
+    let contextText = '';
+    if (ledger.subject_and_thesis && typeof ledger.subject_and_thesis === 'object') {
+      contextText = cleanSourceExcerpt(ledger.subject_and_thesis.context || '');
+      thesisText = cleanSourceExcerpt(ledger.subject_and_thesis.thesis || '');
+    } else if (ledger.subject_and_thesis) {
+      thesisText = cleanSourceExcerpt(String(ledger.subject_and_thesis));
+    }
+
+    if (thesisText || contextText) {
+      paragraphsHtml += `
+        <div class="unbiased-summary-section">
+          <div class="unbiased-section-label">
+            <span>🎯</span> § 1 • SUBJECT & CENTRAL THESIS
+          </div>
+          <p class="unbiased-text">
+            ${contextText ? `<strong>${escapeHtml(contextText)}</strong> ` : ''}${escapeHtml(thesisText)}
+          </p>
+        </div>
+      `;
+    }
+
+    // Section 2: Core Claims & Verified Evidence
+    const ledgerClaims = Array.isArray(ledger.core_claims_and_evidence) ? ledger.core_claims_and_evidence : [];
+    if (ledgerClaims.length > 0) {
+      paragraphsHtml += `
+        <div class="unbiased-summary-section">
+          <div class="unbiased-section-label">
+            <span>📊</span> § 2 • CORE CLAIMS & EVIDENCE
+          </div>
+          <div class="unbiased-claims-list">
+            ${ledgerClaims.map((claim, idx) => {
+              let title = '';
+              let evidence = '';
+              if (claim && typeof claim === 'object') {
+                title = claim.title || '';
+                evidence = claim.evidence || claim.text || '';
+              } else {
+                const str = String(claim || '');
+                const colonIdx = str.indexOf(':');
+                if (colonIdx > 0 && colonIdx < 45) {
+                  title = str.slice(0, colonIdx).trim();
+                  evidence = str.slice(colonIdx + 1).trim();
+                } else {
+                  evidence = str;
+                }
+              }
+              return `
+                <div class="unbiased-claim-item">
+                  <span class="claim-bullet">▪</span>
+                  <div class="claim-content">
+                    ${title ? `<strong>${escapeHtml(title)}:</strong> ` : ''}${escapeHtml(evidence)}
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    // Section 3: Central Conflict & Trade-offs
+    let tensionText = '';
+    let counterQuestions = '';
+    if (ledger.underlying_tensions && typeof ledger.underlying_tensions === 'object') {
+      tensionText = cleanSourceExcerpt([ledger.underlying_tensions.primary_conflict, ledger.underlying_tensions.tradeoffs].filter(Boolean).join(' '));
+      counterQuestions = cleanSourceExcerpt(ledger.underlying_tensions.counter_questions || '');
+    } else if (ledger.underlying_tensions) {
+      tensionText = cleanSourceExcerpt(String(ledger.underlying_tensions));
+    }
+
+    if (tensionText || counterQuestions) {
+      paragraphsHtml += `
+        <div class="unbiased-summary-section">
+          <div class="unbiased-section-label">
+            <span>⚖️</span> § 3 • CENTRAL CONFLICT & TRADE-OFFS
+          </div>
+          ${tensionText ? `<p class="unbiased-text">${escapeHtml(tensionText)}</p>` : ''}
+          ${counterQuestions ? `
+            <div style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed rgba(203, 213, 225, 0.6); font-family: 'Merriweather', Georgia, serif; font-size: 11.5px; color: #475569; font-style: italic;">
+              ❓ ${escapeHtml(counterQuestions)}
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }
+  } else {
+    // Pure source context fallback (Strictly NO curator broadsheet essay!)
+    const rawSourceText = post.sourceContext || post.generationInputs?.scrapedContent || post.newsExcerpt || '';
+    const sourceParas = cleanSourceParagraphs(rawSourceText);
+
+    if (sourceParas.length > 0) {
+      paragraphsHtml += `
+        <div class="unbiased-summary-section">
+          <div class="unbiased-section-label">
+            <span>📰</span> PRIMARY SOURCE RECORD
+          </div>
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            ${sourceParas.map(p => `<p class="unbiased-text">${escapeHtml(cleanSourceExcerpt(p))}</p>`).join('')}
+          </div>
+        </div>
+      `;
+    } else {
+      paragraphsHtml += `
+        <div class="unbiased-summary-section" style="padding: 16px; background: rgba(99, 102, 241, 0.05); border-radius: 8px;">
+          <div style="display:flex; align-items:center; gap:10px; color: #6366F1; font-weight:700; font-size:13px;">
+            <div class="ledger-loading-spinner" style="width:16px; height:16px; border:2px solid #6366F1; border-top-color:transparent; border-radius:50%; animation:spin 0.8s linear infinite;"></div>
+            <span>Analyzing primary source to generate objective summary...</span>
+          </div>
+        </div>
+      `;
+    }
+  }
+
+  return paragraphsHtml || '<div class="unbiased-summary-section"><p class="unbiased-text">Original source text confirmed by archival records.</p></div>';
+}
+
 function openDetailModal(index) {
   if (index === 'preview') return;
   // Guard against accidental opening while scrolling the Slant Minute broadsheet or swiping
@@ -4402,9 +4541,10 @@ function openDetailModal(index) {
     return;
   }
 
-  const cleanHost = getCleanDomain(post.digitalLink || post.videoUrl || '');
+  const rawLink = post.digitalLink || post.videoUrl || post.sourceUrl || post.webUrl || post.generationInputs?.sourceUrl || '';
+  const cleanHost = getCleanDomain(rawLink);
   const handle = escapeHtml(post.creatorHandle || '@curator');
-  const ledger = post.sourceLedger || post.generationInputs?.sourceLedger;
+  let ledger = post.sourceLedger || post.generationInputs?.sourceLedger;
 
   // 1. Stars Badge (Top Banner)
   const starsBadge = document.getElementById('proofStarsBadge');
@@ -4470,11 +4610,10 @@ function openDetailModal(index) {
   const stampContainer = document.getElementById('proofStampContainer');
   if (stampContainer) stampContainer.innerHTML = '';
 
-  // 3. Video Embed & Paper Cut Sections
-  const videoUrl = post.videoUrl || post.digitalLink || '';
-  const ytEmbed = getYouTubeEmbedUrl(videoUrl);
-  const vimeoEmbed = getVimeoEmbedUrl(videoUrl);
-  const isVideo = !!ytEmbed || !!vimeoEmbed || post.sourceType === 'youtube' || post.sourceType === 'video' || !!post.videoUrl || (videoUrl && /\.(mp4|webm|mov)(\?.*)?$/i.test(videoUrl));
+  // 3. Video Embed & Paper Cut Sections (TOP)
+  const ytEmbed = getYouTubeEmbedUrl(rawLink);
+  const vimeoEmbed = getVimeoEmbedUrl(rawLink);
+  const isVideo = !!ytEmbed || !!vimeoEmbed || post.sourceType === 'youtube' || post.sourceType === 'video' || post.sourceType === 'video_audio' || !!post.videoUrl || (rawLink && /\.(mp4|webm|mov)(\?.*)?$/i.test(rawLink));
 
   const hasPaper = !isVideo && (post.sourceType === 'photo' 
     || !!post.paperCutImage 
@@ -4509,16 +4648,16 @@ function openDetailModal(index) {
             allowfullscreen>
           </iframe>
         `;
-      } else if (videoUrl && /\.(mp4|webm|mov)(\?.*)?$/i.test(videoUrl) && videoEmbedWrap) {
+      } else if (rawLink && /\.(mp4|webm|mov)(\?.*)?$/i.test(rawLink) && videoEmbedWrap) {
         videoEmbedWrap.innerHTML = `
-          <video src="${escapeHtml(videoUrl)}" controls playsinline style="width:100%; height:100%; max-height:480px; background:#000; border-radius:6px;"></video>
+          <video src="${escapeHtml(rawLink)}" controls playsinline style="width:100%; height:100%; max-height:480px; background:#000; border-radius:6px;"></video>
         `;
       } else if (videoEmbedWrap) {
         videoEmbedWrap.innerHTML = `
           <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:160px; color:#CBD5E1; text-align:center; padding:16px;">
             <span style="font-size:30px; margin-bottom:6px;">▶</span>
             <span style="font-weight:700;">Broadcast / Video Source</span>
-            <a href="${escapeHtml(videoUrl)}" target="_blank" rel="noopener noreferrer" style="margin-top:6px; color:#818CF8; text-decoration:underline; font-size:12px;">Watch on host platform &nearr;</a>
+            <a href="${escapeHtml(rawLink)}" target="_blank" rel="noopener noreferrer" style="margin-top:6px; color:#818CF8; text-decoration:underline; font-size:12px;">Watch on host platform &nearr;</a>
           </div>
         `;
       }
@@ -4561,161 +4700,64 @@ function openDetailModal(index) {
     }
   }
 
-  // 4. Primary Unbiased 1-Minute Read Sections
-  const cleanExcerpt = (txt) => {
-    if (!txt) return '';
-    return String(txt)
-      .replace(/^(the spark|curator stance|paragraph \d+)\s*:\s*["']?/i, '')
-      .replace(/["']?$/i, '')
-      .trim();
-  };
-
-  let excerpts = post.resolvedArticleExcerpts || post.articleExcerpts || [];
-  if (!Array.isArray(excerpts) || excerpts.length === 0) {
-    if (post.summary) {
-      excerpts = post.summary.split(/\n\s*\n/).map(p => p.trim()).filter(p => p.length > 20);
-    }
-  }
-  if (excerpts.length === 0 && post.spark) {
-    excerpts = [post.spark];
-  }
-
+  // 4. Primary Unbiased 1-Minute Read Sections (Pure Source Summary)
   const proofParagraphsEl = document.getElementById('proofParagraphs');
+  const readTimeEl = document.getElementById('proofReadTime');
+
   if (proofParagraphsEl) {
-    let paragraphsHtml = '';
-
-    if (ledger) {
-      // Section 1: Subject & Central Thesis
-      let thesisText = '';
-      let contextText = '';
-      if (ledger.subject_and_thesis && typeof ledger.subject_and_thesis === 'object') {
-        contextText = cleanExcerpt(ledger.subject_and_thesis.context || '');
-        thesisText = cleanExcerpt(ledger.subject_and_thesis.thesis || '');
-      } else if (ledger.subject_and_thesis) {
-        thesisText = cleanExcerpt(String(ledger.subject_and_thesis));
-      }
-
-      if (thesisText || contextText) {
-        paragraphsHtml += `
-          <div class="unbiased-summary-section">
-            <div class="unbiased-section-label">
-              <span>🎯</span> § 1 • SUBJECT & CENTRAL THESIS
-            </div>
-            <p class="unbiased-text">
-              ${contextText ? `<strong>${escapeHtml(contextText)}</strong> ` : ''}${escapeHtml(thesisText)}
-            </p>
-          </div>
-        `;
-      }
-
-      // Section 2: Core Claims & Verified Evidence
-      const ledgerClaims = Array.isArray(ledger.core_claims_and_evidence) ? ledger.core_claims_and_evidence : [];
-      if (ledgerClaims.length > 0) {
-        paragraphsHtml += `
-          <div class="unbiased-summary-section">
-            <div class="unbiased-section-label">
-              <span>📊</span> § 2 • CORE CLAIMS & EVIDENCE
-            </div>
-            <div class="unbiased-claims-list">
-              ${ledgerClaims.map((claim, idx) => {
-                let title = '';
-                let evidence = '';
-                if (claim && typeof claim === 'object') {
-                  title = claim.title || '';
-                  evidence = claim.evidence || claim.text || '';
-                } else {
-                  const str = String(claim || '');
-                  const colonIdx = str.indexOf(':');
-                  if (colonIdx > 0 && colonIdx < 45) {
-                    title = str.slice(0, colonIdx).trim();
-                    evidence = str.slice(colonIdx + 1).trim();
-                  } else {
-                    evidence = str;
-                  }
-                }
-                return `
-                  <div class="unbiased-claim-item">
-                    <span class="claim-bullet">▪</span>
-                    <div class="claim-content">
-                      ${title ? `<strong>${escapeHtml(title)}:</strong> ` : ''}${escapeHtml(evidence)}
-                    </div>
-                  </div>
-                `;
-              }).join('')}
-            </div>
-          </div>
-        `;
-      }
-
-      // Section 3: Central Conflict & Trade-offs
-      let tensionText = '';
-      let counterQuestions = '';
-      if (ledger.underlying_tensions && typeof ledger.underlying_tensions === 'object') {
-        tensionText = cleanExcerpt([ledger.underlying_tensions.primary_conflict, ledger.underlying_tensions.tradeoffs].filter(Boolean).join(' '));
-        counterQuestions = cleanExcerpt(ledger.underlying_tensions.counter_questions || '');
-      } else if (ledger.underlying_tensions) {
-        tensionText = cleanExcerpt(String(ledger.underlying_tensions));
-      }
-
-      if (tensionText || counterQuestions) {
-        paragraphsHtml += `
-          <div class="unbiased-summary-section">
-            <div class="unbiased-section-label">
-              <span>⚖️</span> § 3 • CENTRAL CONFLICT & TRADE-OFFS
-            </div>
-            ${tensionText ? `<p class="unbiased-text">${escapeHtml(tensionText)}</p>` : ''}
-            ${counterQuestions ? `
-              <div style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed rgba(203, 213, 225, 0.6); font-family: 'Merriweather', Georgia, serif; font-size: 11.5px; color: #475569; font-style: italic;">
-                ❓ ${escapeHtml(counterQuestions)}
-              </div>
-            ` : ''}
-          </div>
-        `;
-      }
-    } else {
-      // Clean fallback for older posts
-      if (excerpts.length > 0) {
-        paragraphsHtml += `
-          <div class="unbiased-summary-section">
-            <div class="unbiased-section-label">
-              <span>📰</span> PRIMARY REPORTING RECORD
-            </div>
-            <div style="display:flex; flex-direction:column; gap:8px;">
-              ${excerpts.map((exc, pIdx) => `<p class="unbiased-text">${escapeHtml(cleanExcerpt(exc))}</p>`).join('')}
-            </div>
-          </div>
-        `;
-      }
-
-      const quote = post.receiptHighlightQuote || post.pullQuote;
-      if (quote && cleanExcerpt(quote)) {
-        paragraphsHtml += `
-          <div class="unbiased-summary-section" style="border-left: 3px solid #B45309;">
-            <div class="unbiased-section-label"><span>✏️</span> PRIMARY QUOTE</div>
-            <p class="unbiased-text" style="font-style: italic;">“${escapeHtml(cleanExcerpt(quote))}”</p>
-          </div>
-        `;
-      }
-
-      if (post.whyItMatters && String(post.whyItMatters).trim()) {
-        paragraphsHtml += `
-          <div class="unbiased-summary-section">
-            <div class="unbiased-section-label"><span>🔍</span> CORROBORATING CONTEXT</div>
-            <p class="unbiased-text">${escapeHtml(String(post.whyItMatters).trim())}</p>
-          </div>
-        `;
-      }
-    }
-
-    proofParagraphsEl.innerHTML = paragraphsHtml || '<div class="unbiased-summary-section"><p class="unbiased-text">Original source text confirmed by archival records.</p></div>';
+    proofParagraphsEl.innerHTML = renderProofSummarySections(post, ledger);
 
     // Word count & read time indicator
     const rawText = proofParagraphsEl.innerText || proofParagraphsEl.textContent || '';
     const wordCount = rawText.trim().split(/\s+/).filter(Boolean).length;
-    const readTimeEl = document.getElementById('proofReadTime');
     if (readTimeEl) {
       readTimeEl.textContent = `⏱️ 1-MIN READ (${wordCount} words)`;
     }
+  }
+
+  // Asynchronous on-demand ledger fetch if missing
+  if (!ledger && rawLink && !post._isFetchingLedger) {
+    post._isFetchingLedger = true;
+    fetch('/api/ledger', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        url: rawLink,
+        title: post.originalHeadline || post.adaptedHeadline || '',
+        content: post.sourceContext || post.generationInputs?.scrapedContent || '',
+        siteName: cleanHost || pubName
+      })
+    })
+      .then(r => r.json())
+      .then(data => {
+        post._isFetchingLedger = false;
+        if (data && data.success && data.ledger) {
+          post.sourceLedger = data.ledger;
+          if (post.generationInputs) post.generationInputs.sourceLedger = data.ledger;
+
+          if (activePostIndex === index) {
+            if (starsBadge) {
+              const starsCount = Math.min(3, Math.max(1, Number(data.ledger.stars || data.ledger.completeness_score || 3)));
+              const starsHtml = '★'.repeat(starsCount) + '☆'.repeat(3 - starsCount);
+              const label = data.ledger.stars_label || (starsCount === 3 ? '3/3 High Substance Anchor' : `${starsCount}/3 Anchor`);
+              starsBadge.innerHTML = `<span>${starsHtml}</span> <span>${escapeHtml(label)}</span>`;
+              starsBadge.style.display = 'inline-flex';
+            }
+            if (proofParagraphsEl) {
+              proofParagraphsEl.innerHTML = renderProofSummarySections(post, data.ledger);
+              const rawText = proofParagraphsEl.innerText || proofParagraphsEl.textContent || '';
+              const wordCount = rawText.trim().split(/\s+/).filter(Boolean).length;
+              if (readTimeEl) {
+                readTimeEl.textContent = `⏱️ 1-MIN READ (${wordCount} words)`;
+              }
+            }
+          }
+        }
+      })
+      .catch(err => {
+        post._isFetchingLedger = false;
+        console.warn('On-demand ledger fetch notice:', err.message);
+      });
   }
 
   // 5. Recorded Metric (Optional)
@@ -4730,7 +4772,23 @@ function openDetailModal(index) {
     }
   }
 
-  // 6. Actions & Footer
+  // 6. Actual Source Link Towards End
+  const sourceAnchorCard = document.getElementById('proofSourceAnchorCard');
+  if (sourceAnchorCard) {
+    if (rawLink && !rawLink.startsWith('blob:') && !rawLink.startsWith('data:')) {
+      sourceAnchorCard.style.display = 'flex';
+      const hostEl = document.getElementById('proofSourceAnchorHost');
+      if (hostEl) hostEl.textContent = (cleanHost || pubName).toUpperCase();
+      const urlEl = document.getElementById('proofSourceAnchorUrl');
+      if (urlEl) urlEl.textContent = rawLink;
+      const btnEl = document.getElementById('proofSourceAnchorBtn');
+      if (btnEl) btnEl.href = rawLink;
+    } else {
+      sourceAnchorCard.style.display = 'none';
+    }
+  }
+
+  // 7. Footer Actions
   const archivedByEl = document.getElementById('proofArchivedBy');
   if (archivedByEl) {
     archivedByEl.textContent = `Archived by ${handle}`;
@@ -4738,7 +4796,6 @@ function openDetailModal(index) {
 
   const extLink = document.getElementById('proofExternalLink');
   if (extLink) {
-    const rawLink = post.digitalLink || post.videoUrl || '';
     if (rawLink && !rawLink.startsWith('blob:') && !rawLink.startsWith('data:')) {
       extLink.href = rawLink;
       extLink.innerHTML = '<span>🌐 Open Original Source &nearr;</span>';
@@ -4758,6 +4815,8 @@ function closeDetailModal() {
   document.getElementById('detailModal').classList.remove('open');
   const videoEmbed = document.getElementById('proofVideoEmbedWrap');
   if (videoEmbed) videoEmbed.innerHTML = '';
+  const sourceAnchorCard = document.getElementById('proofSourceAnchorCard');
+  if (sourceAnchorCard) sourceAnchorCard.style.display = 'none';
   history.pushState(null, '', window.location.pathname);
   activePostIndex = null;
 }

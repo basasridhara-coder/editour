@@ -27,7 +27,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Merriweather:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,400;1,600;1,700;1,900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261019_1545">
+  <link rel="stylesheet" href="style.css?v=20261019_1600">
   <!-- Favicon & Brand Icons -->
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
@@ -974,7 +974,15 @@
 
       <!-- Primary Source Proof Content (Clean 1-Min Read Summary) -->
       <div class="proof-body-content">
-        <!-- 1. Paper Cut (Hidden in 1-min summary view so reading is uninterrupted) -->
+        <!-- 1. Video Player (TOP) -->
+        <div id="proofVideoSection" style="display:none;">
+          <div class="proof-video-card">
+            <div class="proof-video-badge">🎬 AUTHENTIC BROADCAST / SOURCE VIDEO</div>
+            <div id="proofVideoEmbedWrap" class="proof-video-embed-wrap"></div>
+          </div>
+        </div>
+
+        <!-- 2. Paper Cut (Physical print clipping) -->
         <div id="proofPaperCutSection" style="display:none;">
           <div class="proof-clipping-card">
             <div class="proof-clipping-badge">📰 PHYSICAL NEWSPAPER CLIPPING AS-IS</div>
@@ -982,13 +990,6 @@
               <img id="proofPaperCutImg" src="" alt="Physical Newspaper Clipping" class="proof-clipping-img">
             </div>
             <div class="proof-clipping-sub">Tap image to zoom physical print clipping</div>
-          </div>
-        </div>
-
-        <!-- 2. Video Player (Hidden in 1-min summary view so reading is uninterrupted) -->
-        <div id="proofVideoSection" style="display:none;">
-          <div class="proof-video-card">
-            <div id="proofVideoEmbedWrap" class="proof-video-embed-wrap"></div>
           </div>
         </div>
 
@@ -1001,6 +1002,18 @@
         <div id="proofMetricRow" class="receipt-metric-row" style="display:none; margin: 8px 0;">
           <span class="receipt-metric-badge">RECORDED METRIC</span>
           <span class="receipt-metric-val" id="proofMetricVal"></span>
+        </div>
+
+        <!-- 5. Actual Source Link Towards End -->
+        <div id="proofSourceAnchorCard" class="proof-source-anchor-card" style="display:none;">
+          <div class="proof-source-anchor-info">
+            <span class="proof-source-anchor-badge">🌐 PRIMARY SOURCE RECORD</span>
+            <span class="proof-source-anchor-host" id="proofSourceAnchorHost">Source Link</span>
+            <span class="proof-source-anchor-url" id="proofSourceAnchorUrl">https://...</span>
+          </div>
+          <a id="proofSourceAnchorBtn" href="#" target="_blank" rel="noopener noreferrer" class="proof-source-anchor-btn">
+            <span>Open Source &nearr;</span>
+          </a>
         </div>
       </div>
 
@@ -1556,6 +1569,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261019_1545"></script>
+  <script src="app.js?v=20261019_1600"></script>
 </body>
 </html>
