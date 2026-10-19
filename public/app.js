@@ -6160,14 +6160,19 @@ async function polishUserTake() {
     let highlightedHtml = '';
     let corrections = [];
     let counts = { spelling: 0, grammar: 0, punctuation: 0, phrasing: 0, total: 0 };
+    let reviewSuccessful = false;
+    let serverError = '';
 
     if (resp.ok) {
       const data = await resp.json();
-      if (data && data.polished) {
-        polished = data.polished;
+      if (data && data.success !== false && (data.polished || data.highlightedHtml)) {
+        reviewSuccessful = true;
+        polished = data.polished || '';
         highlightedHtml = data.highlightedHtml || '';
         corrections = Array.isArray(data.corrections) ? data.corrections : [];
         if (data.counts) counts = data.counts;
+      } else if (data && data.error) {
+        serverError = data.error;
       }
     }
 
@@ -6187,12 +6192,20 @@ async function polishUserTake() {
     const countPunctEl = document.getElementById('countPunctuation');
     const countPhraseEl = document.getElementById('countPhrasing');
     const countTotalEl = document.getElementById('polishTotalCorrectionsCount');
+    const fidelityBadge = document.getElementById('reviewFidelityBadge');
 
     if (countSpellEl) countSpellEl.textContent = counts.spelling;
     if (countGramEl) countGramEl.textContent = counts.grammar;
     if (countPunctEl) countPunctEl.textContent = counts.punctuation;
     if (countPhraseEl) countPhraseEl.textContent = counts.phrasing;
     if (countTotalEl) countTotalEl.textContent = counts.total;
+    if (fidelityBadge) {
+      if (counts.total > 0) {
+        fidelityBadge.textContent = `${counts.total} Notes • 100% Your Voice`;
+      } else {
+        fidelityBadge.textContent = '100% Your Voice';
+      }
+    }
 
     // Reset toggle buttons
     const btnHighlight = document.getElementById('reviewToggleHighlighted');
@@ -6210,7 +6223,16 @@ async function polishUserTake() {
       reviewCard.style.display = 'flex';
       reviewCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
-    showTemporaryToast(`✨ Review ready with ${counts.total} coaching notes. Tap any highlighted word!`);
+
+    if (reviewSuccessful) {
+      if (counts.total > 0) {
+        showTemporaryToast(`✨ Review ready with ${counts.total} coaching notes. Tap any highlighted word!`);
+      } else {
+        showTemporaryToast('✨ Great job! Your text reads naturally and is free of errors.');
+      }
+    } else if (serverError) {
+      showTemporaryToast(`⚠️ ${serverError}`);
+    }
   } catch (err) {
     console.warn('Polish take error, using client-side formatting:', err);
     const polished = formatCuratorTakeApt(rawText);
@@ -6222,6 +6244,7 @@ async function polishUserTake() {
       reviewCard.style.display = 'flex';
       reviewCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
+    showTemporaryToast('⚠️ Review service connection issue. Please tap Review again.');
   } finally {
     if (btn) {
       btn.disabled = false;

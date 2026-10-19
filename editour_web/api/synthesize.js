@@ -164,7 +164,7 @@ Your job is to polish their text into grammatically correct, natural, and apt En
   * "phrasing": Smoother idioms, natural word order, removing clunky transitions while preserving exact thought.
 - STRICT RULE 6 (MARKED-UP HTML): In "highlightedHtml", wrap each corrected word or phrase in:
   <mark class="polish-mark polish-type-[CATEGORY]" data-type="[CATEGORY]" data-original="[EXACT_OLD_TEXT]" data-reason="[CONCISE_REASON]">[NEW_TEXT]</mark>
-  Unchanged text remains plain text. Ensure the HTML is valid and safe.
+  Unchanged text remains plain text. Ensure the HTML is valid.
 
 Author's Raw Take:
 """${rawText}"""
@@ -172,20 +172,12 @@ Author's Raw Take:
 Respond strictly with valid JSON with this exact structure:
 {
   "polished": "full polished text string without any tags",
-  "highlightedHtml": "full text string with <mark> tags wrapping every correction",
-  "corrections": [
-    {
-      "original": "old text",
-      "replacement": "new text",
-      "type": "spelling|grammar|punctuation|phrasing",
-      "reason": "concise explanation of why this was corrected"
-    }
-  ]
+  "highlightedHtml": "full text string with <mark> tags wrapping every correction"
 }`;
 
         const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 12000);
+        const timeout = setTimeout(() => controller.abort(), 35000);
 
         const geminiResp = await fetch(geminiUrl, {
           method: 'POST',
@@ -210,14 +202,32 @@ Respond strictly with valid JSON with this exact structure:
             parsed = JSON.parse(candidate);
           } catch (_) {}
 
-          if (parsed && parsed.polished) {
-            const rawCorrections = Array.isArray(parsed.corrections) ? parsed.corrections : [];
-            const corrections = rawCorrections.map(c => ({
-              original: String(c.original || ''),
-              replacement: String(c.replacement || ''),
-              type: ['spelling', 'grammar', 'punctuation', 'phrasing'].includes(c.type) ? c.type : 'phrasing',
-              reason: String(c.reason || 'Improved phrasing and flow')
-            }));
+          if (parsed && (parsed.polished || parsed.highlightedHtml)) {
+            let highlightedHtml = String(parsed.highlightedHtml || parsed.polished || '').trim();
+            highlightedHtml = highlightedHtml.replace(/\s*([\u2014\u2013\u2015]|--)\s*/g, ', ');
+            const rawPolished = String(parsed.polished || highlightedHtml.replace(/<[^>]+>/g, '')).trim();
+            const cleanPolished = formatCuratorTakeApt(rawPolished);
+
+            let corrections = [];
+            if (Array.isArray(parsed.corrections) && parsed.corrections.length > 0) {
+              corrections = parsed.corrections.map(c => ({
+                original: String(c.original || ''),
+                replacement: String(c.replacement || ''),
+                type: ['spelling', 'grammar', 'punctuation', 'phrasing'].includes(c.type) ? c.type : 'phrasing',
+                reason: String(c.reason || 'Improved phrasing and flow')
+              }));
+            } else {
+              const markRegex = /<mark\s+[^>]*?data-type="([^"]*)"[^>]*?data-original="([^"]*)"[^>]*?data-reason="([^"]*)"[^>]*>([\s\S]*?)<\/mark>/gi;
+              let match;
+              while ((match = markRegex.exec(highlightedHtml)) !== null) {
+                corrections.push({
+                  type: ['spelling', 'grammar', 'punctuation', 'phrasing'].includes(match[1]) ? match[1] : 'phrasing',
+                  original: String(match[2] || ''),
+                  reason: String(match[3] || 'Improved phrasing and flow'),
+                  replacement: String(match[4] || '')
+                });
+              }
+            }
 
             const counts = {
               spelling: corrections.filter(c => c.type === 'spelling').length,
@@ -230,20 +240,30 @@ Respond strictly with valid JSON with this exact structure:
             return res.status(200).json({
               success: true,
               original: rawText,
-              polished: formatCuratorTakeApt(parsed.polished),
-              highlightedHtml: parsed.highlightedHtml || '',
+              polished: cleanPolished,
+              highlightedHtml: highlightedHtml,
               corrections,
               counts
             });
           }
         }
       } catch (err) {
-        console.warn('Gemini copy-edit notice, falling back to rule-based polish:', err.message);
+        console.warn('Gemini copy-edit notice:', err.message);
+        return res.status(200).json({
+          success: false,
+          error: err.name === 'AbortError' ? 'Review took too long to complete. Please tap Review again.' : (err.message || 'AI review service unavailable'),
+          original: rawText,
+          polished: baselinePolished,
+          highlightedHtml: baselinePolished,
+          corrections: [],
+          counts: { spelling: 0, grammar: 0, punctuation: 0, phrasing: 0, total: 0 }
+        });
       }
 
-      // Graceful fallback to rule-based polish
+      // Graceful fallback to rule-based polish if parsing failed
       return res.status(200).json({
-        success: true,
+        success: false,
+        error: 'Unable to parse AI review response. Please try again.',
         original: rawText,
         polished: baselinePolished,
         highlightedHtml: baselinePolished,
