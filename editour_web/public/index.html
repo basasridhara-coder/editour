@@ -27,7 +27,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Merriweather:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,400;1,600;1,700;1,900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261019_2235">
+  <link rel="stylesheet" href="style.css?v=20261019_2335">
   <!-- Favicon & Brand Icons -->
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
@@ -825,7 +825,7 @@
       <div class="edit-slide-tabs">
         <button type="button" class="edit-tab-btn active" id="editTab0" onclick="switchEditModalTab(0)">Slide 1: Hook</button>
         <button type="button" class="edit-tab-btn" id="editTab1" onclick="switchEditModalTab(1)">Slide 2: Take</button>
-        <button type="button" class="edit-tab-btn" id="editTab2" onclick="switchEditModalTab(2)">Slide 3: Receipts 🔒</button>
+        <button type="button" class="edit-tab-btn" id="editTab2" onclick="switchEditModalTab(2)">Slide 3: Broadsheet & Essay ✏️</button>
       </div>
 
       <div class="edit-modal-scrollable">
@@ -866,6 +866,13 @@
               </button>
             </div>
           </div>
+          <div class="edit-tab-action-row">
+            <button type="button" class="slant-polish-action-btn edit-slide-polish-btn" id="editSlide0ReviewBtn" onclick="reviewActiveTabChanges(0)">
+              <span class="btn-spark-icon">✨</span>
+              <span class="btn-text">Review Slide 1 Phrasing</span>
+            </button>
+            <span class="slant-take-hint">Grammar & phrasing check • Preserves 100% your voice</span>
+          </div>
         </div>
 
         <!-- Tab Content 1: Slide 2: Take -->
@@ -886,53 +893,132 @@
             <label class="edit-field-label">Key Metric / Stat (Optional)</label>
             <input type="text" id="editModalMetric" class="edit-field-input" placeholder="e.g. 84% unaddressed cases">
           </div>
+          <div class="edit-tab-action-row">
+            <button type="button" class="slant-polish-action-btn edit-slide-polish-btn" id="editSlide1ReviewBtn" onclick="reviewActiveTabChanges(1)">
+              <span class="btn-spark-icon">✨</span>
+              <span class="btn-text">Review Slide 2 Phrasing</span>
+            </button>
+            <span class="slant-take-hint">Grammar & phrasing check • Preserves 100% your voice</span>
+          </div>
         </div>
 
-        <!-- Tab Content 2: Slide 3: Receipts / Inner Voice -->
+        <!-- Tab Content 2: Slide 3: Broadsheet & Essay -->
         <div class="edit-tab-pane" id="editTabPane2" style="display:none;">
-          <!-- If Web / Press: Immutable Receipts Notice -->
-          <div class="edit-immutable-receipts-card" id="editReceiptsImmutableCard">
-            <div class="immutable-receipts-header">
-              <span class="immutable-icon">🔒</span>
-              <span class="immutable-title">Direct from source — immutable</span>
+          <div class="edit-form-group">
+            <label class="edit-field-label">Broadsheet Headline / Topic</label>
+            <input type="text" id="editModalS3Headline" class="edit-field-input" placeholder="Broadsheet headline">
+          </div>
+          <div class="edit-form-group">
+            <label class="edit-field-label">Core Highlight Quote / Key Point</label>
+            <textarea id="editModalS3Quote" class="edit-field-textarea" rows="2" placeholder="Core highlight quote..."></textarea>
+          </div>
+          <div class="edit-form-group">
+            <label class="edit-field-label">Detailed Analysis / Broadsheet Essay</label>
+            <textarea id="editModalS3Observation" class="edit-field-textarea" rows="5" placeholder="Detailed broadsheet analysis essay paragraphs..."></textarea>
+          </div>
+          <div class="edit-form-group">
+            <label class="edit-field-label">Concluding Reflection / Takeaway</label>
+            <textarea id="editModalS3Reflection" class="edit-field-textarea" rows="2" placeholder="Concluding reflection..."></textarea>
+          </div>
+          <div class="edit-tab-action-row">
+            <button type="button" class="slant-polish-action-btn edit-slide-polish-btn" id="editSlide2ReviewBtn" onclick="reviewActiveTabChanges(2)">
+              <span class="btn-spark-icon">✨</span>
+              <span class="btn-text">Review Slide 3 Phrasing</span>
+            </button>
+            <span class="slant-take-hint">Grammar & phrasing check • Preserves 100% your voice</span>
+          </div>
+        </div>
+
+        <!-- Review & Coaching Card for Edits across all 3 slides -->
+        <div class="slant-polish-review-card" id="editModalReviewCard" style="display: none;">
+          <div class="review-card-header">
+            <div class="review-card-title-wrap">
+              <span class="review-sparkle">✨</span>
+              <span class="review-title" id="editModalReviewTitle">COACHING & POLISHED EDITS</span>
             </div>
-            <p class="immutable-desc">
-              Slide 3 contains verbatim primary source reporting and receipts. To maintain journalistic authenticity and reader trust, verbatim broadsheet excerpts cannot be edited.
-            </p>
-            <div class="immutable-preview-block">
-              <div class="immutable-masthead" id="editReceiptsMasthead"></div>
-              <div class="immutable-headline" id="editReceiptsHeadline"></div>
-              <div class="immutable-quotes" id="editReceiptsQuotes"></div>
+            <div class="review-header-right">
+              <div class="review-view-toggles">
+                <button type="button" class="review-toggle-btn active" id="editReviewToggleHighlighted" onclick="setEditReviewDisplayMode('highlighted')">
+                  Highlights (<span id="editPolishTotalCorrectionsCount">0</span>)
+                </button>
+                <button type="button" class="review-toggle-btn" id="editReviewToggleClean" onclick="setEditReviewDisplayMode('clean')">
+                  Clean Text
+                </button>
+              </div>
+              <span class="review-fidelity-badge" id="editReviewFidelityBadge">100% Your Voice</span>
             </div>
           </div>
 
-          <!-- If Inner Voice: Editable Spark & Broadsheet -->
-          <div class="edit-inner-voice-block" id="editInnerVoiceBlock" style="display:none;">
-            <div class="edit-form-group">
-              <label class="edit-field-label">Inner Voice Broadsheet Headline</label>
-              <input type="text" id="editModalS3Headline" class="edit-field-input" placeholder="Broadsheet headline">
+          <!-- Correction Legend Bar with Touch Filtering -->
+          <div class="polish-legend-bar" id="editPolishLegendBar">
+            <span class="polish-legend-title">Filter by:</span>
+            <div class="polish-legend-chips">
+              <button type="button" class="polish-legend-chip chip-all active" id="editFilterChipAll" onclick="filterEditPolishHighlights('all')" title="Show all corrections">
+                <span class="legend-name">All</span>
+                <span class="legend-badge" id="editCountAll">0</span>
+              </button>
+              <button type="button" class="polish-legend-chip chip-spelling" id="editFilterChipSpelling" onclick="filterEditPolishHighlights('spelling')" title="Show only spelling corrections">
+                <span class="legend-dot dot-spelling"></span>
+                <span class="legend-name">Spelling</span>
+                <span class="legend-badge" id="editCountSpelling">0</span>
+              </button>
+              <button type="button" class="polish-legend-chip chip-grammar" id="editFilterChipGrammar" onclick="filterEditPolishHighlights('grammar')" title="Show only grammar corrections">
+                <span class="legend-dot dot-grammar"></span>
+                <span class="legend-name">Grammar</span>
+                <span class="legend-badge" id="editCountGrammar">0</span>
+              </button>
+              <button type="button" class="polish-legend-chip chip-punctuation" id="editFilterChipPunctuation" onclick="filterEditPolishHighlights('punctuation')" title="Show only punctuation corrections">
+                <span class="legend-dot dot-punctuation"></span>
+                <span class="legend-name">Punctuation</span>
+                <span class="legend-badge" id="editCountPunctuation">0</span>
+              </button>
+              <button type="button" class="polish-legend-chip chip-phrasing" id="editFilterChipPhrasing" onclick="filterEditPolishHighlights('phrasing')" title="Show only phrasing corrections">
+                <span class="legend-dot dot-phrasing"></span>
+                <span class="legend-name">Phrasing</span>
+                <span class="legend-badge" id="editCountPhrasing">0</span>
+              </button>
             </div>
-            <div class="edit-form-group">
-              <label class="edit-field-label">Core Highlight Quote</label>
-              <textarea id="editModalS3Quote" class="edit-field-textarea" rows="3" placeholder="Core highlight quote..."></textarea>
+          </div>
+
+          <!-- Review Card Body & Tooltip Container -->
+          <div class="review-card-body-wrap">
+            <div class="review-card-body" id="editPolishedTextDisplay"></div>
+            <div class="polish-popover" id="editPolishPopover" style="display: none;">
+              <div class="popover-header">
+                <span class="popover-badge" id="editPopoverBadge">Spelling</span>
+                <button type="button" class="popover-close-btn" onclick="hideEditPolishPopover()">&times;</button>
+              </div>
+              <div class="popover-diff">
+                <div class="popover-diff-row original-row">
+                  <span class="diff-tag">Original:</span>
+                  <span class="diff-val" id="editPopoverOriginal"></span>
+                </div>
+                <div class="popover-diff-row corrected-row">
+                  <span class="diff-tag">Polished:</span>
+                  <span class="diff-val" id="editPopoverReplacement"></span>
+                </div>
+              </div>
+              <div class="popover-reason" id="editPopoverReason"></div>
             </div>
-            <div class="edit-form-group">
-              <label class="edit-field-label">Catalyzing Observation / Context</label>
-              <textarea id="editModalS3Observation" class="edit-field-textarea" rows="2" placeholder="Observation context..."></textarea>
-            </div>
-            <div class="edit-form-group">
-              <label class="edit-field-label">Concluding Reflection / Implication</label>
-              <textarea id="editModalS3Reflection" class="edit-field-textarea" rows="2" placeholder="Concluding reflection..."></textarea>
-            </div>
+          </div>
+
+          <div class="review-card-actions">
+            <button type="button" class="review-btn review-btn-accept" onclick="acceptEditPolishedChanges()">
+              <span>✓ Accept & Update Posters</span>
+            </button>
+            <button type="button" class="review-btn review-btn-reject" onclick="keepEditOriginalChanges()">
+              <span>✕ Keep My Exact Wording</span>
+            </button>
+            <span class="review-tap-hint">Tap any highlighted word to inspect coaching notes</span>
           </div>
         </div>
       </div>
 
       <!-- Save & Apply Changes Button -->
       <div class="edit-modal-footer">
-        <button type="button" class="edit-modal-save-btn" onclick="saveEditedSlideContent()">
+        <button type="button" class="edit-modal-save-btn" id="editModalSaveBtn" onclick="saveEditedSlideContent()">
           <span class="save-icon">✓</span>
-          <span>Save Changes & Update Posters</span>
+          <span id="editModalSaveBtnText">Save Changes & Update Posters</span>
         </button>
       </div>
     </div>
@@ -1591,6 +1677,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261019_2235"></script>
+  <script src="app.js?v=20261019_2335"></script>
 </body>
 </html>

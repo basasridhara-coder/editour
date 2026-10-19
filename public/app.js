@@ -3760,6 +3760,7 @@ function buildSlide3Html(post, index) {
   const cleanPubUpper = escapeHtml(pubName.toUpperCase());
 
   const headline = escapeHtml(
+    post.broadsheetHeadline ||
     (tier === 'tier3_opinion'
       ? (post.adaptedHeadline || post.originalHeadline)
       : (post.originalHeadline || post.adaptedHeadline)) || 'Curated Editorial'
@@ -3775,17 +3776,22 @@ function buildSlide3Html(post, index) {
 
   const isInnerVoice = isInnerVoicePost(post);
 
-  // Extract synthesis paragraphs from summary or spark
+  // Extract synthesis paragraphs from summary, broadsheet observation, or spark
   let summaryParas = [];
   if (post.summary && typeof post.summary === 'string') {
-    summaryParas = post.summary.split(/\n\s*\n/).map(p => cleanExcerpt(p)).filter(p => p.length > 20);
+    summaryParas = post.summary.split(/\n\s*\n/).map(p => cleanExcerpt(p)).filter(p => p.length > 5);
+  }
+  if (summaryParas.length === 0 && post.broadsheetObservation && typeof post.broadsheetObservation === 'string') {
+    summaryParas = post.broadsheetObservation.split(/\n\s*\n/).map(p => cleanExcerpt(p)).filter(p => p.length > 5);
   }
   if (summaryParas.length === 0 && post.summary) {
     summaryParas = [cleanExcerpt(post.summary)];
   }
 
   // De-duplicate summary paragraphs against user's short stance on Poster 2
-  summaryParas = summaryParas.filter(p => !isDuplicateOfUserTake(p, post));
+  if (summaryParas.length > 1) {
+    summaryParas = summaryParas.filter(p => !isDuplicateOfUserTake(p, post));
+  }
 
   // Source context & reporting excerpts
   let excerpts = post.resolvedArticleExcerpts || post.articleExcerpts || [];
@@ -3819,17 +3825,19 @@ function buildSlide3Html(post, index) {
     });
   }
 
-  // If whyItMatters is present, append as concluding reflection paragraph if not already in essay
-  if (post.whyItMatters && String(post.whyItMatters).trim() && essayParas.length < 4) {
-    const cleanWhy = cleanExcerpt(post.whyItMatters);
+  // If whyItMatters or broadsheetReflection is present, append as concluding reflection paragraph if not already in essay
+  const reflectionVal = post.broadsheetReflection || post.whyItMatters;
+  if (reflectionVal && String(reflectionVal).trim() && essayParas.length < 4) {
+    const cleanWhy = cleanExcerpt(reflectionVal);
     if (!essayParas.some(p => p.toLowerCase().includes(cleanWhy.slice(0, 30).toLowerCase()))) {
       essayParas.push(cleanWhy);
     }
   }
 
   // If still fewer than 3 paragraphs, incorporate quote or reflection if available
-  if (essayParas.length < 3 && post.receiptHighlightQuote && String(post.receiptHighlightQuote).trim()) {
-    const cleanQuote = cleanExcerpt(post.receiptHighlightQuote);
+  const quoteVal = post.receiptHighlightQuote || post.broadsheetHighlight || post.pullQuote;
+  if (essayParas.length < 3 && quoteVal && String(quoteVal).trim()) {
+    const cleanQuote = cleanExcerpt(quoteVal);
     if (!essayParas.some(p => p.toLowerCase().includes(cleanQuote.slice(0, 30).toLowerCase()))) {
       essayParas.push(cleanQuote);
     }
@@ -9983,6 +9991,82 @@ function handleStep3Regenerate() {
   backToStep1();
 }
 
+let editModalOriginalSnapshot = null;
+let editModalLastReviewedSignature = null;
+let lastEditModalPolishedResults = [];
+let lastEditModalCorrections = [];
+let currentEditPolishFilter = 'all';
+let editPolishDisplayMode = 'highlighted';
+
+function captureEditModalSnapshot() {
+  const catInput = document.getElementById('editModalCategory');
+  const pubInput = document.getElementById('editModalPublication');
+  const headInput = document.getElementById('editModalHeadline');
+  const excerptInput = document.getElementById('editModalNewsExcerpt');
+  const handleInput = document.getElementById('editModalHandle');
+  const s2TitleInput = document.getElementById('editModalS2Title');
+  const opinionInput = document.getElementById('editModalOpinion');
+  const whyInput = document.getElementById('editModalWhyItMatters');
+  const metricInput = document.getElementById('editModalMetric');
+  const s3Head = document.getElementById('editModalS3Headline');
+  const s3Quote = document.getElementById('editModalS3Quote');
+  const s3Obs = document.getElementById('editModalS3Observation');
+  const s3Ref = document.getElementById('editModalS3Reflection');
+
+  editModalOriginalSnapshot = {
+    category: catInput ? catInput.value : '',
+    publication: pubInput ? pubInput.value : '',
+    headline: headInput ? headInput.value : '',
+    excerpt: excerptInput ? excerptInput.value : '',
+    handle: handleInput ? handleInput.value : '',
+    s2Title: s2TitleInput ? s2TitleInput.value : '',
+    opinion: opinionInput ? opinionInput.value : '',
+    whyItMatters: whyInput ? whyInput.value : '',
+    metric: metricInput ? metricInput.value : '',
+    s3Headline: s3Head ? s3Head.value : '',
+    s3Quote: s3Quote ? s3Quote.value : '',
+    s3Observation: s3Obs ? s3Obs.value : '',
+    s3Reflection: s3Ref ? s3Ref.value : ''
+  };
+  editModalLastReviewedSignature = null;
+  lastEditModalPolishedResults = [];
+  lastEditModalCorrections = [];
+}
+
+function getEditedProseFields(filterTab = null) {
+  if (!editModalOriginalSnapshot) return [];
+
+  const fieldDefs = [
+    { tab: 0, id: 'editModalHeadline', label: 'Slide 1: Hook Headline', snapshotKey: 'headline', minLen: 3 },
+    { tab: 0, id: 'editModalNewsExcerpt', label: 'Slide 1: Spark / Excerpt', snapshotKey: 'excerpt', minLen: 5 },
+    { tab: 1, id: 'editModalS2Title', label: 'Slide 2: Stance Title', snapshotKey: 's2Title', minLen: 3 },
+    { tab: 1, id: 'editModalOpinion', label: 'Slide 2: Curator Take', snapshotKey: 'opinion', minLen: 5 },
+    { tab: 1, id: 'editModalWhyItMatters', label: 'Slide 2: Why It Matters', snapshotKey: 'whyItMatters', minLen: 5 },
+    { tab: 2, id: 'editModalS3Headline', label: 'Slide 3: Broadsheet Headline', snapshotKey: 's3Headline', minLen: 3 },
+    { tab: 2, id: 'editModalS3Quote', label: 'Slide 3: Highlight Quote', snapshotKey: 's3Quote', minLen: 5 },
+    { tab: 2, id: 'editModalS3Observation', label: 'Slide 3: Broadsheet Essay', snapshotKey: 's3Observation', minLen: 10 },
+    { tab: 2, id: 'editModalS3Reflection', label: 'Slide 3: Reflection', snapshotKey: 's3Reflection', minLen: 5 }
+  ];
+
+  const changed = [];
+  for (const def of fieldDefs) {
+    if (filterTab !== null && def.tab !== filterTab) continue;
+    const el = document.getElementById(def.id);
+    if (!el) continue;
+    const curVal = el.value.trim();
+    const origVal = (editModalOriginalSnapshot[def.snapshotKey] || '').trim();
+    if (curVal !== origVal && curVal.length >= def.minLen) {
+      changed.push({
+        ...def,
+        element: el,
+        oldVal: origVal,
+        newVal: curVal
+      });
+    }
+  }
+  return changed;
+}
+
 function openEditPosterModal(initialTab = null) {
   if (!currentSynthesizedPost) return;
 
@@ -9998,6 +10082,10 @@ function openEditPosterModal(initialTab = null) {
   const opinionInput = document.getElementById('editModalOpinion');
   const whyInput = document.getElementById('editModalWhyItMatters');
   const metricInput = document.getElementById('editModalMetric');
+  const s3Head = document.getElementById('editModalS3Headline');
+  const s3Quote = document.getElementById('editModalS3Quote');
+  const s3Obs = document.getElementById('editModalS3Observation');
+  const s3Ref = document.getElementById('editModalS3Reflection');
 
   if (catInput) catInput.value = currentSynthesizedPost.categoryBadge || 'OPINION';
   if (pubInput) pubInput.value = currentSynthesizedPost.publicationName || currentSynthesizedPost.sourcePublication || currentSynthesizedPost.sourceDomain || '';
@@ -10023,41 +10111,27 @@ function openEditPosterModal(initialTab = null) {
     if (pillMet) pillMet.classList.toggle('active', !isUsingExact && currentSynthesizedPost.characterRepresentation !== 'likeness');
   }
 
-  // Tab 2 (Slide 3) Setup
+  // Slide 3 is fully editable for all sources
   const editTab2 = document.getElementById('editTab2');
-  const isInnerVoice = (creatorSelectedSource === 'inner_voice');
   if (editTab2) {
-    editTab2.textContent = isInnerVoice ? 'Slide 3: Inner Voice ✏️' : 'Slide 3: Receipts 🔒';
+    editTab2.textContent = 'Slide 3: Broadsheet & Essay ✏️';
   }
 
-  const receiptsCard = document.getElementById('editReceiptsImmutableCard');
-  const innerVoiceBlock = document.getElementById('editInnerVoiceBlock');
-
-  if (isInnerVoice) {
-    if (receiptsCard) receiptsCard.style.display = 'none';
-    if (innerVoiceBlock) innerVoiceBlock.style.display = 'block';
-
-    const s3Head = document.getElementById('editModalS3Headline');
-    const s3Quote = document.getElementById('editModalS3Quote');
-    const s3Obs = document.getElementById('editModalS3Observation');
-    const s3Ref = document.getElementById('editModalS3Reflection');
-
-    if (s3Head) s3Head.value = currentSynthesizedPost.broadsheetHeadline || currentSynthesizedPost.adaptedHeadline || '';
-    if (s3Quote) s3Quote.value = currentSynthesizedPost.broadsheetHighlight || currentSynthesizedPost.creatorOpinion || '';
-    if (s3Obs) s3Obs.value = currentSynthesizedPost.broadsheetObservation || '';
-    if (s3Ref) s3Ref.value = currentSynthesizedPost.broadsheetReflection || '';
-  } else {
-    if (receiptsCard) receiptsCard.style.display = 'block';
-    if (innerVoiceBlock) innerVoiceBlock.style.display = 'none';
-
-    const mastEl = document.getElementById('editReceiptsMasthead');
-    const headEl = document.getElementById('editReceiptsHeadline');
-    const quoteEl = document.getElementById('editReceiptsQuotes');
-
-    if (mastEl) mastEl.textContent = `Masthead: ${currentSynthesizedPost.publicationName || currentSynthesizedPost.sourcePublication || currentSynthesizedPost.sourceDomain || 'Source Outlet'}`;
-    if (headEl) headEl.textContent = `Headline: ${currentSynthesizedPost.originalHeadline || currentSynthesizedPost.originalTitle || currentSynthesizedPost.adaptedHeadline || ''}`;
-    if (quoteEl) quoteEl.textContent = currentSynthesizedPost.receiptHighlightQuote ? `• "${currentSynthesizedPost.receiptHighlightQuote}"` : (currentSynthesizedPost.newsprintExcerpt ? `• "${currentSynthesizedPost.newsprintExcerpt}"` : '');
+  if (s3Head) {
+    s3Head.value = currentSynthesizedPost.broadsheetHeadline || currentSynthesizedPost.originalHeadline || currentSynthesizedPost.adaptedHeadline || '';
   }
+  if (s3Quote) {
+    s3Quote.value = currentSynthesizedPost.receiptHighlightQuote || currentSynthesizedPost.broadsheetHighlight || currentSynthesizedPost.pullQuote || '';
+  }
+  if (s3Obs) {
+    s3Obs.value = currentSynthesizedPost.summary || currentSynthesizedPost.broadsheetObservation || (Array.isArray(currentSynthesizedPost.articleExcerpts) ? currentSynthesizedPost.articleExcerpts.join('\n\n') : '') || '';
+  }
+  if (s3Ref) {
+    s3Ref.value = currentSynthesizedPost.broadsheetReflection || currentSynthesizedPost.whyItMatters || '';
+  }
+
+  captureEditModalSnapshot();
+  hideEditModalReviewCard();
 
   const modal = document.getElementById('editPosterModal');
   if (modal) {
@@ -10074,6 +10148,7 @@ function closeEditPosterModal() {
     modal.classList.remove('active');
     modal.style.display = 'none';
   }
+  hideEditPolishPopover();
 }
 
 function switchEditModalTab(tabIdx) {
@@ -10085,7 +10160,310 @@ function switchEditModalTab(tabIdx) {
   }
 }
 
-function saveEditedSlideContent() {
+function hideEditModalReviewCard() {
+  const card = document.getElementById('editModalReviewCard');
+  if (card) card.style.display = 'none';
+  hideEditPolishPopover();
+}
+
+async function reviewActiveTabChanges(tabIdx) {
+  let fieldsToReview = getEditedProseFields(tabIdx);
+
+  if (fieldsToReview.length === 0) {
+    const primaryMap = {
+      0: { id: 'editModalHeadline', label: 'Slide 1: Hook Headline', snapshotKey: 'headline', minLen: 3 },
+      1: { id: 'editModalOpinion', label: 'Slide 2: Curator Take', snapshotKey: 'opinion', minLen: 5 },
+      2: { id: 'editModalS3Observation', label: 'Slide 3: Broadsheet Essay', snapshotKey: 's3Observation', minLen: 10 }
+    };
+    const primary = primaryMap[tabIdx];
+    if (primary) {
+      const el = document.getElementById(primary.id);
+      const val = el ? el.value.trim() : '';
+      if (val && val.length >= primary.minLen) {
+        fieldsToReview = [{
+          ...primary,
+          element: el,
+          oldVal: val,
+          newVal: val
+        }];
+      }
+    }
+  }
+
+  if (fieldsToReview.length === 0) {
+    showTemporaryToast('⚠️ Please write some text on this slide before reviewing.');
+    return;
+  }
+
+  await runEditModalReview(fieldsToReview, tabIdx);
+}
+
+async function runEditModalReview(fieldsToReview, fromTab = null) {
+  const saveBtn = document.getElementById('editModalSaveBtn');
+  const saveBtnText = document.getElementById('editModalSaveBtnText');
+  const reviewCard = document.getElementById('editModalReviewCard');
+  const display = document.getElementById('editPolishedTextDisplay');
+
+  let activeTabReviewBtn = null;
+  if (typeof fromTab === 'number') {
+    activeTabReviewBtn = document.getElementById(`editSlide${fromTab}ReviewBtn`);
+  }
+
+  const originalSaveBtnHtml = saveBtnText ? saveBtnText.innerHTML : 'Save Changes & Update Posters';
+  const originalTabBtnHtml = activeTabReviewBtn ? activeTabReviewBtn.innerHTML : '';
+
+  if (saveBtn) saveBtn.disabled = true;
+  if (saveBtnText) saveBtnText.innerHTML = '<span class="btn-spark-icon spinning">⏳</span> Analyzing edits for phrasing & grammar...';
+  if (activeTabReviewBtn) {
+    activeTabReviewBtn.disabled = true;
+    activeTabReviewBtn.innerHTML = '<span class="btn-spark-icon spinning">⏳</span> Reviewing...';
+  }
+
+  try {
+    const reviewPromises = fieldsToReview.map(async (field) => {
+      try {
+        const resp = await fetch('/api/synthesize', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'polish_take',
+            text: field.newVal
+          })
+        });
+
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data && data.success !== false && (data.polished || data.highlightedHtml)) {
+            return {
+              field,
+              success: true,
+              polished: data.polished || field.newVal,
+              highlightedHtml: data.highlightedHtml || escapeHtml(data.polished || field.newVal),
+              corrections: Array.isArray(data.corrections) ? data.corrections : [],
+              counts: data.counts || { spelling: 0, grammar: 0, punctuation: 0, phrasing: 0, total: 0 }
+            };
+          }
+        }
+      } catch (err) {
+        console.warn('Error reviewing field:', field.label, err);
+      }
+
+      const fallback = formatCuratorTakeApt(field.newVal);
+      return {
+        field,
+        success: false,
+        polished: fallback,
+        highlightedHtml: escapeHtml(fallback),
+        corrections: [],
+        counts: { spelling: 0, grammar: 0, punctuation: 0, phrasing: 0, total: 0 }
+      };
+    });
+
+    const results = await Promise.all(reviewPromises);
+    lastEditModalPolishedResults = results;
+
+    const aggregatedCounts = { spelling: 0, grammar: 0, punctuation: 0, phrasing: 0, total: 0 };
+    let allCorrections = [];
+    results.forEach(r => {
+      aggregatedCounts.spelling += (r.counts?.spelling || 0);
+      aggregatedCounts.grammar += (r.counts?.grammar || 0);
+      aggregatedCounts.punctuation += (r.counts?.punctuation || 0);
+      aggregatedCounts.phrasing += (r.counts?.phrasing || 0);
+      aggregatedCounts.total += (r.counts?.total || 0);
+      if (Array.isArray(r.corrections)) {
+        allCorrections = allCorrections.concat(r.corrections);
+      }
+    });
+
+    lastEditModalCorrections = allCorrections;
+    editModalLastReviewedSignature = fieldsToReview.map(f => `${f.id}:${f.newVal}`).join('|||');
+
+    if (aggregatedCounts.total === 0) {
+      showTemporaryToast('✨ Great job! Your edits read naturally and are free of errors.');
+      applyEditModalFormValues();
+      renderCreatorPreview();
+      switchPreviewSlide(currentPreviewSlide || 0);
+      closeEditPosterModal();
+      return;
+    }
+
+    const countAllEl = document.getElementById('editCountAll');
+    const countSpellEl = document.getElementById('editCountSpelling');
+    const countGramEl = document.getElementById('editCountGrammar');
+    const countPunctEl = document.getElementById('editCountPunctuation');
+    const countPhraseEl = document.getElementById('editCountPhrasing');
+    const countTotalEl = document.getElementById('editPolishTotalCorrectionsCount');
+    const fidelityBadge = document.getElementById('editReviewFidelityBadge');
+
+    if (countAllEl) countAllEl.textContent = aggregatedCounts.total;
+    if (countSpellEl) countSpellEl.textContent = aggregatedCounts.spelling;
+    if (countGramEl) countGramEl.textContent = aggregatedCounts.grammar;
+    if (countPunctEl) countPunctEl.textContent = aggregatedCounts.punctuation;
+    if (countPhraseEl) countPhraseEl.textContent = aggregatedCounts.phrasing;
+    if (countTotalEl) countTotalEl.textContent = aggregatedCounts.total;
+    if (fidelityBadge) fidelityBadge.textContent = `${aggregatedCounts.total} Notes • 100% Your Voice`;
+
+    currentEditPolishFilter = 'all';
+    if (display) display.removeAttribute('data-filter');
+    const chips = document.querySelectorAll('#editPolishLegendBar .polish-legend-chip');
+    chips.forEach(chip => chip.classList.toggle('active', chip.id === 'editFilterChipAll'));
+
+    const btnHighlight = document.getElementById('editReviewToggleHighlighted');
+    const btnClean = document.getElementById('editReviewToggleClean');
+    if (btnHighlight) btnHighlight.classList.add('active');
+    if (btnClean) btnClean.classList.remove('active');
+    editPolishDisplayMode = 'highlighted';
+
+    if (display) {
+      let sectionsHtml = '';
+      results.forEach(r => {
+        sectionsHtml += `
+          <div class="edit-review-field-section">
+            <div class="edit-review-field-label">${escapeHtml(r.field.label)}</div>
+            <div class="edit-review-field-content edit-review-field-highlighted">${r.highlightedHtml}</div>
+            <div class="edit-review-field-content edit-review-field-clean" style="display:none;">${escapeHtml(r.polished)}</div>
+          </div>
+        `;
+      });
+      display.innerHTML = sectionsHtml;
+      attachEditPolishMarkListeners(display);
+    }
+
+    if (reviewCard) {
+      reviewCard.style.display = 'flex';
+      reviewCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    showTemporaryToast(`✨ Review ready with ${aggregatedCounts.total} coaching notes. Tap any highlighted word!`);
+  } catch (err) {
+    console.error('Error running edit modal review:', err);
+    showTemporaryToast('⚠️ Review connection issue. You can still save your changes.');
+  } finally {
+    if (saveBtn) saveBtn.disabled = false;
+    if (saveBtnText) saveBtnText.innerHTML = originalSaveBtnHtml;
+    if (activeTabReviewBtn) {
+      activeTabReviewBtn.disabled = false;
+      activeTabReviewBtn.innerHTML = originalTabBtnHtml;
+    }
+  }
+}
+
+function attachEditPolishMarkListeners(container) {
+  if (!container) return;
+  const marks = container.querySelectorAll('.polish-mark');
+  marks.forEach(mark => {
+    mark.addEventListener('click', (e) => {
+      e.stopPropagation();
+      marks.forEach(m => m.classList.remove('active'));
+      mark.classList.add('active');
+      const original = mark.getAttribute('data-original') || '';
+      const replacement = mark.textContent || '';
+      const type = mark.getAttribute('data-type') || 'phrasing';
+      const reason = mark.getAttribute('data-reason') || 'Improved phrasing and flow';
+      showEditPolishPopover(mark, original, replacement, type, reason);
+    });
+  });
+}
+
+function setEditReviewDisplayMode(mode) {
+  editPolishDisplayMode = mode;
+  const btnHighlight = document.getElementById('editReviewToggleHighlighted');
+  const btnClean = document.getElementById('editReviewToggleClean');
+  if (btnHighlight) btnHighlight.classList.toggle('active', mode === 'highlighted');
+  if (btnClean) btnClean.classList.toggle('active', mode === 'clean');
+
+  const display = document.getElementById('editPolishedTextDisplay');
+  if (!display) return;
+
+  const highlightedEls = display.querySelectorAll('.edit-review-field-highlighted');
+  const cleanEls = display.querySelectorAll('.edit-review-field-clean');
+
+  highlightedEls.forEach(el => el.style.display = (mode === 'highlighted') ? 'block' : 'none');
+  cleanEls.forEach(el => el.style.display = (mode === 'clean') ? 'block' : 'none');
+  hideEditPolishPopover();
+}
+
+function filterEditPolishHighlights(category) {
+  const display = document.getElementById('editPolishedTextDisplay');
+  hideEditPolishPopover();
+
+  if (currentEditPolishFilter === category && category !== 'all') {
+    category = 'all';
+  }
+  currentEditPolishFilter = category;
+
+  const chips = document.querySelectorAll('#editPolishLegendBar .polish-legend-chip');
+  chips.forEach(chip => chip.classList.remove('active'));
+
+  if (category === 'all') {
+    document.getElementById('editFilterChipAll')?.classList.add('active');
+    if (display) display.removeAttribute('data-filter');
+  } else {
+    const chipMap = {
+      spelling: 'editFilterChipSpelling',
+      grammar: 'editFilterChipGrammar',
+      punctuation: 'editFilterChipPunctuation',
+      phrasing: 'editFilterChipPhrasing'
+    };
+    if (chipMap[category]) {
+      document.getElementById(chipMap[category])?.classList.add('active');
+    }
+    if (display) display.setAttribute('data-filter', category);
+  }
+}
+
+function showEditPolishPopover(targetEl, original, replacement, type, reason) {
+  const popover = document.getElementById('editPolishPopover');
+  if (!popover || !targetEl) return;
+
+  const badgeEl = document.getElementById('editPopoverBadge');
+  const origEl = document.getElementById('editPopoverOriginal');
+  const repEl = document.getElementById('editPopoverReplacement');
+  const reasonEl = document.getElementById('editPopoverReason');
+
+  if (badgeEl) {
+    badgeEl.textContent = (type || 'phrasing').toUpperCase();
+    badgeEl.className = `popover-badge badge-${type || 'phrasing'}`;
+  }
+  if (origEl) origEl.textContent = original || 'None';
+  if (repEl) repEl.textContent = replacement || '';
+  if (reasonEl) reasonEl.textContent = reason || 'Refined phrasing for flow';
+
+  const rect = targetEl.getBoundingClientRect();
+  const parentRect = targetEl.closest('.review-card-body-wrap')?.getBoundingClientRect() || rect;
+
+  const top = rect.bottom - parentRect.top + 6;
+  const left = Math.max(10, Math.min(parentRect.width - 290, rect.left - parentRect.left));
+
+  popover.style.top = `${top}px`;
+  popover.style.left = `${left}px`;
+  popover.style.display = 'block';
+}
+
+function hideEditPolishPopover() {
+  const popover = document.getElementById('editPolishPopover');
+  if (popover) popover.style.display = 'none';
+  document.querySelectorAll('#editPolishedTextDisplay .polish-mark.active').forEach(m => m.classList.remove('active'));
+}
+
+function acceptEditPolishedChanges() {
+  if (Array.isArray(lastEditModalPolishedResults)) {
+    lastEditModalPolishedResults.forEach(r => {
+      if (r.field && r.field.element && r.polished) {
+        r.field.element.value = r.polished;
+      }
+    });
+  }
+  saveEditedSlideContent(true);
+  showTemporaryToast('✨ Polished edits accepted & posters updated!');
+}
+
+function keepEditOriginalChanges() {
+  saveEditedSlideContent(true);
+  showTemporaryToast('✏️ Posters updated with your exact wording!');
+}
+
+function applyEditModalFormValues() {
   if (!currentSynthesizedPost) return;
 
   const catInput = document.getElementById('editModalCategory');
@@ -10097,7 +10475,12 @@ function saveEditedSlideContent() {
   const opinionInput = document.getElementById('editModalOpinion');
   const whyInput = document.getElementById('editModalWhyItMatters');
   const metricInput = document.getElementById('editModalMetric');
+  const s3Head = document.getElementById('editModalS3Headline');
+  const s3Quote = document.getElementById('editModalS3Quote');
+  const s3Obs = document.getElementById('editModalS3Observation');
+  const s3Ref = document.getElementById('editModalS3Reflection');
 
+  // Slide 1
   if (catInput && catInput.value.trim()) currentSynthesizedPost.categoryBadge = catInput.value.trim().toUpperCase();
   if (pubInput && pubInput.value.trim()) {
     currentSynthesizedPost.publicationName = pubInput.value.trim();
@@ -10110,6 +10493,8 @@ function saveEditedSlideContent() {
     currentSynthesizedPost.hook = excerptInput.value.trim();
   }
   if (handleInput && handleInput.value.trim()) currentSynthesizedPost.creatorHandle = handleInput.value.trim();
+
+  // Slide 2
   if (s2TitleInput && s2TitleInput.value.trim()) {
     currentSynthesizedPost.critiqueBadge = s2TitleInput.value.trim();
     currentSynthesizedPost.keyTakeaways = currentSynthesizedPost.keyTakeaways || [];
@@ -10122,20 +10507,44 @@ function saveEditedSlideContent() {
   if (whyInput && whyInput.value.trim()) currentSynthesizedPost.whyItMatters = whyInput.value.trim();
   if (metricInput && metricInput.value.trim()) currentSynthesizedPost.keyMetric = metricInput.value.trim();
 
-  if (creatorSelectedSource === 'inner_voice') {
-    const s3Head = document.getElementById('editModalS3Headline');
-    const s3Quote = document.getElementById('editModalS3Quote');
-    const s3Obs = document.getElementById('editModalS3Observation');
-    const s3Ref = document.getElementById('editModalS3Reflection');
-    if (s3Head && s3Head.value.trim()) currentSynthesizedPost.broadsheetHeadline = s3Head.value.trim();
-    if (s3Quote && s3Quote.value.trim()) currentSynthesizedPost.broadsheetHighlight = s3Quote.value.trim();
-    if (s3Obs && s3Obs.value.trim()) currentSynthesizedPost.broadsheetObservation = s3Obs.value.trim();
-    if (s3Ref && s3Ref.value.trim()) currentSynthesizedPost.broadsheetReflection = s3Ref.value.trim();
+  // Slide 3: All content editable for all sources
+  if (s3Head && s3Head.value.trim()) {
+    currentSynthesizedPost.broadsheetHeadline = s3Head.value.trim();
+    currentSynthesizedPost.originalHeadline = s3Head.value.trim();
   }
+  if (s3Quote && s3Quote.value.trim()) {
+    currentSynthesizedPost.receiptHighlightQuote = s3Quote.value.trim();
+    currentSynthesizedPost.broadsheetHighlight = s3Quote.value.trim();
+    currentSynthesizedPost.pullQuote = s3Quote.value.trim();
+  }
+  if (s3Obs && s3Obs.value.trim()) {
+    currentSynthesizedPost.summary = s3Obs.value.trim();
+    currentSynthesizedPost.broadsheetObservation = s3Obs.value.trim();
+    currentSynthesizedPost.articleExcerpts = s3Obs.value.trim().split(/\n\s*\n/).filter(Boolean);
+  }
+  if (s3Ref && s3Ref.value.trim()) {
+    currentSynthesizedPost.broadsheetReflection = s3Ref.value.trim();
+    currentSynthesizedPost.whyItMatters = s3Ref.value.trim();
+  }
+}
+
+async function saveEditedSlideContent(skipReview = false) {
+  if (!currentSynthesizedPost) return;
+
+  const changedFields = getEditedProseFields();
+
+  if (!skipReview && changedFields.length > 0) {
+    const signature = changedFields.map(f => `${f.id}:${f.newVal}`).join('|||');
+    if (signature !== editModalLastReviewedSignature) {
+      await runEditModalReview(changedFields);
+      return;
+    }
+  }
+
+  applyEditModalFormValues();
 
   // Re-render preview with edited values
   renderCreatorPreview();
-  // Return to preview slide that matches what was edited or current
   switchPreviewSlide(currentPreviewSlide);
 
   closeEditPosterModal();

@@ -13081,3 +13081,60 @@ mark.polish-mark:hover, mark.polish-mark.active {
   border-color: #E2E8F0;
   color: #475569;
 }
+
+/* Edit Modal Tab Action Row & Field Review Styles */
+.edit-tab-action-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  flex-wrap: wrap;
+}
+
+[data-theme="daylight"] .edit-tab-action-row {
+  border-top-color: rgba(0, 0, 0, 0.08);
+}
+
+.edit-review-field-section {
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 8px;
+  margin-bottom: 10px;
+}
+
+.edit-review-field-section:last-child {
+  margin-bottom: 0;
+}
+
+.edit-review-field-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #C084FC;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 6px;
+}
+
+.edit-review-field-content {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: #F1F5F9;
+}
+
+[data-theme="daylight"] .edit-review-field-section {
+  background: rgba(147, 51, 234, 0.04);
+  border-color: rgba(147, 51, 234, 0.15);
+}
+
+[data-theme="daylight"] .edit-review-field-label {
+  color: #7E22CE;
+}
+
+[data-theme="daylight"] .edit-review-field-content {
+  color: #0F172A;
+}
+
