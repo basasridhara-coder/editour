@@ -1696,6 +1696,21 @@ function getPostShareUrl(post) {
   return `${window.location.origin}/?p=${encodeURIComponent(post.id)}`;
 }
 
+function getSourceHeadline(post) {
+  if (!post) return 'this topic';
+  let title = (
+    (typeof post.originalHeadline === 'string' && post.originalHeadline.trim()) ||
+    (typeof post.sourceHeadline === 'string' && post.sourceHeadline.trim()) ||
+    (typeof post.scrapedTitle === 'string' && post.scrapedTitle.trim()) ||
+    (typeof post.sourceTitle === 'string' && post.sourceTitle.trim()) ||
+    (typeof post.spark === 'string' && post.spark.trim()) ||
+    (typeof post.adaptedHeadline === 'string' && post.adaptedHeadline.trim()) ||
+    'this topic'
+  ).trim();
+  title = title.replace(/^["'“‘]+|["'”’]+$/g, '').trim();
+  return title || 'this topic';
+}
+
 function getPostShareText(post) {
   if (!post) return '';
   const headline = (post.adaptedHeadline || post.originalHeadline || 'Curated Story').trim();
@@ -5910,13 +5925,13 @@ function openSharePostersModal(post, files) {
   if (!modal) return;
 
   const shareUrl = getPostShareUrl(post);
-  const headline = (post?.adaptedHeadline || post?.originalHeadline || 'Curated Opinion').trim();
+  const sourceHeadline = getSourceHeadline(post);
   const handle = (post?.creatorHandle || '@curator').trim();
   const cleanHandle = handle.replace('@', '');
   const profileUrl = `${window.location.origin}/?curator=${encodeURIComponent(cleanHandle)}`;
 
   if (teaserDesc) {
-    teaserDesc.textContent = `know my detailed opinion on "${headline}"`;
+    teaserDesc.textContent = `know my detailed opinion on "${sourceHeadline}"`;
   }
   if (carouselDesc) {
     carouselDesc.textContent = `know more of such my opinions on topics at ${profileUrl}`;
@@ -5971,15 +5986,15 @@ function openSharePostersModal(post, files) {
 
 async function shareTeaserPoster(post, files) {
   if (!post || !files || files.length === 0) return;
-  const headline = (post.adaptedHeadline || post.originalHeadline || 'Curated Opinion').trim();
+  const sourceHeadline = getSourceHeadline(post);
   const shareUrl = getPostShareUrl(post);
-  const caption = `know my detailed opinion on "${headline}" ${shareUrl}`;
+  const caption = `know my detailed opinion on "${sourceHeadline}" ${shareUrl}`;
   const poster1 = files[0];
 
   if (navigator.share && poster1 && navigator.canShare) {
     const payload = {
       files: [poster1],
-      title: headline,
+      title: sourceHeadline,
       text: caption
     };
     if (navigator.canShare(payload)) {
