@@ -27,7 +27,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Merriweather:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,400;1,600;1,700;1,900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261019_1910">
+  <link rel="stylesheet" href="style.css?v=20261019_1955">
   <!-- Favicon & Brand Icons -->
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
@@ -1053,37 +1053,55 @@
     </div>
   </div>
 
-  <!-- Dedicated 3-Poster Social Share Action Modal -->
+  <!-- Simplified 2-Option Social Share Modal -->
   <div class="modal-overlay" id="posterShareModal" onclick="closeSharePostersModal()">
-    <div class="modal-card" style="max-width: 480px; padding: 22px; text-align: center; border-radius: 18px;" onclick="event.stopPropagation()">
+    <div class="modal-card slant-share-card" onclick="event.stopPropagation()">
       <button class="modal-close" onclick="closeSharePostersModal()">&times;</button>
       
-      <div style="display:inline-flex; align-items:center; justify-content:center; width:44px; height:44px; border-radius:50%; background:rgba(99,102,241,0.15); color:#818CF8; font-size:22px; margin-bottom:10px;">
-        ✨
+      <div class="share-modal-header">
+        <span class="share-sparkle-badge">✨</span>
+        <h3 class="share-modal-title">Share Your Slant</h3>
+        <p class="share-modal-subtitle">Choose how you want to share your editorial piece:</p>
       </div>
-      <h3 style="font-size: 17px; font-weight: 800; color: #FFF; margin: 0 0 5px;">Your 3-Poster Set is Ready</h3>
-      <p style="font-size: 12.5px; color: var(--text-secondary); margin: 0 0 16px; line-height: 1.4;">
-        High-definition 3:4 framed posters ready for Instagram Carousel, Stories & WhatsApp.
-      </p>
 
-      <!-- 3 Thumbnails Row -->
-      <div id="sharePostersThumbsRow" style="display: flex; gap: 8px; justify-content: center; margin-bottom: 20px;"></div>
+      <!-- 3 Thumbnails Row (Clean Preview) -->
+      <div id="sharePostersThumbsRow" class="share-thumbs-row"></div>
 
-      <div style="display: flex; flex-direction: column; gap: 10px;">
-        <button id="modalShareChatBtn" class="creator-publish-btn" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; padding: 12px; background: linear-gradient(135deg, #6366F1, #8B5CF6); border: 1px solid rgba(255, 255, 255, 0.25); color: #FFF;">
-          <span>💬</span> <span>Share to Chat (Hook Poster First)</span>
+      <!-- Two Primary Share Actions -->
+      <div class="share-actions-grid">
+        <!-- Option 1: Share Teaser (Cover Poster + Post Link) -->
+        <button type="button" class="share-tier-card tier-teaser" id="shareTeaserBtn">
+          <div class="tier-card-icon">🖼️</div>
+          <div class="tier-card-content">
+            <div class="tier-card-title">Share Poster 1 (Teaser)</div>
+            <div class="tier-card-desc" id="shareTeaserCaptionPreview">"know my detailed opinion on..."</div>
+            <div class="tier-card-badge">Hooks readers • Links to full post</div>
+          </div>
+          <span class="tier-arrow">➔</span>
         </button>
-        <button id="modalShareStatusBtn" class="creator-publish-btn" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; padding: 12px; background: linear-gradient(135deg, #10B981, #059669); border: 1px solid rgba(255, 255, 255, 0.25); color: #FFF;">
-          <span>📱</span> <span>Share for Status / Story (1 → 2 → 3)</span>
+
+        <!-- Option 2: Share Full Carousel (All Posters + Profile Link) -->
+        <button type="button" class="share-tier-card tier-carousel" id="shareCarouselBtn">
+          <div class="tier-card-icon">📚</div>
+          <div class="tier-card-content">
+            <div class="tier-card-title">Share All 3 Posters (Carousel)</div>
+            <div class="tier-card-desc" id="shareCarouselCaptionPreview">"know more of such my opinions on topics at..."</div>
+            <div class="tier-card-badge">Full set • Links to your profile</div>
+          </div>
+          <span class="tier-arrow">➔</span>
         </button>
-        <button id="modalSavePhotosBtn" class="creator-secondary-btn" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; padding: 12px;">
-          <span>📥</span> <span>Save 3 Posters to Photos</span>
-        </button>
-        <button id="modalCopyLinkBtn" class="creator-secondary-btn" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; padding: 12px;" onclick="copyModalShareLink()">
-          <span>🔗</span> <span>Copy Direct Link to Post</span>
-        </button>
-        <div id="modalShareLinkPreview" style="margin-top: 4px; font-size: 11.5px; color: var(--text-muted); word-break: break-all; text-align: center; padding: 6px 10px; background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px dashed rgba(255,255,255,0.1); font-family: monospace; display: none;"></div>
       </div>
+
+      <!-- Subtle Secondary Utilities Row -->
+      <div class="share-util-row">
+        <button type="button" class="share-util-btn" id="modalCopyLinkBtn" onclick="copyModalShareLink()">
+          <span>🔗</span> <span>Copy Post Link</span>
+        </button>
+        <button type="button" class="share-util-btn" id="modalSavePhotosBtn">
+          <span>📥</span> <span>Download Images</span>
+        </button>
+      </div>
+      <div id="modalShareLinkPreview" style="display: none;"></div>
     </div>
   </div>
 
@@ -1573,6 +1591,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261019_1910"></script>
+  <script src="app.js?v=20261019_1955"></script>
 </body>
 </html>

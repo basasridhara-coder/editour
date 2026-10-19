@@ -344,6 +344,12 @@ async function initAuth() {
             if (gate) gate.remove();
           }
 
+          const redirectCurator = sessionStorage.getItem('slant_redirect_curator');
+          if (redirectCurator) {
+            sessionStorage.removeItem('slant_redirect_curator');
+            setTimeout(() => filterByCurator(redirectCurator), 500);
+          }
+
           let returnUrl = sessionStorage.getItem('slant_auth_redirect_url');
           if (returnUrl) {
             sessionStorage.removeItem('slant_auth_redirect_url');
@@ -1434,6 +1440,11 @@ function toggleBookmark(event, postId) {
     event.preventDefault();
   }
 
+  if (!currentUser) {
+    openAuthModal('Sign in to save and bookmark stories on Slant.');
+    return;
+  }
+
   const isCurrentlySaved = savedPostIds.has(postId);
   if (isCurrentlySaved) {
     savedPostIds.delete(postId);
@@ -2303,7 +2314,24 @@ async function checkDeepLink() {
     hasExplored = sessionStorage.getItem('slant_guest_explored') === 'true';
   } catch (e) {}
 
-  if (!currentUser && (isExplicitLogin || (!hasExplored && !deepPostId))) {
+  const curatorParam = params.get('curator') || params.get('author') || params.get('creator');
+  if (curatorParam && curatorParam.trim()) {
+    const cleanCurator = decodeURIComponent(curatorParam.trim()).replace(/^@/, '');
+    if (!currentUser) {
+      sessionStorage.setItem('slant_redirect_curator', cleanCurator);
+      setTimeout(() => {
+        if (!currentUser) {
+          openAuthModal(`Sign in to explore all opinions and slants by @${cleanCurator}.`);
+        }
+      }, 250);
+    } else {
+      setTimeout(() => {
+        filterByCurator(cleanCurator);
+      }, 350);
+    }
+  }
+
+  if (!currentUser && (isExplicitLogin || (!hasExplored && !deepPostId && !curatorParam))) {
     setTimeout(() => {
       if (!currentUser) openAuthModal();
     }, 200);
@@ -4065,7 +4093,7 @@ function createPostCardElement(post, index) {
 
   card.innerHTML = `
     <div class="post-header">
-      <div class="creator-info">
+      <div class="creator-info" onclick="handleCreatorInfoClick(event, '${escapeHtml(handle)}')" style="cursor: pointer;">
         <div class="creator-avatar">
           <div class="avatar-inner">${initial}</div>
         </div>
@@ -4350,6 +4378,10 @@ function setupCarouselGestures(postIndex) {
 }
 
 function toggleLike(btn) {
+  if (!currentUser) {
+    openAuthModal('Sign in to like and react to visual slants.');
+    return;
+  }
   btn.classList.toggle('liked');
   const countSpan = btn.querySelector('.like-count');
   let val = parseInt(countSpan.textContent, 10);
@@ -4361,6 +4393,10 @@ function toggleLike(btn) {
 }
 
 function togglePostMenu(index) {
+  if (!currentUser && isDeepLinkScrollGated) {
+    openAuthModal('Sign in to access post options and sharing.');
+    return;
+  }
   const menu = document.getElementById(`post-menu-${index}`);
   if (!menu) return;
   const isShowing = menu.classList.contains('show');
@@ -4379,6 +4415,45 @@ document.addEventListener('click', (e) => {
     closeAllPostMenus();
   }
 });
+
+let activeCuratorFilter = null;
+
+function handleCreatorInfoClick(event, handle) {
+  if (event) event.stopPropagation();
+  const clean = String(handle || '').replace(/^@/, '').trim();
+  if (!clean) return;
+  if (!currentUser) {
+    sessionStorage.setItem('slant_redirect_curator', clean);
+    openAuthModal(`Sign in to explore all opinions and slants by @${clean}.`);
+    return;
+  }
+  filterByCurator(clean);
+}
+
+function filterByCurator(curatorName) {
+  if (!curatorName) return;
+  const clean = String(curatorName).replace(/^@/, '').toLowerCase().trim();
+  activeCuratorFilter = clean;
+
+  const targetPosts = (typeof allStories !== 'undefined' && allStories && allStories.length > 0) ? allStories : (typeof allPosts !== 'undefined' ? allPosts : []);
+  if (targetPosts && targetPosts.length > 0) {
+    const matched = targetPosts.filter(p => {
+      const author = (p.creatorHandle || '').toLowerCase().replace(/^@/, '').trim();
+      return author === clean || author.includes(clean);
+    });
+
+    if (matched.length > 0) {
+      currentBatchFilteredPosts = matched;
+      currentRenderedBatch = 0;
+      const container = document.getElementById('feedContainer');
+      if (container) container.innerHTML = '';
+      renderBatchCards(matched.slice(0, FEED_BATCH_SIZE), 0);
+      showTemporaryToast(`✨ Showing opinions by @${clean}`);
+      return;
+    }
+  }
+  showTemporaryToast(`Viewing opinions by @${clean}`);
+}
 
 /* ============================================================
    MODALS & ACTIONS
@@ -4525,6 +4600,10 @@ function renderProofSummarySections(post, ledger) {
 
 function openDetailModal(index) {
   if (index === 'preview') return;
+  if (!currentUser && isDeepLinkScrollGated) {
+    openAuthModal('Sign in to view verified source context and receipts.');
+    return;
+  }
   // Guard against accidental opening while scrolling the Slant Minute broadsheet or swiping
   if (window._justSwipedCarousel && (Date.now() - window._justSwipedCarousel < 300)) {
     return;
@@ -5780,6 +5859,11 @@ function scheduleNextPreRender() {
 }
 
 async function sharePosters(indexOrId) {
+  if (!currentUser && isDeepLinkScrollGated) {
+    openAuthModal('Sign in to share and download slant posters.');
+    return;
+  }
+
   const post = getPostFromIndexOrId(indexOrId);
 
   if (!post) {
@@ -5816,75 +5900,53 @@ function openSharePostersModal(post, files) {
 
   const modal = document.getElementById('posterShareModal');
   const thumbsRow = document.getElementById('sharePostersThumbsRow');
-  const chatBtn = document.getElementById('modalShareChatBtn');
-  const statusBtn = document.getElementById('modalShareStatusBtn');
+  const teaserBtn = document.getElementById('shareTeaserBtn');
+  const carouselBtn = document.getElementById('shareCarouselBtn');
+  const teaserDesc = document.getElementById('shareTeaserCaptionPreview');
+  const carouselDesc = document.getElementById('shareCarouselCaptionPreview');
   const saveBtn = document.getElementById('modalSavePhotosBtn');
   const copyBtn = document.getElementById('modalCopyLinkBtn');
-  const preview = document.getElementById('modalShareLinkPreview');
 
   if (!modal) return;
 
   const shareUrl = getPostShareUrl(post);
-  const headline = post?.adaptedHeadline || post?.originalHeadline || 'Curated Story';
-  const shareText = getPostShareText(post);
+  const headline = (post?.adaptedHeadline || post?.originalHeadline || 'Curated Opinion').trim();
+  const handle = (post?.creatorHandle || '@curator').trim();
+  const cleanHandle = handle.replace('@', '');
+  const profileUrl = `${window.location.origin}/?curator=${encodeURIComponent(cleanHandle)}`;
+
+  if (teaserDesc) {
+    teaserDesc.textContent = `know my detailed opinion on "${headline}"`;
+  }
+  if (carouselDesc) {
+    carouselDesc.textContent = `know more of such my opinions on topics at ${profileUrl}`;
+  }
 
   if (thumbsRow && files && files.length > 0) {
     thumbsRow.innerHTML = '';
     files.forEach((file, i) => {
       const url = URL.createObjectURL(file);
       const wrap = document.createElement('div');
-      wrap.style.cssText = 'position:relative; width:90px; height:120px; border-radius:8px; overflow:hidden; border:1px solid rgba(255,255,255,0.15); background:#111; box-shadow:0 4px 12px rgba(0,0,0,0.4);';
+      wrap.style.cssText = 'position:relative; width:85px; height:115px; border-radius:8px; overflow:hidden; border:1px solid rgba(255,255,255,0.15); background:#111; box-shadow:0 4px 12px rgba(0,0,0,0.4);';
       wrap.innerHTML = `
         <img src="${url}" style="width:100%; height:100%; object-fit:cover; display:block;" alt="Slide ${i+1}">
-        <span style="position:absolute; bottom:4px; right:4px; font-size:9px; font-weight:800; background:rgba(0,0,0,0.75); color:#fff; padding:1px 5px; border-radius:4px; backdrop-filter:blur(2px);">0${i+1}/03</span>
+        <span style="position:absolute; bottom:4px; right:4px; font-size:9px; font-weight:800; background:rgba(0,0,0,0.75); color:#fff; padding:1px 5px; border-radius:4px; backdrop-filter:blur(2px);">0${i+1}/0${files.length}</span>
       `;
       thumbsRow.appendChild(wrap);
     });
   }
 
-  // Setup Share to Chat button (Reverses file array so messaging apps like WhatsApp anchor Poster 1 as thumbnail & caption)
-  if (chatBtn) {
-    const chatPayload = buildSharePayload(files, headline, shareText, shareUrl, 'chat');
-    chatBtn.onclick = async () => {
-      if (chatPayload && navigator.share) {
-        try {
-          await navigator.share(chatPayload);
-          closeSharePostersModal();
-          showTemporaryToast('✨ Posters shared to chat!');
-        } catch (err) {
-          if (err.name !== 'AbortError') {
-            console.warn('Native share error, falling back to download:', err);
-            downloadShareFiles(files);
-          }
-        }
-      } else {
-        downloadShareFiles(files);
-        copyCardShareLink(post?.id);
-        closeSharePostersModal();
-      }
+  // Setup Option 1: Share Poster 1 (Teaser)
+  if (teaserBtn) {
+    teaserBtn.onclick = async () => {
+      await shareTeaserPoster(post, files);
     };
   }
 
-  // Setup Share for Status / Story button (Preserves natural 1 -> 2 -> 3 sequential order)
-  if (statusBtn) {
-    const statusPayload = buildSharePayload(files, headline, shareText, shareUrl, 'status');
-    statusBtn.onclick = async () => {
-      if (statusPayload && navigator.share) {
-        try {
-          await navigator.share(statusPayload);
-          closeSharePostersModal();
-          showTemporaryToast('✨ Posters shared for status / story!');
-        } catch (err) {
-          if (err.name !== 'AbortError') {
-            console.warn('Native share error, falling back to download:', err);
-            downloadShareFiles(files);
-          }
-        }
-      } else {
-        downloadShareFiles(files);
-        copyCardShareLink(post?.id);
-        closeSharePostersModal();
-      }
+  // Setup Option 2: Share All Posters (Carousel)
+  if (carouselBtn) {
+    carouselBtn.onclick = async () => {
+      await shareCarouselPosters(post, files);
     };
   }
 
@@ -5903,14 +5965,90 @@ function openSharePostersModal(post, files) {
     };
   }
 
-  // Display clean share URL preview
-  if (preview && shareUrl) {
-    preview.style.display = 'block';
-    preview.textContent = shareUrl;
-  }
-
   modal.classList.add('open');
   modal.classList.add('active');
+}
+
+async function shareTeaserPoster(post, files) {
+  if (!post || !files || files.length === 0) return;
+  const headline = (post.adaptedHeadline || post.originalHeadline || 'Curated Opinion').trim();
+  const shareUrl = getPostShareUrl(post);
+  const caption = `know my detailed opinion on "${headline}" ${shareUrl}`;
+  const poster1 = files[0];
+
+  if (navigator.share && poster1 && navigator.canShare) {
+    const payload = {
+      files: [poster1],
+      title: headline,
+      text: caption
+    };
+    if (navigator.canShare(payload)) {
+      try {
+        await navigator.share(payload);
+        closeSharePostersModal();
+        showTemporaryToast('✨ Cover poster shared!');
+        return;
+      } catch (err) {
+        if (err.name === 'AbortError') return;
+        console.warn('Native share notice:', err);
+      }
+    }
+  }
+
+  // Desktop or fallback
+  downloadSingleFile(poster1);
+  if (navigator.clipboard) {
+    await navigator.clipboard.writeText(caption).catch(() => {});
+  }
+  closeSharePostersModal();
+  showTemporaryToast('📥 Cover poster downloaded and link copied to clipboard!');
+}
+
+async function shareCarouselPosters(post, files) {
+  if (!post || !files || files.length === 0) return;
+  const handle = (post.creatorHandle || '@curator').trim();
+  const cleanHandle = handle.replace('@', '');
+  const profileUrl = `${window.location.origin}/?curator=${encodeURIComponent(cleanHandle)}`;
+  const caption = `know more of such my opinions on topics at ${profileUrl}`;
+
+  if (navigator.share && files.length > 0 && navigator.canShare) {
+    const payload = {
+      files: files,
+      title: `Opinions by ${handle}`,
+      text: caption
+    };
+    if (navigator.canShare(payload)) {
+      try {
+        await navigator.share(payload);
+        closeSharePostersModal();
+        showTemporaryToast('✨ Full poster set shared!');
+        return;
+      } catch (err) {
+        if (err.name === 'AbortError') return;
+        console.warn('Native share notice:', err);
+      }
+    }
+  }
+
+  // Desktop or fallback
+  downloadShareFiles(files);
+  if (navigator.clipboard) {
+    await navigator.clipboard.writeText(caption).catch(() => {});
+  }
+  closeSharePostersModal();
+  showTemporaryToast('📥 All posters downloaded and profile link copied to clipboard!');
+}
+
+function downloadSingleFile(file) {
+  if (!file) return;
+  const url = URL.createObjectURL(file);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = file.name || 'poster-1.png';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
 }
 
 function closeSharePostersModal() {
@@ -5923,7 +6061,7 @@ function closeSharePostersModal() {
 
 function downloadShareFiles(files) {
   if (!files || files.length === 0) return;
-  showTemporaryToast('📥 Saving 3 slide posters...');
+  showTemporaryToast(`📥 Saving ${files.length} slide posters...`);
   files.forEach((file, idx) => {
     setTimeout(() => {
       const url = URL.createObjectURL(file);
@@ -5943,6 +6081,7 @@ window.sharePosters = sharePosters;
 window.openSharePostersModal = openSharePostersModal;
 window.closeSharePostersModal = closeSharePostersModal;
 window.downloadShareFiles = downloadShareFiles;
+window.downloadSingleFile = downloadSingleFile;
 
 function openPaperCutModal(indexOrId) {
   const post = getPostFromIndexOrId(indexOrId);

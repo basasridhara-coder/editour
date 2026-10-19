@@ -12871,3 +12871,213 @@ mark.polish-mark:hover, mark.polish-mark.active {
 .deep-link-gate-btn:hover .deep-link-gate-arrow {
   transform: translateX(4px);
 }
+
+/* ============================================================
+   SIMPLIFIED 2-TIER SOCIAL SHARE MODAL
+   ============================================================ */
+.slant-share-card {
+  max-width: 480px;
+  padding: 24px;
+  text-align: left;
+  border-radius: 20px;
+  background: #0B0F19;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
+}
+
+.share-modal-header {
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.share-sparkle-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(168, 85, 247, 0.15);
+  color: #C084FC;
+  font-size: 20px;
+  margin-bottom: 8px;
+}
+
+.share-modal-title {
+  font-size: 18px;
+  font-weight: 800;
+  color: #F8FAFC;
+  margin: 0 0 4px;
+}
+
+.share-modal-subtitle {
+  font-size: 12.5px;
+  color: #94A3B8;
+  margin: 0;
+}
+
+.share-thumbs-row {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.share-actions-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.share-tier-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.18s ease;
+  width: 100%;
+  font-family: inherit;
+  color: #F8FAFC;
+  touch-action: manipulation;
+}
+
+.share-tier-card:hover {
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.25);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.share-tier-card:active {
+  transform: scale(0.98);
+}
+
+.tier-teaser {
+  border-left: 4px solid #6366F1;
+}
+
+.tier-teaser:hover {
+  border-color: #818CF8;
+  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.25);
+}
+
+.tier-carousel {
+  border-left: 4px solid #10B981;
+}
+
+.tier-carousel:hover {
+  border-color: #34D399;
+  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.25);
+}
+
+.tier-card-icon {
+  font-size: 26px;
+  flex-shrink: 0;
+}
+
+.tier-card-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.tier-card-title {
+  font-size: 14px;
+  font-weight: 800;
+  color: #FFFFFF;
+  margin-bottom: 3px;
+}
+
+.tier-card-desc {
+  font-size: 11.5px;
+  color: #94A3B8;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tier-card-badge {
+  display: inline-block;
+  font-size: 9.5px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #CBD5E1;
+}
+
+.tier-arrow {
+  font-size: 16px;
+  color: #94A3B8;
+  transition: transform 0.15s ease;
+}
+
+.share-tier-card:hover .tier-arrow {
+  transform: translateX(3px);
+  color: #FFFFFF;
+}
+
+.share-util-row {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.share-util-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #94A3B8;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.share-util-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #F8FAFC;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+[data-theme="daylight"] .slant-share-card {
+  background: #FFFFFF;
+  border-color: #E2E8F0;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="daylight"] .share-modal-title {
+  color: #0F172A;
+}
+
+[data-theme="daylight"] .share-tier-card {
+  background: #F8FAFC;
+  border-color: #E2E8F0;
+  color: #0F172A;
+}
+
+[data-theme="daylight"] .share-tier-card:hover {
+  background: #F1F5F9;
+}
+
+[data-theme="daylight"] .tier-card-title {
+  color: #0F172A;
+}
+
+[data-theme="daylight"] .share-util-btn {
+  background: #F8FAFC;
+  border-color: #E2E8F0;
+  color: #475569;
+}
