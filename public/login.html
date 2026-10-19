@@ -27,7 +27,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Merriweather:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,400;1,600;1,700;1,900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261019_1600">
+  <link rel="stylesheet" href="style.css?v=20261020_0050">
   <!-- Favicon & Brand Icons -->
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
@@ -268,14 +268,6 @@
 
           <div class="auth-status-msg" id="authStatusMsg" style="display:none;"></div>
 
-          <!-- Guest Explore Bypass -->
-          <div class="auth-guest-bypass">
-            <a href="/" class="auth-guest-btn" onclick="sessionStorage.setItem('slant_guest_explored', 'true')">
-              <span>Explore as Guest without signing in</span>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-            </a>
-          </div>
-
           <div class="auth-terms-note">
             🔒 100% Ad-Free • Zero Data Selling • Saved Bookmarks Sync Across Devices
           </div>
@@ -291,8 +283,6 @@
       <span>🎨 High-Fidelity Editorial Visuals</span>
       <span>•</span>
       <span>⚡ Signal Over Consensus</span>
-      <span>•</span>
-      <span><a href="/" style="color:#818CF8; text-decoration:none;" onclick="sessionStorage.setItem('slant_guest_explored', 'true')">Back to Live Feed &rarr;</a></span>
     </div>
 
   <!-- Private Preview Access Gate Modal (Shown when an uninvited user tries to sign in) -->
@@ -316,14 +306,14 @@
       </div>
 
       <button class="creator-publish-btn" style="width: 100%; padding: 13px; font-size: 14.5px; display: flex; align-items: center; justify-content: center; gap: 8px;" onclick="window.location.href='/'">
-        <span>Explore Public Feed as Guest</span> <span>&rarr;</span>
+        <span>Back to Slant Showcase</span> <span>&rarr;</span>
       </button>
     </div>
   </div>
 
   </main>
 
-  <script src="app.js?v=20261019_1600"></script>
+  <script src="app.js?v=20261020_0050"></script>
   <script>
     // Ensure the post preview is rendered immediately upon loading login.html
     window.addEventListener('DOMContentLoaded', () => {

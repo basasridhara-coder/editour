@@ -132,6 +132,11 @@ async function init() {
   if (gateEmail) {
     openPrivatePreviewGateModal(gateEmail);
   }
+  const deepPostId = typeof getDeepLinkedPostId === 'function' ? getDeepLinkedPostId() : null;
+  if (!currentUser && !deepPostId) {
+    dismissInitialFeedLoader(true);
+    renderLoginPostsPreview();
+  }
   await loadPosts();
   setupEventListeners();
   setupPullToRefresh();
@@ -275,9 +280,6 @@ async function initAuth() {
         currentUser = session.user;
         isCurrentUserAdmin = check.isAdmin;
         isUserWhitelistAllowed = true;
-        try {
-          sessionStorage.setItem('slant_guest_explored', 'true');
-        } catch (_) {}
         closeAuthModal();
       } else {
         await handleUninvitedUser(session.user);
@@ -304,9 +306,6 @@ async function initAuth() {
           currentUser = session.user;
           isCurrentUserAdmin = check.isAdmin;
           isUserWhitelistAllowed = true;
-          try {
-            sessionStorage.setItem('slant_guest_explored', 'true');
-          } catch (_) {}
           closeAuthModal();
           showTemporaryToast(`Welcome to Slant, ${escapeHtml(getUserDisplayName())}! ✨`);
 
@@ -433,6 +432,10 @@ function getUserAvatarUrl() {
 }
 
 function updateAuthUI() {
+  const signedInView = document.getElementById('signedInAppView');
+  const signedOutView = document.getElementById('signedOutPageView');
+  const deepPostId = typeof getDeepLinkedPostId === 'function' ? getDeepLinkedPostId() : null;
+
   const signInBtn = document.getElementById('headerAuthBtn');
   const userMenuWrap = document.getElementById('userMenuWrap');
   const userDropdownName = document.getElementById('userMenuName');
@@ -467,6 +470,10 @@ function updateAuthUI() {
   if (badgeMyCount) badgeMyCount.textContent = myPostsCount;
 
   if (currentUser) {
+    if (signedInView) signedInView.style.display = 'block';
+    if (signedOutView) signedOutView.style.display = 'none';
+    document.body.classList.remove('signed-out-active');
+
     if (signInBtn) signInBtn.style.display = 'none';
     if (userMenuWrap) userMenuWrap.style.display = 'block';
 
@@ -515,6 +522,20 @@ function updateAuthUI() {
       headerAdminBetaBtn.style.display = isCurrentUserAdmin ? 'inline-flex' : 'none';
     }
   } else {
+    if (deepPostId) {
+      if (signedInView) signedInView.style.display = 'block';
+      if (signedOutView) signedOutView.style.display = 'none';
+      document.body.classList.remove('signed-out-active');
+    } else {
+      if (signedInView) signedInView.style.display = 'none';
+      if (signedOutView) {
+        signedOutView.style.display = 'flex';
+        renderLoginPostsPreview();
+      }
+      document.body.classList.add('signed-out-active');
+      dismissInitialFeedLoader(true);
+    }
+
     if (signInBtn) signInBtn.style.display = 'inline-flex';
     if (userMenuWrap) userMenuWrap.style.display = 'none';
 
@@ -699,7 +720,7 @@ function renderLoginPostsPreview() {
       <!-- 3 Posters in a Row: Hook, Slant, Receipts -->
       <div class="login-row-posters">
         <!-- Poster 1: The Visual Hook -->
-        <div class="login-poster-col poster-hook" onclick="previewPostFromLogin('${post.id}')" title="Poster 1: Visual Hook • Click to read in feed">
+        <div class="login-poster-col poster-hook" onclick="previewPostFromLogin('${post.id}')" title="Poster 1: Visual Hook • Sign in to read">
           <span class="login-poster-label">01 • HOOK</span>
           <div class="carousel-slide slide-hook">
             ${slide1Content}
@@ -707,7 +728,7 @@ function renderLoginPostsPreview() {
         </div>
 
         <!-- Poster 2: The Slant & Conviction -->
-        <div class="login-poster-col poster-slant" onclick="previewPostFromLogin('${post.id}')" title="Poster 2: The Slant • Click to read in feed">
+        <div class="login-poster-col poster-slant" onclick="previewPostFromLogin('${post.id}')" title="Poster 2: The Slant • Sign in to read">
           <span class="login-poster-label">02 • THE SLANT</span>
           <div class="carousel-slide slide-critique">
             ${slide2Content}
@@ -715,7 +736,7 @@ function renderLoginPostsPreview() {
         </div>
 
         <!-- Poster 3: Slant Minute (1-Min Read) -->
-        <div class="login-poster-col poster-receipts" onclick="previewPostFromLogin('${post.id}')" title="Poster 3: Slant Minute (1-Min Read) • Click to read in feed">
+        <div class="login-poster-col poster-receipts" onclick="previewPostFromLogin('${post.id}')" title="Poster 3: Slant Minute • Sign in to read">
           <span class="login-poster-label">03 • SLANT MINUTE</span>
           <div class="carousel-slide slide-receipt">
             ${slide3Content}
@@ -862,29 +883,25 @@ function scrollLoginPosts(direction) {
 function previewPostFromLogin(postId) {
   if (!postId) return;
 
-  // If on standalone login.html, navigate to home with the post deep-link
-  if (window.location.pathname.includes('login') || !document.getElementById('feedStream')) {
-    sessionStorage.setItem('slant_guest_explored', 'true');
-    window.location.href = `/?p=${encodeURIComponent(postId)}`;
-    return;
+  const googleBtn = document.getElementById('googleLoginBtn');
+  if (googleBtn) {
+    googleBtn.classList.remove('pulse-highlight');
+    void googleBtn.offsetWidth;
+    googleBtn.classList.add('pulse-highlight');
   }
 
-  closeAuthModal();
-  const idx = allPosts.findIndex(p => p.id === postId);
-  if (idx >= 0) {
-    setTimeout(() => {
-      openDetailModal(idx);
-    }, 250);
-  } else {
-    showTemporaryToast('Navigating to story...');
+  const emailInput = document.getElementById('authEmailInput');
+  if (emailInput && window.innerWidth > 860) {
+    emailInput.focus();
   }
+
+  showTemporaryToast('Sign in with Google to explore full stories and join the conversation!');
 }
 
 function openAuthModal(customDesc) {
   if (currentUser) {
     return;
   }
-  const modal = document.getElementById('authModal');
   const descEl = document.getElementById('authModalDesc');
   const statusEl = document.getElementById('authStatusMsg');
   if (statusEl) {
@@ -896,15 +913,23 @@ function openAuthModal(customDesc) {
   } else if (descEl) {
     descEl.textContent = 'Sign in to save your favorite visual stories, customize your reading atmosphere, and publish your own editorials.';
   }
-  if (modal) {
-    modal.classList.add('open');
-    modal.classList.add('active');
-    const card = modal.querySelector('.slant-login-page-card');
-    if (card) card.scrollTop = 0;
-  }
 
-  // Populate dynamic post preview cards in the login showcase
-  renderLoginPostsPreview();
+  const signedInView = document.getElementById('signedInAppView');
+  const signedOutView = document.getElementById('signedOutPageView');
+  if (signedInView) signedInView.style.display = 'none';
+  if (signedOutView) {
+    signedOutView.style.display = 'flex';
+    renderLoginPostsPreview();
+  }
+  document.body.classList.add('signed-out-active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+
+  const googleBtn = document.getElementById('googleLoginBtn');
+  if (googleBtn) {
+    googleBtn.classList.remove('pulse-highlight');
+    void googleBtn.offsetWidth;
+    googleBtn.classList.add('pulse-highlight');
+  }
 
   // Push #login to URL hash if not already present and not deep-linked
   const deepId = typeof getDeepLinkedPostId === 'function' ? getDeepLinkedPostId() : null;
@@ -921,15 +946,15 @@ function openAuthModal(customDesc) {
 }
 
 function closeAuthModal() {
-  const modal = document.getElementById('authModal');
-  if (modal) {
-    modal.classList.remove('open');
-    modal.classList.remove('active');
-  }
+  const deepId = typeof getDeepLinkedPostId === 'function' ? getDeepLinkedPostId() : null;
+  const signedInView = document.getElementById('signedInAppView');
+  const signedOutView = document.getElementById('signedOutPageView');
 
-  try {
-    sessionStorage.setItem('slant_guest_explored', 'true');
-  } catch (e) {}
+  if (currentUser || deepId) {
+    if (signedOutView) signedOutView.style.display = 'none';
+    if (signedInView) signedInView.style.display = 'block';
+    document.body.classList.remove('signed-out-active');
+  }
 
   // Remove #login from URL hash if present
   if (window.location.hash === '#login') {
@@ -941,9 +966,7 @@ function closeAuthModal() {
 }
 
 function handleAuthOverlayClick(e) {
-  if (e && e.target && e.target.id === 'authModal') {
-    closeAuthModal();
-  }
+  // Legacy handler maintained for backward compatibility
 }
 
 function showAuthStatus(msg, type = 'normal') {
@@ -1139,17 +1162,18 @@ function closePrivatePreviewGateModal() {
   isUninvitedGateActive = false;
   try {
     sessionStorage.removeItem('slant_gate_active_email');
-    sessionStorage.setItem('slant_guest_explored', 'true');
   } catch (e) {}
   const modal = document.getElementById('privatePreviewGateModal');
-  if (!modal) return;
-  modal.classList.remove('open');
-  modal.classList.remove('active');
-  modal.style.display = 'none';
-  modal.style.opacity = '';
-  modal.style.visibility = '';
-  modal.style.pointerEvents = '';
+  if (modal) {
+    modal.classList.remove('open');
+    modal.classList.remove('active');
+    modal.style.display = 'none';
+    modal.style.opacity = '';
+    modal.style.visibility = '';
+    modal.style.pointerEvents = '';
+  }
   document.body.style.overflow = '';
+  updateAuthUI();
 }
 
 function openAdminBetaModal() {
@@ -2324,11 +2348,6 @@ async function checkDeepLink() {
     window.location.hash === '#login' ||
     (window.location.pathname && window.location.pathname.endsWith('/login'));
 
-  let hasExplored = false;
-  try {
-    hasExplored = sessionStorage.getItem('slant_guest_explored') === 'true';
-  } catch (e) {}
-
   const curatorParam = params.get('curator') || params.get('author') || params.get('creator');
   if (curatorParam && curatorParam.trim()) {
     const cleanCurator = decodeURIComponent(curatorParam.trim()).replace(/^@/, '');
@@ -2346,10 +2365,8 @@ async function checkDeepLink() {
     }
   }
 
-  if (!currentUser && (isExplicitLogin || (!hasExplored && !deepPostId && !curatorParam))) {
-    setTimeout(() => {
-      if (!currentUser) openAuthModal();
-    }, 200);
+  if (!currentUser && (isExplicitLogin || !deepPostId)) {
+    updateAuthUI();
   } else if (currentUser && window.location.hash === '#login') {
     try {
       const cleanUrl = window.location.pathname + window.location.search;
@@ -2370,10 +2387,7 @@ window.addEventListener('hashchange', () => {
     }
     openAuthModal();
   } else {
-    const modal = document.getElementById('authModal');
-    if (modal && (modal.classList.contains('open') || modal.classList.contains('active'))) {
-      closeAuthModal();
-    }
+    closeAuthModal();
     const deepId = getDeepLinkedPostId();
     if (deepId) {
       const card = document.getElementById('post-' + deepId) || document.querySelector(`[data-post-id="${deepId}"]`);
