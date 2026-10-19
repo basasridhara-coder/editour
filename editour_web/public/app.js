@@ -4858,6 +4858,27 @@ function getPostGenerationInputs(post) {
   const contextProvided = raw.contextProvided || post.contextProvided || slantTake || scrapedContent || spark || '';
   const illustrationPrompt = raw.illustrationPrompt || post.illustrationPrompt || '';
   const originalHeadline = raw.originalHeadline || post.originalHeadline || post.adaptedHeadline || '';
+  const rawPhoto = post.sourceImageBase64
+    || post.sourceImageUrl
+    || post.catalystPhoto
+    || post.catalystPhotoBase64
+    || post.originalPhotoBase64
+    || post.originalPhotoUrl
+    || post.paperCutImage
+    || post.referencePhotoUrl
+    || raw.sourceImageBase64
+    || raw.sourceImageUrl
+    || raw.catalystPhoto
+    || raw.catalystPhotoBase64
+    || raw.innerVoiceImageBase64
+    || '';
+  const sourcePhotoMimeType = post.sourceImageMimeType
+    || post.originalPhotoMimeType
+    || post.catalystPhotoMimeType
+    || raw.sourceImageMimeType
+    || raw.innerVoiceImageMimeType
+    || 'image/jpeg';
+  const hasAttachedPhoto = Boolean(rawPhoto && typeof rawPhoto === 'string' && rawPhoto.trim().length > 10);
 
   return {
     slantTake,
@@ -4876,7 +4897,10 @@ function getPostGenerationInputs(post) {
     illustrationPrompt,
     originalHeadline,
     perspectiveMode: raw.perspectiveMode || post.perspectiveMode || 'hybrid',
-    sourceImageUrl: raw.sourceImageUrl || post.sourceImageUrl || post.originalPhotoUrl || ''
+    sourceImageUrl: raw.sourceImageUrl || post.sourceImageUrl || post.originalPhotoUrl || '',
+    sourcePhoto: rawPhoto,
+    sourcePhotoMimeType,
+    hasAttachedPhoto
   };
 }
 
@@ -4909,8 +4933,15 @@ function openGenerationContextModal(postId) {
     inputs.cues.forEach((c, idx) => copyLines.push(`  ${idx + 1}. ${c}${idx === 0 ? ' (HERO)' : ''}`));
   }
   if (inputs.illustrationPrompt) copyLines.push(`\n[ART DIRECTION PROMPT]:\n${inputs.illustrationPrompt}`);
+  const isLikeness = Boolean(inputs.hasAttachedPhoto
+    || inputs.characterRepresentation === 'likeness'
+    || inputs.characterRepresentation === 'lookalike'
+    || inputs.characterRepresentation === 'cinematic');
+  const hybridPerspectiveLabel = isLikeness ? '⚖️ Hybrid Likeness' : '⚖️ Hybrid Blend';
+  const hybridPerspectivePlain = isLikeness ? 'Hybrid Likeness' : 'Hybrid Blend';
+
   copyLines.push(`\n[STUDIO PARAMETERS]:`);
-  copyLines.push(`  - Perspective Focus: ${inputs.perspectiveMode === 'curator' ? 'Curator Angle' : (inputs.perspectiveMode === 'source' ? 'Source Grounded' : 'Hybrid Contrast')}`);
+  copyLines.push(`  - Perspective Focus: ${inputs.perspectiveMode === 'curator' ? 'Curator Angle' : (inputs.perspectiveMode === 'source' ? 'Source Grounded' : hybridPerspectivePlain)}`);
   copyLines.push(`  - Core Take: ${inputs.refineCoreTake ? 'Refined with AI' : 'Use As-Is (Verbatim)'}`);
   copyLines.push(`  - Vocabulary: ${inputs.vocabularyStyle}`);
   copyLines.push(`  - Setting / Region: ${inputs.countryContext}`);
@@ -5022,6 +5053,38 @@ function openGenerationContextModal(postId) {
     `;
   }
 
+  // 3b. Attached Catalyst / Source Photo Reference
+  if (inputs.sourcePhoto && typeof inputs.sourcePhoto === 'string' && inputs.sourcePhoto.length > 20) {
+    let imgSrc = inputs.sourcePhoto;
+    if (!imgSrc.startsWith('data:') && !imgSrc.startsWith('http') && !imgSrc.startsWith('/')) {
+      imgSrc = `data:${inputs.sourcePhotoMimeType || 'image/jpeg'};base64,` + imgSrc;
+    } else if (imgSrc.startsWith('http')) {
+      imgSrc = imgSrc.replace(/&amp;/g, '&');
+    }
+    const photoBadge = (inputs.sourceType === 'inner_voice')
+      ? '📸 Archival Catalyst Snapshot'
+      : (inputs.sourceType === 'video_audio' ? '🎬 Broadcast Still' : '📰 Archival Wire Photo');
+    html += `
+      <div class="gen-section-card">
+        <div class="gen-section-header">
+          <div class="gen-section-title-wrap">
+            <span class="gen-section-icon">📸</span>
+            <span class="gen-section-label">ATTACHED PHOTO REFERENCE</span>
+          </div>
+          <span class="gen-cue-tag" style="background: rgba(16, 185, 129, 0.15); color: #10B981; font-weight: 700;">${photoBadge}</span>
+        </div>
+        <div style="display: flex; gap: 14px; align-items: center; margin-top: 8px;">
+          <div style="width: 76px; height: 76px; border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,0.12); flex-shrink: 0; background: #0F172A;">
+            <img src="${escapeHtml(imgSrc)}" style="width: 100%; height: 100%; object-fit: cover;" alt="Attached Photo Anchor">
+          </div>
+          <div style="font-size: 12.5px; color: var(--text-secondary, #94A3B8); line-height: 1.45;">
+            Anchors the visual composition, facial structure, and physical setting in physical reality with zero digital footprint.
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   // 4. Visual Cues & Metaphors
   if (inputs.cues && inputs.cues.length > 0) {
     html += `
@@ -5081,7 +5144,7 @@ function openGenerationContextModal(postId) {
         </div>
         <div class="gen-param-item">
           <span class="gen-param-label">Perspective Focus</span>
-          <span class="gen-param-value">${inputs.perspectiveMode === 'curator' ? '⚡ Curator Angle' : (inputs.perspectiveMode === 'source' ? '📰 Source Grounded' : '⚖️ Hybrid Contrast')}</span>
+          <span class="gen-param-value">${inputs.perspectiveMode === 'curator' ? '⚡ Curator Angle' : (inputs.perspectiveMode === 'source' ? '📰 Source Grounded' : escapeHtml(hybridPerspectiveLabel))}</span>
         </div>
         <div class="gen-param-item">
           <span class="gen-param-label">Poster 2 Take</span>
@@ -5183,6 +5246,34 @@ function loadPostIntoStudioToRegenerate(postId) {
   // 1. Set source mode
   setAnchorMode(inputs.sourceType || 'digital_link');
 
+  // 1b. Restore Attached Catalyst Photo or Source Visual if present
+  if (inputs.sourcePhoto && typeof inputs.sourcePhoto === 'string' && inputs.sourcePhoto.length > 20) {
+    let photoData = inputs.sourcePhoto;
+    if (!photoData.startsWith('data:') && !photoData.startsWith('http') && !photoData.startsWith('/')) {
+      photoData = `data:${inputs.sourcePhotoMimeType || 'image/jpeg'};base64,` + photoData;
+    } else if (photoData.startsWith('http')) {
+      photoData = photoData.replace(/&amp;/g, '&');
+    }
+    creatorReferenceImageBase64 = photoData;
+    creatorReferenceImageMimeType = inputs.sourcePhotoMimeType || 'image/jpeg';
+    creatorReferenceImageSourceLabel = (inputs.sourceType === 'inner_voice') ? 'Catalyst Scene Photo' : 'Source Visual';
+
+    if (inputs.sourceType === 'inner_voice') {
+      innerVoicePhotoBase64 = photoData;
+      innerVoicePhotoMimeType = creatorReferenceImageMimeType;
+      const thumb = document.getElementById('innerVoicePhotoThumb');
+      if (thumb) thumb.src = photoData;
+      const preview = document.getElementById('innerVoicePhotoPreview');
+      if (preview) preview.style.display = 'flex';
+      const emptyBox = document.getElementById('innerVoicePhotoEmpty');
+      if (emptyBox) emptyBox.style.display = 'none';
+    }
+
+    if (typeof updateReferencePhotoUI === 'function') {
+      updateReferencePhotoUI();
+    }
+  }
+
   // 2. Populate Slant Take
   const slantInput = document.getElementById('creatorSlantTakeInput');
   if (slantInput) {
@@ -5246,11 +5337,13 @@ function loadPostIntoStudioToRegenerate(postId) {
   creatorLastSuggestedContextKey = `${creatorCuesSourceFingerprint.sourceType}::${creatorCuesSourceFingerprint.url}::${creatorCuesSourceFingerprint.slantTake}`;
 
   // 11. Scraped article state
-  if (inputs.scrapedContent || inputs.scrapedTitle) {
+  if (inputs.scrapedContent || inputs.scrapedTitle || (inputs.sourcePhoto && inputs.sourceType !== 'inner_voice')) {
     currentScrapedArticle = {
       title: inputs.scrapedTitle || '',
       content: inputs.scrapedContent || '',
-      url: inputs.sourceUrl || ''
+      url: inputs.sourceUrl || '',
+      imageUrl: (inputs.sourcePhoto && inputs.sourcePhoto.startsWith('http')) ? inputs.sourcePhoto : '',
+      imageBase64: (inputs.sourcePhoto && !inputs.sourcePhoto.startsWith('http')) ? inputs.sourcePhoto : null
     };
   }
   if (inputs.sourceLedger) {
