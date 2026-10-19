@@ -9133,7 +9133,7 @@ async function startAiSynthesis() {
     const handleInput = document.getElementById('editModalHandle');
     if (handleInput) handleInput.value = currentSynthesizedPost.creatorHandle || '@curator';
     const opinionInput = document.getElementById('editModalOpinion');
-    if (opinionInput) opinionInput.value = currentSynthesizedPost.creatorOpinion || currentSynthesizedPost.curatorTake || '';
+    if (opinionInput) opinionInput.value = currentSynthesizedPost.curatorTake || currentSynthesizedPost.creatorOpinion || '';
     const whyInput = document.getElementById('editModalWhyItMatters');
     if (whyInput) whyInput.value = currentSynthesizedPost.whyItMatters || '';
     const metricInput = document.getElementById('editModalMetric');
@@ -9413,7 +9413,7 @@ function openEditPosterModal(initialTab = null) {
   if (excerptInput) excerptInput.value = currentSynthesizedPost.originalHeadline || currentSynthesizedPost.newsprintExcerpt || currentSynthesizedPost.hook || '';
   if (handleInput) handleInput.value = currentSynthesizedPost.creatorHandle || '@curator';
   if (s2TitleInput) s2TitleInput.value = currentSynthesizedPost.critiqueBadge || (currentSynthesizedPost.keyTakeaways && currentSynthesizedPost.keyTakeaways[0] ? currentSynthesizedPost.keyTakeaways[0].toUpperCase() : 'THE CRITICAL PERSPECTIVE');
-  if (opinionInput) opinionInput.value = currentSynthesizedPost.creatorOpinion || currentSynthesizedPost.curatorTake || '';
+  if (opinionInput) opinionInput.value = currentSynthesizedPost.curatorTake || currentSynthesizedPost.creatorOpinion || '';
   if (whyInput) whyInput.value = currentSynthesizedPost.whyItMatters || '';
   if (metricInput) metricInput.value = currentSynthesizedPost.keyMetric || '';
 

@@ -779,7 +779,7 @@ Respond strictly with valid JSON with this exact structure:
     // Ensure Poster 2 curated take stays strictly within 2-sentence visual budget (25-35 words) only when refineCoreTake is true
     if (refineCoreTake) {
       const takeSents = finalCuratorTake.split(/(?<=[.!?])\s+/);
-      if (takeSents.length > 2 && finalCuratorTake.length > 220) {
+      if (takeSents.length > 2 || finalCuratorTake.length > 200) {
         finalCuratorTake = takeSents.slice(0, 2).join(' ');
       }
     }
@@ -819,7 +819,7 @@ Respond strictly with valid JSON with this exact structure:
       creatorHandle: creatorHandle || '@curator',
       slantTone: slantTone || 'mind',
       slantIcon: slantTone === 'heart' ? '❤️' : '🧠',
-      creatorOpinion: finalPolishedCuratorTake || finalCuratorTake,
+      creatorOpinion: finalCuratorTake,
       curatorTake: finalCuratorTake,
       polishedCuratorTake: finalPolishedCuratorTake || formatCuratorTakeApt(userSlant || finalCuratorTake),
       rawUserSlant: userSlant || '',
