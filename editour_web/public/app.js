@@ -3802,13 +3802,9 @@ function buildSlide3Html(post, index) {
     excerpts = [];
   }
 
-  // Consolidate broadsheet essay paragraphs: prioritize whichever source has the full 3-paragraph essay
+  // Consolidate broadsheet essay paragraphs: prioritize user-edited / curated summary first
   let essayParas = [];
-  if (summaryParas.length >= 3) {
-    essayParas = [...summaryParas];
-  } else if (excerpts.length >= 3) {
-    essayParas = [...excerpts];
-  } else if (summaryParas.length > 0) {
+  if (summaryParas.length > 0) {
     essayParas = [...summaryParas];
   } else if (excerpts.length > 0) {
     essayParas = [...excerpts];
@@ -3816,31 +3812,13 @@ function buildSlide3Html(post, index) {
     essayParas = [cleanExcerpt(post.spark)];
   }
 
-  // If fewer than 3 paragraphs and excerpts are available, incorporate remaining excerpts first
-  if (essayParas.length < 3 && excerpts.length > 0) {
+  // If only 1 paragraph and excerpts are available, incorporate an excerpt if not already in essay
+  if (essayParas.length < 2 && excerpts.length > 0) {
     excerpts.forEach(e => {
       if (e && !essayParas.some(p => p.toLowerCase().includes(e.slice(0, 30).toLowerCase()))) {
         essayParas.push(e);
       }
     });
-  }
-
-  // If whyItMatters or broadsheetReflection is present, append as concluding reflection paragraph if not already in essay
-  const reflectionVal = post.broadsheetReflection || post.whyItMatters;
-  if (reflectionVal && String(reflectionVal).trim() && essayParas.length < 4) {
-    const cleanWhy = cleanExcerpt(reflectionVal);
-    if (!essayParas.some(p => p.toLowerCase().includes(cleanWhy.slice(0, 30).toLowerCase()))) {
-      essayParas.push(cleanWhy);
-    }
-  }
-
-  // If still fewer than 3 paragraphs, incorporate quote or reflection if available
-  const quoteVal = post.receiptHighlightQuote || post.broadsheetHighlight || post.pullQuote;
-  if (essayParas.length < 3 && quoteVal && String(quoteVal).trim()) {
-    const cleanQuote = cleanExcerpt(quoteVal);
-    if (!essayParas.some(p => p.toLowerCase().includes(cleanQuote.slice(0, 30).toLowerCase()))) {
-      essayParas.push(cleanQuote);
-    }
   }
 
   // If only one long paragraph exists, break into two paragraphs for broadsheet cadence
@@ -3857,7 +3835,7 @@ function buildSlide3Html(post, index) {
   }
 
   if (essayParas.length === 0) {
-    essayParas = [`Reporting examines key structural developments and observed outcomes.`];
+    essayParas = ['Reporting examines key structural developments and observed outcomes.'];
   }
 
   // Calculate total character count to dynamically adapt photo size and font cadence
@@ -3923,6 +3901,49 @@ function buildSlide3Html(post, index) {
 
   const hasPhoto = Boolean(scenePhotoHtml);
 
+  // Highlight Quote
+  const quoteVal = post.receiptHighlightQuote || post.broadsheetHighlight || post.pullQuote;
+  const cleanQuote = quoteVal ? cleanExcerpt(quoteVal) : '';
+  let quoteHtml = '';
+  if (cleanQuote && !isDuplicateOfUserTake(cleanQuote, post)) {
+    // Avoid duplicating quote inside essay paragraphs
+    essayParas = essayParas.filter(p => !p.toLowerCase().includes(cleanQuote.slice(0, 30).toLowerCase()) && !cleanQuote.toLowerCase().includes(p.slice(0, 30).toLowerCase()));
+    if (essayParas.length === 0) {
+      essayParas = [cleanQuote];
+    } else {
+      quoteHtml = `
+        <div class="receipt-highlight">
+          <div class="highlighter-label">
+            <span>✨</span>
+            <span>HIGHLIGHT</span>
+          </div>
+          <div class="highlighter-text">
+            "${escapeHtml(cleanQuote)}"
+          </div>
+        </div>
+      `;
+    }
+  }
+
+  // Concluding Reflection
+  const reflectionVal = post.broadsheetReflection || post.whyItMatters;
+  const cleanReflection = reflectionVal ? cleanExcerpt(reflectionVal) : '';
+  let reflectionHtml = '';
+  if (cleanReflection && !isDuplicateOfUserTake(cleanReflection, post)) {
+    const alreadyInEssay = essayParas.some(p => p.toLowerCase().includes(cleanReflection.slice(0, 30).toLowerCase()));
+    if (!alreadyInEssay) {
+      reflectionHtml = `
+        <div class="receipt-reflection-box">
+          <div class="receipt-reflection-label">
+            <span>💡</span>
+            <span>REFLECTION</span>
+          </div>
+          <p class="receipt-reflection-text">${escapeHtml(cleanReflection)}</p>
+        </div>
+      `;
+    }
+  }
+
   // Build pure broadsheet essay paragraphs (pure essay in paragraphs, photo if involved)
   let essayHtml = '';
   const leadRaw = essayParas[0];
@@ -3954,10 +3975,18 @@ function buildSlide3Html(post, index) {
         </div>
       </div>
 
+      <!-- Broadsheet Headline Box -->
+      ${headline ? `
+      <div class="receipts-headline-box">
+        <h2 class="receipt-headline">${headline}</h2>
+      </div>` : ''}
+
       <!-- Pure Editorial Broadsheet Essay -->
       <div class="receipt-paragraphs">
         ${scenePhotoHtml}
+        ${quoteHtml}
         ${essayHtml}
+        ${reflectionHtml}
       </div>
 
       <!-- Broadsheet Archival Bottom Folio -->
@@ -9925,7 +9954,7 @@ function showStep3Preview() {
   }
 }
 
-function renderCreatorPreview() {
+function renderCreatorPreview(targetSlide = null) {
   const wrapper = document.getElementById('creatorCardPreviewWrapper');
   if (!wrapper || !currentSynthesizedPost) return;
 
@@ -9934,8 +9963,17 @@ function renderCreatorPreview() {
   const card = createPostCardElement(currentSynthesizedPost, 'preview');
   wrapper.appendChild(card);
 
-  // Set to current slide
-  switchPreviewSlide(0);
+  // Clear poster file caches so fresh edits render immediately
+  if (typeof posterFilesCache !== 'undefined' && posterFilesCache) {
+    if (currentSynthesizedPost.id) posterFilesCache.delete(currentSynthesizedPost.id);
+    posterFilesCache.delete('preview');
+  }
+
+  // Activate target slide or preserve current slide
+  const slideToActivate = (typeof targetSlide === 'number')
+    ? targetSlide
+    : ((typeof currentPreviewSlide === 'number') ? currentPreviewSlide : 0);
+  switchPreviewSlide(slideToActivate);
 
   // Enable gesture swiping and mouse drag on preview card
   setupCarouselGestures('preview');
@@ -10152,6 +10190,7 @@ function closeEditPosterModal() {
 }
 
 function switchEditModalTab(tabIdx) {
+  currentPreviewSlide = tabIdx;
   for (let i = 0; i < 3; i++) {
     const tabBtn = document.getElementById(`editTab${i}`);
     const tabPane = document.getElementById(`editTabPane${i}`);
@@ -10281,8 +10320,7 @@ async function runEditModalReview(fieldsToReview, fromTab = null) {
     if (aggregatedCounts.total === 0) {
       showTemporaryToast('✨ Great job! Your edits read naturally and are free of errors.');
       applyEditModalFormValues();
-      renderCreatorPreview();
-      switchPreviewSlide(currentPreviewSlide || 0);
+      renderCreatorPreview(currentPreviewSlide || 0);
       closeEditPosterModal();
       return;
     }
@@ -10508,23 +10546,37 @@ function applyEditModalFormValues() {
   if (metricInput && metricInput.value.trim()) currentSynthesizedPost.keyMetric = metricInput.value.trim();
 
   // Slide 3: All content editable for all sources
-  if (s3Head && s3Head.value.trim()) {
-    currentSynthesizedPost.broadsheetHeadline = s3Head.value.trim();
-    currentSynthesizedPost.originalHeadline = s3Head.value.trim();
+  if (s3Head) {
+    const headVal = s3Head.value.trim();
+    currentSynthesizedPost.broadsheetHeadline = headVal;
+    if (headVal) {
+      currentSynthesizedPost.originalHeadline = headVal;
+    }
   }
-  if (s3Quote && s3Quote.value.trim()) {
-    currentSynthesizedPost.receiptHighlightQuote = s3Quote.value.trim();
-    currentSynthesizedPost.broadsheetHighlight = s3Quote.value.trim();
-    currentSynthesizedPost.pullQuote = s3Quote.value.trim();
+  if (s3Quote) {
+    const quoteVal = s3Quote.value.trim();
+    currentSynthesizedPost.receiptHighlightQuote = quoteVal;
+    currentSynthesizedPost.broadsheetHighlight = quoteVal;
+    currentSynthesizedPost.pullQuote = quoteVal;
   }
-  if (s3Obs && s3Obs.value.trim()) {
-    currentSynthesizedPost.summary = s3Obs.value.trim();
-    currentSynthesizedPost.broadsheetObservation = s3Obs.value.trim();
-    currentSynthesizedPost.articleExcerpts = s3Obs.value.trim().split(/\n\s*\n/).filter(Boolean);
+  if (s3Obs) {
+    const cleanObs = s3Obs.value.trim();
+    const obsParas = cleanObs ? cleanObs.split(/\n\s*\n/).map(p => p.trim()).filter(Boolean) : [];
+    currentSynthesizedPost.summary = cleanObs;
+    currentSynthesizedPost.broadsheetObservation = cleanObs;
+    currentSynthesizedPost.articleExcerpts = obsParas;
+    currentSynthesizedPost.resolvedArticleExcerpts = obsParas;
   }
-  if (s3Ref && s3Ref.value.trim()) {
-    currentSynthesizedPost.broadsheetReflection = s3Ref.value.trim();
-    currentSynthesizedPost.whyItMatters = s3Ref.value.trim();
+  if (s3Ref) {
+    const refVal = s3Ref.value.trim();
+    currentSynthesizedPost.broadsheetReflection = refVal;
+    currentSynthesizedPost.whyItMatters = refVal;
+  }
+
+  // Clear poster file caches so fresh edits render immediately
+  if (typeof posterFilesCache !== 'undefined' && posterFilesCache) {
+    if (currentSynthesizedPost.id) posterFilesCache.delete(currentSynthesizedPost.id);
+    posterFilesCache.delete('preview');
   }
 }
 
@@ -10543,9 +10595,8 @@ async function saveEditedSlideContent(skipReview = false) {
 
   applyEditModalFormValues();
 
-  // Re-render preview with edited values
-  renderCreatorPreview();
-  switchPreviewSlide(currentPreviewSlide);
+  // Re-render preview with edited values and stay on current edited slide
+  renderCreatorPreview(currentPreviewSlide);
 
   closeEditPosterModal();
   showTemporaryToast('✏️ Poster updated with edits!');
