@@ -3729,13 +3729,21 @@ header {
   flex-direction: column;
   gap: 28px;
   overflow-y: auto;
+  overflow-x: hidden;
   max-height: 640px;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   padding: 16px 16px 36px 16px;
   border-radius: 24px;
   background: rgba(4, 7, 18, 0.45);
   border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.4);
   scroll-behavior: smooth;
+  scroll-snap-type: y mandatory;
   scrollbar-width: thin;
   scrollbar-color: rgba(99, 102, 241, 0.4) transparent;
 }
@@ -3762,11 +3770,18 @@ header {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  box-sizing: border-box;
   background: rgba(15, 23, 42, 0.6);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 20px;
   padding: 16px 18px 20px 18px;
   transition: border-color 0.25s ease, background 0.25s ease, box-shadow 0.25s ease;
+  flex: 0 0 auto !important;
+  scroll-snap-align: start;
 }
 
 .login-post-row:hover,
@@ -3838,10 +3853,10 @@ header {
   color: #818CF8;
 }
 
-/* 3 Posters in a Row: Full Length (540px), Same as Feed */
+/* 3 Posters in a Row: Full Length (480px), Crisp 3-Column Display */
 .login-row-posters {
   display: grid;
-  grid-template-columns: repeat(3, minmax(310px, 1fr));
+  grid-template-columns: repeat(3, minmax(220px, 1fr));
   gap: 16px;
   width: 100%;
   overflow-x: auto;
@@ -3851,8 +3866,9 @@ header {
 
 .login-poster-col {
   position: relative;
-  height: 540px; /* Exact same vertical length as feed cards! */
-  min-height: 540px;
+  height: 480px;
+  min-height: 480px;
+  max-height: 480px;
   border-radius: 18px;
   overflow: hidden;
   background: #070B12;
@@ -3863,6 +3879,7 @@ header {
   user-select: none;
   display: flex;
   flex-direction: column;
+  box-sizing: border-box;
 }
 
 .login-poster-col:hover {
@@ -3979,7 +3996,7 @@ header {
 
 /* Slide 3: The Primary Receipts (Full Broadsheet Content) */
 .login-poster-col .slide-receipt {
-  padding: 14px 16px 12px 16px !important;
+  padding: 0 !important;
   background: #F7F5EE !important;
   color: #1E293B !important;
   font-family: 'Merriweather', Georgia, 'Times New Roman', serif !important;
@@ -3989,6 +4006,13 @@ header {
   box-sizing: border-box !important;
   height: 100% !important;
   overflow: hidden !important;
+}
+
+.login-poster-col .slant-minute-scroll-viewport {
+  padding: 14px 16px 12px 16px !important;
+  width: 100% !important;
+  height: 100% !important;
+  box-sizing: border-box !important;
 }
 
 .login-poster-col .receipt-pub-title {
@@ -4101,6 +4125,7 @@ header {
   font-weight: 800;
   letter-spacing: 1.5px;
   text-transform: uppercase;
+  flex-shrink: 0;
 }
 
 .login-row-divider::before,
@@ -4651,6 +4676,7 @@ header {
   .login-post-row {
     padding: 12px 12px 16px 12px;
     border-radius: 16px;
+    flex: 0 0 auto !important;
   }
 
   .login-row-header {
@@ -4695,6 +4721,10 @@ header {
   }
 
   .login-poster-col .slide-receipt {
+    padding: 0 !important;
+  }
+
+  .login-poster-col .slant-minute-scroll-viewport {
     padding: 12px 14px !important;
   }
 

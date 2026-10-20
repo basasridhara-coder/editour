@@ -610,7 +610,10 @@ function renderLoginPostsPreview() {
         document.querySelectorAll('.story-switch-pill').forEach(p => p.classList.remove('active'));
         pill.classList.add('active');
         const targetRow = document.getElementById(`login-row-${post.id}`);
-        if (targetRow) {
+        if (targetRow && track) {
+          const targetTop = targetRow.offsetTop - track.offsetTop;
+          track.scrollTo({ top: Math.max(0, targetTop - 8), behavior: 'smooth' });
+        } else if (targetRow) {
           targetRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
       };
