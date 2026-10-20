@@ -3733,14 +3733,23 @@ function createPostCardElement(post, index) {
   // 3-Poster Carousel Trio Frame in 3:4 Aspect Ratio (Clean, Unobstructed Editorial Artwork)
   const visualSectionHtml = `
     <div class="carousel-view ${isClean ? 'clean-view' : ''}" id="carousel-${index}" data-post-index="${index}" data-current-slide="0">
+      ${index === 'preview' ? `
+        <button type="button" class="preview-poster-eye-btn" onclick="event.stopPropagation(); openWholePosterModal(currentPreviewSlide || 0)" title="View whole poster in high definition before publishing">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+          </svg>
+          <span>Whole Poster</span>
+        </button>
+      ` : ''}
       <div class="carousel-track" id="track-${index}">
-        <div class="carousel-slide slide-hook" ${isInnerVoice ? 'style="cursor: default;"' : `onclick="openDetailModal('${index}')" style="cursor: pointer;"`}>
+        <div class="carousel-slide slide-hook" ${isInnerVoice ? 'style="cursor: default;"' : (index === 'preview' ? `onclick="openWholePosterModal(0)" style="cursor: pointer;" title="Click to view whole poster"` : `onclick="openDetailModal('${index}')" style="cursor: pointer;"`)}>
           ${buildSlide1Html(post, index)}
         </div>
-        <div class="carousel-slide slide-critique" ${isInnerVoice ? 'style="cursor: default;"' : `onclick="openDetailModal('${index}')" style="cursor: pointer;"`}>
+        <div class="carousel-slide slide-critique" ${isInnerVoice ? 'style="cursor: default;"' : (index === 'preview' ? `onclick="openWholePosterModal(1)" style="cursor: pointer;" title="Click to view whole poster"` : `onclick="openDetailModal('${index}')" style="cursor: pointer;"`)}>
           ${buildSlide2Html(post, index)}
         </div>
-        <div class="carousel-slide slide-receipt" style="cursor: default;">
+        <div class="carousel-slide slide-receipt" ${index === 'preview' ? `onclick="openWholePosterModal(2)" style="cursor: pointer;" title="Click to view whole poster"` : 'style="cursor: default;"'}>
           ${buildSlide3Html(post, index)}
         </div>
       </div>
@@ -3794,7 +3803,10 @@ function createPostCardElement(post, index) {
           <div class="avatar-inner">${initial}</div>
         </div>
         <span class="creator-handle">${escapeHtml(handle)}</span>
-        ${index === 'preview' ? `<button type="button" class="preview-card-edit-btn" onclick="event.stopPropagation(); openEditPosterModal(currentPreviewSlide || 0)" title="Edit poster headlines, takes, and receipts">✏️ Edit Content</button>` : ''}
+        ${index === 'preview' ? `
+          <button type="button" class="preview-card-eye-btn" onclick="event.stopPropagation(); openWholePosterModal(currentPreviewSlide || 0)" title="View whole poster in high definition before publishing">👁️ Whole Poster</button>
+          <button type="button" class="preview-card-edit-btn" onclick="event.stopPropagation(); openEditPosterModal(currentPreviewSlide || 0)" title="Edit poster headlines, takes, and receipts">✏️ Edit Content</button>
+        ` : ''}
         ${(post.isDraft || post.status === 'draft' || post.isPrivate) && index !== 'preview' ? '<span class="post-draft-badge" style="display:inline-flex; align-items:center; gap:4px; font-size:10px; font-weight:700; background:rgba(245, 158, 11, 0.16); color:#F59E0B; border:1px solid rgba(245, 158, 11, 0.4); padding:2px 7px; border-radius:8px; margin-left:8px; letter-spacing:0.3px;">🔖 PRIVATE DRAFT</span>' : ''}
       </div>
       <div class="post-menu-container">
@@ -8759,6 +8771,167 @@ function switchPreviewSlide(slideIdx) {
   document.querySelectorAll('.preview-tab').forEach((tab, idx) => {
     tab.classList.toggle('active', idx === slideIdx);
   });
+}
+
+// --- Whole Poster High-Definition Preview Modal ---
+let currentWholePosterSlide = 0;
+let isWholePosterClean = false;
+
+function openWholePosterModal(slideIdx) {
+  if (!currentSynthesizedPost) return;
+
+  const modal = document.getElementById('wholePosterModal');
+  const frame = document.getElementById('wholePosterCardFrame');
+  if (!modal || !frame) return;
+
+  if (typeof slideIdx === 'number' && slideIdx >= 0 && slideIdx <= 2) {
+    currentWholePosterSlide = slideIdx;
+  } else if (typeof currentPreviewSlide === 'number') {
+    currentWholePosterSlide = currentPreviewSlide;
+  } else {
+    currentWholePosterSlide = 0;
+  }
+
+  isWholePosterClean = false;
+
+  // Build the complete 3-slide carousel inside the whole poster frame
+  frame.innerHTML = `
+    <div class="carousel-view ${isWholePosterClean ? 'clean-view' : ''}" id="carousel-whole" data-post-index="whole" data-current-slide="${currentWholePosterSlide}">
+      <div class="carousel-track" id="track-whole">
+        <div class="carousel-slide slide-hook">
+          ${buildSlide1Html(currentSynthesizedPost, 'whole')}
+        </div>
+        <div class="carousel-slide slide-critique">
+          ${buildSlide2Html(currentSynthesizedPost, 'whole')}
+        </div>
+        <div class="carousel-slide slide-receipt">
+          ${buildSlide3Html(currentSynthesizedPost, 'whole')}
+        </div>
+      </div>
+    </div>
+  `;
+
+  modal.style.display = 'flex';
+  void modal.offsetWidth;
+  modal.classList.add('open');
+  modal.setAttribute('aria-hidden', 'false');
+
+  // Navigate to target slide
+  switchWholePosterSlide(currentWholePosterSlide);
+
+  // Setup touch swipe gestures on whole poster frame
+  setupWholePosterGestures();
+
+  // Update clean button UI
+  updateWholePosterCleanBtnUI();
+
+  // Listen for keyboard ESC / Left / Right arrows
+  window.addEventListener('keydown', handleWholePosterKeydown);
+}
+
+function closeWholePosterModal() {
+  const modal = document.getElementById('wholePosterModal');
+  if (!modal) return;
+
+  modal.classList.remove('open');
+  modal.setAttribute('aria-hidden', 'true');
+  setTimeout(() => {
+    modal.style.display = 'none';
+  }, 200);
+
+  window.removeEventListener('keydown', handleWholePosterKeydown);
+
+  // Sync current slide back to editor deck preview
+  if (typeof switchPreviewSlide === 'function') {
+    switchPreviewSlide(currentWholePosterSlide);
+  }
+}
+
+function handleWholePosterKeydown(e) {
+  if (e.key === 'Escape') {
+    closeWholePosterModal();
+  } else if (e.key === 'ArrowLeft') {
+    changeWholePosterSlide(-1);
+  } else if (e.key === 'ArrowRight') {
+    changeWholePosterSlide(1);
+  }
+}
+
+function switchWholePosterSlide(slideIdx) {
+  currentWholePosterSlide = Math.max(0, Math.min(2, slideIdx));
+
+  goToSlide(null, 'whole', currentWholePosterSlide);
+
+  [0, 1, 2].forEach(i => {
+    const pill = document.getElementById(`wholePill${i}`);
+    if (pill) pill.classList.toggle('active', i === currentWholePosterSlide);
+  });
+
+  const titleEl = document.getElementById('wholePosterSlideTitle');
+  if (titleEl) {
+    const titles = [
+      'Poster 1: The Visual Hook',
+      'Poster 2: The Slant & Take',
+      'Poster 3: Slant Minute Receipts'
+    ];
+    titleEl.textContent = titles[currentWholePosterSlide] || 'Whole Poster';
+  }
+}
+
+function changeWholePosterSlide(delta) {
+  const nextSlide = (currentWholePosterSlide + delta + 3) % 3;
+  switchWholePosterSlide(nextSlide);
+}
+
+function toggleWholePosterCleanView() {
+  isWholePosterClean = !isWholePosterClean;
+  const carousel = document.getElementById('carousel-whole');
+  if (carousel) {
+    carousel.classList.toggle('clean-view', isWholePosterClean);
+  }
+  updateWholePosterCleanBtnUI();
+}
+
+function updateWholePosterCleanBtnUI() {
+  const btn = document.getElementById('wholePosterCleanBtn');
+  const label = document.getElementById('wholePosterCleanLabel');
+  if (!btn || !label) return;
+  btn.classList.toggle('active', isWholePosterClean);
+  label.textContent = isWholePosterClean ? 'Show Text' : 'Clean Artwork';
+}
+
+function setupWholePosterGestures() {
+  const track = document.getElementById('track-whole');
+  if (!track) return;
+
+  let startX = 0;
+  let startY = 0;
+  let isSwiping = false;
+
+  track.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 1) {
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+      isSwiping = true;
+    }
+  }, { passive: true });
+
+  track.addEventListener('touchend', (e) => {
+    if (!isSwiping) return;
+    isSwiping = false;
+    const endX = e.changedTouches[0].clientX;
+    const endY = e.changedTouches[0].clientY;
+    const diffX = endX - startX;
+    const diffY = endY - startY;
+
+    if (Math.abs(diffX) > 40 && Math.abs(diffX) > Math.abs(diffY)) {
+      if (diffX < 0) {
+        changeWholePosterSlide(1);
+      } else {
+        changeWholePosterSlide(-1);
+      }
+    }
+  }, { passive: true });
 }
 
 // --- Step 3 Toolbar Actions (Matches Flutter create_postcard_screen.dart:3417-3490) ---

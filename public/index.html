@@ -878,6 +878,17 @@
               <span class="action-icon-label" id="step3EditLabel">Edit</span>
             </button>
 
+            <!-- 3. Eye View (View whole poster in high definition before publishing) -->
+            <button type="button" class="action-icon-btn eye-view" id="step3EyeViewBtn" onclick="openWholePosterModal()" title="View whole poster full screen before publishing">
+              <div class="action-icon-circle">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+              </div>
+              <span class="action-icon-label" id="step3EyeViewLabel">Eye View</span>
+            </button>
+
             <!-- 3. Save (Private to user's profile) -->
             <button type="button" class="action-icon-btn save" id="step3SaveBtn" onclick="saveSynthesizedPost()" title="Save privately to your profile (not in public feed)">
               <div class="action-icon-circle">
@@ -947,6 +958,70 @@
           <div class="creator-scroll-spacer"></div>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- Whole Poster Preview Modal (Fullscreen / Complete Poster View Before Publishing) -->
+  <div class="modal-overlay whole-poster-modal-overlay" id="wholePosterModal" style="display:none;" onclick="if(event.target===this) closeWholePosterModal()">
+    <div class="whole-poster-modal-container">
+      
+      <!-- Top Control Bar -->
+      <div class="whole-poster-topbar">
+        <div class="whole-poster-title-wrap">
+          <span class="whole-poster-badge">👁️ Whole Poster View</span>
+          <span class="whole-poster-hint" id="wholePosterSlideTitle">Poster 1: The Visual Hook</span>
+        </div>
+
+        <!-- 3-Slide Switcher Pills -->
+        <div class="whole-poster-pills">
+          <button type="button" class="whole-poster-pill active" id="wholePill0" onclick="switchWholePosterSlide(0)">
+            <span>🎨</span> Hook
+          </button>
+          <button type="button" class="whole-poster-pill" id="wholePill1" onclick="switchWholePosterSlide(1)">
+            <span>⚖️</span> Slant
+          </button>
+          <button type="button" class="whole-poster-pill" id="wholePill2" onclick="switchWholePosterSlide(2)">
+            <span>📰</span> Receipts
+          </button>
+        </div>
+
+        <button type="button" class="whole-poster-close-btn" onclick="closeWholePosterModal()" title="Close (Esc)">✕</button>
+      </div>
+
+      <!-- Poster Frame Showcase -->
+      <div class="whole-poster-stage">
+        <!-- Navigation Arrow Left -->
+        <button type="button" class="whole-poster-nav-btn prev" onclick="changeWholePosterSlide(-1)" title="Previous Poster">‹</button>
+
+        <!-- The Live Poster Wrapper -->
+        <div class="whole-poster-card-frame" id="wholePosterCardFrame">
+          <!-- Dynamically populated with complete carousel-view -->
+        </div>
+
+        <!-- Navigation Arrow Right -->
+        <button type="button" class="whole-poster-nav-btn next" onclick="changeWholePosterSlide(1)" title="Next Poster">›</button>
+      </div>
+
+      <!-- Bottom Utility Bar -->
+      <div class="whole-poster-bottombar">
+        <button type="button" class="whole-poster-util-btn" id="wholePosterCleanBtn" onclick="toggleWholePosterCleanView()" title="Toggle text overlays">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+          </svg>
+          <span id="wholePosterCleanLabel">Clean Artwork</span>
+        </button>
+
+        <button type="button" class="whole-poster-util-btn" onclick="closeWholePosterModal(); openEditPosterModal(currentWholePosterSlide || 0)" title="Edit poster content">
+          <span>✏️</span>
+          <span>Edit Content</span>
+        </button>
+
+        <button type="button" class="whole-poster-confirm-btn" onclick="closeWholePosterModal()" title="Return to Editor Deck">
+          <span>Back to Deck</span>
+        </button>
+      </div>
+
     </div>
   </div>
 

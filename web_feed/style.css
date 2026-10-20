@@ -8719,6 +8719,446 @@ header {
   display: none !important;
 }
 
+/* ============================================================
+   WHOLE POSTER PREVIEW & EYE VIEW BUTTONS
+   ============================================================ */
+
+/* 1. Floating Eye View Button on Preview Poster */
+.preview-poster-eye-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 30;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  background: rgba(15, 23, 42, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  color: #FFFFFF;
+  font-family: 'Space Grotesk', -apple-system, sans-serif;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+}
+
+.preview-poster-eye-btn:hover {
+  background: #4F46E5;
+  border-color: #818CF8;
+  transform: scale(1.05);
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.5);
+}
+
+.preview-poster-eye-btn svg {
+  flex-shrink: 0;
+}
+
+/* 2. Header Eye View Button in Creator Card Header */
+.preview-card-eye-btn {
+  background: rgba(56, 189, 248, 0.15);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  color: #38BDF8;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 8px;
+  cursor: pointer;
+  margin-left: 8px;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.preview-card-eye-btn:hover {
+  background: rgba(56, 189, 248, 0.3);
+  border-color: #38BDF8;
+  color: #FFFFFF;
+}
+
+/* 3. Action Toolbar Eye View Button */
+.action-icon-btn.eye-view .action-icon-circle {
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.32);
+  color: #38BDF8;
+}
+
+.action-icon-btn.eye-view:hover .action-icon-circle,
+.action-icon-btn.eye-view:focus-visible .action-icon-circle {
+  background: #38BDF8;
+  color: #0F172A;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(56, 189, 248, 0.4);
+}
+
+.action-icon-btn.eye-view:hover .action-icon-label {
+  color: #38BDF8;
+}
+
+/* 4. Whole Poster Modal Overlay & Container */
+.whole-poster-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 3500 !important;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(3, 7, 18, 0.94);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+  padding: 12px;
+  box-sizing: border-box;
+}
+
+.whole-poster-modal-overlay.open {
+  display: flex !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+.whole-poster-modal-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 680px;
+  height: 100%;
+  max-height: 96vh;
+  box-sizing: border-box;
+  gap: 10px;
+}
+
+/* Topbar */
+.whole-poster-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 12px;
+  padding: 4px 6px;
+  box-sizing: border-box;
+}
+
+.whole-poster-title-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.whole-poster-badge {
+  font-family: 'Space Grotesk', -apple-system, sans-serif;
+  font-size: 13px;
+  font-weight: 800;
+  color: #F8FAFC;
+  letter-spacing: -0.2px;
+}
+
+.whole-poster-hint {
+  font-size: 11px;
+  font-weight: 600;
+  color: #94A3B8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.whole-poster-pills {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 3px;
+  border-radius: 14px;
+}
+
+.whole-poster-pill {
+  background: transparent;
+  border: 1px solid transparent;
+  color: #94A3B8;
+  font-family: 'Space Grotesk', -apple-system, sans-serif;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 5px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.whole-poster-pill:hover {
+  color: #F8FAFC;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.whole-poster-pill.active {
+  background: #6366F1;
+  color: #FFFFFF;
+  border-color: #818CF8;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.4);
+}
+
+.whole-poster-close-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #CBD5E1;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.whole-poster-close-btn:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.5);
+  color: #EF4444;
+}
+
+/* Stage & Poster Frame */
+.whole-poster-stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  gap: 16px;
+}
+
+.whole-poster-card-frame {
+  position: relative;
+  overflow: hidden;
+  border-radius: 20px;
+  box-shadow: 0 25px 65px -10px rgba(0, 0, 0, 0.95), 0 0 35px rgba(99, 102, 241, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: #080D1A;
+  height: 580px;
+  max-height: calc(88vh - 130px);
+  width: min(435px, calc((88vh - 130px) * 0.75), 92vw);
+  display: flex;
+  flex-direction: column;
+}
+
+.whole-poster-card-frame .carousel-view {
+  width: 100% !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  min-height: 100% !important;
+  border: none !important;
+  border-radius: 0 !important;
+  margin: 0 !important;
+}
+
+.whole-poster-card-frame .carousel-track {
+  height: 100% !important;
+}
+
+.whole-poster-card-frame .carousel-slide {
+  height: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.whole-poster-nav-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #FFFFFF;
+  font-size: 26px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 10;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.whole-poster-nav-btn:hover {
+  background: #6366F1;
+  border-color: #818CF8;
+  transform: scale(1.08);
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4);
+}
+
+/* Bottombar */
+.whole-poster-bottombar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  padding: 4px 6px;
+  box-sizing: border-box;
+}
+
+.whole-poster-util-btn {
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #CBD5E1;
+  font-family: 'Space Grotesk', -apple-system, sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 8px 16px;
+  border-radius: 12px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.whole-poster-util-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #FFFFFF;
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.whole-poster-util-btn.active {
+  background: rgba(56, 189, 248, 0.2);
+  border-color: #38BDF8;
+  color: #38BDF8;
+}
+
+.whole-poster-confirm-btn {
+  background: linear-gradient(135deg, #4F46E5, #7C3AED);
+  border: 1px solid #818CF8;
+  color: #FFFFFF;
+  font-family: 'Space Grotesk', -apple-system, sans-serif;
+  font-size: 12.5px;
+  font-weight: 700;
+  padding: 8px 20px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35);
+}
+
+.whole-poster-confirm-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(79, 70, 229, 0.5);
+}
+
+@media (max-width: 600px) {
+  .whole-poster-stage {
+    gap: 4px;
+  }
+
+  .whole-poster-nav-btn {
+    position: absolute;
+    width: 36px;
+    height: 36px;
+    font-size: 22px;
+    background: rgba(15, 23, 42, 0.9);
+  }
+
+  .whole-poster-nav-btn.prev {
+    left: 4px;
+  }
+
+  .whole-poster-nav-btn.next {
+    right: 4px;
+  }
+
+  .whole-poster-topbar {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .whole-poster-title-wrap {
+    text-align: center;
+    width: 100%;
+    order: 1;
+  }
+
+  .whole-poster-pills {
+    order: 2;
+  }
+
+  .whole-poster-close-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+  }
+}
+
+/* Daylight Theme Styles for Whole Poster Modal */
+[data-theme="daylight"] .whole-poster-modal-overlay {
+  background: rgba(241, 245, 249, 0.94);
+}
+
+[data-theme="daylight"] .whole-poster-badge {
+  color: #0F172A;
+}
+
+[data-theme="daylight"] .whole-poster-pills {
+  background: #FFFFFF;
+  border-color: #E2E8F0;
+}
+
+[data-theme="daylight"] .whole-poster-pill {
+  color: #64748B;
+}
+
+[data-theme="daylight"] .whole-poster-pill:hover {
+  background: #F1F5F9;
+  color: #0F172A;
+}
+
+[data-theme="daylight"] .whole-poster-close-btn {
+  background: #FFFFFF;
+  border-color: #E2E8F0;
+  color: #64748B;
+}
+
+[data-theme="daylight"] .whole-poster-card-frame {
+  border-color: #E2E8F0;
+  box-shadow: 0 25px 60px -10px rgba(0, 0, 0, 0.25), 0 0 25px rgba(99, 102, 241, 0.15);
+}
+
+[data-theme="daylight"] .whole-poster-nav-btn {
+  background: #FFFFFF;
+  border-color: #E2E8F0;
+  color: #0F172A;
+}
+
+[data-theme="daylight"] .whole-poster-util-btn {
+  background: #FFFFFF;
+  border-color: #E2E8F0;
+  color: #334155;
+}
+
+[data-theme="daylight"] .whole-poster-util-btn:hover {
+  background: #F8FAFC;
+}
+
 /* Sleek Result Action Toolbar (5 Focused Actions: Regen, Edit, Share, Download, Save) */
 /* Matches Flutter create_postcard_screen.dart:3417-3490 */
 .creator-result-action-panel {
