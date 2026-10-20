@@ -137,6 +137,50 @@ module.exports = async function handler(req, res) {
       }
     }
 
+    // Endpoint: Get Family Cast Vault Profile
+    if (body && body.action === 'get_family_cast') {
+      const { userIdentifier = 'default' } = body;
+      const profileId = 'family_cast_' + String(userIdentifier).toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+      try {
+        const resp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.${encodeURIComponent(profileId)}&select=data`, {
+          headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+        });
+        if (resp.ok) {
+          const rows = await resp.json();
+          if (rows && rows[0] && rows[0].data) {
+            return res.status(200).json({ success: true, cast: rows[0].data });
+          }
+        }
+      } catch (err) {
+        console.warn('Get family cast error:', err.message);
+      }
+      return res.status(200).json({
+        success: true,
+        cast: getDefaultFamilyCast(userIdentifier)
+      });
+    }
+
+    // Endpoint: Save Family Cast Vault Profile
+    if (body && body.action === 'save_family_cast') {
+      const { userIdentifier = 'default', cast } = body;
+      const profileId = 'family_cast_' + String(userIdentifier).toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+      try {
+        await fetch(`${SUPABASE_URL}/rest/v1/posts`, {
+          method: 'POST',
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'resolution=merge-duplicates'
+          },
+          body: JSON.stringify({ id: profileId, data: cast })
+        });
+        return res.status(200).json({ success: true, cast });
+      } catch (err) {
+        return res.status(500).json({ success: false, error: err.message });
+      }
+    }
+
     // Direct Single-Purpose Endpoint: Polish & Review Take with Pedagogical Highlighters
     if (body && (body.action === 'polish_take' || body.action === 'review_take')) {
       const { text = '', slantTake = '' } = body;
@@ -321,7 +365,10 @@ Respond strictly with valid JSON with this exact structure:
       sourceImageUrl = null,
       sourceImageBase64 = null,
       sourceImageMimeType = 'image/jpeg',
-      sourceLedger = null
+      sourceLedger = null,
+      familyCast = null,
+      activeCast = null,
+      castStaging = null
     } = body || {};
 
     if (sourceImageUrl && typeof sourceImageUrl === 'string') {
@@ -494,6 +541,14 @@ Respond strictly with valid JSON with this exact structure:
 - The illustrationPrompt for Poster 1 should blend the concrete real-world news subject with the curator's symbolic tension and visual metaphor.`;
 
     const demographicInfo = detectAgeAndDemographics(userSlant, extractedTitle, extractedContent);
+    const familyCastDirectives = buildFamilyCastDirectives({
+      familyCast,
+      activeCast,
+      castStaging,
+      userSlant,
+      spark,
+      countryContext
+    });
 
     const isCinematicPhoto = (characterRepresentation === 'cinematic' || characterRepresentation === 'cinematic_photo' || characterRepresentation === 'likeness' || (Boolean(effectiveCatalystImage || sourceImageBase64) && characterRepresentation !== 'painting' && characterRepresentation !== 'exact' && characterRepresentation !== 'silhouette' && characterRepresentation !== 'realistic'));
     const isArtisticPainting = (characterRepresentation === 'painting');
@@ -510,7 +565,8 @@ ${userSlant ? `- Curator's Slant / Take (Primary Stance & Angle): "${userSlant}"
 ${spark ? `- The Spark (Personal Context / Catalyst): "${spark}"` : ''}
 ${url ? `- Source Link: ${url}` : ''}
 ${pubName ? `- Publication / Domain: ${pubName}` : ''}
-${demographicInfo ? `- Featured Protagonist Age & Demographics: ${demographicInfo.promptDesc}` : ''}
+${familyCastDirectives ? `- Family Protagonists & Physical Staging:
+${familyCastDirectives.systemPromptSection}` : (demographicInfo ? `- Featured Protagonist Age & Demographics: ${demographicInfo.promptDesc}` : '')}
 ${cues && cues.length > 0 ? `- Ranked Visual Cues: ${cues.map((c, i) => `#${i+1} ${c}`).join(' • ')}` : ''}
 - Character Portrayal Style: ${characterRepresentation === 'exact' 
   ? 'Use exact unedited news/attached photo directly' 
@@ -785,6 +841,10 @@ Respond strictly with valid JSON with this exact structure:
       } else {
         partsList.push(heroCandidate);
       }
+    }
+
+    if (familyCastDirectives && familyCastDirectives.promptSnippet) {
+      partsList.push(familyCastDirectives.promptSnippet);
     }
 
     // Dimension 2: MOTIF (Symbolic artifact)
@@ -1814,6 +1874,154 @@ function getDefaultCuratorStyle(userIdentifier) {
         tone_milestone: 'Curious, probing, and deeply values-driven.'
       }
     ]
+  };
+}
+
+function getDefaultFamilyCast(userIdentifier) {
+  return {
+    userIdentifier: userIdentifier || '@Shridhar Reddy',
+    updatedAt: new Date().toISOString(),
+    members: [
+      {
+        id: 'member_father',
+        relationship: 'self',
+        roleLabel: 'Father / Self',
+        name: 'Father (Shridhar)',
+        aliases: ['dad', 'father', 'shridhar', 'myself', 'me', 'i', 'husband'],
+        age: 40,
+        ageBracket: 'Adult (Late 30s / Early 40s)',
+        heightDesc: '5ft 10in (178cm), adult stature',
+        visualTraits: 'Adult father in early 40s, neat short dark hair, warm confident expression, seasoned contemporary styling.',
+        vehicleRole: 'driver_right',
+        defaultClothing: 'Casual dark linen shirt or jacket'
+      },
+      {
+        id: 'member_mother',
+        relationship: 'spouse',
+        roleLabel: 'Mother / Wife',
+        name: 'Mother',
+        aliases: ['wife', 'mother', 'mom'],
+        age: 36,
+        ageBracket: 'Adult (Mid 30s)',
+        heightDesc: '5ft 4in (162cm), adult female stature',
+        visualTraits: 'Adult mother in her mid-30s, warm thoughtful smile, dark wavy hair, expressive eyes, elegant casual styling.',
+        vehicleRole: 'passenger_front_left',
+        defaultClothing: 'Vibrant comfortable travel attire'
+      },
+      {
+        id: 'member_elder_son',
+        relationship: 'elder_son',
+        roleLabel: 'Elder Son (Age 11)',
+        name: 'Elder Son',
+        aliases: ['elder son', 'older son', 'older boy', 'elder brother', 'big brother', 'first son', '11-year-old', '11yo'],
+        age: 11,
+        ageBracket: 'Pre-teen / Adolescent (11 Years Old)',
+        heightDesc: '4ft 10in (147cm): Stands a full head taller than his younger brother',
+        visualTraits: '11-year-old pre-teen boy, lean and tall adolescent build, distinct mature pre-teen facial structure, neat side-parted dark hair, visibly older and taller by a head than his younger brother.',
+        vehicleRole: 'passenger_rear_right',
+        defaultClothing: 'Navy blue or dark graphic tee / hoodie'
+      },
+      {
+        id: 'member_younger_son',
+        relationship: 'younger_son',
+        roleLabel: 'Younger Son (Age 7)',
+        name: 'Younger Son',
+        aliases: ['younger son', 'little son', 'younger boy', 'younger brother', 'little brother', 'second son', '7-year-old', '7yo'],
+        age: 7,
+        ageBracket: 'Young Child / Primary School (7 Years Old)',
+        heightDesc: '3ft 11in (120cm): Head reaches only to older brother\'s shoulder',
+        visualTraits: '7-year-old young schoolboy, noticeably shorter by a full head, top of head reaches only to his older brother\'s shoulder, soft round youthful child cheeks, playful energetic expression, wavy dark hair, lively child proportions.',
+        vehicleRole: 'passenger_rear_left',
+        defaultClothing: 'Mustard yellow or bright green graphic t-shirt'
+      }
+    ],
+    collectiveAliases: ['family', 'my family', 'kids', 'my kids', 'both boys', 'sons', 'my sons', 'boys', 'children'],
+    preferences: {
+      strictAgeGapEnforcement: true,
+      indiaRightHandDrive: true,
+      preferScenicOverlookWhenCrowded: true
+    }
+  };
+}
+
+function buildFamilyCastDirectives({ familyCast, activeCast, castStaging, userSlant = '', spark = '', countryContext = '' }) {
+  const combined = `${userSlant} ${spark}`.toLowerCase();
+
+  const hasExplicitCast = activeCast && Array.isArray(activeCast.members) && activeCast.members.length > 0;
+  const familyRegex = /\b(family|my family|kids|my kids|sons|my sons|both boys|boys|children|wife|mom|mother|dad|father|11 and 7|11,? 7|road trip with family)\b/i;
+  const isFamilyContext = hasExplicitCast || familyRegex.test(combined);
+
+  if (!isFamilyContext && !hasExplicitCast) {
+    return null;
+  }
+
+  const cast = familyCast || getDefaultFamilyCast();
+  let activeMembers = [];
+  if (hasExplicitCast) {
+    activeMembers = activeCast.members;
+  } else {
+    const hasKids = /\b(kids|sons|boys|children|two boys|both boys|11|7)\b/i.test(combined);
+    const hasWife = /\b(wife|mom|mother)\b/i.test(combined) || /\bfamily\b/i.test(combined);
+    const hasDad = /\b(dad|father|husband|myself|i|we)\b/i.test(combined) || /\bfamily\b/i.test(combined);
+
+    activeMembers = (cast.members || []).filter(m => {
+      if ((m.relationship === 'elder_son' || m.relationship === 'younger_son') && (hasKids || /\bfamily\b/i.test(combined))) return true;
+      if (m.relationship === 'spouse' && hasWife) return true;
+      if (m.relationship === 'self' && hasDad) return true;
+      return false;
+    });
+
+    if (activeMembers.length === 0) {
+      activeMembers = cast.members || [];
+    }
+  }
+
+  const hasElderBoy = activeMembers.some(m => m.relationship === 'elder_son' || m.age === 11);
+  const hasYoungerBoy = activeMembers.some(m => m.relationship === 'younger_son' || m.age === 7);
+
+  const directives = [];
+  const promptSnippets = [];
+
+  // 1. Strict Age & Height Differentiation
+  if (hasElderBoy && hasYoungerBoy) {
+    directives.push(`BIOLOGICAL AGE & HEIGHT CONTRAST:
+- Unmistakable 4-year age gap between the two brothers:
+  * ELDER BROTHER (Age 11): Pre-teen adolescent boy, visibly taller by a full head (around 147cm / 4ft 10in), lean adolescent build, mature pre-teen facial structure, neat side-parted dark hair.
+  * YOUNGER BROTHER (Age 7): Young primary school child, noticeably shorter, top of his head reaches only to his older brother's shoulder (around 120cm / 3ft 11in), soft round youthful child cheeks, lively playful child proportions, wavy dark hair.
+- STRICT BAN ON CLONING: NEVER draw identical twins, NEVER uniform height, NEVER identical child faces! They must look like brothers with a clear 4-year age difference.`);
+    promptSnippets.push('two brothers with distinct 4-year age gap: older 11-year-old pre-teen boy standing a head taller than his younger 7-year-old brother whose head reaches only older brother shoulder, strictly not twins');
+  }
+
+  // 2. Vehicle / Driving / Road Trip Context
+  const isVehicle = (castStaging && castStaging.mode === 'vehicle_rhd') ||
+    /\b(car|drive|driving|road trip|vehicle|suv|sedan|highway|traffic|ride)\b/i.test(combined);
+  const isOverlook = (castStaging && castStaging.mode === 'scenic_overlook') ||
+    /\b(overlook|viewpoint|hills|mountains|scenic stop|pull off)\b/i.test(combined);
+
+  const isIndia = !countryContext || /india/i.test(countryContext);
+
+  if (isVehicle && !isOverlook) {
+    if (isIndia) {
+      directives.push(`INDIAN VEHICLE (RIGHT-HAND DRIVE) & SEATING GEOMETRY RULES:
+- The automobile is Right-Hand Drive (RHD) for Indian roads.
+- DRIVER SEAT: Adult father is seated on the front-right seat with hands holding the steering wheel.
+- FRONT PASSENGER SEAT: Adult mother is seated on the front-left seat.
+- REAR PASSENGER SEATS: The two boys are seated separately in their own individual rear passenger seats wearing seatbelts (elder 11yo boy by right rear window, younger 7yo boy by left rear window).
+- STRICT BAN ON SPATIAL HALLUCINATIONS: Children are NEVER in the driver seat, NEVER holding the steering wheel, NEVER sitting on laps, NEVER crammed multiple people in one seat! Vehicle drives on the left side of the road.`);
+      promptSnippets.push('Right-Hand Drive Indian vehicle layout: adult father driving on front-right seat, adult mother in front-left passenger seat, two young boys seated separately in rear seats with seatbelts, no kids in driver seat');
+    }
+  } else if (isOverlook || isVehicle) {
+    directives.push(`SCENIC ROAD TRIP OVERLOOK COMPOSITION:
+- The family vehicle is parked safely on the scenic mountain shoulder or highway viewpoint.
+- The family members stand naturally together taking in the landscape: adult father, mother, taller 11-year-old son, and shorter 7-year-old son with clear height disparity.
+- Clear, brightly illuminated faces with natural human expressions.`);
+    promptSnippets.push('family road trip scenic overlook by parked vehicle: father, mother, tall 11-year-old son, shorter 7-year-old son standing naturally together admiring the vista');
+  }
+
+  return {
+    systemPromptSection: directives.join('\n\n'),
+    promptSnippet: promptSnippets.join(', '),
+    activeMembers
   };
 }
 

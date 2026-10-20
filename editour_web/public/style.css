@@ -14025,3 +14025,594 @@ mark.polish-mark:hover, mark.polish-mark.active {
   color: #0F172A;
 }
 
+/* ============================================================
+   FAMILY CAST VAULT & PHYSICAL STAGING SYSTEM
+   Guarantees biological age gap & country driving physics
+   ============================================================ */
+
+/* Step 2 In-Deck Staging Card */
+.family-cast-card {
+  margin: 14px 0 16px 0;
+  padding: 14px 16px;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  animation: fadeIn 0.25s ease-out;
+}
+
+.family-cast-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.family-cast-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.family-cast-icon {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.family-cast-title {
+  font-family: 'Space Grotesk', -apple-system, sans-serif;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #F8FAFC;
+  letter-spacing: 0.2px;
+}
+
+.family-cast-subtitle {
+  font-size: 11px;
+  color: #94A3B8;
+  margin-top: 1px;
+}
+
+.family-cast-vault-btn {
+  background: rgba(56, 189, 248, 0.14);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  color: #38BDF8;
+  font-family: 'Space Grotesk', -apple-system, sans-serif;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 5px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.family-cast-vault-btn:hover {
+  background: #38BDF8;
+  color: #0F172A;
+  box-shadow: 0 2px 10px rgba(56, 189, 248, 0.4);
+}
+
+/* Member Selection Chips */
+.family-cast-members-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.family-cast-chip {
+  background: rgba(30, 41, 59, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 12px;
+  padding: 6px 12px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #94A3B8;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+}
+
+.family-cast-chip:hover {
+  background: rgba(51, 65, 85, 0.8);
+  color: #F8FAFC;
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.family-cast-chip.active {
+  background: rgba(56, 189, 248, 0.18);
+  border-color: #38BDF8;
+  color: #F0F9FF;
+  box-shadow: 0 2px 8px rgba(56, 189, 248, 0.25);
+}
+
+.family-cast-chip .chip-check {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  background: #38BDF8;
+  color: #0F172A;
+  font-size: 10px;
+  font-weight: 900;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.family-cast-chip:not(.active) .chip-check {
+  background: rgba(255, 255, 255, 0.15);
+  color: transparent;
+}
+
+/* Biological Age Guarantee Banner */
+.family-cast-guarantee-banner {
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 11px;
+  color: #FDE68A;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  line-height: 1.45;
+}
+
+.family-cast-guarantee-banner .guarantee-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* Staging Controls */
+.family-cast-staging-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.staging-control-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #CBD5E1;
+  letter-spacing: 0.3px;
+}
+
+.staging-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.staging-pill {
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #94A3B8;
+  font-family: 'Space Grotesk', -apple-system, sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.staging-pill:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #F8FAFC;
+}
+
+.staging-pill.active {
+  background: linear-gradient(135deg, rgba(79, 70, 229, 0.3), rgba(124, 58, 237, 0.3));
+  border-color: #818CF8;
+  color: #FFFFFF;
+  font-weight: 700;
+  box-shadow: 0 2px 10px rgba(99, 102, 241, 0.3);
+}
+
+/* Family Cast Vault Modal */
+.family-cast-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 3600 !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(3, 7, 18, 0.94);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+.family-cast-modal-container {
+  background: #0B1120;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 20px;
+  width: min(640px, 94vw);
+  max-height: calc(90vh - 20px);
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 25px 60px -10px rgba(0, 0, 0, 0.8), 0 0 35px rgba(56, 189, 248, 0.2);
+  overflow: hidden;
+  animation: modalScaleIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.family-cast-modal-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(15, 23, 42, 0.85);
+  gap: 12px;
+}
+
+.family-cast-modal-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.family-cast-modal-badge {
+  font-family: 'Space Grotesk', -apple-system, sans-serif;
+  font-size: 15px;
+  font-weight: 800;
+  color: #F8FAFC;
+  letter-spacing: 0.3px;
+}
+
+.family-cast-modal-subtitle {
+  font-size: 11.5px;
+  color: #94A3B8;
+  line-height: 1.4;
+}
+
+.family-cast-modal-close {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #94A3B8;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.family-cast-modal-close:hover {
+  background: #EF4444;
+  color: #FFFFFF;
+  border-color: #EF4444;
+}
+
+.family-cast-modal-body {
+  padding: 18px 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.family-cast-cards-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.family-member-card {
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  transition: all 0.2s ease;
+}
+
+.family-member-card:hover {
+  border-color: rgba(56, 189, 248, 0.4);
+  background: rgba(15, 23, 42, 0.9);
+}
+
+.member-card-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.member-card-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.2), rgba(99, 102, 241, 0.2));
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.member-card-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.member-card-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.member-card-name {
+  font-family: 'Space Grotesk', -apple-system, sans-serif;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #F8FAFC;
+}
+
+.member-card-role-tag {
+  background: rgba(56, 189, 248, 0.15);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  color: #38BDF8;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 6px;
+}
+
+.member-card-meta {
+  font-size: 11px;
+  color: #94A3B8;
+  line-height: 1.35;
+}
+
+.member-card-traits {
+  font-size: 11px;
+  color: #CBD5E1;
+  font-style: italic;
+  margin-top: 2px;
+}
+
+.member-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.member-delete-btn {
+  background: transparent;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #F87171;
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.member-delete-btn:hover {
+  background: #EF4444;
+  color: #FFFFFF;
+}
+
+/* Add Member Section */
+.family-cast-add-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.family-cast-add-btn {
+  background: rgba(56, 189, 248, 0.1);
+  border: 1px dashed rgba(56, 189, 248, 0.4);
+  color: #38BDF8;
+  font-family: 'Space Grotesk', -apple-system, sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 10px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.family-cast-add-btn:hover {
+  background: rgba(56, 189, 248, 0.2);
+  border-color: #38BDF8;
+}
+
+.family-cast-form-wrap {
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 14px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cast-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+@media (max-width: 520px) {
+  .cast-form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.cast-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cast-form-field.full-width {
+  grid-column: 1 / -1;
+}
+
+.cast-form-field label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #CBD5E1;
+}
+
+.cast-form-field input,
+.cast-form-field select {
+  background: rgba(3, 7, 18, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  padding: 7px 10px;
+  color: #F8FAFC;
+  font-size: 12px;
+  outline: none;
+  font-family: inherit;
+}
+
+.cast-form-field input:focus,
+.cast-form-field select:focus {
+  border-color: #38BDF8;
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.3);
+}
+
+.cast-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.cast-form-cancel-btn {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #94A3B8;
+  font-size: 11.5px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.cast-form-save-btn {
+  background: linear-gradient(135deg, #38BDF8, #6366F1);
+  border: none;
+  color: #FFFFFF;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 6px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+/* Modal Footer */
+.family-cast-modal-footer {
+  padding: 12px 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(15, 23, 42, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.privacy-note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10.5px;
+  color: #94A3B8;
+}
+
+.footer-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cast-reset-btn {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #94A3B8;
+  font-size: 11px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.cast-reset-btn:hover {
+  color: #F8FAFC;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.cast-confirm-btn {
+  background: linear-gradient(135deg, #4F46E5, #7C3AED);
+  border: 1px solid #818CF8;
+  color: #FFFFFF;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+  box-shadow: 0 2px 10px rgba(99, 102, 241, 0.4);
+}
+
+/* Daylight Theme Support */
+[data-theme="daylight"] .family-cast-card {
+  background: #FFFFFF;
+  border-color: #BAE6FD;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="daylight"] .family-cast-title {
+  color: #0F172A;
+}
+
+[data-theme="daylight"] .family-cast-modal-container {
+  background: #FFFFFF;
+  border-color: #E2E8F0;
+  box-shadow: 0 25px 60px -10px rgba(0, 0, 0, 0.25);
+}
+
+[data-theme="daylight"] .family-cast-modal-topbar,
+[data-theme="daylight"] .family-cast-modal-footer {
+  background: #F8FAFC;
+  border-color: #E2E8F0;
+}
+
+[data-theme="daylight"] .family-cast-modal-badge {
+  color: #0F172A;
+}
+
+[data-theme="daylight"] .family-member-card {
+  background: #F8FAFC;
+  border-color: #E2E8F0;
+}
+
+[data-theme="daylight"] .member-card-name {
+  color: #0F172A;
+}
+
+

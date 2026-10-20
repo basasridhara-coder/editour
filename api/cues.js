@@ -58,6 +58,9 @@ module.exports = async function handler(req, res) {
     characterRepresentation = 'realistic',
     selectedIndices = [],
     existingCues = [],
+    familyCast = null,
+    activeCast = null,
+    castStaging = null,
     countryContext = '',
     countryCode = '',
     vocabularyStyle = 'punchy',
@@ -167,6 +170,19 @@ ${existingCues.map((c, i) => `${dimensionNames[i] || `#${i + 1}`}: "${c}"`).join
 Explore a fresh artistic perspective, novel symbolic motifs, or alternative lighting/atmosphere. Do NOT repeat identical phrases.`;
   }
 
+  const combinedCuratorText = `${curatorAngle} ${spark}`.toLowerCase();
+  const hasFamilyContext = (activeCast && activeCast.members && activeCast.members.length > 0) ||
+    /\b(family|my family|kids|my kids|sons|my sons|both boys|boys|children|wife|mom|mother|dad|father|11 and 7|road trip)\b/i.test(combinedCuratorText);
+
+  let familyDirective = '';
+  if (hasFamilyContext) {
+    familyDirective = `CRITICAL FAMILY CAST & BIOLOGICAL CONTRAST DIRECTIVE:
+The curator is reflecting on their family.
+1. HERO: The central focal subjects should be the family members (e.g. "Father, Mother, 11yo Elder Son and 7yo Son", "Two Brothers with 4-Year Age Gap", or "Father and Sons Preparing Luggage").
+2. AGE CONTRAST: If two boys are portrayed, they must have an unmistakable 4-year age gap: older 11yo pre-teen boy (visibly taller by a head, leaner) alongside younger 7yo boy (shorter, shoulder height, round child cheeks). STRICTLY NEVER identical twins!
+3. REGIONAL VEHICLE RULES: If a road trip / car is portrayed in India, enforce Indian Right-Hand Drive (adult father driving on right, mother passenger on left, boys separately in rear seats).`;
+  }
+
   const perspectiveDirective = (perspectiveMode === 'curator')
     ? `CRITICAL PERSPECTIVE DIRECTIVE (CURATOR ANGLE):
 The curator selected CURATOR ANGLE mode. The visual storytelling must be 100% anchored in the curator's personal thesis, philosophical critique, and evocative metaphor ("${curatorAngle}").
@@ -225,6 +241,8 @@ ${personalDirective}
 ${countryDirective}
 
 ${personDirective}
+
+${familyDirective}
 
 ${lightingDirective}
 

@@ -478,6 +478,49 @@
                 </div>
               </div>
             </div>
+
+            <!-- 5. Family Cast & Physical Staging Card (Zero-Footprint Consistent Characters) -->
+            <div class="family-cast-card" id="familyCastStagingCard" style="display: none;">
+              <div class="family-cast-header">
+                <div class="family-cast-title-group">
+                  <span class="family-cast-icon">👥</span>
+                  <div>
+                    <div class="family-cast-title">Family Cast & Physical Staging</div>
+                    <div class="family-cast-subtitle">Guaranteed age difference & Indian driving physics (Zero Digital Footprint)</div>
+                  </div>
+                </div>
+                <button type="button" class="family-cast-vault-btn" onclick="openFamilyCastModal()" title="Manage family members in vault">
+                  <span>⚙️ Manage Vault</span>
+                </button>
+              </div>
+
+              <!-- Active Members Toggles -->
+              <div class="family-cast-members-row" id="familyCastMembersRow">
+                <!-- Populated dynamically: [✓ Dad (Driver)] [✓ Mom] [✓ Elder Son (11)] [✓ Younger Son (7)] -->
+              </div>
+
+              <!-- Age & Biological Contrast Guarantee Banner -->
+              <div class="family-cast-guarantee-banner" id="familyCastAgeBanner">
+                <span class="guarantee-icon">✨</span>
+                <span class="guarantee-text"><strong>4-Year Age Gap Enforced:</strong> 11-year-old pre-teen (taller, lean build) vs 7-year-old young child (shorter by a head, round child cheeks). Strictly no identical twins.</span>
+              </div>
+
+              <!-- Vehicle / Scene Staging Selector -->
+              <div class="family-cast-staging-controls" id="familyCastStagingControls">
+                <label class="staging-control-label">🚗 Road & Scene Staging:</label>
+                <div class="staging-pills">
+                  <button type="button" class="staging-pill active" id="stagingPillRhd" onclick="setFamilyCastStagingMode('vehicle_rhd')">
+                    <span>🇮🇳 RHD Car (Father Drives on Right)</span>
+                  </button>
+                  <button type="button" class="staging-pill" id="stagingPillOverlook" onclick="setFamilyCastStagingMode('scenic_overlook')">
+                    <span>🏔️ Scenic Overlook (Standing by Car)</span>
+                  </button>
+                  <button type="button" class="staging-pill" id="stagingPillDomestic" onclick="setFamilyCastStagingMode('general')">
+                    <span>🏡 Natural Activity / Outdoors</span>
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
 
           <!-- 3. Action Bar: Selection Info + Suggest Button -->
@@ -1295,6 +1338,11 @@
               <span class="row-label">Beta Access & Invites</span>
               <span class="row-pill" id="drawerPendingBadge" style="background:#EF4444; color:#fff; display:none; padding:1px 7px; border-radius:10px; font-size:11px; font-weight:800;">0</span>
             </button>
+            <button class="drawer-menu-row" id="drawerFamilyCastRow" onclick="closeDrawer(); openFamilyCastModal();">
+              <span class="row-icon">👥</span>
+              <span class="row-label">Family Cast Vault</span>
+              <span class="row-pill" style="background:rgba(56,189,248,0.2); color:#38BDF8; font-size:10px; font-weight:700; padding:2px 8px; border-radius:10px;">Cast</span>
+            </button>
             <button class="drawer-menu-row drawer-sign-out" onclick="closeDrawer(); handleSignOut();">
               <span class="row-icon">🚪</span>
               <span class="row-label">Sign Out</span>
@@ -1375,6 +1423,87 @@
       </div>
     </div>
   </aside>
+
+  <!-- Family Cast Vault Modal (Private & Zero Digital Footprint) -->
+  <div class="modal-overlay family-cast-modal-overlay" id="familyCastModal" style="display:none;" onclick="if(event.target===this) closeFamilyCastModal()">
+    <div class="family-cast-modal-container">
+      
+      <!-- Top Bar -->
+      <div class="family-cast-modal-topbar">
+        <div class="family-cast-modal-title-group">
+          <span class="family-cast-modal-badge">👥 Family Cast Vault</span>
+          <span class="family-cast-modal-subtitle">Private character blueprints ensuring your kids appear with accurate age difference and consistent traits across all posters (Zero Digital Footprint).</span>
+        </div>
+        <button type="button" class="family-cast-modal-close" onclick="closeFamilyCastModal()" title="Close">✕</button>
+      </div>
+
+      <!-- Members List -->
+      <div class="family-cast-modal-body">
+        <div class="family-cast-cards-list" id="familyCastCardsList">
+          <!-- Dynamically rendered member cards -->
+        </div>
+
+        <!-- Add New Member Toggle / Form -->
+        <div class="family-cast-add-section">
+          <button type="button" class="family-cast-add-btn" id="familyCastAddToggleBtn" onclick="toggleFamilyCastAddForm()">
+            <span>➕ Add Family Member</span>
+          </button>
+
+          <div class="family-cast-form-wrap" id="familyCastAddForm" style="display:none;">
+            <div class="cast-form-grid">
+              <div class="cast-form-field">
+                <label>Relationship / Role</label>
+                <select id="castFormRelation">
+                  <option value="self">Father / Self</option>
+                  <option value="spouse">Mother / Spouse</option>
+                  <option value="elder_son">Elder Son (Age 11)</option>
+                  <option value="younger_son">Younger Son (Age 7)</option>
+                  <option value="child">Child / Other</option>
+                </select>
+              </div>
+              <div class="cast-form-field">
+                <label>Display Name / Label</label>
+                <input type="text" id="castFormName" placeholder="e.g. Elder Son, Rahul">
+              </div>
+              <div class="cast-form-field">
+                <label>Age</label>
+                <input type="number" id="castFormAge" placeholder="e.g. 11" min="1" max="100">
+              </div>
+              <div class="cast-form-field">
+                <label>Height & Stature Comparison</label>
+                <input type="text" id="castFormHeight" placeholder="e.g. 4ft 10in, head taller than younger brother">
+              </div>
+              <div class="cast-form-field full-width">
+                <label>Distinct Visual Features & Hair</label>
+                <input type="text" id="castFormTraits" placeholder="e.g. Tall pre-teen, lean build, neat side-parted dark hair, mature facial structure">
+              </div>
+              <div class="cast-form-field full-width">
+                <label>Trigger Words (Comma separated)</label>
+                <input type="text" id="castFormAliases" placeholder="e.g. elder son, older boy, big brother, 11yo">
+              </div>
+            </div>
+            <div class="cast-form-actions">
+              <button type="button" class="cast-form-cancel-btn" onclick="toggleFamilyCastAddForm(false)">Cancel</button>
+              <button type="button" class="cast-form-save-btn" onclick="saveNewCastMemberFromForm()">Save Member</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom Footer -->
+      <div class="family-cast-modal-footer">
+        <div class="privacy-note">
+          <span>🔒</span>
+          <span>Stored privately in your vault. Never published to public feeds or shared externally.</span>
+        </div>
+        <div class="footer-actions">
+          <button type="button" class="cast-reset-btn" onclick="resetFamilyCastToDefault()" title="Reset to standard 4-member profile">Reset Defaults</button>
+          <button type="button" class="cast-confirm-btn" onclick="closeFamilyCastModal()">Done</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
 
   <script src="app.js?v=20261018_0015"></script>
 </body>

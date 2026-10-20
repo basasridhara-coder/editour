@@ -284,6 +284,7 @@ async function init() {
   await checkDeepLink();
   setupRealtimeSubscription();
   checkIncomingShareTarget();
+  loadFamilyCastProfile();
 }
 
 const SUPABASE_URL = 'https://fxfklefnkpmhofncqhfh.supabase.co';
@@ -6969,6 +6970,358 @@ function renderCuratorStyleProfile(profile) {
   `).join('');
 }
 
+// ============================================================
+// FAMILY CAST VAULT & PHYSICAL STAGING CONTROLLER
+// Guarantees accurate biological age gaps & Indian driving physics
+// ============================================================
+
+let familyCastProfileCache = null;
+let activeCastMemberIds = new Set(['member_father', 'member_mother', 'member_elder_son', 'member_younger_son']);
+let activeCastStagingMode = 'vehicle_rhd';
+
+function getDefaultClientFamilyCast() {
+  const userHandle = (currentUser && currentUser.email) || '@Shridhar Reddy';
+  return {
+    userIdentifier: userHandle,
+    updatedAt: new Date().toISOString(),
+    members: [
+      {
+        id: 'member_father',
+        relationship: 'self',
+        roleLabel: 'Father / Self',
+        name: 'Father (Shridhar)',
+        aliases: ['dad', 'father', 'shridhar', 'myself', 'me', 'i', 'husband'],
+        age: 40,
+        heightDesc: '5ft 10in (178cm), adult stature',
+        visualTraits: 'Adult father in early 40s, neat short dark hair, warm confident expression, seasoned contemporary styling.',
+        vehicleRole: 'driver_right'
+      },
+      {
+        id: 'member_mother',
+        relationship: 'spouse',
+        roleLabel: 'Mother / Wife',
+        name: 'Mother',
+        aliases: ['wife', 'mother', 'mom'],
+        age: 36,
+        heightDesc: '5ft 4in (162cm), adult female stature',
+        visualTraits: 'Adult mother in her mid-30s, warm thoughtful smile, dark wavy hair, expressive eyes, elegant casual styling.',
+        vehicleRole: 'passenger_front_left'
+      },
+      {
+        id: 'member_elder_son',
+        relationship: 'elder_son',
+        roleLabel: 'Elder Son (Age 11)',
+        name: 'Elder Son',
+        aliases: ['elder son', 'older son', 'older boy', 'elder brother', 'big brother', 'first son', '11-year-old', '11yo'],
+        age: 11,
+        heightDesc: '4ft 10in (147cm): Stands a full head taller than his younger brother',
+        visualTraits: '11-year-old pre-teen boy, lean and tall adolescent build, distinct mature pre-teen facial structure, neat side-parted dark hair, visibly older and taller by a head than his younger brother.',
+        vehicleRole: 'passenger_rear_right'
+      },
+      {
+        id: 'member_younger_son',
+        relationship: 'younger_son',
+        roleLabel: 'Younger Son (Age 7)',
+        name: 'Younger Son',
+        aliases: ['younger son', 'little son', 'younger boy', 'younger brother', 'little brother', 'second son', '7-year-old', '7yo'],
+        age: 7,
+        heightDesc: '3ft 11in (120cm): Head reaches only to older brother shoulder',
+        visualTraits: '7-year-old young schoolboy, noticeably shorter by a full head, top of head reaches only to his older brother shoulder, soft round youthful child cheeks, playful energetic expression, wavy dark hair, lively child proportions.',
+        vehicleRole: 'passenger_rear_left'
+      }
+    ],
+    collectiveAliases: ['family', 'my family', 'kids', 'my kids', 'both boys', 'sons', 'my sons', 'boys', 'children']
+  };
+}
+
+async function loadFamilyCastProfile() {
+  const local = localStorage.getItem('slant_family_cast');
+  if (local) {
+    try {
+      familyCastProfileCache = JSON.parse(local);
+      if (familyCastProfileCache && Array.isArray(familyCastProfileCache.members)) {
+        return familyCastProfileCache;
+      }
+    } catch (_) {}
+  }
+
+  const userIdentifier = (currentUser && currentUser.email) || '@Shridhar Reddy';
+  try {
+    const resp = await fetch('/api/synthesize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'get_family_cast',
+        userIdentifier
+      })
+    });
+    if (resp.ok) {
+      const data = await resp.json();
+      if (data && data.cast && Array.isArray(data.cast.members)) {
+        familyCastProfileCache = data.cast;
+        try {
+          localStorage.setItem('slant_family_cast', JSON.stringify(data.cast));
+        } catch (_) {}
+        return data.cast;
+      }
+    }
+  } catch (err) {
+    console.warn('Load family cast error:', err);
+  }
+
+  familyCastProfileCache = getDefaultClientFamilyCast();
+  try {
+    localStorage.setItem('slant_family_cast', JSON.stringify(familyCastProfileCache));
+  } catch (_) {}
+  return familyCastProfileCache;
+}
+
+async function saveFamilyCastProfile(updatedCast) {
+  if (!updatedCast || !Array.isArray(updatedCast.members)) return;
+  familyCastProfileCache = updatedCast;
+  try {
+    localStorage.setItem('slant_family_cast', JSON.stringify(updatedCast));
+  } catch (_) {}
+
+  const userIdentifier = (currentUser && currentUser.email) || '@Shridhar Reddy';
+  try {
+    fetch('/api/synthesize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'save_family_cast',
+        userIdentifier,
+        cast: updatedCast
+      })
+    }).catch(() => {});
+  } catch (_) {}
+}
+
+function openFamilyCastModal() {
+  const modal = document.getElementById('familyCastModal');
+  if (!modal) return;
+
+  if (!familyCastProfileCache) {
+    loadFamilyCastProfile().then(() => {
+      renderFamilyCastModalList();
+    });
+  } else {
+    renderFamilyCastModalList();
+  }
+
+  modal.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+function closeFamilyCastModal() {
+  const modal = document.getElementById('familyCastModal');
+  if (modal) {
+    modal.style.display = 'none';
+  }
+  document.body.style.overflow = '';
+  renderFamilyCastStagingUI();
+}
+
+function renderFamilyCastModalList() {
+  const container = document.getElementById('familyCastCardsList');
+  if (!container) return;
+
+  const cast = familyCastProfileCache || getDefaultClientFamilyCast();
+  const members = cast.members || [];
+
+  if (members.length === 0) {
+    container.innerHTML = `<div style="text-align:center; padding:16px; color:#94A3B8; font-size:12px;">No family members registered yet. Add a member below.</div>`;
+    return;
+  }
+
+  const icons = {
+    self: '👨',
+    spouse: '👩',
+    elder_son: '👦',
+    younger_son: '🧒',
+    child: '🧒'
+  };
+
+  container.innerHTML = members.map(m => `
+    <div class="family-member-card" id="cast-card-${m.id}">
+      <div class="member-card-left">
+        <div class="member-card-avatar">${icons[m.relationship] || '👤'}</div>
+        <div class="member-card-info">
+          <div class="member-card-name-row">
+            <span class="member-card-name">${escapeHtml(m.name || 'Family Member')}</span>
+            <span class="member-card-role-tag">${escapeHtml(m.roleLabel || m.relationship || 'Member')}</span>
+          </div>
+          <div class="member-card-meta">
+            ${m.age ? `<span>Age ${m.age}</span> • ` : ''}
+            <span>${escapeHtml(m.heightDesc || 'Standard Stature')}</span>
+          </div>
+          <div class="member-card-traits">${escapeHtml(m.visualTraits || '')}</div>
+        </div>
+      </div>
+      <div class="member-card-actions">
+        <button type="button" class="member-delete-btn" onclick="deleteCastMember('${m.id}')" title="Delete member">✕</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function toggleFamilyCastAddForm(show) {
+  const form = document.getElementById('familyCastAddForm');
+  const btn = document.getElementById('familyCastAddToggleBtn');
+  if (!form) return;
+
+  const isVisible = (typeof show === 'boolean') ? show : (form.style.display !== 'none');
+  form.style.display = isVisible ? 'none' : 'block';
+  if (btn) btn.style.display = isVisible ? 'flex' : 'none';
+}
+
+function saveNewCastMemberFromForm() {
+  const relation = document.getElementById('castFormRelation')?.value || 'child';
+  const name = document.getElementById('castFormName')?.value?.trim();
+  const age = parseInt(document.getElementById('castFormAge')?.value, 10) || null;
+  const height = document.getElementById('castFormHeight')?.value?.trim() || '';
+  const traits = document.getElementById('castFormTraits')?.value?.trim() || '';
+  const aliasesRaw = document.getElementById('castFormAliases')?.value?.trim() || '';
+
+  if (!name) {
+    showTemporaryToast('Please enter a name or label for the member.');
+    return;
+  }
+
+  const newId = 'member_' + Date.now();
+  const aliases = aliasesRaw.split(',').map(a => a.trim().toLowerCase()).filter(Boolean);
+  if (!aliases.includes(name.toLowerCase())) aliases.push(name.toLowerCase());
+
+  const cast = familyCastProfileCache || getDefaultClientFamilyCast();
+  if (!Array.isArray(cast.members)) cast.members = [];
+
+  cast.members.push({
+    id: newId,
+    relationship: relation,
+    roleLabel: name,
+    name,
+    age,
+    heightDesc: height || `${age ? 'Age ' + age : 'Standard'} stature`,
+    visualTraits: traits || 'Warm lifelike facial features',
+    aliases,
+    vehicleRole: relation === 'self' ? 'driver_right' : (relation === 'spouse' ? 'passenger_front_left' : 'passenger_rear')
+  });
+
+  activeCastMemberIds.add(newId);
+  saveFamilyCastProfile(cast);
+  renderFamilyCastModalList();
+  toggleFamilyCastAddForm(false);
+  showTemporaryToast(`✓ Added ${escapeHtml(name)} to Family Cast Vault!`);
+}
+
+function deleteCastMember(memberId) {
+  if (!familyCastProfileCache || !Array.isArray(familyCastProfileCache.members)) return;
+  familyCastProfileCache.members = familyCastProfileCache.members.filter(m => m.id !== memberId);
+  activeCastMemberIds.delete(memberId);
+  saveFamilyCastProfile(familyCastProfileCache);
+  renderFamilyCastModalList();
+  showTemporaryToast('Member removed from vault.');
+}
+
+function resetFamilyCastToDefault() {
+  familyCastProfileCache = getDefaultClientFamilyCast();
+  activeCastMemberIds = new Set(['member_father', 'member_mother', 'member_elder_son', 'member_younger_son']);
+  saveFamilyCastProfile(familyCastProfileCache);
+  renderFamilyCastModalList();
+  showTemporaryToast('✓ Reset to standard family blueprint (Dad, Mom, 11yo Elder Son, 7yo Younger Son)');
+}
+
+function setFamilyCastStagingMode(mode) {
+  activeCastStagingMode = mode || 'vehicle_rhd';
+  ['stagingPillRhd', 'stagingPillOverlook', 'stagingPillDomestic'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const match = (id === 'stagingPillRhd' && mode === 'vehicle_rhd') ||
+                  (id === 'stagingPillOverlook' && mode === 'scenic_overlook') ||
+                  (id === 'stagingPillDomestic' && mode === 'general');
+    el.classList.toggle('active', match);
+  });
+}
+
+function toggleActiveCastMember(memberId) {
+  if (activeCastMemberIds.has(memberId)) {
+    activeCastMemberIds.delete(memberId);
+  } else {
+    activeCastMemberIds.add(memberId);
+  }
+  renderFamilyCastStagingUI();
+}
+
+function checkAndTriggerFamilyCast(text = '') {
+  const combined = String(text || '').toLowerCase();
+  const familyRegex = /\b(family|my family|kids|my kids|sons|my sons|both boys|boys|children|wife|mom|mother|dad|father|11 and 7|11,? 7|road trip|trip)\b/i;
+
+  const card = document.getElementById('familyCastStagingCard');
+  if (!card) return;
+
+  const matches = familyRegex.test(combined);
+  if (matches) {
+    card.style.display = 'flex';
+    renderFamilyCastStagingUI();
+
+    // Auto-detect vehicle context
+    if (/\b(car|drive|driving|road trip|vehicle|suv|sedan|highway)\b/i.test(combined)) {
+      if (/\b(overlook|viewpoint|hills|mountains)\b/i.test(combined)) {
+        setFamilyCastStagingMode('scenic_overlook');
+      } else {
+        setFamilyCastStagingMode('vehicle_rhd');
+      }
+    }
+  } else {
+    if (!card.dataset.manuallyOpened) {
+      card.style.display = 'none';
+    }
+  }
+}
+
+function renderFamilyCastStagingUI() {
+  const container = document.getElementById('familyCastMembersRow');
+  if (!container) return;
+
+  const cast = familyCastProfileCache || getDefaultClientFamilyCast();
+  const members = cast.members || [];
+
+  container.innerHTML = members.map(m => {
+    const isActive = activeCastMemberIds.has(m.id);
+    return `
+      <div class="family-cast-chip ${isActive ? 'active' : ''}" onclick="toggleActiveCastMember('${m.id}')" title="Toggle ${escapeHtml(m.name)}">
+        <span class="chip-check">${isActive ? '✓' : ''}</span>
+        <span>${escapeHtml(m.name || m.roleLabel)}</span>
+      </div>
+    `;
+  }).join('');
+
+  const hasElder = activeCastMemberIds.has('member_elder_son') || members.some(m => activeCastMemberIds.has(m.id) && m.age === 11);
+  const hasYounger = activeCastMemberIds.has('member_younger_son') || members.some(m => activeCastMemberIds.has(m.id) && m.age === 7);
+
+  const banner = document.getElementById('familyCastAgeBanner');
+  if (banner) {
+    if (hasElder && hasYounger) {
+      banner.style.display = 'flex';
+      banner.innerHTML = `
+        <span class="guarantee-icon">✨</span>
+        <span class="guarantee-text"><strong>4-Year Age Gap Enforced:</strong> 11-year-old pre-teen (taller, lean build) vs 7-year-old young child (shorter by a head, round child cheeks). Strictly no identical twins.</span>
+      `;
+    } else {
+      banner.style.display = 'none';
+    }
+  }
+}
+
+function getActiveCastPayload() {
+  const cast = familyCastProfileCache || getDefaultClientFamilyCast();
+  const activeList = (cast.members || []).filter(m => activeCastMemberIds.has(m.id));
+  return {
+    members: activeList,
+    stagingMode: activeCastStagingMode
+  };
+}
+
 function acceptPolishedTake() {
   const input = document.getElementById('creatorSlantTakeInput');
   const reviewCard = document.getElementById('slantPolishReviewCard');
@@ -7814,6 +8167,11 @@ function resetCreatorState() {
   if (eyeBtn) eyeBtn.classList.remove('active');
   const eyeLabel = document.getElementById('step3EyeViewLabel');
   if (eyeLabel) eyeLabel.textContent = 'Clear Text';
+  const stagingCard = document.getElementById('familyCastStagingCard');
+  if (stagingCard) {
+    stagingCard.style.display = 'none';
+    delete stagingCard.dataset.manuallyOpened;
+  }
 
   // Clear inputs in Step 1
   const slantInput = document.getElementById('creatorSlantTakeInput');
@@ -9057,6 +9415,10 @@ async function goToVisualCuesStep() {
   }
   updateCountryContextUI();
 
+  const sparkInput = document.getElementById('creatorSparkInput');
+  const combinedContext = slantTake + ' ' + (sparkInput ? sparkInput.value.trim() : '');
+  checkAndTriggerFamilyCast(combinedContext);
+
   // Smart Auto-Regenerate on Major Context Shift (Option A)
   // If inputs changed since cues were generated or loaded from a previous post, refresh cues for the new context
   const hasShift = hasMajorCuesContextShift();
@@ -9614,7 +9976,10 @@ async function triggerCueSuggest() {
         imageBase64: effectiveCuesImage,
         imageMimeType: effectiveCuesMime,
         innerVoiceImageBase64: (creatorSelectedSource === 'inner_voice') ? innerVoicePhotoBase64 : null,
-        innerVoiceImageMimeType: innerVoicePhotoMimeType || 'image/jpeg'
+        innerVoiceImageMimeType: innerVoicePhotoMimeType || 'image/jpeg',
+        familyCast: familyCastProfileCache,
+        activeCast: getActiveCastPayload(),
+        castStaging: { mode: activeCastStagingMode }
       })
     });
 
@@ -9938,7 +10303,10 @@ async function startAiSynthesis() {
     countryContext: creatorCountryContext?.name || 'India',
     sourceLedger: currentSourceLedger || null,
     scrapedTitle: (isLink && url) ? (currentScrapedArticle?.title || '') : '',
-    scrapedContent: (isLink && url) ? (currentScrapedArticle?.content || '').slice(0, 3000) : ''
+    scrapedContent: (isLink && url) ? (currentScrapedArticle?.content || '').slice(0, 3000) : '',
+    familyCast: familyCastProfileCache,
+    activeCast: getActiveCastPayload(),
+    castStaging: { mode: activeCastStagingMode }
   };
 
   const synthController = new AbortController();
