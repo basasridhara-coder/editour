@@ -7146,6 +7146,8 @@ function closeFamilyCastModal() {
   renderFamilyCastStagingUI();
 }
 
+let editingCastMemberId = null;
+
 function renderFamilyCastModalList() {
   const container = document.getElementById('familyCastCardsList');
   if (!container) return;
@@ -7183,10 +7185,53 @@ function renderFamilyCastModalList() {
         </div>
       </div>
       <div class="member-card-actions">
+        <button type="button" class="member-edit-btn" onclick="editCastMember('${m.id}')" title="Edit member traits">✏️ Edit</button>
         <button type="button" class="member-delete-btn" onclick="deleteCastMember('${m.id}')" title="Delete member">✕</button>
       </div>
     </div>
   `).join('');
+}
+
+function editCastMember(memberId) {
+  const cast = familyCastProfileCache || getDefaultClientFamilyCast();
+  const member = (cast.members || []).find(m => m.id === memberId);
+  if (!member) return;
+
+  editingCastMemberId = memberId;
+
+  // Pre-populate form inputs
+  const relInput = document.getElementById('castFormRelation');
+  if (relInput) relInput.value = member.relationship || 'child';
+
+  const nameInput = document.getElementById('castFormName');
+  if (nameInput) nameInput.value = member.name || '';
+
+  const ageInput = document.getElementById('castFormAge');
+  if (ageInput) ageInput.value = (member.age !== null && member.age !== undefined) ? member.age : '';
+
+  const heightInput = document.getElementById('castFormHeight');
+  if (heightInput) heightInput.value = member.heightDesc || '';
+
+  const traitsInput = document.getElementById('castFormTraits');
+  if (traitsInput) traitsInput.value = member.visualTraits || '';
+
+  const aliasesInput = document.getElementById('castFormAliases');
+  if (aliasesInput) aliasesInput.value = Array.isArray(member.aliases) ? member.aliases.join(', ') : '';
+
+  // Update header and save button
+  const title = document.getElementById('castFormHeaderTitle');
+  if (title) title.innerHTML = `✏️ Edit Member: <strong>${escapeHtml(member.name || member.roleLabel)}</strong>`;
+
+  const saveBtn = document.getElementById('castFormSaveBtnText');
+  if (saveBtn) saveBtn.textContent = 'Update Member';
+
+  // Open form
+  const form = document.getElementById('familyCastAddForm');
+  const btn = document.getElementById('familyCastAddToggleBtn');
+  if (form) form.style.display = 'block';
+  if (btn) btn.style.display = 'none';
+
+  form.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 function toggleFamilyCastAddForm(show) {
@@ -7197,6 +7242,21 @@ function toggleFamilyCastAddForm(show) {
   const isVisible = (typeof show === 'boolean') ? show : (form.style.display !== 'none');
   form.style.display = isVisible ? 'none' : 'block';
   if (btn) btn.style.display = isVisible ? 'flex' : 'none';
+
+  if (isVisible) {
+    editingCastMemberId = null;
+    const title = document.getElementById('castFormHeaderTitle');
+    if (title) title.innerHTML = '➕ Add Family Member';
+    const saveBtn = document.getElementById('castFormSaveBtnText');
+    if (saveBtn) saveBtn.textContent = 'Save Member';
+
+    ['castFormName', 'castFormAge', 'castFormHeight', 'castFormTraits', 'castFormAliases'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+    const rel = document.getElementById('castFormRelation');
+    if (rel) rel.value = 'child';
+  }
 }
 
 function saveNewCastMemberFromForm() {
@@ -7212,30 +7272,51 @@ function saveNewCastMemberFromForm() {
     return;
   }
 
-  const newId = 'member_' + Date.now();
   const aliases = aliasesRaw.split(',').map(a => a.trim().toLowerCase()).filter(Boolean);
   if (!aliases.includes(name.toLowerCase())) aliases.push(name.toLowerCase());
 
   const cast = familyCastProfileCache || getDefaultClientFamilyCast();
   if (!Array.isArray(cast.members)) cast.members = [];
 
-  cast.members.push({
-    id: newId,
-    relationship: relation,
-    roleLabel: name,
-    name,
-    age,
-    heightDesc: height || `${age ? 'Age ' + age : 'Standard'} stature`,
-    visualTraits: traits || 'Warm lifelike facial features',
-    aliases,
-    vehicleRole: relation === 'self' ? 'driver_right' : (relation === 'spouse' ? 'passenger_front_left' : 'passenger_rear')
-  });
+  if (editingCastMemberId) {
+    // Update existing member
+    const existingIdx = cast.members.findIndex(m => m.id === editingCastMemberId);
+    if (existingIdx !== -1) {
+      cast.members[existingIdx] = {
+        ...cast.members[existingIdx],
+        relationship: relation,
+        roleLabel: name,
+        name,
+        age,
+        heightDesc: height || `${age ? 'Age ' + age : 'Standard'} stature`,
+        visualTraits: traits || 'Warm lifelike facial features',
+        aliases,
+        vehicleRole: relation === 'self' ? 'driver_right' : (relation === 'spouse' ? 'passenger_front_left' : 'passenger_rear')
+      };
+      showTemporaryToast(`✓ Updated ${escapeHtml(name)} in Family Cast Vault!`);
+    }
+    editingCastMemberId = null;
+  } else {
+    // Create new member
+    const newId = 'member_' + Date.now();
+    cast.members.push({
+      id: newId,
+      relationship: relation,
+      roleLabel: name,
+      name,
+      age,
+      heightDesc: height || `${age ? 'Age ' + age : 'Standard'} stature`,
+      visualTraits: traits || 'Warm lifelike facial features',
+      aliases,
+      vehicleRole: relation === 'self' ? 'driver_right' : (relation === 'spouse' ? 'passenger_front_left' : 'passenger_rear')
+    });
+    activeCastMemberIds.add(newId);
+    showTemporaryToast(`✓ Added ${escapeHtml(name)} to Family Cast Vault!`);
+  }
 
-  activeCastMemberIds.add(newId);
   saveFamilyCastProfile(cast);
   renderFamilyCastModalList();
   toggleFamilyCastAddForm(false);
-  showTemporaryToast(`✓ Added ${escapeHtml(name)} to Family Cast Vault!`);
 }
 
 function deleteCastMember(memberId) {

@@ -14421,6 +14421,28 @@ mark.polish-mark:hover, mark.polish-mark.active {
   flex-shrink: 0;
 }
 
+.member-edit-btn {
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  color: #38BDF8;
+  font-family: 'Space Grotesk', -apple-system, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.member-edit-btn:hover {
+  background: #38BDF8;
+  color: #0F172A;
+  box-shadow: 0 2px 8px rgba(56, 189, 248, 0.3);
+}
+
 .member-delete-btn {
   background: transparent;
   border: 1px solid rgba(239, 68, 68, 0.3);
@@ -14435,6 +14457,20 @@ mark.polish-mark:hover, mark.polish-mark.active {
 .member-delete-btn:hover {
   background: #EF4444;
   color: #FFFFFF;
+}
+
+.cast-form-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 2px;
+}
+
+.cast-form-header-title {
+  font-family: 'Space Grotesk', -apple-system, sans-serif;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #38BDF8;
 }
 
 /* Add Member Section */

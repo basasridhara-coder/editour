@@ -1805,6 +1805,9 @@
           </button>
 
           <div class="family-cast-form-wrap" id="familyCastAddForm" style="display:none;">
+            <div class="cast-form-header-row">
+              <span class="cast-form-header-title" id="castFormHeaderTitle">➕ Add Family Member</span>
+            </div>
             <div class="cast-form-grid">
               <div class="cast-form-field">
                 <label>Relationship / Role</label>
@@ -1839,7 +1842,9 @@
             </div>
             <div class="cast-form-actions">
               <button type="button" class="cast-form-cancel-btn" onclick="toggleFamilyCastAddForm(false)">Cancel</button>
-              <button type="button" class="cast-form-save-btn" onclick="saveNewCastMemberFromForm()">Save Member</button>
+              <button type="button" class="cast-form-save-btn" onclick="saveNewCastMemberFromForm()">
+                <span id="castFormSaveBtnText">Save Member</span>
+              </button>
             </div>
           </div>
         </div>
