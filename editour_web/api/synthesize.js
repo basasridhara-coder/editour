@@ -152,19 +152,16 @@ module.exports = async function handler(req, res) {
       try {
         const copyEditPrompt = `You are a world-class literary copy-editor and writing coach.
 The author has written their personal conviction / take on a topic.
-Your job is to polish their text into grammatically correct, natural, and apt English while highlighting the exact corrections made:
+Your job is to polish their text into grammatically correct, natural, and apt English while detailing every correction made:
 - STRICT RULE 1 (ZERO OPINION FABRICATION): DO NOT change, enhance, add to, or modify the author's opinion, stance, or logic. Do NOT introduce new arguments, buzzwords, or unsolicited ideas.
 - STRICT RULE 2 (ZERO CUTTING SHORT): DO NOT cut short, truncate, compress, or omit the author's opinion. Every single point, argument, nuance, and example must be retained in the exact same sequence.
 - STRICT RULE 3 (APT ENGLISH & PHRASING): Fix comma splices, run-on sentences, awkward phrasing, word choices, subject-verb agreements, casing, and punctuation so it flows naturally and authoritatively.
 - STRICT RULE 4 (STRICT BAN ON EM DASHES AND ARTIFICIAL HYPHENS): NEVER use em dashes, en dashes, or double hyphens ("--")! Connect clauses with natural commas, semicolons, conjunctions, or separate sentences.
-- STRICT RULE 5 (CORRECTION CATEGORIES & LEGEND): Categorize every change into exactly one of:
+- STRICT RULE 5 (CORRECTION CATEGORIES): Categorize every change into exactly one of:
   * "spelling": Typos, word capitalization, spelling variants.
   * "grammar": Verb tense, subject-verb agreement, singular/plural, missing articles or prepositions.
   * "punctuation": Commas, periods, splitting run-ons, quotes.
   * "phrasing": Smoother idioms, natural word order, removing clunky transitions while preserving exact thought.
-- STRICT RULE 6 (MARKED-UP HTML): In "highlightedHtml", wrap each corrected word or phrase in:
-  <mark class="polish-mark polish-type-[CATEGORY]" data-type="[CATEGORY]" data-original="[EXACT_OLD_TEXT]" data-reason="[CONCISE_REASON]">[NEW_TEXT]</mark>
-  Unchanged text remains plain text. Ensure the HTML is valid.
 
 Author's Raw Take:
 """${rawText}"""
@@ -172,7 +169,14 @@ Author's Raw Take:
 Respond strictly with valid JSON with this exact structure:
 {
   "polished": "full polished text string without any tags",
-  "highlightedHtml": "full text string with <mark> tags wrapping every correction"
+  "corrections": [
+    {
+      "original": "exact segment from author raw text that was changed",
+      "replacement": "polished replacement text in the polished version",
+      "type": "spelling | grammar | punctuation | phrasing",
+      "reason": "concise explanation of why this was corrected"
+    }
+  ]
 }`;
 
         const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
@@ -197,16 +201,23 @@ Respond strictly with valid JSON with this exact structure:
         if (geminiResp.ok) {
           const geminiData = await geminiResp.json();
           let candidate = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          candidate = candidate.trim().replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```$/i, '').trim();
           let parsed = null;
           try {
             parsed = JSON.parse(candidate);
-          } catch (_) {}
+          } catch (jsonErr) {
+            try {
+              const polMatch = candidate.match(/"polished"\s*:\s*"((?:[^"\\]|\\.)*)"/s);
+              if (polMatch) {
+                parsed = { polished: polMatch[1].replace(/\\"/g, '"').replace(/\\n/g, '\n'), corrections: [] };
+              }
+            } catch (_) {}
+          }
 
-          if (parsed && (parsed.polished || parsed.highlightedHtml)) {
-            let highlightedHtml = String(parsed.highlightedHtml || parsed.polished || '').trim();
-            highlightedHtml = highlightedHtml.replace(/\s*([\u2014\u2013\u2015]|--)\s*/g, ', ');
-            const rawPolished = String(parsed.polished || highlightedHtml.replace(/<[^>]+>/g, '')).trim();
-            const cleanPolished = formatCuratorTakeApt(rawPolished);
+          if (parsed && (parsed.polished || (Array.isArray(parsed.corrections) && parsed.corrections.length > 0))) {
+            const rawPolished = String(parsed.polished || '').trim();
+            let cleanPolished = formatCuratorTakeApt(rawPolished);
+            cleanPolished = cleanPolished.replace(/\s*([\u2014\u2013\u2015]|--)\s*/g, ', ');
 
             let corrections = [];
             if (Array.isArray(parsed.corrections) && parsed.corrections.length > 0) {
@@ -216,7 +227,13 @@ Respond strictly with valid JSON with this exact structure:
                 type: ['spelling', 'grammar', 'punctuation', 'phrasing'].includes(c.type) ? c.type : 'phrasing',
                 reason: String(c.reason || 'Improved phrasing and flow')
               }));
-            } else {
+            }
+
+            let highlightedHtml = '';
+            if (corrections.length > 0) {
+              highlightedHtml = buildHighlightedHtml(cleanPolished, corrections);
+            } else if (parsed.highlightedHtml) {
+              highlightedHtml = String(parsed.highlightedHtml).trim();
               const markRegex = /<mark\s+[^>]*?data-type="([^"]*)"[^>]*?data-original="([^"]*)"[^>]*?data-reason="([^"]*)"[^>]*>([\s\S]*?)<\/mark>/gi;
               let match;
               while ((match = markRegex.exec(highlightedHtml)) !== null) {
@@ -227,6 +244,8 @@ Respond strictly with valid JSON with this exact structure:
                   replacement: String(match[4] || '')
                 });
               }
+            } else {
+              highlightedHtml = escapeHtml(cleanPolished);
             }
 
             const counts = {
@@ -1003,6 +1022,81 @@ Respond strictly with valid JSON with this exact structure:
     return res.status(500).json({ error: 'Server synthesis error: ' + error.message });
   }
 };
+
+function escapeHtml(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function buildHighlightedHtml(polished, corrections) {
+  if (!polished) return '';
+  if (!Array.isArray(corrections) || corrections.length === 0) return escapeHtml(polished);
+
+  const matched = [];
+  let searchIdx = 0;
+
+  for (const c of corrections) {
+    const repl = String(c.replacement || '').trim();
+    if (!repl) continue;
+
+    let foundIdx = polished.indexOf(repl, searchIdx);
+    if (foundIdx === -1 && searchIdx > 0) {
+      foundIdx = polished.indexOf(repl, 0);
+    }
+
+    if (foundIdx === -1) {
+      const stripped = repl.replace(/^[.,;:!?'"“”‘’«»]+|[.,;:!?'"“”‘’«»]+$/g, '').trim();
+      if (stripped.length > 2) {
+        foundIdx = polished.indexOf(stripped, searchIdx);
+        if (foundIdx === -1 && searchIdx > 0) {
+          foundIdx = polished.indexOf(stripped, 0);
+        }
+        if (foundIdx !== -1) {
+          matched.push({
+            start: foundIdx,
+            end: foundIdx + stripped.length,
+            original: String(c.original || ''),
+            reason: String(c.reason || 'Improved phrasing and flow'),
+            type: ['spelling', 'grammar', 'punctuation', 'phrasing'].includes(c.type) ? c.type : 'phrasing',
+            replacement: stripped
+          });
+          searchIdx = Math.max(searchIdx, foundIdx + stripped.length);
+          continue;
+        }
+      }
+    }
+
+    if (foundIdx !== -1) {
+      matched.push({
+        start: foundIdx,
+        end: foundIdx + repl.length,
+        original: String(c.original || ''),
+        reason: String(c.reason || 'Improved phrasing and flow'),
+        type: ['spelling', 'grammar', 'punctuation', 'phrasing'].includes(c.type) ? c.type : 'phrasing',
+        replacement: repl
+      });
+      searchIdx = Math.max(searchIdx, foundIdx + repl.length);
+    }
+  }
+
+  matched.sort((a, b) => a.start - b.start);
+
+  let result = '';
+  let lastIndex = 0;
+
+  for (const m of matched) {
+    if (m.start < lastIndex) continue;
+    result += escapeHtml(polished.substring(lastIndex, m.start));
+    result += `<mark class="polish-mark polish-type-${m.type}" data-type="${m.type}" data-original="${escapeHtml(m.original)}" data-reason="${escapeHtml(m.reason)}">${escapeHtml(polished.substring(m.start, m.end))}</mark>`;
+    lastIndex = m.end;
+  }
+  result += escapeHtml(polished.substring(lastIndex));
+  return result;
+}
 
 function formatCuratorTakeApt(text) {
   if (!text || typeof text !== 'string') return '';
