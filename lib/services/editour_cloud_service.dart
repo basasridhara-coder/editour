@@ -26,9 +26,9 @@ class EditourCloudService {
   final StorageService _storageService = StorageService();
 
   // Supabase Cloud Backend for https://slant.today / https://editour.app
-  static const String supabaseUrl = 'https://fsuukgpizuipxxwatkbo.supabase.co';
+  static const String supabaseUrl = 'https://fxfklefnkpmhofncqhfh.supabase.co';
   static const String supabaseApiKey =
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZzdXVrZ3BpenVpcHh4d2F0a2JvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTExMzE4NjEsImV4cCI6MjEwNjcwNzg2MX0.NPnTDhGyiigPZIvror8JGqjCMVKuJ8OZaDN2pGuVfM8';
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ4ZmtsZWZua3BtaG9mbmNxaGZoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI0NzM4NzYsImV4cCI6MjEwODA0OTg3Nn0.0nw5ZDvlEsYal6EYXcqyaAPRHoxkXxZgDsNQDppEYgM';
   static const String supabaseEndpoint = '$supabaseUrl/rest/v1/posts';
 
   /// Publishes a single post card item to slant.today / editour.app

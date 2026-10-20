@@ -4,8 +4,8 @@
 const fs = require('fs');
 const path = require('path');
 
-const SUPABASE_URL = 'https://fsuukgpizuipxxwatkbo.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZzdXVrZ3BpenVpcHh4d2F0a2JvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTExMzE4NjEsImV4cCI6MjEwNjcwNzg2MX0.NPnTDhGyiigPZIvror8JGqjCMVKuJ8OZaDN2pGuVfM8';
+const SUPABASE_URL = 'https://fxfklefnkpmhofncqhfh.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ4ZmtsZWZua3BtaG9mbmNxaGZoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI0NzM4NzYsImV4cCI6MjEwODA0OTg3Nn0.0nw5ZDvlEsYal6EYXcqyaAPRHoxkXxZgDsNQDppEYgM';
 
 let fallbackPosts = [];
 try {
@@ -34,7 +34,7 @@ function formatPostRow(r) {
     p.aiIllustrationUrl = '';
   }
 
-  // If static poster image exists in /posters/, serve high-speed CDN asset; otherwise serve compressed posterBase64
+  // If static poster image exists in /posters/, serve high-speed CDN asset; otherwise serve storage URL or posterBase64
   const posterFile = path.join(__dirname, '../public/posters', p.id + '.png');
   const hasStaticPosterOnDisk = fs.existsSync(posterFile);
 
@@ -42,11 +42,15 @@ function formatPostRow(r) {
     p.illustrationUrl = '/posters/' + p.id + '.png';
     p.aiIllustrationUrl = '/posters/' + p.id + '.png';
     delete p.posterBase64;
+  } else if (p.illustrationUrl && (p.illustrationUrl.startsWith('http://') || p.illustrationUrl.startsWith('https://'))) {
+    p.aiIllustrationUrl = p.illustrationUrl;
   } else if (p.posterBase64 && p.posterBase64.length > 50) {
-    // Fallback: serve compressed WebP/JPEG inline so newly published stories render instantly across all devices without 404
     p.illustrationUrl = p.posterBase64;
     p.aiIllustrationUrl = p.posterBase64;
   } else if (p.illustrationUrl && p.illustrationUrl.startsWith('/posters/')) {
+    p.aiIllustrationUrl = p.illustrationUrl;
+  } else if (p.id) {
+    p.illustrationUrl = `${SUPABASE_URL}/storage/v1/object/public/posters/${p.id}.webp`;
     p.aiIllustrationUrl = p.illustrationUrl;
   }
 
@@ -208,32 +212,71 @@ module.exports = async function handler(req, res) {
         postData.createdAt = new Date().toISOString();
       }
 
-      // Automatically persist poster to static files if illustrationBase64 is provided
-      if (postData.illustrationBase64) {
+      // Automatically persist poster to Supabase Storage if illustrationBase64 or posterBase64 is provided
+      const rawPoster = postData.illustrationBase64 || postData.posterBase64;
+      if (rawPoster && typeof rawPoster === 'string' && rawPoster.startsWith('data:image/')) {
         try {
-          const cleanB64 = postData.illustrationBase64.replace(/^data:image\/[^;]+;base64,/, '');
+          const match = rawPoster.match(/^data:(image\/[^;]+);base64,/);
+          const mime = match ? match[1] : 'image/webp';
+          const ext = mime.includes('png') ? 'png' : (mime.includes('jpeg') || mime.includes('jpg') ? 'jpg' : 'webp');
+          const cleanB64 = match ? rawPoster.slice(match[0].length) : rawPoster.replace(/^data:image\/[^;]+;base64,/, '');
           const buf = Buffer.from(cleanB64, 'base64');
+          const fileName = `${postData.id}.${ext}`;
+
+          await fetch(`${SUPABASE_URL}/storage/v1/object/posters/${fileName}`, {
+            method: 'POST',
+            headers: {
+              'apikey': SUPABASE_KEY,
+              'Authorization': `Bearer ${SUPABASE_KEY}`,
+              'Content-Type': mime,
+              'x-upsert': 'true'
+            },
+            body: buf
+          });
+
+          postData.illustrationUrl = `${SUPABASE_URL}/storage/v1/object/public/posters/${fileName}`;
+          postData.aiIllustrationUrl = postData.illustrationUrl;
+
           const targetDirs = [
             path.join(__dirname, '../public/posters'),
             path.join(__dirname, '../web_feed/posters')
           ];
           targetDirs.forEach(dir => {
-            if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-            fs.writeFileSync(path.join(dir, postData.id + '.png'), buf);
+            try {
+              if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+              fs.writeFileSync(path.join(dir, fileName), buf);
+            } catch (_) {}
           });
-        } catch (_) {}
-
-        if (!postData.posterBase64 && postData.illustrationBase64.length < 300000) {
-          postData.posterBase64 = postData.illustrationBase64;
+        } catch (uploadErr) {
+          console.warn('Storage upload error:', uploadErr);
         }
       }
 
-      postData.illustrationUrl = '/posters/' + postData.id + '.png';
-      postData.aiIllustrationUrl = '/posters/' + postData.id + '.png';
+      if (!postData.illustrationUrl) {
+        postData.illustrationUrl = `${SUPABASE_URL}/storage/v1/object/public/posters/${postData.id}.webp`;
+        postData.aiIllustrationUrl = postData.illustrationUrl;
+      }
 
-      // Always strip giant uncompressed base64 strings so Supabase never exceeds statement timeout
+      // Always strip giant uncompressed base64 strings so Supabase never exceeds statement timeout or quota
+      delete postData.posterBase64;
       delete postData.illustrationBase64;
       delete postData.originalPhotoBase64;
+      delete postData.sourceImageBase64;
+      delete postData.catalystPhotoBase64;
+      if (typeof postData.catalystPhoto === 'string' && postData.catalystPhoto.startsWith('data:image/')) {
+        delete postData.catalystPhoto;
+      }
+      if (postData.generationInputs) {
+        delete postData.generationInputs.sourceImageBase64;
+        delete postData.generationInputs.catalystPhotoBase64;
+        delete postData.generationInputs.innerVoiceImageBase64;
+        if (typeof postData.generationInputs.catalystPhoto === 'string' && postData.generationInputs.catalystPhoto.startsWith('data:image/')) {
+          delete postData.generationInputs.catalystPhoto;
+        }
+        if (typeof postData.generationInputs.referencePhotoUrl === 'string' && postData.generationInputs.referencePhotoUrl.startsWith('data:image/')) {
+          delete postData.generationInputs.referencePhotoUrl;
+        }
+      }
 
       // Upsert into Supabase
       try {

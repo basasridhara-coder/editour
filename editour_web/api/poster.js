@@ -1,8 +1,8 @@
 const fs = require('fs');
 const path = require('path');
 
-const SUPABASE_URL = 'https://fsuukgpizuipxxwatkbo.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZzdXVrZ3BpenVpcHh4d2F0a2JvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTExMzE4NjEsImV4cCI6MjEwNjcwNzg2MX0.NPnTDhGyiigPZIvror8JGqjCMVKuJ8OZaDN2pGuVfM8';
+const SUPABASE_URL = 'https://fxfklefnkpmhofncqhfh.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ4ZmtsZWZua3BtaG9mbmNxaGZoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI0NzM4NzYsImV4cCI6MjEwODA0OTg3Nn0.0nw5ZDvlEsYal6EYXcqyaAPRHoxkXxZgDsNQDppEYgM';
 
 function sendImageBuffer(res, buf, mimeType = 'image/png') {
   if (buf && buf.length > 4) {
@@ -48,7 +48,7 @@ module.exports = async function handler(req, res) {
       return res.end('Missing poster id');
     }
 
-    id = String(id).replace(/\.png$/i, '').trim();
+    id = String(id).replace(/\.png$/i, '').replace(/\.webp$/i, '').trim();
 
     // 1. Check if the static poster file exists on disk
     const candidateDirs = [
@@ -58,34 +58,30 @@ module.exports = async function handler(req, res) {
     ];
 
     for (const dir of candidateDirs) {
-      const filePath = path.join(dir, `${id}.png`);
-      if (fs.existsSync(filePath)) {
-        const buf = fs.readFileSync(filePath);
-        return sendImageBuffer(res, buf);
-      }
-    }
-
-    // 2. Fetch poster directly from Supabase by post ID
-    const supaResp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.${encodeURIComponent(id)}&select=data`, {
-      headers: {
-        'apikey': SUPABASE_KEY,
-        'Authorization': `Bearer ${SUPABASE_KEY}`
-      }
-    });
-
-    if (supaResp.ok) {
-      const rows = await supaResp.json();
-      const row = rows && rows[0];
-      const post = (row && (row.data || row)) || null;
-
-      if (post) {
-        const rawB64 = post.posterBase64 || post.illustrationBase64 || post.originalPhotoBase64;
-        if (rawB64) {
-          const cleanB64 = rawB64.replace(/^data:image\/[^;]+;base64,/, '');
-          const buf = Buffer.from(cleanB64, 'base64');
+      for (const ext of ['webp', 'png', 'jpg']) {
+        const filePath = path.join(dir, `${id}.${ext}`);
+        if (fs.existsSync(filePath)) {
+          const buf = fs.readFileSync(filePath);
           return sendImageBuffer(res, buf);
         }
       }
+    }
+
+    // 2. Direct edge redirect to Supabase Public Storage CDN
+    // This avoids database roundtrips and serves through Cloudflare edge caching
+    try {
+      const webpUrl = `${SUPABASE_URL}/storage/v1/object/public/posters/${id}.webp`;
+      const headResp = await fetch(webpUrl, { method: 'HEAD' });
+      const targetUrl = headResp.ok ? webpUrl : `${SUPABASE_URL}/storage/v1/object/public/posters/${id}.png`;
+
+      res.setHeader('Location', targetUrl);
+      res.setHeader('Cache-Control', 'public, max-age=31536000, s-maxage=31536000, immutable');
+      return res.status(307).end();
+    } catch (_) {
+      const fallbackUrl = `${SUPABASE_URL}/storage/v1/object/public/posters/${id}.webp`;
+      res.setHeader('Location', fallbackUrl);
+      res.setHeader('Cache-Control', 'public, max-age=31536000, s-maxage=31536000, immutable');
+      return res.status(307).end();
     }
 
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');

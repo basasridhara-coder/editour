@@ -139,8 +139,8 @@ async function init() {
   setupRealtimeSubscription();
 }
 
-const SUPABASE_URL = 'https://fsuukgpizuipxxwatkbo.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZzdXVrZ3BpenVpcHh4d2F0a2JvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTExMzE4NjEsImV4cCI6MjEwNjcwNzg2MX0.NPnTDhGyiigPZIvror8JGqjCMVKuJ8OZaDN2pGuVfM8';
+const SUPABASE_URL = 'https://fxfklefnkpmhofncqhfh.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ4ZmtsZWZua3BtaG9mbmNxaGZoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI0NzM4NzYsImV4cCI6MjEwODA0OTg3Nn0.0nw5ZDvlEsYal6EYXcqyaAPRHoxkXxZgDsNQDppEYgM';
 
 // Supabase Auth & DB Client
 let supabaseClient = null;
@@ -7396,7 +7396,7 @@ const CUE_DIMENSION_EXPLAINERS = [
     color: '#475569',
     tagline: 'Aesthetic Grammar & Print Medium',
     whatItMeans: 'The specific visual art medium, print technique, surface texture, and editorial aesthetic grammar.',
-    howItModulates: 'Instructs the image generation engine on artistic texture—determining whether it renders as painterly editorial realism, noir risograph, vintage woodcut, or Bauhaus vector.',
+    howItModulates: 'Instructs the image generation engine on artistic texture: determining whether it renders as painterly editorial realism, noir risograph, vintage woodcut, or Bauhaus vector.',
     placeholder: 'e.g. Cinematic Warm Editorial Illustration, High-Contrast Noir Risograph Print, Vintage Woodcut'
   }
 ];

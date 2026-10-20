@@ -144,8 +144,8 @@ async function init() {
   setupRealtimeSubscription();
 }
 
-const SUPABASE_URL = 'https://fsuukgpizuipxxwatkbo.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZzdXVrZ3BpenVpcHh4d2F0a2JvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTExMzE4NjEsImV4cCI6MjEwNjcwNzg2MX0.NPnTDhGyiigPZIvror8JGqjCMVKuJ8OZaDN2pGuVfM8';
+const SUPABASE_URL = 'https://fxfklefnkpmhofncqhfh.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ4ZmtsZWZua3BtaG9mbmNxaGZoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI0NzM4NzYsImV4cCI6MjEwODA0OTg3Nn0.0nw5ZDvlEsYal6EYXcqyaAPRHoxkXxZgDsNQDppEYgM';
 
 // Supabase Auth & DB Client
 let supabaseClient = null;
@@ -8644,7 +8644,7 @@ const CUE_DIMENSION_EXPLAINERS = [
     color: '#475569',
     tagline: 'Aesthetic Grammar & Print Medium',
     whatItMeans: 'The specific visual art medium, print technique, surface texture, and editorial aesthetic grammar.',
-    howItModulates: 'Instructs the image generation engine on artistic texture—determining whether it renders as painterly editorial realism, noir risograph, vintage woodcut, or Bauhaus vector.',
+    howItModulates: 'Instructs the image generation engine on artistic texture: determining whether it renders as painterly editorial realism, noir risograph, vintage woodcut, or Bauhaus vector.',
     placeholder: 'e.g. Cinematic Warm Editorial Illustration, High-Contrast Noir Risograph Print, Vintage Woodcut'
   }
 ];
@@ -10883,6 +10883,51 @@ async function compressImageForCloud(base64Data, maxWidth = 900, quality = 0.82)
   });
 }
 
+async function uploadArtworkToSupabaseStorage(postId, base64Data) {
+  if (!base64Data || typeof base64Data !== 'string') return null;
+  try {
+    let cleanB64 = base64Data;
+    let mime = 'image/webp';
+    let ext = 'webp';
+    if (base64Data.startsWith('data:image/')) {
+      const match = base64Data.match(/^data:(image\/[^;]+);base64,/);
+      if (match) {
+        mime = match[1];
+        ext = mime.includes('png') ? 'png' : (mime.includes('jpeg') || mime.includes('jpg') ? 'jpg' : 'webp');
+        cleanB64 = base64Data.slice(match[0].length);
+      }
+    }
+    const byteCharacters = atob(cleanB64);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: mime });
+    const fileName = `${postId}.${ext}`;
+
+    const uploadResp = await fetch(`${SUPABASE_URL}/storage/v1/object/posters/${fileName}`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': mime,
+        'x-upsert': 'true'
+      },
+      body: blob
+    });
+
+    if (uploadResp.ok) {
+      return `${SUPABASE_URL}/storage/v1/object/public/posters/${fileName}`;
+    } else {
+      console.warn('Direct storage upload HTTP status:', uploadResp.status);
+    }
+  } catch (err) {
+    console.warn('Direct storage upload error:', err);
+  }
+  return null;
+}
+
 async function saveSynthesizedPost() {
   if (!currentSynthesizedPost) return;
 
@@ -10901,7 +10946,7 @@ async function saveSynthesizedPost() {
   currentSynthesizedPost.isPrivate = true;
   currentSynthesizedPost.status = 'draft';
 
-  // 1. Clean & compress payload: store crisp ~60KB WebP so Supabase rows never trigger timeout
+  // 1. Clean & compress payload: store lightweight CDN pointer so Supabase rows never trigger timeout
   const postToSave = { ...currentSynthesizedPost };
   const savedSlantTake = currentSynthesizedPost.polishedCuratorTake || currentSynthesizedPost.generationInputs?.slantTake || currentSynthesizedPost.userSlantTake || '';
   if (savedSlantTake) {
@@ -10926,25 +10971,45 @@ async function saveSynthesizedPost() {
   postToSave.isPrivate = true;
   postToSave.status = 'draft';
 
-  const rawPoster = currentSynthesizedPost.illustrationBase64 || currentSynthesizedPost.originalPhotoBase64;
-  if (rawPoster) {
+  const rawPoster = currentSynthesizedPost.illustrationBase64 || currentSynthesizedPost.posterBase64 || currentSynthesizedPost.originalPhotoBase64;
+  if (rawPoster && typeof rawPoster === 'string' && rawPoster.startsWith('data:image/')) {
     try {
-      const compressed = await compressImageForCloud(rawPoster, 900, 0.82);
-      postToSave.posterBase64 = compressed;
+      const compressed = await compressImageForCloud(rawPoster, 960, 0.85);
+      const publicUrl = await uploadArtworkToSupabaseStorage(postToSave.id, compressed);
+      if (publicUrl) {
+        postToSave.illustrationUrl = publicUrl;
+        postToSave.aiIllustrationUrl = publicUrl;
+        currentSynthesizedPost.illustrationUrl = publicUrl;
+        currentSynthesizedPost.aiIllustrationUrl = publicUrl;
+      }
     } catch (_) {}
   }
-  if (currentSynthesizedPost.catalystPhoto || currentSynthesizedPost.catalystPhotoBase64) {
-    const rawCat = currentSynthesizedPost.catalystPhoto || currentSynthesizedPost.catalystPhotoBase64;
-    try {
-      postToSave.catalystPhoto = await compressImageForCloud(rawCat, 600, 0.75);
-    } catch (_) {
-      postToSave.catalystPhoto = rawCat;
-    }
+
+  if (!postToSave.illustrationUrl) {
+    postToSave.illustrationUrl = `${SUPABASE_URL}/storage/v1/object/public/posters/${postToSave.id}.webp`;
+    postToSave.aiIllustrationUrl = postToSave.illustrationUrl;
   }
+
+  // Purge all heavy base64 fields so database row size is minimal (< 15 KB)
+  delete postToSave.posterBase64;
   delete postToSave.illustrationBase64;
   delete postToSave.originalPhotoBase64;
-  postToSave.illustrationUrl = '/posters/' + postToSave.id + '.png';
-  postToSave.aiIllustrationUrl = '/posters/' + postToSave.id + '.png';
+  delete postToSave.sourceImageBase64;
+  delete postToSave.catalystPhotoBase64;
+  if (typeof postToSave.catalystPhoto === 'string' && postToSave.catalystPhoto.startsWith('data:image/')) {
+    delete postToSave.catalystPhoto;
+  }
+  if (postToSave.generationInputs) {
+    delete postToSave.generationInputs.sourceImageBase64;
+    delete postToSave.generationInputs.catalystPhotoBase64;
+    delete postToSave.generationInputs.innerVoiceImageBase64;
+    if (typeof postToSave.generationInputs.catalystPhoto === 'string' && postToSave.generationInputs.catalystPhoto.startsWith('data:image/')) {
+      delete postToSave.generationInputs.catalystPhoto;
+    }
+    if (typeof postToSave.generationInputs.referencePhotoUrl === 'string' && postToSave.generationInputs.referencePhotoUrl.startsWith('data:image/')) {
+      delete postToSave.generationInputs.referencePhotoUrl;
+    }
+  }
 
   // 2. Cloud save: POST to /api/posts
   let savedToCloud = false;
@@ -10984,11 +11049,14 @@ async function saveSynthesizedPost() {
       if (!p) return null;
       const copy = { ...p };
       delete copy.originalPhotoBase64;
+      delete copy.posterBase64;
+      delete copy.sourceImageBase64;
+      delete copy.catalystPhotoBase64;
       if (copy.illustrationBase64 && copy.illustrationBase64.length > 50000) {
         delete copy.illustrationBase64;
       }
       if (!copy.illustrationUrl) {
-        copy.illustrationUrl = '/posters/' + copy.id + '.png';
+        copy.illustrationUrl = `${SUPABASE_URL}/storage/v1/object/public/posters/${copy.id}.webp`;
         copy.aiIllustrationUrl = copy.illustrationUrl;
       }
       return copy;
@@ -11073,25 +11141,45 @@ async function publishSynthesizedPost() {
   postToSave.isPrivate = false;
   postToSave.status = 'published';
 
-  const rawPoster = currentSynthesizedPost.illustrationBase64 || currentSynthesizedPost.originalPhotoBase64;
-  if (rawPoster) {
+  const rawPoster = currentSynthesizedPost.illustrationBase64 || currentSynthesizedPost.posterBase64 || currentSynthesizedPost.originalPhotoBase64;
+  if (rawPoster && typeof rawPoster === 'string' && rawPoster.startsWith('data:image/')) {
     try {
-      const compressed = await compressImageForCloud(rawPoster, 900, 0.82);
-      postToSave.posterBase64 = compressed;
+      const compressed = await compressImageForCloud(rawPoster, 960, 0.85);
+      const publicUrl = await uploadArtworkToSupabaseStorage(postToSave.id, compressed);
+      if (publicUrl) {
+        postToSave.illustrationUrl = publicUrl;
+        postToSave.aiIllustrationUrl = publicUrl;
+        currentSynthesizedPost.illustrationUrl = publicUrl;
+        currentSynthesizedPost.aiIllustrationUrl = publicUrl;
+      }
     } catch (_) {}
   }
-  if (currentSynthesizedPost.catalystPhoto || currentSynthesizedPost.catalystPhotoBase64) {
-    const rawCat = currentSynthesizedPost.catalystPhoto || currentSynthesizedPost.catalystPhotoBase64;
-    try {
-      postToSave.catalystPhoto = await compressImageForCloud(rawCat, 600, 0.75);
-    } catch (_) {
-      postToSave.catalystPhoto = rawCat;
-    }
+
+  if (!postToSave.illustrationUrl) {
+    postToSave.illustrationUrl = `${SUPABASE_URL}/storage/v1/object/public/posters/${postToSave.id}.webp`;
+    postToSave.aiIllustrationUrl = postToSave.illustrationUrl;
   }
+
+  // Purge all heavy base64 fields so database row size is minimal (< 15 KB)
+  delete postToSave.posterBase64;
   delete postToSave.illustrationBase64;
   delete postToSave.originalPhotoBase64;
-  postToSave.illustrationUrl = '/posters/' + postToSave.id + '.png';
-  postToSave.aiIllustrationUrl = '/posters/' + postToSave.id + '.png';
+  delete postToSave.sourceImageBase64;
+  delete postToSave.catalystPhotoBase64;
+  if (typeof postToSave.catalystPhoto === 'string' && postToSave.catalystPhoto.startsWith('data:image/')) {
+    delete postToSave.catalystPhoto;
+  }
+  if (postToSave.generationInputs) {
+    delete postToSave.generationInputs.sourceImageBase64;
+    delete postToSave.generationInputs.catalystPhotoBase64;
+    delete postToSave.generationInputs.innerVoiceImageBase64;
+    if (typeof postToSave.generationInputs.catalystPhoto === 'string' && postToSave.generationInputs.catalystPhoto.startsWith('data:image/')) {
+      delete postToSave.generationInputs.catalystPhoto;
+    }
+    if (typeof postToSave.generationInputs.referencePhotoUrl === 'string' && postToSave.generationInputs.referencePhotoUrl.startsWith('data:image/')) {
+      delete postToSave.generationInputs.referencePhotoUrl;
+    }
+  }
 
   // 2. Primary cloud save: POST to /api/posts
   let savedToCloud = false;
@@ -11140,11 +11228,14 @@ async function publishSynthesizedPost() {
       if (!p) return null;
       const copy = { ...p };
       delete copy.originalPhotoBase64;
+      delete copy.posterBase64;
+      delete copy.sourceImageBase64;
+      delete copy.catalystPhotoBase64;
       if (copy.illustrationBase64 && copy.illustrationBase64.length > 50000) {
         delete copy.illustrationBase64;
       }
       if (!copy.illustrationUrl) {
-        copy.illustrationUrl = '/posters/' + copy.id + '.png';
+        copy.illustrationUrl = `${SUPABASE_URL}/storage/v1/object/public/posters/${copy.id}.webp`;
         copy.aiIllustrationUrl = copy.illustrationUrl;
       }
       return copy;
