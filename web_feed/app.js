@@ -3878,22 +3878,22 @@ function createPostCardElement(post, index) {
   const visualSectionHtml = `
     <div class="carousel-view ${isClean ? 'clean-view' : ''}" id="carousel-${index}" data-post-index="${index}" data-current-slide="0">
       ${index === 'preview' ? `
-        <button type="button" class="preview-poster-eye-btn" onclick="event.stopPropagation(); openWholePosterModal(currentPreviewSlide || 0)" title="View whole poster in high definition before publishing">
+        <button type="button" class="preview-poster-eye-btn ${isClean ? 'active' : ''}" onclick="togglePreviewCleanView(event)" title="Clear text overlays to inspect pure artwork on deck">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
             <circle cx="12" cy="12" r="3"></circle>
           </svg>
-          <span>Whole Poster</span>
+          <span>${isClean ? 'Show Text' : 'Clear Text'}</span>
         </button>
       ` : ''}
       <div class="carousel-track" id="track-${index}">
-        <div class="carousel-slide slide-hook" ${isInnerVoice ? 'style="cursor: default;"' : (index === 'preview' ? `onclick="openWholePosterModal(0)" style="cursor: pointer;" title="Click to view whole poster"` : `onclick="openDetailModal('${index}')" style="cursor: pointer;"`)}>
+        <div class="carousel-slide slide-hook" ${isInnerVoice ? 'style="cursor: default;"' : (index === 'preview' ? `onclick="togglePreviewCleanView(event)" style="cursor: pointer;" title="Click to toggle clear text"` : `onclick="openDetailModal('${index}')" style="cursor: pointer;"`)}>
           ${buildSlide1Html(post, index)}
         </div>
-        <div class="carousel-slide slide-critique" ${isInnerVoice ? 'style="cursor: default;"' : (index === 'preview' ? `onclick="openWholePosterModal(1)" style="cursor: pointer;" title="Click to view whole poster"` : `onclick="openDetailModal('${index}')" style="cursor: pointer;"`)}>
+        <div class="carousel-slide slide-critique" ${isInnerVoice ? 'style="cursor: default;"' : (index === 'preview' ? `onclick="togglePreviewCleanView(event)" style="cursor: pointer;" title="Click to toggle clear text"` : `onclick="openDetailModal('${index}')" style="cursor: pointer;"`)}>
           ${buildSlide2Html(post, index)}
         </div>
-        <div class="carousel-slide slide-receipt" ${index === 'preview' ? `onclick="openWholePosterModal(2)" style="cursor: pointer;" title="Click to view whole poster"` : 'style="cursor: default;"'}>
+        <div class="carousel-slide slide-receipt" style="cursor: default;">
           ${buildSlide3Html(post, index)}
         </div>
       </div>
@@ -3947,10 +3947,7 @@ function createPostCardElement(post, index) {
           <div class="avatar-inner">${initial}</div>
         </div>
         <span class="creator-handle">${escapeHtml(handle)}</span>
-        ${index === 'preview' ? `
-          <button type="button" class="preview-card-eye-btn" onclick="event.stopPropagation(); openWholePosterModal(currentPreviewSlide || 0)" title="View whole poster in high definition before publishing">👁️ Whole Poster</button>
-          <button type="button" class="preview-card-edit-btn" onclick="event.stopPropagation(); openEditPosterModal(currentPreviewSlide || 0)" title="Edit poster headlines, takes, and receipts">✏️ Edit Content</button>
-        ` : ''}
+        ${index === 'preview' ? `<button type="button" class="preview-card-edit-btn" onclick="event.stopPropagation(); openEditPosterModal(currentPreviewSlide || 0)" title="Edit poster headlines, takes, and receipts">✏️ Edit Content</button>` : ''}
         ${(post.isDraft || post.status === 'draft' || post.isPrivate) && index !== 'preview' ? '<span class="post-draft-badge" style="display:inline-flex; align-items:center; gap:4px; font-size:10px; font-weight:700; background:rgba(245, 158, 11, 0.16); color:#F59E0B; border:1px solid rgba(245, 158, 11, 0.4); padding:2px 7px; border-radius:8px; margin-left:8px; letter-spacing:0.3px;">🔖 PRIVATE DRAFT</span>' : ''}
       </div>
       <div class="post-menu-container">
@@ -6599,6 +6596,11 @@ function resetCreatorState() {
   creatorActiveInspectedCueIndex = 0;
   creatorCountryContext = null;
   currentPreviewSlide = 0;
+  cleanViewState['preview'] = false;
+  const eyeBtn = document.getElementById('step3EyeViewBtn');
+  if (eyeBtn) eyeBtn.classList.remove('active');
+  const eyeLabel = document.getElementById('step3EyeViewLabel');
+  if (eyeLabel) eyeLabel.textContent = 'Clear Text';
 
   // Clear inputs in Step 1
   const slantInput = document.getElementById('creatorSlantTakeInput');
@@ -8915,6 +8917,53 @@ function switchPreviewSlide(slideIdx) {
   document.querySelectorAll('.preview-tab').forEach((tab, idx) => {
     tab.classList.toggle('active', idx === slideIdx);
   });
+}
+
+// --- Step 3 In-Deck Eye View (Clear Text Overlays Directly on Deck) ---
+function togglePreviewCleanView(event) {
+  if (event) {
+    event.stopPropagation();
+    event.preventDefault();
+  }
+
+  cleanViewState['preview'] = !cleanViewState['preview'];
+  const isClean = !!cleanViewState['preview'];
+
+  const carousel = document.getElementById('carousel-preview');
+  if (carousel) {
+    carousel.classList.toggle('clean-view', isClean);
+  }
+
+  // If user was on Slide 3 (Receipts) which has no illustration, switch to Slide 0 (Hook)
+  if (isClean && typeof currentPreviewSlide === 'number' && currentPreviewSlide === 2) {
+    if (typeof switchPreviewSlide === 'function') {
+      switchPreviewSlide(0);
+    }
+  }
+
+  // Update Eye View button in Step 3 toolbar
+  const btn = document.getElementById('step3EyeViewBtn');
+  const label = document.getElementById('step3EyeViewLabel');
+  if (btn) {
+    btn.classList.toggle('active', isClean);
+  }
+  if (label) {
+    label.textContent = isClean ? 'Show Text' : 'Clear Text';
+  }
+
+  // Update floating button on the preview poster
+  const posterEyeBtn = document.querySelector('#carousel-preview .preview-poster-eye-btn');
+  if (posterEyeBtn) {
+    posterEyeBtn.classList.toggle('active', isClean);
+    const span = posterEyeBtn.querySelector('span');
+    if (span) {
+      span.textContent = isClean ? 'Show Text' : 'Clear Text';
+    }
+  }
+
+  if (typeof showTemporaryToast === 'function') {
+    showTemporaryToast(isClean ? '👁️ Text cleared: viewing pure poster artwork' : '📝 Text overlays restored');
+  }
 }
 
 // --- Whole Poster High-Definition Preview Modal ---

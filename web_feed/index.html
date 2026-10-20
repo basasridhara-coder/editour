@@ -593,37 +593,15 @@
               <span class="action-icon-label" id="step3EditLabel">Edit</span>
             </button>
 
-            <!-- 3. Eye View (View whole poster in high definition before publishing) -->
-            <button type="button" class="action-icon-btn eye-view" id="step3EyeViewBtn" onclick="openWholePosterModal()" title="View whole poster full screen before publishing">
+            <!-- 3. Eye View (Clear text overlays to inspect pure artwork directly on deck) -->
+            <button type="button" class="action-icon-btn eye-view" id="step3EyeViewBtn" onclick="togglePreviewCleanView(event)" title="Clear text overlays to inspect pure artwork on deck">
               <div class="action-icon-circle">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
                   <circle cx="12" cy="12" r="3"></circle>
                 </svg>
               </div>
-              <span class="action-icon-label" id="step3EyeViewLabel">Eye View</span>
-            </button>
-
-            <!-- 3. Save (Private to user's profile) -->
-            <button type="button" class="action-icon-btn save" id="step3SaveBtn" onclick="saveSynthesizedPost()" title="Save privately to your profile (not in public feed)">
-              <div class="action-icon-circle">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
-                </svg>
-              </div>
-              <span class="action-icon-label" id="step3SaveLabel">Save</span>
-            </button>
-
-            <!-- 3. Download (To gallery) -->
-            <button type="button" class="action-icon-btn download" id="step3DownloadBtn" onclick="handleStep3Download()" title="Download posters into gallery">
-              <div class="action-icon-circle">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                  <polyline points="7 10 12 15 17 10"></polyline>
-                  <line x1="12" y1="15" x2="12" y2="3"></line>
-                </svg>
-              </div>
-              <span class="action-icon-label" id="step3DownloadLabel">Download</span>
+              <span class="action-icon-label" id="step3EyeViewLabel">Clear Text</span>
             </button>
 
             <!-- 4. Share (With shareable app) -->
@@ -638,17 +616,6 @@
                 </svg>
               </div>
               <span class="action-icon-label" id="step3ShareLabel">Share</span>
-            </button>
-
-            <!-- 5. Publish (To live feed for others) -->
-            <button type="button" class="action-icon-btn publish" id="step3PublishActionBtn" onclick="publishSynthesizedPost()" title="Publish to feed for others to see">
-              <div class="action-icon-circle">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                  <line x1="22" y1="2" x2="11" y2="13"></line>
-                  <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-                </svg>
-              </div>
-              <span class="action-icon-label" id="step3PublishActionLabel">Publish</span>
             </button>
           </div>
 

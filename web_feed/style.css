@@ -8756,6 +8756,13 @@ header {
   box-shadow: 0 6px 20px rgba(99, 102, 241, 0.5);
 }
 
+.preview-poster-eye-btn.active {
+  background: rgba(56, 189, 248, 0.92) !important;
+  color: #0F172A !important;
+  border-color: #38BDF8 !important;
+  box-shadow: 0 4px 16px rgba(56, 189, 248, 0.6) !important;
+}
+
 .preview-poster-eye-btn svg {
   flex-shrink: 0;
 }
@@ -8798,6 +8805,18 @@ header {
 
 .action-icon-btn.eye-view:hover .action-icon-label {
   color: #38BDF8;
+}
+
+.action-icon-btn.eye-view.active .action-icon-circle {
+  background: #38BDF8 !important;
+  color: #0F172A !important;
+  border-color: #38BDF8 !important;
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.6) !important;
+}
+
+.action-icon-btn.eye-view.active .action-icon-label {
+  color: #38BDF8 !important;
+  font-weight: 800 !important;
 }
 
 /* 4. Whole Poster Modal Overlay & Container */
@@ -9159,22 +9178,21 @@ header {
   background: #F8FAFC;
 }
 
-/* Sleek Result Action Toolbar (5 Focused Actions: Regen, Edit, Share, Download, Save) */
-/* Matches Flutter create_postcard_screen.dart:3417-3490 */
+/* Sleek Result Action Toolbar: Regen, Edit, Clear Text (Eye View), Share */
 .creator-result-action-panel {
   width: 100%;
-  max-width: 520px;
+  max-width: 440px;
   margin: 16px auto 14px auto;
-  padding: 10px 6px;
+  padding: 10px 14px;
   background: rgba(15, 23, 42, 0.92);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 18px;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
   display: flex;
-  justify-content: space-around;
+  justify-content: space-between;
   align-items: center;
   backdrop-filter: blur(12px);
-  gap: 2px;
+  gap: 8px;
 }
 
 .action-icon-btn {
@@ -9186,12 +9204,13 @@ header {
   align-items: center;
   justify-content: center;
   gap: 5px;
-  padding: 4px 6px;
+  padding: 4px 8px;
   border-radius: 14px;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   user-select: none;
   outline: none;
-  min-width: 52px;
+  flex: 1;
+  max-width: 92px;
 }
 
 .action-icon-circle {
