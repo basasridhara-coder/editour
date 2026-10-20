@@ -76,12 +76,20 @@ module.exports = async function handler(req, res) {
 
       res.setHeader('Location', targetUrl);
       res.setHeader('Cache-Control', 'public, max-age=31536000, s-maxage=31536000, immutable');
-      return res.status(307).end();
+      if (typeof res.redirect === 'function') {
+        return res.redirect(307, targetUrl);
+      }
+      res.statusCode = 307;
+      return res.end();
     } catch (_) {
       const fallbackUrl = `${SUPABASE_URL}/storage/v1/object/public/posters/${id}.webp`;
       res.setHeader('Location', fallbackUrl);
       res.setHeader('Cache-Control', 'public, max-age=31536000, s-maxage=31536000, immutable');
-      return res.status(307).end();
+      if (typeof res.redirect === 'function') {
+        return res.redirect(307, fallbackUrl);
+      }
+      res.statusCode = 307;
+      return res.end();
     }
 
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
