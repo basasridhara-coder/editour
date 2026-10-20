@@ -1,6 +1,6 @@
 // Serverless Function: /api/cast-traits
 // Uses Gemini 3.8 Flash Vision to extract facial likeness traits, hair style,
-// and physical proportions from a private reference photograph for the Family Cast Vault.
+// and physical proportions from 1 to 3 private reference photographs for the Family Cast Vault.
 
 const DEFAULT_KEY_B64 = 'QVEuQWI4Uk42STR5WnQzMEl6NGpLRkQ2SndaYVlSeThQYlVtWXpDYUNuMzU3alIyUU9KbFE=';
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || Buffer.from(DEFAULT_KEY_B64, 'base64').toString('utf8');
@@ -24,25 +24,42 @@ module.exports = async function handler(req, res) {
     try { body = JSON.parse(body); } catch (_) {}
   }
 
-  const { imageBase64, imageMimeType = 'image/jpeg', relation = 'family_member', approxAge = null, name = '' } = body || {};
+  const {
+    photos = [],
+    imageBase64 = null,
+    imageMimeType = 'image/jpeg',
+    relation = 'family_member',
+    approxAge = null,
+    name = ''
+  } = body || {};
 
-  if (!imageBase64) {
-    return res.status(400).json({ error: 'No imageBase64 provided' });
+  // Build list of valid photos
+  let photoList = [];
+  if (Array.isArray(photos) && photos.length > 0) {
+    photoList = photos.filter(p => p && p.imageBase64);
+  } else if (imageBase64) {
+    photoList = [{ imageBase64, imageMimeType, slot: 'frontal' }];
   }
 
-  const cleanData = imageBase64.includes(',') ? imageBase64.split(',')[1] : imageBase64;
-  const mime = imageMimeType || 'image/jpeg';
+  if (photoList.length === 0) {
+    return res.status(400).json({ error: 'No reference photos provided' });
+  }
 
   const roleHint = (relation === 'elder_son') ? 'Elder son (around 11 years old pre-teen boy)' :
     (relation === 'younger_son') ? 'Younger son (around 7 years old young child)' :
     (relation === 'spouse') ? 'Mother / Wife' :
     (relation === 'self') ? 'Father / Husband' : 'Family member';
 
-  const prompt = `You are an expert character artist and editorial portrait illustrator.
-Analyze the person in this reference photograph (${roleHint}${name ? ', named ' + name : ''}${approxAge ? ', approx age ' + approxAge : ''}) to extract physical appearance traits for character consistency in warm editorial illustrations.
+  const multiPhotoHint = photoList.length > 1
+    ? `You are provided with ${photoList.length} reference photos of the same person from multiple angles (frontal, 3/4 angle, and everyday posture). Cross-reference and reconcile all photos to extract true invariant physical likeness traits.`
+    : `Analyze this reference photograph of the person.`;
 
-Extract key visual likeness anchors:
-1. Hairstyle: hair texture (straight, wavy, curly), hair color, length, and parting style.
+  const prompt = `You are an expert character artist and editorial portrait illustrator.
+${multiPhotoHint}
+Target subject: ${roleHint}${name ? ', named ' + name : ''}${approxAge ? ', approx age ' + approxAge : ''}.
+
+Synthesize all visual likeness anchors across the provided photos:
+1. Hairstyle: hair texture (straight, wavy, curly), hair color, volume, and parting style.
 2. Facial structure: face shape, cheekbones, eye shape, smile/expression, and mustache/beard if present.
 3. Eyeglasses / Spectacles: if wearing glasses, describe frame style. If none, omit.
 4. Apparent biological age and life stage.
@@ -59,11 +76,30 @@ Return strictly valid JSON with this exact schema:
 
 Do not include markdown code fences, do not include any em-dashes. Output pure JSON only.`;
 
+  // Build parts array with all photos
+  const requestParts = [];
+  photoList.forEach((p, idx) => {
+    const clean = p.imageBase64.includes(',') ? p.imageBase64.split(',')[1] : p.imageBase64;
+    const slotLabel = p.slot === 'frontal' ? 'Frontal Face Portrait' :
+      p.slot === 'profile' ? '3/4 Angle and Jawline Depth' :
+      p.slot === 'stature' ? 'Hair, Posture, and Stature' : `Angle ${idx + 1}`;
+    requestParts.push({
+      inlineData: {
+        mimeType: p.imageMimeType || 'image/jpeg',
+        data: clean
+      }
+    });
+    requestParts.push({
+      text: `Photo #${idx + 1}: ${slotLabel}`
+    });
+  });
+  requestParts.push({ text: prompt });
+
   for (const model of GEMINI_MODELS) {
     try {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 20000);
+      const timer = setTimeout(() => controller.abort(), 22000);
 
       const response = await fetch(url, {
         method: 'POST',
@@ -71,10 +107,7 @@ Do not include markdown code fences, do not include any em-dashes. Output pure J
         signal: controller.signal,
         body: JSON.stringify({
           contents: [{
-            parts: [
-              { inlineData: { mimeType: mime, data: cleanData } },
-              { text: prompt }
-            ]
+            parts: requestParts
           }]
         })
       });
@@ -98,13 +131,14 @@ Do not include markdown code fences, do not include any em-dashes. Output pure J
               detectedAge: (typeof parsed.detectedAge === 'number') ? parsed.detectedAge : (approxAge || null),
               hair: parsed.hair || '',
               facialFeatures: parsed.facialFeatures || '',
-              statureDesc: parsed.statureDesc || ''
+              statureDesc: parsed.statureDesc || '',
+              photoCount: photoList.length
             });
           }
         }
       } else {
         const errText = await response.text().catch(() => '');
-        console.warn(`Gemini traits extraction error with ${model}:`, response.status, errText.slice(0, 160));
+        console.warn(`Gemini multi-photo traits extraction error with ${model}:`, response.status, errText.slice(0, 160));
       }
     } catch (err) {
       console.warn(`Gemini model ${model} failed for traits extraction:`, err.message);
@@ -118,6 +152,7 @@ Do not include markdown code fences, do not include any em-dashes. Output pure J
     detectedAge: approxAge || null,
     hair: 'Natural dark hair',
     facialFeatures: 'Warm expressive features',
-    statureDesc: approxAge ? `Age ${approxAge} stature` : 'Standard stature'
+    statureDesc: approxAge ? `Age ${approxAge} stature` : 'Standard stature',
+    photoCount: photoList.length
   });
 };

@@ -6017,17 +6017,24 @@ function openFamilyCastModal() {
     return;
   }
 
-  // Pre-render list immediately with cached data or defaults
+  // Pre-render with cached data or defaults
+  const cast = familyCastProfileCache || getDefaultClientFamilyCast();
+  if (!activeVaultMemberId && cast.members?.length > 0) {
+    activeVaultMemberId = cast.members[0].id;
+  }
+
   try {
-    renderFamilyCastModalList();
+    renderVaultMemberTabs();
+    renderActiveMemberScreen();
   } catch (err) {
-    console.error('Error rendering cast modal list:', err);
+    console.error('Error rendering cast modal:', err);
   }
 
   // If profile not yet loaded from backend, fetch and re-render
   if (!familyCastProfileCache) {
     loadFamilyCastProfile().then(() => {
-      renderFamilyCastModalList();
+      renderVaultMemberTabs();
+      renderActiveMemberScreen();
     }).catch(() => {});
   }
 
@@ -6054,184 +6061,18 @@ function closeFamilyCastModal() {
   renderFamilyCastStagingUI();
 }
 
-let editingCastMemberId = null;
-let currentCastFormPhotoBase64 = null;
-let currentCastFormPhotoMimeType = 'image/jpeg';
-let isAnalyzingCastPhoto = false;
+let activeVaultMemberId = null;
+let isAnalyzingVaultPhotos = false;
 
-function triggerCastPhotoUpload() {
-  const input = document.getElementById('castFormPhotoFileInput');
-  if (input) input.click();
-}
-
-function triggerCastPhotoCamera() {
-  const input = document.getElementById('castFormPhotoCameraInput');
-  if (input) input.click();
-}
-
-function handleCastPhotoSelect(event) {
-  const file = event.target.files && event.target.files[0];
-  if (!file) return;
-
-  compressImage(file, 640, 0.85, function(base64Data, mimeType) {
-    currentCastFormPhotoBase64 = base64Data;
-    currentCastFormPhotoMimeType = mimeType || 'image/jpeg';
-
-    const thumb = document.getElementById('castFormPhotoThumb');
-    const placeholder = document.getElementById('castPhotoPlaceholder');
-    const removeBtn = document.getElementById('castPhotoRemoveBtn');
-    const analyzeBtn = document.getElementById('castPhotoAnalyzeBtn');
-
-    if (thumb) {
-      thumb.src = base64Data;
-      thumb.style.display = 'block';
-    }
-    if (placeholder) placeholder.style.display = 'none';
-    if (removeBtn) removeBtn.style.display = 'inline-flex';
-    if (analyzeBtn) analyzeBtn.style.display = 'inline-flex';
-
-    // Auto-extract facial traits with AI vision
-    analyzeCastPhotoTraits();
-  });
-}
-
-function removeCastPhoto() {
-  currentCastFormPhotoBase64 = null;
-  const thumb = document.getElementById('castFormPhotoThumb');
-  const placeholder = document.getElementById('castPhotoPlaceholder');
-  const removeBtn = document.getElementById('castPhotoRemoveBtn');
-  const analyzeBtn = document.getElementById('castPhotoAnalyzeBtn');
-  const fileInput = document.getElementById('castFormPhotoFileInput');
-  const camInput = document.getElementById('castFormPhotoCameraInput');
-
-  if (thumb) {
-    thumb.src = '';
-    thumb.style.display = 'none';
-  }
-  if (placeholder) placeholder.style.display = 'flex';
-  if (removeBtn) removeBtn.style.display = 'none';
-  if (analyzeBtn) analyzeBtn.style.display = 'none';
-  if (fileInput) fileInput.value = '';
-  if (camInput) camInput.value = '';
-}
-
-async function analyzeCastPhotoTraits() {
-  if (!currentCastFormPhotoBase64) {
-    showTemporaryToast('Please upload a reference photo first to extract traits.');
-    triggerCastPhotoUpload();
-    return;
-  }
-  if (isAnalyzingCastPhoto) return;
-  isAnalyzingCastPhoto = true;
-
-  const bar = document.getElementById('castPhotoAnalyzingBar');
-  const analyzeBtn = document.getElementById('castPhotoAnalyzeBtn');
-  if (bar) bar.style.display = 'flex';
-  if (analyzeBtn) analyzeBtn.disabled = true;
-
-  const rel = document.getElementById('castFormRelation')?.value || 'family_member';
-  const approxAge = parseInt(document.getElementById('castFormAge')?.value, 10) || null;
-  const name = document.getElementById('castFormName')?.value?.trim() || '';
-
-  try {
-    let data = null;
-
-    // 1. Try primary endpoint /api/cast-traits
-    try {
-      const resp = await fetch('/api/cast-traits', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          imageBase64: currentCastFormPhotoBase64,
-          imageMimeType: currentCastFormPhotoMimeType,
-          relation: rel,
-          approxAge: approxAge,
-          name: name
-        })
-      });
-      if (resp.ok) {
-        data = await resp.json();
-      }
-    } catch (_) {}
-
-    // 2. Fallback to /api/synthesize if /api/cast-traits is unavailable
-    if (!data || !data.success) {
-      try {
-        const resp2 = await fetch('/api/synthesize', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'extract_cast_traits',
-            imageBase64: currentCastFormPhotoBase64,
-            imageMimeType: currentCastFormPhotoMimeType,
-            relation: rel,
-            approxAge: approxAge,
-            name: name
-          })
-        });
-        if (resp2.ok) {
-          data = await resp2.json();
-        }
-      } catch (_) {}
-    }
-
-    if (data && data.success && data.visualTraits) {
-      const traitsInput = document.getElementById('castFormTraits');
-      if (traitsInput) {
-        traitsInput.value = data.visualTraits;
-        traitsInput.style.borderColor = '#38BDF8';
-        setTimeout(() => { if (traitsInput) traitsInput.style.borderColor = ''; }, 2000);
-      }
-      if (data.detectedAge && !document.getElementById('castFormAge')?.value) {
-        const ageInput = document.getElementById('castFormAge');
-        if (ageInput) ageInput.value = data.detectedAge;
-      }
-      if (data.statureDesc && !document.getElementById('castFormHeight')?.value) {
-        const heightInput = document.getElementById('castFormHeight');
-        if (heightInput) heightInput.value = data.statureDesc;
-      }
-
-      // If editing an existing member, also immediately sync to cache and re-render member card
-      if (editingCastMemberId) {
-        const cast = familyCastProfileCache || getDefaultClientFamilyCast();
-        const existingMember = (cast.members || []).find(m => m.id === editingCastMemberId);
-        if (existingMember) {
-          existingMember.visualTraits = data.visualTraits;
-          if (currentCastFormPhotoBase64) existingMember.photoBase64 = currentCastFormPhotoBase64;
-          if (data.detectedAge && !existingMember.age) existingMember.age = data.detectedAge;
-          if (data.statureDesc && (!existingMember.heightDesc || existingMember.heightDesc.includes('Standard'))) {
-            existingMember.heightDesc = data.statureDesc;
-          }
-          saveFamilyCastProfile(cast);
-          renderFamilyCastModalList();
-          renderFamilyCastStagingUI();
-        }
-      }
-
-      showTemporaryToast('✓ Facial traits & hair captured from reference photo!');
-    } else {
-      showTemporaryToast('Photo attached. You can describe any additional visual features below.');
-    }
-  } catch (err) {
-    console.warn('Cast traits extraction notice:', err);
-    showTemporaryToast('Photo attached to member profile.');
-  } finally {
-    isAnalyzingCastPhoto = false;
-    if (bar) bar.style.display = 'none';
-    if (analyzeBtn) analyzeBtn.disabled = false;
-  }
-}
-
-function renderFamilyCastModalList() {
-  const container = document.getElementById('familyCastCardsList');
-  if (!container) return;
+function renderVaultMemberTabs() {
+  const track = document.getElementById('vaultMemberTabsList');
+  if (!track) return;
 
   const cast = familyCastProfileCache || getDefaultClientFamilyCast();
   const members = cast.members || [];
 
-  if (members.length === 0) {
-    container.innerHTML = `<div style="text-align:center; padding:16px; color:#94A3B8; font-size:12px;">No family members registered yet. Add a member below.</div>`;
-    return;
+  if (!activeVaultMemberId && members.length > 0) {
+    activeVaultMemberId = members[0].id;
   }
 
   const icons = {
@@ -6242,202 +6083,558 @@ function renderFamilyCastModalList() {
     child: '🧒'
   };
 
-  container.innerHTML = members.map(m => `
-    <div class="family-member-card" id="cast-card-${m.id}">
-      <div class="member-card-left">
-        <div class="member-card-avatar" style="${m.photoBase64 ? 'overflow:hidden;' : ''}">
-          ${m.photoBase64 ? `<img src="${m.photoBase64}" class="member-card-avatar-img" alt="${escapeHtml(m.name || 'Member')}">` : (icons[m.relationship] || '👤')}
-        </div>
-        <div class="member-card-info">
-          <div class="member-card-name-row">
-            <span class="member-card-name">${escapeHtml(m.name || 'Family Member')}</span>
-            <span class="member-card-role-tag">${escapeHtml(m.roleLabel || m.relationship || 'Member')}</span>
-          </div>
-          <div class="member-card-meta">
-            ${m.age ? `<span>Age ${m.age}</span> • ` : ''}
-            <span>${escapeHtml(m.heightDesc || 'Standard Stature')}</span>
-          </div>
-          <div class="member-card-traits">${escapeHtml(m.visualTraits || '')}</div>
-        </div>
+  const tabsHtml = members.map(m => {
+    const isActive = (m.id === activeVaultMemberId);
+    const photosObj = m.photos || {};
+    const photoCount = [photosObj.frontal || m.photoBase64, photosObj.profile, photosObj.stature].filter(Boolean).length;
+    const primaryAvatar = m.photoBase64 || photosObj.frontal;
+
+    return `
+      <div class="vault-member-tab-item ${isActive ? 'active' : ''}" onclick="selectVaultMember('${m.id}')" title="Edit ${escapeHtml(m.name || m.roleLabel)}">
+        ${primaryAvatar ? `<img src="${primaryAvatar}" class="tab-avatar-mini" alt="">` : `<span class="tab-avatar-emoji">${icons[m.relationship] || '👤'}</span>`}
+        <span>${escapeHtml(m.name || m.roleLabel)}</span>
+        ${photoCount > 0 ? `<span class="tab-badge-photos">📷 ${photoCount}</span>` : ''}
       </div>
-      <div class="member-card-actions">
-        <button type="button" class="member-edit-btn" onclick="editCastMember('${m.id}')" title="Edit member traits">✏️ Edit</button>
-        <button type="button" class="member-delete-btn" onclick="deleteCastMember('${m.id}')" title="Delete member">✕</button>
-      </div>
+    `;
+  }).join('');
+
+  const addBtnHtml = `
+    <div class="vault-member-tab-item vault-add-member-tab" onclick="addNewVaultMember()" title="Add another family member">
+      <span>➕ Add Member</span>
     </div>
-  `).join('');
+  `;
+
+  track.innerHTML = tabsHtml + addBtnHtml;
 }
 
-function editCastMember(memberId) {
-  const cast = familyCastProfileCache || getDefaultClientFamilyCast();
-  const member = (cast.members || []).find(m => m.id === memberId);
-  if (!member) return;
-
-  editingCastMemberId = memberId;
-
-  // Pre-populate form inputs
-  const relInput = document.getElementById('castFormRelation');
-  if (relInput) relInput.value = member.relationship || 'child';
-
-  const nameInput = document.getElementById('castFormName');
-  if (nameInput) nameInput.value = member.name || '';
-
-  const ageInput = document.getElementById('castFormAge');
-  if (ageInput) ageInput.value = (member.age !== null && member.age !== undefined) ? member.age : '';
-
-  const heightInput = document.getElementById('castFormHeight');
-  if (heightInput) heightInput.value = member.heightDesc || '';
-
-  const traitsInput = document.getElementById('castFormTraits');
-  if (traitsInput) traitsInput.value = member.visualTraits || '';
-
-  const aliasesInput = document.getElementById('castFormAliases');
-  if (aliasesInput) aliasesInput.value = Array.isArray(member.aliases) ? member.aliases.join(', ') : '';
-
-  // Pre-populate photo
-  if (member.photoBase64) {
-    currentCastFormPhotoBase64 = member.photoBase64;
-    if (typeof member.photoBase64 === 'string' && member.photoBase64.startsWith('data:image/')) {
-      const match = member.photoBase64.match(/data:([^;]+);/);
-      if (match) currentCastFormPhotoMimeType = match[1];
-    }
-    const thumb = document.getElementById('castFormPhotoThumb');
-    const placeholder = document.getElementById('castPhotoPlaceholder');
-    const removeBtn = document.getElementById('castPhotoRemoveBtn');
-    const analyzeBtn = document.getElementById('castPhotoAnalyzeBtn');
-    if (thumb) {
-      thumb.src = member.photoBase64;
-      thumb.style.display = 'block';
-    }
-    if (placeholder) placeholder.style.display = 'none';
-    if (removeBtn) removeBtn.style.display = 'inline-flex';
-    if (analyzeBtn) analyzeBtn.style.display = 'inline-flex';
-  } else {
-    removeCastPhoto();
-  }
-
-  // Update header and save button
-  const title = document.getElementById('castFormHeaderTitle');
-  if (title) title.innerHTML = `✏️ Edit Member: <strong>${escapeHtml(member.name || member.roleLabel)}</strong>`;
-
-  const saveBtn = document.getElementById('castFormSaveBtnText');
-  if (saveBtn) saveBtn.textContent = 'Update Member';
-
-  // Open form
-  const form = document.getElementById('familyCastAddForm');
-  const btn = document.getElementById('familyCastAddToggleBtn');
-  if (form) form.style.display = 'block';
-  if (btn) btn.style.display = 'none';
-
-  form.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+function selectVaultMember(memberId) {
+  activeVaultMemberId = memberId;
+  renderVaultMemberTabs();
+  renderActiveMemberScreen();
+  const body = document.getElementById('vaultActiveMemberScreen');
+  if (body) body.scrollTop = 0;
 }
 
-function toggleFamilyCastAddForm(show) {
-  const form = document.getElementById('familyCastAddForm');
-  const btn = document.getElementById('familyCastAddToggleBtn');
-  if (!form) return;
-
-  const isVisible = (typeof show === 'boolean') ? show : (form.style.display !== 'none');
-  form.style.display = isVisible ? 'none' : 'block';
-  if (btn) btn.style.display = isVisible ? 'flex' : 'none';
-
-  if (isVisible) {
-    editingCastMemberId = null;
-    const title = document.getElementById('castFormHeaderTitle');
-    if (title) title.innerHTML = '➕ Add Family Member';
-    const saveBtn = document.getElementById('castFormSaveBtnText');
-    if (saveBtn) saveBtn.textContent = 'Save Member';
-
-    removeCastPhoto();
-
-    ['castFormName', 'castFormAge', 'castFormHeight', 'castFormTraits', 'castFormAliases'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.value = '';
-    });
-    const rel = document.getElementById('castFormRelation');
-    if (rel) rel.value = 'child';
-  }
-}
-
-function saveNewCastMemberFromForm() {
-  const relation = document.getElementById('castFormRelation')?.value || 'child';
-  const name = document.getElementById('castFormName')?.value?.trim();
-  const age = parseInt(document.getElementById('castFormAge')?.value, 10) || null;
-  const height = document.getElementById('castFormHeight')?.value?.trim() || '';
-  const traits = document.getElementById('castFormTraits')?.value?.trim() || '';
-  const aliasesRaw = document.getElementById('castFormAliases')?.value?.trim() || '';
-
-  if (!name) {
-    showTemporaryToast('Please enter a name or label for the member.');
-    return;
-  }
-
-  const aliases = aliasesRaw.split(',').map(a => a.trim().toLowerCase()).filter(Boolean);
-  if (!aliases.includes(name.toLowerCase())) aliases.push(name.toLowerCase());
-
+function addNewVaultMember() {
   const cast = familyCastProfileCache || getDefaultClientFamilyCast();
   if (!Array.isArray(cast.members)) cast.members = [];
 
-  if (editingCastMemberId) {
-    // Update existing member
-    const existingIdx = cast.members.findIndex(m => m.id === editingCastMemberId);
-    if (existingIdx !== -1) {
-      cast.members[existingIdx] = {
-        ...cast.members[existingIdx],
-        relationship: relation,
-        roleLabel: name,
-        name,
-        age,
-        heightDesc: height || `${age ? 'Age ' + age : 'Standard'} stature`,
-        visualTraits: traits || 'Warm lifelike facial features',
-        aliases,
-        vehicleRole: relation === 'self' ? 'driver_right' : (relation === 'spouse' ? 'passenger_front_left' : 'passenger_rear'),
-        photoBase64: currentCastFormPhotoBase64 || cast.members[existingIdx].photoBase64 || null
-      };
-      showTemporaryToast(`✓ Updated ${escapeHtml(name)} in Family Cast Vault!`);
+  const newId = 'member_' + Date.now();
+  const newMember = {
+    id: newId,
+    relationship: 'child',
+    roleLabel: 'New Member',
+    name: '',
+    age: null,
+    heightDesc: '',
+    visualTraits: '',
+    aliases: [],
+    vehicleRole: 'passenger_rear',
+    photoBase64: null,
+    photos: {}
+  };
+
+  cast.members.push(newMember);
+  activeCastMemberIds.add(newId);
+  saveFamilyCastProfile(cast);
+  activeVaultMemberId = newId;
+
+  renderVaultMemberTabs();
+  renderActiveMemberScreen();
+  renderFamilyCastStagingUI();
+
+  setTimeout(() => {
+    const nameInput = document.getElementById('vField_name');
+    if (nameInput) nameInput.focus();
+  }, 100);
+}
+
+function renderActiveMemberScreen() {
+  const container = document.getElementById('vaultActiveMemberScreen');
+  if (!container) return;
+
+  const cast = familyCastProfileCache || getDefaultClientFamilyCast();
+  const members = cast.members || [];
+  let member = members.find(m => m.id === activeVaultMemberId);
+
+  if (!member) {
+    if (members.length > 0) {
+      member = members[0];
+      activeVaultMemberId = member.id;
+    } else {
+      container.innerHTML = '<div style="text-align:center; padding:40px; color:#94A3B8;">No family members registered. Tap + Add Member above.</div>';
+      return;
     }
-    editingCastMemberId = null;
-  } else {
-    // Create new member
-    const newId = 'member_' + Date.now();
-    cast.members.push({
-      id: newId,
-      relationship: relation,
-      roleLabel: name,
-      name,
-      age,
-      heightDesc: height || `${age ? 'Age ' + age : 'Standard'} stature`,
-      visualTraits: traits || 'Warm lifelike facial features',
-      aliases,
-      vehicleRole: relation === 'self' ? 'driver_right' : (relation === 'spouse' ? 'passenger_front_left' : 'passenger_rear'),
-      photoBase64: currentCastFormPhotoBase64 || null
-    });
-    activeCastMemberIds.add(newId);
-    showTemporaryToast(`✓ Added ${escapeHtml(name)} to Family Cast Vault!`);
+  }
+
+  // Normalize photos object
+  member.photos = member.photos || {};
+  if (member.photoBase64 && !member.photos.frontal) {
+    member.photos.frontal = member.photoBase64;
+  }
+
+  const icons = {
+    self: '👨',
+    spouse: '👩',
+    elder_son: '👦',
+    younger_son: '🧒',
+    child: '🧒'
+  };
+
+  const isDefaultPrimary = (member.id === 'member_father');
+  const primaryAvatar = member.photoBase64 || member.photos.frontal;
+  const photos = member.photos;
+  const photoCount = [photos.frontal, photos.profile, photos.stature].filter(Boolean).length;
+
+  // Calculate Next member label
+  const currentIdx = members.findIndex(m => m.id === member.id);
+  const hasNext = (currentIdx !== -1 && currentIdx < members.length - 1);
+  const nextMember = hasNext ? members[currentIdx + 1] : null;
+  const nextLabel = nextMember ? `Save & Edit ${escapeHtml(nextMember.name || nextMember.roleLabel)} ➔` : 'Save All & Done ✓';
+
+  const saveBtnText = document.getElementById('vaultSaveNextBtnText');
+  if (saveBtnText) saveBtnText.textContent = nextLabel;
+
+  container.innerHTML = `
+    <div class="vault-active-member-container">
+      
+      <!-- Top Banner -->
+      <div class="vault-member-banner">
+        <div class="vault-member-banner-left">
+          <div class="vault-member-hero-avatar">
+            ${primaryAvatar ? `<img src="${primaryAvatar}" alt="${escapeHtml(member.name || 'Member')}">` : `<span>${icons[member.relationship] || '👤'}</span>`}
+          </div>
+          <div class="vault-member-titles">
+            <div class="vault-member-name-row">
+              <h2 class="vault-member-heading">${escapeHtml(member.name || member.roleLabel || 'Family Member')}</h2>
+              <span class="vault-role-badge">${escapeHtml(member.roleLabel || member.relationship)}</span>
+            </div>
+            <p class="vault-member-subheading">
+              ${member.age ? `Age ${member.age} • ` : ''}
+              ${escapeHtml(member.heightDesc || 'Standard Stature')}
+            </p>
+          </div>
+        </div>
+        <div class="vault-member-banner-right">
+          ${!isDefaultPrimary ? `<button type="button" class="vault-member-delete-pill" onclick="deleteActiveMember('${member.id}')" title="Delete member from vault">✕ Remove Member</button>` : ''}
+        </div>
+      </div>
+
+      <!-- 3 Preferred Photo Style Dummy Guides -->
+      <div class="vault-slots-section">
+        <div class="vault-slots-title-row">
+          <span class="vault-section-title">📷 Reference Photo Slots (Multi-Angle Character DNA)</span>
+          <span class="vault-slots-counter">${photoCount} of 3 Styles Added</span>
+        </div>
+        <p class="vault-slots-desc">Touch any slot below to attach that style. Multi-angle photos help the AI render true jawline depth, natural hair texture, and accurate height ratios.</p>
+
+        <div class="vault-slots-grid">
+          
+          <!-- Slot 1: Frontal Portrait -->
+          <div class="vault-slot-card ${photos.frontal ? 'has-photo' : 'is-empty'}" onclick="triggerSlotUpload('frontal')" title="Upload frontal view">
+            <div class="slot-card-badge">Style 1 • Face & Smile</div>
+            <div class="slot-preview-box">
+              ${photos.frontal ? `
+                <img src="${photos.frontal}" class="slot-photo-img" alt="Frontal">
+                <div class="slot-overlay-check">✓ Active Frontal</div>
+              ` : `
+                <div class="slot-dummy-graphic">
+                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="7" r="4"/>
+                    <path d="M5.5 21a8.5 8.5 0 0 1 13 0"/>
+                    <line x1="12" y1="1" x2="12" y2="2.5"/>
+                    <line x1="4" y1="4" x2="5.2" y2="5.2"/>
+                    <line x1="20" y1="4" x2="18.8" y2="5.2"/>
+                  </svg>
+                </div>
+                <span class="slot-touch-prompt">Tap to Upload</span>
+              `}
+            </div>
+            <div class="slot-meta">
+              <div class="slot-title">1. Clear Frontal</div>
+              <div class="slot-desc">Direct eye-level, soft daylight, natural smile</div>
+            </div>
+            ${photos.frontal ? `
+              <div class="slot-card-actions" onclick="event.stopPropagation()">
+                <button type="button" class="slot-btn-replace" onclick="triggerSlotUpload('frontal')">Replace</button>
+                <button type="button" class="slot-btn-remove" onclick="removeSlotPhoto('frontal')">Remove</button>
+              </div>
+            ` : ''}
+          </div>
+
+          <!-- Slot 2: 3/4 Depth Angle -->
+          <div class="vault-slot-card ${photos.profile ? 'has-photo' : 'is-empty'}" onclick="triggerSlotUpload('profile')" title="Upload 3/4 depth angle">
+            <div class="slot-card-badge">Style 2 • Depth & Jawline</div>
+            <div class="slot-preview-box">
+              ${photos.profile ? `
+                <img src="${photos.profile}" class="slot-photo-img" alt="Profile">
+                <div class="slot-overlay-check">✓ Active Depth</div>
+              ` : `
+                <div class="slot-dummy-graphic">
+                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                    <path d="M21 21v-2a4 4 0 0 0-3-3.87"/>
+                    <path d="M9 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/>
+                    <path d="M3 21v-2a4 4 0 0 1 7-2.65"/>
+                  </svg>
+                </div>
+                <span class="slot-touch-prompt">Tap to Upload</span>
+              `}
+            </div>
+            <div class="slot-meta">
+              <div class="slot-title">2. 3/4 Depth Angle</div>
+              <div class="slot-desc">Head turned 30-45° for nose slope & jawline depth</div>
+            </div>
+            ${photos.profile ? `
+              <div class="slot-card-actions" onclick="event.stopPropagation()">
+                <button type="button" class="slot-btn-replace" onclick="triggerSlotUpload('profile')">Replace</button>
+                <button type="button" class="slot-btn-remove" onclick="removeSlotPhoto('profile')">Remove</button>
+              </div>
+            ` : ''}
+          </div>
+
+          <!-- Slot 3: Hair, Posture & Stature -->
+          <div class="vault-slot-card ${photos.stature ? 'has-photo' : 'is-empty'}" onclick="triggerSlotUpload('stature')" title="Upload hair or stature comparison">
+            <div class="slot-card-badge">Style 3 • Stature & Hair</div>
+            <div class="slot-preview-box">
+              ${photos.stature ? `
+                <img src="${photos.stature}" class="slot-photo-img" alt="Stature">
+                <div class="slot-overlay-check">✓ Active Stature</div>
+              ` : `
+                <div class="slot-dummy-graphic">
+                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="8" cy="5" r="2.5"/>
+                    <path d="M8 8v7m-2-4h4m-3 4l-1 5m3-5l1 5"/>
+                    <circle cx="16" cy="7" r="2"/>
+                    <path d="M16 9.5v5.5m-1.5-3.5h3m-2.5 3.5l-0.8 4m2.6-4l0.8 4"/>
+                  </svg>
+                </div>
+                <span class="slot-touch-prompt">Tap to Upload</span>
+              `}
+            </div>
+            <div class="slot-meta">
+              <div class="slot-title">3. Hair & Stature</div>
+              <div class="slot-desc">Everyday hair volume or standing height ratio</div>
+            </div>
+            ${photos.stature ? `
+              <div class="slot-card-actions" onclick="event.stopPropagation()">
+                <button type="button" class="slot-btn-replace" onclick="triggerSlotUpload('stature')">Replace</button>
+                <button type="button" class="slot-btn-remove" onclick="removeSlotPhoto('stature')">Remove</button>
+              </div>
+            ` : ''}
+          </div>
+
+        </div>
+
+        <!-- AI Multi-Photo Status Bar -->
+        <div class="vault-ai-status-row">
+          <div class="vault-ai-status-text">
+            <span>✨</span>
+            <span id="vaultAiStatusText">${photoCount > 0 ? `AI cross-referenced ${photoCount} reference photo(s) into Character DNA` : 'Tap any slot above to attach a photo for AI likeness extraction'}</span>
+          </div>
+          ${photoCount > 0 ? `
+            <button type="button" class="vault-reanalyze-all-btn" id="vaultReanalyzeBtn" onclick="analyzeActiveMemberAllPhotos()">
+              <span>🔄 Re-analyze Photos</span>
+            </button>
+          ` : ''}
+        </div>
+
+        <div class="vault-analyzing-progress" id="vaultAnalyzingProgress" style="display:none;">
+          <span class="vault-spinner"></span>
+          <span id="vaultAnalyzingText">Cross-referencing multiple photos with Gemini 3.8 Flash Vision...</span>
+        </div>
+      </div>
+
+      <!-- Fields Section -->
+      <div class="vault-fields-section">
+        <div class="vault-fields-title">Character Attributes & Prompt Blueprints</div>
+        
+        <div class="vault-form-grid">
+          <div class="vault-field-group">
+            <label>Relationship Role</label>
+            <select id="vField_relation" onchange="handleActiveMemberFieldChange('relationship', this.value)">
+              <option value="self" ${member.relationship === 'self' ? 'selected' : ''}>Father / Self</option>
+              <option value="spouse" ${member.relationship === 'spouse' ? 'selected' : ''}>Mother / Spouse</option>
+              <option value="elder_son" ${member.relationship === 'elder_son' ? 'selected' : ''}>Elder Son (Age 11)</option>
+              <option value="younger_son" ${member.relationship === 'younger_son' ? 'selected' : ''}>Younger Son (Age 7)</option>
+              <option value="child" ${member.relationship === 'child' ? 'selected' : ''}>Child / Other</option>
+            </select>
+          </div>
+
+          <div class="vault-field-group">
+            <label>Display Name or Label</label>
+            <input type="text" id="vField_name" value="${escapeHtml(member.name || '')}" placeholder="e.g. Dad, Vivaan, Priya" oninput="handleActiveMemberFieldChange('name', this.value)">
+          </div>
+
+          <div class="vault-field-group">
+            <label>Age (Years)</label>
+            <input type="number" id="vField_age" value="${member.age || ''}" placeholder="e.g. 11" min="1" max="100" oninput="handleActiveMemberFieldChange('age', parseInt(this.value, 10) || null)">
+          </div>
+
+          <div class="vault-field-group">
+            <label>Height & Stature Comparison</label>
+            <input type="text" id="vField_height" value="${escapeHtml(member.heightDesc || '')}" placeholder="e.g. 4ft 10in, head taller than younger brother" oninput="handleActiveMemberFieldChange('heightDesc', this.value)">
+          </div>
+
+          <div class="vault-field-group full-width">
+            <div class="vault-label-with-hint">
+              <label>Distinct Visual Features & Hair</label>
+              <span class="vault-label-hint">Auto-extracted by AI from your photos • Fully editable</span>
+            </div>
+            <textarea id="vField_traits" rows="2" placeholder="e.g. Pre-teen boy with lean face, wavy dark hair with neat side parting, warm radiant smile, wireframe spectacles" oninput="handleActiveMemberFieldChange('visualTraits', this.value)">${escapeHtml(member.visualTraits || '')}</textarea>
+          </div>
+
+          <div class="vault-field-group full-width">
+            <label>Trigger Words / Nicknames (Comma separated)</label>
+            <input type="text" id="vField_aliases" value="${escapeHtml(Array.isArray(member.aliases) ? member.aliases.join(', ') : '')}" placeholder="e.g. dad, sridhar, me, father" oninput="handleActiveMemberAliasesChange(this.value)">
+          </div>
+        </div>
+      </div>
+
+    </div>
+  `;
+}
+
+function triggerSlotUpload(slotType) {
+  const input = document.getElementById('slotFile_' + slotType);
+  if (input) input.click();
+}
+
+function handleSlotPhotoSelect(slotType, event) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+
+  compressImage(file, 640, 0.85, function(base64Data, mimeType) {
+    const cast = familyCastProfileCache || getDefaultClientFamilyCast();
+    const member = (cast.members || []).find(m => m.id === activeVaultMemberId);
+    if (!member) return;
+
+    member.photos = member.photos || {};
+    member.photos[slotType] = base64Data;
+
+    // Set primary avatar if frontal or if no primary avatar exists yet
+    if (slotType === 'frontal' || !member.photoBase64) {
+      member.photoBase64 = base64Data;
+    }
+
+    saveFamilyCastProfile(cast);
+    renderVaultMemberTabs();
+    renderActiveMemberScreen();
+    renderFamilyCastStagingUI();
+
+    // Automatically cross-reference and extract traits with AI vision
+    analyzeActiveMemberAllPhotos();
+  });
+}
+
+function removeSlotPhoto(slotType) {
+  const cast = familyCastProfileCache || getDefaultClientFamilyCast();
+  const member = (cast.members || []).find(m => m.id === activeVaultMemberId);
+  if (!member) return;
+
+  member.photos = member.photos || {};
+  delete member.photos[slotType];
+
+  const remainingPhotos = Object.values(member.photos).filter(Boolean);
+  if (member.photoBase64 && !remainingPhotos.includes(member.photoBase64)) {
+    member.photoBase64 = remainingPhotos[0] || null;
   }
 
   saveFamilyCastProfile(cast);
-  renderFamilyCastModalList();
+  renderVaultMemberTabs();
+  renderActiveMemberScreen();
   renderFamilyCastStagingUI();
-  toggleFamilyCastAddForm(false);
-  removeCastPhoto();
+  showTemporaryToast('Photo removed from slot.');
 }
 
-function deleteCastMember(memberId) {
-  if (!familyCastProfileCache || !Array.isArray(familyCastProfileCache.members)) return;
-  familyCastProfileCache.members = familyCastProfileCache.members.filter(m => m.id !== memberId);
+async function analyzeActiveMemberAllPhotos() {
+  const cast = familyCastProfileCache || getDefaultClientFamilyCast();
+  const member = (cast.members || []).find(m => m.id === activeVaultMemberId);
+  if (!member || isAnalyzingVaultPhotos) return;
+
+  const photos = member.photos || {};
+  const photoList = [];
+  if (photos.frontal) photoList.push({ slot: 'frontal', imageBase64: photos.frontal, imageMimeType: 'image/jpeg' });
+  if (photos.profile) photoList.push({ slot: 'profile', imageBase64: photos.profile, imageMimeType: 'image/jpeg' });
+  if (photos.stature) photoList.push({ slot: 'stature', imageBase64: photos.stature, imageMimeType: 'image/jpeg' });
+
+  if (photoList.length === 0) {
+    showTemporaryToast('Please tap a photo slot above to attach a photo first.');
+    return;
+  }
+
+  isAnalyzingVaultPhotos = true;
+  const bar = document.getElementById('vaultAnalyzingProgress');
+  const reanalyzeBtn = document.getElementById('vaultReanalyzeBtn');
+  if (bar) bar.style.display = 'flex';
+  if (reanalyzeBtn) reanalyzeBtn.disabled = true;
+
+  try {
+    let data = null;
+
+    // 1. Try primary endpoint /api/cast-traits
+    try {
+      const resp = await fetch('/api/cast-traits', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          photos: photoList,
+          relation: member.relationship,
+          approxAge: member.age,
+          name: member.name
+        })
+      });
+      if (resp.ok) {
+        data = await resp.json();
+      }
+    } catch (_) {}
+
+    // 2. Fallback to /api/synthesize
+    if (!data || !data.success) {
+      try {
+        const resp2 = await fetch('/api/synthesize', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'extract_cast_traits',
+            photos: photoList,
+            relation: member.relationship,
+            approxAge: member.age,
+            name: member.name
+          })
+        });
+        if (resp2.ok) {
+          data = await resp2.json();
+        }
+      } catch (_) {}
+    }
+
+    if (data && data.success && data.visualTraits) {
+      member.visualTraits = data.visualTraits;
+      if (data.detectedAge && !member.age) member.age = data.detectedAge;
+      if (data.statureDesc && (!member.heightDesc || member.heightDesc.includes('Standard'))) {
+        member.heightDesc = data.statureDesc;
+      }
+
+      saveFamilyCastProfile(cast);
+      renderActiveMemberScreen();
+      renderFamilyCastStagingUI();
+      showTemporaryToast(`✓ Extracted Character DNA from ${photoList.length} photo(s)!`);
+    } else {
+      showTemporaryToast('Photos attached. You can describe any additional visual features below.');
+    }
+  } catch (err) {
+    console.warn('Multi-photo analysis notice:', err);
+  } finally {
+    isAnalyzingVaultPhotos = false;
+    if (bar) bar.style.display = 'none';
+    if (reanalyzeBtn) reanalyzeBtn.disabled = false;
+  }
+}
+
+function handleActiveMemberFieldChange(field, val) {
+  const cast = familyCastProfileCache || getDefaultClientFamilyCast();
+  const member = (cast.members || []).find(m => m.id === activeVaultMemberId);
+  if (!member) return;
+
+  member[field] = val;
+  if (field === 'relationship' && !member.name) {
+    member.roleLabel = val;
+  }
+  saveFamilyCastProfile(cast);
+  renderVaultMemberTabs();
+  renderFamilyCastStagingUI();
+}
+
+function handleActiveMemberAliasesChange(raw) {
+  const cast = familyCastProfileCache || getDefaultClientFamilyCast();
+  const member = (cast.members || []).find(m => m.id === activeVaultMemberId);
+  if (!member) return;
+
+  const aliases = raw.split(',').map(a => a.trim().toLowerCase()).filter(Boolean);
+  member.aliases = aliases;
+  saveFamilyCastProfile(cast);
+}
+
+function saveActiveMemberAndNext() {
+  const cast = familyCastProfileCache || getDefaultClientFamilyCast();
+  const members = cast.members || [];
+  const currentIdx = members.findIndex(m => m.id === activeVaultMemberId);
+
+  // Read current form inputs
+  if (currentIdx !== -1) {
+    const member = members[currentIdx];
+    const rel = document.getElementById('vField_relation')?.value;
+    const name = document.getElementById('vField_name')?.value?.trim();
+    const age = parseInt(document.getElementById('vField_age')?.value, 10) || null;
+    const height = document.getElementById('vField_height')?.value?.trim();
+    const traits = document.getElementById('vField_traits')?.value?.trim();
+    const aliasesRaw = document.getElementById('vField_aliases')?.value?.trim();
+
+    if (rel) member.relationship = rel;
+    if (name !== undefined) {
+      member.name = name;
+      member.roleLabel = name || rel;
+    }
+    member.age = age;
+    if (height !== undefined) member.heightDesc = height;
+    if (traits !== undefined) member.visualTraits = traits;
+    if (aliasesRaw) {
+      member.aliases = aliasesRaw.split(',').map(a => a.trim().toLowerCase()).filter(Boolean);
+    }
+
+    saveFamilyCastProfile(cast);
+    showTemporaryToast(`✓ Saved ${escapeHtml(member.name || member.roleLabel)}!`);
+  }
+
+  // If next member exists, switch to next member
+  if (currentIdx !== -1 && currentIdx < members.length - 1) {
+    const nextMember = members[currentIdx + 1];
+    activeVaultMemberId = nextMember.id;
+    renderVaultMemberTabs();
+    renderActiveMemberScreen();
+    const body = document.getElementById('vaultActiveMemberScreen');
+    if (body) body.scrollTop = 0;
+  } else {
+    // Last member reached
+    showTemporaryToast('✓ All family members saved in vault!');
+    closeFamilyCastModal();
+  }
+}
+
+function deleteActiveMember(memberId) {
+  const cast = familyCastProfileCache || getDefaultClientFamilyCast();
+  if (!Array.isArray(cast.members)) return;
+
+  cast.members = cast.members.filter(m => m.id !== memberId);
   activeCastMemberIds.delete(memberId);
-  saveFamilyCastProfile(familyCastProfileCache);
-  renderFamilyCastModalList();
+  saveFamilyCastProfile(cast);
+
+  if (cast.members.length > 0) {
+    activeVaultMemberId = cast.members[0].id;
+  } else {
+    activeVaultMemberId = null;
+  }
+
+  renderVaultMemberTabs();
+  renderActiveMemberScreen();
   renderFamilyCastStagingUI();
   showTemporaryToast('Member removed from vault.');
+}
+
+// Backward compatibility alias
+function renderFamilyCastModalList() {
+  renderVaultMemberTabs();
+  renderActiveMemberScreen();
 }
 
 function resetFamilyCastToDefault() {
   familyCastProfileCache = getDefaultClientFamilyCast();
   activeCastMemberIds = new Set(['member_father', 'member_mother', 'member_elder_son', 'member_younger_son']);
+  activeVaultMemberId = 'member_father';
   saveFamilyCastProfile(familyCastProfileCache);
-  renderFamilyCastModalList();
+  renderVaultMemberTabs();
+  renderActiveMemberScreen();
   renderFamilyCastStagingUI();
   showTemporaryToast('✓ Reset to standard family blueprint (Dad, Mom, 11yo Elder Son, 7yo Younger Son)');
 }

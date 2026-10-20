@@ -27,7 +27,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Merriweather:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,400;1,600;1,700;1,900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261021_0235">
+  <link rel="stylesheet" href="style.css?v=20261021_0305">
   <!-- Favicon & Brand Icons -->
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
@@ -1779,129 +1779,55 @@
     </div>
   </div>
 
-  <!-- Family Cast Vault Modal (Private & Zero Digital Footprint) -->
+  <!-- Family Cast Vault Modal (Dedicated Member Screen Window Experience) -->
   <div class="modal-overlay family-cast-modal-overlay" id="familyCastModal" style="display:none;" onclick="if(event.target===this) closeFamilyCastModal()">
-    <div class="family-cast-modal-container">
+    <div class="vault-screen-window" id="familyCastModalWindow">
       
-      <!-- Top Bar -->
-      <div class="family-cast-modal-topbar">
-        <div class="family-cast-modal-title-group">
-          <span class="family-cast-modal-badge">👥 Family Cast Vault</span>
-          <span class="family-cast-modal-subtitle">Private character blueprints ensuring your kids appear with accurate age difference and consistent traits across all posters (Zero Digital Footprint).</span>
+      <!-- 1. Header Bar: Brand, Privacy Badge & Close -->
+      <div class="vault-window-header">
+        <div class="vault-window-brand">
+          <div class="vault-badge-pill">👥 Family Cast Vault</div>
+          <span class="vault-privacy-tag">🔒 Zero Digital Footprint</span>
         </div>
-        <button type="button" class="family-cast-modal-close" onclick="closeFamilyCastModal()" title="Close">✕</button>
+        <div class="vault-header-actions">
+          <button type="button" class="vault-header-reset-btn" onclick="resetFamilyCastToDefault()" title="Reset to standard blueprint">Reset Defaults</button>
+          <button type="button" class="vault-window-close-btn" onclick="closeFamilyCastModal()" title="Close Vault">✕</button>
+        </div>
       </div>
 
-      <!-- Members List -->
-      <div class="family-cast-modal-body">
-        <div class="family-cast-cards-list" id="familyCastCardsList">
-          <!-- Dynamically rendered member cards -->
+      <!-- 2. Member Switcher Carousel Tabs (Easily jump between Dad, Mom, Elder Son, Younger Son, or Add New) -->
+      <div class="vault-member-carousel-bar">
+        <div class="vault-member-tabs-list" id="vaultMemberTabsList">
+          <!-- Rendered dynamically via renderVaultMemberTabs() -->
         </div>
+      </div>
 
-        <!-- Add New Member Toggle / Form -->
-        <div class="family-cast-add-section">
-          <button type="button" class="family-cast-add-btn" id="familyCastAddToggleBtn" onclick="toggleFamilyCastAddForm()">
-            <span>➕ Add Family Member</span>
+      <!-- 3. Dedicated Member Screen Window Body -->
+      <div class="vault-member-screen-body" id="vaultActiveMemberScreen">
+        <!-- Rendered dynamically via renderActiveMemberScreen() -->
+      </div>
+
+      <!-- 4. Fixed Bottom Action Bar -->
+      <div class="vault-window-footer">
+        <div class="vault-footer-info">
+          <span class="vault-footer-dot"></span>
+          <span id="vaultFooterStatusText">Private local character blueprint for consistent AI illustrations</span>
+        </div>
+        <div class="vault-footer-buttons">
+          <button type="button" class="vault-secondary-btn" onclick="closeFamilyCastModal()">Done</button>
+          <button type="button" class="vault-save-next-btn" id="vaultSaveNextBtn" onclick="saveActiveMemberAndNext()">
+            <span id="vaultSaveNextBtnText">Save & Next Member ➔</span>
           </button>
-
-          <div class="family-cast-form-wrap" id="familyCastAddForm" style="display:none;">
-            <div class="cast-form-header-row">
-              <span class="cast-form-header-title" id="castFormHeaderTitle">➕ Add Family Member</span>
-            </div>
-
-            <!-- Reference Photo Upload & AI Trait Extraction Card -->
-            <div class="cast-photo-card" id="castPhotoCard">
-              <div class="cast-photo-avatar-box" id="castPhotoAvatarPreviewBox">
-                <div class="cast-photo-avatar-placeholder" id="castPhotoPlaceholder">👤</div>
-                <img id="castFormPhotoThumb" class="cast-photo-avatar-img" src="" alt="Avatar" style="display:none;">
-              </div>
-              <div class="cast-photo-info">
-                <div class="cast-photo-label-row">
-                  <span class="cast-photo-title">📷 Reference Photo</span>
-                  <span class="cast-photo-privacy-badge">🔒 100% Private Vault</span>
-                </div>
-                <p class="cast-photo-hint">Attach a photo to automatically extract facial traits, hair style, and age with AI vision.</p>
-                <div class="cast-photo-btn-group">
-                  <button type="button" class="cast-photo-btn" onclick="triggerCastPhotoUpload()">
-                    <span>📁 Upload Photo</span>
-                  </button>
-                  <button type="button" class="cast-photo-btn" onclick="triggerCastPhotoCamera()">
-                    <span>📸 Camera</span>
-                  </button>
-                  <button type="button" class="cast-photo-analyze-btn" id="castPhotoAnalyzeBtn" style="display:none;" onclick="analyzeCastPhotoTraits()">
-                    <span id="castPhotoAnalyzeBtnIcon">✨</span>
-                    <span id="castPhotoAnalyzeBtnText">Re-extract Traits</span>
-                  </button>
-                  <button type="button" class="cast-photo-remove-btn" id="castPhotoRemoveBtn" style="display:none;" onclick="removeCastPhoto()">
-                    <span>✕ Remove</span>
-                  </button>
-                </div>
-                <div class="cast-photo-analyzing-bar" id="castPhotoAnalyzingBar" style="display:none;">
-                  <span class="cast-analyzing-spinner"></span>
-                  <span id="castPhotoAnalyzingText">Extracting facial likeness, hair & traits with AI vision...</span>
-                </div>
-              </div>
-              <!-- Hidden inputs -->
-              <input type="file" id="castFormPhotoFileInput" accept="image/*" style="display:none;" onchange="handleCastPhotoSelect(event)">
-              <input type="file" id="castFormPhotoCameraInput" accept="image/*" capture="user" style="display:none;" onchange="handleCastPhotoSelect(event)">
-            </div>
-            <div class="cast-form-grid">
-              <div class="cast-form-field">
-                <label>Relationship / Role</label>
-                <select id="castFormRelation">
-                  <option value="self">Father / Self</option>
-                  <option value="spouse">Mother / Spouse</option>
-                  <option value="elder_son">Elder Son (Age 11)</option>
-                  <option value="younger_son">Younger Son (Age 7)</option>
-                  <option value="child">Child / Other</option>
-                </select>
-              </div>
-              <div class="cast-form-field">
-                <label>Display Name / Label</label>
-                <input type="text" id="castFormName" placeholder="e.g. Elder Son, Rahul">
-              </div>
-              <div class="cast-form-field">
-                <label>Age</label>
-                <input type="number" id="castFormAge" placeholder="e.g. 11" min="1" max="100">
-              </div>
-              <div class="cast-form-field">
-                <label>Height & Stature Comparison</label>
-                <input type="text" id="castFormHeight" placeholder="e.g. 4ft 10in, head taller than younger brother">
-              </div>
-              <div class="cast-form-field full-width">
-                <label>Distinct Visual Features & Hair</label>
-                <input type="text" id="castFormTraits" placeholder="e.g. Tall pre-teen, lean build, neat side-parted dark hair, mature facial structure">
-              </div>
-              <div class="cast-form-field full-width">
-                <label>Trigger Words (Comma separated)</label>
-                <input type="text" id="castFormAliases" placeholder="e.g. elder son, older boy, big brother, 11yo">
-              </div>
-            </div>
-            <div class="cast-form-actions">
-              <button type="button" class="cast-form-cancel-btn" onclick="toggleFamilyCastAddForm(false)">Cancel</button>
-              <button type="button" class="cast-form-save-btn" onclick="saveNewCastMemberFromForm()">
-                <span id="castFormSaveBtnText">Save Member</span>
-              </button>
-            </div>
-          </div>
         </div>
       </div>
 
-      <!-- Bottom Footer -->
-      <div class="family-cast-modal-footer">
-        <div class="privacy-note">
-          <span>🔒</span>
-          <span>Stored privately in your vault. Never published to public feeds or shared externally.</span>
-        </div>
-        <div class="footer-actions">
-          <button type="button" class="cast-reset-btn" onclick="resetFamilyCastToDefault()" title="Reset to standard 4-member profile">Reset Defaults</button>
-          <button type="button" class="cast-confirm-btn" onclick="closeFamilyCastModal()">Done</button>
-        </div>
-      </div>
-
+      <!-- Hidden file and camera inputs for the 3 slots -->
+      <input type="file" id="slotFile_frontal" accept="image/*" style="display:none;" onchange="handleSlotPhotoSelect('frontal', event)">
+      <input type="file" id="slotFile_profile" accept="image/*" style="display:none;" onchange="handleSlotPhotoSelect('profile', event)">
+      <input type="file" id="slotFile_stature" accept="image/*" style="display:none;" onchange="handleSlotPhotoSelect('stature', event)">
     </div>
   </div>
 
-  <script src="app.js?v=20261021_0235"></script>
+  <script src="app.js?v=20261021_0305"></script>
 </body>
 </html>
