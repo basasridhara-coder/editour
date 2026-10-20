@@ -470,7 +470,7 @@ function updateAuthUI() {
   if (badgeMyCount) badgeMyCount.textContent = myPostsCount;
 
   if (currentUser) {
-    if (signedInView) signedInView.style.display = 'block';
+    if (signedInView) signedInView.style.display = 'flex';
     if (signedOutView) signedOutView.style.display = 'none';
     document.body.classList.remove('signed-out-active');
 
@@ -523,7 +523,7 @@ function updateAuthUI() {
     }
   } else {
     if (deepPostId) {
-      if (signedInView) signedInView.style.display = 'block';
+      if (signedInView) signedInView.style.display = 'flex';
       if (signedOutView) signedOutView.style.display = 'none';
       document.body.classList.remove('signed-out-active');
     } else {
@@ -1082,7 +1082,7 @@ function closeAuthModal() {
 
   if (currentUser || deepId) {
     if (signedOutView) signedOutView.style.display = 'none';
-    if (signedInView) signedInView.style.display = 'block';
+    if (signedInView) signedInView.style.display = 'flex';
     document.body.classList.remove('signed-out-active');
   }
 

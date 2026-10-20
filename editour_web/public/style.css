@@ -53,7 +53,18 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+html {
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
+  box-sizing: border-box;
+}
+
 body {
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
+  box-sizing: border-box;
   background-color: var(--bg-base);
   color: var(--text-primary);
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -67,6 +78,16 @@ body {
     radial-gradient(circle at 90% 85%, var(--bg-gradient-2) 0%, transparent 45%);
   background-attachment: fixed;
   transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+#signedInAppView {
+  width: 100%;
+  max-width: 100vw;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 /* Header */
@@ -3546,12 +3567,14 @@ header {
 .login-main-wrap {
   flex: 1;
   width: 100%;
+  max-width: 100vw;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   padding: 24px 16px 40px 16px;
   box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 .login-page-card-standalone {
@@ -4109,7 +4132,12 @@ header {
   flex-direction: column;
   gap: 28px;
   overflow-y: auto;
+  overflow-x: hidden;
   max-height: 640px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   padding: 16px 16px 36px 16px;
   border-radius: 24px;
   background: rgba(4, 7, 18, 0.45);
@@ -4142,6 +4170,11 @@ header {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  box-sizing: border-box;
   background: rgba(15, 23, 42, 0.6);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 20px;
@@ -4851,21 +4884,37 @@ header {
     -webkit-overflow-scrolling: touch;
     margin: 8px auto;
     border-radius: 20px;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+    box-sizing: border-box;
   }
 
   .signed-out-page-view {
     justify-content: flex-start;
     align-items: stretch;
+    width: 100%;
+    max-width: 100vw;
+    overflow-x: hidden;
+    box-sizing: border-box;
   }
 
   .login-main-wrap {
     padding: 12px 10px 32px 10px;
     justify-content: flex-start;
+    width: 100%;
+    max-width: 100vw;
+    box-sizing: border-box;
+    overflow-x: hidden;
   }
 
   .login-page-card-standalone {
     border-radius: 20px;
-    overflow: visible;
+    overflow: hidden !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
   }
 
   .login-footer-trust {
@@ -4873,6 +4922,9 @@ header {
     padding: 0 12px;
     font-size: 11px;
     gap: 8px 12px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
   }
 
   .slant-login-close {
@@ -4895,8 +4947,10 @@ header {
     justify-content: center;
     text-align: center;
     width: 100%;
+    max-width: 100%;
     box-sizing: border-box;
     position: relative;
+    overflow: hidden;
   }
 
   .topbar-rule-left,
@@ -4911,6 +4965,7 @@ header {
     gap: 8px;
     margin: 0 auto;
     text-align: center;
+    max-width: 100%;
   }
 
   .topbar-tagline {
@@ -4935,14 +4990,22 @@ header {
     display: flex;
     flex-direction: column;
     overflow-y: visible;
+    overflow-x: hidden;
     max-height: none;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
   }
 
   /* 1. Auth Column Comes First */
   .slant-login-auth-col {
     order: 1;
     width: 100%;
+    max-width: 100%;
+    min-width: 0;
     box-sizing: border-box;
+    overflow: hidden;
     padding: 24px 20px 22px 20px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   }
@@ -4953,6 +5016,9 @@ header {
 
   .slant-login-auth-col .auth-header {
     margin-bottom: 16px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
   }
 
   .slant-login-auth-col .auth-badge-icon {
@@ -4988,6 +5054,9 @@ header {
   .oauth-login-btn {
     height: 46px;
     font-size: 14px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
   }
 
   /* Enforce 16px input font to prevent iOS Safari auto-zoom */
@@ -4996,17 +5065,26 @@ header {
   #loginPasswordInput {
     font-size: 16px !important;
     height: 46px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
   }
 
   .auth-primary-btn {
     height: 46px;
     font-size: 14px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
   }
 
   /* 2. Showcase Comes Second Below Auth */
   .slant-login-showcase {
     order: 2;
     width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: hidden;
     box-sizing: border-box;
     border-right: none;
     border-bottom: none;
@@ -5017,28 +5095,44 @@ header {
 
   .showcase-header {
     padding: 0 2px 8px 2px;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
   }
 
   .showcase-title {
     font-size: 20px;
+    word-break: break-word;
   }
 
   /* Story Switcher Horizontal Scroll */
   .login-stories-switcher {
     padding: 2px 0 10px 0;
     gap: 6px;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
 
   .story-switch-pill {
     padding: 5px 11px;
     font-size: 10.5px;
+    flex-shrink: 0;
   }
 
   /* Vertical Track & Post Rows on Mobile */
   .login-vertical-track {
-    max-height: 460px;
+    max-height: 480px;
     overflow-y: auto;
+    overflow-x: hidden;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
     -webkit-overflow-scrolling: touch;
     padding: 12px 10px;
     gap: 16px;
@@ -5046,31 +5140,57 @@ header {
   }
 
   .login-post-row {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    overflow: hidden;
     padding: 12px 12px 16px 12px;
     border-radius: 16px;
   }
 
   .login-row-header {
     padding: 0 2px 8px 2px;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    overflow: hidden;
   }
 
   .login-row-headline {
     font-size: 12.5px;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .login-row-posters {
-    grid-template-columns: repeat(3, 260px);
-    gap: 12px;
-    scroll-snap-type: x mandatory;
-    -webkit-overflow-scrolling: touch;
-    padding-bottom: 6px;
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    gap: 10px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+    scroll-snap-type: x mandatory !important;
+    padding: 2px 2px 8px 2px !important;
   }
 
   .login-poster-col {
-    height: 420px;
-    min-height: 420px;
-    border-radius: 14px;
-    scroll-snap-align: start;
+    flex: 0 0 calc(84vw - 24px) !important;
+    max-width: 290px !important;
+    min-width: 220px !important;
+    height: 380px !important;
+    min-height: 380px !important;
+    border-radius: 14px !important;
+    scroll-snap-align: start !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
   }
 
   .login-poster-col .slide-hook-content {
@@ -5142,6 +5262,10 @@ header {
     margin: 0;
     border-radius: 0;
     border: none;
+    width: 100%;
+    max-width: 100vw;
+    box-sizing: border-box;
+    overflow-x: hidden;
   }
 
   .slant-login-topbar {
@@ -5173,18 +5297,74 @@ header {
   }
 
   .login-vertical-track {
-    max-height: 400px;
+    max-height: 420px;
     padding: 10px 8px;
   }
 
   .login-row-posters {
-    grid-template-columns: repeat(3, 240px);
-    gap: 10px;
+    gap: 8px !important;
+    padding: 2px 2px 6px 2px !important;
   }
 
   .login-poster-col {
-    height: 390px;
-    min-height: 390px;
+    flex: 0 0 calc(86vw - 16px) !important;
+    max-width: 280px !important;
+    min-width: 210px !important;
+    height: 350px !important;
+    min-height: 350px !important;
+  }
+
+  .login-poster-col .slide-hook-content {
+    padding: 12px 10px !important;
+  }
+
+  .login-poster-col .slide-hook-headline {
+    font-size: 14px !important;
+    line-height: 1.25 !important;
+  }
+
+  .login-poster-col .slide-critique {
+    padding: 12px 10px !important;
+  }
+
+  .login-poster-col .critique-opinion-text {
+    font-size: 12px !important;
+    line-height: 1.38 !important;
+  }
+
+  .login-poster-col .slide-receipt {
+    padding: 10px 10px 8px 10px !important;
+  }
+
+  .login-poster-col .receipt-pub-title {
+    font-size: 13px !important;
+  }
+
+  .login-poster-col .receipt-headline {
+    font-size: 11px !important;
+    line-height: 1.2 !important;
+  }
+
+  .login-poster-col .receipt-p1 {
+    font-size: 9.5px !important;
+    line-height: 1.3 !important;
+    -webkit-line-clamp: 2 !important;
+  }
+
+  .login-poster-col .receipt-highlight {
+    padding: 3px 6px !important;
+    margin: 2px 0 !important;
+  }
+
+  .login-poster-col .highlighter-text {
+    font-size: 9.5px !important;
+    -webkit-line-clamp: 2 !important;
+  }
+
+  .login-poster-col .receipt-p3 {
+    font-size: 9.5px !important;
+    line-height: 1.3 !important;
+    -webkit-line-clamp: 2 !important;
   }
 }
 
