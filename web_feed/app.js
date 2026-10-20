@@ -115,6 +115,147 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') closeDrawer();
 });
 
+// Register PWA Service Worker for Web Share Target & Native Installability
+function registerPwaServiceWorker() {
+  if ('serviceWorker' in navigator && (window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js').catch((err) => {
+        console.warn('Slant service worker registration:', err);
+      });
+    });
+  }
+}
+registerPwaServiceWorker();
+
+// --- Web Share Target & Incoming Link Receiver ---
+function extractSharedDataFromUrl() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const rawUrl = params.get('url') || params.get('link') || params.get('share_url') || '';
+    const rawText = params.get('text') || '';
+    const rawTitle = params.get('title') || '';
+
+    let targetUrl = '';
+    if (rawUrl && /^(https?:\/\/|[a-z0-9-]+\.[a-z]{2,})/i.test(rawUrl.trim())) {
+      targetUrl = rawUrl.trim();
+    } else if (rawText) {
+      const match = rawText.match(/https?:\/\/[^\s]+/i);
+      if (match) targetUrl = match[0];
+    }
+
+    if (!targetUrl && rawTitle) {
+      const match = rawTitle.match(/https?:\/\/[^\s]+/i);
+      if (match) targetUrl = match[0];
+    }
+
+    if (targetUrl) {
+      if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
+        targetUrl = 'https://' + targetUrl;
+      }
+      const cleanText = rawText.replace(targetUrl, '').trim();
+      return {
+        url: targetUrl,
+        title: rawTitle ? rawTitle.trim() : '',
+        text: cleanText
+      };
+    }
+  } catch (e) {
+    console.warn('Error parsing shared URL params:', e);
+  }
+  return null;
+}
+
+function openCreatorWithSharedData(sharedData) {
+  if (!sharedData || !sharedData.url) return;
+
+  // Dismiss initial feed loader if still showing
+  if (typeof dismissInitialFeedLoader === 'function') {
+    dismissInitialFeedLoader(true);
+  }
+
+  // Ensure creator modal opens
+  if (typeof openCreatorModal === 'function') {
+    openCreatorModal();
+  }
+
+  // Switch anchor mode to digital link
+  if (typeof setAnchorMode === 'function') {
+    setAnchorMode('digital_link');
+  }
+
+  // Auto-fill the URL input
+  const urlInput = document.getElementById('creatorUrlInput');
+  if (urlInput) {
+    urlInput.value = sharedData.url;
+    if (typeof clearMandatoryError === 'function') {
+      clearMandatoryError(urlInput);
+    }
+  }
+
+  // If title or text accompanied the link, populate spark field if empty
+  const sparkInput = document.getElementById('creatorSparkInput');
+  if (sparkInput && !sparkInput.value.trim() && (sharedData.title || sharedData.text)) {
+    sparkInput.value = [sharedData.title, sharedData.text].filter(Boolean).join(' - ');
+    if (typeof clearMandatoryError === 'function') {
+      clearMandatoryError(sparkInput);
+    }
+  }
+
+  // Automatically trigger URL scraping and verification
+  if (typeof handleUrlInput === 'function') {
+    handleUrlInput(sharedData.url);
+  }
+
+  // Clean address bar so page reloads do not re-trigger
+  try {
+    const cleanUrl = window.location.pathname + (window.location.hash || '');
+    window.history.replaceState({}, document.title, cleanUrl);
+  } catch (_) {}
+
+  // Friendly toast confirmation
+  try {
+    const domain = new URL(sharedData.url).hostname.replace(/^www\./, '');
+    showTemporaryToast(`🔗 Link from ${domain} copied into Create Slant`);
+  } catch (_) {
+    showTemporaryToast('🔗 Shared link copied into Create Slant');
+  }
+}
+
+function checkIncomingShareTarget() {
+  const sharedData = extractSharedDataFromUrl();
+  if (!sharedData) return;
+
+  if (currentUser && isUserWhitelistAllowed) {
+    setTimeout(() => {
+      openCreatorWithSharedData(sharedData);
+    }, 350);
+  } else {
+    try {
+      sessionStorage.setItem('slant_pending_shared_data', JSON.stringify(sharedData));
+    } catch (_) {}
+    try {
+      const cleanUrl = window.location.pathname + (window.location.hash || '');
+      window.history.replaceState({}, document.title, cleanUrl);
+    } catch (_) {}
+    if (typeof showTemporaryToast === 'function') {
+      showTemporaryToast('🔗 Shared link captured! Please sign in with your invited account to create your Slant.');
+    }
+  }
+}
+
+function checkPendingSharedDataOnAuth() {
+  try {
+    const pending = sessionStorage.getItem('slant_pending_shared_data');
+    if (pending && currentUser && isUserWhitelistAllowed) {
+      sessionStorage.removeItem('slant_pending_shared_data');
+      const data = JSON.parse(pending);
+      setTimeout(() => {
+        openCreatorWithSharedData(data);
+      }, 400);
+    }
+  } catch (_) {}
+}
+
 // Apply atmosphere immediately before render
 applyAtmosphere(currentAtmospherePref);
 
@@ -137,6 +278,7 @@ async function init() {
   setupPullToRefresh();
   checkDeepLink();
   setupRealtimeSubscription();
+  checkIncomingShareTarget();
 }
 
 const SUPABASE_URL = 'https://fxfklefnkpmhofncqhfh.supabase.co';
@@ -275,6 +417,7 @@ async function initAuth() {
         currentUser = session.user;
         isCurrentUserAdmin = check.isAdmin;
         isUserWhitelistAllowed = true;
+        checkPendingSharedDataOnAuth();
       } else {
         await handleUninvitedUser(session.user);
         return;
@@ -301,6 +444,7 @@ async function initAuth() {
           isCurrentUserAdmin = check.isAdmin;
           isUserWhitelistAllowed = true;
           closeAuthModal();
+          checkPendingSharedDataOnAuth();
           showTemporaryToast(`Welcome to Slant, ${escapeHtml(getUserDisplayName())}! ✨`);
 
           // Log access timestamp
