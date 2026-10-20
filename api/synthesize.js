@@ -157,11 +157,15 @@ Your job is to polish their text into grammatically correct, natural, and apt En
 - STRICT RULE 2 (ZERO CUTTING SHORT): DO NOT cut short, truncate, compress, or omit the author's opinion. Every single point, argument, nuance, and example must be retained in the exact same sequence.
 - STRICT RULE 3 (APT ENGLISH & PHRASING): Fix comma splices, run-on sentences, awkward phrasing, word choices, subject-verb agreements, casing, and punctuation so it flows naturally and authoritatively.
 - STRICT RULE 4 (STRICT BAN ON EM DASHES AND ARTIFICIAL HYPHENS): NEVER use em dashes, en dashes, or double hyphens ("--")! Connect clauses with natural commas, semicolons, conjunctions, or separate sentences.
-- STRICT RULE 5 (CORRECTION CATEGORIES): Categorize every change into exactly one of:
-  * "spelling": Typos, word capitalization, spelling variants.
-  * "grammar": Verb tense, subject-verb agreement, singular/plural, missing articles or prepositions.
-  * "punctuation": Commas, periods, splitting run-ons, quotes.
-  * "phrasing": Smoother idioms, natural word order, removing clunky transitions while preserving exact thought.
+- STRICT RULE 5 (ATOMIC CORRECTIONS & NO CROSS-CATEGORY LUMPING):
+  * Keep each correction focused on the specific words changed.
+  * NEVER lump a phrasing/vocabulary change together with a typo into a single correction.
+  * If a sentence has both a typo and phrasing improvements, separate them: isolate the typo (e.g. "torubled" -> "troubled") as its own distinct "spelling" note, and isolate the phrasing rewrite (e.g. "these people and will have" -> "these individuals and will face") as a "phrasing" note.
+- STRICT RULE 6 (STRICT CATEGORY DEFINITIONS):
+  * "spelling": STRICTLY for typographical errors, misspelled words, or capitalization (e.g. "controll" -> "control", "torubled" -> "troubled", "raj" -> "Raj"). NEVER categorize vocabulary changes or multi-word rewrites as spelling!
+  * "phrasing": Word choice, vocabulary improvements, smoother idioms, natural collocations, and eliminating awkward repetition (e.g. "these people" -> "these individuals", "will have" -> "will face", "supporting influentials" -> "supporting influencers", "washed away in" -> "swept away by").
+  * "grammar": Verb tense, subject-verb agreement, singular/plural, missing articles or prepositions, pronoun cases (e.g. "it's" -> "its", "is kept" -> "are kept", "Govt" -> "The government").
+  * "punctuation": Commas, periods, colons, quotation marks, fixing comma splices or run-ons.
 
 Author's Raw Take:
 """${rawText}"""
@@ -171,10 +175,10 @@ Respond strictly with valid JSON with this exact structure:
   "polished": "full polished text string without any tags",
   "corrections": [
     {
-      "original": "exact segment from author raw text that was changed",
-      "replacement": "polished replacement text in the polished version",
+      "original": "exact minimal word or short phrase from author raw text that was changed",
+      "replacement": "exact replacement in the polished text",
       "type": "spelling | grammar | punctuation | phrasing",
-      "reason": "concise explanation of why this was corrected"
+      "reason": "concise explanation of why this specific correction was made"
     }
   ]
 }`;
