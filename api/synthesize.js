@@ -2018,6 +2018,18 @@ function buildFamilyCastDirectives({ familyCast, activeCast, castStaging, userSl
     promptSnippets.push('family road trip scenic overlook by parked vehicle: father, mother, tall 11-year-old son, shorter 7-year-old son standing naturally together admiring the vista');
   }
 
+  // 3. Member-Specific Facial Traits & Visual Likeness Anchors
+  const memberTraitDirectives = [];
+  activeMembers.forEach(m => {
+    if (m.visualTraits && m.visualTraits.trim()) {
+      memberTraitDirectives.push(`${m.name || m.roleLabel} (${m.roleLabel || m.relationship}): ${m.visualTraits}`);
+      promptSnippets.push(`${m.name || m.roleLabel}: ${m.visualTraits}`);
+    }
+  });
+  if (memberTraitDirectives.length > 0) {
+    directives.push(`FAMILY MEMBER CHARACTER APPEARANCE ANCHORS (PRESERVE VISUAL LIKENESS):\n${memberTraitDirectives.map(t => `- ${t}`).join('\n')}`);
+  }
+
   return {
     systemPromptSection: directives.join('\n\n'),
     promptSnippet: promptSnippets.join(', '),

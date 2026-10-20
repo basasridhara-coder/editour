@@ -27,7 +27,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Merriweather:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,400;1,600;1,700;1,900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261021_0155">
+  <link rel="stylesheet" href="style.css?v=20261021_0215">
   <!-- Favicon & Brand Icons -->
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
@@ -1457,6 +1457,43 @@
             <div class="cast-form-header-row">
               <span class="cast-form-header-title" id="castFormHeaderTitle">➕ Add Family Member</span>
             </div>
+
+            <!-- Reference Photo Upload & AI Trait Extraction Card -->
+            <div class="cast-photo-card" id="castPhotoCard">
+              <div class="cast-photo-avatar-box" id="castPhotoAvatarPreviewBox">
+                <div class="cast-photo-avatar-placeholder" id="castPhotoPlaceholder">👤</div>
+                <img id="castFormPhotoThumb" class="cast-photo-avatar-img" src="" alt="Avatar" style="display:none;">
+              </div>
+              <div class="cast-photo-info">
+                <div class="cast-photo-label-row">
+                  <span class="cast-photo-title">📷 Reference Photo</span>
+                  <span class="cast-photo-privacy-badge">🔒 100% Private Vault</span>
+                </div>
+                <p class="cast-photo-hint">Attach a photo to automatically extract facial traits, hair style, and age with AI vision.</p>
+                <div class="cast-photo-btn-group">
+                  <button type="button" class="cast-photo-btn" onclick="triggerCastPhotoUpload()">
+                    <span>📁 Upload Photo</span>
+                  </button>
+                  <button type="button" class="cast-photo-btn" onclick="triggerCastPhotoCamera()">
+                    <span>📸 Camera</span>
+                  </button>
+                  <button type="button" class="cast-photo-analyze-btn" id="castPhotoAnalyzeBtn" style="display:none;" onclick="analyzeCastPhotoTraits()">
+                    <span id="castPhotoAnalyzeBtnIcon">✨</span>
+                    <span id="castPhotoAnalyzeBtnText">Re-extract Traits</span>
+                  </button>
+                  <button type="button" class="cast-photo-remove-btn" id="castPhotoRemoveBtn" style="display:none;" onclick="removeCastPhoto()">
+                    <span>✕ Remove</span>
+                  </button>
+                </div>
+                <div class="cast-photo-analyzing-bar" id="castPhotoAnalyzingBar" style="display:none;">
+                  <span class="cast-analyzing-spinner"></span>
+                  <span id="castPhotoAnalyzingText">Extracting facial likeness, hair & traits with AI vision...</span>
+                </div>
+              </div>
+              <!-- Hidden inputs -->
+              <input type="file" id="castFormPhotoFileInput" accept="image/*" style="display:none;" onchange="handleCastPhotoSelect(event)">
+              <input type="file" id="castFormPhotoCameraInput" accept="image/*" capture="user" style="display:none;" onchange="handleCastPhotoSelect(event)">
+            </div>
             <div class="cast-form-grid">
               <div class="cast-form-field">
                 <label>Relationship / Role</label>
@@ -1514,6 +1551,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261021_0155"></script>
+  <script src="app.js?v=20261021_0215"></script>
 </body>
 </html>

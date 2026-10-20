@@ -7147,6 +7147,125 @@ function closeFamilyCastModal() {
 }
 
 let editingCastMemberId = null;
+let currentCastFormPhotoBase64 = null;
+let currentCastFormPhotoMimeType = 'image/jpeg';
+let isAnalyzingCastPhoto = false;
+
+function triggerCastPhotoUpload() {
+  const input = document.getElementById('castFormPhotoFileInput');
+  if (input) input.click();
+}
+
+function triggerCastPhotoCamera() {
+  const input = document.getElementById('castFormPhotoCameraInput');
+  if (input) input.click();
+}
+
+function handleCastPhotoSelect(event) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+
+  compressImage(file, 640, 0.85, function(base64Data, mimeType) {
+    currentCastFormPhotoBase64 = base64Data;
+    currentCastFormPhotoMimeType = mimeType || 'image/jpeg';
+
+    const thumb = document.getElementById('castFormPhotoThumb');
+    const placeholder = document.getElementById('castPhotoPlaceholder');
+    const removeBtn = document.getElementById('castPhotoRemoveBtn');
+    const analyzeBtn = document.getElementById('castPhotoAnalyzeBtn');
+
+    if (thumb) {
+      thumb.src = base64Data;
+      thumb.style.display = 'block';
+    }
+    if (placeholder) placeholder.style.display = 'none';
+    if (removeBtn) removeBtn.style.display = 'inline-flex';
+    if (analyzeBtn) analyzeBtn.style.display = 'inline-flex';
+
+    // Auto-extract facial traits with AI vision
+    analyzeCastPhotoTraits();
+  });
+}
+
+function removeCastPhoto() {
+  currentCastFormPhotoBase64 = null;
+  const thumb = document.getElementById('castFormPhotoThumb');
+  const placeholder = document.getElementById('castPhotoPlaceholder');
+  const removeBtn = document.getElementById('castPhotoRemoveBtn');
+  const analyzeBtn = document.getElementById('castPhotoAnalyzeBtn');
+  const fileInput = document.getElementById('castFormPhotoFileInput');
+  const camInput = document.getElementById('castFormPhotoCameraInput');
+
+  if (thumb) {
+    thumb.src = '';
+    thumb.style.display = 'none';
+  }
+  if (placeholder) placeholder.style.display = 'flex';
+  if (removeBtn) removeBtn.style.display = 'none';
+  if (analyzeBtn) analyzeBtn.style.display = 'none';
+  if (fileInput) fileInput.value = '';
+  if (camInput) camInput.value = '';
+}
+
+async function analyzeCastPhotoTraits() {
+  if (!currentCastFormPhotoBase64 || isAnalyzingCastPhoto) return;
+  isAnalyzingCastPhoto = true;
+
+  const bar = document.getElementById('castPhotoAnalyzingBar');
+  const analyzeBtn = document.getElementById('castPhotoAnalyzeBtn');
+  if (bar) bar.style.display = 'flex';
+  if (analyzeBtn) analyzeBtn.disabled = true;
+
+  const rel = document.getElementById('castFormRelation')?.value || 'family_member';
+  const approxAge = parseInt(document.getElementById('castFormAge')?.value, 10) || null;
+  const name = document.getElementById('castFormName')?.value?.trim() || '';
+
+  try {
+    const resp = await fetch('/api/cast-traits', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        imageBase64: currentCastFormPhotoBase64,
+        imageMimeType: currentCastFormPhotoMimeType,
+        relation: rel,
+        approxAge: approxAge,
+        name: name
+      })
+    });
+
+    if (resp.ok) {
+      const data = await resp.json();
+      if (data && data.success) {
+        if (data.visualTraits) {
+          const traitsInput = document.getElementById('castFormTraits');
+          if (traitsInput) {
+            traitsInput.value = data.visualTraits;
+            traitsInput.style.borderColor = '#38BDF8';
+            setTimeout(() => { if (traitsInput) traitsInput.style.borderColor = ''; }, 2000);
+          }
+        }
+        if (data.detectedAge && !document.getElementById('castFormAge')?.value) {
+          const ageInput = document.getElementById('castFormAge');
+          if (ageInput) ageInput.value = data.detectedAge;
+        }
+        if (data.statureDesc && !document.getElementById('castFormHeight')?.value) {
+          const heightInput = document.getElementById('castFormHeight');
+          if (heightInput) heightInput.value = data.statureDesc;
+        }
+        showTemporaryToast('✓ Facial traits & hair captured from reference photo!');
+      }
+    } else {
+      showTemporaryToast('Photo attached. You can describe any additional visual features below.');
+    }
+  } catch (err) {
+    console.warn('Cast traits extraction notice:', err);
+    showTemporaryToast('Photo attached to member profile.');
+  } finally {
+    isAnalyzingCastPhoto = false;
+    if (bar) bar.style.display = 'none';
+    if (analyzeBtn) analyzeBtn.disabled = false;
+  }
+}
 
 function renderFamilyCastModalList() {
   const container = document.getElementById('familyCastCardsList');
@@ -7171,7 +7290,9 @@ function renderFamilyCastModalList() {
   container.innerHTML = members.map(m => `
     <div class="family-member-card" id="cast-card-${m.id}">
       <div class="member-card-left">
-        <div class="member-card-avatar">${icons[m.relationship] || '👤'}</div>
+        <div class="member-card-avatar" style="${m.photoBase64 ? 'overflow:hidden;' : ''}">
+          ${m.photoBase64 ? `<img src="${m.photoBase64}" class="member-card-avatar-img" alt="${escapeHtml(m.name || 'Member')}">` : (icons[m.relationship] || '👤')}
+        </div>
         <div class="member-card-info">
           <div class="member-card-name-row">
             <span class="member-card-name">${escapeHtml(m.name || 'Family Member')}</span>
@@ -7218,6 +7339,24 @@ function editCastMember(memberId) {
   const aliasesInput = document.getElementById('castFormAliases');
   if (aliasesInput) aliasesInput.value = Array.isArray(member.aliases) ? member.aliases.join(', ') : '';
 
+  // Pre-populate photo
+  if (member.photoBase64) {
+    currentCastFormPhotoBase64 = member.photoBase64;
+    const thumb = document.getElementById('castFormPhotoThumb');
+    const placeholder = document.getElementById('castPhotoPlaceholder');
+    const removeBtn = document.getElementById('castPhotoRemoveBtn');
+    const analyzeBtn = document.getElementById('castPhotoAnalyzeBtn');
+    if (thumb) {
+      thumb.src = member.photoBase64;
+      thumb.style.display = 'block';
+    }
+    if (placeholder) placeholder.style.display = 'none';
+    if (removeBtn) removeBtn.style.display = 'inline-flex';
+    if (analyzeBtn) analyzeBtn.style.display = 'inline-flex';
+  } else {
+    removeCastPhoto();
+  }
+
   // Update header and save button
   const title = document.getElementById('castFormHeaderTitle');
   if (title) title.innerHTML = `✏️ Edit Member: <strong>${escapeHtml(member.name || member.roleLabel)}</strong>`;
@@ -7249,6 +7388,8 @@ function toggleFamilyCastAddForm(show) {
     if (title) title.innerHTML = '➕ Add Family Member';
     const saveBtn = document.getElementById('castFormSaveBtnText');
     if (saveBtn) saveBtn.textContent = 'Save Member';
+
+    removeCastPhoto();
 
     ['castFormName', 'castFormAge', 'castFormHeight', 'castFormTraits', 'castFormAliases'].forEach(id => {
       const el = document.getElementById(id);
@@ -7291,7 +7432,8 @@ function saveNewCastMemberFromForm() {
         heightDesc: height || `${age ? 'Age ' + age : 'Standard'} stature`,
         visualTraits: traits || 'Warm lifelike facial features',
         aliases,
-        vehicleRole: relation === 'self' ? 'driver_right' : (relation === 'spouse' ? 'passenger_front_left' : 'passenger_rear')
+        vehicleRole: relation === 'self' ? 'driver_right' : (relation === 'spouse' ? 'passenger_front_left' : 'passenger_rear'),
+        photoBase64: currentCastFormPhotoBase64 || cast.members[existingIdx].photoBase64 || null
       };
       showTemporaryToast(`✓ Updated ${escapeHtml(name)} in Family Cast Vault!`);
     }
@@ -7308,7 +7450,8 @@ function saveNewCastMemberFromForm() {
       heightDesc: height || `${age ? 'Age ' + age : 'Standard'} stature`,
       visualTraits: traits || 'Warm lifelike facial features',
       aliases,
-      vehicleRole: relation === 'self' ? 'driver_right' : (relation === 'spouse' ? 'passenger_front_left' : 'passenger_rear')
+      vehicleRole: relation === 'self' ? 'driver_right' : (relation === 'spouse' ? 'passenger_front_left' : 'passenger_rear'),
+      photoBase64: currentCastFormPhotoBase64 || null
     });
     activeCastMemberIds.add(newId);
     showTemporaryToast(`✓ Added ${escapeHtml(name)} to Family Cast Vault!`);
@@ -7317,6 +7460,7 @@ function saveNewCastMemberFromForm() {
   saveFamilyCastProfile(cast);
   renderFamilyCastModalList();
   toggleFamilyCastAddForm(false);
+  removeCastPhoto();
 }
 
 function deleteCastMember(memberId) {
@@ -7393,9 +7537,11 @@ function renderFamilyCastStagingUI() {
 
   container.innerHTML = members.map(m => {
     const isActive = activeCastMemberIds.has(m.id);
+    const avatarThumb = m.photoBase64 ? `<img src="${m.photoBase64}" class="chip-avatar-img" alt="">` : '';
     return `
       <div class="family-cast-chip ${isActive ? 'active' : ''}" onclick="toggleActiveCastMember('${m.id}')" title="Toggle ${escapeHtml(m.name)}">
         <span class="chip-check">${isActive ? '✓' : ''}</span>
+        ${avatarThumb}
         <span>${escapeHtml(m.name || m.roleLabel)}</span>
       </div>
     `;
