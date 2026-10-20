@@ -6012,24 +6012,43 @@ async function saveFamilyCastProfile(updatedCast) {
 
 function openFamilyCastModal() {
   const modal = document.getElementById('familyCastModal');
-  if (!modal) return;
+  if (!modal) {
+    console.warn('familyCastModal not found');
+    return;
+  }
 
+  // Pre-render list immediately with cached data or defaults
+  try {
+    renderFamilyCastModalList();
+  } catch (err) {
+    console.error('Error rendering cast modal list:', err);
+  }
+
+  // If profile not yet loaded from backend, fetch and re-render
   if (!familyCastProfileCache) {
     loadFamilyCastProfile().then(() => {
       renderFamilyCastModalList();
-    });
-  } else {
-    renderFamilyCastModalList();
+    }).catch(() => {});
   }
 
+  modal.classList.add('open');
+  modal.classList.add('active');
   modal.style.display = 'flex';
+  modal.style.opacity = '1';
+  modal.style.visibility = 'visible';
+  modal.style.pointerEvents = 'auto';
   document.body.style.overflow = 'hidden';
 }
 
 function closeFamilyCastModal() {
   const modal = document.getElementById('familyCastModal');
   if (modal) {
+    modal.classList.remove('open');
+    modal.classList.remove('active');
     modal.style.display = 'none';
+    modal.style.opacity = '';
+    modal.style.visibility = '';
+    modal.style.pointerEvents = '';
   }
   document.body.style.overflow = '';
   renderFamilyCastStagingUI();
