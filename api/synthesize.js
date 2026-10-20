@@ -181,6 +181,16 @@ module.exports = async function handler(req, res) {
       }
     }
 
+    // Endpoint: Extract Family Cast Traits from Reference Photo
+    if (body && body.action === 'extract_cast_traits') {
+      try {
+        const castTraitsHandler = require('./cast-traits.js');
+        return await castTraitsHandler(req, res);
+      } catch (err) {
+        return res.status(500).json({ success: false, error: err.message });
+      }
+    }
+
     // Direct Single-Purpose Endpoint: Polish & Review Take with Pedagogical Highlighters
     if (body && (body.action === 'polish_take' || body.action === 'review_take')) {
       const { text = '', slantTake = '' } = body;

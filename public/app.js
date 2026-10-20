@@ -7208,7 +7208,12 @@ function removeCastPhoto() {
 }
 
 async function analyzeCastPhotoTraits() {
-  if (!currentCastFormPhotoBase64 || isAnalyzingCastPhoto) return;
+  if (!currentCastFormPhotoBase64) {
+    showTemporaryToast('Please upload a reference photo first to extract traits.');
+    triggerCastPhotoUpload();
+    return;
+  }
+  if (isAnalyzingCastPhoto) return;
   isAnalyzingCastPhoto = true;
 
   const bar = document.getElementById('castPhotoAnalyzingBar');
@@ -7221,39 +7226,81 @@ async function analyzeCastPhotoTraits() {
   const name = document.getElementById('castFormName')?.value?.trim() || '';
 
   try {
-    const resp = await fetch('/api/cast-traits', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        imageBase64: currentCastFormPhotoBase64,
-        imageMimeType: currentCastFormPhotoMimeType,
-        relation: rel,
-        approxAge: approxAge,
-        name: name
-      })
-    });
+    let data = null;
 
-    if (resp.ok) {
-      const data = await resp.json();
-      if (data && data.success) {
-        if (data.visualTraits) {
-          const traitsInput = document.getElementById('castFormTraits');
-          if (traitsInput) {
-            traitsInput.value = data.visualTraits;
-            traitsInput.style.borderColor = '#38BDF8';
-            setTimeout(() => { if (traitsInput) traitsInput.style.borderColor = ''; }, 2000);
-          }
-        }
-        if (data.detectedAge && !document.getElementById('castFormAge')?.value) {
-          const ageInput = document.getElementById('castFormAge');
-          if (ageInput) ageInput.value = data.detectedAge;
-        }
-        if (data.statureDesc && !document.getElementById('castFormHeight')?.value) {
-          const heightInput = document.getElementById('castFormHeight');
-          if (heightInput) heightInput.value = data.statureDesc;
-        }
-        showTemporaryToast('✓ Facial traits & hair captured from reference photo!');
+    // 1. Try primary endpoint /api/cast-traits
+    try {
+      const resp = await fetch('/api/cast-traits', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          imageBase64: currentCastFormPhotoBase64,
+          imageMimeType: currentCastFormPhotoMimeType,
+          relation: rel,
+          approxAge: approxAge,
+          name: name
+        })
+      });
+      if (resp.ok) {
+        data = await resp.json();
       }
+    } catch (_) {}
+
+    // 2. Fallback to /api/synthesize if /api/cast-traits is unavailable
+    if (!data || !data.success) {
+      try {
+        const resp2 = await fetch('/api/synthesize', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'extract_cast_traits',
+            imageBase64: currentCastFormPhotoBase64,
+            imageMimeType: currentCastFormPhotoMimeType,
+            relation: rel,
+            approxAge: approxAge,
+            name: name
+          })
+        });
+        if (resp2.ok) {
+          data = await resp2.json();
+        }
+      } catch (_) {}
+    }
+
+    if (data && data.success && data.visualTraits) {
+      const traitsInput = document.getElementById('castFormTraits');
+      if (traitsInput) {
+        traitsInput.value = data.visualTraits;
+        traitsInput.style.borderColor = '#38BDF8';
+        setTimeout(() => { if (traitsInput) traitsInput.style.borderColor = ''; }, 2000);
+      }
+      if (data.detectedAge && !document.getElementById('castFormAge')?.value) {
+        const ageInput = document.getElementById('castFormAge');
+        if (ageInput) ageInput.value = data.detectedAge;
+      }
+      if (data.statureDesc && !document.getElementById('castFormHeight')?.value) {
+        const heightInput = document.getElementById('castFormHeight');
+        if (heightInput) heightInput.value = data.statureDesc;
+      }
+
+      // If editing an existing member, also immediately sync to cache and re-render member card
+      if (editingCastMemberId) {
+        const cast = familyCastProfileCache || getDefaultClientFamilyCast();
+        const existingMember = (cast.members || []).find(m => m.id === editingCastMemberId);
+        if (existingMember) {
+          existingMember.visualTraits = data.visualTraits;
+          if (currentCastFormPhotoBase64) existingMember.photoBase64 = currentCastFormPhotoBase64;
+          if (data.detectedAge && !existingMember.age) existingMember.age = data.detectedAge;
+          if (data.statureDesc && (!existingMember.heightDesc || existingMember.heightDesc.includes('Standard'))) {
+            existingMember.heightDesc = data.statureDesc;
+          }
+          saveFamilyCastProfile(cast);
+          renderFamilyCastModalList();
+          renderFamilyCastStagingUI();
+        }
+      }
+
+      showTemporaryToast('✓ Facial traits & hair captured from reference photo!');
     } else {
       showTemporaryToast('Photo attached. You can describe any additional visual features below.');
     }
@@ -7342,6 +7389,10 @@ function editCastMember(memberId) {
   // Pre-populate photo
   if (member.photoBase64) {
     currentCastFormPhotoBase64 = member.photoBase64;
+    if (typeof member.photoBase64 === 'string' && member.photoBase64.startsWith('data:image/')) {
+      const match = member.photoBase64.match(/data:([^;]+);/);
+      if (match) currentCastFormPhotoMimeType = match[1];
+    }
     const thumb = document.getElementById('castFormPhotoThumb');
     const placeholder = document.getElementById('castPhotoPlaceholder');
     const removeBtn = document.getElementById('castPhotoRemoveBtn');
@@ -7459,6 +7510,7 @@ function saveNewCastMemberFromForm() {
 
   saveFamilyCastProfile(cast);
   renderFamilyCastModalList();
+  renderFamilyCastStagingUI();
   toggleFamilyCastAddForm(false);
   removeCastPhoto();
 }
@@ -7469,6 +7521,7 @@ function deleteCastMember(memberId) {
   activeCastMemberIds.delete(memberId);
   saveFamilyCastProfile(familyCastProfileCache);
   renderFamilyCastModalList();
+  renderFamilyCastStagingUI();
   showTemporaryToast('Member removed from vault.');
 }
 
@@ -7477,6 +7530,7 @@ function resetFamilyCastToDefault() {
   activeCastMemberIds = new Set(['member_father', 'member_mother', 'member_elder_son', 'member_younger_son']);
   saveFamilyCastProfile(familyCastProfileCache);
   renderFamilyCastModalList();
+  renderFamilyCastStagingUI();
   showTemporaryToast('✓ Reset to standard family blueprint (Dad, Mom, 11yo Elder Son, 7yo Younger Son)');
 }
 
