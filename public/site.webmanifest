@@ -1,7 +1,9 @@
 {
+  "id": "/",
   "name": "Slant • Visual Editorial Feed",
   "short_name": "Slant",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#050813",
   "theme_color": "#050813",
@@ -10,12 +12,26 @@
     {
       "src": "/favicon-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon-512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     },
     {
       "src": "/logo.png",
       "sizes": "1024x1024",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     }
   ],
   "share_target": {

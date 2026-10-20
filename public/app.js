@@ -118,11 +118,16 @@ document.addEventListener('keydown', (e) => {
 // Register PWA Service Worker for Web Share Target & Native Installability
 function registerPwaServiceWorker() {
   if ('serviceWorker' in navigator && (window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js').catch((err) => {
+    const doRegister = () => {
+      navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch((err) => {
         console.warn('Slant service worker registration:', err);
       });
-    });
+    };
+    if (document.readyState === 'complete' || document.readyState === 'interactive') {
+      doRegister();
+    } else {
+      window.addEventListener('load', doRegister);
+    }
   }
 }
 registerPwaServiceWorker();

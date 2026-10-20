@@ -65,7 +65,7 @@
       ]
     },
     {
-      "source": "/site.webmanifest",
+      "source": "/(site\\.webmanifest|manifest\\.json)",
       "headers": [
         { "key": "Content-Type", "value": "application/manifest+json" },
         { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
