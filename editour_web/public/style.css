@@ -14980,6 +14980,27 @@ mark.polish-mark:hover, mark.polish-mark.active {
   box-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
 }
 
+.vault-field-group.highlight-anchor-group {
+  background: rgba(245, 158, 11, 0.05);
+  border: 1.5px solid rgba(245, 158, 11, 0.35);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+.vault-field-group.highlight-anchor-group:focus-within {
+  border-color: #F59E0B;
+  box-shadow: 0 0 16px rgba(245, 158, 11, 0.2);
+}
+
+.vault-field-group.highlight-anchor-group textarea {
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+.vault-field-group.highlight-anchor-group textarea:focus {
+  border-color: #F59E0B;
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.35);
+}
+
 /* 4. Footer Bar */
 .vault-window-footer {
   padding: 14px 20px;

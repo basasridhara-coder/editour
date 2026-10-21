@@ -7062,6 +7062,7 @@ function getDefaultClientFamilyCast() {
         aliases: ['dad', 'father', 'shridhar', 'myself', 'me', 'i', 'husband'],
         age: 40,
         heightDesc: '5ft 10in (178cm), adult stature',
+        uncompromisableAnchors: 'Adult Indian male, age 40, medium-brown skin, oval face, neat salt-and-pepper trimmed beard, short textured dark hair, sturdy broad-shouldered build with upright grounded posture.',
         visualTraits: 'Adult father in early 40s, neat short dark hair, warm confident expression, seasoned contemporary styling.',
         vehicleRole: 'driver_right'
       },
@@ -7073,6 +7074,7 @@ function getDefaultClientFamilyCast() {
         aliases: ['wife', 'mother', 'mom'],
         age: 36,
         heightDesc: '5ft 4in (162cm), adult female stature',
+        uncompromisableAnchors: 'Warm wheatish skin, soft round-to-oval maternal face, gentle dark eyes without heavy makeup, natural shoulder-length wavy dark hair with center/side parting (strictly no past-chest salon blowout curls), healthy medium adult build with natural soft shoulders. Everyday authentic South Indian presence.',
         visualTraits: 'Adult mother in her mid-30s, warm thoughtful smile, dark wavy hair, expressive eyes, elegant casual styling.',
         vehicleRole: 'passenger_front_left'
       },
@@ -7084,6 +7086,7 @@ function getDefaultClientFamilyCast() {
         aliases: ['elder son', 'older son', 'older boy', 'elder brother', 'big brother', 'first son', '11-year-old', '11yo'],
         age: 11,
         heightDesc: '4ft 10in (147cm): Stands a full head taller than his younger brother',
+        uncompromisableAnchors: 'Warm brown-skinned 11-year-old pre-teen Indian boy with neat short dark hair, square shoulders, sturdy healthy youth build (strictly not skinny, not frail), stands visibly a full head taller than his younger brother.',
         visualTraits: '11-year-old pre-teen boy, healthy sturdy build with square shoulders, distinct mature pre-teen facial structure, neat side-parted dark hair, visibly older and taller by a head than his younger brother.',
         vehicleRole: 'passenger_rear_right'
       },
@@ -7095,6 +7098,7 @@ function getDefaultClientFamilyCast() {
         aliases: ['younger son', 'little son', 'younger boy', 'younger brother', 'little brother', 'second son', '7-year-old', '7yo'],
         age: 7,
         heightDesc: '3ft 11in (120cm): Head reaches only to older brother shoulder',
+        uncompromisableAnchors: 'Warm brown-skinned 7-year-old schoolboy with soft rounded cheeks, expressive playful eyes, wavy dark hair, healthy solid child proportions, head reaches only to his older brother shoulder.',
         visualTraits: '7-year-old young schoolboy, noticeably shorter by a full head, top of head reaches only to his older brother shoulder, soft round youthful child cheeks, playful energetic expression, wavy dark hair, lively child proportions.',
         vehicleRole: 'passenger_rear_left'
       }
@@ -7590,6 +7594,17 @@ function renderActiveMemberScreen() {
             <input type="text" id="vField_height" value="${escapeHtml(member.heightDesc || '')}" placeholder="e.g. 4ft 10in, head taller than younger brother" oninput="handleActiveMemberFieldChange('heightDesc', this.value)">
           </div>
 
+          <div class="vault-field-group full-width highlight-anchor-group">
+            <div class="vault-label-with-hint">
+              <label style="color: #F59E0B; display: flex; align-items: center; gap: 6px;">
+                <span>⭐</span>
+                <span>Uncompromisable Identity Anchors (Strict Anatomy & Looks)</span>
+              </label>
+              <span class="vault-label-hint" style="color: #FCD34D;">Anatomy & looks that MUST NEVER mutate across scenes, clothing, or moods (face shape, natural hair length, real-world build)</span>
+            </div>
+            <textarea id="vField_anchors" rows="2" placeholder="e.g. Soft round-to-oval maternal face, natural dark eyes without heavy makeup, natural shoulder-length wavy dark hair with center/side parting (strictly no past-chest salon blowout curls), healthy medium adult build with natural soft shoulders. Everyday authentic South Indian presence." oninput="handleActiveMemberFieldChange('uncompromisableAnchors', this.value)">${escapeHtml(member.uncompromisableAnchors || '')}</textarea>
+          </div>
+
           <div class="vault-field-group full-width">
             <div class="vault-label-with-hint">
               <label>Distinct Features, Hair & Body Structure</label>
@@ -7730,6 +7745,9 @@ async function analyzeActiveMemberAllPhotos() {
       if (data.statureDesc && (!member.heightDesc || member.heightDesc.includes('Standard') || !member.heightDesc.trim())) {
         member.heightDesc = data.statureDesc;
       }
+      if (data.uncompromisableAnchors && !member.uncompromisableAnchors) {
+        member.uncompromisableAnchors = data.uncompromisableAnchors;
+      }
 
       saveFamilyCastProfile(cast);
       renderActiveMemberScreen();
@@ -7783,6 +7801,7 @@ function saveActiveMemberAndNext() {
     const name = document.getElementById('vField_name')?.value?.trim();
     const age = parseInt(document.getElementById('vField_age')?.value, 10) || null;
     const height = document.getElementById('vField_height')?.value?.trim();
+    const anchors = document.getElementById('vField_anchors')?.value?.trim();
     const traits = document.getElementById('vField_traits')?.value?.trim();
     const aliasesRaw = document.getElementById('vField_aliases')?.value?.trim();
 
@@ -7793,6 +7812,7 @@ function saveActiveMemberAndNext() {
     }
     member.age = age;
     if (height !== undefined) member.heightDesc = height;
+    if (anchors !== undefined) member.uncompromisableAnchors = anchors;
     if (traits !== undefined) member.visualTraits = traits;
     if (aliasesRaw) {
       member.aliases = aliasesRaw.split(',').map(a => a.trim().toLowerCase()).filter(Boolean);

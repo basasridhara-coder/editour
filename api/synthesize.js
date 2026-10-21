@@ -783,7 +783,7 @@ Respond strictly with valid JSON with this exact structure:
   "tensionCue": "Opposing visual force or conflict",
   "atmosphereCue": "Environmental setting or mood",
   "lightingCue": "Dramatic lighting description",
-  "illustrationPrompt": "${isCinematicPhoto ? 'Award-winning 35mm editorial news photograph in 4:5 vertical portrait format, sharp camera focus, natural skin textures, lifelike human expressions, realistic clothing and environment observed from the attached photo. Natural ambient lighting, cinematic color grading, strictly no painterly brushstrokes, no canvas textures, no oil paint, no text, no letters.' : (isArtisticPainting ? 'Masterpiece editorial broadsheet painted illustration describing the scene in vivid detail. Specifically incorporate the observed facial structures, hairstyles, expressions, clothing colors, and postures from the attached photo into a rich painterly composition. Clear, warmly lit faces, lifelike human expression, no text, no letters.' : (familyCastDirectives ? (familyCastDirectives.isSolo ? `Cinematic visual art prompt describing the scene with rich detail. Focus exclusively on the single protagonist: ${familyCastDirectives.soloName} (${familyCastDirectives.soloTraits}). Strictly do not draw any extra family members, parents, or background companions. Warm natural lighting, clear human form, no text, no letters, no typography.` : `Cinematic visual art prompt describing the scene with rich detail. MANDATORY HEADCOUNT: You MUST begin with the exact headcount of all ${familyCastDirectives.totalCount} family members visible side by side. All ${familyCastDirectives.totalCount} members must be individually visible with warm, fully illuminated faces. Do not draw detached foreground hands or extra people. No text, no letters, no typography.`) : 'Cinematic visual art prompt describing the scene with rich detail. People MUST have visible faces, warm natural lighting, and clear human form. Strictly avoid pitch-black silhouettes, faceless shadow figures, dark ghosts, or creepy silhouettes unless characterRepresentation is explicitly silhouette. Do not include any text, letters, watermarks, or typography.'))}"
+  "illustrationPrompt": "${isCinematicPhoto ? 'Award-winning 35mm editorial news photograph in 4:5 vertical portrait format, sharp camera focus, natural skin textures, lifelike human expressions, realistic clothing and environment observed from the attached photo. Natural ambient lighting, cinematic color grading, strictly no painterly brushstrokes, no canvas textures, no oil paint, no text, no letters.' : (isArtisticPainting ? 'Masterpiece editorial broadsheet painted illustration describing the scene in vivid detail. Specifically incorporate the observed facial structures, hairstyles, expressions, clothing colors, and postures from the attached photo into a rich painterly composition. Clear, warmly lit faces, lifelike human expression, no text, no letters.' : (familyCastDirectives ? (familyCastDirectives.isSolo ? `Cinematic visual art prompt describing the scene with rich detail. Focus exclusively on the single protagonist: ${familyCastDirectives.soloName} (${familyCastDirectives.soloTraits}). Strictly do not draw any extra family members, parents, or background companions. Warm natural lighting, clear human form, no text, no letters, no typography.` : `Cinematic visual art prompt describing the scene with rich detail. MANDATORY HEADCOUNT: You MUST begin with the exact headcount of all ${familyCastDirectives.totalCount} family members visible side by side. All ${familyCastDirectives.totalCount} members must be individually visible with warm, fully illuminated faces. Preserve each character uncompromisable physical anatomy (face shape, natural hair length, real-world body build) strictly without morphing into western catalog models or salon blowouts. Do not draw detached foreground hands or extra people. No text, no letters, no typography.`) : 'Cinematic visual art prompt describing the scene with rich detail. People MUST have visible faces, warm natural lighting, and clear human form. Strictly avoid pitch-black silhouettes, faceless shadow figures, dark ghosts, or creepy silhouettes unless characterRepresentation is explicitly silhouette. Do not include any text, letters, watermarks, or typography.'))}"
 }`;
 
     const parts = [];
@@ -1734,18 +1734,32 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
     }
   }
 
-  // Sanitize detached foreground hands and remove skinny runway-model biases
+  // Sanitize detached foreground hands, salon blowout hair, and remove skinny runway-model biases
   enhancedPrompt = enhancedPrompt
     .replace(/In the foreground,\s*(?:glowing\s*)?cupped hands receive drops of sacred theertha water/gi, 'The father and sons cup their hands to receive drops of sacred theertha water (no external detached arms)')
     .replace(/\b(lean|skinny|slender|frail)\s*(?:11-year-old|elder son|boy|adolescent)/gi, 'sturdy healthy 11-year-old')
     .replace(/\bgraceful mother\b/gi, 'mother with natural healthy medium build')
-    .replace(/\b(lean|skinny|slender)\s*build/gi, 'healthy sturdy build');
+    .replace(/\b(lean|skinny|slender)\s*build/gi, 'healthy sturdy build')
+    .replace(/\blong flowing (?:dark )?hair\b/gi, 'natural shoulder-length wavy dark hair')
+    .replace(/\blong wavy (?:dark )?hair past (?:her )?chest\b/gi, 'natural shoulder-length wavy dark hair')
+    .replace(/\bsalon blowout\b/gi, 'natural everyday hair')
+    .replace(/\bcasual cotton attire\b/gi, 'comfortable cotton kurta or natural casual attire');
+
+  // Enforce mother physical anchor whenever mother/wife is present
+  if (/\b(mother|wife|mom)\b/i.test(enhancedPrompt) && !enhancedPrompt.includes('shoulder-length wavy dark hair')) {
+    enhancedPrompt += ', Mother physical anchor: authentic Indian woman, warm wheatish skin, soft round-to-oval face, no heavy makeup, natural shoulder-length wavy dark hair, healthy medium adult build with natural soft shoulders (strictly not ultra-slim or runway model)';
+  }
 
   // If adult father is present with a child without mother, replace generic guardian with adult father
   if (/\b(father|dad|shridhar)\b/i.test(enhancedPrompt) && !/\b(mother|mom|wife|woman|female)\b/i.test(enhancedPrompt)) {
     enhancedPrompt = enhancedPrompt
       .replace(/\b(?:an attentive,?\s*smiling\s*)?guardian\b/gi, 'his adult father Shridhar (mid 40s man, trimmed beard)')
       .replace(/\ba parent\b/gi, 'his adult father Shridhar');
+  }
+
+  // Enforce father physical anchor if present
+  if (/\b(father|dad|shridhar)\b/i.test(enhancedPrompt) && !enhancedPrompt.includes('salt-and-pepper')) {
+    enhancedPrompt += ', Father physical anchor: adult Indian male, early 40s, medium-brown skin, oval face, neat salt-and-pepper trimmed beard, short textured dark hair, sturdy broad-shouldered build';
   }
 
   const isPhotoMedium = /photograph|film still|35mm|photojournalism|documentary|editorial portrait photograph/i.test(enhancedPrompt);
@@ -1994,6 +2008,7 @@ function getDefaultFamilyCast(userIdentifier) {
         age: 40,
         ageBracket: 'Adult (Late 30s / Early 40s)',
         heightDesc: '5ft 10in (178cm), adult stature',
+        uncompromisableAnchors: 'Adult Indian male, age 40, medium-brown skin, oval face, neat salt-and-pepper trimmed beard, short textured dark hair, sturdy broad-shouldered build with upright grounded posture.',
         visualTraits: 'Adult father in early 40s, neat short dark hair, warm confident expression, seasoned contemporary styling.',
         vehicleRole: 'driver_right',
         defaultClothing: 'Casual dark linen shirt or jacket'
@@ -2007,7 +2022,8 @@ function getDefaultFamilyCast(userIdentifier) {
         age: 36,
         ageBracket: 'Adult (Mid 30s)',
         heightDesc: '5ft 4in (162cm), adult female stature',
-        visualTraits: 'Adult mother in her mid-30s, warm thoughtful smile, dark wavy hair, expressive eyes, elegant casual styling.',
+        uncompromisableAnchors: 'Warm wheatish skin, soft round-to-oval maternal face, gentle dark eyes without heavy makeup, natural shoulder-length wavy dark hair with center/side parting (strictly no past-chest salon blowout curls), healthy medium adult build with natural soft shoulders. Everyday authentic South Indian presence.',
+        visualTraits: 'Adult mother in her mid-30s, warm thoughtful smile, natural shoulder-length wavy dark hair, expressive eyes, elegant casual styling.',
         vehicleRole: 'passenger_front_left',
         defaultClothing: 'Vibrant comfortable travel attire'
       },
@@ -2020,6 +2036,7 @@ function getDefaultFamilyCast(userIdentifier) {
         age: 11,
         ageBracket: 'Pre-teen / Adolescent (11 Years Old)',
         heightDesc: '4ft 10in (147cm): Stands a full head taller than his younger brother',
+        uncompromisableAnchors: 'Warm brown-skinned 11-year-old pre-teen Indian boy with neat short dark hair, square shoulders, sturdy healthy youth build (strictly not skinny, not frail), stands visibly a full head taller than his younger brother.',
         visualTraits: '11-year-old pre-teen boy, healthy sturdy build with square shoulders, distinct mature pre-teen facial structure, neat side-parted dark hair, visibly older and taller by a head than his younger brother.',
         vehicleRole: 'passenger_rear_right',
         defaultClothing: 'Navy blue or dark graphic tee / hoodie'
@@ -2033,6 +2050,7 @@ function getDefaultFamilyCast(userIdentifier) {
         age: 7,
         ageBracket: 'Young Child / Primary School (7 Years Old)',
         heightDesc: '3ft 11in (120cm): Head reaches only to older brother\'s shoulder',
+        uncompromisableAnchors: 'Warm brown-skinned 7-year-old schoolboy with soft rounded cheeks, expressive playful eyes, wavy dark hair, healthy solid child proportions, head reaches only to his older brother shoulder.',
         visualTraits: '7-year-old young schoolboy, noticeably shorter by a full head, top of head reaches only to his older brother\'s shoulder, soft round youthful child cheeks, playful energetic expression, wavy dark hair, lively child proportions.',
         vehicleRole: 'passenger_rear_left',
         defaultClothing: 'Mustard yellow or bright green graphic t-shirt'
@@ -2237,14 +2255,32 @@ ${activeMembers.map((m, i) => `  * Person #${i + 1}: ${m.name || m.roleLabel} ($
 
   // 3. Member-Specific Facial Traits & Visual Likeness Anchors (Face, Hair & Body Stature)
   const memberTraitDirectives = [];
+  const anchorDirectives = [];
+
   activeMembers.forEach(m => {
+    const anchors = m.uncompromisableAnchors && String(m.uncompromisableAnchors).trim();
+    if (anchors) {
+      anchorDirectives.push(`${m.name || m.roleLabel} (${m.roleLabel || m.relationship}): ${anchors}`);
+      promptSnippets.push(`STRICT ANCHOR for ${m.name || m.roleLabel}: ${anchors}`);
+    }
+
     const traitParts = [m.visualTraits, m.bodyBuild, m.heightDesc].filter(t => t && String(t).trim()).map(t => String(t).trim());
     const combinedTraits = traitParts.join(', ');
     if (combinedTraits) {
       memberTraitDirectives.push(`${m.name || m.roleLabel} (${m.roleLabel || m.relationship}): ${combinedTraits}`);
-      promptSnippets.push(`${m.name || m.roleLabel}: ${combinedTraits}`);
+      if (!anchors) {
+        promptSnippets.push(`${m.name || m.roleLabel}: ${combinedTraits}`);
+      }
     }
   });
+
+  if (anchorDirectives.length > 0) {
+    directives.push(`CORE UNCOMPROMISABLE IDENTITY ANCHORS (IMMUTABLE PHYSICAL ANATOMY & LOOKS):
+${anchorDirectives.map(t => `- ${t}`).join('\n')}
+- NON-NEGOTIABLE IDENTITY INTEGRITY:
+The above uncompromisable anchors define each character immutable DNA (facial geometry, natural hair length, real-world body build, skin tone). While emotional expression, camera angles, and attire (casual wear, traditional Indian clothing, travel wear) adapt dynamically to the post context, the character underlying anatomy, facial structure, and authentic South Indian features MUST REMAIN STRICTLY INVARIANT across all posters. STRICT BAN on mutating into western catalog models, salon blowouts, or airbrushed waif-like frames.`);
+  }
+
   if (memberTraitDirectives.length > 0) {
     directives.push(`CHARACTER APPEARANCE ANCHORS (PRESERVE VISUAL LIKENESS):\n${memberTraitDirectives.map(t => `- ${t}`).join('\n')}`);
   }

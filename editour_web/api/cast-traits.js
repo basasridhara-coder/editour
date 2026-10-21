@@ -68,6 +68,7 @@ Synthesize all visual likeness anchors across the provided photos, analyzing BOT
 
 Return strictly valid JSON with this exact schema:
 {
+  "uncompromisableAnchors": "The core immutable physical anatomy and looks that must never mutate across scenes, clothing, or moods (face shape, natural hair length, real-world build, skin tone, authentic presence, max 35-45 words). Example: 'Warm wheatish skin, soft round-to-oval maternal face, natural dark eyes, natural shoulder-length wavy dark hair, healthy medium adult build with natural soft shoulders.'",
   "visualTraits": "A single coherent, evocative character sentence combining facial features, hair, AND authentic body build / stature (max 35-45 words). Example: 'Warm brown skin, friendly oval face, neat dark mustache, short parted dark hair, with a sturdy, broad-shouldered upright adult build.' or 'Healthy pre-teen boy with sturdy solid frame, square shoulders, rounded cheeks, and neat side-parted hair.'",
   "detectedAge": 38,
   "hair": "Short neat dark hair with side part",
@@ -129,6 +130,7 @@ Do not include markdown code fences, do not include any em-dashes. Output pure J
           if (parsed && parsed.visualTraits && typeof parsed.visualTraits === 'string' && parsed.visualTraits.trim().length > 5) {
             return res.status(200).json({
               success: true,
+              uncompromisableAnchors: parsed.uncompromisableAnchors || '',
               visualTraits: parsed.visualTraits.trim(),
               detectedAge: (typeof parsed.detectedAge === 'number') ? parsed.detectedAge : (approxAge || null),
               hair: parsed.hair || '',
@@ -151,6 +153,7 @@ Do not include markdown code fences, do not include any em-dashes. Output pure J
   // Graceful fallback with rich role-based trait if vision network times out
   return res.status(200).json({
     success: true,
+    uncompromisableAnchors: `${roleHint} with authentic natural features, realistic body build, and natural everyday dark hair.`,
     visualTraits: `${roleHint} with warm lifelike facial features, natural dark hair, and expressive smile.`,
     detectedAge: approxAge || null,
     hair: 'Natural dark hair',
