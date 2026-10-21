@@ -30,6 +30,23 @@ async function verifyEmailIsWhitelisted(email) {
   return false;
 }
 
+function resolveFamilyCastProfileId(userIdentifier) {
+  const raw = String(userIdentifier || '').trim().toLowerCase();
+  if (
+    !raw ||
+    raw === 'default' ||
+    raw === '@shridhar reddy' ||
+    raw === 'shridhar reddy' ||
+    raw === '@shridhar' ||
+    raw === 'shridhar' ||
+    raw.includes('shridhar') ||
+    raw.includes('shridharoct16')
+  ) {
+    return 'family_cast_shridharoct16_gmail_com';
+  }
+  return 'family_cast_' + raw.replace(/[^a-z0-9_-]/g, '_');
+}
+
 module.exports = async function handler(req, res) {
   // CORS configuration
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -56,7 +73,7 @@ module.exports = async function handler(req, res) {
 
     // Direct Single-Purpose Endpoint: Generate artwork only in background (has dedicated full execution window)
     if (body && body.action === 'artwork_only') {
-      const { prompt = '', imageBase64 = null, imageMimeType = 'image/jpeg', creatorEmail = '', familyCast = null, activeCast = null } = body;
+      let { prompt = '', imageBase64 = null, imageMimeType = 'image/jpeg', creatorEmail = '', familyCast = null, activeCast = null } = body;
       const userEmail = (creatorEmail || '').toLowerCase().trim();
       if (!userEmail) {
         return res.status(401).json({ error: 'Slant Studio is currently in Private Preview. Please sign in with your invited Google account.' });
@@ -67,6 +84,21 @@ module.exports = async function handler(req, res) {
       }
       if (!prompt) {
         return res.status(400).json({ error: 'Missing prompt for artwork generation' });
+      }
+
+      if (!familyCast || !Array.isArray(familyCast.members) || familyCast.members.length === 0) {
+        try {
+          const castProfileId = resolveFamilyCastProfileId(creatorEmail || userEmail);
+          const cResp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.${encodeURIComponent(castProfileId)}&select=data`, {
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+          });
+          if (cResp.ok) {
+            const cRows = await cResp.json();
+            if (cRows && cRows[0] && cRows[0].data) {
+              familyCast = cRows[0].data;
+            }
+          }
+        } catch (_) {}
       }
       try {
         const geminiArt = await generateGeminiEditorialArtwork({
@@ -142,7 +174,7 @@ module.exports = async function handler(req, res) {
     // Endpoint: Get Family Cast Vault Profile
     if (body && body.action === 'get_family_cast') {
       const { userIdentifier = 'default' } = body;
-      const profileId = 'family_cast_' + String(userIdentifier).toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+      const profileId = resolveFamilyCastProfileId(userIdentifier);
       try {
         const resp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.${encodeURIComponent(profileId)}&select=data`, {
           headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
@@ -156,6 +188,22 @@ module.exports = async function handler(req, res) {
       } catch (err) {
         console.warn('Get family cast error:', err.message);
       }
+
+      // Secondary fallback: check primary profile if custom ID missed
+      if (profileId !== 'family_cast_shridharoct16_gmail_com') {
+        try {
+          const fbResp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.family_cast_shridharoct16_gmail_com&select=data`, {
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+          });
+          if (fbResp.ok) {
+            const fbRows = await fbResp.json();
+            if (fbRows && fbRows[0] && fbRows[0].data) {
+              return res.status(200).json({ success: true, cast: fbRows[0].data });
+            }
+          }
+        } catch (_) {}
+      }
+
       return res.status(200).json({
         success: true,
         cast: getDefaultFamilyCast(userIdentifier)
@@ -165,7 +213,7 @@ module.exports = async function handler(req, res) {
     // Endpoint: Save Family Cast Vault Profile
     if (body && body.action === 'save_family_cast') {
       const { userIdentifier = 'default', cast } = body;
-      const profileId = 'family_cast_' + String(userIdentifier).toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+      const profileId = resolveFamilyCastProfileId(userIdentifier);
       try {
         await fetch(`${SUPABASE_URL}/rest/v1/posts`, {
           method: 'POST',
@@ -552,9 +600,25 @@ Respond strictly with valid JSON with this exact structure:
 - Visual Focus is set to HYBRID BLEND. This controls the VISUAL ARTWORK only, NOT the text narrative.
 - The illustrationPrompt for Poster 1 should blend the concrete real-world news subject with the curator's symbolic tension and visual metaphor.`;
 
+    let effectiveFamilyCast = familyCast;
+    if (!effectiveFamilyCast || !Array.isArray(effectiveFamilyCast.members) || effectiveFamilyCast.members.length === 0) {
+      try {
+        const castProfileId = resolveFamilyCastProfileId(creatorEmail || userEmail);
+        const cResp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.${encodeURIComponent(castProfileId)}&select=data`, {
+          headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+        });
+        if (cResp.ok) {
+          const cRows = await cResp.json();
+          if (cRows && cRows[0] && cRows[0].data) {
+            effectiveFamilyCast = cRows[0].data;
+          }
+        }
+      } catch (_) {}
+    }
+
     const demographicInfo = detectAgeAndDemographics(userSlant, extractedTitle, extractedContent);
     const familyCastDirectives = buildFamilyCastDirectives({
-      familyCast,
+      familyCast: effectiveFamilyCast,
       activeCast,
       castStaging,
       userSlant,

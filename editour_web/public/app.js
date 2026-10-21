@@ -289,7 +289,7 @@ async function init() {
   await checkDeepLink();
   setupRealtimeSubscription();
   checkIncomingShareTarget();
-  loadFamilyCastProfile();
+  loadFamilyCastProfile(true);
 }
 
 const SUPABASE_URL = 'https://fxfklefnkpmhofncqhfh.supabase.co';
@@ -430,6 +430,7 @@ async function initAuth() {
         isUserWhitelistAllowed = true;
         closeAuthModal();
         checkPendingSharedDataOnAuth();
+        loadFamilyCastProfile(true);
       } else {
         await handleUninvitedUser(session.user);
         return;
@@ -457,6 +458,7 @@ async function initAuth() {
           isUserWhitelistAllowed = true;
           closeAuthModal();
           checkPendingSharedDataOnAuth();
+          loadFamilyCastProfile(true);
           showTemporaryToast(`Welcome to Slant, ${escapeHtml(getUserDisplayName())}! ✨`);
 
           // Log access timestamp
@@ -7039,17 +7041,32 @@ function getDefaultClientFamilyCast() {
   };
 }
 
-async function loadFamilyCastProfile() {
+let isFamilyCastFetching = false;
+
+async function loadFamilyCastProfile(forceRefresh = false) {
   const local = localStorage.getItem('slant_family_cast');
-  if (local) {
+  if (local && !familyCastProfileCache) {
     try {
       familyCastProfileCache = JSON.parse(local);
-      if (familyCastProfileCache && Array.isArray(familyCastProfileCache.members)) {
-        return familyCastProfileCache;
-      }
     } catch (_) {}
   }
 
+  // If local cache exists and not forcing cloud refresh, return immediately
+  // but trigger background cloud revalidation so multi-device updates sync seamlessly
+  if (familyCastProfileCache && !forceRefresh) {
+    if (!isFamilyCastFetching) {
+      setTimeout(() => {
+        loadFamilyCastProfile(true).catch(() => {});
+      }, 50);
+    }
+    return familyCastProfileCache;
+  }
+
+  if (isFamilyCastFetching) {
+    return familyCastProfileCache || getDefaultClientFamilyCast();
+  }
+
+  isFamilyCastFetching = true;
   const userIdentifier = (currentUser && currentUser.email) || '@Shridhar Reddy';
   try {
     const resp = await fetch('/api/synthesize', {
@@ -7067,17 +7084,41 @@ async function loadFamilyCastProfile() {
         try {
           localStorage.setItem('slant_family_cast', JSON.stringify(data.cast));
         } catch (_) {}
+
+        if (activeCastMemberIds.size === 0 && data.cast.members.length > 0) {
+          data.cast.members.forEach(m => activeCastMemberIds.add(m.id));
+        }
+
+        if (!activeVaultMemberId && data.cast.members.length > 0) {
+          activeVaultMemberId = data.cast.members[0].id;
+        }
+
+        const modal = document.getElementById('familyCastModal');
+        if (modal && (modal.classList.contains('open') || modal.classList.contains('active'))) {
+          const activeEl = document.activeElement;
+          const isTyping = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'SELECT');
+          renderVaultMemberTabs();
+          if (!isTyping) {
+            renderActiveMemberScreen();
+          }
+        }
+        renderFamilyCastStagingUI();
+        isFamilyCastFetching = false;
         return data.cast;
       }
     }
   } catch (err) {
     console.warn('Load family cast error:', err);
+  } finally {
+    isFamilyCastFetching = false;
   }
 
-  familyCastProfileCache = getDefaultClientFamilyCast();
-  try {
-    localStorage.setItem('slant_family_cast', JSON.stringify(familyCastProfileCache));
-  } catch (_) {}
+  if (!familyCastProfileCache) {
+    familyCastProfileCache = getDefaultClientFamilyCast();
+    try {
+      localStorage.setItem('slant_family_cast', JSON.stringify(familyCastProfileCache));
+    } catch (_) {}
+  }
   return familyCastProfileCache;
 }
 
@@ -7122,13 +7163,20 @@ function openFamilyCastModal() {
     console.error('Error rendering cast modal:', err);
   }
 
-  // If profile not yet loaded from backend, fetch and re-render
-  if (!familyCastProfileCache) {
-    loadFamilyCastProfile().then(() => {
-      renderVaultMemberTabs();
+  // Always force cloud revalidation when modal is opened so updates from mobile sync immediately
+  loadFamilyCastProfile(true).then((freshCast) => {
+    if (freshCast && Array.isArray(freshCast.members) && freshCast.members.length > 0) {
+      if (!activeVaultMemberId || !freshCast.members.some(m => m.id === activeVaultMemberId)) {
+        activeVaultMemberId = freshCast.members[0].id;
+      }
+    }
+    const activeEl = document.activeElement;
+    const isTyping = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'SELECT');
+    renderVaultMemberTabs();
+    if (!isTyping) {
       renderActiveMemberScreen();
-    }).catch(() => {});
-  }
+    }
+  }).catch(() => {});
 
   modal.classList.add('open');
   modal.classList.add('active');
