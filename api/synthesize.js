@@ -783,7 +783,7 @@ Respond strictly with valid JSON with this exact structure:
   "tensionCue": "Opposing visual force or conflict",
   "atmosphereCue": "Environmental setting or mood",
   "lightingCue": "Dramatic lighting description",
-  "illustrationPrompt": "${isCinematicPhoto ? 'Award-winning 35mm editorial news photograph in 4:5 vertical portrait format, sharp camera focus, natural skin textures, lifelike human expressions, realistic clothing and environment observed from the attached photo. Natural ambient lighting, cinematic color grading, strictly no painterly brushstrokes, no canvas textures, no oil paint, no text, no letters.' : (isArtisticPainting ? 'Masterpiece editorial broadsheet painted illustration describing the scene in vivid detail. Specifically incorporate the observed facial structures, hairstyles, expressions, clothing colors, and postures from the attached photo into a rich painterly composition. Clear, warmly lit faces, lifelike human expression, no text, no letters.' : (familyCastDirectives ? 'Cinematic visual art prompt describing the scene with rich detail. MANDATORY HEADCOUNT: You MUST begin with the exact headcount and enumeration of all family members: e.g. \"Group portrait of exactly 4 distinct individual people visible side by side (3 males, 1 female: 1) Father..., 2) Mother..., 3) 11yo Elder Son..., 4) 7yo Younger Son...). Both sons must be separately drawn side by side; strictly never merge the two boys into a single child. All 4 members must be individually visible with warm, fully illuminated faces. Do not draw detached foreground hands or extra people. No text, no letters, no typography.' : 'Cinematic visual art prompt describing the scene with rich detail. People MUST have visible faces, warm natural lighting, and clear human form. Strictly avoid pitch-black silhouettes, faceless shadow figures, dark ghosts, or creepy silhouettes unless characterRepresentation is explicitly silhouette. Do not include any text, letters, watermarks, or typography.'))}"
+  "illustrationPrompt": "${isCinematicPhoto ? 'Award-winning 35mm editorial news photograph in 4:5 vertical portrait format, sharp camera focus, natural skin textures, lifelike human expressions, realistic clothing and environment observed from the attached photo. Natural ambient lighting, cinematic color grading, strictly no painterly brushstrokes, no canvas textures, no oil paint, no text, no letters.' : (isArtisticPainting ? 'Masterpiece editorial broadsheet painted illustration describing the scene in vivid detail. Specifically incorporate the observed facial structures, hairstyles, expressions, clothing colors, and postures from the attached photo into a rich painterly composition. Clear, warmly lit faces, lifelike human expression, no text, no letters.' : (familyCastDirectives ? (familyCastDirectives.isSolo ? `Cinematic visual art prompt describing the scene with rich detail. Focus exclusively on the single protagonist: ${familyCastDirectives.soloName} (${familyCastDirectives.soloTraits}). Strictly do not draw any extra family members, parents, or background companions. Warm natural lighting, clear human form, no text, no letters, no typography.` : `Cinematic visual art prompt describing the scene with rich detail. MANDATORY HEADCOUNT: You MUST begin with the exact headcount of all ${familyCastDirectives.totalCount} family members visible side by side. All ${familyCastDirectives.totalCount} members must be individually visible with warm, fully illuminated faces. Do not draw detached foreground hands or extra people. No text, no letters, no typography.`) : 'Cinematic visual art prompt describing the scene with rich detail. People MUST have visible faces, warm natural lighting, and clear human form. Strictly avoid pitch-black silhouettes, faceless shadow figures, dark ghosts, or creepy silhouettes unless characterRepresentation is explicitly silhouette. Do not include any text, letters, watermarks, or typography.'))}"
 }`;
 
     const parts = [];
@@ -2043,9 +2043,10 @@ function getDefaultFamilyCast(userIdentifier) {
 function buildFamilyCastDirectives({ familyCast, activeCast, castStaging, userSlant = '', spark = '', countryContext = '' }) {
   const combined = `${userSlant} ${spark}`.toLowerCase();
 
+  const familyRegex = /\b(family|my family|kids|my kids|sons|my sons|both boys|boys|children|wife|mom|mother|dad|father|son|elder son|younger son|older boy|younger boy|11 and 7|11,? 7|road trip with family|vacation with family)\b/i;
+  const isFamilyContext = familyRegex.test(combined);
+
   const hasExplicitCast = activeCast && Array.isArray(activeCast.members) && activeCast.members.length > 0;
-  const familyRegex = /\b(family|my family|kids|my kids|sons|my sons|both boys|boys|children|wife|mom|mother|dad|father|11 and 7|11,? 7|road trip with family)\b/i;
-  const isFamilyContext = hasExplicitCast || familyRegex.test(combined);
 
   if (!isFamilyContext && !hasExplicitCast) {
     return null;
@@ -2053,23 +2054,45 @@ function buildFamilyCastDirectives({ familyCast, activeCast, castStaging, userSl
 
   const cast = familyCast || getDefaultFamilyCast();
   let activeMembers = [];
+
+  // Check if text specifically references individual members
+  const mentionsCollective = /\b(family|my family|kids|my kids|sons|my sons|both boys|boys|children|11 and 7|11,? 7|road trip with family|vacation with family)\b/i.test(combined);
+  const mentionsElder = /\b(elder son|older son|older boy|first son|11-year-old|11yo|11 year old)\b/i.test(combined) || (/\bson\b/i.test(combined) && !/\byounger\b/i.test(combined));
+  const mentionsYounger = /\b(younger son|little son|younger boy|second son|7-year-old|7yo|7 year old|little boy)\b/i.test(combined);
+  const mentionsWife = /\b(wife|mom|mother|spouse)\b/i.test(combined);
+  const mentionsDad = /\b(dad|father|husband)\b/i.test(combined);
+
   if (hasExplicitCast) {
     activeMembers = activeCast.members;
-  } else {
-    const hasKids = /\b(kids|sons|boys|children|two boys|both boys|11|7)\b/i.test(combined);
-    const hasWife = /\b(wife|mom|mother)\b/i.test(combined) || /\bfamily\b/i.test(combined);
-    const hasDad = /\b(dad|father|husband|myself|i|we)\b/i.test(combined) || /\bfamily\b/i.test(combined);
-
-    activeMembers = (cast.members || []).filter(m => {
-      if ((m.relationship === 'elder_son' || m.relationship === 'younger_son') && (hasKids || /\bfamily\b/i.test(combined))) return true;
-      if (m.relationship === 'spouse' && hasWife) return true;
-      if (m.relationship === 'self' && hasDad) return true;
-      return false;
-    });
-
-    if (activeMembers.length === 0) {
-      activeMembers = cast.members || [];
+    // If client sent all 4 members by default, but the text is explicitly about only ONE specific member, filter to that member!
+    if (!mentionsCollective && activeMembers.length > 1) {
+      const filtered = activeMembers.filter(m => {
+        if (m.relationship === 'elder_son' && mentionsElder) return true;
+        if (m.relationship === 'younger_son' && mentionsYounger) return true;
+        if (m.relationship === 'spouse' && mentionsWife) return true;
+        if (m.relationship === 'self' && mentionsDad) return true;
+        return false;
+      });
+      if (filtered.length > 0) {
+        activeMembers = filtered;
+      }
     }
+  } else {
+    if (mentionsCollective) {
+      activeMembers = cast.members || [];
+    } else {
+      activeMembers = (cast.members || []).filter(m => {
+        if (m.relationship === 'elder_son' && mentionsElder) return true;
+        if (m.relationship === 'younger_son' && mentionsYounger) return true;
+        if (m.relationship === 'spouse' && mentionsWife) return true;
+        if (m.relationship === 'self' && mentionsDad) return true;
+        return false;
+      });
+    }
+  }
+
+  if (activeMembers.length === 0) {
+    return null;
   }
 
   const hasElderBoy = activeMembers.some(m => m.relationship === 'elder_son' || m.age === 11);
@@ -2079,18 +2102,28 @@ function buildFamilyCastDirectives({ familyCast, activeCast, castStaging, userSl
   const promptSnippets = [];
 
   const totalCount = activeMembers.length;
+  const isSoloProtagonist = (totalCount === 1);
+  const soloMember = isSoloProtagonist ? activeMembers[0] : null;
   const maleCount = activeMembers.filter(m => m.relationship === 'self' || m.relationship === 'elder_son' || m.relationship === 'younger_son' || /father|dad|son|boy|brother|male/i.test(`${m.roleLabel} ${m.relationship}`)).length;
   const femaleCount = totalCount - maleCount;
 
-  // 0. Mandatory Exact Headcount & Enumeration
-  directives.push(`MANDATORY EXACT HEADCOUNT & ANTI-MERGING DIRECTIVE:
+  if (isSoloProtagonist) {
+    directives.push(`SOLE PROTAGONIST DIRECTIVE:
+- VISIBLE INDIVIDUALS: EXACTLY 1 PERSON (${soloMember.name || soloMember.roleLabel}).
+- THE SCENE FOCUSES ENTIRELY ON THIS SINGLE PROTAGONIST.
+- STRICT BAN ON EXTRA CHARACTERS: Strictly do NOT draw other family members, parents, or siblings. The scene is solely about ${soloMember.name || soloMember.roleLabel}.`);
+    promptSnippets.push(`solo portrait of exactly 1 person: ${soloMember.name || soloMember.roleLabel} as the sole protagonist, strictly no other family members or extra people`);
+  } else {
+    // 0. Mandatory Exact Headcount & Enumeration
+    directives.push(`MANDATORY EXACT HEADCOUNT & ANTI-MERGING DIRECTIVE:
 - TOTAL VISIBLE INDIVIDUALS: EXACTLY ${totalCount} DISTINCT PEOPLE (${maleCount} MALES, ${femaleCount} FEMALES).
 - ALL ${totalCount} FAMILY MEMBERS MUST BE SIMULTANEOUSLY VISIBLE AND FULLY DRAWN SIDE BY SIDE:
 ${activeMembers.map((m, i) => `  * Person #${i + 1}: ${m.name || m.roleLabel} (${m.roleLabel || m.relationship}, age ${m.age || 'N/A'})`).join('\n')}
 - STRICT BAN ON MERGING / COMPRESSION: Image generation models frequently suffer from "two sons" semantic collapse, mistakenly merging the two boys into a single child and drawing only 3 family members. YOU MUST NEVER MERGE THE TWO SONS! Both sons must be drawn as two separate individual boys. All ${maleCount} male family members (Father, Elder Son, Younger Son) and the Mother must be fully and clearly depicted. Never drop any male member.
 - ZERO UNATTACHED FOREGROUND PEOPLE/HANDS: If a ritual action is described (like receiving sacred water or praying), that action MUST be performed by one of the ${totalCount} family members themselves (e.g. the father and boys cupping their hands). Never draw cropped arms/hands of an external 5th person that consumes character slots.`);
 
-  promptSnippets.push(`group portrait of exactly ${totalCount} distinct people (${maleCount} males, ${femaleCount} female: ${activeMembers.map(m => m.name || m.roleLabel).join(', ')} all individually visible side by side, strictly do not merge sons into one child)`);
+    promptSnippets.push(`group portrait of exactly ${totalCount} distinct people (${maleCount} males, ${femaleCount} female: ${activeMembers.map(m => m.name || m.roleLabel).join(', ')} all individually visible side by side, strictly do not merge sons into one child)`);
+  }
 
   // 1. Strict Age & Height Differentiation
   if (hasElderBoy && hasYoungerBoy) {
@@ -2103,13 +2136,22 @@ ${activeMembers.map((m, i) => `  * Person #${i + 1}: ${m.name || m.roleLabel} ($
   }
 
   // 1b. Realistic Authentic Body Statures (Strict Ban on Skinny / Runway Model Bias)
-  directives.push(`AUTHENTIC REAL-WORLD BODY BUILDS (STRICT BAN ON SKINNY / ULTRA-SLIM BIAS):
-- Mother: Draw with an authentic, healthy medium adult build with natural soft shoulders and realistic everyday proportions. STRICTLY NEVER draw an ultra-slim, skinny, or waif-like runway model.
-- Elder Son (Age 11): Draw with a healthy, sturdy pre-teen build and square shoulders. STRICTLY NEVER draw a skinny, frail, or gaunt boy.
-- Younger Son (Age 7): Draw with healthy, energetic solid child proportions with soft rounded cheeks.
-- Father: Draw with a sturdy, broad-shouldered adult build with upright posture.
-- ALL FAMILY MEMBERS MUST REFLECT AUTHENTIC, HEALTHY, NATURAL REAL-WORLD PROPORTIONS.`);
-  promptSnippets.push('authentic natural human builds: mother with healthy medium adult build (not skinny), elder son with sturdy solid pre-teen frame (not lean or frail), younger son with solid child proportions, strictly avoid ultra-slim runway models');
+  const statureGuidelines = [];
+  activeMembers.forEach(m => {
+    if (m.relationship === 'spouse') {
+      statureGuidelines.push('- Mother: Draw with an authentic, healthy medium adult build with natural soft shoulders and realistic everyday proportions. STRICTLY NEVER draw an ultra-slim, skinny, or waif-like runway model.');
+    } else if (m.relationship === 'elder_son') {
+      statureGuidelines.push('- Elder Son (Age 11): Draw with a healthy, sturdy pre-teen build and square shoulders. STRICTLY NEVER draw a skinny, frail, or gaunt boy.');
+    } else if (m.relationship === 'younger_son') {
+      statureGuidelines.push('- Younger Son (Age 7): Draw with healthy, energetic solid child proportions with soft rounded cheeks.');
+    } else if (m.relationship === 'self') {
+      statureGuidelines.push('- Father: Draw with a sturdy, broad-shouldered adult build with upright posture.');
+    }
+  });
+  if (statureGuidelines.length > 0) {
+    directives.push(`AUTHENTIC REAL-WORLD BODY BUILDS (STRICT BAN ON SKINNY / ULTRA-SLIM BIAS):\n${statureGuidelines.join('\n')}\n- ALL PROTAGONISTS MUST REFLECT AUTHENTIC, HEALTHY, NATURAL REAL-WORLD PROPORTIONS.`);
+    promptSnippets.push('authentic natural human proportions: strictly avoid ultra-slim runway models');
+  }
 
   // 2. Vehicle / Driving / Road Trip Context
   const isVehicle = (castStaging && castStaging.mode === 'vehicle_rhd') ||
@@ -2119,7 +2161,7 @@ ${activeMembers.map((m, i) => `  * Person #${i + 1}: ${m.name || m.roleLabel} ($
 
   const isIndia = !countryContext || /india/i.test(countryContext);
 
-  if (isVehicle && !isOverlook) {
+  if (isVehicle && !isOverlook && totalCount > 1) {
     if (isIndia) {
       directives.push(`INDIAN VEHICLE (RIGHT-HAND DRIVE) & SEATING GEOMETRY RULES:
 - The automobile is Right-Hand Drive (RHD) for Indian roads.
@@ -2129,12 +2171,12 @@ ${activeMembers.map((m, i) => `  * Person #${i + 1}: ${m.name || m.roleLabel} ($
 - STRICT BAN ON SPATIAL HALLUCINATIONS: Children are NEVER in the driver seat, NEVER holding the steering wheel, NEVER sitting on laps, NEVER crammed multiple people in one seat! Vehicle drives on the left side of the road.`);
       promptSnippets.push('Right-Hand Drive Indian vehicle layout: adult father driving on front-right seat, adult mother in front-left passenger seat, two young boys seated separately in rear seats with seatbelts, no kids in driver seat');
     }
-  } else if (isOverlook || isVehicle) {
+  } else if ((isOverlook || isVehicle) && totalCount > 1) {
     directives.push(`SCENIC ROAD TRIP OVERLOOK COMPOSITION:
 - The family vehicle is parked safely on the scenic mountain shoulder or highway viewpoint.
-- The family members stand naturally together taking in the landscape: adult father, mother, taller 11-year-old son, and shorter 7-year-old son with clear height disparity.
+- The family members stand naturally together taking in the landscape.
 - Clear, brightly illuminated faces with natural human expressions.`);
-    promptSnippets.push('family road trip scenic overlook by parked vehicle: father, mother, tall 11-year-old son, shorter 7-year-old son standing naturally together admiring the vista');
+    promptSnippets.push('family road trip scenic overlook by parked vehicle: family members standing naturally together admiring the vista');
   }
 
   // 3. Member-Specific Facial Traits & Visual Likeness Anchors (Face, Hair & Body Stature)
@@ -2148,13 +2190,17 @@ ${activeMembers.map((m, i) => `  * Person #${i + 1}: ${m.name || m.roleLabel} ($
     }
   });
   if (memberTraitDirectives.length > 0) {
-    directives.push(`FAMILY MEMBER CHARACTER APPEARANCE ANCHORS (PRESERVE VISUAL LIKENESS):\n${memberTraitDirectives.map(t => `- ${t}`).join('\n')}`);
+    directives.push(`CHARACTER APPEARANCE ANCHORS (PRESERVE VISUAL LIKENESS):\n${memberTraitDirectives.map(t => `- ${t}`).join('\n')}`);
   }
 
   return {
     systemPromptSection: directives.join('\n\n'),
     promptSnippet: promptSnippets.join(', '),
-    activeMembers
+    activeMembers,
+    totalCount,
+    isSolo: isSoloProtagonist,
+    soloName: soloMember ? (soloMember.name || soloMember.roleLabel) : '',
+    soloTraits: soloMember ? [soloMember.visualTraits, soloMember.bodyBuild, soloMember.heightDesc].filter(Boolean).join(', ') : ''
   };
 }
 

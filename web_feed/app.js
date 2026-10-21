@@ -7801,16 +7801,54 @@ function toggleActiveCastMember(memberId) {
   renderFamilyCastStagingUI();
 }
 
+function dismissFamilyCastStaging() {
+  const card = document.getElementById('familyCastStagingCard');
+  if (card) {
+    card.style.display = 'none';
+    card.dataset.manuallyDismissed = 'true';
+    delete card.dataset.manuallyOpened;
+  }
+  activeCastMemberIds.clear();
+  renderFamilyCastStagingUI();
+  showTemporaryToast('Family cast disabled for this post.');
+}
+
 function checkAndTriggerFamilyCast(text = '') {
   const combined = String(text || '').toLowerCase();
-  const familyRegex = /\b(family|my family|kids|my kids|sons|my sons|both boys|boys|children|wife|mom|mother|dad|father|11 and 7|11,? 7|road trip|trip)\b/i;
-
   const card = document.getElementById('familyCastStagingCard');
   if (!card) return;
 
+  if (card.dataset.manuallyDismissed) return;
+
+  const familyRegex = /\b(family|my family|kids|my kids|sons|my sons|both boys|boys|children|wife|mom|mother|dad|father|son|elder son|younger son|older boy|younger boy|11 and 7|11,? 7|road trip|vacation with family)\b/i;
   const matches = familyRegex.test(combined);
+
   if (matches) {
     card.style.display = 'flex';
+
+    // Selective Member Intelligence:
+    // Only pre-select all members if the collective family / kids are mentioned.
+    // If only a specific member is mentioned, activate only that member!
+    const mentionsCollective = /\b(family|my family|kids|my kids|sons|my sons|both boys|boys|children|11 and 7|11,? 7|road trip)\b/i.test(combined);
+    const mentionsElder = /\b(elder son|older son|older boy|first son|11-year-old|11yo|11 year old)\b/i.test(combined) || (/\bson\b/i.test(combined) && !/\byounger\b/i.test(combined));
+    const mentionsYounger = /\b(younger son|little son|younger boy|second son|7-year-old|7yo|7 year old|little boy)\b/i.test(combined);
+    const mentionsWife = /\b(wife|mom|mother|spouse)\b/i.test(combined);
+    const mentionsDad = /\b(dad|father|husband)\b/i.test(combined);
+
+    if (mentionsCollective) {
+      activeCastMemberIds = new Set(['member_father', 'member_mother', 'member_elder_son', 'member_younger_son']);
+    } else {
+      const selected = new Set();
+      if (mentionsElder) selected.add('member_elder_son');
+      if (mentionsYounger) selected.add('member_younger_son');
+      if (mentionsWife) selected.add('member_mother');
+      if (mentionsDad) selected.add('member_father');
+
+      if (selected.size > 0) {
+        activeCastMemberIds = selected;
+      }
+    }
+
     renderFamilyCastStagingUI();
 
     // Auto-detect vehicle context
@@ -7865,8 +7903,15 @@ function renderFamilyCastStagingUI() {
 }
 
 function getActiveCastPayload() {
+  const card = document.getElementById('familyCastStagingCard');
+  if (card && card.style.display === 'none' && !card.dataset.manuallyOpened) {
+    return null;
+  }
   const cast = familyCastProfileCache || getDefaultClientFamilyCast();
   const activeList = (cast.members || []).filter(m => activeCastMemberIds.has(m.id));
+  if (activeList.length === 0) {
+    return null;
+  }
   return {
     members: activeList,
     stagingMode: activeCastStagingMode
@@ -8722,6 +8767,7 @@ function resetCreatorState() {
   if (stagingCard) {
     stagingCard.style.display = 'none';
     delete stagingCard.dataset.manuallyOpened;
+    delete stagingCard.dataset.manuallyDismissed;
   }
 
   // Clear inputs in Step 1
