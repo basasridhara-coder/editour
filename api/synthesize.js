@@ -117,31 +117,9 @@ module.exports = async function handler(req, res) {
           }
         } catch (_) {}
       }
-      // Collect Stylized Character Avatars for active members to lock recurring identity without digital footprint
-      let stylizedAvatars = [];
-      if (familyCast && Array.isArray(familyCast.members)) {
-        const detectedIds = detectRelevantCastMembers(prompt, familyCast);
-        const activeMembers = (activeCast && Array.isArray(activeCast.members) && activeCast.members.length > 0)
-          ? activeCast.members
-          : familyCast.members.filter(m => detectedIds.has(m.id));
-
-        for (const m of activeMembers) {
-          const fullMem = familyCast.members.find(fm => fm.id === m.id) || m;
-          const avUrl = fullMem.stylizedAvatarUrl || fullMem.stylizedAvatar;
-          if (avUrl) {
-            const b64 = await getAvatarBase64(avUrl);
-            if (b64) {
-              stylizedAvatars.push({
-                memberId: fullMem.id,
-                name: fullMem.name,
-                roleLabel: fullMem.roleLabel || fullMem.relationship,
-                imageBase64: b64,
-                imageMimeType: 'image/png'
-              });
-            }
-          }
-        }
-      }
+      // Multi-avatar image conditioning retired per design alignment: text-based Casting Vault anchors provide superior consistency,
+      // eliminate token bleed, avoid clothing swaps, and maintain strict zero digital footprint.
+      const stylizedAvatars = null;
 
       try {
         const geminiArt = await generateGeminiEditorialArtwork({
