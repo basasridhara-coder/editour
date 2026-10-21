@@ -68,28 +68,109 @@ module.exports = async function handler(req, res) {
     }
 
     // 2. Direct edge redirect to Supabase Public Storage CDN
-    // This avoids database roundtrips and serves through Cloudflare edge caching
+    // Check webp and png in Supabase storage CDN
     try {
       const webpUrl = `${SUPABASE_URL}/storage/v1/object/public/posters/${id}.webp`;
-      const headResp = await fetch(webpUrl, { method: 'HEAD' });
-      const targetUrl = headResp.ok ? webpUrl : `${SUPABASE_URL}/storage/v1/object/public/posters/${id}.png`;
+      const pngUrl = `${SUPABASE_URL}/storage/v1/object/public/posters/${id}.png`;
 
-      res.setHeader('Location', targetUrl);
-      res.setHeader('Cache-Control', 'public, max-age=31536000, s-maxage=31536000, immutable');
-      if (typeof res.redirect === 'function') {
-        return res.redirect(307, targetUrl);
+      const headWebp = await fetch(webpUrl, { method: 'HEAD' });
+      if (headWebp.ok) {
+        res.setHeader('Location', webpUrl);
+        res.setHeader('Cache-Control', 'public, max-age=31536000, s-maxage=31536000, immutable');
+        if (typeof res.redirect === 'function') return res.redirect(307, webpUrl);
+        res.statusCode = 307;
+        return res.end();
       }
-      res.statusCode = 307;
-      return res.end();
-    } catch (_) {
-      const fallbackUrl = `${SUPABASE_URL}/storage/v1/object/public/posters/${id}.webp`;
-      res.setHeader('Location', fallbackUrl);
-      res.setHeader('Cache-Control', 'public, max-age=31536000, s-maxage=31536000, immutable');
-      if (typeof res.redirect === 'function') {
-        return res.redirect(307, fallbackUrl);
+
+      const headPng = await fetch(pngUrl, { method: 'HEAD' });
+      if (headPng.ok) {
+        res.setHeader('Location', pngUrl);
+        res.setHeader('Cache-Control', 'public, max-age=31536000, s-maxage=31536000, immutable');
+        if (typeof res.redirect === 'function') return res.redirect(307, pngUrl);
+        res.statusCode = 307;
+        return res.end();
       }
-      res.statusCode = 307;
-      return res.end();
+    } catch (_) {}
+
+    // 3. Self-Healing on demand: If neither exists, generate from post prompt in Supabase
+    try {
+      let geminiKey = process.env.GEMINI_API_KEY || '';
+      if (!geminiKey) {
+        try {
+          const envContent = fs.readFileSync(path.join(__dirname, '../.env'), 'utf8');
+          const m = envContent.match(/GEMINI_API_KEY=([^\r\n]+)/);
+          if (m) geminiKey = m[1].trim();
+        } catch (_) {}
+      }
+
+      if (geminiKey) {
+        const pResp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.${encodeURIComponent(id)}&select=data`, {
+          headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+        });
+        if (pResp.ok) {
+          const pRows = await pResp.json();
+          const postData = pRows?.[0]?.data;
+          const prompt = postData?.illustrationPrompt || postData?.adaptedHeadline;
+          if (prompt) {
+            const modelUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${geminiKey}`;
+            const gResp = await fetch(modelUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [{ parts: [{ text: `${prompt}, 4:5 vertical portrait format, dramatic atmospheric mood, painterly texture, dramatic lighting, high aesthetic, vivid color grading, masterwork, no typography, no letters, no text.` }] }],
+                generationConfig: {
+                  responseModalities: ['IMAGE'],
+                  imageConfig: { aspectRatio: '3:4' }
+                }
+              })
+            });
+            if (gResp.ok) {
+              const gData = await gResp.json();
+              const inlinePart = gData.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
+              if (inlinePart && inlinePart.inlineData?.data) {
+                const cleanB64 = inlinePart.inlineData.data;
+                const buf = Buffer.from(cleanB64, 'base64');
+
+                // Persist to Supabase Storage in background
+                for (const uploadExt of ['webp', 'png']) {
+                  try {
+                    await fetch(`${SUPABASE_URL}/storage/v1/object/posters/${id}.${uploadExt}`, {
+                      method: 'POST',
+                      headers: {
+                        'apikey': SUPABASE_KEY,
+                        'Authorization': `Bearer ${SUPABASE_KEY}`,
+                        'Content-Type': 'image/webp',
+                        'x-upsert': 'true'
+                      },
+                      body: buf
+                    });
+                  } catch (_) {}
+                }
+
+                // Update post data so artworkPending is cleared
+                try {
+                  postData.illustrationUrl = `${SUPABASE_URL}/storage/v1/object/public/posters/${id}.webp`;
+                  postData.aiIllustrationUrl = postData.illustrationUrl;
+                  postData.artworkPending = false;
+                  await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.${encodeURIComponent(id)}`, {
+                    method: 'PATCH',
+                    headers: {
+                      'apikey': SUPABASE_KEY,
+                      'Authorization': `Bearer ${SUPABASE_KEY}`,
+                      'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ data: postData })
+                  });
+                } catch (_) {}
+
+                return sendImageBuffer(res, buf, 'image/webp');
+              }
+            }
+          }
+        }
+      }
+    } catch (healErr) {
+      console.warn('Poster self-healing error:', healErr.message);
     }
 
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');

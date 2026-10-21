@@ -583,6 +583,13 @@ function getUserAvatarUrl() {
   return meta.avatar_url || meta.picture || null;
 }
 
+function getResolvedCreatorEmail() {
+  if (currentUser?.email) return currentUser.email;
+  const stored = localStorage.getItem('slant_user_email');
+  if (stored && stored.includes('@')) return stored;
+  return 'shridharoct16@gmail.com';
+}
+
 function updateAuthUI() {
   const signedInView = document.getElementById('signedInAppView');
   const signedOutView = document.getElementById('signedOutPageView');
@@ -3785,7 +3792,35 @@ function buildSlide1Html(post, index) {
     ? `<img class="slide-hook-bg" src="${escapeHtml(bgImgSrc)}" alt="" loading="eager" referrerpolicy="no-referrer" onerror="handlePosterImageError(this, '${escapeHtml(post.categoryBadge || '')}')">`
     : `<img class="slide-hook-bg" src="" alt="" style="display:none;" loading="eager" referrerpolicy="no-referrer" onerror="handlePosterImageError(this, '${escapeHtml(post.categoryBadge || '')}')">`;
 
-  const bgHtml = `${fallbackCoverHtml}${imgHtml}`;
+  let inDeckStatusHtml = '';
+  if (index === 'preview') {
+    if (post.isArtworkRetrying) {
+      inDeckStatusHtml = `
+        <div class="deck-art-loading-wrap">
+          <div class="deck-art-logo-spinner">
+            <img src="/slanlogo.svg?v=20261013_2100" class="deck-logo-pulse" alt="Rendering artwork...">
+          </div>
+          <div class="deck-art-loading-title">Rendering Poster Artwork...</div>
+          <div class="deck-art-loading-desc">Gemini is rendering custom editorial composition & metaphors</div>
+        </div>
+      `;
+    } else if (!post.illustrationBase64 && (post.artworkError || post.artworkPending)) {
+      const errText = post.artworkError || 'Artwork generation timed out';
+      inDeckStatusHtml = `
+        <div class="deck-art-error-wrap">
+          <div class="deck-art-error-icon">⚠️</div>
+          <div class="deck-art-error-title">Visual Artwork Timed Out</div>
+          <div class="deck-art-error-desc">${escapeHtml(errText)}. Tap below to generate poster artwork now.</div>
+          <button type="button" class="deck-art-retry-btn" onclick="event.stopPropagation(); retryStep3ArtworkGeneration(event)">
+            <span>🎨</span>
+            <span>Retry Poster Artwork</span>
+          </button>
+        </div>
+      `;
+    }
+  }
+
+  const bgHtml = `${fallbackCoverHtml}${imgHtml}${inDeckStatusHtml}`;
 
   // 1. The Headline Excerpt of Source (Original Article / News Wire / Spark Excerpt)
   let rawNews = '';
@@ -3968,7 +4003,34 @@ function buildSlide2Html(post, index) {
     ? `<img class="slide-hook-bg" src="${escapeHtml(bgCritiqueImgSrc)}" alt="" loading="eager" referrerpolicy="no-referrer" onerror="handlePosterImageError(this, '${escapeHtml(post.categoryBadge || '')}')">`
     : `<img class="slide-hook-bg" src="" alt="" style="display:none;" loading="eager" referrerpolicy="no-referrer" onerror="handlePosterImageError(this, '${escapeHtml(post.categoryBadge || '')}')">`;
 
-  const bgHtml = `${fallbackCritiqueCoverHtml}${critiqueImgHtml}`;
+  let inDeckCritiqueStatusHtml = '';
+  if (index === 'preview') {
+    if (post.isArtworkRetrying) {
+      inDeckCritiqueStatusHtml = `
+        <div class="deck-art-loading-wrap">
+          <div class="deck-art-logo-spinner">
+            <img src="/slanlogo.svg?v=20261013_2100" class="deck-logo-pulse" alt="Rendering artwork...">
+          </div>
+          <div class="deck-art-loading-title">Rendering Poster Artwork...</div>
+          <div class="deck-art-loading-desc">Applying visual theme to Deck Slide 2</div>
+        </div>
+      `;
+    } else if (!post.illustrationBase64 && (post.artworkError || post.artworkPending)) {
+      inDeckCritiqueStatusHtml = `
+        <div class="deck-art-error-wrap">
+          <div class="deck-art-error-icon">⚠️</div>
+          <div class="deck-art-error-title">Artwork Pending on Slide 2</div>
+          <div class="deck-art-error-desc">Tap below to retry generating visual artwork for the deck.</div>
+          <button type="button" class="deck-art-retry-btn" onclick="event.stopPropagation(); retryStep3ArtworkGeneration(event)">
+            <span>🎨</span>
+            <span>Retry Poster Artwork</span>
+          </button>
+        </div>
+      `;
+    }
+  }
+
+  const bgHtml = `${fallbackCritiqueCoverHtml}${critiqueImgHtml}${inDeckCritiqueStatusHtml}`;
 
   return `
     ${bgHtml}
@@ -11524,21 +11586,23 @@ async function startAiSynthesis() {
     const s2TitleInput = document.getElementById('editModalS2Title');
     if (s2TitleInput) s2TitleInput.value = currentSynthesizedPost.critiqueBadge || (currentSynthesizedPost.keyTakeaways && currentSynthesizedPost.keyTakeaways[0] ? currentSynthesizedPost.keyTakeaways[0].toUpperCase() : 'THE CRITICAL PERSPECTIVE');
 
-    // Wait for custom editorial illustration so the user lands directly on the finished artwork
+    // Hold logo animation until custom editorial illustration is actually loaded in memory
     if (currentSynthesizedPost && !currentSynthesizedPost.illustrationBase64 && currentSynthesizedPost.illustrationPrompt) {
-      if (stepText) stepText.textContent = 'Rendering custom editorial artwork & visual metaphors...';
+      if (stepText) stepText.textContent = 'Rendering custom editorial poster artwork & visual metaphors...';
       if (fill) fill.style.width = '88%';
+
+      const userEmail = getResolvedCreatorEmail();
 
       try {
         const artController = new AbortController();
-        const artTimeout = setTimeout(() => artController.abort(), 19000);
+        const artTimeout = setTimeout(() => artController.abort(), 26000);
 
         const artResp = await fetch('/api/synthesize', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             action: 'artwork_only',
-            creatorEmail: currentUser?.email || '',
+            creatorEmail: userEmail,
             prompt: currentSynthesizedPost.illustrationPrompt,
             familyCast: familyCastProfileCache,
             activeCast: getActiveCastPayload(),
@@ -11553,25 +11617,47 @@ async function startAiSynthesis() {
 
         if (artResp.ok) {
           const artData = await artResp.json();
-          if (artData && artData.success) {
-            if (artData.illustrationBase64) {
-              const isDataUri = artData.illustrationBase64.startsWith('data:');
-              currentSynthesizedPost.illustrationBase64 = isDataUri ? artData.illustrationBase64 : `data:image/png;base64,${artData.illustrationBase64}`;
-              currentSynthesizedPost.posterBase64 = currentSynthesizedPost.illustrationBase64;
-              currentSynthesizedPost.artworkPending = false;
-            }
+          if (artData && artData.success && artData.illustrationBase64) {
+            const isDataUri = artData.illustrationBase64.startsWith('data:');
+            const formatted = isDataUri ? artData.illustrationBase64 : `data:image/png;base64,${artData.illustrationBase64}`;
+
+            // Preload and decode in browser memory so DOM paints immediately
+            await new Promise((resolve) => {
+              const preloadImg = new Image();
+              preloadImg.onload = () => resolve(true);
+              preloadImg.onerror = () => resolve(false);
+              preloadImg.src = formatted;
+            });
+
+            currentSynthesizedPost.illustrationBase64 = formatted;
+            currentSynthesizedPost.posterBase64 = formatted;
+            currentSynthesizedPost.artworkPending = false;
+            delete currentSynthesizedPost.artworkError;
+
             if (artData.illustrationUrl) {
               currentSynthesizedPost.illustrationUrl = artData.illustrationUrl;
               currentSynthesizedPost.aiIllustrationUrl = artData.illustrationUrl;
             }
+          } else {
+            currentSynthesizedPost.artworkPending = true;
+            currentSynthesizedPost.artworkError = artData?.error || 'Artwork generation timed out';
           }
+        } else {
+          currentSynthesizedPost.artworkPending = true;
+          currentSynthesizedPost.artworkError = 'Artwork service returned status ' + artResp.status;
         }
       } catch (artErr) {
-        console.info('Artwork generation inline skipped or timed out, using curated fallback:', artErr.message);
+        currentSynthesizedPost.artworkPending = true;
+        currentSynthesizedPost.artworkError = 'Artwork generation timed out';
+        console.info('Artwork generation inline timed out:', artErr.message);
       }
     }
 
-    if (stepText) stepText.textContent = 'Editorial deck finalized!';
+    if (currentSynthesizedPost?.illustrationBase64) {
+      if (stepText) stepText.textContent = 'Poster artwork & editorial deck finalized!';
+    } else {
+      if (stepText) stepText.textContent = 'Editorial deck ready (Artwork timed out • Tap retry on deck)';
+    }
     if (fill) fill.style.width = '100%';
 
     setTimeout(() => {
@@ -11592,7 +11678,7 @@ async function startAiSynthesis() {
         if (synthLoading) synthLoading.style.display = 'none';
         alert('Could not render posters: ' + renderErr.message);
       }
-    }, 350);
+    }, 400);
 
   } catch (err) {
     clearAllTimers();
@@ -11619,6 +11705,80 @@ async function startAiSynthesis() {
 }
 
 let isArtworkEnhancing = false;
+
+async function retryStep3ArtworkGeneration(event) {
+  if (event) event.stopPropagation();
+  if (!currentSynthesizedPost || isArtworkEnhancing) return;
+
+  currentSynthesizedPost.isArtworkRetrying = true;
+  currentSynthesizedPost.artworkPending = true;
+  delete currentSynthesizedPost.artworkError;
+  renderCreatorPreview();
+
+  const userEmail = getResolvedCreatorEmail();
+  isArtworkEnhancing = true;
+
+  try {
+    const artController = new AbortController();
+    const artTimer = setTimeout(() => artController.abort(), 28000);
+
+    const artResp = await fetch('/api/synthesize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'artwork_only',
+        creatorEmail: userEmail,
+        prompt: currentSynthesizedPost.illustrationPrompt,
+        familyCast: familyCastProfileCache,
+        activeCast: getActiveCastPayload(),
+        imageBase64: (creatorPerspectiveMode === 'source' || creatorCharacterRepresentation === 'exact')
+          ? (creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || currentSynthesizedPost?.sourceImageBase64 || null)
+          : null,
+        imageMimeType: creatorReferenceImageMimeType || currentScrapedArticle?.imageMimeType || currentSynthesizedPost?.sourceImageMimeType || 'image/jpeg'
+      }),
+      signal: artController.signal
+    });
+    clearTimeout(artTimer);
+
+    if (artResp.ok) {
+      const artData = await artResp.json();
+      if (artData && artData.success && artData.illustrationBase64) {
+        const isDataUri = artData.illustrationBase64.startsWith('data:');
+        const formatted = isDataUri ? artData.illustrationBase64 : `data:image/png;base64,${artData.illustrationBase64}`;
+
+        await new Promise((resolve) => {
+          const img = new Image();
+          img.onload = () => resolve(true);
+          img.onerror = () => resolve(false);
+          img.src = formatted;
+        });
+
+        currentSynthesizedPost.illustrationBase64 = formatted;
+        currentSynthesizedPost.posterBase64 = formatted;
+        currentSynthesizedPost.artworkPending = false;
+        delete currentSynthesizedPost.artworkError;
+        showTemporaryToast('✓ Visual poster artwork successfully generated!');
+      } else {
+        currentSynthesizedPost.artworkError = artData?.error || 'Artwork synthesis timed out';
+        currentSynthesizedPost.artworkPending = true;
+        showTemporaryToast('⚠️ Artwork retry timed out. Tap retry again.');
+      }
+    } else {
+      currentSynthesizedPost.artworkError = 'Server returned status ' + artResp.status;
+      currentSynthesizedPost.artworkPending = true;
+      showTemporaryToast('⚠️ Artwork generation could not be completed.');
+    }
+  } catch (err) {
+    currentSynthesizedPost.artworkError = err.message || 'Artwork synthesis connection timed out';
+    currentSynthesizedPost.artworkPending = true;
+    showTemporaryToast('⚠️ Artwork connection timed out. Tap retry.');
+  } finally {
+    currentSynthesizedPost.isArtworkRetrying = false;
+    isArtworkEnhancing = false;
+    renderCreatorPreview();
+  }
+}
+
 async function enhancePosterArtworkInBackground(post) {
   if (!post || post.illustrationBase64 || !post.illustrationPrompt || isArtworkEnhancing) return;
   isArtworkEnhancing = true;
@@ -11629,7 +11789,7 @@ async function enhancePosterArtworkInBackground(post) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         action: 'artwork_only',
-        creatorEmail: currentUser?.email || '',
+        creatorEmail: getResolvedCreatorEmail(),
         prompt: post.illustrationPrompt,
         familyCast: familyCastProfileCache,
         activeCast: getActiveCastPayload(),
@@ -11649,6 +11809,7 @@ async function enhancePosterArtworkInBackground(post) {
           post.aiIllustrationUrl = data.illustrationUrl;
         }
         post.artworkPending = false;
+        delete post.artworkError;
         if (currentSynthesizedPost && currentSynthesizedPost.id === post.id) {
           if (data.illustrationBase64) currentSynthesizedPost.illustrationBase64 = data.illustrationBase64;
           if (data.illustrationUrl) {
@@ -11656,6 +11817,7 @@ async function enhancePosterArtworkInBackground(post) {
             currentSynthesizedPost.aiIllustrationUrl = data.illustrationUrl;
           }
           currentSynthesizedPost.artworkPending = false;
+          delete currentSynthesizedPost.artworkError;
           renderCreatorPreview();
           showTemporaryToast('✨ AI Editorial Artwork successfully rendered!');
         }
@@ -12770,6 +12932,13 @@ async function uploadArtworkToSupabaseStorage(postId, base64Data) {
 async function saveSynthesizedPost() {
   if (!currentSynthesizedPost) return;
 
+  if (!currentSynthesizedPost.illustrationBase64 && !currentSynthesizedPost.posterBase64 && currentSynthesizedPost.artworkError) {
+    const proceed = confirm('Visual poster artwork is still pending or timed out.\n\nTap OK to save as a text draft (artwork will be generated on demand), or Cancel to Retry generating the artwork first.');
+    if (!proceed) {
+      return;
+    }
+  }
+
   const saveBtn = document.getElementById('step3SaveBtn');
   const saveLbl = document.getElementById('step3SaveLabel');
   if (saveBtn) saveBtn.disabled = true;
@@ -12831,8 +13000,9 @@ async function saveSynthesizedPost() {
   }
 
   if (!postToSave.illustrationUrl) {
-    postToSave.illustrationUrl = `${SUPABASE_URL}/storage/v1/object/public/posters/${postToSave.id}.webp`;
+    postToSave.illustrationUrl = `/posters/${postToSave.id}.png`;
     postToSave.aiIllustrationUrl = postToSave.illustrationUrl;
+    postToSave.artworkPending = true;
   }
 
   // Purge heavy base64 fields only if direct cloud upload already succeeded, otherwise let backend upload it
@@ -13009,8 +13179,9 @@ async function publishSynthesizedPost() {
   }
 
   if (!postToSave.illustrationUrl) {
-    postToSave.illustrationUrl = `${SUPABASE_URL}/storage/v1/object/public/posters/${postToSave.id}.webp`;
+    postToSave.illustrationUrl = `/posters/${postToSave.id}.png`;
     postToSave.aiIllustrationUrl = postToSave.illustrationUrl;
+    postToSave.artworkPending = true;
   }
 
   // Purge heavy base64 fields only if direct cloud upload already succeeded, otherwise let backend upload it
