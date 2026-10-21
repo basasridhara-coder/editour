@@ -213,8 +213,12 @@ module.exports = async function handler(req, res) {
       }
 
       // Automatically persist poster to Supabase Storage if illustrationBase64 or posterBase64 is provided
-      const rawPoster = postData.illustrationBase64 || postData.posterBase64;
-      if (rawPoster && typeof rawPoster === 'string' && rawPoster.startsWith('data:image/')) {
+      let rawPoster = postData.illustrationBase64 || postData.posterBase64;
+      if (rawPoster && typeof rawPoster === 'string' && rawPoster.length > 50) {
+        if (!rawPoster.startsWith('data:image/')) {
+          const isPng = rawPoster.startsWith('iVBORw');
+          rawPoster = `data:image/${isPng ? 'png' : 'jpeg'};base64,${rawPoster}`;
+        }
         try {
           const match = rawPoster.match(/^data:(image\/[^;]+);base64,/);
           const mime = match ? match[1] : 'image/webp';
@@ -223,16 +227,20 @@ module.exports = async function handler(req, res) {
           const buf = Buffer.from(cleanB64, 'base64');
           const fileName = `${postData.id}.${ext}`;
 
-          await fetch(`${SUPABASE_URL}/storage/v1/object/posters/${fileName}`, {
-            method: 'POST',
-            headers: {
-              'apikey': SUPABASE_KEY,
-              'Authorization': `Bearer ${SUPABASE_KEY}`,
-              'Content-Type': mime,
-              'x-upsert': 'true'
-            },
-            body: buf
-          });
+          for (const uploadExt of [ext, 'webp', 'png']) {
+            try {
+              await fetch(`${SUPABASE_URL}/storage/v1/object/posters/${postData.id}.${uploadExt}`, {
+                method: 'POST',
+                headers: {
+                  'apikey': SUPABASE_KEY,
+                  'Authorization': `Bearer ${SUPABASE_KEY}`,
+                  'Content-Type': mime,
+                  'x-upsert': 'true'
+                },
+                body: buf
+              });
+            } catch (_) {}
+          }
 
           postData.illustrationUrl = `${SUPABASE_URL}/storage/v1/object/public/posters/${fileName}`;
           postData.aiIllustrationUrl = postData.illustrationUrl;

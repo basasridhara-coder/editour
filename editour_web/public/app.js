@@ -10976,7 +10976,9 @@ async function startAiSynthesis() {
           const artData = await artResp.json();
           if (artData && artData.success) {
             if (artData.illustrationBase64) {
-              currentSynthesizedPost.illustrationBase64 = artData.illustrationBase64;
+              const isDataUri = artData.illustrationBase64.startsWith('data:');
+              currentSynthesizedPost.illustrationBase64 = isDataUri ? artData.illustrationBase64 : `data:image/png;base64,${artData.illustrationBase64}`;
+              currentSynthesizedPost.posterBase64 = currentSynthesizedPost.illustrationBase64;
               currentSynthesizedPost.artworkPending = false;
             }
             if (artData.illustrationUrl) {
@@ -12132,13 +12134,15 @@ async function uploadArtworkToSupabaseStorage(postId, base64Data) {
     let cleanB64 = base64Data;
     let mime = 'image/webp';
     let ext = 'webp';
-    if (base64Data.startsWith('data:image/')) {
-      const match = base64Data.match(/^data:(image\/[^;]+);base64,/);
-      if (match) {
-        mime = match[1];
-        ext = mime.includes('png') ? 'png' : (mime.includes('jpeg') || mime.includes('jpg') ? 'jpg' : 'webp');
-        cleanB64 = base64Data.slice(match[0].length);
-      }
+    if (!base64Data.startsWith('data:image/')) {
+      const isPng = base64Data.startsWith('iVBORw');
+      base64Data = `data:image/${isPng ? 'png' : 'jpeg'};base64,${base64Data}`;
+    }
+    const match = base64Data.match(/^data:(image\/[^;]+);base64,/);
+    if (match) {
+      mime = match[1];
+      ext = mime.includes('png') ? 'png' : (mime.includes('jpeg') || mime.includes('jpg') ? 'jpg' : 'webp');
+      cleanB64 = base64Data.slice(match[0].length);
     }
     const byteCharacters = atob(cleanB64);
     const byteNumbers = new Array(byteCharacters.length);
@@ -12161,6 +12165,19 @@ async function uploadArtworkToSupabaseStorage(postId, base64Data) {
     });
 
     if (uploadResp.ok) {
+      // Also save alternate extension for full edge CDN compatibility
+      const altExt = ext === 'webp' ? 'png' : 'webp';
+      fetch(`${SUPABASE_URL}/storage/v1/object/posters/${postId}.${altExt}`, {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
+          'Content-Type': mime,
+          'x-upsert': 'true'
+        },
+        body: blob
+      }).catch(() => {});
+
       return `${SUPABASE_URL}/storage/v1/object/public/posters/${fileName}`;
     } else {
       console.warn('Direct storage upload HTTP status:', uploadResp.status);
@@ -12215,8 +12232,12 @@ async function saveSynthesizedPost() {
   postToSave.status = 'draft';
 
   let hasUploadedPublicUrl = false;
-  const rawPoster = currentSynthesizedPost.illustrationBase64 || currentSynthesizedPost.posterBase64 || currentSynthesizedPost.originalPhotoBase64;
-  if (rawPoster && typeof rawPoster === 'string' && rawPoster.startsWith('data:image/')) {
+  let rawPoster = currentSynthesizedPost.illustrationBase64 || currentSynthesizedPost.posterBase64 || currentSynthesizedPost.originalPhotoBase64;
+  if (rawPoster && typeof rawPoster === 'string' && rawPoster.length > 50) {
+    if (!rawPoster.startsWith('data:image/')) {
+      const isPng = rawPoster.startsWith('iVBORw');
+      rawPoster = `data:image/${isPng ? 'png' : 'jpeg'};base64,${rawPoster}`;
+    }
     try {
       const compressed = await compressImageForCloud(rawPoster, 960, 0.85);
       const publicUrl = await uploadArtworkToSupabaseStorage(postToSave.id, compressed);
@@ -12389,8 +12410,12 @@ async function publishSynthesizedPost() {
   postToSave.status = 'published';
 
   let hasUploadedPublicUrl = false;
-  const rawPoster = currentSynthesizedPost.illustrationBase64 || currentSynthesizedPost.posterBase64 || currentSynthesizedPost.originalPhotoBase64;
-  if (rawPoster && typeof rawPoster === 'string' && rawPoster.startsWith('data:image/')) {
+  let rawPoster = currentSynthesizedPost.illustrationBase64 || currentSynthesizedPost.posterBase64 || currentSynthesizedPost.originalPhotoBase64;
+  if (rawPoster && typeof rawPoster === 'string' && rawPoster.length > 50) {
+    if (!rawPoster.startsWith('data:image/')) {
+      const isPng = rawPoster.startsWith('iVBORw');
+      rawPoster = `data:image/${isPng ? 'png' : 'jpeg'};base64,${rawPoster}`;
+    }
     try {
       const compressed = await compressImageForCloud(rawPoster, 960, 0.85);
       const publicUrl = await uploadArtworkToSupabaseStorage(postToSave.id, compressed);
