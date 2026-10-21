@@ -1664,14 +1664,18 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
   const hasFamilyContext = hasTwoSons || /\b(family.*temple|family.*trip|father.*mother.*son|father.*wife.*son|me, wife and 2 sons|with family)\b/i.test(enhancedPrompt);
 
   if (hasTwoSons || hasFamilyContext) {
-    const headcountAnchor = 'GROUP PORTRAIT OF EXACTLY FOUR (4) DISTINCT INDIVIDUAL PEOPLE VISIBLE SIDE BY SIDE (3 MALES, 1 FEMALE). STRICT COUNT = 4 PEOPLE: 1) Adult Father (man, mid 40s), 2) Adult Mother (woman, mid 30s), 3) Elder Son (11-year-old pre-teen boy) tall and lean, 4) Younger Son (7-year-old young schoolboy) noticeably shorter reaching only to elder brother shoulder. BOTH SONS ARE SEPARATE INDIVIDUAL PEOPLE. STRICT BAN ON MERGING: Do NOT draw only one child; both the 11yo boy and 7yo boy must be fully drawn side by side. ';
+    const headcountAnchor = 'GROUP PORTRAIT OF EXACTLY FOUR (4) DISTINCT INDIVIDUAL PEOPLE VISIBLE SIDE BY SIDE (3 MALES, 1 FEMALE). STRICT COUNT = 4 PEOPLE: 1) Adult Father (man, mid 40s) with sturdy broad-shouldered build, 2) Adult Mother (woman, mid 30s) with natural healthy medium adult build (strictly not ultra-slim or runway model thin), 3) Elder Son (11-year-old pre-teen boy) taller with healthy sturdy youth build and square shoulders (not skinny, not frail), 4) Younger Son (7-year-old young schoolboy) noticeably shorter with healthy solid child proportions. REALISTIC NATURAL HUMAN BUILDS, STRICT BAN ON SKINNY OR WAIF-LIKE BODIES. BOTH SONS ARE SEPARATE INDIVIDUAL PEOPLE. STRICT BAN ON MERGING: Do NOT draw only one child; both the 11yo boy and 7yo boy must be fully drawn side by side. ';
     if (!enhancedPrompt.includes('EXACTLY FOUR') && !enhancedPrompt.includes('STRICT COUNT = 4')) {
       enhancedPrompt = headcountAnchor + enhancedPrompt;
     }
   }
 
-  // Sanitize detached foreground hands/limbs that steal character slots from family
-  enhancedPrompt = enhancedPrompt.replace(/In the foreground,\s*(?:glowing\s*)?cupped hands receive drops of sacred theertha water/gi, 'The father and sons cup their hands to receive drops of sacred theertha water (no external detached arms)');
+  // Sanitize detached foreground hands and remove skinny runway-model biases
+  enhancedPrompt = enhancedPrompt
+    .replace(/In the foreground,\s*(?:glowing\s*)?cupped hands receive drops of sacred theertha water/gi, 'The father and sons cup their hands to receive drops of sacred theertha water (no external detached arms)')
+    .replace(/\b(lean|skinny|slender|frail)\s*(?:11-year-old|elder son|boy|adolescent)/gi, 'sturdy healthy 11-year-old')
+    .replace(/\bgraceful mother\b/gi, 'mother with natural healthy medium build')
+    .replace(/\b(lean|skinny|slender)\s*build/gi, 'healthy sturdy build');
 
   const isPhotoMedium = /photograph|film still|35mm|photojournalism|documentary|editorial portrait photograph/i.test(enhancedPrompt);
   const textureStyle = isPhotoMedium
@@ -1945,7 +1949,7 @@ function getDefaultFamilyCast(userIdentifier) {
         age: 11,
         ageBracket: 'Pre-teen / Adolescent (11 Years Old)',
         heightDesc: '4ft 10in (147cm): Stands a full head taller than his younger brother',
-        visualTraits: '11-year-old pre-teen boy, lean and tall adolescent build, distinct mature pre-teen facial structure, neat side-parted dark hair, visibly older and taller by a head than his younger brother.',
+        visualTraits: '11-year-old pre-teen boy, healthy sturdy build with square shoulders, distinct mature pre-teen facial structure, neat side-parted dark hair, visibly older and taller by a head than his younger brother.',
         vehicleRole: 'passenger_rear_right',
         defaultClothing: 'Navy blue or dark graphic tee / hoodie'
       },
@@ -2028,11 +2032,20 @@ ${activeMembers.map((m, i) => `  * Person #${i + 1}: ${m.name || m.roleLabel} ($
   if (hasElderBoy && hasYoungerBoy) {
     directives.push(`BIOLOGICAL AGE & HEIGHT CONTRAST:
 - Unmistakable 4-year age gap between the two brothers:
-  * ELDER BROTHER (Age 11): Pre-teen adolescent boy, visibly taller by a full head (around 147cm / 4ft 10in), lean adolescent build, mature pre-teen facial structure, neat side-parted dark hair.
+  * ELDER BROTHER (Age 11): Pre-teen adolescent boy, visibly taller by a full head (around 147cm / 4ft 10in), healthy sturdy adolescent build with square shoulders (not skinny, not frail), mature pre-teen facial structure, neat side-parted dark hair.
   * YOUNGER BROTHER (Age 7): Young primary school child, noticeably shorter, top of his head reaches only to his older brother's shoulder (around 120cm / 3ft 11in), soft round youthful child cheeks, lively playful child proportions, wavy dark hair.
 - STRICT BAN ON CLONING: NEVER draw identical twins, NEVER uniform height, NEVER identical child faces! They must look like brothers with a clear 4-year age difference.`);
-    promptSnippets.push('two brothers with distinct 4-year age gap: older 11-year-old pre-teen boy standing a head taller than his younger 7-year-old brother whose head reaches only older brother shoulder, strictly not twins');
+    promptSnippets.push('two brothers with distinct 4-year age gap: older 11-year-old pre-teen boy with healthy sturdy build standing a head taller than his younger 7-year-old brother whose head reaches only older brother shoulder, strictly not twins');
   }
+
+  // 1b. Realistic Authentic Body Statures (Strict Ban on Skinny / Runway Model Bias)
+  directives.push(`AUTHENTIC REAL-WORLD BODY BUILDS (STRICT BAN ON SKINNY / ULTRA-SLIM BIAS):
+- Mother: Draw with an authentic, healthy medium adult build with natural soft shoulders and realistic everyday proportions. STRICTLY NEVER draw an ultra-slim, skinny, or waif-like runway model.
+- Elder Son (Age 11): Draw with a healthy, sturdy pre-teen build and square shoulders. STRICTLY NEVER draw a skinny, frail, or gaunt boy.
+- Younger Son (Age 7): Draw with healthy, energetic solid child proportions with soft rounded cheeks.
+- Father: Draw with a sturdy, broad-shouldered adult build with upright posture.
+- ALL FAMILY MEMBERS MUST REFLECT AUTHENTIC, HEALTHY, NATURAL REAL-WORLD PROPORTIONS.`);
+  promptSnippets.push('authentic natural human builds: mother with healthy medium adult build (not skinny), elder son with sturdy solid pre-teen frame (not lean or frail), younger son with solid child proportions, strictly avoid ultra-slim runway models');
 
   // 2. Vehicle / Driving / Road Trip Context
   const isVehicle = (castStaging && castStaging.mode === 'vehicle_rhd') ||

@@ -7020,7 +7020,7 @@ function getDefaultClientFamilyCast() {
         aliases: ['elder son', 'older son', 'older boy', 'elder brother', 'big brother', 'first son', '11-year-old', '11yo'],
         age: 11,
         heightDesc: '4ft 10in (147cm): Stands a full head taller than his younger brother',
-        visualTraits: '11-year-old pre-teen boy, lean and tall adolescent build, distinct mature pre-teen facial structure, neat side-parted dark hair, visibly older and taller by a head than his younger brother.',
+        visualTraits: '11-year-old pre-teen boy, healthy sturdy build with square shoulders, distinct mature pre-teen facial structure, neat side-parted dark hair, visibly older and taller by a head than his younger brother.',
         vehicleRole: 'passenger_rear_right'
       },
       {
@@ -7473,7 +7473,7 @@ function renderActiveMemberScreen() {
               <label>Distinct Features, Hair & Body Structure</label>
               <span class="vault-label-hint">Auto-extracted by AI from your photos (face, hair, build) • Fully editable</span>
             </div>
-            <textarea id="vField_traits" rows="2" placeholder="e.g. Pre-teen boy with tall lean frame, oval face, wavy dark hair with neat side parting, warm radiant smile" oninput="handleActiveMemberFieldChange('visualTraits', this.value)">${escapeHtml(member.visualTraits || '')}</textarea>
+            <textarea id="vField_traits" rows="2" placeholder="e.g. Pre-teen boy with sturdy solid build, square shoulders, rounded face, wavy dark hair with neat side parting, warm radiant smile" oninput="handleActiveMemberFieldChange('visualTraits', this.value)">${escapeHtml(member.visualTraits || '')}</textarea>
           </div>
 
           <div class="vault-field-group full-width">
@@ -7808,7 +7808,7 @@ function renderFamilyCastStagingUI() {
       banner.style.display = 'flex';
       banner.innerHTML = `
         <span class="guarantee-icon">✨</span>
-        <span class="guarantee-text"><strong>4-Year Age Gap Enforced:</strong> 11-year-old pre-teen (taller, lean build) vs 7-year-old young child (shorter by a head, round child cheeks). Strictly no identical twins.</span>
+        <span class="guarantee-text"><strong>4-Year Age Gap Enforced:</strong> 11-year-old pre-teen (taller, sturdy healthy build) vs 7-year-old young child (shorter by a head, round child cheeks). Strictly no identical twins.</span>
       `;
     } else {
       banner.style.display = 'none';

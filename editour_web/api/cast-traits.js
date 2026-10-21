@@ -64,16 +64,16 @@ Synthesize all visual likeness anchors across the provided photos, analyzing BOT
 3. Eyeglasses / Spectacles: if wearing glasses, describe frame style. If none, omit.
 4. Apparent biological age and life stage.
 5. Skin tone and complexion.
-6. Body structure, physique & stature: body build (lean/slender, athletic, broad-shouldered, sturdy, compact), shoulder frame, torso proportions, posture (upright, confident, energetic child), and stature.
+6. Body structure, physique & stature: accurately observe visible body build (e.g. medium adult build, sturdy solid frame, broad-shouldered, compact child build), shoulder shape, and natural posture. STRICT BAN ON CALLING THEM SLENDER, SLIM, OR LEAN unless they are visibly very thin. Faithfully capture their authentic, healthy, real-world physique.
 
 Return strictly valid JSON with this exact schema:
 {
-  "visualTraits": "A single coherent, evocative character sentence combining facial features, hair, AND body build / stature (max 35-45 words). Example: 'Warm brown skin, friendly oval face, neat dark mustache, short parted dark hair, with a tall, broad-shouldered upright adult build.' or 'Lean pre-teen boy with tall slender frame, oval face, and neat side-parted hair.'",
+  "visualTraits": "A single coherent, evocative character sentence combining facial features, hair, AND authentic body build / stature (max 35-45 words). Example: 'Warm brown skin, friendly oval face, neat dark mustache, short parted dark hair, with a sturdy, broad-shouldered upright adult build.' or 'Healthy pre-teen boy with sturdy solid frame, square shoulders, rounded cheeks, and neat side-parted hair.'",
   "detectedAge": 38,
   "hair": "Short neat dark hair with side part",
   "facialFeatures": "Warm brown eyes, chevron mustache, structured jaw",
-  "bodyBuild": "Broad-shouldered, tall adult frame with upright posture",
-  "statureDesc": "Tall adult stature with upright posture"
+  "bodyBuild": "Sturdy solid frame with natural shoulders and upright posture",
+  "statureDesc": "5ft 10in (178cm), tall adult stature with upright posture"
 }
 
 Do not include markdown code fences, do not include any em-dashes. Output pure JSON only.`;
