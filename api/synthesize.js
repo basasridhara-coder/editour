@@ -30,6 +30,23 @@ async function verifyEmailIsWhitelisted(email) {
   return false;
 }
 
+const avatarMemoryCache = new Map();
+
+async function getAvatarBase64(url) {
+  if (!url) return null;
+  if (avatarMemoryCache.has(url)) return avatarMemoryCache.get(url);
+  try {
+    const resp = await fetch(url);
+    if (resp.ok) {
+      const ab = await resp.arrayBuffer();
+      const b64 = Buffer.from(ab).toString('base64');
+      avatarMemoryCache.set(url, b64);
+      return b64;
+    }
+  } catch (_) {}
+  return null;
+}
+
 function resolveFamilyCastProfileId(userIdentifier) {
   const raw = String(userIdentifier || '').trim().toLowerCase();
   if (
@@ -100,14 +117,41 @@ module.exports = async function handler(req, res) {
           }
         } catch (_) {}
       }
+      // Collect Stylized Character Avatars for active members to lock recurring identity without digital footprint
+      let stylizedAvatars = [];
+      if (familyCast && Array.isArray(familyCast.members)) {
+        const detectedIds = detectRelevantCastMembers(prompt, familyCast);
+        const activeMembers = (activeCast && Array.isArray(activeCast.members) && activeCast.members.length > 0)
+          ? activeCast.members
+          : familyCast.members.filter(m => detectedIds.has(m.id));
+
+        for (const m of activeMembers) {
+          const fullMem = familyCast.members.find(fm => fm.id === m.id) || m;
+          const avUrl = fullMem.stylizedAvatarUrl || fullMem.stylizedAvatar;
+          if (avUrl) {
+            const b64 = await getAvatarBase64(avUrl);
+            if (b64) {
+              stylizedAvatars.push({
+                memberId: fullMem.id,
+                name: fullMem.name,
+                roleLabel: fullMem.roleLabel || fullMem.relationship,
+                imageBase64: b64,
+                imageMimeType: 'image/png'
+              });
+            }
+          }
+        }
+      }
+
       try {
         const geminiArt = await generateGeminiEditorialArtwork({
           prompt,
           imageBase64,
           imageMimeType,
-          timeoutMs: 16000,
+          timeoutMs: 20000,
           familyCast,
-          activeCast
+          activeCast,
+          stylizedAvatars
         });
         if (geminiArt) {
           const cleanB64 = geminiArt.replace(/^data:image\/[^;]+;base64,/, '');
@@ -126,6 +170,137 @@ module.exports = async function handler(req, res) {
           error: e.message || 'Artwork synthesis failed'
         });
       }
+    }
+
+    // Endpoint: Generate Stylized Editorial Character Avatar for a Cast Member
+    if (body && body.action === 'generate_stylized_avatar') {
+      const {
+        memberId,
+        imageBase64 = null,
+        imageMimeType = 'image/jpeg',
+        relation = 'family_member',
+        name = '',
+        approxAge = null,
+        visualTraits = '',
+        uncompromisableAnchors = '',
+        creatorEmail = ''
+      } = body;
+
+      const userEmail = (creatorEmail || 'shridharoct16@gmail.com').toLowerCase().trim();
+      const isAllowed = await verifyEmailIsWhitelisted(userEmail);
+      if (!isAllowed) {
+        return res.status(403).json({ error: 'Slant Studio is currently in Private Preview by invitation only.' });
+      }
+
+      if (!memberId) {
+        return res.status(400).json({ error: 'Missing memberId' });
+      }
+
+      let sourcePhotoB64 = imageBase64;
+      let sourcePhotoMime = imageMimeType;
+
+      if (!sourcePhotoB64) {
+        try {
+          const castProfileId = resolveFamilyCastProfileId(userEmail);
+          const cResp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.${encodeURIComponent(castProfileId)}&select=data`, {
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+          });
+          if (cResp.ok) {
+            const rows = await cResp.json();
+            const mem = rows[0]?.data?.members?.find(m => m.id === memberId);
+            if (mem) {
+              sourcePhotoB64 = mem.photos?.frontal || mem.photos?.profile || mem.photos?.stature || mem.photoBase64 || null;
+            }
+          }
+        } catch (_) {}
+      }
+
+      if (!sourcePhotoB64) {
+        return res.status(400).json({ error: 'No reference photo found for this member.' });
+      }
+
+      const cleanPhoto = sourcePhotoB64.includes(',') ? sourcePhotoB64.split(',')[1] : sourcePhotoB64;
+
+      const roleHint = (relation === 'elder_son') ? '11-year-old Indian boy (pre-teen son)' :
+        (relation === 'younger_son') ? '7-year-old young Indian boy (primary school son)' :
+        (relation === 'spouse') ? 'adult Indian woman in mid 30s (mother / wife)' :
+        (relation === 'self') ? 'adult Indian man in early 40s (father / husband)' : 'family member';
+
+      const prompt = `Transform this reference photograph of an ${roleHint}${name ? ' named ' + name : ''}${approxAge ? ', approx age ' + approxAge : ''} into a high-aesthetic, dignified stylized editorial character portrait in vertical 3:4 format. Style: warm broadsheet editorial painted illustration (gouache and oil editorial art). Faithfully preserve the subject authentic facial geometry, jawline, eye shape, smile, haircut, skin tone, and realistic body build from this photo (${visualTraits || uncompromisableAnchors || ''}). Warm soft studio lighting, neutral warm background, expressive and friendly, masterpiece character model, no typography, zero letters.`;
+
+      const avatarB64 = await generateGeminiEditorialArtwork({
+        prompt,
+        imageBase64: cleanPhoto,
+        imageMimeType: sourcePhotoMime,
+        timeoutMs: 25000
+      });
+
+      if (!avatarB64) {
+        return res.status(500).json({ error: 'Failed to generate stylized avatar' });
+      }
+
+      const cleanAvatarB64 = avatarB64.replace(/^data:image\/[^;]+;base64,/, '');
+      const buf = Buffer.from(cleanAvatarB64, 'base64');
+      const fileName = `avatar_${memberId}.png`;
+
+      try {
+        await fetch(`${SUPABASE_URL}/storage/v1/object/posters/${fileName}`, {
+          method: 'POST',
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`,
+            'Content-Type': 'image/png',
+            'x-upsert': 'true'
+          },
+          body: buf
+        });
+      } catch (uploadErr) {
+        console.warn('Avatar storage upload warning:', uploadErr);
+      }
+
+      const avatarUrl = `${SUPABASE_URL}/storage/v1/object/public/posters/${fileName}`;
+
+      try {
+        const castProfileId = resolveFamilyCastProfileId(userEmail);
+        const cResp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.${encodeURIComponent(castProfileId)}&select=*`, {
+          headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+        });
+        if (cResp.ok) {
+          const rows = await cResp.json();
+          if (rows && rows[0] && rows[0].data) {
+            const castData = rows[0].data;
+            castData.members = (castData.members || []).map(m => {
+              if (m.id === memberId) {
+                m.stylizedAvatarUrl = avatarUrl;
+              }
+              return m;
+            });
+            castData.updatedAt = new Date().toISOString();
+
+            await fetch(`${SUPABASE_URL}/rest/v1/posts`, {
+              method: 'POST',
+              headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': `Bearer ${SUPABASE_KEY}`,
+                'Content-Type': 'application/json',
+                'Prefer': 'resolution=merge-duplicates'
+              },
+              body: JSON.stringify({
+                id: castProfileId,
+                data: castData
+              })
+            });
+          }
+        }
+      } catch (profErr) {
+        console.warn('Profile avatar update warning:', profErr);
+      }
+
+      return res.status(200).json({
+        success: true,
+        avatarUrl,
+        avatarBase64: cleanAvatarB64
+      });
     }
 
     // Endpoint: Get or Save Curator Style Profile & Longitudinal Observations
@@ -1713,7 +1888,7 @@ function isLikelyPersonSubject(name) {
   return personKeywords.some(w => lower.includes(w));
 }
 
-async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeType = 'image/jpeg', timeoutMs = 16000, familyCast = null, activeCast = null }) {
+async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeType = 'image/jpeg', timeoutMs = 16000, familyCast = null, activeCast = null, stylizedAvatars = null }) {
   if (!GEMINI_API_KEY) return null;
   const imageModels = [
     'gemini-2.5-flash-image',
@@ -1728,7 +1903,7 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
   const hasFamilyContext = hasTwoSons || /\b(family.*temple|family.*trip|father.*mother.*son|father.*wife.*son|me, wife and 2 sons|with family)\b/i.test(enhancedPrompt);
 
   if (hasTwoSons || hasFamilyContext) {
-    const headcountAnchor = 'GROUP PORTRAIT OF EXACTLY FOUR (4) DISTINCT INDIVIDUAL PEOPLE VISIBLE SIDE BY SIDE (3 MALES, 1 FEMALE). STRICT COUNT = 4 PEOPLE: 1) Adult Father (man, mid 40s) with sturdy broad-shouldered build, 2) Adult Mother (woman, mid 30s) with natural healthy medium adult build (strictly not ultra-slim or runway model thin), 3) Elder Son (11-year-old pre-teen boy) taller with healthy sturdy youth build and square shoulders (not skinny, not frail), 4) Younger Son (7-year-old young schoolboy) noticeably shorter with healthy solid child proportions. REALISTIC NATURAL HUMAN BUILDS, STRICT BAN ON SKINNY OR WAIF-LIKE BODIES. BOTH SONS ARE SEPARATE INDIVIDUAL PEOPLE. STRICT BAN ON MERGING: Do NOT draw only one child; both the 11yo boy and 7yo boy must be fully drawn side by side. ';
+    const headcountAnchor = 'GROUP PORTRAIT OF EXACTLY FOUR (4) DISTINCT INDIVIDUAL PEOPLE VISIBLE SIDE BY SIDE (3 MALES, 1 FEMALE). STRICT COUNT = 4 PEOPLE: 1) Adult Father (man, mid 40s) with sturdy broad-shouldered build, 2) Adult Mother (woman, mid 30s) with natural healthy medium adult build (strictly not ultra-slim or runway model thin), 3) Elder Son (11-year-old pre-teen boy) reaching father chest level with healthy sturdy youth build and square shoulders (not skinny, not frail), 4) Younger Son (7-year-old young schoolboy) noticeably shorter reaching older brother shoulder with healthy solid child proportions. REALISTIC NATURAL HUMAN BUILDS, STRICT BAN ON SKINNY OR WAIF-LIKE BODIES. BOTH SONS ARE SEPARATE INDIVIDUAL PEOPLE. STRICT BAN ON MERGING: Do NOT draw only one child; both the 11yo boy and 7yo boy must be fully drawn side by side. ';
     if (!enhancedPrompt.includes('EXACTLY FOUR') && !enhancedPrompt.includes('STRICT COUNT = 4')) {
       enhancedPrompt = headcountAnchor + enhancedPrompt;
     }
@@ -1768,7 +1943,23 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
     : 'painterly texture, dramatic lighting';
 
   const parts = [];
-  if (imageBase64) {
+  if (Array.isArray(stylizedAvatars) && stylizedAvatars.length > 0) {
+    stylizedAvatars.forEach((av, i) => {
+      const cleanAv = av.imageBase64.includes(',') ? av.imageBase64.split(',')[1] : av.imageBase64;
+      parts.push({
+        inlineData: {
+          mimeType: av.imageMimeType || 'image/png',
+          data: cleanAv
+        }
+      });
+      parts.push({
+        text: `Stylized Character Model #${i + 1}: ${av.name || av.roleLabel} (${av.roleLabel || 'Family Member'})`
+      });
+    });
+    parts.push({
+      text: `Render this scene in high-aesthetic 4:5 vertical magazine portrait format: ${enhancedPrompt}. CRITICAL IDENTITY DIRECTIVE: Use the attached Character Models (#1 to #${stylizedAvatars.length}) as the exact illustrated likeness and facial models for the corresponding protagonists in this scene. Maintain their illustrated facial features, hairstyles, and authentic body proportions faithfully in this new context and attire. ${textureStyle}, masterwork, no typography, no letters, no text.`
+    });
+  } else if (imageBase64) {
     const cleanData = imageBase64.includes(',') ? imageBase64.split(',')[1] : imageBase64;
     parts.push({
       inlineData: {
@@ -1830,8 +2021,8 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
   }
 
   // If image-conditioned attempt returned nothing (e.g. policy block / IMAGE_OTHER on real faces), fallback to text prompt
-  if (imageBase64) {
-    return generateGeminiEditorialArtwork({ prompt, imageBase64: null, timeoutMs });
+  if (imageBase64 || (stylizedAvatars && stylizedAvatars.length > 0)) {
+    return generateGeminiEditorialArtwork({ prompt, imageBase64: null, timeoutMs, stylizedAvatars: null });
   }
 
   return null;
@@ -2011,7 +2202,8 @@ function getDefaultFamilyCast(userIdentifier) {
         uncompromisableAnchors: 'Adult Indian male, age 40, medium-brown skin, oval face, neat salt-and-pepper trimmed beard, short textured dark hair, sturdy broad-shouldered build with upright grounded posture.',
         visualTraits: 'Adult father in early 40s, neat short dark hair, warm confident expression, seasoned contemporary styling.',
         vehicleRole: 'driver_right',
-        defaultClothing: 'Casual dark linen shirt or jacket'
+        defaultClothing: 'Casual dark linen shirt or jacket',
+        stylizedAvatarUrl: 'https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/avatar_member_father.png'
       },
       {
         id: 'member_mother',
@@ -2025,7 +2217,8 @@ function getDefaultFamilyCast(userIdentifier) {
         uncompromisableAnchors: 'Warm wheatish skin, soft round-to-oval maternal face, gentle dark eyes without heavy makeup, natural shoulder-length wavy dark hair with center/side parting (strictly no past-chest salon blowout curls), healthy medium adult build with natural soft shoulders. Everyday authentic South Indian presence.',
         visualTraits: 'Adult mother in her mid-30s, warm thoughtful smile, natural shoulder-length wavy dark hair, expressive eyes, elegant casual styling.',
         vehicleRole: 'passenger_front_left',
-        defaultClothing: 'Vibrant comfortable travel attire'
+        defaultClothing: 'Vibrant comfortable travel attire',
+        stylizedAvatarUrl: 'https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/avatar_member_mother.png'
       },
       {
         id: 'member_elder_son',
@@ -2039,7 +2232,8 @@ function getDefaultFamilyCast(userIdentifier) {
         uncompromisableAnchors: 'Warm brown-skinned 11-year-old pre-teen Indian boy with neat short dark hair, square shoulders, sturdy healthy youth build (strictly not skinny, not frail), stands visibly a full head taller than his younger brother.',
         visualTraits: '11-year-old pre-teen boy, healthy sturdy build with square shoulders, distinct mature pre-teen facial structure, neat side-parted dark hair, visibly older and taller by a head than his younger brother.',
         vehicleRole: 'passenger_rear_right',
-        defaultClothing: 'Navy blue or dark graphic tee / hoodie'
+        defaultClothing: 'Navy blue or dark graphic tee / hoodie',
+        stylizedAvatarUrl: 'https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/avatar_member_elder_son.png'
       },
       {
         id: 'member_younger_son',
@@ -2053,7 +2247,8 @@ function getDefaultFamilyCast(userIdentifier) {
         uncompromisableAnchors: 'Warm brown-skinned 7-year-old schoolboy with soft rounded cheeks, expressive playful eyes, wavy dark hair, healthy solid child proportions, head reaches only to his older brother shoulder.',
         visualTraits: '7-year-old young schoolboy, noticeably shorter by a full head, top of head reaches only to his older brother\'s shoulder, soft round youthful child cheeks, playful energetic expression, wavy dark hair, lively child proportions.',
         vehicleRole: 'passenger_rear_left',
-        defaultClothing: 'Mustard yellow or bright green graphic t-shirt'
+        defaultClothing: 'Mustard yellow or bright green graphic t-shirt',
+        stylizedAvatarUrl: 'https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/avatar_member_younger_son.png'
       }
     ],
     collectiveAliases: ['family', 'my family', 'kids', 'my kids', 'both boys', 'sons', 'my sons', 'boys', 'children'],
@@ -2203,10 +2398,10 @@ ${activeMembers.map((m, i) => `  * Person #${i + 1}: ${m.name || m.roleLabel} ($
   if (hasElderBoy && hasYoungerBoy) {
     directives.push(`BIOLOGICAL AGE & HEIGHT CONTRAST:
 - Unmistakable 4-year age gap between the two brothers:
-  * ELDER BROTHER (Age 11): Pre-teen adolescent boy, visibly taller by a full head (around 147cm / 4ft 10in), healthy sturdy adolescent build with square shoulders (not skinny, not frail), mature pre-teen facial structure, neat side-parted dark hair.
-  * YOUNGER BROTHER (Age 7): Young primary school child, noticeably shorter, top of his head reaches only to his older brother's shoulder (around 120cm / 3ft 11in), soft round youthful child cheeks, lively playful child proportions, wavy dark hair.
-- STRICT BAN ON CLONING: NEVER draw identical twins, NEVER uniform height, NEVER identical child faces! They must look like brothers with a clear 4-year age difference.`);
-    promptSnippets.push('two brothers with distinct 4-year age gap: older 11-year-old pre-teen boy with healthy sturdy build standing a head taller than his younger 7-year-old brother whose head reaches only older brother shoulder, strictly not twins');
+  * ELDER BROTHER (Age 11): Pre-teen adolescent boy (around 147cm / 4ft 10in). Top of his head reaches only to the chest level of his adult father. Strictly NOT as tall as the father or mother; distinctly a pre-teen child with youthful rounded facial structure and sturdy youth build (not skinny, not frail).
+  * YOUNGER BROTHER (Age 7): Young primary school child (around 120cm / 3ft 11in). Noticeably shorter, top of his head reaches only to his older brother shoulder, soft round youthful child cheeks, lively playful child proportions, wavy dark hair.
+- STRICT BAN ON CLONING OR ADULT AGING: NEVER draw identical twins, NEVER uniform height! NEVER draw the 11-year-old elder son as tall as an adult or teenager; he must stand distinctly at father chest height with child/pre-teen proportions.`);
+    promptSnippets.push('two brothers with distinct 4-year age gap: older 11-year-old pre-teen boy reaching father chest height standing a head taller than his younger 7-year-old brother whose head reaches only older brother shoulder, strictly not twins');
   }
 
   // 1b. Realistic Authentic Body Statures (Strict Ban on Skinny / Runway Model Bias)

@@ -15001,6 +15001,165 @@ mark.polish-mark:hover, mark.polish-mark.active {
   box-shadow: 0 0 10px rgba(245, 158, 11, 0.35);
 }
 
+/* Stylized Editorial Character Model Card */
+.vault-avatar-card {
+  margin: 16px 0;
+  padding: 14px 16px;
+  background: rgba(139, 92, 246, 0.06);
+  border: 1.5px solid rgba(139, 92, 246, 0.3);
+  border-radius: 14px;
+  transition: all 0.2s ease;
+}
+
+.vault-avatar-card:hover {
+  border-color: rgba(139, 92, 246, 0.5);
+  box-shadow: 0 4px 20px rgba(139, 92, 246, 0.12);
+}
+
+.vault-avatar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.vault-avatar-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.vault-avatar-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.vault-avatar-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #C4B5FD;
+  letter-spacing: 0.2px;
+}
+
+.vault-avatar-subtitle {
+  font-size: 10px;
+  color: #94A3B8;
+  margin-top: 1px;
+}
+
+.vault-avatar-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 8px;
+  background: rgba(16, 185, 129, 0.2);
+  color: #34D399;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  border-radius: 9999px;
+  white-space: nowrap;
+}
+
+.vault-avatar-body {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.vault-avatar-thumb-box {
+  position: relative;
+  width: 76px;
+  height: 98px;
+  border-radius: 10px;
+  overflow: hidden;
+  cursor: pointer;
+  flex-shrink: 0;
+  border: 2px solid rgba(139, 92, 246, 0.5);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.vault-avatar-thumb-box:hover {
+  transform: scale(1.04);
+  border-color: #A78BFA;
+}
+
+.vault-avatar-thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.vault-avatar-zoom-tip {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 2px;
+  background: rgba(0, 0, 0, 0.65);
+  color: #E2E8F0;
+  font-size: 8px;
+  text-align: center;
+  font-weight: 600;
+}
+
+.vault-avatar-info-box,
+.vault-avatar-empty-box {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.vault-avatar-desc {
+  font-size: 11px;
+  color: #CBD5E1;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.vault-btn-regen-avatar,
+.vault-btn-create-avatar {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: rgba(139, 92, 246, 0.2);
+  color: #DDD6FE;
+  border: 1px solid rgba(139, 92, 246, 0.45);
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.vault-btn-regen-avatar:hover,
+.vault-btn-create-avatar:hover {
+  background: rgba(139, 92, 246, 0.35);
+  color: #FFFFFF;
+  border-color: #A78BFA;
+}
+
+.vault-btn-create-avatar:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.vault-avatar-generating-progress {
+  margin-top: 10px;
+  padding: 8px 12px;
+  background: rgba(139, 92, 246, 0.15);
+  border: 1px solid rgba(139, 92, 246, 0.35);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+  color: #C4B5FD;
+}
+
 /* 4. Footer Bar */
 .vault-window-footer {
   padding: 14px 20px;

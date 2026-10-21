@@ -7064,7 +7064,8 @@ function getDefaultClientFamilyCast() {
         heightDesc: '5ft 10in (178cm), adult stature',
         uncompromisableAnchors: 'Adult Indian male, age 40, medium-brown skin, oval face, neat salt-and-pepper trimmed beard, short textured dark hair, sturdy broad-shouldered build with upright grounded posture.',
         visualTraits: 'Adult father in early 40s, neat short dark hair, warm confident expression, seasoned contemporary styling.',
-        vehicleRole: 'driver_right'
+        vehicleRole: 'driver_right',
+        stylizedAvatarUrl: 'https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/avatar_member_father.png'
       },
       {
         id: 'member_mother',
@@ -7075,8 +7076,9 @@ function getDefaultClientFamilyCast() {
         age: 36,
         heightDesc: '5ft 4in (162cm), adult female stature',
         uncompromisableAnchors: 'Warm wheatish skin, soft round-to-oval maternal face, gentle dark eyes without heavy makeup, natural shoulder-length wavy dark hair with center/side parting (strictly no past-chest salon blowout curls), healthy medium adult build with natural soft shoulders. Everyday authentic South Indian presence.',
-        visualTraits: 'Adult mother in her mid-30s, warm thoughtful smile, dark wavy hair, expressive eyes, elegant casual styling.',
-        vehicleRole: 'passenger_front_left'
+        visualTraits: 'Adult mother in her mid-30s, warm thoughtful smile, natural shoulder-length wavy dark hair, expressive eyes, elegant casual styling.',
+        vehicleRole: 'passenger_front_left',
+        stylizedAvatarUrl: 'https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/avatar_member_mother.png'
       },
       {
         id: 'member_elder_son',
@@ -7088,7 +7090,8 @@ function getDefaultClientFamilyCast() {
         heightDesc: '4ft 10in (147cm): Stands a full head taller than his younger brother',
         uncompromisableAnchors: 'Warm brown-skinned 11-year-old pre-teen Indian boy with neat short dark hair, square shoulders, sturdy healthy youth build (strictly not skinny, not frail), stands visibly a full head taller than his younger brother.',
         visualTraits: '11-year-old pre-teen boy, healthy sturdy build with square shoulders, distinct mature pre-teen facial structure, neat side-parted dark hair, visibly older and taller by a head than his younger brother.',
-        vehicleRole: 'passenger_rear_right'
+        vehicleRole: 'passenger_rear_right',
+        stylizedAvatarUrl: 'https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/avatar_member_elder_son.png'
       },
       {
         id: 'member_younger_son',
@@ -7100,7 +7103,8 @@ function getDefaultClientFamilyCast() {
         heightDesc: '3ft 11in (120cm): Head reaches only to older brother shoulder',
         uncompromisableAnchors: 'Warm brown-skinned 7-year-old schoolboy with soft rounded cheeks, expressive playful eyes, wavy dark hair, healthy solid child proportions, head reaches only to his older brother shoulder.',
         visualTraits: '7-year-old young schoolboy, noticeably shorter by a full head, top of head reaches only to his older brother shoulder, soft round youthful child cheeks, playful energetic expression, wavy dark hair, lively child proportions.',
-        vehicleRole: 'passenger_rear_left'
+        vehicleRole: 'passenger_rear_left',
+        stylizedAvatarUrl: 'https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/avatar_member_younger_son.png'
       }
     ],
     collectiveAliases: ['family', 'my family', 'kids', 'my kids', 'both boys', 'sons', 'my sons', 'boys', 'children']
@@ -7563,6 +7567,49 @@ function renderActiveMemberScreen() {
         </div>
       </div>
 
+      <!-- Stylized Editorial Character Model Section (Zero Digital Footprint) -->
+      <div class="vault-avatar-card ${member.stylizedAvatarUrl ? 'has-avatar' : 'no-avatar'}">
+        <div class="vault-avatar-header">
+          <div class="vault-avatar-title-group">
+            <span class="vault-avatar-icon">🎨</span>
+            <div>
+              <div class="vault-avatar-title">Stylized Editorial Character Model</div>
+              <div class="vault-avatar-subtitle">Zero Digital Footprint • Consistent recurring character across all posters</div>
+            </div>
+          </div>
+          ${member.stylizedAvatarUrl ? '<span class="vault-avatar-badge">✓ Active Illustrated Model</span>' : ''}
+        </div>
+
+        <div class="vault-avatar-body">
+          ${member.stylizedAvatarUrl ? `
+            <div class="vault-avatar-thumb-box" onclick="previewImageModal('${member.stylizedAvatarUrl}', 'Stylized Character Model: ${escapeHtml(member.name || member.roleLabel)}')">
+              <img src="${member.stylizedAvatarUrl}" class="vault-avatar-thumb-img" alt="Avatar">
+              <span class="vault-avatar-zoom-tip">🔍 Tap to Enlarge</span>
+            </div>
+            <div class="vault-avatar-info-box">
+              <p class="vault-avatar-desc">This painted broadsheet model preserves ${escapeHtml(member.name || member.roleLabel)} authentic facial geometry, hair, and build across posters without ever publishing real photos.</p>
+              <div class="vault-avatar-actions">
+                <button type="button" class="vault-btn-regen-avatar" onclick="generateActiveMemberStylizedAvatar()" id="btnRegenAvatar">
+                  <span>🔄 Re-generate Avatar</span>
+                </button>
+              </div>
+            </div>
+          ` : `
+            <div class="vault-avatar-empty-box">
+              <p class="vault-avatar-desc">Generate a painted broadsheet character model for ${escapeHtml(member.name || member.roleLabel)}. Locks recurring facial likeness across posters with zero real-photo exposure.</p>
+              <button type="button" class="vault-btn-create-avatar" onclick="generateActiveMemberStylizedAvatar()" id="btnCreateAvatar" ${photoCount === 0 ? 'disabled title="Attach a reference photo first"' : ''}>
+                <span>🎨 Generate Stylized Character Model</span>
+              </button>
+            </div>
+          `}
+        </div>
+
+        <div class="vault-avatar-generating-progress" id="vaultAvatarProgress" style="display:none;">
+          <span class="vault-spinner"></span>
+          <span id="vaultAvatarProgressText">Painting stylized editorial character model with Gemini 2.5 Flash Image...</span>
+        </div>
+      </div>
+
       <!-- Fields Section -->
       <div class="vault-fields-section">
         <div class="vault-fields-title">Character Attributes & Prompt Blueprints</div>
@@ -7762,6 +7809,68 @@ async function analyzeActiveMemberAllPhotos() {
     isAnalyzingVaultPhotos = false;
     if (bar) bar.style.display = 'none';
     if (reanalyzeBtn) reanalyzeBtn.disabled = false;
+  }
+}
+
+let isGeneratingAvatar = false;
+
+async function generateActiveMemberStylizedAvatar() {
+  if (isGeneratingAvatar) return;
+  const cast = familyCastProfileCache || getDefaultClientFamilyCast();
+  const member = (cast.members || []).find(m => m.id === activeVaultMemberId);
+  if (!member) return;
+
+  const photo = member.photos?.frontal || member.photos?.profile || member.photos?.stature || member.photoBase64;
+  if (!photo) {
+    showTemporaryToast('Please attach at least one reference photo first.');
+    return;
+  }
+
+  isGeneratingAvatar = true;
+  const prog = document.getElementById('vaultAvatarProgress');
+  const btn = document.getElementById('btnRegenAvatar') || document.getElementById('btnCreateAvatar');
+  if (prog) prog.style.display = 'flex';
+  if (btn) btn.disabled = true;
+
+  try {
+    const userEmail = getResolvedCreatorEmail();
+    const resp = await fetch('/api/synthesize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'generate_stylized_avatar',
+        memberId: member.id,
+        imageBase64: photo,
+        relation: member.relationship,
+        name: member.name,
+        approxAge: member.age,
+        visualTraits: member.visualTraits,
+        uncompromisableAnchors: member.uncompromisableAnchors,
+        creatorEmail: userEmail
+      })
+    });
+
+    if (resp.ok) {
+      const data = await resp.json();
+      if (data && data.success && data.avatarUrl) {
+        member.stylizedAvatarUrl = data.avatarUrl;
+        saveFamilyCastProfile(cast);
+        renderActiveMemberScreen();
+        renderVaultMemberTabs();
+        showTemporaryToast(`✓ Generated Stylized Editorial Model for ${escapeHtml(member.name || member.roleLabel)}!`);
+      } else {
+        showTemporaryToast(data?.error || 'Failed to generate stylized avatar.');
+      }
+    } else {
+      showTemporaryToast('Avatar generation service temporarily busy.');
+    }
+  } catch (err) {
+    console.warn('Avatar generation error:', err);
+    showTemporaryToast('Failed to connect to avatar generation service.');
+  } finally {
+    isGeneratingAvatar = false;
+    if (prog) prog.style.display = 'none';
+    if (btn) btn.disabled = false;
   }
 }
 
