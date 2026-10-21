@@ -56,7 +56,7 @@ module.exports = async function handler(req, res) {
 
     // Direct Single-Purpose Endpoint: Generate artwork only in background (has dedicated full execution window)
     if (body && body.action === 'artwork_only') {
-      const { prompt = '', imageBase64 = null, imageMimeType = 'image/jpeg', creatorEmail = '' } = body;
+      const { prompt = '', imageBase64 = null, imageMimeType = 'image/jpeg', creatorEmail = '', familyCast = null, activeCast = null } = body;
       const userEmail = (creatorEmail || '').toLowerCase().trim();
       if (!userEmail) {
         return res.status(401).json({ error: 'Slant Studio is currently in Private Preview. Please sign in with your invited Google account.' });
@@ -73,7 +73,9 @@ module.exports = async function handler(req, res) {
           prompt,
           imageBase64,
           imageMimeType,
-          timeoutMs: 16000
+          timeoutMs: 16000,
+          familyCast,
+          activeCast
         });
         if (geminiArt) {
           const cleanB64 = geminiArt.replace(/^data:image\/[^;]+;base64,/, '');
@@ -717,7 +719,7 @@ Respond strictly with valid JSON with this exact structure:
   "tensionCue": "Opposing visual force or conflict",
   "atmosphereCue": "Environmental setting or mood",
   "lightingCue": "Dramatic lighting description",
-  "illustrationPrompt": "${isCinematicPhoto ? 'Award-winning 35mm editorial news photograph in 4:5 vertical portrait format, sharp camera focus, natural skin textures, lifelike human expressions, realistic clothing and environment observed from the attached photo. Natural ambient lighting, cinematic color grading, strictly no painterly brushstrokes, no canvas textures, no oil paint, no text, no letters.' : (isArtisticPainting ? 'Masterpiece editorial broadsheet painted illustration describing the scene in vivid detail. Specifically incorporate the observed facial structures, hairstyles, expressions, clothing colors, and postures from the attached photo into a rich painterly composition. Clear, warmly lit faces, lifelike human expression, no text, no letters.' : 'Cinematic visual art prompt describing the scene with rich detail. People MUST have visible faces, warm natural lighting, and clear human form. Strictly avoid pitch-black silhouettes, faceless shadow figures, dark ghosts, or creepy silhouettes unless characterRepresentation is explicitly silhouette. Do not include any text, letters, watermarks, or typography.')}"
+  "illustrationPrompt": "${isCinematicPhoto ? 'Award-winning 35mm editorial news photograph in 4:5 vertical portrait format, sharp camera focus, natural skin textures, lifelike human expressions, realistic clothing and environment observed from the attached photo. Natural ambient lighting, cinematic color grading, strictly no painterly brushstrokes, no canvas textures, no oil paint, no text, no letters.' : (isArtisticPainting ? 'Masterpiece editorial broadsheet painted illustration describing the scene in vivid detail. Specifically incorporate the observed facial structures, hairstyles, expressions, clothing colors, and postures from the attached photo into a rich painterly composition. Clear, warmly lit faces, lifelike human expression, no text, no letters.' : (familyCastDirectives ? 'Cinematic visual art prompt describing the scene with rich detail. MANDATORY HEADCOUNT: You MUST begin with the exact headcount and enumeration of all family members: e.g. \"Group portrait of exactly 4 distinct individual people visible side by side (3 males, 1 female: 1) Father..., 2) Mother..., 3) 11yo Elder Son..., 4) 7yo Younger Son...). Both sons must be separately drawn side by side; strictly never merge the two boys into a single child. All 4 members must be individually visible with warm, fully illuminated faces. Do not draw detached foreground hands or extra people. No text, no letters, no typography.' : 'Cinematic visual art prompt describing the scene with rich detail. People MUST have visible faces, warm natural lighting, and clear human form. Strictly avoid pitch-black silhouettes, faceless shadow figures, dark ghosts, or creepy silhouettes unless characterRepresentation is explicitly silhouette. Do not include any text, letters, watermarks, or typography.'))}"
 }`;
 
     const parts = [];
@@ -1647,7 +1649,7 @@ function isLikelyPersonSubject(name) {
   return personKeywords.some(w => lower.includes(w));
 }
 
-async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeType = 'image/jpeg', timeoutMs = 16000 }) {
+async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeType = 'image/jpeg', timeoutMs = 16000, familyCast = null, activeCast = null }) {
   if (!GEMINI_API_KEY) return null;
   const imageModels = [
     'gemini-2.5-flash-image',
@@ -1655,7 +1657,23 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
     'gemini-3.1-flash-lite-image'
   ];
 
-  const isPhotoMedium = /photograph|film still|35mm|photojournalism|documentary|editorial portrait photograph/i.test(prompt);
+  let enhancedPrompt = prompt || '';
+
+  // Detect family context with 2 sons or family group
+  const hasTwoSons = /\b(two sons|2 sons|both boys|two boys|elder son.*younger son|elder brother.*younger brother)\b/i.test(enhancedPrompt);
+  const hasFamilyContext = hasTwoSons || /\b(family.*temple|family.*trip|father.*mother.*son|father.*wife.*son|me, wife and 2 sons|with family)\b/i.test(enhancedPrompt);
+
+  if (hasTwoSons || hasFamilyContext) {
+    const headcountAnchor = 'GROUP PORTRAIT OF EXACTLY FOUR (4) DISTINCT INDIVIDUAL PEOPLE VISIBLE SIDE BY SIDE (3 MALES, 1 FEMALE). STRICT COUNT = 4 PEOPLE: 1) Adult Father (man, mid 40s), 2) Adult Mother (woman, mid 30s), 3) Elder Son (11-year-old pre-teen boy) tall and lean, 4) Younger Son (7-year-old young schoolboy) noticeably shorter reaching only to elder brother shoulder. BOTH SONS ARE SEPARATE INDIVIDUAL PEOPLE. STRICT BAN ON MERGING: Do NOT draw only one child; both the 11yo boy and 7yo boy must be fully drawn side by side. ';
+    if (!enhancedPrompt.includes('EXACTLY FOUR') && !enhancedPrompt.includes('STRICT COUNT = 4')) {
+      enhancedPrompt = headcountAnchor + enhancedPrompt;
+    }
+  }
+
+  // Sanitize detached foreground hands/limbs that steal character slots from family
+  enhancedPrompt = enhancedPrompt.replace(/In the foreground,\s*(?:glowing\s*)?cupped hands receive drops of sacred theertha water/gi, 'The father and sons cup their hands to receive drops of sacred theertha water (no external detached arms)');
+
+  const isPhotoMedium = /photograph|film still|35mm|photojournalism|documentary|editorial portrait photograph/i.test(enhancedPrompt);
   const textureStyle = isPhotoMedium
     ? 'sharp focus, natural skin textures, 35mm film grain, authentic ambient lighting'
     : 'painterly texture, dramatic lighting';
@@ -1670,11 +1688,11 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
       }
     });
     parts.push({
-      text: `Transform this reference image into a high-aesthetic cinematic editorial magazine poster in 4:5 vertical portrait format: ${prompt}. Imposing visual composition, ${textureStyle}, vivid color grading, masterwork, no typography, no letters, no text.`
+      text: `Transform this reference image into a high-aesthetic cinematic editorial magazine poster in 4:5 vertical portrait format: ${enhancedPrompt}. Imposing visual composition, ${textureStyle}, vivid color grading, masterwork, no typography, no letters, no text.`
     });
   } else {
     parts.push({
-      text: `${prompt}, 4:5 vertical portrait format, dramatic atmospheric mood, ${textureStyle}, high aesthetic, vivid color grading, masterwork, no typography, no letters, no text.`
+      text: `${enhancedPrompt}, 4:5 vertical portrait format, dramatic atmospheric mood, ${textureStyle}, high aesthetic, vivid color grading, masterwork, no typography, no letters, no text.`
     });
   }
 
@@ -1991,6 +2009,20 @@ function buildFamilyCastDirectives({ familyCast, activeCast, castStaging, userSl
 
   const directives = [];
   const promptSnippets = [];
+
+  const totalCount = activeMembers.length;
+  const maleCount = activeMembers.filter(m => m.relationship === 'self' || m.relationship === 'elder_son' || m.relationship === 'younger_son' || /father|dad|son|boy|brother|male/i.test(`${m.roleLabel} ${m.relationship}`)).length;
+  const femaleCount = totalCount - maleCount;
+
+  // 0. Mandatory Exact Headcount & Enumeration
+  directives.push(`MANDATORY EXACT HEADCOUNT & ANTI-MERGING DIRECTIVE:
+- TOTAL VISIBLE INDIVIDUALS: EXACTLY ${totalCount} DISTINCT PEOPLE (${maleCount} MALES, ${femaleCount} FEMALES).
+- ALL ${totalCount} FAMILY MEMBERS MUST BE SIMULTANEOUSLY VISIBLE AND FULLY DRAWN SIDE BY SIDE:
+${activeMembers.map((m, i) => `  * Person #${i + 1}: ${m.name || m.roleLabel} (${m.roleLabel || m.relationship}, age ${m.age || 'N/A'})`).join('\n')}
+- STRICT BAN ON MERGING / COMPRESSION: Image generation models frequently suffer from "two sons" semantic collapse, mistakenly merging the two boys into a single child and drawing only 3 family members. YOU MUST NEVER MERGE THE TWO SONS! Both sons must be drawn as two separate individual boys. All ${maleCount} male family members (Father, Elder Son, Younger Son) and the Mother must be fully and clearly depicted. Never drop any male member.
+- ZERO UNATTACHED FOREGROUND PEOPLE/HANDS: If a ritual action is described (like receiving sacred water or praying), that action MUST be performed by one of the ${totalCount} family members themselves (e.g. the father and boys cupping their hands). Never draw cropped arms/hands of an external 5th person that consumes character slots.`);
+
+  promptSnippets.push(`group portrait of exactly ${totalCount} distinct people (${maleCount} males, ${femaleCount} female: ${activeMembers.map(m => m.name || m.roleLabel).join(', ')} all individually visible side by side, strictly do not merge sons into one child)`);
 
   // 1. Strict Age & Height Differentiation
   if (hasElderBoy && hasYoungerBoy) {

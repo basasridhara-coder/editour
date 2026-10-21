@@ -10961,6 +10961,8 @@ async function startAiSynthesis() {
             action: 'artwork_only',
             creatorEmail: currentUser?.email || '',
             prompt: currentSynthesizedPost.illustrationPrompt,
+            familyCast: familyCastProfileCache,
+            activeCast: getActiveCastPayload(),
             imageBase64: (creatorPerspectiveMode === 'source' || creatorCharacterRepresentation === 'exact')
               ? (creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || currentSynthesizedPost?.sourceImageBase64 || null)
               : null,
@@ -11048,6 +11050,8 @@ async function enhancePosterArtworkInBackground(post) {
         action: 'artwork_only',
         creatorEmail: currentUser?.email || '',
         prompt: post.illustrationPrompt,
+        familyCast: familyCastProfileCache,
+        activeCast: getActiveCastPayload(),
         imageBase64: (creatorPerspectiveMode === 'source' || creatorCharacterRepresentation === 'exact')
           ? (creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || post?.sourceImageBase64 || null)
           : null,
@@ -12210,12 +12214,14 @@ async function saveSynthesizedPost() {
   postToSave.isPrivate = true;
   postToSave.status = 'draft';
 
+  let hasUploadedPublicUrl = false;
   const rawPoster = currentSynthesizedPost.illustrationBase64 || currentSynthesizedPost.posterBase64 || currentSynthesizedPost.originalPhotoBase64;
   if (rawPoster && typeof rawPoster === 'string' && rawPoster.startsWith('data:image/')) {
     try {
       const compressed = await compressImageForCloud(rawPoster, 960, 0.85);
       const publicUrl = await uploadArtworkToSupabaseStorage(postToSave.id, compressed);
       if (publicUrl) {
+        hasUploadedPublicUrl = true;
         postToSave.illustrationUrl = publicUrl;
         postToSave.aiIllustrationUrl = publicUrl;
         currentSynthesizedPost.illustrationUrl = publicUrl;
@@ -12229,9 +12235,11 @@ async function saveSynthesizedPost() {
     postToSave.aiIllustrationUrl = postToSave.illustrationUrl;
   }
 
-  // Purge all heavy base64 fields so database row size is minimal (< 15 KB)
-  delete postToSave.posterBase64;
-  delete postToSave.illustrationBase64;
+  // Purge heavy base64 fields only if direct cloud upload already succeeded, otherwise let backend upload it
+  if (hasUploadedPublicUrl) {
+    delete postToSave.posterBase64;
+    delete postToSave.illustrationBase64;
+  }
   delete postToSave.originalPhotoBase64;
   delete postToSave.sourceImageBase64;
   delete postToSave.catalystPhotoBase64;
@@ -12380,12 +12388,14 @@ async function publishSynthesizedPost() {
   postToSave.isPrivate = false;
   postToSave.status = 'published';
 
+  let hasUploadedPublicUrl = false;
   const rawPoster = currentSynthesizedPost.illustrationBase64 || currentSynthesizedPost.posterBase64 || currentSynthesizedPost.originalPhotoBase64;
   if (rawPoster && typeof rawPoster === 'string' && rawPoster.startsWith('data:image/')) {
     try {
       const compressed = await compressImageForCloud(rawPoster, 960, 0.85);
       const publicUrl = await uploadArtworkToSupabaseStorage(postToSave.id, compressed);
       if (publicUrl) {
+        hasUploadedPublicUrl = true;
         postToSave.illustrationUrl = publicUrl;
         postToSave.aiIllustrationUrl = publicUrl;
         currentSynthesizedPost.illustrationUrl = publicUrl;
@@ -12399,9 +12409,11 @@ async function publishSynthesizedPost() {
     postToSave.aiIllustrationUrl = postToSave.illustrationUrl;
   }
 
-  // Purge all heavy base64 fields so database row size is minimal (< 15 KB)
-  delete postToSave.posterBase64;
-  delete postToSave.illustrationBase64;
+  // Purge heavy base64 fields only if direct cloud upload already succeeded, otherwise let backend upload it
+  if (hasUploadedPublicUrl) {
+    delete postToSave.posterBase64;
+    delete postToSave.illustrationBase64;
+  }
   delete postToSave.originalPhotoBase64;
   delete postToSave.sourceImageBase64;
   delete postToSave.catalystPhotoBase64;

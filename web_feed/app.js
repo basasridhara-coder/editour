@@ -273,15 +273,20 @@ async function init() {
     }
   }, 60000);
 
-  initAuth();
+  await initAuth();
   const gateEmail = sessionStorage.getItem('slant_gate_active_email');
   if (gateEmail) {
     openPrivatePreviewGateModal(gateEmail);
   }
+  const deepPostId = typeof getDeepLinkedPostId === 'function' ? getDeepLinkedPostId() : null;
+  if (!currentUser && !deepPostId) {
+    dismissInitialFeedLoader(true);
+    renderLoginPostsPreview();
+  }
   await loadPosts();
   setupEventListeners();
   setupPullToRefresh();
-  checkDeepLink();
+  await checkDeepLink();
   setupRealtimeSubscription();
   checkIncomingShareTarget();
   loadFamilyCastProfile();
@@ -423,6 +428,7 @@ async function initAuth() {
         currentUser = session.user;
         isCurrentUserAdmin = check.isAdmin;
         isUserWhitelistAllowed = true;
+        closeAuthModal();
         checkPendingSharedDataOnAuth();
       } else {
         await handleUninvitedUser(session.user);
@@ -480,6 +486,41 @@ async function initAuth() {
               localStorage.setItem('slant_my_posts', JSON.stringify(Array.from(myCreatedPostIds)));
             }
           }
+
+          if (isDeepLinkScrollGated) {
+            isDeepLinkScrollGated = false;
+            const gate = document.getElementById('deepLinkFeedGate');
+            if (gate) gate.remove();
+          }
+
+          const redirectCurator = sessionStorage.getItem('slant_redirect_curator');
+          if (redirectCurator) {
+            sessionStorage.removeItem('slant_redirect_curator');
+            setTimeout(() => filterByCurator(redirectCurator), 500);
+          }
+
+          let returnUrl = sessionStorage.getItem('slant_auth_redirect_url');
+          if (returnUrl) {
+            sessionStorage.removeItem('slant_auth_redirect_url');
+            returnUrl = returnUrl
+              .replace(/#login.*$/, '')
+              .replace(/([?&])(auth=login|login=true)(&|$)/, '$1')
+              .replace(/[?&]$/, '');
+            try {
+              if (returnUrl && window.location.href !== returnUrl && !returnUrl.endsWith('#login')) {
+                history.replaceState(null, '', returnUrl);
+              } else if (window.location.hash === '#login') {
+                const cleanUrl = window.location.pathname + window.location.search;
+                history.replaceState(null, '', cleanUrl);
+              }
+            } catch (_) {}
+          } else if (window.location.hash === '#login') {
+            try {
+              const cleanUrl = window.location.pathname + window.location.search;
+              history.replaceState(null, '', cleanUrl);
+            } catch (_) {}
+          }
+
           checkLiveSupabaseUpdates(true);
           updateAuthUI();
           if (isCurrentUserAdmin) {
@@ -493,6 +534,13 @@ async function initAuth() {
       currentUser = null;
       isCurrentUserAdmin = false;
       isUserWhitelistAllowed = false;
+      const deepPostId = typeof getDeepLinkedPostId === 'function' ? getDeepLinkedPostId() : null;
+      if (deepPostId) {
+        isDeepLinkScrollGated = true;
+        if (typeof setupDeepLinkScrollGate === 'function') {
+          setupDeepLinkScrollGate();
+        }
+      }
       closeAuthModal();
       updateAuthUI();
       if (!suppressSignOutNotice) {
@@ -534,6 +582,10 @@ function getUserAvatarUrl() {
 }
 
 function updateAuthUI() {
+  const signedInView = document.getElementById('signedInAppView');
+  const signedOutView = document.getElementById('signedOutPageView');
+  const deepPostId = typeof getDeepLinkedPostId === 'function' ? getDeepLinkedPostId() : null;
+
   const signInBtn = document.getElementById('headerAuthBtn');
   const userMenuWrap = document.getElementById('userMenuWrap');
   const userDropdownName = document.getElementById('userMenuName');
@@ -568,6 +620,10 @@ function updateAuthUI() {
   if (badgeMyCount) badgeMyCount.textContent = myPostsCount;
 
   if (currentUser) {
+    if (signedInView) signedInView.style.display = 'flex';
+    if (signedOutView) signedOutView.style.display = 'none';
+    document.body.classList.remove('signed-out-active');
+
     if (signInBtn) signInBtn.style.display = 'none';
     if (userMenuWrap) userMenuWrap.style.display = 'block';
 
@@ -616,6 +672,20 @@ function updateAuthUI() {
       headerAdminBetaBtn.style.display = isCurrentUserAdmin ? 'inline-flex' : 'none';
     }
   } else {
+    if (deepPostId) {
+      if (signedInView) signedInView.style.display = 'flex';
+      if (signedOutView) signedOutView.style.display = 'none';
+      document.body.classList.remove('signed-out-active');
+    } else {
+      if (signedInView) signedInView.style.display = 'none';
+      if (signedOutView) {
+        signedOutView.style.display = 'flex';
+        renderLoginPostsPreview();
+      }
+      document.body.classList.add('signed-out-active');
+      dismissInitialFeedLoader(true);
+    }
+
     if (signInBtn) signInBtn.style.display = 'inline-flex';
     if (userMenuWrap) userMenuWrap.style.display = 'none';
 
@@ -675,71 +745,201 @@ function togglePasswordMode(isPassword) {
 
 const FEATURED_COLORFUL_POST_CONFIGS = [
   {
-    id: '9a9a239d-3865-4f6c-9aa8-db0bf8771588',
-    icon: '🛕',
-    shortName: 'Ayodhya Temple'
+    id: "slant-1792357651142-l7z3b",
+    icon: "🎓",
+    shortName: "AI & Homework"
   },
   {
-    id: '83940fae-4ad7-43f6-9329-91cd17752f78',
-    icon: '🥇',
-    shortName: 'Asian Games Gold'
+    id: "slant-1792397027404-7rawu",
+    icon: "🌊",
+    shortName: "Urban Deluge"
   },
   {
-    id: 'bb5114c8-da15-4af9-afaf-70a577cc6e4a',
-    icon: '📈',
-    shortName: 'GST Divergence'
+    id: "slant-1792429695314-6thox",
+    icon: "✨",
+    shortName: "Wonder & Grace"
   },
   {
-    id: '2f001766-faca-4a3a-92c8-20ea3f444749',
-    icon: '🌳',
-    shortName: 'Hebbal Canopy'
+    id: "slant-1792437452220-xd5vt",
+    icon: "✈️",
+    shortName: "Cockpit Safety"
+  }
+];
+
+const FEATURED_LOGIN_POSTS = [
+  {
+    "id": "slant-1792357651142-l7z3b",
+    "categoryBadge": "EDUCATION & AI",
+    "adaptedHeadline": "Stop Assigning Rote Homework in the AI Age",
+    "originalHeadline": "What Should Your Kids Study In The Age Of AI? IMF Panelists Weigh In",
+    "publicationName": "NDTV Profit • YouTube",
+    "creatorHandle": "@Shridhar Reddy",
+    "curatorTake": "Our schools still train children to copy textbooks while algorithms conquer routine work. We must teach kids to spot local community problems, turning them into problem solvers rather than passive job seekers.",
+    "polishedCuratorTake": "While on one hand we constantly discuss AI everywhere and debate its impacts, our education system is still stuck giving kids vacation homework like copying one-page chapters into a notebook or having third-grade students write down animal names. Why don't we give them assignments that encourage them to inquire about and understand their surrounding environment, people, and professions? Beyond simply knowing, we could ask them to identify problems they observe in their homes, on their streets, or at school, consider how they would like to solve them, and write down those solutions. That would make our kids far smarter about how to use AI to solve our problems, rather than just waiting for someone to come along and give them a job.",
+    "creatorOpinion": "While on one hand we constantly discuss AI everywhere and debate its impacts, our education system is still stuck giving kids vacation homework like copying one-page chapters into a notebook or having third-grade students write down animal names. Why don't we give them assignments that encourage them to inquire about and understand their surrounding environment, people, and professions? Beyond simply knowing, we could ask them to identify problems they observe in their homes, on their streets, or at school, consider how they would like to solve them, and write down those solutions. That would make our kids far smarter about how to use AI to solve our problems, rather than just waiting for someone to come along and give them a job.",
+    "whyItMatters": "Training children in mindless repetition guarantees their obsolescence, whereas teaching them to diagnose local problems builds enduring resilience against automation.",
+    "hook": "While economists warn that traditional degrees will collapse under automation, our classrooms still force eight-year-olds to hand-copy textbooks.",
+    "keyTakeaways": [
+      "Ditch Rote Work: Mechanical copying preps children for jobs machines already do better.",
+      "Cultivate Observation: Investigating real neighborhood friction builds critical inquiry and creative agency.",
+      "Command the Tools: Teaching problem-solving turns technology into an engine for community renewal."
+    ],
+    "resolvedArticleExcerpts": [
+      "Global economists and policymakers gather on television stages to sound the alarm on vanishing degrees, yet our elementary classrooms remain frozen in time. Young children still spend their school breaks mechanically copying textbook paragraphs onto lined paper or memorizing static animal lists. We obsess over artificial intelligence dominating the future, but continue drilling the exact repetitive tasks that machines now perform instantly.",
+      "During the panel discussion, experts emphasized that the next generation will need deep adaptability and critical reasoning rather than formulaic credentials. True education must connect young minds directly to their lived environments, neighborhoods, and local trades. Instead of testing passive recall, schools should task students with investigating street drainage, local markets, or family budgets, training them to analyze friction.",
+      "When we encourage children to diagnose genuine community breakdowns and draft inventive fixes, we build real agency. Technology should be a powerful tool they command to fix everyday broken systems, not a looming threat that replaces their labor. Raising creative problem solvers safeguards our children far better than waiting on vanishing corporate job ladders."
+    ],
+    "sourceType": "video_audio",
+    "digitalLink": "https://youtu.be/uUZo1T4m9a8?si=TlPWqnl8RJUTOemZ",
+    "sourceImageUrl": "https://i.ytimg.com/vi/uUZo1T4m9a8/maxresdefault.jpg",
+    "illustrationUrl": "/posters/slant-1792357651142-l7z3b.png",
+    "illustrationPrompt": "Cinematic warm editorial realism photography. In a sunlit living room bathed in pale morning light from an open window overlooking a bustling Indian street, a thoughtful Indian mother in a vibrant mustard-yellow kurta gently guides her curious eight-year-old son. On the rustic wooden desk rests an open worn school notebook showing hand-drawn animal sketches alongside neat handwritten cursive, while a modern tablet softly glows nearby displaying neighborhood maps and architectural diagrams. Expressive, warm human faces with realistic skin tones, natural lighting, and tangible domestic warmth, contrasting traditional schoolwork with community problem-solving.",
+    "slantIcon": "❤️",
+    "slantTone": "heart",
+    "pullQuote": "Children must learn to interrogate their neighborhoods and solve broken systems, turning technology into an ally rather than an existential rival.",
+    "receiptHighlightQuote": "Children must learn to interrogate their neighborhoods and solve broken systems, turning technology into an ally rather than an existential rival.",
+    "targetAudience": "General Public"
   },
   {
-    id: '692d99fc-d140-4d1c-9275-3263a7c187b7',
-    icon: '🚨',
-    shortName: 'Karnataka Drought'
+    "id": "slant-1792397027404-7rawu",
+    "categoryBadge": "CLIMATE",
+    "adaptedHeadline": "When Record Waters Bring Concrete Empires to Their Knees",
+    "originalHeadline": "Istanbul floods: Turkey hit by heaviest rainfall in 80 years",
+    "publicationName": "youtu.be",
+    "creatorHandle": "@Shridhar Reddy",
+    "curatorTake": "These calamities bring the richest and strongest among us to their knees, revealing humanity's true insignificance before nature. Blinded by narrow perspectives, we must face our small mistakes and learn to live selflessly.",
+    "polishedCuratorTake": "These unexpected natural calamities across the globe have created so much material destruction, along with the hopelessness and future insecurities they create. These kinds of calamities bring the richest of the rich and the strongest of the strong to their knees, showing humanity what it is truly worth in front of nature. We might wonder how our individual actions lead to this, yet collectively as a human race we are causing great harm to nature, and this is merely a reaction to that. Because our perspective is so narrow, we do not realize that our small mistakes cause these disasters at much later stages. Humans must self-reflect and start living sustainably, in a truly cooperative and selfless way.",
+    "creatorOpinion": "These calamities bring the richest and strongest among us to their knees, revealing humanity's true insignificance before nature. Blinded by narrow perspectives, we must face our small mistakes and learn to live selflessly.",
+    "whyItMatters": "Historic floods reveal that no modern city is immune to climate backlash, demanding immediate community cooperation and sustainable planning.",
+    "hook": "Record deluges across major metropolises show that even the most fortified urban centers stand fragile before natural systems pushed past their limit.",
+    "keyTakeaways": [
+      "Ecological Reality: Modern urban infrastructure cannot overpower planetary water cycles.",
+      "Collective Consequence: Small daily mistakes accumulate into catastrophic downstream natural disasters.",
+      "Sustainable Stewardship: Lasting survival requires genuine cross-community cooperation and humility."
+    ],
+    "resolvedArticleExcerpts": [
+      "Record rainstorms in Istanbul demonstrate how quickly natural forces can dismantle urban routine. Rushing water fills busy intersections and drowns vehicles, exposing the fragile reality of concrete growth. These extreme events strip away illusions of control, leaving even the most advanced cities humbled. The loss goes beyond damaged streets and shattered logistics, leaving behind deep anxiety about what coming seasons will bring to ordinary communities.",
+      "Broadcast reports showing eighty-year record precipitation overwhelm municipal drain systems, forcing emergency workers to wade through drowned avenues. While individual city dwellers rarely see how daily consumption fuels global volatility, the collective burden on natural cycles eventually rebounds. Modern municipal planning treats nature as a manageable variable until extreme events prove that human construction remains profoundly vulnerable to the broader climate ledger.",
+      "Facing this mounting instability requires moving past short-term repairs and reactive disaster response. Protecting everyday neighborhoods demands a fundamental shift toward sustainable cooperation and shared responsibility. True resilience starts when communities respect ecological limits and build durable systems grounded in selfless stewardship."
+    ],
+    "sourceType": "video_audio",
+    "digitalLink": "https://youtu.be/sEb0_Gplrvs?si=nTdG92traw5_5hs9",
+    "sourceImageUrl": "https://i.ytimg.com/vi/sEb0_Gplrvs/maxresdefault.jpg",
+    "illustrationUrl": "/posters/slant-1792397027404-7rawu.png",
+    "illustrationPrompt": "Award-winning 35mm editorial documentary photograph in 4:5 vertical portrait format. A Turkish emergency responder in high-visibility reflective navy waterproof gear and a municipal municipal worker in dark uniform navigate a flooded Istanbul boulevard. Lifelike facial features showing serious determination, authentic skin pores, and natural eye gaze. Behind them, partially submerged white delivery vans and passenger cars sit stranded in muddy floodwaters rising along commercial storefronts. Harsh slate-gray overcast daylight reflects across the deep water puddles. Natural depth of field, gentle optical background blur, raw documentary photojournalism style, strictly no painterly brushstrokes, no canvas texture, no digital CGI artifacts, no text, no logos.",
+    "slantIcon": "🧠",
+    "slantTone": "mind",
+    "pullQuote": "Severe weather brings the strongest institutions to their knees, proving that true urban security demands cooperative, sustainable living.",
+    "receiptHighlightQuote": "Severe weather brings the strongest institutions to their knees, proving that true urban security demands cooperative, sustainable living.",
+    "targetAudience": "General Public"
+  },
+  {
+    "id": "slant-1792429695314-6thox",
+    "categoryBadge": "CULTURE",
+    "adaptedHeadline": "When Childhood Wonder Meets Fierce Divine Grace",
+    "originalHeadline": "When a morning drawing reveals timeless cultural fire",
+    "publicationName": "Inner Voice",
+    "creatorHandle": "@Shridhar Reddy",
+    "curatorTake": "Watching raw devotion take form through an eleven-year-old's bold brushstrokes proves our heritage lives effortlessly within the next generation. True art needs no rehearsal when guided by love.",
+    "polishedCuratorTake": "When my eleven-year-old son drew a ferocious Maa Kali this morning, it turned out to be an amazing piece in the traditional Kolkata style.",
+    "creatorOpinion": "Watching raw devotion take form through an eleven-year-old's bold brushstrokes proves our heritage lives effortlessly within the next generation. True art needs no rehearsal when guided by love.",
+    "whyItMatters": "Children absorb our living traditions not through forced lectures, but through creative discovery and spontaneous expression.",
+    "hook": "An ordinary quiet morning dissolved into awe when bold black strokes and vivid orange ink took shape on the kitchen table.",
+    "keyTakeaways": [
+      "Fearless Instinct: Pure childhood imagination channels complex sacred iconography with remarkable ease.",
+      "Living Heritage: Cultural stories thrive organically when children feel inspired to create.",
+      "Quiet Wonder: Profound artistic milestones often happen during ordinary, unhurried family mornings."
+    ],
+    "resolvedArticleExcerpts": [
+      "The quiet stillness of the morning shifted completely when my eleven-year-old laid down his brushes. Right across the paper, a ferocious yet gentle Maa Kali emerged, framed in vivid saffron tones and striking black contours that instantly recalled the historic clay artisans of Kolkata. What began as casual morning doodling quickly unfolded into a deeply moving tribute to heritage and spiritual strength.",
+      "There is something magical when young hands capture ancient deities with such fearless precision. He did not overthink the proportions or seek mechanical perfection; he simply poured instinct onto the page. Her extended tongue, wide protective eyes, and delicate ornaments came alive with an earnest, unvarnished intensity that many seasoned painters spend years trying to replicate through formal craft.",
+      "Moments like this remind us that cultural memory is never truly lost across generations. It flows naturally through simple shared mornings, curiosity, and freedom of expression. Seeing raw divine power through innocent eyes gives us profound hope that our deepest traditions remain vibrant, grounded, and endlessly alive."
+    ],
+    "sourceType": "inner_voice",
+    "illustrationUrl": "/posters/slant-1792429695314-6thox.png",
+    "illustrationPrompt": "An expressive, warm editorial portrait of an eleven-year-old Indian boy proudly holding up his handmade painting of Maa Kali. The boy has a bright, smiling, clearly visible face and wears a simple casual morning t-shirt. The painting in his hands shows the goddess rendered in bold folk lines with a vivid fiery orange background, large expressive eyes, and traditional crown. The room is a cozy, sunlit Indian home study bathed in golden morning light streaming through a window, with paintbrushes, water jars, and sketches on the wooden table behind him. Rich colors, warm ambiance, highly detailed realistic features, no silhouettes, no text.",
+    "slantIcon": "❤️",
+    "slantTone": "heart",
+    "pullQuote": "Our ancient cultural roots do not fade; they find vibrant new life whenever our children pick up a brush.",
+    "receiptHighlightQuote": "Our ancient cultural roots do not fade; they find vibrant new life whenever our children pick up a brush.",
+    "spark": "When I saw my son's drawing today morning",
+    "targetAudience": "General Public"
+  },
+  {
+    "id": "slant-1792437452220-xd5vt",
+    "categoryBadge": "AVIATION",
+    "adaptedHeadline": "When Cockpit Safety Hinges on Mindset",
+    "originalHeadline": "Flydubai captain on the cockpit battle to save his plane",
+    "publicationName": "The National News • YouTube",
+    "creatorHandle": "@Shridhar Reddy",
+    "curatorTake": "Vetting human pilots remains aviation's toughest challenge because personal ideology cannot be quantified. If intent turns destructive, automated flights may ultimately offer the only foolproof safety barrier.",
+    "polishedCuratorTake": "For airlines, vetting pilots as part of their safety protocols will be highly challenging. If a pilot decides to cause harm, they can make the plane fail and crash at any time; it is purely a matter of their personal mindset and ideology. How airlines will quantify that and ensure safety remains to be seen. Much like driverless cars, pilotless flights could be the safe future.",
+    "creatorOpinion": "Vetting human pilots remains aviation's toughest challenge because personal ideology cannot be quantified. If intent turns destructive, automated flights may ultimately offer the only foolproof safety barrier.",
+    "whyItMatters": "Standard airline checks cannot detect hidden radical shifts in human intent, leaving millions of travelers vulnerable to private cockpit decisions.",
+    "hook": "A harrowing cockpit struggle proves that no mechanical checklist can protect passengers when human intent itself turns volatile.",
+    "keyTakeaways": [
+      "Vetting Limits: Mental health exams cannot reliably predict sudden ideological shifts.",
+      "Internal Danger: Hostile pilot actions instantly bypass complex mechanical safety nets.",
+      "Automated Future: Autonomous cockpits offer standard protection against unpredictable human behavior."
+    ],
+    "resolvedArticleExcerpts": [
+      "Every commercial flight operates on absolute trust in the individuals holding the controls. While airline protocols train crews to conquer brutal mechanical failures, they cannot reliably scan the shifting private convictions inside a pilot's mind. When extreme danger strikes the cockpit, an aircraft's survival comes down to split-second choices, exposing how vulnerable passengers remain to individual human intent.",
+      "Accounts of high-altitude cockpit struggles showcase the thin margin between disaster and safe landing. Emergency procedures mandate teamwork and rapid telemetry analysis to neutralize system breakdowns. Yet technical manuals assume good faith. If an operator actively chooses harm, existing safety barriers fall instantly, leaving traditional screening methods incapable of measuring ideological decay or internal psychological collapse.",
+      "Ensuring absolute air travel security demands looking beyond traditional psychological questionnaires. Just as autonomous ground vehicles remove erratic driver error, pilotless aviation may emerge as the necessary frontier for passenger protection. Removing human vulnerability completely resets transit safety, guaranteeing that split-second cockpit decisions are driven purely by reliable code rather than unstable human emotion."
+    ],
+    "sourceType": "video_audio",
+    "digitalLink": "https://youtu.be/1MsLWFqaJmk?si=1GLBeRqezlu-gj-N",
+    "sourceImageUrl": "https://i.ytimg.com/vi/1MsLWFqaJmk/maxresdefault.jpg",
+    "illustrationUrl": "/posters/slant-1792437452220-xd5vt.png",
+    "illustrationPrompt": "Cinematic dramatic editorial photography of an exhausted Indian commercial airline captain sitting in a tight flight deck cockpit interior. The captain has visible facial features, realistic weathered skin tones, dark hair, and wears an unbuttoned pilot uniform shirt. His hands grip an analog flight yoke resting beside scattered paper manuals. Gleaming amber control panel warning alarms glow across the dashboard, casting a harsh instrument panel screen glare across his determined face. Realistic warm ambient lighting contrasts with the flashing cockpit indicators.",
+    "slantIcon": "❤️",
+    "slantTone": "heart",
+    "pullQuote": "If a pilot chooses harm, safety nets fail instantly; autonomous cockpits may become aviation's only true safeguard.",
+    "receiptHighlightQuote": "If a pilot chooses harm, safety nets fail instantly; autonomous cockpits may become aviation's only true safeguard.",
+    "targetAudience": "General Public"
   }
 ];
 
 function renderLoginPostsPreview() {
-  const track = document.getElementById('loginPostsScrollTrack');
-  const switcher = document.getElementById('loginStoriesSwitcher');
+  const track = document.getElementById("loginPostsScrollTrack");
+  const switcher = document.getElementById("loginStoriesSwitcher");
   if (!track) return;
 
-  // Don't re-render if already populated
-  if (track.children.length > 0 && track.dataset.populated === 'true') {
+  // Do not re-render if already populated
+  if (track.children.length > 0 && track.dataset.populated === "true") {
     return;
   }
 
-  // Load feed if not loaded yet
-  if (!Array.isArray(allPosts) || allPosts.length === 0) {
-    fetch('slant_feed.json')
-      .then(r => r.json())
-      .then(data => {
-        if (Array.isArray(data) && data.length > 0) {
-          allPosts = data.filter(p => p && !p.deleted && (p.adaptedHeadline || p.hook || p.summary));
-          renderLoginPostsPreview();
+  // Ensure featured login posts are merged into allPosts so any lookup succeeds
+  if (Array.isArray(FEATURED_LOGIN_POSTS)) {
+    if (typeof mergeAndSortPosts === "function") {
+      mergeAndSortPosts(FEATURED_LOGIN_POSTS);
+    } else {
+      if (!Array.isArray(allPosts)) allPosts = [];
+      FEATURED_LOGIN_POSTS.forEach(fp => {
+        if (!allPosts.some(p => p && p.id === fp.id)) {
+          allPosts.push(fp);
         }
-      })
-      .catch(e => console.warn('Could not load slant_feed for login preview:', e));
-    return;
+      });
+    }
   }
 
-  // Find the selected colourful posts
+  // Find the selected colourful posts strictly matching FEATURED_COLORFUL_POST_CONFIGS
   const selectedPosts = [];
   FEATURED_COLORFUL_POST_CONFIGS.forEach(cfg => {
-    const post = allPosts.find(p => p && p.id === cfg.id);
+    const post = (allPosts || []).find(p => p && p.id === cfg.id) ||
+      (FEATURED_LOGIN_POSTS || []).find(p => p && p.id === cfg.id);
     if (post) {
       selectedPosts.push({ post, cfg });
     }
   });
 
   // Fallback if some IDs are missing
-  if (selectedPosts.length === 0) {
+  if (selectedPosts.length === 0 && Array.isArray(allPosts)) {
     allPosts.slice(0, 4).forEach((post, i) => {
       selectedPosts.push({
         post,
-        cfg: { id: post.id, icon: '📰', shortName: post.categoryBadge || `Story ${i+1}` }
+        cfg: { id: post.id, icon: "📰", shortName: post.categoryBadge || ("Story " + (i + 1)) }
       });
     });
   }
@@ -803,7 +1003,7 @@ function renderLoginPostsPreview() {
       <!-- 3 Posters in a Row: Hook, Slant, Receipts -->
       <div class="login-row-posters">
         <!-- Poster 1: The Visual Hook -->
-        <div class="login-poster-col poster-hook" onclick="previewPostFromLogin('${post.id}')" title="Poster 1: Visual Hook • Click to read in feed">
+        <div class="login-poster-col poster-hook" onclick="previewPostFromLogin('${post.id}')" title="Poster 1: Visual Hook • Sign in to read">
           <span class="login-poster-label">01 • HOOK</span>
           <div class="carousel-slide slide-hook">
             ${slide1Content}
@@ -811,7 +1011,7 @@ function renderLoginPostsPreview() {
         </div>
 
         <!-- Poster 2: The Slant & Conviction -->
-        <div class="login-poster-col poster-slant" onclick="previewPostFromLogin('${post.id}')" title="Poster 2: The Slant • Click to read in feed">
+        <div class="login-poster-col poster-slant" onclick="previewPostFromLogin('${post.id}')" title="Poster 2: The Slant • Sign in to read">
           <span class="login-poster-label">02 • THE SLANT</span>
           <div class="carousel-slide slide-critique">
             ${slide2Content}
@@ -819,7 +1019,7 @@ function renderLoginPostsPreview() {
         </div>
 
         <!-- Poster 3: Slant Minute (1-Min Read) -->
-        <div class="login-poster-col poster-receipts" onclick="previewPostFromLogin('${post.id}')" title="Poster 3: Slant Minute (1-Min Read) • Click to read in feed">
+        <div class="login-poster-col poster-receipts" onclick="previewPostFromLogin('${post.id}')" title="Poster 3: Slant Minute • Sign in to read">
           <span class="login-poster-label">03 • SLANT MINUTE</span>
           <div class="carousel-slide slide-receipt">
             ${slide3Content}
@@ -966,26 +1166,25 @@ function scrollLoginPosts(direction) {
 function previewPostFromLogin(postId) {
   if (!postId) return;
 
-  // If on standalone login.html, navigate to home with the post deep-link
-  if (window.location.pathname.includes('login') || !document.getElementById('feedStream')) {
-    sessionStorage.setItem('slant_guest_explored', 'true');
-    window.location.href = `/?p=${encodeURIComponent(postId)}`;
-    return;
+  const googleBtn = document.getElementById('googleLoginBtn');
+  if (googleBtn) {
+    googleBtn.classList.remove('pulse-highlight');
+    void googleBtn.offsetWidth;
+    googleBtn.classList.add('pulse-highlight');
   }
 
-  closeAuthModal();
-  const idx = allPosts.findIndex(p => p.id === postId);
-  if (idx >= 0) {
-    setTimeout(() => {
-      openDetailModal(idx);
-    }, 250);
-  } else {
-    showTemporaryToast('Navigating to story...');
+  const emailInput = document.getElementById('authEmailInput');
+  if (emailInput && window.innerWidth > 860) {
+    emailInput.focus();
   }
+
+  showTemporaryToast('Sign in with Google to explore full stories and join the conversation!');
 }
 
 function openAuthModal(customDesc) {
-  const modal = document.getElementById('authModal');
+  if (currentUser) {
+    return;
+  }
   const descEl = document.getElementById('authModalDesc');
   const statusEl = document.getElementById('authStatusMsg');
   if (statusEl) {
@@ -997,18 +1196,27 @@ function openAuthModal(customDesc) {
   } else if (descEl) {
     descEl.textContent = 'Sign in to save your favorite visual stories, customize your reading atmosphere, and publish your own editorials.';
   }
-  if (modal) {
-    modal.classList.add('open');
-    modal.classList.add('active');
-    const card = modal.querySelector('.slant-login-page-card');
-    if (card) card.scrollTop = 0;
+
+  const signedInView = document.getElementById('signedInAppView');
+  const signedOutView = document.getElementById('signedOutPageView');
+  if (signedInView) signedInView.style.display = 'none';
+  if (signedOutView) {
+    signedOutView.style.display = 'flex';
+    renderLoginPostsPreview();
+  }
+  document.body.classList.add('signed-out-active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+
+  const googleBtn = document.getElementById('googleLoginBtn');
+  if (googleBtn) {
+    googleBtn.classList.remove('pulse-highlight');
+    void googleBtn.offsetWidth;
+    googleBtn.classList.add('pulse-highlight');
   }
 
-  // Populate dynamic post preview cards in the login showcase
-  renderLoginPostsPreview();
-
-  // Push #login to URL hash if not already present
-  if (window.location.hash !== '#login') {
+  // Push #login to URL hash if not already present and not deep-linked
+  const deepId = typeof getDeepLinkedPostId === 'function' ? getDeepLinkedPostId() : null;
+  if (!deepId && window.location.hash !== '#login') {
     try {
       history.replaceState(null, '', '#login');
     } catch (e) {}
@@ -1021,15 +1229,15 @@ function openAuthModal(customDesc) {
 }
 
 function closeAuthModal() {
-  const modal = document.getElementById('authModal');
-  if (modal) {
-    modal.classList.remove('open');
-    modal.classList.remove('active');
-  }
+  const deepId = typeof getDeepLinkedPostId === 'function' ? getDeepLinkedPostId() : null;
+  const signedInView = document.getElementById('signedInAppView');
+  const signedOutView = document.getElementById('signedOutPageView');
 
-  try {
-    sessionStorage.setItem('slant_guest_explored', 'true');
-  } catch (e) {}
+  if (currentUser || deepId) {
+    if (signedOutView) signedOutView.style.display = 'none';
+    if (signedInView) signedInView.style.display = 'flex';
+    document.body.classList.remove('signed-out-active');
+  }
 
   // Remove #login from URL hash if present
   if (window.location.hash === '#login') {
@@ -1041,9 +1249,7 @@ function closeAuthModal() {
 }
 
 function handleAuthOverlayClick(e) {
-  if (e && e.target && e.target.id === 'authModal') {
-    closeAuthModal();
-  }
+  // Legacy handler maintained for backward compatibility
 }
 
 function showAuthStatus(msg, type = 'normal') {
@@ -1063,6 +1269,15 @@ async function signInWithGoogle() {
   if (btn) btn.style.opacity = '0.6';
   showAuthStatus('Connecting to Google...', 'normal');
   try {
+    if (window.location.href) {
+      try {
+        const cleanUrl = window.location.href
+          .replace(/#login.*$/, '')
+          .replace(/([?&])(auth=login|login=true)(&|$)/, '$1')
+          .replace(/[?&]$/, '');
+        sessionStorage.setItem('slant_auth_redirect_url', cleanUrl || window.location.origin);
+      } catch (_) {}
+    }
     const { error } = await supabaseClient.auth.signInWithOAuth({
       provider: 'google',
       options: {
@@ -1230,17 +1445,18 @@ function closePrivatePreviewGateModal() {
   isUninvitedGateActive = false;
   try {
     sessionStorage.removeItem('slant_gate_active_email');
-    sessionStorage.setItem('slant_guest_explored', 'true');
   } catch (e) {}
   const modal = document.getElementById('privatePreviewGateModal');
-  if (!modal) return;
-  modal.classList.remove('open');
-  modal.classList.remove('active');
-  modal.style.display = 'none';
-  modal.style.opacity = '';
-  modal.style.visibility = '';
-  modal.style.pointerEvents = '';
+  if (modal) {
+    modal.classList.remove('open');
+    modal.classList.remove('active');
+    modal.style.display = 'none';
+    modal.style.opacity = '';
+    modal.style.visibility = '';
+    modal.style.pointerEvents = '';
+  }
   document.body.style.overflow = '';
+  updateAuthUI();
 }
 
 function openAdminBetaModal() {
@@ -1513,6 +1729,10 @@ function selectUserFilter(filterKey) {
 }
 
 function selectCategory(categoryKey) {
+  if (isDeepLinkScrollGated && !currentUser) {
+    openAuthModal('Sign in to explore category feeds on Slant.');
+    return;
+  }
   currentFilter = categoryKey;
   document.querySelectorAll('.filter-pill').forEach(pill => {
     pill.classList.toggle('active', pill.getAttribute('data-cat') === categoryKey);
@@ -1525,6 +1745,11 @@ function toggleBookmark(event, postId) {
   if (event) {
     event.stopPropagation();
     event.preventDefault();
+  }
+
+  if (!currentUser) {
+    openAuthModal('Sign in to save and bookmark stories on Slant.');
+    return;
   }
 
   const isCurrentlySaved = savedPostIds.has(postId);
@@ -1649,6 +1874,14 @@ function mergeAndSortPosts(newPosts) {
     p.id = postId;
     p.createdAt = p.createdAt || raw.created_at || raw.createdAt || new Date().toISOString();
 
+    // Sanitize image URLs (clean corrupted &amp; XML entities)
+    if (typeof p.sourceImageUrl === 'string') p.sourceImageUrl = p.sourceImageUrl.replace(/&amp;/g, '&');
+    if (typeof p.referencePhotoUrl === 'string') p.referencePhotoUrl = p.referencePhotoUrl.replace(/&amp;/g, '&');
+    if (p.generationInputs) {
+      if (typeof p.generationInputs.sourceImageUrl === 'string') p.generationInputs.sourceImageUrl = p.generationInputs.sourceImageUrl.replace(/&amp;/g, '&');
+      if (typeof p.generationInputs.referencePhotoUrl === 'string') p.generationInputs.referencePhotoUrl = p.generationInputs.referencePhotoUrl.replace(/&amp;/g, '&');
+    }
+
     if (!existingMap.has(postId)) {
       existingMap.set(postId, p);
       addedCount++;
@@ -1739,7 +1972,7 @@ function getDeepLinkedPostId() {
     const params = new URLSearchParams(window.location.search);
     const fromQuery = params.get('p') || params.get('post') || params.get('id');
     if (fromQuery && fromQuery.trim()) {
-      return fromQuery.trim();
+      return decodeURIComponent(fromQuery.trim());
     }
 
     // Check path: /post/:id or /p/:id
@@ -1748,18 +1981,200 @@ function getDeepLinkedPostId() {
       return decodeURIComponent(pathMatch[1]).trim();
     }
 
-    // Check hash: #post-... or #p=... or #...
+    // Check hash: #slant-... or #post-... or #p=... or raw #id
     if (window.location.hash) {
-      const hash = window.location.hash;
-      const hashPost = hash.match(/#(?:post[-_]|p=)?([a-f0-9-]{8,})/i);
-      if (hashPost && hashPost[1]) {
-        return hashPost[1].trim();
+      const rawHash = window.location.hash.replace(/^#\/?/, '').trim();
+      const nonPostHashes = ['login', 'stories', 'feed', 'create', 'mystories', 'profile', 'admin', 'whitelist', 'gate'];
+      if (rawHash && !nonPostHashes.includes(rawHash.toLowerCase())) {
+        const cleaned = rawHash.replace(/^(?:post[-_]|p=)/i, '').trim();
+        if (cleaned.length >= 3) {
+          return decodeURIComponent(cleaned);
+        }
       }
     }
   } catch (err) {
     console.warn('Error reading deep link post ID:', err);
   }
   return null;
+}
+
+function getPostShareUrl(post) {
+  if (!post || !post.id) return window.location.origin;
+  return `${window.location.origin}/?p=${encodeURIComponent(post.id)}`;
+}
+
+function getSourceHeadline(post) {
+  if (!post) return 'this topic';
+  let title = (
+    (typeof post.originalHeadline === 'string' && post.originalHeadline.trim()) ||
+    (typeof post.sourceHeadline === 'string' && post.sourceHeadline.trim()) ||
+    (typeof post.scrapedTitle === 'string' && post.scrapedTitle.trim()) ||
+    (typeof post.sourceTitle === 'string' && post.sourceTitle.trim()) ||
+    (typeof post.spark === 'string' && post.spark.trim()) ||
+    (typeof post.adaptedHeadline === 'string' && post.adaptedHeadline.trim()) ||
+    'this topic'
+  ).trim();
+  title = title.replace(/^["'“‘]+|["'”’]+$/g, '').trim();
+  return title || 'this topic';
+}
+
+function getPostShareText(post) {
+  if (!post) return '';
+  const headline = (post.adaptedHeadline || post.originalHeadline || 'Curated Story').trim();
+  const url = getPostShareUrl(post);
+  return `"${headline}"\n\nRead the full story & receipts on Slant:\n${url}`;
+}
+
+function buildSharePayload(files, title, text, url, mode = 'status') {
+  if (!navigator.share) return null;
+
+  let shareFiles = files;
+  if (files && files.length > 0) {
+    // In 'chat' mode, reverse files so messaging apps (such as WhatsApp) that read
+    // incoming file streams in LIFO/reverse order place Poster 1 as the primary thumbnail and caption anchor.
+    // In 'status' mode, preserve natural 1 -> 2 -> 3 sequential order so WhatsApp Status & Instagram Stories play in order.
+    shareFiles = (mode === 'chat') ? [...files].reverse() : [...files];
+  }
+
+  if (shareFiles && shareFiles.length > 0 && navigator.canShare) {
+    // 1. Try files + title + text (text already has the link embedded; omitting the separate
+    // 'url' property prevents mobile browsers and WhatsApp from appending the link a second time)
+    const filesWithText = { files: shareFiles, title, text };
+    if (navigator.canShare(filesWithText)) {
+      return filesWithText;
+    }
+    // 2. Try files only if text + files is rejected by device
+    const filesOnly = { files: shareFiles };
+    if (navigator.canShare(filesOnly)) {
+      return filesOnly;
+    }
+  }
+
+  // Fallback to text only without files (text already embeds the link, so omit redundant url)
+  const textPayload = { title, text };
+  if (navigator.canShare && navigator.canShare(textPayload)) {
+    return textPayload;
+  }
+  // Ultimate text fallback if app strictly requires url property
+  const fullTextPayload = { title, text, url };
+  if (navigator.canShare && navigator.canShare(fullTextPayload)) {
+    return fullTextPayload;
+  }
+  return null;
+}
+
+// SCROLL GATE FOR DEEP-LINKED POST GUESTS
+let isDeepLinkScrollGated = false;
+let deepLinkScrollGateListenersAttached = false;
+let lastScrollGatePromptTime = 0;
+let gateTouchStartY = 0;
+let gateTouchStartX = 0;
+
+function isAnyModalOpen() {
+  const modal = document.querySelector('.modal-overlay.open, .modal-overlay.active, .modal-card.open');
+  return !!modal;
+}
+
+function setupDeepLinkScrollGate() {
+  if (deepLinkScrollGateListenersAttached) return;
+  deepLinkScrollGateListenersAttached = true;
+
+  // Vertical scroll detection
+  window.addEventListener('scroll', () => {
+    if (!isDeepLinkScrollGated || currentUser) return;
+    if (isAnyModalOpen()) return;
+    const currentY = window.pageYOffset || document.documentElement.scrollTop || 0;
+    if (currentY > 30) {
+      triggerDeepLinkScrollGate('scroll');
+    }
+  }, { passive: true });
+
+  // Mouse wheel / trackpad scroll detection
+  window.addEventListener('wheel', (e) => {
+    if (!isDeepLinkScrollGated || currentUser) return;
+    if (isAnyModalOpen()) return;
+    if (Math.abs(e.deltaY) > 8) {
+      e.preventDefault();
+      triggerDeepLinkScrollGate('wheel');
+    }
+  }, { passive: false });
+
+  // Touch gesture detection (allow horizontal carousel swipes, intercept vertical scrolls)
+  window.addEventListener('touchstart', (e) => {
+    if (!isDeepLinkScrollGated || currentUser) return;
+    if (e.touches && e.touches.length > 0) {
+      gateTouchStartY = e.touches[0].clientY;
+      gateTouchStartX = e.touches[0].clientX;
+    }
+  }, { passive: true });
+
+  window.addEventListener('touchmove', (e) => {
+    if (!isDeepLinkScrollGated || currentUser) return;
+    if (isAnyModalOpen()) return;
+    if (e.touches && e.touches.length > 0) {
+      const diffY = Math.abs(e.touches[0].clientY - gateTouchStartY);
+      const diffX = Math.abs(e.touches[0].clientX - gateTouchStartX);
+      if (diffY > 18 && diffY > diffX) {
+        e.preventDefault();
+        triggerDeepLinkScrollGate('touch');
+      }
+    }
+  }, { passive: false });
+
+  // Keyboard navigation keys
+  window.addEventListener('keydown', (e) => {
+    if (!isDeepLinkScrollGated || currentUser) return;
+    if (isAnyModalOpen()) return;
+    const scrollKeys = ['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp', 'Space', 'Home', 'End'];
+    if (scrollKeys.includes(e.code) || scrollKeys.includes(e.key)) {
+      e.preventDefault();
+      triggerDeepLinkScrollGate('key');
+    }
+  }, { passive: false });
+}
+
+function triggerDeepLinkScrollGate(reason = 'scroll') {
+  if (!isDeepLinkScrollGated || currentUser) return;
+
+  // Snap back to top of the shared post
+  try {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  } catch (_) {}
+
+  const now = Date.now();
+  if (now - lastScrollGatePromptTime < 2200) {
+    return;
+  }
+  lastScrollGatePromptTime = now;
+
+  openAuthModal('Sign in to explore more visual stories on Slant.');
+}
+
+function appendDeepLinkFeedGate() {
+  const container = document.getElementById('feedContainer');
+  if (!container) return;
+
+  const existing = document.getElementById('deepLinkFeedGate');
+  if (existing) existing.remove();
+
+  const barrier = document.createElement('div');
+  barrier.className = 'deep-link-feed-gate';
+  barrier.id = 'deepLinkFeedGate';
+  barrier.innerHTML = `
+    <div class="deep-link-gate-card">
+      <div class="deep-link-gate-pill">✦ CURATED STORY SPOTLIGHT ✦</div>
+      <div class="deep-link-gate-icon">🔒</div>
+      <h3 class="deep-link-gate-title">Explore More Visual Stories</h3>
+      <p class="deep-link-gate-sub">
+        Sign in with Google to explore the full editorial feed, verify source receipts, and craft your own visual stories.
+      </p>
+      <button type="button" class="deep-link-gate-btn" onclick="openAuthModal('Sign in to explore more stories on Slant.')">
+        <span>Sign in with Google</span>
+        <span class="deep-link-gate-arrow">&rarr;</span>
+      </button>
+    </div>
+  `;
+  container.appendChild(barrier);
 }
 
 function scrollToPostElement(targetCard) {
@@ -1881,6 +2296,13 @@ async function loadPosts() {
       } catch (e) {
         console.warn('Error pre-fetching deep-linked post before initial render:', e);
       }
+    }
+
+    // Promote deep-linked post to the very front so visitor immediately sees it
+    const deepIndex = allPosts.findIndex(p => p && p.id === deepPostId);
+    if (deepIndex > 0) {
+      const [deepPost] = allPosts.splice(deepIndex, 1);
+      allPosts.unshift(deepPost);
     }
   }
 
@@ -2152,8 +2574,14 @@ function handleSearch(query) {
 }
 
 async function checkDeepLink() {
+  const params = new URLSearchParams(window.location.search);
   const deepPostId = getDeepLinkedPostId();
   if (deepPostId) {
+    if (!currentUser) {
+      isDeepLinkScrollGated = true;
+      setupDeepLinkScrollGate();
+    }
+
     function tryFocusDeepLinkedPost(attempts = 10) {
       const targetCard = document.getElementById('post-' + deepPostId) || document.querySelector(`[data-post-id="${deepPostId}"]`);
       if (targetCard) {
@@ -2172,7 +2600,6 @@ async function checkDeepLink() {
           }
 
           // Check if caller explicitly requested source proof modal open (?proof=true)
-          const params = new URLSearchParams(window.location.search);
           if (params.get('proof') === 'true' || params.get('source') === 'proof') {
             const idx = allPosts.findIndex(p => p && p.id === deepPostId);
             if (idx >= 0) setTimeout(() => openDetailModal(idx), 400);
@@ -2204,25 +2631,46 @@ async function checkDeepLink() {
     window.location.hash === '#login' ||
     (window.location.pathname && window.location.pathname.endsWith('/login'));
 
-  let hasExplored = false;
-  try {
-    hasExplored = sessionStorage.getItem('slant_guest_explored') === 'true';
-  } catch (e) {}
+  const curatorParam = params.get('curator') || params.get('author') || params.get('creator');
+  if (curatorParam && curatorParam.trim()) {
+    const cleanCurator = decodeURIComponent(curatorParam.trim()).replace(/^@/, '');
+    if (!currentUser) {
+      sessionStorage.setItem('slant_redirect_curator', cleanCurator);
+      setTimeout(() => {
+        if (!currentUser) {
+          openAuthModal(`Sign in to explore all opinions and slants by @${cleanCurator}.`);
+        }
+      }, 250);
+    } else {
+      setTimeout(() => {
+        filterByCurator(cleanCurator);
+      }, 350);
+    }
+  }
 
-  if (isExplicitLogin || (!currentUser && !hasExplored && !deepPostId)) {
-    setTimeout(() => openAuthModal(), 200);
+  if (!currentUser && (isExplicitLogin || !deepPostId)) {
+    updateAuthUI();
+  } else if (currentUser && window.location.hash === '#login') {
+    try {
+      const cleanUrl = window.location.pathname + window.location.search;
+      history.replaceState(null, '', cleanUrl);
+    } catch (_) {}
   }
 }
 
 // Listen for browser navigation / hashchange for #login or deep-linked post
 window.addEventListener('hashchange', () => {
   if (window.location.hash === '#login') {
+    if (currentUser) {
+      try {
+        const cleanUrl = window.location.pathname + window.location.search;
+        history.replaceState(null, '', cleanUrl);
+      } catch (_) {}
+      return;
+    }
     openAuthModal();
   } else {
-    const modal = document.getElementById('authModal');
-    if (modal && (modal.classList.contains('open') || modal.classList.contains('active'))) {
-      closeAuthModal();
-    }
+    closeAuthModal();
     const deepId = getDeepLinkedPostId();
     if (deepId) {
       const card = document.getElementById('post-' + deepId) || document.querySelector(`[data-post-id="${deepId}"]`);
@@ -2638,14 +3086,24 @@ async function renderFeed(isInitial = false) {
     return;
   }
 
-  // BATCH 1: Slice first 12 posts (or expand to include deep-linked post)
+  // BATCH 1: Slice first 12 posts (or isolate deep-linked post for guests)
   const deepPostId = getDeepLinkedPostId();
   let initialRenderCount = FEED_BATCH_SIZE;
   if (deepPostId) {
     const targetIdx = filtered.findIndex(p => p && p.id === deepPostId);
-    if (targetIdx >= FEED_BATCH_SIZE) {
-      initialRenderCount = Math.min(filtered.length, targetIdx + 2);
+    if (targetIdx > 0) {
+      const [deepPost] = filtered.splice(targetIdx, 1);
+      filtered.unshift(deepPost);
     }
+    if (!currentUser) {
+      isDeepLinkScrollGated = true;
+      initialRenderCount = 1;
+      setupDeepLinkScrollGate();
+    } else {
+      isDeepLinkScrollGated = false;
+    }
+  } else {
+    isDeepLinkScrollGated = false;
   }
   const batch1 = filtered.slice(0, initialRenderCount);
 
@@ -2655,14 +3113,17 @@ async function renderFeed(isInitial = false) {
     try { initVid.play().catch(() => {}); } catch (_) {}
   }
 
-  // 1. Render Batch 1 cards (strictly 12 posts) into DOM immediately behind the video loader
+  // 1. Render Batch 1 cards into DOM immediately behind the video loader
   renderBatchCards(batch1, 0);
 
-  // Strictly append Batch End Barrier directly below the 12th card (posts end at 12!)
-  appendBatchEndBarrier(0, batch1.length, filtered.length);
-
-  // Attach swipe blocked trigger listener
-  setupSwipeBlockedListener();
+  if (isDeepLinkScrollGated && !currentUser) {
+    appendDeepLinkFeedGate();
+  } else {
+    // Strictly append Batch End Barrier directly below the 12th card (posts end at 12!)
+    appendBatchEndBarrier(0, batch1.length, filtered.length);
+    // Attach swipe blocked trigger listener
+    setupSwipeBlockedListener();
+  }
 
   if (isInitial) {
     // Deliberate UX Flow: Keep logo video looping for at least 1 full cycle (~2.2s)
@@ -3165,8 +3626,8 @@ function getCleanDomain(link) {
 function getYouTubeEmbedUrl(url) {
   if (!url) return null;
   const str = String(url).trim();
-  // Matches youtube.com/shorts/ID, youtube.com/watch?v=ID, youtu.be/ID, youtube.com/embed/ID, etc.
-  const m = str.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|shorts\/))([\w-]{11})/i);
+  // Matches youtube.com/shorts/ID, youtube.com/live/ID, youtube.com/watch?v=ID, youtu.be/ID, etc.
+  const m = str.match(/(?:youtu\.be\/|(?:www\.|m\.)?youtube(?:-nocookie)?\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|shorts\/|live\/))([\w-]{11})/i);
   return (m && m[1]) ? `https://www.youtube.com/embed/${m[1]}` : null;
 }
 
@@ -3564,6 +4025,22 @@ function isDuplicateOfUserTake(candidateText, post) {
   return false;
 }
 
+function handleReceiptPhotoLoad(img) {
+  if (!img || !img.naturalWidth || !img.naturalHeight) return;
+  const ratio = img.naturalWidth / img.naturalHeight;
+  const box = img.closest('.receipt-scene-box');
+  if (!box) return;
+
+  if (ratio < 1.15) {
+    box.classList.add('photo-aspect-portrait');
+    box.classList.remove('photo-aspect-landscape');
+  } else {
+    box.classList.add('photo-aspect-landscape');
+    box.classList.remove('photo-aspect-portrait');
+  }
+}
+window.handleReceiptPhotoLoad = handleReceiptPhotoLoad;
+
 function buildSlide3Html(post, index) {
   const tier = getSourceTier(post);
   const cleanHost = getCleanDomain(post.digitalLink);
@@ -3580,6 +4057,7 @@ function buildSlide3Html(post, index) {
   const cleanPubUpper = escapeHtml(pubName.toUpperCase());
 
   const headline = escapeHtml(
+    post.broadsheetHeadline ||
     (tier === 'tier3_opinion'
       ? (post.adaptedHeadline || post.originalHeadline)
       : (post.originalHeadline || post.adaptedHeadline)) || 'Curated Editorial'
@@ -3595,17 +4073,22 @@ function buildSlide3Html(post, index) {
 
   const isInnerVoice = isInnerVoicePost(post);
 
-  // Extract synthesis paragraphs from summary or spark
+  // Extract synthesis paragraphs from summary, broadsheet observation, or spark
   let summaryParas = [];
   if (post.summary && typeof post.summary === 'string') {
-    summaryParas = post.summary.split(/\n\s*\n/).map(p => cleanExcerpt(p)).filter(p => p.length > 20);
+    summaryParas = post.summary.split(/\n\s*\n/).map(p => cleanExcerpt(p)).filter(p => p.length > 5);
+  }
+  if (summaryParas.length === 0 && post.broadsheetObservation && typeof post.broadsheetObservation === 'string') {
+    summaryParas = post.broadsheetObservation.split(/\n\s*\n/).map(p => cleanExcerpt(p)).filter(p => p.length > 5);
   }
   if (summaryParas.length === 0 && post.summary) {
     summaryParas = [cleanExcerpt(post.summary)];
   }
 
   // De-duplicate summary paragraphs against user's short stance on Poster 2
-  summaryParas = summaryParas.filter(p => !isDuplicateOfUserTake(p, post));
+  if (summaryParas.length > 1) {
+    summaryParas = summaryParas.filter(p => !isDuplicateOfUserTake(p, post));
+  }
 
   // Source context & reporting excerpts
   let excerpts = post.resolvedArticleExcerpts || post.articleExcerpts || [];
@@ -3616,7 +4099,7 @@ function buildSlide3Html(post, index) {
     excerpts = [];
   }
 
-  // Consolidate broadsheet essay paragraphs
+  // Consolidate broadsheet essay paragraphs: prioritize user-edited / curated summary first
   let essayParas = [];
   if (summaryParas.length > 0) {
     essayParas = [...summaryParas];
@@ -3626,118 +4109,157 @@ function buildSlide3Html(post, index) {
     essayParas = [cleanExcerpt(post.spark)];
   }
 
-  if (essayParas.length === 0) {
-    essayParas = [`Reporting on "${headline}" examines key structural developments and observed outcomes.`];
+  // If only 1 paragraph and excerpts are available, incorporate an excerpt if not already in essay
+  if (essayParas.length < 2 && excerpts.length > 0) {
+    excerpts.forEach(e => {
+      if (e && !essayParas.some(p => p.toLowerCase().includes(e.slice(0, 30).toLowerCase()))) {
+        essayParas.push(e);
+      }
+    });
   }
 
-  // Catalyst Scene Photo on Poster 3 for Inner Voice
-  let scenePhotoHtml = '';
-  if (isInnerVoice) {
-    const rawPhoto = post.catalystPhoto || post.catalystPhotoBase64 || post.originalPhotoBase64 || post.originalPhotoUrl || post.generationInputs?.catalystPhoto || post.generationInputs?.catalystPhotoBase64 || post.generationInputs?.innerVoiceImageBase64;
-    if (rawPhoto && typeof rawPhoto === 'string' && rawPhoto.length > 20) {
-      let imgSrc = rawPhoto;
-      if (!rawPhoto.startsWith('data:') && !rawPhoto.startsWith('http') && !rawPhoto.startsWith('/')) {
-        imgSrc = `data:${post.originalPhotoMimeType || post.catalystPhotoMimeType || 'image/jpeg'};base64,` + rawPhoto;
+  // If only one long paragraph exists, break into two paragraphs for broadsheet cadence
+  if (essayParas.length === 1 && essayParas[0].length > 220) {
+    const sentences = essayParas[0].match(/[^.!?]+[.!?]+["']?|\s*[^.!?]+$/g) || [];
+    if (sentences.length >= 3) {
+      const mid = Math.ceil(sentences.length / 2);
+      const p1 = sentences.slice(0, mid).join('').trim();
+      const p2 = sentences.slice(mid).join('').trim();
+      if (p1 && p2) {
+        essayParas = [p1, p2];
       }
-      scenePhotoHtml = `
-        <div class="receipt-scene-box">
-          <img src="${imgSrc}" class="receipt-scene-photo" alt="Catalyst Scene">
-          <div class="receipt-scene-caption">
-            <span class="scene-caption-icon">📸</span>
-            <span class="scene-caption-text">ARCHIVAL CATALYST SNAPSHOT</span>
+    }
+  }
+
+  if (essayParas.length === 0) {
+    essayParas = ['Reporting examines key structural developments and observed outcomes.'];
+  }
+
+  // Calculate total character count to dynamically adapt photo size and font cadence
+  const totalChars = essayParas.reduce((acc, p) => acc + (p ? p.length : 0), 0);
+  let densityClass = 'essay-density-medium';
+  if (totalChars < 680) {
+    densityClass = 'essay-density-light';
+  } else if (totalChars > 1100) {
+    densityClass = 'essay-density-dense';
+  }
+
+  // Newspaper Inset Photo on Poster 3 (Authentic Broadsheet Press Photo / Wire Dispatch / Video Still)
+  let scenePhotoHtml = '';
+  const rawPhoto = post.sourceImageBase64
+    || post.sourceImageUrl
+    || post.catalystPhoto
+    || post.catalystPhotoBase64
+    || post.originalPhotoBase64
+    || post.originalPhotoUrl
+    || post.paperCutImage
+    || post.referencePhotoUrl
+    || post.generationInputs?.sourceImageBase64
+    || post.generationInputs?.sourceImageUrl
+    || post.generationInputs?.catalystPhoto
+    || post.generationInputs?.catalystPhotoBase64
+    || post.generationInputs?.innerVoiceImageBase64;
+
+  if (rawPhoto && typeof rawPhoto === 'string' && rawPhoto.length > 20) {
+    let imgSrc = rawPhoto;
+    if (!rawPhoto.startsWith('data:') && !rawPhoto.startsWith('http') && !rawPhoto.startsWith('/')) {
+      imgSrc = `data:${post.sourceImageMimeType || post.originalPhotoMimeType || post.catalystPhotoMimeType || post.generationInputs?.innerVoiceImageMimeType || 'image/jpeg'};base64,` + rawPhoto;
+    } else if (rawPhoto.startsWith('http')) {
+      imgSrc = rawPhoto.replace(/&amp;/g, '&');
+    }
+
+    let captionIcon = '📰';
+    let captionText = `ARCHIVAL WIRE PHOTO • ${cleanPubUpper || 'PRESS DISPATCH'}`;
+    if (isInnerVoice) {
+      captionIcon = '📸';
+      captionText = 'ARCHIVAL CATALYST SNAPSHOT';
+    } else if (tier === 'tier_video' || post.sourceType === 'video_audio') {
+      captionIcon = '🎬';
+      captionText = `BROADCAST STILL • ${cleanPubUpper || 'SOURCE DISPATCH'}`;
+    }
+
+    const isVideoOrWide = tier === 'tier_video'
+      || post.sourceType === 'video_audio'
+      || (typeof rawPhoto === 'string' && (rawPhoto.includes('ytimg.com') || rawPhoto.includes('youtube')));
+    const initialAspectClass = isVideoOrWide ? 'photo-aspect-landscape' : 'photo-aspect-auto';
+
+    scenePhotoHtml = `
+      <div class="receipt-scene-box ${initialAspectClass}">
+        <div class="receipt-scene-frame">
+          <img src="${escapeHtml(imgSrc)}" class="receipt-scene-photo" alt="Editorial Wire Photo" onload="window.handleReceiptPhotoLoad && window.handleReceiptPhotoLoad(this)" onerror="this.closest('.receipt-scene-box').style.display='none'">
+        </div>
+        <div class="receipt-scene-caption">
+          <span class="scene-caption-icon">${captionIcon}</span>
+          <span class="scene-caption-text">${escapeHtml(captionText)}</span>
+        </div>
+      </div>
+    `;
+  }
+
+  const hasPhoto = Boolean(scenePhotoHtml);
+
+  // Highlight Quote
+  const quoteVal = post.receiptHighlightQuote || post.broadsheetHighlight || post.pullQuote;
+  const cleanQuote = quoteVal ? cleanExcerpt(quoteVal) : '';
+  let quoteHtml = '';
+  if (cleanQuote && !isDuplicateOfUserTake(cleanQuote, post)) {
+    // Avoid duplicating quote inside essay paragraphs
+    essayParas = essayParas.filter(p => !p.toLowerCase().includes(cleanQuote.slice(0, 30).toLowerCase()) && !cleanQuote.toLowerCase().includes(p.slice(0, 30).toLowerCase()));
+    if (essayParas.length === 0) {
+      essayParas = [cleanQuote];
+    } else {
+      quoteHtml = `
+        <div class="receipt-highlight">
+          <div class="highlighter-label">
+            <span>✨</span>
+            <span>HIGHLIGHT</span>
+          </div>
+          <div class="highlighter-text">
+            "${escapeHtml(cleanQuote)}"
           </div>
         </div>
       `;
     }
   }
 
+  // Concluding Reflection
+  const reflectionVal = post.broadsheetReflection || post.whyItMatters;
+  const cleanReflection = reflectionVal ? cleanExcerpt(reflectionVal) : '';
+  let reflectionHtml = '';
+  if (cleanReflection && !isDuplicateOfUserTake(cleanReflection, post)) {
+    const alreadyInEssay = essayParas.some(p => p.toLowerCase().includes(cleanReflection.slice(0, 30).toLowerCase()));
+    if (!alreadyInEssay) {
+      reflectionHtml = `
+        <div class="receipt-reflection-box">
+          <div class="receipt-reflection-label">
+            <span>💡</span>
+            <span>REFLECTION</span>
+          </div>
+          <p class="receipt-reflection-text">${escapeHtml(cleanReflection)}</p>
+        </div>
+      `;
+    }
+  }
+
+  // Build pure broadsheet essay paragraphs (pure essay in paragraphs, photo if involved)
+  let essayHtml = '';
   const leadRaw = essayParas[0];
-  const firstChar = leadRaw.charAt(0).toUpperCase();
-  const restLead = leadRaw.slice(1);
-  const leadHtml = `<p class="receipt-p1"><span class="broadsheet-dropcap">${escapeHtml(firstChar)}</span>${escapeHtml(restLead)}</p>`;
+  let leadText = leadRaw;
+  const firstChar = leadText.charAt(0).toUpperCase();
+  const restLead = leadText.slice(1);
+  essayHtml += `<p class="receipt-p1"><span class="broadsheet-dropcap">${escapeHtml(firstChar)}</span>${escapeHtml(restLead)}</p>`;
 
-  let essayBodyHtml = '';
-  if (essayParas.length > 1) {
-    essayParas.slice(1).forEach(p => {
-      if (p && p !== leadRaw) {
-        essayBodyHtml += `<p class="receipt-p3">${escapeHtml(p)}</p>`;
-      }
-    });
-  } else if (excerpts.length > 1) {
-    excerpts.slice(1).forEach(p => {
-      if (p && p !== leadRaw) {
-        essayBodyHtml += `<p class="receipt-p3">${escapeHtml(p)}</p>`;
-      }
-    });
-  }
-
-  // Highlight Quote
-  let quoteHtml = '';
-  const quoteText = cleanExcerpt(post.receiptHighlightQuote || post.pullQuote);
-  if (quoteText && !isDuplicateOfUserTake(quoteText, post) && !leadRaw.includes(quoteText.slice(0, 30))) {
-    quoteHtml = `
-      <div class="receipt-highlight" style="margin-top: 6px; margin-bottom: 6px;">
-        <div class="highlighter-label">
-          <span>✨</span>
-          <span>CORE CONVICTION</span>
-        </div>
-        <div class="highlighter-text" style="font-size: 10.5px; font-weight: 600; line-height: 1.4;">
-          “${escapeHtml(quoteText)}”
-        </div>
-      </div>
-    `;
-  }
-
-  // Evidentiary metric badge
-  let metricHtml = '';
-  if (post.keyMetric && String(post.keyMetric).trim()) {
-    metricHtml = `
-      <div class="receipt-metric-row">
-        <span class="receipt-metric-badge">RECORDED METRIC</span>
-        <span class="receipt-metric-val">${escapeHtml(String(post.keyMetric).trim())}</span>
-      </div>
-    `;
-  }
-
-  // Structured takeaways card
-  let takeawaysHtml = '';
-  const takeaways = Array.isArray(post.keyTakeaways) ? post.keyTakeaways.filter(Boolean) : [];
-  if (takeaways.length > 0) {
-    const topTakeaways = takeaways.slice(0, 3);
-    takeawaysHtml = `
-      <div class="receipt-takeaways-card" style="margin-top: 6px;">
-        <div class="takeaways-header">
-          <span class="takeaways-icon">⚖️</span>
-          <span class="takeaways-title">KEY PRINCIPLES</span>
-        </div>
-        <div class="takeaways-list">
-          ${topTakeaways.map(t => {
-            const str = String(t).trim();
-            const colonIdx = str.indexOf(':');
-            if (colonIdx > 0 && colonIdx < 35) {
-              const prefix = escapeHtml(str.slice(0, colonIdx).trim());
-              const rest = escapeHtml(str.slice(colonIdx + 1).trim());
-              return `<div class="takeaway-item"><span class="takeaway-dot">▪</span><span class="takeaway-text"><strong>${prefix}:</strong> ${rest}</span></div>`;
-            }
-            return `<div class="takeaway-item"><span class="takeaway-dot">▪</span><span class="takeaway-text">${escapeHtml(str)}</span></div>`;
-          }).join('')}
-        </div>
-      </div>
-    `;
-  } else if (post.whyItMatters && String(post.whyItMatters).trim()) {
-    takeawaysHtml = `
-      <div class="receipt-takeaways-card" style="margin-top: 6px;">
-        <div class="takeaways-header">
-          <span class="takeaways-icon">🔍</span>
-          <span class="takeaways-title">WHY THIS MATTERS</span>
-        </div>
-        <p class="takeaway-why-text">${escapeHtml(String(post.whyItMatters).trim())}</p>
-      </div>
-    `;
-  }
+  // Subsequent essay paragraphs: include all available paragraphs (up to 4 total) for an authentic 1-minute read
+  const maxExtraParas = 3;
+  const extraParas = essayParas.slice(1, maxExtraParas + 1);
+  extraParas.forEach(p => {
+    if (p && p !== leadRaw) {
+      essayHtml += `<p class="receipt-p3">${escapeHtml(p)}</p>`;
+    }
+  });
 
   return `
-    <div class="slant-minute-scroll-viewport" onscroll="window._lastSlantMinuteScroll = Date.now()">
+    <div class="slant-minute-scroll-viewport ${hasPhoto ? 'has-inset-photo' : ''} ${densityClass}" onscroll="window._lastSlantMinuteScroll = Date.now()">
       <!-- 4-Corner Branding Top Row: Top-Left Logo + Brand, Top-Right Creator + Slide -->
       <div class="receipt-brand-corner-bar">
         <div class="receipt-corner-brand">
@@ -3750,45 +4272,26 @@ function buildSlide3Html(post, index) {
         </div>
       </div>
 
-      <!-- 1. Classic Broadsheet Masthead Header -->
-      <div class="receipt-header">
-        <div class="receipt-masthead-thick"></div>
-        <div class="receipt-masthead-thin"></div>
-        <div class="receipt-pub-title">SLANT MINUTE</div>
-        <div class="receipt-rules">
-          <span>VOL. I • NO. 1</span>
-          <span class="receipt-rules-center">${isInnerVoice ? 'FIRST-PERSON REFLECTION' : (tier === 'tier_video' ? 'BROADCAST EDITORIAL ESSAY' : 'BROADSHEET EDITORIAL ESSAY')}</span>
-          <span>60-SEC BROADSHEET</span>
-        </div>
-        <div class="receipt-masthead-bottom"></div>
-      </div>
-      
-      <!-- 2. Story Headline & Editorial Byline -->
+      <!-- Broadsheet Headline Box -->
+      ${headline ? `
       <div class="receipts-headline-box">
-        <h4 class="receipt-headline">${headline}</h4>
-        <div class="receipts-byline">
-          ${isInnerVoice 
-            ? `<span>BY ${handle}</span><span class="receipts-opinion-tag">${slantIcon} INNER VOICE</span>` 
-            : `<span>BY ${handle} • IN DIALOGUE WITH: ${cleanPubUpper}</span><span class="receipts-archive-tag">EDITORIAL ESSAY</span>`}
-        </div>
-        <div class="receipts-hairline"></div>
-      </div>
+        <h2 class="receipt-headline">${headline}</h2>
+      </div>` : ''}
 
-      <!-- 3. Synthesized Editorial Content: Receipts Broadsheet -->
-      <div class="receipt-paragraphs" style="flex: none; min-height: auto; height: auto; overflow: visible;">
+      <!-- Pure Editorial Broadsheet Essay -->
+      <div class="receipt-paragraphs">
         ${scenePhotoHtml}
-        ${metricHtml}
-        ${leadHtml}
-        ${essayBodyHtml}
         ${quoteHtml}
-        ${takeawaysHtml}
+        ${essayHtml}
+        ${reflectionHtml}
       </div>
 
-      <!-- 4. Broadsheet Archival Bottom Folio -->
-      <div class="receipt-footer" style="flex-shrink: 0; margin-top: auto; padding-top: 18px; padding-bottom: 6px; width: 100%; clear: both;">
-        <div class="receipt-folio-rule" style="width: 100%; height: 1px; background: #0F172A; margin: 0 0 6px 0;"></div>
-        <div class="receipt-folio-text" style="display: flex; justify-content: flex-end; align-items: center; width: 100%; margin-top: 0; line-height: 1.3;">
-          <span class="receipt-folio-author" style="font-style: italic; letter-spacing: 0.4px; color: #475569; margin-left: auto;">Every thought deserves a frame • Scroll broadsheet ↕</span>
+      <!-- Broadsheet Archival Bottom Folio -->
+      <div class="receipt-footer">
+        <div class="receipt-folio-rule"></div>
+        <div class="receipt-folio-text">
+          <span class="receipt-folio-left">${isInnerVoice ? `PERSONAL ESSAY • ${handle.toUpperCase()}` : (cleanPubUpper ? `IN DIALOGUE WITH ${cleanPubUpper}` : 'EDITORIAL ESSAY')}</span>
+          <span class="receipt-folio-right">Every thought deserves a frame • 03 / 03</span>
         </div>
       </div>
     </div>
@@ -3948,7 +4451,7 @@ function createPostCardElement(post, index) {
 
   card.innerHTML = `
     <div class="post-header">
-      <div class="creator-info">
+      <div class="creator-info" onclick="handleCreatorInfoClick(event, '${escapeHtml(handle)}')" style="cursor: pointer;">
         <div class="creator-avatar">
           <div class="avatar-inner">${initial}</div>
         </div>
@@ -4126,6 +4629,13 @@ function goToSlide(event, postIndex, slideIndex) {
   carousel.setAttribute('data-current-slide', slideIndex);
   track.style.transform = `translateX(-${slideIndex * 33.333333}%)`;
 
+  if (slideIndex === 2) {
+    const receiptImg = track.querySelector('.receipt-scene-photo');
+    if (receiptImg && receiptImg.complete && receiptImg.naturalWidth) {
+      handleReceiptPhotoLoad(receiptImg);
+    }
+  }
+
   if (badge) {
     const titles = ['1 / 3 • Hook', '2 / 3 • Curator Take', '3 / 3 • The Receipt'];
     badge.innerHTML = `<span>📑</span> <span class="counter-num">${titles[slideIndex]}</span>`;
@@ -4226,6 +4736,10 @@ function setupCarouselGestures(postIndex) {
 }
 
 function toggleLike(btn) {
+  if (!currentUser) {
+    openAuthModal('Sign in to like and react to visual slants.');
+    return;
+  }
   btn.classList.toggle('liked');
   const countSpan = btn.querySelector('.like-count');
   let val = parseInt(countSpan.textContent, 10);
@@ -4237,6 +4751,10 @@ function toggleLike(btn) {
 }
 
 function togglePostMenu(index) {
+  if (!currentUser && isDeepLinkScrollGated) {
+    openAuthModal('Sign in to access post options and sharing.');
+    return;
+  }
   const menu = document.getElementById(`post-menu-${index}`);
   if (!menu) return;
   const isShowing = menu.classList.contains('show');
@@ -4256,12 +4774,194 @@ document.addEventListener('click', (e) => {
   }
 });
 
+let activeCuratorFilter = null;
+
+function handleCreatorInfoClick(event, handle) {
+  if (event) event.stopPropagation();
+  const clean = String(handle || '').replace(/^@/, '').trim();
+  if (!clean) return;
+  if (!currentUser) {
+    sessionStorage.setItem('slant_redirect_curator', clean);
+    openAuthModal(`Sign in to explore all opinions and slants by @${clean}.`);
+    return;
+  }
+  filterByCurator(clean);
+}
+
+function filterByCurator(curatorName) {
+  if (!curatorName) return;
+  const clean = String(curatorName).replace(/^@/, '').toLowerCase().trim();
+  activeCuratorFilter = clean;
+
+  const targetPosts = (typeof allStories !== 'undefined' && allStories && allStories.length > 0) ? allStories : (typeof allPosts !== 'undefined' ? allPosts : []);
+  if (targetPosts && targetPosts.length > 0) {
+    const matched = targetPosts.filter(p => {
+      const author = (p.creatorHandle || '').toLowerCase().replace(/^@/, '').trim();
+      return author === clean || author.includes(clean);
+    });
+
+    if (matched.length > 0) {
+      currentBatchFilteredPosts = matched;
+      currentRenderedBatch = 0;
+      const container = document.getElementById('feedContainer');
+      if (container) container.innerHTML = '';
+      renderBatchCards(matched.slice(0, FEED_BATCH_SIZE), 0);
+      showTemporaryToast(`✨ Showing opinions by @${clean}`);
+      return;
+    }
+  }
+  showTemporaryToast(`Viewing opinions by @${clean}`);
+}
+
 /* ============================================================
    MODALS & ACTIONS
    ============================================================ */
 
+function cleanSourceExcerpt(txt) {
+  if (!txt) return '';
+  return String(txt)
+    .replace(/^(the spark|curator stance|paragraph \d+)\s*:\s*["']?/i, '')
+    .replace(/["']?$/i, '')
+    .trim();
+}
+
+function cleanSourceParagraphs(rawText) {
+  if (!rawText) return [];
+  return String(rawText)
+    .split(/\n\s*\n/)
+    .map(p => p.trim())
+    .filter(p => p.length > 25 && !p.toLowerCase().includes('cookie') && !p.toLowerCase().includes('all rights reserved'))
+    .slice(0, 4);
+}
+
+function renderProofSummarySections(post, ledger) {
+  let paragraphsHtml = '';
+
+  if (ledger) {
+    // Section 1: Subject & Central Thesis
+    let thesisText = '';
+    let contextText = '';
+    if (ledger.subject_and_thesis && typeof ledger.subject_and_thesis === 'object') {
+      contextText = cleanSourceExcerpt(ledger.subject_and_thesis.context || '');
+      thesisText = cleanSourceExcerpt(ledger.subject_and_thesis.thesis || '');
+    } else if (ledger.subject_and_thesis) {
+      thesisText = cleanSourceExcerpt(String(ledger.subject_and_thesis));
+    }
+
+    if (thesisText || contextText) {
+      paragraphsHtml += `
+        <div class="unbiased-summary-section">
+          <div class="unbiased-section-label">
+            <span>🎯</span> § 1 • SUBJECT & CENTRAL THESIS
+          </div>
+          <p class="unbiased-text">
+            ${contextText ? `<strong>${escapeHtml(contextText)}</strong> ` : ''}${escapeHtml(thesisText)}
+          </p>
+        </div>
+      `;
+    }
+
+    // Section 2: Core Claims & Verified Evidence
+    const ledgerClaims = Array.isArray(ledger.core_claims_and_evidence) ? ledger.core_claims_and_evidence : [];
+    if (ledgerClaims.length > 0) {
+      paragraphsHtml += `
+        <div class="unbiased-summary-section">
+          <div class="unbiased-section-label">
+            <span>📊</span> § 2 • CORE CLAIMS & EVIDENCE
+          </div>
+          <div class="unbiased-claims-list">
+            ${ledgerClaims.map((claim, idx) => {
+              let title = '';
+              let evidence = '';
+              if (claim && typeof claim === 'object') {
+                title = claim.title || '';
+                evidence = claim.evidence || claim.text || '';
+              } else {
+                const str = String(claim || '');
+                const colonIdx = str.indexOf(':');
+                if (colonIdx > 0 && colonIdx < 45) {
+                  title = str.slice(0, colonIdx).trim();
+                  evidence = str.slice(colonIdx + 1).trim();
+                } else {
+                  evidence = str;
+                }
+              }
+              return `
+                <div class="unbiased-claim-item">
+                  <span class="claim-bullet">▪</span>
+                  <div class="claim-content">
+                    ${title ? `<strong>${escapeHtml(title)}:</strong> ` : ''}${escapeHtml(evidence)}
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    // Section 3: Central Conflict & Trade-offs
+    let tensionText = '';
+    let counterQuestions = '';
+    if (ledger.underlying_tensions && typeof ledger.underlying_tensions === 'object') {
+      tensionText = cleanSourceExcerpt([ledger.underlying_tensions.primary_conflict, ledger.underlying_tensions.tradeoffs].filter(Boolean).join(' '));
+      counterQuestions = cleanSourceExcerpt(ledger.underlying_tensions.counter_questions || '');
+    } else if (ledger.underlying_tensions) {
+      tensionText = cleanSourceExcerpt(String(ledger.underlying_tensions));
+    }
+
+    if (tensionText || counterQuestions) {
+      paragraphsHtml += `
+        <div class="unbiased-summary-section">
+          <div class="unbiased-section-label">
+            <span>⚖️</span> § 3 • CENTRAL CONFLICT & TRADE-OFFS
+          </div>
+          ${tensionText ? `<p class="unbiased-text">${escapeHtml(tensionText)}</p>` : ''}
+          ${counterQuestions ? `
+            <div style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed rgba(203, 213, 225, 0.6); font-family: 'Merriweather', Georgia, serif; font-size: 11.5px; color: #475569; font-style: italic;">
+              ❓ ${escapeHtml(counterQuestions)}
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }
+  } else {
+    // Pure source context fallback (Strictly NO curator broadsheet essay!)
+    const rawSourceText = post.sourceContext || post.generationInputs?.scrapedContent || post.newsExcerpt || '';
+    const sourceParas = cleanSourceParagraphs(rawSourceText);
+
+    if (sourceParas.length > 0) {
+      paragraphsHtml += `
+        <div class="unbiased-summary-section">
+          <div class="unbiased-section-label">
+            <span>📰</span> PRIMARY SOURCE RECORD
+          </div>
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            ${sourceParas.map(p => `<p class="unbiased-text">${escapeHtml(cleanSourceExcerpt(p))}</p>`).join('')}
+          </div>
+        </div>
+      `;
+    } else {
+      paragraphsHtml += `
+        <div class="unbiased-summary-section" style="padding: 16px; background: rgba(99, 102, 241, 0.05); border-radius: 8px;">
+          <div style="display:flex; align-items:center; gap:10px; color: #6366F1; font-weight:700; font-size:13px;">
+            <div class="ledger-loading-spinner" style="width:16px; height:16px; border:2px solid #6366F1; border-top-color:transparent; border-radius:50%; animation:spin 0.8s linear infinite;"></div>
+            <span>Analyzing primary source to generate objective summary...</span>
+          </div>
+        </div>
+      `;
+    }
+  }
+
+  return paragraphsHtml || '<div class="unbiased-summary-section"><p class="unbiased-text">Original source text confirmed by archival records.</p></div>';
+}
+
 function openDetailModal(index) {
   if (index === 'preview') return;
+  if (!currentUser && isDeepLinkScrollGated) {
+    openAuthModal('Sign in to view verified source context and receipts.');
+    return;
+  }
   // Guard against accidental opening while scrolling the Slant Minute broadsheet or swiping
   if (window._justSwipedCarousel && (Date.now() - window._justSwipedCarousel < 300)) {
     return;
@@ -4278,9 +4978,10 @@ function openDetailModal(index) {
     return;
   }
 
-  const cleanHost = getCleanDomain(post.digitalLink || post.videoUrl || '');
+  const rawLink = post.digitalLink || post.videoUrl || post.sourceUrl || post.webUrl || post.generationInputs?.sourceUrl || '';
+  const cleanHost = getCleanDomain(rawLink);
   const handle = escapeHtml(post.creatorHandle || '@curator');
-  const ledger = post.sourceLedger || post.generationInputs?.sourceLedger;
+  let ledger = post.sourceLedger || post.generationInputs?.sourceLedger;
 
   // 1. Stars Badge (Top Banner)
   const starsBadge = document.getElementById('proofStarsBadge');
@@ -4346,11 +5047,10 @@ function openDetailModal(index) {
   const stampContainer = document.getElementById('proofStampContainer');
   if (stampContainer) stampContainer.innerHTML = '';
 
-  // 3. Video Embed & Paper Cut Sections
-  const videoUrl = post.videoUrl || post.digitalLink || '';
-  const ytEmbed = getYouTubeEmbedUrl(videoUrl);
-  const vimeoEmbed = getVimeoEmbedUrl(videoUrl);
-  const isVideo = !!ytEmbed || !!vimeoEmbed || post.sourceType === 'youtube' || post.sourceType === 'video' || !!post.videoUrl || (videoUrl && /\.(mp4|webm|mov)(\?.*)?$/i.test(videoUrl));
+  // 3. Video Embed & Paper Cut Sections (TOP)
+  const ytEmbed = getYouTubeEmbedUrl(rawLink);
+  const vimeoEmbed = getVimeoEmbedUrl(rawLink);
+  const isVideo = !!ytEmbed || !!vimeoEmbed || post.sourceType === 'youtube' || post.sourceType === 'video' || post.sourceType === 'video_audio' || !!post.videoUrl || (rawLink && /\.(mp4|webm|mov)(\?.*)?$/i.test(rawLink));
 
   const hasPaper = !isVideo && (post.sourceType === 'photo' 
     || !!post.paperCutImage 
@@ -4385,16 +5085,16 @@ function openDetailModal(index) {
             allowfullscreen>
           </iframe>
         `;
-      } else if (videoUrl && /\.(mp4|webm|mov)(\?.*)?$/i.test(videoUrl) && videoEmbedWrap) {
+      } else if (rawLink && /\.(mp4|webm|mov)(\?.*)?$/i.test(rawLink) && videoEmbedWrap) {
         videoEmbedWrap.innerHTML = `
-          <video src="${escapeHtml(videoUrl)}" controls playsinline style="width:100%; height:100%; max-height:480px; background:#000; border-radius:6px;"></video>
+          <video src="${escapeHtml(rawLink)}" controls playsinline style="width:100%; height:100%; max-height:480px; background:#000; border-radius:6px;"></video>
         `;
       } else if (videoEmbedWrap) {
         videoEmbedWrap.innerHTML = `
           <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:160px; color:#CBD5E1; text-align:center; padding:16px;">
             <span style="font-size:30px; margin-bottom:6px;">▶</span>
             <span style="font-weight:700;">Broadcast / Video Source</span>
-            <a href="${escapeHtml(videoUrl)}" target="_blank" rel="noopener noreferrer" style="margin-top:6px; color:#818CF8; text-decoration:underline; font-size:12px;">Watch on host platform &nearr;</a>
+            <a href="${escapeHtml(rawLink)}" target="_blank" rel="noopener noreferrer" style="margin-top:6px; color:#818CF8; text-decoration:underline; font-size:12px;">Watch on host platform &nearr;</a>
           </div>
         `;
       }
@@ -4437,161 +5137,64 @@ function openDetailModal(index) {
     }
   }
 
-  // 4. Primary Unbiased 1-Minute Read Sections
-  const cleanExcerpt = (txt) => {
-    if (!txt) return '';
-    return String(txt)
-      .replace(/^(the spark|curator stance|paragraph \d+)\s*:\s*["']?/i, '')
-      .replace(/["']?$/i, '')
-      .trim();
-  };
-
-  let excerpts = post.resolvedArticleExcerpts || post.articleExcerpts || [];
-  if (!Array.isArray(excerpts) || excerpts.length === 0) {
-    if (post.summary) {
-      excerpts = post.summary.split(/\n\s*\n/).map(p => p.trim()).filter(p => p.length > 20);
-    }
-  }
-  if (excerpts.length === 0 && post.spark) {
-    excerpts = [post.spark];
-  }
-
+  // 4. Primary Unbiased 1-Minute Read Sections (Pure Source Summary)
   const proofParagraphsEl = document.getElementById('proofParagraphs');
+  const readTimeEl = document.getElementById('proofReadTime');
+
   if (proofParagraphsEl) {
-    let paragraphsHtml = '';
-
-    if (ledger) {
-      // Section 1: Subject & Central Thesis
-      let thesisText = '';
-      let contextText = '';
-      if (ledger.subject_and_thesis && typeof ledger.subject_and_thesis === 'object') {
-        contextText = cleanExcerpt(ledger.subject_and_thesis.context || '');
-        thesisText = cleanExcerpt(ledger.subject_and_thesis.thesis || '');
-      } else if (ledger.subject_and_thesis) {
-        thesisText = cleanExcerpt(String(ledger.subject_and_thesis));
-      }
-
-      if (thesisText || contextText) {
-        paragraphsHtml += `
-          <div class="unbiased-summary-section">
-            <div class="unbiased-section-label">
-              <span>🎯</span> § 1 • SUBJECT & CENTRAL THESIS
-            </div>
-            <p class="unbiased-text">
-              ${contextText ? `<strong>${escapeHtml(contextText)}</strong> ` : ''}${escapeHtml(thesisText)}
-            </p>
-          </div>
-        `;
-      }
-
-      // Section 2: Core Claims & Verified Evidence
-      const ledgerClaims = Array.isArray(ledger.core_claims_and_evidence) ? ledger.core_claims_and_evidence : [];
-      if (ledgerClaims.length > 0) {
-        paragraphsHtml += `
-          <div class="unbiased-summary-section">
-            <div class="unbiased-section-label">
-              <span>📊</span> § 2 • CORE CLAIMS & EVIDENCE
-            </div>
-            <div class="unbiased-claims-list">
-              ${ledgerClaims.map((claim, idx) => {
-                let title = '';
-                let evidence = '';
-                if (claim && typeof claim === 'object') {
-                  title = claim.title || '';
-                  evidence = claim.evidence || claim.text || '';
-                } else {
-                  const str = String(claim || '');
-                  const colonIdx = str.indexOf(':');
-                  if (colonIdx > 0 && colonIdx < 45) {
-                    title = str.slice(0, colonIdx).trim();
-                    evidence = str.slice(colonIdx + 1).trim();
-                  } else {
-                    evidence = str;
-                  }
-                }
-                return `
-                  <div class="unbiased-claim-item">
-                    <span class="claim-bullet">▪</span>
-                    <div class="claim-content">
-                      ${title ? `<strong>${escapeHtml(title)}:</strong> ` : ''}${escapeHtml(evidence)}
-                    </div>
-                  </div>
-                `;
-              }).join('')}
-            </div>
-          </div>
-        `;
-      }
-
-      // Section 3: Central Conflict & Trade-offs
-      let tensionText = '';
-      let counterQuestions = '';
-      if (ledger.underlying_tensions && typeof ledger.underlying_tensions === 'object') {
-        tensionText = cleanExcerpt([ledger.underlying_tensions.primary_conflict, ledger.underlying_tensions.tradeoffs].filter(Boolean).join(' '));
-        counterQuestions = cleanExcerpt(ledger.underlying_tensions.counter_questions || '');
-      } else if (ledger.underlying_tensions) {
-        tensionText = cleanExcerpt(String(ledger.underlying_tensions));
-      }
-
-      if (tensionText || counterQuestions) {
-        paragraphsHtml += `
-          <div class="unbiased-summary-section">
-            <div class="unbiased-section-label">
-              <span>⚖️</span> § 3 • CENTRAL CONFLICT & TRADE-OFFS
-            </div>
-            ${tensionText ? `<p class="unbiased-text">${escapeHtml(tensionText)}</p>` : ''}
-            ${counterQuestions ? `
-              <div style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed rgba(203, 213, 225, 0.6); font-family: 'Merriweather', Georgia, serif; font-size: 11.5px; color: #475569; font-style: italic;">
-                ❓ ${escapeHtml(counterQuestions)}
-              </div>
-            ` : ''}
-          </div>
-        `;
-      }
-    } else {
-      // Clean fallback for older posts
-      if (excerpts.length > 0) {
-        paragraphsHtml += `
-          <div class="unbiased-summary-section">
-            <div class="unbiased-section-label">
-              <span>📰</span> PRIMARY REPORTING RECORD
-            </div>
-            <div style="display:flex; flex-direction:column; gap:8px;">
-              ${excerpts.map((exc, pIdx) => `<p class="unbiased-text">${escapeHtml(cleanExcerpt(exc))}</p>`).join('')}
-            </div>
-          </div>
-        `;
-      }
-
-      const quote = post.receiptHighlightQuote || post.pullQuote;
-      if (quote && cleanExcerpt(quote)) {
-        paragraphsHtml += `
-          <div class="unbiased-summary-section" style="border-left: 3px solid #B45309;">
-            <div class="unbiased-section-label"><span>✏️</span> PRIMARY QUOTE</div>
-            <p class="unbiased-text" style="font-style: italic;">“${escapeHtml(cleanExcerpt(quote))}”</p>
-          </div>
-        `;
-      }
-
-      if (post.whyItMatters && String(post.whyItMatters).trim()) {
-        paragraphsHtml += `
-          <div class="unbiased-summary-section">
-            <div class="unbiased-section-label"><span>🔍</span> CORROBORATING CONTEXT</div>
-            <p class="unbiased-text">${escapeHtml(String(post.whyItMatters).trim())}</p>
-          </div>
-        `;
-      }
-    }
-
-    proofParagraphsEl.innerHTML = paragraphsHtml || '<div class="unbiased-summary-section"><p class="unbiased-text">Original source text confirmed by archival records.</p></div>';
+    proofParagraphsEl.innerHTML = renderProofSummarySections(post, ledger);
 
     // Word count & read time indicator
     const rawText = proofParagraphsEl.innerText || proofParagraphsEl.textContent || '';
     const wordCount = rawText.trim().split(/\s+/).filter(Boolean).length;
-    const readTimeEl = document.getElementById('proofReadTime');
     if (readTimeEl) {
       readTimeEl.textContent = `⏱️ 1-MIN READ (${wordCount} words)`;
     }
+  }
+
+  // Asynchronous on-demand ledger fetch if missing
+  if (!ledger && rawLink && !post._isFetchingLedger) {
+    post._isFetchingLedger = true;
+    fetch('/api/ledger', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        url: rawLink,
+        title: post.originalHeadline || post.adaptedHeadline || '',
+        content: post.sourceContext || post.generationInputs?.scrapedContent || '',
+        siteName: cleanHost || pubName
+      })
+    })
+      .then(r => r.json())
+      .then(data => {
+        post._isFetchingLedger = false;
+        if (data && data.success && data.ledger) {
+          post.sourceLedger = data.ledger;
+          if (post.generationInputs) post.generationInputs.sourceLedger = data.ledger;
+
+          if (activePostIndex === index) {
+            if (starsBadge) {
+              const starsCount = Math.min(3, Math.max(1, Number(data.ledger.stars || data.ledger.completeness_score || 3)));
+              const starsHtml = '★'.repeat(starsCount) + '☆'.repeat(3 - starsCount);
+              const label = data.ledger.stars_label || (starsCount === 3 ? '3/3 High Substance Anchor' : `${starsCount}/3 Anchor`);
+              starsBadge.innerHTML = `<span>${starsHtml}</span> <span>${escapeHtml(label)}</span>`;
+              starsBadge.style.display = 'inline-flex';
+            }
+            if (proofParagraphsEl) {
+              proofParagraphsEl.innerHTML = renderProofSummarySections(post, data.ledger);
+              const rawText = proofParagraphsEl.innerText || proofParagraphsEl.textContent || '';
+              const wordCount = rawText.trim().split(/\s+/).filter(Boolean).length;
+              if (readTimeEl) {
+                readTimeEl.textContent = `⏱️ 1-MIN READ (${wordCount} words)`;
+              }
+            }
+          }
+        }
+      })
+      .catch(err => {
+        post._isFetchingLedger = false;
+        console.warn('On-demand ledger fetch notice:', err.message);
+      });
   }
 
   // 5. Recorded Metric (Optional)
@@ -4606,7 +5209,23 @@ function openDetailModal(index) {
     }
   }
 
-  // 6. Actions & Footer
+  // 6. Actual Source Link Towards End
+  const sourceAnchorCard = document.getElementById('proofSourceAnchorCard');
+  if (sourceAnchorCard) {
+    if (rawLink && !rawLink.startsWith('blob:') && !rawLink.startsWith('data:')) {
+      sourceAnchorCard.style.display = 'flex';
+      const hostEl = document.getElementById('proofSourceAnchorHost');
+      if (hostEl) hostEl.textContent = (cleanHost || pubName).toUpperCase();
+      const urlEl = document.getElementById('proofSourceAnchorUrl');
+      if (urlEl) urlEl.textContent = rawLink;
+      const btnEl = document.getElementById('proofSourceAnchorBtn');
+      if (btnEl) btnEl.href = rawLink;
+    } else {
+      sourceAnchorCard.style.display = 'none';
+    }
+  }
+
+  // 7. Footer Actions
   const archivedByEl = document.getElementById('proofArchivedBy');
   if (archivedByEl) {
     archivedByEl.textContent = `Archived by ${handle}`;
@@ -4614,7 +5233,6 @@ function openDetailModal(index) {
 
   const extLink = document.getElementById('proofExternalLink');
   if (extLink) {
-    const rawLink = post.digitalLink || post.videoUrl || '';
     if (rawLink && !rawLink.startsWith('blob:') && !rawLink.startsWith('data:')) {
       extLink.href = rawLink;
       extLink.innerHTML = '<span>🌐 Open Original Source &nearr;</span>';
@@ -4634,6 +5252,8 @@ function closeDetailModal() {
   document.getElementById('detailModal').classList.remove('open');
   const videoEmbed = document.getElementById('proofVideoEmbedWrap');
   if (videoEmbed) videoEmbed.innerHTML = '';
+  const sourceAnchorCard = document.getElementById('proofSourceAnchorCard');
+  if (sourceAnchorCard) sourceAnchorCard.style.display = 'none';
   history.pushState(null, '', window.location.pathname);
   activePostIndex = null;
 }
@@ -4734,6 +5354,27 @@ function getPostGenerationInputs(post) {
   const contextProvided = raw.contextProvided || post.contextProvided || slantTake || scrapedContent || spark || '';
   const illustrationPrompt = raw.illustrationPrompt || post.illustrationPrompt || '';
   const originalHeadline = raw.originalHeadline || post.originalHeadline || post.adaptedHeadline || '';
+  const rawPhoto = post.sourceImageBase64
+    || post.sourceImageUrl
+    || post.catalystPhoto
+    || post.catalystPhotoBase64
+    || post.originalPhotoBase64
+    || post.originalPhotoUrl
+    || post.paperCutImage
+    || post.referencePhotoUrl
+    || raw.sourceImageBase64
+    || raw.sourceImageUrl
+    || raw.catalystPhoto
+    || raw.catalystPhotoBase64
+    || raw.innerVoiceImageBase64
+    || '';
+  const sourcePhotoMimeType = post.sourceImageMimeType
+    || post.originalPhotoMimeType
+    || post.catalystPhotoMimeType
+    || raw.sourceImageMimeType
+    || raw.innerVoiceImageMimeType
+    || 'image/jpeg';
+  const hasAttachedPhoto = Boolean(rawPhoto && typeof rawPhoto === 'string' && rawPhoto.trim().length > 10);
 
   return {
     slantTake,
@@ -4750,7 +5391,12 @@ function getPostGenerationInputs(post) {
     scrapedContent,
     contextProvided,
     illustrationPrompt,
-    originalHeadline
+    originalHeadline,
+    perspectiveMode: raw.perspectiveMode || post.perspectiveMode || 'hybrid',
+    sourceImageUrl: raw.sourceImageUrl || post.sourceImageUrl || post.originalPhotoUrl || '',
+    sourcePhoto: rawPhoto,
+    sourcePhotoMimeType,
+    hasAttachedPhoto
   };
 }
 
@@ -4783,7 +5429,15 @@ function openGenerationContextModal(postId) {
     inputs.cues.forEach((c, idx) => copyLines.push(`  ${idx + 1}. ${c}${idx === 0 ? ' (HERO)' : ''}`));
   }
   if (inputs.illustrationPrompt) copyLines.push(`\n[ART DIRECTION PROMPT]:\n${inputs.illustrationPrompt}`);
+  const isLikeness = Boolean(inputs.hasAttachedPhoto
+    || inputs.characterRepresentation === 'likeness'
+    || inputs.characterRepresentation === 'lookalike'
+    || inputs.characterRepresentation === 'cinematic');
+  const hybridPerspectiveLabel = isLikeness ? '⚖️ Hybrid Likeness' : '⚖️ Hybrid Blend';
+  const hybridPerspectivePlain = isLikeness ? 'Hybrid Likeness' : 'Hybrid Blend';
+
   copyLines.push(`\n[STUDIO PARAMETERS]:`);
+  copyLines.push(`  - Perspective Focus: ${inputs.perspectiveMode === 'curator' ? 'Curator Angle' : (inputs.perspectiveMode === 'source' ? 'Source Grounded' : hybridPerspectivePlain)}`);
   copyLines.push(`  - Core Take: ${inputs.refineCoreTake ? 'Refined with AI' : 'Use As-Is (Verbatim)'}`);
   copyLines.push(`  - Vocabulary: ${inputs.vocabularyStyle}`);
   copyLines.push(`  - Setting / Region: ${inputs.countryContext}`);
@@ -4895,6 +5549,38 @@ function openGenerationContextModal(postId) {
     `;
   }
 
+  // 3b. Attached Catalyst / Source Photo Reference
+  if (inputs.sourcePhoto && typeof inputs.sourcePhoto === 'string' && inputs.sourcePhoto.length > 20) {
+    let imgSrc = inputs.sourcePhoto;
+    if (!imgSrc.startsWith('data:') && !imgSrc.startsWith('http') && !imgSrc.startsWith('/')) {
+      imgSrc = `data:${inputs.sourcePhotoMimeType || 'image/jpeg'};base64,` + imgSrc;
+    } else if (imgSrc.startsWith('http')) {
+      imgSrc = imgSrc.replace(/&amp;/g, '&');
+    }
+    const photoBadge = (inputs.sourceType === 'inner_voice')
+      ? '📸 Archival Catalyst Snapshot'
+      : (inputs.sourceType === 'video_audio' ? '🎬 Broadcast Still' : '📰 Archival Wire Photo');
+    html += `
+      <div class="gen-section-card">
+        <div class="gen-section-header">
+          <div class="gen-section-title-wrap">
+            <span class="gen-section-icon">📸</span>
+            <span class="gen-section-label">ATTACHED PHOTO REFERENCE</span>
+          </div>
+          <span class="gen-cue-tag" style="background: rgba(16, 185, 129, 0.15); color: #10B981; font-weight: 700;">${photoBadge}</span>
+        </div>
+        <div style="display: flex; gap: 14px; align-items: center; margin-top: 8px;">
+          <div style="width: 76px; height: 76px; border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,0.12); flex-shrink: 0; background: #0F172A;">
+            <img src="${escapeHtml(imgSrc)}" style="width: 100%; height: 100%; object-fit: cover;" alt="Attached Photo Anchor">
+          </div>
+          <div style="font-size: 12.5px; color: var(--text-secondary, #94A3B8); line-height: 1.45;">
+            Anchors the visual composition, facial structure, and physical setting in physical reality with zero digital footprint.
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   // 4. Visual Cues & Metaphors
   if (inputs.cues && inputs.cues.length > 0) {
     html += `
@@ -4953,8 +5639,12 @@ function openGenerationContextModal(postId) {
           <span class="gen-param-value">${escapeHtml(sourceLabel)}</span>
         </div>
         <div class="gen-param-item">
-          <span class="gen-param-label">Core Take Mode</span>
-          <span class="gen-param-value">${inputs.refineCoreTake ? '✨ Refine with AI' : '❝ Use As-Is'}</span>
+          <span class="gen-param-label">Perspective Focus</span>
+          <span class="gen-param-value">${inputs.perspectiveMode === 'curator' ? '⚡ Curator Angle' : (inputs.perspectiveMode === 'source' ? '📰 Source Grounded' : escapeHtml(hybridPerspectiveLabel))}</span>
+        </div>
+        <div class="gen-param-item">
+          <span class="gen-param-label">Poster 2 Take</span>
+          <span class="gen-param-value">${inputs.refineCoreTake ? '✨ Refine with AI' : '❝ Use As-Is (Verbatim)'}</span>
         </div>
         <div class="gen-param-item">
           <span class="gen-param-label">Voice / Tone</span>
@@ -5052,6 +5742,34 @@ function loadPostIntoStudioToRegenerate(postId) {
   // 1. Set source mode
   setAnchorMode(inputs.sourceType || 'digital_link');
 
+  // 1b. Restore Attached Catalyst Photo or Source Visual if present
+  if (inputs.sourcePhoto && typeof inputs.sourcePhoto === 'string' && inputs.sourcePhoto.length > 20) {
+    let photoData = inputs.sourcePhoto;
+    if (!photoData.startsWith('data:') && !photoData.startsWith('http') && !photoData.startsWith('/')) {
+      photoData = `data:${inputs.sourcePhotoMimeType || 'image/jpeg'};base64,` + photoData;
+    } else if (photoData.startsWith('http')) {
+      photoData = photoData.replace(/&amp;/g, '&');
+    }
+    creatorReferenceImageBase64 = photoData;
+    creatorReferenceImageMimeType = inputs.sourcePhotoMimeType || 'image/jpeg';
+    creatorReferenceImageSourceLabel = (inputs.sourceType === 'inner_voice') ? 'Catalyst Scene Photo' : 'Source Visual';
+
+    if (inputs.sourceType === 'inner_voice') {
+      innerVoicePhotoBase64 = photoData;
+      innerVoicePhotoMimeType = creatorReferenceImageMimeType;
+      const thumb = document.getElementById('innerVoicePhotoThumb');
+      if (thumb) thumb.src = photoData;
+      const preview = document.getElementById('innerVoicePhotoPreview');
+      if (preview) preview.style.display = 'flex';
+      const emptyBox = document.getElementById('innerVoicePhotoEmpty');
+      if (emptyBox) emptyBox.style.display = 'none';
+    }
+
+    if (typeof updateReferencePhotoUI === 'function') {
+      updateReferencePhotoUI();
+    }
+  }
+
   // 2. Populate Slant Take
   const slantInput = document.getElementById('creatorSlantTakeInput');
   if (slantInput) {
@@ -5095,18 +5813,33 @@ function loadPostIntoStudioToRegenerate(postId) {
   // 8. Character Representation
   selectCharacterRepresentation(inputs.characterRepresentation || 'realistic');
 
-  // 9. Cues Deck
+  // 9. Visual Focus (Perspective Mode)
+  setPerspectiveMode(inputs.perspectiveMode || 'hybrid', false);
+
+  // 10. Cues Deck
   if (inputs.cues && Array.isArray(inputs.cues) && inputs.cues.length > 0) {
     creatorCuePills = [...inputs.cues];
     renderCuesDeck();
   }
 
-  // 10. Scraped article state
-  if (inputs.scrapedContent || inputs.scrapedTitle) {
+  // Stamp context fingerprint of the loaded post so we know what these cues were designed for
+  creatorCuesSourceFingerprint = {
+    sourceType: inputs.sourceType || 'digital_link',
+    url: (inputs.sourceUrl || '').trim(),
+    perspectiveMode: inputs.perspectiveMode || 'hybrid',
+    slantTake: (inputs.slantTake || '').trim(),
+    spark: (inputs.spark || '').trim()
+  };
+  creatorLastSuggestedContextKey = `${creatorCuesSourceFingerprint.sourceType}::${creatorCuesSourceFingerprint.url}::${creatorCuesSourceFingerprint.slantTake}`;
+
+  // 11. Scraped article state
+  if (inputs.scrapedContent || inputs.scrapedTitle || (inputs.sourcePhoto && inputs.sourceType !== 'inner_voice')) {
     currentScrapedArticle = {
       title: inputs.scrapedTitle || '',
       content: inputs.scrapedContent || '',
-      url: inputs.sourceUrl || ''
+      url: inputs.sourceUrl || '',
+      imageUrl: (inputs.sourcePhoto && inputs.sourcePhoto.startsWith('http')) ? inputs.sourcePhoto : '',
+      imageBase64: (inputs.sourcePhoto && !inputs.sourcePhoto.startsWith('http')) ? inputs.sourcePhoto : null
     };
   }
   if (inputs.sourceLedger) {
@@ -5303,6 +6036,11 @@ async function capturePostSlidesAsFiles(post, index) {
         });
       }));
 
+      // Adjust aspect ratio framing for Poster 3 receipt photos in export
+      container.querySelectorAll('.receipt-scene-photo').forEach(img => {
+        handleReceiptPhotoLoad(img);
+      });
+
       // Calculate un-stretched dimensions
       const bgImgs = container.querySelectorAll('.slide-hook-bg');
       bgImgs.forEach(img => {
@@ -5479,6 +6217,11 @@ function scheduleNextPreRender() {
 }
 
 async function sharePosters(indexOrId) {
+  if (!currentUser && isDeepLinkScrollGated) {
+    openAuthModal('Sign in to share and download slant posters.');
+    return;
+  }
+
   const post = getPostFromIndexOrId(indexOrId);
 
   if (!post) {
@@ -5488,24 +6231,9 @@ async function sharePosters(indexOrId) {
 
   const cacheKey = post.id || `idx-${indexOrId}`;
 
-  // INSTANT-FIRE: If already pre-rendered, navigator.share fires synchronously with 0ms delay!
-  // This preserves the active user gesture on iOS Safari & Android Chrome 100% of the time.
+  // If already pre-rendered, open share modal immediately with cached posters
   if (posterFilesCache.has(cacheKey)) {
     const cachedFiles = posterFilesCache.get(cacheKey);
-    if (navigator.canShare && navigator.canShare({ files: cachedFiles })) {
-      try {
-        await navigator.share({
-          files: cachedFiles
-        });
-        showTemporaryToast('✨ 3 Slide Posters shared!');
-        return;
-      } catch (err) {
-        if (err.name === 'AbortError') {
-          return; // User dismissed share sheet
-        }
-        console.warn('Instant native share failed, falling back to share modal:', err);
-      }
-    }
     openSharePostersModal(post, cachedFiles);
     return;
   }
@@ -5517,22 +6245,6 @@ async function sharePosters(indexOrId) {
     if (!files || files.length === 0) {
       throw new Error('Failed to generate poster images');
     }
-
-    // Try direct native share
-    if (navigator.canShare && navigator.canShare({ files })) {
-      try {
-        await navigator.share({ files });
-        showTemporaryToast('✨ 3 Slide Posters shared!');
-        return;
-      } catch (err) {
-        if (err.name === 'AbortError') {
-          return;
-        }
-        console.warn('Direct share after render failed (gesture token expired or OS blocked), opening share modal:', err);
-      }
-    }
-
-    // Dedicated modal gives the user a guaranteed fresh gesture to share or save
     openSharePostersModal(post, files);
   } catch (err) {
     console.error('Error generating posters:', err);
@@ -5546,50 +6258,54 @@ function openSharePostersModal(post, files) {
 
   const modal = document.getElementById('posterShareModal');
   const thumbsRow = document.getElementById('sharePostersThumbsRow');
-  const nativeBtn = document.getElementById('modalNativeShareBtn');
+  const teaserBtn = document.getElementById('shareTeaserBtn');
+  const carouselBtn = document.getElementById('shareCarouselBtn');
+  const teaserDesc = document.getElementById('shareTeaserCaptionPreview');
+  const carouselDesc = document.getElementById('shareCarouselCaptionPreview');
   const saveBtn = document.getElementById('modalSavePhotosBtn');
+  const copyBtn = document.getElementById('modalCopyLinkBtn');
 
   if (!modal) return;
+
+  const shareUrl = getPostShareUrl(post);
+  const sourceHeadline = getSourceHeadline(post);
+  const handle = (post?.creatorHandle || '@curator').trim();
+  const cleanHandle = handle.replace('@', '');
+  const profileUrl = `${window.location.origin}/?curator=${encodeURIComponent(cleanHandle)}`;
+
+  if (teaserDesc) {
+    teaserDesc.textContent = `know my detailed opinion on "${sourceHeadline}"`;
+  }
+  if (carouselDesc) {
+    carouselDesc.textContent = `know more of such my opinions on topics at ${profileUrl}`;
+  }
 
   if (thumbsRow && files && files.length > 0) {
     thumbsRow.innerHTML = '';
     files.forEach((file, i) => {
       const url = URL.createObjectURL(file);
       const wrap = document.createElement('div');
-      wrap.style.cssText = 'position:relative; width:90px; height:120px; border-radius:8px; overflow:hidden; border:1px solid rgba(255,255,255,0.15); background:#111; box-shadow:0 4px 12px rgba(0,0,0,0.4);';
+      wrap.style.cssText = 'position:relative; width:85px; height:115px; border-radius:8px; overflow:hidden; border:1px solid rgba(255,255,255,0.15); background:#111; box-shadow:0 4px 12px rgba(0,0,0,0.4);';
       wrap.innerHTML = `
         <img src="${url}" style="width:100%; height:100%; object-fit:cover; display:block;" alt="Slide ${i+1}">
-        <span style="position:absolute; bottom:4px; right:4px; font-size:9px; font-weight:800; background:rgba(0,0,0,0.75); color:#fff; padding:1px 5px; border-radius:4px; backdrop-filter:blur(2px);">0${i+1}/03</span>
+        <span style="position:absolute; bottom:4px; right:4px; font-size:9px; font-weight:800; background:rgba(0,0,0,0.75); color:#fff; padding:1px 5px; border-radius:4px; backdrop-filter:blur(2px);">0${i+1}/0${files.length}</span>
       `;
       thumbsRow.appendChild(wrap);
     });
   }
 
-  // Setup Share button (User clicking this button generates a guaranteed fresh user gesture!)
-  if (nativeBtn) {
-    if (navigator.canShare && navigator.canShare({ files })) {
-      nativeBtn.style.display = 'flex';
-      nativeBtn.innerHTML = '<span>📤</span> <span>Share to Instagram & Apps</span>';
-      nativeBtn.onclick = async () => {
-        try {
-          await navigator.share({ files });
-          closeSharePostersModal();
-          showTemporaryToast('✨ 3 Slide Posters shared!');
-        } catch (err) {
-          if (err.name !== 'AbortError') {
-            downloadShareFiles(files);
-          }
-        }
-      };
-    } else {
-      // If desktop browser doesn't support file sharing, label it as Download Posters for Instagram
-      nativeBtn.style.display = 'flex';
-      nativeBtn.innerHTML = '<span>📥</span> <span>Download 3 Posters for Instagram</span>';
-      nativeBtn.onclick = () => {
-        downloadShareFiles(files);
-        closeSharePostersModal();
-      };
-    }
+  // Setup Option 1: Share Poster 1 (Teaser)
+  if (teaserBtn) {
+    teaserBtn.onclick = async () => {
+      await shareTeaserPoster(post, files);
+    };
+  }
+
+  // Setup Option 2: Share All Posters (Carousel)
+  if (carouselBtn) {
+    carouselBtn.onclick = async () => {
+      await shareCarouselPosters(post, files);
+    };
   }
 
   // Setup Save / Download button
@@ -5600,8 +6316,97 @@ function openSharePostersModal(post, files) {
     };
   }
 
+  // Setup Copy Link button
+  if (copyBtn && post && post.id) {
+    copyBtn.onclick = () => {
+      copyCardShareLink(post.id);
+    };
+  }
+
   modal.classList.add('open');
   modal.classList.add('active');
+}
+
+async function shareTeaserPoster(post, files) {
+  if (!post || !files || files.length === 0) return;
+  const sourceHeadline = getSourceHeadline(post);
+  const shareUrl = getPostShareUrl(post);
+  const caption = `know my detailed opinion on "${sourceHeadline}" ${shareUrl}`;
+  const poster1 = files[0];
+
+  if (navigator.share && poster1 && navigator.canShare) {
+    const payload = {
+      files: [poster1],
+      title: sourceHeadline,
+      text: caption
+    };
+    if (navigator.canShare(payload)) {
+      try {
+        await navigator.share(payload);
+        closeSharePostersModal();
+        showTemporaryToast('✨ Cover poster shared!');
+        return;
+      } catch (err) {
+        if (err.name === 'AbortError') return;
+        console.warn('Native share notice:', err);
+      }
+    }
+  }
+
+  // Desktop or fallback
+  downloadSingleFile(poster1);
+  if (navigator.clipboard) {
+    await navigator.clipboard.writeText(caption).catch(() => {});
+  }
+  closeSharePostersModal();
+  showTemporaryToast('📥 Cover poster downloaded and link copied to clipboard!');
+}
+
+async function shareCarouselPosters(post, files) {
+  if (!post || !files || files.length === 0) return;
+  const handle = (post.creatorHandle || '@curator').trim();
+  const cleanHandle = handle.replace('@', '');
+  const profileUrl = `${window.location.origin}/?curator=${encodeURIComponent(cleanHandle)}`;
+  const caption = `know more of such my opinions on topics at ${profileUrl}`;
+
+  if (navigator.share && files.length > 0 && navigator.canShare) {
+    const payload = {
+      files: files,
+      title: `Opinions by ${handle}`,
+      text: caption
+    };
+    if (navigator.canShare(payload)) {
+      try {
+        await navigator.share(payload);
+        closeSharePostersModal();
+        showTemporaryToast('✨ Full poster set shared!');
+        return;
+      } catch (err) {
+        if (err.name === 'AbortError') return;
+        console.warn('Native share notice:', err);
+      }
+    }
+  }
+
+  // Desktop or fallback
+  downloadShareFiles(files);
+  if (navigator.clipboard) {
+    await navigator.clipboard.writeText(caption).catch(() => {});
+  }
+  closeSharePostersModal();
+  showTemporaryToast('📥 All posters downloaded and profile link copied to clipboard!');
+}
+
+function downloadSingleFile(file) {
+  if (!file) return;
+  const url = URL.createObjectURL(file);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = file.name || 'poster-1.png';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
 }
 
 function closeSharePostersModal() {
@@ -5614,7 +6419,7 @@ function closeSharePostersModal() {
 
 function downloadShareFiles(files) {
   if (!files || files.length === 0) return;
-  showTemporaryToast('📥 Saving 3 slide posters...');
+  showTemporaryToast(`📥 Saving ${files.length} slide posters...`);
   files.forEach((file, idx) => {
     setTimeout(() => {
       const url = URL.createObjectURL(file);
@@ -5634,6 +6439,7 @@ window.sharePosters = sharePosters;
 window.openSharePostersModal = openSharePostersModal;
 window.closeSharePostersModal = closeSharePostersModal;
 window.downloadShareFiles = downloadShareFiles;
+window.downloadSingleFile = downloadSingleFile;
 
 function openPaperCutModal(indexOrId) {
   const post = getPostFromIndexOrId(indexOrId);
@@ -5811,6 +6617,10 @@ let currentSynthesizedPost = null;
 let currentPreviewSlide = 0;
 let lastPolishedTake = '';
 let creatorRefineCoreTake = true;
+let lastHighlightedHtml = '';
+let lastCorrectionsList = [];
+let lastPolishDisplayMode = 'highlighted';
+let curatorStyleProfileCache = null;
 
 async function polishUserTake() {
   const input = document.getElementById('creatorSlantTakeInput');
@@ -5830,7 +6640,7 @@ async function polishUserTake() {
   const originalBtnHtml = btn ? btn.innerHTML : '';
   if (btn) {
     btn.disabled = true;
-    btn.innerHTML = `<span class="btn-spark-icon spinning">⏳</span> Polishing phrasing & grammar...`;
+    btn.innerHTML = `<span class="btn-spark-icon spinning">⏳</span> Analyzing phrasing, grammar & rhythm...`;
   }
 
   try {
@@ -5844,43 +6654,325 @@ async function polishUserTake() {
     });
 
     let polished = '';
+    let highlightedHtml = '';
+    let corrections = [];
+    let counts = { spelling: 0, grammar: 0, punctuation: 0, phrasing: 0, total: 0 };
+    let reviewSuccessful = false;
+    let serverError = '';
+
     if (resp.ok) {
       const data = await resp.json();
-      if (data && data.polished) {
-        polished = data.polished;
+      if (data && data.success !== false && (data.polished || data.highlightedHtml)) {
+        reviewSuccessful = true;
+        polished = data.polished || '';
+        highlightedHtml = data.highlightedHtml || '';
+        corrections = Array.isArray(data.corrections) ? data.corrections : [];
+        if (data.counts) counts = data.counts;
+      } else if (data && data.error) {
+        serverError = data.error;
       }
     }
 
-    // Fallback if API returned empty
     if (!polished) {
       polished = formatCuratorTakeApt(rawText);
+      highlightedHtml = escapeHtml(polished);
     }
 
     lastPolishedTake = polished;
+    lastHighlightedHtml = highlightedHtml || escapeHtml(polished);
+    lastCorrectionsList = corrections;
+    lastPolishDisplayMode = 'highlighted';
 
-    if (display) {
-      display.textContent = polished;
+    // Update legend counts
+    const countAllEl = document.getElementById('countAll');
+    const countSpellEl = document.getElementById('countSpelling');
+    const countGramEl = document.getElementById('countGrammar');
+    const countPunctEl = document.getElementById('countPunctuation');
+    const countPhraseEl = document.getElementById('countPhrasing');
+    const countTotalEl = document.getElementById('polishTotalCorrectionsCount');
+    const fidelityBadge = document.getElementById('reviewFidelityBadge');
+
+    if (countAllEl) countAllEl.textContent = counts.total;
+    if (countSpellEl) countSpellEl.textContent = counts.spelling;
+    if (countGramEl) countGramEl.textContent = counts.grammar;
+    if (countPunctEl) countPunctEl.textContent = counts.punctuation;
+    if (countPhraseEl) countPhraseEl.textContent = counts.phrasing;
+    if (countTotalEl) countTotalEl.textContent = counts.total;
+    if (fidelityBadge) {
+      if (counts.total > 0) {
+        fidelityBadge.textContent = `${counts.total} Notes • 100% Your Voice`;
+      } else {
+        fidelityBadge.textContent = '100% Your Voice';
+      }
     }
+
+    // Reset touch filter to 'all' on fresh polish
+    currentPolishFilter = 'all';
+    if (display) display.removeAttribute('data-filter');
+    const allChips = document.querySelectorAll('.polish-legend-chip');
+    allChips.forEach(chip => chip.classList.toggle('active', chip.id === 'filterChipAll'));
+
+    // Reset toggle buttons
+    const btnHighlight = document.getElementById('reviewToggleHighlighted');
+    const btnClean = document.getElementById('reviewToggleClean');
+    if (btnHighlight) btnHighlight.classList.add('active');
+    if (btnClean) btnClean.classList.remove('active');
+
+    // Render marked-up content or fallback to clean
+    if (display) {
+      display.innerHTML = lastHighlightedHtml;
+      attachPolishMarkListeners(display);
+    }
+
     if (reviewCard) {
       reviewCard.style.display = 'flex';
       reviewCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
-    showTemporaryToast('✨ Take polished for review. Check below!');
+
+    if (reviewSuccessful) {
+      if (counts.total > 0) {
+        showTemporaryToast(`✨ Review ready with ${counts.total} coaching notes. Tap any highlighted word!`);
+      } else {
+        showTemporaryToast('✨ Great job! Your text reads naturally and is free of errors.');
+      }
+    } else if (serverError) {
+      showTemporaryToast(`⚠️ ${serverError}`);
+    }
   } catch (err) {
     console.warn('Polish take error, using client-side formatting:', err);
     const polished = formatCuratorTakeApt(rawText);
     lastPolishedTake = polished;
+    lastHighlightedHtml = escapeHtml(polished);
+    lastCorrectionsList = [];
     if (display) display.textContent = polished;
     if (reviewCard) {
       reviewCard.style.display = 'flex';
       reviewCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
+    showTemporaryToast('⚠️ Review service connection issue. Please tap Review again.');
   } finally {
     if (btn) {
       btn.disabled = false;
       btn.innerHTML = originalBtnHtml;
     }
   }
+}
+
+function attachPolishMarkListeners(container) {
+  if (!container) return;
+  const marks = container.querySelectorAll('.polish-mark');
+  marks.forEach(mark => {
+    mark.addEventListener('click', (e) => {
+      e.stopPropagation();
+      marks.forEach(m => m.classList.remove('active'));
+      mark.classList.add('active');
+      const original = mark.getAttribute('data-original') || '';
+      const replacement = mark.textContent || '';
+      const type = mark.getAttribute('data-type') || 'phrasing';
+      const reason = mark.getAttribute('data-reason') || 'Improved phrasing and flow';
+      showPolishPopover(mark, original, replacement, type, reason);
+    });
+  });
+}
+
+let currentPolishFilter = 'all'; // 'all' | 'spelling' | 'grammar' | 'punctuation' | 'phrasing'
+
+function filterPolishHighlights(category) {
+  const display = document.getElementById('slantPolishedTextDisplay');
+  hidePolishPopover();
+
+  // If tapping already active specific category, toggle back to 'all'
+  if (currentPolishFilter === category && category !== 'all') {
+    category = 'all';
+  }
+  currentPolishFilter = category;
+
+  // Update chip active classes
+  const chips = document.querySelectorAll('.polish-legend-chip');
+  chips.forEach(chip => chip.classList.remove('active'));
+
+  const capName = category.charAt(0).toUpperCase() + category.slice(1);
+  const activeChip = document.getElementById(`filterChip${capName}`);
+  if (activeChip) activeChip.classList.add('active');
+
+  // Apply or remove data-filter attribute on display
+  if (display) {
+    if (category === 'all') {
+      display.removeAttribute('data-filter');
+    } else {
+      display.setAttribute('data-filter', category);
+    }
+  }
+
+  // If in clean mode, switch to highlighted so user sees the filtered highlights
+  if (lastPolishDisplayMode !== 'highlighted') {
+    setReviewDisplayMode('highlighted');
+  }
+
+  const categoryLabels = {
+    all: 'all corrections',
+    spelling: 'spelling corrections',
+    grammar: 'grammar corrections',
+    punctuation: 'punctuation corrections',
+    phrasing: 'phrasing corrections'
+  };
+  showTemporaryToast(`Filtering by ${categoryLabels[category] || category}`);
+}
+
+function setReviewDisplayMode(mode) {
+  lastPolishDisplayMode = mode;
+  const display = document.getElementById('slantPolishedTextDisplay');
+  const btnHighlight = document.getElementById('reviewToggleHighlighted');
+  const btnClean = document.getElementById('reviewToggleClean');
+
+  if (btnHighlight) btnHighlight.classList.toggle('active', mode === 'highlighted');
+  if (btnClean) btnClean.classList.toggle('active', mode === 'clean');
+
+  hidePolishPopover();
+
+  if (display) {
+    if (mode === 'highlighted') {
+      display.innerHTML = lastHighlightedHtml;
+      attachPolishMarkListeners(display);
+      if (currentPolishFilter && currentPolishFilter !== 'all') {
+        display.setAttribute('data-filter', currentPolishFilter);
+      } else {
+        display.removeAttribute('data-filter');
+      }
+    } else {
+      display.textContent = lastPolishedTake;
+      display.removeAttribute('data-filter');
+    }
+  }
+}
+
+function showPolishPopover(targetEl, original, replacement, type, reason) {
+  const popover = document.getElementById('polishPopover');
+  const badge = document.getElementById('popoverBadge');
+  const origEl = document.getElementById('popoverOriginal');
+  const repEl = document.getElementById('popoverReplacement');
+  const reasonEl = document.getElementById('popoverReason');
+
+  if (!popover) return;
+
+  if (badge) {
+    badge.textContent = type.toUpperCase();
+    badge.className = `popover-badge ${type}`;
+  }
+  if (origEl) origEl.textContent = original || '(omitted)';
+  if (repEl) repEl.textContent = replacement;
+  if (reasonEl) reasonEl.textContent = reason;
+
+  popover.style.display = 'block';
+}
+
+function hidePolishPopover() {
+  const popover = document.getElementById('polishPopover');
+  if (popover) popover.style.display = 'none';
+  const activeMarks = document.querySelectorAll('.polish-mark.active');
+  activeMarks.forEach(m => m.classList.remove('active'));
+}
+
+// Curator Style & Growth Modal Controllers
+async function openCuratorStyleModal() {
+  const modal = document.getElementById('curatorStyleModal');
+  const overlay = document.getElementById('curatorStyleModalOverlay');
+  if (modal) modal.style.display = 'flex';
+  if (overlay) overlay.style.display = 'block';
+
+  await loadCuratorStyleProfile();
+}
+
+function closeCuratorStyleModal() {
+  const modal = document.getElementById('curatorStyleModal');
+  const overlay = document.getElementById('curatorStyleModalOverlay');
+  if (modal) modal.style.display = 'none';
+  if (overlay) overlay.style.display = 'none';
+}
+
+async function loadCuratorStyleProfile() {
+  const userIdentifier = (currentUser && currentUser.email) || '@Shridhar Reddy';
+  try {
+    const resp = await fetch('/api/synthesize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'get_curator_style',
+        userIdentifier
+      })
+    });
+    if (resp.ok) {
+      const data = await resp.json();
+      if (data && data.profile) {
+        curatorStyleProfileCache = data.profile;
+        renderCuratorStyleProfile(data.profile);
+        return;
+      }
+    }
+  } catch (err) {
+    console.warn('Failed to load curator style profile:', err);
+  }
+
+  // Fallback to default render
+  renderCuratorStyleProfile();
+}
+
+function renderCuratorStyleProfile(profile) {
+  const dna = profile?.style_dna;
+  const observations = profile?.weekly_observations || [];
+
+  if (dna) {
+    const sName = document.getElementById('dnaStructureName');
+    const sDesc = document.getElementById('dnaStructureDesc');
+    const vName = document.getElementById('dnaVocabName');
+    const vDesc = document.getElementById('dnaVocabDesc');
+    const tName = document.getElementById('dnaToneName');
+    const tDesc = document.getElementById('dnaToneDesc');
+
+    if (sName && dna.structure?.name) sName.textContent = dna.structure.name;
+    if (sDesc && dna.structure?.description) sDesc.textContent = dna.structure.description;
+    if (vName && dna.vocabulary?.level) vName.textContent = dna.vocabulary.level;
+    if (vDesc && dna.vocabulary?.description) vDesc.textContent = dna.vocabulary.description;
+    if (tName && dna.tone?.stance) tName.textContent = dna.tone.stance;
+    if (tDesc && dna.tone?.description) tDesc.textContent = dna.tone.description;
+  }
+
+  const listEl = document.getElementById('curatorStyleTimelineList');
+  if (!listEl) return;
+
+  if (observations.length === 0) {
+    listEl.innerHTML = `<div style="text-align:center; padding:20px; color:#94A3B8; font-size:12px;">No weekly observation milestones recorded yet. Publish your slants to observe stylistic growth over time.</div>`;
+    return;
+  }
+
+  listEl.innerHTML = observations.map(obs => `
+    <div class="timeline-card">
+      <div class="timeline-period-row">
+        <span class="timeline-period-badge">📅 ${escapeHtml(obs.period || 'Milestone')}</span>
+      </div>
+      <div class="timeline-summary">${escapeHtml(obs.summary || '')}</div>
+      <div class="timeline-details-grid">
+        ${obs.structure_growth ? `
+          <div class="timeline-detail-item">
+            <span class="detail-label">📐 Structure</span>
+            ${escapeHtml(obs.structure_growth)}
+          </div>
+        ` : ''}
+        ${obs.vocabulary_growth ? `
+          <div class="timeline-detail-item">
+            <span class="detail-label">💬 Vocabulary</span>
+            ${escapeHtml(obs.vocabulary_growth)}
+          </div>
+        ` : ''}
+        ${obs.tone_milestone ? `
+          <div class="timeline-detail-item">
+            <span class="detail-label">🧠 Tone Milestone</span>
+            ${escapeHtml(obs.tone_milestone)}
+          </div>
+        ` : ''}
+      </div>
+    </div>
+  `).join('');
 }
 
 // ============================================================
@@ -6772,20 +7864,20 @@ function toggleRefineCoreTake(val) {
 
   if (creatorRefineCoreTake) {
     if (icon) icon.textContent = '✨';
-    if (title) title.textContent = 'Refine with AI';
+    if (title) title.textContent = 'Refine Poster 2 Take';
     if (badge) {
       badge.textContent = 'Refined';
       badge.className = 'slant-refine-badge';
     }
-    if (sub) sub.textContent = 'AI polishes and sharpens your raw thought into a punchy poster quote.';
+    if (sub) sub.textContent = 'Polishes your typed thoughts into a punchy 2-sentence quote for Poster 2.';
   } else {
     if (icon) icon.textContent = '❝';
-    if (title) title.textContent = 'Use Take As-Is';
+    if (title) title.textContent = 'Use Poster 2 Take As-Is';
     if (badge) {
       badge.textContent = 'Verbatim';
       badge.className = 'slant-refine-badge verbatim';
     }
-    if (sub) sub.textContent = 'Keeps your exact typed words verbatim on the poster slides without rephrasing.';
+    if (sub) sub.textContent = 'Keeps your exact typed words verbatim on Poster 2 without rephrasing.';
   }
 }
 
@@ -6810,6 +7902,53 @@ function setVocabularyStyle(style) {
     // punchy
     if (badge) badge.textContent = '⚡ Punchy';
     if (sub) sub.textContent = 'Emotional, vivid & clear. Strong verbs, zero academic jargon. Reads effortlessly.';
+  }
+}
+
+let creatorPerspectiveMode = 'hybrid'; // 'curator' | 'hybrid' | 'source'
+
+function setPerspectiveMode(mode, fromUserClick = false) {
+  if (mode !== 'curator' && mode !== 'source' && mode !== 'hybrid') {
+    mode = 'hybrid';
+  }
+  const prevMode = creatorPerspectiveMode;
+  creatorPerspectiveMode = mode;
+
+  document.querySelectorAll('.slant-perspective-pill').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.perspective === mode);
+  });
+
+  const hasPhoto = Boolean(creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || currentScrapedArticle?.imageUrl);
+
+  let iconText = '⚖️';
+  let badgeText = hasPhoto ? '⚖️ Hybrid Likeness' : '⚖️ Hybrid Blend';
+  let subText = hasPhoto
+    ? 'Controls Poster 1 Artwork & Cues: Blends your personal take with the facial structure, setting, and people in your photo (Zero Digital Footprint).'
+    : 'Controls Poster 1 Artwork & Cues: Blends the real-world news subject with your visual metaphor.';
+
+  if (mode === 'curator') {
+    iconText = '⚡';
+    badgeText = '⚡ Curator Angle';
+    subText = 'Controls Poster 1 Artwork & Cues: Artwork reflects your conceptual metaphor and critique.';
+  } else if (mode === 'source') {
+    iconText = '📰';
+    badgeText = '📰 Source Grounded';
+    subText = 'Controls Poster 1 Artwork & Cues: Artwork stays 100% faithful to the authentic news event, subjects, and photo.';
+  }
+
+  document.querySelectorAll('#slantPerspectiveIcon, .slant-perspective-icon').forEach(el => { el.textContent = iconText; });
+  document.querySelectorAll('#slantPerspectiveBadge, .slant-perspective-badge-dyn').forEach(el => { el.textContent = badgeText; });
+  document.querySelectorAll('#slantPerspectiveSubtitle, .slant-perspective-sub-dyn').forEach(el => { el.textContent = subText; });
+
+  updateReferencePhotoUI();
+
+  // If user clicked a different Visual Focus while inside Stage 2 and cues exist, auto-refresh cues to match
+  const isClick = fromUserClick || (typeof window !== 'undefined' && window.event && (window.event.type === 'click' || window.event.type === 'pointerdown'));
+  const s2 = document.getElementById('creatorStep2');
+  const isStage2Visible = s2 && s2.style.display !== 'none';
+  if (isClick && mode !== prevMode && isStage2Visible && creatorCuePills.length > 0) {
+    showTemporaryToast(`🔄 Visual focus set to ${badgeText}: Updating visual cues...`);
+    triggerCueSuggest();
   }
 }
 
@@ -6891,6 +8030,7 @@ function setAnchorMode(mode) {
       creatorSelectedCueIndices.clear();
     }
     creatorLastSuggestedContextKey = '';
+    creatorCuesSourceFingerprint = null;
     const urlInput = document.getElementById('creatorUrlInput');
     if (urlInput) urlInput.value = '';
     const urlPreview = document.getElementById('creatorUrlPreview');
@@ -7133,6 +8273,7 @@ function handleInnerVoicePhotoSelect(event) {
       creatorReferenceImageBase64 = base64Data;
       creatorReferenceImageMimeType = mimeType || 'image/jpeg';
       creatorReferenceImageSourceLabel = 'Catalyst Scene Photo';
+      creatorCharacterRepresentation = 'cinematic';
       updateReferencePhotoUI();
     }
 
@@ -7214,13 +8355,81 @@ function backToStep1() {
   if (d1) { d1.className = 'creator-step-dot active'; }
   if (d2) { d2.className = 'creator-step-dot'; }
   if (d3) { d3.className = currentSynthesizedPost ? 'creator-step-dot completed' : 'creator-step-dot'; }
+
+  const modalCard = document.querySelector('.creator-modal-card');
+  if (modalCard) modalCard.scrollTop = 0;
 }
 
 // Visual Cues Studio State
 let creatorCuePills = [];
 let creatorSelectedCueIndices = new Set();
-let creatorCharacterRepresentation = 'realistic'; // 'realistic' | 'likeness' | 'exact' | 'silhouette'
+let creatorCharacterRepresentation = 'realistic'; // 'realistic' | 'cinematic' | 'painting' | 'exact' | 'silhouette' | 'likeness'
 let creatorLastSuggestedContextKey = '';
+let creatorCuesSourceFingerprint = null;
+
+function normalizeUrlForComparison(url) {
+  if (!url) return '';
+  return String(url).toLowerCase().trim().replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/+$/, '');
+}
+
+function isSignificantTextChange(strA, strB) {
+  const cleanA = String(strA || '').trim().toLowerCase();
+  const cleanB = String(strB || '').trim().toLowerCase();
+  if (cleanA === cleanB) return false;
+  if (!cleanA && !cleanB) return false;
+  if ((!cleanA && cleanB.length > 20) || (!cleanB && cleanA.length > 20)) return true;
+  
+  const wordsA = new Set(cleanA.split(/\s+/).filter(w => w.length > 3));
+  const wordsB = new Set(cleanB.split(/\s+/).filter(w => w.length > 3));
+  if (wordsA.size === 0 && wordsB.size === 0) return false;
+  let matches = 0;
+  wordsA.forEach(w => { if (wordsB.has(w)) matches++; });
+  const total = Math.max(wordsA.size, wordsB.size);
+  const similarity = total > 0 ? (matches / total) : 1;
+  return similarity < 0.5;
+}
+
+function hasMajorCuesContextShift() {
+  if (!creatorCuesSourceFingerprint) {
+    return false;
+  }
+  const urlInput = document.getElementById('creatorUrlInput');
+  const slantTakeInput = document.getElementById('creatorSlantTakeInput');
+  const sparkInput = document.getElementById('creatorSparkInput');
+
+  const currentUrl = (urlInput ? urlInput.value.trim() : '');
+  const currentSlant = (slantTakeInput ? slantTakeInput.value.trim() : '');
+  const currentSpark = (sparkInput ? sparkInput.value.trim() : '');
+
+  // 1. Source Anchor type changed
+  if (creatorSelectedSource !== creatorCuesSourceFingerprint.sourceType) {
+    return true;
+  }
+
+  // 2. URL changed (different article/link entirely)
+  if (creatorSelectedSource !== 'inner_voice') {
+    if (normalizeUrlForComparison(currentUrl) !== normalizeUrlForComparison(creatorCuesSourceFingerprint.url)) {
+      return true;
+    }
+  }
+
+  // 3. Visual Focus changed (e.g. from Curator Angle to Source Grounded or Hybrid)
+  if ((creatorPerspectiveMode || 'hybrid') !== (creatorCuesSourceFingerprint.perspectiveMode || 'hybrid')) {
+    return true;
+  }
+
+  // 4. Slant Take completely changed
+  if (isSignificantTextChange(currentSlant, creatorCuesSourceFingerprint.slantTake)) {
+    return true;
+  }
+
+  // 5. Spark completely changed (for inner_voice)
+  if (creatorSelectedSource === 'inner_voice' && isSignificantTextChange(currentSpark, creatorCuesSourceFingerprint.spark)) {
+    return true;
+  }
+
+  return false;
+}
 let draggedCueIndex = null;
 let creatorActiveInspectedCueIndex = 0;
 
@@ -7428,11 +8637,13 @@ let currentSourceLedger = null;
 let isGeneratingLedger = false;
 let scrapeDebounceTimer = null;
 let isScrapingUrl = false;
+let activeScrapePromise = null;
 
 function resetCreatorState() {
   if (typeof clearMandatoryFieldPrompts === 'function') {
     clearMandatoryFieldPrompts();
   }
+  activeScrapePromise = null;
   currentScrapedArticle = null;
   currentSourceLedger = null;
   renderSourceLedger(null);
@@ -7448,9 +8659,11 @@ function resetCreatorState() {
   creatorReferenceImageMimeType = 'image/jpeg';
   creatorReferenceImageSourceLabel = null;
   creatorLastSuggestedContextKey = '';
+  creatorCuesSourceFingerprint = null;
   creatorActiveInspectedCueIndex = 0;
   creatorCountryContext = null;
   currentPreviewSlide = 0;
+  setPerspectiveMode('hybrid');
   cleanViewState['preview'] = false;
   const eyeBtn = document.getElementById('step3EyeViewBtn');
   if (eyeBtn) eyeBtn.classList.remove('active');
@@ -7590,64 +8803,75 @@ async function handleUrlInput(val) {
     indicator.style.display = 'flex';
   }
 
-  try {
-    const resp = await fetch('/api/scrape', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: clean })
-    });
+  activeScrapePromise = (async () => {
+    try {
+      const resp = await fetch('/api/scrape', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: clean })
+      });
 
-    if (!resp.ok) throw new Error('Scrape request failed');
-    const data = await resp.json();
+      if (!resp.ok) throw new Error('Scrape request failed');
+      const data = await resp.json();
 
-    if (data && data.success) {
-      currentScrapedArticle = data;
-      const scrapedImg = data.imageBase64 || data.imageUrl;
-      if (scrapedImg && (!creatorReferenceImageBase64 || creatorReferenceImageSourceLabel?.startsWith('Article Lead Photo'))) {
-        creatorReferenceImageBase64 = scrapedImg;
-        creatorReferenceImageMimeType = data.imageMimeType || 'image/jpeg';
-        creatorReferenceImageSourceLabel = `Article Lead Photo (${data.siteName || 'Web'})`;
-        updateReferencePhotoUI();
+      if (data && data.success) {
+        if (typeof data.imageUrl === 'string') {
+          data.imageUrl = data.imageUrl.replace(/&amp;/g, '&');
+        }
+        currentScrapedArticle = data;
+        let scrapedImg = data.imageBase64 || data.imageUrl;
+        if (scrapedImg) {
+          if (typeof scrapedImg === 'string' && scrapedImg.startsWith('http')) {
+            scrapedImg = scrapedImg.replace(/&amp;/g, '&');
+          }
+          creatorReferenceImageBase64 = scrapedImg;
+          creatorReferenceImageMimeType = data.imageMimeType || 'image/jpeg';
+          creatorReferenceImageSourceLabel = (creatorSelectedSource === 'video_audio' ? 'Video Thumbnail' : 'Article Lead Photo') + ` (${data.siteName || 'Web'})`;
+          updateReferencePhotoUI();
+        }
+        const isFull = (data.content && data.content.length > 200) || (!data.fallback);
+        if (indicator) {
+          indicator.className = isFull ? 'url-scrape-indicator success' : 'url-scrape-indicator info';
+          indicator.innerHTML = `
+            <span class="scrape-icon">${isFull ? '✓' : 'ℹ'}</span>
+            <div class="scrape-text-wrap">
+              <span class="scrape-title">${isFull ? 'Full article retrieved' : 'Headline extracted'} (${escapeHtml(data.siteName || 'Web')})</span>
+              <span class="scrape-sub">${escapeHtml(data.title || clean)}</span>
+            </div>
+          `;
+          indicator.style.display = 'flex';
+        }
+        // Trigger Objective Editorial Research Assistant Ledger
+        if (data && data.ledger) {
+          renderSourceLedger(data.ledger);
+        } else {
+          triggerSourceLedgerGeneration(data);
+        }
       }
-      const isFull = (data.content && data.content.length > 200) || (!data.fallback);
+    } catch (err) {
+      console.warn('URL scrape error:', err.message);
+      const slugTitle = extractHeadlineFromUrl(clean);
+      currentScrapedArticle = { url: clean, title: slugTitle, siteName: getCleanDomain(clean), content: '' };
       if (indicator) {
-        indicator.className = isFull ? 'url-scrape-indicator success' : 'url-scrape-indicator info';
+        indicator.className = 'url-scrape-indicator info';
         indicator.innerHTML = `
-          <span class="scrape-icon">${isFull ? '✓' : 'ℹ'}</span>
+          <span class="scrape-icon">ℹ</span>
           <div class="scrape-text-wrap">
-            <span class="scrape-title">${isFull ? 'Full article retrieved' : 'Headline extracted'} (${escapeHtml(data.siteName || 'Web')})</span>
-            <span class="scrape-sub">${escapeHtml(data.title || clean)}</span>
+            <span class="scrape-title">Citation link saved (${escapeHtml(currentScrapedArticle.siteName)})</span>
+            <span class="scrape-sub">${escapeHtml(slugTitle || clean)}</span>
           </div>
         `;
         indicator.style.display = 'flex';
       }
-      // Trigger Objective Editorial Research Assistant Ledger
-      if (data && data.ledger) {
-        renderSourceLedger(data.ledger);
-      } else {
-        triggerSourceLedgerGeneration(data);
-      }
+      // Trigger Objective Editorial Research Assistant Ledger even with minimal data
+      triggerSourceLedgerGeneration(currentScrapedArticle);
+    } finally {
+      isScrapingUrl = false;
+      activeScrapePromise = null;
     }
-  } catch (err) {
-    console.warn('URL scrape error:', err.message);
-    const slugTitle = extractHeadlineFromUrl(clean);
-    currentScrapedArticle = { url: clean, title: slugTitle, siteName: getCleanDomain(clean), content: '' };
-    if (indicator) {
-      indicator.className = 'url-scrape-indicator info';
-      indicator.innerHTML = `
-        <span class="scrape-icon">ℹ</span>
-        <div class="scrape-text-wrap">
-          <span class="scrape-title">Citation link saved (${escapeHtml(currentScrapedArticle.siteName)})</span>
-          <span class="scrape-sub">${escapeHtml(slugTitle || clean)}</span>
-        </div>
-      `;
-      indicator.style.display = 'flex';
-    }
-    // Trigger Objective Editorial Research Assistant Ledger even with minimal data
-    triggerSourceLedgerGeneration(currentScrapedArticle);
-  } finally {
-    isScrapingUrl = false;
-  }
+  })();
+
+  return activeScrapePromise;
 }
 
 let currentLedgerActiveTab = 'thesis';
@@ -8237,6 +9461,8 @@ function extract6RankedCueDimensions(curatorAngle, newsHeadline, newsBody) {
     hero = demographic ? `${detectedPerson} (${demographic.label}, Editorial Portrait)` : `${detectedPerson} (Editorial Portrait)`;
   } else if (demographic) {
     hero = `${demographic.shortDesc} (Editorial Portrait)`;
+  } else if (combined.includes('farmer') || combined.includes('tree') || combined.includes('mango') || combined.includes('plant') || combined.includes('harvest') || combined.includes('seed') || combined.includes('soil') || combined.includes('village')) {
+    hero = isIndia ? 'Elderly Farmer Beside Sprouting Sapling' : 'Farmer Tending Young Sapling';
   } else if (combined.includes('garbage') || combined.includes('trash') || combined.includes('waste') || combined.includes('clean')) {
     hero = isIndia ? 'Municipal Sweeper with Traditional Reed Broom' : 'Lone Sweeper with Traditional Broom';
   } else if (combined.includes('ai') || combined.includes('tech') || combined.includes('silicon') || combined.includes('data center') || combined.includes('model') || combined.includes('compute') || combined.includes('apple') || combined.includes('phone') || combined.includes('ipad')) {
@@ -8247,6 +9473,8 @@ function extract6RankedCueDimensions(curatorAngle, newsHeadline, newsBody) {
     hero = isIndia ? 'Indian Parliament Sandstone Colonnade' : 'Solitary Figure at Microphone';
   } else if (combined.includes('court') || combined.includes('judge') || combined.includes('law') || combined.includes('case') || combined.includes('crime') || combined.includes('goon')) {
     hero = isIndia ? 'Supreme Court of India Pillared Portico' : (isUK ? 'Old Bailey Gilded Scales of Justice' : 'Gavel & Broken Stone Pillar');
+  } else if (combined.includes('family') || combined.includes('child') || combined.includes('trip') || combined.includes('parent') || combined.includes('memoir')) {
+    hero = 'Solitary Reflective Observer in Contemplation';
   } else if (cleanHeadline && cleanHeadline.length > 3 && !cleanHeadline.startsWith('http')) {
     hero = cleanHeadline.split(/[:–—\-]/)[0].trim();
     if (hero.length > 38) hero = hero.substring(0, 35) + '...';
@@ -8259,13 +9487,17 @@ function extract6RankedCueDimensions(curatorAngle, newsHeadline, newsBody) {
 
   // 2. MOTIF (Core Metaphor from Curator Angle)
   let motif = '';
-  if (combined.includes('court') || combined.includes('judge') || combined.includes('law') || combined.includes('crime') || combined.includes('scale') || combined.includes('justice') || combined.includes('balance') || combined.includes('fair')) {
+  if (combined.includes('farmer') || combined.includes('tree') || combined.includes('mango') || combined.includes('plant') || combined.includes('seed') || combined.includes('root')) {
+    motif = 'Ancient Roots Entwined in Fertile Soil';
+  } else if (combined.includes('court') || combined.includes('judge') || combined.includes('law') || combined.includes('crime') || combined.includes('scale') || combined.includes('justice') || combined.includes('balance') || combined.includes('fair')) {
     motif = isIndia ? 'Ashoka Lion Capital & Scales of Justice' : 'Tipping Brass Balance Scales';
   } else if (combined.includes('taste') || combined.includes('craft') || combined.includes('art') || combined.includes('design')) {
     motif = 'Sculptor Chisel against Uncarved Marble';
+  } else if (combined.includes('family') || combined.includes('love') || combined.includes('heart') || combined.includes('home') || combined.includes('memoir')) {
+    motif = 'Worn Keepsakes and Handwritten Letters';
   } else if (combined.includes('puppet') || combined.includes('control') || combined.includes('manipulat')) {
     motif = 'Tangled Marionette Puppet Strings';
-  } else if (combined.includes('hourglass') || combined.includes('time') || combined.includes('delay') || combined.includes('wait')) {
+  } else if (combined.includes('hourglass') || combined.includes('time') || combined.includes('delay') || combined.includes('wait') || combined.includes('patience')) {
     motif = 'Crumbling Glass Hourglass';
   } else if (combined.includes('power') || combined.includes('grid') || combined.includes('cable') || combined.includes('energy')) {
     motif = 'Tangled High-Voltage Transmission Cables';
@@ -8279,7 +9511,9 @@ function extract6RankedCueDimensions(curatorAngle, newsHeadline, newsBody) {
 
   // 3. TENSION (Conflict / Friction / Obstacle)
   let tension = '';
-  if (combined.includes('court') || combined.includes('crime')) {
+  if (combined.includes('farmer') || combined.includes('tree') || combined.includes('labor') || combined.includes('plant') || combined.includes('effort') || combined.includes('work')) {
+    tension = 'Years of Quiet Unseen Labor';
+  } else if (combined.includes('court') || combined.includes('crime')) {
     tension = 'Swarm of Shadows around Court Gates';
   } else if (combined.includes('storm') || combined.includes('threat') || combined.includes('crisis')) {
     tension = 'Approaching Storm Wall on Horizon';
@@ -8291,13 +9525,17 @@ function extract6RankedCueDimensions(curatorAngle, newsHeadline, newsBody) {
     tension = 'Relentless Tidal Wave of Noise';
   } else if (combined.includes('greed') || combined.includes('inequal') || combined.includes('shadow')) {
     tension = 'Looming Corporate Glass Shadow';
+  } else if (combined.includes('family') || combined.includes('time') || combined.includes('age') || combined.includes('old')) {
+    tension = 'Relentless March of Passing Seasons';
   } else {
     tension = 'Friction & Opposing Cast Shadows';
   }
 
   // 4. ATMOSPHERE (Setting / Environment)
   let atmosphere = '';
-  if (combined.includes('street') || combined.includes('city') || combined.includes('road') || combined.includes('urban')) {
+  if (combined.includes('farmer') || combined.includes('tree') || combined.includes('mango') || combined.includes('village') || combined.includes('field') || combined.includes('rural') || combined.includes('orchard')) {
+    atmosphere = isIndia ? 'Sunlit Village Orchard Canopy at Dawn' : 'Sun-Drenched Country Orchard at Dawn';
+  } else if (combined.includes('street') || combined.includes('city') || combined.includes('road') || combined.includes('urban')) {
     atmosphere = isIndia ? 'Dusk over New Delhi Red Sandstone Corridor' : 'Damp Rain-Slicked City Boulevard';
   } else if (combined.includes('board') || combined.includes('exec') || combined.includes('corp')) {
     atmosphere = 'Smoke-Filled High-Rise Boardroom';
@@ -8305,13 +9543,19 @@ function extract6RankedCueDimensions(curatorAngle, newsHeadline, newsBody) {
     atmosphere = 'Brutalist Concrete Server Canyon';
   } else if (combined.includes('trade') || combined.includes('stock') || combined.includes('wall street')) {
     atmosphere = isIndia ? 'Dalal Street Trading Floor at Dusk' : 'Empty Trading Floor at Dusk';
+  } else if (combined.includes('court') || combined.includes('law') || combined.includes('judge')) {
+    atmosphere = isIndia ? 'Monsoon-Drenched New Delhi Court Corridor' : 'Rain-Mist Westminster Stone Embankment';
+  } else if (combined.includes('family') || combined.includes('home') || combined.includes('personal') || combined.includes('quiet')) {
+    atmosphere = 'Quiet Sunlit Veranda with Distant Hills';
   } else {
-    atmosphere = isIndia ? 'Monsoon-Drenched New Delhi Court Corridor' : (isUK ? 'Rain-Mist Westminster Stone Embankment' : (isJapan ? 'Shinjuku Neon Alleyway in Dusk Rain' : 'Atmospheric Minimalist Crossroads'));
+    atmosphere = isIndia ? 'Timeless Weathered Stone Courtyard' : (isUK ? 'Rain-Mist Westminster Stone Embankment' : (isJapan ? 'Shinjuku Neon Alleyway in Dusk Rain' : 'Atmospheric Minimalist Crossroads'));
   }
 
   // 5. LIGHTING (Chiaroscuro & Mood)
   let lighting = '';
-  if (combined.includes('neon') || combined.includes('cyber') || combined.includes('future') || combined.includes('tech') || combined.includes('ai')) {
+  if (combined.includes('farmer') || combined.includes('tree') || combined.includes('orchard') || combined.includes('plant') || combined.includes('nature')) {
+    lighting = 'Golden Morning Light Through Leaf Canopy';
+  } else if (combined.includes('neon') || combined.includes('cyber') || combined.includes('future') || combined.includes('tech') || combined.includes('ai')) {
     lighting = 'Cyan Terminal Glare and Charcoal Shadows';
   } else if (combined.includes('dark') || combined.includes('noir') || combined.includes('secret') || combined.includes('investig') || combined.includes('court') || combined.includes('crime')) {
     lighting = 'Stark High-Contrast Noir Rim Light';
@@ -8325,7 +9569,11 @@ function extract6RankedCueDimensions(curatorAngle, newsHeadline, newsBody) {
 
   // 6. STYLE (Print Medium & Movement)
   let style = '';
-  if (isIndia) {
+  if (combined.includes('farmer') || combined.includes('tree') || combined.includes('village') || combined.includes('nature') || combined.includes('soil')) {
+    style = isIndia ? 'Warm Earthy Woodcut Editorial Illustration' : 'Textured Linocut Editorial Print';
+  } else if (combined.includes('family') || combined.includes('memoir') || combined.includes('home') || combined.includes('personal')) {
+    style = 'Warm Nostalgic Watercolor Editorial Art';
+  } else if (isIndia) {
     style = 'Editorial Sandstone & Indigo Broadsheet Woodcut';
   } else if (combined.includes('tech') || combined.includes('modern') || combined.includes('future')) {
     style = 'Bauhaus Geometric Vector Poster';
@@ -8615,9 +9863,13 @@ async function goToVisualCuesStep() {
   const url = urlInput ? urlInput.value.trim() : '';
   const slantTake = slantTakeInput ? slantTakeInput.value.trim() : '';
 
-  // If URL is provided and not scraped yet, scrape now!
-  if (creatorSelectedSource !== 'inner_voice' && url && !currentScrapedArticle) {
-    await handleUrlInput(url);
+  // If URL is provided and not scraped yet, scrape now or await in-flight scrape!
+  if (creatorSelectedSource !== 'inner_voice' && url) {
+    if (!currentScrapedArticle && !isScrapingUrl) {
+      await handleUrlInput(url);
+    } else if (isScrapingUrl && activeScrapePromise) {
+      try { await activeScrapePromise; } catch (_) {}
+    }
   }
 
   // Switch step indicators
@@ -8640,12 +9892,13 @@ async function goToVisualCuesStep() {
   if (d2) d2.className = 'creator-step-dot active';
   if (d3) d3.className = currentSynthesizedPost ? 'creator-step-dot completed' : 'creator-step-dot';
 
+  const modalCard = document.querySelector('.creator-modal-card');
+  if (modalCard) modalCard.scrollTop = 0;
+
   if (currentScrapedArticle && (currentScrapedArticle.imageBase64 || currentScrapedArticle.imageUrl)) {
-    if (!creatorReferenceImageBase64 || creatorReferenceImageSourceLabel?.startsWith('Article Lead Photo')) {
-      creatorReferenceImageBase64 = currentScrapedArticle.imageBase64 || currentScrapedArticle.imageUrl;
-      creatorReferenceImageMimeType = currentScrapedArticle.imageMimeType || 'image/jpeg';
-      creatorReferenceImageSourceLabel = `Article Lead Photo (${currentScrapedArticle.siteName || 'Web'})`;
-    }
+    creatorReferenceImageBase64 = currentScrapedArticle.imageBase64 || currentScrapedArticle.imageUrl;
+    creatorReferenceImageMimeType = currentScrapedArticle.imageMimeType || 'image/jpeg';
+    creatorReferenceImageSourceLabel = (creatorSelectedSource === 'video_audio' ? 'Video Thumbnail' : 'Article Lead Photo') + ` (${currentScrapedArticle.siteName || 'Web'})`;
   }
 
   updateReferencePhotoUI();
@@ -8656,7 +9909,7 @@ async function goToVisualCuesStep() {
   }
 
   // Auto-detect and set geographic & cultural context
-  const isLink = (creatorSelectedSource === 'digital_link');
+  const isLink = (creatorSelectedSource === 'digital_link' || creatorSelectedSource === 'video_audio');
   const articleTitle = isLink ? (currentScrapedArticle?.title || extractHeadlineFromUrl(url)) : '';
   const articleBody = isLink ? (currentScrapedArticle?.content || '') : '';
   if (!creatorCountryContext) {
@@ -8668,15 +9921,23 @@ async function goToVisualCuesStep() {
   const combinedContext = slantTake + ' ' + (sparkInput ? sparkInput.value.trim() : '');
   checkAndTriggerFamilyCast(combinedContext);
 
-  // STRICT USER DIRECTIVE: Visual cues NEVER auto-generate on page entry in any case.
-  // Visual cues are generated ONLY when the user explicitly clicks the "Generate Visual Cues" / "Suggest All" button.
-  if (creatorCuePills.length > 0 && creatorCharacterRepresentation === 'likeness') {
-    const detected = detectPersonNameInContext(articleTitle, slantTake, currentScrapedArticle?.content);
-    if (detected && !creatorCuePills[0].toLowerCase().includes(detected.toLowerCase())) {
-      creatorCuePills[0] = `${detected} (Editorial Portrait)`;
+  // Smart Auto-Regenerate on Major Context Shift (Option A)
+  // If inputs changed since cues were generated or loaded from a previous post, refresh cues for the new context
+  const hasShift = hasMajorCuesContextShift();
+  if (hasShift && creatorCuePills.length > 0) {
+    showTemporaryToast('🔄 Inputs changed: Updating visual cues for the new context...');
+    creatorCuePills = [];
+    renderCuesDeck();
+    triggerCueSuggest();
+  } else {
+    if (creatorCuePills.length > 0 && (creatorCharacterRepresentation === 'cinematic' || creatorCharacterRepresentation === 'likeness')) {
+      const detected = detectPersonNameInContext(articleTitle, slantTake, currentScrapedArticle?.content);
+      if (detected && !creatorCuePills[0].toLowerCase().includes(detected.toLowerCase())) {
+        creatorCuePills[0] = `${detected} (Editorial Portrait)`;
+      }
     }
+    renderCuesDeck();
   }
-  renderCuesDeck();
 }
 
 function renderCuesDeck() {
@@ -9171,9 +10432,21 @@ async function triggerCueSuggest() {
   const slantTake = slantTakeInput ? slantTakeInput.value.trim() : '';
   const spark = sparkInput ? sparkInput.value.trim() : '';
 
-  const isLink = (creatorSelectedSource === 'digital_link');
+  // If scrape in flight, await it before generating cues
+  if (isScrapingUrl && activeScrapePromise) {
+    try { await activeScrapePromise; } catch (_) {}
+  }
+
+  const isLink = (creatorSelectedSource === 'digital_link' || creatorSelectedSource === 'video_audio');
   const articleTitle = isLink ? (currentScrapedArticle?.title || extractHeadlineFromUrl(url)) : '';
   const articleBody = isLink ? (currentScrapedArticle?.content || '') : '';
+
+  const effectiveCuesImage = (creatorSelectedSource === 'inner_voice')
+    ? innerVoicePhotoBase64
+    : (creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || null);
+  const effectiveCuesMime = (creatorSelectedSource === 'inner_voice')
+    ? (innerVoicePhotoMimeType || 'image/jpeg')
+    : (creatorReferenceImageMimeType || currentScrapedArticle?.imageMimeType || 'image/jpeg');
 
   const suggestBtn = document.getElementById('cuesSuggestBtn');
   const suggestLabel = document.getElementById('cuesSuggestLabel');
@@ -9200,9 +10473,10 @@ async function triggerCueSuggest() {
         countryCode: creatorCountryContext?.code || 'IN',
         creatorEmail: currentUser?.email || '',
         vocabularyStyle: creatorVocabularyStyle || 'punchy',
+        perspectiveMode: creatorPerspectiveMode || 'hybrid',
         slantTone: (creatorSelectedSource === 'inner_voice' || /\b(family|child|love|heart|trip|vacation|weekend|pack|burnout|unplug|memoir|personal)\b/i.test(`${slantTake} ${spark}`)) ? 'heart' : 'mind',
-        imageBase64: (creatorSelectedSource === 'inner_voice') ? innerVoicePhotoBase64 : null,
-        imageMimeType: innerVoicePhotoMimeType || 'image/jpeg',
+        imageBase64: effectiveCuesImage,
+        imageMimeType: effectiveCuesMime,
         innerVoiceImageBase64: (creatorSelectedSource === 'inner_voice') ? innerVoicePhotoBase64 : null,
         innerVoiceImageMimeType: innerVoicePhotoMimeType || 'image/jpeg',
         familyCast: familyCastProfileCache,
@@ -9211,7 +10485,22 @@ async function triggerCueSuggest() {
       })
     });
 
-    if (!resp.ok) throw new Error('AI cues request failed');
+    if (!resp.ok) {
+      let errorMsg = `HTTP ${resp.status}`;
+      try {
+        const errJson = await resp.json();
+        if (errJson && errJson.error) errorMsg = errJson.error;
+      } catch (_) {}
+
+      if (resp.status === 402) {
+        showTemporaryToast('⚠️ Cloud deployment paused (Vercel spend limit or billing required). Loaded offline cues.', 7000);
+      } else if (resp.status === 401 || resp.status === 403) {
+        showTemporaryToast(errorMsg || '⚠️ Please sign in with an invited Google account to generate live AI cues.', 6000);
+      } else {
+        showTemporaryToast(`⚠️ AI cues service unavailable (${errorMsg}). Loaded offline cues.`, 5000);
+      }
+      throw new Error(errorMsg);
+    }
     const data = await resp.json();
 
     if (data && data.success && Array.isArray(data.cues) && data.cues.length > 0) {
@@ -9229,8 +10518,8 @@ async function triggerCueSuggest() {
         creatorCuePills = data.cues;
       }
 
-      // If likeness is selected, enforce detected person in #1 HERO
-      if (creatorCharacterRepresentation === 'likeness') {
+      // If cinematic or likeness is selected, enforce detected person in #1 HERO
+      if (creatorCharacterRepresentation === 'cinematic' || creatorCharacterRepresentation === 'likeness') {
         const detected = detectPersonNameInContext(articleTitle, slantTake, articleBody);
         const demographic = detectAgeAndDemographics(slantTake, articleTitle, articleBody);
         if (detected && creatorCuePills.length > 0 && !creatorCuePills[0].toLowerCase().includes(detected.toLowerCase())) {
@@ -9242,6 +10531,9 @@ async function triggerCueSuggest() {
     }
   } catch (err) {
     console.warn('AI cue suggestion fallback:', err.message);
+    if (!err.message.includes('402') && !err.message.includes('401') && !err.message.includes('403') && !err.message.includes('unavailable')) {
+      showTemporaryToast('⚠️ Could not connect to AI cues service. Loaded offline cues.', 4500);
+    }
     const fallbacks = extract6RankedCueDimensions(slantTake, articleTitle, articleBody);
     if (creatorSelectedCueIndices.size > 0 && creatorCuePills.length > 0) {
       creatorSelectedCueIndices.forEach(idx => {
@@ -9257,6 +10549,14 @@ async function triggerCueSuggest() {
     if (suggestIcon) suggestIcon.textContent = '✨';
     const finalUrl = urlInput ? urlInput.value.trim() : '';
     const finalSlant = slantTakeInput ? slantTakeInput.value.trim() : '';
+    const finalSpark = sparkInput ? sparkInput.value.trim() : '';
+    creatorCuesSourceFingerprint = {
+      sourceType: creatorSelectedSource,
+      url: finalUrl,
+      perspectiveMode: creatorPerspectiveMode || 'hybrid',
+      slantTake: finalSlant,
+      spark: finalSpark
+    };
     creatorLastSuggestedContextKey = `${creatorSelectedSource}::${finalUrl}::${finalSlant}`;
     renderCuesDeck();
   }
@@ -9280,63 +10580,108 @@ function handleReferenceImageSelection(event) {
     creatorReferenceImageBase64 = base64Data;
     creatorReferenceImageMimeType = mimeType || 'image/jpeg';
     creatorReferenceImageSourceLabel = 'Custom Portrait Photo';
+    creatorCharacterRepresentation = 'cinematic';
     updateReferencePhotoUI();
   });
 }
 
 function updateReferencePhotoUI() {
-  const section = document.getElementById('characterRefPhotoSection');
-  const activeCard = document.getElementById('refPhotoActiveCard');
-  const emptyCard = document.getElementById('refPhotoEmptyCard');
-  const thumb = document.getElementById('refPhotoThumb');
-  const title = document.getElementById('refPhotoTitle');
-  const cameraBtn = document.getElementById('refCameraBtn');
+  const photoCard = document.getElementById('sourcePhotoAttachedCard');
+  const photoThumb = document.getElementById('sourcePhotoThumb');
+  const photoBadge = document.getElementById('sourcePhotoBadge');
+  const photoLabel = document.getElementById('sourcePhotoLabel');
+  const optCinematic = document.getElementById('repOptionCinematic');
+  const optPainting = document.getElementById('repOptionPainting');
+  const optLikeness = document.getElementById('repOptionLikeness');
+  const optExact = document.getElementById('repOptionExact');
+  const optReal = document.getElementById('repOptionRealistic');
+  const optSil = document.getElementById('repOptionSilhouette');
+  const repRealTitle = document.getElementById('repRealisticTitle');
+  const repRealDesc = document.getElementById('repRealisticDesc');
 
-  if (!section) return;
+  const hasPhoto = Boolean(creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || currentScrapedArticle?.imageUrl);
+  const photoSrc = creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || currentScrapedArticle?.imageUrl || null;
 
-  if (creatorCharacterRepresentation !== 'likeness' && creatorCharacterRepresentation !== 'exact') {
-    section.style.display = 'none';
-    return;
-  }
-
-  section.style.display = 'block';
-
-  const desc = document.getElementById('refPhotoDesc');
-  if (desc) {
-    const firstCue = creatorCuePills[0] || '';
-    const isPerson = isLikelyPersonSubject(firstCue);
-    if (creatorCharacterRepresentation === 'exact') {
-      desc.textContent = 'Exact unedited photo will be used directly as the primary poster image.';
-    } else if (isPerson) {
-      desc.textContent = 'Face features will guide AI to generate an artistic lookalike portrait with mystery.';
+  if (photoCard && photoThumb) {
+    if (hasPhoto && photoSrc) {
+      photoCard.style.display = 'flex';
+      photoThumb.src = photoSrc;
+      if (photoBadge) {
+        photoBadge.textContent = (creatorSelectedSource === 'video_audio')
+          ? '🎬 Authentic Video Thumbnail Attached'
+          : (creatorSelectedSource === 'inner_voice' ? '📸 Archival Catalyst Photo Attached' : '📰 Authentic Source Photo Attached');
+      }
+      if (photoLabel) {
+        photoLabel.textContent = creatorReferenceImageSourceLabel || (currentScrapedArticle?.siteName ? `Lead visual from ${currentScrapedArticle.siteName}` : 'Grounding visual cues & poster flow in physical reality');
+      }
     } else {
-      desc.textContent = 'Subject will guide AI to generate a cinematic architectural/editorial poster illustration.';
+      photoCard.style.display = 'none';
     }
   }
 
-  if (creatorReferenceImageBase64) {
-    if (activeCard) activeCard.style.display = 'flex';
-    if (emptyCard) emptyCard.style.display = 'none';
-    if (thumb) thumb.src = creatorReferenceImageBase64;
-    if (title) title.textContent = creatorReferenceImageSourceLabel || (creatorCharacterRepresentation === 'exact' ? 'Exact Photo Attached' : 'Reference Photo Ready');
-  } else {
-    if (activeCard) activeCard.style.display = 'none';
-    if (emptyCard) emptyCard.style.display = 'block';
-    if (cameraBtn) cameraBtn.style.display = isMobileDevice() ? 'inline-flex' : 'none';
+  if (optCinematic) {
+    optCinematic.style.display = hasPhoto ? 'flex' : 'none';
   }
+
+  if (optPainting) {
+    optPainting.style.display = hasPhoto ? 'flex' : 'none';
+  }
+
+  if (optLikeness) {
+    optLikeness.style.display = hasPhoto ? 'flex' : 'none';
+  }
+
+  if (optExact) {
+    optExact.style.display = hasPhoto ? 'flex' : 'none';
+  }
+
+  if (!hasPhoto) {
+    if (creatorCharacterRepresentation === 'cinematic' || creatorCharacterRepresentation === 'painting' || creatorCharacterRepresentation === 'likeness' || creatorCharacterRepresentation === 'exact') {
+      creatorCharacterRepresentation = 'realistic';
+    }
+  }
+
+  // Update Visual Focus pills and labels dynamically based on photo presence
+  const pillHybrid = document.getElementById('perspectivePillHybridStage2');
+  if (pillHybrid) {
+    const textEl = pillHybrid.querySelector('.pill-text');
+    if (textEl) textEl.textContent = hasPhoto ? 'Hybrid Likeness' : 'Hybrid Blend';
+  }
+  const badgeEl = document.getElementById('slantPerspectiveBadgeStage2');
+  const subEl = document.getElementById('slantPerspectiveSubtitleStage2');
+  if (creatorPerspectiveMode === 'hybrid') {
+    if (badgeEl) badgeEl.textContent = hasPhoto ? '⚖️ Hybrid Likeness' : '⚖️ Hybrid Blend';
+    if (subEl) {
+      subEl.textContent = hasPhoto
+        ? 'Controls Poster 1 Artwork & Cues: Blends your personal take with the facial structure, setting, and people in your photo (Zero Digital Footprint).'
+        : 'Controls Poster 1 Artwork & Cues: Blends the real-world news subject with your visual metaphor.';
+    }
+  }
+
+  if (repRealTitle && repRealDesc) {
+    if (creatorPerspectiveMode === 'source') {
+      repRealTitle.textContent = '🎨 Source-Grounded Artwork (AI Illustration)';
+      repRealDesc.textContent = 'Editorial broadsheet art physically anchored in the real source protagonists, press setting, and flags.';
+    } else {
+      repRealTitle.textContent = '👤 Generic Human Realism (Artwork)';
+      repRealDesc.textContent = 'Warm, expressive human beings representing the general theme rather than matching the photo\'s subjects.';
+    }
+  }
+
+  const isCinematicActive = (creatorCharacterRepresentation === 'cinematic' || creatorCharacterRepresentation === 'likeness');
+  if (optCinematic) optCinematic.classList.toggle('active', isCinematicActive);
+  if (optLikeness) optLikeness.classList.toggle('active', isCinematicActive);
+  if (optPainting) optPainting.classList.toggle('active', creatorCharacterRepresentation === 'painting');
+  if (optReal) optReal.classList.toggle('active', creatorCharacterRepresentation === 'realistic');
+  if (optSil) optSil.classList.toggle('active', creatorCharacterRepresentation === 'silhouette');
+  if (optExact) optExact.classList.toggle('active', creatorCharacterRepresentation === 'exact');
 }
 
 function selectCharacterRepresentation(type) {
-  if (type !== 'realistic' && type !== 'silhouette') {
+  if (type !== 'realistic' && type !== 'silhouette' && type !== 'exact' && type !== 'cinematic' && type !== 'painting' && type !== 'likeness') {
     type = 'realistic';
   }
   creatorCharacterRepresentation = type;
-  const optReal = document.getElementById('repOptionRealistic');
-  const optSil = document.getElementById('repOptionSilhouette');
-
-  if (optReal) optReal.classList.toggle('active', type === 'realistic');
-  if (optSil) optSil.classList.toggle('active', type === 'silhouette');
-
   updateReferencePhotoUI();
 }
 
@@ -9419,17 +10764,30 @@ async function startAiSynthesis() {
     userHandle = '@' + (currentUser.user_metadata?.user_name || currentUser.user_metadata?.name || currentUser.email.split('@')[0]);
   }
 
-  const isPhotoPortrayal = (creatorCharacterRepresentation === 'likeness' || creatorCharacterRepresentation === 'exact' || creatorCharacterRepresentation === 'lookalike');
-  const shouldSendImage = isPhotoPortrayal && Boolean(creatorReferenceImageBase64);
-  const effectiveImageBase64 = shouldSendImage ? (creatorReferenceImageBase64 || null) : null;
-  const effectiveImageMime = shouldSendImage ? (creatorReferenceImageMimeType || 'image/jpeg') : 'image/jpeg';
+  // If URL scrape is in flight, await it so lead image and title are ready
+  if (isScrapingUrl && activeScrapePromise) {
+    try { await activeScrapePromise; } catch (_) {}
+  }
+
+  const isPhotoPortrayal = (creatorPerspectiveMode === 'source' || creatorCharacterRepresentation === 'cinematic' || creatorCharacterRepresentation === 'painting' || creatorCharacterRepresentation === 'likeness' || creatorCharacterRepresentation === 'exact' || creatorCharacterRepresentation === 'lookalike');
+  const rawSourceImg = creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || currentScrapedArticle?.imageUrl || null;
+  const shouldSendImage = isPhotoPortrayal && Boolean(rawSourceImg);
+  const effectiveImageBase64 = shouldSendImage ? (creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || null) : null;
+  const effectiveImageMime = shouldSendImage ? (creatorReferenceImageMimeType || currentScrapedArticle?.imageMimeType || 'image/jpeg') : 'image/jpeg';
 
   const isLink = (creatorSelectedSource === 'digital_link' || creatorSelectedSource === 'video_audio');
+  const rawSourceImgUrl = (isLink && currentScrapedArticle) ? (currentScrapedArticle.imageUrl || null) : (creatorReferenceImageBase64?.startsWith('http') ? creatorReferenceImageBase64 : null);
+  const cleanSourceImgUrl = (rawSourceImgUrl && typeof rawSourceImgUrl === 'string') ? rawSourceImgUrl.replace(/&amp;/g, '&') : null;
+
   const payload = {
     sourceType: creatorSelectedSource,
     url: isLink ? url : '',
     text: slantTake,
     slantTake: slantTake,
+    perspectiveMode: creatorPerspectiveMode || 'hybrid',
+    sourceImageUrl: cleanSourceImgUrl,
+    sourceImageBase64: (isLink && currentScrapedArticle) ? (currentScrapedArticle.imageBase64 || null) : (creatorReferenceImageBase64?.startsWith('data:') ? creatorReferenceImageBase64 : null),
+    sourceImageMimeType: (isLink && currentScrapedArticle) ? (currentScrapedArticle.imageMimeType || 'image/jpeg') : (creatorReferenceImageMimeType || 'image/jpeg'),
     imageBase64: effectiveImageBase64 || (creatorSelectedSource === 'inner_voice' ? innerVoicePhotoBase64 : null),
     imageMimeType: effectiveImageMime || innerVoicePhotoMimeType || 'image/jpeg',
     innerVoiceImageBase64: (creatorSelectedSource === 'inner_voice') ? innerVoicePhotoBase64 : null,
@@ -9500,11 +10858,31 @@ async function startAiSynthesis() {
     }
 
     currentSynthesizedPost = data.post;
+    currentSynthesizedPost.perspectiveMode = creatorPerspectiveMode || 'hybrid';
+    if (isLink) {
+      const candidateUrl = currentSynthesizedPost.sourceImageUrl || currentScrapedArticle?.imageUrl || (creatorReferenceImageBase64?.startsWith('http') ? creatorReferenceImageBase64 : null) || null;
+      currentSynthesizedPost.sourceImageUrl = (candidateUrl && typeof candidateUrl === 'string') ? candidateUrl.replace(/&amp;/g, '&') : null;
+      currentSynthesizedPost.sourceImageBase64 = currentSynthesizedPost.sourceImageBase64 || currentScrapedArticle?.imageBase64 || (creatorReferenceImageBase64?.startsWith('data:') ? creatorReferenceImageBase64 : null) || null;
+      currentSynthesizedPost.sourceImageMimeType = currentSynthesizedPost.sourceImageMimeType || currentScrapedArticle?.imageMimeType || creatorReferenceImageMimeType || 'image/jpeg';
+    }
     if (creatorSelectedSource === 'inner_voice' && innerVoicePhotoBase64) {
       currentSynthesizedPost.catalystPhoto = innerVoicePhotoBase64;
       currentSynthesizedPost.catalystPhotoBase64 = innerVoicePhotoBase64;
       currentSynthesizedPost.originalPhotoBase64 = innerVoicePhotoBase64;
       currentSynthesizedPost.originalPhotoMimeType = innerVoicePhotoMimeType || 'image/jpeg';
+    }
+    let refPhotoCandidate = currentSynthesizedPost.referencePhotoUrl
+      || currentSynthesizedPost.sourceImageUrl
+      || (currentSynthesizedPost.sourceImageBase64 ? (currentSynthesizedPost.sourceImageBase64.startsWith('data:') ? currentSynthesizedPost.sourceImageBase64 : `data:${currentSynthesizedPost.sourceImageMimeType || 'image/jpeg'};base64,${currentSynthesizedPost.sourceImageBase64}`) : null)
+      || null;
+    if (refPhotoCandidate && typeof refPhotoCandidate === 'string' && refPhotoCandidate.startsWith('http')) {
+      refPhotoCandidate = refPhotoCandidate.replace(/&amp;/g, '&');
+    }
+    currentSynthesizedPost.referencePhotoUrl = refPhotoCandidate;
+
+    if (creatorCharacterRepresentation === 'exact' && currentSynthesizedPost.referencePhotoUrl) {
+      currentSynthesizedPost.illustrationUrl = currentSynthesizedPost.referencePhotoUrl;
+      currentSynthesizedPost.artworkPending = false;
     }
     const effectiveSlantTake = currentSynthesizedPost.polishedCuratorTake || slantTake || '';
 
@@ -9513,6 +10891,10 @@ async function startAiSynthesis() {
         slantTake: effectiveSlantTake,
         sourceUrl: isLink ? url : '',
         sourceType: creatorSelectedSource,
+        perspectiveMode: creatorPerspectiveMode || 'hybrid',
+        sourceImageUrl: currentSynthesizedPost.sourceImageUrl || null,
+        sourceImageBase64: currentSynthesizedPost.sourceImageBase64 || null,
+        referencePhotoUrl: currentSynthesizedPost.referencePhotoUrl || null,
         spark: spark || '',
         cues: [...creatorCuePills],
         heroCue: creatorCuePills[0] || '',
@@ -9529,6 +10911,16 @@ async function startAiSynthesis() {
       };
     } else {
       currentSynthesizedPost.generationInputs.slantTake = effectiveSlantTake;
+      currentSynthesizedPost.generationInputs.perspectiveMode = creatorPerspectiveMode || 'hybrid';
+      if (currentSynthesizedPost.sourceImageUrl) {
+        currentSynthesizedPost.generationInputs.sourceImageUrl = currentSynthesizedPost.sourceImageUrl;
+      }
+      if (currentSynthesizedPost.sourceImageBase64) {
+        currentSynthesizedPost.generationInputs.sourceImageBase64 = currentSynthesizedPost.sourceImageBase64;
+      }
+      if (currentSynthesizedPost.referencePhotoUrl) {
+        currentSynthesizedPost.generationInputs.referencePhotoUrl = currentSynthesizedPost.referencePhotoUrl;
+      }
     }
     currentSynthesizedPost.contextProvided = currentSynthesizedPost.generationInputs.contextProvided || effectiveSlantTake || (currentScrapedArticle?.content || '').slice(0, 3000) || spark || '';
     currentSynthesizedPost.userSlantTake = effectiveSlantTake;
@@ -9545,7 +10937,7 @@ async function startAiSynthesis() {
     const handleInput = document.getElementById('editModalHandle');
     if (handleInput) handleInput.value = currentSynthesizedPost.creatorHandle || '@curator';
     const opinionInput = document.getElementById('editModalOpinion');
-    if (opinionInput) opinionInput.value = currentSynthesizedPost.creatorOpinion || currentSynthesizedPost.curatorTake || '';
+    if (opinionInput) opinionInput.value = currentSynthesizedPost.curatorTake || currentSynthesizedPost.creatorOpinion || '';
     const whyInput = document.getElementById('editModalWhyItMatters');
     if (whyInput) whyInput.value = currentSynthesizedPost.whyItMatters || '';
     const metricInput = document.getElementById('editModalMetric');
@@ -9569,8 +10961,12 @@ async function startAiSynthesis() {
             action: 'artwork_only',
             creatorEmail: currentUser?.email || '',
             prompt: currentSynthesizedPost.illustrationPrompt,
-            imageBase64: (creatorCharacterRepresentation === 'likeness' || creatorCharacterRepresentation === 'lookalike') ? (creatorReferenceImageBase64 || null) : null,
-            imageMimeType: creatorReferenceImageMimeType || 'image/jpeg'
+            familyCast: familyCastProfileCache,
+            activeCast: getActiveCastPayload(),
+            imageBase64: (creatorPerspectiveMode === 'source' || creatorCharacterRepresentation === 'exact')
+              ? (creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || currentSynthesizedPost?.sourceImageBase64 || null)
+              : null,
+            imageMimeType: creatorReferenceImageMimeType || currentScrapedArticle?.imageMimeType || currentSynthesizedPost?.sourceImageMimeType || 'image/jpeg'
           }),
           signal: artController.signal
         });
@@ -9654,8 +11050,12 @@ async function enhancePosterArtworkInBackground(post) {
         action: 'artwork_only',
         creatorEmail: currentUser?.email || '',
         prompt: post.illustrationPrompt,
-        imageBase64: (creatorCharacterRepresentation === 'likeness' || creatorCharacterRepresentation === 'lookalike') ? (creatorReferenceImageBase64 || null) : null,
-        imageMimeType: creatorReferenceImageMimeType || 'image/jpeg'
+        familyCast: familyCastProfileCache,
+        activeCast: getActiveCastPayload(),
+        imageBase64: (creatorPerspectiveMode === 'source' || creatorCharacterRepresentation === 'exact')
+          ? (creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || post?.sourceImageBase64 || null)
+          : null,
+        imageMimeType: creatorReferenceImageMimeType || currentScrapedArticle?.imageMimeType || post?.sourceImageMimeType || 'image/jpeg'
       })
     });
 
@@ -9698,6 +11098,9 @@ function showStep3Preview() {
   if (d2) { d2.className = 'creator-step-dot completed'; }
   if (d3) { d3.className = 'creator-step-dot active'; }
 
+  const modalCard = document.querySelector('.creator-modal-card');
+  if (modalCard) modalCard.scrollTop = 0;
+
   // Reset action toolbar states
   const dlBtn = document.getElementById('step3DownloadBtn');
   const dlLbl = document.getElementById('step3DownloadLabel');
@@ -9730,7 +11133,7 @@ function showStep3Preview() {
   }
 }
 
-function renderCreatorPreview() {
+function renderCreatorPreview(targetSlide = null) {
   const wrapper = document.getElementById('creatorCardPreviewWrapper');
   if (!wrapper || !currentSynthesizedPost) return;
 
@@ -9739,8 +11142,17 @@ function renderCreatorPreview() {
   const card = createPostCardElement(currentSynthesizedPost, 'preview');
   wrapper.appendChild(card);
 
-  // Set to current slide
-  switchPreviewSlide(0);
+  // Clear poster file caches so fresh edits render immediately
+  if (typeof posterFilesCache !== 'undefined' && posterFilesCache) {
+    if (currentSynthesizedPost.id) posterFilesCache.delete(currentSynthesizedPost.id);
+    posterFilesCache.delete('preview');
+  }
+
+  // Activate target slide or preserve current slide
+  const slideToActivate = (typeof targetSlide === 'number')
+    ? targetSlide
+    : ((typeof currentPreviewSlide === 'number') ? currentPreviewSlide : 0);
+  switchPreviewSlide(slideToActivate);
 
   // Enable gesture swiping and mouse drag on preview card
   setupCarouselGestures('preview');
@@ -10004,6 +11416,82 @@ function handleStep3Regenerate() {
   backToStep1();
 }
 
+let editModalOriginalSnapshot = null;
+let editModalLastReviewedSignature = null;
+let lastEditModalPolishedResults = [];
+let lastEditModalCorrections = [];
+let currentEditPolishFilter = 'all';
+let editPolishDisplayMode = 'highlighted';
+
+function captureEditModalSnapshot() {
+  const catInput = document.getElementById('editModalCategory');
+  const pubInput = document.getElementById('editModalPublication');
+  const headInput = document.getElementById('editModalHeadline');
+  const excerptInput = document.getElementById('editModalNewsExcerpt');
+  const handleInput = document.getElementById('editModalHandle');
+  const s2TitleInput = document.getElementById('editModalS2Title');
+  const opinionInput = document.getElementById('editModalOpinion');
+  const whyInput = document.getElementById('editModalWhyItMatters');
+  const metricInput = document.getElementById('editModalMetric');
+  const s3Head = document.getElementById('editModalS3Headline');
+  const s3Quote = document.getElementById('editModalS3Quote');
+  const s3Obs = document.getElementById('editModalS3Observation');
+  const s3Ref = document.getElementById('editModalS3Reflection');
+
+  editModalOriginalSnapshot = {
+    category: catInput ? catInput.value : '',
+    publication: pubInput ? pubInput.value : '',
+    headline: headInput ? headInput.value : '',
+    excerpt: excerptInput ? excerptInput.value : '',
+    handle: handleInput ? handleInput.value : '',
+    s2Title: s2TitleInput ? s2TitleInput.value : '',
+    opinion: opinionInput ? opinionInput.value : '',
+    whyItMatters: whyInput ? whyInput.value : '',
+    metric: metricInput ? metricInput.value : '',
+    s3Headline: s3Head ? s3Head.value : '',
+    s3Quote: s3Quote ? s3Quote.value : '',
+    s3Observation: s3Obs ? s3Obs.value : '',
+    s3Reflection: s3Ref ? s3Ref.value : ''
+  };
+  editModalLastReviewedSignature = null;
+  lastEditModalPolishedResults = [];
+  lastEditModalCorrections = [];
+}
+
+function getEditedProseFields(filterTab = null) {
+  if (!editModalOriginalSnapshot) return [];
+
+  const fieldDefs = [
+    { tab: 0, id: 'editModalHeadline', label: 'Slide 1: Hook Headline', snapshotKey: 'headline', minLen: 3 },
+    { tab: 0, id: 'editModalNewsExcerpt', label: 'Slide 1: Spark / Excerpt', snapshotKey: 'excerpt', minLen: 5 },
+    { tab: 1, id: 'editModalS2Title', label: 'Slide 2: Stance Title', snapshotKey: 's2Title', minLen: 3 },
+    { tab: 1, id: 'editModalOpinion', label: 'Slide 2: Curator Take', snapshotKey: 'opinion', minLen: 5 },
+    { tab: 1, id: 'editModalWhyItMatters', label: 'Slide 2: Why It Matters', snapshotKey: 'whyItMatters', minLen: 5 },
+    { tab: 2, id: 'editModalS3Headline', label: 'Slide 3: Broadsheet Headline', snapshotKey: 's3Headline', minLen: 3 },
+    { tab: 2, id: 'editModalS3Quote', label: 'Slide 3: Highlight Quote', snapshotKey: 's3Quote', minLen: 5 },
+    { tab: 2, id: 'editModalS3Observation', label: 'Slide 3: Broadsheet Essay', snapshotKey: 's3Observation', minLen: 10 },
+    { tab: 2, id: 'editModalS3Reflection', label: 'Slide 3: Reflection', snapshotKey: 's3Reflection', minLen: 5 }
+  ];
+
+  const changed = [];
+  for (const def of fieldDefs) {
+    if (filterTab !== null && def.tab !== filterTab) continue;
+    const el = document.getElementById(def.id);
+    if (!el) continue;
+    const curVal = el.value.trim();
+    const origVal = (editModalOriginalSnapshot[def.snapshotKey] || '').trim();
+    if (curVal !== origVal && curVal.length >= def.minLen) {
+      changed.push({
+        ...def,
+        element: el,
+        oldVal: origVal,
+        newVal: curVal
+      });
+    }
+  }
+  return changed;
+}
+
 function openEditPosterModal(initialTab = null) {
   if (!currentSynthesizedPost) return;
 
@@ -10019,6 +11507,10 @@ function openEditPosterModal(initialTab = null) {
   const opinionInput = document.getElementById('editModalOpinion');
   const whyInput = document.getElementById('editModalWhyItMatters');
   const metricInput = document.getElementById('editModalMetric');
+  const s3Head = document.getElementById('editModalS3Headline');
+  const s3Quote = document.getElementById('editModalS3Quote');
+  const s3Obs = document.getElementById('editModalS3Observation');
+  const s3Ref = document.getElementById('editModalS3Reflection');
 
   if (catInput) catInput.value = currentSynthesizedPost.categoryBadge || 'OPINION';
   if (pubInput) pubInput.value = currentSynthesizedPost.publicationName || currentSynthesizedPost.sourcePublication || currentSynthesizedPost.sourceDomain || '';
@@ -10026,7 +11518,7 @@ function openEditPosterModal(initialTab = null) {
   if (excerptInput) excerptInput.value = currentSynthesizedPost.originalHeadline || currentSynthesizedPost.newsprintExcerpt || currentSynthesizedPost.hook || '';
   if (handleInput) handleInput.value = currentSynthesizedPost.creatorHandle || '@curator';
   if (s2TitleInput) s2TitleInput.value = currentSynthesizedPost.critiqueBadge || (currentSynthesizedPost.keyTakeaways && currentSynthesizedPost.keyTakeaways[0] ? currentSynthesizedPost.keyTakeaways[0].toUpperCase() : 'THE CRITICAL PERSPECTIVE');
-  if (opinionInput) opinionInput.value = currentSynthesizedPost.creatorOpinion || currentSynthesizedPost.curatorTake || '';
+  if (opinionInput) opinionInput.value = currentSynthesizedPost.curatorTake || currentSynthesizedPost.creatorOpinion || '';
   if (whyInput) whyInput.value = currentSynthesizedPost.whyItMatters || '';
   if (metricInput) metricInput.value = currentSynthesizedPost.keyMetric || '';
 
@@ -10044,41 +11536,27 @@ function openEditPosterModal(initialTab = null) {
     if (pillMet) pillMet.classList.toggle('active', !isUsingExact && currentSynthesizedPost.characterRepresentation !== 'likeness');
   }
 
-  // Tab 2 (Slide 3) Setup
+  // Slide 3 is fully editable for all sources
   const editTab2 = document.getElementById('editTab2');
-  const isInnerVoice = (creatorSelectedSource === 'inner_voice');
   if (editTab2) {
-    editTab2.textContent = isInnerVoice ? 'Slide 3: Inner Voice ✏️' : 'Slide 3: Receipts 🔒';
+    editTab2.textContent = 'Slide 3: Broadsheet & Essay ✏️';
   }
 
-  const receiptsCard = document.getElementById('editReceiptsImmutableCard');
-  const innerVoiceBlock = document.getElementById('editInnerVoiceBlock');
-
-  if (isInnerVoice) {
-    if (receiptsCard) receiptsCard.style.display = 'none';
-    if (innerVoiceBlock) innerVoiceBlock.style.display = 'block';
-
-    const s3Head = document.getElementById('editModalS3Headline');
-    const s3Quote = document.getElementById('editModalS3Quote');
-    const s3Obs = document.getElementById('editModalS3Observation');
-    const s3Ref = document.getElementById('editModalS3Reflection');
-
-    if (s3Head) s3Head.value = currentSynthesizedPost.broadsheetHeadline || currentSynthesizedPost.adaptedHeadline || '';
-    if (s3Quote) s3Quote.value = currentSynthesizedPost.broadsheetHighlight || currentSynthesizedPost.creatorOpinion || '';
-    if (s3Obs) s3Obs.value = currentSynthesizedPost.broadsheetObservation || '';
-    if (s3Ref) s3Ref.value = currentSynthesizedPost.broadsheetReflection || '';
-  } else {
-    if (receiptsCard) receiptsCard.style.display = 'block';
-    if (innerVoiceBlock) innerVoiceBlock.style.display = 'none';
-
-    const mastEl = document.getElementById('editReceiptsMasthead');
-    const headEl = document.getElementById('editReceiptsHeadline');
-    const quoteEl = document.getElementById('editReceiptsQuotes');
-
-    if (mastEl) mastEl.textContent = `Masthead: ${currentSynthesizedPost.publicationName || currentSynthesizedPost.sourcePublication || currentSynthesizedPost.sourceDomain || 'Source Outlet'}`;
-    if (headEl) headEl.textContent = `Headline: ${currentSynthesizedPost.originalHeadline || currentSynthesizedPost.originalTitle || currentSynthesizedPost.adaptedHeadline || ''}`;
-    if (quoteEl) quoteEl.textContent = currentSynthesizedPost.receiptHighlightQuote ? `• "${currentSynthesizedPost.receiptHighlightQuote}"` : (currentSynthesizedPost.newsprintExcerpt ? `• "${currentSynthesizedPost.newsprintExcerpt}"` : '');
+  if (s3Head) {
+    s3Head.value = currentSynthesizedPost.broadsheetHeadline || currentSynthesizedPost.originalHeadline || currentSynthesizedPost.adaptedHeadline || '';
   }
+  if (s3Quote) {
+    s3Quote.value = currentSynthesizedPost.receiptHighlightQuote || currentSynthesizedPost.broadsheetHighlight || currentSynthesizedPost.pullQuote || '';
+  }
+  if (s3Obs) {
+    s3Obs.value = currentSynthesizedPost.summary || currentSynthesizedPost.broadsheetObservation || (Array.isArray(currentSynthesizedPost.articleExcerpts) ? currentSynthesizedPost.articleExcerpts.join('\n\n') : '') || '';
+  }
+  if (s3Ref) {
+    s3Ref.value = currentSynthesizedPost.broadsheetReflection || currentSynthesizedPost.whyItMatters || '';
+  }
+
+  captureEditModalSnapshot();
+  hideEditModalReviewCard();
 
   const modal = document.getElementById('editPosterModal');
   if (modal) {
@@ -10095,9 +11573,11 @@ function closeEditPosterModal() {
     modal.classList.remove('active');
     modal.style.display = 'none';
   }
+  hideEditPolishPopover();
 }
 
 function switchEditModalTab(tabIdx) {
+  currentPreviewSlide = tabIdx;
   for (let i = 0; i < 3; i++) {
     const tabBtn = document.getElementById(`editTab${i}`);
     const tabPane = document.getElementById(`editTabPane${i}`);
@@ -10106,7 +11586,309 @@ function switchEditModalTab(tabIdx) {
   }
 }
 
-function saveEditedSlideContent() {
+function hideEditModalReviewCard() {
+  const card = document.getElementById('editModalReviewCard');
+  if (card) card.style.display = 'none';
+  hideEditPolishPopover();
+}
+
+async function reviewActiveTabChanges(tabIdx) {
+  let fieldsToReview = getEditedProseFields(tabIdx);
+
+  if (fieldsToReview.length === 0) {
+    const primaryMap = {
+      0: { id: 'editModalHeadline', label: 'Slide 1: Hook Headline', snapshotKey: 'headline', minLen: 3 },
+      1: { id: 'editModalOpinion', label: 'Slide 2: Curator Take', snapshotKey: 'opinion', minLen: 5 },
+      2: { id: 'editModalS3Observation', label: 'Slide 3: Broadsheet Essay', snapshotKey: 's3Observation', minLen: 10 }
+    };
+    const primary = primaryMap[tabIdx];
+    if (primary) {
+      const el = document.getElementById(primary.id);
+      const val = el ? el.value.trim() : '';
+      if (val && val.length >= primary.minLen) {
+        fieldsToReview = [{
+          ...primary,
+          element: el,
+          oldVal: val,
+          newVal: val
+        }];
+      }
+    }
+  }
+
+  if (fieldsToReview.length === 0) {
+    showTemporaryToast('⚠️ Please write some text on this slide before reviewing.');
+    return;
+  }
+
+  await runEditModalReview(fieldsToReview, tabIdx);
+}
+
+async function runEditModalReview(fieldsToReview, fromTab = null) {
+  const saveBtn = document.getElementById('editModalSaveBtn');
+  const saveBtnText = document.getElementById('editModalSaveBtnText');
+  const reviewCard = document.getElementById('editModalReviewCard');
+  const display = document.getElementById('editPolishedTextDisplay');
+
+  let activeTabReviewBtn = null;
+  if (typeof fromTab === 'number') {
+    activeTabReviewBtn = document.getElementById(`editSlide${fromTab}ReviewBtn`);
+  }
+
+  const originalSaveBtnHtml = saveBtnText ? saveBtnText.innerHTML : 'Save Changes & Update Posters';
+  const originalTabBtnHtml = activeTabReviewBtn ? activeTabReviewBtn.innerHTML : '';
+
+  if (saveBtn) saveBtn.disabled = true;
+  if (saveBtnText) saveBtnText.innerHTML = '<span class="btn-spark-icon spinning">⏳</span> Analyzing edits for phrasing & grammar...';
+  if (activeTabReviewBtn) {
+    activeTabReviewBtn.disabled = true;
+    activeTabReviewBtn.innerHTML = '<span class="btn-spark-icon spinning">⏳</span> Reviewing...';
+  }
+
+  try {
+    const reviewPromises = fieldsToReview.map(async (field) => {
+      try {
+        const resp = await fetch('/api/synthesize', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'polish_take',
+            text: field.newVal
+          })
+        });
+
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data && data.success !== false && (data.polished || data.highlightedHtml)) {
+            return {
+              field,
+              success: true,
+              polished: data.polished || field.newVal,
+              highlightedHtml: data.highlightedHtml || escapeHtml(data.polished || field.newVal),
+              corrections: Array.isArray(data.corrections) ? data.corrections : [],
+              counts: data.counts || { spelling: 0, grammar: 0, punctuation: 0, phrasing: 0, total: 0 }
+            };
+          }
+        }
+      } catch (err) {
+        console.warn('Error reviewing field:', field.label, err);
+      }
+
+      const fallback = formatCuratorTakeApt(field.newVal);
+      return {
+        field,
+        success: false,
+        polished: fallback,
+        highlightedHtml: escapeHtml(fallback),
+        corrections: [],
+        counts: { spelling: 0, grammar: 0, punctuation: 0, phrasing: 0, total: 0 }
+      };
+    });
+
+    const results = await Promise.all(reviewPromises);
+    lastEditModalPolishedResults = results;
+
+    const aggregatedCounts = { spelling: 0, grammar: 0, punctuation: 0, phrasing: 0, total: 0 };
+    let allCorrections = [];
+    results.forEach(r => {
+      aggregatedCounts.spelling += (r.counts?.spelling || 0);
+      aggregatedCounts.grammar += (r.counts?.grammar || 0);
+      aggregatedCounts.punctuation += (r.counts?.punctuation || 0);
+      aggregatedCounts.phrasing += (r.counts?.phrasing || 0);
+      aggregatedCounts.total += (r.counts?.total || 0);
+      if (Array.isArray(r.corrections)) {
+        allCorrections = allCorrections.concat(r.corrections);
+      }
+    });
+
+    lastEditModalCorrections = allCorrections;
+    editModalLastReviewedSignature = fieldsToReview.map(f => `${f.id}:${f.newVal}`).join('|||');
+
+    if (aggregatedCounts.total === 0) {
+      showTemporaryToast('✨ Great job! Your edits read naturally and are free of errors.');
+      applyEditModalFormValues();
+      renderCreatorPreview(currentPreviewSlide || 0);
+      closeEditPosterModal();
+      return;
+    }
+
+    const countAllEl = document.getElementById('editCountAll');
+    const countSpellEl = document.getElementById('editCountSpelling');
+    const countGramEl = document.getElementById('editCountGrammar');
+    const countPunctEl = document.getElementById('editCountPunctuation');
+    const countPhraseEl = document.getElementById('editCountPhrasing');
+    const countTotalEl = document.getElementById('editPolishTotalCorrectionsCount');
+    const fidelityBadge = document.getElementById('editReviewFidelityBadge');
+
+    if (countAllEl) countAllEl.textContent = aggregatedCounts.total;
+    if (countSpellEl) countSpellEl.textContent = aggregatedCounts.spelling;
+    if (countGramEl) countGramEl.textContent = aggregatedCounts.grammar;
+    if (countPunctEl) countPunctEl.textContent = aggregatedCounts.punctuation;
+    if (countPhraseEl) countPhraseEl.textContent = aggregatedCounts.phrasing;
+    if (countTotalEl) countTotalEl.textContent = aggregatedCounts.total;
+    if (fidelityBadge) fidelityBadge.textContent = `${aggregatedCounts.total} Notes • 100% Your Voice`;
+
+    currentEditPolishFilter = 'all';
+    if (display) display.removeAttribute('data-filter');
+    const chips = document.querySelectorAll('#editPolishLegendBar .polish-legend-chip');
+    chips.forEach(chip => chip.classList.toggle('active', chip.id === 'editFilterChipAll'));
+
+    const btnHighlight = document.getElementById('editReviewToggleHighlighted');
+    const btnClean = document.getElementById('editReviewToggleClean');
+    if (btnHighlight) btnHighlight.classList.add('active');
+    if (btnClean) btnClean.classList.remove('active');
+    editPolishDisplayMode = 'highlighted';
+
+    if (display) {
+      let sectionsHtml = '';
+      results.forEach(r => {
+        sectionsHtml += `
+          <div class="edit-review-field-section">
+            <div class="edit-review-field-label">${escapeHtml(r.field.label)}</div>
+            <div class="edit-review-field-content edit-review-field-highlighted">${r.highlightedHtml}</div>
+            <div class="edit-review-field-content edit-review-field-clean" style="display:none;">${escapeHtml(r.polished)}</div>
+          </div>
+        `;
+      });
+      display.innerHTML = sectionsHtml;
+      attachEditPolishMarkListeners(display);
+    }
+
+    if (reviewCard) {
+      reviewCard.style.display = 'flex';
+      reviewCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    showTemporaryToast(`✨ Review ready with ${aggregatedCounts.total} coaching notes. Tap any highlighted word!`);
+  } catch (err) {
+    console.error('Error running edit modal review:', err);
+    showTemporaryToast('⚠️ Review connection issue. You can still save your changes.');
+  } finally {
+    if (saveBtn) saveBtn.disabled = false;
+    if (saveBtnText) saveBtnText.innerHTML = originalSaveBtnHtml;
+    if (activeTabReviewBtn) {
+      activeTabReviewBtn.disabled = false;
+      activeTabReviewBtn.innerHTML = originalTabBtnHtml;
+    }
+  }
+}
+
+function attachEditPolishMarkListeners(container) {
+  if (!container) return;
+  const marks = container.querySelectorAll('.polish-mark');
+  marks.forEach(mark => {
+    mark.addEventListener('click', (e) => {
+      e.stopPropagation();
+      marks.forEach(m => m.classList.remove('active'));
+      mark.classList.add('active');
+      const original = mark.getAttribute('data-original') || '';
+      const replacement = mark.textContent || '';
+      const type = mark.getAttribute('data-type') || 'phrasing';
+      const reason = mark.getAttribute('data-reason') || 'Improved phrasing and flow';
+      showEditPolishPopover(mark, original, replacement, type, reason);
+    });
+  });
+}
+
+function setEditReviewDisplayMode(mode) {
+  editPolishDisplayMode = mode;
+  const btnHighlight = document.getElementById('editReviewToggleHighlighted');
+  const btnClean = document.getElementById('editReviewToggleClean');
+  if (btnHighlight) btnHighlight.classList.toggle('active', mode === 'highlighted');
+  if (btnClean) btnClean.classList.toggle('active', mode === 'clean');
+
+  const display = document.getElementById('editPolishedTextDisplay');
+  if (!display) return;
+
+  const highlightedEls = display.querySelectorAll('.edit-review-field-highlighted');
+  const cleanEls = display.querySelectorAll('.edit-review-field-clean');
+
+  highlightedEls.forEach(el => el.style.display = (mode === 'highlighted') ? 'block' : 'none');
+  cleanEls.forEach(el => el.style.display = (mode === 'clean') ? 'block' : 'none');
+  hideEditPolishPopover();
+}
+
+function filterEditPolishHighlights(category) {
+  const display = document.getElementById('editPolishedTextDisplay');
+  hideEditPolishPopover();
+
+  if (currentEditPolishFilter === category && category !== 'all') {
+    category = 'all';
+  }
+  currentEditPolishFilter = category;
+
+  const chips = document.querySelectorAll('#editPolishLegendBar .polish-legend-chip');
+  chips.forEach(chip => chip.classList.remove('active'));
+
+  if (category === 'all') {
+    document.getElementById('editFilterChipAll')?.classList.add('active');
+    if (display) display.removeAttribute('data-filter');
+  } else {
+    const chipMap = {
+      spelling: 'editFilterChipSpelling',
+      grammar: 'editFilterChipGrammar',
+      punctuation: 'editFilterChipPunctuation',
+      phrasing: 'editFilterChipPhrasing'
+    };
+    if (chipMap[category]) {
+      document.getElementById(chipMap[category])?.classList.add('active');
+    }
+    if (display) display.setAttribute('data-filter', category);
+  }
+}
+
+function showEditPolishPopover(targetEl, original, replacement, type, reason) {
+  const popover = document.getElementById('editPolishPopover');
+  if (!popover || !targetEl) return;
+
+  const badgeEl = document.getElementById('editPopoverBadge');
+  const origEl = document.getElementById('editPopoverOriginal');
+  const repEl = document.getElementById('editPopoverReplacement');
+  const reasonEl = document.getElementById('editPopoverReason');
+
+  if (badgeEl) {
+    badgeEl.textContent = (type || 'phrasing').toUpperCase();
+    badgeEl.className = `popover-badge badge-${type || 'phrasing'}`;
+  }
+  if (origEl) origEl.textContent = original || 'None';
+  if (repEl) repEl.textContent = replacement || '';
+  if (reasonEl) reasonEl.textContent = reason || 'Refined phrasing for flow';
+
+  const rect = targetEl.getBoundingClientRect();
+  const parentRect = targetEl.closest('.review-card-body-wrap')?.getBoundingClientRect() || rect;
+
+  const top = rect.bottom - parentRect.top + 6;
+  const left = Math.max(10, Math.min(parentRect.width - 290, rect.left - parentRect.left));
+
+  popover.style.top = `${top}px`;
+  popover.style.left = `${left}px`;
+  popover.style.display = 'block';
+}
+
+function hideEditPolishPopover() {
+  const popover = document.getElementById('editPolishPopover');
+  if (popover) popover.style.display = 'none';
+  document.querySelectorAll('#editPolishedTextDisplay .polish-mark.active').forEach(m => m.classList.remove('active'));
+}
+
+function acceptEditPolishedChanges() {
+  if (Array.isArray(lastEditModalPolishedResults)) {
+    lastEditModalPolishedResults.forEach(r => {
+      if (r.field && r.field.element && r.polished) {
+        r.field.element.value = r.polished;
+      }
+    });
+  }
+  saveEditedSlideContent(true);
+  showTemporaryToast('✨ Polished edits accepted & posters updated!');
+}
+
+function keepEditOriginalChanges() {
+  saveEditedSlideContent(true);
+  showTemporaryToast('✏️ Posters updated with your exact wording!');
+}
+
+function applyEditModalFormValues() {
   if (!currentSynthesizedPost) return;
 
   const catInput = document.getElementById('editModalCategory');
@@ -10118,7 +11900,12 @@ function saveEditedSlideContent() {
   const opinionInput = document.getElementById('editModalOpinion');
   const whyInput = document.getElementById('editModalWhyItMatters');
   const metricInput = document.getElementById('editModalMetric');
+  const s3Head = document.getElementById('editModalS3Headline');
+  const s3Quote = document.getElementById('editModalS3Quote');
+  const s3Obs = document.getElementById('editModalS3Observation');
+  const s3Ref = document.getElementById('editModalS3Reflection');
 
+  // Slide 1
   if (catInput && catInput.value.trim()) currentSynthesizedPost.categoryBadge = catInput.value.trim().toUpperCase();
   if (pubInput && pubInput.value.trim()) {
     currentSynthesizedPost.publicationName = pubInput.value.trim();
@@ -10131,6 +11918,8 @@ function saveEditedSlideContent() {
     currentSynthesizedPost.hook = excerptInput.value.trim();
   }
   if (handleInput && handleInput.value.trim()) currentSynthesizedPost.creatorHandle = handleInput.value.trim();
+
+  // Slide 2
   if (s2TitleInput && s2TitleInput.value.trim()) {
     currentSynthesizedPost.critiqueBadge = s2TitleInput.value.trim();
     currentSynthesizedPost.keyTakeaways = currentSynthesizedPost.keyTakeaways || [];
@@ -10143,21 +11932,58 @@ function saveEditedSlideContent() {
   if (whyInput && whyInput.value.trim()) currentSynthesizedPost.whyItMatters = whyInput.value.trim();
   if (metricInput && metricInput.value.trim()) currentSynthesizedPost.keyMetric = metricInput.value.trim();
 
-  if (creatorSelectedSource === 'inner_voice') {
-    const s3Head = document.getElementById('editModalS3Headline');
-    const s3Quote = document.getElementById('editModalS3Quote');
-    const s3Obs = document.getElementById('editModalS3Observation');
-    const s3Ref = document.getElementById('editModalS3Reflection');
-    if (s3Head && s3Head.value.trim()) currentSynthesizedPost.broadsheetHeadline = s3Head.value.trim();
-    if (s3Quote && s3Quote.value.trim()) currentSynthesizedPost.broadsheetHighlight = s3Quote.value.trim();
-    if (s3Obs && s3Obs.value.trim()) currentSynthesizedPost.broadsheetObservation = s3Obs.value.trim();
-    if (s3Ref && s3Ref.value.trim()) currentSynthesizedPost.broadsheetReflection = s3Ref.value.trim();
+  // Slide 3: All content editable for all sources
+  if (s3Head) {
+    const headVal = s3Head.value.trim();
+    currentSynthesizedPost.broadsheetHeadline = headVal;
+    if (headVal) {
+      currentSynthesizedPost.originalHeadline = headVal;
+    }
+  }
+  if (s3Quote) {
+    const quoteVal = s3Quote.value.trim();
+    currentSynthesizedPost.receiptHighlightQuote = quoteVal;
+    currentSynthesizedPost.broadsheetHighlight = quoteVal;
+    currentSynthesizedPost.pullQuote = quoteVal;
+  }
+  if (s3Obs) {
+    const cleanObs = s3Obs.value.trim();
+    const obsParas = cleanObs ? cleanObs.split(/\n\s*\n/).map(p => p.trim()).filter(Boolean) : [];
+    currentSynthesizedPost.summary = cleanObs;
+    currentSynthesizedPost.broadsheetObservation = cleanObs;
+    currentSynthesizedPost.articleExcerpts = obsParas;
+    currentSynthesizedPost.resolvedArticleExcerpts = obsParas;
+  }
+  if (s3Ref) {
+    const refVal = s3Ref.value.trim();
+    currentSynthesizedPost.broadsheetReflection = refVal;
+    currentSynthesizedPost.whyItMatters = refVal;
   }
 
-  // Re-render preview with edited values
-  renderCreatorPreview();
-  // Return to preview slide that matches what was edited or current
-  switchPreviewSlide(currentPreviewSlide);
+  // Clear poster file caches so fresh edits render immediately
+  if (typeof posterFilesCache !== 'undefined' && posterFilesCache) {
+    if (currentSynthesizedPost.id) posterFilesCache.delete(currentSynthesizedPost.id);
+    posterFilesCache.delete('preview');
+  }
+}
+
+async function saveEditedSlideContent(skipReview = false) {
+  if (!currentSynthesizedPost) return;
+
+  const changedFields = getEditedProseFields();
+
+  if (!skipReview && changedFields.length > 0) {
+    const signature = changedFields.map(f => `${f.id}:${f.newVal}`).join('|||');
+    if (signature !== editModalLastReviewedSignature) {
+      await runEditModalReview(changedFields);
+      return;
+    }
+  }
+
+  applyEditModalFormValues();
+
+  // Re-render preview with edited values and stay on current edited slide
+  renderCreatorPreview(currentPreviewSlide);
 
   closeEditPosterModal();
   showTemporaryToast('✏️ Poster updated with edits!');
@@ -10166,59 +11992,54 @@ function saveEditedSlideContent() {
 async function handleStep3Share() {
   if (!currentSynthesizedPost) return;
 
+  const post = currentSynthesizedPost;
+  const shareUrl = getPostShareUrl(post);
+  const headline = post.adaptedHeadline || post.originalHeadline || 'Slant Editorial Carousel';
+  const shareText = getPostShareText(post);
+
   try {
     showTemporaryToast('📸 Preparing posters to share...');
-    const files = await capturePostSlidesAsFiles(currentSynthesizedPost, 0);
+    const files = await capturePostSlidesAsFiles(post, 0);
     if (files && files.length > 0) {
-      if (navigator.canShare && navigator.canShare({ files })) {
-        try {
-          await navigator.share({
-            files,
-            title: currentSynthesizedPost.adaptedHeadline || 'Slant Editorial Carousel',
-            text: `${currentSynthesizedPost.creatorHandle || '@curator'}: "${currentSynthesizedPost.creatorOpinion || currentSynthesizedPost.adaptedHeadline}"`
-          });
-          showTemporaryToast('✨ 3 Slide Posters shared!');
-          return;
-        } catch (err) {
-          if (err.name === 'AbortError') return; // User closed share sheet
-        }
-      }
-      openSharePostersModal(currentSynthesizedPost, files);
+      openSharePostersModal(post, files);
       return;
     }
   } catch (err) {
     console.warn('capturePostSlidesAsFiles error during share:', err);
   }
 
-  // Fallback to text/URL share sheet
+  // Fallback to text share sheet (text already embeds the link, so omit separate url to avoid duplicate)
   const shareData = {
-    title: currentSynthesizedPost.adaptedHeadline || 'Slant Editorial Carousel',
-    text: `${currentSynthesizedPost.creatorHandle || '@curator'}: "${currentSynthesizedPost.creatorOpinion || currentSynthesizedPost.adaptedHeadline}"`,
-    url: window.location.origin
+    title: headline,
+    text: shareText
   };
 
   if (navigator.share) {
     try {
+      if (navigator.canShare && !navigator.canShare(shareData)) {
+        shareData.url = shareUrl;
+      }
       await navigator.share(shareData);
     } catch (err) {
       if (err.name !== 'AbortError') {
-        copyShareUrlFallback();
+        copyShareUrlFallback(shareUrl);
       }
     }
   } else {
-    copyShareUrlFallback();
+    copyShareUrlFallback(shareUrl);
   }
 }
 
-function copyShareUrlFallback() {
-  if (navigator.clipboard && window.location.origin) {
-    navigator.clipboard.writeText(window.location.origin).then(() => {
+function copyShareUrlFallback(customUrl) {
+  const urlToCopy = customUrl || window.location.origin;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(urlToCopy).then(() => {
       showTemporaryToast('📋 Share link copied to clipboard!');
     }).catch(() => {
-      showTemporaryToast('📋 Link: ' + window.location.origin);
+      showTemporaryToast('📋 Link: ' + urlToCopy);
     });
   } else {
-    showTemporaryToast('📋 Link: ' + window.location.origin);
+    showTemporaryToast('📋 Link: ' + urlToCopy);
   }
 }
 
@@ -10305,6 +12126,51 @@ async function compressImageForCloud(base64Data, maxWidth = 900, quality = 0.82)
   });
 }
 
+async function uploadArtworkToSupabaseStorage(postId, base64Data) {
+  if (!base64Data || typeof base64Data !== 'string') return null;
+  try {
+    let cleanB64 = base64Data;
+    let mime = 'image/webp';
+    let ext = 'webp';
+    if (base64Data.startsWith('data:image/')) {
+      const match = base64Data.match(/^data:(image\/[^;]+);base64,/);
+      if (match) {
+        mime = match[1];
+        ext = mime.includes('png') ? 'png' : (mime.includes('jpeg') || mime.includes('jpg') ? 'jpg' : 'webp');
+        cleanB64 = base64Data.slice(match[0].length);
+      }
+    }
+    const byteCharacters = atob(cleanB64);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: mime });
+    const fileName = `${postId}.${ext}`;
+
+    const uploadResp = await fetch(`${SUPABASE_URL}/storage/v1/object/posters/${fileName}`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': mime,
+        'x-upsert': 'true'
+      },
+      body: blob
+    });
+
+    if (uploadResp.ok) {
+      return `${SUPABASE_URL}/storage/v1/object/public/posters/${fileName}`;
+    } else {
+      console.warn('Direct storage upload HTTP status:', uploadResp.status);
+    }
+  } catch (err) {
+    console.warn('Direct storage upload error:', err);
+  }
+  return null;
+}
+
 async function saveSynthesizedPost() {
   if (!currentSynthesizedPost) return;
 
@@ -10323,7 +12189,7 @@ async function saveSynthesizedPost() {
   currentSynthesizedPost.isPrivate = true;
   currentSynthesizedPost.status = 'draft';
 
-  // 1. Clean & compress payload: store crisp ~60KB WebP so Supabase rows never trigger timeout
+  // 1. Clean & compress payload: store lightweight CDN pointer so Supabase rows never trigger timeout
   const postToSave = { ...currentSynthesizedPost };
   const savedSlantTake = currentSynthesizedPost.polishedCuratorTake || currentSynthesizedPost.generationInputs?.slantTake || currentSynthesizedPost.userSlantTake || '';
   if (savedSlantTake) {
@@ -10348,25 +12214,49 @@ async function saveSynthesizedPost() {
   postToSave.isPrivate = true;
   postToSave.status = 'draft';
 
-  const rawPoster = currentSynthesizedPost.illustrationBase64 || currentSynthesizedPost.originalPhotoBase64;
-  if (rawPoster) {
+  let hasUploadedPublicUrl = false;
+  const rawPoster = currentSynthesizedPost.illustrationBase64 || currentSynthesizedPost.posterBase64 || currentSynthesizedPost.originalPhotoBase64;
+  if (rawPoster && typeof rawPoster === 'string' && rawPoster.startsWith('data:image/')) {
     try {
-      const compressed = await compressImageForCloud(rawPoster, 900, 0.82);
-      postToSave.posterBase64 = compressed;
+      const compressed = await compressImageForCloud(rawPoster, 960, 0.85);
+      const publicUrl = await uploadArtworkToSupabaseStorage(postToSave.id, compressed);
+      if (publicUrl) {
+        hasUploadedPublicUrl = true;
+        postToSave.illustrationUrl = publicUrl;
+        postToSave.aiIllustrationUrl = publicUrl;
+        currentSynthesizedPost.illustrationUrl = publicUrl;
+        currentSynthesizedPost.aiIllustrationUrl = publicUrl;
+      }
     } catch (_) {}
   }
-  if (currentSynthesizedPost.catalystPhoto || currentSynthesizedPost.catalystPhotoBase64) {
-    const rawCat = currentSynthesizedPost.catalystPhoto || currentSynthesizedPost.catalystPhotoBase64;
-    try {
-      postToSave.catalystPhoto = await compressImageForCloud(rawCat, 600, 0.75);
-    } catch (_) {
-      postToSave.catalystPhoto = rawCat;
+
+  if (!postToSave.illustrationUrl) {
+    postToSave.illustrationUrl = `${SUPABASE_URL}/storage/v1/object/public/posters/${postToSave.id}.webp`;
+    postToSave.aiIllustrationUrl = postToSave.illustrationUrl;
+  }
+
+  // Purge heavy base64 fields only if direct cloud upload already succeeded, otherwise let backend upload it
+  if (hasUploadedPublicUrl) {
+    delete postToSave.posterBase64;
+    delete postToSave.illustrationBase64;
+  }
+  delete postToSave.originalPhotoBase64;
+  delete postToSave.sourceImageBase64;
+  delete postToSave.catalystPhotoBase64;
+  if (typeof postToSave.catalystPhoto === 'string' && postToSave.catalystPhoto.startsWith('data:image/')) {
+    delete postToSave.catalystPhoto;
+  }
+  if (postToSave.generationInputs) {
+    delete postToSave.generationInputs.sourceImageBase64;
+    delete postToSave.generationInputs.catalystPhotoBase64;
+    delete postToSave.generationInputs.innerVoiceImageBase64;
+    if (typeof postToSave.generationInputs.catalystPhoto === 'string' && postToSave.generationInputs.catalystPhoto.startsWith('data:image/')) {
+      delete postToSave.generationInputs.catalystPhoto;
+    }
+    if (typeof postToSave.generationInputs.referencePhotoUrl === 'string' && postToSave.generationInputs.referencePhotoUrl.startsWith('data:image/')) {
+      delete postToSave.generationInputs.referencePhotoUrl;
     }
   }
-  delete postToSave.illustrationBase64;
-  delete postToSave.originalPhotoBase64;
-  postToSave.illustrationUrl = '/posters/' + postToSave.id + '.png';
-  postToSave.aiIllustrationUrl = '/posters/' + postToSave.id + '.png';
 
   // 2. Cloud save: POST to /api/posts
   let savedToCloud = false;
@@ -10406,11 +12296,14 @@ async function saveSynthesizedPost() {
       if (!p) return null;
       const copy = { ...p };
       delete copy.originalPhotoBase64;
+      delete copy.posterBase64;
+      delete copy.sourceImageBase64;
+      delete copy.catalystPhotoBase64;
       if (copy.illustrationBase64 && copy.illustrationBase64.length > 50000) {
         delete copy.illustrationBase64;
       }
       if (!copy.illustrationUrl) {
-        copy.illustrationUrl = '/posters/' + copy.id + '.png';
+        copy.illustrationUrl = `${SUPABASE_URL}/storage/v1/object/public/posters/${copy.id}.webp`;
         copy.aiIllustrationUrl = copy.illustrationUrl;
       }
       return copy;
@@ -10495,25 +12388,49 @@ async function publishSynthesizedPost() {
   postToSave.isPrivate = false;
   postToSave.status = 'published';
 
-  const rawPoster = currentSynthesizedPost.illustrationBase64 || currentSynthesizedPost.originalPhotoBase64;
-  if (rawPoster) {
+  let hasUploadedPublicUrl = false;
+  const rawPoster = currentSynthesizedPost.illustrationBase64 || currentSynthesizedPost.posterBase64 || currentSynthesizedPost.originalPhotoBase64;
+  if (rawPoster && typeof rawPoster === 'string' && rawPoster.startsWith('data:image/')) {
     try {
-      const compressed = await compressImageForCloud(rawPoster, 900, 0.82);
-      postToSave.posterBase64 = compressed;
+      const compressed = await compressImageForCloud(rawPoster, 960, 0.85);
+      const publicUrl = await uploadArtworkToSupabaseStorage(postToSave.id, compressed);
+      if (publicUrl) {
+        hasUploadedPublicUrl = true;
+        postToSave.illustrationUrl = publicUrl;
+        postToSave.aiIllustrationUrl = publicUrl;
+        currentSynthesizedPost.illustrationUrl = publicUrl;
+        currentSynthesizedPost.aiIllustrationUrl = publicUrl;
+      }
     } catch (_) {}
   }
-  if (currentSynthesizedPost.catalystPhoto || currentSynthesizedPost.catalystPhotoBase64) {
-    const rawCat = currentSynthesizedPost.catalystPhoto || currentSynthesizedPost.catalystPhotoBase64;
-    try {
-      postToSave.catalystPhoto = await compressImageForCloud(rawCat, 600, 0.75);
-    } catch (_) {
-      postToSave.catalystPhoto = rawCat;
+
+  if (!postToSave.illustrationUrl) {
+    postToSave.illustrationUrl = `${SUPABASE_URL}/storage/v1/object/public/posters/${postToSave.id}.webp`;
+    postToSave.aiIllustrationUrl = postToSave.illustrationUrl;
+  }
+
+  // Purge heavy base64 fields only if direct cloud upload already succeeded, otherwise let backend upload it
+  if (hasUploadedPublicUrl) {
+    delete postToSave.posterBase64;
+    delete postToSave.illustrationBase64;
+  }
+  delete postToSave.originalPhotoBase64;
+  delete postToSave.sourceImageBase64;
+  delete postToSave.catalystPhotoBase64;
+  if (typeof postToSave.catalystPhoto === 'string' && postToSave.catalystPhoto.startsWith('data:image/')) {
+    delete postToSave.catalystPhoto;
+  }
+  if (postToSave.generationInputs) {
+    delete postToSave.generationInputs.sourceImageBase64;
+    delete postToSave.generationInputs.catalystPhotoBase64;
+    delete postToSave.generationInputs.innerVoiceImageBase64;
+    if (typeof postToSave.generationInputs.catalystPhoto === 'string' && postToSave.generationInputs.catalystPhoto.startsWith('data:image/')) {
+      delete postToSave.generationInputs.catalystPhoto;
+    }
+    if (typeof postToSave.generationInputs.referencePhotoUrl === 'string' && postToSave.generationInputs.referencePhotoUrl.startsWith('data:image/')) {
+      delete postToSave.generationInputs.referencePhotoUrl;
     }
   }
-  delete postToSave.illustrationBase64;
-  delete postToSave.originalPhotoBase64;
-  postToSave.illustrationUrl = '/posters/' + postToSave.id + '.png';
-  postToSave.aiIllustrationUrl = '/posters/' + postToSave.id + '.png';
 
   // 2. Primary cloud save: POST to /api/posts
   let savedToCloud = false;
@@ -10562,11 +12479,14 @@ async function publishSynthesizedPost() {
       if (!p) return null;
       const copy = { ...p };
       delete copy.originalPhotoBase64;
+      delete copy.posterBase64;
+      delete copy.sourceImageBase64;
+      delete copy.catalystPhotoBase64;
       if (copy.illustrationBase64 && copy.illustrationBase64.length > 50000) {
         delete copy.illustrationBase64;
       }
       if (!copy.illustrationUrl) {
-        copy.illustrationUrl = '/posters/' + copy.id + '.png';
+        copy.illustrationUrl = `${SUPABASE_URL}/storage/v1/object/public/posters/${copy.id}.webp`;
         copy.aiIllustrationUrl = copy.illustrationUrl;
       }
       return copy;

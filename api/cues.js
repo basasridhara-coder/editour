@@ -178,9 +178,10 @@ Explore a fresh artistic perspective, novel symbolic motifs, or alternative ligh
   if (hasFamilyContext) {
     familyDirective = `CRITICAL FAMILY CAST & BIOLOGICAL CONTRAST DIRECTIVE:
 The curator is reflecting on their family.
-1. HERO: The central focal subjects should be the family members (e.g. "Father, Mother, 11yo Elder Son and 7yo Son", "Two Brothers with 4-Year Age Gap", or "Father and Sons Preparing Luggage").
-2. AGE CONTRAST: If two boys are portrayed, they must have an unmistakable 4-year age gap: older 11yo pre-teen boy (visibly taller by a head, leaner) alongside younger 7yo boy (shorter, shoulder height, round child cheeks). STRICTLY NEVER identical twins!
-3. REGIONAL VEHICLE RULES: If a road trip / car is portrayed in India, enforce Indian Right-Hand Drive (adult father driving on right, mother passenger on left, boys separately in rear seats).`;
+1. HERO: The central focal subjects should be all four family members: "Family of four (Father, Mother, 11yo Elder Son and 7yo Younger Son - 3 males, 1 female)", "Two Brothers with 4-Year Age Gap", or "Father and Sons Preparing Luggage". Always specify all 4 members so image models never omit any person.
+2. AGE CONTRAST: The two boys must have an unmistakable 4-year age gap: older 11yo pre-teen boy (visibly taller by a head, leaner) alongside younger 7yo boy (shorter, shoulder height, round child cheeks). STRICTLY NEVER identical twins!
+3. REGIONAL VEHICLE RULES: If a road trip / car is portrayed in India, enforce Indian Right-Hand Drive (adult father driving on right, mother passenger on left, boys separately in rear seats).
+4. EXACT HEADCOUNT & ANTI-MERGING: Family consists of 4 members (3 males, 1 female: Father, Mother, 11yo Elder Son, 7yo Younger Son). Never use ambiguous phrases like "a family with kids" that lead image generators to draw only 1 child. Both sons must be individually enumerated.`;
   }
 
   const perspectiveDirective = (perspectiveMode === 'curator')
