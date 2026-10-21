@@ -14692,13 +14692,61 @@ mark.polish-mark:hover, mark.polish-mark.active {
   background: rgba(15, 23, 42, 0.95);
 }
 
+.slot-card-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-bottom: 6px;
+  gap: 6px;
+}
+
 .slot-card-badge {
   font-size: 10px;
   font-weight: 700;
   color: #38BDF8;
   text-transform: uppercase;
   letter-spacing: 0.4px;
-  margin-bottom: 6px;
+}
+
+.slot-guide-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  color: #38BDF8;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+
+.slot-guide-pill-btn:hover {
+  background: rgba(56, 189, 248, 0.28);
+  border-color: #38BDF8;
+  color: #FFFFFF;
+  transform: translateY(-1px);
+}
+
+.slot-guide-link {
+  display: inline-block;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #38BDF8;
+  margin-top: 5px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.slot-guide-link:hover {
+  color: #7DD3FC;
 }
 
 .slot-preview-box {
@@ -15579,6 +15627,302 @@ mark.polish-mark:hover, mark.polish-mark.active {
 
 [data-theme="daylight"] .member-card-name {
   color: #0F172A;
+}
+
+/* ========================================================
+   PHOTO STYLE REFERENCE GUIDE MODAL (Posture, Angle & Smile)
+   ======================================================== */
+
+.slot-guide-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 3700 !important;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(3, 7, 18, 0.88);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  padding: 16px;
+}
+
+.slot-guide-modal-overlay.open {
+  display: flex !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
+
+.slot-guide-window {
+  width: 100%;
+  max-width: 620px;
+  max-height: 92vh;
+  background: #0B1120;
+  border: 1.5px solid rgba(56, 189, 248, 0.35);
+  border-radius: 20px;
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.85), 0 0 35px rgba(56, 189, 248, 0.15);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+  animation: modalScaleIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.slot-guide-header {
+  padding: 16px 20px 12px;
+  background: rgba(15, 23, 42, 0.95);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.slot-guide-header-title-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.slot-guide-header-badge {
+  font-size: 11px;
+  font-weight: 700;
+  color: #38BDF8;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.slot-guide-header-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: #F8FAFC;
+  margin: 0;
+  line-height: 1.25;
+}
+
+.slot-guide-close-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #94A3B8;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  flex-shrink: 0;
+}
+
+.slot-guide-close-btn:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: #EF4444;
+  color: #FFFFFF;
+}
+
+/* Style Switcher Tabs inside the guide */
+.slot-guide-tabs {
+  display: flex;
+  background: rgba(10, 15, 29, 0.9);
+  padding: 6px 12px;
+  gap: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.slot-guide-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.slot-guide-tab {
+  flex: 1;
+  min-width: 120px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #94A3B8;
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-align: center;
+  white-space: nowrap;
+  transition: all 0.18s ease;
+}
+
+.slot-guide-tab:hover {
+  color: #F8FAFC;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.slot-guide-tab.active {
+  color: #FFFFFF;
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.25), rgba(79, 70, 229, 0.25));
+  border-color: rgba(56, 189, 248, 0.5);
+  box-shadow: 0 2px 10px rgba(56, 189, 248, 0.15);
+}
+
+/* Guide Body Content */
+.slot-guide-body {
+  padding: 16px 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-height: calc(92vh - 165px);
+}
+
+.slot-guide-preview-hero {
+  position: relative;
+  background: #060B19;
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  border-radius: 14px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-shadow: inset 0 0 25px rgba(0, 0, 0, 0.5);
+}
+
+.slot-guide-preview-hero svg {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+.slot-guide-spec-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+@media (max-width: 580px) {
+  .slot-guide-spec-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.slot-guide-spec-card {
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.slot-guide-spec-card.highlight {
+  border-color: rgba(56, 189, 248, 0.35);
+  background: rgba(14, 165, 233, 0.08);
+}
+
+.slot-spec-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #38BDF8;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.slot-spec-value {
+  font-size: 12px;
+  font-weight: 600;
+  color: #F1F5F9;
+  line-height: 1.35;
+}
+
+.slot-spec-desc {
+  font-size: 11px;
+  color: #94A3B8;
+  line-height: 1.35;
+}
+
+.slot-guide-tips-box {
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px dashed rgba(245, 158, 11, 0.35);
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 11.5px;
+  color: #FDE68A;
+  line-height: 1.4;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+/* Footer / Action bar */
+.slot-guide-footer {
+  padding: 12px 20px;
+  background: rgba(15, 23, 42, 0.95);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.slot-guide-attach-btn {
+  flex: 1;
+  background: linear-gradient(135deg, #0284C7, #4F46E5);
+  border: 1px solid #38BDF8;
+  color: #FFFFFF;
+  font-size: 13.5px;
+  font-weight: 700;
+  padding: 10px 18px;
+  border-radius: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.18s ease;
+  box-shadow: 0 4px 14px rgba(2, 132, 199, 0.35);
+}
+
+.slot-guide-attach-btn:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+.slot-guide-cancel-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #94A3B8;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 10px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.slot-guide-cancel-btn:hover {
+  color: #F8FAFC;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+@media (max-width: 640px) {
+  .slot-guide-window {
+    max-height: 94vh;
+    border-radius: 16px;
+  }
+  .slot-guide-body {
+    padding: 12px 14px;
+    max-height: calc(94vh - 160px);
+  }
+  .slot-guide-header,
+  .slot-guide-footer {
+    padding: 12px 14px;
+  }
 }
 
 
