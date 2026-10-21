@@ -7065,7 +7065,7 @@ function getDefaultClientFamilyCast() {
         uncompromisableAnchors: 'Adult Indian male, age 40, medium-brown skin, oval face, neat salt-and-pepper trimmed beard, short textured dark hair, sturdy broad-shouldered build with upright grounded posture.',
         visualTraits: 'Adult father in early 40s, neat short dark hair, warm confident expression, seasoned contemporary styling.',
         vehicleRole: 'driver_right',
-        stylizedAvatarUrl: 'https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/avatar_member_father.png'
+        stylizedAvatarUrl: 'https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/avatar_member_father.jpg'
       },
       {
         id: 'member_mother',
@@ -7078,7 +7078,7 @@ function getDefaultClientFamilyCast() {
         uncompromisableAnchors: 'Warm wheatish skin, soft round-to-oval maternal face, gentle dark eyes without heavy makeup, natural shoulder-length wavy dark hair with center/side parting (strictly no past-chest salon blowout curls), healthy medium adult build with natural soft shoulders. Everyday authentic South Indian presence.',
         visualTraits: 'Adult mother in her mid-30s, warm thoughtful smile, natural shoulder-length wavy dark hair, expressive eyes, elegant casual styling.',
         vehicleRole: 'passenger_front_left',
-        stylizedAvatarUrl: 'https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/avatar_member_mother.png'
+        stylizedAvatarUrl: 'https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/avatar_member_mother.jpg'
       },
       {
         id: 'member_elder_son',
@@ -7091,7 +7091,7 @@ function getDefaultClientFamilyCast() {
         uncompromisableAnchors: 'Warm brown-skinned 11-year-old pre-teen Indian boy with neat short dark hair, square shoulders, sturdy healthy youth build (strictly not skinny, not frail), stands visibly a full head taller than his younger brother.',
         visualTraits: '11-year-old pre-teen boy, healthy sturdy build with square shoulders, distinct mature pre-teen facial structure, neat side-parted dark hair, visibly older and taller by a head than his younger brother.',
         vehicleRole: 'passenger_rear_right',
-        stylizedAvatarUrl: 'https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/avatar_member_elder_son.png'
+        stylizedAvatarUrl: 'https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/avatar_member_elder_son.jpg'
       },
       {
         id: 'member_younger_son',
@@ -7104,7 +7104,7 @@ function getDefaultClientFamilyCast() {
         uncompromisableAnchors: 'Warm brown-skinned 7-year-old schoolboy with soft rounded cheeks, expressive playful eyes, wavy dark hair, healthy solid child proportions, head reaches only to his older brother shoulder.',
         visualTraits: '7-year-old young schoolboy, noticeably shorter by a full head, top of head reaches only to his older brother shoulder, soft round youthful child cheeks, playful energetic expression, wavy dark hair, lively child proportions.',
         vehicleRole: 'passenger_rear_left',
-        stylizedAvatarUrl: 'https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/avatar_member_younger_son.png'
+        stylizedAvatarUrl: 'https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/avatar_member_younger_son.jpg'
       }
     ],
     collectiveAliases: ['family', 'my family', 'kids', 'my kids', 'both boys', 'sons', 'my sons', 'boys', 'children']
@@ -11724,7 +11724,7 @@ async function startAiSynthesis() {
 
       try {
         const artController = new AbortController();
-        const artTimeout = setTimeout(() => artController.abort(), 26000);
+        const artTimeout = setTimeout(() => artController.abort(), 40000);
 
         const artResp = await fetch('/api/synthesize', {
           method: 'POST',
@@ -11849,7 +11849,7 @@ async function retryStep3ArtworkGeneration(event) {
 
   try {
     const artController = new AbortController();
-    const artTimer = setTimeout(() => artController.abort(), 28000);
+    const artTimer = setTimeout(() => artController.abort(), 40000);
 
     const artResp = await fetch('/api/synthesize', {
       method: 'POST',

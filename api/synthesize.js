@@ -148,7 +148,7 @@ module.exports = async function handler(req, res) {
           prompt,
           imageBase64,
           imageMimeType,
-          timeoutMs: 20000,
+          timeoutMs: 35000,
           familyCast,
           activeCast,
           stylizedAvatars
@@ -1888,7 +1888,7 @@ function isLikelyPersonSubject(name) {
   return personKeywords.some(w => lower.includes(w));
 }
 
-async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeType = 'image/jpeg', timeoutMs = 16000, familyCast = null, activeCast = null, stylizedAvatars = null }) {
+async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeType = 'image/jpeg', timeoutMs = 35000, familyCast = null, activeCast = null, stylizedAvatars = null }) {
   if (!GEMINI_API_KEY) return null;
   const imageModels = [
     'gemini-2.5-flash-image',
@@ -2203,7 +2203,7 @@ function getDefaultFamilyCast(userIdentifier) {
         visualTraits: 'Adult father in early 40s, neat short dark hair, warm confident expression, seasoned contemporary styling.',
         vehicleRole: 'driver_right',
         defaultClothing: 'Casual dark linen shirt or jacket',
-        stylizedAvatarUrl: 'https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/avatar_member_father.png'
+        stylizedAvatarUrl: 'https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/avatar_member_father.jpg'
       },
       {
         id: 'member_mother',
@@ -2218,7 +2218,7 @@ function getDefaultFamilyCast(userIdentifier) {
         visualTraits: 'Adult mother in her mid-30s, warm thoughtful smile, natural shoulder-length wavy dark hair, expressive eyes, elegant casual styling.',
         vehicleRole: 'passenger_front_left',
         defaultClothing: 'Vibrant comfortable travel attire',
-        stylizedAvatarUrl: 'https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/avatar_member_mother.png'
+        stylizedAvatarUrl: 'https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/avatar_member_mother.jpg'
       },
       {
         id: 'member_elder_son',
@@ -2233,7 +2233,7 @@ function getDefaultFamilyCast(userIdentifier) {
         visualTraits: '11-year-old pre-teen boy, healthy sturdy build with square shoulders, distinct mature pre-teen facial structure, neat side-parted dark hair, visibly older and taller by a head than his younger brother.',
         vehicleRole: 'passenger_rear_right',
         defaultClothing: 'Navy blue or dark graphic tee / hoodie',
-        stylizedAvatarUrl: 'https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/avatar_member_elder_son.png'
+        stylizedAvatarUrl: 'https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/avatar_member_elder_son.jpg'
       },
       {
         id: 'member_younger_son',
@@ -2248,7 +2248,7 @@ function getDefaultFamilyCast(userIdentifier) {
         visualTraits: '7-year-old young schoolboy, noticeably shorter by a full head, top of head reaches only to his older brother\'s shoulder, soft round youthful child cheeks, playful energetic expression, wavy dark hair, lively child proportions.',
         vehicleRole: 'passenger_rear_left',
         defaultClothing: 'Mustard yellow or bright green graphic t-shirt',
-        stylizedAvatarUrl: 'https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/avatar_member_younger_son.png'
+        stylizedAvatarUrl: 'https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/avatar_member_younger_son.jpg'
       }
     ],
     collectiveAliases: ['family', 'my family', 'kids', 'my kids', 'both boys', 'sons', 'my sons', 'boys', 'children'],
