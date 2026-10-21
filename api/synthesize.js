@@ -1741,6 +1741,13 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
     .replace(/\bgraceful mother\b/gi, 'mother with natural healthy medium build')
     .replace(/\b(lean|skinny|slender)\s*build/gi, 'healthy sturdy build');
 
+  // If adult father is present with a child without mother, replace generic guardian with adult father
+  if (/\b(father|dad|shridhar)\b/i.test(enhancedPrompt) && !/\b(mother|mom|wife|woman|female)\b/i.test(enhancedPrompt)) {
+    enhancedPrompt = enhancedPrompt
+      .replace(/\b(?:an attentive,?\s*smiling\s*)?guardian\b/gi, 'his adult father Shridhar (mid 40s man, trimmed beard)')
+      .replace(/\ba parent\b/gi, 'his adult father Shridhar');
+  }
+
   const isPhotoMedium = /photograph|film still|35mm|photojournalism|documentary|editorial portrait photograph/i.test(enhancedPrompt);
   const textureStyle = isPhotoMedium
     ? 'sharp focus, natural skin textures, 35mm film grain, authentic ambient lighting'
@@ -2040,55 +2047,95 @@ function getDefaultFamilyCast(userIdentifier) {
   };
 }
 
+function detectRelevantCastMembers(combined = '', cast = null) {
+  const c = String(combined || '').toLowerCase();
+  const members = (cast && Array.isArray(cast.members)) ? cast.members : [];
+
+  const mentionsCollective = /\b(family|my family|kids|my kids|sons|my sons|both boys|boys|children|11 and 7|11,? 7|road trip with family|vacation with family)\b/i.test(c);
+  if (mentionsCollective) {
+    return new Set(members.map(m => m.id));
+  }
+
+  const detected = new Set();
+  members.forEach(m => {
+    // 1. Vault Name Tokens (e.g. "shridhar")
+    const nameStr = String(m.name || '').toLowerCase();
+    const cleanName = nameStr.replace(/[^a-z0-9\s]/g, ' ').trim();
+    const nameWords = cleanName.split(/\s+/).filter(w => w.length > 2 && !['father', 'mother', 'elder', 'younger', 'self', 'son'].includes(w));
+    for (const w of nameWords) {
+      if (new RegExp(`\\b${w}\\b`, 'i').test(c)) {
+        detected.add(m.id);
+        break;
+      }
+    }
+
+    // 2. Vault Aliases (e.g. "rishu", "gahan", "aru")
+    const aliases = Array.isArray(m.aliases) ? m.aliases : [];
+    for (const alias of aliases) {
+      const a = String(alias || '').trim().toLowerCase();
+      if (!a || a.length < 2 || ['i', 'me', 'my', 'myself'].includes(a)) continue;
+      const safe = a.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+      if (new RegExp(`\\b${safe}\\b`, 'i').test(c)) {
+        detected.add(m.id);
+        break;
+      }
+    }
+
+    // 3. Role-specific semantic keywords
+    if (m.relationship === 'elder_son') {
+      if (/\b(elder son|older son|older boy|first son|11-year-old|11yo|11 year old|gahan)\b/i.test(c) || (/\bson\b/i.test(c) && !/\byounger|little|7|rishu\b/i.test(c) && !detected.has('member_younger_son'))) {
+        detected.add(m.id);
+      }
+    } else if (m.relationship === 'younger_son') {
+      if (/\b(younger son|little son|younger boy|second son|7-year-old|7yo|7 year old|little boy|rishu)\b/i.test(c)) {
+        detected.add(m.id);
+      }
+    } else if (m.relationship === 'spouse') {
+      if (/\b(wife|mom|mother|spouse|aru)\b/i.test(c)) {
+        detected.add(m.id);
+      }
+    } else if (m.relationship === 'self') {
+      if (/\b(dad|father|husband|shridhar)\b/i.test(c)) {
+        detected.add(m.id);
+      }
+    }
+  });
+
+  // 4. Guardian / Accompanying Parent Context:
+  // If one of the children is in the scene (e.g. learning cycle, drawing, playing)
+  // and the narrative is in first-person ("I remain by his side", "beside him", "support him", "with me", "holding my hand", "I watched him", "I stood"):
+  // The accompanying adult is specifically Father / Self (Shridhar), NOT the mother!
+  const hasChild = detected.has('member_elder_son') || detected.has('member_younger_son');
+  const hasFirstPersonGuardian = /\b(i remain|i am|by my side|by his side|beside him|beside her|with me|holding my hand|teaching him|walked with him|support him|safe from|i watched|i stood|standing beside him|watching him|as i see|as i saw)\b/i.test(c);
+  if (hasChild && hasFirstPersonGuardian) {
+    detected.add('member_father');
+  }
+
+  return detected;
+}
+
 function buildFamilyCastDirectives({ familyCast, activeCast, castStaging, userSlant = '', spark = '', countryContext = '' }) {
   const combined = `${userSlant} ${spark}`.toLowerCase();
-
-  const familyRegex = /\b(family|my family|kids|my kids|sons|my sons|both boys|boys|children|wife|mom|mother|dad|father|son|elder son|younger son|older boy|younger boy|11 and 7|11,? 7|road trip with family|vacation with family)\b/i;
-  const isFamilyContext = familyRegex.test(combined);
+  const cast = familyCast || getDefaultFamilyCast();
+  const detectedIds = detectRelevantCastMembers(combined, cast);
 
   const hasExplicitCast = activeCast && Array.isArray(activeCast.members) && activeCast.members.length > 0;
+  const isFamilyContext = (detectedIds.size > 0);
 
   if (!isFamilyContext && !hasExplicitCast) {
     return null;
   }
 
-  const cast = familyCast || getDefaultFamilyCast();
   let activeMembers = [];
-
-  // Check if text specifically references individual members
-  const mentionsCollective = /\b(family|my family|kids|my kids|sons|my sons|both boys|boys|children|11 and 7|11,? 7|road trip with family|vacation with family)\b/i.test(combined);
-  const mentionsElder = /\b(elder son|older son|older boy|first son|11-year-old|11yo|11 year old)\b/i.test(combined) || (/\bson\b/i.test(combined) && !/\byounger\b/i.test(combined));
-  const mentionsYounger = /\b(younger son|little son|younger boy|second son|7-year-old|7yo|7 year old|little boy)\b/i.test(combined);
-  const mentionsWife = /\b(wife|mom|mother|spouse)\b/i.test(combined);
-  const mentionsDad = /\b(dad|father|husband)\b/i.test(combined);
-
   if (hasExplicitCast) {
     activeMembers = activeCast.members;
-    // If client sent all 4 members by default, but the text is explicitly about only ONE specific member, filter to that member!
-    if (!mentionsCollective && activeMembers.length > 1) {
-      const filtered = activeMembers.filter(m => {
-        if (m.relationship === 'elder_son' && mentionsElder) return true;
-        if (m.relationship === 'younger_son' && mentionsYounger) return true;
-        if (m.relationship === 'spouse' && mentionsWife) return true;
-        if (m.relationship === 'self' && mentionsDad) return true;
-        return false;
-      });
-      if (filtered.length > 0) {
-        activeMembers = filtered;
-      }
+    // If client sent all 4 members by default, refine to the detected members if detectedIds is non-empty
+    if (activeMembers.length > 1 && detectedIds.size > 0 && detectedIds.size < activeMembers.length) {
+      const refined = activeMembers.filter(m => detectedIds.has(m.id));
+      if (refined.length > 0) activeMembers = refined;
     }
   } else {
-    if (mentionsCollective) {
-      activeMembers = cast.members || [];
-    } else {
-      activeMembers = (cast.members || []).filter(m => {
-        if (m.relationship === 'elder_son' && mentionsElder) return true;
-        if (m.relationship === 'younger_son' && mentionsYounger) return true;
-        if (m.relationship === 'spouse' && mentionsWife) return true;
-        if (m.relationship === 'self' && mentionsDad) return true;
-        return false;
-      });
-    }
+    activeMembers = (cast.members || []).filter(m => detectedIds.has(m.id));
   }
 
   if (activeMembers.length === 0) {
@@ -2097,6 +2144,8 @@ function buildFamilyCastDirectives({ familyCast, activeCast, castStaging, userSl
 
   const hasElderBoy = activeMembers.some(m => m.relationship === 'elder_son' || m.age === 11);
   const hasYoungerBoy = activeMembers.some(m => m.relationship === 'younger_son' || m.age === 7);
+  const hasFather = activeMembers.some(m => m.relationship === 'self');
+  const hasMother = activeMembers.some(m => m.relationship === 'spouse');
 
   const directives = [];
   const promptSnippets = [];
@@ -2122,7 +2171,14 @@ ${activeMembers.map((m, i) => `  * Person #${i + 1}: ${m.name || m.roleLabel} ($
 - STRICT BAN ON MERGING / COMPRESSION: Image generation models frequently suffer from "two sons" semantic collapse, mistakenly merging the two boys into a single child and drawing only 3 family members. YOU MUST NEVER MERGE THE TWO SONS! Both sons must be drawn as two separate individual boys. All ${maleCount} male family members (Father, Elder Son, Younger Son) and the Mother must be fully and clearly depicted. Never drop any male member.
 - ZERO UNATTACHED FOREGROUND PEOPLE/HANDS: If a ritual action is described (like receiving sacred water or praying), that action MUST be performed by one of the ${totalCount} family members themselves (e.g. the father and boys cupping their hands). Never draw cropped arms/hands of an external 5th person that consumes character slots.`);
 
-    promptSnippets.push(`group portrait of exactly ${totalCount} distinct people (${maleCount} males, ${femaleCount} female: ${activeMembers.map(m => m.name || m.roleLabel).join(', ')} all individually visible side by side, strictly do not merge sons into one child)`);
+    // If no females are in the cast (e.g. Father + Son)
+    if (femaleCount === 0 && hasFather) {
+      directives.push(`STRICT GUARDIAN GENDER & IDENTITY:
+- The accompanying adult guardian in the scene is specifically the ADULT FATHER (Shridhar, mid-40s male with short dark hair and trimmed beard).
+- STRICT BAN ON FEMALE GUARDIAN / MOTHER: There is NO mother or woman in this scene. Strictly do NOT draw a female guardian.`);
+    }
+
+    promptSnippets.push(`group portrait of exactly ${totalCount} distinct people (${maleCount} males, ${femaleCount} female: ${activeMembers.map(m => m.name || m.roleLabel).join(', ')})${femaleCount === 0 && hasFather ? ', adult father with son, strictly no mother in scene' : ''}`);
   }
 
   // 1. Strict Age & Height Differentiation

@@ -14122,6 +14122,43 @@ mark.polish-mark:hover, mark.polish-mark.active {
   box-shadow: 0 2px 10px rgba(56, 189, 248, 0.4);
 }
 
+.family-cast-auto-hint {
+  background: rgba(56, 189, 248, 0.1);
+  border: 1px dashed rgba(56, 189, 248, 0.35);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 11px;
+  color: #38BDF8;
+  margin-top: 8px;
+  margin-bottom: 4px;
+}
+
+.family-cast-launcher-wrap {
+  margin-top: 10px;
+}
+
+.family-cast-launcher-btn {
+  background: rgba(30, 41, 59, 0.7);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  color: #94A3B8;
+  font-family: 'Space Grotesk', -apple-system, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: 9999px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.family-cast-launcher-btn:hover {
+  background: rgba(56, 189, 248, 0.15);
+  border-color: #38BDF8;
+  color: #38BDF8;
+}
+
 /* Member Selection Chips */
 .family-cast-members-row {
   display: flex;

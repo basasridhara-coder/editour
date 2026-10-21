@@ -779,6 +779,9 @@
                 </div>
               </div>
 
+              <!-- Context-Aware Detection Badge -->
+              <div class="family-cast-auto-hint" id="familyCastAutoHint" style="display:none;"></div>
+
               <!-- Active Members Toggles -->
               <div class="family-cast-members-row" id="familyCastMembersRow">
                 <!-- Populated dynamically: [✓ Dad (Driver)] [✓ Mom] [✓ Elder Son (11)] [✓ Younger Son (7)] -->
@@ -805,6 +808,13 @@
                   </button>
                 </div>
               </div>
+            </div>
+
+            <!-- Optional Manual Launcher when card is hidden -->
+            <div class="family-cast-launcher-wrap" id="familyCastLauncherWrap" style="display:none;">
+              <button type="button" class="family-cast-launcher-btn" onclick="manuallyOpenFamilyCastStaging()">
+                <span>👥 Include Family Character from Vault</span>
+              </button>
             </div>
           </div>
 
@@ -1833,6 +1843,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261021_0915"></script>
+  <script src="app.js?v=20261021_0945"></script>
 </body>
 </html>

@@ -7801,55 +7801,133 @@ function toggleActiveCastMember(memberId) {
   renderFamilyCastStagingUI();
 }
 
+function detectRelevantCastMembers(text = '', cast = null) {
+  const combined = String(text || '').toLowerCase();
+  const profile = cast || familyCastProfileCache || getDefaultClientFamilyCast();
+  const members = (profile && Array.isArray(profile.members)) ? profile.members : [];
+
+  const mentionsCollective = /\b(family|my family|kids|my kids|sons|my sons|both boys|boys|children|11 and 7|11,? 7|road trip with family|vacation with family)\b/i.test(combined);
+  if (mentionsCollective) {
+    return new Set(members.map(m => m.id));
+  }
+
+  const detected = new Set();
+  members.forEach(m => {
+    // 1. Vault Name Tokens (e.g. "shridhar")
+    const nameStr = String(m.name || '').toLowerCase();
+    const cleanName = nameStr.replace(/[^a-z0-9\s]/g, ' ').trim();
+    const nameWords = cleanName.split(/\s+/).filter(w => w.length > 2 && !['father', 'mother', 'elder', 'younger', 'self', 'son'].includes(w));
+    for (const w of nameWords) {
+      if (new RegExp(`\\b${w}\\b`, 'i').test(combined)) {
+        detected.add(m.id);
+        break;
+      }
+    }
+
+    // 2. Vault Aliases (e.g. "rishu", "gahan", "aru")
+    const aliases = Array.isArray(m.aliases) ? m.aliases : [];
+    for (const alias of aliases) {
+      const a = String(alias || '').trim().toLowerCase();
+      if (!a || a.length < 2 || ['i', 'me', 'my', 'myself'].includes(a)) continue;
+      const safe = a.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+      if (new RegExp(`\\b${safe}\\b`, 'i').test(combined)) {
+        detected.add(m.id);
+        break;
+      }
+    }
+
+    // 3. Role-specific semantic keywords
+    if (m.relationship === 'elder_son') {
+      if (/\b(elder son|older son|older boy|first son|11-year-old|11yo|11 year old|gahan)\b/i.test(combined) || (/\bson\b/i.test(combined) && !/\byounger|little|7|rishu\b/i.test(combined) && !detected.has('member_younger_son'))) {
+        detected.add(m.id);
+      }
+    } else if (m.relationship === 'younger_son') {
+      if (/\b(younger son|little son|younger boy|second son|7-year-old|7yo|7 year old|little boy|rishu)\b/i.test(combined)) {
+        detected.add(m.id);
+      }
+    } else if (m.relationship === 'spouse') {
+      if (/\b(wife|mom|mother|spouse|aru)\b/i.test(combined)) {
+        detected.add(m.id);
+      }
+    } else if (m.relationship === 'self') {
+      if (/\b(dad|father|husband|shridhar)\b/i.test(combined)) {
+        detected.add(m.id);
+      }
+    }
+  });
+
+  // 4. Guardian / Accompanying Parent Context:
+  // If one of the children is in the scene (e.g. learning cycle, drawing, playing)
+  // and the narrative is in first-person ("I remain by his side", "beside him", "support him", "with me", "holding my hand", "I watched him", "I stood"):
+  // The accompanying adult is specifically Father / Self (Shridhar), NOT the mother!
+  const hasChild = detected.has('member_elder_son') || detected.has('member_younger_son');
+  const hasFirstPersonGuardian = /\b(i remain|i am|by my side|by his side|beside him|beside her|with me|holding my hand|teaching him|walked with him|support him|safe from|i watched|i stood|standing beside him|watching him|as i see|as i saw)\b/i.test(combined);
+  if (hasChild && hasFirstPersonGuardian) {
+    detected.add('member_father');
+  }
+
+  return detected;
+}
+
 function dismissFamilyCastStaging() {
   const card = document.getElementById('familyCastStagingCard');
+  const launcher = document.getElementById('familyCastLauncherWrap');
+  const hint = document.getElementById('familyCastAutoHint');
   if (card) {
     card.style.display = 'none';
     card.dataset.manuallyDismissed = 'true';
     delete card.dataset.manuallyOpened;
   }
+  if (hint) hint.style.display = 'none';
+  if (launcher) launcher.style.display = 'block';
   activeCastMemberIds.clear();
   renderFamilyCastStagingUI();
   showTemporaryToast('Family cast disabled for this post.');
 }
 
+function manuallyOpenFamilyCastStaging() {
+  const card = document.getElementById('familyCastStagingCard');
+  const launcher = document.getElementById('familyCastLauncherWrap');
+  if (!card) return;
+  card.style.display = 'flex';
+  card.dataset.manuallyOpened = 'true';
+  delete card.dataset.manuallyDismissed;
+  if (launcher) launcher.style.display = 'none';
+
+  const cast = familyCastProfileCache || getDefaultClientFamilyCast();
+  if (activeCastMemberIds.size === 0 && (cast.members || []).length > 0) {
+    activeCastMemberIds.add(cast.members[0].id);
+  }
+  renderFamilyCastStagingUI();
+}
+
 function checkAndTriggerFamilyCast(text = '') {
   const combined = String(text || '').toLowerCase();
   const card = document.getElementById('familyCastStagingCard');
+  const launcher = document.getElementById('familyCastLauncherWrap');
+  const hint = document.getElementById('familyCastAutoHint');
   if (!card) return;
 
-  if (card.dataset.manuallyDismissed) return;
+  if (card.dataset.manuallyDismissed) {
+    if (launcher) launcher.style.display = 'block';
+    return;
+  }
 
-  const familyRegex = /\b(family|my family|kids|my kids|sons|my sons|both boys|boys|children|wife|mom|mother|dad|father|son|elder son|younger son|older boy|younger boy|11 and 7|11,? 7|road trip|vacation with family)\b/i;
-  const matches = familyRegex.test(combined);
+  const cast = familyCastProfileCache || getDefaultClientFamilyCast();
+  const detectedIds = detectRelevantCastMembers(combined, cast);
 
-  if (matches) {
+  if (detectedIds.size > 0) {
     card.style.display = 'flex';
+    if (launcher) launcher.style.display = 'none';
 
-    // Selective Member Intelligence:
-    // Only pre-select all members if the collective family / kids are mentioned.
-    // If only a specific member is mentioned, activate only that member!
-    const mentionsCollective = /\b(family|my family|kids|my kids|sons|my sons|both boys|boys|children|11 and 7|11,? 7|road trip)\b/i.test(combined);
-    const mentionsElder = /\b(elder son|older son|older boy|first son|11-year-old|11yo|11 year old)\b/i.test(combined) || (/\bson\b/i.test(combined) && !/\byounger\b/i.test(combined));
-    const mentionsYounger = /\b(younger son|little son|younger boy|second son|7-year-old|7yo|7 year old|little boy)\b/i.test(combined);
-    const mentionsWife = /\b(wife|mom|mother|spouse)\b/i.test(combined);
-    const mentionsDad = /\b(dad|father|husband)\b/i.test(combined);
-
-    if (mentionsCollective) {
-      activeCastMemberIds = new Set(['member_father', 'member_mother', 'member_elder_son', 'member_younger_son']);
-    } else {
-      const selected = new Set();
-      if (mentionsElder) selected.add('member_elder_son');
-      if (mentionsYounger) selected.add('member_younger_son');
-      if (mentionsWife) selected.add('member_mother');
-      if (mentionsDad) selected.add('member_father');
-
-      if (selected.size > 0) {
-        activeCastMemberIds = selected;
-      }
-    }
-
+    activeCastMemberIds = detectedIds;
     renderFamilyCastStagingUI();
+
+    if (hint) {
+      const names = (cast.members || []).filter(m => detectedIds.has(m.id)).map(m => m.name || m.roleLabel);
+      hint.style.display = 'block';
+      hint.innerHTML = `<span>🎯 Auto-identified for poster: <strong>${escapeHtml(names.join(' & '))}</strong></span>`;
+    }
 
     // Auto-detect vehicle context
     if (/\b(car|drive|driving|road trip|vehicle|suv|sedan|highway)\b/i.test(combined)) {
@@ -7862,6 +7940,10 @@ function checkAndTriggerFamilyCast(text = '') {
   } else {
     if (!card.dataset.manuallyOpened) {
       card.style.display = 'none';
+      if (hint) hint.style.display = 'none';
+      if (launcher && (cast.members || []).length > 0) {
+        launcher.style.display = 'block';
+      }
     }
   }
 }
@@ -8088,6 +8170,18 @@ function openCreatorModal() {
     slantInput.dataset.errorCleanAttached = 'true';
     slantInput.addEventListener('input', () => {
       if (typeof clearMandatoryError === 'function') clearMandatoryError(slantInput);
+      const spkInput = document.getElementById('creatorSparkInput');
+      const combined = (slantInput.value || '') + ' ' + (spkInput ? spkInput.value : '');
+      checkAndTriggerFamilyCast(combined);
+    });
+  }
+  const sparkInput = document.getElementById('creatorSparkInput');
+  if (sparkInput && !sparkInput.dataset.castTriggerAttached) {
+    sparkInput.dataset.castTriggerAttached = 'true';
+    sparkInput.addEventListener('input', () => {
+      const sltInput = document.getElementById('creatorSlantTakeInput');
+      const combined = (sltInput ? sltInput.value : '') + ' ' + (sparkInput.value || '');
+      checkAndTriggerFamilyCast(combined);
     });
   }
 }
@@ -8764,11 +8858,15 @@ function resetCreatorState() {
   const eyeLabel = document.getElementById('step3EyeViewLabel');
   if (eyeLabel) eyeLabel.textContent = 'Clear Text';
   const stagingCard = document.getElementById('familyCastStagingCard');
+  const launcherWrap = document.getElementById('familyCastLauncherWrap');
+  const autoHint = document.getElementById('familyCastAutoHint');
   if (stagingCard) {
     stagingCard.style.display = 'none';
     delete stagingCard.dataset.manuallyOpened;
     delete stagingCard.dataset.manuallyDismissed;
   }
+  if (launcherWrap) launcherWrap.style.display = 'none';
+  if (autoHint) autoHint.style.display = 'none';
 
   // Clear inputs in Step 1
   const slantInput = document.getElementById('creatorSlantTakeInput');
