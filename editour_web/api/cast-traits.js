@@ -58,20 +58,22 @@ module.exports = async function handler(req, res) {
 ${multiPhotoHint}
 Target subject: ${roleHint}${name ? ', named ' + name : ''}${approxAge ? ', approx age ' + approxAge : ''}.
 
-Synthesize all visual likeness anchors across the provided photos:
+Synthesize all visual likeness anchors across the provided photos, analyzing BOTH facial characteristics AND full body structure:
 1. Hairstyle: hair texture (straight, wavy, curly), hair color, volume, and parting style.
-2. Facial structure: face shape, cheekbones, eye shape, smile/expression, and mustache/beard if present.
+2. Facial structure: face shape, jawline, cheekbones, eye shape, smile/expression, and mustache/beard if present.
 3. Eyeglasses / Spectacles: if wearing glasses, describe frame style. If none, omit.
 4. Apparent biological age and life stage.
 5. Skin tone and complexion.
+6. Body structure, physique & stature: body build (lean/slender, athletic, broad-shouldered, sturdy, compact), shoulder frame, torso proportions, posture (upright, confident, energetic child), and stature.
 
 Return strictly valid JSON with this exact schema:
 {
-  "visualTraits": "A single coherent, evocative sentence describing hair, facial structure, smile, mustache/beard, and glasses if worn (max 25-30 words). Example: 'Warm brown skin, wide smile showing upper teeth, neat dark chevron mustache, and tidy parted dark hair.'",
+  "visualTraits": "A single coherent, evocative character sentence combining facial features, hair, AND body build / stature (max 35-45 words). Example: 'Warm brown skin, friendly oval face, neat dark mustache, short parted dark hair, with a tall, broad-shouldered upright adult build.' or 'Lean pre-teen boy with tall slender frame, oval face, and neat side-parted hair.'",
   "detectedAge": 38,
   "hair": "Short neat dark hair with side part",
-  "facialFeatures": "Warm brown eyes, chevron mustache, oval face",
-  "statureDesc": "Average adult build"
+  "facialFeatures": "Warm brown eyes, chevron mustache, structured jaw",
+  "bodyBuild": "Broad-shouldered, tall adult frame with upright posture",
+  "statureDesc": "Tall adult stature with upright posture"
 }
 
 Do not include markdown code fences, do not include any em-dashes. Output pure JSON only.`;
@@ -131,7 +133,8 @@ Do not include markdown code fences, do not include any em-dashes. Output pure J
               detectedAge: (typeof parsed.detectedAge === 'number') ? parsed.detectedAge : (approxAge || null),
               hair: parsed.hair || '',
               facialFeatures: parsed.facialFeatures || '',
-              statureDesc: parsed.statureDesc || '',
+              bodyBuild: parsed.bodyBuild || parsed.statureDesc || '',
+              statureDesc: parsed.statureDesc || parsed.bodyBuild || '',
               photoCount: photoList.length
             });
           }

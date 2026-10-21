@@ -2060,12 +2060,14 @@ ${activeMembers.map((m, i) => `  * Person #${i + 1}: ${m.name || m.roleLabel} ($
     promptSnippets.push('family road trip scenic overlook by parked vehicle: father, mother, tall 11-year-old son, shorter 7-year-old son standing naturally together admiring the vista');
   }
 
-  // 3. Member-Specific Facial Traits & Visual Likeness Anchors
+  // 3. Member-Specific Facial Traits & Visual Likeness Anchors (Face, Hair & Body Stature)
   const memberTraitDirectives = [];
   activeMembers.forEach(m => {
-    if (m.visualTraits && m.visualTraits.trim()) {
-      memberTraitDirectives.push(`${m.name || m.roleLabel} (${m.roleLabel || m.relationship}): ${m.visualTraits}`);
-      promptSnippets.push(`${m.name || m.roleLabel}: ${m.visualTraits}`);
+    const traitParts = [m.visualTraits, m.bodyBuild, m.heightDesc].filter(t => t && String(t).trim()).map(t => String(t).trim());
+    const combinedTraits = traitParts.join(', ');
+    if (combinedTraits) {
+      memberTraitDirectives.push(`${m.name || m.roleLabel} (${m.roleLabel || m.relationship}): ${combinedTraits}`);
+      promptSnippets.push(`${m.name || m.roleLabel}: ${combinedTraits}`);
     }
   });
   if (memberTraitDirectives.length > 0) {

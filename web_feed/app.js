@@ -7470,10 +7470,10 @@ function renderActiveMemberScreen() {
 
           <div class="vault-field-group full-width">
             <div class="vault-label-with-hint">
-              <label>Distinct Visual Features & Hair</label>
-              <span class="vault-label-hint">Auto-extracted by AI from your photos • Fully editable</span>
+              <label>Distinct Features, Hair & Body Structure</label>
+              <span class="vault-label-hint">Auto-extracted by AI from your photos (face, hair, build) • Fully editable</span>
             </div>
-            <textarea id="vField_traits" rows="2" placeholder="e.g. Pre-teen boy with lean face, wavy dark hair with neat side parting, warm radiant smile, wireframe spectacles" oninput="handleActiveMemberFieldChange('visualTraits', this.value)">${escapeHtml(member.visualTraits || '')}</textarea>
+            <textarea id="vField_traits" rows="2" placeholder="e.g. Pre-teen boy with tall lean frame, oval face, wavy dark hair with neat side parting, warm radiant smile" oninput="handleActiveMemberFieldChange('visualTraits', this.value)">${escapeHtml(member.visualTraits || '')}</textarea>
           </div>
 
           <div class="vault-field-group full-width">
@@ -7604,14 +7604,15 @@ async function analyzeActiveMemberAllPhotos() {
     if (data && data.success && data.visualTraits) {
       member.visualTraits = data.visualTraits;
       if (data.detectedAge && !member.age) member.age = data.detectedAge;
-      if (data.statureDesc && (!member.heightDesc || member.heightDesc.includes('Standard'))) {
+      if (data.bodyBuild) member.bodyBuild = data.bodyBuild;
+      if (data.statureDesc && (!member.heightDesc || member.heightDesc.includes('Standard') || !member.heightDesc.trim())) {
         member.heightDesc = data.statureDesc;
       }
 
       saveFamilyCastProfile(cast);
       renderActiveMemberScreen();
       renderFamilyCastStagingUI();
-      showTemporaryToast(`✓ Extracted Character DNA from ${photoList.length} photo(s)!`);
+      showTemporaryToast(`✓ Extracted Character DNA (face & body build) from ${photoList.length} photo(s)!`);
     } else {
       showTemporaryToast('Photos attached. You can describe any additional visual features below.');
     }
