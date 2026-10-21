@@ -573,7 +573,7 @@ Respond strictly with valid JSON with this exact structure:
       scrapedTitle = '',
       scrapedContent = '',
       countryContext = '',
-      vocabularyStyle = 'punchy', // 'punchy' | 'conversational' | 'analytical'
+      vocabularyStyle = 'casual', // default internal vocabulary style: Casual with simple, easily understood words
       perspectiveMode = 'hybrid', // 'curator' | 'hybrid' | 'source'
       sourceImageUrl = null,
       sourceImageBase64 = null,
@@ -725,20 +725,50 @@ Respond strictly with valid JSON with this exact structure:
       ? 'Out of Heart: Deeply reflective, philosophical, emotive, humanistic, and conviction-driven.'
       : 'Out of Mind: Sharp, analytical, strategic, counter-intuitive, high-signal, and intellectually rigorous.';
 
-    let vocabDirective = `CRITICAL CURATOR WRITING VOICE & PLAIN ENGLISH DIRECTIVE:
-1. AUTHENTIC CURATOR STYLE:
-   - Structure: Connect real-world observations directly to human stakes, ending with a grounded, solution-first takeaway.
-   - Vocabulary: Plainspoken, clear, everyday English (5th to 8th grade reading level). If an idea can be stated in simpler words, use the simpler words.
-   - Tone: Pragmatic, calm, observant, and constructive. Keep the focus on real builders, real people, and tangible solutions. "Solutions must be the talk of the town, not problems."
-2. BANISH HEAVY / POMPOUS ACADEMIC & THINK-TANK JARGON:
+    const hasUserContext = Boolean((userSlant && userSlant.trim().length > 5) || (spark && spark.trim().length > 5));
+
+    let vocabDirective = '';
+    let voiceStyleSummary = '';
+
+    if (hasUserContext) {
+      voiceStyleSummary = 'Adaptive to User (Mirrors the curator\'s natural voice, tone, and vocabulary from their provided context)';
+      vocabDirective = `CRITICAL WRITING VOICE & VOCABULARY DIRECTIVE (MIRROR USER'S AUTHENTIC STYLE):
+1. WRITE IN THE STYLE THE USER WRITES IN:
+   - The curator has provided their own take and context: "${userSlant || spark}".
+   - Write all 3 posters to match the natural style, vocabulary, emotional warmth, and phrasing that the user writes in:
+     * If the user context is relaxed, personal, and conversational (e.g. family road trip, personal reflections, casual observations), mirror that exact natural, grounded human voice.
+     * If the user context is crisp, pragmatic, and direct, mirror that directness.
+   - Do NOT elevate simple everyday observations into heavy theoretical dissertations or stiff academic lectures.
+2. CASUAL, CLEAR & GROUNDED (PLAIN ENGLISH):
+   - Keep words simple, clear, and universally accessible (5th to 8th grade reading level).
+   - If an idea can be said in simpler words, always use the simpler words.
+3. STRICT BAN ON POMPOUS ACADEMIC & THINK-TANK JARGON:
    - NEVER use pretentious Latinate words, corporate buzzwords, or academic clichés: "shallow dichotomy", "apocalyptic dread", "algorithmic convenience", "opaque corporate server racks", "not reactionary; it is vital self-defense", "human agency", "hegemony", "panopticon", "paradigm", "Kafkaesque", "juxtaposition", "inexorable", "obfuscate", "surreptitious", "monolithic", "harbinger", "verisimilitude", "disenfranchised", "quagmire", "ubiquitous", "pervasive", "machinations", "epistemic".
-   - If a phrase sounds like a university research paper, think-tank brief, or corporate whitepaper, replace it with direct, everyday conversational English.
+   - If a phrase sounds like a university research paper, think-tank brief, or corporate whitepaper, replace it with direct, accessible conversational English.
+4. POSTER 2 ("THE CRITICAL PERSPECTIVE" / curatorTake):
+   - Exactly 2 complete sentences (25-35 words total, ending with a period).
+   - Must sound like the curator's authentic voice and constructive mindset.
+5. POSTER 3 ("SLANT MINUTE" BROADSHEET ESSAY / summary & resolvedArticleExcerpts):
+   - Exactly 3 paragraphs (180-220 words total) translating the concepts into accessible everyday language that reads effortlessly on a mobile screen.
+   - Ground the narrative in practical human terms, clear cause-and-effect, and common sense.`;
+    } else {
+      voiceStyleSummary = 'Casual (Simple, easily understood words, accessible everyday English)';
+      vocabDirective = `CRITICAL WRITING VOICE & VOCABULARY DIRECTIVE (DEFAULT: CASUAL WITH SIMPLE WORDS):
+1. CASUAL WITH SIMPLE, EASILY UNDERSTOOD WORDS (DEFAULT INTERNAL STYLE):
+   - The curator has not provided custom context/take to infer their personal writing style.
+   - DEFAULT INTERNALLY TO CASUAL: Write in a clean, relaxed, conversational style using simple, easily understood words.
+   - Use natural everyday English that anyone can read effortlessly on a smartphone screen without pause.
+   - Friendly, clear, observant, and constructive.
+2. STRICT BAN ON POMPOUS ACADEMIC & THINK-TANK JARGON:
+   - NEVER use pretentious Latinate words, corporate buzzwords, or academic clichés: "shallow dichotomy", "apocalyptic dread", "algorithmic convenience", "opaque corporate server racks", "not reactionary; it is vital self-defense", "human agency", "hegemony", "panopticon", "paradigm", "Kafkaesque", "juxtaposition", "inexorable", "obfuscate", "surreptitious", "monolithic", "harbinger", "verisimilitude", "disenfranchised", "quagmire", "ubiquitous", "pervasive", "machinations", "epistemic".
+   - If a phrase sounds like a university research paper, think-tank brief, or corporate whitepaper, replace it with direct, accessible conversational English.
 3. POSTER 2 ("THE CRITICAL PERSPECTIVE" / curatorTake):
    - Exactly 2 complete sentences (25-35 words total, ending with a period).
-   - Must sound like the curator's punchy, authentic voice, vocabulary, and constructive mindset.
+   - Relaxed, punchy, and constructive mindset.
 4. POSTER 3 ("SLANT MINUTE" BROADSHEET ESSAY / summary & resolvedArticleExcerpts):
    - Exactly 3 paragraphs (180-220 words total) translating the source concepts into accessible everyday language that reads effortlessly on a mobile screen.
-   - Ground the facts and figures in practical human terms, clear cause-and-effect, and common sense.`;
+   - Ground the narrative in practical human terms, clear cause-and-effect, and common sense.`;
+    }
 
     const visualFocusDirective = (perspectiveMode === 'source')
       ? `CRITICAL VISUAL FOCUS DIRECTIVE (POSTER 1 ARTWORK ONLY - SOURCE GROUNDED):
@@ -789,7 +819,7 @@ Input Details:
 - Visual Focus (Poster 1 Artwork & Cues): ${perspectiveMode === 'curator' ? 'Curator Angle (Metaphor)' : (perspectiveMode === 'source' ? 'Source Grounded (Physical Reality)' : 'Hybrid Blend')}
 - Target Audience: ${targetAudience}
 - Tone / Slant: ${toneDescription}
-- Vocabulary & Voice Style: ${vocabularyStyle}
+- Vocabulary & Voice Style: ${voiceStyleSummary}
 ${userSlant ? `- Curator's Slant / Take (Primary Stance & Angle): "${userSlant}"` : ''}
 ${spark ? `- The Spark (Personal Context / Catalyst): "${spark}"` : ''}
 ${url ? `- Source Link: ${url}` : ''}
@@ -1258,7 +1288,7 @@ Respond strictly with valid JSON with this exact structure:
       polishedCuratorTake: finalPolishedCuratorTake || formatCuratorTakeApt(userSlant || finalCuratorTake),
       rawUserSlant: userSlant || '',
       refineCoreTake,
-      vocabularyStyle: vocabularyStyle || 'punchy',
+      vocabularyStyle: hasUserContext ? 'adaptive' : 'casual',
       perspectiveMode: perspectiveMode || 'hybrid',
       sourceImageUrl: sourceImageUrl || null,
       sourceImageBase64: sourceImageBase64 || null,
@@ -1294,7 +1324,7 @@ Respond strictly with valid JSON with this exact structure:
         heroCue: parsed.heroCue || (cues && cues[0]) || '',
         characterRepresentation,
         refineCoreTake,
-        vocabularyStyle: vocabularyStyle || 'punchy',
+        vocabularyStyle: hasUserContext ? 'adaptive' : 'casual',
         countryContext: countryContext || 'India',
         scrapedTitle: extractedTitle || '',
         scrapedContent: extractedContent || '',

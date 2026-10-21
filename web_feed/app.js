@@ -8634,10 +8634,10 @@ function toggleRefineCoreTake(val) {
   }
 }
 
-let creatorVocabularyStyle = 'punchy'; // 'punchy' | 'conversational' | 'analytical'
+let creatorVocabularyStyle = 'casual'; // Internal default: Casual with simple, easily understood words
 
 function setVocabularyStyle(style) {
-  creatorVocabularyStyle = style;
+  creatorVocabularyStyle = style || 'casual';
   const badge = document.getElementById('slantVocabBadge');
   const sub = document.getElementById('slantVocabSubtitle');
 
@@ -8645,7 +8645,7 @@ function setVocabularyStyle(style) {
     btn.classList.toggle('active', btn.dataset.vocab === style);
   });
 
-  if (style === 'conversational') {
+  if (style === 'conversational' || style === 'casual') {
     if (badge) badge.textContent = '💬 Casual';
     if (sub) sub.textContent = 'Natural everyday English. Clean, grounded, and universally easy to read.';
   } else if (style === 'analytical') {
@@ -11242,7 +11242,7 @@ async function triggerCueSuggest() {
         countryContext: creatorCountryContext?.name || 'India',
         countryCode: creatorCountryContext?.code || 'IN',
         creatorEmail: currentUser?.email || '',
-        vocabularyStyle: creatorVocabularyStyle || 'punchy',
+        vocabularyStyle: creatorVocabularyStyle || 'casual',
         perspectiveMode: creatorPerspectiveMode || 'hybrid',
         slantTone: (creatorSelectedSource === 'inner_voice' || /\b(family|child|love|heart|trip|vacation|weekend|pack|burnout|unplug|memoir|personal)\b/i.test(`${slantTake} ${spark}`)) ? 'heart' : 'mind',
         imageBase64: effectiveCuesImage,
@@ -11571,7 +11571,7 @@ async function startAiSynthesis() {
     heroCue: creatorCuePills[0] || '',
     characterRepresentation: creatorCharacterRepresentation,
     refineCoreTake: creatorRefineCoreTake,
-    vocabularyStyle: creatorVocabularyStyle || 'punchy',
+    vocabularyStyle: creatorVocabularyStyle || 'casual',
     countryContext: creatorCountryContext?.name || 'India',
     sourceLedger: currentSourceLedger || null,
     scrapedTitle: (isLink && url) ? (currentScrapedArticle?.title || '') : '',
@@ -11670,7 +11670,7 @@ async function startAiSynthesis() {
         heroCue: creatorCuePills[0] || '',
         characterRepresentation: creatorCharacterRepresentation,
         refineCoreTake: creatorRefineCoreTake,
-        vocabularyStyle: creatorVocabularyStyle || 'punchy',
+        vocabularyStyle: creatorVocabularyStyle || 'casual',
         countryContext: creatorCountryContext?.name || 'India',
         sourceLedger: currentSourceLedger || null,
         scrapedTitle: (isLink && url) ? (currentScrapedArticle?.title || '') : '',
