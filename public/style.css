@@ -12938,19 +12938,22 @@ mark.polish-mark:hover, mark.polish-mark.active {
   }
 
   .creator-nav-arrow {
-    width: 44px;
-    height: 48px;
-    border-radius: 12px;
+    width: 48px;
+    height: 52px;
+    min-height: 52px;
+    border-radius: 14px;
     flex-shrink: 0;
   }
 
   .creator-nav-main-btn {
-    height: 48px;
-    font-size: 14px;
+    height: 52px;
+    min-height: 52px;
+    font-size: 15px;
     font-weight: 800;
     min-width: 0;
     flex: 1 1 0;
-    padding: 0 12px;
+    padding: 0 16px;
+    border-radius: 14px;
   }
 
   .creator-nav-main-btn .btn-text {
@@ -12964,9 +12967,9 @@ mark.polish-mark:hover, mark.polish-mark.active {
   .creator-scroll-spacer {
     display: block;
     width: 100%;
-    height: 56px;
-    height: max(56px, calc(env(safe-area-inset-bottom, 0px) + 36px));
-    min-height: 56px;
+    height: 80px;
+    height: max(80px, calc(env(safe-area-inset-bottom, 0px) + 54px));
+    min-height: 80px;
     flex-shrink: 0;
     pointer-events: none;
   }
@@ -16244,8 +16247,11 @@ mark.polish-mark:hover, mark.polish-mark.active {
   flex: 0 0 auto;
   background: rgba(255, 255, 255, 0.05);
   border: 1.5px solid rgba(255, 255, 255, 0.14);
-  border-radius: 16px;
-  padding: 9px 13px;
+  border-radius: 14px;
+  padding: 10px 14px;
+  height: 52px;
+  min-height: 52px;
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -16329,8 +16335,29 @@ mark.polish-mark:hover, mark.polish-mark.active {
 
 .creator-step1-nav .creator-synthesize-btn {
   flex: 1;
+  height: 52px;
+  min-height: 52px;
+  font-size: 15.5px;
+  font-weight: 800;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 0 20px;
   background: linear-gradient(135deg, #7C3AED 0%, #4F46E5 50%, #2563EB 100%);
   box-shadow: 0 4px 20px rgba(124, 58, 237, 0.45);
+  box-sizing: border-box;
+}
+
+.creator-step1-nav .creator-synthesize-btn .btn-text {
+  font-size: 15.5px;
+  font-weight: 800;
+  letter-spacing: -0.2px;
+}
+
+.creator-step1-nav .creator-synthesize-btn .btn-stars {
+  font-size: 18px;
 }
 
 /* Equalizer Modal Sheet */
@@ -16829,24 +16856,29 @@ mark.polish-mark:hover, mark.polish-mark.active {
 
 /* Equalizer Sheet Footer */
 .equalizer-sheet-footer {
-  padding: 14px 22px 18px 22px;
+  padding: 14px 18px max(18px, calc(env(safe-area-inset-bottom, 0px) + 12px)) 18px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
   display: flex;
-  gap: 10px;
+  gap: 12px;
   align-items: center;
-  background: rgba(11, 15, 25, 0.95);
+  background: rgba(11, 15, 25, 0.98);
 }
 
 .equalizer-done-btn {
   flex: 1;
-  padding: 11px 16px;
-  border-radius: 12px;
+  height: 50px;
+  min-height: 50px;
+  padding: 0 16px;
+  border-radius: 14px;
   background: rgba(255, 255, 255, 0.07);
   border: 1px solid rgba(255, 255, 255, 0.14);
   color: #F1F5F9;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   transition: all 0.15s ease;
 }
 
@@ -16857,21 +16889,27 @@ mark.polish-mark:hover, mark.polish-mark.active {
 
 .equalizer-synth-btn {
   flex: 2;
-  padding: 11px 16px;
-  border-radius: 12px;
+  height: 50px;
+  min-height: 50px;
+  padding: 0 18px;
+  border-radius: 14px;
   background: linear-gradient(135deg, #7C3AED 0%, #4F46E5 100%);
   border: none;
   color: #FFFFFF;
-  font-size: 13px;
-  font-weight: 700;
+  font-size: 15px;
+  font-weight: 800;
   cursor: pointer;
-  box-shadow: 0 4px 16px rgba(124, 58, 237, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 4px 18px rgba(124, 58, 237, 0.45);
   transition: all 0.15s ease;
 }
 
 .equalizer-synth-btn:hover {
   filter: brightness(1.08);
-  box-shadow: 0 6px 20px rgba(124, 58, 237, 0.55);
+  box-shadow: 0 6px 22px rgba(124, 58, 237, 0.6);
 }
 
 /* Cue Inspect Popover Overlay */
@@ -17027,11 +17065,44 @@ mark.polish-mark:hover, mark.polish-mark.active {
 @media (max-width: 640px) {
   .creator-step1-nav {
     flex-direction: column;
-    gap: 8px;
+    gap: 10px;
+    width: 100%;
+    align-items: stretch;
   }
   .creator-equalizer-pill-btn {
     width: 100%;
-    flex: 1 1 auto;
+    height: 48px;
+    min-height: 48px;
+    padding: 8px 14px;
+    border-radius: 13px;
+    flex: 0 0 auto;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .creator-equalizer-summary {
+    max-width: none;
+    flex: 1;
+  }
+  .creator-step1-nav .creator-synthesize-btn {
+    width: 100%;
+    height: 54px;
+    min-height: 54px;
+    font-size: 16px;
+    font-weight: 800;
+    border-radius: 14px;
+    padding: 0 20px;
+    flex: 0 0 auto;
+    box-sizing: border-box;
+    box-shadow: 0 6px 24px rgba(124, 58, 237, 0.5);
+  }
+  .creator-step1-nav .creator-synthesize-btn .btn-text {
+    font-size: 16px;
+    font-weight: 800;
+  }
+  .creator-step1-nav .creator-synthesize-btn .btn-stars {
+    font-size: 19px;
   }
   .creator-equalizer-sheet {
     max-height: 92vh;
