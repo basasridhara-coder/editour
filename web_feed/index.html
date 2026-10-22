@@ -1001,25 +1001,8 @@
             </div>
           </div>
 
-          <!-- Live Visual Preview Box showing reference output -->
-          <div class="equalizer-portrayal-preview-card" id="equalizerPortrayalPreviewCard">
-            <div class="portrayal-preview-thumb-wrap">
-              <img id="portrayalPreviewImg" src="https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/slant-1792605207206-4q1nh.webp" alt="AI Illustration preview" class="portrayal-preview-img">
-            </div>
-            <div class="portrayal-preview-meta">
-              <div class="portrayal-preview-header-row">
-                <span class="portrayal-preview-name" id="portrayalPreviewName">AI Illustration</span>
-                <span class="portrayal-preview-badge" id="portrayalPreviewBadge">Default Style</span>
-              </div>
-              <div class="portrayal-preview-title" id="portrayalPreviewTitle">Vivid Editorial Realism</div>
-              <p class="portrayal-preview-desc" id="portrayalPreviewDesc">
-                High-impact editorial broadsheet illustration faithfully capturing key figures, real-world setting, and dramatic journalistic realism.
-              </p>
-            </div>
-          </div>
-
-          <!-- Portrayal Selector Cards -->
-          <div class="equalizer-portrayal-grid">
+          <!-- Portrayal Selector Cards with Inline Dynamic Preview Directly Below Active Choice -->
+          <div class="equalizer-portrayal-grid" id="equalizerPortrayalGrid">
             <button type="button" class="equalizer-portrayal-card active" id="eqRepRealistic" onclick="selectEqualizerPortrayal('realistic')">
               <div class="portrayal-card-thumb-mini">
                 <img src="https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/slant-1792605207206-4q1nh.webp" alt="AI Illustration">
@@ -1032,6 +1015,23 @@
                 <span class="portrayal-card-summary">Vivid editorial realism faithfully capturing key figures and news setting</span>
               </div>
             </button>
+
+            <!-- Dynamic Live Visual Preview Box: positions directly beneath whichever portrayal is active -->
+            <div class="equalizer-portrayal-preview-card" id="equalizerPortrayalPreviewCard">
+              <div class="portrayal-preview-thumb-wrap">
+                <img id="portrayalPreviewImg" src="https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/slant-1792605207206-4q1nh.webp" alt="AI Illustration preview" class="portrayal-preview-img">
+              </div>
+              <div class="portrayal-preview-meta">
+                <div class="portrayal-preview-header-row">
+                  <span class="portrayal-preview-name" id="portrayalPreviewName">AI Illustration</span>
+                  <span class="portrayal-preview-badge" id="portrayalPreviewBadge">Default Style</span>
+                </div>
+                <div class="portrayal-preview-title" id="portrayalPreviewTitle">Vivid Editorial Realism</div>
+                <p class="portrayal-preview-desc" id="portrayalPreviewDesc">
+                  High-impact editorial broadsheet illustration faithfully capturing key figures, real-world setting, and dramatic journalistic realism.
+                </p>
+              </div>
+            </div>
 
             <button type="button" class="equalizer-portrayal-card" id="eqRepCinematic" onclick="selectEqualizerPortrayal('cinematic')">
               <div class="portrayal-card-thumb-mini">

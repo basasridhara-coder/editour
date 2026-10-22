@@ -9077,6 +9077,25 @@ function updateEqualizerPortrayalUI() {
   if (repSilhouette) repSilhouette.classList.toggle('active', creatorCharacterRepresentation === 'silhouette');
   if (eqExact) eqExact.classList.toggle('active', creatorCharacterRepresentation === 'exact');
 
+  // Move live preview card directly beneath whichever portrayal card is active
+  let activeCard = repRealistic;
+  if (creatorCharacterRepresentation === 'cinematic' || creatorCharacterRepresentation === 'likeness') {
+    activeCard = repCinematic;
+  } else if (creatorCharacterRepresentation === 'painting') {
+    activeCard = repPainting;
+  } else if (creatorCharacterRepresentation === 'silhouette') {
+    activeCard = repSilhouette;
+  } else if (creatorCharacterRepresentation === 'exact') {
+    activeCard = eqExact;
+  }
+
+  const previewCard = document.getElementById('equalizerPortrayalPreviewCard');
+  if (activeCard && previewCard && activeCard.parentNode) {
+    if (activeCard.nextElementSibling !== previewCard) {
+      activeCard.insertAdjacentElement('afterend', previewCard);
+    }
+  }
+
   // Update live preview card
   const preview = PORTRAYAL_STYLE_PREVIEWS[creatorCharacterRepresentation] || PORTRAYAL_STYLE_PREVIEWS.realistic;
   const pImg = document.getElementById('portrayalPreviewImg');
