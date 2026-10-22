@@ -55,7 +55,7 @@ module.exports = async function handler(req, res) {
     newsHeadline = '',
     newsBody = '',
     sourceType = 'digital_link',
-    characterRepresentation = 'painting',
+    characterRepresentation = 'realistic',
     selectedIndices = [],
     existingCues = [],
     familyCast = null,
@@ -94,7 +94,8 @@ module.exports = async function handler(req, res) {
   const isPainting = (characterRepresentation === 'painting');
   const isExact = (characterRepresentation === 'exact');
   const isSilhouette = (characterRepresentation === 'silhouette');
-  const hasPersonFocus = isCinematic || isPainting || isExact;
+  const isRealistic = (characterRepresentation === 'realistic' || (!isCinematic && !isPainting && !isExact && !isSilhouette));
+  const hasPersonFocus = isCinematic || isPainting || isExact || isRealistic;
 
   const combinedTopic = `${curatorAngle || ''} ${spark || ''} ${effectiveNewsHeadline} ${effectiveNewsBody}`.toLowerCase();
   const isPersonalStory = (sourceType === 'inner_voice') ||
@@ -149,7 +150,7 @@ The visual cues MUST authentically capture the human situation, intimate setting
         ? 'CRITICAL EXACT PHOTO DIRECTIVE: The curator requested to USE THE EXACT PHOTO. The #1 HERO cue should specify the primary photographic subject (e.g. "Donald Trump (Lead Photo Focus)").'
         : (isSilhouette
           ? 'MINIMALIST SILHOUETTE DIRECTIVE: The curator explicitly requested silhouette portrayal. #1 HERO should use minimalist shadow outlines.'
-          : 'VIVID EDITORIAL REALISM DIRECTIVE: All human subjects MUST be depicted as warm, realistic, expressive people with visible faces, natural lighting, and tangible environments. NEVER suggest pitch-black silhouettes, faceless shadow phantoms, or creepy dark figures!')));
+          : 'CRITICAL AI ILLUSTRATION (VIVID EDITORIAL REALISM) DIRECTIVE: High-impact editorial broadsheet illustration faithfully capturing key figures, real-world setting, and dramatic journalistic realism. In Source Grounded mode or for news stories with a clear public figure, leader, or speaker in the thumbnail/article, the #1 HERO cue MUST explicitly name and identify the central individual (e.g. "French President Emmanuel Macron at podium", "Italian Prime Minister Giorgia Meloni", "Actor Ashish Vidyarthi (Editorial Portrait)"). Style: Vivid editorial realism with clear, recognizable facial features, natural lighting, and sharp journalistic clarity. STRICT BAN: NEVER pitch-black silhouettes, NEVER faceless shadows, NEVER creepy ghost-like phantoms!')));
 
   const dimensionNames = ['#1 HERO', '#2 MOTIF', '#3 TENSION', '#4 ATMOSPHERE', '#5 LIGHTING', '#6 STYLE'];
   let variationDirective = '';
@@ -233,7 +234,7 @@ Source Type: ${sourceType}
 Visual Focus: ${perspectiveMode === 'curator' ? 'Curator Angle (Metaphor)' : (perspectiveMode === 'source' ? 'Source Grounded (Physical Reality)' : 'Hybrid Blend')}
 Slant Tone: ${slantTone === 'heart' ? 'Out of Heart (Emotive, Humanistic, Personal Reflection)' : 'Out of Mind (Analytical, Strategic, Systemic Broadsheet)'}
 Regional & Cultural Setting: ${countryContext || 'Global / Contextually Detected'}
-Character Portrayal Style: ${isExact ? 'EXACT PHOTO FOCUS' : (isCinematic ? 'CINEMATIC EDITORIAL PHOTO (35MM CAMERA FIDELITY)' : (isPainting ? 'ARTISTIC BROADSHEET PAINTING (GOUACHE & OIL)' : (isSilhouette ? 'Stylized Minimalist Silhouette' : 'Vivid Editorial Realism (Realistic & Expressive Human Subjects)')))}
+Character Portrayal Style: ${isExact ? 'EXACT PHOTO FOCUS' : (isCinematic ? 'CINEMATIC EDITORIAL PHOTO (35MM CAMERA FIDELITY)' : (isPainting ? 'ARTISTIC BROADSHEET PAINTING (GOUACHE & OIL)' : (isSilhouette ? 'Stylized Minimalist Silhouette' : 'AI Illustration (Vivid Editorial Realism)')))}
 
 ${perspectiveDirective}
 
@@ -252,12 +253,12 @@ ${lightingDirective}
 ${variationDirective}
 
 STRICT VISUAL CUE REQUIREMENTS (Must be short, punchy 3-6 word phrases):
-1. HERO: Central focal figure, subject, or architectural centerpiece. ${hasPersonFocus ? 'Must be the central individual identified in the story (e.g. "Donald Trump Lookalike Editorial Portrait").' : (isSilhouette ? 'Minimalist silhouette or outline.' : 'Warm, realistic protagonist or subject with visible human expression (e.g. "Parent and Child Packing Suitcase", "Monolithic Obsidian Server Tower", "Lone Sweeper with Traditional Broom"). NEVER pitch-black silhouettes, NEVER ghost figures!')} Never output a URL, protocol, or punctuation!
+1. HERO: Central focal figure, subject, or architectural centerpiece. ${hasPersonFocus ? 'For stories with a recognizable public figure, leader, or speaker, explicitly name and identify the central individual (e.g. "French President Emmanuel Macron at podium", "Actor Ashish Vidyarthi (Editorial Portrait)").' : (isSilhouette ? 'Minimalist silhouette or outline.' : 'Warm, realistic protagonist or subject with visible human expression (e.g. "Parent and Child Packing Suitcase", "Monolithic Obsidian Server Tower", "Lone Sweeper with Traditional Broom"). NEVER pitch-black silhouettes, NEVER ghost figures!')} Never output a URL, protocol, or punctuation!
 2. MOTIF: Secondary symbolic metaphorical object capturing the curator's philosophical stance or critique (e.g. "Child Holding Forgotten Travel Item", "Tangled Marionette Puppet Strings", "Sculptor Chisel against Marble", "Tipping Balance Scales").
 3. TENSION: Opposing visual friction, conflict, shadow, crisis, or counter-force (e.g. "Work Deadlines Clashing with Escape", "Relentless Tidal Wave of Noise", "Cracking Stone Foundation", "Looming Corporate Shadow").
 4. ATMOSPHERE: Setting, environmental scale, weather, or time of day (e.g. "Cluttered Study with Kerala Palms", "Damp Rain-Slicked City Boulevard", "Smoke-Filled High-Rise Boardroom").
 5. LIGHTING: Evocative 3-6 word lighting mood strictly reflecting the topic and emotional stance (e.g. "Cold Steel-Blue Chiaroscuro Rim", "Forensic Overhead Halogen Grid", "Soft Fog-Diffused Morning Light", "Dramatic Low-Angle Razor Spotlight"). STRICTLY AVOID generic "Golden Hour" or "Warm Sunset" cliches unless an outdoor sunset is explicitly central to the narrative!
-6. STYLE: Specific high-aesthetic visual medium (e.g. ${isCinematic ? '"Cinematic 35mm Editorial Photography"' : (isPainting ? '"Warm Cinematic Editorial Gouache Painting"' : '"Cinematic Warm Editorial Illustration"')}, "High-Contrast Noir Risograph Print", "Bauhaus Geometric Vector Art").
+6. STYLE: Specific high-aesthetic visual medium (e.g. ${isCinematic ? '"Cinematic 35mm Editorial Photography"' : (isPainting ? '"Warm Cinematic Editorial Gouache Painting"' : '"Cinematic News Broadcast Editorial Illustration" or "High-Impact Broadsheet Editorial Illustration"')}, "High-Contrast Noir Risograph Print", "Bauhaus Geometric Vector Art").
 
 CRITICAL RULE: Under no circumstances output URLs, web links, "https", or technical domain strings. Every cue must be evocative visual imagery.
 VOCABULARY DIRECTIVE: Use crisp, vivid, easily understood visual English. NEVER use pretentious academic jargon or obscure Latinate words. Ground every cue in tangible, emotional, concrete reality.
@@ -355,7 +356,7 @@ Respond strictly with valid JSON with this exact schema:
   }
 };
 
-function generateSmartFallbackCues(curatorAngle = '', spark = '', newsHeadline = '', newsBody = '', characterRepresentation = 'painting', countryContext = '', sourceType = 'digital_link', selectedIndices = [], existingCues = []) {
+function generateSmartFallbackCues(curatorAngle = '', spark = '', newsHeadline = '', newsBody = '', characterRepresentation = 'realistic', countryContext = '', sourceType = 'digital_link', selectedIndices = [], existingCues = []) {
   const combined = `${curatorAngle || ''} ${spark || ''} ${newsHeadline || ''} ${newsBody || ''}`.toLowerCase();
   const isLikeness = (characterRepresentation === 'likeness');
   const isIndia = (countryContext === 'India') || combined.includes('india') || combined.includes('delhi') || combined.includes('kerala') || combined.includes('thehindu');

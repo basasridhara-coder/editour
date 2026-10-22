@@ -671,11 +671,11 @@
                 </div>
               </div>
               <div class="character-rep-options">
-                <div class="rep-option active" id="repOptionPainting" onclick="selectCharacterRepresentation('painting')">
+                <div class="rep-option active" id="repOptionRealistic" onclick="selectCharacterRepresentation('realistic')">
                   <div class="rep-radio-circle"></div>
                   <div class="rep-option-body">
-                    <span class="rep-option-title" id="repPaintingTitle">🎨 AI Illustration (Artistic Broadsheet Painting)</span>
-                    <span class="rep-option-desc" id="repPaintingDesc">Warm editorial broadsheet illustration in gouache and oil textures capturing the scene and figures in rich painted pigments.</span>
+                    <span class="rep-option-title" id="repRealisticTitle">🎨 AI Illustration (Vivid Editorial Realism)</span>
+                    <span class="rep-option-desc" id="repRealisticDesc">High-impact editorial broadsheet illustration faithfully capturing key figures, real-world setting, and dramatic journalistic realism.</span>
                   </div>
                 </div>
                 <div class="rep-option" id="repOptionCinematic" onclick="selectCharacterRepresentation('cinematic')">
@@ -685,11 +685,11 @@
                     <span class="rep-option-desc" id="repCinematicDesc">Produces a sharp 35mm documentary photograph capturing facial structure, expression, and lighting with natural camera fidelity.</span>
                   </div>
                 </div>
-                <div class="rep-option" id="repOptionRealistic" onclick="selectCharacterRepresentation('realistic')">
+                <div class="rep-option" id="repOptionPainting" onclick="selectCharacterRepresentation('painting')">
                   <div class="rep-radio-circle"></div>
                   <div class="rep-option-body">
-                    <span class="rep-option-title" id="repRealisticTitle">👤 Generic Human Realism (Artwork)</span>
-                    <span class="rep-option-desc" id="repRealisticDesc">Warm, expressive human beings representing the general theme rather than matching the photo's subjects.</span>
+                    <span class="rep-option-title" id="repPaintingTitle">🖌️ Artistic Broadsheet Painting (Artwork)</span>
+                    <span class="rep-option-desc" id="repPaintingDesc">Warm editorial broadsheet illustration in gouache and oil textures capturing the scene and figures in rich painted pigments.</span>
                   </div>
                 </div>
                 <div class="rep-option" id="repOptionSilhouette" onclick="selectCharacterRepresentation('silhouette')">
@@ -1004,32 +1004,32 @@
           <!-- Live Visual Preview Box showing reference output -->
           <div class="equalizer-portrayal-preview-card" id="equalizerPortrayalPreviewCard">
             <div class="portrayal-preview-thumb-wrap">
-              <img id="portrayalPreviewImg" src="/illustrations/129eb76c-5699-4e97-b16e-fbe5a0ea38c8.jpg" alt="Artistic illustration preview" class="portrayal-preview-img">
+              <img id="portrayalPreviewImg" src="https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/slant-1792605207206-4q1nh.webp" alt="AI Illustration preview" class="portrayal-preview-img">
             </div>
             <div class="portrayal-preview-meta">
               <div class="portrayal-preview-header-row">
                 <span class="portrayal-preview-name" id="portrayalPreviewName">AI Illustration</span>
                 <span class="portrayal-preview-badge" id="portrayalPreviewBadge">Default Style</span>
               </div>
-              <div class="portrayal-preview-title" id="portrayalPreviewTitle">Artistic Broadsheet Painting</div>
+              <div class="portrayal-preview-title" id="portrayalPreviewTitle">Vivid Editorial Realism</div>
               <p class="portrayal-preview-desc" id="portrayalPreviewDesc">
-                Warm editorial broadsheet artwork rendered in rich gouache, oil textures, and painterly pigments. Captures people with recognizable presence and artistic craft.
+                High-impact editorial broadsheet illustration faithfully capturing key figures, real-world setting, and dramatic journalistic realism.
               </p>
             </div>
           </div>
 
           <!-- Portrayal Selector Cards -->
           <div class="equalizer-portrayal-grid">
-            <button type="button" class="equalizer-portrayal-card active" id="eqRepPainting" onclick="selectEqualizerPortrayal('painting')">
+            <button type="button" class="equalizer-portrayal-card active" id="eqRepRealistic" onclick="selectEqualizerPortrayal('realistic')">
               <div class="portrayal-card-thumb-mini">
-                <img src="/illustrations/129eb76c-5699-4e97-b16e-fbe5a0ea38c8.jpg" alt="AI Illustration">
+                <img src="https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/slant-1792605207206-4q1nh.webp" alt="AI Illustration">
               </div>
               <div class="portrayal-card-info">
                 <div class="portrayal-card-title-row">
                   <span class="portrayal-card-title">🎨 AI Illustration</span>
                   <span class="portrayal-card-subtag">Default</span>
                 </div>
-                <span class="portrayal-card-summary">Artistic broadsheet painting in gouache and oil textures</span>
+                <span class="portrayal-card-summary">Vivid editorial realism faithfully capturing key figures and news setting</span>
               </div>
             </button>
 
@@ -1045,15 +1045,15 @@
               </div>
             </button>
 
-            <button type="button" class="equalizer-portrayal-card" id="eqRepRealistic" onclick="selectEqualizerPortrayal('realistic')">
+            <button type="button" class="equalizer-portrayal-card" id="eqRepPainting" onclick="selectEqualizerPortrayal('painting')">
               <div class="portrayal-card-thumb-mini">
-                <img src="/posters/slant-1791462015409-wurnu.png" alt="Generic Human Realism">
+                <img src="/illustrations/129eb76c-5699-4e97-b16e-fbe5a0ea38c8.jpg" alt="Artistic Broadsheet Painting">
               </div>
               <div class="portrayal-card-info">
                 <div class="portrayal-card-title-row">
-                  <span class="portrayal-card-title">👤 Generic Human Realism</span>
+                  <span class="portrayal-card-title">🖌️ Broadsheet Painting</span>
                 </div>
-                <span class="portrayal-card-summary">Expressive human figures representing narrative theme</span>
+                <span class="portrayal-card-summary">Artistic broadsheet painting in gouache and oil textures</span>
               </div>
             </button>
 

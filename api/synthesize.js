@@ -570,7 +570,7 @@ Respond strictly with valid JSON with this exact structure:
       creatorEmail = '',
       cues = [],
       heroCue = '',
-      characterRepresentation = 'painting',
+      characterRepresentation = 'realistic',
       scrapedTitle = '',
       scrapedContent = '',
       countryContext = '',
@@ -852,7 +852,7 @@ ${countryContext && countryContext !== 'Global' ? `CRITICAL GEOGRAPHIC & CULTURA
       ? 'Artistic Broadsheet Painting (Artwork): Warm painted broadsheet illustration in gouache and oil style capturing the scene and figures in rich painted pigments.' 
       : (characterRepresentation === 'silhouette'
         ? 'Minimalist silhouette / stark shadow figures (ONLY if explicitly demanded)'
-        : 'Vivid Editorial Realism & Expressive People: Warm, realistic, expressive human beings with clearly visible faces, natural skin tones, clear clothing, and bright warm ambient lighting. STRICT BAN: NEVER pitch-black silhouettes, NEVER faceless shadows, NEVER dark doorway shadow figures, NEVER creepy ghost-like phantoms!')))}
+        : 'AI Illustration (Vivid Editorial Realism): High-impact editorial broadsheet illustration faithfully capturing key figures, real-world setting, and dramatic journalistic realism.')))}
 ${isCinematicPhoto && (effectiveCatalystImage || sourceImageBase64) ? `CRITICAL CINEMATIC EDITORIAL PHOTOGRAPHY DIRECTIVE (PICTURE-LIKE QUALITY, ZERO DIGITAL FOOTPRINT):
 - An authentic real-world photograph is attached. The curator requested Cinematic Editorial Photo portrayal for Poster 1 (picture-like photographic quality).
 - In "illustrationPrompt", perform an astute visual analysis of the key people and environment visible in the attached photo to produce an award-winning 35mm editorial documentary photograph / film still:
@@ -860,7 +860,7 @@ ${isCinematicPhoto && (effectiveCatalystImage || sourceImageBase64) ? `CRITICAL 
   2. FACIAL STRUCTURE & EXPRESSIONS: Describe the face shape (e.g. oval, soft round cheeks, structured jaw), warm skin tones, dark almond eyes, natural eye gaze, and authentic thoughtful or joyful expressions.
   3. HAIR & POSTURE: Describe haircut, texture, parting, and color (e.g. dark straight fringe, wavy side-parted hair), height difference, age group, and body posture (e.g. brotherly arm over shoulder).
   4. CLOTHING & SETTING: Describe clothing colors and styles (e.g. vibrant blue graphic t-shirt, light shorts, white tank top) set in the authentic physical environment (e.g. bright sunlit domestic veranda, wooden carved door, granite floor, stainless steel railing) with natural ambient midday sunlight.
-  5. PRIVACY & SAFETY CONSTRAINT: DO NOT use real names, do not use words like "clone", "replica", or "deepfake". Describe them as archetypal human subjects so the photo captures their scene and presence with complete privacy.` : ''}
+  5. PRIVACY & IDENTITY CONSTRAINT: ${sourceType === 'inner_voice' ? 'DO NOT use real private names, do not use words like "clone", "replica", or "deepfake". Describe them as archetypal human subjects so the photo captures their scene and presence with complete privacy.' : 'When the source is an authentic news article or YouTube video depicting a recognizable public figure, leader, or speaker, describe and name them directly to preserve authentic journalistic context.'}` : ''}
 ${isArtisticPainting && (effectiveCatalystImage || sourceImageBase64) ? `CRITICAL ARTISTIC BROADSHEET PAINTING DIRECTIVE (PAINTED ARTWORK):
 - An authentic real-world photograph is attached. The curator requested Artistic Broadsheet Painting portrayal for Poster 1.
 - In "illustrationPrompt", perform an astute visual analysis of the key people visible in the attached photo to describe their physical facial characteristics, hairstyle, age, stature, and clothing:
@@ -869,7 +869,18 @@ ${isArtisticPainting && (effectiveCatalystImage || sourceImageBase64) ? `CRITICA
   3. RELATIVE STATURE & CLOTHING: Describe the age gap, height difference, clothing colors and styles.
   4. ENVIRONMENT & LIGHTING: Describe the setting bathed in natural midday sunlight.
   5. ARTISTIC MEDIUM: Frame the prompt as an expressive masterpiece editorial painting (e.g. "Warm cinematic editorial gouache and oil painting with rich textures, vivid color grading, lifelike human expression").
-  6. PRIVACY & SAFETY CONSTRAINT: DO NOT use real names, do not use words like "clone", "replica", or "deepfake". Describe them as artistic archetypal protagonists so the artwork captures their recognizable essence and warmth while protecting their privacy.` : ''}
+  6. PRIVACY & IDENTITY CONSTRAINT: ${sourceType === 'inner_voice' ? 'DO NOT use real private names, do not use words like "clone", "replica", or "deepfake". Describe them as artistic archetypal protagonists so the artwork captures their recognizable essence and warmth while protecting their privacy.' : 'When the source is an authentic news article or YouTube video depicting a recognizable public figure, leader, or speaker, describe and name them directly to preserve authentic journalistic context.'}` : ''}
+${(!isCinematicPhoto && !isArtisticPainting && characterRepresentation !== 'exact' && characterRepresentation !== 'silhouette') ? `CRITICAL AI ILLUSTRATION (VIVID EDITORIAL REALISM) DIRECTIVE:
+- The curator requested AI Illustration (Vivid Editorial Realism) for Poster 1 (the signature Slant broadsheet style).
+- In "illustrationPrompt", generate a high-impact editorial broadsheet illustration faithfully capturing the key figures, real-world setting, and dramatic journalistic realism.
+${((sourceType === 'digital_link' || sourceType === 'video_audio') && (sourceImageBase64 || sourceImageUrl || scrapedTitle)) ? `- SOURCE GROUNDED PUBLIC FIGURE & NEWS DIRECTIVE:
+  * When the source features a recognizable public figure, political leader, speaker, or subject in the thumbnail, headline, or article (e.g. French President Emmanuel Macron, Italian Prime Minister Giorgia Meloni, Actor Ashish Vidyarthi), NAME AND PORTRAY THEM DIRECTLY in the foreground with vivid realistic faces, natural warm lighting on skin tones, balanced studio spotlights, and dramatic journalistic realism.
+  * Faithfully ground the background and composition in the real-world scene visible in the source thumbnail or news context (e.g. official press podium, microphones, broadcast studio, civic architecture, armed guard, street protest).
+  * STRICT BAN: NEVER replace named public leaders or speakers with anonymous generic strangers! NEVER create pitch-black silhouettes, faceless shadow phantoms, or creepy figures!` : ''}
+${(sourceType === 'inner_voice' && effectiveCatalystImage) ? `- INNER VOICE CATALYST PHOTO DIRECTIVE:
+  * Faithfully capture the authentic human presence, facial structure, haircut, and warm natural expressions of the people in the attached photo.
+  * Frame as high-impact editorial realism with warm natural lighting and genuine human warmth.
+  * PRIVACY & SAFETY CONSTRAINT: DO NOT use real private family names, do not use words like "clone", "replica", or "deepfake". Describe them with vivid descriptive attributes protecting private identity.` : ''}` : ''}
 ${characterRepresentation === 'exact' ? 'CRITICAL EXACT PHOTO DIRECTIVE: Character Portrayal is set to USE EXACT PHOTO. The heroCue should highlight the central photographic subject of the unedited news photo.' : ''}
 
 ${vocabDirective}
@@ -984,7 +995,7 @@ Respond strictly with valid JSON with this exact structure:
   "atmosphereCue": "Environmental setting or mood",
   "lightingCue": "Dramatic lighting description",
   "styleCue": "Aesthetic style and medium (e.g. Broadsheet Gouache and Oil Painting, 35mm Editorial Photography)",
-  "illustrationPrompt": "${isCinematicPhoto ? 'Award-winning 35mm editorial news photograph in 4:5 vertical portrait format, sharp camera focus, natural skin textures, lifelike human expressions, realistic clothing and environment observed from the attached photo. Natural ambient lighting, cinematic color grading, strictly no painterly brushstrokes, no canvas textures, no oil paint, no text, no letters.' : (isArtisticPainting ? 'Masterpiece editorial broadsheet painted illustration describing the scene in vivid detail. Specifically incorporate the observed facial structures, hairstyles, expressions, clothing colors, and postures from the attached photo into a rich painterly composition. Clear, warmly lit faces, lifelike human expression, no text, no letters.' : (familyCastDirectives ? (familyCastDirectives.isSolo ? `Cinematic visual art prompt describing the scene with rich detail. Focus exclusively on the single protagonist: ${familyCastDirectives.soloName} (${familyCastDirectives.soloTraits}). Strictly do not draw any extra family members, parents, or background companions. Warm natural lighting, clear human form, no text, no letters, no typography.` : `Cinematic visual art prompt describing the scene with rich detail. MANDATORY HEADCOUNT: You MUST begin with the exact headcount of all ${familyCastDirectives.totalCount} family members visible side by side. All ${familyCastDirectives.totalCount} members must be individually visible with warm, fully illuminated faces. Preserve each character uncompromisable physical anatomy (face shape, natural hair length, real-world body build) strictly without morphing into western catalog models or salon blowouts. Do not draw detached foreground hands or extra people. No text, no letters, no typography.`) : 'Cinematic visual art prompt describing the scene with rich detail. People MUST have visible faces, warm natural lighting, and clear human form. Strictly avoid pitch-black silhouettes, faceless shadow figures, dark ghosts, or creepy silhouettes unless characterRepresentation is explicitly silhouette. Do not include any text, letters, watermarks, or typography.'))}"
+  "illustrationPrompt": "${isCinematicPhoto ? 'Award-winning 35mm editorial news photograph in 4:5 vertical portrait format, sharp camera focus, natural skin textures, lifelike human expressions, realistic clothing and environment observed from the attached photo. Natural ambient lighting, cinematic color grading, strictly no painterly brushstrokes, no canvas textures, no oil paint, no text, no letters.' : (isArtisticPainting ? 'Masterpiece editorial broadsheet painted illustration describing the scene in vivid detail. Specifically incorporate the observed facial structures, hairstyles, expressions, clothing colors, and postures from the attached photo into a rich painterly composition. Clear, warmly lit faces, lifelike human expression, no text, no letters.' : (familyCastDirectives ? (familyCastDirectives.isSolo ? `Cinematic visual art prompt describing the scene with rich detail. Focus exclusively on the single protagonist: ${familyCastDirectives.soloName} (${familyCastDirectives.soloTraits}). Strictly do not draw any extra family members, parents, or background companions. Warm natural lighting, clear human form, no text, no letters, no typography.` : `Cinematic visual art prompt describing the scene with rich detail. MANDATORY HEADCOUNT: You MUST begin with the exact headcount of all ${familyCastDirectives.totalCount} family members visible side by side. All ${familyCastDirectives.totalCount} members must be individually visible with warm, fully illuminated faces. Preserve each character uncompromisable physical anatomy (face shape, natural hair length, real-world body build) strictly without morphing into western catalog models or salon blowouts. Do not draw detached foreground hands or extra people. No text, no letters, no typography.`) : 'High-impact editorial broadsheet illustration in 4:5 vertical portrait format faithfully capturing key figures, real-world setting, and dramatic journalistic realism. For public leaders or figures from source news/video, name and portray them directly in the foreground with vivid realistic faces, natural warm lighting on skin tones, balanced studio spotlights, and dramatic journalistic realism. Strictly avoid pitch-black silhouettes, faceless shadow figures, dark ghosts, or generic substitutes. No text, no letters, no typography.'))}"
 }`;
 
     const parts = [];
@@ -1359,7 +1370,7 @@ Respond strictly with valid JSON with this exact structure:
           parsed.styleCue || (cues && cues[5]) || 'Cinematic Warm Editorial Illustration'
         ],
         heroCue: parsed.heroCue || (cues && cues[0]) || '',
-        characterRepresentation: characterRepresentation || 'painting',
+        characterRepresentation: characterRepresentation || 'realistic',
         refineCoreTake,
         vocabularyStyle: hasUserContext ? 'adaptive' : 'casual',
         countryContext: countryContext || 'India',
@@ -1935,6 +1946,32 @@ function isLikelyPersonSubject(name) {
 
 async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeType = 'image/jpeg', timeoutMs = 35000, familyCast = null, activeCast = null, stylizedAvatars = null, countryContext = '' }) {
   if (!GEMINI_API_KEY) return null;
+
+  // If a remote HTTP/HTTPS URL was passed instead of base64, fetch and convert to base64 safely
+  let resolvedBase64 = imageBase64;
+  let resolvedMime = imageMimeType || 'image/jpeg';
+  if (resolvedBase64 && typeof resolvedBase64 === 'string' && resolvedBase64.startsWith('http')) {
+    try {
+      const fCtrl = new AbortController();
+      const fTimer = setTimeout(() => fCtrl.abort(), 3500);
+      const fResp = await fetch(resolvedBase64.replace(/&amp;/g, '&'), {
+        signal: fCtrl.signal,
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SlantBot/1.0)' }
+      });
+      clearTimeout(fTimer);
+      if (fResp.ok) {
+        const ct = fResp.headers.get('content-type') || 'image/jpeg';
+        resolvedMime = ct.split(';')[0];
+        const ab = await fResp.arrayBuffer();
+        resolvedBase64 = Buffer.from(ab).toString('base64');
+      } else {
+        resolvedBase64 = null;
+      }
+    } catch (_) {
+      resolvedBase64 = null;
+    }
+  }
+
   const imageModels = [
     'gemini-2.5-flash-image',
     'gemini-3.1-flash-image',
@@ -2010,11 +2047,11 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
     parts.push({
       text: `Render this scene in high-aesthetic 4:5 vertical magazine portrait format: ${enhancedPrompt}. CRITICAL IDENTITY DIRECTIVE: Use the attached Character Models (#1 to #${stylizedAvatars.length}) as the exact illustrated likeness and facial models for the corresponding protagonists in this scene. Maintain their illustrated facial features, hairstyles, and authentic body proportions faithfully in this new context and attire. ${textureStyle}, masterwork, no typography, no letters, no text.`
     });
-  } else if (imageBase64) {
-    const cleanData = imageBase64.includes(',') ? imageBase64.split(',')[1] : imageBase64;
+  } else if (resolvedBase64) {
+    const cleanData = resolvedBase64.includes(',') ? resolvedBase64.split(',')[1] : resolvedBase64;
     parts.push({
       inlineData: {
-        mimeType: imageMimeType,
+        mimeType: resolvedMime,
         data: cleanData
       }
     });
@@ -2077,7 +2114,7 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
   }
 
   // If image-conditioned attempt returned nothing (e.g. policy block / IMAGE_OTHER on real faces), fallback to text prompt
-  if (imageBase64 || (stylizedAvatars && stylizedAvatars.length > 0)) {
+  if (resolvedBase64 || (stylizedAvatars && stylizedAvatars.length > 0)) {
     return generateGeminiEditorialArtwork({ prompt, imageBase64: null, timeoutMs, stylizedAvatars: null, countryContext });
   }
 

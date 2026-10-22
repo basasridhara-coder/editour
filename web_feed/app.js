@@ -8783,12 +8783,12 @@ function setPerspectiveMode(mode, fromUserClick = false) {
    ========================================================================== */
 
 const PORTRAYAL_STYLE_PREVIEWS = {
-  painting: {
+  realistic: {
     name: 'AI Illustration',
     badge: 'Default Style',
-    title: 'Artistic Broadsheet Painting',
-    desc: 'Warm editorial broadsheet artwork rendered in rich gouache, oil textures, and painterly pigments. Captures people with recognizable presence and artistic craft.',
-    image: '/illustrations/129eb76c-5699-4e97-b16e-fbe5a0ea38c8.jpg'
+    title: 'Vivid Editorial Realism',
+    desc: 'High-impact editorial broadsheet illustration faithfully capturing key figures, real-world setting, and dramatic journalistic realism.',
+    image: 'https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/slant-1792605207206-4q1nh.webp'
   },
   cinematic: {
     name: 'Cinematic Editorial Photo',
@@ -8797,12 +8797,12 @@ const PORTRAYAL_STYLE_PREVIEWS = {
     desc: 'Produces a sharp 35mm documentary photograph capturing facial structure, expression, and clothing with natural camera fidelity (Zero Digital Footprint).',
     image: '/posters/slant-1792580966403-awuxe.webp'
   },
-  realistic: {
-    name: 'Generic Human Realism',
-    badge: 'Human Realism',
-    title: 'Warm Figurative Art',
-    desc: 'Warm, expressive human beings representing the general theme rather than matching the photo\'s exact subjects.',
-    image: '/posters/slant-1791462015409-wurnu.png'
+  painting: {
+    name: 'Artistic Broadsheet Painting',
+    badge: 'Painted Artwork',
+    title: 'Gouache & Oil Pigments',
+    desc: 'Warm editorial broadsheet artwork rendered in rich gouache, oil textures, and painterly pigments. Captures people with recognizable presence and artistic craft.',
+    image: '/illustrations/129eb76c-5699-4e97-b16e-fbe5a0ea38c8.jpg'
   },
   silhouette: {
     name: 'Minimalist Silhouette',
@@ -8867,13 +8867,15 @@ function updateEqualizerSummary() {
     ? 'Source Grounded'
     : (creatorPerspectiveMode === 'curator' ? 'Curator Angle' : 'Hybrid Blend');
 
-  const portrayalName = (creatorCharacterRepresentation === 'painting')
+  const portrayalName = (creatorCharacterRepresentation === 'realistic')
     ? 'AI Illustration'
     : (creatorCharacterRepresentation === 'cinematic'
       ? 'Cinematic Photo'
-      : (creatorCharacterRepresentation === 'silhouette'
-        ? 'Silhouette'
-        : (creatorCharacterRepresentation === 'exact' ? 'Authentic Photo' : 'Human Realism')));
+      : (creatorCharacterRepresentation === 'painting'
+        ? 'Painting'
+        : (creatorCharacterRepresentation === 'silhouette'
+          ? 'Silhouette'
+          : (creatorCharacterRepresentation === 'exact' ? 'Authentic Photo' : 'AI Illustration'))));
 
   const countryName = creatorCountryContext ? (creatorCountryContext.flag + ' ' + creatorCountryContext.name) : '🇮🇳 India';
 
@@ -8931,7 +8933,7 @@ async function generateCreatorSettingsFromStage1() {
 
     // Default settings: Source Grounded + AI Illustration
     if (!creatorPerspectiveMode) creatorPerspectiveMode = 'source';
-    if (!creatorCharacterRepresentation) creatorCharacterRepresentation = 'painting';
+    if (!creatorCharacterRepresentation) creatorCharacterRepresentation = 'realistic';
 
     // Generate Visual Cues
     await triggerCueSuggest();
@@ -9060,7 +9062,7 @@ function updateEqualizerPortrayalUI() {
   if (eqExact) eqExact.style.display = hasPhoto ? 'flex' : 'none';
 
   if (!hasPhoto && creatorCharacterRepresentation === 'exact') {
-    creatorCharacterRepresentation = 'painting';
+    creatorCharacterRepresentation = 'realistic';
   }
 
   // Active state on portrayal cards
@@ -9069,14 +9071,14 @@ function updateEqualizerPortrayalUI() {
   const repRealistic = document.getElementById('eqRepRealistic');
   const repSilhouette = document.getElementById('eqRepSilhouette');
 
-  if (repPainting) repPainting.classList.toggle('active', creatorCharacterRepresentation === 'painting');
-  if (repCinematic) repCinematic.classList.toggle('active', creatorCharacterRepresentation === 'cinematic' || creatorCharacterRepresentation === 'likeness');
   if (repRealistic) repRealistic.classList.toggle('active', creatorCharacterRepresentation === 'realistic');
+  if (repCinematic) repCinematic.classList.toggle('active', creatorCharacterRepresentation === 'cinematic' || creatorCharacterRepresentation === 'likeness');
+  if (repPainting) repPainting.classList.toggle('active', creatorCharacterRepresentation === 'painting');
   if (repSilhouette) repSilhouette.classList.toggle('active', creatorCharacterRepresentation === 'silhouette');
   if (eqExact) eqExact.classList.toggle('active', creatorCharacterRepresentation === 'exact');
 
   // Update live preview card
-  const preview = PORTRAYAL_STYLE_PREVIEWS[creatorCharacterRepresentation] || PORTRAYAL_STYLE_PREVIEWS.painting;
+  const preview = PORTRAYAL_STYLE_PREVIEWS[creatorCharacterRepresentation] || PORTRAYAL_STYLE_PREVIEWS.realistic;
   const pImg = document.getElementById('portrayalPreviewImg');
   const pName = document.getElementById('portrayalPreviewName');
   const pBadge = document.getElementById('portrayalPreviewBadge');
@@ -9673,7 +9675,7 @@ function backToStep1() {
 // Visual Cues Studio State
 let creatorCuePills = [];
 let creatorSelectedCueIndices = new Set();
-let creatorCharacterRepresentation = 'painting'; // 'painting' | 'cinematic' | 'realistic' | 'silhouette' | 'exact' (Default: 'painting')
+let creatorCharacterRepresentation = 'realistic'; // 'realistic' | 'cinematic' | 'painting' | 'silhouette' | 'exact' (Default: 'realistic' - Vivid Editorial Realism)
 let creatorSettingsGenerated = false;
 let creatorLastSuggestedContextKey = '';
 let creatorCuesSourceFingerprint = null;
@@ -10011,7 +10013,7 @@ function resetCreatorState() {
   creatorCountryContext = null;
   currentPreviewSlide = 0;
   setPerspectiveMode('source');
-  creatorCharacterRepresentation = 'painting';
+  creatorCharacterRepresentation = 'realistic';
   creatorSettingsGenerated = false;
   resetStage1ActionBtn();
   const eqBadge = document.getElementById('creatorEqualizerBadge');
@@ -12050,7 +12052,7 @@ function updateReferencePhotoUI() {
 
 function selectCharacterRepresentation(type) {
   if (type !== 'realistic' && type !== 'silhouette' && type !== 'exact' && type !== 'cinematic' && type !== 'painting' && type !== 'likeness') {
-    type = 'painting';
+    type = 'realistic';
   }
   creatorCharacterRepresentation = type;
   updateReferencePhotoUI();
@@ -12378,7 +12380,7 @@ async function startAiSynthesis() {
             countryContext: creatorCountryContext?.name || 'India',
             familyCast: getSanitizedCastPayload(familyCastProfileCache),
             activeCast: getSanitizedActiveCastPayload(),
-            imageBase64: ((creatorPerspectiveMode === 'source' && creatorCharacterRepresentation !== 'painting' && creatorCharacterRepresentation !== 'silhouette') || creatorCharacterRepresentation === 'exact')
+            imageBase64: ((creatorPerspectiveMode === 'source' && creatorCharacterRepresentation !== 'silhouette') || creatorCharacterRepresentation === 'exact')
               ? (creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || currentSynthesizedPost?.sourceImageBase64 || null)
               : null,
             imageMimeType: creatorReferenceImageMimeType || currentScrapedArticle?.imageMimeType || currentSynthesizedPost?.sourceImageMimeType || 'image/jpeg'
@@ -12504,7 +12506,7 @@ async function retryStep3ArtworkGeneration(event) {
         countryContext: creatorCountryContext?.name || 'India',
         familyCast: getSanitizedCastPayload(familyCastProfileCache),
         activeCast: getSanitizedActiveCastPayload(),
-        imageBase64: ((creatorPerspectiveMode === 'source' && creatorCharacterRepresentation !== 'painting' && creatorCharacterRepresentation !== 'silhouette') || creatorCharacterRepresentation === 'exact')
+        imageBase64: ((creatorPerspectiveMode === 'source' && creatorCharacterRepresentation !== 'silhouette') || creatorCharacterRepresentation === 'exact')
           ? (creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || currentSynthesizedPost?.sourceImageBase64 || null)
           : null,
         imageMimeType: creatorReferenceImageMimeType || currentScrapedArticle?.imageMimeType || currentSynthesizedPost?.sourceImageMimeType || 'image/jpeg'
