@@ -578,9 +578,18 @@
         </div>
 
         <!-- 4. Bottom Navigation Bar (Step 1) -->
-        <div class="creator-bottom-nav">
-          <button type="button" class="creator-synthesize-btn creator-nav-main-btn" id="nextToCuesBtn" onclick="goToVisualCuesStep()">
-            <span class="btn-text">Next: Art & Cues →</span>
+        <div class="creator-bottom-nav creator-step1-nav">
+          <button type="button" class="creator-equalizer-pill-btn" id="creatorEqualizerBtn" onclick="openCreatorEqualizer()" title="Tune Visual Focus, Portrayal & Cues">
+            <span class="equalizer-icon">🎚️</span>
+            <div class="equalizer-text-wrap">
+              <span class="equalizer-label">Settings</span>
+              <span class="equalizer-summary" id="creatorEqualizerSummary">Source Grounded • AI Illustration • 🇮🇳 India</span>
+            </div>
+            <span class="equalizer-badge" id="creatorEqualizerBadge">Default</span>
+          </button>
+          <button type="button" class="creator-synthesize-btn creator-nav-main-btn" id="creatorPrimaryActionBtn" onclick="handleStage1PrimaryAction()">
+            <span class="btn-stars" id="creatorPrimaryBtnIcon">✨</span>
+            <span class="btn-text" id="creatorPrimaryBtnText">Generate Settings</span>
           </button>
         </div>
         <div class="creator-scroll-spacer"></div>
@@ -612,14 +621,14 @@
               <div class="slant-perspective-header">
                 <div class="slant-perspective-left">
                   <div class="slant-perspective-icon-box">
-                    <span class="slant-perspective-icon" id="slantPerspectiveIconStage2">⚖️</span>
+                    <span class="slant-perspective-icon" id="slantPerspectiveIconStage2">📰</span>
                   </div>
                   <div class="slant-perspective-text-wrap">
                     <div class="slant-perspective-title-row">
                       <span class="slant-perspective-title">VISUAL FOCUS</span>
-                      <span class="slant-perspective-badge slant-perspective-badge-dyn" id="slantPerspectiveBadgeStage2">⚖️ Hybrid Blend</span>
+                      <span class="slant-perspective-badge slant-perspective-badge-dyn" id="slantPerspectiveBadgeStage2">📰 Source Grounded</span>
                     </div>
-                    <div class="slant-perspective-subtitle slant-perspective-sub-dyn" id="slantPerspectiveSubtitleStage2">Controls Poster 1 Artwork & Cues: Blends the real-world news subject with your visual metaphor.</div>
+                    <div class="slant-perspective-subtitle slant-perspective-sub-dyn" id="slantPerspectiveSubtitleStage2">Controls Poster 1 Artwork & Cues: Anchors artwork in real-world news subject and physical setting.</div>
                   </div>
                 </div>
               </div>
@@ -628,11 +637,11 @@
                   <span class="pill-icon">⚡</span>
                   <span class="pill-text">Curator Angle</span>
                 </button>
-                <button type="button" class="slant-perspective-pill active" id="perspectivePillHybridStage2" data-perspective="hybrid" onclick="setPerspectiveMode('hybrid', true)">
+                <button type="button" class="slant-perspective-pill" id="perspectivePillHybridStage2" data-perspective="hybrid" onclick="setPerspectiveMode('hybrid', true)">
                   <span class="pill-icon">⚖️</span>
                   <span class="pill-text">Hybrid Blend</span>
                 </button>
-                <button type="button" class="slant-perspective-pill" id="perspectivePillSourceStage2" data-perspective="source" onclick="setPerspectiveMode('source', true)">
+                <button type="button" class="slant-perspective-pill active" id="perspectivePillSourceStage2" data-perspective="source" onclick="setPerspectiveMode('source', true)">
                   <span class="pill-icon">📰</span>
                   <span class="pill-text">Source Grounded</span>
                 </button>
@@ -682,28 +691,21 @@
                 </div>
               </div>
               <div class="character-rep-options">
-                <div class="rep-option" id="repOptionCinematic" onclick="selectCharacterRepresentation('cinematic')" style="display:none;">
+                <div class="rep-option active" id="repOptionPainting" onclick="selectCharacterRepresentation('painting')">
+                  <div class="rep-radio-circle"></div>
+                  <div class="rep-option-body">
+                    <span class="rep-option-title" id="repPaintingTitle">🎨 AI Illustration (Artistic Broadsheet Painting)</span>
+                    <span class="rep-option-desc" id="repPaintingDesc">Warm editorial broadsheet illustration in gouache and oil textures capturing the scene and figures in rich painted pigments.</span>
+                  </div>
+                </div>
+                <div class="rep-option" id="repOptionCinematic" onclick="selectCharacterRepresentation('cinematic')">
                   <div class="rep-radio-circle"></div>
                   <div class="rep-option-body">
                     <span class="rep-option-title" id="repCinematicTitle">📸 Cinematic Editorial Photo (Picture-Like Quality)</span>
-                    <span class="rep-option-desc" id="repCinematicDesc">Produces a sharp 35mm documentary photograph capturing the facial structure, expression, and clothing of the people with natural camera fidelity (Zero Digital Footprint).</span>
+                    <span class="rep-option-desc" id="repCinematicDesc">Produces a sharp 35mm documentary photograph capturing facial structure, expression, and lighting with natural camera fidelity.</span>
                   </div>
                 </div>
-                <div class="rep-option" id="repOptionPainting" onclick="selectCharacterRepresentation('painting')" style="display:none;">
-                  <div class="rep-radio-circle"></div>
-                  <div class="rep-option-body">
-                    <span class="rep-option-title" id="repPaintingTitle">🎨 Artistic Broadsheet Painting (Artwork)</span>
-                    <span class="rep-option-desc" id="repPaintingDesc">Paints a warm editorial illustration in gouache and oil textures capturing the scene and recognizable presence of the people.</span>
-                  </div>
-                </div>
-                <div class="rep-option" id="repOptionExact" onclick="selectCharacterRepresentation('exact')" style="display:none;">
-                  <div class="rep-radio-circle"></div>
-                  <div class="rep-option-body">
-                    <span class="rep-option-title" id="repExactTitle">📷 Authentic Source Photo (Direct Photo)</span>
-                    <span class="rep-option-desc" id="repExactDesc">Use the authentic photograph directly as Poster 1's hook visual without AI generation.</span>
-                  </div>
-                </div>
-                <div class="rep-option active" id="repOptionRealistic" onclick="selectCharacterRepresentation('realistic')">
+                <div class="rep-option" id="repOptionRealistic" onclick="selectCharacterRepresentation('realistic')">
                   <div class="rep-radio-circle"></div>
                   <div class="rep-option-body">
                     <span class="rep-option-title" id="repRealisticTitle">👤 Generic Human Realism (Artwork)</span>
@@ -715,6 +717,13 @@
                   <div class="rep-option-body">
                     <span class="rep-option-title">👥 Stylized Minimalist Silhouette (Shadow Art)</span>
                     <span class="rep-option-desc">Minimalist dark silhouettes, architectural shadows, or high-contrast noir profiles for conceptual themes only.</span>
+                  </div>
+                </div>
+                <div class="rep-option" id="repOptionExact" onclick="selectCharacterRepresentation('exact')" style="display:none;">
+                  <div class="rep-radio-circle"></div>
+                  <div class="rep-option-body">
+                    <span class="rep-option-title" id="repExactTitle">📷 Authentic Source Photo (Direct Photo)</span>
+                    <span class="rep-option-desc" id="repExactDesc">Use the authentic photograph directly as Poster 1's hook visual without AI generation.</span>
                   </div>
                 </div>
               </div>
@@ -947,6 +956,231 @@
           </div>
           <div class="creator-scroll-spacer"></div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       EQUALIZER SETTINGS MODAL (Option A)
+       ========================================== -->
+  <div class="modal-overlay creator-equalizer-overlay" id="creatorEqualizerModal" style="display:none;" onclick="handleEqualizerOverlayClick(event)">
+    <div class="creator-equalizer-sheet" onclick="event.stopPropagation()">
+      <!-- Modal Header -->
+      <div class="equalizer-sheet-header">
+        <div class="equalizer-sheet-title-wrap">
+          <div class="equalizer-sheet-badge">EQUALIZER</div>
+          <h3 class="equalizer-sheet-title">Post Settings</h3>
+        </div>
+        <button type="button" class="equalizer-close-btn" onclick="closeCreatorEqualizer()" aria-label="Close Equalizer">&times;</button>
+      </div>
+      <p class="equalizer-sheet-subtitle">Intelligently tuned for your post. Tap any setting below to fine-tune visual focus, image portrayal, and cues.</p>
+
+      <div class="equalizer-sheet-body">
+        <!-- 1. Visual Focus (Source Grounded vs Hybrid vs Curator) -->
+        <div class="equalizer-section">
+          <div class="equalizer-section-header">
+            <span class="equalizer-section-icon">⚖️</span>
+            <div>
+              <div class="equalizer-section-title">VISUAL FOCUS</div>
+              <div class="equalizer-section-sub">Controls Poster 1 Artwork & Metaphor Anchoring</div>
+            </div>
+          </div>
+          <div class="equalizer-focus-pills">
+            <button type="button" class="equalizer-focus-pill active" id="eqFocusSource" onclick="setEqualizerPerspectiveMode('source')">
+              <span class="focus-pill-icon">📰</span>
+              <div class="focus-pill-text">
+                <span class="focus-pill-name">Source Grounded</span>
+                <span class="focus-pill-tag">Default</span>
+              </div>
+            </button>
+            <button type="button" class="equalizer-focus-pill" id="eqFocusHybrid" onclick="setEqualizerPerspectiveMode('hybrid')">
+              <span class="focus-pill-icon">⚖️</span>
+              <div class="focus-pill-text">
+                <span class="focus-pill-name">Hybrid Blend</span>
+              </div>
+            </button>
+            <button type="button" class="equalizer-focus-pill" id="eqFocusCurator" onclick="setEqualizerPerspectiveMode('curator')">
+              <span class="focus-pill-icon">⚡</span>
+              <div class="focus-pill-text">
+                <span class="focus-pill-name">Curator Angle</span>
+              </div>
+            </button>
+          </div>
+          <div class="equalizer-focus-explainer" id="equalizerFocusExplainer">
+            Physically anchored in authentic news subjects, real press setting, and source photograph.
+          </div>
+        </div>
+
+        <!-- 2. Image Portrayal (AI Illustration Default + Live Visual Previews) -->
+        <div class="equalizer-section">
+          <div class="equalizer-section-header">
+            <span class="equalizer-section-icon">🎨</span>
+            <div>
+              <div class="equalizer-section-title">IMAGE PORTRAYAL</div>
+              <div class="equalizer-section-sub">Select visual style for Poster 1 (Tap to preview)</div>
+            </div>
+          </div>
+
+          <!-- Live Visual Preview Box showing reference output -->
+          <div class="equalizer-portrayal-preview-card" id="equalizerPortrayalPreviewCard">
+            <div class="portrayal-preview-thumb-wrap">
+              <img id="portrayalPreviewImg" src="/illustrations/129eb76c-5699-4e97-b16e-fbe5a0ea38c8.jpg" alt="Artistic illustration preview" class="portrayal-preview-img">
+            </div>
+            <div class="portrayal-preview-meta">
+              <div class="portrayal-preview-header-row">
+                <span class="portrayal-preview-name" id="portrayalPreviewName">AI Illustration</span>
+                <span class="portrayal-preview-badge" id="portrayalPreviewBadge">Default Style</span>
+              </div>
+              <div class="portrayal-preview-title" id="portrayalPreviewTitle">Artistic Broadsheet Painting</div>
+              <p class="portrayal-preview-desc" id="portrayalPreviewDesc">
+                Warm editorial broadsheet artwork rendered in rich gouache, oil textures, and painterly pigments. Captures people with recognizable presence and artistic craft.
+              </p>
+            </div>
+          </div>
+
+          <!-- Portrayal Selector Cards -->
+          <div class="equalizer-portrayal-grid">
+            <button type="button" class="equalizer-portrayal-card active" id="eqRepPainting" onclick="selectEqualizerPortrayal('painting')">
+              <div class="portrayal-card-thumb-mini">
+                <img src="/illustrations/129eb76c-5699-4e97-b16e-fbe5a0ea38c8.jpg" alt="AI Illustration">
+              </div>
+              <div class="portrayal-card-info">
+                <div class="portrayal-card-title-row">
+                  <span class="portrayal-card-title">🎨 AI Illustration</span>
+                  <span class="portrayal-card-subtag">Default</span>
+                </div>
+                <span class="portrayal-card-summary">Artistic broadsheet painting in gouache and oil textures</span>
+              </div>
+            </button>
+
+            <button type="button" class="equalizer-portrayal-card" id="eqRepCinematic" onclick="selectEqualizerPortrayal('cinematic')">
+              <div class="portrayal-card-thumb-mini">
+                <img src="/posters/slant-1792580966403-awuxe.webp" alt="Cinematic Editorial Photo">
+              </div>
+              <div class="portrayal-card-info">
+                <div class="portrayal-card-title-row">
+                  <span class="portrayal-card-title">📸 Cinematic Editorial Photo</span>
+                </div>
+                <span class="portrayal-card-summary">35mm documentary camera realism and authentic skin lighting</span>
+              </div>
+            </button>
+
+            <button type="button" class="equalizer-portrayal-card" id="eqRepRealistic" onclick="selectEqualizerPortrayal('realistic')">
+              <div class="portrayal-card-thumb-mini">
+                <img src="/posters/slant-1791462015409-wurnu.png" alt="Generic Human Realism">
+              </div>
+              <div class="portrayal-card-info">
+                <div class="portrayal-card-title-row">
+                  <span class="portrayal-card-title">👤 Generic Human Realism</span>
+                </div>
+                <span class="portrayal-card-summary">Expressive human figures representing narrative theme</span>
+              </div>
+            </button>
+
+            <button type="button" class="equalizer-portrayal-card" id="eqRepSilhouette" onclick="selectEqualizerPortrayal('silhouette')">
+              <div class="portrayal-card-thumb-mini">
+                <img src="/posters/slant-1791743692258-1w105.png" alt="Minimalist Silhouette">
+              </div>
+              <div class="portrayal-card-info">
+                <div class="portrayal-card-title-row">
+                  <span class="portrayal-card-title">👥 Minimalist Silhouette</span>
+                </div>
+                <span class="portrayal-card-summary">High-contrast shadow art, architectural silhouettes, and noir profiles</span>
+              </div>
+            </button>
+
+            <button type="button" class="equalizer-portrayal-card" id="eqRepExact" onclick="selectEqualizerPortrayal('exact')" style="display:none;">
+              <div class="portrayal-card-thumb-mini">
+                <img id="eqRepExactThumb" src="/clippings/83940fae-4ad7-43f6-9329-91cd17752f78.jpg" alt="Authentic Source Photo">
+              </div>
+              <div class="portrayal-card-info">
+                <div class="portrayal-card-title-row">
+                  <span class="portrayal-card-title">📷 Authentic Source Photo</span>
+                  <span class="portrayal-card-subtag">Direct</span>
+                </div>
+                <span class="portrayal-card-summary">Direct authentic news photo used as Poster 1 without AI regeneration</span>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        <!-- 3. Regional & Cultural Setting -->
+        <div class="equalizer-section">
+          <div class="equalizer-section-header">
+            <span class="equalizer-section-icon" id="equalizerCountryFlag">🇮🇳</span>
+            <div>
+              <div class="equalizer-section-title">REGIONAL & CULTURAL SETTING</div>
+              <div class="equalizer-section-sub" id="equalizerCountrySub">Grounds visual composition and architecture in local motifs</div>
+            </div>
+          </div>
+          <div class="equalizer-country-pills">
+            <button type="button" class="equalizer-country-pill active" id="eqCountryIN" data-country="IN" onclick="selectEqualizerCountry('IN')">🇮🇳 India</button>
+            <button type="button" class="equalizer-country-pill" id="eqCountryUS" data-country="US" onclick="selectEqualizerCountry('US')">🇺🇸 United States</button>
+            <button type="button" class="equalizer-country-pill" id="eqCountryGB" data-country="GB" onclick="selectEqualizerCountry('GB')">🇬🇧 United Kingdom</button>
+            <button type="button" class="equalizer-country-pill" id="eqCountryJP" data-country="JP" onclick="selectEqualizerCountry('JP')">🇯🇵 Japan</button>
+            <button type="button" class="equalizer-country-pill" id="eqCountryEU" data-country="EU" onclick="selectEqualizerCountry('EU')">🇪🇺 Europe</button>
+            <button type="button" class="equalizer-country-pill" id="eqCountryGLOBAL" data-country="GLOBAL" onclick="selectEqualizerCountry('GLOBAL')">🌐 Global</button>
+          </div>
+        </div>
+
+        <!-- 4. Visual Metaphors & Cues (Streamlined, text walls hidden, tap-to-inspect overlay) -->
+        <div class="equalizer-section">
+          <div class="equalizer-section-header">
+            <span class="equalizer-section-icon">🎯</span>
+            <div class="equalizer-section-title-wrap">
+              <div class="equalizer-section-title">VISUAL METAPHORS & CUES</div>
+              <div class="equalizer-section-sub">6 layered dimensions driving the poster artwork</div>
+            </div>
+            <button type="button" class="equalizer-regen-cues-btn" id="equalizerRegenCuesBtn" onclick="triggerCueSuggest()">
+              <span>🔄 Refresh Cues</span>
+            </button>
+          </div>
+
+          <!-- Sleek cues list without wall of text -->
+          <div class="equalizer-cues-container" id="equalizerCuesContainer">
+            <!-- Populated dynamically with compact rows -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="equalizer-sheet-footer">
+        <button type="button" class="equalizer-done-btn" onclick="closeCreatorEqualizer()">
+          <span>✓ Done</span>
+        </button>
+        <button type="button" class="equalizer-synth-btn" onclick="synthesizeFromEqualizer()">
+          <span>✨ Synthesize Posters Now</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cue Tap-to-Inspect Detail Popover Overlay -->
+  <div class="cue-inspect-overlay" id="cueInspectOverlay" style="display:none;" onclick="if(event.target===this) closeCueInspectOverlay()">
+    <div class="cue-inspect-modal" onclick="event.stopPropagation()">
+      <div class="cue-inspect-header">
+        <div class="cue-inspect-title-wrap">
+          <span class="cue-inspect-badge" id="cueInspectBadge">#1 HERO</span>
+          <span class="cue-inspect-title" id="cueInspectTitle">Hero Visual Subject</span>
+        </div>
+        <button type="button" class="cue-inspect-close" onclick="closeCueInspectOverlay()">&times;</button>
+      </div>
+      <div class="cue-inspect-body">
+        <div class="cue-inspect-reference-thumb">
+          <img id="cueInspectThumb" src="/illustrations/129eb76c-5699-4e97-b16e-fbe5a0ea38c8.jpg" alt="Cue visual reference">
+        </div>
+        <div class="cue-inspect-desc" id="cueInspectDesc">
+          Defines the focal protagonist or architectural icon for Poster 1.
+        </div>
+        <div class="cue-inspect-field-wrap">
+          <label class="cue-inspect-label">Cue Text:</label>
+          <input type="text" id="cueInspectInput" class="cue-inspect-input" oninput="updateActiveInspectedCueFromOverlay(this.value)">
+        </div>
+      </div>
+      <div class="cue-inspect-footer">
+        <button type="button" class="cue-inspect-save-btn" onclick="closeCueInspectOverlay()">
+          <span>Save & Close</span>
+        </button>
       </div>
     </div>
   </div>

@@ -55,7 +55,7 @@ module.exports = async function handler(req, res) {
     newsHeadline = '',
     newsBody = '',
     sourceType = 'digital_link',
-    characterRepresentation = 'realistic',
+    characterRepresentation = 'painting',
     selectedIndices = [],
     existingCues = [],
     familyCast = null,
@@ -65,7 +65,7 @@ module.exports = async function handler(req, res) {
     countryCode = '',
     vocabularyStyle = 'casual',
     slantTone = 'mind',
-    perspectiveMode = 'hybrid',
+    perspectiveMode = 'source',
     creatorEmail = '',
     imageBase64 = null,
     imageMimeType = 'image/jpeg',
@@ -353,7 +353,7 @@ Respond strictly with valid JSON with this exact schema:
   }
 };
 
-function generateSmartFallbackCues(curatorAngle = '', spark = '', newsHeadline = '', newsBody = '', characterRepresentation = 'realistic', countryContext = '', sourceType = 'digital_link', selectedIndices = [], existingCues = []) {
+function generateSmartFallbackCues(curatorAngle = '', spark = '', newsHeadline = '', newsBody = '', characterRepresentation = 'painting', countryContext = '', sourceType = 'digital_link', selectedIndices = [], existingCues = []) {
   const combined = `${curatorAngle || ''} ${spark || ''} ${newsHeadline || ''} ${newsBody || ''}`.toLowerCase();
   const isLikeness = (characterRepresentation === 'likeness');
   const isIndia = (countryContext === 'India') || combined.includes('india') || combined.includes('delhi') || combined.includes('kerala') || combined.includes('thehindu');

@@ -8694,11 +8694,11 @@ function setVocabularyStyle(style) {
   }
 }
 
-let creatorPerspectiveMode = 'hybrid'; // 'curator' | 'hybrid' | 'source'
+let creatorPerspectiveMode = 'source'; // 'curator' | 'hybrid' | 'source' (Default: 'source')
 
 function setPerspectiveMode(mode, fromUserClick = false) {
   if (mode !== 'curator' && mode !== 'source' && mode !== 'hybrid') {
-    mode = 'hybrid';
+    mode = 'source';
   }
   const prevMode = creatorPerspectiveMode;
   creatorPerspectiveMode = mode;
@@ -8709,27 +8709,49 @@ function setPerspectiveMode(mode, fromUserClick = false) {
 
   const hasPhoto = Boolean(creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || currentScrapedArticle?.imageUrl);
 
-  let iconText = '⚖️';
-  let badgeText = hasPhoto ? '⚖️ Hybrid Likeness' : '⚖️ Hybrid Blend';
-  let subText = hasPhoto
-    ? 'Controls Poster 1 Artwork & Cues: Blends your personal take with the facial structure, setting, and people in your photo (Zero Digital Footprint).'
-    : 'Controls Poster 1 Artwork & Cues: Blends the real-world news subject with your visual metaphor.';
+  let iconText = '📰';
+  let badgeText = '📰 Source Grounded';
+  let subText = 'Controls Poster 1 Artwork & Cues: Artwork stays 100% faithful to the authentic news event, subjects, and photo.';
 
   if (mode === 'curator') {
     iconText = '⚡';
     badgeText = '⚡ Curator Angle';
     subText = 'Controls Poster 1 Artwork & Cues: Artwork reflects your conceptual metaphor and critique.';
-  } else if (mode === 'source') {
-    iconText = '📰';
-    badgeText = '📰 Source Grounded';
-    subText = 'Controls Poster 1 Artwork & Cues: Artwork stays 100% faithful to the authentic news event, subjects, and photo.';
+  } else if (mode === 'hybrid') {
+    iconText = '⚖️';
+    badgeText = hasPhoto ? '⚖️ Hybrid Likeness' : '⚖️ Hybrid Blend';
+    subText = hasPhoto
+      ? 'Controls Poster 1 Artwork & Cues: Blends your personal take with the facial structure, setting, and people in your photo (Zero Digital Footprint).'
+      : 'Controls Poster 1 Artwork & Cues: Blends the real-world news subject with your visual metaphor.';
   }
 
   document.querySelectorAll('#slantPerspectiveIcon, .slant-perspective-icon').forEach(el => { el.textContent = iconText; });
   document.querySelectorAll('#slantPerspectiveBadge, .slant-perspective-badge-dyn').forEach(el => { el.textContent = badgeText; });
   document.querySelectorAll('#slantPerspectiveSubtitle, .slant-perspective-sub-dyn').forEach(el => { el.textContent = subText; });
 
+  // Update Equalizer Focus UI
+  const eqSrc = document.getElementById('eqFocusSource');
+  const eqHyb = document.getElementById('eqFocusHybrid');
+  const eqCur = document.getElementById('eqFocusCurator');
+  if (eqSrc) eqSrc.classList.toggle('active', mode === 'source');
+  if (eqHyb) eqHyb.classList.toggle('active', mode === 'hybrid');
+  if (eqCur) eqCur.classList.toggle('active', mode === 'curator');
+
+  const eqExpl = document.getElementById('equalizerFocusExplainer');
+  if (eqExpl) {
+    if (mode === 'source') {
+      eqExpl.textContent = 'Physically anchored in authentic news subjects, real press setting, and source photograph.';
+    } else if (mode === 'curator') {
+      eqExpl.textContent = 'Sharp conceptual metaphor and critical thesis driven purely by your slant take.';
+    } else {
+      eqExpl.textContent = hasPhoto
+        ? 'Blends your personal angle with the facial likeness and setting of your photo.'
+        : 'Blends the real-world news subject with your personal visual metaphor.';
+    }
+  }
+
   updateReferencePhotoUI();
+  updateEqualizerSummary();
 
   // If user clicked a different Visual Focus while inside Stage 2 and cues exist, auto-refresh cues to match
   const isClick = fromUserClick || (typeof window !== 'undefined' && window.event && (window.event.type === 'click' || window.event.type === 'pointerdown'));
@@ -8739,6 +8761,416 @@ function setPerspectiveMode(mode, fromUserClick = false) {
     showTemporaryToast(`🔄 Visual focus set to ${badgeText}: Updating visual cues...`);
     triggerCueSuggest();
   }
+}
+
+/* ==========================================================================
+   OPTION A: EQUALIZER METADATA & HANDLERS
+   ========================================================================== */
+
+const PORTRAYAL_STYLE_PREVIEWS = {
+  painting: {
+    name: 'AI Illustration',
+    badge: 'Default Style',
+    title: 'Artistic Broadsheet Painting',
+    desc: 'Warm editorial broadsheet artwork rendered in rich gouache, oil textures, and painterly pigments. Captures people with recognizable presence and artistic craft.',
+    image: '/illustrations/129eb76c-5699-4e97-b16e-fbe5a0ea38c8.jpg'
+  },
+  cinematic: {
+    name: 'Cinematic Editorial Photo',
+    badge: '35mm Camera Realism',
+    title: 'Picture-Like Camera Fidelity',
+    desc: 'Produces a sharp 35mm documentary photograph capturing facial structure, expression, and clothing with natural camera fidelity (Zero Digital Footprint).',
+    image: '/posters/slant-1792580966403-awuxe.webp'
+  },
+  realistic: {
+    name: 'Generic Human Realism',
+    badge: 'Human Realism',
+    title: 'Warm Figurative Art',
+    desc: 'Warm, expressive human beings representing the general theme rather than matching the photo\'s exact subjects.',
+    image: '/posters/slant-1791462015409-wurnu.png'
+  },
+  silhouette: {
+    name: 'Minimalist Silhouette',
+    badge: 'Graphic Shadow Art',
+    title: 'Stark Graphic Silhouette',
+    desc: 'Minimalist dark silhouettes, architectural shadows, or high-contrast noir profiles for conceptual themes.',
+    image: '/posters/slant-1791743692258-1w105.png'
+  },
+  exact: {
+    name: 'Authentic Source Photo',
+    badge: 'Direct Unedited Photo',
+    title: 'Authentic Source Photography',
+    desc: 'Use the authentic source photograph directly as Poster 1\'s hook visual without any AI generation.',
+    image: '/clippings/83940fae-4ad7-43f6-9329-91cd17752f78.jpg'
+  }
+};
+
+const CUE_DIMENSION_PREVIEWS = [
+  {
+    name: 'Hero Visual Subject',
+    tag: '#1 HERO',
+    desc: 'The primary protagonist, public figure, or physical centerpiece driving Poster 1 hook visual.',
+    image: '/illustrations/129eb76c-5699-4e97-b16e-fbe5a0ea38c8.jpg'
+  },
+  {
+    name: 'Visual Motif & Anchor',
+    tag: '#2 MOTIF',
+    desc: 'Physical objects, architecture, symbols, or institutional emblems anchoring the composition.',
+    image: '/posters/slant-1791462015409-wurnu.png'
+  },
+  {
+    name: 'Editorial Tension',
+    tag: '#3 TENSION',
+    desc: 'The conflict, friction, asymmetry, or societal divide expressed through composition and staging.',
+    image: '/posters/slant-1791743692258-1w105.png'
+  },
+  {
+    name: 'Environmental Atmosphere',
+    tag: '#4 ATMOSPHERE',
+    desc: 'The authentic physical environment, textures, and setting derived directly from the story.',
+    image: '/clippings/83940fae-4ad7-43f6-9329-91cd17752f78.jpg'
+  },
+  {
+    name: 'Lighting & Mood',
+    tag: '#5 LIGHTING',
+    desc: 'Directional lighting, cinematic contrast, ambient temperature, and shadows.',
+    image: '/posters/slant-1792580966403-awuxe.webp'
+  },
+  {
+    name: 'Artistic Style & Texture',
+    tag: '#6 STYLE',
+    desc: 'Medium rendering fidelity, brushstrokes, film grain, or broadsheet ink craft.',
+    image: '/illustrations/2f001766-faca-4a3a-92c8-20ea3f444749.jpg'
+  }
+];
+
+function updateEqualizerSummary() {
+  const summaryEl = document.getElementById('creatorEqualizerSummary');
+  if (!summaryEl) return;
+
+  const focusName = (creatorPerspectiveMode === 'source')
+    ? 'Source Grounded'
+    : (creatorPerspectiveMode === 'curator' ? 'Curator Angle' : 'Hybrid Blend');
+
+  const portrayalName = (creatorCharacterRepresentation === 'painting')
+    ? 'AI Illustration'
+    : (creatorCharacterRepresentation === 'cinematic'
+      ? 'Cinematic Photo'
+      : (creatorCharacterRepresentation === 'silhouette'
+        ? 'Silhouette'
+        : (creatorCharacterRepresentation === 'exact' ? 'Authentic Photo' : 'Human Realism')));
+
+  const countryName = creatorCountryContext ? (creatorCountryContext.flag + ' ' + creatorCountryContext.name) : '🇮🇳 India';
+
+  summaryEl.textContent = `${focusName} • ${portrayalName} • ${countryName}`;
+}
+
+function resetStage1ActionBtn() {
+  const btn = document.getElementById('creatorPrimaryActionBtn');
+  const icon = document.getElementById('creatorPrimaryBtnIcon');
+  const text = document.getElementById('creatorPrimaryBtnText');
+  if (btn) {
+    btn.disabled = false;
+    btn.classList.remove('synthesize-ready');
+  }
+  if (icon) icon.textContent = '✨';
+  if (text) text.textContent = 'Generate Settings';
+}
+
+async function handleStage1PrimaryAction() {
+  if (!creatorSettingsGenerated || !creatorCuePills || creatorCuePills.length === 0) {
+    await generateCreatorSettingsFromStage1();
+  } else {
+    await startAiSynthesis();
+  }
+}
+
+async function generateCreatorSettingsFromStage1() {
+  if (!validateCreatorStage1(true)) {
+    return;
+  }
+
+  const urlInput = document.getElementById('creatorUrlInput');
+  const slantInput = document.getElementById('creatorSlantTakeInput');
+  const url = urlInput ? urlInput.value.trim() : '';
+  const slantTake = slantInput ? slantInput.value.trim() : '';
+
+  const btn = document.getElementById('creatorPrimaryActionBtn');
+  const icon = document.getElementById('creatorPrimaryBtnIcon');
+  const text = document.getElementById('creatorPrimaryBtnText');
+
+  if (btn) btn.disabled = true;
+  if (icon) icon.textContent = '⏳';
+  if (text) text.textContent = 'Generating settings...';
+
+  try {
+    // If URL scrape is in flight or needed, await it
+    if (creatorSelectedSource !== 'inner_voice' && url) {
+      if (!currentScrapedArticle && !isScrapingUrl) {
+        await handleUrlInput(url);
+      } else if (isScrapingUrl && activeScrapePromise) {
+        try { await activeScrapePromise; } catch (_) {}
+      }
+    }
+
+    // Auto-detect and set geographic & cultural context
+    const isLink = (creatorSelectedSource === 'digital_link' || creatorSelectedSource === 'video_audio');
+    const articleTitle = isLink ? (currentScrapedArticle?.title || extractHeadlineFromUrl(url)) : '';
+    const articleBody = isLink ? (currentScrapedArticle?.content || '') : '';
+    if (!creatorCountryContext) {
+      creatorCountryContext = detectGeographicContext(isLink ? url : '', articleTitle, articleBody, slantTake);
+    }
+    updateCountryContextUI();
+
+    // Default settings: Source Grounded + AI Illustration
+    if (!creatorPerspectiveMode) creatorPerspectiveMode = 'source';
+    if (!creatorCharacterRepresentation) creatorCharacterRepresentation = 'painting';
+
+    // Generate Visual Cues
+    await triggerCueSuggest();
+
+    creatorSettingsGenerated = true;
+
+    // Highlight Equalizer Button
+    const eqBtn = document.getElementById('creatorEqualizerBtn');
+    const eqBadge = document.getElementById('creatorEqualizerBadge');
+    if (eqBtn) eqBtn.classList.add('equalizer-highlighted');
+    if (eqBadge) {
+      eqBadge.textContent = '✓ Tuned';
+      eqBadge.classList.add('ready');
+    }
+
+    // Transform primary button to "Synthesize Posters ✨"
+    if (btn) {
+      btn.disabled = false;
+      btn.classList.add('synthesize-ready');
+    }
+    if (icon) icon.textContent = '✨';
+    if (text) text.textContent = 'Synthesize Posters ✨';
+
+    updateEqualizerSummary();
+    showTemporaryToast('✨ Settings generated! Tap "Synthesize Posters" or 🎚️ Settings to fine-tune.', 4000);
+  } catch (err) {
+    console.error('Error generating settings:', err);
+    if (btn) btn.disabled = false;
+    if (icon) icon.textContent = '✨';
+    if (text) text.textContent = 'Generate Settings';
+    showTemporaryToast('⚠️ Error preparing settings. Please try again.', 3500);
+  }
+}
+
+function openCreatorEqualizer() {
+  const modal = document.getElementById('creatorEqualizerModal');
+  if (!modal) return;
+
+  // Remove pulsing highlight once opened
+  const eqBtn = document.getElementById('creatorEqualizerBtn');
+  if (eqBtn) eqBtn.classList.remove('equalizer-highlighted');
+
+  // Sync Focus
+  setEqualizerPerspectiveMode(creatorPerspectiveMode || 'source', false);
+
+  // Sync Portrayal
+  updateEqualizerPortrayalUI();
+
+  // Sync Country
+  if (!creatorCountryContext) {
+    const urlInput = document.getElementById('creatorUrlInput');
+    const slantInput = document.getElementById('creatorSlantTakeInput');
+    const url = urlInput ? urlInput.value.trim() : '';
+    const slantTake = slantInput ? slantInput.value.trim() : '';
+    const isLink = (creatorSelectedSource === 'digital_link' || creatorSelectedSource === 'video_audio');
+    const articleTitle = isLink ? (currentScrapedArticle?.title || extractHeadlineFromUrl(url)) : '';
+    const articleBody = isLink ? (currentScrapedArticle?.content || '') : '';
+    creatorCountryContext = detectGeographicContext(isLink ? url : '', articleTitle, articleBody, slantTake);
+  }
+  updateCountryContextUI();
+
+  // Sync Cues
+  renderEqualizerCues();
+
+  modal.style.display = 'flex';
+}
+
+function closeCreatorEqualizer() {
+  const modal = document.getElementById('creatorEqualizerModal');
+  if (modal) modal.style.display = 'none';
+  updateEqualizerSummary();
+}
+
+function handleEqualizerOverlayClick(e) {
+  if (e && e.target && e.target.id === 'creatorEqualizerModal') {
+    closeCreatorEqualizer();
+  }
+}
+
+function setEqualizerPerspectiveMode(mode, fromUser = true) {
+  setPerspectiveMode(mode, fromUser);
+  const eqSrc = document.getElementById('eqFocusSource');
+  const eqHyb = document.getElementById('eqFocusHybrid');
+  const eqCur = document.getElementById('eqFocusCurator');
+  if (eqSrc) eqSrc.classList.toggle('active', mode === 'source');
+  if (eqHyb) eqHyb.classList.toggle('active', mode === 'hybrid');
+  if (eqCur) eqCur.classList.toggle('active', mode === 'curator');
+
+  const eqExpl = document.getElementById('equalizerFocusExplainer');
+  if (eqExpl) {
+    if (mode === 'source') {
+      eqExpl.textContent = 'Physically anchored in authentic news subjects, real press setting, and source photograph.';
+    } else if (mode === 'curator') {
+      eqExpl.textContent = 'Sharp conceptual metaphor and critical thesis driven purely by your slant take.';
+    } else {
+      eqExpl.textContent = 'Blends the real-world news subject with your personal visual metaphor.';
+    }
+  }
+  updateEqualizerSummary();
+}
+
+function selectEqualizerPortrayal(style) {
+  selectCharacterRepresentation(style);
+  updateEqualizerPortrayalUI();
+}
+
+function updateEqualizerPortrayalUI() {
+  const hasPhoto = Boolean(creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || currentScrapedArticle?.imageUrl);
+
+  // Exact card visibility
+  const eqExact = document.getElementById('eqRepExact');
+  if (eqExact) eqExact.style.display = hasPhoto ? 'flex' : 'none';
+
+  if (!hasPhoto && creatorCharacterRepresentation === 'exact') {
+    creatorCharacterRepresentation = 'painting';
+  }
+
+  // Active state on portrayal cards
+  const repPainting = document.getElementById('eqRepPainting');
+  const repCinematic = document.getElementById('eqRepCinematic');
+  const repRealistic = document.getElementById('eqRepRealistic');
+  const repSilhouette = document.getElementById('eqRepSilhouette');
+
+  if (repPainting) repPainting.classList.toggle('active', creatorCharacterRepresentation === 'painting');
+  if (repCinematic) repCinematic.classList.toggle('active', creatorCharacterRepresentation === 'cinematic' || creatorCharacterRepresentation === 'likeness');
+  if (repRealistic) repRealistic.classList.toggle('active', creatorCharacterRepresentation === 'realistic');
+  if (repSilhouette) repSilhouette.classList.toggle('active', creatorCharacterRepresentation === 'silhouette');
+  if (eqExact) eqExact.classList.toggle('active', creatorCharacterRepresentation === 'exact');
+
+  // Update live preview card
+  const preview = PORTRAYAL_STYLE_PREVIEWS[creatorCharacterRepresentation] || PORTRAYAL_STYLE_PREVIEWS.painting;
+  const pImg = document.getElementById('portrayalPreviewImg');
+  const pName = document.getElementById('portrayalPreviewName');
+  const pBadge = document.getElementById('portrayalPreviewBadge');
+  const pTitle = document.getElementById('portrayalPreviewTitle');
+  const pDesc = document.getElementById('portrayalPreviewDesc');
+
+  if (pImg) {
+    if (creatorCharacterRepresentation === 'exact' && creatorReferenceImageBase64) {
+      pImg.src = creatorReferenceImageBase64;
+    } else {
+      pImg.src = preview.image;
+    }
+  }
+  if (pName) pName.textContent = preview.name;
+  if (pBadge) pBadge.textContent = preview.badge;
+  if (pTitle) pTitle.textContent = preview.title;
+  if (pDesc) pDesc.textContent = preview.desc;
+
+  updateEqualizerSummary();
+}
+
+function selectEqualizerCountry(code) {
+  changeCountryContext(code);
+  updateCountryContextUI();
+  updateEqualizerSummary();
+}
+
+function renderEqualizerCues() {
+  const container = document.getElementById('equalizerCuesContainer');
+  if (!container) return;
+
+  container.innerHTML = '';
+
+  if (!creatorCuePills || creatorCuePills.length === 0) {
+    container.innerHTML = `
+      <div style="text-align:center; padding:18px 10px; background:rgba(0,0,0,0.25); border-radius:12px; color:#94A3B8; font-size:12px;">
+        <span style="font-size:22px; display:block; margin-bottom:4px;">✨</span>
+        <span>Visual cues will be intelligently drafted for your slant.</span>
+        <button type="button" class="equalizer-regen-cues-btn" style="margin:10px auto 0 auto; display:block;" onclick="triggerCueSuggest()">Generate Visual Cues</button>
+      </div>
+    `;
+    return;
+  }
+
+  const rankBadges = ['#1 HERO', '#2 MOTIF', '#3 TENSION', '#4 ATMOSPHERE', '#5 LIGHT', '#6 STYLE'];
+
+  creatorCuePills.forEach((cueText, index) => {
+    const row = document.createElement('div');
+    row.className = 'equalizer-cue-row';
+    const isHero = (index === 0);
+    const badgeLabel = rankBadges[index] || `#${index + 1} CUE`;
+
+    row.innerHTML = `
+      <span class="eq-cue-badge ${isHero ? 'badge-hero' : ''}">${badgeLabel}</span>
+      <input type="text" class="eq-cue-input" id="eqCueInput_${index}" value="${escapeHtml(cueText)}" oninput="updateCueFromEqualizer(${index}, this.value)">
+      <button type="button" class="eq-cue-inspect-btn" onclick="openCueInspectOverlay(${index})" title="Inspect meaning & visual reference">
+        <span>👁️ View</span>
+      </button>
+    `;
+    container.appendChild(row);
+  });
+}
+
+function updateCueFromEqualizer(index, value) {
+  if (creatorCuePills && creatorCuePills[index] !== undefined) {
+    creatorCuePills[index] = value;
+    // Sync with Stage 2 row input if present
+    const s2Input = document.getElementById(`cueRowInput_${index}`);
+    if (s2Input) s2Input.value = value;
+  }
+}
+
+let activeInspectedOverlayIndex = 0;
+
+function openCueInspectOverlay(index) {
+  activeInspectedOverlayIndex = index;
+  const overlay = document.getElementById('cueInspectOverlay');
+  if (!overlay) return;
+
+  const config = CUE_DIMENSION_PREVIEWS[index] || {
+    name: `Cue #${index + 1}`,
+    tag: `#${index + 1} CUE`,
+    desc: 'Editorial visual dimension driving poster composition.',
+    image: '/illustrations/129eb76c-5699-4e97-b16e-fbe5a0ea38c8.jpg'
+  };
+
+  const badge = document.getElementById('cueInspectBadge');
+  const title = document.getElementById('cueInspectTitle');
+  const thumb = document.getElementById('cueInspectThumb');
+  const desc = document.getElementById('cueInspectDesc');
+  const input = document.getElementById('cueInspectInput');
+
+  if (badge) badge.textContent = config.tag;
+  if (title) title.textContent = config.name;
+  if (thumb) thumb.src = config.image;
+  if (desc) desc.textContent = config.desc;
+  if (input) input.value = creatorCuePills[index] || '';
+
+  overlay.style.display = 'flex';
+}
+
+function closeCueInspectOverlay() {
+  const overlay = document.getElementById('cueInspectOverlay');
+  if (overlay) overlay.style.display = 'none';
+}
+
+function updateActiveInspectedCueFromOverlay(val) {
+  updateCueFromEqualizer(activeInspectedOverlayIndex, val);
+  const eqInput = document.getElementById(`eqCueInput_${activeInspectedOverlayIndex}`);
+  if (eqInput) eqInput.value = val;
+}
+
+async function synthesizeFromEqualizer() {
+  closeCreatorEqualizer();
+  await startAiSynthesis();
 }
 
 function isMobileDevice() {
@@ -8786,6 +9218,7 @@ function openCreatorModal() {
       const spkInput = document.getElementById('creatorSparkInput');
       const combined = (slantInput.value || '') + ' ' + (spkInput ? spkInput.value : '');
       checkAndTriggerFamilyCast(combined);
+      onCreatorStage1InputChange();
     });
   }
   const sparkInput = document.getElementById('creatorSparkInput');
@@ -9199,7 +9632,8 @@ function backToStep1() {
 // Visual Cues Studio State
 let creatorCuePills = [];
 let creatorSelectedCueIndices = new Set();
-let creatorCharacterRepresentation = 'realistic'; // 'realistic' | 'cinematic' | 'painting' | 'exact' | 'silhouette' | 'likeness'
+let creatorCharacterRepresentation = 'painting'; // 'painting' | 'cinematic' | 'realistic' | 'silhouette' | 'exact' (Default: 'painting')
+let creatorSettingsGenerated = false;
 let creatorLastSuggestedContextKey = '';
 let creatorCuesSourceFingerprint = null;
 
@@ -9223,6 +9657,29 @@ function isSignificantTextChange(strA, strB) {
   const total = Math.max(wordsA.size, wordsB.size);
   const similarity = total > 0 ? (matches / total) : 1;
   return similarity < 0.5;
+}
+
+function onCreatorStage1InputChange() {
+  if (creatorSettingsGenerated) {
+    const urlInput = document.getElementById('creatorUrlInput');
+    const slantInput = document.getElementById('creatorSlantTakeInput');
+    const url = urlInput ? urlInput.value.trim() : '';
+    const slant = slantInput ? slantInput.value.trim() : '';
+    if (creatorCuesSourceFingerprint && (
+      normalizeUrlForComparison(url) !== normalizeUrlForComparison(creatorCuesSourceFingerprint.url) ||
+      isSignificantTextChange(slant, creatorCuesSourceFingerprint.slantTake)
+    )) {
+      creatorSettingsGenerated = false;
+      resetStage1ActionBtn();
+      const eqBadge = document.getElementById('creatorEqualizerBadge');
+      if (eqBadge) {
+        eqBadge.textContent = 'Modified';
+        eqBadge.classList.remove('ready');
+      }
+      const eqBtn = document.getElementById('creatorEqualizerBtn');
+      if (eqBtn) eqBtn.classList.remove('equalizer-highlighted');
+    }
+  }
 }
 
 function hasMajorCuesContextShift() {
@@ -9405,6 +9862,15 @@ function updateCountryContextUI() {
   if (badgeEl) badgeEl.textContent = creatorCountryContext.source || 'Auto-detected';
   if (descEl) descEl.textContent = creatorCountryContext.desc || '';
   if (selectEl) selectEl.value = creatorCountryContext.code || 'GLOBAL';
+
+  const eqFlag = document.getElementById('equalizerCountryFlag');
+  const eqSub = document.getElementById('equalizerCountrySub');
+  if (eqFlag) eqFlag.textContent = creatorCountryContext.flag || '🌐';
+  if (eqSub) eqSub.textContent = creatorCountryContext.desc || 'Grounds visual composition and architecture in local motifs';
+  document.querySelectorAll('.equalizer-country-pill').forEach(pill => {
+    pill.classList.toggle('active', pill.dataset.country === (creatorCountryContext.code || 'GLOBAL'));
+  });
+  updateEqualizerSummary();
 }
 
 function changeCountryContext(code) {
@@ -9503,7 +9969,18 @@ function resetCreatorState() {
   creatorActiveInspectedCueIndex = 0;
   creatorCountryContext = null;
   currentPreviewSlide = 0;
-  setPerspectiveMode('hybrid');
+  setPerspectiveMode('source');
+  creatorCharacterRepresentation = 'painting';
+  creatorSettingsGenerated = false;
+  resetStage1ActionBtn();
+  const eqBadge = document.getElementById('creatorEqualizerBadge');
+  if (eqBadge) {
+    eqBadge.textContent = 'Default';
+    eqBadge.classList.remove('ready');
+  }
+  const eqBtn = document.getElementById('creatorEqualizerBtn');
+  if (eqBtn) eqBtn.classList.remove('equalizer-highlighted');
+  updateEqualizerSummary();
   cleanViewState['preview'] = false;
   const eyeBtn = document.getElementById('step3EyeViewBtn');
   if (eyeBtn) eyeBtn.classList.remove('active');
@@ -10784,6 +11261,9 @@ async function goToVisualCuesStep() {
 
 function renderCuesDeck() {
   const container = document.getElementById('cuesDeckContainer');
+  if (typeof renderEqualizerCues === 'function') {
+    renderEqualizerCues();
+  }
   if (!container) return;
 
   container.innerHTML = '';
@@ -11468,11 +11948,11 @@ function updateReferencePhotoUI() {
   }
 
   if (optCinematic) {
-    optCinematic.style.display = hasPhoto ? 'flex' : 'none';
+    optCinematic.style.display = 'flex';
   }
 
   if (optPainting) {
-    optPainting.style.display = hasPhoto ? 'flex' : 'none';
+    optPainting.style.display = 'flex';
   }
 
   if (optLikeness) {
@@ -11483,10 +11963,8 @@ function updateReferencePhotoUI() {
     optExact.style.display = hasPhoto ? 'flex' : 'none';
   }
 
-  if (!hasPhoto) {
-    if (creatorCharacterRepresentation === 'cinematic' || creatorCharacterRepresentation === 'painting' || creatorCharacterRepresentation === 'likeness' || creatorCharacterRepresentation === 'exact') {
-      creatorCharacterRepresentation = 'realistic';
-    }
+  if (!hasPhoto && creatorCharacterRepresentation === 'exact') {
+    creatorCharacterRepresentation = 'painting';
   }
 
   // Update Visual Focus pills and labels dynamically based on photo presence
@@ -11523,14 +12001,21 @@ function updateReferencePhotoUI() {
   if (optReal) optReal.classList.toggle('active', creatorCharacterRepresentation === 'realistic');
   if (optSil) optSil.classList.toggle('active', creatorCharacterRepresentation === 'silhouette');
   if (optExact) optExact.classList.toggle('active', creatorCharacterRepresentation === 'exact');
+
+  if (typeof updateEqualizerPortrayalUI === 'function') {
+    updateEqualizerPortrayalUI();
+  }
 }
 
 function selectCharacterRepresentation(type) {
   if (type !== 'realistic' && type !== 'silhouette' && type !== 'exact' && type !== 'cinematic' && type !== 'painting' && type !== 'likeness') {
-    type = 'realistic';
+    type = 'painting';
   }
   creatorCharacterRepresentation = type;
   updateReferencePhotoUI();
+  if (typeof updateEqualizerPortrayalUI === 'function') {
+    updateEqualizerPortrayalUI();
+  }
 }
 
 function handleStep2NavRight() {
@@ -11550,17 +12035,20 @@ async function startAiSynthesis() {
     validateCreatorStage1(true);
     return;
   }
-  if (!validateCreatorStage2(true)) {
-    return;
-  }
 
-  const urlInput = document.getElementById('creatorUrlInput');
-  const slantTakeInput = document.getElementById('creatorSlantTakeInput');
-  const sparkInput = document.getElementById('creatorSparkInput');
-
-  const url = urlInput ? urlInput.value.trim() : '';
-  const slantTake = slantTakeInput ? slantTakeInput.value.trim() : '';
-  const spark = sparkInput ? sparkInput.value.trim() : '';
+  // Switch step indicators to synthesis state inside Step 2
+  const s1 = document.getElementById('creatorStep1');
+  const s2 = document.getElementById('creatorStep2');
+  const s3 = document.getElementById('creatorStep3');
+  const d1 = document.getElementById('stepDot1');
+  const d2 = document.getElementById('stepDot2');
+  const d3 = document.getElementById('stepDot3');
+  if (s1) s1.style.display = 'none';
+  if (s2) s2.style.display = 'block';
+  if (s3) s3.style.display = 'none';
+  if (d1) d1.className = 'creator-step-dot completed';
+  if (d2) d2.className = 'creator-step-dot active';
+  if (d3) d3.className = 'creator-step-dot';
 
   // Switch to Synthesis Loading State inside Step 2
   const cuesContent = document.getElementById('cuesStudioContent');
@@ -11585,6 +12073,14 @@ async function startAiSynthesis() {
         } catch (_) {}
       }
     }
+  }
+
+  // Auto-generate visual cues if missing
+  if (!creatorCuePills || creatorCuePills.length === 0) {
+    if (stepText) stepText.textContent = 'Drafting visual cues & editorial direction...';
+    try {
+      await triggerCueSuggest();
+    } catch (_) {}
   }
 
   if (stepText) stepText.textContent = 'Reading source and extracting core tension...';
