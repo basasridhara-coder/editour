@@ -8866,23 +8866,15 @@ function updateEqualizerSummary() {
 }
 
 function resetStage1ActionBtn() {
-  const btn = document.getElementById('creatorPrimaryActionBtn');
-  const icon = document.getElementById('creatorPrimaryBtnIcon');
-  const text = document.getElementById('creatorPrimaryBtnText');
+  const btn = document.getElementById('step1SynthesizeBtn') || document.getElementById('creatorPrimaryActionBtn');
   if (btn) {
     btn.disabled = false;
-    btn.classList.remove('synthesize-ready');
+    btn.classList.add('synthesize-ready');
   }
-  if (icon) icon.textContent = '✨';
-  if (text) text.textContent = 'Generate Settings';
 }
 
 async function handleStage1PrimaryAction() {
-  if (!creatorSettingsGenerated || !creatorCuePills || creatorCuePills.length === 0) {
-    await generateCreatorSettingsFromStage1();
-  } else {
-    await startAiSynthesis();
-  }
+  await startAiSynthesis();
 }
 
 async function generateCreatorSettingsFromStage1() {
@@ -9975,7 +9967,7 @@ function resetCreatorState() {
   resetStage1ActionBtn();
   const eqBadge = document.getElementById('creatorEqualizerBadge');
   if (eqBadge) {
-    eqBadge.textContent = 'Default';
+    eqBadge.textContent = 'Tune ▾';
     eqBadge.classList.remove('ready');
   }
   const eqBtn = document.getElementById('creatorEqualizerBtn');

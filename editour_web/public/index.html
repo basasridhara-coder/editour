@@ -555,41 +555,21 @@
             </div>
           </div>
 
-          <!-- Core Take Representation Mode: Refine with AI vs Use As-Is (Matches Android App) -->
-          <div class="slant-refine-toggle-card refined" id="slantRefineToggleCard" onclick="toggleRefineCoreTake()">
-            <div class="slant-refine-toggle-left">
-              <div class="slant-refine-icon-box" id="slantRefineIconBox">
-                <span id="slantRefineIcon">✨</span>
-              </div>
-              <div class="slant-refine-text-wrap">
-                <div class="slant-refine-title-row">
-                  <span class="slant-refine-title" id="slantRefineTitle">Refine Poster 2 Take</span>
-                  <span class="slant-refine-badge" id="slantRefineBadge">Refined</span>
-                </div>
-                <div class="slant-refine-subtitle" id="slantRefineSubtitle">Polishes your typed thoughts into a punchy 2-sentence quote for Poster 2.</div>
-              </div>
-            </div>
-            <label class="switch-toggle" onclick="event.stopPropagation()">
-              <input type="checkbox" id="refineCoreTakeSwitch" checked onchange="toggleRefineCoreTake(this.checked)">
-              <span class="switch-slider"></span>
-            </label>
-          </div>
-
         </div>
 
-        <!-- 4. Bottom Navigation Bar (Step 1) -->
+        <!-- 4. Bottom Navigation Bar (Step 1 - Option A: One-Click Direct Synthesis with Optional Equalizer) -->
         <div class="creator-bottom-nav creator-step1-nav">
           <button type="button" class="creator-equalizer-pill-btn" id="creatorEqualizerBtn" onclick="openCreatorEqualizer()" title="Tune Visual Focus, Portrayal & Cues">
             <span class="equalizer-icon">🎚️</span>
             <div class="equalizer-text-wrap">
-              <span class="equalizer-label">Settings</span>
+              <span class="equalizer-label">SETTINGS</span>
               <span class="equalizer-summary" id="creatorEqualizerSummary">Source Grounded • AI Illustration • 🇮🇳 India</span>
             </div>
-            <span class="equalizer-badge" id="creatorEqualizerBadge">Default</span>
+            <span class="equalizer-badge" id="creatorEqualizerBadge">Tune ▾</span>
           </button>
-          <button type="button" class="creator-synthesize-btn creator-nav-main-btn" id="creatorPrimaryActionBtn" onclick="handleStage1PrimaryAction()">
-            <span class="btn-stars" id="creatorPrimaryBtnIcon">✨</span>
-            <span class="btn-text" id="creatorPrimaryBtnText">Generate Settings</span>
+          <button type="button" class="creator-synthesize-btn creator-nav-main-btn synthesize-ready" id="step1SynthesizeBtn" onclick="startAiSynthesis()">
+            <span class="btn-stars">✨</span>
+            <span class="btn-text">Synthesize Posters</span>
           </button>
         </div>
         <div class="creator-scroll-spacer"></div>
