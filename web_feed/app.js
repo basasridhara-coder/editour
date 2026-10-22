@@ -11809,7 +11809,7 @@ async function triggerCueSuggest() {
   if (suggestIcon) suggestIcon.textContent = '⏳';
 
   const cueController = new AbortController();
-  const cueTimer = setTimeout(() => cueController.abort(), 12000);
+  const cueTimer = setTimeout(() => cueController.abort(), 20000);
 
   try {
     const resp = await fetch('/api/cues', {
@@ -11818,21 +11818,21 @@ async function triggerCueSuggest() {
       body: JSON.stringify({
         curatorAngle: slantTake,
         spark: spark,
-        newsHeadline: articleTitle,
-        newsBody: articleBody,
+        newsHeadline: (articleTitle || '').slice(0, 300),
+        newsBody: (articleBody || '').slice(0, 2000),
         sourceType: creatorSelectedSource,
         characterRepresentation: creatorCharacterRepresentation,
         selectedIndices: Array.from(creatorSelectedCueIndices),
         existingCues: creatorCuePills,
         countryContext: creatorCountryContext?.name || 'India',
         countryCode: creatorCountryContext?.code || 'IN',
-        creatorEmail: currentUser?.email || '',
+        creatorEmail: getResolvedCreatorEmail(),
         vocabularyStyle: creatorVocabularyStyle || 'casual',
         perspectiveMode: creatorPerspectiveMode || 'hybrid',
         slantTone: (creatorSelectedSource === 'inner_voice' || /\b(family|child|love|heart|trip|vacation|weekend|pack|burnout|unplug|memoir|personal)\b/i.test(`${slantTake} ${spark}`)) ? 'heart' : 'mind',
-        imageBase64: effectiveCuesImage,
+        imageBase64: (effectiveCuesImage && typeof effectiveCuesImage === 'string' && effectiveCuesImage.length < 500000) ? effectiveCuesImage : null,
         imageMimeType: effectiveCuesMime,
-        innerVoiceImageBase64: (creatorSelectedSource === 'inner_voice') ? innerVoicePhotoBase64 : null,
+        innerVoiceImageBase64: (creatorSelectedSource === 'inner_voice' && innerVoicePhotoBase64 && innerVoicePhotoBase64.length < 500000) ? innerVoicePhotoBase64 : null,
         innerVoiceImageMimeType: innerVoicePhotoMimeType || 'image/jpeg',
         familyCast: getSanitizedCastPayload(familyCastProfileCache),
         activeCast: getSanitizedActiveCastPayload(),
@@ -11889,8 +11889,8 @@ async function triggerCueSuggest() {
   } catch (err) {
     if (cueTimer) clearTimeout(cueTimer);
     console.warn('AI cue suggestion fallback:', err.message);
-    if (!err.message.includes('402') && !err.message.includes('401') && !err.message.includes('403') && !err.message.includes('unavailable')) {
-      showTemporaryToast('⚠️ Could not connect to AI cues service. Loaded offline cues.', 4500);
+    if (!err.message.includes('402') && !err.message.includes('401') && !err.message.includes('403') && !err.message.includes('unavailable') && !err.message.includes('abort')) {
+      showTemporaryToast('⚠️ Loaded offline cues for this context.', 3500);
     }
     const fallbacks = extract6RankedCueDimensions(slantTake, articleTitle, articleBody);
     if (creatorSelectedCueIndices.size > 0 && creatorCuePills.length > 0) {
@@ -12066,6 +12066,38 @@ async function startAiSynthesis() {
     return;
   }
 
+  const urlInput = document.getElementById('creatorUrlInput');
+  const slantTakeInput = document.getElementById('creatorSlantTakeInput');
+  const sparkInput = document.getElementById('creatorSparkInput');
+
+  const url = urlInput ? urlInput.value.trim() : '';
+  const slantTake = slantTakeInput ? slantTakeInput.value.trim() : '';
+  const spark = sparkInput ? sparkInput.value.trim() : '';
+  const isLink = (creatorSelectedSource === 'digital_link' || creatorSelectedSource === 'video_audio');
+
+  // If URL is provided and not scraped yet, scrape now or await in-flight scrape
+  if (isLink && url) {
+    if (!currentScrapedArticle && !isScrapingUrl) {
+      await handleUrlInput(url);
+    } else if (isScrapingUrl && activeScrapePromise) {
+      try { await activeScrapePromise; } catch (_) {}
+    }
+  }
+
+  // Ensure country context is detected if missing
+  const articleTitle = isLink ? (currentScrapedArticle?.title || extractHeadlineFromUrl(url)) : '';
+  const articleBody = isLink ? (currentScrapedArticle?.content || '') : '';
+  if (!creatorCountryContext) {
+    creatorCountryContext = detectGeographicContext(isLink ? url : '', articleTitle, articleBody, slantTake);
+  }
+  updateCountryContextUI();
+
+  // Populate visual cues synchronously (0ms local extraction if not already set via Equalizer)
+  if (!creatorCuePills || creatorCuePills.length === 0) {
+    creatorCuePills = extract6RankedCueDimensions(slantTake, articleTitle, articleBody);
+    renderCuesDeck();
+  }
+
   // Switch step indicators to synthesis state inside Step 2
   const s1 = document.getElementById('creatorStep1');
   const s2 = document.getElementById('creatorStep2');
@@ -12105,14 +12137,6 @@ async function startAiSynthesis() {
     }
   }
 
-  // Auto-generate visual cues if missing
-  if (!creatorCuePills || creatorCuePills.length === 0) {
-    if (stepText) stepText.textContent = 'Drafting visual cues & editorial direction...';
-    try {
-      await triggerCueSuggest();
-    } catch (_) {}
-  }
-
   if (stepText) stepText.textContent = 'Reading source and extracting core tension...';
   if (fill) fill.style.width = '25%';
 
@@ -12149,7 +12173,6 @@ async function startAiSynthesis() {
   const effectiveImageBase64 = shouldSendImage ? (creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || null) : null;
   const effectiveImageMime = shouldSendImage ? (creatorReferenceImageMimeType || currentScrapedArticle?.imageMimeType || 'image/jpeg') : 'image/jpeg';
 
-  const isLink = (creatorSelectedSource === 'digital_link' || creatorSelectedSource === 'video_audio');
   const rawSourceImgUrl = (isLink && currentScrapedArticle) ? (currentScrapedArticle.imageUrl || null) : (creatorReferenceImageBase64?.startsWith('http') ? creatorReferenceImageBase64 : null);
   const cleanSourceImgUrl = (rawSourceImgUrl && typeof rawSourceImgUrl === 'string') ? rawSourceImgUrl.replace(/&amp;/g, '&') : null;
 
@@ -12170,7 +12193,7 @@ async function startAiSynthesis() {
     slantTone: (creatorSelectedSource === 'inner_voice' || /\b(family|child|love|heart|trip|vacation|weekend|pack|burnout|unplug|memoir|personal)\b/i.test(`${slantTake} ${spark}`)) ? 'heart' : 'mind',
     spark,
     creatorHandle: userHandle,
-    creatorEmail: currentUser?.email || '',
+    creatorEmail: getResolvedCreatorEmail(),
     cues: creatorCuePills,
     heroCue: creatorCuePills[0] || '',
     characterRepresentation: creatorCharacterRepresentation,
@@ -12233,6 +12256,10 @@ async function startAiSynthesis() {
 
     currentSynthesizedPost = data.post;
     currentSynthesizedPost.perspectiveMode = creatorPerspectiveMode || 'hybrid';
+    if (Array.isArray(currentSynthesizedPost.cues) && currentSynthesizedPost.cues.length > 0) {
+      creatorCuePills = currentSynthesizedPost.cues;
+      renderCuesDeck();
+    }
     if (isLink) {
       const candidateUrl = currentSynthesizedPost.sourceImageUrl || currentScrapedArticle?.imageUrl || (creatorReferenceImageBase64?.startsWith('http') ? creatorReferenceImageBase64 : null) || null;
       currentSynthesizedPost.sourceImageUrl = (candidateUrl && typeof candidateUrl === 'string') ? candidateUrl.replace(/&amp;/g, '&') : null;

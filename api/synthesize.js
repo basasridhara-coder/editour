@@ -982,6 +982,7 @@ Respond strictly with valid JSON with this exact structure:
   "tensionCue": "Opposing visual force or conflict",
   "atmosphereCue": "Environmental setting or mood",
   "lightingCue": "Dramatic lighting description",
+  "styleCue": "Aesthetic style and medium (e.g. Broadsheet Gouache and Oil Painting, 35mm Editorial Photography)",
   "illustrationPrompt": "${isCinematicPhoto ? 'Award-winning 35mm editorial news photograph in 4:5 vertical portrait format, sharp camera focus, natural skin textures, lifelike human expressions, realistic clothing and environment observed from the attached photo. Natural ambient lighting, cinematic color grading, strictly no painterly brushstrokes, no canvas textures, no oil paint, no text, no letters.' : (isArtisticPainting ? 'Masterpiece editorial broadsheet painted illustration describing the scene in vivid detail. Specifically incorporate the observed facial structures, hairstyles, expressions, clothing colors, and postures from the attached photo into a rich painterly composition. Clear, warmly lit faces, lifelike human expression, no text, no letters.' : (familyCastDirectives ? (familyCastDirectives.isSolo ? `Cinematic visual art prompt describing the scene with rich detail. Focus exclusively on the single protagonist: ${familyCastDirectives.soloName} (${familyCastDirectives.soloTraits}). Strictly do not draw any extra family members, parents, or background companions. Warm natural lighting, clear human form, no text, no letters, no typography.` : `Cinematic visual art prompt describing the scene with rich detail. MANDATORY HEADCOUNT: You MUST begin with the exact headcount of all ${familyCastDirectives.totalCount} family members visible side by side. All ${familyCastDirectives.totalCount} members must be individually visible with warm, fully illuminated faces. Preserve each character uncompromisable physical anatomy (face shape, natural hair length, real-world body build) strictly without morphing into western catalog models or salon blowouts. Do not draw detached foreground hands or extra people. No text, no letters, no typography.`) : 'Cinematic visual art prompt describing the scene with rich detail. People MUST have visible faces, warm natural lighting, and clear human form. Strictly avoid pitch-black silhouettes, faceless shadow figures, dark ghosts, or creepy silhouettes unless characterRepresentation is explicitly silhouette. Do not include any text, letters, watermarks, or typography.'))}"
 }`;
 
@@ -1293,7 +1294,14 @@ Respond strictly with valid JSON with this exact structure:
       pullQuote: parsed.receiptHighlightQuote || '',
       visualMood: parsed.visualMood || 'Editorial Chiaroscuro',
       heroCue: parsed.heroCue || (cues && cues[0]) || '',
-      cues: cues || [],
+      cues: [
+        parsed.heroCue || (cues && cues[0]) || 'Solitary Focal Figure',
+        parsed.motifCue || (cues && cues[1]) || 'Symbolic Editorial Metaphor',
+        parsed.tensionCue || (cues && cues[2]) || 'Friction & Opposing Cast Shadows',
+        parsed.atmosphereCue || (cues && cues[3]) || 'Atmospheric Minimalist Setting',
+        parsed.lightingCue || (cues && cues[4]) || 'Dramatic Chiaroscuro Editorial Spotlight',
+        parsed.styleCue || (cues && cues[5]) || 'Cinematic Warm Editorial Illustration'
+      ],
       characterRepresentation,
       hookCues: `#1 [HERO]: ${parsed.heroCue || (cues && cues[0]) || 'Central subject'}\n#2 [MOTIF]: ${parsed.motifCue || (cues && cues[1]) || 'Metaphor'}\n#3 [TENSION]: ${parsed.tensionCue || (cues && cues[2]) || 'Conflict'}\n#4 [ATMOSPHERE]: ${parsed.atmosphereCue || (cues && cues[3]) || 'Setting'}\n#5 [LIGHTING]: ${parsed.lightingCue || (cues && cues[4]) || 'Atmospheric light'}\n#6 [STYLE]: ${parsed.styleCue || (cues && cues[5]) || 'Editorial illustration'}`,
       illustrationPrompt: effectiveIllustrationPrompt,
@@ -1341,7 +1349,14 @@ Respond strictly with valid JSON with this exact structure:
         catalystPhotoBase64: (sourceType === 'inner_voice' && effectiveCatalystImage) ? effectiveCatalystImage : null,
         innerVoiceImageBase64: effectiveCatalystImage || null,
         innerVoiceImageMimeType: effectiveCatalystImage ? effectiveCatalystMime : null,
-        cues: cues || [],
+        cues: [
+          parsed.heroCue || (cues && cues[0]) || 'Solitary Focal Figure',
+          parsed.motifCue || (cues && cues[1]) || 'Symbolic Editorial Metaphor',
+          parsed.tensionCue || (cues && cues[2]) || 'Friction & Opposing Cast Shadows',
+          parsed.atmosphereCue || (cues && cues[3]) || 'Atmospheric Minimalist Setting',
+          parsed.lightingCue || (cues && cues[4]) || 'Dramatic Chiaroscuro Editorial Spotlight',
+          parsed.styleCue || (cues && cues[5]) || 'Cinematic Warm Editorial Illustration'
+        ],
         heroCue: parsed.heroCue || (cues && cues[0]) || '',
         characterRepresentation: characterRepresentation || 'painting',
         refineCoreTake,

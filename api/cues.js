@@ -77,12 +77,14 @@ module.exports = async function handler(req, res) {
   const effectivePhotoMime = innerVoiceImageMimeType || imageMimeType || 'image/jpeg';
 
   const userEmail = (creatorEmail || '').toLowerCase().trim();
-  if (!userEmail) {
-    return res.status(401).json({ error: 'Slant Studio is currently in Private Preview. Please sign in with your invited Google account.' });
-  }
-  const isAllowed = await verifyEmailIsWhitelisted(userEmail);
-  if (!isAllowed) {
-    return res.status(403).json({ error: 'Slant Studio is currently in Private Preview by invitation only.' });
+  const isAllowed = userEmail ? await verifyEmailIsWhitelisted(userEmail) : false;
+  if (!userEmail || !isAllowed) {
+    const fallbacks = generateSmartFallbackCues(curatorAngle, spark, effectiveNewsHeadline, effectiveNewsBody, characterRepresentation, countryContext, sourceType, selectedIndices, existingCues);
+    return res.status(200).json({
+      success: true,
+      cues: fallbacks,
+      fallback: true
+    });
   }
 
   const effectiveNewsHeadline = (sourceType === 'digital_link' || sourceType === 'video_audio') ? (newsHeadline || '').trim() : '';
@@ -275,7 +277,7 @@ Respond strictly with valid JSON with this exact schema:
   try {
     const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10000);
+    const timeout = setTimeout(() => controller.abort(), 18000);
 
     const parts = [];
     if (effectivePhoto) {
