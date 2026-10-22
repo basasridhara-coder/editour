@@ -5,7 +5,7 @@
 
 const DEFAULT_KEY_B64 = 'QVEuQWI4Uk42STR5WnQzMEl6NGpLRkQ2SndaYVlSeThQYlVtWXpDYUNuMzU3alIyUU9KbFE=';
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || Buffer.from(DEFAULT_KEY_B64, 'base64').toString('utf8');
-const PRIMARY_MODEL = 'gemini-3.8-flash';
+const PRIMARY_MODEL = 'gemini-3.5-flash-lite';
 const FALLBACK_MODEL = 'gemini-3.8-flash';
 
 async function generateLedgerForSource(title = '', content = '', url = '', siteName = '') {
@@ -179,7 +179,10 @@ async function callGeminiLedger(systemPrompt, sourceContext, modelName) {
       generationConfig: {
         temperature: 0.15,
         maxOutputTokens: 2048,
-        responseMimeType: 'application/json'
+        responseMimeType: 'application/json',
+        thinkingConfig: {
+          thinkingBudget: 0
+        }
       }
     })
   });

@@ -11294,6 +11294,9 @@ async function triggerCueSuggest() {
   if (suggestLabel) suggestLabel.textContent = 'Generating Visual Cues...';
   if (suggestIcon) suggestIcon.textContent = '⏳';
 
+  const cueController = new AbortController();
+  const cueTimer = setTimeout(() => cueController.abort(), 12000);
+
   try {
     const resp = await fetch('/api/cues', {
       method: 'POST',
@@ -11320,8 +11323,10 @@ async function triggerCueSuggest() {
         familyCast: getSanitizedCastPayload(familyCastProfileCache),
         activeCast: getSanitizedActiveCastPayload(),
         castStaging: { mode: activeCastStagingMode }
-      })
+      }),
+      signal: cueController.signal
     });
+    clearTimeout(cueTimer);
 
     if (!resp.ok) {
       let errorMsg = `HTTP ${resp.status}`;
@@ -11368,6 +11373,7 @@ async function triggerCueSuggest() {
       throw new Error('Invalid cues response');
     }
   } catch (err) {
+    if (cueTimer) clearTimeout(cueTimer);
     console.warn('AI cue suggestion fallback:', err.message);
     if (!err.message.includes('402') && !err.message.includes('401') && !err.message.includes('403') && !err.message.includes('unavailable')) {
       showTemporaryToast('⚠️ Could not connect to AI cues service. Loaded offline cues.', 4500);
