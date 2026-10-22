@@ -817,7 +817,8 @@ Respond strictly with valid JSON with this exact structure:
       castStaging,
       userSlant,
       spark,
-      countryContext
+      countryContext,
+      sourceType
     });
 
     const isCinematicPhoto = (characterRepresentation === 'cinematic' || characterRepresentation === 'cinematic_photo' || characterRepresentation === 'likeness' || (Boolean(effectiveCatalystImage || sourceImageBase64) && characterRepresentation !== 'painting' && characterRepresentation !== 'exact' && characterRepresentation !== 'silhouette' && characterRepresentation !== 'realistic'));
@@ -1942,9 +1943,9 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
 
   let enhancedPrompt = prompt || '';
 
-  // Detect family context with 2 sons or family group
+  // Detect family context with 2 sons or family group (strictly requires explicit family cast or personal first-person context)
   const hasTwoSons = /\b(two sons|2 sons|both boys|two boys|elder son.*younger son|elder brother.*younger brother)\b/i.test(enhancedPrompt);
-  const hasFamilyContext = hasTwoSons || /\b(family.*temple|family.*trip|father.*mother.*son|father.*wife.*son|me, wife and 2 sons|with family)\b/i.test(enhancedPrompt);
+  const hasFamilyContext = hasTwoSons || (activeCast && Array.isArray(activeCast.members) && activeCast.members.length > 0) || /\b(my family.*temple|my family.*trip|me, wife and 2 sons|road trip with my family)\b/i.test(enhancedPrompt);
   const isIndianFamilyCast = (!countryContext || /india/i.test(countryContext));
 
   if ((hasTwoSons || hasFamilyContext) && isIndianFamilyCast) {
@@ -2057,9 +2058,14 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
 
       if (resp.ok) {
         const data = await resp.json();
-        const inlinePart = data.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
+        const candidate = data.candidates?.[0];
+        const inlinePart = candidate?.content?.parts?.find(p => p.inlineData);
         if (inlinePart && inlinePart.inlineData && inlinePart.inlineData.data) {
           return `data:${inlinePart.inlineData.mimeType || 'image/png'};base64,${inlinePart.inlineData.data}`;
+        }
+        if (candidate?.finishReason === 'IMAGE_OTHER' || candidate?.finishReason === 'SAFETY') {
+          console.warn(`Gemini image model ${model} blocked reference photo with ${candidate.finishReason}, falling back to text prompt immediately`);
+          break;
         }
       } else {
         const errText = await resp.text().catch(() => '');
@@ -2072,7 +2078,7 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
 
   // If image-conditioned attempt returned nothing (e.g. policy block / IMAGE_OTHER on real faces), fallback to text prompt
   if (imageBase64 || (stylizedAvatars && stylizedAvatars.length > 0)) {
-    return generateGeminiEditorialArtwork({ prompt, imageBase64: null, timeoutMs, stylizedAvatars: null });
+    return generateGeminiEditorialArtwork({ prompt, imageBase64: null, timeoutMs, stylizedAvatars: null, countryContext });
   }
 
   return null;
@@ -2339,7 +2345,7 @@ function detectRelevantCastMembers(combined = '', cast = null) {
   const c = String(combined || '').toLowerCase();
   const members = (cast && Array.isArray(cast.members)) ? cast.members : [];
 
-  const mentionsCollective = /\b(family|my family|kids|my kids|sons|my sons|both boys|boys|children|11 and 7|11,? 7|road trip with family|vacation with family)\b/i.test(c);
+  const mentionsCollective = /\b(my family|our family|my kids|our kids|my sons|our sons|both my boys|both our boys|my children|our children|11 and 7|11yo and 7yo|road trip with my family|vacation with my family)\b/i.test(c);
   if (mentionsCollective) {
     return new Set(members.map(m => m.id));
   }
@@ -2369,21 +2375,21 @@ function detectRelevantCastMembers(combined = '', cast = null) {
       }
     }
 
-    // 3. Role-specific semantic keywords
+    // 3. Role-specific semantic keywords (must be first-person personal possessives)
     if (m.relationship === 'elder_son') {
-      if (/\b(elder son|older son|older boy|first son|11-year-old|11yo|11 year old|gahan)\b/i.test(c) || (/\bson\b/i.test(c) && !/\byounger|little|7|rishu\b/i.test(c) && !detected.has('member_younger_son'))) {
+      if (/\b(my elder son|my older son|my older boy|my first son|11-year-old|11yo|gahan)\b/i.test(c)) {
         detected.add(m.id);
       }
     } else if (m.relationship === 'younger_son') {
-      if (/\b(younger son|little son|younger boy|second son|7-year-old|7yo|7 year old|little boy|rishu)\b/i.test(c)) {
+      if (/\b(my younger son|my little son|my younger boy|my second son|7-year-old|7yo|rishu)\b/i.test(c)) {
         detected.add(m.id);
       }
     } else if (m.relationship === 'spouse') {
-      if (/\b(wife|mom|mother|spouse|aru)\b/i.test(c)) {
+      if (/\b(my wife|my spouse|with my wife|aru)\b/i.test(c)) {
         detected.add(m.id);
       }
     } else if (m.relationship === 'self') {
-      if (/\b(dad|father|husband|shridhar)\b/i.test(c)) {
+      if (/\b(my dad|my father|shridhar)\b/i.test(c)) {
         detected.add(m.id);
       }
     }
@@ -2402,7 +2408,10 @@ function detectRelevantCastMembers(combined = '', cast = null) {
   return detected;
 }
 
-function buildFamilyCastDirectives({ familyCast, activeCast, castStaging, userSlant = '', spark = '', countryContext = '' }) {
+function buildFamilyCastDirectives({ familyCast, activeCast, castStaging, userSlant = '', spark = '', countryContext = '', sourceType = 'digital_link' }) {
+  if (sourceType !== 'inner_voice' && (!activeCast || !Array.isArray(activeCast.members) || activeCast.members.length === 0)) {
+    return null;
+  }
   const combined = `${userSlant} ${spark}`.toLowerCase();
   const cast = familyCast || getDefaultFamilyCast();
   const detectedIds = detectRelevantCastMembers(combined, cast);

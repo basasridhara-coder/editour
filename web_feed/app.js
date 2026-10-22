@@ -5809,6 +5809,9 @@ function loadPostIntoStudioToRegenerate(postId) {
 
   // 1. Set source mode
   setAnchorMode(inputs.sourceType || 'digital_link');
+  if (inputs.sourceType !== 'inner_voice' && typeof dismissFamilyCastStaging === 'function') {
+    dismissFamilyCastStaging();
+  }
 
   // 1b. Restore Attached Catalyst Photo or Source Visual if present
   if (inputs.sourcePhoto && typeof inputs.sourcePhoto === 'string' && inputs.sourcePhoto.length > 20) {
@@ -8387,7 +8390,7 @@ function detectRelevantCastMembers(text = '', cast = null) {
   const profile = cast || familyCastProfileCache || getDefaultClientFamilyCast();
   const members = (profile && Array.isArray(profile.members)) ? profile.members : [];
 
-  const mentionsCollective = /\b(family|my family|kids|my kids|sons|my sons|both boys|boys|children|11 and 7|11,? 7|road trip with family|vacation with family)\b/i.test(combined);
+  const mentionsCollective = /\b(my family|our family|my kids|our kids|my sons|our sons|both my boys|both our boys|my children|our children|11 and 7|11yo and 7yo|road trip with my family|vacation with my family)\b/i.test(combined);
   if (mentionsCollective) {
     return new Set(members.map(m => m.id));
   }
@@ -8417,21 +8420,21 @@ function detectRelevantCastMembers(text = '', cast = null) {
       }
     }
 
-    // 3. Role-specific semantic keywords
+    // 3. Role-specific semantic keywords (must be first-person personal possessives)
     if (m.relationship === 'elder_son') {
-      if (/\b(elder son|older son|older boy|first son|11-year-old|11yo|11 year old|gahan)\b/i.test(combined) || (/\bson\b/i.test(combined) && !/\byounger|little|7|rishu\b/i.test(combined) && !detected.has('member_younger_son'))) {
+      if (/\b(my elder son|my older son|my older boy|my first son|11-year-old|11yo|gahan)\b/i.test(combined)) {
         detected.add(m.id);
       }
     } else if (m.relationship === 'younger_son') {
-      if (/\b(younger son|little son|younger boy|second son|7-year-old|7yo|7 year old|little boy|rishu)\b/i.test(combined)) {
+      if (/\b(my younger son|my little son|my younger boy|my second son|7-year-old|7yo|rishu)\b/i.test(combined)) {
         detected.add(m.id);
       }
     } else if (m.relationship === 'spouse') {
-      if (/\b(wife|mom|mother|spouse|aru)\b/i.test(combined)) {
+      if (/\b(my wife|my spouse|with my wife|aru)\b/i.test(combined)) {
         detected.add(m.id);
       }
     } else if (m.relationship === 'self') {
-      if (/\b(dad|father|husband|shridhar)\b/i.test(combined)) {
+      if (/\b(my dad|my father|shridhar)\b/i.test(combined)) {
         detected.add(m.id);
       }
     }
@@ -8483,6 +8486,9 @@ function manuallyOpenFamilyCastStaging() {
 }
 
 function checkAndTriggerFamilyCast(text = '') {
+  if (creatorSelectedSource !== 'inner_voice') {
+    return;
+  }
   const combined = String(text || '').toLowerCase();
   const card = document.getElementById('familyCastStagingCard');
   const launcher = document.getElementById('familyCastLauncherWrap');
@@ -8567,6 +8573,11 @@ function renderFamilyCastStagingUI() {
 
 function getActiveCastPayload() {
   const card = document.getElementById('familyCastStagingCard');
+  if (creatorSelectedSource !== 'inner_voice') {
+    if (!card || !card.dataset.manuallyOpened) {
+      return null;
+    }
+  }
   if (card && card.style.display === 'none' && !card.dataset.manuallyOpened) {
     return null;
   }
@@ -12355,7 +12366,7 @@ async function startAiSynthesis() {
 
       try {
         const artController = new AbortController();
-        const artTimeout = setTimeout(() => artController.abort(), 40000);
+        const artTimeout = setTimeout(() => artController.abort(), 50000);
 
         const artResp = await fetch('/api/synthesize', {
           method: 'POST',
@@ -12367,7 +12378,7 @@ async function startAiSynthesis() {
             countryContext: creatorCountryContext?.name || 'India',
             familyCast: getSanitizedCastPayload(familyCastProfileCache),
             activeCast: getSanitizedActiveCastPayload(),
-            imageBase64: (creatorPerspectiveMode === 'source' || creatorCharacterRepresentation === 'exact')
+            imageBase64: ((creatorPerspectiveMode === 'source' && creatorCharacterRepresentation !== 'painting' && creatorCharacterRepresentation !== 'silhouette') || creatorCharacterRepresentation === 'exact')
               ? (creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || currentSynthesizedPost?.sourceImageBase64 || null)
               : null,
             imageMimeType: creatorReferenceImageMimeType || currentScrapedArticle?.imageMimeType || currentSynthesizedPost?.sourceImageMimeType || 'image/jpeg'
@@ -12481,7 +12492,7 @@ async function retryStep3ArtworkGeneration(event) {
 
   try {
     const artController = new AbortController();
-    const artTimer = setTimeout(() => artController.abort(), 40000);
+    const artTimer = setTimeout(() => artController.abort(), 50000);
 
     const artResp = await fetch('/api/synthesize', {
       method: 'POST',
@@ -12493,7 +12504,7 @@ async function retryStep3ArtworkGeneration(event) {
         countryContext: creatorCountryContext?.name || 'India',
         familyCast: getSanitizedCastPayload(familyCastProfileCache),
         activeCast: getSanitizedActiveCastPayload(),
-        imageBase64: (creatorPerspectiveMode === 'source' || creatorCharacterRepresentation === 'exact')
+        imageBase64: ((creatorPerspectiveMode === 'source' && creatorCharacterRepresentation !== 'painting' && creatorCharacterRepresentation !== 'silhouette') || creatorCharacterRepresentation === 'exact')
           ? (creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || currentSynthesizedPost?.sourceImageBase64 || null)
           : null,
         imageMimeType: creatorReferenceImageMimeType || currentScrapedArticle?.imageMimeType || currentSynthesizedPost?.sourceImageMimeType || 'image/jpeg'
