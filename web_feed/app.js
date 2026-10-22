@@ -8872,7 +8872,7 @@ function updateEqualizerSummary() {
     : (creatorCharacterRepresentation === 'cinematic'
       ? 'Cinematic Photo'
       : (creatorCharacterRepresentation === 'painting'
-        ? 'Painting'
+        ? 'Broadsheet Painting'
         : (creatorCharacterRepresentation === 'silhouette'
           ? 'Silhouette'
           : (creatorCharacterRepresentation === 'exact' ? 'Authentic Photo' : 'AI Illustration'))));
