@@ -5,7 +5,7 @@
 
 const DEFAULT_KEY_B64 = 'QVEuQWI4Uk42STR5WnQzMEl6NGpLRkQ2SndaYVlSeThQYlVtWXpDYUNuMzU3alIyUU9KbFE=';
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || Buffer.from(DEFAULT_KEY_B64, 'base64').toString('utf8');
-const PRIMARY_MODEL = 'gemini-3.5-flash-lite';
+const PRIMARY_MODEL = 'gemini-3.8-flash';
 const FALLBACK_MODEL = 'gemini-3.8-flash';
 
 async function generateLedgerForSource(title = '', content = '', url = '', siteName = '') {
@@ -163,7 +163,7 @@ module.exports = handler;
 async function callGeminiLedger(systemPrompt, sourceContext, modelName) {
   const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${GEMINI_API_KEY}`;
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 25000);
+  const timeout = setTimeout(() => controller.abort(), 15000);
 
   const resp = await fetch(geminiUrl, {
     method: 'POST',

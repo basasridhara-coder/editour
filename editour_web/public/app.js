@@ -8577,6 +8577,42 @@ function getActiveCastPayload() {
   };
 }
 
+function getSanitizedCastMember(m) {
+  if (!m) return null;
+  return {
+    id: m.id,
+    name: m.name,
+    relationship: m.relationship,
+    roleLabel: m.roleLabel,
+    aliases: m.aliases,
+    age: m.age,
+    heightDesc: m.heightDesc,
+    uncompromisableAnchors: m.uncompromisableAnchors,
+    visualTraits: m.visualTraits,
+    vehicleRole: m.vehicleRole,
+    stylizedAvatarUrl: m.stylizedAvatarUrl
+  };
+}
+
+function getSanitizedCastPayload(cast) {
+  if (!cast) return null;
+  return {
+    userIdentifier: cast.userIdentifier || '',
+    updatedAt: cast.updatedAt || '',
+    collectiveAliases: cast.collectiveAliases || [],
+    members: (cast.members || []).map(getSanitizedCastMember)
+  };
+}
+
+function getSanitizedActiveCastPayload() {
+  const activePayload = getActiveCastPayload();
+  if (!activePayload) return null;
+  return {
+    stagingMode: activePayload.stagingMode,
+    members: (activePayload.members || []).map(getSanitizedCastMember)
+  };
+}
+
 function acceptPolishedTake() {
   const input = document.getElementById('creatorSlantTakeInput');
   const reviewCard = document.getElementById('slantPolishReviewCard');
@@ -11281,8 +11317,8 @@ async function triggerCueSuggest() {
         imageMimeType: effectiveCuesMime,
         innerVoiceImageBase64: (creatorSelectedSource === 'inner_voice') ? innerVoicePhotoBase64 : null,
         innerVoiceImageMimeType: innerVoicePhotoMimeType || 'image/jpeg',
-        familyCast: familyCastProfileCache,
-        activeCast: getActiveCastPayload(),
+        familyCast: getSanitizedCastPayload(familyCastProfileCache),
+        activeCast: getSanitizedActiveCastPayload(),
         castStaging: { mode: activeCastStagingMode }
       })
     });
@@ -11608,13 +11644,13 @@ async function startAiSynthesis() {
     sourceLedger: currentSourceLedger || null,
     scrapedTitle: (isLink && url) ? (currentScrapedArticle?.title || '') : '',
     scrapedContent: (isLink && url) ? (currentScrapedArticle?.content || '').slice(0, 3000) : '',
-    familyCast: familyCastProfileCache,
-    activeCast: getActiveCastPayload(),
+    familyCast: getSanitizedCastPayload(familyCastProfileCache),
+    activeCast: getSanitizedActiveCastPayload(),
     castStaging: { mode: activeCastStagingMode }
   };
 
   const synthController = new AbortController();
-  const synthTimer = setTimeout(() => synthController.abort(), 48000);
+  const synthTimer = setTimeout(() => synthController.abort(), 58000);
 
   const clearAllTimers = () => {
     try {
@@ -11765,8 +11801,8 @@ async function startAiSynthesis() {
             action: 'artwork_only',
             creatorEmail: userEmail,
             prompt: currentSynthesizedPost.illustrationPrompt,
-            familyCast: familyCastProfileCache,
-            activeCast: getActiveCastPayload(),
+            familyCast: getSanitizedCastPayload(familyCastProfileCache),
+            activeCast: getSanitizedActiveCastPayload(),
             imageBase64: (creatorPerspectiveMode === 'source' || creatorCharacterRepresentation === 'exact')
               ? (creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || currentSynthesizedPost?.sourceImageBase64 || null)
               : null,
@@ -11890,8 +11926,8 @@ async function retryStep3ArtworkGeneration(event) {
         action: 'artwork_only',
         creatorEmail: userEmail,
         prompt: currentSynthesizedPost.illustrationPrompt,
-        familyCast: familyCastProfileCache,
-        activeCast: getActiveCastPayload(),
+        familyCast: getSanitizedCastPayload(familyCastProfileCache),
+        activeCast: getSanitizedActiveCastPayload(),
         imageBase64: (creatorPerspectiveMode === 'source' || creatorCharacterRepresentation === 'exact')
           ? (creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || currentSynthesizedPost?.sourceImageBase64 || null)
           : null,
@@ -11952,8 +11988,8 @@ async function enhancePosterArtworkInBackground(post) {
         action: 'artwork_only',
         creatorEmail: getResolvedCreatorEmail(),
         prompt: post.illustrationPrompt,
-        familyCast: familyCastProfileCache,
-        activeCast: getActiveCastPayload(),
+        familyCast: getSanitizedCastPayload(familyCastProfileCache),
+        activeCast: getSanitizedActiveCastPayload(),
         imageBase64: (creatorPerspectiveMode === 'source' || creatorCharacterRepresentation === 'exact')
           ? (creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || post?.sourceImageBase64 || null)
           : null,

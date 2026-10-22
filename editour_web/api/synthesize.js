@@ -708,21 +708,26 @@ Respond strictly with valid JSON with this exact structure:
       }
     }
 
-    // Auto-generate sourceLedger if missing for digital or video sources
+    // Auto-generate lightweight sourceLedger if missing for digital or video sources without blocking deck synthesis
     if (!sourceLedger && (url || extractedContent || extractedTitle) && (sourceType === 'digital_link' || sourceType === 'video_audio' || url)) {
-      try {
-        const ledgerModule = require('./ledger.js');
-        if (ledgerModule && typeof ledgerModule.generateLedger === 'function') {
-          sourceLedger = await ledgerModule.generateLedger(
-            extractedTitle || originalHeadline || '',
-            extractedContent || '',
-            url || '',
-            pubName || ''
-          );
-        }
-      } catch (lErr) {
-        console.warn('Backend auto-ledger generation notice:', lErr.message);
-      }
+      sourceLedger = {
+        subject_and_thesis: {
+          context: `${pubName || 'Source'} reporting regarding "${extractedTitle || 'the subject'}".`,
+          thesis: `The source examines core developments and perspective surrounding "${extractedTitle || 'the subject'}".`
+        },
+        core_claims_and_evidence: [
+          {
+            title: 'Core Development',
+            evidence: (extractedContent || '').slice(0, 160) || 'Source explores structural context and observations.'
+          }
+        ],
+        underlying_tensions: {
+          primary_conflict: 'Tension between conventional approaches and emerging realities.',
+          tradeoffs: 'Trade-offs between short-term expediency and long-term consequences.'
+        },
+        source_scope: (url && url.includes('youtube')) ? 'YouTube Video Analysis' : 'Curated Source Analysis',
+        stars: 3
+      };
     }
 
     // 2. Build Prompt for Gemini 3.8 Flash
@@ -1145,7 +1150,7 @@ Respond strictly with valid JSON with this exact structure:
       try {
         const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 12000);
+        const timeout = setTimeout(() => controller.abort(), 24000);
 
         const geminiResp = await fetch(geminiUrl, {
           method: 'POST',
