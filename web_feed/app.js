@@ -110,9 +110,13 @@ async function syncFeedFromDrawer() {
   }
 }
 
-// Close drawer on Escape
+// Close drawer and popups on Escape
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') closeDrawer();
+  if (e.key === 'Escape') {
+    closeDrawer();
+    if (typeof closeCreatorEqualizer === 'function') closeCreatorEqualizer();
+    if (typeof closeCueInspectOverlay === 'function') closeCueInspectOverlay();
+  }
 });
 
 // Register PWA Service Worker for Web Share Target & Native Installability
@@ -8754,7 +8758,7 @@ function setPerspectiveMode(mode, fromUserClick = false) {
   updateEqualizerSummary();
 
   // If user clicked a different Visual Focus while inside Stage 2 and cues exist, auto-refresh cues to match
-  const isClick = fromUserClick || (typeof window !== 'undefined' && window.event && (window.event.type === 'click' || window.event.type === 'pointerdown'));
+  const isClick = Boolean(fromUserClick);
   const s2 = document.getElementById('creatorStep2');
   const isStage2Visible = s2 && s2.style.display !== 'none';
   if (isClick && mode !== prevMode && isStage2Visible && creatorCuePills.length > 0) {
@@ -8952,46 +8956,60 @@ async function generateCreatorSettingsFromStage1() {
 }
 
 function openCreatorEqualizer() {
-  const modal = document.getElementById('creatorEqualizerModal');
-  if (!modal) return;
+  try {
+    const modal = document.getElementById('creatorEqualizerModal');
+    if (!modal) return;
 
-  // Remove pulsing highlight once opened
-  const eqBtn = document.getElementById('creatorEqualizerBtn');
-  if (eqBtn) eqBtn.classList.remove('equalizer-highlighted');
+    // Remove pulsing highlight once opened
+    const eqBtn = document.getElementById('creatorEqualizerBtn');
+    if (eqBtn) eqBtn.classList.remove('equalizer-highlighted');
 
-  // Sync Focus
-  setEqualizerPerspectiveMode(creatorPerspectiveMode || 'source', false);
+    // Sync Focus
+    setEqualizerPerspectiveMode(creatorPerspectiveMode || 'source', false);
 
-  // Sync Portrayal
-  updateEqualizerPortrayalUI();
+    // Sync Portrayal
+    updateEqualizerPortrayalUI();
 
-  // Sync Country
-  if (!creatorCountryContext) {
-    const urlInput = document.getElementById('creatorUrlInput');
-    const slantInput = document.getElementById('creatorSlantTakeInput');
-    const url = urlInput ? urlInput.value.trim() : '';
-    const slantTake = slantInput ? slantInput.value.trim() : '';
-    const isLink = (creatorSelectedSource === 'digital_link' || creatorSelectedSource === 'video_audio');
-    const articleTitle = isLink ? (currentScrapedArticle?.title || extractHeadlineFromUrl(url)) : '';
-    const articleBody = isLink ? (currentScrapedArticle?.content || '') : '';
-    creatorCountryContext = detectGeographicContext(isLink ? url : '', articleTitle, articleBody, slantTake);
+    // Sync Country
+    if (!creatorCountryContext) {
+      const urlInput = document.getElementById('creatorUrlInput');
+      const slantInput = document.getElementById('creatorSlantTakeInput');
+      const url = urlInput ? urlInput.value.trim() : '';
+      const slantTake = slantInput ? slantInput.value.trim() : '';
+      const isLink = (creatorSelectedSource === 'digital_link' || creatorSelectedSource === 'video_audio');
+      const articleTitle = isLink ? (currentScrapedArticle?.title || extractHeadlineFromUrl(url)) : '';
+      const articleBody = isLink ? (currentScrapedArticle?.content || '') : '';
+      creatorCountryContext = detectGeographicContext(isLink ? url : '', articleTitle, articleBody, slantTake);
+    }
+    updateCountryContextUI();
+
+    // Sync Cues
+    renderEqualizerCues();
+
+    modal.classList.add('open');
+    modal.classList.add('active');
+    modal.style.display = 'flex';
+    modal.style.opacity = '1';
+    modal.style.pointerEvents = 'auto';
+  } catch (err) {
+    console.error('Error opening Equalizer:', err);
   }
-  updateCountryContextUI();
-
-  // Sync Cues
-  renderEqualizerCues();
-
-  modal.style.display = 'flex';
 }
 
 function closeCreatorEqualizer() {
   const modal = document.getElementById('creatorEqualizerModal');
-  if (modal) modal.style.display = 'none';
+  if (modal) {
+    modal.classList.remove('open');
+    modal.classList.remove('active');
+    modal.style.display = 'none';
+    modal.style.opacity = '0';
+    modal.style.pointerEvents = 'none';
+  }
   updateEqualizerSummary();
 }
 
 function handleEqualizerOverlayClick(e) {
-  if (e && e.target && e.target.id === 'creatorEqualizerModal') {
+  if (e && e.target && (e.target.id === 'creatorEqualizerModal' || e.target.classList.contains('creator-equalizer-overlay'))) {
     closeCreatorEqualizer();
   }
 }
@@ -9123,35 +9141,55 @@ function updateCueFromEqualizer(index, value) {
 let activeInspectedOverlayIndex = 0;
 
 function openCueInspectOverlay(index) {
-  activeInspectedOverlayIndex = index;
-  const overlay = document.getElementById('cueInspectOverlay');
-  if (!overlay) return;
+  try {
+    activeInspectedOverlayIndex = index;
+    const overlay = document.getElementById('cueInspectOverlay');
+    if (!overlay) return;
 
-  const config = CUE_DIMENSION_PREVIEWS[index] || {
-    name: `Cue #${index + 1}`,
-    tag: `#${index + 1} CUE`,
-    desc: 'Editorial visual dimension driving poster composition.',
-    image: '/illustrations/129eb76c-5699-4e97-b16e-fbe5a0ea38c8.jpg'
-  };
+    const config = CUE_DIMENSION_PREVIEWS[index] || {
+      name: `Cue #${index + 1}`,
+      tag: `#${index + 1} CUE`,
+      desc: 'Editorial visual dimension driving poster composition.',
+      image: '/illustrations/129eb76c-5699-4e97-b16e-fbe5a0ea38c8.jpg'
+    };
 
-  const badge = document.getElementById('cueInspectBadge');
-  const title = document.getElementById('cueInspectTitle');
-  const thumb = document.getElementById('cueInspectThumb');
-  const desc = document.getElementById('cueInspectDesc');
-  const input = document.getElementById('cueInspectInput');
+    const badge = document.getElementById('cueInspectBadge');
+    const title = document.getElementById('cueInspectTitle');
+    const thumb = document.getElementById('cueInspectThumb');
+    const desc = document.getElementById('cueInspectDesc');
+    const input = document.getElementById('cueInspectInput');
 
-  if (badge) badge.textContent = config.tag;
-  if (title) title.textContent = config.name;
-  if (thumb) thumb.src = config.image;
-  if (desc) desc.textContent = config.desc;
-  if (input) input.value = creatorCuePills[index] || '';
+    if (badge) badge.textContent = config.tag;
+    if (title) title.textContent = config.name;
+    if (thumb) thumb.src = config.image;
+    if (desc) desc.textContent = config.desc;
+    if (input) input.value = (creatorCuePills && creatorCuePills[index]) || '';
 
-  overlay.style.display = 'flex';
+    overlay.classList.add('open');
+    overlay.classList.add('active');
+    overlay.style.display = 'flex';
+    overlay.style.opacity = '1';
+    overlay.style.pointerEvents = 'auto';
+  } catch (err) {
+    console.error('Error opening cue overlay:', err);
+  }
 }
 
 function closeCueInspectOverlay() {
   const overlay = document.getElementById('cueInspectOverlay');
-  if (overlay) overlay.style.display = 'none';
+  if (overlay) {
+    overlay.classList.remove('open');
+    overlay.classList.remove('active');
+    overlay.style.display = 'none';
+    overlay.style.opacity = '0';
+    overlay.style.pointerEvents = 'none';
+  }
+}
+
+function handleCueInspectOverlayClick(e) {
+  if (e && e.target && (e.target.id === 'cueInspectOverlay' || e.target.classList.contains('cue-inspect-overlay'))) {
+    closeCueInspectOverlay();
+  }
 }
 
 function updateActiveInspectedCueFromOverlay(val) {

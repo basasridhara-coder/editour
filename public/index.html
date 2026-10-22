@@ -943,7 +943,7 @@
   <!-- ==========================================
        EQUALIZER SETTINGS MODAL (Option A)
        ========================================== -->
-  <div class="modal-overlay creator-equalizer-overlay" id="creatorEqualizerModal" style="display:none;" onclick="handleEqualizerOverlayClick(event)">
+  <div class="creator-equalizer-overlay" id="creatorEqualizerModal" style="display:none;" onclick="handleEqualizerOverlayClick(event)">
     <div class="creator-equalizer-sheet" onclick="event.stopPropagation()">
       <!-- Modal Header -->
       <div class="equalizer-sheet-header">
@@ -1136,7 +1136,7 @@
   </div>
 
   <!-- Cue Tap-to-Inspect Detail Popover Overlay -->
-  <div class="cue-inspect-overlay" id="cueInspectOverlay" style="display:none;" onclick="if(event.target===this) closeCueInspectOverlay()">
+  <div class="cue-inspect-overlay" id="cueInspectOverlay" style="display:none;" onclick="handleCueInspectOverlayClick(event)">
     <div class="cue-inspect-modal" onclick="event.stopPropagation()">
       <div class="cue-inspect-header">
         <div class="cue-inspect-title-wrap">
