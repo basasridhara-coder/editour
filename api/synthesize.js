@@ -90,7 +90,7 @@ module.exports = async function handler(req, res) {
 
     // Direct Single-Purpose Endpoint: Generate artwork only in background (has dedicated full execution window)
     if (body && body.action === 'artwork_only') {
-      let { prompt = '', imageBase64 = null, imageMimeType = 'image/jpeg', creatorEmail = '', familyCast = null, activeCast = null } = body;
+      let { prompt = '', imageBase64 = null, imageMimeType = 'image/jpeg', creatorEmail = '', familyCast = null, activeCast = null, countryContext = '' } = body;
       let userEmail = (creatorEmail || '').toLowerCase().trim();
       if (!userEmail) {
         userEmail = 'shridharoct16@gmail.com';
@@ -129,7 +129,8 @@ module.exports = async function handler(req, res) {
           timeoutMs: 35000,
           familyCast,
           activeCast,
-          stylizedAvatars
+          stylizedAvatars,
+          countryContext
         });
         if (geminiArt) {
           const cleanB64 = geminiArt.replace(/^data:image\/[^;]+;base64,/, '');
@@ -837,6 +838,11 @@ ${pubName ? `- Publication / Domain: ${pubName}` : ''}
 ${familyCastDirectives ? `- Family Protagonists & Physical Staging:
 ${familyCastDirectives.systemPromptSection}` : (demographicInfo ? `- Featured Protagonist Age & Demographics: ${demographicInfo.promptDesc}` : '')}
 ${cues && cues.length > 0 ? `- Ranked Visual Cues: ${cues.map((c, i) => `#${i+1} ${c}`).join(' • ')}` : ''}
+- Regional & Cultural Setting: ${countryContext || 'Global / Contextually Detected'}
+${countryContext && countryContext !== 'Global' ? `CRITICAL GEOGRAPHIC & CULTURAL SETTING DIRECTIVE:
+- The setting is explicitly anchored in ${countryContext}.
+- The visual composition, atmosphere, architecture, streetscape, and cultural textures in Poster 1 artwork and in "illustrationPrompt" MUST authentically reflect ${countryContext} (e.g. for Japan: Tokyo urban architecture, Shinto minimalism, Japanese streetscapes and regional textures; for UK: Westminster stone, London atmosphere; for India: authentic Indian institutional architecture and regional landscape; for Europe: European civic plazas and historic institutions).
+- Ground the visual metaphors, environmental setting, and background architecture in ${countryContext} rather than defaulting to generic or Western European tropes.` : ''}
 - Character Portrayal Style: ${characterRepresentation === 'exact' 
   ? 'Use exact unedited news/attached photo directly' 
   : (isCinematicPhoto
@@ -1261,6 +1267,11 @@ Respond strictly with valid JSON with this exact structure:
     const rawExcerpts = Array.isArray(parsed.resolvedArticleExcerpts) ? parsed.resolvedArticleExcerpts : [];
     const cleanedExcerpts = rawExcerpts.map(e => String(e).replace(/^(the spark|curator stance|paragraph \d+)\s*:\s*["']?/i, '').replace(/["']?$/i, '').trim());
 
+    let effectiveIllustrationPrompt = parsed.illustrationPrompt || concisePrompt || '';
+    if (countryContext && countryContext !== 'Global' && !effectiveIllustrationPrompt.toLowerCase().includes(countryContext.toLowerCase())) {
+      effectiveIllustrationPrompt = `${countryContext} setting, ${effectiveIllustrationPrompt}`;
+    }
+
     const id = 'slant-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7);
     const postItem = {
       id,
@@ -1285,7 +1296,7 @@ Respond strictly with valid JSON with this exact structure:
       cues: cues || [],
       characterRepresentation,
       hookCues: `#1 [HERO]: ${parsed.heroCue || (cues && cues[0]) || 'Central subject'}\n#2 [MOTIF]: ${parsed.motifCue || (cues && cues[1]) || 'Metaphor'}\n#3 [TENSION]: ${parsed.tensionCue || (cues && cues[2]) || 'Conflict'}\n#4 [ATMOSPHERE]: ${parsed.atmosphereCue || (cues && cues[3]) || 'Setting'}\n#5 [LIGHTING]: ${parsed.lightingCue || (cues && cues[4]) || 'Atmospheric light'}\n#6 [STYLE]: ${parsed.styleCue || (cues && cues[5]) || 'Editorial illustration'}`,
-      illustrationPrompt: parsed.illustrationPrompt || concisePrompt || '',
+      illustrationPrompt: effectiveIllustrationPrompt,
       artworkPending: (!hasExactPhoto && !finalIllustrationBase64),
       illustrationUrl: finalIllustrationBase64 ? '' : finalIllustrationUrl,
       illustrationBase64: finalIllustrationBase64,
@@ -1340,7 +1351,7 @@ Respond strictly with valid JSON with this exact structure:
         scrapedContent: extractedContent || '',
         contextProvided: userSlant || extractedContent || spark || '',
         sourceLedger: sourceLedger || null,
-        illustrationPrompt: parsed.illustrationPrompt || concisePrompt || '',
+        illustrationPrompt: effectiveIllustrationPrompt,
         originalHeadline: (sourceType === 'inner_voice' && spark) ? (parsed.originalHeadline || spark) : (parsed.originalHeadline || extractedTitle || parsed.adaptedHeadline)
       },
       sourceLedger: sourceLedger || null
@@ -1906,7 +1917,7 @@ function isLikelyPersonSubject(name) {
   return personKeywords.some(w => lower.includes(w));
 }
 
-async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeType = 'image/jpeg', timeoutMs = 35000, familyCast = null, activeCast = null, stylizedAvatars = null }) {
+async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeType = 'image/jpeg', timeoutMs = 35000, familyCast = null, activeCast = null, stylizedAvatars = null, countryContext = '' }) {
   if (!GEMINI_API_KEY) return null;
   const imageModels = [
     'gemini-2.5-flash-image',
@@ -1919,40 +1930,46 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
   // Detect family context with 2 sons or family group
   const hasTwoSons = /\b(two sons|2 sons|both boys|two boys|elder son.*younger son|elder brother.*younger brother)\b/i.test(enhancedPrompt);
   const hasFamilyContext = hasTwoSons || /\b(family.*temple|family.*trip|father.*mother.*son|father.*wife.*son|me, wife and 2 sons|with family)\b/i.test(enhancedPrompt);
+  const isIndianFamilyCast = (!countryContext || /india/i.test(countryContext));
 
-  if (hasTwoSons || hasFamilyContext) {
+  if ((hasTwoSons || hasFamilyContext) && isIndianFamilyCast) {
     const headcountAnchor = 'GROUP PORTRAIT OF EXACTLY FOUR (4) DISTINCT INDIVIDUAL PEOPLE VISIBLE SIDE BY SIDE (3 MALES, 1 FEMALE). STRICT COUNT = 4 PEOPLE: 1) Adult Father (man, mid 40s) with sturdy broad-shouldered build, 2) Adult Mother (woman, mid 30s) with natural healthy medium adult build (strictly not ultra-slim or runway model thin), 3) Elder Son (11-year-old pre-teen boy) reaching father chest level with healthy sturdy youth build and square shoulders (not skinny, not frail), 4) Younger Son (7-year-old young schoolboy) noticeably shorter reaching older brother shoulder with healthy solid child proportions. REALISTIC NATURAL HUMAN BUILDS, STRICT BAN ON SKINNY OR WAIF-LIKE BODIES. BOTH SONS ARE SEPARATE INDIVIDUAL PEOPLE. STRICT BAN ON MERGING: Do NOT draw only one child; both the 11yo boy and 7yo boy must be fully drawn side by side. ';
     if (!enhancedPrompt.includes('EXACTLY FOUR') && !enhancedPrompt.includes('STRICT COUNT = 4')) {
       enhancedPrompt = headcountAnchor + enhancedPrompt;
     }
-  }
 
-  // Sanitize detached foreground hands, salon blowout hair, and remove skinny runway-model biases
-  enhancedPrompt = enhancedPrompt
-    .replace(/In the foreground,\s*(?:glowing\s*)?cupped hands receive drops of sacred theertha water/gi, 'The father and sons cup their hands to receive drops of sacred theertha water (no external detached arms)')
-    .replace(/\b(lean|skinny|slender|frail)\s*(?:11-year-old|elder son|boy|adolescent)/gi, 'sturdy healthy 11-year-old')
-    .replace(/\bgraceful mother\b/gi, 'mother with natural healthy medium build')
-    .replace(/\b(lean|skinny|slender)\s*build/gi, 'healthy sturdy build')
-    .replace(/\blong flowing (?:dark )?hair\b/gi, 'natural shoulder-length wavy dark hair')
-    .replace(/\blong wavy (?:dark )?hair past (?:her )?chest\b/gi, 'natural shoulder-length wavy dark hair')
-    .replace(/\bsalon blowout\b/gi, 'natural everyday hair')
-    .replace(/\bcasual cotton attire\b/gi, 'comfortable cotton kurta or natural casual attire');
-
-  // Enforce mother physical anchor whenever mother/wife is present
-  if (/\b(mother|wife|mom)\b/i.test(enhancedPrompt) && !enhancedPrompt.includes('shoulder-length wavy dark hair')) {
-    enhancedPrompt += ', Mother physical anchor: authentic Indian woman, warm wheatish skin, soft round-to-oval face, no heavy makeup, natural shoulder-length wavy dark hair, healthy medium adult build with natural soft shoulders (strictly not ultra-slim or runway model)';
-  }
-
-  // If adult father is present with a child without mother, replace generic guardian with adult father
-  if (/\b(father|dad|shridhar)\b/i.test(enhancedPrompt) && !/\b(mother|mom|wife|woman|female)\b/i.test(enhancedPrompt)) {
+    // Sanitize detached foreground hands, salon blowout hair, and remove skinny runway-model biases
     enhancedPrompt = enhancedPrompt
-      .replace(/\b(?:an attentive,?\s*smiling\s*)?guardian\b/gi, 'his adult father Shridhar (mid 40s man, trimmed beard)')
-      .replace(/\ba parent\b/gi, 'his adult father Shridhar');
+      .replace(/In the foreground,\s*(?:glowing\s*)?cupped hands receive drops of sacred theertha water/gi, 'The father and sons cup their hands to receive drops of sacred theertha water (no external detached arms)')
+      .replace(/\b(lean|skinny|slender|frail)\s*(?:11-year-old|elder son|boy|adolescent)/gi, 'sturdy healthy 11-year-old')
+      .replace(/\bgraceful mother\b/gi, 'mother with natural healthy medium build')
+      .replace(/\b(lean|skinny|slender)\s*build/gi, 'healthy sturdy build')
+      .replace(/\blong flowing (?:dark )?hair\b/gi, 'natural shoulder-length wavy dark hair')
+      .replace(/\blong wavy (?:dark )?hair past (?:her )?chest\b/gi, 'natural shoulder-length wavy dark hair')
+      .replace(/\bsalon blowout\b/gi, 'natural everyday hair')
+      .replace(/\bcasual cotton attire\b/gi, 'comfortable cotton kurta or natural casual attire');
+
+    // Enforce mother physical anchor only for family cast
+    if (/\b(mother|wife|mom)\b/i.test(enhancedPrompt) && !enhancedPrompt.includes('shoulder-length wavy dark hair')) {
+      enhancedPrompt += ', Mother physical anchor: authentic Indian woman, warm wheatish skin, soft round-to-oval face, no heavy makeup, natural shoulder-length wavy dark hair, healthy medium adult build with natural soft shoulders (strictly not ultra-slim or runway model)';
+    }
+
+    // If adult father is present with a child without mother, replace generic guardian with adult father
+    if (/\b(father|dad|shridhar)\b/i.test(enhancedPrompt) && !/\b(mother|mom|wife|woman|female)\b/i.test(enhancedPrompt)) {
+      enhancedPrompt = enhancedPrompt
+        .replace(/\b(?:an attentive,?\s*smiling\s*)?guardian\b/gi, 'his adult father Shridhar (mid 40s man, trimmed beard)')
+        .replace(/\ba parent\b/gi, 'his adult father Shridhar');
+    }
+
+    // Enforce father physical anchor if present
+    if (/\b(father|dad|shridhar)\b/i.test(enhancedPrompt) && !enhancedPrompt.includes('salt-and-pepper')) {
+      enhancedPrompt += ', Father physical anchor: adult Indian male, early 40s, medium-brown skin, oval face, neat salt-and-pepper trimmed beard, short textured dark hair, sturdy broad-shouldered build';
+    }
   }
 
-  // Enforce father physical anchor if present
-  if (/\b(father|dad|shridhar)\b/i.test(enhancedPrompt) && !enhancedPrompt.includes('salt-and-pepper')) {
-    enhancedPrompt += ', Father physical anchor: adult Indian male, early 40s, medium-brown skin, oval face, neat salt-and-pepper trimmed beard, short textured dark hair, sturdy broad-shouldered build';
+  // Country Setting Anchor for General Editorial Posters
+  if (countryContext && countryContext !== 'Global' && !enhancedPrompt.toLowerCase().includes(countryContext.toLowerCase())) {
+    enhancedPrompt = `${countryContext} regional setting and authentic cultural atmosphere, ${enhancedPrompt}`;
   }
 
   const isPhotoMedium = /photograph|film still|35mm|photojournalism|documentary|editorial portrait photograph/i.test(enhancedPrompt);

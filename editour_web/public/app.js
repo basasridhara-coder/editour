@@ -9453,9 +9453,13 @@ function changeCountryContext(code) {
     }
   };
 
+  const prevCode = creatorCountryContext ? creatorCountryContext.code : null;
   creatorCountryContext = options[code] || options['GLOBAL'];
   updateCountryContextUI();
-  // Visual cues must NOT auto change unless user explicitly clicks "Suggest"
+  if (prevCode && prevCode !== code && creatorCuePills.length > 0) {
+    showTemporaryToast(`🔄 Setting changed to ${creatorCountryContext.name}: Updating visual cues...`);
+    triggerCueSuggest();
+  }
 }
 
 // Reference Photo Likeness State
@@ -11807,6 +11811,7 @@ async function startAiSynthesis() {
             action: 'artwork_only',
             creatorEmail: userEmail,
             prompt: currentSynthesizedPost.illustrationPrompt,
+            countryContext: creatorCountryContext?.name || 'India',
             familyCast: getSanitizedCastPayload(familyCastProfileCache),
             activeCast: getSanitizedActiveCastPayload(),
             imageBase64: (creatorPerspectiveMode === 'source' || creatorCharacterRepresentation === 'exact')
@@ -11932,6 +11937,7 @@ async function retryStep3ArtworkGeneration(event) {
         action: 'artwork_only',
         creatorEmail: userEmail,
         prompt: currentSynthesizedPost.illustrationPrompt,
+        countryContext: creatorCountryContext?.name || 'India',
         familyCast: getSanitizedCastPayload(familyCastProfileCache),
         activeCast: getSanitizedActiveCastPayload(),
         imageBase64: (creatorPerspectiveMode === 'source' || creatorCharacterRepresentation === 'exact')
@@ -11994,6 +12000,7 @@ async function enhancePosterArtworkInBackground(post) {
         action: 'artwork_only',
         creatorEmail: getResolvedCreatorEmail(),
         prompt: post.illustrationPrompt,
+        countryContext: post.countryContext || creatorCountryContext?.name || 'India',
         familyCast: getSanitizedCastPayload(familyCastProfileCache),
         activeCast: getSanitizedActiveCastPayload(),
         imageBase64: (creatorPerspectiveMode === 'source' || creatorCharacterRepresentation === 'exact')
