@@ -192,7 +192,8 @@ module.exports = async function handler(req, res) {
       imageUrl: imageUrl && imageUrl.startsWith('http') ? imageUrl : null,
       imageBase64,
       imageMimeType,
-      ledger
+      ledger,
+      isVideo: isVideoAudioUrl(targetUrl)
     });
   }
 
@@ -206,7 +207,8 @@ module.exports = async function handler(req, res) {
     content: '',
     imageUrl: null,
     fallback: true,
-    notice: 'Lightweight slug extraction used'
+    notice: 'Lightweight slug extraction used',
+    isVideo: isVideoAudioUrl(targetUrl)
   });
 };
 
@@ -324,6 +326,31 @@ function extractYouTubeVideoId(url) {
     }
   } catch (_) {}
   return null;
+}
+
+function isVideoAudioUrl(url) {
+  if (!url) return false;
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.toLowerCase();
+    if (
+      host.includes('youtube.com') ||
+      host.includes('youtu.be') ||
+      host.includes('vimeo.com') ||
+      host.includes('spotify.com') ||
+      host.includes('podcasts.apple.com') ||
+      host.includes('soundcloud.com') ||
+      host.includes('tiktok.com') ||
+      host.includes('twitch.tv') ||
+      host.includes('ted.com')
+    ) {
+      return true;
+    }
+    const path = parsed.pathname.toLowerCase();
+    return /\.(mp4|mp3|m4a|webm|mov|ogg)$/i.test(path);
+  } catch (_) {
+    return false;
+  }
 }
 
 const DEFAULT_KEY_B64 = 'QVEuQWI4Uk42STR5WnQzMEl6NGpLRkQ2SndaYVlSeThQYlVtWXpDYUNuMzU3alIyUU9KbFE=';
@@ -544,7 +571,8 @@ async function scrapeYouTubeUrl(targetUrl, videoId) {
     content: structuredContent,
     imageUrl,
     imageBase64,
-    imageMimeType
+    imageMimeType,
+    isVideo: true
   };
 }
 

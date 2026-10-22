@@ -8781,11 +8781,107 @@ function handleCreatorOverlayClick(e) {
   }
 }
 
+function isVideoAudioUrl(url) {
+  if (!url) return false;
+  const lower = String(url).toLowerCase().trim();
+  return (
+    lower.includes('youtube.com') ||
+    lower.includes('youtu.be') ||
+    lower.includes('vimeo.com') ||
+    lower.includes('spotify.com') ||
+    lower.includes('podcasts.apple.com') ||
+    lower.includes('soundcloud.com') ||
+    lower.includes('tiktok.com') ||
+    lower.includes('twitch.tv') ||
+    lower.includes('ted.com/talks') ||
+    /\.(mp4|mp3|m4a|webm|mov|ogg)(\?.*)?$/i.test(lower)
+  );
+}
+
+function updateWebLinkSubmode(isVideo) {
+  creatorSelectedSource = isVideo ? 'video_audio' : 'digital_link';
+
+  const mentalPill = document.getElementById('anchorMentalModelPill');
+  const mentalText = document.getElementById('anchorMentalModelText');
+  const mentalBadge = document.getElementById('anchorMentalModelBadge');
+  const mentalCard = document.getElementById('anchorMentalModelCard');
+
+  const linkIcon = document.getElementById('triggerLinkIcon');
+  const linkTitle = document.getElementById('triggerLinkTitle');
+  const linkSub = document.getElementById('triggerLinkSub');
+  const urlInput = document.getElementById('creatorUrlInput');
+
+  const label = document.getElementById('slantTakeLabel');
+  const badge = document.getElementById('slantTakeBadge');
+  const sub = document.getElementById('slantTakeSubtitle');
+  const input = document.getElementById('creatorSlantTakeInput');
+  const heroIcon = document.getElementById('slantHeroIcon');
+  const heroBox = document.getElementById('slantIconBox');
+  const webIconCircle = document.getElementById('anchorWebIconCircle');
+
+  if (badge) {
+    badge.textContent = 'Optional';
+    badge.className = 'creator-tag-badge';
+  }
+
+  if (isVideo) {
+    if (webIconCircle) webIconCircle.textContent = '🎬';
+    if (mentalPill) {
+      mentalPill.textContent = 'Video / Audio Link';
+      mentalPill.style.background = 'rgba(239, 68, 68, 0.12)';
+      mentalPill.style.color = '#EF4444';
+    }
+    if (mentalText) mentalText.textContent = '"I watched or listened to something that sparked a reaction."';
+    if (mentalBadge) mentalBadge.style.color = '#EF4444';
+    if (mentalCard) {
+      mentalCard.style.background = 'rgba(239, 68, 68, 0.05)';
+      mentalCard.style.borderColor = 'rgba(239, 68, 68, 0.18)';
+    }
+
+    if (linkIcon) linkIcon.textContent = '🎬';
+    if (linkTitle) linkTitle.textContent = 'Video / Audio Link';
+    if (linkSub) linkSub.textContent = 'YouTube, Podcast Timestamps';
+    if (urlInput && !urlInput.value) urlInput.placeholder = 'Paste YouTube (e.g. https://youtu.be/... or podcast link)';
+
+    if (label) label.textContent = 'Your Slant / Reaction';
+    if (sub) sub.textContent = 'Framing your angle, counter-slant, or reaction to what you watched/listened to.';
+    if (input && !input.value) input.placeholder = 'e.g. The speaker makes a compelling case, but completely overlooks how open protocols protect user autonomy...';
+    if (heroIcon) heroIcon.textContent = '🎬';
+    if (heroBox) heroBox.style.color = '#EF4444';
+  } else {
+    if (webIconCircle) webIconCircle.textContent = '🌐';
+    if (mentalPill) {
+      mentalPill.textContent = 'Web Link';
+      mentalPill.style.background = 'rgba(2, 132, 199, 0.12)';
+      mentalPill.style.color = '#0284C7';
+    }
+    if (mentalText) mentalText.textContent = '"I found an article, video, or podcast and have a perspective on it."';
+    if (mentalBadge) mentalBadge.style.color = '#0284C7';
+    if (mentalCard) {
+      mentalCard.style.background = 'rgba(2, 132, 199, 0.05)';
+      mentalCard.style.borderColor = 'rgba(2, 132, 199, 0.18)';
+    }
+
+    if (linkIcon) linkIcon.textContent = '🔗';
+    if (linkTitle) linkTitle.textContent = 'Source Article / Video Link';
+    if (linkSub) linkSub.textContent = 'Articles, Videos, Podcasts, Newsletters';
+    if (urlInput && !urlInput.value) urlInput.placeholder = 'https://... (Article, YouTube, Substack, Podcast URL)';
+
+    if (label) label.textContent = 'Your Slant / Take';
+    if (sub) sub.textContent = 'A few sentences framing your angle, critique, or why this article matters.';
+    if (input && !input.value) input.placeholder = 'e.g. The headline misses the real structural disruption happening behind the scenes...';
+    if (heroIcon) heroIcon.textContent = '📰';
+    if (heroBox) heroBox.style.color = '#0284C7';
+  }
+}
+
 function setAnchorMode(mode) {
   if (typeof clearMandatoryFieldPrompts === 'function') {
     clearMandatoryFieldPrompts();
   }
-  if (creatorSelectedSource !== mode) {
+  const isSwitchingFamily = (creatorSelectedSource === 'inner_voice' && mode !== 'inner_voice') ||
+                            (creatorSelectedSource !== 'inner_voice' && mode === 'inner_voice');
+  if (isSwitchingFamily) {
     currentScrapedArticle = null;
     currentSourceLedger = null;
     renderSourceLedger(null);
@@ -8805,43 +8901,29 @@ function setAnchorMode(mode) {
   }
   creatorSelectedSource = mode;
 
-  // 1. Highlight selected anchor card
+  // 1. Highlight selected anchor card (both digital_link and video_audio highlight Web Link card)
   document.querySelectorAll('.anchor-card').forEach(card => {
-    card.classList.toggle('active', card.getAttribute('data-mode') === mode);
+    const cardMode = card.getAttribute('data-mode');
+    const isActive = (cardMode === mode) || ((mode === 'video_audio' || mode === 'digital_link') && cardMode === 'digital_link');
+    card.classList.toggle('active', isActive);
   });
 
-  // 2. Update Mental Model Banner
-  const mentalPill = document.getElementById('anchorMentalModelPill');
-  const mentalText = document.getElementById('anchorMentalModelText');
-  const mentalBadge = document.getElementById('anchorMentalModelBadge');
-  const mentalCard = document.getElementById('anchorMentalModelCard');
+  // 2. Toggle trigger sections
+  const secLink = document.getElementById('triggerWebSection');
+  const secVoice = document.getElementById('triggerVoiceSection');
+  const linkBadge = document.getElementById('triggerLinkBadge');
 
-  if (mode === 'video_audio') {
-    if (mentalPill) {
-      mentalPill.textContent = 'Video / Audio Link';
-      mentalPill.style.background = 'rgba(239, 68, 68, 0.12)';
-      mentalPill.style.color = '#EF4444';
-    }
-    if (mentalText) mentalText.textContent = '"I watched/listened to something that sparked a reaction."';
-    if (mentalBadge) mentalBadge.style.color = '#EF4444';
-    if (mentalCard) {
-      mentalCard.style.background = 'rgba(239, 68, 68, 0.05)';
-      mentalCard.style.borderColor = 'rgba(239, 68, 68, 0.18)';
-    }
-  } else if (mode === 'digital_link') {
-    if (mentalPill) {
-      mentalPill.textContent = 'Read / Web Link';
-      mentalPill.style.background = 'rgba(2, 132, 199, 0.12)';
-      mentalPill.style.color = '#0284C7';
-    }
-    if (mentalText) mentalText.textContent = '"I read an analysis or news story and have a counter-slant."';
-    if (mentalBadge) mentalBadge.style.color = '#0284C7';
-    if (mentalCard) {
-      mentalCard.style.background = 'rgba(2, 132, 199, 0.05)';
-      mentalCard.style.borderColor = 'rgba(2, 132, 199, 0.18)';
-    }
-  } else if (mode === 'inner_voice') {
+  if (mode === 'inner_voice') {
     renderSourceLedger(null);
+    if (secLink) secLink.style.display = 'none';
+    if (secVoice) secVoice.style.display = 'flex';
+    if (linkBadge) linkBadge.style.display = 'none';
+
+    // Mental Model Banner
+    const mentalPill = document.getElementById('anchorMentalModelPill');
+    const mentalText = document.getElementById('anchorMentalModelText');
+    const mentalBadge = document.getElementById('anchorMentalModelBadge');
+    const mentalCard = document.getElementById('anchorMentalModelCard');
     if (mentalPill) {
       mentalPill.textContent = 'Inner Voice';
       mentalPill.style.background = 'rgba(139, 92, 246, 0.12)';
@@ -8853,54 +8935,14 @@ function setAnchorMode(mode) {
       mentalCard.style.background = 'rgba(139, 92, 246, 0.05)';
       mentalCard.style.borderColor = 'rgba(139, 92, 246, 0.18)';
     }
-  }
 
-  // 3. Toggle trigger sections
-  const secLink = document.getElementById('triggerWebSection');
-  const secVoice = document.getElementById('triggerVoiceSection');
-  const linkIcon = document.getElementById('triggerLinkIcon');
-  const linkTitle = document.getElementById('triggerLinkTitle');
-  const linkSub = document.getElementById('triggerLinkSub');
-  const linkBadge = document.getElementById('triggerLinkBadge');
-  const urlInput = document.getElementById('creatorUrlInput');
-
-  if (mode === 'inner_voice') {
-    if (secLink) secLink.style.display = 'none';
-    if (secVoice) secVoice.style.display = 'flex';
-    if (linkBadge) linkBadge.style.display = 'none';
-  } else {
-    // Both video_audio and digital_link use link input
-    if (secLink) secLink.style.display = 'flex';
-    if (secVoice) secVoice.style.display = 'none';
-    if (linkBadge) {
-      linkBadge.style.display = 'inline-block';
-      linkBadge.textContent = 'Required';
-      linkBadge.className = 'creator-tag-badge badge-required';
-    }
-
-    if (mode === 'video_audio') {
-      if (linkIcon) linkIcon.textContent = '🎬';
-      if (linkTitle) linkTitle.textContent = 'Video / Audio Link';
-      if (linkSub) linkSub.textContent = 'YouTube, Podcast Timestamps';
-      if (urlInput) urlInput.placeholder = 'Paste YouTube (e.g. https://youtu.be/... or podcast link)';
-    } else {
-      // digital_link
-      if (linkIcon) linkIcon.textContent = '📰';
-      if (linkTitle) linkTitle.textContent = 'Source Article / Newsletter Link';
-      if (linkSub) linkSub.textContent = 'Articles, Newsletters, Op-Eds';
-      if (urlInput) urlInput.placeholder = 'https://www.nytimes.com/... or Substack, Op-Ed URL';
-    }
-  }
-
-  // 4. Update Hero Card prompts:
-  const label = document.getElementById('slantTakeLabel');
-  const badge = document.getElementById('slantTakeBadge');
-  const sub = document.getElementById('slantTakeSubtitle');
-  const input = document.getElementById('creatorSlantTakeInput');
-  const heroIcon = document.getElementById('slantHeroIcon');
-  const heroBox = document.getElementById('slantIconBox');
-
-  if (mode === 'inner_voice') {
+    // Hero Prompts
+    const label = document.getElementById('slantTakeLabel');
+    const badge = document.getElementById('slantTakeBadge');
+    const sub = document.getElementById('slantTakeSubtitle');
+    const input = document.getElementById('creatorSlantTakeInput');
+    const heroIcon = document.getElementById('slantHeroIcon');
+    const heroBox = document.getElementById('slantIconBox');
     if (label) label.textContent = 'What is your Slant or Perspective?';
     if (badge) {
       badge.textContent = 'Required';
@@ -8910,27 +8952,20 @@ function setAnchorMode(mode) {
     if (input) input.placeholder = 'What perspective demands to be shared? e.g. The real risk of AI isn’t superintelligence taking over, it’s that we surrender our curiosity and critical judgment to automated convenience...';
     if (heroIcon) heroIcon.textContent = '💭';
     if (heroBox) heroBox.style.color = '#8B5CF6';
-  } else if (mode === 'video_audio') {
-    if (label) label.textContent = 'Your Slant / Reaction';
-    if (badge) {
-      badge.textContent = 'Optional';
-      badge.className = 'creator-tag-badge';
-    }
-    if (sub) sub.textContent = 'Framing your angle, counter-slant, or reaction to what you watched/listened to.';
-    if (input) input.placeholder = 'e.g. The speaker makes a compelling case for centralization, but completely overlooks how open protocols protect user autonomy...';
-    if (heroIcon) heroIcon.textContent = '🎬';
-    if (heroBox) heroBox.style.color = '#EF4444';
   } else {
-    // digital_link
-    if (label) label.textContent = 'Your Slant / Take';
-    if (badge) {
-      badge.textContent = 'Optional';
-      badge.className = 'creator-tag-badge';
+    // Both video_audio and digital_link use Web Link input
+    if (secLink) secLink.style.display = 'flex';
+    if (secVoice) secVoice.style.display = 'none';
+    if (linkBadge) {
+      linkBadge.style.display = 'inline-block';
+      linkBadge.textContent = 'Required';
+      linkBadge.className = 'creator-tag-badge badge-required';
     }
-    if (sub) sub.textContent = 'A few sentences framing your angle, critique, or why this article matters.';
-    if (input) input.placeholder = 'e.g. The headline misses the real structural disruption happening behind the scenes...';
-    if (heroIcon) heroIcon.textContent = '📰';
-    if (heroBox) heroBox.style.color = '#0284C7';
+
+    const urlInput = document.getElementById('creatorUrlInput');
+    const currentVal = urlInput ? urlInput.value.trim() : '';
+    const isVideo = (mode === 'video_audio') || isVideoAudioUrl(currentVal) || (currentScrapedArticle && currentScrapedArticle.isVideo);
+    updateWebLinkSubmode(isVideo);
   }
 }
 
@@ -9531,6 +9566,9 @@ function setupCreatorUrlListener() {
     }
     clearTimeout(scrapeDebounceTimer);
     const val = e.target.value.trim();
+    if (creatorSelectedSource !== 'inner_voice') {
+      updateWebLinkSubmode(isVideoAudioUrl(val));
+    }
     if (val.startsWith('http://') || val.startsWith('https://') || val.includes('.')) {
       scrapeDebounceTimer = setTimeout(() => {
         handleUrlInput(val);
@@ -9550,6 +9588,9 @@ function setupCreatorUrlListener() {
     }
     setTimeout(() => {
       const val = urlInput.value.trim();
+      if (creatorSelectedSource !== 'inner_voice') {
+        updateWebLinkSubmode(isVideoAudioUrl(val));
+      }
       if (val) handleUrlInput(val);
     }, 100);
   });
@@ -9589,6 +9630,10 @@ async function handleUrlInput(val) {
           data.imageUrl = data.imageUrl.replace(/&amp;/g, '&');
         }
         currentScrapedArticle = data;
+        const isVid = Boolean(data.isVideo || isVideoAudioUrl(clean));
+        if (creatorSelectedSource !== 'inner_voice') {
+          updateWebLinkSubmode(isVid);
+        }
         let scrapedImg = data.imageBase64 || data.imageUrl;
         if (scrapedImg) {
           if (typeof scrapedImg === 'string' && scrapedImg.startsWith('http')) {
@@ -9596,7 +9641,7 @@ async function handleUrlInput(val) {
           }
           creatorReferenceImageBase64 = scrapedImg;
           creatorReferenceImageMimeType = data.imageMimeType || 'image/jpeg';
-          creatorReferenceImageSourceLabel = (creatorSelectedSource === 'video_audio' ? 'Video Thumbnail' : 'Article Lead Photo') + ` (${data.siteName || 'Web'})`;
+          creatorReferenceImageSourceLabel = (isVid ? 'Video Thumbnail' : 'Article Lead Photo') + ` (${data.siteName || 'Web'})`;
           updateReferencePhotoUI();
         }
         const isFull = (data.content && data.content.length > 200) || (!data.fallback);
@@ -10549,30 +10594,17 @@ function validateCreatorStage1(showPrompt = true) {
       }
       return false;
     }
-  } else if (creatorSelectedSource === 'video_audio') {
-    if (!url) {
-      if (showPrompt) {
-        promptMandatoryField(urlInput, 'Please provide a YouTube or podcast link to anchor your slant.');
-      }
-      return false;
-    }
-    if (!isValidWebUrl(url)) {
-      if (showPrompt) {
-        promptMandatoryField(urlInput, 'Please enter a valid video or audio URL (e.g. https://youtu.be/... or podcast link).');
-      }
-      return false;
-    }
   } else {
-    // digital_link
+    // Web link (digital_link or video_audio)
     if (!url) {
       if (showPrompt) {
-        promptMandatoryField(urlInput, 'Please provide an article or newsletter link to anchor your slant.');
+        promptMandatoryField(urlInput, 'Please provide an article, video, or podcast link to anchor your slant.');
       }
       return false;
     }
     if (!isValidWebUrl(url)) {
       if (showPrompt) {
-        promptMandatoryField(urlInput, 'Please enter a valid article URL (e.g. https://www.nytimes.com/... or substack link).');
+        promptMandatoryField(urlInput, 'Please enter a valid web URL (e.g. https://...).');
       }
       return false;
     }

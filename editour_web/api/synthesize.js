@@ -601,6 +601,11 @@ Respond strictly with valid JSON with this exact structure:
     }
 
     const userSlant = (slantTake || text || '').trim();
+    if (url && (sourceType === 'digital_link' || !sourceType)) {
+      if (isVideoAudioUrl(url) || (scrapedTitle && /youtube|vimeo|podcast|broadcast|channel/i.test(scrapedTitle))) {
+        sourceType = 'video_audio';
+      }
+    }
     const isDigitalLink = (sourceType === 'digital_link' || sourceType === 'video_audio') && Boolean(url && String(url).trim().length > 3);
     let extractedTitle = isDigitalLink ? (scrapedTitle || '').trim() : '';
     let extractedContent = isDigitalLink ? (scrapedContent || '').trim() : (sourceType === 'photo' ? (text || '').trim() : '');
@@ -2053,6 +2058,31 @@ function decodeHtmlEntities(str) {
     .replace(/&mdash;/g, '—')
     .replace(/&ndash;/g, '–')
     .replace(/&hellip;/g, '…');
+}
+
+function isVideoAudioUrl(url) {
+  if (!url) return false;
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.toLowerCase();
+    if (
+      host.includes('youtube.com') ||
+      host.includes('youtu.be') ||
+      host.includes('vimeo.com') ||
+      host.includes('spotify.com') ||
+      host.includes('podcasts.apple.com') ||
+      host.includes('soundcloud.com') ||
+      host.includes('tiktok.com') ||
+      host.includes('twitch.tv') ||
+      host.includes('ted.com')
+    ) {
+      return true;
+    }
+    const path = parsed.pathname.toLowerCase();
+    return /\.(mp4|mp3|m4a|webm|mov|ogg)$/i.test(path);
+  } catch (_) {
+    return false;
+  }
 }
 
 function extractYouTubeVideoId(url) {

@@ -352,25 +352,18 @@
             <span class="anchor-tag">Source Anchor</span>
           </div>
           <div class="creator-anchor-grid">
-            <!-- 1. Video / Audio Link -->
-            <button type="button" class="anchor-card" data-mode="video_audio" id="anchorMediaBtn" onclick="setAnchorMode('video_audio')">
-              <div class="anchor-icon-circle anchor-media">🎬</div>
-              <div class="anchor-card-title">Video / Audio</div>
-              <div class="anchor-card-subtitle">YouTube, Podcast</div>
-            </button>
-
-            <!-- 2. Read / Web Link -->
+            <!-- 1. Web Link (Articles, Videos, Podcasts) -->
             <button type="button" class="anchor-card active" data-mode="digital_link" id="anchorWebBtn" onclick="setAnchorMode('digital_link')">
-              <div class="anchor-icon-circle anchor-web">📰</div>
-              <div class="anchor-card-title">Read / Web</div>
-              <div class="anchor-card-subtitle">Articles, Op-Eds</div>
+              <div class="anchor-icon-circle anchor-web" id="anchorWebIconCircle">🌐</div>
+              <div class="anchor-card-title" id="anchorWebTitle">Web Link</div>
+              <div class="anchor-card-subtitle" id="anchorWebSub">Articles, Videos, Podcasts</div>
             </button>
 
-            <!-- 3. Inner Voice -->
+            <!-- 2. Inner Voice -->
             <button type="button" class="anchor-card" data-mode="inner_voice" id="anchorVoiceBtn" onclick="setAnchorMode('inner_voice')">
               <div class="anchor-icon-circle anchor-voice">💭</div>
               <div class="anchor-card-title">Inner Voice</div>
-              <div class="anchor-card-subtitle">Pure reflection</div>
+              <div class="anchor-card-subtitle">Personal reflection</div>
             </button>
           </div>
 
@@ -379,10 +372,10 @@
             <div class="mental-model-inner">
               <div class="mental-model-badge-row">
                 <span class="mental-model-badge" id="anchorMentalModelBadge">MENTAL MODEL</span>
-                <span class="mental-model-pill" id="anchorMentalModelPill">Read / Web Link</span>
+                <span class="mental-model-pill" id="anchorMentalModelPill">Web Link</span>
               </div>
               <p class="mental-model-quote" id="anchorMentalModelText">
-                "I read an analysis or news story and have a counter-slant."
+                "I found an article, video, or podcast and have a perspective on it."
               </p>
             </div>
           </div>
@@ -395,14 +388,14 @@
             <div class="trigger-header">
               <div class="trigger-title-row">
                 <span class="trigger-icon" id="triggerLinkIcon">🔗</span>
-                <span class="trigger-title" id="triggerLinkTitle">Source Article / Newsletter Link</span>
+                <span class="trigger-title" id="triggerLinkTitle">Source Article / Video Link</span>
               </div>
               <div class="trigger-header-right" style="display:flex; align-items:center; gap:8px;">
                 <span class="creator-tag-badge badge-required" id="triggerLinkBadge">Required</span>
                 <span class="trigger-sub" id="triggerLinkSub">Paste & Fetch</span>
               </div>
             </div>
-            <input type="url" id="creatorUrlInput" class="creator-input" placeholder="https://www.nytimes.com/... or Substack, Op-Ed URL" autocomplete="off">
+            <input type="url" id="creatorUrlInput" class="creator-input" placeholder="https://... (Article, YouTube, Substack, Podcast URL)" autocomplete="off">
             <!-- Scrape Status Indicator (Matches Mobile App Exactly) -->
             <div id="urlScrapeIndicator" class="url-scrape-indicator" style="display:none;"></div>
             <!-- Objective Editorial Research Assistant Ledger Card -->
