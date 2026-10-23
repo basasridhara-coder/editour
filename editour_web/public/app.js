@@ -6696,17 +6696,24 @@ async function shareCarouselPosters(post, files) {
   const profileUrl = `${window.location.origin}/?curator=${encodeURIComponent(cleanHandle)}`;
   const caption = `know more of such my opinions on topics at ${profileUrl}`;
 
+  // 1. Copy caption to clipboard first so user can paste it into the WhatsApp album caption
+  if (navigator.clipboard) {
+    try {
+      await navigator.clipboard.writeText(caption);
+    } catch (_) {}
+  }
+
+  // 2. Pass ONLY files to navigator.share (no text or title)
+  // This guarantees WhatsApp bundles all posters as a single clean album without duplicating captions
   if (navigator.share && files.length > 0 && navigator.canShare) {
     const payload = {
-      files: files,
-      title: `Opinions by ${handle}`,
-      text: caption
+      files: files
     };
     if (navigator.canShare(payload)) {
       try {
+        showTemporaryToast('📋 Caption copied! Paste into WhatsApp album caption bar.', 4500);
         await navigator.share(payload);
         closeSharePostersModal();
-        showTemporaryToast('✨ Full poster set shared!');
         return;
       } catch (err) {
         if (err.name === 'AbortError') return;
@@ -6717,11 +6724,8 @@ async function shareCarouselPosters(post, files) {
 
   // Desktop or fallback
   downloadShareFiles(files);
-  if (navigator.clipboard) {
-    await navigator.clipboard.writeText(caption).catch(() => {});
-  }
   closeSharePostersModal();
-  showTemporaryToast('📥 All posters downloaded and profile link copied to clipboard!');
+  showTemporaryToast('📥 All posters downloaded and caption copied to clipboard! Paste into your chat.', 4500);
 }
 
 function downloadSingleFile(file) {
