@@ -2044,14 +2044,14 @@
   </div>
 
   <!-- Portrayal Large Preview Modal (High-Res Zoom & Breakdown) -->
-  <div class="modal-overlay portrayal-enlarge-overlay" id="portrayalEnlargeModal" style="display:none;" onclick="if(event.target===this) closePortrayalEnlargeModal()">
-    <div class="modal-card portrayal-enlarge-card" onclick="event.stopPropagation()">
+  <div class="portrayal-enlarge-overlay" id="portrayalEnlargeModal" style="display:none;" onclick="if(event.target===this) closePortrayalEnlargeModal()">
+    <div class="portrayal-enlarge-card" onclick="event.stopPropagation()">
+      <button type="button" class="portrayal-enlarge-close" onclick="closePortrayalEnlargeModal()" aria-label="Close">&times;</button>
       <div class="portrayal-enlarge-header">
         <div class="portrayal-enlarge-title-wrap">
           <span class="portrayal-enlarge-badge" id="portrayalEnlargeBadge">Default Style</span>
           <h3 class="portrayal-enlarge-title" id="portrayalEnlargeTitle">AI Illustration</h3>
         </div>
-        <button type="button" class="modal-close portrayal-enlarge-close" onclick="closePortrayalEnlargeModal()" aria-label="Close">&times;</button>
       </div>
       <div class="portrayal-enlarge-body">
         <div class="portrayal-enlarge-image-wrap">
@@ -2075,10 +2075,10 @@
             </div>
           </div>
           <div class="portrayal-enlarge-actions">
-            <button type="button" class="btn-primary portrayal-select-btn" id="portrayalEnlargeSelectBtn" onclick="selectCurrentEnlargedPortrayal()">
+            <button type="button" class="portrayal-select-btn" id="portrayalEnlargeSelectBtn" onclick="selectCurrentEnlargedPortrayal()">
               ✓ Select This Style
             </button>
-            <button type="button" class="btn-secondary portrayal-switch-btn" onclick="closePortrayalEnlargeModal(); openPortrayalComparisonModal();">
+            <button type="button" class="portrayal-switch-btn" onclick="closePortrayalEnlargeModal(); openPortrayalComparisonModal();">
               👀 Compare All 5 Styles
             </button>
           </div>
@@ -2088,14 +2088,14 @@
   </div>
 
   <!-- Portrayal Comparison Modal (Side-by-Side 5 Styles of Same Subject) -->
-  <div class="modal-overlay portrayal-compare-overlay" id="portrayalComparisonModal" style="display:none;" onclick="if(event.target===this) closePortrayalComparisonModal()">
-    <div class="modal-card portrayal-compare-card" onclick="event.stopPropagation()">
+  <div class="portrayal-compare-overlay" id="portrayalComparisonModal" style="display:none;" onclick="if(event.target===this) closePortrayalComparisonModal()">
+    <div class="portrayal-compare-card" onclick="event.stopPropagation()">
+      <button type="button" class="portrayal-compare-close" onclick="closePortrayalComparisonModal()" aria-label="Close">&times;</button>
       <div class="portrayal-compare-header">
         <div>
           <h3 class="portrayal-compare-title">🎨 Compare Image Portrayal Styles</h3>
           <p class="portrayal-compare-sub">See how each portrayal engine renders the exact same subject from real news source to artistic prints.</p>
         </div>
-        <button type="button" class="modal-close portrayal-compare-close" onclick="closePortrayalComparisonModal()" aria-label="Close">&times;</button>
       </div>
       <div class="portrayal-compare-grid" id="portrayalCompareGrid">
         <!-- Rendered dynamically by renderPortrayalComparisonGrid() -->

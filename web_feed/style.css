@@ -16968,28 +16968,77 @@ mark.polish-mark:hover, mark.polish-mark.active {
 
 /* Portrayal Enlarge Lightbox Modal */
 .portrayal-enlarge-overlay {
-  z-index: 100050;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  background: rgba(0, 0, 0, 0.86);
-  backdrop-filter: blur(8px);
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  z-index: 100050 !important;
+  display: none;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 16px !important;
+  background: rgba(3, 7, 18, 0.88) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  box-sizing: border-box !important;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+
+.portrayal-enlarge-overlay.open,
+.portrayal-enlarge-overlay.active {
+  display: flex !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
 }
 
 .portrayal-enlarge-card {
+  position: relative !important;
   max-width: 660px;
   width: 100%;
-  background: #0F172A;
-  border: 1px solid rgba(139, 92, 246, 0.45);
+  background: #0F172A !important;
+  border: 1.5px solid rgba(139, 92, 246, 0.5) !important;
   border-radius: 20px;
-  padding: 22px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.75);
+  padding: 24px;
+  box-shadow: 0 25px 70px rgba(0, 0, 0, 0.85);
   display: flex;
   flex-direction: column;
   gap: 16px;
   max-height: 90vh;
   overflow-y: auto;
+  box-sizing: border-box;
+}
+
+.portrayal-enlarge-close,
+.portrayal-compare-close {
+  position: absolute !important;
+  top: 16px !important;
+  right: 16px !important;
+  width: 34px !important;
+  height: 34px !important;
+  border-radius: 50% !important;
+  background: rgba(255, 255, 255, 0.12) !important;
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+  color: #FFFFFF !important;
+  font-size: 22px !important;
+  line-height: 1 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  z-index: 10 !important;
+  transition: all 0.15s ease !important;
+  padding: 0 !important;
+}
+
+.portrayal-enlarge-close:hover,
+.portrayal-compare-close:hover {
+  background: rgba(255, 255, 255, 0.25) !important;
+  border-color: rgba(255, 255, 255, 0.4) !important;
+  transform: scale(1.06);
 }
 
 .portrayal-enlarge-header {
@@ -16998,6 +17047,7 @@ mark.polish-mark:hover, mark.polish-mark.active {
   justify-content: space-between;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   padding-bottom: 12px;
+  padding-right: 44px;
 }
 
 .portrayal-enlarge-title-wrap {
@@ -17152,28 +17202,48 @@ mark.polish-mark:hover, mark.polish-mark.active {
 
 /* Portrayal Comparison Modal */
 .portrayal-compare-overlay {
-  z-index: 100060;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  background: rgba(0, 0, 0, 0.88);
-  backdrop-filter: blur(10px);
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  z-index: 100060 !important;
+  display: none;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 16px !important;
+  background: rgba(3, 7, 18, 0.9) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  box-sizing: border-box !important;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+
+.portrayal-compare-overlay.open,
+.portrayal-compare-overlay.active {
+  display: flex !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
 }
 
 .portrayal-compare-card {
+  position: relative !important;
   max-width: 960px;
   width: 100%;
-  background: #0B1120;
-  border: 1px solid rgba(139, 92, 246, 0.45);
+  background: #0B1120 !important;
+  border: 1.5px solid rgba(139, 92, 246, 0.5) !important;
   border-radius: 22px;
   padding: 24px;
-  box-shadow: 0 25px 70px rgba(0, 0, 0, 0.8);
+  box-shadow: 0 25px 70px rgba(0, 0, 0, 0.85);
   display: flex;
   flex-direction: column;
   gap: 18px;
   max-height: 92vh;
   overflow-y: auto;
+  box-sizing: border-box;
 }
 
 .portrayal-compare-header {
@@ -17183,6 +17253,7 @@ mark.polish-mark:hover, mark.polish-mark.active {
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   padding-bottom: 14px;
   gap: 16px;
+  padding-right: 44px;
 }
 
 .portrayal-compare-title {

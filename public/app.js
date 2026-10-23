@@ -113,6 +113,16 @@ async function syncFeedFromDrawer() {
 // Close drawer and popups on Escape
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
+    const enlargeModal = document.getElementById('portrayalEnlargeModal');
+    if (enlargeModal && (enlargeModal.classList.contains('open') || enlargeModal.style.display === 'flex')) {
+      if (typeof closePortrayalEnlargeModal === 'function') closePortrayalEnlargeModal();
+      return;
+    }
+    const compareModal = document.getElementById('portrayalComparisonModal');
+    if (compareModal && (compareModal.classList.contains('open') || compareModal.style.display === 'flex')) {
+      if (typeof closePortrayalComparisonModal === 'function') closePortrayalComparisonModal();
+      return;
+    }
     closeDrawer();
     if (typeof closeCreatorEqualizer === 'function') closeCreatorEqualizer();
     if (typeof closeCueInspectOverlay === 'function') closeCueInspectOverlay();
@@ -8879,49 +8889,65 @@ const PORTRAYAL_STYLE_PREVIEWS = {
 let currentEnlargedPortrayalStyle = 'realistic';
 
 function openPortrayalEnlargeModal(styleKey) {
-  const targetKey = styleKey || creatorCharacterRepresentation || 'realistic';
-  currentEnlargedPortrayalStyle = targetKey;
-  const data = PORTRAYAL_STYLE_PREVIEWS[targetKey] || PORTRAYAL_STYLE_PREVIEWS.realistic;
+  try {
+    const targetKey = styleKey || creatorCharacterRepresentation || 'realistic';
+    currentEnlargedPortrayalStyle = targetKey;
+    const data = PORTRAYAL_STYLE_PREVIEWS[targetKey] || PORTRAYAL_STYLE_PREVIEWS.realistic;
 
-  const modal = document.getElementById('portrayalEnlargeModal');
-  const badgeEl = document.getElementById('portrayalEnlargeBadge');
-  const titleEl = document.getElementById('portrayalEnlargeTitle');
-  const subEl = document.getElementById('portrayalEnlargeSubtitle');
-  const descEl = document.getElementById('portrayalEnlargeDesc');
-  const mediumEl = document.getElementById('portrayalEnlargeMedium');
-  const textureEl = document.getElementById('portrayalEnlargeTexture');
-  const imgEl = document.getElementById('portrayalEnlargeImg');
-  const selectBtn = document.getElementById('portrayalEnlargeSelectBtn');
+    const modal = document.getElementById('portrayalEnlargeModal');
+    const badgeEl = document.getElementById('portrayalEnlargeBadge');
+    const titleEl = document.getElementById('portrayalEnlargeTitle');
+    const subEl = document.getElementById('portrayalEnlargeSubtitle');
+    const descEl = document.getElementById('portrayalEnlargeDesc');
+    const mediumEl = document.getElementById('portrayalEnlargeMedium');
+    const textureEl = document.getElementById('portrayalEnlargeTexture');
+    const imgEl = document.getElementById('portrayalEnlargeImg');
+    const selectBtn = document.getElementById('portrayalEnlargeSelectBtn');
 
-  if (badgeEl) badgeEl.textContent = data.badge;
-  if (titleEl) titleEl.textContent = data.name;
-  if (subEl) subEl.textContent = data.title;
-  if (descEl) descEl.textContent = data.desc;
-  if (mediumEl) mediumEl.textContent = data.medium || 'Editorial Art';
-  if (textureEl) textureEl.textContent = data.texture || 'Natural Pigments';
+    if (badgeEl && data) badgeEl.textContent = data.badge;
+    if (titleEl && data) titleEl.textContent = data.name;
+    if (subEl && data) subEl.textContent = data.title;
+    if (descEl && data) descEl.textContent = data.desc;
+    if (mediumEl && data) mediumEl.textContent = data.medium || 'Editorial Art';
+    if (textureEl && data) textureEl.textContent = data.texture || 'Natural Pigments';
 
-  if (imgEl) {
-    if (targetKey === 'exact' && creatorReferenceImageBase64) {
-      imgEl.src = creatorReferenceImageBase64;
-    } else {
-      imgEl.src = data.image;
+    if (imgEl && data) {
+      if (targetKey === 'exact' && creatorReferenceImageBase64) {
+        imgEl.src = creatorReferenceImageBase64;
+      } else {
+        imgEl.src = data.image;
+      }
     }
-  }
 
-  if (selectBtn) {
-    const isCurrent = (creatorCharacterRepresentation === targetKey);
-    selectBtn.textContent = isCurrent ? '✓ Current Selection' : `✓ Select ${data.name}`;
-    selectBtn.style.opacity = isCurrent ? '0.85' : '1';
-  }
+    if (selectBtn && data) {
+      const isCurrent = (creatorCharacterRepresentation === targetKey);
+      selectBtn.textContent = isCurrent ? '✓ Current Selection' : `✓ Select ${data.name}`;
+      selectBtn.style.opacity = isCurrent ? '0.85' : '1';
+    }
 
-  if (modal) {
-    modal.style.display = 'flex';
+    if (modal) {
+      modal.classList.add('open');
+      modal.classList.add('active');
+      modal.style.display = 'flex';
+      modal.style.opacity = '1';
+      modal.style.visibility = 'visible';
+      modal.style.pointerEvents = 'auto';
+    }
+  } catch (err) {
+    console.error('Error opening portrayal enlarge modal:', err);
   }
 }
 
 function closePortrayalEnlargeModal() {
   const modal = document.getElementById('portrayalEnlargeModal');
-  if (modal) modal.style.display = 'none';
+  if (modal) {
+    modal.classList.remove('open');
+    modal.classList.remove('active');
+    modal.style.display = 'none';
+    modal.style.opacity = '0';
+    modal.style.visibility = 'hidden';
+    modal.style.pointerEvents = 'none';
+  }
 }
 
 function selectCurrentEnlargedPortrayal() {
@@ -8936,14 +8962,32 @@ function selectCurrentEnlargedPortrayal() {
 }
 
 function openPortrayalComparisonModal() {
-  renderPortrayalComparisonGrid();
-  const modal = document.getElementById('portrayalComparisonModal');
-  if (modal) modal.style.display = 'flex';
+  try {
+    renderPortrayalComparisonGrid();
+    const modal = document.getElementById('portrayalComparisonModal');
+    if (modal) {
+      modal.classList.add('open');
+      modal.classList.add('active');
+      modal.style.display = 'flex';
+      modal.style.opacity = '1';
+      modal.style.visibility = 'visible';
+      modal.style.pointerEvents = 'auto';
+    }
+  } catch (err) {
+    console.error('Error opening portrayal comparison modal:', err);
+  }
 }
 
 function closePortrayalComparisonModal() {
   const modal = document.getElementById('portrayalComparisonModal');
-  if (modal) modal.style.display = 'none';
+  if (modal) {
+    modal.classList.remove('open');
+    modal.classList.remove('active');
+    modal.style.display = 'none';
+    modal.style.opacity = '0';
+    modal.style.visibility = 'hidden';
+    modal.style.pointerEvents = 'none';
+  }
 }
 
 function renderPortrayalComparisonGrid() {
