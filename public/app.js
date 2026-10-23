@@ -799,7 +799,7 @@ const FEATURED_LOGIN_POSTS = [
     "creatorHandle": "@Shridhar Reddy",
     "curatorTake": "Our schools still train children to copy textbooks while algorithms conquer routine work. We must teach kids to spot local community problems, turning them into problem solvers rather than passive job seekers.",
     "polishedCuratorTake": "While on one hand we constantly discuss AI everywhere and debate its impacts, our education system is still stuck giving kids vacation homework like copying one-page chapters into a notebook or having third-grade students write down animal names. Why don't we give them assignments that encourage them to inquire about and understand their surrounding environment, people, and professions? Beyond simply knowing, we could ask them to identify problems they observe in their homes, on their streets, or at school, consider how they would like to solve them, and write down those solutions. That would make our kids far smarter about how to use AI to solve our problems, rather than just waiting for someone to come along and give them a job.",
-    "creatorOpinion": "While on one hand we constantly discuss AI everywhere and debate its impacts, our education system is still stuck giving kids vacation homework like copying one-page chapters into a notebook or having third-grade students write down animal names. Why don't we give them assignments that encourage them to inquire about and understand their surrounding environment, people, and professions? Beyond simply knowing, we could ask them to identify problems they observe in their homes, on their streets, or at school, consider how they would like to solve them, and write down those solutions. That would make our kids far smarter about how to use AI to solve our problems, rather than just waiting for someone to come along and give them a job.",
+    "creatorOpinion": "Our schools still train children to copy textbooks while algorithms conquer routine work. We must teach kids to spot local community problems, turning them into problem solvers rather than passive job seekers.",
     "whyItMatters": "Training children in mindless repetition guarantees their obsolescence, whereas teaching them to diagnose local problems builds enduring resilience against automation.",
     "hook": "While economists warn that traditional degrees will collapse under automation, our classrooms still force eight-year-olds to hand-copy textbooks.",
     "keyTakeaways": [
@@ -808,9 +808,8 @@ const FEATURED_LOGIN_POSTS = [
       "Command the Tools: Teaching problem-solving turns technology into an engine for community renewal."
     ],
     "resolvedArticleExcerpts": [
-      "Global economists and policymakers gather on television stages to sound the alarm on vanishing degrees, yet our elementary classrooms remain frozen in time. Young children still spend their school breaks mechanically copying textbook paragraphs onto lined paper or memorizing static animal lists. We obsess over artificial intelligence dominating the future, but continue drilling the exact repetitive tasks that machines now perform instantly.",
-      "During the panel discussion, experts emphasized that the next generation will need deep adaptability and critical reasoning rather than formulaic credentials. True education must connect young minds directly to their lived environments, neighborhoods, and local trades. Instead of testing passive recall, schools should task students with investigating street drainage, local markets, or family budgets, training them to analyze friction.",
-      "When we encourage children to diagnose genuine community breakdowns and draft inventive fixes, we build real agency. Technology should be a powerful tool they command to fix everyday broken systems, not a looming threat that replaces their labor. Raising creative problem solvers safeguards our children far better than waiting on vanishing corporate job ladders."
+      "While economists warn on television that artificial intelligence will dismantle traditional degrees, our classrooms remain frozen in time. Young children still spend their breaks mechanically copying textbook paragraphs onto lined paper, drilling the exact repetitive tasks that algorithms already execute in seconds.",
+      "True education must connect students directly to their lived environments. When schools task children with investigating local street drainage or family budgets, they cultivate creative agency, ensuring technology becomes a tool they command rather than a force that replaces them."
     ],
     "sourceType": "video_audio",
     "digitalLink": "https://youtu.be/uUZo1T4m9a8?si=TlPWqnl8RJUTOemZ",
@@ -821,7 +820,8 @@ const FEATURED_LOGIN_POSTS = [
     "slantTone": "heart",
     "pullQuote": "Children must learn to interrogate their neighborhoods and solve broken systems, turning technology into an ally rather than an existential rival.",
     "receiptHighlightQuote": "Children must learn to interrogate their neighborhoods and solve broken systems, turning technology into an ally rather than an existential rival.",
-    "targetAudience": "General Public"
+    "targetAudience": "General Public",
+    "isLoginFeatured": true
   },
   {
     "id": "slant-1792397027404-7rawu",
@@ -841,9 +841,8 @@ const FEATURED_LOGIN_POSTS = [
       "Sustainable Stewardship: Lasting survival requires genuine cross-community cooperation and humility."
     ],
     "resolvedArticleExcerpts": [
-      "Record rainstorms in Istanbul demonstrate how quickly natural forces can dismantle urban routine. Rushing water fills busy intersections and drowns vehicles, exposing the fragile reality of concrete growth. These extreme events strip away illusions of control, leaving even the most advanced cities humbled. The loss goes beyond damaged streets and shattered logistics, leaving behind deep anxiety about what coming seasons will bring to ordinary communities.",
-      "Broadcast reports showing eighty-year record precipitation overwhelm municipal drain systems, forcing emergency workers to wade through drowned avenues. While individual city dwellers rarely see how daily consumption fuels global volatility, the collective burden on natural cycles eventually rebounds. Modern municipal planning treats nature as a manageable variable until extreme events prove that human construction remains profoundly vulnerable to the broader climate ledger.",
-      "Facing this mounting instability requires moving past short-term repairs and reactive disaster response. Protecting everyday neighborhoods demands a fundamental shift toward sustainable cooperation and shared responsibility. True resilience starts when communities respect ecological limits and build durable systems grounded in selfless stewardship."
+      "Record rainstorms in Istanbul demonstrate how quickly natural forces dismantle urban routine. Rushing water fills busy intersections and drowns vehicles, exposing the fragile reality of concrete growth and humbling the most advanced municipal systems in hours.",
+      "Broadcast reports of eighty-year deluges show that modern infrastructure cannot overpower planetary water cycles. Protecting our neighborhoods requires shifting from reactive repairs to genuine ecological cooperation, building resilient communities grounded in shared stewardship."
     ],
     "sourceType": "video_audio",
     "digitalLink": "https://youtu.be/sEb0_Gplrvs?si=nTdG92traw5_5hs9",
@@ -854,7 +853,8 @@ const FEATURED_LOGIN_POSTS = [
     "slantTone": "mind",
     "pullQuote": "Severe weather brings the strongest institutions to their knees, proving that true urban security demands cooperative, sustainable living.",
     "receiptHighlightQuote": "Severe weather brings the strongest institutions to their knees, proving that true urban security demands cooperative, sustainable living.",
-    "targetAudience": "General Public"
+    "targetAudience": "General Public",
+    "isLoginFeatured": true
   },
   {
     "id": "slant-1792429695314-6thox",
@@ -874,9 +874,8 @@ const FEATURED_LOGIN_POSTS = [
       "Quiet Wonder: Profound artistic milestones often happen during ordinary, unhurried family mornings."
     ],
     "resolvedArticleExcerpts": [
-      "The quiet stillness of the morning shifted completely when my eleven-year-old laid down his brushes. Right across the paper, a ferocious yet gentle Maa Kali emerged, framed in vivid saffron tones and striking black contours that instantly recalled the historic clay artisans of Kolkata. What began as casual morning doodling quickly unfolded into a deeply moving tribute to heritage and spiritual strength.",
-      "There is something magical when young hands capture ancient deities with such fearless precision. He did not overthink the proportions or seek mechanical perfection; he simply poured instinct onto the page. Her extended tongue, wide protective eyes, and delicate ornaments came alive with an earnest, unvarnished intensity that many seasoned painters spend years trying to replicate through formal craft.",
-      "Moments like this remind us that cultural memory is never truly lost across generations. It flows naturally through simple shared mornings, curiosity, and freedom of expression. Seeing raw divine power through innocent eyes gives us profound hope that our deepest traditions remain vibrant, grounded, and endlessly alive."
+      "The quiet stillness of the morning shifted completely when my eleven-year-old laid down his brushes. Across the paper, a ferocious yet gentle Maa Kali emerged in vivid saffron tones and bold contours, recalling the historic clay artisans of Kolkata.",
+      "Seeing young hands capture ancient deities with fearless precision proves cultural memory is never lost across generations. When children express devotion through pure instinct, our deepest heritage remains vibrant, grounded, and endlessly alive."
     ],
     "sourceType": "inner_voice",
     "illustrationUrl": "/posters/slant-1792429695314-6thox.png",
@@ -886,7 +885,8 @@ const FEATURED_LOGIN_POSTS = [
     "pullQuote": "Our ancient cultural roots do not fade; they find vibrant new life whenever our children pick up a brush.",
     "receiptHighlightQuote": "Our ancient cultural roots do not fade; they find vibrant new life whenever our children pick up a brush.",
     "spark": "When I saw my son's drawing today morning",
-    "targetAudience": "General Public"
+    "targetAudience": "General Public",
+    "isLoginFeatured": true
   },
   {
     "id": "slant-1792437452220-xd5vt",
@@ -906,9 +906,8 @@ const FEATURED_LOGIN_POSTS = [
       "Automated Future: Autonomous cockpits offer standard protection against unpredictable human behavior."
     ],
     "resolvedArticleExcerpts": [
-      "Every commercial flight operates on absolute trust in the individuals holding the controls. While airline protocols train crews to conquer brutal mechanical failures, they cannot reliably scan the shifting private convictions inside a pilot's mind. When extreme danger strikes the cockpit, an aircraft's survival comes down to split-second choices, exposing how vulnerable passengers remain to individual human intent.",
-      "Accounts of high-altitude cockpit struggles showcase the thin margin between disaster and safe landing. Emergency procedures mandate teamwork and rapid telemetry analysis to neutralize system breakdowns. Yet technical manuals assume good faith. If an operator actively chooses harm, existing safety barriers fall instantly, leaving traditional screening methods incapable of measuring ideological decay or internal psychological collapse.",
-      "Ensuring absolute air travel security demands looking beyond traditional psychological questionnaires. Just as autonomous ground vehicles remove erratic driver error, pilotless aviation may emerge as the necessary frontier for passenger protection. Removing human vulnerability completely resets transit safety, guaranteeing that split-second cockpit decisions are driven purely by reliable code rather than unstable human emotion."
+      "Every commercial flight operates on absolute trust in the crew holding the controls. While airline protocols train pilots to master brutal mechanical failures, standard vetting cannot reliably detect sudden ideological shifts or hidden psychological collapse in the flight deck.",
+      "Accounts of high-altitude struggles reveal how vulnerable passengers remain when human intent itself turns volatile. Much like driverless ground transit, automated cockpits may emerge as the necessary safety frontier, ensuring split-second navigation is governed by unyielding code."
     ],
     "sourceType": "video_audio",
     "digitalLink": "https://youtu.be/1MsLWFqaJmk?si=1GLBeRqezlu-gj-N",
@@ -919,7 +918,8 @@ const FEATURED_LOGIN_POSTS = [
     "slantTone": "heart",
     "pullQuote": "If a pilot chooses harm, safety nets fail instantly; autonomous cockpits may become aviation's only true safeguard.",
     "receiptHighlightQuote": "If a pilot chooses harm, safety nets fail instantly; autonomous cockpits may become aviation's only true safeguard.",
-    "targetAudience": "General Public"
+    "targetAudience": "General Public",
+    "isLoginFeatured": true
   }
 ];
 
@@ -3993,7 +3993,7 @@ function handleReceiptPhotoLoad(img) {
 }
 window.handleReceiptPhotoLoad = handleReceiptPhotoLoad;
 
-function evaluateEssayBifurcation(post) {
+function evaluateEssayBifurcation(post, index) {
   const cleanExcerpt = (txt) => {
     if (!txt) return "";
     return String(txt)
@@ -4080,6 +4080,17 @@ function evaluateEssayBifurcation(post) {
     || post.aiPosterBase64;
   const hasPhoto = Boolean(rawPhoto && typeof rawPhoto === "string" && rawPhoto.length > 20);
 
+  // Forced single page for sample / login posts (Strict 2-poster style: Slide 1 Hook -> Slide 2 Essay)
+  if (index === "sample" || post.isLoginFeatured || post._forceSinglePage) {
+    return {
+      isBifurcated: false,
+      hasPhoto,
+      page1Paras: essayParas,
+      page2Paras: [],
+      densityClass: (essayParas.join(" ").length > 380) ? "essay-density-compact" : "essay-density-medium"
+    };
+  }
+
   // Dynamic Page 1 target words:
   // - No photo: ~180 words (fits 2-3 paragraphs cleanly without premature cutoff)
   // - Portrait photo (floated 3:4): ~125 words
@@ -4145,7 +4156,7 @@ function evaluateEssayBifurcation(post) {
 }
 
 function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
-  const bifurcation = evaluateEssayBifurcation(post);
+  const bifurcation = evaluateEssayBifurcation(post, index);
   const tier = getSourceTier(post);
   const cleanHost = getCleanDomain(post.digitalLink);
   const handle = escapeHtml(post.creatorHandle || "@curator");
@@ -4413,7 +4424,18 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
           ${pullquoteHtml}
           ${scenePhotoHtml}
           ${page1ParasHtml}
+          ${!bifurcation.isBifurcated ? reflectionHtml : ""}
         </div>
+
+        ${!bifurcation.isBifurcated ? `
+        <div class="receipt-footer">
+          <div class="receipt-folio-rule"></div>
+          <div class="receipt-folio-text">
+            <span class="receipt-folio-left">${isInnerVoice ? `PERSONAL ESSAY • ${handle.toUpperCase()}` : (cleanPubUpper ? `IN DIALOGUE WITH ${cleanPubUpper}` : "EDITORIAL ESSAY")}</span>
+            <span class="receipt-folio-right">Every thought deserves a frame • 02 / 02</span>
+          </div>
+        </div>
+        ` : ""}
       </div>
 
       ${bifurcation.isBifurcated ? `
@@ -4451,18 +4473,7 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
           </div>
         </div>
       </div>
-      ` : `
-      <div class="receipt-paragraphs">
-        ${reflectionHtml}
-      </div>
-      <div class="receipt-footer">
-        <div class="receipt-folio-rule"></div>
-        <div class="receipt-folio-text">
-          <span class="receipt-folio-left">${isInnerVoice ? `PERSONAL ESSAY • ${handle.toUpperCase()}` : (cleanPubUpper ? `IN DIALOGUE WITH ${cleanPubUpper}` : "EDITORIAL ESSAY")}</span>
-          <span class="receipt-folio-right">Every thought deserves a frame • 02 / 02</span>
-        </div>
-      </div>
-      `}
+      ` : ""}
     </div>
   `;
 }

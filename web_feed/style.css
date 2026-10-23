@@ -2974,10 +2974,17 @@ header {
 }
 
 /* Page 1 Block in Feed View: Fills initial 3:4 poster viewport so seam is NEVER visible on initial load */
-.carousel-view .essay-page-block.essay-page-1,
 .slant-minute-scroll-viewport[data-bifurcated="true"] .essay-page-1 {
   min-height: 100% !important;
   box-sizing: border-box !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: flex-start !important;
+}
+
+.slant-minute-scroll-viewport:not([data-bifurcated="true"]) .essay-page-1 {
+  min-height: 0 !important;
+  height: 100% !important;
   display: flex !important;
   flex-direction: column !important;
   justify-content: flex-start !important;
@@ -4297,18 +4304,94 @@ header {
 }
 
 .sample-feed-card-host .post-card .slant-minute-scroll-viewport {
-  padding: 10px 14px 12px 14px !important;
+  padding: 10px 14px 10px 14px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: flex-start !important;
 }
 
 .sample-feed-card-host .post-card .receipt-headline {
-  font-size: 12.5px !important;
+  font-size: 12px !important;
   line-height: 1.25 !important;
+  margin-bottom: 4px !important;
+}
+
+.sample-feed-card-host .post-card .essay-highlight-pullquote {
+  margin: 2px 0 5px 0 !important;
+  padding: 3px 8px 4px 8px !important;
+}
+
+.sample-feed-card-host .post-card .essay-pullquote-label {
+  font-size: 7.5px !important;
+  margin-bottom: 2px !important;
+}
+
+.sample-feed-card-host .post-card .essay-pullquote-text {
+  font-size: 9.8px !important;
+  line-height: 1.35 !important;
+}
+
+.sample-feed-card-host .post-card .receipt-scene-box {
+  margin: 2px 0 5px 0 !important;
+  padding: 2.5px !important;
+}
+
+.sample-feed-card-host .post-card .receipt-scene-box.photo-aspect-landscape .receipt-scene-frame,
+.sample-feed-card-host .post-card .receipt-scene-box:not(.photo-aspect-portrait) .receipt-scene-frame {
+  max-height: 95px !important;
+}
+
+.sample-feed-card-host .post-card .receipt-scene-box.photo-aspect-portrait .receipt-scene-frame {
+  max-height: 120px !important;
+}
+
+.sample-feed-card-host .post-card .receipt-scene-box.photo-aspect-portrait {
+  max-width: 125px !important;
+  margin: 1px 0 4px 8px !important;
+}
+
+.sample-feed-card-host .post-card .receipt-scene-caption {
+  font-size: 6.8px !important;
+  margin-top: 2px !important;
+}
+
+.sample-feed-card-host .post-card .broadsheet-dropcap {
+  font-size: 26px !important;
+  line-height: 0.8 !important;
+  padding-right: 4px !important;
 }
 
 .sample-feed-card-host .post-card .receipt-p1,
 .sample-feed-card-host .post-card .receipt-p3 {
-  font-size: 10.2px !important;
-  line-height: 1.42 !important;
+  font-size: 9.8px !important;
+  line-height: 1.38 !important;
+  margin-bottom: 3.5px !important;
+}
+
+.sample-feed-card-host .post-card .receipt-reflection-box {
+  margin: 3px 0 !important;
+  padding: 3px 6px !important;
+}
+
+.sample-feed-card-host .post-card .receipt-reflection-label {
+  font-size: 7px !important;
+  gap: 3px !important;
+  margin-bottom: 2px !important;
+}
+
+.sample-feed-card-host .post-card .receipt-reflection-text {
+  font-size: 9.2px !important;
+  line-height: 1.32 !important;
+}
+
+.sample-feed-card-host .post-card .receipt-footer {
+  margin-top: auto !important;
+  padding-top: 4px !important;
+  padding-bottom: 2px !important;
+}
+
+.sample-feed-card-host .post-card .receipt-folio-text {
+  font-size: 7.5px !important;
 }
 
 .sample-feed-card-host .post-card .post-actions {
