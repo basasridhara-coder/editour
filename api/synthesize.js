@@ -1981,11 +1981,13 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
   let enhancedPrompt = prompt || '';
 
   // Detect family context with 2 sons or family group (strictly requires explicit family cast or personal first-person context)
-  const hasTwoSons = /\b(two sons|2 sons|both boys|two boys|elder son.*younger son|elder brother.*younger brother)\b/i.test(enhancedPrompt);
-  const hasFamilyContext = hasTwoSons || (activeCast && Array.isArray(activeCast.members) && activeCast.members.length > 0) || /\b(my family.*temple|my family.*trip|me, wife and 2 sons|road trip with my family)\b/i.test(enhancedPrompt);
+  const isSingleProtagonist = /\b(sole protagonist|exactly one protagonist|single protagonist|lone protagonist)\b/i.test(enhancedPrompt);
+  const hasTwoSons = !isSingleProtagonist && /\b(two sons|2 sons|both boys|two boys|elder son.*younger son|elder brother.*younger brother)\b/i.test(enhancedPrompt);
+  const hasExplicitFamilyGroup = !isSingleProtagonist && /\b(whole family|entire family|all 4 of us|all four of us|family of four|family portrait|parents and children|with my wife and kids|with my family|me, wife and 2 sons|road trip with my family)\b/i.test(enhancedPrompt);
+  const hasFamilyContext = hasTwoSons || hasExplicitFamilyGroup;
   const isIndianFamilyCast = (!countryContext || /india/i.test(countryContext));
 
-  if ((hasTwoSons || hasFamilyContext) && isIndianFamilyCast) {
+  if (hasFamilyContext && isIndianFamilyCast) {
     const headcountAnchor = 'GROUP PORTRAIT OF EXACTLY FOUR (4) DISTINCT INDIVIDUAL PEOPLE VISIBLE SIDE BY SIDE (3 MALES, 1 FEMALE). STRICT COUNT = 4 PEOPLE: 1) Adult Father (man, mid 40s) with sturdy broad-shouldered build, 2) Adult Mother (woman, mid 30s) with natural healthy medium adult build (strictly not ultra-slim or runway model thin), 3) Elder Son (11-year-old pre-teen boy) reaching father chest level with healthy sturdy youth build and square shoulders (not skinny, not frail), 4) Younger Son (7-year-old young schoolboy) noticeably shorter reaching older brother shoulder with healthy solid child proportions. REALISTIC NATURAL HUMAN BUILDS, STRICT BAN ON SKINNY OR WAIF-LIKE BODIES. BOTH SONS ARE SEPARATE INDIVIDUAL PEOPLE. STRICT BAN ON MERGING: Do NOT draw only one child; both the 11yo boy and 7yo boy must be fully drawn side by side. ';
     if (!enhancedPrompt.includes('EXACTLY FOUR') && !enhancedPrompt.includes('STRICT COUNT = 4')) {
       enhancedPrompt = headcountAnchor + enhancedPrompt;
