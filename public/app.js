@@ -1012,24 +1012,24 @@ function renderSampleStory(storyIdx) {
   card.classList.add('sample-feed-card');
 
   // Slide click behavior for landing page:
-  // Slide 1 & Slide 2: Clicking advances to next slide
+  // Slide 1 clicks to Slide 2 (Essay); Slide 2 clicks back to Slide 1
   const slide1 = card.querySelector('.slide-hook');
-  const slide2 = card.querySelector('.slide-critique');
+  const slide2 = card.querySelector('.slide-receipt');
   if (slide1) {
     slide1.onclick = (e) => {
       e.stopPropagation();
       goToSlide(e, 'sample', 1);
     };
     slide1.style.cursor = 'pointer';
-    slide1.setAttribute('title', 'Next: The Slant');
+    slide1.setAttribute('title', 'Next: The Essay');
   }
   if (slide2) {
     slide2.onclick = (e) => {
       e.stopPropagation();
-      goToSlide(e, 'sample', 2);
+      goToSlide(e, 'sample', 0);
     };
     slide2.style.cursor = 'pointer';
-    slide2.setAttribute('title', 'Next: The Receipts');
+    slide2.setAttribute('title', 'Back: Hook');
   }
 
   // Replace track content with new card
@@ -1066,7 +1066,8 @@ function startSampleCarouselAutoPlay() {
     const carousel = document.getElementById('carousel-sample');
     if (!carousel) return;
     const cur = parseInt(carousel.getAttribute('data-current-slide') || '0', 10);
-    if (cur >= 2) {
+    const maxSlide = parseInt(carousel.getAttribute('data-slide-count') || '2', 10) - 1;
+    if (cur >= maxSlide) {
       const selectedPosts = window._selectedSamplePosts || [];
       const nextStoryIdx = (currentSampleStoryIndex + 1) % (selectedPosts.length || 1);
       selectSampleStory(nextStoryIdx);
@@ -3635,7 +3636,7 @@ window.handlePosterImageError = function(imgEl, category) {
    SLIDE BUILDERS (SLIDE 1, SLIDE 2, SLIDE 3)
    ============================================================ */
 
-function buildSlide1Html(post, index) {
+function buildSlide1Html(post, index, totalSlides = 2) {
   const headline = escapeHtml(post.adaptedHeadline || post.originalHeadline || 'Untitled Story');
   const audience = escapeHtml(post.targetAudience || 'General');
   let catBadge = escapeHtml(post.categoryBadge || 'CURATED DIGEST');
@@ -3802,7 +3803,7 @@ function buildSlide1Html(post, index) {
         <!-- Top-Right (The Creator): @<curatorname> -->
         <div class="poster-brand-corner top-right">
           <span class="poster-corner-creator">${handle}</span>
-          <span class="poster-corner-slide-num">01 / 03</span>
+          <span class="poster-corner-slide-num">${totalSlides === 3 ? '01 / 03' : '01 / 02'}</span>
         </div>
       </div>
       <div class="slide-hook-bottom">
@@ -3817,156 +3818,8 @@ function buildSlide1Html(post, index) {
   `;
 }
 
-function buildSlide2Html(post, index) {
-  const handle = escapeHtml(post.creatorHandle || '@curator');
-  const initial = handle.replace('@', '').charAt(0).toUpperCase() || 'C';
-  const pubName = escapeHtml(post.publicationName || 'Press Wire');
-  const tier = getSourceTier(post);
-  const slantIcon = (post.slantIcon && post.slantIcon !== '💭') ? post.slantIcon : (post.slantTone === 'heart' ? '❤️' : '🧠');
-
-  let verdictBadgeLabel = `⚡ CURATOR'S TAKE • ${pubName}`;
-  let nextSlideLabel = 'THE RECEIPTS &rarr;';
-
-  if (tier === 'tier2_web') {
-    verdictBadgeLabel = `⚡ CURATOR'S TAKE • WEB COMMENTARY`;
-    nextSlideLabel = 'WEB SOURCE &rarr;';
-  } else if (tier === 'tier3_opinion') {
-    verdictBadgeLabel = `${slantIcon} FIRST-PERSON REFLECTION • INNER VOICE`;
-    nextSlideLabel = 'INNER VOICE &rarr;';
-  } else if (tier === 'tier_book') {
-    verdictBadgeLabel = `📖 LITERARY REFLECTION`;
-    nextSlideLabel = 'EXCERPT &rarr;';
-  }
-
-  // Combine into a single, punchy, elegant paragraph (no redundant WHY IT MATTERS box)
-  let rawOpinion = (post.curatorTake && post.curatorTake.trim())
-    ? post.curatorTake.trim()
-    : ((post.creatorOpinion && post.creatorOpinion.trim())
-        ? post.creatorOpinion.trim()
-        : ((post.whyItMatters && post.whyItMatters.trim())
-            ? post.whyItMatters.trim()
-            : (post.hook || 'Strategic structural shift in motion.')));
-  while (rawOpinion.endsWith('.') || rawOpinion.endsWith('…')) {
-    if (rawOpinion.endsWith('...')) rawOpinion = rawOpinion.slice(0, -3).trim();
-    else if (rawOpinion.endsWith('…')) rawOpinion = rawOpinion.slice(0, -1).trim();
-    else break;
-  }
-  if (!rawOpinion.endsWith('.') && !rawOpinion.endsWith('!') && !rawOpinion.endsWith('?')) {
-    rawOpinion += '.';
-  }
-  const opinion = escapeHtml(rawOpinion);
-
-  let rawSlideTitle = (post.critiqueBadge && post.critiqueBadge.trim()) ? post.critiqueBadge.trim() : '';
-  if (!rawSlideTitle && post.keyTakeaways && post.keyTakeaways.length > 0) {
-    const firstTakeaway = String(post.keyTakeaways[0]).trim();
-    if (firstTakeaway.includes(':')) {
-      const prefix = firstTakeaway.split(':')[0].trim();
-      if (prefix.length >= 3 && prefix.length <= 40) {
-        rawSlideTitle = prefix;
-      }
-    } else if (firstTakeaway.split(/\s+/).length <= 6) {
-      rawSlideTitle = firstTakeaway;
-    }
-  }
-  if (!rawSlideTitle) {
-    rawSlideTitle = (tier === 'tier3_opinion')
-      ? (post.slantTone === 'heart' ? 'PERSONAL REFLECTION' : 'CORE CONVICTION')
-      : 'THE CRITICAL PERSPECTIVE';
-  }
-  const slideTitle = escapeHtml(rawSlideTitle.toUpperCase());
-
-  const fallbackCritiqueCoverHtml = `
-    <div class="slide-hook-fallback-bg" style="background: radial-gradient(circle at 50% 28%, #1e1b4b 0%, #0f172a 60%, #030712 100%);">
-      <div style="position:absolute; inset:0; opacity:0.18; background-image: radial-gradient(#818cf8 1px, transparent 1px); background-size: 20px 20px;"></div>
-    </div>
-  `;
-
-  let bgCritiqueImgSrc = '';
-  if (post.illustrationBase64) {
-    bgCritiqueImgSrc = post.illustrationBase64.startsWith('data:')
-      ? post.illustrationBase64
-      : `data:image/png;base64,${post.illustrationBase64}`;
-  } else if (post.posterBase64) {
-    bgCritiqueImgSrc = post.posterBase64.startsWith('data:')
-      ? post.posterBase64
-      : `data:image/png;base64,${post.posterBase64}`;
-  } else if (post.illustrationUrl) {
-    let cleanUrl = post.illustrationUrl;
-    if (cleanUrl.includes('pollinations.ai')) {
-      cleanUrl = `/posters/${post.id}.png`;
-    }
-    const isSeaPhoto = cleanUrl.includes('photo-1507525428034');
-    const isActuallyBeach = /beach|coast|ocean|sea|shore|sand|surf/i.test((post.heroCue || '') + ' ' + (post.adaptedHeadline || '') + ' ' + (post.originalHeadline || ''));
-    if (!isSeaPhoto || isActuallyBeach) {
-      bgCritiqueImgSrc = cleanUrl;
-    } else {
-      bgCritiqueImgSrc = `/posters/${post.id}.png`;
-    }
-  }
-
-  const critiqueImgHtml = bgCritiqueImgSrc
-    ? `<img class="slide-hook-bg" src="${escapeHtml(bgCritiqueImgSrc)}" alt="" loading="eager" referrerpolicy="no-referrer" onerror="handlePosterImageError(this, '${escapeHtml(post.categoryBadge || '')}')">`
-    : `<img class="slide-hook-bg" src="" alt="" style="display:none;" loading="eager" referrerpolicy="no-referrer" onerror="handlePosterImageError(this, '${escapeHtml(post.categoryBadge || '')}')">`;
-
-  let inDeckCritiqueStatusHtml = '';
-  if (index === 'preview') {
-    if (post.isArtworkRetrying) {
-      inDeckCritiqueStatusHtml = `
-        <div class="deck-art-loading-wrap">
-          <div class="deck-art-logo-spinner">
-            <img src="/slanlogo.svg?v=20261013_2100" class="deck-logo-pulse" alt="Rendering artwork...">
-          </div>
-          <div class="deck-art-loading-title">Rendering Poster Artwork...</div>
-          <div class="deck-art-loading-desc">Applying visual theme to Deck Slide 2</div>
-        </div>
-      `;
-    } else if (!post.illustrationBase64 && (post.artworkError || post.artworkPending)) {
-      inDeckCritiqueStatusHtml = `
-        <div class="deck-art-error-wrap">
-          <div class="deck-art-error-icon">⚠️</div>
-          <div class="deck-art-error-title">Artwork Pending on Slide 2</div>
-          <div class="deck-art-error-desc">Tap below to retry generating visual artwork for the deck.</div>
-          <button type="button" class="deck-art-retry-btn" onclick="event.stopPropagation(); retryStep3ArtworkGeneration(event)">
-            <span>🎨</span>
-            <span>Retry Poster Artwork</span>
-          </button>
-        </div>
-      `;
-    }
-  }
-
-  const bgHtml = `${fallbackCritiqueCoverHtml}${critiqueImgHtml}${inDeckCritiqueStatusHtml}`;
-
-  return `
-    ${bgHtml}
-    <div class="slide-hook-top-scrim"></div>
-    <div class="slide-hook-bottom-scrim" style="height: 32%; background: linear-gradient(to bottom, transparent 0%, rgba(7,11,18,0.6) 28%, rgba(7,11,18,0.96) 100%);"></div>
-    <div class="slide-hook-content" style="justify-content: space-between;">
-      <div class="slide-hook-top" style="justify-content: space-between; width: 100%;">
-        <!-- Top-Left (The Brand Identity): <logo> -->
-        <div class="poster-brand-corner top-left">
-          <img src="/logo.png" class="poster-corner-logo" alt="Slant">
-          <span class="poster-corner-cat" style="color: #F59E0B;">${verdictBadgeLabel}</span>
-        </div>
-        <!-- Top-Right (The Creator): @<curatorname> -->
-        <div class="poster-brand-corner top-right">
-          <span class="poster-corner-creator">${handle}</span>
-          <span class="poster-corner-slide-num">02 / 03</span>
-        </div>
-      </div>
-      <div class="slide-hook-bottom" style="gap:6px; z-index:2;">
-        <div style="display:flex; align-items:center; gap:6px;">
-          <span style="width:6px; height:6px; border-radius:50%; background:#F59E0B; display:inline-block;"></span>
-          <span style="font-size:10px; font-weight:800; color:#F59E0B; letter-spacing:0.8px;">${slideTitle}</span>
-        </div>
-        <p class="critique-opinion-text" style="font-size:13.5px; font-weight:700; color:#F8FAFC; line-height:1.42; margin:0;">${opinion}</p>
-        <!-- Bottom-Left: slant.today disabled for now | Bottom-Right: Every thought deserves a frame -->
-        <div class="poster-brand-footer">
-          <span class="poster-footer-punchline" style="margin-left: auto;">Every thought deserves a frame</span>
-        </div>
-      </div>
-    </div>
-  `;
+function buildSlide2Html(post, index, forExportPage = 0) {
+  return buildUnifiedEssayPosterHtml(post, index, forExportPage);
 }
 
 function isDuplicateOfUserTake(candidateText, post) {
@@ -4010,56 +3863,31 @@ function handleReceiptPhotoLoad(img) {
 }
 window.handleReceiptPhotoLoad = handleReceiptPhotoLoad;
 
-function buildSlide3Html(post, index) {
-  const tier = getSourceTier(post);
-  const cleanHost = getCleanDomain(post.digitalLink);
-  const handle = escapeHtml(post.creatorHandle || '@curator');
-  const slantIcon = (post.slantIcon && post.slantIcon !== '💭') ? post.slantIcon : (post.slantTone === 'heart' ? '❤️' : '🧠');
-
-  let pubName = post.publicationName || 'THE FINANCIAL CHRONICLE';
-  if (pubName.includes('•')) {
-    const parts = pubName.split('•');
-    pubName = parts[parts.length - 1].trim();
-  }
-  pubName = pubName.replace(/^(NEWSPAPER|ARTICLE|BOOK|MAGAZINE|PRESS):\s*/i, '').trim();
-  if (!pubName) pubName = 'THE NEW INDIAN EXPRESS';
-  const cleanPubUpper = escapeHtml(pubName.toUpperCase());
-
-  const headline = escapeHtml(
-    post.broadsheetHeadline ||
-    (tier === 'tier3_opinion'
-      ? (post.adaptedHeadline || post.originalHeadline)
-      : (post.originalHeadline || post.adaptedHeadline)) || 'Curated Editorial'
-  );
-
+function evaluateEssayBifurcation(post) {
   const cleanExcerpt = (txt) => {
-    if (!txt) return '';
+    if (!txt) return "";
     return String(txt)
-      .replace(/^(the spark|curator stance|paragraph \d+)\s*:\s*["']?/i, '')
-      .replace(/["']?$/i, '')
+      .replace(/^(the spark|curator stance|paragraph \d+)\s*:\s*["']?/i, "")
+      .replace(/["']?$/i, "")
       .trim();
   };
 
-  const isInnerVoice = isInnerVoicePost(post);
-
-  // Extract synthesis paragraphs from summary, broadsheet observation, or spark
   let summaryParas = [];
-  if (post.summary && typeof post.summary === 'string') {
+  if (post.summary && typeof post.summary === "string") {
     summaryParas = post.summary.split(/\n\s*\n/).map(p => cleanExcerpt(p)).filter(p => p.length > 5);
   }
-  if (summaryParas.length === 0 && post.broadsheetObservation && typeof post.broadsheetObservation === 'string') {
+  if (summaryParas.length === 0 && post.broadsheetObservation && typeof post.broadsheetObservation === "string") {
     summaryParas = post.broadsheetObservation.split(/\n\s*\n/).map(p => cleanExcerpt(p)).filter(p => p.length > 5);
   }
   if (summaryParas.length === 0 && post.summary) {
     summaryParas = [cleanExcerpt(post.summary)];
   }
 
-  // De-duplicate summary paragraphs against user's short stance on Poster 2
+  // De-duplicate summary paragraphs against user stance
   if (summaryParas.length > 1) {
     summaryParas = summaryParas.filter(p => !isDuplicateOfUserTake(p, post));
   }
 
-  // Source context & reporting excerpts
   let excerpts = post.resolvedArticleExcerpts || post.articleExcerpts || [];
   if (Array.isArray(excerpts)) {
     excerpts = excerpts.map(e => cleanExcerpt(e)).filter(Boolean);
@@ -4068,7 +3896,6 @@ function buildSlide3Html(post, index) {
     excerpts = [];
   }
 
-  // Consolidate broadsheet essay paragraphs: prioritize user-edited / curated summary first
   let essayParas = [];
   if (summaryParas.length > 0) {
     essayParas = [...summaryParas];
@@ -4078,7 +3905,6 @@ function buildSlide3Html(post, index) {
     essayParas = [cleanExcerpt(post.spark)];
   }
 
-  // If only 1 paragraph and excerpts are available, incorporate an excerpt if not already in essay
   if (essayParas.length < 2 && excerpts.length > 0) {
     excerpts.forEach(e => {
       if (e && !essayParas.some(p => p.toLowerCase().includes(e.slice(0, 30).toLowerCase()))) {
@@ -4087,13 +3913,12 @@ function buildSlide3Html(post, index) {
     });
   }
 
-  // If only one long paragraph exists, break into two paragraphs for broadsheet cadence
   if (essayParas.length === 1 && essayParas[0].length > 220) {
     const sentences = essayParas[0].match(/[^.!?]+[.!?]+["']?|\s*[^.!?]+$/g) || [];
     if (sentences.length >= 3) {
       const mid = Math.ceil(sentences.length / 2);
-      const p1 = sentences.slice(0, mid).join('').trim();
-      const p2 = sentences.slice(mid).join('').trim();
+      const p1 = sentences.slice(0, mid).join("").trim();
+      const p2 = sentences.slice(mid).join("").trim();
       if (p1 && p2) {
         essayParas = [p1, p2];
       }
@@ -4101,20 +3926,127 @@ function buildSlide3Html(post, index) {
   }
 
   if (essayParas.length === 0) {
-    essayParas = ['Reporting examines key structural developments and observed outcomes.'];
+    essayParas = ["Reporting examines key structural developments and observed outcomes."];
   }
 
-  // Calculate total character count to dynamically adapt photo size and font cadence
-  const totalChars = essayParas.reduce((acc, p) => acc + (p ? p.length : 0), 0);
-  let densityClass = 'essay-density-medium';
-  if (totalChars < 680) {
-    densityClass = 'essay-density-light';
-  } else if (totalChars > 1100) {
-    densityClass = 'essay-density-dense';
+  const rawPhoto = post.sourceImageBase64
+    || post.sourceImageUrl
+    || post.catalystPhoto
+    || post.catalystPhotoBase64
+    || post.originalPhotoBase64
+    || post.originalPhotoUrl
+    || post.paperCutImage
+    || post.referencePhotoUrl
+    || post.generationInputs?.sourceImageBase64
+    || post.generationInputs?.sourceImageUrl
+    || post.generationInputs?.catalystPhoto
+    || post.generationInputs?.catalystPhotoBase64
+    || post.generationInputs?.innerVoiceImageBase64;
+  const hasPhoto = Boolean(rawPhoto && typeof rawPhoto === "string" && rawPhoto.length > 20);
+
+  // Page 1 takes the lead paragraph
+  const page1Paras = [essayParas[0]];
+  const remainingParas = essayParas.slice(1);
+  const remainingText = remainingParas.join(" ").trim();
+  const remainingWords = remainingText.split(/\s+/).filter(Boolean).length;
+
+  // 40% Threshold Rule:
+  // Page 2 text capacity is ~180-200 words (~1100 chars).
+  // 40% threshold = ~75-80 words or ~220 characters.
+  // If remaining text is LESS than 40% of Page 2, DO NOT spawn Page 2.
+  // Instead, concise and fit all within Page 1!
+  const THRESHOLD_WORDS = 75;
+  const THRESHOLD_CHARS = 220;
+  const isOverflowSubstantial = remainingParas.length > 0 && (remainingWords >= THRESHOLD_WORDS || remainingText.length >= THRESHOLD_CHARS);
+
+  if (!isOverflowSubstantial) {
+    return {
+      isBifurcated: false,
+      hasPhoto,
+      page1Paras: essayParas,
+      page2Paras: [],
+      densityClass: (essayParas.join(" ").length > 480) ? "essay-density-compact" : "essay-density-medium"
+    };
+  } else {
+    return {
+      isBifurcated: true,
+      hasPhoto,
+      page1Paras: page1Paras,
+      page2Paras: remainingParas,
+      densityClass: "essay-density-spacious"
+    };
+  }
+}
+
+function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
+  const bifurcation = evaluateEssayBifurcation(post);
+  const tier = getSourceTier(post);
+  const cleanHost = getCleanDomain(post.digitalLink);
+  const handle = escapeHtml(post.creatorHandle || "@curator");
+  const slantIcon = (post.slantIcon && post.slantIcon !== "💭") ? post.slantIcon : (post.slantTone === "heart" ? "❤️" : "🧠");
+
+  let pubName = post.publicationName || "THE FINANCIAL CHRONICLE";
+  if (pubName.includes("•")) {
+    const parts = pubName.split("•");
+    pubName = parts[parts.length - 1].trim();
+  }
+  pubName = pubName.replace(/^(NEWSPAPER|ARTICLE|BOOK|MAGAZINE|PRESS):\s*/i, "").trim();
+  if (!pubName) pubName = "THE NEW INDIAN EXPRESS";
+  const cleanPubUpper = escapeHtml(pubName.toUpperCase());
+
+  const headline = escapeHtml(
+    post.broadsheetHeadline ||
+    (tier === "tier3_opinion"
+      ? (post.adaptedHeadline || post.originalHeadline)
+      : (post.originalHeadline || post.adaptedHeadline)) || "Curated Editorial"
+  );
+
+  const cleanExcerpt = (txt) => {
+    if (!txt) return "";
+    return String(txt)
+      .replace(/^(the spark|curator stance|paragraph \d+)\s*:\s*["']?/i, "")
+      .replace(/["']?$/i, "")
+      .trim();
+  };
+
+  const isInnerVoice = isInnerVoicePost(post);
+
+  // Pullquote / Stance (embeds the curator stance from Poster 2 into the Unified Essay Poster)
+  let rawOpinion = (post.curatorTake && post.curatorTake.trim())
+    ? post.curatorTake.trim()
+    : ((post.creatorOpinion && post.creatorOpinion.trim())
+        ? post.creatorOpinion.trim()
+        : ((post.whyItMatters && post.whyItMatters.trim())
+            ? post.whyItMatters.trim()
+            : (post.hook || "Strategic structural shift in motion.")));
+  while (rawOpinion.endsWith(".") || rawOpinion.endsWith("…")) {
+    if (rawOpinion.endsWith("...")) rawOpinion = rawOpinion.slice(0, -3).trim();
+    else if (rawOpinion.endsWith("…")) rawOpinion = rawOpinion.slice(0, -1).trim();
+    else break;
+  }
+  if (!rawOpinion.endsWith(".") && !rawOpinion.endsWith("!") && !rawOpinion.endsWith("?")) {
+    rawOpinion += ".";
+  }
+  const opinion = escapeHtml(rawOpinion);
+
+  let pullquoteLabel = "✦ THE SLANT";
+  if (tier === "tier3_opinion") {
+    pullquoteLabel = `${slantIcon} INNER VOICE`;
+  } else if (tier === "tier_book") {
+    pullquoteLabel = "📖 LITERARY REFLECTION";
   }
 
-  // Newspaper Inset Photo on Poster 3 (Authentic Broadsheet Press Photo / Wire Dispatch / Video Still)
-  let scenePhotoHtml = '';
+  const pullquoteHtml = `
+    <div class="essay-highlight-pullquote">
+      <div class="essay-pullquote-label">
+        <span>${escapeHtml(pullquoteLabel)}</span>
+      </div>
+      <p class="essay-pullquote-text">&ldquo;${opinion}&rdquo;</p>
+    </div>
+  `;
+
+  // Inset Newspaper Photo
+  let scenePhotoHtml = "";
   const rawPhoto = post.sourceImageBase64
     || post.sourceImageUrl
     || post.catalystPhoto
@@ -4129,28 +4061,28 @@ function buildSlide3Html(post, index) {
     || post.generationInputs?.catalystPhotoBase64
     || post.generationInputs?.innerVoiceImageBase64;
 
-  if (rawPhoto && typeof rawPhoto === 'string' && rawPhoto.length > 20) {
+  if (rawPhoto && typeof rawPhoto === "string" && rawPhoto.length > 20) {
     let imgSrc = rawPhoto;
-    if (!rawPhoto.startsWith('data:') && !rawPhoto.startsWith('http') && !rawPhoto.startsWith('/')) {
-      imgSrc = `data:${post.sourceImageMimeType || post.originalPhotoMimeType || post.catalystPhotoMimeType || post.generationInputs?.innerVoiceImageMimeType || 'image/jpeg'};base64,` + rawPhoto;
-    } else if (rawPhoto.startsWith('http')) {
-      imgSrc = rawPhoto.replace(/&amp;/g, '&');
+    if (!rawPhoto.startsWith("data:") && !rawPhoto.startsWith("http") && !rawPhoto.startsWith("/")) {
+      imgSrc = `data:${post.sourceImageMimeType || post.originalPhotoMimeType || post.catalystPhotoMimeType || post.generationInputs?.innerVoiceImageMimeType || "image/jpeg"};base64,` + rawPhoto;
+    } else if (rawPhoto.startsWith("http")) {
+      imgSrc = rawPhoto.replace(/&amp;/g, "&");
     }
 
-    let captionIcon = '📰';
-    let captionText = `ARCHIVAL WIRE PHOTO • ${cleanPubUpper || 'PRESS DISPATCH'}`;
+    let captionIcon = "📰";
+    let captionText = `ARCHIVAL WIRE PHOTO • ${cleanPubUpper || "PRESS DISPATCH"}`;
     if (isInnerVoice) {
-      captionIcon = '📸';
-      captionText = 'ARCHIVAL CATALYST SNAPSHOT';
-    } else if (tier === 'tier_video' || post.sourceType === 'video_audio') {
-      captionIcon = '🎬';
-      captionText = `BROADCAST STILL • ${cleanPubUpper || 'SOURCE DISPATCH'}`;
+      captionIcon = "📸";
+      captionText = "ARCHIVAL CATALYST SNAPSHOT";
+    } else if (tier === "tier_video" || post.sourceType === "video_audio") {
+      captionIcon = "🎬";
+      captionText = `BROADCAST STILL • ${cleanPubUpper || "SOURCE DISPATCH"}`;
     }
 
-    const isVideoOrWide = tier === 'tier_video'
-      || post.sourceType === 'video_audio'
-      || (typeof rawPhoto === 'string' && (rawPhoto.includes('ytimg.com') || rawPhoto.includes('youtube')));
-    const initialAspectClass = isVideoOrWide ? 'photo-aspect-landscape' : 'photo-aspect-auto';
+    const isVideoOrWide = tier === "tier_video"
+      || post.sourceType === "video_audio"
+      || (typeof rawPhoto === "string" && (rawPhoto.includes("ytimg.com") || rawPhoto.includes("youtube")));
+    const initialAspectClass = isVideoOrWide ? "photo-aspect-landscape" : "photo-aspect-auto";
 
     scenePhotoHtml = `
       <div class="receipt-scene-box ${initialAspectClass}">
@@ -4165,38 +4097,12 @@ function buildSlide3Html(post, index) {
     `;
   }
 
-  const hasPhoto = Boolean(scenePhotoHtml);
-
-  // Highlight Quote
-  const quoteVal = post.receiptHighlightQuote || post.broadsheetHighlight || post.pullQuote;
-  const cleanQuote = quoteVal ? cleanExcerpt(quoteVal) : '';
-  let quoteHtml = '';
-  if (cleanQuote && !isDuplicateOfUserTake(cleanQuote, post)) {
-    // Avoid duplicating quote inside essay paragraphs
-    essayParas = essayParas.filter(p => !p.toLowerCase().includes(cleanQuote.slice(0, 30).toLowerCase()) && !cleanQuote.toLowerCase().includes(p.slice(0, 30).toLowerCase()));
-    if (essayParas.length === 0) {
-      essayParas = [cleanQuote];
-    } else {
-      quoteHtml = `
-        <div class="receipt-highlight">
-          <div class="highlighter-label">
-            <span>✨</span>
-            <span>HIGHLIGHT</span>
-          </div>
-          <div class="highlighter-text">
-            "${escapeHtml(cleanQuote)}"
-          </div>
-        </div>
-      `;
-    }
-  }
-
   // Concluding Reflection
   const reflectionVal = post.broadsheetReflection || post.whyItMatters;
-  const cleanReflection = reflectionVal ? cleanExcerpt(reflectionVal) : '';
-  let reflectionHtml = '';
+  const cleanReflection = reflectionVal ? cleanExcerpt(reflectionVal) : "";
+  let reflectionHtml = "";
   if (cleanReflection && !isDuplicateOfUserTake(cleanReflection, post)) {
-    const alreadyInEssay = essayParas.some(p => p.toLowerCase().includes(cleanReflection.slice(0, 30).toLowerCase()));
+    const alreadyInEssay = bifurcation.page1Paras.concat(bifurcation.page2Paras).some(p => p.toLowerCase().includes(cleanReflection.slice(0, 30).toLowerCase()));
     if (!alreadyInEssay) {
       reflectionHtml = `
         <div class="receipt-reflection-box">
@@ -4210,61 +4116,173 @@ function buildSlide3Html(post, index) {
     }
   }
 
-  // Build pure broadsheet essay paragraphs (pure essay in paragraphs, photo if involved)
-  let essayHtml = '';
-  const leadRaw = essayParas[0];
-  let leadText = leadRaw;
-  const firstChar = leadText.charAt(0).toUpperCase();
-  const restLead = leadText.slice(1);
-  essayHtml += `<p class="receipt-p1"><span class="broadsheet-dropcap">${escapeHtml(firstChar)}</span>${escapeHtml(restLead)}</p>`;
-
-  // Subsequent essay paragraphs: include all available paragraphs (up to 4 total) for an authentic 1-minute read
-  const maxExtraParas = 3;
-  const extraParas = essayParas.slice(1, maxExtraParas + 1);
-  extraParas.forEach(p => {
-    if (p && p !== leadRaw) {
-      essayHtml += `<p class="receipt-p3">${escapeHtml(p)}</p>`;
+  // Page 1 Paragraphs
+  let page1ParasHtml = "";
+  const p1Lead = bifurcation.page1Paras[0] || "Reporting examines key structural developments and observed outcomes.";
+  const firstChar = p1Lead.charAt(0).toUpperCase();
+  const restLead = p1Lead.slice(1);
+  page1ParasHtml += `<p class="receipt-p1"><span class="broadsheet-dropcap">${escapeHtml(firstChar)}</span>${escapeHtml(restLead)}</p>`;
+  bifurcation.page1Paras.slice(1).forEach(p => {
+    if (p && p !== p1Lead) {
+      page1ParasHtml += `<p class="receipt-p3">${escapeHtml(p)}</p>`;
     }
   });
 
-  return `
-    <div class="slant-minute-scroll-viewport ${hasPhoto ? 'has-inset-photo' : ''} ${densityClass}" onscroll="window._lastSlantMinuteScroll = Date.now()">
-      <!-- 4-Corner Branding Top Row: Top-Left Logo + Brand, Top-Right Creator + Slide -->
-      <div class="receipt-brand-corner-bar">
-        <div class="receipt-corner-brand">
-          <img src="/logo.png" class="receipt-corner-logo" alt="Slant">
-          <span class="receipt-brand-text">SLANT MINUTE</span>
+  // Page 2 Paragraphs
+  let page2ParasHtml = "";
+  bifurcation.page2Paras.forEach(p => {
+    if (p && p !== p1Lead) {
+      page2ParasHtml += `<p class="receipt-p3">${escapeHtml(p)}</p>`;
+    }
+  });
+
+  const p1SlideBadge = bifurcation.isBifurcated ? (forExportPage > 0 ? "02 / 03 • ESSAY P1" : "PAGE 1 / 2") : (forExportPage > 0 ? "02 / 02 • ESSAY" : "02 / 02");
+  const p2SlideBadge = forExportPage > 0 ? "03 / 03 • ESSAY P2" : "PAGE 2 / 2";
+
+  // Specific Discrete Export Page 1
+  if (forExportPage === 1) {
+    return `
+      <div class="slant-minute-scroll-viewport essay-scroll-viewport ${bifurcation.hasPhoto ? "has-inset-photo" : ""} ${bifurcation.densityClass}" style="overflow:hidden !important; height:100% !important;">
+        <div class="receipt-brand-corner-bar">
+          <div class="receipt-corner-brand">
+            <img src="/logo.png" class="receipt-corner-logo" alt="Slant">
+            <span class="receipt-brand-text">SLANT ESSAY</span>
+          </div>
+          <div class="receipt-corner-creator">
+            <span class="receipt-creator-name">${handle}</span>
+            <span class="receipt-corner-slide-num">${p1SlideBadge}</span>
+          </div>
         </div>
-        <div class="receipt-corner-creator">
-          <span class="receipt-creator-name">${handle}</span>
-          <span class="receipt-corner-slide-num">⏱️ 1-MIN • 03 / 03</span>
+        ${headline ? `<div class="receipts-headline-box"><h2 class="receipt-headline">${headline}</h2></div>` : ""}
+        <div class="receipt-paragraphs">
+          ${scenePhotoHtml}
+          ${pullquoteHtml}
+          ${page1ParasHtml}
+          ${!bifurcation.isBifurcated ? reflectionHtml : ""}
+        </div>
+        ${!bifurcation.isBifurcated ? `
+        <div class="receipt-footer">
+          <div class="receipt-folio-rule"></div>
+          <div class="receipt-folio-text">
+            <span class="receipt-folio-left">${isInnerVoice ? `PERSONAL ESSAY • ${handle.toUpperCase()}` : (cleanPubUpper ? `IN DIALOGUE WITH ${cleanPubUpper}` : "EDITORIAL ESSAY")}</span>
+            <span class="receipt-folio-right">Every thought deserves a frame • 02 / 02</span>
+          </div>
+        </div>` : ""}
+      </div>
+    `;
+  }
+
+  // Specific Discrete Export Page 2 (Only generated when bifurcated)
+  if (forExportPage === 2) {
+    return `
+      <div class="slant-minute-scroll-viewport essay-scroll-viewport ${bifurcation.densityClass}" style="overflow:hidden !important; height:100% !important;">
+        <div class="receipt-brand-corner-bar continuation-header">
+          <div class="receipt-corner-brand">
+            <img src="/logo.png" class="receipt-corner-logo" alt="Slant">
+            <span class="receipt-brand-text">SLANT ESSAY • CONTINUATION</span>
+          </div>
+          <div class="receipt-corner-creator">
+            <span class="receipt-creator-name">${handle}</span>
+            <span class="receipt-corner-slide-num">${p2SlideBadge}</span>
+          </div>
+        </div>
+        ${headline ? `<div class="receipts-headline-box"><h2 class="receipt-headline" style="font-size:12.5px !important; opacity:0.85;">${headline}</h2></div>` : ""}
+        <div class="receipt-paragraphs">
+          ${page2ParasHtml}
+          ${reflectionHtml}
+        </div>
+        <div class="receipt-footer">
+          <div class="receipt-folio-rule"></div>
+          <div class="receipt-folio-text">
+            <span class="receipt-folio-left">${isInnerVoice ? `PERSONAL ESSAY • ${handle.toUpperCase()}` : (cleanPubUpper ? `IN DIALOGUE WITH ${cleanPubUpper}` : "EDITORIAL ESSAY")}</span>
+            <span class="receipt-folio-right">Every thought deserves a frame • 03 / 03</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // Interactive Feed View (Single poster with smooth vertical scrolling and optional bifurcation seam)
+  return `
+    <div class="slant-minute-scroll-viewport essay-scroll-viewport ${bifurcation.hasPhoto ? "has-inset-photo" : ""} ${bifurcation.densityClass}"
+         data-bifurcated="${bifurcation.isBifurcated ? "true" : "false"}"
+         onscroll="window._lastSlantMinuteScroll = Date.now()">
+      
+      <!-- PAGE 1 SECTION -->
+      <div class="essay-page-block essay-page-1" id="essay-p1-${index}">
+        <div class="receipt-brand-corner-bar">
+          <div class="receipt-corner-brand">
+            <img src="/logo.png" class="receipt-corner-logo" alt="Slant">
+            <span class="receipt-brand-text">SLANT ESSAY</span>
+          </div>
+          <div class="receipt-corner-creator">
+            <span class="receipt-creator-name">${handle}</span>
+            <span class="receipt-corner-slide-num">${p1SlideBadge}</span>
+          </div>
+        </div>
+
+        ${headline ? `<div class="receipts-headline-box"><h2 class="receipt-headline">${headline}</h2></div>` : ""}
+
+        <div class="receipt-paragraphs">
+          ${scenePhotoHtml}
+          ${pullquoteHtml}
+          ${page1ParasHtml}
         </div>
       </div>
 
-      <!-- Broadsheet Headline Box -->
-      ${headline ? `
-      <div class="receipts-headline-box">
-        <h2 class="receipt-headline">${headline}</h2>
-      </div>` : ''}
+      ${bifurcation.isBifurcated ? `
+      <!-- BIFURCATION SEAM -->
+      <div class="page-bifurcation-seam">
+        <div class="seam-line"></div>
+        <div class="seam-badge">
+          <span>✦</span>
+          <span>PAGE 2 • CONTINUED</span>
+        </div>
+        <div class="seam-line"></div>
+      </div>
 
-      <!-- Pure Editorial Broadsheet Essay -->
+      <!-- PAGE 2 SECTION -->
+      <div class="essay-page-block essay-page-2" id="essay-p2-${index}">
+        <div class="receipt-brand-corner-bar continuation-header">
+          <div class="receipt-corner-brand">
+            <span class="receipt-brand-text">ESSAY CONTINUATION</span>
+          </div>
+          <div class="receipt-corner-creator">
+            <span class="receipt-corner-slide-num">${p2SlideBadge}</span>
+          </div>
+        </div>
+
+        <div class="receipt-paragraphs">
+          ${page2ParasHtml}
+          ${reflectionHtml}
+        </div>
+
+        <div class="receipt-footer">
+          <div class="receipt-folio-rule"></div>
+          <div class="receipt-folio-text">
+            <span class="receipt-folio-left">${isInnerVoice ? `PERSONAL ESSAY • ${handle.toUpperCase()}` : (cleanPubUpper ? `IN DIALOGUE WITH ${cleanPubUpper}` : "EDITORIAL ESSAY")}</span>
+            <span class="receipt-folio-right">Every thought deserves a frame • 02 / 02</span>
+          </div>
+        </div>
+      </div>
+      ` : `
       <div class="receipt-paragraphs">
-        ${scenePhotoHtml}
-        ${quoteHtml}
-        ${essayHtml}
         ${reflectionHtml}
       </div>
-
-      <!-- Broadsheet Archival Bottom Folio -->
       <div class="receipt-footer">
         <div class="receipt-folio-rule"></div>
         <div class="receipt-folio-text">
-          <span class="receipt-folio-left">${isInnerVoice ? `PERSONAL ESSAY • ${handle.toUpperCase()}` : (cleanPubUpper ? `IN DIALOGUE WITH ${cleanPubUpper}` : 'EDITORIAL ESSAY')}</span>
-          <span class="receipt-folio-right">Every thought deserves a frame • 03 / 03</span>
+          <span class="receipt-folio-left">${isInnerVoice ? `PERSONAL ESSAY • ${handle.toUpperCase()}` : (cleanPubUpper ? `IN DIALOGUE WITH ${cleanPubUpper}` : "EDITORIAL ESSAY")}</span>
+          <span class="receipt-folio-right">Every thought deserves a frame • 02 / 02</span>
         </div>
       </div>
+      `}
     </div>
   `;
+}
+
+function buildSlide3Html(post, index) {
+  return buildUnifiedEssayPosterHtml(post, index, 2);
 }
 
 /* ============================================================
@@ -4352,9 +4370,9 @@ function createPostCardElement(post, index) {
 
   const isInnerVoice = isInnerVoicePost(post);
 
-  // 3-Poster Carousel Trio Frame in 3:4 Aspect Ratio (Clean, Unobstructed Editorial Artwork)
+  // 2-Poster Carousel Frame in 3:4 Aspect Ratio (Clean, Unobstructed Editorial Artwork)
   const visualSectionHtml = `
-    <div class="carousel-view ${isClean ? 'clean-view' : ''}" id="carousel-${index}" data-post-index="${index}" data-current-slide="0">
+    <div class="carousel-view ${isClean ? 'clean-view' : ''}" id="carousel-${index}" data-post-index="${index}" data-current-slide="0" data-slide-count="2">
       ${index === 'preview' ? `
         <button type="button" class="preview-poster-eye-btn ${isClean ? 'active' : ''}" onclick="togglePreviewCleanView(event)" title="Clear text overlays to inspect pure artwork on deck">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -4366,13 +4384,10 @@ function createPostCardElement(post, index) {
       ` : ''}
       <div class="carousel-track" id="track-${index}">
         <div class="carousel-slide slide-hook" ${isInnerVoice ? 'style="cursor: default;"' : (index === 'preview' ? `onclick="togglePreviewCleanView(event)" style="cursor: pointer;" title="Click to toggle clear text"` : `onclick="openDetailModal('${index}')" style="cursor: pointer;"`)}>
-          ${buildSlide1Html(post, index)}
-        </div>
-        <div class="carousel-slide slide-critique" ${isInnerVoice ? 'style="cursor: default;"' : (index === 'preview' ? `onclick="togglePreviewCleanView(event)" style="cursor: pointer;" title="Click to toggle clear text"` : `onclick="openDetailModal('${index}')" style="cursor: pointer;"`)}>
-          ${buildSlide2Html(post, index)}
+          ${buildSlide1Html(post, index, 2)}
         </div>
         <div class="carousel-slide slide-receipt" style="cursor: default;">
-          ${buildSlide3Html(post, index)}
+          ${buildSlide2Html(post, index, 0)}
         </div>
       </div>
 
@@ -4384,7 +4399,6 @@ function createPostCardElement(post, index) {
       <div class="carousel-dots" id="dots-${index}">
         <span class="carousel-dot active" onclick="goToSlide(event, '${index}', 0)"></span>
         <span class="carousel-dot" onclick="goToSlide(event, '${index}', 1)"></span>
-        <span class="carousel-dot" onclick="goToSlide(event, '${index}', 2)"></span>
       </div>
     </div>
   `;
@@ -4578,10 +4592,11 @@ function changeSlide(event, postIndex, direction) {
   if (event) event.stopPropagation();
   const carousel = document.getElementById(`carousel-${postIndex}`);
   if (!carousel) return;
+  const slideCount = parseInt(carousel.getAttribute('data-slide-count') || '2', 10);
   let cur = parseInt(carousel.getAttribute('data-current-slide') || '0', 10);
   let next = cur + direction;
-  if (next < 0) next = 2;
-  if (next > 2) next = 0;
+  if (next < 0) next = slideCount - 1;
+  if (next >= slideCount) next = 0;
   goToSlide(event, postIndex, next);
 }
 
@@ -4595,10 +4610,13 @@ function goToSlide(event, postIndex, slideIndex) {
   const dotsBar = document.getElementById(`dots-bar-${postIndex}`);
   if (!carousel || !track) return;
 
-  carousel.setAttribute('data-current-slide', slideIndex);
-  track.style.transform = `translateX(-${slideIndex * 33.333333}%)`;
+  const slideCount = parseInt(carousel.getAttribute('data-slide-count') || '2', 10);
+  const stepPercent = 100 / slideCount;
 
-  if (slideIndex === 2) {
+  carousel.setAttribute('data-current-slide', slideIndex);
+  track.style.transform = `translateX(-${slideIndex * stepPercent}%)`;
+
+  if (slideIndex === 1 || slideIndex === 2) {
     const receiptImg = track.querySelector('.receipt-scene-photo');
     if (receiptImg && receiptImg.complete && receiptImg.naturalWidth) {
       handleReceiptPhotoLoad(receiptImg);
@@ -4606,8 +4624,10 @@ function goToSlide(event, postIndex, slideIndex) {
   }
 
   if (badge) {
-    const titles = ['1 / 3 • Hook', '2 / 3 • Curator Take', '3 / 3 • The Receipt'];
-    badge.innerHTML = `<span>📑</span> <span class="counter-num">${titles[slideIndex]}</span>`;
+    const titles = slideCount === 2
+      ? ['1 / 2 • Hook', '2 / 2 • The Essay']
+      : ['1 / 3 • Hook', '2 / 3 • Curator Take', '3 / 3 • The Receipt'];
+    badge.innerHTML = `<span>📑</span> <span class="counter-num">${titles[slideIndex] || `${slideIndex + 1} / ${slideCount}`}</span>`;
   }
 
   if (tabs) {
@@ -5996,11 +6016,23 @@ async function capturePostSlidesAsFiles(post, index) {
     } catch (_) {}
   }
 
-  const slideConfigs = [
-    { num: 1, class: 'slide-hook', bg: '#0B0F17', html: buildSlide1Html(exportPost, index) },
-    { num: 2, class: 'slide-critique', bg: '#0B0F17', html: buildSlide2Html(exportPost, index) },
-    { num: 3, class: 'slide-receipt', bg: '#F7F5EE', html: buildSlide3Html(exportPost, index) }
-  ];
+  const bifurcation = evaluateEssayBifurcation(exportPost);
+  const slideConfigs = [];
+
+  if (bifurcation.isBifurcated) {
+    // 3 Discrete Slides (Max 3): 1 Hook + 2 Essay Pages
+    slideConfigs.push(
+      { num: 1, class: 'slide-hook', bg: '#0B0F17', html: buildSlide1Html(exportPost, index, 3) },
+      { num: 2, class: 'slide-receipt', bg: '#F7F5EE', html: buildUnifiedEssayPosterHtml(exportPost, index, 1) },
+      { num: 3, class: 'slide-receipt', bg: '#F7F5EE', html: buildUnifiedEssayPosterHtml(exportPost, index, 2) }
+    );
+  } else {
+    // 2 Discrete Slides: 1 Hook + 1 Unified Essay Page
+    slideConfigs.push(
+      { num: 1, class: 'slide-hook', bg: '#0B0F17', html: buildSlide1Html(exportPost, index, 2) },
+      { num: 2, class: 'slide-receipt', bg: '#F7F5EE', html: buildUnifiedEssayPosterHtml(exportPost, index, 1) }
+    );
+  }
 
   const rawHeadline = post.adaptedHeadline || post.originalHeadline || post.hook || 'slant';
   const slug = rawHeadline.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 30) || 'slant-story';
@@ -6166,8 +6198,8 @@ async function getPostSlidesFiles(post, index) {
   const renderPromise = (async () => {
     try {
       const files = await capturePostSlidesAsFiles(post, index);
-      // STRICT REQUIREMENT: Only cache if all 3 files generated successfully
-      if (files && files.length === 3) {
+      // STRICT REQUIREMENT: Only cache if all slide files generated successfully (2 or 3)
+      if (files && (files.length === 2 || files.length === 3)) {
         if (posterFilesCache.size >= 25) {
           const oldestKey = posterFilesCache.keys().next().value;
           posterFilesCache.delete(oldestKey);
@@ -12894,16 +12926,14 @@ function showStep3Preview() {
   if (saveBtn) saveBtn.classList.remove('active');
   if (saveLbl) saveLbl.textContent = 'Save';
 
-  // Update Tab 3 text and icon dynamically based on source anchor
+  // Update Step 3 tabs for 2-poster deck
+  const prevTab1 = document.getElementById('prevTab1');
+  if (prevTab1) {
+    prevTab1.innerHTML = '<span>📜</span> Poster 2: The Essay';
+  }
   const prevTab2 = document.getElementById('prevTab2');
   if (prevTab2) {
-    if (creatorSelectedSource === 'inner_voice') {
-      prevTab2.innerHTML = '<span>💭</span> Poster 3: Inner Voice';
-    } else if (creatorSelectedSource === 'video_audio') {
-      prevTab2.innerHTML = '<span>🎬</span> Poster 3: Broadcast Receipts';
-    } else {
-      prevTab2.innerHTML = '<span>📰</span> Poster 3: Web Receipts';
-    }
+    prevTab2.style.display = 'none';
   }
 
   // Render preview
@@ -12975,11 +13005,11 @@ function setPreviewArtworkSource(source) {
 }
 
 function switchPreviewSlide(slideIdx) {
-  currentPreviewSlide = slideIdx;
-  goToSlide(null, 'preview', slideIdx);
+  currentPreviewSlide = Math.max(0, Math.min(1, slideIdx));
+  goToSlide(null, 'preview', currentPreviewSlide);
 
   document.querySelectorAll('.preview-tab').forEach((tab, idx) => {
-    tab.classList.toggle('active', idx === slideIdx);
+    tab.classList.toggle('active', idx === currentPreviewSlide);
   });
 }
 
@@ -12998,8 +13028,8 @@ function togglePreviewCleanView(event) {
     carousel.classList.toggle('clean-view', isClean);
   }
 
-  // If user was on Slide 3 (Receipts) which has no illustration, switch to Slide 0 (Hook)
-  if (isClean && typeof currentPreviewSlide === 'number' && currentPreviewSlide === 2) {
+  // If user was on Slide 1 (Essay) which has no full illustration, switch to Slide 0 (Hook)
+  if (isClean && typeof currentPreviewSlide === 'number' && currentPreviewSlide === 1) {
     if (typeof switchPreviewSlide === 'function') {
       switchPreviewSlide(0);
     }
@@ -13051,18 +13081,15 @@ function openWholePosterModal(slideIdx) {
 
   isWholePosterClean = false;
 
-  // Build the complete 3-slide carousel inside the whole poster frame
+  // Build the complete 2-slide carousel inside the whole poster frame
   frame.innerHTML = `
-    <div class="carousel-view ${isWholePosterClean ? 'clean-view' : ''}" id="carousel-whole" data-post-index="whole" data-current-slide="${currentWholePosterSlide}">
+    <div class="carousel-view ${isWholePosterClean ? 'clean-view' : ''}" id="carousel-whole" data-post-index="whole" data-current-slide="${currentWholePosterSlide}" data-slide-count="2">
       <div class="carousel-track" id="track-whole">
         <div class="carousel-slide slide-hook">
-          ${buildSlide1Html(currentSynthesizedPost, 'whole')}
+          ${buildSlide1Html(currentSynthesizedPost, 'whole', 2)}
         </div>
-        <div class="carousel-slide slide-critique">
-          ${buildSlide2Html(currentSynthesizedPost, 'whole')}
-        </div>
-        <div class="carousel-slide slide-receipt">
-          ${buildSlide3Html(currentSynthesizedPost, 'whole')}
+        <div class="carousel-slide slide-receipt" style="cursor: default;">
+          ${buildSlide2Html(currentSynthesizedPost, 'whole', 0)}
         </div>
       </div>
     </div>
@@ -13115,28 +13142,29 @@ function handleWholePosterKeydown(e) {
 }
 
 function switchWholePosterSlide(slideIdx) {
-  currentWholePosterSlide = Math.max(0, Math.min(2, slideIdx));
+  currentWholePosterSlide = Math.max(0, Math.min(1, slideIdx));
 
   goToSlide(null, 'whole', currentWholePosterSlide);
 
-  [0, 1, 2].forEach(i => {
-    const pill = document.getElementById(`wholePill${i}`);
-    if (pill) pill.classList.toggle('active', i === currentWholePosterSlide);
-  });
+  const p0 = document.getElementById('wholePill0');
+  const p1 = document.getElementById('wholePill1');
+  const p2 = document.getElementById('wholePill2');
+  if (p0) p0.classList.toggle('active', currentWholePosterSlide === 0);
+  if (p1) p1.classList.toggle('active', currentWholePosterSlide === 1);
+  if (p2) p2.style.display = 'none';
 
   const titleEl = document.getElementById('wholePosterSlideTitle');
   if (titleEl) {
     const titles = [
       'Poster 1: The Visual Hook',
-      'Poster 2: The Slant & Take',
-      'Poster 3: Slant Minute Receipts'
+      'Poster 2: Unified Essay & Slant'
     ];
     titleEl.textContent = titles[currentWholePosterSlide] || 'Whole Poster';
   }
 }
 
 function changeWholePosterSlide(delta) {
-  const nextSlide = (currentWholePosterSlide + delta + 3) % 3;
+  const nextSlide = (currentWholePosterSlide + delta + 2) % 2;
   switchWholePosterSlide(nextSlide);
 }
 
