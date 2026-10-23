@@ -4322,7 +4322,7 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
     let imgSrc = rawPhoto;
     if (typeof rawPhoto === 'string' && rawPhoto.includes('pollinations.ai') && post.id) {
       imgSrc = `/posters/${post.id}.png`;
-    } else if (!rawPhoto.startsWith("data:") && !rawPhoto.startsWith("http") && !rawPhoto.startsWith("/")) {
+    } else if (!rawPhoto.startsWith("data:") && !rawPhoto.startsWith("http") && !rawPhoto.startsWith("/") && !rawPhoto.startsWith("blob:")) {
       imgSrc = `data:${post.sourceImageMimeType || post.originalPhotoMimeType || post.catalystPhotoMimeType || post.generationInputs?.innerVoiceImageMimeType || "image/jpeg"};base64,` + rawPhoto;
     } else if (rawPhoto.startsWith("http")) {
       imgSrc = rawPhoto.replace(/&amp;/g, "&");
@@ -6272,12 +6272,25 @@ async function capturePostSlidesAsFiles(post, index) {
   let exportPost = { ...post };
   const rawPosterUrl = post.illustrationUrl || post.aiIllustrationUrl || '';
   let createdBlobUrl = null;
+  let createdSourceBlobUrl = null;
   if (!post.illustrationBase64 && rawPosterUrl) {
     try {
       const bUrl = await fetchAsBlobUrl(rawPosterUrl);
       if (bUrl && bUrl !== rawPosterUrl) {
         createdBlobUrl = bUrl;
         exportPost.illustrationUrl = bUrl;
+      }
+    } catch (_) {}
+  }
+  const rawSourcePhoto = post.sourceImageUrl || post.referencePhotoUrl || post.originalPhotoUrl || post.catalystPhoto || '';
+  if (rawSourcePhoto && typeof rawSourcePhoto === 'string' && rawSourcePhoto.startsWith('http')) {
+    try {
+      const sbUrl = await fetchAsBlobUrl(rawSourcePhoto);
+      if (sbUrl && sbUrl !== rawSourcePhoto) {
+        createdSourceBlobUrl = sbUrl;
+        exportPost.sourceImageUrl = sbUrl;
+        exportPost.referencePhotoUrl = sbUrl;
+        exportPost.originalPhotoUrl = sbUrl;
       }
     } catch (_) {}
   }
@@ -6448,6 +6461,9 @@ async function capturePostSlidesAsFiles(post, index) {
   const files = (await Promise.all(slideConfigs.map(renderSlide))).filter(Boolean);
   if (createdBlobUrl) {
     try { URL.revokeObjectURL(createdBlobUrl); } catch (_) {}
+  }
+  if (createdSourceBlobUrl) {
+    try { URL.revokeObjectURL(createdSourceBlobUrl); } catch (_) {}
   }
   return files;
 }
