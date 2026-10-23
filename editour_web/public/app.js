@@ -1066,9 +1066,14 @@ function startSampleCarouselAutoPlay() {
     const carousel = document.getElementById('carousel-sample');
     if (!carousel) return;
     const cur = parseInt(carousel.getAttribute('data-current-slide') || '0', 10);
-    const next = (cur + 1) % 3;
-    goToSlide(null, 'sample', next);
-  }, 6000);
+    if (cur >= 2) {
+      const selectedPosts = window._selectedSamplePosts || [];
+      const nextStoryIdx = (currentSampleStoryIndex + 1) % (selectedPosts.length || 1);
+      selectSampleStory(nextStoryIdx);
+    } else {
+      goToSlide(null, 'sample', cur + 1);
+    }
+  }, 5000);
 }
 
 function previewPostFromLogin(postId) {
