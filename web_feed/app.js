@@ -4098,18 +4098,18 @@ function evaluateEssayBifurcation(post, index) {
     };
   }
 
-  // Target Page 1 word budget to fill the upper fold naturally:
-  // - No photo: ~175 words
-  // - Portrait photo (floated 3:4): ~135 words
-  // - Landscape photo (16:9 full width): ~110 words
+  // Editorial Page 1 target word budgets calibrated to leave generous margin at page ends:
+  // - No photo: ~130 words (fits upper fold cleanly with ~45px margin at bottom edge)
+  // - Portrait photo (floated 3:4): ~85 words (fits alongside floated photo with ~40px margin)
+  // - Landscape photo (16:9 full width): ~70 words (fits below wide photo with ~50px margin)
   const isVideoOrWide = post.sourceType === 'video_audio'
     || (typeof rawPhoto === 'string' && (rawPhoto.includes('ytimg.com') || rawPhoto.includes('youtube') || rawPhoto.includes('wide')));
 
-  let targetPage1Words = 135;
+  let targetPage1Words = 85;
   if (!hasPhoto) {
-    targetPage1Words = 175;
+    targetPage1Words = 130;
   } else if (isVideoOrWide) {
-    targetPage1Words = 110;
+    targetPage1Words = 70;
   }
 
   function splitIntoParagraphUnits(text) {
@@ -4156,6 +4156,13 @@ function evaluateEssayBifurcation(post, index) {
       page1Paras.push(p);
       accumulatedWords += pWords;
     } else {
+      // If Page 1 already has >= 70% of target words, keep current paragraph intact for Page 2
+      if (accumulatedWords >= targetPage1Words * 0.70) {
+        page2Paras.push(p);
+        hasSplit = true;
+        continue;
+      }
+
       // Squeeze portion of this paragraph onto Page 1 if Page 1 has meaningful room left
       const units = splitIntoParagraphUnits(p);
       const u1 = [];
@@ -4167,8 +4174,8 @@ function evaluateEssayBifurcation(post, index) {
         if (!u) continue;
         const uw = u.split(/\s+/).filter(Boolean).length;
 
-        // Place on Page 1 if it fits within target, or if Page 1 is noticeably under-filled (< 70% target)
-        const canFitOnP1 = (curWords + uw <= targetPage1Words) || (u1.length === 0 && curWords < targetPage1Words * 0.70);
+        // Place on Page 1 if it fits within target, or if Page 1 is noticeably under-filled (< 65% target)
+        const canFitOnP1 = (curWords + uw <= targetPage1Words) || (u1.length === 0 && curWords < targetPage1Words * 0.65);
 
         if (u2.length === 0 && canFitOnP1) {
           u1.push(u);
@@ -4197,8 +4204,8 @@ function evaluateEssayBifurcation(post, index) {
   const remainingText = page2Paras.join(" ").trim();
   const remainingWords = remainingText.split(/\s+/).filter(Boolean).length;
 
-  const THRESHOLD_WORDS = 50;
-  const THRESHOLD_CHARS = 150;
+  const THRESHOLD_WORDS = 45;
+  const THRESHOLD_CHARS = 140;
   const isOverflowSubstantial = (remainingWords >= THRESHOLD_WORDS || remainingText.length >= THRESHOLD_CHARS);
 
   if (!isOverflowSubstantial) {

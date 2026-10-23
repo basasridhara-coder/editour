@@ -2973,13 +2973,33 @@ header {
   color: #F8FAFC;
 }
 
-/* Page 1 Block in Feed View: Fills initial 3:4 poster viewport so seam is NEVER visible on initial load */
+/* Bifurcated Essay Viewport: Uses block flow so pages stack sequentially without flex clamping */
+.carousel-view .slant-minute-scroll-viewport[data-bifurcated="true"],
+.slant-minute-scroll-viewport[data-bifurcated="true"] {
+  display: block !important;
+}
+
+.essay-page-block {
+  display: block !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  position: relative !important;
+  clear: both !important;
+}
+
+/* Page 1 Block: Fills 100% minimum height of the viewport so the seam is not visible on initial load.
+   Leaves an elegant editorial gap at the bottom edge before the page transition. */
+.carousel-view .slant-minute-scroll-viewport[data-bifurcated="true"] .essay-page-1,
 .slant-minute-scroll-viewport[data-bifurcated="true"] .essay-page-1 {
   min-height: 100% !important;
+  height: auto !important;
+  padding-bottom: 28px !important;
+  margin-bottom: 12px !important;
   box-sizing: border-box !important;
   display: flex !important;
   flex-direction: column !important;
   justify-content: flex-start !important;
+  clear: both !important;
 }
 
 .slant-minute-scroll-viewport:not([data-bifurcated="true"]) .essay-page-1 {
@@ -2990,27 +3010,19 @@ header {
   justify-content: flex-start !important;
 }
 
-/* Page 2 Block in Feed View: Fills full height of second page */
-.carousel-view .essay-page-block.essay-page-2,
-.slant-minute-scroll-viewport[data-bifurcated="true"] .essay-page-2 {
-  min-height: 100% !important;
-  box-sizing: border-box !important;
-  display: flex !important;
-  flex-direction: column !important;
-  justify-content: flex-start !important;
-}
-
-/* Page Bifurcation Seam (Demarcates Page 1 and Page 2) */
+/* Page Bifurcation Seam (Demarcates Page 1 and Page 2 with clean editorial spacing) */
 .page-bifurcation-seam {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  margin: 14px 0 12px 0;
-  padding: 6px 0;
-  width: 100%;
-  box-sizing: border-box;
-  flex-shrink: 0;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 12px !important;
+  margin: 24px 0 !important;
+  padding: 10px 0 !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  flex-shrink: 0 !important;
+  clear: both !important;
+  position: relative !important;
 }
 
 .page-bifurcation-seam .seam-line {
@@ -3050,6 +3062,21 @@ header {
   margin-top: 4px !important;
   margin-bottom: 6px !important;
   opacity: 0.85;
+}
+
+/* Page 2 Block in Feed View: Fills full height of second page, with dignified top & bottom editorial margins */
+.carousel-view .essay-page-block.essay-page-2,
+.slant-minute-scroll-viewport[data-bifurcated="true"] .essay-page-2 {
+  min-height: 100% !important;
+  height: auto !important;
+  padding-top: 16px !important;
+  padding-bottom: 28px !important;
+  box-sizing: border-box !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: flex-start !important;
+  position: relative !important;
+  clear: both !important;
 }
 
 /* Dynamic Fit: Compact Density when overflow < 40% */
