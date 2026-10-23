@@ -3929,6 +3929,7 @@ function evaluateEssayBifurcation(post) {
     essayParas = ["Reporting examines key structural developments and observed outcomes."];
   }
 
+  // Check photo source: grounded source photo first, fallback to poster photo from Slide 1
   const rawPhoto = post.sourceImageBase64
     || post.sourceImageUrl
     || post.catalystPhoto
@@ -3941,12 +3942,47 @@ function evaluateEssayBifurcation(post) {
     || post.generationInputs?.sourceImageUrl
     || post.generationInputs?.catalystPhoto
     || post.generationInputs?.catalystPhotoBase64
-    || post.generationInputs?.innerVoiceImageBase64;
+    || post.generationInputs?.innerVoiceImageBase64
+    || post.illustrationBase64
+    || post.posterBase64
+    || post.illustrationUrl
+    || post.aiIllustrationUrl
+    || post.aiPosterBase64;
   const hasPhoto = Boolean(rawPhoto && typeof rawPhoto === "string" && rawPhoto.length > 20);
 
-  // Page 1 takes the lead paragraph
-  const page1Paras = [essayParas[0]];
-  const remainingParas = essayParas.slice(1);
+  // Dynamic Page 1 target words:
+  // - No photo: ~180 words (fits 2-3 paragraphs cleanly without premature cutoff)
+  // - Portrait photo (floated 3:4): ~125 words
+  // - Landscape photo (16:9 full width): ~85 words
+  const isVideoOrWide = post.sourceType === 'video_audio'
+    || (typeof rawPhoto === 'string' && (rawPhoto.includes('ytimg.com') || rawPhoto.includes('youtube') || rawPhoto.includes('wide')));
+
+  let targetPage1Words = 125;
+  if (!hasPhoto) {
+    targetPage1Words = 180;
+  } else if (isVideoOrWide) {
+    targetPage1Words = 85;
+  }
+
+  const page1Paras = [];
+  let accumulatedWords = 0;
+
+  for (let i = 0; i < essayParas.length; i++) {
+    const p = essayParas[i];
+    const pWords = p.trim().split(/\s+/).filter(Boolean).length;
+    
+    if (page1Paras.length === 0) {
+      page1Paras.push(p);
+      accumulatedWords += pWords;
+    } else if (accumulatedWords + (pWords * 0.65) <= targetPage1Words) {
+      page1Paras.push(p);
+      accumulatedWords += pWords;
+    } else {
+      break;
+    }
+  }
+
+  const remainingParas = essayParas.slice(page1Paras.length);
   const remainingText = remainingParas.join(" ").trim();
   const remainingWords = remainingText.split(/\s+/).filter(Boolean).length;
 
@@ -4045,9 +4081,9 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
     </div>
   `;
 
-  // Inset Newspaper Photo
+  // Inset Newspaper / Poster Photo (Fallback to Slide 1 Poster Photo when no grounded source photo)
   let scenePhotoHtml = "";
-  const rawPhoto = post.sourceImageBase64
+  let rawPhoto = post.sourceImageBase64
     || post.sourceImageUrl
     || post.catalystPhoto
     || post.catalystPhotoBase64
@@ -4061,9 +4097,24 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
     || post.generationInputs?.catalystPhotoBase64
     || post.generationInputs?.innerVoiceImageBase64;
 
+  let isFallbackToPosterPhoto = false;
+  if (!rawPhoto || typeof rawPhoto !== 'string' || rawPhoto.length < 20) {
+    const posterPhoto = post.illustrationBase64
+      || post.posterBase64
+      || post.illustrationUrl
+      || post.aiIllustrationUrl
+      || post.aiPosterBase64;
+    if (posterPhoto && typeof posterPhoto === 'string' && posterPhoto.length > 20) {
+      rawPhoto = posterPhoto;
+      isFallbackToPosterPhoto = true;
+    }
+  }
+
   if (rawPhoto && typeof rawPhoto === "string" && rawPhoto.length > 20) {
     let imgSrc = rawPhoto;
-    if (!rawPhoto.startsWith("data:") && !rawPhoto.startsWith("http") && !rawPhoto.startsWith("/")) {
+    if (typeof rawPhoto === 'string' && rawPhoto.includes('pollinations.ai') && post.id) {
+      imgSrc = `/posters/${post.id}.png`;
+    } else if (!rawPhoto.startsWith("data:") && !rawPhoto.startsWith("http") && !rawPhoto.startsWith("/")) {
       imgSrc = `data:${post.sourceImageMimeType || post.originalPhotoMimeType || post.catalystPhotoMimeType || post.generationInputs?.innerVoiceImageMimeType || "image/jpeg"};base64,` + rawPhoto;
     } else if (rawPhoto.startsWith("http")) {
       imgSrc = rawPhoto.replace(/&amp;/g, "&");
@@ -4073,16 +4124,21 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
     let captionText = `ARCHIVAL WIRE PHOTO • ${cleanPubUpper || "PRESS DISPATCH"}`;
     if (isInnerVoice) {
       captionIcon = "📸";
-      captionText = "ARCHIVAL CATALYST SNAPSHOT";
+      captionText = isFallbackToPosterPhoto
+        ? `ESSAY SNAPSHOT • ${handle.toUpperCase()}`
+        : "ARCHIVAL CATALYST SNAPSHOT";
     } else if (tier === "tier_video" || post.sourceType === "video_audio") {
       captionIcon = "🎬";
       captionText = `BROADCAST STILL • ${cleanPubUpper || "SOURCE DISPATCH"}`;
+    } else if (isFallbackToPosterPhoto) {
+      captionIcon = "🎨";
+      captionText = `EDITORIAL METAPHOR • ${cleanPubUpper || "DISPATCH"}`;
     }
 
     const isVideoOrWide = tier === "tier_video"
       || post.sourceType === "video_audio"
-      || (typeof rawPhoto === "string" && (rawPhoto.includes("ytimg.com") || rawPhoto.includes("youtube")));
-    const initialAspectClass = isVideoOrWide ? "photo-aspect-landscape" : "photo-aspect-auto";
+      || (typeof rawPhoto === "string" && (rawPhoto.includes("ytimg.com") || rawPhoto.includes("youtube") || rawPhoto.includes("wide")));
+    const initialAspectClass = isVideoOrWide ? "photo-aspect-landscape" : "photo-aspect-portrait";
 
     scenePhotoHtml = `
       <div class="receipt-scene-box ${initialAspectClass}">
@@ -4155,8 +4211,8 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
         </div>
         ${headline ? `<div class="receipts-headline-box"><h2 class="receipt-headline">${headline}</h2></div>` : ""}
         <div class="receipt-paragraphs">
-          ${scenePhotoHtml}
           ${pullquoteHtml}
+          ${scenePhotoHtml}
           ${page1ParasHtml}
           ${!bifurcation.isBifurcated ? reflectionHtml : ""}
         </div>
@@ -4224,8 +4280,8 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
         ${headline ? `<div class="receipts-headline-box"><h2 class="receipt-headline">${headline}</h2></div>` : ""}
 
         <div class="receipt-paragraphs">
-          ${scenePhotoHtml}
           ${pullquoteHtml}
+          ${scenePhotoHtml}
           ${page1ParasHtml}
         </div>
       </div>

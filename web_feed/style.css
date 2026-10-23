@@ -2973,6 +2973,26 @@ header {
   color: #F8FAFC;
 }
 
+/* Page 1 Block in Feed View: Fills initial 3:4 poster viewport so seam is NEVER visible on initial load */
+.carousel-view .essay-page-block.essay-page-1,
+.slant-minute-scroll-viewport[data-bifurcated="true"] .essay-page-1 {
+  min-height: 100% !important;
+  box-sizing: border-box !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: flex-start !important;
+}
+
+/* Page 2 Block in Feed View: Fills full height of second page */
+.carousel-view .essay-page-block.essay-page-2,
+.slant-minute-scroll-viewport[data-bifurcated="true"] .essay-page-2 {
+  min-height: 100% !important;
+  box-sizing: border-box !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: flex-start !important;
+}
+
 /* Page Bifurcation Seam (Demarcates Page 1 and Page 2) */
 .page-bifurcation-seam {
   display: flex;
