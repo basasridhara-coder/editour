@@ -4098,50 +4098,108 @@ function evaluateEssayBifurcation(post, index) {
     };
   }
 
-  // Dynamic Page 1 target words:
-  // - No photo: ~180 words (fits 2-3 paragraphs cleanly without premature cutoff)
-  // - Portrait photo (floated 3:4): ~125 words
-  // - Landscape photo (16:9 full width): ~85 words
+  // Target Page 1 word budget to fill the upper fold naturally:
+  // - No photo: ~175 words
+  // - Portrait photo (floated 3:4): ~135 words
+  // - Landscape photo (16:9 full width): ~110 words
   const isVideoOrWide = post.sourceType === 'video_audio'
     || (typeof rawPhoto === 'string' && (rawPhoto.includes('ytimg.com') || rawPhoto.includes('youtube') || rawPhoto.includes('wide')));
 
-  let targetPage1Words = 125;
+  let targetPage1Words = 135;
   if (!hasPhoto) {
-    targetPage1Words = 180;
+    targetPage1Words = 175;
   } else if (isVideoOrWide) {
-    targetPage1Words = 85;
+    targetPage1Words = 110;
+  }
+
+  function splitIntoParagraphUnits(text) {
+    if (!text) return [];
+    const protectedText = text
+      .replace(/\b(Mr|Mrs|Ms|Dr|Prof|Sr|Jr|Gen|Gov|Capt|Lieut|Col|U\.S|e\.g|i\.e)\./gi, '$1__DOT__');
+    
+    const rawSentences = protectedText.match(/[^.!?]+(?:[.!?]+["'”’]?|$)/g) || [protectedText];
+    const sentences = rawSentences
+      .map(s => s.replace(/__DOT__/g, '.').trim())
+      .filter(Boolean);
+
+    if (sentences.length > 1) {
+      return sentences;
+    }
+
+    const words = text.trim().split(/\s+/).filter(Boolean);
+    if (words.length > 28) {
+      const clauses = text.match(/[^,;:]+[,;:]?|\s*[^,;:]+$/g);
+      if (clauses && clauses.length > 1) {
+        return clauses.map(c => c.trim()).filter(Boolean);
+      }
+    }
+    return [text.trim()];
   }
 
   const page1Paras = [];
+  const page2Paras = [];
   let accumulatedWords = 0;
+  let hasSplit = false;
+  let splitParaContinuation = false;
 
   for (let i = 0; i < essayParas.length; i++) {
-    const p = essayParas[i];
-    const pWords = p.trim().split(/\s+/).filter(Boolean).length;
-    
-    if (page1Paras.length === 0) {
-      page1Paras.push(p);
-      accumulatedWords += pWords;
-    } else if (accumulatedWords + (pWords * 0.65) <= targetPage1Words) {
+    const p = essayParas[i].trim();
+    if (!p) continue;
+    const pWords = p.split(/\s+/).filter(Boolean).length;
+
+    if (hasSplit) {
+      page2Paras.push(p);
+      continue;
+    }
+
+    if (accumulatedWords + pWords <= targetPage1Words) {
       page1Paras.push(p);
       accumulatedWords += pWords;
     } else {
-      break;
+      // Squeeze portion of this paragraph onto Page 1 if Page 1 has meaningful room left
+      const units = splitIntoParagraphUnits(p);
+      const u1 = [];
+      const u2 = [];
+      let curWords = accumulatedWords;
+
+      for (let j = 0; j < units.length; j++) {
+        const u = units[j].trim();
+        if (!u) continue;
+        const uw = u.split(/\s+/).filter(Boolean).length;
+
+        // Place on Page 1 if it fits within target, or if Page 1 is noticeably under-filled (< 70% target)
+        const canFitOnP1 = (curWords + uw <= targetPage1Words) || (u1.length === 0 && curWords < targetPage1Words * 0.70);
+
+        if (u2.length === 0 && canFitOnP1) {
+          u1.push(u);
+          curWords += uw;
+        } else {
+          u2.push(u);
+        }
+      }
+
+      if (u1.length > 0 && u2.length > 0) {
+        page1Paras.push(u1.join(" "));
+        page2Paras.push(u2.join(" "));
+        accumulatedWords = curWords;
+        hasSplit = true;
+        splitParaContinuation = true;
+      } else if (u1.length > 0 && u2.length === 0) {
+        page1Paras.push(p);
+        accumulatedWords = curWords;
+      } else {
+        page2Paras.push(p);
+        hasSplit = true;
+      }
     }
   }
 
-  const remainingParas = essayParas.slice(page1Paras.length);
-  const remainingText = remainingParas.join(" ").trim();
+  const remainingText = page2Paras.join(" ").trim();
   const remainingWords = remainingText.split(/\s+/).filter(Boolean).length;
 
-  // 40% Threshold Rule:
-  // Page 2 text capacity is ~180-200 words (~1100 chars).
-  // 40% threshold = ~75-80 words or ~220 characters.
-  // If remaining text is LESS than 40% of Page 2, DO NOT spawn Page 2.
-  // Instead, concise and fit all within Page 1!
-  const THRESHOLD_WORDS = 75;
-  const THRESHOLD_CHARS = 220;
-  const isOverflowSubstantial = remainingParas.length > 0 && (remainingWords >= THRESHOLD_WORDS || remainingText.length >= THRESHOLD_CHARS);
+  const THRESHOLD_WORDS = 50;
+  const THRESHOLD_CHARS = 150;
+  const isOverflowSubstantial = (remainingWords >= THRESHOLD_WORDS || remainingText.length >= THRESHOLD_CHARS);
 
   if (!isOverflowSubstantial) {
     return {
@@ -4149,14 +4207,16 @@ function evaluateEssayBifurcation(post, index) {
       hasPhoto,
       page1Paras: essayParas,
       page2Paras: [],
-      densityClass: (essayParas.join(" ").length > 480) ? "essay-density-compact" : "essay-density-medium"
+      hasContinuedPara: false,
+      densityClass: (essayParas.join(" ").length > 440) ? "essay-density-compact" : "essay-density-medium"
     };
   } else {
     return {
       isBifurcated: true,
       hasPhoto,
       page1Paras: page1Paras,
-      page2Paras: remainingParas,
+      page2Paras: page2Paras,
+      hasContinuedPara: splitParaContinuation,
       densityClass: "essay-density-spacious"
     };
   }
@@ -4334,9 +4394,11 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
 
   // Page 2 Paragraphs
   let page2ParasHtml = "";
-  bifurcation.page2Paras.forEach(p => {
+  bifurcation.page2Paras.forEach((p, idx) => {
     if (p && p !== p1Lead) {
-      page2ParasHtml += `<p class="receipt-p3">${escapeHtml(p)}</p>`;
+      const isContinuation = (idx === 0 && bifurcation.hasContinuedPara);
+      const paraClass = isContinuation ? "receipt-p3 receipt-p-continuation" : "receipt-p3";
+      page2ParasHtml += `<p class="${paraClass}">${escapeHtml(p)}</p>`;
     }
   });
 
