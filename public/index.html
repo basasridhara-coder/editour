@@ -995,17 +995,20 @@
         <div class="equalizer-section">
           <div class="equalizer-section-header">
             <span class="equalizer-section-icon">🎨</span>
-            <div>
+            <div style="flex:1;">
               <div class="equalizer-section-title">IMAGE PORTRAYAL</div>
               <div class="equalizer-section-sub">Select visual style for Poster 1 (Tap to preview)</div>
             </div>
+            <button type="button" class="portrayal-compare-pill" onclick="openPortrayalComparisonModal()" title="Compare all 5 styles side by side">
+              <span>👀 Compare Styles</span>
+            </button>
           </div>
 
           <!-- Portrayal Selector Cards with Inline Dynamic Preview Directly Below Active Choice -->
           <div class="equalizer-portrayal-grid" id="equalizerPortrayalGrid">
             <button type="button" class="equalizer-portrayal-card active" id="eqRepRealistic" onclick="selectEqualizerPortrayal('realistic')">
               <div class="portrayal-card-thumb-mini">
-                <img src="https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/slant-1792605207206-4q1nh.webp" alt="AI Illustration">
+                <img src="https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/slant-1792702237772-vx3sf.webp" alt="AI Illustration">
               </div>
               <div class="portrayal-card-info">
                 <div class="portrayal-card-title-row">
@@ -1018,8 +1021,11 @@
 
             <!-- Dynamic Live Visual Preview Box: positions directly beneath whichever portrayal is active -->
             <div class="equalizer-portrayal-preview-card" id="equalizerPortrayalPreviewCard">
-              <div class="portrayal-preview-thumb-wrap">
-                <img id="portrayalPreviewImg" src="https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/slant-1792605207206-4q1nh.webp" alt="AI Illustration preview" class="portrayal-preview-img">
+              <div class="portrayal-preview-thumb-wrap" onclick="openPortrayalEnlargeModal()" title="Tap to zoom preview">
+                <img id="portrayalPreviewImg" src="https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/slant-1792702237772-vx3sf.webp" alt="AI Illustration preview" class="portrayal-preview-img">
+                <div class="portrayal-thumb-zoom-badge">
+                  <span>🔍 Zoom</span>
+                </div>
               </div>
               <div class="portrayal-preview-meta">
                 <div class="portrayal-preview-header-row">
@@ -1027,15 +1033,27 @@
                   <span class="portrayal-preview-badge" id="portrayalPreviewBadge">Default Style</span>
                 </div>
                 <div class="portrayal-preview-title" id="portrayalPreviewTitle">Vivid Editorial Realism</div>
+                <div class="portrayal-preview-specs" id="portrayalPreviewSpecs">
+                  <span class="portrayal-spec-pill" id="portrayalSpecMedium">Medium: Editorial broadsheet illustration</span>
+                  <span class="portrayal-spec-pill" id="portrayalSpecTexture">Texture: Rich digital ink and color saturation</span>
+                </div>
                 <p class="portrayal-preview-desc" id="portrayalPreviewDesc">
                   High-impact editorial broadsheet illustration faithfully capturing key figures, real-world setting, and dramatic journalistic realism.
                 </p>
+                <div class="portrayal-preview-actions">
+                  <button type="button" class="portrayal-preview-action-btn" onclick="openPortrayalEnlargeModal()">
+                    <span>🔍 View Large</span>
+                  </button>
+                  <button type="button" class="portrayal-preview-action-btn secondary" onclick="openPortrayalComparisonModal()">
+                    <span>👀 Compare All 5</span>
+                  </button>
+                </div>
               </div>
             </div>
 
             <button type="button" class="equalizer-portrayal-card" id="eqRepCinematic" onclick="selectEqualizerPortrayal('cinematic')">
               <div class="portrayal-card-thumb-mini">
-                <img src="/posters/slant-1792580966403-awuxe.webp" alt="Cinematic Editorial Photo">
+                <img src="https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/slant-1792702859318-cy5u7.webp" alt="Cinematic Editorial Photo">
               </div>
               <div class="portrayal-card-info">
                 <div class="portrayal-card-title-row">
@@ -1047,7 +1065,7 @@
 
             <button type="button" class="equalizer-portrayal-card" id="eqRepPainting" onclick="selectEqualizerPortrayal('painting')">
               <div class="portrayal-card-thumb-mini">
-                <img src="/illustrations/129eb76c-5699-4e97-b16e-fbe5a0ea38c8.jpg" alt="Artistic Broadsheet Painting">
+                <img src="https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/slant-1792700793906-bv1gb.webp" alt="Artistic Broadsheet Painting">
               </div>
               <div class="portrayal-card-info">
                 <div class="portrayal-card-title-row">
@@ -1059,7 +1077,7 @@
 
             <button type="button" class="equalizer-portrayal-card" id="eqRepSilhouette" onclick="selectEqualizerPortrayal('silhouette')">
               <div class="portrayal-card-thumb-mini">
-                <img src="/posters/slant-1791743692258-1w105.png" alt="Minimalist Silhouette">
+                <img src="https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/slant-1792728487515-hcyge.webp" alt="Minimalist Silhouette">
               </div>
               <div class="portrayal-card-info">
                 <div class="portrayal-card-title-row">
@@ -1071,7 +1089,7 @@
 
             <button type="button" class="equalizer-portrayal-card" id="eqRepExact" onclick="selectEqualizerPortrayal('exact')" style="display:none;">
               <div class="portrayal-card-thumb-mini">
-                <img id="eqRepExactThumb" src="/clippings/83940fae-4ad7-43f6-9329-91cd17752f78.jpg" alt="Authentic Source Photo">
+                <img id="eqRepExactThumb" src="https://i.ytimg.com/vi/m_qAkP5XFRI/maxresdefault.jpg" alt="Authentic Source Photo">
               </div>
               <div class="portrayal-card-info">
                 <div class="portrayal-card-title-row">
@@ -2025,6 +2043,66 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261021_1145"></script>
+  <!-- Portrayal Large Preview Modal (High-Res Zoom & Breakdown) -->
+  <div class="modal-overlay portrayal-enlarge-overlay" id="portrayalEnlargeModal" style="display:none;" onclick="if(event.target===this) closePortrayalEnlargeModal()">
+    <div class="modal-card portrayal-enlarge-card" onclick="event.stopPropagation()">
+      <div class="portrayal-enlarge-header">
+        <div class="portrayal-enlarge-title-wrap">
+          <span class="portrayal-enlarge-badge" id="portrayalEnlargeBadge">Default Style</span>
+          <h3 class="portrayal-enlarge-title" id="portrayalEnlargeTitle">AI Illustration</h3>
+        </div>
+        <button type="button" class="modal-close portrayal-enlarge-close" onclick="closePortrayalEnlargeModal()" aria-label="Close">&times;</button>
+      </div>
+      <div class="portrayal-enlarge-body">
+        <div class="portrayal-enlarge-image-wrap">
+          <img id="portrayalEnlargeImg" src="" alt="Portrayal Large Preview" class="portrayal-enlarge-img">
+        </div>
+        <div class="portrayal-enlarge-details">
+          <div class="portrayal-enlarge-subtitle" id="portrayalEnlargeSubtitle">Vivid Editorial Realism</div>
+          <p class="portrayal-enlarge-desc" id="portrayalEnlargeDesc"></p>
+          <div class="portrayal-enlarge-specs">
+            <div class="portrayal-enlarge-spec-item">
+              <span class="spec-label">Artistic Medium</span>
+              <span class="spec-val" id="portrayalEnlargeMedium"></span>
+            </div>
+            <div class="portrayal-enlarge-spec-item">
+              <span class="spec-label">Surface Texture</span>
+              <span class="spec-val" id="portrayalEnlargeTexture"></span>
+            </div>
+            <div class="portrayal-enlarge-spec-item">
+              <span class="spec-label">Subject Consistency</span>
+              <span class="spec-val">Exact real-world figure anchored from source material</span>
+            </div>
+          </div>
+          <div class="portrayal-enlarge-actions">
+            <button type="button" class="btn-primary portrayal-select-btn" id="portrayalEnlargeSelectBtn" onclick="selectCurrentEnlargedPortrayal()">
+              ✓ Select This Style
+            </button>
+            <button type="button" class="btn-secondary portrayal-switch-btn" onclick="closePortrayalEnlargeModal(); openPortrayalComparisonModal();">
+              👀 Compare All 5 Styles
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Portrayal Comparison Modal (Side-by-Side 5 Styles of Same Subject) -->
+  <div class="modal-overlay portrayal-compare-overlay" id="portrayalComparisonModal" style="display:none;" onclick="if(event.target===this) closePortrayalComparisonModal()">
+    <div class="modal-card portrayal-compare-card" onclick="event.stopPropagation()">
+      <div class="portrayal-compare-header">
+        <div>
+          <h3 class="portrayal-compare-title">🎨 Compare Image Portrayal Styles</h3>
+          <p class="portrayal-compare-sub">See how each portrayal engine renders the exact same subject from real news source to artistic prints.</p>
+        </div>
+        <button type="button" class="modal-close portrayal-compare-close" onclick="closePortrayalComparisonModal()" aria-label="Close">&times;</button>
+      </div>
+      <div class="portrayal-compare-grid" id="portrayalCompareGrid">
+        <!-- Rendered dynamically by renderPortrayalComparisonGrid() -->
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js?v=20261023_1400"></script>
 </body>
 </html>

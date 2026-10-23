@@ -8825,41 +8825,165 @@ function setPerspectiveMode(mode, fromUserClick = false) {
 
 const PORTRAYAL_STYLE_PREVIEWS = {
   realistic: {
+    key: 'realistic',
     name: 'AI Illustration',
     badge: 'Default Style',
     title: 'Vivid Editorial Realism',
+    medium: 'Editorial broadsheet illustration',
+    texture: 'Rich digital ink and color saturation',
     desc: 'High-impact editorial broadsheet illustration faithfully capturing key figures, real-world setting, and dramatic journalistic realism.',
-    image: 'https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/slant-1792605207206-4q1nh.webp'
+    image: 'https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/slant-1792702237772-vx3sf.webp'
   },
   cinematic: {
+    key: 'cinematic',
     name: 'Cinematic Editorial Photo',
     badge: '35mm Camera Realism',
     title: 'Picture-Like Camera Fidelity',
+    medium: '35mm documentary photograph',
+    texture: 'Authentic optical film grain and skin lighting',
     desc: 'Produces a sharp 35mm documentary photograph capturing facial structure, expression, and clothing with natural camera fidelity (Zero Digital Footprint).',
-    image: '/posters/slant-1792580966403-awuxe.webp'
+    image: 'https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/slant-1792702859318-cy5u7.webp'
   },
   painting: {
+    key: 'painting',
     name: 'Artistic Broadsheet Painting',
     badge: 'Painted Artwork',
     title: 'Gouache & Oil Pigments',
+    medium: 'Hand-painted broadsheet artwork',
+    texture: 'Gouache wash, oil impasto and paper grain',
     desc: 'Warm editorial broadsheet artwork rendered in rich gouache, oil textures, and painterly pigments. Captures people with recognizable presence and artistic craft.',
-    image: '/illustrations/129eb76c-5699-4e97-b16e-fbe5a0ea38c8.jpg'
+    image: 'https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/slant-1792700793906-bv1gb.webp'
   },
   silhouette: {
+    key: 'silhouette',
     name: 'Minimalist Silhouette',
     badge: 'Graphic Shadow Art',
     title: 'Stark Graphic Silhouette',
+    medium: 'High-contrast graphic shadow profile',
+    texture: 'Matte vector silhouette with stark editorial lighting',
     desc: 'Minimalist dark silhouettes, architectural shadows, or high-contrast noir profiles for conceptual themes.',
-    image: '/posters/slant-1791743692258-1w105.png'
+    image: 'https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/slant-1792728487515-hcyge.webp'
   },
   exact: {
+    key: 'exact',
     name: 'Authentic Source Photo',
     badge: 'Direct Unedited Photo',
     title: 'Authentic Source Photography',
+    medium: 'Raw source photo from publisher / video thumbnail',
+    texture: '100% original unmodified photo pixels',
     desc: 'Use the authentic source photograph directly as Poster 1\'s hook visual without any AI generation.',
-    image: '/clippings/83940fae-4ad7-43f6-9329-91cd17752f78.jpg'
+    image: 'https://i.ytimg.com/vi/m_qAkP5XFRI/maxresdefault.jpg'
   }
 };
+
+let currentEnlargedPortrayalStyle = 'realistic';
+
+function openPortrayalEnlargeModal(styleKey) {
+  const targetKey = styleKey || creatorCharacterRepresentation || 'realistic';
+  currentEnlargedPortrayalStyle = targetKey;
+  const data = PORTRAYAL_STYLE_PREVIEWS[targetKey] || PORTRAYAL_STYLE_PREVIEWS.realistic;
+
+  const modal = document.getElementById('portrayalEnlargeModal');
+  const badgeEl = document.getElementById('portrayalEnlargeBadge');
+  const titleEl = document.getElementById('portrayalEnlargeTitle');
+  const subEl = document.getElementById('portrayalEnlargeSubtitle');
+  const descEl = document.getElementById('portrayalEnlargeDesc');
+  const mediumEl = document.getElementById('portrayalEnlargeMedium');
+  const textureEl = document.getElementById('portrayalEnlargeTexture');
+  const imgEl = document.getElementById('portrayalEnlargeImg');
+  const selectBtn = document.getElementById('portrayalEnlargeSelectBtn');
+
+  if (badgeEl) badgeEl.textContent = data.badge;
+  if (titleEl) titleEl.textContent = data.name;
+  if (subEl) subEl.textContent = data.title;
+  if (descEl) descEl.textContent = data.desc;
+  if (mediumEl) mediumEl.textContent = data.medium || 'Editorial Art';
+  if (textureEl) textureEl.textContent = data.texture || 'Natural Pigments';
+
+  if (imgEl) {
+    if (targetKey === 'exact' && creatorReferenceImageBase64) {
+      imgEl.src = creatorReferenceImageBase64;
+    } else {
+      imgEl.src = data.image;
+    }
+  }
+
+  if (selectBtn) {
+    const isCurrent = (creatorCharacterRepresentation === targetKey);
+    selectBtn.textContent = isCurrent ? '✓ Current Selection' : `✓ Select ${data.name}`;
+    selectBtn.style.opacity = isCurrent ? '0.85' : '1';
+  }
+
+  if (modal) {
+    modal.style.display = 'flex';
+  }
+}
+
+function closePortrayalEnlargeModal() {
+  const modal = document.getElementById('portrayalEnlargeModal');
+  if (modal) modal.style.display = 'none';
+}
+
+function selectCurrentEnlargedPortrayal() {
+  if (currentEnlargedPortrayalStyle) {
+    selectEqualizerPortrayal(currentEnlargedPortrayalStyle);
+    const data = PORTRAYAL_STYLE_PREVIEWS[currentEnlargedPortrayalStyle];
+    if (typeof showTemporaryToast === 'function') {
+      showTemporaryToast(`✓ Portrayal style set to ${data ? data.name : currentEnlargedPortrayalStyle}`);
+    }
+  }
+  closePortrayalEnlargeModal();
+}
+
+function openPortrayalComparisonModal() {
+  renderPortrayalComparisonGrid();
+  const modal = document.getElementById('portrayalComparisonModal');
+  if (modal) modal.style.display = 'flex';
+}
+
+function closePortrayalComparisonModal() {
+  const modal = document.getElementById('portrayalComparisonModal');
+  if (modal) modal.style.display = 'none';
+}
+
+function renderPortrayalComparisonGrid() {
+  const grid = document.getElementById('portrayalCompareGrid');
+  if (!grid) return;
+
+  const styles = ['realistic', 'cinematic', 'painting', 'silhouette', 'exact'];
+  grid.innerHTML = styles.map(key => {
+    const style = PORTRAYAL_STYLE_PREVIEWS[key];
+    if (!style) return '';
+    const isActive = (creatorCharacterRepresentation === key);
+    const imgSrc = (key === 'exact' && creatorReferenceImageBase64) ? creatorReferenceImageBase64 : style.image;
+
+    return `
+      <div class="portrayal-compare-col ${isActive ? 'is-active' : ''}" onclick="selectEqualizerPortrayal('${key}'); renderPortrayalComparisonGrid();">
+        <div class="portrayal-compare-thumb-wrap" onclick="event.stopPropagation(); openPortrayalEnlargeModal('${key}');" title="Tap to zoom">
+          <img src="${imgSrc}" alt="${style.name}" class="portrayal-compare-thumb-img" loading="lazy">
+          <div class="portrayal-thumb-zoom-badge" style="font-size:9px; padding:2px 5px;">
+            <span>🔍 Zoom</span>
+          </div>
+        </div>
+        <div class="portrayal-compare-col-header">
+          <span class="portrayal-compare-col-title">${style.name}</span>
+          <span class="portrayal-compare-col-badge">${style.badge}</span>
+        </div>
+        <p class="portrayal-compare-col-desc">${style.desc}</p>
+        <button type="button" class="portrayal-compare-col-select-btn" onclick="event.stopPropagation(); selectEqualizerPortrayal('${key}'); closePortrayalComparisonModal();">
+          ${isActive ? '✓ Active Style' : 'Select This Style'}
+        </button>
+      </div>
+    `;
+  }).join('');
+}
+
+window.openPortrayalEnlargeModal = openPortrayalEnlargeModal;
+window.closePortrayalEnlargeModal = closePortrayalEnlargeModal;
+window.selectCurrentEnlargedPortrayal = selectCurrentEnlargedPortrayal;
+window.openPortrayalComparisonModal = openPortrayalComparisonModal;
+window.closePortrayalComparisonModal = closePortrayalComparisonModal;
+window.renderPortrayalComparisonGrid = renderPortrayalComparisonGrid;
 
 const CUE_DIMENSION_PREVIEWS = [
   {
@@ -9098,9 +9222,22 @@ function selectEqualizerPortrayal(style) {
 function updateEqualizerPortrayalUI() {
   const hasPhoto = Boolean(creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || currentScrapedArticle?.imageUrl);
 
-  // Exact card visibility
+  // Exact card visibility and thumbnail
   const eqExact = document.getElementById('eqRepExact');
   if (eqExact) eqExact.style.display = hasPhoto ? 'flex' : 'none';
+
+  const eqExactThumb = document.getElementById('eqRepExactThumb');
+  if (eqExactThumb) {
+    if (creatorReferenceImageBase64) {
+      eqExactThumb.src = creatorReferenceImageBase64;
+    } else if (currentScrapedArticle?.imageBase64) {
+      eqExactThumb.src = currentScrapedArticle.imageBase64;
+    } else if (currentScrapedArticle?.imageUrl) {
+      eqExactThumb.src = currentScrapedArticle.imageUrl;
+    } else {
+      eqExactThumb.src = PORTRAYAL_STYLE_PREVIEWS.exact.image;
+    }
+  }
 
   if (!hasPhoto && creatorCharacterRepresentation === 'exact') {
     creatorCharacterRepresentation = 'realistic';
@@ -9144,6 +9281,8 @@ function updateEqualizerPortrayalUI() {
   const pBadge = document.getElementById('portrayalPreviewBadge');
   const pTitle = document.getElementById('portrayalPreviewTitle');
   const pDesc = document.getElementById('portrayalPreviewDesc');
+  const pMedium = document.getElementById('portrayalSpecMedium');
+  const pTexture = document.getElementById('portrayalSpecTexture');
 
   if (pImg) {
     if (creatorCharacterRepresentation === 'exact' && creatorReferenceImageBase64) {
@@ -9156,6 +9295,8 @@ function updateEqualizerPortrayalUI() {
   if (pBadge) pBadge.textContent = preview.badge;
   if (pTitle) pTitle.textContent = preview.title;
   if (pDesc) pDesc.textContent = preview.desc;
+  if (pMedium && preview.medium) pMedium.textContent = `Medium: ${preview.medium}`;
+  if (pTexture && preview.texture) pTexture.textContent = `Texture: ${preview.texture}`;
 
   updateEqualizerSummary();
 }
