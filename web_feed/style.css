@@ -2988,13 +2988,13 @@ header {
 }
 
 /* Page 1 Block: Fills 100% minimum height of the viewport so the seam is not visible on initial load.
-   Leaves an elegant editorial gap at the bottom edge before the page transition. */
+   Leaves an exact 1-line editorial gap at the bottom edge before the page transition. */
 .carousel-view .slant-minute-scroll-viewport[data-bifurcated="true"] .essay-page-1,
 .slant-minute-scroll-viewport[data-bifurcated="true"] .essay-page-1 {
   min-height: 100% !important;
   height: auto !important;
-  padding-bottom: 28px !important;
-  margin-bottom: 12px !important;
+  padding-bottom: 14px !important;
+  margin-bottom: 0px !important;
   box-sizing: border-box !important;
   display: flex !important;
   flex-direction: column !important;
@@ -3010,14 +3010,14 @@ header {
   justify-content: flex-start !important;
 }
 
-/* Page Bifurcation Seam (Demarcates Page 1 and Page 2 with clean editorial spacing) */
+/* Page Bifurcation Seam (Demarcates Page 1 and Page 2 with 1-line editorial spacing) */
 .page-bifurcation-seam {
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  gap: 12px !important;
-  margin: 24px 0 !important;
-  padding: 10px 0 !important;
+  gap: 10px !important;
+  margin: 12px 0 10px 0 !important;
+  padding: 4px 0 !important;
   width: 100% !important;
   box-sizing: border-box !important;
   flex-shrink: 0 !important;
@@ -3064,13 +3064,13 @@ header {
   opacity: 0.85;
 }
 
-/* Page 2 Block in Feed View: Fills full height of second page, with dignified top & bottom editorial margins */
+/* Page 2 Block in Feed View: Fills full height of second page, starting high up with 1-line top margin */
 .carousel-view .essay-page-block.essay-page-2,
 .slant-minute-scroll-viewport[data-bifurcated="true"] .essay-page-2 {
   min-height: 100% !important;
   height: auto !important;
-  padding-top: 16px !important;
-  padding-bottom: 28px !important;
+  padding-top: 4px !important;
+  padding-bottom: 14px !important;
   box-sizing: border-box !important;
   display: flex !important;
   flex-direction: column !important;
