@@ -1923,8 +1923,8 @@ function getPostShareUrl(post) {
 function getSourceHeadline(post) {
   if (!post) return 'this topic';
   let title = (
-    (typeof post.originalHeadline === 'string' && post.originalHeadline.trim()) ||
     (typeof post.sourceHeadline === 'string' && post.sourceHeadline.trim()) ||
+    (typeof post.originalHeadline === 'string' && post.originalHeadline.trim()) ||
     (typeof post.scrapedTitle === 'string' && post.scrapedTitle.trim()) ||
     (typeof post.sourceTitle === 'string' && post.sourceTitle.trim()) ||
     (typeof post.spark === 'string' && post.spark.trim()) ||
@@ -3861,23 +3861,30 @@ function buildSlide1Html(post, index, totalSlides = 2) {
   // 1. The Headline Excerpt of Source (Original Article / News Wire / Spark Excerpt)
   let rawNews = '';
   if (tier === 'tier3_opinion') {
-    rawNews = (post.spark && post.spark.trim())
-      ? post.spark.trim()
-      : ((post.originalHeadline && post.originalHeadline.trim())
-          ? post.originalHeadline.trim()
-          : ((post.userContext && post.userContext.trim())
-              ? post.userContext.trim()
-              : (post.receiptHighlightQuote || post.pullQuote || post.hook || '')));
+    rawNews = (post.sourceHeadline && post.sourceHeadline.trim())
+      ? post.sourceHeadline.trim()
+      : ((post.spark && post.spark.trim())
+          ? post.spark.trim()
+          : ((post.originalHeadline && post.originalHeadline.trim())
+              ? post.originalHeadline.trim()
+              : ((post.userContext && post.userContext.trim())
+                  ? post.userContext.trim()
+                  : (post.receiptHighlightQuote || post.pullQuote || post.hook || ''))));
   } else {
     // For news & web sources: pick authentic original source headline or high-signal excerpt
-    if (post.originalHeadline && post.originalHeadline.trim() && post.originalHeadline.trim() !== (post.adaptedHeadline || '').trim()) {
-      rawNews = post.originalHeadline.trim();
+    const explicitSource = (post.sourceHeadline && post.sourceHeadline.trim()) ? post.sourceHeadline.trim() : '';
+    const origHeadline = (post.originalHeadline && post.originalHeadline.trim()) ? post.originalHeadline.trim() : '';
+
+    if (explicitSource) {
+      rawNews = explicitSource;
+    } else if (origHeadline && origHeadline !== (post.adaptedHeadline || '').trim()) {
+      rawNews = origHeadline;
     } else if (post.receiptHighlightQuote && post.receiptHighlightQuote.trim() && post.receiptHighlightQuote.trim() !== (post.adaptedHeadline || '').trim()) {
       rawNews = post.receiptHighlightQuote.trim();
     } else if (post.pullQuote && post.pullQuote.trim() && post.pullQuote.trim() !== (post.adaptedHeadline || '').trim()) {
       rawNews = post.pullQuote.trim();
-    } else if (post.originalHeadline && post.originalHeadline.trim()) {
-      rawNews = post.originalHeadline.trim();
+    } else if (origHeadline) {
+      rawNews = origHeadline;
     } else if (post.hook && post.hook.trim()) {
       rawNews = post.hook.trim();
     }
@@ -4174,8 +4181,8 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
   const headline = escapeHtml(
     post.broadsheetHeadline ||
     (tier === "tier3_opinion"
-      ? (post.adaptedHeadline || post.originalHeadline)
-      : (post.originalHeadline || post.adaptedHeadline)) || "Curated Editorial"
+      ? (post.adaptedHeadline || post.sourceHeadline || post.originalHeadline)
+      : (post.sourceHeadline || post.originalHeadline || post.adaptedHeadline)) || "Curated Editorial"
   );
 
   const cleanExcerpt = (txt) => {
@@ -13470,7 +13477,7 @@ function getEditedProseFields(filterTab = null) {
 
   const fieldDefs = [
     { tab: 0, id: 'editModalHeadline', label: 'Slide 1: Hook Headline', snapshotKey: 'headline', minLen: 3 },
-    { tab: 0, id: 'editModalNewsExcerpt', label: 'Slide 1: Spark / Excerpt', snapshotKey: 'excerpt', minLen: 5 },
+    { tab: 0, id: 'editModalNewsExcerpt', label: 'Slide 1: Source Headline / Spark', snapshotKey: 'excerpt', minLen: 3 },
     { tab: 1, id: 'editModalS2Title', label: 'Slide 2: Stance Title', snapshotKey: 's2Title', minLen: 3 },
     { tab: 1, id: 'editModalOpinion', label: 'Slide 2: Curator Take', snapshotKey: 'opinion', minLen: 5 },
     { tab: 1, id: 'editModalWhyItMatters', label: 'Slide 2: Why It Matters', snapshotKey: 'whyItMatters', minLen: 5 },
@@ -13522,7 +13529,7 @@ function openEditPosterModal(initialTab = null) {
   if (catInput) catInput.value = currentSynthesizedPost.categoryBadge || 'OPINION';
   if (pubInput) pubInput.value = currentSynthesizedPost.publicationName || currentSynthesizedPost.sourcePublication || currentSynthesizedPost.sourceDomain || '';
   if (headInput) headInput.value = currentSynthesizedPost.adaptedHeadline || '';
-  if (excerptInput) excerptInput.value = currentSynthesizedPost.originalHeadline || currentSynthesizedPost.newsprintExcerpt || currentSynthesizedPost.hook || '';
+  if (excerptInput) excerptInput.value = currentSynthesizedPost.sourceHeadline || currentSynthesizedPost.spark || currentSynthesizedPost.originalHeadline || currentSynthesizedPost.newsprintExcerpt || currentSynthesizedPost.hook || '';
   if (handleInput) handleInput.value = currentSynthesizedPost.creatorHandle || '@curator';
   if (s2TitleInput) s2TitleInput.value = currentSynthesizedPost.critiqueBadge || (currentSynthesizedPost.keyTakeaways && currentSynthesizedPost.keyTakeaways[0] ? currentSynthesizedPost.keyTakeaways[0].toUpperCase() : 'THE CRITICAL PERSPECTIVE');
   if (opinionInput) opinionInput.value = currentSynthesizedPost.curatorTake || currentSynthesizedPost.creatorOpinion || '';
@@ -13920,9 +13927,12 @@ function applyEditModalFormValues() {
   }
   if (headInput && headInput.value.trim()) currentSynthesizedPost.adaptedHeadline = headInput.value.trim();
   if (excerptInput && excerptInput.value.trim()) {
-    currentSynthesizedPost.originalHeadline = excerptInput.value.trim();
-    currentSynthesizedPost.newsprintExcerpt = excerptInput.value.trim();
-    currentSynthesizedPost.hook = excerptInput.value.trim();
+    const val = excerptInput.value.trim();
+    currentSynthesizedPost.sourceHeadline = val;
+    currentSynthesizedPost.originalHeadline = val;
+    currentSynthesizedPost.spark = val;
+    currentSynthesizedPost.newsprintExcerpt = val;
+    currentSynthesizedPost.hook = val;
   }
   if (handleInput && handleInput.value.trim()) currentSynthesizedPost.creatorHandle = handleInput.value.trim();
 
@@ -13943,9 +13953,6 @@ function applyEditModalFormValues() {
   if (s3Head) {
     const headVal = s3Head.value.trim();
     currentSynthesizedPost.broadsheetHeadline = headVal;
-    if (headVal) {
-      currentSynthesizedPost.originalHeadline = headVal;
-    }
   }
   if (s3Quote) {
     const quoteVal = s3Quote.value.trim();
