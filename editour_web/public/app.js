@@ -4136,17 +4136,17 @@ function evaluateEssayBifurcation(post, index) {
   }
 
   // Editorial Page 1 target word budgets calibrated for 1-line margin at page end:
-  // - No photo: ~155 words (fills upper fold cleanly with 1-line margin at bottom edge)
-  // - Portrait photo (floated 3:4): ~115 words (fits alongside floated photo with 1-line margin)
-  // - Landscape photo (16:9 full width): ~88 words (fits below wide photo with 1-line margin)
+  // - No photo: ~168 words (fills upper fold cleanly with 1-line margin at bottom edge)
+  // - Portrait photo (floated 3:4): ~128 words (fits alongside floated photo with 1-line margin)
+  // - Landscape photo (16:9 full width): ~98 words (fits below wide photo with 1-line margin)
   const isVideoOrWide = post.sourceType === 'video_audio'
     || (typeof rawPhoto === 'string' && (rawPhoto.includes('ytimg.com') || rawPhoto.includes('youtube') || rawPhoto.includes('wide')));
 
-  let targetPage1Words = 115;
+  let targetPage1Words = 128;
   if (!hasPhoto) {
-    targetPage1Words = 155;
+    targetPage1Words = 168;
   } else if (isVideoOrWide) {
-    targetPage1Words = 88;
+    targetPage1Words = 98;
   }
 
   function splitIntoParagraphUnits(text) {
