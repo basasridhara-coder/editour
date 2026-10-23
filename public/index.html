@@ -63,48 +63,14 @@
     <main class="login-main-wrap">
       <div class="login-page-card-standalone">
         
-        <!-- Grand Editorial Masthead: Thoughtful Quote + Large Slant Logo Animation -->
-        <header class="slant-landing-masthead">
-          <div class="manifesto-text-col">
-            <div class="manifesto-badge">
-              <span class="manifesto-sparkle">✦</span>
-              <span>A PERSPECTIVE ENGINE</span>
-            </div>
-            <blockquote class="manifesto-quote">
-              <p class="manifesto-lead">
-                &ldquo;Thoughts are passing clouds. Left alone, they vanish into thin air. Gathered and condensed, they bring the rain that nourishes the earth.&rdquo;
-              </p>
-              <p class="manifesto-question">
-                When an insight crosses your mind, what will you do &mdash; let it drift past, or <span class="manifesto-slant-word">slant it?</span>
-              </p>
-            </blockquote>
-          </div>
-
-          <!-- Beside That: Large Logo Animation of Slant -->
-          <div class="manifesto-logo-wrap">
-            <div class="manifesto-logo-frame">
-              <img class="manifesto-logo-animated" src="/slanlogo.svg?v=20261013_2100" alt="Slant animated mark" width="1024" height="1024">
-            </div>
-            <span class="manifesto-logo-tag">FRAME YOUR STANCE</span>
-          </div>
-        </header>
-
-        <!-- Delicate Architectural Divider -->
-        <div class="landing-divider">
-          <div class="landing-divider-line"></div>
-          <span class="landing-divider-diamond">✦</span>
-          <div class="landing-divider-line"></div>
-        </div>
-
-        <!-- Main Login Body: Split Grid -->
-        <div class="slant-login-grid">
+        <!-- 3-Section Editorial Stage: Carousel | Quote with Logo Animation | Login -->
+        <div class="slant-triad-layout">
           
-          <!-- Left Column: Authentic 3:4 Sample Feed Carousel Section -->
-          <section class="slant-sample-carousel-section" aria-label="Sample Visual Postcards">
+          <!-- Section 1: Carousel (Desktop: Col 1 Left, Mobile: Order 3) -->
+          <section class="slant-triad-col triad-col-carousel" id="sectionCarousel" aria-label="Sample Visual Postcards">
             <div class="sample-carousel-header">
               <div class="sample-carousel-title-col">
                 <span class="sample-carousel-label">✦ SAMPLE EDITIONS</span>
-                <span class="sample-carousel-sub">Explore how raw thought condenses into 3 visual posters</span>
               </div>
               <!-- Story Switcher Pills -->
               <div class="login-stories-switcher" id="loginStoriesSwitcher"></div>
@@ -132,8 +98,34 @@
             </div>
           </section>
 
-          <!-- Right Side: Dedicated Auth Sanctuary -->
-          <div class="slant-login-auth-col">
+          <!-- Section 2: Quote with Logo Animation (Desktop: Col 2 Center, Mobile: Order 1 Top) -->
+          <section class="slant-triad-col triad-col-manifesto" id="sectionManifesto">
+            <div class="manifesto-quote-block">
+              <div class="manifesto-badge">
+                <span class="manifesto-sparkle">✦</span>
+                <span>A PERSPECTIVE ENGINE</span>
+              </div>
+              <blockquote class="manifesto-quote">
+                <p class="manifesto-lead">
+                  &ldquo;Thoughts are passing clouds. Left alone, they vanish into thin air. Gathered and condensed, they bring the rain that nourishes the earth.&rdquo;
+                </p>
+                <p class="manifesto-question">
+                  When an insight crosses your mind, what will you do &mdash; let it drift past, or <span class="manifesto-slant-word">slant it?</span>
+                </p>
+              </blockquote>
+            </div>
+
+            <!-- Logo Animation of Slant -->
+            <div class="manifesto-logo-block">
+              <div class="manifesto-logo-frame">
+                <img class="manifesto-logo-animated" src="/slanlogo.svg?v=20261013_2100" alt="Slant animated mark" width="1024" height="1024">
+              </div>
+              <span class="manifesto-logo-tag">FRAME YOUR STANCE</span>
+            </div>
+          </section>
+
+          <!-- Section 3: Dedicated Auth Sanctuary (Desktop: Col 3 Right, Mobile: Order 2) -->
+          <section class="slant-triad-col triad-col-auth slant-login-auth-col" id="sectionAuth">
             <div class="auth-header">
               <div class="auth-badge-icon auth-badge-video-wrap">
                 <img class="auth-badge-video" src="/slanlogo.svg?v=20261013_2100" alt="Slant Logo" width="1024" height="1024">
@@ -194,7 +186,7 @@
             <div class="auth-terms-note">
               🔒 100% Ad-Free • Zero Data Selling • Saved Bookmarks Sync Across Devices
             </div>
-          </div>
+          </section>
 
         </div>
       </div>

@@ -3577,15 +3577,53 @@ header {
   overflow-x: hidden;
 }
 
+.signed-out-page-view {
+  width: 100%;
+  height: 100vh;
+  min-height: 100vh;
+  max-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-base, #F8F5EE);
+  color: var(--text-primary, #0F172A);
+  font-family: 'Inter', -apple-system, sans-serif;
+  overflow: hidden; /* Desktop single frame, zero page scroll */
+  box-sizing: border-box;
+}
+
+[data-theme="obsidian"] .signed-out-page-view {
+  background: #050813;
+  color: #F8FAFC;
+}
+
+.login-main-wrap {
+  flex: 1;
+  width: 100%;
+  max-width: 100vw;
+  height: 100%;
+  max-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 24px;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
 .login-page-card-standalone {
   width: 100%;
-  max-width: 1360px;
+  max-width: 1380px;
+  height: auto;
+  max-height: calc(100vh - 44px);
   background: var(--bg-card, #FFFFFF);
   background-image: 
     radial-gradient(ellipse at 85% 10%, rgba(99, 102, 241, 0.06), transparent 50%),
     radial-gradient(ellipse at 15% 90%, rgba(245, 158, 11, 0.05), transparent 45%);
   border: 1px solid var(--border-subtle, rgba(15, 23, 42, 0.09));
-  border-radius: 28px;
+  border-radius: 26px;
   box-shadow: 
     0 25px 60px -15px rgba(15, 23, 42, 0.10),
     0 0 0 1px rgba(99, 102, 241, 0.12);
@@ -3593,7 +3631,7 @@ header {
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
-  padding: 32px 36px 36px 36px;
+  padding: 20px 24px;
 }
 
 [data-theme="obsidian"] .login-page-card-standalone {
@@ -3969,226 +4007,59 @@ header {
 }
 
 /* ============================================================
-   SIGNED-OUT LANDING PAGE: GRAND EDITORIAL MASTHEAD + SAMPLE FEED
+   SIGNED-OUT LANDING PAGE: 3-SECTION TRIAD LAYOUT (DESKTOP SINGLE FRAME)
+   Order: 1. Carousel | 2. Quote with Logo Animation | 3. Login
    ============================================================ */
 
-/* 1. Grand Full-Width Masthead */
-.slant-landing-masthead {
-  display: flex;
+.slant-triad-layout {
+  display: grid;
+  grid-template-columns: minmax(300px, 330px) minmax(360px, 1fr) minmax(300px, 340px);
+  gap: 24px;
   align-items: center;
-  justify-content: space-between;
-  gap: 36px;
-  width: 100%;
-  box-sizing: border-box;
-  padding: 4px 6px 20px 6px;
-}
-
-.manifesto-text-col {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.manifesto-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 10.5px;
-  font-weight: 800;
-  letter-spacing: 1.4px;
-  text-transform: uppercase;
-  color: #D97706;
-  background: rgba(217, 119, 6, 0.10);
-  border: 1px solid rgba(217, 119, 6, 0.28);
-  padding: 4px 12px;
-  border-radius: 14px;
-  width: fit-content;
-}
-
-.manifesto-sparkle {
-  font-size: 11px;
-}
-
-.manifesto-quote {
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.manifesto-lead {
-  font-family: 'Playfair Display', 'Merriweather', Georgia, serif;
-  font-size: 21px;
-  line-height: 1.48;
-  font-weight: 500;
-  font-style: italic;
-  color: var(--text-primary, #0F172A);
-  margin: 0;
-  letter-spacing: -0.2px;
-}
-
-[data-theme="obsidian"] .manifesto-lead {
-  color: #F1F5F9;
-}
-
-.manifesto-question {
-  font-family: 'Playfair Display', 'Merriweather', Georgia, serif;
-  font-size: 18.5px;
-  line-height: 1.44;
-  font-weight: 700;
-  color: var(--text-primary, #0F172A);
-  margin: 0;
-  letter-spacing: -0.2px;
-}
-
-[data-theme="obsidian"] .manifesto-question {
-  color: #FFFFFF;
-}
-
-.manifesto-slant-word {
-  background: linear-gradient(135deg, #7C3AED 0%, #EA580C 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  font-weight: 900;
-  font-style: normal;
-  text-decoration: underline;
-  text-decoration-color: #EA580C;
-  text-underline-offset: 4px;
-}
-
-/* Beside That: Large Logo Animation of Slant */
-.manifesto-logo-wrap {
-  flex: 0 0 auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-}
-
-.manifesto-logo-frame {
-  width: 165px;
-  height: 165px;
-  border-radius: 36px;
-  background: #FAF6ED;
-  border: 1.5px solid rgba(99, 102, 241, 0.35);
-  box-shadow: 
-    0 18px 48px -10px rgba(99, 102, 241, 0.38),
-    0 0 28px rgba(245, 158, 11, 0.15);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  position: relative;
-  contain: paint;
-  animation: manifestoLogoGlow 6s ease-in-out infinite alternate;
-}
-
-[data-theme="obsidian"] .manifesto-logo-frame {
-  background: #090E1E;
-  border: 1.5px solid rgba(99, 102, 241, 0.45);
-  box-shadow: 
-    0 22px 55px -10px rgba(0, 0, 0, 0.8),
-    0 0 35px rgba(99, 102, 241, 0.3);
-}
-
-@keyframes manifestoLogoGlow {
-  0% {
-    box-shadow: 0 16px 40px -10px rgba(99, 102, 241, 0.35), 0 0 20px rgba(245, 158, 11, 0.12);
-    transform: translateY(0);
-  }
-  100% {
-    box-shadow: 0 22px 55px -8px rgba(99, 102, 241, 0.5), 0 0 32px rgba(245, 158, 11, 0.25);
-    transform: translateY(-2px);
-  }
-}
-
-.manifesto-logo-animated {
   width: 100%;
   height: 100%;
-  object-fit: contain;
-  object-position: center;
-  display: block;
-}
-
-.manifesto-logo-tag {
-  font-family: 'Space Grotesk', -apple-system, sans-serif;
-  font-size: 9.5px;
-  font-weight: 800;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  color: #64748B;
-}
-
-[data-theme="obsidian"] .manifesto-logo-tag {
-  color: #94A3B8;
-}
-
-/* 2. Delicate Architectural Hairline Divider */
-.landing-divider {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  width: 100%;
-  margin: 4px 0 24px 0;
-}
-
-.landing-divider-line {
-  flex: 1;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(15, 23, 42, 0.12), transparent);
-}
-
-[data-theme="obsidian"] .landing-divider-line {
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.12), transparent);
-}
-
-.landing-divider-diamond {
-  color: #D97706;
-  font-size: 11px;
-  opacity: 0.85;
-}
-
-/* 3. Main Login Split Grid */
-.slant-login-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.28fr) minmax(350px, 390px);
-  gap: 36px;
-  align-items: start;
-  width: 100%;
   box-sizing: border-box;
 }
 
-/* 4. Left Column: Authentic 3:4 Sample Feed Carousel Section */
-.slant-sample-carousel-section {
+.slant-triad-col {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  width: 100%;
-  min-width: 0;
   box-sizing: border-box;
+  min-width: 0;
+}
+
+/* ------------------------------------------------------------
+   Section 1: Carousel (Desktop: Column 1 Left)
+   ------------------------------------------------------------ */
+.triad-col-carousel {
+  order: 1;
+  gap: 8px;
+  align-items: center;
+  border-right: 1px solid rgba(15, 23, 42, 0.08);
+  padding-right: 22px;
+}
+
+[data-theme="obsidian"] .triad-col-carousel {
+  border-right-color: rgba(255, 255, 255, 0.08);
 }
 
 .sample-carousel-header {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  flex-wrap: wrap;
-  padding: 0 4px;
+  flex-direction: column;
+  gap: 5px;
+  width: 100%;
+  max-width: 310px;
 }
 
 .sample-carousel-title-col {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .sample-carousel-label {
   font-family: 'Space Grotesk', -apple-system, sans-serif;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.8px;
   text-transform: uppercase;
@@ -4196,17 +4067,17 @@ header {
 }
 
 .sample-carousel-sub {
-  font-size: 11px;
-  color: var(--text-secondary, #64748B);
+  display: none;
 }
 
 /* Story Switcher Pills */
 .login-stories-switcher {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   overflow-x: auto;
-  padding: 2px 0 4px 0;
+  padding: 1px 0 2px 0;
   scrollbar-width: none;
+  width: 100%;
 }
 
 .login-stories-switcher::-webkit-scrollbar {
@@ -4216,18 +4087,19 @@ header {
 .story-switch-pill {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 5px 12px;
-  border-radius: 20px;
+  gap: 5px;
+  padding: 4px 9px;
+  border-radius: 14px;
   background: rgba(15, 23, 42, 0.05);
   border: 1px solid rgba(15, 23, 42, 0.12);
   color: #475569;
   font-family: 'Space Grotesk', -apple-system, sans-serif;
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 700;
   cursor: pointer;
   white-space: nowrap;
   transition: all 0.2s ease;
+  flex-shrink: 0;
 }
 
 [data-theme="obsidian"] .story-switch-pill {
@@ -4247,25 +4119,24 @@ header {
   background: linear-gradient(135deg, rgba(99, 102, 241, 0.22), rgba(217, 119, 6, 0.22));
   border-color: #D97706;
   color: #D97706;
-  box-shadow: 0 2px 10px rgba(217, 119, 6, 0.2);
+  box-shadow: 0 2px 8px rgba(217, 119, 6, 0.2);
 }
 
 [data-theme="obsidian"] .story-switch-pill.active {
   background: linear-gradient(135deg, rgba(99, 102, 241, 0.35), rgba(217, 119, 6, 0.30));
   border-color: #F59E0B;
   color: #F59E0B;
-  box-shadow: 0 2px 12px rgba(245, 158, 11, 0.28);
+  box-shadow: 0 2px 10px rgba(245, 158, 11, 0.28);
 }
 
-/* Slide Step Navigation Tabs directly above the card */
+/* Slide Step Tabs */
 .sample-slide-tabs {
   display: flex !important;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 6px;
   width: 100%;
-  max-width: 440px;
-  margin: 0 auto;
+  max-width: 310px;
   box-sizing: border-box;
 }
 
@@ -4273,15 +4144,15 @@ header {
   display: inline-flex !important;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 4px;
   flex: 1;
-  padding: 8px 12px;
-  border-radius: 12px;
+  padding: 5px 6px;
+  border-radius: 9px;
   background: rgba(15, 23, 42, 0.05);
   border: 1px solid rgba(15, 23, 42, 0.10);
   color: #64748B;
   font-family: 'Space Grotesk', -apple-system, sans-serif;
-  font-size: 11.5px;
+  font-size: 10.5px;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -4305,19 +4176,19 @@ header {
   background: linear-gradient(135deg, rgba(99, 102, 241, 0.18), rgba(217, 119, 6, 0.18));
   border-color: #D97706;
   color: #D97706;
-  box-shadow: 0 4px 14px rgba(217, 119, 6, 0.15);
+  box-shadow: 0 2px 8px rgba(217, 119, 6, 0.15);
 }
 
 [data-theme="obsidian"] .sample-slide-tab.carousel-tab-btn.active {
   background: linear-gradient(135deg, rgba(99, 102, 241, 0.35), rgba(217, 119, 6, 0.25));
   border-color: #F59E0B;
   color: #F59E0B;
-  box-shadow: 0 4px 16px rgba(245, 158, 11, 0.25);
+  box-shadow: 0 2px 10px rgba(245, 158, 11, 0.25);
 }
 
 .sample-tab-num {
   font-weight: 800;
-  font-size: 10px;
+  font-size: 9px;
   letter-spacing: 0.5px;
   opacity: 0.85;
 }
@@ -4327,11 +4198,10 @@ header {
   letter-spacing: 0.2px;
 }
 
-/* 5. Authentic Feed Card Host */
+/* Card Host (310px width x 413px height, perfectly fitted) */
 .sample-feed-card-host {
   width: 100%;
-  max-width: 440px;
-  margin: 0 auto;
+  max-width: 310px;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -4340,42 +4210,252 @@ header {
 
 .sample-feed-card-host .post-card {
   width: 100%;
-  max-width: 440px;
+  max-width: 310px;
   margin: 0;
-  border-radius: 20px;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.12);
+  border-radius: 18px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.10);
   overflow: hidden;
   transition: transform 0.25s ease, box-shadow 0.25s ease;
 }
 
 [data-theme="obsidian"] .sample-feed-card-host .post-card {
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.55);
   border-color: rgba(255, 255, 255, 0.12);
 }
 
 .sample-feed-card-host .post-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 24px 55px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.15);
 }
 
 [data-theme="obsidian"] .sample-feed-card-host .post-card:hover {
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.75);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.7);
 }
 
-/* Right Auth Sanctuary */
-.slant-login-auth-col {
-  padding: 28px 30px;
-  background: rgba(15, 23, 42, 0.03);
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 24px;
+/* Scoped 310px Card Scalings */
+.sample-feed-card-host .post-card .post-header {
+  padding: 8px 12px 6px 12px;
+}
+
+.sample-feed-card-host .post-card .post-user-info .post-creator-name {
+  font-size: 11.5px;
+}
+
+.sample-feed-card-host .post-card .post-category-badge {
+  font-size: 9px;
+  padding: 2px 6px;
+}
+
+.sample-feed-card-host .post-card .slide-hook-headline {
+  font-size: 15px !important;
+  line-height: 1.25 !important;
+}
+
+.sample-feed-card-host .post-card .critique-opinion-text {
+  font-size: 13px !important;
+  line-height: 1.4 !important;
+}
+
+.sample-feed-card-host .post-card .slant-minute-scroll-viewport {
+  padding: 10px 14px 12px 14px !important;
+}
+
+.sample-feed-card-host .post-card .receipt-headline {
+  font-size: 12.5px !important;
+  line-height: 1.25 !important;
+}
+
+.sample-feed-card-host .post-card .receipt-p1,
+.sample-feed-card-host .post-card .receipt-p3 {
+  font-size: 10.2px !important;
+  line-height: 1.42 !important;
+}
+
+.sample-feed-card-host .post-card .post-content {
+  padding: 6px 12px 8px 12px;
+}
+
+.sample-feed-card-host .post-card .post-summary-snippet {
+  font-size: 11.5px;
+  line-height: 1.35;
+}
+
+/* ------------------------------------------------------------
+   Section 2: Quote with Logo Animation (Desktop: Column 2 Middle)
+   ------------------------------------------------------------ */
+.triad-col-manifesto {
+  order: 2;
+  gap: 18px;
+  align-items: center;
+  text-align: center;
+  padding: 0 16px;
+  border-right: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+[data-theme="obsidian"] .triad-col-manifesto {
+  border-right-color: rgba(255, 255, 255, 0.08);
+}
+
+.manifesto-quote-block {
   display: flex;
   flex-direction: column;
-  justify-content: flex-start;
-  box-sizing: border-box;
-  width: 100%;
+  align-items: center;
+  gap: 10px;
+  max-width: 480px;
 }
 
-[data-theme="obsidian"] .slant-login-auth-col {
+.manifesto-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.3px;
+  text-transform: uppercase;
+  color: #D97706;
+  background: rgba(217, 119, 6, 0.10);
+  border: 1px solid rgba(217, 119, 6, 0.28);
+  padding: 3px 11px;
+  border-radius: 12px;
+  width: fit-content;
+}
+
+.manifesto-sparkle {
+  font-size: 10.5px;
+}
+
+.manifesto-quote {
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.manifesto-lead {
+  font-family: 'Playfair Display', 'Merriweather', Georgia, serif;
+  font-size: 19.5px;
+  line-height: 1.45;
+  font-weight: 500;
+  font-style: italic;
+  color: var(--text-primary, #0F172A);
+  margin: 0;
+  letter-spacing: -0.2px;
+}
+
+[data-theme="obsidian"] .manifesto-lead {
+  color: #F1F5F9;
+}
+
+.manifesto-question {
+  font-family: 'Playfair Display', 'Merriweather', Georgia, serif;
+  font-size: 17px;
+  line-height: 1.42;
+  font-weight: 700;
+  color: var(--text-primary, #0F172A);
+  margin: 0;
+  letter-spacing: -0.2px;
+}
+
+[data-theme="obsidian"] .manifesto-question {
+  color: #FFFFFF;
+}
+
+.manifesto-slant-word {
+  background: linear-gradient(135deg, #7C3AED 0%, #EA580C 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: 900;
+  font-style: normal;
+  text-decoration: underline;
+  text-decoration-color: #EA580C;
+  text-underline-offset: 4px;
+}
+
+/* Large Animated Logo of Slant */
+.manifesto-logo-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+}
+
+.manifesto-logo-frame {
+  width: 140px;
+  height: 140px;
+  border-radius: 30px;
+  background: #FAF6ED;
+  border: 1.5px solid rgba(99, 102, 241, 0.35);
+  box-shadow: 
+    0 16px 38px -8px rgba(99, 102, 241, 0.35),
+    0 0 24px rgba(245, 158, 11, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+  contain: paint;
+  animation: manifestoLogoGlow 6s ease-in-out infinite alternate;
+}
+
+[data-theme="obsidian"] .manifesto-logo-frame {
+  background: #090E1E;
+  border: 1.5px solid rgba(99, 102, 241, 0.45);
+  box-shadow: 
+    0 20px 48px -10px rgba(0, 0, 0, 0.8),
+    0 0 30px rgba(99, 102, 241, 0.3);
+}
+
+@keyframes manifestoLogoGlow {
+  0% {
+    box-shadow: 0 14px 34px -8px rgba(99, 102, 241, 0.35), 0 0 18px rgba(245, 158, 11, 0.12);
+    transform: translateY(0);
+  }
+  100% {
+    box-shadow: 0 18px 44px -6px rgba(99, 102, 241, 0.5), 0 0 28px rgba(245, 158, 11, 0.25);
+    transform: translateY(-2px);
+  }
+}
+
+.manifesto-logo-animated {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+  display: block;
+}
+
+.manifesto-logo-tag {
+  font-family: 'Space Grotesk', -apple-system, sans-serif;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: #64748B;
+}
+
+[data-theme="obsidian"] .manifesto-logo-tag {
+  color: #94A3B8;
+}
+
+/* ------------------------------------------------------------
+   Section 3: Dedicated Auth Sanctuary (Desktop: Column 3 Right)
+   ------------------------------------------------------------ */
+.triad-col-auth {
+  order: 3;
+  padding: 20px 22px;
+  background: rgba(15, 23, 42, 0.03);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 330px;
+}
+
+[data-theme="obsidian"] .triad-col-auth {
   background: #0B1122;
   border-color: rgba(255, 255, 255, 0.08);
 }
@@ -4686,106 +4766,52 @@ header {
     display: inline-flex !important;
   }
 
-  /* Grid turns into Column Flexbox with Auth prioritized on top */
-  .slant-login-grid {
+  /* Mobile Single Column: Quote on top -> Logo Animation -> Google Login -> Carousel */
+  .signed-out-page-view {
+    height: auto;
+    min-height: 100vh;
+    max-height: none;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    justify-content: flex-start;
+  }
+
+  .login-main-wrap {
+    height: auto;
+    max-height: none;
+    overflow-y: visible;
+    padding: 14px 12px 32px 12px;
+    justify-content: flex-start;
+  }
+
+  .login-page-card-standalone {
+    max-height: none;
+    overflow: visible;
+    padding: 18px 14px 26px 14px;
+    border-radius: 20px;
+  }
+
+  .slant-triad-layout {
     display: flex;
     flex-direction: column;
-    overflow-y: visible;
-    overflow-x: hidden;
-    max-height: none;
-    width: 100%;
-    max-width: 100%;
-    min-width: 0;
-    box-sizing: border-box;
-  }
-
-  /* 1. Auth Column Comes First */
-  .slant-login-auth-col {
-    order: 1;
-    width: 100%;
-    max-width: 100%;
-    min-width: 0;
-    box-sizing: border-box;
-    overflow: hidden;
-    padding: 24px 20px 22px 20px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  }
-
-  [data-theme="daylight"] .slant-login-auth-col {
-    border-bottom: 1px solid #E2E8F0;
-  }
-
-  .slant-login-auth-col .auth-header {
-    margin-bottom: 16px;
-    width: 100%;
-    max-width: 100%;
-    box-sizing: border-box;
-  }
-
-  .slant-login-auth-col .auth-badge-icon {
-    width: 52px;
-    height: 52px;
-    margin-bottom: 10px;
-    border-radius: 14px;
-    background: #F4EEDC;
-    overflow: hidden;
-    padding: 2px;
-    box-sizing: border-box;
-  }
-
-  .slant-login-auth-col .auth-badge-img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    transform: scale(1.08) translateY(-1%);
-    transform-origin: center center;
-  }
-
-  .slant-login-auth-col .auth-title {
-    font-size: 22px;
-    margin-bottom: 6px;
-  }
-
-  .slant-login-auth-col .auth-desc {
-    font-size: 12.5px;
-    line-height: 1.42;
-    max-width: 100%;
-  }
-
-  .oauth-login-btn {
-    height: 46px;
-    font-size: 14px;
-    width: 100%;
-    max-width: 100%;
-    box-sizing: border-box;
-  }
-
-  /* Enforce 16px input font to prevent iOS Safari auto-zoom */
-  .auth-field input,
-  #authEmailInput,
-  #loginPasswordInput {
-    font-size: 16px !important;
-    height: 46px;
-    width: 100%;
-    max-width: 100%;
-    box-sizing: border-box;
-  }
-
-  .auth-primary-btn {
-    height: 46px;
-    font-size: 14px;
-    width: 100%;
-    max-width: 100%;
-    box-sizing: border-box;
-  }
-
-  /* Responsive Masthead on Mobile */
-  .slant-landing-masthead {
-    flex-direction: column-reverse;
-    text-align: center;
+    gap: 20px;
     align-items: center;
-    gap: 18px;
-    padding-bottom: 16px;
+    width: 100%;
+  }
+
+  /* 1. Quote on top, Logo Animation below quote */
+  .triad-col-manifesto {
+    order: 1; /* First on mobile! */
+    width: 100%;
+    border-right: none;
+    padding: 0;
+    gap: 14px;
+  }
+
+  .manifesto-quote-block {
+    text-align: center;
+    gap: 10px;
+    max-width: 100%;
   }
 
   .manifesto-badge {
@@ -4793,34 +4819,83 @@ header {
   }
 
   .manifesto-lead {
-    font-size: 17.5px;
+    font-size: 17px;
     line-height: 1.45;
   }
 
   .manifesto-question {
-    font-size: 15.5px;
-    line-height: 1.42;
+    font-size: 15px;
+    line-height: 1.4;
+  }
+
+  .manifesto-logo-block {
+    margin: 2px auto 0 auto;
   }
 
   .manifesto-logo-frame {
-    width: 130px;
-    height: 130px;
-    border-radius: 28px;
+    width: 120px;
+    height: 120px;
+    border-radius: 26px;
   }
 
-  .landing-divider {
-    margin: 4px 0 20px 0;
-  }
-
-  /* 2. Sample Carousel Section on Mobile */
-  .slant-sample-carousel-section {
-    order: 2;
+  /* 2. Below Logo Animation: Google Login */
+  .triad-col-auth {
+    order: 2; /* Second on mobile! */
     width: 100%;
     max-width: 100%;
-    min-width: 0;
-    box-sizing: border-box;
-    padding: 0 4px;
+    padding: 20px 16px 22px 16px;
+    border-radius: 18px;
+  }
+
+  .slant-login-auth-col .auth-header {
+    margin-bottom: 12px;
+    text-align: center;
+  }
+
+  .slant-login-auth-col .auth-badge-icon {
+    display: none !important;
+  }
+
+  .slant-login-auth-col .auth-title {
+    font-size: 19px;
+    margin-bottom: 4px;
+  }
+
+  .slant-login-auth-col .auth-desc {
+    display: none;
+  }
+
+  .oauth-login-btn {
+    height: 46px;
+    font-size: 14px;
+    width: 100%;
+  }
+
+  .auth-field input,
+  #authEmailInput,
+  #loginPasswordInput {
+    font-size: 16px !important;
+    height: 44px;
+    width: 100%;
+  }
+
+  .auth-primary-btn {
+    height: 44px;
+    font-size: 14px;
+    width: 100%;
+  }
+
+  /* 3. Below Login: Carousel Section */
+  .triad-col-carousel {
+    order: 3; /* Third on mobile! */
+    width: 100%;
+    border-right: none;
+    padding-right: 0;
     gap: 12px;
+  }
+
+  .sample-carousel-header {
+    max-width: 100%;
   }
 
   .sample-slide-tabs {
