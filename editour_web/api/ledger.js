@@ -10,7 +10,7 @@ const FALLBACK_MODEL = 'gemini-3.8-flash';
 
 async function generateLedgerForSource(title = '', content = '', url = '', siteName = '') {
   const cleanTitle = (title || '').trim();
-  const cleanContent = (content || '').trim().slice(0, 10000);
+  const cleanContent = (content || '').trim().slice(0, 36000);
   const cleanUrl = (url || '').trim();
 
   if (!cleanTitle && !cleanContent && !cleanUrl) {
@@ -45,9 +45,13 @@ DUAL-GRANULARITY REQUIREMENT:
    - 'core_claims_and_evidence': exactly 3 rich claims (bold title + 2-3 sentences evidence, ~30-35 words each).
    - 'underlying_tensions': primary_conflict (~15-20 words), tradeoffs (~15-20 words), counter_questions (~10-15 words).
 
-2. DETAILED FACTS MODE (Deep-Dive Granular Receipts & Key Specifics):
-   - 'key_facts': A list of 4-6 specific, concrete factual elements from the source: exact named figures/institutions, legal/statutory sections (e.g. Section 164), metrics, dates, pen drives, documents, or physical evidence cited.
-   - 'detailed_claims': 3-4 in-depth claims. Each claim MUST have a bold title, an elaborate 3-4 sentence evidence breakdown providing exact names, sequence of events, and receipts, and where available a 'quote' containing a key verbatim statement or translated quote from the speaker/author.
+2. DETAILED FACTS MODE (Deep-Dive Granular Receipts & Spoken Specifics):
+   IMPORTANT: If someone does not watch the video or read the full article, reading this Detailed Facts section must give them complete, exhaustive knowledge of all actual spoken arguments, points, and nuances!
+   - 'key_facts': A list of 6-10 specific, concrete factual and spoken elements from the source: exact named figures/institutions, legal/statutory sections, data metrics, dates, physical evidence, philosophical distinctions (e.g. brain as receiver vs creator of consciousness), scientific mechanisms, specific analogies, or key books/studies cited.
+   - 'detailed_claims': 4-6 comprehensive in-depth sections covering each major topic or chronological phase of the talk/article. Each section MUST have:
+     * 'title': Specific bold title naming the exact topic or spoken segment.
+     * 'evidence': Elaborate, deep-dive spoken breakdown (4-7 detailed sentences, ~80-140 words) detailing what the speaker/author actually stated, their arguments, the logical steps, specific analogies, examples, and conclusions. Do not provide high-level summaries; provide the actual substantive spoken details.
+     * 'quote': A key verbatim quote or faithful spoken statement directly from the speaker/author on this point.
 
 STRICT CONSTRAINTS:
 1. ABSOLUTE NEUTRALITY: Do not take a side, endorse, or debunk any claim.
@@ -86,22 +90,29 @@ Return pure valid JSON matching this schema:
       "Specific concrete fact, metric, named figure, legal section, or verified date 1",
       "Specific concrete fact, metric, named figure, legal section, or verified date 2",
       "Specific concrete fact, metric, named figure, legal section, or verified date 3",
-      "Specific concrete fact, metric, named figure, legal section, or verified date 4"
+      "Specific concrete fact, metric, named figure, legal section, or verified date 4",
+      "Specific concrete fact, metric, named figure, legal section, or verified date 5",
+      "Specific concrete fact, metric, named figure, legal section, or verified date 6"
     ],
     "detailed_claims": [
       {
-        "title": "In-depth claim title 1",
-        "evidence": "Deep-dive factual breakdown with exact named entities, sequence of events, and receipts as stated in source.",
+        "title": "In-depth section title 1",
+        "evidence": "Deep-dive factual and spoken breakdown with exact arguments, analogies, and receipts as stated in source.",
         "quote": "Verbatim key quote or translated exact statement from speaker/author."
       },
       {
-        "title": "In-depth claim title 2",
-        "evidence": "Deep-dive factual breakdown with exact named entities, sequence of events, and receipts as stated in source.",
+        "title": "In-depth section title 2",
+        "evidence": "Deep-dive factual and spoken breakdown with exact arguments, analogies, and receipts as stated in source.",
         "quote": "Verbatim key quote or translated exact statement from speaker/author."
       },
       {
-        "title": "In-depth claim title 3",
-        "evidence": "Deep-dive factual breakdown with exact named entities, sequence of events, and receipts as stated in source.",
+        "title": "In-depth section title 3",
+        "evidence": "Deep-dive factual and spoken breakdown with exact arguments, analogies, and receipts as stated in source.",
+        "quote": "Verbatim key quote or translated exact statement from speaker/author."
+      },
+      {
+        "title": "In-depth section title 4",
+        "evidence": "Deep-dive factual and spoken breakdown with exact arguments, analogies, and receipts as stated in source.",
         "quote": "Verbatim key quote or translated exact statement from speaker/author."
       }
     ]
@@ -163,7 +174,7 @@ module.exports = handler;
 async function callGeminiLedger(systemPrompt, sourceContext, modelName) {
   const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${GEMINI_API_KEY}`;
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 15000);
+  const timeout = setTimeout(() => controller.abort(), 25000);
 
   const resp = await fetch(geminiUrl, {
     method: 'POST',
@@ -323,14 +334,30 @@ function buildFallbackLedger(title, content, siteName, defaultScope = 'Curated S
     .split(/(?<=[.!?])\s+/)
     .map(s => s.trim())
     .filter(s => s.length > 20 && !s.includes('cookie') && !s.includes('subscribe'))
-    .slice(0, 6);
+    .slice(0, 8);
 
   const claims = sentences.length > 0
-    ? sentences.map((s, idx) => ({
+    ? sentences.slice(0, 4).map((s, idx) => ({
         title: `Observation ${idx + 1}`,
         evidence: `${sourceName} reports that ${s.replace(/^[A-Z]/, c => c.toLowerCase())}`
       }))
     : [{ title: 'Primary Report', evidence: `${sourceName} highlights developments regarding "${headline}".` }];
+
+  const fallbackKeyFacts = sentences.length > 0
+    ? sentences.slice(0, 6).map(s => `${s.replace(/^[a-z]/, c => c.toUpperCase())}`)
+    : [
+        `Reporting documented by ${sourceName}.`,
+        `Subject matter centers on "${headline}".`,
+        `Primary context established from source publication and factual claims.`
+      ];
+
+  const fallbackDetailedClaims = sentences.length > 0
+    ? sentences.slice(0, 5).map((s, idx) => ({
+        title: `Detailed Spoken Section ${idx + 1}`,
+        evidence: `${sourceName} articulates: ${s}`,
+        quote: s.length > 35 ? s.slice(0, 120) + (s.length > 120 ? '...' : '') : ''
+      }))
+    : claims.map(c => ({ title: c.title, evidence: c.evidence, quote: '' }));
 
   return {
     subject_and_thesis: {
@@ -342,6 +369,10 @@ function buildFallbackLedger(title, content, siteName, defaultScope = 'Curated S
       primary_conflict: `The central friction centers on how stakeholders navigate the shifting balance between current actions and future expectations.`,
       tradeoffs: `Immediate decisions involve compromises regarding resources, allocation priorities, and regulatory timelines.`,
       counter_questions: `What counter-perspectives exist among competing analysts, and how will long-term outcomes be evaluated?`
+    },
+    detailed: {
+      key_facts: fallbackKeyFacts,
+      detailed_claims: fallbackDetailedClaims
     },
     source_scope: defaultScope
   };

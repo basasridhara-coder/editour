@@ -5443,10 +5443,12 @@ function getPostGenerationInputs(post) {
     || raw.innerVoiceImageMimeType
     || 'image/jpeg';
   const hasAttachedPhoto = Boolean(rawPhoto && typeof rawPhoto === 'string' && rawPhoto.trim().length > 10);
+  const sourceLedger = raw.sourceLedger || post.sourceLedger || null;
 
   return {
     slantTake,
     sourceUrl,
+    sourceLedger,
     sourceType,
     spark,
     cues,
@@ -5909,12 +5911,37 @@ function loadPostIntoStudioToRegenerate(postId) {
       title: inputs.scrapedTitle || '',
       content: inputs.scrapedContent || '',
       url: inputs.sourceUrl || '',
+      siteName: getCleanDomain(inputs.sourceUrl || '') || 'Web',
       imageUrl: (inputs.sourcePhoto && inputs.sourcePhoto.startsWith('http')) ? inputs.sourcePhoto : '',
       imageBase64: (inputs.sourcePhoto && !inputs.sourcePhoto.startsWith('http')) ? inputs.sourcePhoto : null
     };
   }
-  if (inputs.sourceLedger) {
-    renderSourceLedger(inputs.sourceLedger);
+
+  const restoredLedger = inputs.sourceLedger || post.sourceLedger || post.generationInputs?.sourceLedger || null;
+  const targetUrl = (inputs.sourceUrl || '').trim();
+  const isWebSource = (inputs.sourceType !== 'inner_voice');
+
+  if (isWebSource && targetUrl) {
+    const domainName = (currentScrapedArticle?.siteName) || getCleanDomain(targetUrl) || 'Web';
+    const displayTitle = inputs.scrapedTitle || currentScrapedArticle?.title || targetUrl;
+
+    if (restoredLedger) {
+      currentSourceLedger = restoredLedger;
+      isSourceLedgerExpanded = false;
+      renderSourceLedger(restoredLedger);
+      renderUrlScrapeSuccessIndicator(domainName, displayTitle, true, true);
+    } else {
+      // Auto-fetch so user never has to delete and re-enter the link
+      handleUrlInput(targetUrl);
+    }
+  } else if (!isWebSource) {
+    const ind = document.getElementById('urlScrapeIndicator');
+    if (ind) {
+      ind.style.display = 'none';
+      ind.onclick = null;
+    }
+    const ledgerCard = document.getElementById('sourceLedgerCard');
+    if (ledgerCard) ledgerCard.style.display = 'none';
   }
 
   showTemporaryToast('✨ Loaded inputs into Creator Studio! Tweak or regenerate 🚀');
@@ -10175,11 +10202,84 @@ function setupCreatorUrlListener() {
   });
 }
 
+let isSourceLedgerExpanded = false;
+
+function toggleSourceLedgerDropdown(forceState) {
+  const card = document.getElementById('sourceLedgerCard');
+  const indicator = document.getElementById('urlScrapeIndicator');
+
+  if (typeof forceState === 'boolean') {
+    isSourceLedgerExpanded = forceState;
+  } else {
+    isSourceLedgerExpanded = !isSourceLedgerExpanded;
+  }
+
+  if (card) {
+    if (isSourceLedgerExpanded) {
+      if (!currentSourceLedger && currentScrapedArticle) {
+        triggerSourceLedgerGeneration(currentScrapedArticle);
+      }
+      card.style.display = 'block';
+    } else {
+      card.style.display = 'none';
+    }
+  }
+
+  if (indicator && indicator.classList.contains('is-dropdown')) {
+    if (isSourceLedgerExpanded) {
+      indicator.classList.add('is-expanded');
+    } else {
+      indicator.classList.remove('is-expanded');
+    }
+    const label = indicator.querySelector('.scrape-dropdown-label');
+    const arrow = indicator.querySelector('.scrape-dropdown-arrow');
+    if (label) label.textContent = isSourceLedgerExpanded ? 'Hide' : 'Summary';
+    if (arrow) arrow.textContent = isSourceLedgerExpanded ? '▲' : '▾';
+
+    if (forceState === false) {
+      try {
+        indicator.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      } catch (_) {}
+    }
+  }
+}
+
+function renderUrlScrapeSuccessIndicator(siteName, title, hasLedger, isFull = true) {
+  const indicator = document.getElementById('urlScrapeIndicator');
+  if (!indicator) return;
+
+  const isExpanded = Boolean(isSourceLedgerExpanded);
+  indicator.className = 'url-scrape-indicator success is-dropdown' + (isExpanded ? ' is-expanded' : '');
+  indicator.style.display = 'flex';
+  indicator.title = 'Click to expand or collapse source summary';
+
+  indicator.innerHTML = `
+    <span class="scrape-icon">${isFull ? '✓' : 'ℹ'}</span>
+    <div class="scrape-text-wrap">
+      <span class="scrape-title">${isFull ? 'Full article retrieved' : 'Headline extracted'} (${escapeHtml(siteName || 'Web')})</span>
+      <span class="scrape-sub">${escapeHtml(title || '')}</span>
+    </div>
+    <button type="button" class="scrape-dropdown-pill" aria-label="Toggle Source Summary">
+      <span class="scrape-dropdown-label">${isExpanded ? 'Hide' : 'Summary'}</span>
+      <span class="scrape-dropdown-arrow">${isExpanded ? '▲' : '▾'}</span>
+    </button>
+  `;
+
+  indicator.onclick = function(e) {
+    e.preventDefault();
+    toggleSourceLedgerDropdown();
+  };
+}
+
 async function handleUrlInput(val) {
   const clean = (val || '').trim();
   const indicator = document.getElementById('urlScrapeIndicator');
   if (!clean || (!clean.startsWith('http://') && !clean.startsWith('https://') && !clean.includes('.'))) {
-    if (indicator) indicator.style.display = 'none';
+    if (indicator) {
+      indicator.style.display = 'none';
+      indicator.onclick = null;
+    }
+    isSourceLedgerExpanded = false;
     currentScrapedArticle = null;
     currentSourceLedger = null;
     renderSourceLedger(null);
@@ -10189,6 +10289,8 @@ async function handleUrlInput(val) {
   isScrapingUrl = true;
   if (indicator) {
     indicator.className = 'url-scrape-indicator loading';
+    indicator.onclick = null;
+    indicator.style.cursor = 'default';
     indicator.innerHTML = '<span class="scrape-icon">⏳</span><span class="scrape-text">Fetching & verifying article source...</span>';
     indicator.style.display = 'flex';
   }
@@ -10224,21 +10326,14 @@ async function handleUrlInput(val) {
           updateReferencePhotoUI();
         }
         const isFull = (data.content && data.content.length > 200) || (!data.fallback);
-        if (indicator) {
-          indicator.className = isFull ? 'url-scrape-indicator success' : 'url-scrape-indicator info';
-          indicator.innerHTML = `
-            <span class="scrape-icon">${isFull ? '✓' : 'ℹ'}</span>
-            <div class="scrape-text-wrap">
-              <span class="scrape-title">${isFull ? 'Full article retrieved' : 'Headline extracted'} (${escapeHtml(data.siteName || 'Web')})</span>
-              <span class="scrape-sub">${escapeHtml(data.title || clean)}</span>
-            </div>
-          `;
-          indicator.style.display = 'flex';
-        }
-        // Trigger Objective Editorial Research Assistant Ledger
+        isSourceLedgerExpanded = false; // Start collapsed in dropdown per user request!
+
         if (data && data.ledger) {
+          currentSourceLedger = data.ledger;
           renderSourceLedger(data.ledger);
+          renderUrlScrapeSuccessIndicator(data.siteName || 'Web', data.title || clean, true, isFull);
         } else {
+          renderUrlScrapeSuccessIndicator(data.siteName || 'Web', data.title || clean, false, isFull);
           triggerSourceLedgerGeneration(data);
         }
       }
@@ -10248,6 +10343,8 @@ async function handleUrlInput(val) {
       currentScrapedArticle = { url: clean, title: slugTitle, siteName: getCleanDomain(clean), content: '' };
       if (indicator) {
         indicator.className = 'url-scrape-indicator info';
+        indicator.onclick = null;
+        indicator.style.cursor = 'default';
         indicator.innerHTML = `
           <span class="scrape-icon">ℹ</span>
           <div class="scrape-text-wrap">
@@ -10257,7 +10354,6 @@ async function handleUrlInput(val) {
         `;
         indicator.style.display = 'flex';
       }
-      // Trigger Objective Editorial Research Assistant Ledger even with minimal data
       triggerSourceLedgerGeneration(currentScrapedArticle);
     } finally {
       isScrapingUrl = false;
@@ -10273,6 +10369,7 @@ let currentLedgerViewMode = 'summary'; // 'summary' | 'detailed'
 
 function switchLedgerViewMode(mode) {
   currentLedgerViewMode = (mode === 'detailed') ? 'detailed' : 'summary';
+  isSourceLedgerExpanded = true;
   if (currentSourceLedger) {
     renderSourceLedger(currentSourceLedger, currentLedgerActiveTab || 'thesis');
   }
@@ -10305,7 +10402,7 @@ function switchLedgerTab(tabName) {
 function renderSourceLedgerLoading() {
   const card = document.getElementById('sourceLedgerCard');
   if (!card) return;
-  card.style.display = 'block';
+  card.style.display = isSourceLedgerExpanded ? 'block' : 'none';
   card.className = 'source-ledger-card ledger-loading';
   card.innerHTML = `
     <div class="ledger-loading-inner">
@@ -10326,13 +10423,14 @@ function renderSourceLedger(ledger, activeTabOverride) {
     card.innerHTML = '';
     currentLedgerActiveTab = 'thesis';
     currentLedgerViewMode = 'summary';
+    isSourceLedgerExpanded = false;
     return;
   }
 
   currentSourceLedger = ledger;
-  currentLedgerActiveTab = activeTabOverride || 'thesis';
+  currentLedgerActiveTab = activeTabOverride || currentLedgerActiveTab || 'thesis';
   const isDetailed = (currentLedgerViewMode === 'detailed');
-  card.style.display = 'block';
+  card.style.display = isSourceLedgerExpanded ? 'block' : 'none';
   card.className = 'source-ledger-card';
 
   const starsCount = Math.min(3, Math.max(1, Number(ledger.stars || ledger.completeness_score || 3)));
@@ -10367,7 +10465,7 @@ function renderSourceLedger(ledger, activeTabOverride) {
           ${keyFactsList.length > 0 ? `<span class="mode-btn-pill">${keyFactsList.length}</span>` : ''}
         </button>
       </div>
-      <span class="ledger-mode-hint">${isDetailed ? 'Deep-dive with key figures, quotes & legal facts' : 'Calibrated ~1-min fast read'}</span>
+      <span class="ledger-mode-hint">${isDetailed ? 'Deep-dive with spoken details, quotes & key arguments' : 'Calibrated fast read'}</span>
     </div>
   `;
 
@@ -10388,7 +10486,7 @@ function renderSourceLedger(ledger, activeTabOverride) {
       <div class="ledger-detailed-facts-box">
         <div class="detailed-facts-header">
           <span>📌</span>
-          <span>Key Facts, Entities & Disclosures</span>
+          <span>Key Facts, Entities & Spoken Disclosures</span>
         </div>
         <div class="detailed-facts-grid">
           ${keyFactsList.map(fact => `
@@ -10396,6 +10494,34 @@ function renderSourceLedger(ledger, activeTabOverride) {
               <span class="fact-bullet">▪</span>
               <span>${escapeHtml(fact)}</span>
             </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  // 2. Claims & Evidence extraction (switch between detailed deep-dive claims with quotes and summary claims)
+  const claimsList = Array.isArray(ledger.core_claims_and_evidence) ? ledger.core_claims_and_evidence : [];
+  const activeClaimsList = (isDetailed && detailedClaimsList.length > 0) ? detailedClaimsList : claimsList;
+  const claimsCount = activeClaimsList.length;
+
+  // Spoken Sections Index in Tab 1 when in detailed mode
+  let spokenIndexHtml = '';
+  if (isDetailed && activeClaimsList.length > 0) {
+    spokenIndexHtml = `
+      <div class="ledger-spoken-index-card">
+        <div class="ledger-spoken-index-header">
+          <span class="ledger-spoken-index-title">🎙️ Spoken Sections in this Talk (${claimsCount})</span>
+          <button type="button" class="ledger-tab-nav-btn" onclick="switchLedgerTab('claims')">
+            <span>Read All Sections →</span>
+          </button>
+        </div>
+        <div class="ledger-spoken-pill-list">
+          ${activeClaimsList.map((c, idx) => `
+            <button type="button" class="ledger-spoken-pill-btn" onclick="switchLedgerTab('claims')">
+              <span><strong>Section ${idx + 1}:</strong> ${escapeHtml(c.title || `Discussion point ${idx + 1}`)}</span>
+              <span style="opacity:0.6; font-size:10px;">Read →</span>
+            </button>
           `).join('')}
         </div>
       </div>
@@ -10425,6 +10551,7 @@ function renderSourceLedger(ledger, activeTabOverride) {
           </div>
         ` : ''}
         ${keyFactsHtml}
+        ${spokenIndexHtml}
       </div>
     `;
   } else {
@@ -10434,11 +10561,6 @@ function renderSourceLedger(ledger, activeTabOverride) {
       </div>
     `;
   }
-
-  // 2. Claims & Evidence extraction (switch between detailed deep-dive claims with quotes and summary claims)
-  const claimsList = Array.isArray(ledger.core_claims_and_evidence) ? ledger.core_claims_and_evidence : [];
-  const activeClaimsList = (isDetailed && detailedClaimsList.length > 0) ? detailedClaimsList : claimsList;
-  const claimsCount = activeClaimsList.length;
 
   const claimsCardsHtml = activeClaimsList.length > 0
     ? activeClaimsList.map((claim, idx) => {
@@ -10463,7 +10585,7 @@ function renderSourceLedger(ledger, activeTabOverride) {
           <div class="ledger-claim-card ${isDetailed ? 'detailed-claim' : ''}">
             <div class="ledger-claim-badge">${idx + 1}</div>
             <div class="ledger-claim-content">
-              ${title ? `<div class="ledger-claim-title">${escapeHtml(title)}</div>` : ''}
+              ${title ? `<div class="ledger-claim-title">${escapeHtml(title)}</div>` : `<div class="ledger-claim-title">Section ${idx + 1}</div>`}
               <p class="ledger-claim-text">${escapeHtml(evidence)}</p>
               ${quote ? `
                 <div class="ledger-claim-quote">
@@ -10561,12 +10683,13 @@ function renderSourceLedger(ledger, activeTabOverride) {
     <!-- 3-Category Tabs Bar -->
     <div class="ledger-tabs-bar" role="tablist">
       <button type="button" class="ledger-tab-btn ${activeTab === 'thesis' ? 'active' : ''}" data-ledger-tab="thesis" onclick="switchLedgerTab('thesis')">
-        <span class="ledger-tab-icon">🎯</span>
-        <span class="ledger-tab-label">Thesis</span>
+        <span class="ledger-tab-icon">${isDetailed ? '📌' : '🎯'}</span>
+        <span class="ledger-tab-label">${isDetailed ? 'Key Facts & Thesis' : 'Thesis'}</span>
+        ${(isDetailed && keyFactsList.length > 0) ? `<span class="ledger-tab-count">${keyFactsList.length}</span>` : ''}
       </button>
       <button type="button" class="ledger-tab-btn ${activeTab === 'claims' ? 'active' : ''}" data-ledger-tab="claims" onclick="switchLedgerTab('claims')">
-        <span class="ledger-tab-icon">📊</span>
-        <span class="ledger-tab-label">Claims</span>
+        <span class="ledger-tab-icon">${isDetailed ? '📖' : '📊'}</span>
+        <span class="ledger-tab-label">${isDetailed ? 'Spoken Sections' : 'Claims'}</span>
         <span class="ledger-tab-count">${claimsCount}</span>
       </button>
       <button type="button" class="ledger-tab-btn ${activeTab === 'tension' ? 'active' : ''}" data-ledger-tab="tension" onclick="switchLedgerTab('tension')">
@@ -10575,25 +10698,25 @@ function renderSourceLedger(ledger, activeTabOverride) {
       </button>
     </div>
 
-    <!-- Tab 1: Subject & Thesis -->
+    <!-- Tab 1: Subject & Thesis / Key Facts -->
     <div class="ledger-tab-panel ${activeTab === 'thesis' ? 'active' : ''}" id="ledgerPanel_thesis" style="display:${activeTab === 'thesis' ? 'block' : 'none'};">
       ${thesisHtml}
       <div class="ledger-panel-nav">
         <span></span>
         <button type="button" class="ledger-tab-nav-btn" onclick="switchLedgerTab('claims')">
-          <span>Claims (${claimsCount}) →</span>
+          <span>${isDetailed ? 'Spoken Sections' : 'Claims'} (${claimsCount}) →</span>
         </button>
       </div>
     </div>
 
-    <!-- Tab 2: Core Claims & Evidence -->
+    <!-- Tab 2: Core Claims / Spoken Sections -->
     <div class="ledger-tab-panel ${activeTab === 'claims' ? 'active' : ''}" id="ledgerPanel_claims" style="display:${activeTab === 'claims' ? 'block' : 'none'};">
       <div class="ledger-claims-container">
         ${claimsCardsHtml}
       </div>
       <div class="ledger-panel-nav">
         <button type="button" class="ledger-tab-nav-btn" onclick="switchLedgerTab('thesis')">
-          <span>← Thesis</span>
+          <span>← ${isDetailed ? 'Key Facts' : 'Thesis'}</span>
         </button>
         <button type="button" class="ledger-tab-nav-btn" onclick="switchLedgerTab('tension')">
           <span>Tensions →</span>
@@ -10606,10 +10729,10 @@ function renderSourceLedger(ledger, activeTabOverride) {
       ${tensionHtml}
       <div class="ledger-panel-nav">
         <button type="button" class="ledger-tab-nav-btn" onclick="switchLedgerTab('claims')">
-          <span>← Claims</span>
+          <span>← ${isDetailed ? 'Spoken Sections' : 'Claims'}</span>
         </button>
         <button type="button" class="ledger-tab-nav-btn" onclick="switchLedgerTab('thesis')">
-          <span>Thesis ↺</span>
+          <span>${isDetailed ? 'Key Facts' : 'Thesis'} ↺</span>
         </button>
       </div>
     </div>
@@ -10617,6 +10740,15 @@ function renderSourceLedger(ledger, activeTabOverride) {
     <div class="ledger-footer-tip">
       <span class="tip-icon">💡</span>
       <span class="tip-text">Ground your unique slant below using this factual breakdown ↓</span>
+    </div>
+
+    <!-- Pullback button to collapse summary back up -->
+    <div class="ledger-pullback-wrap">
+      <button type="button" class="ledger-pullback-btn" onclick="toggleSourceLedgerDropdown(false)" title="Pull back and collapse source summary">
+        <span class="pullback-icon">▲</span>
+        <span>Collapse Source Summary</span>
+        <span class="pullback-icon">▲</span>
+      </button>
     </div>
   `;
   switchLedgerTab(activeTab);
@@ -10645,16 +10777,20 @@ async function triggerSourceLedgerGeneration(articleData) {
     const data = await resp.json();
 
     if (data && data.success && data.ledger) {
+      currentSourceLedger = data.ledger;
       currentLedgerViewMode = 'summary';
       renderSourceLedger(data.ledger, 'thesis');
+      renderUrlScrapeSuccessIndicator(siteName || 'Web', title || '', true, true);
     } else {
       throw new Error('Ledger data invalid');
     }
   } catch (err) {
     console.warn('Objective ledger generation error, using fallback:', err.message);
     const fallbackLedger = buildClientFallbackLedger(title, content, siteName);
+    currentSourceLedger = fallbackLedger;
     currentLedgerViewMode = 'summary';
     renderSourceLedger(fallbackLedger, 'thesis');
+    renderUrlScrapeSuccessIndicator(siteName || 'Web', title || '', true, true);
   } finally {
     isGeneratingLedger = false;
   }
@@ -10663,43 +10799,57 @@ async function triggerSourceLedgerGeneration(articleData) {
 function buildClientFallbackLedger(title, content, siteName) {
   const headline = title || 'Source Material';
   const name = siteName || 'The reporting source';
+  const sentences = (content || '')
+    .split(/(?<=[.!?])\s+/)
+    .map(s => s.trim())
+    .filter(s => s.length > 20 && !s.includes('cookie') && !s.includes('subscribe'))
+    .slice(0, 8);
+
+  const fallbackClaims = sentences.length > 0
+    ? sentences.slice(0, 3).map((s, idx) => ({
+        title: `Observation ${idx + 1}`,
+        evidence: `${name} details: ${s}`
+      }))
+    : [
+        {
+          title: 'Core Reporting',
+          evidence: `${name} details the foundational timeline and primary stakeholder statements.`
+        },
+        {
+          title: 'Market & Public Impact',
+          evidence: `The source outlines practical ramifications and observable real-world shifts.`
+        }
+      ];
+
+  const fallbackKeyFacts = sentences.length > 0
+    ? sentences.slice(0, 6).map(s => s.replace(/^[a-z]/, c => c.toUpperCase()))
+    : [
+        `Reporting originated by ${name}.`,
+        `Subject focus: "${headline}".`
+      ];
+
+  const fallbackDetailedClaims = sentences.length > 0
+    ? sentences.slice(0, 5).map((s, idx) => ({
+        title: `Spoken Section ${idx + 1}`,
+        evidence: `${name} articulates: ${s}`,
+        quote: s.length > 35 ? s.slice(0, 110) + '...' : ''
+      }))
+    : fallbackClaims.map(c => ({ title: c.title, evidence: c.evidence, quote: '' }));
+
   return {
     subject_and_thesis: {
       context: `${name} presents reporting and ongoing context regarding "${headline}".`,
       thesis: `The piece examines principal announcements and policy implications concerning "${headline}".`
     },
-    core_claims_and_evidence: [
-      {
-        title: 'Core Reporting',
-        evidence: `${name} details the foundational timeline and primary stakeholder statements.`
-      },
-      {
-        title: 'Market & Public Impact',
-        evidence: `The source outlines practical ramifications and observable real-world shifts.`
-      }
-    ],
+    core_claims_and_evidence: fallbackClaims,
     underlying_tensions: {
       primary_conflict: `Balancing immediate policy implementation with broader long-term structural impacts.`,
       tradeoffs: `Allocating resources toward this initiative may limit alternative strategic priorities.`,
       counter_questions: `How will competing analysts evaluate the sustainability of these outcomes over time?`
     },
     detailed: {
-      key_facts: [
-        `Reporting originated by ${name}.`,
-        `Subject focus: "${headline}".`
-      ],
-      detailed_claims: [
-        {
-          title: 'Core Reporting Breakdown',
-          evidence: `${name} details the foundational timeline and primary stakeholder statements.`,
-          quote: ''
-        },
-        {
-          title: 'Market & Public Impact',
-          evidence: `The source outlines practical ramifications and observable real-world shifts.`,
-          quote: ''
-        }
-      ]
+      key_facts: fallbackKeyFacts,
+      detailed_claims: fallbackDetailedClaims
     },
     completeness_score: 2,
     stars: 2,
@@ -12354,7 +12504,11 @@ async function startAiSynthesis() {
       if (currentSynthesizedPost.referencePhotoUrl) {
         currentSynthesizedPost.generationInputs.referencePhotoUrl = currentSynthesizedPost.referencePhotoUrl;
       }
+      if (currentSourceLedger) {
+        currentSynthesizedPost.generationInputs.sourceLedger = currentSourceLedger;
+      }
     }
+    currentSynthesizedPost.sourceLedger = currentSourceLedger || currentSynthesizedPost.generationInputs?.sourceLedger || null;
     currentSynthesizedPost.contextProvided = currentSynthesizedPost.generationInputs.contextProvided || effectiveSlantTake || (currentScrapedArticle?.content || '').slice(0, 3000) || spark || '';
     currentSynthesizedPost.userSlantTake = effectiveSlantTake;
     currentSynthesizedPost.polishedCuratorTake = effectiveSlantTake;
@@ -13761,6 +13915,12 @@ async function saveSynthesizedPost() {
   if (currentSynthesizedPost.generationInputs) {
     postToSave.generationInputs = currentSynthesizedPost.generationInputs;
   }
+  const activeDraftLedger = currentSynthesizedPost.sourceLedger || currentSourceLedger || postToSave.generationInputs?.sourceLedger || null;
+  if (activeDraftLedger) {
+    postToSave.sourceLedger = activeDraftLedger;
+    if (!postToSave.generationInputs) postToSave.generationInputs = {};
+    postToSave.generationInputs.sourceLedger = activeDraftLedger;
+  }
   if (currentSynthesizedPost.contextProvided) {
     postToSave.contextProvided = currentSynthesizedPost.contextProvided;
   }
@@ -13939,6 +14099,12 @@ async function publishSynthesizedPost() {
   }
   if (currentSynthesizedPost.generationInputs) {
     postToSave.generationInputs = currentSynthesizedPost.generationInputs;
+  }
+  const activeDraftLedger = currentSynthesizedPost.sourceLedger || currentSourceLedger || postToSave.generationInputs?.sourceLedger || null;
+  if (activeDraftLedger) {
+    postToSave.sourceLedger = activeDraftLedger;
+    if (!postToSave.generationInputs) postToSave.generationInputs = {};
+    postToSave.generationInputs.sourceLedger = activeDraftLedger;
   }
   if (currentSynthesizedPost.contextProvided) {
     postToSave.contextProvided = currentSynthesizedPost.contextProvided;
