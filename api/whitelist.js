@@ -93,15 +93,49 @@ module.exports = async function handler(req, res) {
     const isAdmin = isMasterAdmin || (whitelist.admin_emails && (whitelist.admin_emails.includes(email) || whitelist.admin_emails.includes(adminCheck)));
     const isAllowed = isAdmin || (whitelist.allowed_emails && whitelist.allowed_emails.map(e => e.toLowerCase()).includes(email));
 
-    // If admin is requesting, return full roster and pending requests
+    // If admin is requesting, return full roster and pending requests + live post usage statistics
     if (isAdmin) {
+      let userStats = {};
+      try {
+        const statsResp = await fetch(
+          `${SUPABASE_URL}/rest/v1/posts?select=id,created_at,data->userEmail,data->creatorHandle,data->adaptedHeadline&id=like.slant*&order=created_at.desc&limit=500`,
+          {
+            headers: {
+              'apikey': SUPABASE_KEY,
+              'Authorization': `Bearer ${SUPABASE_KEY}`
+            }
+          }
+        );
+        if (statsResp.ok) {
+          const postRows = await statsResp.json();
+          if (Array.isArray(postRows)) {
+            postRows.forEach(p => {
+              const uEmail = String(p.userEmail || '').toLowerCase().trim();
+              if (!uEmail) return;
+              if (!userStats[uEmail]) {
+                userStats[uEmail] = {
+                  postCount: 0,
+                  latestPostAt: p.created_at,
+                  latestHeadline: p.adaptedHeadline || '',
+                  handle: p.creatorHandle || ''
+                };
+              }
+              userStats[uEmail].postCount++;
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('Error aggregating user stats:', err.message);
+      }
+
       const responsePayload = {
         allowed: true,
         isAdmin: true,
         adminEmails: whitelist.admin_emails,
         allowedEmails: whitelist.allowed_emails,
         pendingRequests: whitelist.pending_requests,
-        accessLogs: whitelist.access_logs
+        accessLogs: whitelist.access_logs,
+        userStats: userStats
       };
       if (res.status) return res.status(200).json ? res.status(200).json(responsePayload) : res.status(200).end(JSON.stringify(responsePayload));
       res.setHeader('Content-Type', 'application/json');

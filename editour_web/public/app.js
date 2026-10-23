@@ -1486,29 +1486,66 @@ async function loadAdminBetaData(forceRefresh = false) {
     const allowedEmails = Array.isArray(data.allowedEmails) ? data.allowedEmails : ['shridharoct16@gmail.com', 'basasridhara@gmail.com'];
     const pending = Array.isArray(data.pendingRequests) ? data.pendingRequests : [];
     const accessLogs = Array.isArray(data.accessLogs) ? data.accessLogs : [];
+    const userStats = (data.userStats && typeof data.userStats === 'object') ? data.userStats : {};
     const logsMap = new Map();
     accessLogs.forEach(l => logsMap.set(l.email?.toLowerCase(), l));
+
+    // Calculate live summary metrics
+    let totalSlants = 0;
+    let activeCreatorsCount = 0;
+    allowedEmails.forEach(email => {
+      const stats = userStats[email.toLowerCase()];
+      if (stats && stats.postCount > 0) {
+        totalSlants += stats.postCount;
+        activeCreatorsCount++;
+      }
+    });
+
+    const sumCurators = document.getElementById('adminSummaryCuratorsCount');
+    const sumActive = document.getElementById('adminSummaryActiveCount');
+    const sumPosts = document.getElementById('adminSummaryPostsCount');
+    if (sumCurators) sumCurators.textContent = allowedEmails.length;
+    if (sumActive) sumActive.textContent = activeCreatorsCount;
+    if (sumPosts) sumPosts.textContent = totalSlants;
 
     if (allowedCount) allowedCount.textContent = allowedEmails.length;
     if (allowedList) {
       allowedList.innerHTML = '';
       allowedEmails.forEach(email => {
-        const isMaster = email.toLowerCase() === 'shridharoct16@gmail.com' || email.toLowerCase() === 'basasridhara@gmail.com';
-        const log = logsMap.get(email.toLowerCase());
-        const lastSeen = log?.lastLogin ? new Date(log.lastLogin).toLocaleDateString(undefined, { month:'short', day:'numeric' }) : 'Invited';
+        const cleanEmail = email.toLowerCase().trim();
+        const isMaster = cleanEmail === 'shridharoct16@gmail.com' || cleanEmail === 'basasridhara@gmail.com';
+        const log = logsMap.get(cleanEmail);
+        const stats = userStats[cleanEmail];
+        const postCount = stats?.postCount || 0;
+        const lastLoginSeen = log?.lastLogin ? new Date(log.lastLogin).toLocaleDateString(undefined, { month:'short', day:'numeric' }) : null;
+
+        let activityLabel = 'Pending first sign-in';
+        if (postCount > 0) {
+          const pDate = stats?.latestPostAt ? new Date(stats.latestPostAt) : null;
+          const pDateStr = pDate ? pDate.toLocaleDateString(undefined, { month:'short', day:'numeric' }) : 'recently';
+          activityLabel = `✨ ${postCount} ${postCount === 1 ? 'Slant' : 'Slants'} created • Last post: ${pDateStr}`;
+        } else if (lastLoginSeen) {
+          activityLabel = `Signed in ${lastLoginSeen} • 0 Slants yet`;
+        }
 
         const row = document.createElement('div');
-        row.style.cssText = 'display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:var(--bg-card, rgba(255,255,255,0.05)); border:1px solid var(--border-subtle, rgba(255,255,255,0.1)); border-radius:10px; font-size:13px;';
+        row.style.cssText = 'display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:var(--bg-card, rgba(255,255,255,0.05)); border:1px solid var(--border-subtle, rgba(255,255,255,0.1)); border-radius:10px; font-size:13px; gap:8px;';
         row.innerHTML = `
-          <div style="display:flex; align-items:center; gap:8px; overflow:hidden;">
-            <span style="font-size:14px;">${isMaster ? '👑' : '👤'}</span>
-            <div style="overflow:hidden;">
-              <strong style="color:var(--text-primary); display:block; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${escapeHtml(email)}</strong>
-              <span style="font-size:10.5px; color:var(--text-secondary);">${isMaster ? 'Master Curator' : (log?.name ? `${escapeHtml(log.name)} • Active ${lastSeen}` : 'Pending first sign-in')}</span>
+          <div style="display:flex; align-items:center; gap:10px; overflow:hidden; flex:1; min-width:0;">
+            <span style="font-size:16px; flex-shrink:0;">${isMaster ? '👑' : (postCount > 0 ? '🎨' : '👤')}</span>
+            <div style="overflow:hidden; min-width:0;">
+              <div style="display:flex; align-items:center; gap:6px;">
+                <strong style="color:var(--text-primary); text-overflow:ellipsis; overflow:hidden; white-space:nowrap; font-size:13px;">${escapeHtml(email)}</strong>
+                ${postCount > 0 ? `<span style="font-size:10px; font-weight:800; background:rgba(16,185,129,0.15); color:#10B981; border:1px solid rgba(16,185,129,0.3); padding:1px 6px; border-radius:10px; flex-shrink:0;">${postCount}</span>` : ''}
+              </div>
+              <span style="font-size:11px; color:${postCount > 0 ? '#10B981' : 'var(--text-secondary)'}; display:block; text-overflow:ellipsis; overflow:hidden; white-space:nowrap; margin-top:2px;">
+                ${isMaster && postCount > 0 ? `Master Curator • ${activityLabel}` : activityLabel}
+              </span>
             </div>
           </div>
-          <div>
-            ${isMaster ? '<span style="font-size:11px; font-weight:700; color:#818CF8; background:rgba(99,102,241,0.1); padding:2px 6px; border-radius:4px;">Owner</span>' : `<button type="button" onclick="handleAdminRemoveEmail('${escapeHtml(email)}')" style="background:none; border:none; color:#EF4444; font-size:12px; font-weight:700; cursor:pointer; padding:4px 6px;">Revoke</button>`}
+          <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
+            ${postCount > 0 ? `<button type="button" onclick="closeAdminBetaModal(); filterFeedByCurator('${escapeHtml(stats?.handle || email)}');" style="background:rgba(99,102,241,0.12); color:#818CF8; border:1px solid rgba(99,102,241,0.25); border-radius:6px; font-size:11px; font-weight:700; padding:4px 8px; cursor:pointer;" title="View this curator posts in feed">View Feed ➔</button>` : ''}
+            ${isMaster ? '<span style="font-size:11px; font-weight:700; color:#818CF8; background:rgba(99,102,241,0.1); padding:2px 6px; border-radius:4px;">Owner</span>' : `<button type="button" onclick="handleAdminRemoveEmail('${escapeHtml(email)}')" style="background:none; border:none; color:#EF4444; font-size:12px; font-weight:700; cursor:pointer; padding:4px 6px;" title="Revoke beta access">Revoke</button>`}
           </div>
         `;
         allowedList.appendChild(row);
@@ -5043,6 +5080,12 @@ function handleCreatorInfoClick(event, handle) {
   filterByCurator(clean);
 }
 
+function filterFeedByCurator(curatorIdentifier) {
+  if (!curatorIdentifier) return;
+  filterByCurator(curatorIdentifier);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
 function filterByCurator(curatorName) {
   if (!curatorName) return;
   const clean = String(curatorName).replace(/^@/, '').toLowerCase().trim();
@@ -5052,7 +5095,8 @@ function filterByCurator(curatorName) {
   if (targetPosts && targetPosts.length > 0) {
     const matched = targetPosts.filter(p => {
       const author = (p.creatorHandle || '').toLowerCase().replace(/^@/, '').trim();
-      return author === clean || author.includes(clean);
+      const email = (p.userEmail || '').toLowerCase().trim();
+      return author === clean || author.includes(clean) || email === clean || email.includes(clean);
     });
 
     if (matched.length > 0) {
