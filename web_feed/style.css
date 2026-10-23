@@ -3579,30 +3579,32 @@ header {
 
 .login-page-card-standalone {
   width: 100%;
-  max-width: 1440px;
+  max-width: 1360px;
   background: var(--bg-card, #FFFFFF);
   background-image: 
-    radial-gradient(ellipse at 85% 10%, rgba(99, 102, 241, 0.08), transparent 50%),
-    radial-gradient(ellipse at 15% 90%, rgba(245, 158, 11, 0.06), transparent 45%);
-  border: 1px solid var(--border-subtle, rgba(15, 23, 42, 0.10));
+    radial-gradient(ellipse at 85% 10%, rgba(99, 102, 241, 0.06), transparent 50%),
+    radial-gradient(ellipse at 15% 90%, rgba(245, 158, 11, 0.05), transparent 45%);
+  border: 1px solid var(--border-subtle, rgba(15, 23, 42, 0.09));
   border-radius: 28px;
   box-shadow: 
-    0 25px 60px -15px rgba(15, 23, 42, 0.12),
-    0 0 0 1px rgba(99, 102, 241, 0.15);
+    0 25px 60px -15px rgba(15, 23, 42, 0.10),
+    0 0 0 1px rgba(99, 102, 241, 0.12);
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  box-sizing: border-box;
+  padding: 32px 36px 36px 36px;
 }
 
 [data-theme="obsidian"] .login-page-card-standalone {
   background: #080D1A;
   background-image: 
-    radial-gradient(ellipse at 85% 10%, rgba(99, 102, 241, 0.18), transparent 50%),
-    radial-gradient(ellipse at 15% 90%, rgba(245, 158, 11, 0.12), transparent 45%);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+    radial-gradient(ellipse at 85% 10%, rgba(99, 102, 241, 0.15), transparent 50%),
+    radial-gradient(ellipse at 15% 90%, rgba(245, 158, 11, 0.10), transparent 45%);
+  border: 1px solid rgba(255, 255, 255, 0.10);
   box-shadow: 
     0 35px 80px -15px rgba(0, 0, 0, 0.85),
-    0 0 0 1px rgba(99, 102, 241, 0.25);
+    0 0 0 1px rgba(99, 102, 241, 0.22);
 }
 
 .login-footer-trust {
@@ -3695,74 +3697,7 @@ header {
   transform: rotate(90deg) scale(1.05);
 }
 
-/* Top Editorial Tagline Banner: "Frame your stance with conviction" */
-.slant-login-topbar {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  padding: 15px 24px;
-  background: #FAF8F5;
-  border-bottom: 1px solid #E2DDD5;
-  position: relative;
-  overflow: hidden;
-}
-
-[data-theme="obsidian"] .slant-login-topbar {
-  background: rgba(14, 18, 30, 0.85);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.topbar-rule-left,
-.topbar-rule-right {
-  flex: 1;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, #D5CEC2, transparent);
-  max-width: 180px;
-}
-
-[data-theme="obsidian"] .topbar-rule-left,
-[data-theme="obsidian"] .topbar-rule-right {
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.15), transparent);
-}
-
-.topbar-tagline-wrap {
-  display: inline-flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.topbar-emblem-dot {
-  color: #D97706; /* Warm Vermilion / Burnt Ochre accent */
-  font-size: 11px;
-  line-height: 1;
-}
-
-.topbar-tagline {
-  font-family: 'Playfair Display', 'Merriweather', Georgia, serif;
-  font-size: 16px;
-  font-weight: 700;
-  letter-spacing: 0.35px;
-  color: #0E1013; /* Solid Charcoal Ink */
-  text-align: center;
-}
-
-[data-theme="obsidian"] .topbar-tagline {
-  color: #F8FAFC;
-}
-
 @media (max-width: 600px) {
-  .topbar-rule-left,
-  .topbar-rule-right {
-    display: none;
-  }
-  .slant-login-topbar {
-    padding: 12px 16px;
-  }
-  .topbar-tagline {
-    font-size: 14px;
-  }
-
   /* Slide 3 Broadsheet Mobile In-App Carousel: Dynamic photo framing & full page completion */
   .carousel-view .slide-receipt {
     padding: 0 !important;
@@ -4033,54 +3968,19 @@ header {
   }
 }
 
-/* Login Split Grid */
-.slant-login-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 380px;
-  flex: 1;
-  overflow-y: hidden;
-  max-height: calc(92vh - 75px);
-}
+/* ============================================================
+   SIGNED-OUT LANDING PAGE: GRAND EDITORIAL MASTHEAD + SAMPLE FEED
+   ============================================================ */
 
-/* Left Showcase */
-.slant-login-showcase {
-  background: rgba(11, 17, 32, 0.6);
-  border-right: 1px solid rgba(255, 255, 255, 0.08);
-  padding: 24px 26px;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-start;
-  gap: 16px;
-  overflow-y: auto;
-  max-height: calc(92vh - 65px);
-  scrollbar-width: thin;
-}
-
-[data-theme="daylight"] .slant-login-showcase {
-  background: #F8FAFC;
-  border-right-color: #E2E8F0;
-}
-
-/* Dominant Hero Manifesto Section: Statement + Large Animated Logo */
-.slant-hero-manifesto-wrap {
+/* 1. Grand Full-Width Masthead */
+.slant-landing-masthead {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 28px;
-  padding: 24px 28px;
-  background: rgba(255, 255, 255, 0.85);
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 24px;
-  box-shadow: 0 10px 30px -10px rgba(15, 23, 42, 0.06);
-  position: relative;
-  overflow: hidden;
+  gap: 36px;
+  width: 100%;
   box-sizing: border-box;
-}
-
-[data-theme="obsidian"] .slant-hero-manifesto-wrap {
-  background: rgba(15, 23, 42, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 16px 40px -10px rgba(0, 0, 0, 0.5);
+  padding: 4px 6px 20px 6px;
 }
 
 .manifesto-text-col {
@@ -4097,13 +3997,13 @@ header {
   gap: 6px;
   font-size: 10.5px;
   font-weight: 800;
-  letter-spacing: 1.2px;
+  letter-spacing: 1.4px;
   text-transform: uppercase;
   color: #D97706;
-  background: rgba(217, 119, 6, 0.1);
-  border: 1px solid rgba(217, 119, 6, 0.25);
-  padding: 3px 10px;
-  border-radius: 12px;
+  background: rgba(217, 119, 6, 0.10);
+  border: 1px solid rgba(217, 119, 6, 0.28);
+  padding: 4px 12px;
+  border-radius: 14px;
   width: fit-content;
 }
 
@@ -4116,13 +4016,13 @@ header {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
 .manifesto-lead {
   font-family: 'Playfair Display', 'Merriweather', Georgia, serif;
   font-size: 21px;
-  line-height: 1.5;
+  line-height: 1.48;
   font-weight: 500;
   font-style: italic;
   color: var(--text-primary, #0F172A);
@@ -4136,8 +4036,8 @@ header {
 
 .manifesto-question {
   font-family: 'Playfair Display', 'Merriweather', Georgia, serif;
-  font-size: 19px;
-  line-height: 1.45;
+  font-size: 18.5px;
+  line-height: 1.44;
   font-weight: 700;
   color: var(--text-primary, #0F172A);
   margin: 0;
@@ -4159,7 +4059,7 @@ header {
   text-underline-offset: 4px;
 }
 
-/* Large Animated Logo Beside Statement */
+/* Beside That: Large Logo Animation of Slant */
 .manifesto-logo-wrap {
   flex: 0 0 auto;
   display: flex;
@@ -4169,8 +4069,8 @@ header {
 }
 
 .manifesto-logo-frame {
-  width: 175px;
-  height: 175px;
+  width: 165px;
+  height: 165px;
   border-radius: 36px;
   background: #FAF6ED;
   border: 1.5px solid rgba(99, 102, 241, 0.35);
@@ -4183,7 +4083,6 @@ header {
   overflow: hidden;
   position: relative;
   contain: paint;
-  transition: transform 0.25s ease, box-shadow 0.25s ease;
   animation: manifestoLogoGlow 6s ease-in-out infinite alternate;
 }
 
@@ -4227,23 +4126,58 @@ header {
   color: #94A3B8;
 }
 
-/* Fitted Sample Carousel Section */
+/* 2. Delicate Architectural Hairline Divider */
+.landing-divider {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  margin: 4px 0 24px 0;
+}
+
+.landing-divider-line {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(15, 23, 42, 0.12), transparent);
+}
+
+[data-theme="obsidian"] .landing-divider-line {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.12), transparent);
+}
+
+.landing-divider-diamond {
+  color: #D97706;
+  font-size: 11px;
+  opacity: 0.85;
+}
+
+/* 3. Main Login Split Grid */
+.slant-login-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.28fr) minmax(350px, 390px);
+  gap: 36px;
+  align-items: start;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* 4. Left Column: Authentic 3:4 Sample Feed Carousel Section */
 .slant-sample-carousel-section {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  flex: 1;
-  min-height: 0;
-  margin-top: 4px;
+  gap: 14px;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .sample-carousel-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 14px;
   flex-wrap: wrap;
-  padding: 0 2px;
+  padding: 0 4px;
 }
 
 .sample-carousel-title-col {
@@ -4254,7 +4188,7 @@ header {
 
 .sample-carousel-label {
   font-family: 'Space Grotesk', -apple-system, sans-serif;
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.8px;
   text-transform: uppercase;
@@ -4266,18 +4200,13 @@ header {
   color: var(--text-secondary, #64748B);
 }
 
-/* ============================================================
-   3-POSTER VERTICAL SHOWCASE STYLING
-   ============================================================ */
-
-/* Colourful Story Switcher Pills */
+/* Story Switcher Pills */
 .login-stories-switcher {
   display: flex;
   gap: 8px;
   overflow-x: auto;
-  padding: 2px 2px 6px 2px;
+  padding: 2px 0 4px 0;
   scrollbar-width: none;
-  -ms-overflow-style: none;
 }
 
 .login-stories-switcher::-webkit-scrollbar {
@@ -4290,9 +4219,9 @@ header {
   gap: 6px;
   padding: 5px 12px;
   border-radius: 20px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: #CBD5E1;
+  background: rgba(15, 23, 42, 0.05);
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  color: #475569;
   font-family: 'Space Grotesk', -apple-system, sans-serif;
   font-size: 11px;
   font-weight: 700;
@@ -4301,556 +4230,154 @@ header {
   transition: all 0.2s ease;
 }
 
+[data-theme="obsidian"] .story-switch-pill {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #CBD5E1;
+}
+
 .story-switch-pill:hover {
-  background: rgba(99, 102, 241, 0.2);
-  border-color: rgba(99, 102, 241, 0.5);
-  color: #FFF;
+  background: rgba(99, 102, 241, 0.15);
+  border-color: rgba(99, 102, 241, 0.45);
+  color: var(--text-primary);
   transform: translateY(-1px);
 }
 
 .story-switch-pill.active {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.35), rgba(139, 92, 246, 0.35));
-  border-color: #818CF8;
-  color: #FFFFFF;
-  box-shadow: 0 0 14px rgba(99, 102, 241, 0.4);
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.22), rgba(217, 119, 6, 0.22));
+  border-color: #D97706;
+  color: #D97706;
+  box-shadow: 0 2px 10px rgba(217, 119, 6, 0.2);
 }
 
-/* ============================================================
-   3-POSTER ROW SHOWCASE + VERTICAL OSCILLATION
-   ============================================================ */
-
-/* Vertical Track: Rounded Window for Posts */
-.login-vertical-track {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-  overflow-y: auto;
-  overflow-x: hidden;
-  max-height: 390px;
-  flex: 1;
-  min-height: 0;
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
-  padding: 12px 14px 24px 14px;
-  border-radius: 20px;
-  background: rgba(4, 7, 18, 0.45);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.4);
-  scroll-behavior: smooth;
-  scroll-snap-type: y mandatory;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(99, 102, 241, 0.4) transparent;
+[data-theme="obsidian"] .story-switch-pill.active {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.35), rgba(217, 119, 6, 0.30));
+  border-color: #F59E0B;
+  color: #F59E0B;
+  box-shadow: 0 2px 12px rgba(245, 158, 11, 0.28);
 }
 
-.login-vertical-track::-webkit-scrollbar {
-  width: 5px;
-}
-
-.login-vertical-track::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.login-vertical-track::-webkit-scrollbar-thumb {
-  background: rgba(99, 102, 241, 0.4);
-  border-radius: 10px;
-}
-
-.login-vertical-track::-webkit-scrollbar-thumb:hover {
-  background: rgba(99, 102, 241, 0.8);
-}
-
-/* Post Row: Firm, Solid & Crisp (3 Posters of a Single Post in a Row) */
-.login-post-row {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-  overflow: hidden;
-  box-sizing: border-box;
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 20px;
-  padding: 16px 18px 20px 18px;
-  transition: border-color 0.25s ease, background 0.25s ease, box-shadow 0.25s ease;
-  flex: 0 0 auto !important;
-  scroll-snap-align: start;
-}
-
-.login-post-row:hover,
-.login-post-row:focus-within {
-  border-color: rgba(99, 102, 241, 0.5);
-  background: rgba(15, 23, 42, 0.9);
-  box-shadow: 
-    0 18px 44px rgba(0, 0, 0, 0.65),
-    0 0 24px rgba(99, 102, 241, 0.25);
-}
-
-/* Row Header */
-.login-row-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 0 4px 6px 4px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-.login-row-meta-left {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  overflow: hidden;
-  flex: 1;
-}
-
-.login-row-cat-pill {
-  font-size: 9.5px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.8px;
-  background: rgba(99, 102, 241, 0.18);
-  color: #A5B4FC;
-  border: 1px solid rgba(99, 102, 241, 0.4);
-  padding: 3px 8px;
-  border-radius: 6px;
-  white-space: nowrap;
-}
-
-.login-row-headline {
-  font-family: 'Space Grotesk', -apple-system, sans-serif;
-  font-size: 13.5px;
-  font-weight: 700;
-  color: #F8FAFC;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.login-row-meta-right {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-shrink: 0;
-}
-
-.login-row-source {
-  font-size: 10.5px;
-  font-weight: 700;
-  color: #94A3B8;
-}
-
-.login-row-author {
-  font-size: 10.5px;
-  font-weight: 700;
-  color: #818CF8;
-}
-
-/* 3 Posters in a Row: Full Length (480px), Crisp 3-Column Display */
-.login-row-posters {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(220px, 1fr));
-  gap: 16px;
-  width: 100%;
-  overflow-x: auto;
-  padding-bottom: 6px;
-  scrollbar-width: thin;
-}
-
-.login-poster-col {
-  position: relative;
-  height: 380px;
-  min-height: 380px;
-  max-height: 380px;
-  border-radius: 16px;
-  overflow: hidden;
-  background: #070B12;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.65);
-  cursor: pointer;
-  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease, border-color 0.25s ease;
-  user-select: none;
-  display: flex;
-  flex-direction: column;
-  box-sizing: border-box;
-}
-
-.login-poster-col:hover {
-  transform: translateY(-4px) scale(1.02);
-  border-color: rgba(99, 102, 241, 0.85);
-  box-shadow: 
-    0 18px 42px rgba(0, 0, 0, 0.8),
-    0 0 24px rgba(99, 102, 241, 0.4);
-  z-index: 10;
-}
-
-.login-poster-label {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  z-index: 12;
-  padding: 3px 8px;
-  border-radius: 10px;
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.6px;
-  background: rgba(0, 0, 0, 0.82);
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  color: #FFF;
-  pointer-events: none;
-}
-
-/* Hide duplicate slide page badge (01/03) to prevent overlapping with 01 • HOOK label */
-.login-poster-col .slide-page-badge {
-  display: none !important;
-}
-
-/* Scoped adjustments for posters inside login row - FULL LENGTH & COMPLETE CONTENT */
-.login-poster-col .carousel-slide {
-  width: 100% !important;
-  height: 100% !important;
-  position: relative !important;
+/* Slide Step Navigation Tabs directly above the card */
+.sample-slide-tabs {
   display: flex !important;
-  flex-direction: column !important;
-  justify-content: space-between !important;
-  box-sizing: border-box !important;
-}
-
-.login-poster-col .slide-hook-bg {
-  position: absolute !important;
-  inset: 0 !important;
-  width: 100% !important;
-  height: 100% !important;
-  object-fit: cover !important;
-}
-
-.login-poster-col .slide-hook-content {
-  position: relative !important;
-  z-index: 2 !important;
-  height: 100% !important;
-  display: flex !important;
-  flex-direction: column !important;
-  justify-content: space-between !important;
-  box-sizing: border-box !important;
-  padding: 16px 16px 16px 16px !important;
-}
-
-.login-poster-col .slide-hook-headline {
-  font-size: 16px !important;
-  line-height: 1.24 !important;
-  font-weight: 900 !important;
-  letter-spacing: -0.4px !important;
-  color: #FFFFFF !important;
-  margin: 0 !important;
-  display: block !important;
-  -webkit-line-clamp: unset !important;
-  overflow: visible !important;
-}
-
-.login-poster-col .tactile-news-fragment {
-  padding: 8px 12px !important;
-  margin-bottom: 10px !important;
-  border-radius: 6px !important;
-  background: #EFECE6 !important;
-  border: 1px solid rgba(0, 0, 0, 0.15) !important;
-}
-
-.login-poster-col .tactile-news-headline {
-  font-family: 'Playfair Display', Georgia, serif !important;
-  font-size: 11px !important;
-  font-weight: 900 !important;
-  line-height: 1.3 !important;
-  color: #141414 !important;
-  display: block !important;
-  -webkit-line-clamp: unset !important;
-  overflow: visible !important;
-}
-
-/* Slide 2: The Slant / Critique */
-.login-poster-col .slide-critique {
-  padding: 16px 16px 16px 16px !important;
-  display: flex !important;
-  flex-direction: column !important;
-  justify-content: space-between !important;
-  box-sizing: border-box !important;
-  height: 100% !important;
-}
-
-.login-poster-col .critique-opinion-text {
-  font-size: 14px !important;
-  line-height: 1.44 !important;
-  font-weight: 700 !important;
-  color: #F8FAFC !important;
-  display: block !important;
-  -webkit-line-clamp: unset !important;
-  overflow: visible !important;
-  margin: 6px 0 !important;
-}
-
-/* Slide 3: The Primary Receipts (Full Broadsheet Content) */
-.login-poster-col .slide-receipt {
-  padding: 0 !important;
-  background: #F7F5EE !important;
-  color: #1E293B !important;
-  font-family: 'Merriweather', Georgia, 'Times New Roman', serif !important;
-  display: flex !important;
-  flex-direction: column !important;
-  justify-content: space-between !important;
-  box-sizing: border-box !important;
-  height: 100% !important;
-  overflow: hidden !important;
-}
-
-.login-poster-col .slant-minute-scroll-viewport {
-  padding: 14px 16px 12px 16px !important;
-  width: 100% !important;
-  height: 100% !important;
-  box-sizing: border-box !important;
-}
-
-.login-poster-col .receipt-pub-title {
-  font-family: 'Playfair Display', 'Merriweather', Georgia, serif !important;
-  font-size: 16px !important;
-  letter-spacing: 1.8px !important;
-  font-weight: 900 !important;
-  text-transform: uppercase !important;
-  color: #0F172A !important;
-  margin: 3px 0 2px 0 !important;
-  text-align: center !important;
-}
-
-.login-poster-col .receipt-headline {
-  font-family: 'Merriweather', 'Playfair Display', Georgia, serif !important;
-  font-size: 14px !important;
-  font-weight: 900 !important;
-  line-height: 1.25 !important;
-  color: #0F172A !important;
-  margin: 4px 0 !important;
-  display: block !important;
-  -webkit-line-clamp: unset !important;
-  overflow: visible !important;
-}
-
-.login-poster-col .receipt-paragraphs {
-  flex: 1 !important;
-  display: flex !important;
-  flex-direction: column !important;
-  justify-content: flex-start !important;
-  gap: 6px !important;
-  min-height: 0 !important;
-  overflow: hidden !important;
-  margin: 4px 0 !important;
-}
-
-.login-poster-col .receipt-p1 {
-  font-size: 10.8px !important;
-  line-height: 1.45 !important;
-  color: #1E293B !important;
-  display: -webkit-box !important;
-  -webkit-line-clamp: 4 !important;
-  -webkit-box-orient: vertical !important;
-  overflow: hidden !important;
-  text-align: justify !important;
-  margin: 0 !important;
-}
-
-.login-poster-col .receipt-highlight {
-  display: block !important;
-  background: #FEF08A !important;
-  border: 1px solid #FDE047 !important;
-  border-left: 4px solid #CA8A04 !important;
-  padding: 6px 10px !important;
-  border-radius: 4px !important;
-  margin: 4px 0 !important;
-}
-
-.login-poster-col .highlighter-label {
-  font-size: 8px !important;
-  font-weight: 900 !important;
-  color: #854D0E !important;
-  margin-bottom: 2px !important;
-}
-
-.login-poster-col .highlighter-text {
-  font-size: 11.5px !important;
-  font-weight: 900 !important;
-  line-height: 1.3 !important;
-  color: #0F172A !important;
-  display: -webkit-box !important;
-  -webkit-line-clamp: 3 !important;
-  -webkit-box-orient: vertical !important;
-  overflow: hidden !important;
-}
-
-.login-poster-col .receipt-p3 {
-  font-size: 10.8px !important;
-  line-height: 1.45 !important;
-  color: #1E293B !important;
-  display: -webkit-box !important;
-  -webkit-line-clamp: 4 !important;
-  -webkit-box-orient: vertical !important;
-  overflow: hidden !important;
-  text-align: justify !important;
-  margin: 0 !important;
-}
-
-.login-poster-col .receipt-footer {
-  display: block !important;
-  margin-top: 4px !important;
-}
-
-.login-poster-col .receipt-folio-text {
-  font-size: 7.2px !important;
-  font-weight: 800 !important;
-  color: #334155 !important;
-  display: flex !important;
-  justify-content: space-between !important;
-}
-
-.login-row-divider {
-  display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  margin: 8px 0;
-  color: #64748B;
-  font-size: 9.5px;
-  font-weight: 800;
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
-  flex-shrink: 0;
+  gap: 10px;
+  width: 100%;
+  max-width: 440px;
+  margin: 0 auto;
+  box-sizing: border-box;
 }
 
-.login-row-divider::before,
-.login-row-divider::after {
-  content: '';
+.sample-slide-tab.carousel-tab-btn {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   flex: 1;
-  height: 1px;
-  background: rgba(255, 255, 255, 0.08);
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.05);
+  border: 1px solid rgba(15, 23, 42, 0.10);
+  color: #64748B;
+  font-family: 'Space Grotesk', -apple-system, sans-serif;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
 }
 
-/* Daylight theme adaptations */
-[data-theme="daylight"] .story-switch-pill {
-  background: #FFFFFF;
-  border-color: #E2E8F0;
-  color: #334155;
-}
-
-[data-theme="daylight"] .story-switch-pill:hover {
-  background: #F1F5F9;
-  color: #0F172A;
-}
-
-[data-theme="daylight"] .story-switch-pill.active {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.15));
-  border-color: #6366F1;
-  color: #4338CA;
-}
-
-[data-theme="daylight"] .trio-poster-frame {
-  border-color: rgba(0, 0, 0, 0.12);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-}
-
-[data-theme="daylight"] .trio-story-divider {
+[data-theme="obsidian"] .sample-slide-tab.carousel-tab-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.10);
   color: #94A3B8;
 }
 
-[data-theme="daylight"] .trio-story-divider::before,
-[data-theme="daylight"] .trio-story-divider::after {
-  background: #E2E8F0;
+.sample-slide-tab.carousel-tab-btn:hover {
+  background: rgba(99, 102, 241, 0.12);
+  border-color: rgba(99, 102, 241, 0.4);
+  color: var(--text-primary);
+  transform: translateY(-1px);
 }
 
-/* 3-Poster Architecture Walkthrough */
-.slant-architecture-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: #FFFFFF;
-  border: 1px solid #E2DDD5;
-  border-radius: 14px;
-  padding: 11px 16px;
-  box-shadow: 0 2px 10px rgba(14, 16, 19, 0.04);
+.sample-slide-tab.carousel-tab-btn.active {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.18), rgba(217, 119, 6, 0.18));
+  border-color: #D97706;
+  color: #D97706;
+  box-shadow: 0 4px 14px rgba(217, 119, 6, 0.15);
 }
 
-[data-theme="obsidian"] .slant-architecture-bar {
-  background: rgba(15, 23, 42, 0.85);
-  border-color: rgba(255, 255, 255, 0.12);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+[data-theme="obsidian"] .sample-slide-tab.carousel-tab-btn.active {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.35), rgba(217, 119, 6, 0.25));
+  border-color: #F59E0B;
+  color: #F59E0B;
+  box-shadow: 0 4px 16px rgba(245, 158, 11, 0.25);
 }
 
-.arch-step {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-}
-
-.arch-num {
-  font-family: 'Space Grotesk', monospace;
-  font-size: 11.5px;
+.sample-tab-num {
   font-weight: 800;
-  color: #FAF8F5;
-  background: #0E1013;
-  padding: 3px 7px;
-  border-radius: 6px;
-  letter-spacing: 0.4px;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  opacity: 0.85;
 }
 
-[data-theme="obsidian"] .arch-num {
-  background: rgba(255, 255, 255, 0.14);
-  color: #FFFFFF;
-}
-
-.arch-text {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.arch-text strong {
-  font-family: 'Space Grotesk', -apple-system, sans-serif;
-  font-size: 12px;
-  color: #0E1013;
-  font-weight: 800;
+.sample-tab-name {
+  font-weight: 700;
   letter-spacing: 0.2px;
 }
 
-[data-theme="obsidian"] .arch-text strong {
-  color: #F8FAFC;
+/* 5. Authentic Feed Card Host */
+.sample-feed-card-host {
+  width: 100%;
+  max-width: 440px;
+  margin: 0 auto;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
-.arch-text span {
-  font-size: 11px;
-  color: #334155; /* Darkened high-contrast subtext */
-  font-weight: 500; /* Bumped to medium */
-  line-height: 1.25;
+.sample-feed-card-host .post-card {
+  width: 100%;
+  max-width: 440px;
+  margin: 0;
+  border-radius: 20px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
 }
 
-[data-theme="obsidian"] .arch-text span {
-  color: #CBD5E1;
-  font-weight: 500;
+[data-theme="obsidian"] .sample-feed-card-host .post-card {
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+  border-color: rgba(255, 255, 255, 0.12);
 }
 
-.arch-sep {
-  color: #64748B;
-  font-weight: 800;
-  font-size: 15px;
+.sample-feed-card-host .post-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 24px 55px rgba(0, 0, 0, 0.18);
 }
 
-[data-theme="obsidian"] .arch-sep {
-  color: rgba(255, 255, 255, 0.4);
+[data-theme="obsidian"] .sample-feed-card-host .post-card:hover {
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.75);
 }
 
 /* Right Auth Sanctuary */
 .slant-login-auth-col {
-  padding: 32px 36px;
-  background: #0B1122;
+  padding: 28px 30px;
+  background: rgba(15, 23, 42, 0.03);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 24px;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+[data-theme="obsidian"] .slant-login-auth-col {
+  background: #0B1122;
+  border-color: rgba(255, 255, 255, 0.08);
 }
 
 .slant-login-auth-col .auth-header {
@@ -5147,41 +4674,7 @@ header {
     justify-content: center;
   }
 
-  .slant-login-topbar {
-    padding: 12px 46px; /* Symmetrical clearance on both sides for exact horizontal centering */
-    gap: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    width: 100%;
-    max-width: 100%;
-    box-sizing: border-box;
-    position: relative;
-    overflow: hidden;
-  }
 
-  .topbar-rule-left,
-  .topbar-rule-right {
-    display: none;
-  }
-
-  .topbar-tagline-wrap {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    margin: 0 auto;
-    text-align: center;
-    max-width: 100%;
-  }
-
-  .topbar-tagline {
-    font-size: 13px;
-    letter-spacing: 0.2px;
-    white-space: normal;
-    text-align: center;
-  }
 
   /* Hide top header New Slant button on mobile since bottom floating Slant FAB exists */
   .create-slant-header-btn {
@@ -5286,43 +4779,22 @@ header {
     box-sizing: border-box;
   }
 
-  /* 2. Showcase Comes Second Below Auth */
-  .slant-login-showcase {
-    order: 2;
-    width: 100%;
-    max-width: 100%;
-    min-width: 0;
-    overflow-x: hidden;
-    box-sizing: border-box;
-    border-right: none;
-    border-bottom: none;
-    border-top: none;
-    padding: 20px 16px 26px 16px;
-    gap: 12px;
-  }
-
-  .slant-hero-manifesto-wrap {
+  /* Responsive Masthead on Mobile */
+  .slant-landing-masthead {
     flex-direction: column-reverse;
     text-align: center;
     align-items: center;
-    padding: 20px 16px;
-    gap: 16px;
-    border-radius: 20px;
+    gap: 18px;
+    padding-bottom: 16px;
   }
 
   .manifesto-badge {
     margin: 0 auto;
   }
 
-  .manifesto-logo-frame {
-    width: 140px;
-    height: 140px;
-    border-radius: 28px;
-  }
-
   .manifesto-lead {
-    font-size: 17px;
-    line-height: 1.48;
+    font-size: 17.5px;
+    line-height: 1.45;
   }
 
   .manifesto-question {
@@ -5330,166 +4802,49 @@ header {
     line-height: 1.42;
   }
 
-  .showcase-header {
-    padding: 0 2px 8px 2px;
+  .manifesto-logo-frame {
+    width: 130px;
+    height: 130px;
+    border-radius: 28px;
+  }
+
+  .landing-divider {
+    margin: 4px 0 20px 0;
+  }
+
+  /* 2. Sample Carousel Section on Mobile */
+  .slant-sample-carousel-section {
+    order: 2;
     width: 100%;
     max-width: 100%;
     min-width: 0;
     box-sizing: border-box;
+    padding: 0 4px;
+    gap: 12px;
   }
 
-  .showcase-title {
-    font-size: 20px;
-    word-break: break-word;
+  .sample-slide-tabs {
+    max-width: 100%;
   }
 
-  /* Story Switcher Horizontal Scroll */
+  .sample-feed-card-host {
+    max-width: 100%;
+  }
+
+  .sample-feed-card-host .post-card {
+    max-width: 100%;
+  }
+
   .login-stories-switcher {
-    padding: 2px 0 10px 0;
+    padding: 2px 0 8px 0;
     gap: 6px;
     width: 100%;
-    max-width: 100%;
-    min-width: 0;
-    box-sizing: border-box;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
   }
 
   .story-switch-pill {
     padding: 5px 11px;
     font-size: 10.5px;
     flex-shrink: 0;
-  }
-
-  /* Vertical Track & Post Rows on Mobile */
-  .login-vertical-track {
-    max-height: 480px;
-    overflow-y: auto;
-    overflow-x: hidden;
-    width: 100%;
-    max-width: 100%;
-    min-width: 0;
-    box-sizing: border-box;
-    -webkit-overflow-scrolling: touch;
-    padding: 12px 10px;
-    gap: 16px;
-    border-radius: 18px;
-  }
-
-  .login-post-row {
-    width: 100%;
-    max-width: 100%;
-    min-width: 0;
-    box-sizing: border-box;
-    overflow: hidden;
-    padding: 12px 12px 16px 12px;
-    border-radius: 16px;
-    flex: 0 0 auto !important;
-  }
-
-  .login-row-header {
-    padding: 0 2px 8px 2px;
-    width: 100%;
-    max-width: 100%;
-    min-width: 0;
-    box-sizing: border-box;
-    overflow: hidden;
-  }
-
-  .login-row-headline {
-    font-size: 12.5px;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .login-row-posters {
-    display: flex !important;
-    flex-direction: row !important;
-    flex-wrap: nowrap !important;
-    gap: 10px !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    min-width: 0 !important;
-    box-sizing: border-box !important;
-    overflow-x: auto !important;
-    overflow-y: hidden !important;
-    -webkit-overflow-scrolling: touch !important;
-    scroll-snap-type: x mandatory !important;
-    padding: 2px 2px 8px 2px !important;
-  }
-
-  .login-poster-col {
-    flex: 0 0 calc(84vw - 24px) !important;
-    max-width: 290px !important;
-    min-width: 220px !important;
-    height: 380px !important;
-    min-height: 380px !important;
-    border-radius: 14px !important;
-    scroll-snap-align: start !important;
-    overflow: hidden !important;
-    box-sizing: border-box !important;
-  }
-
-  .login-poster-col .slide-hook-content {
-    padding: 14px !important;
-  }
-
-  .login-poster-col .slide-hook-headline {
-    font-size: 15px !important;
-    line-height: 1.25 !important;
-  }
-
-  .login-poster-col .slide-critique {
-    padding: 14px !important;
-  }
-
-  .login-poster-col .critique-opinion-text {
-    font-size: 13px !important;
-    line-height: 1.4 !important;
-  }
-
-  .login-poster-col .slide-receipt {
-    padding: 0 !important;
-  }
-
-  .login-poster-col .slant-minute-scroll-viewport {
-    padding: 12px 14px !important;
-  }
-
-  .login-poster-col .receipt-pub-title {
-    font-size: 14px !important;
-  }
-
-  .login-poster-col .receipt-headline {
-    font-size: 12px !important;
-    line-height: 1.25 !important;
-  }
-
-  .login-poster-col .receipt-p1 {
-    font-size: 10px !important;
-    line-height: 1.35 !important;
-    -webkit-line-clamp: 3 !important;
-  }
-
-  .login-poster-col .receipt-highlight {
-    padding: 4px 8px !important;
-    margin: 3px 0 !important;
-  }
-
-  .login-poster-col .highlighter-text {
-    font-size: 10px !important;
-    -webkit-line-clamp: 2 !important;
-  }
-
-  .login-poster-col .receipt-p3 {
-    font-size: 10px !important;
-    line-height: 1.35 !important;
-    -webkit-line-clamp: 3 !important;
-  }
-
-  .slant-architecture-bar {
-    display: none;
   }
 }
 
@@ -5510,21 +4865,7 @@ header {
     overflow-x: hidden;
   }
 
-  .slant-login-topbar {
-    padding: 11px 40px;
-  }
 
-  .slant-login-close {
-    top: 7px;
-    right: 8px;
-    width: 30px;
-    height: 30px;
-    font-size: 16px;
-  }
-
-  .topbar-tagline {
-    font-size: 12.5px;
-  }
 
   .slant-login-auth-col {
     padding: 20px 16px 18px 16px;

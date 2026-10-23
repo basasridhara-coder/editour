@@ -923,15 +923,14 @@ const FEATURED_LOGIN_POSTS = [
   }
 ];
 
+let currentSampleStoryIndex = 0;
+let sampleCarouselAutoPlayTimer = null;
+let isSampleCarouselHovered = false;
+
 function renderLoginPostsPreview() {
   const track = document.getElementById("loginPostsScrollTrack");
   const switcher = document.getElementById("loginStoriesSwitcher");
   if (!track) return;
-
-  // Do not re-render if already populated
-  if (track.children.length > 0 && track.dataset.populated === "true") {
-    return;
-  }
 
   // Ensure featured login posts are merged into allPosts so any lookup succeeds
   if (Array.isArray(FEATURED_LOGIN_POSTS)) {
@@ -967,223 +966,109 @@ function renderLoginPostsPreview() {
     });
   }
 
-  track.innerHTML = '';
-  track.dataset.populated = 'true';
-  if (switcher) switcher.innerHTML = '';
+  window._selectedSamplePosts = selectedPosts;
 
   // 1. Build Story Switcher Pills
-  selectedPosts.forEach(({ post, cfg }, idx) => {
-    if (switcher) {
+  if (switcher) {
+    switcher.innerHTML = '';
+    selectedPosts.forEach(({ post, cfg }, idx) => {
       const pill = document.createElement('button');
       pill.type = 'button';
-      pill.className = `story-switch-pill ${idx === 0 ? 'active' : ''}`;
+      pill.className = `story-switch-pill ${idx === currentSampleStoryIndex ? 'active' : ''}`;
       pill.id = `storyPill-${post.id}`;
       pill.innerHTML = `<span>${cfg.icon}</span> <span>${escapeHtml(cfg.shortName)}</span>`;
       pill.onclick = () => {
-        document.querySelectorAll('.story-switch-pill').forEach(p => p.classList.remove('active'));
-        pill.classList.add('active');
-        const targetRow = document.getElementById(`login-row-${post.id}`);
-        if (targetRow && track) {
-          const targetTop = targetRow.offsetTop - track.offsetTop;
-          track.scrollTo({ top: Math.max(0, targetTop - 8), behavior: 'smooth' });
-        } else if (targetRow) {
-          targetRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        }
+        selectSampleStory(idx);
       };
       switcher.appendChild(pill);
-    }
-  });
-
-  // 2. Build 3 Posters of Single Post in a Row for each colourful story
-  selectedPosts.forEach(({ post, cfg }, idx) => {
-    const rowDiv = document.createElement('div');
-    rowDiv.className = 'login-post-row';
-    rowDiv.id = `login-row-${post.id}`;
-
-    const catBadge = post.categoryBadge || 'CURATED';
-    const pubName = post.publicationName || 'Slant Press';
-    const author = post.creatorHandle || '@curator';
-    const headline = post.adaptedHeadline || post.originalHeadline || 'Visual Editorial';
-
-    // Slide 1 (Hook), Slide 2 (Critique / Slant), Slide 3 (Receipts)
-    const slide1Content = buildSlide1Html(post, `login-${idx}`);
-    const slide2Content = buildSlide2Html(post, `login-${idx}`);
-    const slide3Content = buildSlide3Html(post, `login-${idx}`);
-
-    rowDiv.innerHTML = `
-      <!-- Single Post Row Header -->
-      <div class="login-row-header">
-        <div class="login-row-meta-left">
-          <span class="login-row-cat-pill">${cfg.icon} ${escapeHtml(catBadge)}</span>
-          <span class="login-row-headline" title="${escapeHtml(headline)}">${escapeHtml(headline)}</span>
-        </div>
-        <div class="login-row-meta-right">
-          <span class="login-row-source">${escapeHtml(pubName)}</span>
-          <span class="login-row-author">${escapeHtml(author)}</span>
-        </div>
-      </div>
-
-      <!-- 3 Posters in a Row: Hook, Slant, Receipts -->
-      <div class="login-row-posters">
-        <!-- Poster 1: The Visual Hook -->
-        <div class="login-poster-col poster-hook" onclick="previewPostFromLogin('${post.id}')" title="Poster 1: Visual Hook • Sign in to read">
-          <span class="login-poster-label">01 • HOOK</span>
-          <div class="carousel-slide slide-hook">
-            ${slide1Content}
-          </div>
-        </div>
-
-        <!-- Poster 2: The Slant & Conviction -->
-        <div class="login-poster-col poster-slant" onclick="previewPostFromLogin('${post.id}')" title="Poster 2: The Slant • Sign in to read">
-          <span class="login-poster-label">02 • THE SLANT</span>
-          <div class="carousel-slide slide-critique">
-            ${slide2Content}
-          </div>
-        </div>
-
-        <!-- Poster 3: Slant Minute (1-Min Read) -->
-        <div class="login-poster-col poster-receipts" onclick="previewPostFromLogin('${post.id}')" title="Poster 3: Slant Minute • Sign in to read">
-          <span class="login-poster-label">03 • SLANT MINUTE</span>
-          <div class="carousel-slide slide-receipt">
-            ${slide3Content}
-          </div>
-        </div>
-      </div>
-
-      ${idx < selectedPosts.length - 1 ? '<div class="login-row-divider">✦ NEXT EDITORIAL TRIO ✦</div>' : ''}
-    `;
-
-    track.appendChild(rowDiv);
-  });
-
-  // Track scroll position to update active switcher pill
-  if (switcher && typeof IntersectionObserver !== 'undefined') {
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach(entry => {
-        if (entry.isIntersecting) {
-          const id = entry.target.id.replace('login-row-', '');
-          document.querySelectorAll('.story-switch-pill').forEach(p => p.classList.remove('active'));
-          const activePill = document.getElementById(`storyPill-${id}`);
-          if (activePill) activePill.classList.add('active');
-        }
-      });
-    }, { root: track, threshold: 0.35 });
-
-    selectedPosts.forEach(({ post }) => {
-      const el = document.getElementById(`login-row-${post.id}`);
-      if (el) observer.observe(el);
     });
   }
 
-  // Start continuous vertical oscillation drift for the showcase track
-  startLoginTrackVerticalOscillation(track);
+  // 2. Render initial sample story into authentic 3:4 feed card
+  renderSampleStory(currentSampleStoryIndex);
+  startSampleCarouselAutoPlay();
 }
 
-// Step-by-Step Smooth Vertical Auto-Scroll Controller (every 5 seconds)
-let loginAutoScrollTimer = null;
-let loginScrollRowIndex = 0;
-let loginScrollDirection = 1; // 1 = scrolling downwards, -1 = scrolling upwards
-let isLoginTrackHovered = false;
-
-function startLoginTrackVerticalOscillation(track) {
-  if (!track || track.dataset.oscillatorStarted === 'true') return;
-  track.dataset.oscillatorStarted = 'true';
-
-  function doScrollStep() {
-    if (isLoginTrackHovered) return;
-    const rows = track.querySelectorAll('.login-post-row');
-    if (!rows || rows.length <= 1) return;
-
-    // Advance to next row
-    loginScrollRowIndex += loginScrollDirection;
-
-    // Check boundaries and reverse direction at the ends
-    if (loginScrollRowIndex >= rows.length - 1) {
-      loginScrollRowIndex = rows.length - 1;
-      loginScrollDirection = -1; // Reached bottom, next time scroll up!
-    } else if (loginScrollRowIndex <= 0) {
-      loginScrollRowIndex = 0;
-      loginScrollDirection = 1; // Reached top, next time scroll down!
-    }
-
-    const targetRow = rows[loginScrollRowIndex];
-    if (targetRow) {
-      const targetTop = targetRow.offsetTop - track.offsetTop;
-      track.scrollTo({ top: Math.max(0, targetTop - 8), behavior: 'smooth' });
-    }
-  }
-
-  function resetTimer() {
-    if (loginAutoScrollTimer) clearInterval(loginAutoScrollTimer);
-    loginAutoScrollTimer = setInterval(doScrollStep, 5000);
-  }
-
-  // Hover detection: pause firmly when user brings mouse pointer on them
-  track.addEventListener('mouseenter', () => {
-    isLoginTrackHovered = true;
-    if (loginAutoScrollTimer) clearInterval(loginAutoScrollTimer);
-  });
-
-  track.addEventListener('mouseleave', () => {
-    isLoginTrackHovered = false;
-    resetTimer();
-  });
-
-  // Touch detection for mobile devices
-  track.addEventListener('touchstart', () => {
-    isLoginTrackHovered = true;
-    if (loginAutoScrollTimer) clearInterval(loginAutoScrollTimer);
-  }, { passive: true });
-
-  track.addEventListener('touchend', () => {
-    isLoginTrackHovered = false;
-    resetTimer();
-  }, { passive: true });
-
-  // When user wheels or scrolls manually, sync current row index
-  track.addEventListener('wheel', () => {
-    isLoginTrackHovered = true;
-    if (loginAutoScrollTimer) clearInterval(loginAutoScrollTimer);
-    clearTimeout(track._wheelTimeout);
-    track._wheelTimeout = setTimeout(() => {
-      isLoginTrackHovered = false;
-      const rows = track.querySelectorAll('.login-post-row');
-      let nearestIdx = 0;
-      let minDiff = Infinity;
-      rows.forEach((r, i) => {
-        const diff = Math.abs(r.offsetTop - track.offsetTop - track.scrollTop);
-        if (diff < minDiff) {
-          minDiff = diff;
-          nearestIdx = i;
-        }
-      });
-      loginScrollRowIndex = nearestIdx;
-      resetTimer();
-    }, 4000);
-  }, { passive: true });
-
-  // Start the 5-second interval
-  resetTimer();
+function selectSampleStory(storyIdx) {
+  currentSampleStoryIndex = storyIdx;
+  renderSampleStory(storyIdx);
 }
 
-function scrollLoginPosts(direction) {
-  const track = document.getElementById('loginPostsScrollTrack');
-  if (!track) return;
-  isLoginTrackHovered = true;
-  clearTimeout(track._manualTimeout);
-  track._manualTimeout = setTimeout(() => { isLoginTrackHovered = false; }, 4000);
+function renderSampleStory(storyIdx) {
+  const track = document.getElementById("loginPostsScrollTrack");
+  const selectedPosts = window._selectedSamplePosts || [];
+  if (!track || !selectedPosts[storyIdx]) return;
 
-  const rows = track.querySelectorAll('.login-post-row');
-  if (rows && rows.length > 0) {
-    loginScrollRowIndex = Math.max(0, Math.min(rows.length - 1, loginScrollRowIndex + direction));
-    const targetRow = rows[loginScrollRowIndex];
-    if (targetRow) {
-      const targetTop = targetRow.offsetTop - track.offsetTop;
-      track.scrollTo({ top: Math.max(0, targetTop - 8), behavior: 'smooth' });
-    }
-  } else {
-    track.scrollBy({ top: 380 * direction, behavior: 'smooth' });
+  const { post, cfg } = selectedPosts[storyIdx];
+  window.currentSampleStoryPost = post;
+
+  // Update switcher pills active class
+  document.querySelectorAll('.story-switch-pill').forEach((pill, idx) => {
+    pill.classList.toggle('active', idx === storyIdx);
+  });
+
+  // Create authentic feed card with postIndex = 'sample'
+  const card = createPostCardElement(post, 'sample');
+  card.classList.add('sample-feed-card');
+
+  // Slide click behavior for landing page:
+  // Slide 1 & Slide 2: Clicking advances to next slide
+  const slide1 = card.querySelector('.slide-hook');
+  const slide2 = card.querySelector('.slide-critique');
+  if (slide1) {
+    slide1.onclick = (e) => {
+      e.stopPropagation();
+      goToSlide(e, 'sample', 1);
+    };
+    slide1.style.cursor = 'pointer';
+    slide1.setAttribute('title', 'Next: The Slant');
   }
+  if (slide2) {
+    slide2.onclick = (e) => {
+      e.stopPropagation();
+      goToSlide(e, 'sample', 2);
+    };
+    slide2.style.cursor = 'pointer';
+    slide2.setAttribute('title', 'Next: The Receipts');
+  }
+
+  // Replace track content with new card
+  track.innerHTML = '';
+  track.appendChild(card);
+  track.dataset.populated = 'true';
+
+  // Attach touch swipe gestures
+  setupCarouselGestures('sample');
+
+  // Reset to Slide 0 (Hook)
+  goToSlide(null, 'sample', 0);
+
+  // Hover detection for auto-play pause
+  card.addEventListener('mouseenter', () => { isSampleCarouselHovered = true; });
+  card.addEventListener('mouseleave', () => { isSampleCarouselHovered = false; });
+  card.addEventListener('touchstart', () => { isSampleCarouselHovered = true; }, { passive: true });
+  card.addEventListener('touchend', () => {
+    setTimeout(() => { isSampleCarouselHovered = false; }, 3000);
+  }, { passive: true });
+}
+
+function startSampleCarouselAutoPlay() {
+  if (sampleCarouselAutoPlayTimer) {
+    clearInterval(sampleCarouselAutoPlayTimer);
+  }
+  sampleCarouselAutoPlayTimer = setInterval(() => {
+    if (isSampleCarouselHovered) return;
+    const signedOutView = document.getElementById('signedOutPageView');
+    if (!signedOutView || signedOutView.style.display === 'none') {
+      clearInterval(sampleCarouselAutoPlayTimer);
+      return;
+    }
+    const carousel = document.getElementById('carousel-sample');
+    if (!carousel) return;
+    const cur = parseInt(carousel.getAttribute('data-current-slide') || '0', 10);
+    const next = (cur + 1) % 3;
+    goToSlide(null, 'sample', next);
+  }, 6000);
 }
 
 function previewPostFromLogin(postId) {
@@ -3003,6 +2888,7 @@ function setupSwipeBlockedListener() {
 
 function getPostFromIndexOrId(indexOrId) {
   if (indexOrId === 'preview') return (typeof currentSynthesizedPost !== 'undefined' ? currentSynthesizedPost : null);
+  if (indexOrId === 'sample') return (typeof window.currentSampleStoryPost !== 'undefined' ? window.currentSampleStoryPost : null);
   if (typeof indexOrId === 'number' || (typeof indexOrId === 'string' && /^\d+$/.test(indexOrId))) {
     const idx = parseInt(indexOrId, 10);
     return (typeof currentBatchFilteredPosts !== 'undefined' && currentBatchFilteredPosts[idx]) || (typeof allPosts !== 'undefined' && allPosts[idx]) || null;
@@ -5042,8 +4928,8 @@ function renderProofSummarySections(post, ledger) {
 
 function openDetailModal(index) {
   if (index === 'preview') return;
-  if (!currentUser && isDeepLinkScrollGated) {
-    openAuthModal('Sign in to view verified source context and receipts.');
+  if (!currentUser && (isDeepLinkScrollGated || index === 'sample')) {
+    openAuthModal('Sign in to view verified source context, receipts, and community discussion.');
     return;
   }
   // Guard against accidental opening while scrolling the Slant Minute broadsheet or swiping

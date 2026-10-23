@@ -63,93 +63,74 @@
     <main class="login-main-wrap">
       <div class="login-page-card-standalone">
         
-        <!-- Top Brand Tagline Banner -->
-        <div class="slant-login-topbar">
-          <div class="topbar-rule-left"></div>
-          <div class="topbar-tagline-wrap">
-            <span class="topbar-emblem-dot">✦</span>
-            <span class="topbar-tagline">Frame your stance with conviction</span>
-            <span class="topbar-emblem-dot">✦</span>
+        <!-- Grand Editorial Masthead: Thoughtful Quote + Large Slant Logo Animation -->
+        <header class="slant-landing-masthead">
+          <div class="manifesto-text-col">
+            <div class="manifesto-badge">
+              <span class="manifesto-sparkle">✦</span>
+              <span>A PERSPECTIVE ENGINE</span>
+            </div>
+            <blockquote class="manifesto-quote">
+              <p class="manifesto-lead">
+                &ldquo;Thoughts are passing clouds. Left alone, they vanish into thin air. Gathered and condensed, they bring the rain that nourishes the earth.&rdquo;
+              </p>
+              <p class="manifesto-question">
+                When an insight crosses your mind, what will you do &mdash; let it drift past, or <span class="manifesto-slant-word">slant it?</span>
+              </p>
+            </blockquote>
           </div>
-          <div class="topbar-rule-right"></div>
+
+          <!-- Beside That: Large Logo Animation of Slant -->
+          <div class="manifesto-logo-wrap">
+            <div class="manifesto-logo-frame">
+              <img class="manifesto-logo-animated" src="/slanlogo.svg?v=20261013_2100" alt="Slant animated mark" width="1024" height="1024">
+            </div>
+            <span class="manifesto-logo-tag">FRAME YOUR STANCE</span>
+          </div>
+        </header>
+
+        <!-- Delicate Architectural Divider -->
+        <div class="landing-divider">
+          <div class="landing-divider-line"></div>
+          <span class="landing-divider-diamond">✦</span>
+          <div class="landing-divider-line"></div>
         </div>
 
         <!-- Main Login Body: Split Grid -->
         <div class="slant-login-grid">
           
-          <!-- Left Side: Dominant Manifesto & Fitted Sample Carousel Showcase -->
-          <div class="slant-login-showcase">
-            
-            <!-- Dominant Hero Manifesto Section: Statement + Large Animated Logo -->
-            <div class="slant-hero-manifesto-wrap">
-              <div class="manifesto-text-col">
-                <div class="manifesto-badge">
-                  <span class="manifesto-sparkle">✦</span>
-                  <span>A PERSPECTIVE ENGINE</span>
-                </div>
-                <blockquote class="manifesto-quote">
-                  <p class="manifesto-lead">
-                    &ldquo;Thoughts are passing clouds. Left alone, they vanish into thin air. Gathered and condensed, they bring the rain that nourishes the earth.&rdquo;
-                  </p>
-                  <p class="manifesto-question">
-                    When an insight crosses your mind, what will you do &mdash; let it drift past, or <span class="manifesto-slant-word">slant it?</span>
-                  </p>
-                </blockquote>
+          <!-- Left Column: Authentic 3:4 Sample Feed Carousel Section -->
+          <section class="slant-sample-carousel-section" aria-label="Sample Visual Postcards">
+            <div class="sample-carousel-header">
+              <div class="sample-carousel-title-col">
+                <span class="sample-carousel-label">✦ SAMPLE EDITIONS</span>
+                <span class="sample-carousel-sub">Explore how raw thought condenses into 3 visual posters</span>
               </div>
-
-              <!-- Beside That: Large Logo Animation of Slant -->
-              <div class="manifesto-logo-wrap">
-                <div class="manifesto-logo-frame">
-                  <img class="manifesto-logo-animated" src="/slanlogo.svg?v=20261013_2100" alt="Slant animated mark" width="1024" height="1024">
-                </div>
-                <span class="manifesto-logo-tag">FRAME YOUR STANCE</span>
-              </div>
+              <!-- Story Switcher Pills -->
+              <div class="login-stories-switcher" id="loginStoriesSwitcher"></div>
             </div>
 
-            <!-- Fitted Sample Default Carousel Section -->
-            <div class="slant-sample-carousel-section">
-              <div class="sample-carousel-header">
-                <div class="sample-carousel-title-col">
-                  <span class="sample-carousel-label">✦ SAMPLE EDITIONS</span>
-                  <span class="sample-carousel-sub">See how raw thought condenses into 3 visual posters</span>
-                </div>
-                <!-- Story Switcher Pills -->
-                <div class="login-stories-switcher" id="loginStoriesSwitcher"></div>
-              </div>
-
-              <!-- Vertical Scroll Track for 3-Poster Sets -->
-              <div class="login-vertical-track" id="loginPostsScrollTrack">
-                <!-- Dynamically populated with complete 3-poster sets for each colorful story -->
-              </div>
-
-              <!-- 3-Poster Architecture Walkthrough Banner -->
-              <div class="slant-architecture-bar">
-                <div class="arch-step">
-                  <span class="arch-num">01</span>
-                  <div class="arch-text">
-                    <strong>Visual Hook</strong>
-                    <span>Metaphor arrests attention</span>
-                  </div>
-                </div>
-                <div class="arch-sep">&rarr;</div>
-                <div class="arch-step">
-                  <span class="arch-num">02</span>
-                  <div class="arch-text">
-                    <strong>The Slant</strong>
-                    <span>Unhedged critical opinion</span>
-                  </div>
-                </div>
-                <div class="arch-sep">&rarr;</div>
-                <div class="arch-step">
-                  <span class="arch-num">03</span>
-                  <div class="arch-text">
-                    <strong>The Receipts</strong>
-                    <span>Immutable primary sources</span>
-                  </div>
-                </div>
-              </div>
+            <!-- 3-Step Slide Tabs: Hook -> Slant -> Receipts -->
+            <div class="sample-slide-tabs" id="tabs-sample">
+              <button type="button" class="sample-slide-tab carousel-tab-btn active" onclick="goToSlide(event, 'sample', 0)" title="Slide 1: Visual Metaphor Hook">
+                <span class="sample-tab-num">01</span>
+                <span class="sample-tab-name">Hook</span>
+              </button>
+              <button type="button" class="sample-slide-tab carousel-tab-btn" onclick="goToSlide(event, 'sample', 1)" title="Slide 2: Critical Curator Slant">
+                <span class="sample-tab-num">02</span>
+                <span class="sample-tab-name">The Slant</span>
+              </button>
+              <button type="button" class="sample-slide-tab carousel-tab-btn" onclick="goToSlide(event, 'sample', 2)" title="Slide 3: Broadsheet Receipts">
+                <span class="sample-tab-num">03</span>
+                <span class="sample-tab-name">The Receipts</span>
+              </button>
             </div>
-          </div>
+
+            <!-- Single Authentic 3:4 Feed Carousel Card Host -->
+            <div class="sample-feed-card-host" id="loginPostsScrollTrack">
+              <!-- Dynamically populated with authentic 3:4 .carousel-view card -->
+            </div>
+          </section>
 
           <!-- Right Side: Dedicated Auth Sanctuary -->
           <div class="slant-login-auth-col">
