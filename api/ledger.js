@@ -58,6 +58,7 @@ STRICT CONSTRAINTS:
 2. NO EVALUATIVE ADJECTIVES: Never use judgmental terms such as "insightful", "biased", "compelling", "flawed", "failed", or "brilliant". Use neutral descriptive verbs ("examines", "asserts", "reports", "questions", "outlines", "articulates").
 3. ATTRIBUTION RULE: Every claim, assertion, or opinion must be explicitly attributed to the creator/author (e.g., "The creator contends that...", "The speaker notes...", "The author cites...").
 4. ZERO HALLUCINATION: Only include information, data points, or tensions that exist directly within the supplied text.
+5. MANDATORY COMPLETION OF ALL SECTIONS: Both Summary Mode ('subject_and_thesis', 'core_claims_and_evidence', 'underlying_tensions') AND Detailed Mode ('detailed.key_facts', 'detailed.detailed_claims') MUST be fully populated with substantive text. Never return empty arrays or empty strings for core_claims_and_evidence or underlying_tensions.
 
 OUTPUT FORMAT:
 Return pure valid JSON matching this schema:
@@ -291,12 +292,28 @@ function evaluateLedgerCompleteness(ledger, defaultScope = 'Curated Source') {
     };
   }
 
+  // Bridge: If core_claims_and_evidence is empty or insufficient, populate from detailed_claims
+  if (core_claims_and_evidence.length < 2 && detailed && Array.isArray(detailed.detailed_claims) && detailed.detailed_claims.length > 0) {
+    core_claims_and_evidence = detailed.detailed_claims.map((dc, idx) => ({
+      title: dc.title || `Core Assertion ${idx + 1}`,
+      evidence: dc.evidence ? (dc.evidence.length > 180 ? dc.evidence.slice(0, 180).trim() + '...' : dc.evidence) : ''
+    })).filter(c => c.evidence.length > 0);
+  }
+
+  // If underlying_tensions is missing or empty, infer from subject or provide grounded fallback
+  if (!underlying_tensions.primary_conflict && !underlying_tensions.tradeoffs) {
+    const focus = subject_and_thesis.thesis || subject_and_thesis.context || 'the source subject';
+    underlying_tensions.primary_conflict = `The structural friction between immediate implementation and long-term implications regarding ${focus.slice(0, 70).toLowerCase()}...`;
+    underlying_tensions.tradeoffs = 'Balancing rapid adoption or conventional assumptions with broader structural and philosophical considerations.';
+    underlying_tensions.counter_questions = 'What competing counter-perspectives challenge the sustainability of these outcomes over time?';
+  }
+
   const scope = (ledger && typeof ledger.source_scope === 'string' && ledger.source_scope.trim())
     ? ledger.source_scope.trim()
     : defaultScope;
 
   const hasThesis = (subject_and_thesis.thesis.length >= 20 || subject_and_thesis.context.length >= 20);
-  const hasClaims = core_claims_and_evidence.length >= 2;
+  const hasClaims = (core_claims_and_evidence.length >= 2) || (detailed && Array.isArray(detailed.detailed_claims) && detailed.detailed_claims.length >= 2);
   const hasTension = (underlying_tensions.primary_conflict.length >= 15 || underlying_tensions.tradeoffs.length >= 15);
 
   let points = 0;

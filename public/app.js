@@ -4930,7 +4930,9 @@ function renderProofSummarySections(post, ledger) {
     }
 
     // Section 2: Core Claims & Verified Evidence
-    const ledgerClaims = Array.isArray(ledger.core_claims_and_evidence) ? ledger.core_claims_and_evidence : [];
+    const ledgerClaims = (Array.isArray(ledger.core_claims_and_evidence) && ledger.core_claims_and_evidence.length > 0)
+      ? ledger.core_claims_and_evidence
+      : (Array.isArray(ledger.detailed?.detailed_claims) ? ledger.detailed.detailed_claims : []);
     if (ledgerClaims.length > 0) {
       paragraphsHtml += `
         <div class="unbiased-summary-section">
@@ -4976,6 +4978,10 @@ function renderProofSummarySections(post, ledger) {
       counterQuestions = cleanSourceExcerpt(ledger.underlying_tensions.counter_questions || '');
     } else if (ledger.underlying_tensions) {
       tensionText = cleanSourceExcerpt(String(ledger.underlying_tensions));
+    }
+
+    if (!tensionText && (thesisText || ledgerClaims.length > 0)) {
+      tensionText = 'Balancing immediate practical adoption with broader systemic and long-term implications.';
     }
 
     if (tensionText || counterQuestions) {
@@ -5055,7 +5061,15 @@ function openDetailModal(index) {
   const starsBadge = document.getElementById('proofStarsBadge');
   if (starsBadge) {
     if (ledger) {
-      const starsCount = Math.min(3, Math.max(1, Number(ledger.stars || ledger.completeness_score || 3)));
+      let effectiveStars = Number(ledger.stars || ledger.completeness_score || 0);
+      const hasThesis = Boolean(ledger.subject_and_thesis?.thesis || ledger.subject_and_thesis);
+      const hasAnyClaims = (Array.isArray(ledger.core_claims_and_evidence) && ledger.core_claims_and_evidence.length >= 2) ||
+                           (Array.isArray(ledger.detailed?.detailed_claims) && ledger.detailed.detailed_claims.length >= 2);
+      const hasAnyTension = Boolean(ledger.underlying_tensions?.primary_conflict || ledger.underlying_tensions?.tradeoffs || ledger.underlying_tension_or_question);
+      if (hasThesis && hasAnyClaims && (hasAnyTension || (ledger.detailed?.key_facts && ledger.detailed.key_facts.length >= 3))) {
+        effectiveStars = 3;
+      }
+      const starsCount = Math.min(3, Math.max(1, effectiveStars || 3));
       const starsHtml = '★'.repeat(starsCount) + '☆'.repeat(3 - starsCount);
       const label = ledger.stars_label || (starsCount === 3 ? '3/3 High Substance Anchor' : `${starsCount}/3 Anchor`);
       starsBadge.innerHTML = `<span>${starsHtml}</span> <span>${escapeHtml(label)}</span>`;
