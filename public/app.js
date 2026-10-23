@@ -1651,6 +1651,9 @@ function selectCategory(categoryKey) {
   document.querySelectorAll('.filter-pill').forEach(pill => {
     pill.classList.toggle('active', pill.getAttribute('data-cat') === categoryKey);
   });
+  if (categoryKey === 'my_stories') {
+    fetchAuthorStoriesFromCloud();
+  }
   renderFeed();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -1826,7 +1829,7 @@ async function fetchDirectSupabasePosts(limit = 12) {
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 6000);
-    const idResp = await fetch(`${SUPABASE_URL}/rest/v1/posts?select=id,created_at&order=created_at.desc&limit=${limit}`, {
+    const idResp = await fetch(`${SUPABASE_URL}/rest/v1/posts?select=id,created_at&id=like.slant*&order=created_at.desc&limit=${limit}`, {
       signal: controller.signal,
       headers: {
         'apikey': SUPABASE_KEY,
@@ -1837,7 +1840,7 @@ async function fetchDirectSupabasePosts(limit = 12) {
     if (!idResp.ok) return [];
     const idRows = await idResp.json();
     if (!Array.isArray(idRows) || idRows.length === 0) return [];
-    const orderedIds = idRows.map(r => r.id).filter(id => id && !id.startsWith('system_'));
+    const orderedIds = idRows.map(r => r.id).filter(id => id && !id.startsWith('system_') && !id.startsWith('family_cast_'));
 
     // Fetch posts via single indexed primary-key query (fast & resilient)
     const inFilter = orderedIds.map(id => '%22' + encodeURIComponent(id) + '%22').join(',');
@@ -2139,6 +2142,8 @@ async function loadPosts() {
       const data = await apiResp.json();
       if (data && Array.isArray(data.posts) && data.posts.length > 0) {
         fetchedLiveBatch = data.posts;
+        if (data.total) feedCloudTotal = data.total;
+        if (data.hasMore !== undefined) feedCloudHasMore = data.hasMore;
       }
     }
   } catch (e) {
@@ -2231,6 +2236,7 @@ async function loadPosts() {
 
   // 4. In background, silently sync remaining posts from cloud
   syncLiveCloudPosts(false);
+  fetchAuthorStoriesFromCloud();
 }
 
 async function syncLiveCloudPosts(forceRender = false) {
@@ -2239,8 +2245,8 @@ async function syncLiveCloudPosts(forceRender = false) {
   // 1. Primary: Fetch from /api/posts with timestamp and no-store to bypass any proxy/browser cache
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
-    const apiResp = await fetch(`/api/posts?limit=15&ts=${Date.now()}`, {
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    const apiResp = await fetch(`/api/posts?limit=50&ts=${Date.now()}`, {
       cache: 'no-store',
       signal: controller.signal
     });
@@ -2249,6 +2255,8 @@ async function syncLiveCloudPosts(forceRender = false) {
       const data = await apiResp.json();
       if (data && Array.isArray(data.posts) && data.posts.length > 0) {
         fetchedPosts = data.posts;
+        if (data.total) feedCloudTotal = data.total;
+        if (data.hasMore !== undefined) feedCloudHasMore = data.hasMore;
       }
     }
   } catch (apiErr) {
@@ -2354,6 +2362,41 @@ async function syncLiveCloudPosts(forceRender = false) {
     } catch (err) {
       console.warn('Sync user drafts error:', err);
     }
+  }
+}
+
+async function fetchAuthorStoriesFromCloud() {
+  try {
+    let authorParam = '';
+    if (currentUser) {
+      const email = (currentUser.email || '').trim();
+      const handle = (currentUser.user_metadata?.user_name || currentUser.user_metadata?.name || email.split('@')[0] || '').replace('@', '').trim();
+      if (handle) {
+        authorParam = `author=${encodeURIComponent(handle)}`;
+      } else if (email) {
+        authorParam = `email=${encodeURIComponent(email)}`;
+      }
+    }
+    if (!authorParam) {
+      authorParam = 'author=Shridhar';
+    }
+
+    const resp = await fetch(`/api/posts?${authorParam}&limit=50&ts=${Date.now()}`);
+    if (resp.ok) {
+      const data = await resp.json();
+      if (data && Array.isArray(data.posts) && data.posts.length > 0) {
+        data.posts.forEach(p => {
+          if (p && p.id) myCreatedPostIds.add(p.id);
+        });
+        localStorage.setItem('slant_my_posts', JSON.stringify(Array.from(myCreatedPostIds)));
+        const added = mergeAndSortPosts(data.posts);
+        if (added || currentFilter === 'my_stories') {
+          renderFeed();
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('fetchAuthorStoriesFromCloud error:', err);
   }
 }
 
@@ -2610,6 +2653,8 @@ let currentBatchFilteredPosts = [];
 let isBatchLoading = false;
 let nextBatchPreloadPromise = null;
 let feedInfiniteScrollInitialized = false;
+let feedCloudHasMore = true;
+let feedCloudTotal = null;
 
 function getPostCardImageUrl(post) {
   if (!post) return '';
@@ -2730,7 +2775,8 @@ function appendBatchEndBarrier(batchIndex, currentCount, totalCount) {
   barrier.className = 'feed-batch-end-barrier';
   barrier.id = 'feedBatchEndBarrier';
 
-  if (currentCount >= totalCount) {
+  const isTrulyCaughtUp = (currentCount >= totalCount) && (!feedCloudHasMore || currentFilter !== 'all');
+  if (isTrulyCaughtUp) {
     barrier.innerHTML = `
       <div class="batch-barrier-card">
         <div class="batch-barrier-pill">✦ ALL STORIES CAUGHT UP ✦</div>
@@ -2739,9 +2785,10 @@ function appendBatchEndBarrier(batchIndex, currentCount, totalCount) {
       </div>
     `;
   } else {
+    const remainingCount = totalCount > currentCount ? ` (${currentCount} OF ${totalCount} STORIES)` : '';
     barrier.innerHTML = `
       <div class="batch-barrier-card">
-        <div class="batch-barrier-pill">✦ BATCH ${batchIndex + 1} COMPLETE (${currentCount} OF ${totalCount} STORIES) ✦</div>
+        <div class="batch-barrier-pill">✦ BATCH ${batchIndex + 1} COMPLETE${remainingCount} ✦</div>
         <h4 class="batch-barrier-title">Swipe up to load next 12 stories</h4>
         <p class="batch-barrier-sub">The next set of 12 original editorial postcards is ready.</p>
         <button class="batch-barrier-action-btn" id="loadNextBatchBtn" onclick="triggerNextFeedBatch()">
@@ -2756,12 +2803,66 @@ function appendBatchEndBarrier(batchIndex, currentCount, totalCount) {
 
 async function triggerNextFeedBatch() {
   if (isBatchLoading) return;
-  if (!currentBatchFilteredPosts || currentBatchFilteredPosts.length === 0) return;
+  if (!currentBatchFilteredPosts) currentBatchFilteredPosts = [];
 
   const nextStartIdx = (currentRenderedBatch + 1) * FEED_BATCH_SIZE;
+
+  // If we have rendered all currently loaded posts, check if more exist on the server
   if (nextStartIdx >= currentBatchFilteredPosts.length) {
-    showTemporaryToast('You are all caught up! ✨');
-    return;
+    if (feedCloudHasMore && currentFilter === 'all') {
+      isBatchLoading = true;
+      const batchLoader = document.getElementById('feedBatchLoader');
+      if (batchLoader) {
+        batchLoader.style.display = 'flex';
+        const bVid = batchLoader.querySelector('video');
+        if (bVid) {
+          try {
+            bVid.currentTime = 0;
+            const p = bVid.play();
+            if (p !== undefined) p.catch(() => {});
+          } catch (_) {}
+        }
+      }
+
+      try {
+        const nextOffset = allPosts.length;
+        const apiResp = await fetch(`/api/posts?offset=${nextOffset}&limit=${FEED_BATCH_SIZE}&ts=${Date.now()}`);
+        if (apiResp.ok) {
+          const data = await apiResp.json();
+          if (data && Array.isArray(data.posts) && data.posts.length > 0) {
+            mergeAndSortPosts(data.posts);
+            if (data.total) feedCloudTotal = data.total;
+            feedCloudHasMore = (data.hasMore === true);
+            currentBatchFilteredPosts = getFilteredPostsForFilter(allPosts, currentFilter, searchQuery);
+          } else {
+            feedCloudHasMore = false;
+          }
+        } else {
+          feedCloudHasMore = false;
+        }
+      } catch (err) {
+        console.warn('Error loading older batch from server:', err);
+        feedCloudHasMore = false;
+      }
+
+      if (batchLoader) {
+        batchLoader.style.display = 'none';
+        const bVid = batchLoader.querySelector('video');
+        if (bVid) {
+          try { bVid.pause(); } catch (_) {}
+        }
+      }
+      isBatchLoading = false;
+    }
+
+    if (nextStartIdx >= currentBatchFilteredPosts.length) {
+      showTemporaryToast('You are all caught up! ✨');
+      const barrier = document.getElementById('feedBatchEndBarrier');
+      if (barrier) {
+        appendBatchEndBarrier(currentRenderedBatch, currentBatchFilteredPosts.length, currentBatchFilteredPosts.length);
+      }
+      return;
+    }
   }
 
   isBatchLoading = true;
@@ -2815,7 +2916,8 @@ async function triggerNextFeedBatch() {
   currentRenderedBatch++;
 
   // Place the new barrier at the end of this batch
-  appendBatchEndBarrier(currentRenderedBatch, Math.min((currentRenderedBatch + 1) * FEED_BATCH_SIZE, currentBatchFilteredPosts.length), currentBatchFilteredPosts.length);
+  const effectiveTotal = feedCloudTotal && feedCloudTotal > currentBatchFilteredPosts.length ? feedCloudTotal : currentBatchFilteredPosts.length;
+  appendBatchEndBarrier(currentRenderedBatch, Math.min((currentRenderedBatch + 1) * FEED_BATCH_SIZE, currentBatchFilteredPosts.length), effectiveTotal);
 
   isBatchLoading = false;
   isNextBatchReady = false;
@@ -2902,25 +3004,24 @@ function getPostFromIndexOrId(indexOrId) {
   return (typeof allPosts !== 'undefined' && allPosts.find(p => p && p.id === indexOrId)) || null;
 }
 
-async function renderFeed(isInitial = false) {
-  const container = document.getElementById('feedContainer');
-  if (!container) return;
-  container.innerHTML = '';
-  currentRenderedBatch = 0;
-  nextBatchPreloadPromise = null;
+function getFilteredPostsForFilter(posts, filter, query) {
+  if (!Array.isArray(posts)) return [];
+  const q = (query || '').toLowerCase().trim();
 
-  const filtered = allPosts.filter(post => {
+  return posts.filter(post => {
+    if (!post) return false;
+
     // If a post is a private draft, it must ONLY be visible to its author in 'my_stories'
     const isPrivateDraft = post.isDraft === true || post.isPrivate === true || post.status === 'draft';
-    if (isPrivateDraft && currentFilter !== 'my_stories') {
+    if (isPrivateDraft && filter !== 'my_stories') {
       return false;
     }
 
-    if (currentFilter === 'saved') {
+    if (filter === 'saved') {
       return savedPostIds.has(post.id);
     }
 
-    if (currentFilter === 'my_stories') {
+    if (filter === 'my_stories') {
       if (myCreatedPostIds.has(post.id)) return true;
       if (!currentUser) return false;
       const userEmail = (currentUser.email || '').toLowerCase();
@@ -2930,32 +3031,41 @@ async function renderFeed(isInitial = false) {
       return (postUserId && postUserId === currentUser.id) || (userHandle && postAuthor && postAuthor === userHandle) || (userEmail && (post.userEmail || '').toLowerCase() === userEmail);
     }
 
-    if (currentFilter !== 'all') {
+    if (filter !== 'all') {
       const cat = (post.categoryBadge || '').toLowerCase();
       const type = (post.sourceType || '').toLowerCase();
       const isMySlant = post.isMySlant === true || type === 'my_slant' || type === 'inner_voice' || (post.publicationName || '').toLowerCase().includes('my slant') || (post.publicationName || '').toLowerCase().includes('inner voice');
-      if (currentFilter === 'opinion' && !(isMySlant || cat.includes('opinion') || cat.includes('slant') || cat.includes('op-ed') || cat.includes('editorial') || cat.includes('perspective'))) return false;
-      if (currentFilter === 'tech' && !(cat.includes('tech') || cat.includes('quantum') || cat.includes('ai') || cat.includes('astro'))) return false;
-      if (currentFilter === 'health' && !(cat.includes('health') || cat.includes('cures') || cat.includes('bio'))) return false;
-      if (currentFilter === 'climate' && !(cat.includes('climate') || cat.includes('energy') || cat.includes('renewable'))) return false;
-      if (currentFilter === 'economy' && !(cat.includes('economy') || cat.includes('global') || cat.includes('market') || cat.includes('capital') || cat.includes('finance'))) return false;
-      if (currentFilter === 'literary' && !(type === 'book_excerpt' || cat.includes('literary') || cat.includes('book') || cat.includes('literature'))) return false;
+      if (filter === 'opinion' && !(isMySlant || cat.includes('opinion') || cat.includes('slant') || cat.includes('op-ed') || cat.includes('editorial') || cat.includes('perspective'))) return false;
+      if (filter === 'tech' && !(cat.includes('tech') || cat.includes('quantum') || cat.includes('ai') || cat.includes('astro'))) return false;
+      if (filter === 'health' && !(cat.includes('health') || cat.includes('cures') || cat.includes('bio'))) return false;
+      if (filter === 'climate' && !(cat.includes('climate') || cat.includes('energy') || cat.includes('renewable'))) return false;
+      if (filter === 'economy' && !(cat.includes('economy') || cat.includes('global') || cat.includes('market') || cat.includes('capital') || cat.includes('finance'))) return false;
+      if (filter === 'literary' && !(type === 'book_excerpt' || cat.includes('literary') || cat.includes('book') || cat.includes('literature'))) return false;
     }
 
-    if (searchQuery) {
+    if (q) {
       const title = (post.adaptedHeadline || post.originalHeadline || '').toLowerCase();
       const pub = (post.publicationName || '').toLowerCase();
       const summary = (post.summary || '').toLowerCase();
       const hook = (post.hook || '').toLowerCase();
       const cat = (post.categoryBadge || '').toLowerCase();
-      if (!title.includes(searchQuery) && !pub.includes(searchQuery) && !summary.includes(searchQuery) && !hook.includes(searchQuery) && !cat.includes(searchQuery)) {
+      if (!title.includes(q) && !pub.includes(q) && !summary.includes(q) && !hook.includes(q) && !cat.includes(q)) {
         return false;
       }
     }
 
     return true;
   });
+}
 
+async function renderFeed(isInitial = false) {
+  const container = document.getElementById('feedContainer');
+  if (!container) return;
+  container.innerHTML = '';
+  currentRenderedBatch = 0;
+  nextBatchPreloadPromise = null;
+
+  const filtered = getFilteredPostsForFilter(allPosts, currentFilter, searchQuery);
   currentBatchFilteredPosts = filtered;
 
   if (filtered.length === 0) {
@@ -3035,7 +3145,8 @@ async function renderFeed(isInitial = false) {
     appendDeepLinkFeedGate();
   } else {
     // Strictly append Batch End Barrier directly below the 12th card (posts end at 12!)
-    appendBatchEndBarrier(0, batch1.length, filtered.length);
+    const effectiveTotal = (feedCloudTotal && feedCloudTotal > filtered.length) ? feedCloudTotal : filtered.length;
+    appendBatchEndBarrier(0, batch1.length, effectiveTotal);
     // Attach swipe blocked trigger listener
     setupSwipeBlockedListener();
   }
@@ -3627,6 +3738,25 @@ function getSourceTier(post) {
 
 window.handlePosterImageError = function(imgEl, category) {
   if (!imgEl) return;
+  const postId = imgEl.getAttribute('data-post-id') || '';
+  const sourceUrl = imgEl.getAttribute('data-source-url') || '';
+  const step = parseInt(imgEl.getAttribute('data-fallback-step') || '0', 10);
+
+  // Step 1: Fallback to editorial source photo from YouTube or article
+  if (step === 0 && sourceUrl && !imgEl.src.includes(sourceUrl)) {
+    imgEl.setAttribute('data-fallback-step', '1');
+    imgEl.src = sourceUrl;
+    return;
+  }
+
+  // Step 2: Fallback to self-healing poster endpoint
+  if (step <= 1 && postId && !imgEl.src.includes('/api/poster?id=')) {
+    imgEl.setAttribute('data-fallback-step', '2');
+    imgEl.src = `/api/poster?id=${encodeURIComponent(postId)}`;
+    return;
+  }
+
+  // Final fallback: hide broken <img> so elegant CSS card gradient and typography show cleanly
   imgEl.style.opacity = '0';
   imgEl.style.display = 'none';
   imgEl.removeAttribute('alt');
@@ -3695,8 +3825,8 @@ function buildSlide1Html(post, index, totalSlides = 2) {
   }
 
   const imgHtml = bgImgSrc
-    ? `<img class="slide-hook-bg" src="${escapeHtml(bgImgSrc)}" alt="" loading="eager" referrerpolicy="no-referrer" onerror="handlePosterImageError(this, '${escapeHtml(post.categoryBadge || '')}')">`
-    : `<img class="slide-hook-bg" src="" alt="" style="display:none;" loading="eager" referrerpolicy="no-referrer" onerror="handlePosterImageError(this, '${escapeHtml(post.categoryBadge || '')}')">`;
+    ? `<img class="slide-hook-bg" src="${escapeHtml(bgImgSrc)}" alt="" loading="eager" referrerpolicy="no-referrer" data-post-id="${escapeHtml(post.id || '')}" data-source-url="${escapeHtml(post.sourceImageUrl || post.referencePhotoUrl || '')}" onerror="handlePosterImageError(this, '${escapeHtml(post.categoryBadge || '')}')">`
+    : `<img class="slide-hook-bg" src="" alt="" style="display:none;" loading="eager" referrerpolicy="no-referrer" data-post-id="${escapeHtml(post.id || '')}" data-source-url="${escapeHtml(post.sourceImageUrl || post.referencePhotoUrl || '')}" onerror="handlePosterImageError(this, '${escapeHtml(post.categoryBadge || '')}')">`;
 
   let inDeckStatusHtml = '';
   if (index === 'preview') {

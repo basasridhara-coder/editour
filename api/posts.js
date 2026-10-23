@@ -80,13 +80,17 @@ module.exports = async function handler(req, res) {
     let baseOffset = 0;
     let singleId = null;
     let multiIds = null;
+    let authorFilter = null;
+    let emailFilter = null;
     try {
       const parsedUrl = new URL(req.url || '/', 'http://localhost');
       singleId = (req.query && req.query.id) || parsedUrl.searchParams.get('id');
       multiIds = (req.query && req.query.ids) || parsedUrl.searchParams.get('ids');
+      authorFilter = (req.query && (req.query.author || req.query.handle || req.query.user)) || parsedUrl.searchParams.get('author') || parsedUrl.searchParams.get('handle') || parsedUrl.searchParams.get('user');
+      emailFilter = (req.query && (req.query.email || req.query.userEmail)) || parsedUrl.searchParams.get('email') || parsedUrl.searchParams.get('userEmail');
       const qLimit = parseInt((req.query && req.query.limit) || parsedUrl.searchParams.get('limit'), 10);
       if (!isNaN(qLimit) && qLimit > 0) {
-        limit = Math.min(qLimit, 24);
+        limit = Math.min(qLimit, 50);
       }
       const qOffset = parseInt((req.query && req.query.offset) || parsedUrl.searchParams.get('offset'), 10);
       if (!isNaN(qOffset) && qOffset >= 0) {
@@ -143,17 +147,40 @@ module.exports = async function handler(req, res) {
     // 1. Primary: Fast 2-step retrieval (fetch lightweight IDs first, then point lookups)
     // This avoids Postgres statement timeout (57014) caused by ordering huge 2.5MB JSONB toast rows
     try {
-      const idResp = await fetch(`${SUPABASE_URL}/rest/v1/posts?select=id,created_at&order=created_at.desc&offset=${baseOffset}&limit=${limit}`, {
+      let filterQuery = 'id=like.slant*';
+      if (authorFilter) {
+        const cleanAuthor = String(authorFilter).replace(/^@/, '').trim();
+        if (cleanAuthor) {
+          filterQuery += `&data->>creatorHandle=ilike.*${encodeURIComponent(cleanAuthor)}*`;
+        }
+      } else if (emailFilter) {
+        const cleanEmail = String(emailFilter).trim();
+        if (cleanEmail) {
+          filterQuery += `&data->>userEmail=eq.${encodeURIComponent(cleanEmail)}`;
+        }
+      }
+
+      const idResp = await fetch(`${SUPABASE_URL}/rest/v1/posts?select=id,created_at&${filterQuery}&order=created_at.desc&offset=${baseOffset}&limit=${limit}`, {
         headers: {
           'apikey': SUPABASE_KEY,
-          'Authorization': `Bearer ${SUPABASE_KEY}`
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
+          'Prefer': 'count=exact'
         }
       });
 
       if (idResp.ok) {
+        let totalCount = null;
+        const contentRange = idResp.headers.get('content-range');
+        if (contentRange) {
+          const parts = contentRange.split('/');
+          if (parts.length === 2 && !isNaN(parseInt(parts[1], 10))) {
+            totalCount = parseInt(parts[1], 10);
+          }
+        }
+
         const idRows = await idResp.json();
         if (Array.isArray(idRows) && idRows.length > 0) {
-          const orderedIds = idRows.map(r => r.id).filter(id => id && !id.startsWith('system_'));
+          const orderedIds = idRows.map(r => r.id).filter(id => id && !id.startsWith('system_') && !id.startsWith('family_cast_'));
 
           // Single indexed primary-key query for all ordered IDs (fast & zero dropped rows)
           const inFilter = orderedIds.map(id => '%22' + encodeURIComponent(id) + '%22').join(',');
@@ -172,11 +199,26 @@ module.exports = async function handler(req, res) {
             rows = orderedIds.map(id => rowsMap.get(id)).filter(Boolean);
           }
 
-      if (Array.isArray(rows) && rows.length > 0) {
-        const posts = rows.map(formatPostRow).filter(p => p && !p.deleted && !p.isDeleted && !p.isDraft && !p.isPrivate && p.status !== 'draft' && (p.adaptedHeadline || p.originalHeadline || p.summary));
-        if (posts.length > 0) {
-          return res.status(200).json({ status: 'ok', count: posts.length, posts });
-        }
+          if (Array.isArray(rows) && rows.length > 0) {
+            const isAuthorQuery = Boolean(authorFilter || emailFilter);
+            const posts = rows.map(formatPostRow).filter(p => {
+              if (!p || p.deleted || p.isDeleted) return false;
+              if (!isAuthorQuery && (p.isDraft || p.isPrivate || p.status === 'draft')) return false;
+              return (p.adaptedHeadline || p.originalHeadline || p.summary);
+            });
+
+            if (posts.length > 0) {
+              const effectiveTotal = (totalCount !== null && totalCount >= posts.length) ? totalCount : (baseOffset + posts.length);
+              const hasMore = (baseOffset + posts.length) < effectiveTotal;
+              return res.status(200).json({
+                status: 'ok',
+                count: posts.length,
+                total: effectiveTotal,
+                hasMore,
+                offset: baseOffset,
+                posts
+              });
+            }
           }
         }
       }
@@ -189,6 +231,9 @@ module.exports = async function handler(req, res) {
     return res.status(200).json({
       status: 'ok',
       count: slicedFallback.length,
+      total: fallbackPosts.length,
+      hasMore: (baseOffset + slicedFallback.length) < fallbackPosts.length,
+      offset: baseOffset,
       posts: slicedFallback
     });
   }
