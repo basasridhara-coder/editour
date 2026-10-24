@@ -4520,7 +4520,7 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
         <div class="receipt-brand-corner-bar">
           <div class="receipt-corner-brand">
             <img src="/logo.png" class="receipt-corner-logo" alt="Slant">
-            <span class="receipt-brand-text">SLANT ESSAY</span>
+            <span class="receipt-brand-text">SLANT MINUTES</span>
           </div>
           <div class="receipt-corner-creator">
             <span class="receipt-creator-name">${handle}</span>
@@ -4553,7 +4553,7 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
         <div class="receipt-brand-corner-bar continuation-header">
           <div class="receipt-corner-brand">
             <img src="/logo.png" class="receipt-corner-logo" alt="Slant">
-            <span class="receipt-brand-text">SLANT ESSAY • CONTINUATION</span>
+            <span class="receipt-brand-text">SLANT MINUTES • CONTINUATION</span>
           </div>
           <div class="receipt-corner-creator">
             <span class="receipt-creator-name">${handle}</span>
@@ -4588,7 +4588,7 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
         <div class="receipt-brand-corner-bar">
           <div class="receipt-corner-brand">
             <img src="/logo.png" class="receipt-corner-logo" alt="Slant">
-            <span class="receipt-brand-text">SLANT ESSAY</span>
+            <span class="receipt-brand-text">SLANT MINUTES</span>
           </div>
           <div class="receipt-corner-creator">
             <span class="receipt-creator-name">${handle}</span>
@@ -4631,7 +4631,7 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
       <div class="essay-page-block essay-page-2" id="essay-p2-${index}">
         <div class="receipt-brand-corner-bar continuation-header">
           <div class="receipt-corner-brand">
-            <span class="receipt-brand-text">ESSAY CONTINUATION</span>
+            <span class="receipt-brand-text">SLANT MINUTES • CONTINUATION</span>
           </div>
           <div class="receipt-corner-creator">
             <span class="receipt-corner-slide-num">${p2SlideBadge}</span>
