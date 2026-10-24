@@ -604,6 +604,21 @@ function getResolvedCreatorEmail() {
   return 'shridharoct16@gmail.com';
 }
 
+function isPostOwnedByCurrentUser(post) {
+  if (!post) return false;
+  if (myCreatedPostIds.has(post.id)) return true;
+  if (!currentUser) return false;
+  const userEmail = (currentUser.email || '').toLowerCase();
+  const userHandle = (currentUser.user_metadata?.user_name || currentUser.user_metadata?.name || userEmail.split('@')[0] || '').toLowerCase().replace('@', '');
+  const postAuthor = (post.creatorHandle || '').toLowerCase().replace('@', '');
+  const postUserId = post.user_id || post.userId;
+  return Boolean(
+    (postUserId && postUserId === currentUser.id) ||
+    (userHandle && postAuthor && postAuthor === userHandle) ||
+    (userEmail && (post.userEmail || '').toLowerCase() === userEmail)
+  );
+}
+
 function updateAuthUI() {
   const signedInView = document.getElementById('signedInAppView');
   const signedOutView = document.getElementById('signedOutPageView');
@@ -619,28 +634,29 @@ function updateAuthUI() {
   const badgeSavedCount = document.getElementById('badgeSavedCount');
   const userMenuMyCount = document.getElementById('userMenuMyCount');
   const badgeMyCount = document.getElementById('badgeMyCount');
+  const badgeDraftsCount = document.getElementById('badgeDraftsCount');
   const pillSaved = document.getElementById('pillSaved');
   const pillMyStories = document.getElementById('pillMyStories');
+  const pillDrafts = document.getElementById('pillDrafts');
 
   const savedCount = savedPostIds.size;
   if (userMenuSavedCount) userMenuSavedCount.textContent = savedCount;
   if (badgeSavedCount) badgeSavedCount.textContent = savedCount;
 
-  // Compute how many posts belong to this user
+  // Compute how many posts and drafts belong to this user
   let myPostsCount = 0;
+  let myPosterDraftsCount = 0;
   if (Array.isArray(allPosts)) {
-    const userEmail = currentUser ? (currentUser.email || '').toLowerCase() : '';
-    const userHandle = currentUser ? (currentUser.user_metadata?.user_name || currentUser.user_metadata?.name || userEmail.split('@')[0] || '').toLowerCase().replace('@', '') : '';
-    myPostsCount = allPosts.filter(p => {
-      if (myCreatedPostIds.has(p.id)) return true;
-      if (!currentUser) return false;
-      const postAuthor = (p.creatorHandle || '').toLowerCase().replace('@', '');
-      const postUserId = p.user_id || p.userId;
-      return (postUserId && postUserId === currentUser.id) || (userHandle && postAuthor && postAuthor === userHandle) || (userEmail && (p.userEmail || '').toLowerCase() === userEmail);
-    }).length;
+    const ownedPosts = allPosts.filter(p => isPostOwnedByCurrentUser(p));
+    myPostsCount = ownedPosts.length;
+    myPosterDraftsCount = ownedPosts.filter(p => p.isDraft === true || p.isPrivate === true || p.status === 'draft').length;
   }
+  const myFormDraftsCount = typeof getSavedFormDrafts === 'function' ? getSavedFormDrafts().length : 0;
+  const totalDraftsCount = myPosterDraftsCount + myFormDraftsCount;
+
   if (userMenuMyCount) userMenuMyCount.textContent = myPostsCount;
   if (badgeMyCount) badgeMyCount.textContent = myPostsCount;
+  if (badgeDraftsCount) badgeDraftsCount.textContent = totalDraftsCount;
 
   if (currentUser) {
     if (signedInView) signedInView.style.display = 'flex';
@@ -667,6 +683,7 @@ function updateAuthUI() {
 
     if (pillSaved) pillSaved.style.display = '';
     if (pillMyStories) pillMyStories.style.display = '';
+    if (pillDrafts) pillDrafts.style.display = '';
 
     // Update Drawer Account UI
     const drawerAuthGuest = document.getElementById('drawerAuthGuest');
@@ -676,6 +693,7 @@ function updateAuthUI() {
     const drawerUserAvatar = document.getElementById('drawerUserAvatar');
     const drawerSavedCount = document.getElementById('drawerSavedCount');
     const drawerMyCount = document.getElementById('drawerMyCount');
+    const drawerDraftsCount = document.getElementById('drawerDraftsCount');
 
     if (drawerAuthGuest) drawerAuthGuest.style.display = 'none';
     if (drawerAuthUser) drawerAuthUser.style.display = 'flex';
@@ -684,6 +702,7 @@ function updateAuthUI() {
     if (drawerUserAvatar) drawerUserAvatar.textContent = (displayName[0] || 'U').toUpperCase();
     if (drawerSavedCount) drawerSavedCount.textContent = savedCount;
     if (drawerMyCount) drawerMyCount.textContent = myPostsCount;
+    if (drawerDraftsCount) drawerDraftsCount.textContent = totalDraftsCount;
 
     const drawerAdminBetaRow = document.getElementById('drawerAdminBetaRow');
     if (drawerAdminBetaRow) {
@@ -715,6 +734,7 @@ function updateAuthUI() {
     // Show saved pill if reader saved cards locally
     if (pillSaved) pillSaved.style.display = savedCount > 0 ? '' : 'none';
     if (pillMyStories) pillMyStories.style.display = myPostsCount > 0 ? '' : 'none';
+    if (pillDrafts) pillDrafts.style.display = totalDraftsCount > 0 ? '' : 'none';
 
     // Update Drawer Account UI for guest
     const drawerAuthGuest = document.getElementById('drawerAuthGuest');
@@ -3048,10 +3068,16 @@ function getFilteredPostsForFilter(posts, filter, query) {
   return posts.filter(post => {
     if (!post) return false;
 
-    // If a post is a private draft, it must ONLY be visible to its author in 'my_stories'
     const isPrivateDraft = post.isDraft === true || post.isPrivate === true || post.status === 'draft';
-    if (isPrivateDraft && filter !== 'my_stories') {
+    const isOwnedByMe = isPostOwnedByCurrentUser(post);
+
+    // Unpublished drafts must NEVER be visible to anyone other than their creator
+    if (isPrivateDraft && !isOwnedByMe) {
       return false;
+    }
+
+    if (filter === 'drafts') {
+      return isPrivateDraft && isOwnedByMe;
     }
 
     if (filter === 'saved') {
@@ -3059,13 +3085,12 @@ function getFilteredPostsForFilter(posts, filter, query) {
     }
 
     if (filter === 'my_stories') {
-      if (myCreatedPostIds.has(post.id)) return true;
-      if (!currentUser) return false;
-      const userEmail = (currentUser.email || '').toLowerCase();
-      const userHandle = (currentUser.user_metadata?.user_name || currentUser.user_metadata?.name || userEmail.split('@')[0] || '').toLowerCase().replace('@', '');
-      const postAuthor = (post.creatorHandle || '').toLowerCase().replace('@', '');
-      const postUserId = post.user_id || post.userId;
-      return (postUserId && postUserId === currentUser.id) || (userHandle && postAuthor && postAuthor === userHandle) || (userEmail && (post.userEmail || '').toLowerCase() === userEmail);
+      return isOwnedByMe;
+    }
+
+    // In specific topic categories, hide unpublished drafts; in 'all' feed, show author's own drafts with unpublished badge
+    if (isPrivateDraft && filter !== 'all') {
+      return false;
     }
 
     if (filter !== 'all') {
@@ -3105,7 +3130,29 @@ async function renderFeed(isInitial = false) {
   const filtered = getFilteredPostsForFilter(allPosts, currentFilter, searchQuery);
   currentBatchFilteredPosts = filtered;
 
+  if (currentFilter === 'drafts' && typeof renderFeedFormDraftsSection === 'function') {
+    renderFeedFormDraftsSection(container, filtered.length);
+  }
+
   if (filtered.length === 0) {
+    if (currentFilter === 'drafts') {
+      const formDraftsCount = typeof getSavedFormDrafts === 'function' ? getSavedFormDrafts().length : 0;
+      if (formDraftsCount === 0) {
+        container.innerHTML = `
+          <div style="text-align:center; padding: 56px 16px; color: var(--text-muted);">
+            <div style="font-size:42px; margin-bottom:12px;">📝</div>
+            <div style="font-weight:700; font-size:17px; color:var(--text-primary); letter-spacing:-0.3px;">No saved drafts yet</div>
+            <div style="font-size:13px; margin-top:6px; max-width:360px; margin-left:auto; margin-right:auto; line-height:1.5;">
+              Half-written thoughts in the New Slant form are auto-saved here, and 3-poster decks saved as drafts in Preview appear here privately until you publish them.
+            </div>
+          </div>
+        `;
+      }
+      initialFeedBatchReady = true;
+      dismissInitialFeedLoader(true);
+      return;
+    }
+
     if (currentFilter === 'saved') {
       container.innerHTML = `
         <div style="text-align:center; padding: 56px 16px; color: var(--text-muted);">
@@ -4619,7 +4666,8 @@ function buildSlide3Html(post, index) {
 
 function createPostCardElement(post, index) {
   const card = document.createElement('article');
-  card.className = 'post-card';
+  const isUnpublishedDraft = Boolean(post && (post.isDraft || post.status === 'draft' || post.isPrivate) && index !== 'preview');
+  card.className = isUnpublishedDraft ? 'post-card post-card-unpublished-draft' : 'post-card';
   if (post && post.id) {
     card.id = `post-${post.id}`;
     card.setAttribute('data-post-id', post.id);
@@ -4768,7 +4816,18 @@ function createPostCardElement(post, index) {
         </div>
         <span class="creator-handle">${escapeHtml(handle)}</span>
         ${index === 'preview' ? `<button type="button" class="preview-card-edit-btn" onclick="event.stopPropagation(); openEditPosterModal(currentPreviewSlide || 0)" title="Edit poster headlines, takes, and receipts">✏️ Edit Content</button>` : ''}
-        ${(post.isDraft || post.status === 'draft' || post.isPrivate) && index !== 'preview' ? '<span class="post-draft-badge" style="display:inline-flex; align-items:center; gap:4px; font-size:10px; font-weight:700; background:rgba(245, 158, 11, 0.16); color:#F59E0B; border:1px solid rgba(245, 158, 11, 0.4); padding:2px 7px; border-radius:8px; margin-left:8px; letter-spacing:0.3px;">🔖 PRIVATE DRAFT</span>' : ''}
+        ${isUnpublishedDraft ? `
+          <span class="post-draft-badge" title="Unpublished draft: visible only to you in your feed and Drafts">
+            <span class="post-draft-badge-icon">🔒</span>
+            <span>UNPUBLISHED DRAFT</span>
+          </span>
+          <button type="button" class="draft-card-edit-btn" onclick="event.stopPropagation(); openDraftInStudio('${post.id}')" title="Open draft in Slant Studio to edit or refine">
+            ✏️ Edit
+          </button>
+          <button type="button" class="draft-card-publish-btn" onclick="event.stopPropagation(); publishDraftPostFromFeed('${post.id}')" title="Publish this draft to the live feed">
+            🚀 Publish
+          </button>
+        ` : ''}
       </div>
       <div class="post-menu-container">
         <button type="button" class="post-menu-btn" onclick="event.stopPropagation(); togglePostMenu('${index}')" title="More options" aria-label="More options">
@@ -4779,6 +4838,16 @@ function createPostCardElement(post, index) {
           </svg>
         </button>
         <div class="post-menu-dropdown" id="post-menu-${index}">
+          ${isUnpublishedDraft && canDelete ? `
+            <button type="button" class="post-menu-item text-primary-action" onclick="event.stopPropagation(); closeAllPostMenus(); publishDraftPostFromFeed('${post.id}')">
+              <span>🚀</span>
+              <span>Publish Draft Now</span>
+            </button>
+            <button type="button" class="post-menu-item" onclick="event.stopPropagation(); closeAllPostMenus(); openDraftInStudio('${post.id}')">
+              <span>✏️</span>
+              <span>Edit Draft in Studio</span>
+            </button>
+          ` : ''}
           ${canDelete ? `
             <button type="button" class="post-menu-item text-primary-action" onclick="event.stopPropagation(); closeAllPostMenus(); openGenerationContextModal('${post.id}')" title="Inspect generation inputs and regenerate">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -9720,7 +9789,427 @@ function isMobileDevice() {
     (navigator.maxTouchPoints && navigator.maxTouchPoints > 1 && window.innerWidth <= 820);
 }
 
-function openCreatorModal() {
+/* ============================================================
+   STEP 1 THOUGHT DRAFTS & AUTO-SAVE PROTECTION
+   ============================================================ */
+let currentActiveFormDraftId = null;
+let formAutosaveTimer = null;
+let isFormDraftsListExpanded = false;
+
+function getSavedFormDrafts() {
+  try {
+    const raw = localStorage.getItem('slant_form_drafts');
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(d => d && d.id && ((d.slantTake && d.slantTake.trim()) || (d.spark && d.spark.trim()) || (d.url && d.url.trim())));
+  } catch (_) {
+    return [];
+  }
+}
+
+function saveFormDraftsToStorage(drafts) {
+  try {
+    localStorage.setItem('slant_form_drafts', JSON.stringify((drafts || []).slice(0, 25)));
+  } catch (err) {
+    console.warn('Could not save form drafts to localStorage:', err);
+  }
+}
+
+function autoSaveCreatorFormState(immediate = false) {
+  if (formAutosaveTimer) {
+    clearTimeout(formAutosaveTimer);
+    formAutosaveTimer = null;
+  }
+  const runSave = () => {
+    const slantInput = document.getElementById('creatorSlantTakeInput');
+    const sparkInput = document.getElementById('creatorSparkInput');
+    const urlInput = document.getElementById('creatorUrlInput');
+
+    const slantTake = slantInput ? slantInput.value : '';
+    const spark = sparkInput ? sparkInput.value : '';
+    const url = urlInput ? urlInput.value : '';
+
+    const hasMeaningfulContent = (slantTake && slantTake.trim().length > 0) || (spark && spark.trim().length > 0);
+    if (!hasMeaningfulContent) {
+      return null;
+    }
+
+    if (!currentActiveFormDraftId) {
+      currentActiveFormDraftId = 'thought-draft-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
+    }
+
+    const draftObj = {
+      id: currentActiveFormDraftId,
+      sourceType: creatorSelectedSource || 'digital_link',
+      slantTake,
+      spark,
+      url: url ? url.trim() : '',
+      perspectiveMode: typeof creatorPerspectiveMode !== 'undefined' ? creatorPerspectiveMode : 'hybrid',
+      updatedAt: new Date().toISOString()
+    };
+
+    const existing = getSavedFormDrafts().filter(d => d.id !== currentActiveFormDraftId);
+    existing.unshift(draftObj);
+    saveFormDraftsToStorage(existing);
+
+    try {
+      localStorage.setItem('slant_last_active_form_draft_id', currentActiveFormDraftId);
+    } catch (_) {}
+
+    const statusEl = document.getElementById('slantAutosaveStatus');
+    if (statusEl) {
+      statusEl.textContent = '💾 Auto-saved to Drafts • Safe if closed';
+      statusEl.classList.add('autosaved-active');
+    }
+
+    renderCreatorFormDraftsBar();
+    if (typeof updateAuthUI === 'function') updateAuthUI();
+    return draftObj;
+  };
+
+  if (immediate) {
+    return runSave();
+  }
+  formAutosaveTimer = setTimeout(runSave, 350);
+  return null;
+}
+
+function saveCreatorFormDraft(isExplicitClick = false) {
+  const slantInput = document.getElementById('creatorSlantTakeInput');
+  const sparkInput = document.getElementById('creatorSparkInput');
+  const hasText = (slantInput && slantInput.value.trim().length > 0) || (sparkInput && sparkInput.value.trim().length > 0);
+
+  if (!hasText) {
+    if (isExplicitClick && typeof showTemporaryToast === 'function') {
+      showTemporaryToast('✏️ Write a few words of your thought first to save a draft.');
+    }
+    return;
+  }
+
+  const saved = autoSaveCreatorFormState(true);
+  if (isExplicitClick && saved) {
+    const btn = document.getElementById('slantSaveDraftBtn');
+    if (btn) {
+      const origHtml = btn.innerHTML;
+      btn.innerHTML = '✅ Draft Saved';
+      btn.classList.add('saved-flash');
+      setTimeout(() => {
+        btn.innerHTML = origHtml;
+        btn.classList.remove('saved-flash');
+      }, 2200);
+    }
+    if (typeof showTemporaryToast === 'function') {
+      showTemporaryToast('📝 Saved to Drafts! You can safely close and continue anytime.');
+    }
+    if (currentFilter === 'drafts' && typeof renderFeed === 'function') {
+      renderFeed();
+    }
+  }
+}
+
+function clearActiveFormDraftAfterSynthesis() {
+  if (currentActiveFormDraftId) {
+    const remaining = getSavedFormDrafts().filter(d => d.id !== currentActiveFormDraftId);
+    saveFormDraftsToStorage(remaining);
+    currentActiveFormDraftId = null;
+  }
+  try {
+    localStorage.removeItem('slant_last_active_form_draft_id');
+  } catch (_) {}
+  renderCreatorFormDraftsBar();
+  if (typeof updateAuthUI === 'function') updateAuthUI();
+}
+
+function formatDraftRelativeTime(isoStr) {
+  if (!isoStr) return 'just now';
+  const diffSec = Math.max(0, Math.floor((Date.now() - new Date(isoStr).getTime()) / 1000));
+  if (diffSec < 45) return 'just now';
+  if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m ago`;
+  if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h ago`;
+  return `${Math.floor(diffSec / 86400)}d ago`;
+}
+
+function getSourceModeBadgeLabel(mode) {
+  if (mode === 'inner_voice') return '💭 Inner Voice';
+  if (mode === 'book_excerpt') return '📖 Book Excerpt';
+  if (mode === 'newspaper_clipping') return '🗞️ Print Clipping';
+  if (mode === 'video_audio') return '🎬 Video / Audio';
+  return '🌐 Web Link';
+}
+
+function renderCreatorFormDraftsBar() {
+  const bar = document.getElementById('creatorFormDraftsBar');
+  const countBadge = document.getElementById('creatorFormDraftsCount');
+  const listEl = document.getElementById('creatorFormDraftsList');
+  const toggleBtn = document.getElementById('creatorFormDraftsToggleBtn');
+  if (!bar || !listEl) return;
+
+  const drafts = getSavedFormDrafts();
+  if (drafts.length === 0) {
+    bar.style.display = 'none';
+    return;
+  }
+
+  bar.style.display = 'block';
+  if (countBadge) countBadge.textContent = drafts.length;
+  if (toggleBtn) {
+    toggleBtn.textContent = isFormDraftsListExpanded ? 'Hide ▴' : `View (${drafts.length}) ▾`;
+  }
+  listEl.style.display = isFormDraftsListExpanded ? 'flex' : 'none';
+
+  listEl.innerHTML = drafts.map(d => {
+    const isCurrent = d.id === currentActiveFormDraftId;
+    const previewText = (d.slantTake || d.spark || d.url || 'Untitled thought').trim();
+    const snippet = previewText.length > 110 ? previewText.slice(0, 110) + '...' : previewText;
+    const modeLabel = getSourceModeBadgeLabel(d.sourceType);
+    const timeAgo = formatDraftRelativeTime(d.updatedAt);
+
+    return `
+      <div class="form-draft-item ${isCurrent ? 'active-draft' : ''}" onclick="resumeCreatorFormDraft('${escapeHtml(d.id)}')">
+        <div class="form-draft-item-main">
+          <div class="form-draft-item-meta">
+            <span class="form-draft-mode-pill">${modeLabel}</span>
+            <span class="form-draft-time">${timeAgo}${isCurrent ? ' • Editing now' : ''}</span>
+          </div>
+          <div class="form-draft-item-snippet">${escapeHtml(snippet)}</div>
+        </div>
+        <div class="form-draft-item-actions">
+          <button type="button" class="form-draft-resume-btn" onclick="event.stopPropagation(); resumeCreatorFormDraft('${escapeHtml(d.id)}')">
+            ${isCurrent ? 'Active' : 'Resume'}
+          </button>
+          <button type="button" class="form-draft-delete-btn" onclick="deleteCreatorFormDraft('${escapeHtml(d.id)}', event)" title="Delete draft">
+            ✕
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function toggleFormDraftsList() {
+  isFormDraftsListExpanded = !isFormDraftsListExpanded;
+  renderCreatorFormDraftsBar();
+}
+
+function resumeCreatorFormDraft(draftId) {
+  const drafts = getSavedFormDrafts();
+  const target = drafts.find(d => d.id === draftId);
+  if (!target) return;
+
+  currentActiveFormDraftId = target.id;
+  try {
+    localStorage.setItem('slant_last_active_form_draft_id', target.id);
+  } catch (_) {}
+
+  setAnchorMode(target.sourceType || 'digital_link');
+
+  const slantInput = document.getElementById('creatorSlantTakeInput');
+  const sparkInput = document.getElementById('creatorSparkInput');
+  const urlInput = document.getElementById('creatorUrlInput');
+
+  if (slantInput) slantInput.value = target.slantTake || '';
+  if (sparkInput) sparkInput.value = target.spark || '';
+  if (urlInput) {
+    urlInput.value = target.url || '';
+    if (target.url && typeof triggerUrlScrape === 'function') {
+      triggerUrlScrape(target.url);
+    }
+  }
+  if (target.perspectiveMode && typeof setPerspectiveMode === 'function') {
+    setPerspectiveMode(target.perspectiveMode);
+  }
+
+  const statusEl = document.getElementById('slantAutosaveStatus');
+  if (statusEl) {
+    statusEl.textContent = `✨ Restored draft (${formatDraftRelativeTime(target.updatedAt)}) • Auto-saves as you type`;
+    statusEl.classList.add('autosaved-active');
+  }
+
+  isFormDraftsListExpanded = false;
+  renderCreatorFormDraftsBar();
+  backToStep1();
+}
+
+function deleteCreatorFormDraft(draftId, event) {
+  if (event) event.stopPropagation();
+  const remaining = getSavedFormDrafts().filter(d => d.id !== draftId);
+  saveFormDraftsToStorage(remaining);
+
+  if (currentActiveFormDraftId === draftId) {
+    currentActiveFormDraftId = null;
+    try {
+      localStorage.removeItem('slant_last_active_form_draft_id');
+    } catch (_) {}
+  }
+
+  renderCreatorFormDraftsBar();
+  if (typeof updateAuthUI === 'function') updateAuthUI();
+  if (currentFilter === 'drafts' && typeof renderFeed === 'function') {
+    renderFeed();
+  }
+  if (typeof showTemporaryToast === 'function') {
+    showTemporaryToast('🗑️ Thought draft removed.');
+  }
+}
+
+function startFreshSlantForm() {
+  // Make sure current work is safely saved before clearing the form for a new thought
+  autoSaveCreatorFormState(true);
+  currentActiveFormDraftId = null;
+  try {
+    localStorage.removeItem('slant_last_active_form_draft_id');
+  } catch (_) {}
+  resetCreatorState();
+  setAnchorMode('digital_link');
+  const statusEl = document.getElementById('slantAutosaveStatus');
+  if (statusEl) {
+    statusEl.textContent = 'Auto-saves as you type • Preserves 100% your voice';
+    statusEl.classList.remove('autosaved-active');
+  }
+  isFormDraftsListExpanded = false;
+  renderCreatorFormDraftsBar();
+  const slantInput = document.getElementById('creatorSlantTakeInput');
+  if (slantInput) slantInput.focus();
+}
+
+function renderFeedFormDraftsSection(container, posterDraftsCount = 0) {
+  if (!container) return;
+  const formDrafts = getSavedFormDrafts();
+  if (formDrafts.length === 0 && posterDraftsCount === 0) return;
+
+  const section = document.createElement('section');
+  section.className = 'feed-form-drafts-section';
+
+  const formDraftCardsHtml = formDrafts.map(d => {
+    const modeLabel = getSourceModeBadgeLabel(d.sourceType);
+    const timeAgo = formatDraftRelativeTime(d.updatedAt);
+    const mainText = (d.slantTake || d.spark || '').trim();
+    const snippet = mainText.length > 220 ? mainText.slice(0, 220) + '...' : (mainText || 'Draft link saved');
+    return `
+      <div class="feed-form-draft-card" onclick="resumeCreatorFormDraftFromFeed('${escapeHtml(d.id)}')">
+        <div class="feed-form-draft-header">
+          <div class="feed-form-draft-badges">
+            <span class="feed-form-draft-pill">📝 HALF-WRITTEN THOUGHT</span>
+            <span class="feed-form-draft-mode">${modeLabel}</span>
+          </div>
+          <span class="feed-form-draft-time">Saved ${timeAgo}</span>
+        </div>
+        ${d.url ? `<div class="feed-form-draft-url">🔗 ${escapeHtml(d.url)}</div>` : ''}
+        <div class="feed-form-draft-body">${escapeHtml(snippet)}</div>
+        <div class="feed-form-draft-footer">
+          <button type="button" class="feed-form-draft-continue-btn" onclick="event.stopPropagation(); resumeCreatorFormDraftFromFeed('${escapeHtml(d.id)}')">
+            ✏️ Continue Writing in New Slant
+          </button>
+          <button type="button" class="feed-form-draft-del-btn" onclick="deleteCreatorFormDraft('${escapeHtml(d.id)}', event)">
+            🗑️ Delete
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  section.innerHTML = `
+    <div class="feed-drafts-overview-banner">
+      <div class="feed-drafts-overview-title">
+        <span>🔒 Your Private Drafts Workspace</span>
+        <span class="feed-drafts-private-pill">Strictly visible only to you</span>
+      </div>
+      <div class="feed-drafts-overview-sub">
+        Half-written thoughts from the New Slant form and unpublished 3-poster decks saved from Preview live here until you publish them.
+      </div>
+    </div>
+    ${formDrafts.length > 0 ? `
+      <div class="feed-form-drafts-group">
+        <div class="feed-drafts-section-label">✍️ SAVED THOUGHT DRAFTS (${formDrafts.length})</div>
+        <div class="feed-form-drafts-grid">${formDraftCardsHtml}</div>
+      </div>
+    ` : ''}
+    ${posterDraftsCount > 0 ? `
+      <div class="feed-drafts-section-label" style="margin-top: 18px; margin-bottom: 8px;">🖼️ SAVED UNPUBLISHED POSTER DECKS (${posterDraftsCount})</div>
+    ` : ''}
+  `;
+  container.appendChild(section);
+}
+
+function resumeCreatorFormDraftFromFeed(draftId) {
+  openCreatorModal(draftId);
+}
+
+function openDraftInStudio(postId) {
+  const post = getPostByIndexOrId(postId);
+  if (!post) return;
+
+  const modal = document.getElementById('creatorModal');
+  if (!modal) return;
+
+  resetCreatorState();
+
+  const genInputs = post.generationInputs || {};
+  const mode = genInputs.sourceType || post.sourceType || (post.isMySlant ? 'inner_voice' : 'digital_link');
+  setAnchorMode(mode);
+
+  const slantInput = document.getElementById('creatorSlantTakeInput');
+  const sparkInput = document.getElementById('creatorSparkInput');
+  const urlInput = document.getElementById('creatorUrlInput');
+
+  if (slantInput) slantInput.value = genInputs.slantTake || post.userSlantTake || post.polishedCuratorTake || post.curatorTake || '';
+  if (sparkInput) sparkInput.value = genInputs.spark || post.spark || '';
+  if (urlInput) urlInput.value = genInputs.url || post.sourceUrl || '';
+
+  currentSynthesizedPost = JSON.parse(JSON.stringify(post));
+  if (post.sourceLedger) {
+    currentSourceLedger = post.sourceLedger;
+  }
+
+  modal.classList.add('open');
+  modal.classList.add('active');
+  document.body.style.overflow = 'hidden';
+
+  // Jump directly to Step 3 Poster Preview Deck so user can edit slides, regenerate, or publish
+  const s1 = document.getElementById('creatorStep1');
+  const s2 = document.getElementById('creatorStep2');
+  const s3 = document.getElementById('creatorStep3');
+  const d1 = document.getElementById('stepDot1');
+  const d2 = document.getElementById('stepDot2');
+  const d3 = document.getElementById('stepDot3');
+
+  if (s1) s1.style.display = 'none';
+  if (s2) s2.style.display = 'none';
+  if (s3) s3.style.display = 'block';
+  if (d1) d1.className = 'creator-step-dot completed';
+  if (d2) d2.className = 'creator-step-dot completed';
+  if (d3) d3.className = 'creator-step-dot active';
+
+  renderCreatorPreview(0);
+}
+
+async function publishDraftPostFromFeed(postId) {
+  const post = getPostByIndexOrId(postId);
+  if (!post) return;
+
+  if (typeof showTemporaryToast === 'function') {
+    showTemporaryToast('🚀 Publishing your draft to the live feed...');
+  }
+
+  post.isDraft = false;
+  post.isPrivate = false;
+  post.status = 'published';
+  post.createdAt = new Date().toISOString();
+
+  currentSynthesizedPost = post;
+  await publishSynthesizedPost();
+}
+
+// Protect half-written thoughts if the user accidentally closes or refreshes the browser tab
+window.addEventListener('beforeunload', () => {
+  const modal = document.getElementById('creatorModal');
+  if (modal && modal.classList.contains('open')) {
+    autoSaveCreatorFormState(true);
+  }
+});
+
+function openCreatorModal(resumeDraftId = null) {
   if (!currentUser || !isUserWhitelistAllowed) {
     if (typeof openAuthModal === 'function') {
       openAuthModal('🔒 Slant Studio is currently in Private Preview by invitation only. Please sign in with your invited Google account.');
@@ -9734,7 +10223,7 @@ function openCreatorModal() {
   const modal = document.getElementById('creatorModal');
   if (!modal) return;
 
-  // Clean creator state on opening fresh
+  // Clean creator state first
   resetCreatorState();
 
   // Sync anchor selection (default to digital_link or active mode)
@@ -9742,6 +10231,27 @@ function openCreatorModal() {
 
   // Reset to Step 1
   backToStep1();
+
+  // Restore requested draft OR most recent active draft so accidental close never loses flow
+  const drafts = getSavedFormDrafts();
+  let draftToRestore = null;
+  if (resumeDraftId && typeof resumeDraftId === 'string') {
+    draftToRestore = drafts.find(d => d.id === resumeDraftId) || null;
+  } else {
+    try {
+      const lastId = localStorage.getItem('slant_last_active_form_draft_id');
+      if (lastId) {
+        draftToRestore = drafts.find(d => d.id === lastId) || null;
+      }
+    } catch (_) {}
+  }
+
+  if (draftToRestore) {
+    resumeCreatorFormDraft(draftToRestore.id);
+  } else {
+    currentActiveFormDraftId = null;
+    renderCreatorFormDraftsBar();
+  }
 
   // Show modal
   modal.classList.add('open');
@@ -9761,6 +10271,7 @@ function openCreatorModal() {
       const combined = (slantInput.value || '') + ' ' + (spkInput ? spkInput.value : '');
       checkAndTriggerFamilyCast(combined);
       onCreatorStage1InputChange();
+      autoSaveCreatorFormState(false);
     });
   }
   const sparkInput = document.getElementById('creatorSparkInput');
@@ -9770,13 +10281,30 @@ function openCreatorModal() {
       const sltInput = document.getElementById('creatorSlantTakeInput');
       const combined = (sltInput ? sltInput.value : '') + ' ' + (sparkInput.value || '');
       checkAndTriggerFamilyCast(combined);
+      autoSaveCreatorFormState(false);
+    });
+  }
+  const urlInput = document.getElementById('creatorUrlInput');
+  if (urlInput && !urlInput.dataset.draftAutosaveAttached) {
+    urlInput.dataset.draftAutosaveAttached = 'true';
+    urlInput.addEventListener('input', () => {
+      autoSaveCreatorFormState(false);
     });
   }
 }
 
-function closeCreatorModal() {
+function closeCreatorModal(skipAutoSaveToast = false) {
   if (typeof clearMandatoryFieldPrompts === 'function') {
     clearMandatoryFieldPrompts();
+  }
+  // If user is closing while in Step 1 with half-written thought, auto-save it immediately!
+  const s1 = document.getElementById('creatorStep1');
+  const isStep1Visible = s1 && s1.style.display !== 'none';
+  if (isStep1Visible && !currentSynthesizedPost) {
+    const saved = autoSaveCreatorFormState(true);
+    if (saved && !skipAutoSaveToast && typeof showTemporaryToast === 'function') {
+      showTemporaryToast('📝 Draft auto-saved! Resume anytime from New Slant or Drafts.');
+    }
   }
   const modal = document.getElementById('creatorModal');
   if (modal) {
@@ -10528,6 +11056,16 @@ function resetCreatorState() {
   if (eyeBtn) eyeBtn.classList.remove('active');
   const eyeLabel = document.getElementById('step3EyeViewLabel');
   if (eyeLabel) eyeLabel.textContent = 'Clear Text';
+  const saveBtn = document.getElementById('step3SaveBtn');
+  if (saveBtn) { saveBtn.disabled = false; saveBtn.classList.remove('active'); }
+  const saveLbl = document.getElementById('step3SaveLabel');
+  if (saveLbl) saveLbl.textContent = 'Save Draft';
+  const bottomSaveBtn = document.getElementById('step3BottomSaveDraftBtn');
+  if (bottomSaveBtn) { bottomSaveBtn.disabled = false; bottomSaveBtn.innerHTML = '<span>🔖 Save Draft</span>'; }
+  const actionPublishBtn = document.getElementById('step3PublishActionBtn');
+  if (actionPublishBtn) { actionPublishBtn.disabled = false; actionPublishBtn.classList.remove('active'); }
+  const actionPublishLbl = document.getElementById('step3PublishActionLabel');
+  if (actionPublishLbl) actionPublishLbl.textContent = 'Publish';
   const stagingCard = document.getElementById('familyCastStagingCard');
   const launcherWrap = document.getElementById('familyCastLauncherWrap');
   const autoHint = document.getElementById('familyCastAutoHint');
@@ -14356,8 +14894,13 @@ async function saveSynthesizedPost() {
 
   const saveBtn = document.getElementById('step3SaveBtn');
   const saveLbl = document.getElementById('step3SaveLabel');
+  const bottomSaveBtn = document.getElementById('step3BottomSaveDraftBtn');
   if (saveBtn) saveBtn.disabled = true;
   if (saveLbl) saveLbl.textContent = 'Saving...';
+  if (bottomSaveBtn) {
+    bottomSaveBtn.disabled = true;
+    bottomSaveBtn.innerHTML = '<span>Saving Draft... ⏳</span>';
+  }
 
   if (currentUser) {
     currentSynthesizedPost.user_id = currentUser.id;
@@ -14519,6 +15062,15 @@ async function saveSynthesizedPost() {
     saveBtn.classList.add('active');
   }
   if (saveLbl) saveLbl.textContent = 'Saved';
+  if (bottomSaveBtn) {
+    bottomSaveBtn.disabled = false;
+    bottomSaveBtn.innerHTML = '<span>🔖 Save Draft</span>';
+  }
+
+  // Graduate active Step 1 form draft since the 3-poster deck is now saved
+  if (typeof clearActiveFormDraftAfterSynthesis === 'function') {
+    clearActiveFormDraftAfterSynthesis();
+  }
 
   // 6. Merge & sort chronologically into allPosts
   mergeAndSortPosts([currentSynthesizedPost]);
@@ -14526,9 +15078,9 @@ async function saveSynthesizedPost() {
   renderFeed();
 
   // 7. Close modal & reset state & notify user
-  closeCreatorModal();
+  closeCreatorModal(true);
   resetCreatorState();
-  showTemporaryToast('🔖 Saved to your profile! Only you can see this in "My Stories".');
+  showTemporaryToast('🔒 Saved as private draft! Visible only to you in your Feed & Drafts.');
 }
 
 async function publishSynthesizedPost() {
@@ -14715,6 +15267,11 @@ async function publishSynthesizedPost() {
   }
   if (actionPublishLbl) actionPublishLbl.textContent = 'Published';
 
+  // Graduate active Step 1 form draft since the 3-poster deck is now published
+  if (typeof clearActiveFormDraftAfterSynthesis === 'function') {
+    clearActiveFormDraftAfterSynthesis();
+  }
+
   // 6. Merge & sort chronologically, then render feed
   mergeAndSortPosts([currentSynthesizedPost]);
   updateBadge(true, `Live Feed (${allPosts.length} posts)`);
@@ -14722,7 +15279,7 @@ async function publishSynthesizedPost() {
   renderFeed();
 
   // 7. Close modal & reset state & show toast
-  closeCreatorModal();
+  closeCreatorModal(true);
   resetCreatorState();
   showTemporaryToast('✨ Published! Your 3-poster Slant is live on slant.today');
 

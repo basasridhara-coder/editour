@@ -243,6 +243,7 @@
       <!-- Filter Category Pills -->
       <div class="filter-bar" id="categoryFilterBar">
         <div class="filter-pill active" data-cat="all">All Stories</div>
+        <div class="filter-pill user-pill" id="pillDrafts" data-cat="drafts" style="display:none;">📝 Drafts (<span id="badgeDraftsCount">0</span>)</div>
         <div class="filter-pill user-pill" id="pillSaved" data-cat="saved" style="display:none;">🔖 Saved (<span id="badgeSavedCount">0</span>)</div>
         <div class="filter-pill user-pill" id="pillMyStories" data-cat="my_stories" style="display:none;">✍️ My Stories (<span id="badgeMyCount">0</span>)</div>
         <div class="filter-pill" data-cat="opinion">💭 Opinion • Inner Voice</div>
@@ -326,6 +327,28 @@
       <!-- STEP 1 CONTAINER: Slant & Source (Matches Mobile App Exact Sequence) -->
       <div class="creator-step-content" id="creatorStep1">
         
+        <!-- 0. Saved / Auto-Saved Thought Drafts Section (Never lose a thought in flow) -->
+        <div class="creator-form-drafts-bar" id="creatorFormDraftsBar" style="display:none;">
+          <div class="form-drafts-header">
+            <div class="form-drafts-title-wrap">
+              <span class="form-drafts-icon">📝</span>
+              <span class="form-drafts-title">SAVED THOUGHT DRAFTS (<span id="formDraftsCountLabel">0</span>)</span>
+              <span class="form-drafts-sub">Auto-saved so your thoughts never vanish</span>
+            </div>
+            <div class="form-drafts-header-actions">
+              <button type="button" class="form-draft-new-btn" onclick="startFreshSlantForm()" title="Clear current inputs and start a fresh thought">
+                <span>＋ Start Fresh</span>
+              </button>
+              <button type="button" class="form-draft-toggle-btn" id="formDraftsToggleBtn" onclick="toggleFormDraftsList()">
+                <span id="formDraftsToggleText">Show ▾</span>
+              </button>
+            </div>
+          </div>
+          <div class="form-drafts-list" id="creatorFormDraftsList" style="display:none;">
+            <!-- Populated dynamically with saved/auto-saved half-written thoughts -->
+          </div>
+        </div>
+
         <!-- 1. ROOT YOUR SLANT IN (Source Anchor Selector) -->
         <div class="creator-anchor-section">
           <div class="creator-anchor-header">
@@ -486,11 +509,17 @@
           <textarea id="creatorSlantTakeInput" class="creator-textarea hero-textarea" rows="4" placeholder="e.g. [Moment/Trigger] What caught your attention... [Why It Matters] The deeper tension or contrast... [Core Conviction] Your lasting takeaway..."></textarea>
 
           <div class="slant-take-action-bar">
-            <button type="button" class="slant-polish-action-btn" id="slantPolishActionBtn" onclick="polishUserTake()">
-              <span class="btn-spark-icon">✨</span>
-              <span class="btn-text">Review & Polish Phrasing</span>
-            </button>
-            <span class="slant-take-hint">Grammar & phrasing check • Preserves 100% your voice</span>
+            <div class="slant-take-action-btns">
+              <button type="button" class="slant-polish-action-btn" id="slantPolishActionBtn" onclick="polishUserTake()">
+                <span class="btn-spark-icon">✨</span>
+                <span class="btn-text">Review &amp; Polish Phrasing</span>
+              </button>
+              <button type="button" class="slant-save-draft-btn" id="slantSaveDraftBtn" onclick="saveCreatorFormDraft(true)" title="Save your written thought to Drafts to continue later">
+                <span class="btn-draft-icon">📝</span>
+                <span class="btn-draft-text" id="slantSaveDraftBtnText">Save Draft</span>
+              </button>
+            </div>
+            <span class="slant-take-hint" id="slantAutosaveStatus">Auto-saves as you type • Preserves 100% your voice</span>
           </div>
 
           <!-- Review & Approve Polished Take Card with Pedagogical Coaching Highlighters -->
@@ -923,7 +952,17 @@
               <span class="action-icon-label" id="step3EyeViewLabel">Clear Text</span>
             </button>
 
-            <!-- 4. Share (With shareable app) -->
+            <!-- 4. Save as Private Draft (Visible only to you in Feed & Drafts) -->
+            <button type="button" class="action-icon-btn save-draft" id="step3SaveBtn" onclick="saveSynthesizedPost()" title="Save to your Drafts & Feed (Private • Only visible to you)">
+              <div class="action-icon-circle">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+                </svg>
+              </div>
+              <span class="action-icon-label" id="step3SaveLabel">Save Draft</span>
+            </button>
+
+            <!-- 5. Share (With shareable app) -->
             <button type="button" class="action-icon-btn share" id="step3ShareBtn" onclick="handleStep3Share()" title="Share with apps">
               <div class="action-icon-circle">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -938,22 +977,19 @@
             </button>
           </div>
 
-          <!-- Bottom Navigation Bar (Step 3: Left Arrow + Publish + Right Arrow) -->
-          <div class="creator-bottom-nav">
-            <button type="button" class="creator-nav-arrow" id="step3NavLeftBtn" onclick="goToVisualCuesStep()" title="Back to Visual Cues">
+          <!-- Bottom Navigation Bar (Step 3: Left Arrow + Save Draft + Publish) -->
+          <div class="creator-bottom-nav creator-step3-nav">
+            <button type="button" class="creator-nav-arrow" id="step3NavLeftBtn" onclick="goToVisualCuesStep()" title="Back to Art Direction">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
                 <line x1="19" y1="12" x2="5" y2="12"></line>
                 <polyline points="12 19 5 12 12 5"></polyline>
               </svg>
             </button>
-            <button type="button" class="creator-publish-btn creator-nav-main-btn" id="publishBtn" onclick="publishSynthesizedPost()">
-              <span>Publish to slant.today 🚀</span>
+            <button type="button" class="creator-save-draft-deck-btn" id="step3BottomSaveDraftBtn" onclick="saveSynthesizedPost()" title="Save privately to your feed & drafts without publishing">
+              <span>🔖 Save Draft</span>
             </button>
-            <button type="button" class="creator-nav-arrow disabled" id="step3NavRightBtn" disabled title="Final Step">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="5" y1="12" x2="19" y2="12"></line>
-                <polyline points="12 5 19 12 12 19"></polyline>
-              </svg>
+            <button type="button" class="creator-publish-btn creator-nav-main-btn" id="publishBtn" onclick="publishSynthesizedPost()">
+              <span>Publish 🚀</span>
             </button>
           </div>
           <div class="creator-scroll-spacer"></div>
@@ -1851,6 +1887,11 @@
             </div>
           </div>
           <div class="drawer-user-actions">
+            <button class="drawer-menu-row" onclick="closeDrawer(); selectUserFilter('drafts');">
+              <span class="row-icon">📝</span>
+              <span class="row-label">My Drafts (Unpublished)</span>
+              <span class="row-pill" id="drawerDraftsCount">0</span>
+            </button>
             <button class="drawer-menu-row" onclick="closeDrawer(); selectUserFilter('saved');">
               <span class="row-icon">🔖</span>
               <span class="row-label">Saved Stories</span>
@@ -1858,7 +1899,7 @@
             </button>
             <button class="drawer-menu-row" onclick="closeDrawer(); selectUserFilter('my_stories');">
               <span class="row-icon">✍️</span>
-              <span class="row-label">My Published Stories</span>
+              <span class="row-label">My Stories (All)</span>
               <span class="row-pill" id="drawerMyCount">0</span>
             </button>
             <button class="drawer-menu-row drawer-admin-row" id="drawerAdminBetaRow" style="display:none;" onclick="openAdminBetaModal();">
