@@ -9,25 +9,118 @@ const GEMINI_MODEL = 'gemini-3.8-flash';
 const SUPABASE_URL = 'https://fxfklefnkpmhofncqhfh.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ4ZmtsZWZua3BtaG9mbmNxaGZoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI0NzM4NzYsImV4cCI6MjEwODA0OTg3Nn0.0nw5ZDvlEsYal6EYXcqyaAPRHoxkXxZgDsNQDppEYgM';
 const MASTER_ADMINS = ['shridharoct16@gmail.com', 'basasridhara@gmail.com'];
+const DEFAULT_DAILY_CREDIT_LIMIT = 5;
 
-async function verifyEmailIsWhitelisted(email) {
-  if (!email) return false;
+function getTodayDateKeyIST() {
+  try {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).format(new Date());
+  } catch (_) {
+    return new Date().toISOString().slice(0, 10);
+  }
+}
+
+async function verifyAndConsumeUserCredit(email, consume = false) {
+  if (!email) return { allowed: false, hasCredits: false, credits: null };
   const clean = String(email).toLowerCase().trim();
-  if (MASTER_ADMINS.includes(clean)) return true;
+  const isMaster = MASTER_ADMINS.includes(clean);
+  const todayKey = getTodayDateKeyIST();
+
   try {
     const resp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.system_beta_whitelist&select=data`, {
       headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
     });
     if (resp.ok) {
       const rows = await resp.json();
-      const list = rows?.[0]?.data?.allowed_emails || [];
-      const admins = rows?.[0]?.data?.admin_emails || [];
-      return list.map(e => e.toLowerCase()).includes(clean) || admins.map(e => e.toLowerCase()).includes(clean);
+      const d = rows?.[0]?.data || {};
+      const list = (d.allowed_emails || []).map(e => String(e).toLowerCase().trim());
+      const admins = (d.admin_emails || []).map(e => String(e).toLowerCase().trim());
+      const isAllowed = isMaster || list.includes(clean) || admins.includes(clean);
+      if (!isAllowed) {
+        return { allowed: false, hasCredits: false, credits: null };
+      }
+
+      const defaultLimit = Number(d.default_daily_limit) > 0 ? Number(d.default_daily_limit) : DEFAULT_DAILY_CREDIT_LIMIT;
+      if (!d.user_credits || typeof d.user_credits !== 'object') {
+        d.user_credits = {};
+      }
+      const existing = d.user_credits[clean] || {};
+      const dailyLimit = Number(existing.dailyLimit) > 0 ? Number(existing.dailyLimit) : defaultLimit;
+      let usedToday = (existing.lastDateKey === todayKey) ? (Number(existing.usedToday) || 0) : 0;
+      let bonusCredits = Math.max(0, Number(existing.bonusCredits) || 0);
+      let totalUsed = Math.max(0, Number(existing.totalUsed) || 0);
+
+      const dailyRemainingBefore = Math.max(0, dailyLimit - usedToday);
+      const hasCredits = isMaster || dailyRemainingBefore > 0 || bonusCredits > 0;
+
+      if (hasCredits && consume) {
+        if (!isMaster && dailyRemainingBefore <= 0 && bonusCredits > 0) {
+          bonusCredits = Math.max(0, bonusCredits - 1);
+        }
+        usedToday += 1;
+        totalUsed += 1;
+        d.user_credits[clean] = {
+          ...existing,
+          dailyLimit,
+          usedToday,
+          lastDateKey: todayKey,
+          bonusCredits,
+          totalUsed,
+          lastUsedAt: new Date().toISOString()
+        };
+        // Persist updated credit count non-blockingly so synthesis latency is unaffected
+        fetch(`${SUPABASE_URL}/rest/v1/posts`, {
+          method: 'POST',
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'resolution=merge-duplicates'
+          },
+          body: JSON.stringify({ id: 'system_beta_whitelist', data: d })
+        }).catch(() => {});
+      }
+
+      const dailyRemainingAfter = Math.max(0, dailyLimit - usedToday);
+      const remainingToday = isMaster ? 9999 : (dailyRemainingAfter + bonusCredits);
+
+      return {
+        allowed: true,
+        hasCredits,
+        credits: {
+          email: clean,
+          isUnlimited: isMaster,
+          dailyLimit,
+          usedToday,
+          dailyRemaining: dailyRemainingAfter,
+          bonusCredits,
+          remainingToday,
+          totalUsed,
+          lastDateKey: todayKey
+        }
+      };
     }
   } catch (err) {
-    console.warn('Synthesize whitelist check notice:', err);
+    console.warn('Synthesize credit & whitelist check notice:', err);
   }
-  return false;
+
+  if (isMaster) {
+    return {
+      allowed: true,
+      hasCredits: true,
+      credits: { email: clean, isUnlimited: true, dailyLimit: 9999, usedToday: 0, dailyRemaining: 9999, bonusCredits: 0, remainingToday: 9999, totalUsed: 0 }
+    };
+  }
+  return { allowed: false, hasCredits: false, credits: null };
+}
+
+async function verifyEmailIsWhitelisted(email) {
+  const res = await verifyAndConsumeUserCredit(email, false);
+  return res.allowed;
 }
 
 const avatarMemoryCache = new Map();
@@ -95,9 +188,16 @@ module.exports = async function handler(req, res) {
       if (!userEmail) {
         userEmail = 'shridharoct16@gmail.com';
       }
-      const isAllowed = await verifyEmailIsWhitelisted(userEmail);
-      if (!isAllowed) {
+      const creditCheck = await verifyAndConsumeUserCredit(userEmail, Boolean(body.isManualRegenerate));
+      if (!creditCheck.allowed) {
         return res.status(403).json({ error: 'Slant Studio is currently in Private Preview by invitation only.' });
+      }
+      if (!creditCheck.hasCredits) {
+        return res.status(429).json({
+          error: '⚡ Your daily Slant poster credits are used up for today. Ask the curator admin for an instant credit top-up or continue tomorrow!',
+          creditsExhausted: true,
+          credits: creditCheck.credits
+        });
       }
       if (!prompt) {
         return res.status(400).json({ error: 'Missing prompt for artwork generation' });
@@ -136,7 +236,8 @@ module.exports = async function handler(req, res) {
           const cleanB64 = geminiArt.replace(/^data:image\/[^;]+;base64,/, '');
           return res.status(200).json({
             success: true,
-            illustrationBase64: cleanB64
+            illustrationBase64: cleanB64,
+            credits: creditCheck.credits
           });
         }
         return res.status(200).json({
@@ -166,9 +267,16 @@ module.exports = async function handler(req, res) {
       } = body;
 
       const userEmail = (creatorEmail || 'shridharoct16@gmail.com').toLowerCase().trim();
-      const isAllowed = await verifyEmailIsWhitelisted(userEmail);
-      if (!isAllowed) {
+      const creditCheck = await verifyAndConsumeUserCredit(userEmail, Boolean(body.isManualRegenerate));
+      if (!creditCheck.allowed) {
         return res.status(403).json({ error: 'Slant Studio is currently in Private Preview by invitation only.' });
+      }
+      if (!creditCheck.hasCredits) {
+        return res.status(429).json({
+          error: '⚡ Your daily Slant poster credits are used up for today. Ask the curator admin for an instant credit top-up or continue tomorrow!',
+          creditsExhausted: true,
+          credits: creditCheck.credits
+        });
       }
 
       if (!memberId) {
@@ -596,9 +704,16 @@ Respond strictly with valid JSON with this exact structure:
     if (!userEmail) {
       return res.status(401).json({ error: 'Slant Studio is currently in Private Preview. Please sign in with your invited Google account.' });
     }
-    const isAllowed = await verifyEmailIsWhitelisted(userEmail);
-    if (!isAllowed) {
+    const creditCheck = await verifyAndConsumeUserCredit(userEmail, true);
+    if (!creditCheck.allowed) {
       return res.status(403).json({ error: 'Slant Studio is currently in Private Preview by invitation only.' });
+    }
+    if (!creditCheck.hasCredits) {
+      return res.status(429).json({
+        error: '⚡ Your daily Slant poster credits are used up for today. Ask the curator admin for an instant credit top-up or continue tomorrow!',
+        creditsExhausted: true,
+        credits: creditCheck.credits
+      });
     }
 
     const userSlant = (slantTake || text || '').trim();
@@ -1389,7 +1504,8 @@ Respond strictly with valid JSON with this exact structure:
 
     return res.status(200).json({
       success: true,
-      post: postItem
+      post: postItem,
+      credits: creditCheck.credits
     });
   } catch (error) {
     console.error('Server error in /api/synthesize:', error);

@@ -6,6 +6,48 @@ const SUPABASE_URL = 'https://fxfklefnkpmhofncqhfh.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ4ZmtsZWZua3BtaG9mbmNxaGZoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI0NzM4NzYsImV4cCI6MjEwODA0OTg3Nn0.0nw5ZDvlEsYal6EYXcqyaAPRHoxkXxZgDsNQDppEYgM';
 
 const MASTER_ADMINS = ['shridharoct16@gmail.com', 'basasridhara@gmail.com'];
+const DEFAULT_DAILY_CREDIT_LIMIT = 5;
+
+function getTodayDateKeyIST() {
+  try {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).format(new Date());
+  } catch (_) {
+    return new Date().toISOString().slice(0, 10);
+  }
+}
+
+function computeUserCreditSummary(whitelist, rawEmail) {
+  const email = String(rawEmail || '').trim().toLowerCase();
+  const todayKey = getTodayDateKeyIST();
+  const defaultLimit = Number(whitelist?.default_daily_limit) > 0 ? Number(whitelist.default_daily_limit) : DEFAULT_DAILY_CREDIT_LIMIT;
+  const rawEntry = (whitelist?.user_credits && whitelist.user_credits[email]) ? whitelist.user_credits[email] : {};
+  const isMaster = MASTER_ADMINS.includes(email);
+
+  const dailyLimit = Number(rawEntry.dailyLimit) > 0 ? Number(rawEntry.dailyLimit) : defaultLimit;
+  const usedToday = (rawEntry.lastDateKey === todayKey) ? (Number(rawEntry.usedToday) || 0) : 0;
+  const bonusCredits = Math.max(0, Number(rawEntry.bonusCredits) || 0);
+  const totalUsed = Math.max(0, Number(rawEntry.totalUsed) || 0);
+  const dailyRemaining = Math.max(0, dailyLimit - usedToday);
+  const remainingToday = isMaster ? 9999 : (dailyRemaining + bonusCredits);
+
+  return {
+    email,
+    isUnlimited: isMaster,
+    dailyLimit,
+    usedToday,
+    dailyRemaining,
+    bonusCredits,
+    remainingToday,
+    totalUsed,
+    lastDateKey: todayKey,
+    lastUsedAt: rawEntry.lastUsedAt || null
+  };
+}
 
 async function getWhitelistData() {
   try {
@@ -23,7 +65,9 @@ async function getWhitelistData() {
           admin_emails: Array.isArray(d.admin_emails) ? d.admin_emails : MASTER_ADMINS,
           allowed_emails: Array.isArray(d.allowed_emails) ? d.allowed_emails : MASTER_ADMINS,
           pending_requests: Array.isArray(d.pending_requests) ? d.pending_requests : [],
-          access_logs: Array.isArray(d.access_logs) ? d.access_logs : []
+          access_logs: Array.isArray(d.access_logs) ? d.access_logs : [],
+          user_credits: (d.user_credits && typeof d.user_credits === 'object') ? d.user_credits : {},
+          default_daily_limit: Number(d.default_daily_limit) > 0 ? Number(d.default_daily_limit) : DEFAULT_DAILY_CREDIT_LIMIT
         };
       }
     }
@@ -35,7 +79,9 @@ async function getWhitelistData() {
     admin_emails: MASTER_ADMINS,
     allowed_emails: MASTER_ADMINS,
     pending_requests: [],
-    access_logs: []
+    access_logs: [],
+    user_credits: {},
+    default_daily_limit: DEFAULT_DAILY_CREDIT_LIMIT
   };
 }
 
@@ -128,6 +174,16 @@ module.exports = async function handler(req, res) {
         console.warn('Error aggregating user stats:', err.message);
       }
 
+      const userCreditsMap = {};
+      const allTrackedEmails = new Set([
+        ...(whitelist.allowed_emails || []).map(e => String(e).toLowerCase().trim()),
+        ...Object.keys(whitelist.user_credits || {})
+      ]);
+      allTrackedEmails.forEach(em => {
+        if (em) userCreditsMap[em] = computeUserCreditSummary(whitelist, em);
+      });
+
+      const requesterEmail = email || adminCheck;
       const responsePayload = {
         allowed: true,
         isAdmin: true,
@@ -135,7 +191,10 @@ module.exports = async function handler(req, res) {
         allowedEmails: whitelist.allowed_emails,
         pendingRequests: whitelist.pending_requests,
         accessLogs: whitelist.access_logs,
-        userStats: userStats
+        userStats: userStats,
+        userCreditsMap,
+        defaultDailyLimit: whitelist.default_daily_limit || DEFAULT_DAILY_CREDIT_LIMIT,
+        credits: requesterEmail ? computeUserCreditSummary(whitelist, requesterEmail) : null
       };
       if (res.status) return res.status(200).json ? res.status(200).json(responsePayload) : res.status(200).end(JSON.stringify(responsePayload));
       res.setHeader('Content-Type', 'application/json');
@@ -144,7 +203,8 @@ module.exports = async function handler(req, res) {
 
     const responsePayload = {
       allowed: Boolean(isAllowed),
-      isAdmin: false
+      isAdmin: false,
+      credits: isAllowed && email ? computeUserCreditSummary(whitelist, email) : null
     };
     if (res.status) return res.status(200).json ? res.status(200).json(responsePayload) : res.status(200).end(JSON.stringify(responsePayload));
     res.setHeader('Content-Type', 'application/json');
@@ -303,6 +363,102 @@ module.exports = async function handler(req, res) {
       const out = {
         success: true,
         pendingRequests: whitelist.pending_requests
+      };
+      if (res.status) return res.status(200).json ? res.status(200).json(out) : res.status(200).end(JSON.stringify(out));
+      return res.end(JSON.stringify(out));
+    }
+
+    // ACTION: Add bonus / top-up credits for a user (e.g. when their daily credits are exhausted)
+    if (action === 'add_credits') {
+      if (!cleanEmail) {
+        const err = { error: 'Missing target email' };
+        if (res.status) return res.status(400).json ? res.status(400).json(err) : res.status(400).end(JSON.stringify(err));
+        return res.end(JSON.stringify(err));
+      }
+      const addAmount = Math.max(1, Math.min(100, Number(body.amount) || 5));
+      if (!whitelist.user_credits || typeof whitelist.user_credits !== 'object') {
+        whitelist.user_credits = {};
+      }
+      const todayKey = getTodayDateKeyIST();
+      const existing = whitelist.user_credits[cleanEmail] || {};
+      const currentBonus = Math.max(0, Number(existing.bonusCredits) || 0);
+      const usedToday = (existing.lastDateKey === todayKey) ? (Number(existing.usedToday) || 0) : 0;
+
+      whitelist.user_credits[cleanEmail] = {
+        ...existing,
+        dailyLimit: Number(existing.dailyLimit) > 0 ? Number(existing.dailyLimit) : (whitelist.default_daily_limit || DEFAULT_DAILY_CREDIT_LIMIT),
+        usedToday,
+        lastDateKey: todayKey,
+        bonusCredits: currentBonus + addAmount,
+        totalUsed: Math.max(0, Number(existing.totalUsed) || 0),
+        updatedAt: new Date().toISOString()
+      };
+      await saveWhitelistData(whitelist);
+
+      const out = {
+        success: true,
+        email: cleanEmail,
+        added: addAmount,
+        credits: computeUserCreditSummary(whitelist, cleanEmail)
+      };
+      if (res.status) return res.status(200).json ? res.status(200).json(out) : res.status(200).end(JSON.stringify(out));
+      return res.end(JSON.stringify(out));
+    }
+
+    // ACTION: Reset today's used credits back to 0 for a user
+    if (action === 'reset_daily_credits') {
+      if (!cleanEmail) {
+        const err = { error: 'Missing target email' };
+        if (res.status) return res.status(400).json ? res.status(400).json(err) : res.status(400).end(JSON.stringify(err));
+        return res.end(JSON.stringify(err));
+      }
+      if (!whitelist.user_credits || typeof whitelist.user_credits !== 'object') {
+        whitelist.user_credits = {};
+      }
+      const todayKey = getTodayDateKeyIST();
+      const existing = whitelist.user_credits[cleanEmail] || {};
+      whitelist.user_credits[cleanEmail] = {
+        ...existing,
+        dailyLimit: Number(existing.dailyLimit) > 0 ? Number(existing.dailyLimit) : (whitelist.default_daily_limit || DEFAULT_DAILY_CREDIT_LIMIT),
+        usedToday: 0,
+        lastDateKey: todayKey,
+        bonusCredits: Math.max(0, Number(existing.bonusCredits) || 0),
+        totalUsed: Math.max(0, Number(existing.totalUsed) || 0),
+        updatedAt: new Date().toISOString()
+      };
+      await saveWhitelistData(whitelist);
+
+      const out = {
+        success: true,
+        email: cleanEmail,
+        credits: computeUserCreditSummary(whitelist, cleanEmail)
+      };
+      if (res.status) return res.status(200).json ? res.status(200).json(out) : res.status(200).end(JSON.stringify(out));
+      return res.end(JSON.stringify(out));
+    }
+
+    // ACTION: Set default daily credit limit (or per-user daily credit limit)
+    if (action === 'set_daily_limit') {
+      const newLimit = Math.max(1, Math.min(100, Number(body.dailyLimit) || DEFAULT_DAILY_CREDIT_LIMIT));
+      if (cleanEmail) {
+        if (!whitelist.user_credits || typeof whitelist.user_credits !== 'object') {
+          whitelist.user_credits = {};
+        }
+        const existing = whitelist.user_credits[cleanEmail] || {};
+        whitelist.user_credits[cleanEmail] = {
+          ...existing,
+          dailyLimit: newLimit,
+          updatedAt: new Date().toISOString()
+        };
+      } else {
+        whitelist.default_daily_limit = newLimit;
+      }
+      await saveWhitelistData(whitelist);
+
+      const out = {
+        success: true,
+        defaultDailyLimit: whitelist.default_daily_limit || DEFAULT_DAILY_CREDIT_LIMIT,
+        credits: cleanEmail ? computeUserCreditSummary(whitelist, cleanEmail) : null
       };
       if (res.status) return res.status(200).json ? res.status(200).json(out) : res.status(200).end(JSON.stringify(out));
       return res.end(JSON.stringify(out));

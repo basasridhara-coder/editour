@@ -323,8 +323,52 @@ if (window.supabase && typeof window.supabase.createClient === 'function') {
 let currentUser = null;
 let isCurrentUserAdmin = false;
 let isUserWhitelistAllowed = false;
+let currentUserCredits = null;
 let savedPostIds = new Set(JSON.parse(localStorage.getItem('slant_saved_posts') || localStorage.getItem('editour_saved_posts') || '[]'));
 let myCreatedPostIds = new Set(JSON.parse(localStorage.getItem('slant_my_posts') || '[]'));
+
+function updateCreatorStudioCreditBadge(creditsObj) {
+  if (creditsObj && typeof creditsObj === 'object') {
+    currentUserCredits = creditsObj;
+  }
+  const badge = document.getElementById('creatorStudioCreditBadge');
+  if (!badge) return;
+  if (!currentUser || !isUserWhitelistAllowed) {
+    badge.style.display = 'none';
+    return;
+  }
+  const email = (currentUser.email || '').toLowerCase().trim();
+  const isMaster = email === 'shridharoct16@gmail.com' || email === 'basasridhara@gmail.com';
+  badge.style.display = 'inline-flex';
+
+  if (isMaster || currentUserCredits?.isUnlimited) {
+    const usedToday = currentUserCredits?.usedToday || 0;
+    badge.textContent = usedToday > 0 ? `⚡ ∞ Credits (${usedToday} today)` : '⚡ ∞ Credits';
+    badge.style.background = 'rgba(99,102,241,0.15)';
+    badge.style.color = '#818CF8';
+    badge.style.borderColor = 'rgba(99,102,241,0.38)';
+    badge.title = 'Unlimited Master Admin Credits · Tap to open Credit Manager';
+    return;
+  }
+
+  const remaining = currentUserCredits ? Number(currentUserCredits.remainingToday ?? 5) : 5;
+  const bonus = currentUserCredits ? Number(currentUserCredits.bonusCredits || 0) : 0;
+  if (remaining <= 0) {
+    badge.textContent = '🚨 0 Credits Today';
+    badge.style.background = 'rgba(239,68,68,0.16)';
+    badge.style.color = '#F87171';
+    badge.style.borderColor = 'rgba(239,68,68,0.45)';
+    badge.title = 'Your daily Slant poster credits are used up for today. Ask the curator admin for an instant top-up!';
+  } else {
+    badge.textContent = `⚡ ${remaining} ${remaining === 1 ? 'Credit' : 'Credits'} Left`;
+    badge.style.background = 'rgba(16,185,129,0.14)';
+    badge.style.color = '#34D399';
+    badge.style.borderColor = 'rgba(16,185,129,0.35)';
+    badge.title = bonus > 0
+      ? `${remaining} credits available today (includes +${bonus} bonus credits)`
+      : `${remaining} daily poster credits available today`;
+  }
+}
 
 // ============================================================
 // AUTHENTICATION & USER PROFILE CONTROLLER
@@ -334,19 +378,23 @@ async function verifyUserWhitelist(user) {
   if (!user || !user.email) return { allowed: false, isAdmin: false };
   const email = user.email.toLowerCase().trim();
 
-  // Fast-track Master Admin: never blocked even if offline
-  if (email === 'shridharoct16@gmail.com' || email === 'basasridhara@gmail.com') {
-    return { allowed: true, isAdmin: true };
-  }
-
   try {
     const resp = await fetch(`/api/whitelist?email=${encodeURIComponent(email)}`);
     if (resp.ok) {
       const data = await resp.json();
-      return { allowed: Boolean(data.allowed), isAdmin: Boolean(data.isAdmin) };
+      if (data.credits) {
+        updateCreatorStudioCreditBadge(data.credits);
+      }
+      return { allowed: Boolean(data.allowed), isAdmin: Boolean(data.isAdmin), credits: data.credits || null };
     }
   } catch (err) {
     console.warn('Whitelist API check notice, falling back to direct Supabase:', err);
+  }
+
+  // Fast-track Master Admin: never blocked even if offline
+  if (email === 'shridharoct16@gmail.com' || email === 'basasridhara@gmail.com') {
+    updateCreatorStudioCreditBadge({ isUnlimited: true, usedToday: 0, remainingToday: 9999 });
+    return { allowed: true, isAdmin: true };
   }
 
   // Resilient fallback: direct Supabase point lookup
@@ -1507,26 +1555,52 @@ async function loadAdminBetaData(forceRefresh = false) {
     const pending = Array.isArray(data.pendingRequests) ? data.pendingRequests : [];
     const accessLogs = Array.isArray(data.accessLogs) ? data.accessLogs : [];
     const userStats = (data.userStats && typeof data.userStats === 'object') ? data.userStats : {};
+    const userCreditsMap = (data.userCreditsMap && typeof data.userCreditsMap === 'object') ? data.userCreditsMap : {};
+    const defaultDailyLimit = Number(data.defaultDailyLimit) > 0 ? Number(data.defaultDailyLimit) : 5;
+    if (data.credits) {
+      updateCreatorStudioCreditBadge(data.credits);
+    }
+
+    // Highlight active default daily limit chip
+    [3, 5, 10].forEach(val => {
+      const chip = document.getElementById(`dailyLimitChip${val}`);
+      if (chip) {
+        const isCurrent = val === defaultDailyLimit;
+        chip.style.background = isCurrent ? 'rgba(16,185,129,0.18)' : 'transparent';
+        chip.style.borderColor = isCurrent ? 'rgba(16,185,129,0.55)' : 'rgba(148,163,184,0.3)';
+        chip.style.color = isCurrent ? '#34D399' : 'var(--text-primary)';
+        chip.style.fontWeight = isCurrent ? '800' : '700';
+      }
+    });
+
     const logsMap = new Map();
     accessLogs.forEach(l => logsMap.set(l.email?.toLowerCase(), l));
 
     // Calculate live summary metrics
     let totalSlants = 0;
     let activeCreatorsCount = 0;
+    let totalCreditsUsedToday = 0;
     allowedEmails.forEach(email => {
-      const stats = userStats[email.toLowerCase()];
+      const clean = email.toLowerCase().trim();
+      const stats = userStats[clean];
       if (stats && stats.postCount > 0) {
         totalSlants += stats.postCount;
         activeCreatorsCount++;
+      }
+      const cInfo = userCreditsMap[clean];
+      if (cInfo && cInfo.usedToday > 0) {
+        totalCreditsUsedToday += cInfo.usedToday;
       }
     });
 
     const sumCurators = document.getElementById('adminSummaryCuratorsCount');
     const sumActive = document.getElementById('adminSummaryActiveCount');
     const sumPosts = document.getElementById('adminSummaryPostsCount');
+    const sumCreditsToday = document.getElementById('adminSummaryCreditsUsedCount');
     if (sumCurators) sumCurators.textContent = allowedEmails.length;
     if (sumActive) sumActive.textContent = activeCreatorsCount;
     if (sumPosts) sumPosts.textContent = totalSlants;
+    if (sumCreditsToday) sumCreditsToday.textContent = `${totalCreditsUsedToday} ⚡`;
 
     if (allowedCount) allowedCount.textContent = allowedEmails.length;
     if (allowedList) {
@@ -1539,33 +1613,66 @@ async function loadAdminBetaData(forceRefresh = false) {
         const postCount = stats?.postCount || 0;
         const lastLoginSeen = log?.lastLogin ? new Date(log.lastLogin).toLocaleDateString(undefined, { month:'short', day:'numeric' }) : null;
 
+        const cInfo = userCreditsMap[cleanEmail] || {
+          isUnlimited: isMaster,
+          dailyLimit: defaultDailyLimit,
+          usedToday: 0,
+          dailyRemaining: defaultDailyLimit,
+          bonusCredits: 0,
+          remainingToday: isMaster ? 9999 : defaultDailyLimit,
+          totalUsed: 0
+        };
+
         let activityLabel = 'Pending first sign-in';
         if (postCount > 0) {
           const pDate = stats?.latestPostAt ? new Date(stats.latestPostAt) : null;
           const pDateStr = pDate ? pDate.toLocaleDateString(undefined, { month:'short', day:'numeric' }) : 'recently';
-          activityLabel = `✨ ${postCount} ${postCount === 1 ? 'Slant' : 'Slants'} created • Last post: ${pDateStr}`;
+          activityLabel = `✨ ${postCount} ${postCount === 1 ? 'Slant' : 'Slants'} · Last: ${pDateStr}`;
         } else if (lastLoginSeen) {
-          activityLabel = `Signed in ${lastLoginSeen} • 0 Slants yet`;
+          activityLabel = `Signed in ${lastLoginSeen} · 0 Slants yet`;
+        }
+
+        // Credit status badge
+        let creditBadgeHtml = '';
+        if (isMaster) {
+          creditBadgeHtml = `<span style="font-size:10.5px; font-weight:700; color:#818CF8; background:rgba(99,102,241,0.14); border:1px solid rgba(99,102,241,0.3); padding:2px 7px; border-radius:6px;">⚡ ∞ Unlimited · ${cInfo.usedToday || 0} used today</span>`;
+        } else if (cInfo.remainingToday <= 0) {
+          creditBadgeHtml = `<span style="font-size:10.5px; font-weight:800; color:#F87171; background:rgba(239,68,68,0.16); border:1px solid rgba(239,68,68,0.4); padding:2px 7px; border-radius:6px;">🚨 0 Left Today (${cInfo.usedToday}/${cInfo.dailyLimit} used)</span>`;
+        } else {
+          const bonusTag = cInfo.bonusCredits > 0 ? ` · +${cInfo.bonusCredits} Bonus` : '';
+          creditBadgeHtml = `<span style="font-size:10.5px; font-weight:800; color:#34D399; background:rgba(16,185,129,0.14); border:1px solid rgba(16,185,129,0.35); padding:2px 7px; border-radius:6px;">⚡ ${cInfo.remainingToday} Left Today (${cInfo.usedToday}/${cInfo.dailyLimit} used${bonusTag})</span>`;
         }
 
         const row = document.createElement('div');
-        row.style.cssText = 'display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:var(--bg-card, rgba(255,255,255,0.05)); border:1px solid var(--border-subtle, rgba(255,255,255,0.1)); border-radius:10px; font-size:13px; gap:8px;';
+        row.style.cssText = 'display:flex; flex-direction:column; gap:8px; padding:11px 14px; background:var(--bg-card, rgba(255,255,255,0.05)); border:1px solid var(--border-subtle, rgba(255,255,255,0.1)); border-radius:12px; font-size:13px;';
         row.innerHTML = `
-          <div style="display:flex; align-items:center; gap:10px; overflow:hidden; flex:1; min-width:0;">
-            <span style="font-size:16px; flex-shrink:0;">${isMaster ? '👑' : (postCount > 0 ? '🎨' : '👤')}</span>
-            <div style="overflow:hidden; min-width:0;">
-              <div style="display:flex; align-items:center; gap:6px;">
-                <strong style="color:var(--text-primary); text-overflow:ellipsis; overflow:hidden; white-space:nowrap; font-size:13px;">${escapeHtml(email)}</strong>
-                ${postCount > 0 ? `<span style="font-size:10px; font-weight:800; background:rgba(16,185,129,0.15); color:#10B981; border:1px solid rgba(16,185,129,0.3); padding:1px 6px; border-radius:10px; flex-shrink:0;">${postCount}</span>` : ''}
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+            <div style="display:flex; align-items:center; gap:9px; overflow:hidden; flex:1; min-width:0;">
+              <span style="font-size:16px; flex-shrink:0;">${isMaster ? '👑' : (postCount > 0 ? '🎨' : '👤')}</span>
+              <div style="overflow:hidden; min-width:0;">
+                <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                  <strong style="color:var(--text-primary); text-overflow:ellipsis; overflow:hidden; white-space:nowrap; font-size:13px;">${escapeHtml(email)}</strong>
+                  ${postCount > 0 ? `<span style="font-size:10px; font-weight:800; background:rgba(16,185,129,0.15); color:#10B981; border:1px solid rgba(16,185,129,0.3); padding:1px 6px; border-radius:10px; flex-shrink:0;">${postCount}</span>` : ''}
+                </div>
+                <span style="font-size:11px; color:var(--text-secondary); display:block; margin-top:2px;">
+                  ${activityLabel}
+                </span>
               </div>
-              <span style="font-size:11px; color:${postCount > 0 ? '#10B981' : 'var(--text-secondary)'}; display:block; text-overflow:ellipsis; overflow:hidden; white-space:nowrap; margin-top:2px;">
-                ${isMaster && postCount > 0 ? `Master Curator • ${activityLabel}` : activityLabel}
-              </span>
+            </div>
+            <div style="display:flex; align-items:center; gap:5px; flex-shrink:0;">
+              ${postCount > 0 ? `<button type="button" onclick="closeAdminBetaModal(); filterFeedByCurator('${escapeHtml(stats?.handle || email)}');" style="background:rgba(99,102,241,0.12); color:#818CF8; border:1px solid rgba(99,102,241,0.25); border-radius:6px; font-size:10.5px; font-weight:700; padding:3px 7px; cursor:pointer;" title="View this curator posts in feed">Feed ➔</button>` : ''}
+              ${isMaster ? '<span style="font-size:10.5px; font-weight:700; color:#818CF8; background:rgba(99,102,241,0.1); padding:2px 6px; border-radius:4px;">Owner</span>' : `<button type="button" onclick="handleAdminRemoveEmail('${escapeHtml(email)}')" style="background:none; border:none; color:#EF4444; font-size:11px; font-weight:700; cursor:pointer; padding:3px 5px;" title="Revoke beta access">Revoke</button>`}
             </div>
           </div>
-          <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
-            ${postCount > 0 ? `<button type="button" onclick="closeAdminBetaModal(); filterFeedByCurator('${escapeHtml(stats?.handle || email)}');" style="background:rgba(99,102,241,0.12); color:#818CF8; border:1px solid rgba(99,102,241,0.25); border-radius:6px; font-size:11px; font-weight:700; padding:4px 8px; cursor:pointer;" title="View this curator posts in feed">View Feed ➔</button>` : ''}
-            ${isMaster ? '<span style="font-size:11px; font-weight:700; color:#818CF8; background:rgba(99,102,241,0.1); padding:2px 6px; border-radius:4px;">Owner</span>' : `<button type="button" onclick="handleAdminRemoveEmail('${escapeHtml(email)}')" style="background:none; border:none; color:#EF4444; font-size:12px; font-weight:700; cursor:pointer; padding:4px 6px;" title="Revoke beta access">Revoke</button>`}
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding-top:6px; border-top:1px dashed rgba(148,163,184,0.18); flex-wrap:wrap;">
+            ${creditBadgeHtml}
+            ${!isMaster ? `
+              <div style="display:flex; align-items:center; gap:5px;">
+                <button type="button" onclick="handleAdminAddCredits('${escapeHtml(email)}', 5)" style="background:rgba(16,185,129,0.16); color:#34D399; border:1px solid rgba(16,185,129,0.4); border-radius:6px; font-size:10.5px; font-weight:800; padding:3px 8px; cursor:pointer;" title="Add 5 extra bonus credits right now">+5 Credits</button>
+                <button type="button" onclick="handleAdminAddCredits('${escapeHtml(email)}', 10)" style="background:rgba(56,189,248,0.15); color:#38BDF8; border:1px solid rgba(56,189,248,0.38); border-radius:6px; font-size:10.5px; font-weight:800; padding:3px 8px; cursor:pointer;" title="Add 10 extra bonus credits">+10</button>
+                ${cInfo.usedToday > 0 ? `<button type="button" onclick="handleAdminResetDailyCredits('${escapeHtml(email)}')" style="background:rgba(245,158,11,0.14); color:#FBBF24; border:1px solid rgba(245,158,11,0.35); border-radius:6px; font-size:10.5px; font-weight:700; padding:3px 7px; cursor:pointer;" title="Reset today's used counter to 0">Reset Today</button>` : ''}
+              </div>
+            ` : `<span style="font-size:10.5px; color:var(--text-secondary);">Total lifetime generations: <strong>${cInfo.totalUsed || postCount}</strong></span>`}
           </div>
         `;
         allowedList.appendChild(row);
@@ -1681,6 +1788,62 @@ async function handleAdminDenyRequest(email) {
     }
   } catch (e) {
     alert('Error denying request');
+  }
+}
+
+async function handleAdminAddCredits(email, amount = 5) {
+  const adminEmail = currentUser?.email || 'shridharoct16@gmail.com';
+  try {
+    const resp = await fetch('/api/whitelist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'add_credits', adminEmail, email, amount })
+    });
+    if (resp.ok) {
+      const data = await resp.json();
+      const totalLeft = data.credits?.remainingToday ?? amount;
+      showTemporaryToast(`⚡ Added +${amount} credits to ${email} (${totalLeft} available today)!`);
+      loadAdminBetaData(false);
+    } else {
+      const err = await resp.json().catch(() => ({}));
+      alert(err.error || 'Failed to add credits');
+    }
+  } catch (e) {
+    alert('Network error while adding credits');
+  }
+}
+
+async function handleAdminResetDailyCredits(email) {
+  const adminEmail = currentUser?.email || 'shridharoct16@gmail.com';
+  try {
+    const resp = await fetch('/api/whitelist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'reset_daily_credits', adminEmail, email })
+    });
+    if (resp.ok) {
+      showTemporaryToast(`🔄 Reset today's used credits to 0 for ${email}!`);
+      loadAdminBetaData(false);
+    }
+  } catch (e) {
+    alert('Network error while resetting daily credits');
+  }
+}
+
+async function handleAdminSetDefaultDailyLimit(dailyLimit = 5) {
+  const adminEmail = currentUser?.email || 'shridharoct16@gmail.com';
+  try {
+    const resp = await fetch('/api/whitelist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'set_daily_limit', adminEmail, dailyLimit })
+    });
+    if (resp.ok) {
+      showTemporaryToast(`⚡ Default daily limit set to ${dailyLimit} credits/day per curator!`);
+      loadAdminBetaData(false);
+    }
+  } catch (e) {
+    alert('Network error while updating daily limit');
   }
 }
 
@@ -10966,6 +11129,8 @@ function openCreatorModal(resumeDraftId = null) {
   const modal = document.getElementById('creatorModal');
   if (!modal) return;
 
+  updateCreatorStudioCreditBadge();
+
   // Clean creator state first
   resetCreatorState();
 
@@ -14165,6 +14330,7 @@ async function startAiSynthesis() {
       let errMsg = 'AI synthesis failed';
       if (contentType.includes('application/json')) {
         const errJson = await resp.json().catch(() => null);
+        if (errJson && errJson.credits) updateCreatorStudioCreditBadge(errJson.credits);
         if (errJson && errJson.error) errMsg = errJson.error;
       } else {
         const text = await resp.text().catch(() => '');
@@ -14183,6 +14349,9 @@ async function startAiSynthesis() {
     }
 
     const data = await resp.json();
+    if (data && data.credits) {
+      updateCreatorStudioCreditBadge(data.credits);
+    }
     if (!data || !data.post) {
       throw new Error('Received invalid post payload from AI model');
     }
@@ -14429,6 +14598,7 @@ async function retryStep3ArtworkGeneration(event) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         action: 'artwork_only',
+        isManualRegenerate: true,
         creatorEmail: userEmail,
         prompt: currentSynthesizedPost.illustrationPrompt,
         countryContext: creatorCountryContext?.name || 'India',
@@ -14445,6 +14615,9 @@ async function retryStep3ArtworkGeneration(event) {
 
     if (artResp.ok) {
       const artData = await artResp.json();
+      if (artData && artData.credits) {
+        updateCreatorStudioCreditBadge(artData.credits);
+      }
       if (artData && artData.success && artData.illustrationBase64) {
         const isDataUri = artData.illustrationBase64.startsWith('data:');
         const formatted = isDataUri ? artData.illustrationBase64 : `data:image/png;base64,${artData.illustrationBase64}`;
@@ -14467,9 +14640,12 @@ async function retryStep3ArtworkGeneration(event) {
         showTemporaryToast('⚠️ Artwork retry timed out. Tap retry again.');
       }
     } else {
-      currentSynthesizedPost.artworkError = 'Server returned status ' + artResp.status;
+      const errJson = await artResp.json().catch(() => null);
+      if (errJson && errJson.credits) updateCreatorStudioCreditBadge(errJson.credits);
+      const errMsg = (errJson && errJson.error) ? errJson.error : ('Server returned status ' + artResp.status);
+      currentSynthesizedPost.artworkError = errMsg;
       currentSynthesizedPost.artworkPending = true;
-      showTemporaryToast('⚠️ Artwork generation could not be completed.');
+      showTemporaryToast(errMsg, 6000);
     }
   } catch (err) {
     currentSynthesizedPost.artworkError = err.message || 'Artwork synthesis connection timed out';
