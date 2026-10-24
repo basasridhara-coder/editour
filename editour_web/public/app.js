@@ -8764,7 +8764,16 @@ function detectRelevantCastMembers(text = '', cast = null) {
   const profile = cast || familyCastProfileCache || getDefaultClientFamilyCast();
   const members = (profile && Array.isArray(profile.members)) ? profile.members : [];
 
-  const mentionsCollective = /\b(my family|our family|my kids|our kids|my sons|our sons|both my boys|both our boys|my children|our children|11 and 7|11yo and 7yo|road trip with my family|vacation with my family)\b/i.test(combined);
+  // 0. First-Person Separation / Solitude Scene:
+  // When the narrator (Father / Self) writes that he is alone, stuck in one city while wife/kids are away,
+  // or missing/waiting for them to return, the present-tense visual HERO is exclusively Father / Self (Shridhar)!
+  const isNarratorAloneMissingFamily = /\b(i am alone|being alone|stuck in [a-z]+ while|miss them|missing them|how much i miss|waiting for them|when my wife is out|feeling of separation|feeling of separateness)\b/i.test(combined);
+  if (isNarratorAloneMissingFamily) {
+    const selfMember = members.find(m => m.relationship === 'self') || { id: 'member_father' };
+    return new Set([selfMember.id]);
+  }
+
+  const mentionsCollective = /\b(my family|our family|the four of us|all four of us|my kids|our kids|my sons|our sons|both my boys|both our boys|my children|our children|11 and 7|11yo and 7yo|road trip with my family|vacation with my family)\b/i.test(combined);
   if (mentionsCollective) {
     return new Set(members.map(m => m.id));
   }
@@ -8814,13 +8823,13 @@ function detectRelevantCastMembers(text = '', cast = null) {
     }
   });
 
-  // 4. Guardian / Accompanying Parent Context:
-  // If one of the children is in the scene (e.g. learning cycle, drawing, playing)
-  // and the narrative is in first-person ("I remain by his side", "beside him", "support him", "with me", "holding my hand", "I watched him", "I stood"):
-  // The accompanying adult is specifically Father / Self (Shridhar), NOT the mother!
+  // 4. First-Person Narrator Participation:
+  // If the narrator ("I / me / my") is actively participating alongside spouse or children
+  // (e.g. "between Aru and me", "with me", "I remain by his side", "beside him"), include Father / Self!
   const hasChild = detected.has('member_elder_son') || detected.has('member_younger_son');
-  const hasFirstPersonGuardian = /\b(i remain|i am|by my side|by his side|beside him|beside her|with me|holding my hand|teaching him|walked with him|support him|safe from|i watched|i stood|standing beside him|watching him|as i see|as i saw)\b/i.test(combined);
-  if (hasChild && hasFirstPersonGuardian) {
+  const hasSpouse = detected.has('member_mother');
+  const hasFirstPersonCoPresence = /\b(and me|with me|between .* and me|i remain|by my side|by his side|beside him|beside her|holding my hand|teaching him|walked with him|support him|i stood|standing beside)\b/i.test(combined);
+  if ((hasChild || hasSpouse) && hasFirstPersonCoPresence) {
     detected.add('member_father');
   }
 
@@ -12012,7 +12021,9 @@ function extract6RankedCueDimensions(curatorAngle, newsHeadline, newsBody) {
     hero = isIndia ? 'Elderly Farmer Beside Sprouting Sapling' : 'Farmer Tending Young Sapling';
   } else if (combined.includes('garbage') || combined.includes('trash') || combined.includes('waste') || combined.includes('clean')) {
     hero = isIndia ? 'Municipal Sweeper with Traditional Reed Broom' : 'Lone Sweeper with Traditional Broom';
-  } else if (combined.includes('ai') || combined.includes('tech') || combined.includes('silicon') || combined.includes('data center') || combined.includes('model') || combined.includes('compute') || combined.includes('apple') || combined.includes('phone') || combined.includes('ipad')) {
+  } else if (combined.includes('family') || combined.includes('child') || combined.includes('trip') || combined.includes('parent') || combined.includes('memoir') || combined.includes('home') || combined.includes('miss')) {
+    hero = 'Father (Shridhar) in Quiet Home Contemplation';
+  } else if (/\b(ai|artificial intelligence|tech|silicon|data center|compute|apple|iphone|ipad)\b/i.test(combined)) {
     hero = 'Monolithic Obsidian Server Tower';
   } else if (combined.includes('market') || combined.includes('invest') || combined.includes('wealth') || combined.includes('billion') || combined.includes('stock')) {
     hero = isIndia ? 'Dalal Street Bull Bronze Monument' : 'Charging Wall Street Bronze Bull';
@@ -12020,8 +12031,6 @@ function extract6RankedCueDimensions(curatorAngle, newsHeadline, newsBody) {
     hero = isIndia ? 'Indian Parliament Sandstone Colonnade' : 'Solitary Figure at Microphone';
   } else if (combined.includes('court') || combined.includes('judge') || combined.includes('law') || combined.includes('case') || combined.includes('crime') || combined.includes('goon')) {
     hero = isIndia ? 'Supreme Court of India Pillared Portico' : (isUK ? 'Old Bailey Gilded Scales of Justice' : 'Gavel & Broken Stone Pillar');
-  } else if (combined.includes('family') || combined.includes('child') || combined.includes('trip') || combined.includes('parent') || combined.includes('memoir')) {
-    hero = 'Solitary Reflective Observer in Contemplation';
   } else if (cleanHeadline && cleanHeadline.length > 3 && !cleanHeadline.startsWith('http')) {
     hero = cleanHeadline.split(/[:–—\-]/)[0].trim();
     if (hero.length > 38) hero = hero.substring(0, 35) + '...';

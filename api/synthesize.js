@@ -2398,7 +2398,16 @@ function detectRelevantCastMembers(combined = '', cast = null) {
   const c = String(combined || '').toLowerCase();
   const members = (cast && Array.isArray(cast.members)) ? cast.members : [];
 
-  const mentionsCollective = /\b(my family|our family|my kids|our kids|my sons|our sons|both my boys|both our boys|my children|our children|11 and 7|11yo and 7yo|road trip with my family|vacation with my family)\b/i.test(c);
+  // 0. First-Person Separation / Solitude Scene:
+  // When the narrator (Father / Self) writes that he is alone, stuck in one city while wife/kids are away,
+  // or missing/waiting for them to return, the present-tense visual HERO is exclusively Father / Self (Shridhar)!
+  const isNarratorAloneMissingFamily = /\b(i am alone|being alone|stuck in [a-z]+ while|miss them|missing them|how much i miss|waiting for them|when my wife is out|feeling of separation|feeling of separateness)\b/i.test(c);
+  if (isNarratorAloneMissingFamily) {
+    const selfMember = members.find(m => m.relationship === 'self') || { id: 'member_father' };
+    return new Set([selfMember.id]);
+  }
+
+  const mentionsCollective = /\b(my family|our family|the four of us|all four of us|my kids|our kids|my sons|our sons|both my boys|both our boys|my children|our children|11 and 7|11yo and 7yo|road trip with my family|vacation with my family)\b/i.test(c);
   if (mentionsCollective) {
     return new Set(members.map(m => m.id));
   }
@@ -2448,13 +2457,13 @@ function detectRelevantCastMembers(combined = '', cast = null) {
     }
   });
 
-  // 4. Guardian / Accompanying Parent Context:
-  // If one of the children is in the scene (e.g. learning cycle, drawing, playing)
-  // and the narrative is in first-person ("I remain by his side", "beside him", "support him", "with me", "holding my hand", "I watched him", "I stood"):
-  // The accompanying adult is specifically Father / Self (Shridhar), NOT the mother!
+  // 4. First-Person Narrator Participation:
+  // If the narrator ("I / me / my") is actively participating alongside spouse or children
+  // (e.g. "between Aru and me", "with me", "I remain by his side", "beside him"), include Father / Self!
   const hasChild = detected.has('member_elder_son') || detected.has('member_younger_son');
-  const hasFirstPersonGuardian = /\b(i remain|i am|by my side|by his side|beside him|beside her|with me|holding my hand|teaching him|walked with him|support him|safe from|i watched|i stood|standing beside him|watching him|as i see|as i saw)\b/i.test(c);
-  if (hasChild && hasFirstPersonGuardian) {
+  const hasSpouse = detected.has('member_mother');
+  const hasFirstPersonCoPresence = /\b(and me|with me|between .* and me|i remain|by my side|by his side|beside him|beside her|holding my hand|teaching him|walked with him|support him|i stood|standing beside)\b/i.test(c);
+  if ((hasChild || hasSpouse) && hasFirstPersonCoPresence) {
     detected.add('member_father');
   }
 
@@ -2477,15 +2486,15 @@ function buildFamilyCastDirectives({ familyCast, activeCast, castStaging, userSl
   }
 
   let activeMembers = [];
-  if (hasExplicitCast) {
+  if (hasExplicitCast && activeCast.manuallySelected) {
     activeMembers = activeCast.members;
-    // If client sent all 4 members by default, refine to the detected members if detectedIds is non-empty
-    if (activeMembers.length > 1 && detectedIds.size > 0 && detectedIds.size < activeMembers.length) {
-      const refined = activeMembers.filter(m => detectedIds.has(m.id));
-      if (refined.length > 0) activeMembers = refined;
-    }
-  } else {
+  } else if (detectedIds.size > 0) {
     activeMembers = (cast.members || []).filter(m => detectedIds.has(m.id));
+    if (activeMembers.length === 0 && hasExplicitCast) {
+      activeMembers = activeCast.members;
+    }
+  } else if (hasExplicitCast) {
+    activeMembers = activeCast.members;
   }
 
   if (activeMembers.length === 0) {

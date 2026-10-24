@@ -440,7 +440,7 @@ function generateSmartFallbackCues(curatorAngle = '', spark = '', newsHeadline =
       }
     } else if (combined.includes('garbage') || combined.includes('trash') || combined.includes('waste')) {
       hero = isIndia ? 'Municipal Sweeper with Traditional Reed Broom' : 'Lone Sweeper with Traditional Broom';
-    } else if (combined.includes('ai') || combined.includes('tech') || combined.includes('silicon') || combined.includes('compute') || combined.includes('model')) {
+    } else if (/\b(ai|artificial intelligence|silicon|data center|compute|tech)\b/i.test(combined)) {
       hero = 'Monolithic Obsidian Server Tower';
     } else if (combined.includes('market') || combined.includes('invest') || combined.includes('wealth') || combined.includes('stock')) {
       hero = isIndia ? 'Dalal Street Bull Bronze Monument' : 'Charging Wall Street Bronze Bull';
