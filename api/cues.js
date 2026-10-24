@@ -134,8 +134,9 @@ All 6 visual cues MUST authentically reflect the geographic, cultural, and insti
 
   const personalDirective = isPersonalStory
     ? `CRITICAL PERSONAL & LIVED EXPERIENCE DIRECTIVE:
-This slant is a personal reflection, lived moment, family story, or lifestyle experience (NOT a geopolitical or corporate event).
-The visual cues MUST authentically capture the human situation, intimate setting, and specific objects from their slant and spark (e.g. travel bags, packing lists, children holding items, home office desks with glowing screens, sunset horizons, tropical palms, departure doorways) rather than forcing abstract courtrooms or government monuments!`
+This slant is a personal reflection, lived moment, family story, cultural tradition, or lifestyle experience (NOT a geopolitical or corporate event).
+The visual cues MUST authentically capture the human situation, cultural setting, and specific objects from their slant and spark.
+ENCYCLOPEDIC CULTURAL & UNIFORM ACCURACY: If the curator references RSS, Swayamsevaks, or Pathasanchalan, #1 HERO must specify "Indian RSS swayamsevaks in full-sleeved white shirts, khaki-brown trousers, and boat-shaped black Kali Topi caps marching with plain bamboo dandas on right shoulder" (strictly NO short sleeves, NO military berets, NO badges on caps, and NO flags tied to lathis).`
     : '';
 
   const personDirective = isCinematic

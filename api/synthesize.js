@@ -899,20 +899,24 @@ CRITICAL SLANT EDITORIAL CONTRACT (CURATOR THOUGHTS IN SUBSTANTIVE DIALOGUE WITH
 - In Poster 3 ("THE RECEIPTS & BROADSHEET REPORT"): Deliver a rich, substantive 3-paragraph broadsheet editorial where the curator's stance is ELABORATED IN DIRECT, DETAILED DIALOGUE WITH THE SOURCE FACTS, DATA, AND ARGUMENTS. Directly engage with the author's/speaker's concrete concepts, figures, claims, or institutional developments, using them to substantiate, deepen, and prove the curator's stance.
 
 ${visualFocusDirective}
-${userSlant ? `CRITICAL POLISHED CURATOR INPUT DIRECTIVE:
+${userSlant ? `CRITICAL PROPER-NOUN, ORGANIZATION & CULTURAL ENTITY FIDELITY RULE:
+- Every specific organization, institution, movement, festival, deity, historical milestone, or proper noun explicitly named by the curator in "${userSlant}"${spark ? ` or "${spark}"` : ''} (such as "RSS", "Vijayadashami", "Swayamsevaks", "Maa Bharati", "Durga", "Shakti", "Pathasanchalan", or any named nation, company, or leader) MUST be explicitly named and preserved across Poster 1 ("hook"), Poster 2 ("curatorTake"), and Poster 3 ("summary" and "resolvedArticleExcerpts").
+- STRICT BAN ON SANITIZATION OR OMISSION: NEVER drop, generalize, or replace named organizations (like "RSS") with vague euphemisms like "this movement" or "community group". If the curator explicitly mentions "RSS" (e.g. "Vijayadashami, the founding day of RSS"), you MUST explicitly name "RSS" in Poster 2 ("curatorTake") and in the opening paragraph of Poster 3 ("summary" / "resolvedArticleExcerpts")!
+
+CRITICAL POLISHED CURATOR INPUT DIRECTIVE:
 - The curator provided their authentic stance: "${userSlant}".
 - In "polishedCuratorTake": Polish the curator's exact input for grammar, spelling, punctuation, capitalization, and smooth phrasing flow.
 - STRICT REQUIREMENTS FOR "polishedCuratorTake":
-  * 100% PRESERVATION: Retain 100% of the curator's original thoughts, arguments, conviction, personal voice, style, and full length.
+  * 100% PRESERVATION: Retain 100% of the curator's original thoughts, arguments, conviction, proper nouns, organizations, personal voice, style, and full length.
   * ZERO SUMMARIZATION: Do NOT summarize, cut short, or compress their take into 2 sentences.
   * ZERO ALTERATION: Do NOT change the curator's stance or introduce unsolicited opinions. It is purely gentle grammar and phrase correction.
   * ZERO EM-DASHES: NEVER use em-dashes ("—"), en-dashes ("–"), or double hyphens ("--"). They scream artificial AI generation. Connect clauses with natural commas, semicolons, or standard punctuation so it feels authentic and human.
 CRITICAL POSTER 2 DIRECTIVE (PULL-QUOTE DERIVED DIRECTLY FROM CURATOR INPUT):
 ${refineCoreTake ? `- Poster 2 ("THE CRITICAL PERSPECTIVE" / curatorTake) is an authentic, high-impact PULL-QUOTE (EXACTLY 2 complete sentences, 25-35 words total, ending definitively with a period).
 - EDITORIAL PULL-QUOTE METHOD (CULL & TIGHTEN, NEVER REINVENT):
-  * DO NOT throw away the user's authentic words to invent stiff corporate or NGO rhetoric (e.g. NEVER write "Unprecedented deluges remind us that...", "natural systems pushed beyond capacity", or "cooperative sustainable living").
+  * DO NOT throw away the user's authentic words or named organizations/subjects to invent generic slogans.
   * Identify the author's STRONGEST, MOST VIVID core lines from: "${userSlant}".
-  * RETAIN their powerful metaphors, idioms, and contrasts (e.g. "bring the richest and strongest among us to their knees", "what humanity is truly worth in front of nature", "narrow perspective", "small mistakes", "live selflessly").
+  * RETAIN their explicit proper nouns, organizations (e.g. "RSS", "Vijayadashami", "Maa Bharati"), metaphors, idioms, and contrasts.
   * Polish the grammar, articles, and prepositions so their authentic voice rings with crisp, effortless, natural English.` : `- USE TAKE AS-IS (VERBATIM): The curator chose to keep their exact typed take as-is on Poster 2.
 - In "curatorTake", you MUST output the curator's authentic take: "${userSlant}" verbatim without rephrasing or altering their sentence structure.`}` : ''}
 ${sourceType === 'inner_voice' ? `CRITICAL INNER VOICE & LIVED EXPERIENCE DIRECTIVE (ELABORATE USER VOICE ONLY, ZERO CONCEPT FABRICATION):
@@ -956,6 +960,12 @@ It MUST strictly target 180 to 220 words total for the 3-paragraph essay itself 
 TOTAL ESSAY: 180-220 words for an authentic 1-minute read.
 The curator's intellectual perspective, conviction, and provided context must be deeply carried and elaborated throughout without inventing unrequested concepts.
 If a catalyst photo is attached, subtly ground the atmosphere where natural, but NEVER compromise the curator's perspective or intellectual depth for scene description filler.
+CRITICAL CULTURAL, INSTITUTIONAL & UNIFORM VISUAL AUTHENTICITY DIRECTIVE (FOR "illustrationPrompt" AND CUES):
+- Whenever the input references a specific real-world organization, cultural march, historical uniform, or traditional ceremony, your "illustrationPrompt" and visual cues MUST specify exact, encyclopedically accurate attire, headgear, and posture with strict negative constraints against AI hallucinations:
+  * If RSS (Rashtriya Swayamsevak Sangh), Swayamsevaks, or Pathasanchalan (route march) is referenced:
+    1. UNIFORM (GANAVESH): Crisp FULL-SLEEVED (long-sleeved) white buttoned collared shirt tucked neatly into khaki-brown full-length trousers with a brown belt and black lace-up shoes (strictly NO short-sleeved or half-sleeved shirts).
+    2. HEADGEAR (KALI TOPI): Traditional Indian foldable boat-shaped black cloth cap (Gandhi-cap / boat-cap geometry with a central lengthwise crease) worn straight and centered on the head. STRICT BAN: NEVER write "side cap" or "beret", NEVER draw round military berets, and strictly NO metal badges, police crests, or emblems on the cap!
+    3. STAFF (DANDA / LATHI) & FLAGS: Swayamsevaks march carrying a plain unadorned wooden bamboo staff (danda) resting at a 45-degree angle on the right shoulder or held at their side. STRICT BAN: NEVER attach or tie flags onto the swayamsevaks' bamboo staffs/lathis like spears, and strictly NO "Om" symbols or text on flags! Any saffron flag (Bhagwa Dhwaj) must only be a plain unadorned saffron two-pennant flag on a single standalone flagpole in the background, separate from the marching ranks.
 ${cues && cues.length > 0 ? `CRITICAL VISUAL RULE: The Hook poster artwork and cues MUST be anchored in #1 HERO: "${cues[0]}", incorporating #2 MOTIF: "${cues[1] || ''}" and #3 TENSION: "${cues[2] || ''}".` : ''}
 
 Respond strictly with valid JSON with this exact structure:
@@ -2018,6 +2028,17 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
   // Country Setting Anchor for General Editorial Posters
   if (countryContext && countryContext !== 'Global' && !enhancedPrompt.toLowerCase().includes(countryContext.toLowerCase())) {
     enhancedPrompt = `${countryContext} regional setting and authentic cultural atmosphere, ${enhancedPrompt}`;
+  }
+
+  // Encyclopedic Uniform & Cultural Accuracy Enforcer for RSS / Swayamsevak / Pathasanchalan
+  if (/\b(rss|swayamsevak|swayamsevaks|pathasanchalan|ganavesh)\b/i.test(enhancedPrompt)) {
+    enhancedPrompt = enhancedPrompt
+      .replace(/\b(?:short-sleeved|half-sleeved)\s+white\s+(?:collared\s+)?shirts?\b/gi, 'full-sleeved long-sleeved white buttoned collared shirts with full sleeves down to the wrists')
+      .replace(/\bblack\s+side\s+caps?\b/gi, 'traditional Indian foldable boat-shaped black cloth Kali Topi caps (Gandhi-cap boat geometry worn straight on the head, strictly NOT round military berets and strictly NO metal badges or insignia on the caps)')
+      .replace(/\b(?:holding|carrying)\s+(?:traditional\s+)?(?:polished\s+)?wooden\s+lathis?\b/gi, 'carrying plain unadorned wooden bamboo staffs (dandas) resting at a 45-degree angle on their right shoulders (strictly plain bamboo sticks with NO flags tied or mounted on the staffs)');
+    if (!/strictly NOT round military berets/i.test(enhancedPrompt)) {
+      enhancedPrompt += '. AUTHENTIC RSS GANAVESH UNIFORM SPECIFICATION: Full-sleeved (long-sleeved) white buttoned shirts tucked into khaki-brown full trousers, traditional Indian foldable boat-shaped black cloth caps (Kali Topi worn straight like a boat cap, strictly NOT military berets and strictly NO metal badges or emblems on the front of the cap), carrying plain wooden bamboo staffs (dandas) resting on their right shoulders with strictly NO flags attached to the staffs and NO symbols or text on any flag.';
+    }
   }
 
   const isPhotoMedium = /photograph|film still|35mm|photojournalism|documentary|editorial portrait photograph/i.test(enhancedPrompt);
