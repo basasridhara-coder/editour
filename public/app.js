@@ -5658,7 +5658,19 @@ function getPostGenerationInputs(post) {
   const spark = raw.spark || post.spark || post.userContext || '';
   const cues = (raw.cues && Array.isArray(raw.cues) && raw.cues.length) ? raw.cues : (post.cues && Array.isArray(post.cues) && post.cues.length ? post.cues : (post.keyTakeaways || []));
   const heroCue = raw.heroCue || cues[0] || post.heroCue || '';
-  const characterRepresentation = raw.characterRepresentation || post.characterRepresentation || 'realistic';
+  let characterRepresentation = raw.characterRepresentation || post.characterRepresentation;
+  if (!characterRepresentation) {
+    const prompt = (raw.illustrationPrompt || post.illustrationPrompt || '').toLowerCase();
+    if (prompt.includes('broadsheet painting') || prompt.includes('gouache and oil') || prompt.includes('oil and gouache') || prompt.includes('painted artwork') || prompt.includes('broadsheet oil and gouache')) {
+      characterRepresentation = 'painting';
+    } else if (prompt.includes('35mm') || prompt.includes('documentary photograph') || prompt.includes('camera fidelity')) {
+      characterRepresentation = 'cinematic';
+    } else if (prompt.includes('silhouette') || prompt.includes('shadow art')) {
+      characterRepresentation = 'silhouette';
+    } else {
+      characterRepresentation = 'realistic';
+    }
+  }
   const refineCoreTake = (typeof raw.refineCoreTake === 'boolean') ? raw.refineCoreTake : (typeof post.refineCoreTake === 'boolean' ? post.refineCoreTake : true);
   const vocabularyStyle = raw.vocabularyStyle || post.vocabularyStyle || 'punchy';
   const countryContext = raw.countryContext || post.countryContext || 'India';
@@ -5743,21 +5755,12 @@ function openGenerationContextModal(postId) {
     copyLines.push(`\n[VISUAL CUES & METAPHORS]:`);
     inputs.cues.forEach((c, idx) => copyLines.push(`  ${idx + 1}. ${c}${idx === 0 ? ' (HERO)' : ''}`));
   }
-  if (inputs.illustrationPrompt) copyLines.push(`\n[ART DIRECTION PROMPT]:\n${inputs.illustrationPrompt}`);
   const isLikeness = Boolean(inputs.hasAttachedPhoto
     || inputs.characterRepresentation === 'likeness'
     || inputs.characterRepresentation === 'lookalike'
     || inputs.characterRepresentation === 'cinematic');
   const hybridPerspectiveLabel = isLikeness ? '⚖️ Hybrid Likeness' : '⚖️ Hybrid Blend';
   const hybridPerspectivePlain = isLikeness ? 'Hybrid Likeness' : 'Hybrid Blend';
-
-  copyLines.push(`\n[STUDIO PARAMETERS]:`);
-  copyLines.push(`  - Perspective Focus: ${inputs.perspectiveMode === 'curator' ? 'Curator Angle' : (inputs.perspectiveMode === 'source' ? 'Source Grounded' : hybridPerspectivePlain)}`);
-  copyLines.push(`  - Core Take: ${inputs.refineCoreTake ? 'Refined with AI' : 'Use As-Is (Verbatim)'}`);
-  copyLines.push(`  - Vocabulary: ${inputs.vocabularyStyle}`);
-  copyLines.push(`  - Setting / Region: ${inputs.countryContext}`);
-  copyLines.push(`  - Portrayal: ${inputs.characterRepresentation}`);
-  window._activeGenContextText = copyLines.join('\n');
 
   // Human-readable labels
   let sourceLabel = '🌐 Web Citation Link';
@@ -5769,9 +5772,27 @@ function openGenerationContextModal(postId) {
   else if (inputs.vocabularyStyle === 'analytical') vocabLabel = '🏛 Analytical Voice';
 
   let portrayalLabel = '🎨 Editorial Realism';
-  if (inputs.characterRepresentation === 'likeness' || inputs.characterRepresentation === 'lookalike') portrayalLabel = '👤 Portrait / Likeness';
-  else if (inputs.characterRepresentation === 'exact') portrayalLabel = '📷 Direct Photo';
-  else if (inputs.characterRepresentation === 'silhouette') portrayalLabel = '👥 Minimalist Silhouette';
+  if (inputs.characterRepresentation === 'painting') {
+    portrayalLabel = '🎨 Painted Artwork';
+  } else if (inputs.characterRepresentation === 'cinematic' || inputs.characterRepresentation === 'cinematic_photo') {
+    portrayalLabel = '📸 Cinematic Editorial Photo';
+  } else if (inputs.characterRepresentation === 'likeness' || inputs.characterRepresentation === 'lookalike') {
+    portrayalLabel = '👤 Portrait / Likeness';
+  } else if (inputs.characterRepresentation === 'exact') {
+    portrayalLabel = '📷 Authentic Source Photo';
+  } else if (inputs.characterRepresentation === 'silhouette') {
+    portrayalLabel = '👥 Minimalist Silhouette';
+  } else if (inputs.characterRepresentation === 'realistic') {
+    portrayalLabel = '🎨 Editorial Realism';
+  }
+
+  copyLines.push(`\n[STUDIO PARAMETERS]:`);
+  copyLines.push(`  - Perspective Focus: ${inputs.perspectiveMode === 'curator' ? 'Curator Angle' : (inputs.perspectiveMode === 'source' ? 'Source Grounded' : hybridPerspectivePlain)}`);
+  copyLines.push(`  - Core Take: ${inputs.refineCoreTake ? 'Refined with AI' : 'Use As-Is (Verbatim)'}`);
+  copyLines.push(`  - Vocabulary: ${inputs.vocabularyStyle}`);
+  copyLines.push(`  - Setting / Region: ${inputs.countryContext}`);
+  copyLines.push(`  - Portrayal: ${portrayalLabel}`);
+  window._activeGenContextText = copyLines.join('\n');
 
   let html = `
     <!-- Top Headline & Meta -->
@@ -5918,28 +5939,7 @@ function openGenerationContextModal(postId) {
     `;
   }
 
-  // 5. Illustration Prompt (if available)
-  if (inputs.illustrationPrompt) {
-    html += `
-      <div class="gen-section-card">
-        <div class="gen-section-header">
-          <div class="gen-section-title-wrap">
-            <span class="gen-section-icon">✨</span>
-            <span class="gen-section-label">AI ART DIRECTION PROMPT</span>
-          </div>
-          <button type="button" class="gen-copy-btn" onclick="copyGenerationContextToClipboard(${JSON.stringify(inputs.illustrationPrompt)})" title="Copy prompt">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-            <span>Copy</span>
-          </button>
-        </div>
-        <div class="gen-context-text" style="font-family: monospace; font-size: 12px; max-height: 120px;">
-          ${escapeHtml(inputs.illustrationPrompt)}
-        </div>
-      </div>
-    `;
-  }
-
-  // 6. Studio Parameters Grid
+  // 5. Studio Parameters Grid
   html += `
     <div class="gen-section-card">
       <div class="gen-section-header">
@@ -9334,7 +9334,7 @@ function updateEqualizerSummary() {
     : (creatorCharacterRepresentation === 'cinematic'
       ? 'Cinematic Photo'
       : (creatorCharacterRepresentation === 'painting'
-        ? 'Broadsheet Painting'
+        ? 'Painted Artwork'
         : (creatorCharacterRepresentation === 'silhouette'
           ? 'Silhouette'
           : (creatorCharacterRepresentation === 'exact' ? 'Authentic Photo' : 'AI Illustration'))));
