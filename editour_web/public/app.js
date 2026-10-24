@@ -4154,9 +4154,18 @@ function evaluateEssayBifurcation(post, index) {
     const protectedText = text
       .replace(/\b(Mr|Mrs|Ms|Dr|Prof|Sr|Jr|Gen|Gov|Capt|Lieut|Col|U\.S|e\.g|i\.e)\./gi, '$1__DOT__');
     
-    const rawSentences = protectedText.match(/[^.!?]+(?:[.!?]+["'”’]?|$)/g) || [protectedText];
+    // Protect punctuation inside single/double quotes or dialogue (e.g. 'Gahan! Gahan!' or "Look out!")
+    const quoteProtected = protectedText.replace(/(['"“‘][^'"”’]+['"”’])/g, (m) => {
+      return m.replace(/!/g, '__EXCL__').replace(/\?/g, '__QMARK__').replace(/\./g, '__DOT__');
+    });
+
+    const rawSentences = quoteProtected.match(/[^.!?]+(?:[.!?]+|$)/g) || [quoteProtected];
     const sentences = rawSentences
-      .map(s => s.replace(/__DOT__/g, '.').trim())
+      .map(s => s
+        .replace(/__DOT__/g, '.')
+        .replace(/__EXCL__/g, '!')
+        .replace(/__QMARK__/g, '?')
+        .trim())
       .filter(Boolean);
 
     if (sentences.length > 1) {
@@ -4193,19 +4202,21 @@ function evaluateEssayBifurcation(post, index) {
       page1Paras.push(p);
       accumulatedWords += pWords;
     } else {
-      // Squeeze portion of this paragraph onto Page 1 if individual sentences fit comfortably
+      // Squeeze portion of this paragraph onto Page 1 if individual sentences fit comfortably.
+      // Relax rigid percentage/word restrictions so sentences take along till line completion.
       const units = splitIntoParagraphUnits(p);
       const u1 = [];
       const u2 = [];
       let curWords = accumulatedWords;
+      const maxPage1Ceiling = hasPhoto ? (isVideoOrWide ? 112 : 142) : 180;
 
       for (let j = 0; j < units.length; j++) {
         const u = units[j].trim();
         if (!u) continue;
         const uw = u.split(/\s+/).filter(Boolean).length;
 
-        // Place on Page 1 if it fits within targetPage1Words
-        const canFitOnP1 = (curWords + uw <= targetPage1Words);
+        // Place on Page 1 if it fits within targetPage1Words, or completes the current thought up to ceiling
+        const canFitOnP1 = (curWords + uw <= targetPage1Words) || (curWords + uw <= maxPage1Ceiling && u2.length === 0);
 
         if (u2.length === 0 && canFitOnP1) {
           u1.push(u);

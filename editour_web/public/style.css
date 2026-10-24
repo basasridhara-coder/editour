@@ -3109,7 +3109,7 @@ header {
   -webkit-hyphens: auto !important;
   -ms-hyphens: auto !important;
   hyphenate-character: "-" !important;
-  overflow-wrap: break-word !important;
+  overflow-wrap: normal !important;
   word-break: normal !important;
   flex-shrink: 0;
   display: block;
@@ -4090,7 +4090,7 @@ header {
     -webkit-hyphens: auto !important;
     -ms-hyphens: auto !important;
     hyphenate-character: "-" !important;
-    overflow-wrap: break-word !important;
+    overflow-wrap: normal !important;
     word-break: normal !important;
     color: #1E293B !important;
   }
@@ -4164,7 +4164,7 @@ header {
     -webkit-hyphens: auto !important;
     -ms-hyphens: auto !important;
     hyphenate-character: "-" !important;
-    overflow-wrap: break-word !important;
+    overflow-wrap: normal !important;
     word-break: normal !important;
     color: #1E293B !important;
   }
@@ -7080,17 +7080,17 @@ header {
 /* Base Portrait / Square Floated Photo (Preserves Natural 3:4 Subject Framing) */
 .receipt-scene-box.photo-aspect-portrait {
   float: right;
-  width: 44%;
-  max-width: 190px;
-  margin: 2px 0 10px 16px;
-  padding: 4px;
+  width: 36%;
+  max-width: 152px;
+  margin: 1px 0 6px 14px;
+  padding: 3.5px;
   clear: none;
 }
 
 .receipt-scene-box.photo-aspect-portrait .receipt-scene-frame {
   width: 100%;
   aspect-ratio: 3 / 4;
-  max-height: 225px;
+  max-height: 175px;
 }
 
 /* Base Proportions for Slide 3 Broadsheet (Medium Density: ~140-200 words) */
@@ -7128,7 +7128,7 @@ header {
   -webkit-hyphens: auto;
   -ms-hyphens: auto;
   hyphenate-character: "-";
-  overflow-wrap: break-word;
+  overflow-wrap: normal;
   word-break: normal;
   color: #1E293B;
 }
@@ -7149,11 +7149,11 @@ header {
 }
 
 .slant-minute-scroll-viewport.essay-density-light .receipt-scene-box.photo-aspect-portrait {
-  max-width: 205px;
-  margin: 2px 0 12px 18px;
+  max-width: 165px;
+  margin: 1px 0 8px 14px;
 }
 .slant-minute-scroll-viewport.essay-density-light .receipt-scene-box.photo-aspect-portrait .receipt-scene-frame {
-  max-height: 245px;
+  max-height: 185px;
   aspect-ratio: 3 / 4;
 }
 
@@ -7216,7 +7216,7 @@ header {
   -webkit-hyphens: auto;
   -ms-hyphens: auto;
   hyphenate-character: "-";
-  overflow-wrap: break-word;
+  overflow-wrap: normal;
   word-break: normal;
   color: #1E293B;
 }
@@ -7388,17 +7388,17 @@ header {
 /* Portrait / Square images in Export Sandbox (Floated 3:4 Plate) */
 .poster-export-sandbox .receipt-scene-box.photo-aspect-portrait {
   float: right !important;
-  width: 40% !important;
-  max-width: 175px !important;
-  margin: 2px 0 8px 14px !important;
+  width: 36% !important;
+  max-width: 148px !important;
+  margin: 1px 0 6px 12px !important;
   clear: none !important;
-  padding: 3.5px !important;
+  padding: 3px !important;
 }
 
 .poster-export-sandbox .receipt-scene-box.photo-aspect-portrait .receipt-scene-frame {
   width: 100% !important;
   aspect-ratio: 3 / 4 !important;
-  max-height: 185px !important;
+  max-height: 168px !important;
 }
 
 .poster-export-sandbox .receipt-paragraphs {
@@ -7436,7 +7436,7 @@ header {
   -webkit-hyphens: auto !important;
   -ms-hyphens: auto !important;
   hyphenate-character: "-" !important;
-  overflow-wrap: break-word !important;
+  overflow-wrap: normal !important;
   word-break: normal !important;
   color: #1E293B !important;
 }
@@ -7452,11 +7452,11 @@ header {
 }
 
 .poster-export-sandbox .slant-minute-scroll-viewport.essay-density-light .receipt-scene-box.photo-aspect-portrait {
-  max-width: 190px !important;
-  margin: 2px 0 10px 16px !important;
+  max-width: 156px !important;
+  margin: 1px 0 8px 12px !important;
 }
 .poster-export-sandbox .slant-minute-scroll-viewport.essay-density-light .receipt-scene-box.photo-aspect-portrait .receipt-scene-frame {
-  max-height: 205px !important;
+  max-height: 175px !important;
   aspect-ratio: 3 / 4 !important;
 }
 
@@ -7520,7 +7520,7 @@ header {
   -webkit-hyphens: auto !important;
   -ms-hyphens: auto !important;
   hyphenate-character: "-" !important;
-  overflow-wrap: break-word !important;
+  overflow-wrap: normal !important;
   word-break: normal !important;
   color: #1E293B !important;
 }
