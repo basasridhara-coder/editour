@@ -4445,7 +4445,7 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
   // Specific Discrete Export Page 1
   if (forExportPage === 1) {
     return `
-      <div class="slant-minute-scroll-viewport essay-scroll-viewport ${bifurcation.hasPhoto ? "has-inset-photo" : ""} ${bifurcation.densityClass}" style="overflow:hidden !important; height:100% !important;">
+      <div class="slant-minute-scroll-viewport essay-scroll-viewport ${bifurcation.hasPhoto ? "has-inset-photo" : ""} ${bifurcation.densityClass}" lang="en" style="overflow:hidden !important; height:100% !important;">
         <div class="receipt-brand-corner-bar">
           <div class="receipt-corner-brand">
             <img src="/logo.png" class="receipt-corner-logo" alt="Slant">
@@ -4478,7 +4478,7 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
   // Specific Discrete Export Page 2 (Only generated when bifurcated)
   if (forExportPage === 2) {
     return `
-      <div class="slant-minute-scroll-viewport essay-scroll-viewport ${bifurcation.densityClass}" style="overflow:hidden !important; height:100% !important;">
+      <div class="slant-minute-scroll-viewport essay-scroll-viewport ${bifurcation.densityClass}" lang="en" style="overflow:hidden !important; height:100% !important;">
         <div class="receipt-brand-corner-bar continuation-header">
           <div class="receipt-corner-brand">
             <img src="/logo.png" class="receipt-corner-logo" alt="Slant">
@@ -4508,6 +4508,7 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
   // Interactive Feed View (Single poster with smooth vertical scrolling and optional bifurcation seam)
   return `
     <div class="slant-minute-scroll-viewport essay-scroll-viewport ${bifurcation.hasPhoto ? "has-inset-photo" : ""} ${bifurcation.densityClass}"
+         lang="en"
          data-bifurcated="${bifurcation.isBifurcated ? "true" : "false"}"
          onscroll="window._lastSlantMinuteScroll = Date.now()">
       
