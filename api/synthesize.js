@@ -2157,6 +2157,15 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
     }
   }
 
+  // Complete Human Anatomy & Limb Integrity Enforcer (Prevents missing legs / legless torsos on chairs / floating bodies)
+  if (/\b(sits|sitting|seated)\b/i.test(enhancedPrompt) && /\b(chair|sofa|couch|bench|stool|floor)\b/i.test(enhancedPrompt)) {
+    if (!/\b(trousers|pants|jeans|chinos|feet resting on the floor)\b/i.test(enhancedPrompt)) {
+      enhancedPrompt += '. COMPLETE HUMAN ANATOMY & LOWER-BODY INTEGRITY: Every seated person MUST have complete, natural, anatomically connected full legs wearing trousers/pants extending downward from the seat with both feet resting naturally on the floor (or framed cleanly as a waist-up medium portrait). STRICT BAN on legless torsos, missing legs, amputated limbs, cross-legged stumps on chairs, or bodies merging into chair seats.';
+    }
+  } else {
+    enhancedPrompt += '. Complete natural human anatomy with intact connected limbs, strictly no missing legs or floating torsos.';
+  }
+
   const isPhotoMedium = /photograph|film still|35mm|photojournalism|documentary|editorial portrait photograph/i.test(enhancedPrompt);
   const textureStyle = isPhotoMedium
     ? 'sharp focus, natural skin textures, 35mm film grain, authentic ambient lighting'
@@ -2632,11 +2641,12 @@ function buildFamilyCastDirectives({ familyCast, activeCast, castStaging, userSl
   const femaleCount = totalCount - maleCount;
 
   if (isSoloProtagonist) {
-    directives.push(`SOLE PROTAGONIST DIRECTIVE:
+    directives.push(`SOLE PROTAGONIST & COMPLETE HUMAN ANATOMY DIRECTIVE:
 - VISIBLE INDIVIDUALS: EXACTLY 1 PERSON (${soloMember.name || soloMember.roleLabel}).
 - THE SCENE FOCUSES ENTIRELY ON THIS SINGLE PROTAGONIST.
-- STRICT BAN ON EXTRA CHARACTERS: Strictly do NOT draw other family members, parents, or siblings. The scene is solely about ${soloMember.name || soloMember.roleLabel}.`);
-    promptSnippets.push(`solo portrait of exactly 1 person: ${soloMember.name || soloMember.roleLabel} as the sole protagonist, strictly no other family members or extra people`);
+- STRICT BAN ON EXTRA CHARACTERS: Strictly do NOT draw other family members, parents, or siblings. The scene is solely about ${soloMember.name || soloMember.roleLabel}.
+- COMPLETE HUMAN ANATOMY & LOWER-BODY INTEGRITY: If the protagonist is seated on a chair, sofa, or bench, you MUST explicitly specify their lower-body attire (e.g. wearing dark trousers/chinos or jeans) with both full legs extending downward and both feet resting naturally on the floor, OR frame the shot as a clean waist-up medium portrait. STRICTLY NEVER describe a person sitting on a chair alongside "empty chairs" without specifying their full legs and trousers on the floor (to prevent legless torso hallucinations).`);
+    promptSnippets.push(`solo portrait of exactly 1 person: ${soloMember.name || soloMember.roleLabel} as the sole protagonist with complete natural human anatomy (full connected legs in trousers with feet resting on the floor or waist-up medium portrait), strictly no other family members or extra people`);
   } else {
     // 0. Mandatory Exact Headcount & Enumeration
     directives.push(`MANDATORY EXACT HEADCOUNT & ANTI-MERGING DIRECTIVE:
