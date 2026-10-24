@@ -5056,6 +5056,8 @@ function goToSlide(event, postIndex, slideIndex) {
   }
 }
 
+let activeEssayMomentumRaf = null;
+
 function setupCarouselGestures(postIndex) {
   const carousel = document.getElementById(`carousel-${postIndex}`);
   if (!carousel || carousel.dataset.gesturesAttached) return;
@@ -5064,6 +5066,79 @@ function setupCarouselGestures(postIndex) {
   let startX = 0;
   let startY = 0;
   let isSwiping = false;
+
+  // Seamless Essay-to-Feed Scroll Handoff when essay page reaches top or bottom end
+  const essayViewports = carousel.querySelectorAll('.slant-minute-scroll-viewport');
+  essayViewports.forEach((essayVp) => {
+    if (essayVp.dataset.scrollHandoffAttached) return;
+    essayVp.dataset.scrollHandoffAttached = 'true';
+
+    let lastY = 0;
+    let lastTime = 0;
+    let velocityY = 0;
+    let isHandingOffToFeed = false;
+
+    essayVp.addEventListener('touchstart', (e) => {
+      if (activeEssayMomentumRaf) {
+        cancelAnimationFrame(activeEssayMomentumRaf);
+        activeEssayMomentumRaf = null;
+      }
+      if (e.touches.length === 1) {
+        lastY = e.touches[0].clientY;
+        lastTime = performance.now();
+        velocityY = 0;
+        isHandingOffToFeed = false;
+      }
+    }, { passive: true });
+
+    essayVp.addEventListener('touchmove', (e) => {
+      if (e.touches.length !== 1) return;
+      const curX = e.touches[0].clientX;
+      const curY = e.touches[0].clientY;
+      const totalDx = Math.abs(curX - startX);
+      const totalDy = Math.abs(curY - startY);
+
+      // Allow horizontal carousel swipes to pass through untouched
+      if (totalDx > totalDy && totalDx > 10) return;
+
+      const dy = lastY - curY; // positive = finger swiping up (scrolling down)
+      const now = performance.now();
+      const dt = Math.max(1, now - lastTime);
+      velocityY = 0.75 * (dy / dt) + 0.25 * velocityY;
+      lastY = curY;
+      lastTime = now;
+
+      if (Math.abs(dy) < 0.5) return;
+
+      const maxScroll = Math.max(0, essayVp.scrollHeight - essayVp.clientHeight);
+      const atTop = essayVp.scrollTop <= 2;
+      const atBottom = maxScroll <= 4 || (essayVp.scrollTop >= maxScroll - 3);
+
+      // If essay page is at its end (bottom or top), seamlessly continue the swipe into the main feed scroll
+      if ((atBottom && dy > 0) || (atTop && dy < 0)) {
+        if (e.cancelable) {
+          e.preventDefault();
+        }
+        isHandingOffToFeed = true;
+        window.scrollBy(0, dy);
+      }
+    }, { passive: false });
+
+    essayVp.addEventListener('touchend', () => {
+      if (!isHandingOffToFeed || Math.abs(velocityY) < 0.16) return;
+      let stepVel = Math.max(-42, Math.min(42, velocityY * 16));
+      const coast = () => {
+        stepVel *= 0.93;
+        if (Math.abs(stepVel) < 0.6) {
+          activeEssayMomentumRaf = null;
+          return;
+        }
+        window.scrollBy(0, stepVel);
+        activeEssayMomentumRaf = requestAnimationFrame(coast);
+      };
+      activeEssayMomentumRaf = requestAnimationFrame(coast);
+    }, { passive: true });
+  });
 
   // Touch Swipe for Mobile
   carousel.addEventListener('touchstart', (e) => {

@@ -2429,8 +2429,8 @@ header {
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
-  overscroll-behavior-y: contain;
-  touch-action: pan-y;
+  overscroll-behavior-y: auto !important;
+  touch-action: pan-x pan-y;
   transform: translateZ(0);
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
@@ -2443,9 +2443,10 @@ header {
   scrollbar-color: rgba(15, 23, 42, 0.25) transparent;
 }
 
+.carousel-view .slant-minute-scroll-viewport:not([data-bifurcated="true"]),
 .slant-minute-scroll-viewport:not([data-bifurcated="true"]) {
   overflow-y: hidden !important;
-  overscroll-behavior-y: auto;
+  overscroll-behavior-y: auto !important;
 }
 
 .slant-minute-scroll-viewport::-webkit-scrollbar {
@@ -3958,8 +3959,12 @@ header {
     gap: 5px !important;
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch !important;
-    touch-action: pan-y !important;
+    overscroll-behavior-y: auto !important;
+    touch-action: pan-x pan-y !important;
     scrollbar-width: thin !important;
+  }
+  .carousel-view .slant-minute-scroll-viewport:not([data-bifurcated="true"]) {
+    overflow-y: hidden !important;
   }
   .carousel-view .slant-minute-scroll-viewport .receipt-brand-corner-bar {
     margin-bottom: 3px !important;
