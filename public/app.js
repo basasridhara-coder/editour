@@ -2149,6 +2149,9 @@ function appendDeepLinkFeedGate() {
     </div>
   `;
   container.appendChild(barrier);
+  if (typeof observeFeedBatchEndBarrier === 'function') {
+    observeFeedBatchEndBarrier();
+  }
 }
 
 function scrollToPostElement(targetCard) {
@@ -2856,6 +2859,9 @@ function appendBatchEndBarrier(batchIndex, currentCount, totalCount) {
     `;
   }
   container.appendChild(barrier);
+  if (typeof observeFeedBatchEndBarrier === 'function') {
+    observeFeedBatchEndBarrier();
+  }
 }
 
 async function triggerNextFeedBatch() {
@@ -3000,7 +3006,25 @@ async function triggerNextFeedBatch() {
 // Global alias for compatibility
 const loadNextFeedBatch = triggerNextFeedBatch;
 
+let isFeedBarrierVisible = false;
+let feedBarrierObserver = null;
+
+function observeFeedBatchEndBarrier() {
+  const barrier = document.getElementById('feedBatchEndBarrier');
+  if (!barrier || typeof IntersectionObserver === 'undefined') return;
+  if (feedBarrierObserver) {
+    feedBarrierObserver.disconnect();
+  }
+  feedBarrierObserver = new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      isFeedBarrierVisible = entry.isIntersecting;
+    }
+  }, { rootMargin: '120px 0px' });
+  feedBarrierObserver.observe(barrier);
+}
+
 function setupSwipeBlockedListener() {
+  observeFeedBatchEndBarrier();
   if (swipeBlockedListenerAttached) return;
   swipeBlockedListenerAttached = true;
 
@@ -3014,16 +3038,8 @@ function setupSwipeBlockedListener() {
   }, { passive: true });
 
   window.addEventListener('touchmove', (e) => {
-    if (isBatchLoading || isTriggering) return;
-    const barrier = document.getElementById('feedBatchEndBarrier');
-    if (!barrier) return;
-
-    const scrollY = window.scrollY || window.pageYOffset;
-    const windowHeight = window.innerHeight;
-    const documentHeight = document.documentElement.scrollHeight;
-    const isAtBottom = (scrollY + windowHeight >= documentHeight - 50);
-
-    if (isAtBottom && e.touches && e.touches[0]) {
+    if (isBatchLoading || isTriggering || !isFeedBarrierVisible) return;
+    if (e.touches && e.touches[0]) {
       const currentY = e.touches[0].clientY;
       const diff = touchStartY - currentY; // positive = dragged up against bottom block
       if (diff > 50) {
@@ -3036,18 +3052,10 @@ function setupSwipeBlockedListener() {
 
   // On desktop / trackpad: wheel scroll past bottom
   window.addEventListener('wheel', (e) => {
-    if (isBatchLoading || isTriggering || e.deltaY <= 25) return;
-    const barrier = document.getElementById('feedBatchEndBarrier');
-    if (!barrier) return;
-
-    const scrollY = window.scrollY || window.pageYOffset;
-    const windowHeight = window.innerHeight;
-    const documentHeight = document.documentElement.scrollHeight;
-    if (scrollY + windowHeight >= documentHeight - 30) {
-      isTriggering = true;
-      triggerNextFeedBatch();
-      setTimeout(() => { isTriggering = false; }, 1500);
-    }
+    if (isBatchLoading || isTriggering || !isFeedBarrierVisible || e.deltaY <= 25) return;
+    isTriggering = true;
+    triggerNextFeedBatch();
+    setTimeout(() => { isTriggering = false; }, 1500);
   }, { passive: true });
 }
 
@@ -4069,17 +4077,22 @@ function isDuplicateOfUserTake(candidateText, post) {
 }
 
 function handleReceiptPhotoLoad(img) {
-  if (!img || !img.naturalWidth || !img.naturalHeight) return;
+  if (!img || img.dataset.aspectEvaluated === 'true' || !img.naturalWidth || !img.naturalHeight) return;
   const ratio = img.naturalWidth / img.naturalHeight;
   const box = img.closest('.receipt-scene-box');
   if (!box) return;
 
+  img.dataset.aspectEvaluated = 'true';
   if (ratio < 1.15) {
-    box.classList.add('photo-aspect-portrait');
-    box.classList.remove('photo-aspect-landscape');
+    if (!box.classList.contains('photo-aspect-portrait')) {
+      box.classList.add('photo-aspect-portrait');
+      box.classList.remove('photo-aspect-landscape');
+    }
   } else {
-    box.classList.add('photo-aspect-landscape');
-    box.classList.remove('photo-aspect-portrait');
+    if (!box.classList.contains('photo-aspect-landscape')) {
+      box.classList.add('photo-aspect-landscape');
+      box.classList.remove('photo-aspect-portrait');
+    }
   }
 }
 window.handleReceiptPhotoLoad = handleReceiptPhotoLoad;
@@ -5011,14 +5024,7 @@ function goToSlide(event, postIndex, slideIndex) {
   const stepPercent = 100 / slideCount;
 
   carousel.setAttribute('data-current-slide', slideIndex);
-  track.style.transform = `translateX(-${slideIndex * stepPercent}%)`;
-
-  if (slideIndex === 1 || slideIndex === 2) {
-    const receiptImg = track.querySelector('.receipt-scene-photo');
-    if (receiptImg && receiptImg.complete && receiptImg.naturalWidth) {
-      handleReceiptPhotoLoad(receiptImg);
-    }
-  }
+  track.style.transform = `translate3d(-${slideIndex * stepPercent}%, 0, 0)`;
 
   if (badge) {
     const titles = slideCount === 2
@@ -5051,8 +5057,6 @@ function goToSlide(event, postIndex, slideIndex) {
     document.querySelectorAll('.preview-tab').forEach((tab, i) => {
       tab.classList.toggle('active', i === slideIndex);
     });
-  } else if (typeof triggerPostPreRender === 'function') {
-    triggerPostPreRender(postIndex);
   }
 }
 

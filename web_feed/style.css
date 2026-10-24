@@ -1786,13 +1786,18 @@ header {
   background: #070B12;
   overflow: hidden;
   user-select: none;
+  contain: layout paint;
+  transform: translateZ(0);
 }
 
 .carousel-track {
   display: flex;
   width: 300%;
   height: 100%;
-  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transition: transform 0.34s cubic-bezier(0.22, 1, 0.36, 1);
   will-change: transform;
 }
 
@@ -1803,6 +1808,10 @@ header {
   overflow: hidden;
   box-sizing: border-box;
   flex-shrink: 0;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  contain: layout paint;
 }
 
 /* 2-Poster Carousel Dynamic Scaling */
@@ -1823,12 +1832,11 @@ header {
 .carousel-nav-btn {
   position: absolute;
   top: 50%;
-  transform: translateY(-50%);
+  transform: translate3d(0, -50%, 0);
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  background: rgba(15, 23, 42, 0.65);
-  backdrop-filter: blur(8px);
+  background: rgba(15, 23, 42, 0.84);
   border: 1px solid rgba(255, 255, 255, 0.22);
   color: #FFF;
   display: flex;
@@ -1836,7 +1844,7 @@ header {
   justify-content: center;
   cursor: pointer;
   z-index: 10;
-  transition: all 0.2s ease;
+  transition: background 0.18s ease, transform 0.18s ease, border-color 0.18s ease;
   font-size: 18px;
   line-height: 1;
 }
@@ -2221,9 +2229,7 @@ header {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: rgba(7, 11, 18, 0.78);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: rgba(7, 11, 18, 0.86);
   border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 20px;
   padding: 3px 8px 3px 5px;
@@ -2423,7 +2429,11 @@ header {
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
   touch-action: pan-y;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
   padding: 14px 18px 12px;
   display: flex;
   flex-direction: column;
@@ -2431,6 +2441,11 @@ header {
   box-sizing: border-box;
   scrollbar-width: thin;
   scrollbar-color: rgba(15, 23, 42, 0.25) transparent;
+}
+
+.slant-minute-scroll-viewport:not([data-bifurcated="true"]) {
+  overflow-y: hidden !important;
+  overscroll-behavior-y: auto;
 }
 
 .slant-minute-scroll-viewport::-webkit-scrollbar {
