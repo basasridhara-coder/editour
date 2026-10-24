@@ -8717,16 +8717,9 @@ function renderActiveMemberScreen() {
                 <img src="${photos.frontal}" class="slot-photo-img" alt="Frontal">
                 <div class="slot-overlay-check">✓ Active Frontal</div>
               ` : `
-                <div class="slot-dummy-graphic">
-                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="7" r="4"/>
-                    <path d="M5.5 21a8.5 8.5 0 0 1 13 0"/>
-                    <line x1="12" y1="1" x2="12" y2="2.5"/>
-                    <line x1="4" y1="4" x2="5.2" y2="5.2"/>
-                    <line x1="20" y1="4" x2="18.8" y2="5.2"/>
-                  </svg>
-                </div>
-                <span class="slot-touch-prompt">Tap to Upload</span>
+                <img src="/pose_guide_frontal.jpg" class="slot-photo-img slot-sample-pose-img" alt="Sample Frontal Pose">
+                <div class="slot-sample-pose-badge">🎨 Sample Pose &middot; 0&deg; Frontal</div>
+                <span class="slot-touch-prompt">📷 Tap to Upload Yours</span>
               `}
             </div>
             <div class="slot-meta">
@@ -8753,15 +8746,9 @@ function renderActiveMemberScreen() {
                 <img src="${photos.profile}" class="slot-photo-img" alt="Profile">
                 <div class="slot-overlay-check">✓ Active Depth</div>
               ` : `
-                <div class="slot-dummy-graphic">
-                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-                    <path d="M21 21v-2a4 4 0 0 0-3-3.87"/>
-                    <path d="M9 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/>
-                    <path d="M3 21v-2a4 4 0 0 1 7-2.65"/>
-                  </svg>
-                </div>
-                <span class="slot-touch-prompt">Tap to Upload</span>
+                <img src="/pose_guide_profile.jpg" class="slot-photo-img slot-sample-pose-img" alt="Sample 3/4 Depth Pose">
+                <div class="slot-sample-pose-badge">🎨 Sample Pose &middot; 35&deg; Turn</div>
+                <span class="slot-touch-prompt">📷 Tap to Upload Yours</span>
               `}
             </div>
             <div class="slot-meta">
@@ -8788,15 +8775,9 @@ function renderActiveMemberScreen() {
                 <img src="${photos.stature}" class="slot-photo-img" alt="Stature">
                 <div class="slot-overlay-check">✓ Active Stature</div>
               ` : `
-                <div class="slot-dummy-graphic">
-                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="8" cy="5" r="2.5"/>
-                    <path d="M8 8v7m-2-4h4m-3 4l-1 5m3-5l1 5"/>
-                    <circle cx="16" cy="7" r="2"/>
-                    <path d="M16 9.5v5.5m-1.5-3.5h3m-2.5 3.5l-0.8 4m2.6-4l0.8 4"/>
-                  </svg>
-                </div>
-                <span class="slot-touch-prompt">Tap to Upload</span>
+                <img src="/pose_guide_stature.jpg" class="slot-photo-img slot-sample-pose-img" alt="Sample Stature & Hair Pose">
+                <div class="slot-sample-pose-badge">🎨 Sample Pose &middot; Waist-Up</div>
+                <span class="slot-touch-prompt">📷 Tap to Upload Yours</span>
               `}
             </div>
             <div class="slot-meta">
@@ -9278,82 +9259,14 @@ function renderSlotStyleGuideContent(slotType) {
       title: 'Direct Frontal View (Face & Smile)',
       subtitle: 'Captures authentic eye shape, facial symmetry, and natural warm smile.',
       btnLabel: '📷 Attach / Take Style 1 (Frontal) Photo',
-      svg: `
-        <svg viewBox="0 0 340 220" width="100%" height="auto" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <linearGradient id="gFrontalBg" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#080F1F" />
-              <stop offset="100%" stop-color="#141E33" />
-            </linearGradient>
-            <radialGradient id="gFrontalGlow" cx="50%" cy="45%" r="55%">
-              <stop offset="0%" stop-color="#38BDF8" stop-opacity="0.22" />
-              <stop offset="100%" stop-color="#38BDF8" stop-opacity="0" />
-            </radialGradient>
-            <linearGradient id="gFrontalSkin" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stop-color="#FED7AA" />
-              <stop offset="100%" stop-color="#FDBA74" />
-            </linearGradient>
-          </defs>
-          <rect width="340" height="220" rx="14" fill="url(#gFrontalBg)" stroke="rgba(56, 189, 248, 0.3)" stroke-width="1.5" />
-          <circle cx="170" cy="100" r="80" fill="url(#gFrontalGlow)" />
-
-          <!-- Shoulders & Torso: Square, upright posture -->
-          <path d="M85 212 C95 178 126 164 152 158 L152 144 L188 144 L188 158 C214 164 245 178 255 212 Z" fill="#1E293B" stroke="#475569" stroke-width="1.5" />
-          <path d="M152 158 L170 178 L188 158" fill="none" stroke="#64748B" stroke-width="1.4" />
-
-          <!-- Neck -->
-          <rect x="157" y="125" width="26" height="23" rx="4" fill="url(#gFrontalSkin)" />
-
-          <!-- Head Shape -->
-          <path d="M136 86 C136 56 204 56 204 86 C204 122 189 138 170 138 C151 138 136 122 136 86 Z" fill="url(#gFrontalSkin)" />
-
-          <!-- Ears -->
-          <ellipse cx="135" cy="91" rx="4" ry="8.5" fill="#FDBA74" />
-          <ellipse cx="205" cy="91" rx="4" ry="8.5" fill="#FDBA74" />
-
-          <!-- Hair Crown & Parting -->
-          <path d="M133 76 C133 46 150 35 170 35 C192 35 207 46 207 76 C202 68 194 64 184 64 C168 64 150 70 133 76 Z" fill="#0F172A" />
-
-          <!-- Eyes & Brows (Open, Engaged & Smiling) -->
-          <ellipse cx="154" cy="86" rx="3.5" ry="2.2" fill="#0F172A" />
-          <ellipse cx="186" cy="86" rx="3.5" ry="2.2" fill="#0F172A" />
-          <path d="M148 79 Q154 76 160 79" fill="none" stroke="#475569" stroke-width="1.6" stroke-linecap="round" />
-          <path d="M180 79 Q186 76 192 79" fill="none" stroke="#475569" stroke-width="1.6" stroke-linecap="round" />
-
-          <!-- Nose -->
-          <path d="M170 84 L168 99 L173 99" fill="none" stroke="#EA580C" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" opacity="0.65" />
-
-          <!-- Warm Natural Smile -->
-          <path d="M158 112 Q170 123 182 112" fill="#FFFFFF" stroke="#BE123C" stroke-width="1.5" stroke-linecap="round" />
-          <path d="M158 112 Q170 116 182 112" fill="none" stroke="#BE123C" stroke-width="1.4" />
-
-          <!-- Guideline 1: 0 deg Eye Level Line -->
-          <line x1="28" y1="86" x2="312" y2="86" stroke="#38BDF8" stroke-width="1.2" stroke-dasharray="4 3" opacity="0.8" />
-          <g transform="translate(18, 77)">
-            <rect width="80" height="18" rx="9" fill="#0284C7" />
-            <text x="40" y="12.5" fill="#FFFFFF" font-size="9" font-family="sans-serif" font-weight="700" text-anchor="middle">0° Eye Level</text>
-          </g>
-
-          <!-- Guideline 2: Smile Indicator Pill -->
-          <g transform="translate(232, 110)">
-            <rect width="90" height="20" rx="10" fill="#047857" />
-            <text x="45" y="13.5" fill="#FFFFFF" font-size="9" font-family="sans-serif" font-weight="700" text-anchor="middle">Natural Smile</text>
-            <path d="M0 10 L-20 4" stroke="#10B981" stroke-width="1.4" stroke-linecap="round" />
-          </g>
-
-          <!-- Guideline 3: Squared Shoulder Posture -->
-          <g transform="translate(95, 196)">
-            <rect width="150" height="18" rx="9" fill="#0F172A" stroke="#38BDF8" stroke-width="1" />
-            <text x="75" y="12.5" fill="#38BDF8" font-size="9.5" font-family="sans-serif" font-weight="600" text-anchor="middle">Squared Relaxed Shoulders</text>
-          </g>
-
-          <!-- Lighting Tag -->
-          <g transform="translate(24, 20)">
-            <circle cx="8" cy="8" r="5" fill="#FBBF24" />
-            <text x="19" y="11.5" fill="#FBBF24" font-size="9" font-family="sans-serif" font-weight="700">Soft Daylight</text>
-          </g>
-        </svg>
-      `,
+      imgSrc: '/pose_guide_frontal.jpg',
+      accentColor: '#38BDF8',
+      callouts: [
+        { pos: 'top-left', label: '☀️ Soft Even Daylight', bg: 'rgba(15, 23, 42, 0.85)', color: '#FBBF24' },
+        { pos: 'top-right', label: '👁️ 0° Direct Eye-Level', bg: 'rgba(2, 132, 199, 0.9)', color: '#FFFFFF' },
+        { pos: 'bottom-left', label: '😊 Warm Natural Smile', bg: 'rgba(4, 120, 87, 0.9)', color: '#FFFFFF' },
+        { pos: 'bottom-right', label: '📐 Squared Shoulders', bg: 'rgba(15, 23, 42, 0.88)', color: '#38BDF8' }
+      ],
       specs: [
         { label: 'Posture', value: 'Upright & Relaxed', desc: 'Shoulders squared to camera, neck straight without leaning.' },
         { label: 'Face Angle', value: 'Direct 0° Eye-Level', desc: 'Eyes look straight into lens at horizontal eye height.' },
@@ -9368,84 +9281,14 @@ function renderSlotStyleGuideContent(slotType) {
       title: 'Three-Quarter Angle (Jawline & Depth)',
       subtitle: 'Captures cheekbone structure, nose slope, and 3D facial depth.',
       btnLabel: '📷 Attach / Take Style 2 (Depth) Photo',
-      svg: `
-        <svg viewBox="0 0 340 220" width="100%" height="auto" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <linearGradient id="gDepthBg" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#080F1F" />
-              <stop offset="100%" stop-color="#141E33" />
-            </linearGradient>
-            <radialGradient id="gDepthGlow" cx="50%" cy="45%" r="55%">
-              <stop offset="0%" stop-color="#818CF8" stop-opacity="0.22" />
-              <stop offset="100%" stop-color="#818CF8" stop-opacity="0" />
-            </radialGradient>
-            <linearGradient id="gDepthSkin" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stop-color="#FED7AA" />
-              <stop offset="100%" stop-color="#FDBA74" />
-            </linearGradient>
-          </defs>
-          <rect width="340" height="220" rx="14" fill="url(#gDepthBg)" stroke="rgba(129, 140, 248, 0.3)" stroke-width="1.5" />
-          <circle cx="170" cy="100" r="80" fill="url(#gDepthGlow)" />
-
-          <!-- Torso turned 15-20° -->
-          <path d="M92 212 C102 178 130 166 154 162 L156 145 L190 145 L193 160 C218 166 244 180 250 212 Z" fill="#1E293B" stroke="#475569" stroke-width="1.5" />
-
-          <!-- Neck in 3/4 turn -->
-          <path d="M156 128 L162 148 L188 146 L184 126 Z" fill="url(#gDepthSkin)" />
-
-          <!-- Head turned 35°: reveals cheek ridge and nose profile -->
-          <path d="M142 82 C140 56 188 50 200 73 C205 82 209 90 205 94 C201 97 196 98 194 108 C190 121 176 134 161 132 C147 130 142 106 142 82 Z" fill="url(#gDepthSkin)" />
-
-          <!-- Ear on left -->
-          <ellipse cx="143" cy="94" rx="3.8" ry="8" fill="#FDBA74" transform="rotate(-5 143 94)" />
-
-          <!-- Angled Hair -->
-          <path d="M138 74 C136 46 164 34 193 42 C202 48 205 60 203 72 C196 64 184 61 171 62 C155 63 143 68 138 74 Z" fill="#0F172A" />
-
-          <!-- Perspective Eyes: Both in view -->
-          <ellipse cx="165" cy="85" rx="3.5" ry="2.2" fill="#0F172A" />
-          <ellipse cx="192" cy="84" rx="2.5" ry="1.9" fill="#0F172A" />
-          <path d="M159 78 Q165 76 171 78" fill="none" stroke="#475569" stroke-width="1.5" stroke-linecap="round" />
-          <path d="M187 78 Q192 76 196 78" fill="none" stroke="#475569" stroke-width="1.4" stroke-linecap="round" />
-
-          <!-- Nose Bridge & Slope -->
-          <path d="M183 82 L193 94 L187 97" fill="none" stroke="#EA580C" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" opacity="0.75" />
-
-          <!-- 3/4 Gentle Smile -->
-          <path d="M170 110 Q181 117 191 110" fill="none" stroke="#BE123C" stroke-width="1.5" stroke-linecap="round" />
-
-          <!-- Highlighted Jawline Trace -->
-          <path d="M144 102 C150 120 164 130 176 128" fill="none" stroke="#818CF8" stroke-width="2.5" stroke-linecap="round" />
-
-          <!-- 35° Arc Indicator at Top -->
-          <path d="M148 44 A 24 24 0 0 1 188 44" fill="none" stroke="#818CF8" stroke-width="1.8" stroke-dasharray="3 3" />
-          <polygon points="188,40 194,45 187,48" fill="#818CF8" />
-          <g transform="translate(132, 16)">
-            <rect width="76" height="18" rx="9" fill="#4338CA" />
-            <text x="38" y="12.5" fill="#FFFFFF" font-size="9" font-family="sans-serif" font-weight="700" text-anchor="middle">35° Head Turn</text>
-          </g>
-
-          <!-- Jawline Callout -->
-          <g transform="translate(14, 118)">
-            <rect width="108" height="20" rx="10" fill="#1E1B4B" stroke="#818CF8" stroke-width="1" />
-            <text x="54" y="13.5" fill="#A5B4FC" font-size="9" font-family="sans-serif" font-weight="700" text-anchor="middle">3D Jawline & Chin</text>
-            <path d="M108 10 L144 108" stroke="#818CF8" stroke-width="1.2" stroke-linecap="round" stroke-dasharray="3 2" />
-          </g>
-
-          <!-- Nose Profile Callout -->
-          <g transform="translate(225, 84)">
-            <rect width="98" height="20" rx="10" fill="#0284C7" />
-            <text x="49" y="13.5" fill="#FFFFFF" font-size="9" font-family="sans-serif" font-weight="700" text-anchor="middle">Nose Bridge Depth</text>
-            <path d="M0 10 L-22 9" stroke="#38BDF8" stroke-width="1.2" stroke-linecap="round" />
-          </g>
-
-          <!-- Bottom Pill -->
-          <g transform="translate(85, 196)">
-            <rect width="170" height="18" rx="9" fill="#0F172A" stroke="#818CF8" stroke-width="1" />
-            <text x="85" y="12.5" fill="#C7D2FE" font-size="9.5" font-family="sans-serif" font-weight="600" text-anchor="middle">Both Eyes Visible in View</text>
-          </g>
-        </svg>
-      `,
+      imgSrc: '/pose_guide_profile.jpg',
+      accentColor: '#818CF8',
+      callouts: [
+        { pos: 'top-left', label: '🔄 35° Smooth Head Turn', bg: 'rgba(67, 56, 202, 0.9)', color: '#FFFFFF' },
+        { pos: 'top-right', label: '👀 Both Eyes Visible', bg: 'rgba(15, 23, 42, 0.88)', color: '#C7D2FE' },
+        { pos: 'bottom-left', label: '📐 3D Jawline & Chin', bg: 'rgba(30, 27, 75, 0.92)', color: '#A5B4FC' },
+        { pos: 'bottom-right', label: '👃 Nose Bridge Depth', bg: 'rgba(2, 132, 199, 0.9)', color: '#FFFFFF' }
+      ],
       specs: [
         { label: 'Posture', value: 'Slight 15° Torso Turn', desc: 'Body turned slightly off-center with relaxed neck.' },
         { label: 'Face Angle', value: '30° to 45° Head Turn', desc: 'Turn head smoothly to side; keep both eyes in view.' },
@@ -9460,79 +9303,14 @@ function renderSlotStyleGuideContent(slotType) {
       title: 'Stature, Build & Hair Crown (True Proportions)',
       subtitle: 'Captures authentic shoulder width, natural body build, and full hair crown.',
       btnLabel: '📷 Attach / Take Style 3 (Stature) Photo',
-      svg: `
-        <svg viewBox="0 0 340 220" width="100%" height="auto" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <linearGradient id="gStatBg" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#080F1F" />
-              <stop offset="100%" stop-color="#141E33" />
-            </linearGradient>
-            <radialGradient id="gStatGlow" cx="50%" cy="50%" r="55%">
-              <stop offset="0%" stop-color="#34D399" stop-opacity="0.22" />
-              <stop offset="100%" stop-color="#34D399" stop-opacity="0" />
-            </radialGradient>
-          </defs>
-          <rect width="340" height="220" rx="14" fill="url(#gStatBg)" stroke="rgba(52, 211, 153, 0.3)" stroke-width="1.5" />
-          <circle cx="170" cy="110" r="80" fill="url(#gStatGlow)" />
-
-          <!-- Authentic Standing Figure with Natural Build -->
-          <path d="M153 178 L151 212 L164 212 L167 188 L173 188 L176 212 L189 212 L187 178 Z" fill="#1E293B" stroke="#475569" stroke-width="1.2" />
-
-          <!-- Torso: Authentic Sturdy Frame (Not artificially slimmed) -->
-          <path d="M142 108 C133 112 131 140 134 178 L206 178 C209 140 207 112 198 108 Z" fill="#047857" stroke="#10B981" stroke-width="1.4" />
-
-          <!-- Arms relaxed by side -->
-          <path d="M140 110 L128 158 C127 165 131 169 134 167 L138 144" fill="none" stroke="#065F46" stroke-width="4.5" stroke-linecap="round" />
-          <path d="M200 110 L212 158 C213 165 209 169 206 167 L202 144" fill="none" stroke="#065F46" stroke-width="4.5" stroke-linecap="round" />
-
-          <!-- Neck -->
-          <rect x="163" y="92" width="14" height="18" rx="3" fill="#FED7AA" />
-
-          <!-- Head -->
-          <ellipse cx="170" cy="76" rx="15" ry="19" fill="#FED7AA" />
-
-          <!-- Full Hair Crown -->
-          <path d="M153 74 C150 52 160 44 170 44 C182 44 190 52 187 74 C184 68 178 64 170 64 C162 64 156 68 153 74 Z" fill="#0F172A" />
-
-          <!-- Simple friendly face -->
-          <ellipse cx="165" cy="75" rx="1.8" ry="1.2" fill="#0F172A" />
-          <ellipse cx="175" cy="75" rx="1.8" ry="1.2" fill="#0F172A" />
-          <path d="M166 84 Q170 88 174 84" fill="none" stroke="#BE123C" stroke-width="1.2" stroke-linecap="round" />
-
-          <!-- Height Bracket on Left -->
-          <g transform="translate(45, 44)">
-            <line x1="16" y1="0" x2="16" y2="168" stroke="#34D399" stroke-width="1.5" />
-            <line x1="8" y1="0" x2="24" y2="0" stroke="#34D399" stroke-width="2" />
-            <line x1="10" y1="42" x2="22" y2="42" stroke="#34D399" stroke-width="1" stroke-dasharray="2 2" />
-            <line x1="10" y1="120" x2="22" y2="120" stroke="#34D399" stroke-width="1" stroke-dasharray="2 2" />
-            <line x1="8" y1="168" x2="24" y2="168" stroke="#34D399" stroke-width="2" />
-            <rect x="-38" y="68" width="48" height="30" rx="6" fill="#065F46" />
-            <text x="-14" y="82" fill="#A7F3D0" font-size="8.5" font-family="sans-serif" font-weight="700" text-anchor="middle">True</text>
-            <text x="-14" y="93" fill="#FFFFFF" font-size="8.5" font-family="sans-serif" font-weight="700" text-anchor="middle">Height</text>
-          </g>
-
-          <!-- Hair Crown Indicator on Top -->
-          <g transform="translate(135, 18)">
-            <rect width="130" height="20" rx="10" fill="#064E3B" stroke="#34D399" stroke-width="1" />
-            <text x="65" y="13.5" fill="#6EE7B7" font-size="9" font-family="sans-serif" font-weight="700" text-anchor="middle">Hair Crown & Volume</text>
-            <path d="M65 20 L65 40" stroke="#34D399" stroke-width="1.2" stroke-linecap="round" stroke-dasharray="2 2" />
-          </g>
-
-          <!-- Authentic Build Indicator on Right -->
-          <g transform="translate(225, 120)">
-            <rect width="102" height="34" rx="8" fill="#1E293B" stroke="#34D399" stroke-width="1" />
-            <text x="51" y="14" fill="#34D399" font-size="9" font-family="sans-serif" font-weight="700" text-anchor="middle">Authentic Build</text>
-            <text x="51" y="27" fill="#94A3B8" font-size="8.5" font-family="sans-serif" text-anchor="middle">Shoulder & Frame</text>
-            <path d="M0 17 L-20 17" stroke="#34D399" stroke-width="1.2" stroke-linecap="round" />
-          </g>
-
-          <!-- Bottom Pill -->
-          <g transform="translate(90, 196)">
-            <rect width="160" height="18" rx="9" fill="#0F172A" stroke="#34D399" stroke-width="1" />
-            <text x="80" y="12.5" fill="#A7F3D0" font-size="9.5" font-family="sans-serif" font-weight="600" text-anchor="middle">Natural Standing Stature</text>
-          </g>
-        </svg>
-      `,
+      imgSrc: '/pose_guide_stature.jpg',
+      accentColor: '#34D399',
+      callouts: [
+        { pos: 'top-left', label: '💇 Full Hair Crown & Volume', bg: 'rgba(6, 78, 59, 0.92)', color: '#6EE7B7' },
+        { pos: 'top-right', label: '📏 Headroom Above Crown', bg: 'rgba(15, 23, 42, 0.88)', color: '#A7F3D0' },
+        { pos: 'bottom-left', label: '🧍 Natural Standing Build', bg: 'rgba(4, 120, 87, 0.9)', color: '#FFFFFF' },
+        { pos: 'bottom-right', label: '💪 True Shoulder Breadth', bg: 'rgba(15, 23, 42, 0.88)', color: '#34D399' }
+      ],
       specs: [
         { label: 'Posture', value: 'Natural Standing Pose', desc: 'Relaxed upright stance showing true shoulder breadth.' },
         { label: 'Body Build', value: 'Authentic Silhouette', desc: 'Real-life torso proportions (not artificially slimmed).' },
@@ -9549,7 +9327,7 @@ function renderSlotStyleGuideContent(slotType) {
     <!-- 1. Header Bar -->
     <div class="slot-guide-header">
       <div class="slot-guide-header-title-wrap">
-        <span class="slot-guide-header-badge">📸 Photo Style Blueprint</span>
+        <span class="slot-guide-header-badge">📸 AI Illustrated Pose Guide</span>
         <h3 class="slot-guide-header-title">${escapeHtml(cfg.title)}</h3>
       </div>
       <button type="button" class="slot-guide-close-btn" onclick="closeSlotStyleGuide()" title="Close Guide">✕</button>
@@ -9571,9 +9349,32 @@ function renderSlotStyleGuideContent(slotType) {
     <!-- 3. Scrollable Body -->
     <div class="slot-guide-body">
       
-      <!-- Hero Diagram -->
-      <div class="slot-guide-preview-hero">
-        ${cfg.svg}
+      <!-- AI Illustrated Pose Hero + Callout Overlay + 3-Pose Strip -->
+      <div class="slot-guide-ai-showcase" style="border-color:${cfg.accentColor}44;">
+        <div class="slot-guide-ai-main-frame">
+          <img src="${cfg.imgSrc}" alt="${escapeHtml(cfg.title)}" class="slot-guide-ai-main-img">
+          ${cfg.callouts.map(c => `
+            <span class="slot-guide-callout ${c.pos}" style="background:${c.bg}; color:${c.color}; border-color:${cfg.accentColor}55;">
+              ${escapeHtml(c.label)}
+            </span>
+          `).join('')}
+        </div>
+
+        <!-- All 3 Poses of the Same Person Side-by-Side -->
+        <div class="slot-guide-3poses-strip">
+          <div class="pose-strip-item ${slotType === 'frontal' ? 'active' : ''}" onclick="switchGuideSlot('frontal')">
+            <img src="/pose_guide_frontal.jpg" alt="1. Frontal">
+            <span>1. 0° Frontal</span>
+          </div>
+          <div class="pose-strip-item ${slotType === 'profile' ? 'active' : ''}" onclick="switchGuideSlot('profile')">
+            <img src="/pose_guide_profile.jpg" alt="2. 3/4 Depth">
+            <span>2. 35° Depth</span>
+          </div>
+          <div class="pose-strip-item ${slotType === 'stature' ? 'active' : ''}" onclick="switchGuideSlot('stature')">
+            <img src="/pose_guide_stature.jpg" alt="3. Stature">
+            <span>3. Waist-Up</span>
+          </div>
+        </div>
       </div>
 
       <!-- Checklist & Specs Grid -->
