@@ -4198,24 +4198,26 @@ function evaluateEssayBifurcation(post, index) {
       continue;
     }
 
-    if (accumulatedWords + pWords <= targetPage1Words) {
+    const maxPage1Ceiling = hasPhoto ? (isVideoOrWide ? 115 : 148) : 185;
+
+    if (accumulatedWords + pWords <= maxPage1Ceiling) {
       page1Paras.push(p);
       accumulatedWords += pWords;
     } else {
-      // Squeeze portion of this paragraph onto Page 1 if individual sentences fit comfortably.
-      // Relax rigid percentage/word restrictions so sentences take along till line completion.
+      // Entire paragraph does not fit within ceiling.
+      // Squeeze portion of this paragraph onto Page 1 only if it provides substantial presence
+      // (avoiding awkward 1-sentence / 2-line orphan starts or endings).
       const units = splitIntoParagraphUnits(p);
       const u1 = [];
       const u2 = [];
       let curWords = accumulatedWords;
-      const maxPage1Ceiling = hasPhoto ? (isVideoOrWide ? 112 : 142) : 180;
 
       for (let j = 0; j < units.length; j++) {
         const u = units[j].trim();
         if (!u) continue;
         const uw = u.split(/\s+/).filter(Boolean).length;
 
-        // Place on Page 1 if it fits within targetPage1Words, or completes the current thought up to ceiling
+        // Place on Page 1 if it fits within targetPage1Words or ceiling
         const canFitOnP1 = (curWords + uw <= targetPage1Words) || (curWords + uw <= maxPage1Ceiling && u2.length === 0);
 
         if (u2.length === 0 && canFitOnP1) {
@@ -4226,7 +4228,18 @@ function evaluateEssayBifurcation(post, index) {
         }
       }
 
-      if (u1.length > 0 && u2.length > 0) {
+      // Typographic Integrity Rules:
+      // 1. No Orphan Starts: If Page 1 already has content and u1 has fewer than 2 sentences,
+      //    never chop off just 1 sentence (2 lines) at the foot of Page 1. Move whole paragraph to Page 2!
+      // 2. No Orphan Endings: If u2 has only 1 sentence, and Page 1 can stretch slightly (<= maxPage1Ceiling + 10),
+      //    keep the entire paragraph together on Page 1!
+      if (page1Paras.length > 0 && u1.length < 2) {
+        page2Paras.push(p);
+        hasSplit = true;
+      } else if (u2.length === 1 && (curWords + u2[0].split(/\s+/).length <= maxPage1Ceiling + 10)) {
+        page1Paras.push(p);
+        accumulatedWords += pWords;
+      } else if (u1.length > 0 && u2.length > 0) {
         page1Paras.push(u1.join(" "));
         page2Paras.push(u2.join(" "));
         accumulatedWords = curWords;
