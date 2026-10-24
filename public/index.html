@@ -437,12 +437,53 @@
               </div>
               <div class="creator-card-titles">
                 <span class="creator-card-title" id="slantTakeLabel">Your Slant / Take</span>
-                <span class="creator-card-subtitle" id="slantTakeSubtitle">Write your unique angle, stance, or critique on this story (or leave empty to let AI deduce it).</span>
+                <span class="creator-card-subtitle" id="slantTakeSubtitle">Share your unique angle, critique, or why this story matters so Slant elaborates your authentic voice.</span>
               </div>
             </div>
-            <span class="creator-tag-badge" id="slantTakeBadge">Optional</span>
+            <div class="creator-card-header-badges">
+              <button type="button" class="slant-guide-btn" id="slantGuideToggleBtn" onclick="toggleSlantStructureGuide(event)" title="See the 3-beat structure that keeps 100% of your voice">
+                <span class="guide-btn-icon">💡</span>
+                <span class="guide-btn-text">Guide</span>
+              </button>
+              <span class="creator-tag-badge badge-required" id="slantTakeBadge">Required</span>
+            </div>
           </div>
-          <textarea id="creatorSlantTakeInput" class="creator-textarea hero-textarea" rows="4" placeholder="e.g. Beyond the raw numbers, this shifts the balance of power between legacy media and digital creators..."></textarea>
+
+          <!-- Pop-up 3-Beat Structure Guide (Refer while writing) -->
+          <div class="slant-structure-guide-card" id="slantStructureGuideCard" style="display: none;">
+            <div class="slant-guide-header">
+              <div class="slant-guide-title-row">
+                <span class="slant-guide-spark">✦</span>
+                <span class="slant-guide-title">Moment / Trigger → Why It Matters → Your Core Conviction</span>
+              </div>
+              <button type="button" class="slant-guide-close" onclick="toggleSlantStructureGuide(event)" title="Close guide">&times;</button>
+            </div>
+            <p class="slant-guide-intro">Include these <strong>3 beats</strong> (even in rough phrases) so Slant elaborates <em>your</em> thoughts across the 3 essay paragraphs instead of inventing its own:</p>
+            <div class="slant-guide-steps">
+              <div class="slant-guide-step">
+                <span class="step-pill pill-p1">1. Moment / Trigger</span>
+                <span class="step-desc">What happened, what you noticed, or the specific claim that caught your eye <em>(Powers Para 1)</em>.</span>
+              </div>
+              <div class="slant-guide-step">
+                <span class="step-pill pill-p2">2. Why It Matters</span>
+                <span class="step-desc">The tension, contrast, or reason most people overlook it <em>(Powers Para 2)</em>.</span>
+              </div>
+              <div class="slant-guide-step">
+                <span class="step-pill pill-p3">3. Core Conviction</span>
+                <span class="step-desc">Your lasting truth, takeaway, or principle for living/working <em>(Powers Para 3 &amp; Quote)</em>.</span>
+              </div>
+            </div>
+            <div class="slant-guide-example">
+              <div class="example-label">SIMPLE EXAMPLE YOU CAN REFER TO:</div>
+              <div class="example-body">
+                <span class="ex-beat ex-b1"><strong>[Moment]</strong> Watched my son sprint the final 50m on Sports Day when his legs were giving out, lifted by the whole stadium chanting his name.</span>
+                <span class="ex-beat ex-b2"><strong>[Why It Matters]</strong> We think grit is purely internal, but in that moment the crowd's belief literally carried him past his physical limit.</span>
+                <span class="ex-beat ex-b3"><strong>[Conviction]</strong> Show up loudly for the people you love, because sometimes your voice is the extra fuel they need to finish strong.</span>
+              </div>
+            </div>
+          </div>
+
+          <textarea id="creatorSlantTakeInput" class="creator-textarea hero-textarea" rows="4" placeholder="e.g. [Moment/Trigger] What caught your attention... [Why It Matters] The deeper tension or contrast... [Core Conviction] Your lasting takeaway..."></textarea>
 
           <div class="slant-take-action-bar">
             <button type="button" class="slant-polish-action-btn" id="slantPolishActionBtn" onclick="polishUserTake()">

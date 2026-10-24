@@ -9855,8 +9855,8 @@ function updateWebLinkSubmode(isVideo) {
   const webIconCircle = document.getElementById('anchorWebIconCircle');
 
   if (badge) {
-    badge.textContent = 'Optional';
-    badge.className = 'creator-tag-badge';
+    badge.textContent = 'Required';
+    badge.className = 'creator-tag-badge badge-required';
   }
 
   if (isVideo) {
@@ -11787,6 +11787,20 @@ function isValidWebUrl(str) {
   return false;
 }
 
+function toggleSlantStructureGuide(e) {
+  if (e && typeof e.stopPropagation === 'function') {
+    e.stopPropagation();
+  }
+  const card = document.getElementById('slantStructureGuideCard');
+  const btn = document.getElementById('slantGuideToggleBtn');
+  if (!card) return;
+  const isHidden = card.style.display === 'none' || !card.style.display;
+  card.style.display = isHidden ? 'block' : 'none';
+  if (btn) {
+    btn.classList.toggle('active', isHidden);
+  }
+}
+
 function validateCreatorStage1(showPrompt = true) {
   const urlInput = document.getElementById('creatorUrlInput');
   const slantTakeInput = document.getElementById('creatorSlantTakeInput');
@@ -11811,6 +11825,12 @@ function validateCreatorStage1(showPrompt = true) {
     if (!isValidWebUrl(url)) {
       if (showPrompt) {
         promptMandatoryField(urlInput, 'Please enter a valid web URL (e.g. https://...).');
+      }
+      return false;
+    }
+    if (!slantTake) {
+      if (showPrompt) {
+        promptMandatoryField(slantTakeInput, 'Please write your slant or take so Slant can represent your authentic voice.');
       }
       return false;
     }

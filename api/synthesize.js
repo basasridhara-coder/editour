@@ -899,30 +899,7 @@ CRITICAL SLANT EDITORIAL CONTRACT (CURATOR THOUGHTS IN SUBSTANTIVE DIALOGUE WITH
 - In Poster 3 ("THE RECEIPTS & BROADSHEET REPORT"): Deliver a rich, substantive 3-paragraph broadsheet editorial where the curator's stance is ELABORATED IN DIRECT, DETAILED DIALOGUE WITH THE SOURCE FACTS, DATA, AND ARGUMENTS. Directly engage with the author's/speaker's concrete concepts, figures, claims, or institutional developments, using them to substantiate, deepen, and prove the curator's stance.
 
 ${visualFocusDirective}
-${sourceType === 'inner_voice' ? `CRITICAL INNER VOICE & LIVED EXPERIENCE DIRECTIVE:
-- This is an INNER VOICE perspective rooted in the curator's personal life, emotional experience, philosophical stance, or daily human reality (e.g. travel anticipation, family moments, work-life balance, craft, relief).
-- MATCH THE EMOTIONAL ENERGY OF THE USER'S CONTEXT:
-  * If the user is excited about a vacation, Kerala trip, beach, hills, or time with family, MATCH THAT VIBRANT EXCITEMENT AND ANTICIPATION!
-  * NEVER produce gloomy, melodramatic, depressing headlines like "The Heavy Art of Leaving Real Life Behind"!
-  * Frame the friction as relatable, humorous, and heartwarming pre-trip scramble (packing, forgotten items, last emails, excitement of what lies ahead).
-- IN POSTER 1 ("VISUAL HOOK"):
-  * Headline MUST be vibrant, positive, memorable, and directly relevant to their story (e.g. "The Sweet Rush Before the Backwaters", "Trading Pending Tabs for Kerala Sun", "When Packing Chaos Meets Pure Anticipation", "The Art of Finally Switching Off").
-  * The Hook sentence must capture the excitement and relatable rush of preparing for the journey.
-- IN POSTER 2 ("THE CRITICAL PERSPECTIVE" / curatorTake):
-  * Ground the conviction directly in their specific context (Kerala, the trip, the son's reminder, closing pending tasks, the relief of the break).
-  * STRICT BAN: NEVER echo the user's raw input slant verbatim! You MUST synthesize an articulate, elevated 2-sentence editorial conviction (EXACTLY 2 complete sentences, 25-35 words total, ending definitively with a period) that refines their thoughts into an inspiring insight.
-  * In "keyTakeaways", give 3 sharp, uplifting insights about breaking away, presence over perfection, and why the destination makes the frantic packing worth it.
-- IN POSTER 3 ("THE RECEIPTS & CORE CONVICTION" / resolvedArticleExcerpts):
-  * Deliver exactly 3 substantive, evocative broadsheet narrative paragraphs (each 60-75 words, 3-4 full sentences; 180-220 words total):
-    1. Paragraph 1 (Scene & Catalyst): Ground the situation in sensory detail around the spark ("${spark}"): the open suitcases, packing lists, children holding forgotten travel items, and the rush to close remaining tasks.
-    2. Paragraph 2 (The Turning Point): The joyful realization when you realize work will never be 100% finished, but vacation countdown waits for no one.
-    3. Paragraph 3 (The Lasting Truth): A deep, warm closing reflection on Kerala's tranquil backwaters, green hills, and why presence with family is the greatest luxury.
-  * STRICT BAN: NEVER prefix paragraphs with labels like "The spark:", "Curator stance:", "Paragraph 1:", or bullet points! Output pure, narrative broadsheet text.
-- IN "originalHeadline":
-  * Set to the spark statement or a refined 6–12 word hook of the spark (e.g. "When a forgotten packing item breaks the work trance and signals the escape"). NEVER set to the raw user slant.
-- IN "illustrationPrompt":
-  * Describe a warm, colorful, sunny scene of real people packing or getting ready, with smiling illuminated faces, colorful room, suitcase, tropical palms visible through window, warm golden light.
-  * Explicitly instruct: "Realistic people with clearly visible smiling faces, warm daylight, vibrant colors, Kerala palm trees, cheerful atmosphere, highly detailed, no silhouettes, no dark shadows, no faceless figures, no text".` : (userSlant ? `CRITICAL POLISHED CURATOR INPUT DIRECTIVE:
+${userSlant ? `CRITICAL POLISHED CURATOR INPUT DIRECTIVE:
 - The curator provided their authentic stance: "${userSlant}".
 - In "polishedCuratorTake": Polish the curator's exact input for grammar, spelling, punctuation, capitalization, and smooth phrasing flow.
 - STRICT REQUIREMENTS FOR "polishedCuratorTake":
@@ -937,31 +914,47 @@ ${refineCoreTake ? `- Poster 2 ("THE CRITICAL PERSPECTIVE" / curatorTake) is an 
   * Identify the author's STRONGEST, MOST VIVID core lines from: "${userSlant}".
   * RETAIN their powerful metaphors, idioms, and contrasts (e.g. "bring the richest and strongest among us to their knees", "what humanity is truly worth in front of nature", "narrow perspective", "small mistakes", "live selflessly").
   * Polish the grammar, articles, and prepositions so their authentic voice rings with crisp, effortless, natural English.` : `- USE TAKE AS-IS (VERBATIM): The curator chose to keep their exact typed take as-is on Poster 2.
-- In "curatorTake", you MUST output the curator's authentic take: "${userSlant}" verbatim without rephrasing or altering their sentence structure.`}` : '')}
+- In "curatorTake", you MUST output the curator's authentic take: "${userSlant}" verbatim without rephrasing or altering their sentence structure.`}` : ''}
+${sourceType === 'inner_voice' ? `CRITICAL INNER VOICE & LIVED EXPERIENCE DIRECTIVE (ELABORATE USER VOICE ONLY, ZERO CONCEPT FABRICATION):
+- This is an INNER VOICE perspective rooted in the curator's personal life, emotional experience, philosophical stance, or daily human reality.
+- MATCH THE EXACT EMOTIONAL ENERGY & SUBJECT OF THE USER'S INPUT:
+  * Faithfully mirror the specific topic, mood, setting, and emotional warmth present in "${userSlant}"${spark ? ` and "${spark}"` : ''}.
+  * NEVER inject unrelated travel, vacation, or packing tropes unless the curator's input is explicitly about a trip.
+  * NEVER produce gloomy or melodramatic headlines when the curator's reflection is warm, proud, or celebratory.
+- ZERO CONCEPT FABRICATION (1:1 STRUCTURAL ELABORATION):
+  * You are elaborating the curator's own thoughts, NOT writing your own opinion or inventing unmentioned subplots.
+  * Map the curator's input directly across the 3 broadsheet paragraphs in Poster 3 ("summary" and "resolvedArticleExcerpts", 180-220 words total):
+    1. Paragraph 1 (The Moment / Concrete Catalyst, 60-70 words, 3-4 sentences): Unpack the opening trigger, scene, or concrete observation described by the curator${spark ? ` ("${spark}")` : ''}. Strong opening for the broadsheet dropcap.
+    2. Paragraph 2 (Why It Matters / The Underlying Tension, 60-75 words, 3-4 sentences): Elaborate the curator's reasoning, contrast, or turning point, explaining why this moment stood out and what deeper dynamics are at play in their own words and logic.
+    3. Paragraph 3 (The Core Conviction / Lasting Truth, 55-70 words, 3 sentences): Articulate the curator's closing takeaway, personal truth, or principle for living/working/parenting.
+  * STRICT BAN: NEVER prefix paragraphs with labels like "The spark:", "Curator stance:", "Paragraph 1:", or bullet points! Output pure, narrative broadsheet text.
+- IN "originalHeadline":
+  * Set to the spark statement or a refined 6 to 12 word hook capturing the catalyst moment. NEVER set to the raw full-length user slant.` : ''}
 ${sourceType === 'video_audio' ? `CRITICAL VIDEO & AUDIO BROADCAST DIRECTIVE:
 - This slant is rooted in a VIDEO or AUDIO broadcast (e.g. YouTube interview, podcast episode, keynote, or debate).
 - Mental model: "I watched/listened to something that sparked a reaction."
 - Frame the adapted headline with the immediacy, conversational tension, or contrarian takeaway of a spoken dialogue.
 - Poster 2 ("THE CRITICAL PERSPECTIVE" / curatorTake): Capture the key realization, counter-slant, or pushback against what was said in the broadcast.` : ''}
-${userSlant && sourceType !== 'inner_voice' ? `CRITICAL POSTER 3 DIRECTIVE (ELABORATED USER TAKE IN DIALOGUE WITH SOURCE):
+${userSlant && sourceType !== 'inner_voice' ? `CRITICAL POSTER 3 DIRECTIVE (ELABORATED USER TAKE IN DIALOGUE WITH SOURCE, ZERO CONCEPT FABRICATION):
 - Poster 3 is the curator's broadsheet essay where the curator's stance/take is ELABORATED IN DIRECT CONNECTION WITH THE ATTACHED SOURCE.
 - It must NOT be a dry, third-person summary or detached book report of the source piece (the objective source ledger is already accessible to the reader on tap from Posters 1 & 2).
-- Poster 3 must synthesize the curator's perspective into a substantive 3-paragraph broadsheet editorial:
-  * Paragraph 1 (The Catalyst & The Modern Friction): The curator's opening thesis connecting their personal conviction/angle to the core dilemma explored by the source author/speaker (exactly 50-60 words, 3 concise sentences with strong opening for dropcap).
-  * Paragraph 2 (Engaging the Source in Depth): Directly engage with the author's/speaker's concrete concepts, arguments, or data points (e.g. citing specific teachings, findings, or claims), using them to substantiate and deepen the curator's stance (exactly 45-55 words, 2-3 sentences).
-  * Paragraph 3 (The Human Stakes & Prescriptive Resolution): Detail the deeper personal, familial, or societal implications, offering an intentional boundary or forward-looking resolution (exactly 40-50 words, 2 sentences).
-- STRICT BAN: Never echo the user's raw slant verbatim across paragraphs! Elaborate the thought with depth, narrative richness, and intellectual conviction. Output pure broadsheet paragraphs without labels like "Paragraph 1:".
+- ZERO CONCEPT FABRICATION (1:1 STRUCTURAL ELABORATION):
+  * Do NOT invent opinions or arguments the curator did not express. Unpack and elaborate the curator's own stance across 3 broadsheet paragraphs (180-220 words total):
+  * Paragraph 1 (The Moment / Catalyst & Modern Friction, 60-70 words, 3-4 sentences): The curator's opening observation connecting their personal angle to the core trigger or dilemma in the source (strong opening for broadsheet dropcap).
+  * Paragraph 2 (Why It Matters / Engaging the Source, 60-75 words, 3-4 sentences): Elaborate the curator's reasoning and tension in direct dialogue with the source's concrete facts, claims, or figures to substantiate their critique.
+  * Paragraph 3 (Core Conviction / Human Stakes & Resolution, 55-70 words, 3 sentences): Detail the personal, human, or societal stakes of the curator's conviction and their lasting takeaway.
+- STRICT BAN: Never echo the user's raw slant verbatim across paragraphs! Elaborate the thought with depth, narrative richness, and intellectual conviction while staying 100% faithful to the user's voice. Output pure broadsheet paragraphs without labels like "Paragraph 1:".
 - "keyTakeaways": Exactly 3 sharp, structured conviction principles formulated from the elaborated take in dialogue with the source (each exactly 10-13 words with bold title prefix, e.g. "Title: Core insight").
 - "receiptHighlightQuote": A poignant, high-impact core conviction sentence (exactly 18-22 words) capturing the heart of the curator's stance in connection with the source.` : ''}
 
 CRITICAL POSTER 3 "1-MINUTE READ" ESSAY DIRECTIVE:
 Poster 3 ("SLANT MINUTE" / 60-SEC BROADSHEET) is a pure, substantive broadsheet essay in paragraphs.
 It MUST strictly target 180 to 220 words total for the 3-paragraph essay itself in "summary" (and "resolvedArticleExcerpts"):
-- Paragraph 1: 60-70 words (strong opening for broadsheet dropcap)
-- Paragraph 2: 60-75 words (core elaboration and conceptual depth)
-- Paragraph 3: 55-70 words (human stakes, lasting conviction, and forward-looking resolution)
+- Paragraph 1: 60-70 words (strong opening for broadsheet dropcap; fits cleanly on Page 1)
+- Paragraph 2: 60-75 words (core elaboration and conceptual depth; completes Page 1 without orphan splits)
+- Paragraph 3: 55-70 words (human stakes, lasting conviction, and forward-looking resolution; anchors Page 2 above the reflection box)
 TOTAL ESSAY: 180-220 words for an authentic 1-minute read.
-The curator's intellectual perspective, conviction, and provided context must be deeply carried and elaborated throughout.
+The curator's intellectual perspective, conviction, and provided context must be deeply carried and elaborated throughout without inventing unrequested concepts.
 If a catalyst photo is attached, subtly ground the atmosphere where natural, but NEVER compromise the curator's perspective or intellectual depth for scene description filler.
 ${cues && cues.length > 0 ? `CRITICAL VISUAL RULE: The Hook poster artwork and cues MUST be anchored in #1 HERO: "${cues[0]}", incorporating #2 MOTIF: "${cues[1] || ''}" and #3 TENSION: "${cues[2] || ''}".` : ''}
 
