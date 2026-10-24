@@ -4829,20 +4829,15 @@ function createPostCardElement(post, index) {
         </div>
         <span class="creator-handle">${escapeHtml(handle)}</span>
         ${index === 'preview' ? `<button type="button" class="preview-card-edit-btn" onclick="event.stopPropagation(); openEditPosterModal(currentPreviewSlide || 0)" title="Edit poster headlines, takes, and receipts">✏️ Edit Content</button>` : ''}
+      </div>
+      <div class="post-header-right-actions">
         ${isUnpublishedDraft ? `
-          <span class="post-draft-badge" title="Unpublished draft: visible only to you in your feed and Drafts">
-            <span class="post-draft-badge-icon">🔒</span>
-            <span>UNPUBLISHED DRAFT</span>
-          </span>
-          <button type="button" class="draft-card-edit-btn" onclick="event.stopPropagation(); openDraftInStudio('${post.id}')" title="Open draft in Slant Studio to edit or refine">
-            ✏️ Edit
-          </button>
-          <button type="button" class="draft-card-publish-btn" onclick="event.stopPropagation(); publishDraftPostFromFeed('${post.id}')" title="Publish this draft to the live feed">
-            🚀 Publish
+          <button type="button" class="draft-rocket-publish-btn" onclick="event.stopPropagation(); publishDraftPostFromFeed('${post.id}', this)" title="Not published yet: tap rocket to publish">
+            <span class="draft-rocket-icon">🚀</span>
+            <span class="draft-rocket-text">Unpublished</span>
           </button>
         ` : ''}
-      </div>
-      <div class="post-menu-container">
+        <div class="post-menu-container">
         <button type="button" class="post-menu-btn" onclick="event.stopPropagation(); togglePostMenu('${index}')" title="More options" aria-label="More options">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="1.5"></circle>
@@ -4899,6 +4894,7 @@ function createPostCardElement(post, index) {
             </svg>
             <span>Copy Link</span>
           </button>
+        </div>
         </div>
       </div>
     </div>
@@ -7089,7 +7085,7 @@ async function polishUserTake() {
   const originalBtnHtml = btn ? btn.innerHTML : '';
   if (btn) {
     btn.disabled = true;
-    btn.innerHTML = `<span class="btn-spark-icon spinning">⏳</span> Analyzing phrasing, grammar & rhythm...`;
+    btn.innerHTML = `<span class="btn-spark-icon spinning">⏳</span> Polishing...`;
   }
 
   try {
@@ -10141,7 +10137,7 @@ function resumeCreatorFormDraftFromFeed(draftId) {
 }
 
 function openDraftInStudio(postId) {
-  const post = getPostByIndexOrId(postId);
+  const post = getPostFromIndexOrId(postId);
   if (!post) return;
 
   const modal = document.getElementById('creatorModal');
@@ -10188,10 +10184,14 @@ function openDraftInStudio(postId) {
   renderCreatorPreview(0);
 }
 
-async function publishDraftPostFromFeed(postId) {
-  const post = getPostByIndexOrId(postId);
+async function publishDraftPostFromFeed(postId, btnEl = null) {
+  const post = getPostFromIndexOrId(postId);
   if (!post) return;
 
+  if (btnEl) {
+    btnEl.disabled = true;
+    btnEl.innerHTML = '<span class="draft-rocket-icon">⏳</span><span class="draft-rocket-text">Publishing...</span>';
+  }
   if (typeof showTemporaryToast === 'function') {
     showTemporaryToast('🚀 Publishing your draft to the live feed...');
   }
@@ -10200,6 +10200,14 @@ async function publishDraftPostFromFeed(postId) {
   post.isPrivate = false;
   post.status = 'published';
   post.createdAt = new Date().toISOString();
+
+  const cardEl = document.getElementById(`post-${postId}`);
+  if (cardEl) {
+    cardEl.classList.remove('post-card-unpublished-draft');
+  }
+  if (btnEl) {
+    btnEl.remove();
+  }
 
   currentSynthesizedPost = post;
   await publishSynthesizedPost();

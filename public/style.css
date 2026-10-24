@@ -18212,22 +18212,29 @@ mark.polish-mark:hover, mark.polish-mark.active {
 /* Step 1 Save Draft Button & Action Bar */
 .slant-take-action-btns {
   display: flex;
+  flex-direction: row;
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+}
+
+.slant-polish-action-btn,
+.slant-save-draft-btn {
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .slant-save-draft-btn {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 6px 12px;
+  padding: 7px 14px;
   border-radius: 9px;
   background: rgba(245, 158, 11, 0.12);
   border: 1px solid rgba(245, 158, 11, 0.35);
   color: #FBBF24;
   font-family: inherit;
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.18s ease;
@@ -18292,73 +18299,53 @@ mark.polish-mark:hover, mark.polish-mark.active {
   color: #B45309;
 }
 
-/* Feed Card Unpublished Draft Symbol & Quick Actions */
+/* Feed Card Unpublished Draft Rocket Button */
 .post-card.post-card-unpublished-draft {
   border: 1.5px dashed rgba(245, 158, 11, 0.48) !important;
   box-shadow: 0 8px 28px rgba(245, 158, 11, 0.08);
 }
 
-.post-draft-badge {
+.post-header-right-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.draft-rocket-publish-btn {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 10px;
-  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 999px;
   background: rgba(245, 158, 11, 0.16);
+  border: 1px solid rgba(245, 158, 11, 0.45);
   color: #FBBF24;
-  border: 1px solid rgba(245, 158, 11, 0.42);
-  padding: 3px 8px;
-  border-radius: 8px;
-  margin-left: 6px;
-  letter-spacing: 0.35px;
-}
-
-[data-theme="daylight"] .post-draft-badge {
-  background: #FEF3C7;
-  color: #92400E;
-  border-color: rgba(217, 119, 6, 0.4);
-}
-
-.draft-card-edit-btn,
-.draft-card-publish-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 10.5px;
-  font-weight: 700;
-  padding: 3px 8px;
-  border-radius: 7px;
-  cursor: pointer;
   font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
   transition: all 0.18s ease;
-  margin-left: 4px;
 }
 
-.draft-card-edit-btn {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  color: var(--text-primary);
-}
-
-.draft-card-edit-btn:hover {
-  background: rgba(255, 255, 255, 0.16);
-}
-
-[data-theme="daylight"] .draft-card-edit-btn {
-  background: #F1F5F9;
-  border-color: rgba(15, 23, 42, 0.15);
-  color: #0F172A;
-}
-
-.draft-card-publish-btn {
-  background: linear-gradient(135deg, #10B981, #059669);
-  border: 1px solid rgba(16, 185, 129, 0.5);
-  color: #FFFFFF;
-}
-
-.draft-card-publish-btn:hover {
-  filter: brightness(1.08);
+.draft-rocket-publish-btn:hover:not(:disabled) {
+  background: rgba(16, 185, 129, 0.2);
+  border-color: rgba(16, 185, 129, 0.55);
+  color: #34D399;
   transform: translateY(-1px);
+}
+
+[data-theme="daylight"] .draft-rocket-publish-btn {
+  background: #FEF3C7;
+  border-color: rgba(217, 119, 6, 0.42);
+  color: #92400E;
+}
+
+[data-theme="daylight"] .draft-rocket-publish-btn:hover:not(:disabled) {
+  background: #D1FAE5;
+  border-color: rgba(5, 150, 105, 0.45);
+  color: #065F46;
 }
 
 /* Dedicated Drafts Filter Workspace in Feed */

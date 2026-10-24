@@ -326,28 +326,6 @@
 
       <!-- STEP 1 CONTAINER: Slant & Source (Matches Mobile App Exact Sequence) -->
       <div class="creator-step-content" id="creatorStep1">
-        
-        <!-- 0. Saved / Auto-Saved Thought Drafts Section (Never lose a thought in flow) -->
-        <div class="creator-form-drafts-bar" id="creatorFormDraftsBar" style="display:none;">
-          <div class="form-drafts-header">
-            <div class="form-drafts-title-wrap">
-              <span class="form-drafts-icon">📝</span>
-              <span class="form-drafts-title">SAVED THOUGHT DRAFTS (<span id="formDraftsCountLabel">0</span>)</span>
-              <span class="form-drafts-sub">Auto-saved so your thoughts never vanish</span>
-            </div>
-            <div class="form-drafts-header-actions">
-              <button type="button" class="form-draft-new-btn" onclick="startFreshSlantForm()" title="Clear current inputs and start a fresh thought">
-                <span>＋ Start Fresh</span>
-              </button>
-              <button type="button" class="form-draft-toggle-btn" id="formDraftsToggleBtn" onclick="toggleFormDraftsList()">
-                <span id="formDraftsToggleText">Show ▾</span>
-              </button>
-            </div>
-          </div>
-          <div class="form-drafts-list" id="creatorFormDraftsList" style="display:none;">
-            <!-- Populated dynamically with saved/auto-saved half-written thoughts -->
-          </div>
-        </div>
 
         <!-- 1. ROOT YOUR SLANT IN (Source Anchor Selector) -->
         <div class="creator-anchor-section">
@@ -512,7 +490,7 @@
             <div class="slant-take-action-btns">
               <button type="button" class="slant-polish-action-btn" id="slantPolishActionBtn" onclick="polishUserTake()">
                 <span class="btn-spark-icon">✨</span>
-                <span class="btn-text">Review &amp; Polish Phrasing</span>
+                <span class="btn-text">Polish</span>
               </button>
               <button type="button" class="slant-save-draft-btn" id="slantSaveDraftBtn" onclick="saveCreatorFormDraft(true)" title="Save your written thought to Drafts to continue later">
                 <span class="btn-draft-icon">📝</span>
