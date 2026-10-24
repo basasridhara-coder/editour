@@ -3099,10 +3099,10 @@ header {
 .receipt-p3 {
   font-family: 'Merriweather', Georgia, 'Times New Roman', serif;
   font-size: 14px;
-  line-height: 1.6;
+  line-height: 1.5;
   color: #1E293B;
-  margin: 0 0 8px 0;
-  text-indent: 0 !important;
+  margin: 0 0 5px 0;
+  text-indent: 1.1em !important;
   text-align: justify !important;
   text-justify: inter-word !important;
   hyphens: auto !important;
@@ -3115,8 +3115,12 @@ header {
   display: block;
 }
 
+.receipt-p1 {
+  text-indent: 0 !important;
+  margin: 0 0 5px 0 !important;
+}
+
 .receipt-p-continuation,
-.receipt-paragraphs p,
 .has-inset-photo .receipt-p-continuation,
 .carousel-view .slant-minute-scroll-viewport.has-inset-photo .receipt-p-continuation,
 .poster-export-sandbox .slant-minute-scroll-viewport.has-inset-photo .receipt-p-continuation {
@@ -4095,7 +4099,14 @@ header {
     color: #1E293B !important;
   }
   .carousel-view .slant-minute-scroll-viewport.has-inset-photo .receipt-p3 {
+    text-indent: 1.1em !important;
+    margin-top: 0 !important;
+    margin-bottom: 4px !important;
+  }
+  .carousel-view .slant-minute-scroll-viewport.has-inset-photo .receipt-p1 {
     text-indent: 0 !important;
+    margin-top: 0 !important;
+    margin-bottom: 4px !important;
   }
 
   /* Light Density Mobile (~100-140 words): larger photo and typography */
@@ -4169,7 +4180,14 @@ header {
     color: #1E293B !important;
   }
   .carousel-view .slant-minute-scroll-viewport:not(.has-inset-photo) .receipt-p3 {
+    text-indent: 1.1em !important;
+    margin-top: 0 !important;
+    margin-bottom: 5px !important;
+  }
+  .carousel-view .slant-minute-scroll-viewport:not(.has-inset-photo) .receipt-p1 {
     text-indent: 0 !important;
+    margin-top: 0 !important;
+    margin-bottom: 5px !important;
   }
 
   .carousel-view .slant-minute-scroll-viewport .receipt-footer {
@@ -7134,7 +7152,14 @@ header {
 }
 
 .slant-minute-scroll-viewport.has-inset-photo .receipt-p3 {
+  text-indent: 1.1em !important;
+  margin-top: 0 !important;
+  margin-bottom: 5px !important;
+}
+.slant-minute-scroll-viewport.has-inset-photo .receipt-p1 {
   text-indent: 0 !important;
+  margin-top: 0 !important;
+  margin-bottom: 5px !important;
 }
 
 .slant-minute-scroll-viewport.has-inset-photo .receipt-footer {
@@ -7222,7 +7247,14 @@ header {
 }
 
 .slant-minute-scroll-viewport:not(.has-inset-photo) .receipt-p3 {
+  text-indent: 1.1em !important;
+  margin-top: 0 !important;
+  margin-bottom: 6px !important;
+}
+.slant-minute-scroll-viewport:not(.has-inset-photo) .receipt-p1 {
   text-indent: 0 !important;
+  margin-top: 0 !important;
+  margin-bottom: 6px !important;
 }
 
 /* ============================================================
@@ -7442,7 +7474,14 @@ header {
 }
 
 .poster-export-sandbox .slant-minute-scroll-viewport.has-inset-photo .receipt-p3 {
+  text-indent: 1.1em !important;
+  margin-top: 0 !important;
+  margin-bottom: 5px !important;
+}
+.slant-minute-scroll-viewport.has-inset-photo .receipt-p1 {
   text-indent: 0 !important;
+  margin-top: 0 !important;
+  margin-bottom: 5px !important;
 }
 
 /* Light Density Export (~100-140 words): larger photo and typography */
@@ -7526,7 +7565,14 @@ header {
 }
 
 .poster-export-sandbox .slant-minute-scroll-viewport:not(.has-inset-photo) .receipt-p3 {
+  text-indent: 1.1em !important;
+  margin-top: 0 !important;
+  margin-bottom: 6px !important;
+}
+.slant-minute-scroll-viewport:not(.has-inset-photo) .receipt-p1 {
   text-indent: 0 !important;
+  margin-top: 0 !important;
+  margin-bottom: 6px !important;
 }
 
 .poster-export-sandbox .receipt-footer {
