@@ -10633,21 +10633,23 @@ header {
   background: #F8FAFC;
 }
 
-/* Sleek Result Action Toolbar: Regen, Edit, Clear Text (Eye View), Share */
+/* Sleek Result Action Toolbar: Regen, Edit, Clear Text (Eye View), Save, Share */
 .creator-result-action-panel {
   width: 100%;
   max-width: 440px;
   margin: 16px auto 14px auto;
-  padding: 10px 14px;
+  padding: 10px 8px;
+  box-sizing: border-box;
   background: rgba(15, 23, 42, 0.92);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 18px;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  align-items: start;
+  justify-items: center;
   backdrop-filter: blur(12px);
-  gap: 8px;
+  gap: 4px;
 }
 
 .action-icon-btn {
@@ -10657,15 +10659,16 @@ header {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 5px;
-  padding: 4px 8px;
+  justify-content: flex-start;
+  gap: 6px;
+  padding: 4px 2px;
   border-radius: 14px;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   user-select: none;
   outline: none;
-  flex: 1;
-  max-width: 92px;
+  width: 100%;
+  min-width: 0;
+  max-width: none;
 }
 
 .action-icon-circle {
@@ -10675,6 +10678,7 @@ header {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -10682,7 +10686,10 @@ header {
   font-size: 11px;
   font-weight: 600;
   color: #CBD5E1;
-  letter-spacing: 0.2px;
+  letter-spacing: 0.1px;
+  line-height: 1.2;
+  white-space: nowrap;
+  text-align: center;
   transition: color 0.2s ease;
 }
 
@@ -10771,30 +10778,36 @@ header {
   font-weight: 700;
 }
 
-/* 3. Save: Coral / Rose #FB7185 */
-.action-icon-btn.save .action-icon-circle {
-  background: rgba(251, 113, 133, 0.12);
-  border: 1px solid rgba(251, 113, 133, 0.32);
+/* 4. Save: Coral / Rose #FB7185 */
+.action-icon-btn.save .action-icon-circle,
+.action-icon-btn.save-draft .action-icon-circle {
+  background: rgba(251, 113, 133, 0.14);
+  border: 1px solid rgba(251, 113, 133, 0.38);
   color: #FB7185;
 }
 .action-icon-btn.save:hover .action-icon-circle,
-.action-icon-btn.save:active .action-icon-circle {
-  background: rgba(251, 113, 133, 0.26);
+.action-icon-btn.save:active .action-icon-circle,
+.action-icon-btn.save-draft:hover .action-icon-circle,
+.action-icon-btn.save-draft:active .action-icon-circle {
+  background: rgba(251, 113, 133, 0.28);
   border-color: rgba(251, 113, 133, 0.85);
   box-shadow: 0 2px 10px rgba(251, 113, 133, 0.35);
   transform: translateY(-2px);
   color: #FECDD3;
 }
-.action-icon-btn.save:hover .action-icon-label {
+.action-icon-btn.save:hover .action-icon-label,
+.action-icon-btn.save-draft:hover .action-icon-label {
   color: #FB7185;
   font-weight: 700;
 }
-.action-icon-btn.save.active .action-icon-circle {
+.action-icon-btn.save.active .action-icon-circle,
+.action-icon-btn.save-draft.active .action-icon-circle {
   background: rgba(251, 113, 133, 0.28);
   border-color: #FB7185;
   color: #FB7185;
 }
-.action-icon-btn.save.active .action-icon-label {
+.action-icon-btn.save.active .action-icon-label,
+.action-icon-btn.save-draft.active .action-icon-label {
   color: #FB7185;
   font-weight: 700;
 }

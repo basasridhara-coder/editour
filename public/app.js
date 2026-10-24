@@ -11768,7 +11768,7 @@ function resetCreatorState() {
   const saveBtn = document.getElementById('step3SaveBtn');
   if (saveBtn) { saveBtn.disabled = false; saveBtn.classList.remove('active'); }
   const saveLbl = document.getElementById('step3SaveLabel');
-  if (saveLbl) saveLbl.textContent = 'Save Draft';
+  if (saveLbl) saveLbl.textContent = 'Save';
   const bottomSaveBtn = document.getElementById('step3BottomSaveDraftBtn');
   if (bottomSaveBtn) { bottomSaveBtn.disabled = false; bottomSaveBtn.innerHTML = '<span>🔖 Save Draft</span>'; }
   const actionPublishBtn = document.getElementById('step3PublishActionBtn');
