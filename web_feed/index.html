@@ -314,7 +314,7 @@
         <div class="creator-step-divider" id="stepDiv1"></div>
         <div class="creator-step-dot" id="stepDot2" onclick="goToVisualCuesStep()" style="cursor:pointer;">
           <span class="step-num">2</span>
-          <span class="step-text">Art & Cues</span>
+          <span class="step-text">Art Direction</span>
         </div>
         <div class="creator-step-divider" id="stepDiv2"></div>
         <div class="creator-step-dot" id="stepDot3" onclick="goToPostersStep()" style="cursor:pointer;">
@@ -581,7 +581,7 @@
 
         <!-- 4. Bottom Navigation Bar (Step 1 - Option A: One-Click Direct Synthesis with Optional Equalizer) -->
         <div class="creator-bottom-nav creator-step1-nav">
-          <button type="button" class="creator-equalizer-pill-btn" id="creatorEqualizerBtn" onclick="openCreatorEqualizer()" title="Tune Visual Focus, Portrayal & Cues">
+          <button type="button" class="creator-equalizer-pill-btn" id="creatorEqualizerBtn" onclick="openCreatorEqualizer()" title="Tune Visual Focus, Portrayal & Regional Setting">
             <span class="equalizer-icon">🎚️</span>
             <div class="equalizer-text-wrap">
               <span class="equalizer-label">SETTINGS</span>
@@ -597,7 +597,7 @@
         <div class="creator-scroll-spacer"></div>
       </div>
 
-      <!-- STEP 2 CONTAINER: ART DIRECTION & CUES STUDIO -->
+      <!-- STEP 2 CONTAINER: ART DIRECTION STUDIO -->
       <div class="creator-step-content" id="creatorStep2" style="display:none;">
         <div class="creator-cues-studio" id="cuesStudioContent">
           <!-- 1. Header -->
@@ -606,8 +606,8 @@
               <span>🎨</span>
             </div>
             <div class="cues-header-titles">
-              <h3 class="cues-title">Art Direction & Cues</h3>
-              <p class="cues-subtitle">Shape the visual metaphor, editorial voice, and art direction for your 3-poster set.</p>
+              <h3 class="cues-title">Art Direction & Settings</h3>
+              <p class="cues-subtitle">Shape the visual focus, regional setting, and character portrayal for your 3-poster set.</p>
             </div>
           </div>
 
@@ -790,8 +790,8 @@
             </div>
           </div>
 
-          <!-- Visual Cues & Metaphors Section Header -->
-          <div class="cues-section-header">
+          <!-- Visual Cues & Metaphors Section (Hidden from UI; generated silently under the hood) -->
+          <div class="cues-section-header" style="display:none;">
             <div class="cues-section-title-wrap">
               <span class="cues-section-icon">🎯</span>
               <span class="cues-section-title">VISUAL METAPHORS & CUES</span>
@@ -799,8 +799,8 @@
             <span class="cues-section-badge">Hero Cue #1 Drives Poster 1</span>
           </div>
 
-          <!-- 3. Action Bar: Selection Info + Suggest Button -->
-          <div class="cues-action-bar">
+          <!-- 3. Action Bar: Selection Info + Suggest Button (Hidden from UI) -->
+          <div class="cues-action-bar" style="display:none;">
             <div class="cues-info-text" id="cuesInfoText">
               <span class="cues-info-icon">👁️</span>
               <span>Tap any cue to inspect meaning & edit below • Drag ⇅ to re-rank (#1 is Hero)</span>
@@ -813,18 +813,18 @@
             </div>
           </div>
 
-          <!-- 4. Cues Reorderable Deck List -->
-          <div class="cues-deck-container" id="cuesDeckContainer">
+          <!-- 4. Cues Reorderable Deck List (Hidden from UI) -->
+          <div class="cues-deck-container" id="cuesDeckContainer" style="display:none;">
             <!-- Dynamically populated 6 cue category rows -->
           </div>
 
-          <!-- 4b. Active Cue Detail & Modulation Inspector Panel -->
-          <div class="cue-inspector-card" id="cueInspectorCard">
+          <!-- 4b. Active Cue Detail & Modulation Inspector Panel (Hidden from UI) -->
+          <div class="cue-inspector-card" id="cueInspectorCard" style="display:none;">
             <!-- Dynamically populated by renderCueInspector() -->
           </div>
 
-          <!-- 5. Add Custom Cue Field -->
-          <div class="cues-add-row">
+          <!-- 5. Add Custom Cue Field (Hidden from UI) -->
+          <div class="cues-add-row" style="display:none;">
             <span class="cues-add-icon">＋</span>
             <input type="text" id="customCueInput" class="cues-add-input" placeholder="Type custom cue or metaphor..." onkeydown="if(event.key==='Enter'){event.preventDefault();addCustomCue();}">
             <button type="button" class="cues-add-btn" onclick="addCustomCue()">Add Cue</button>
@@ -975,7 +975,7 @@
         </div>
         <button type="button" class="equalizer-close-btn" onclick="closeCreatorEqualizer()" aria-label="Close Equalizer">&times;</button>
       </div>
-      <p class="equalizer-sheet-subtitle">Intelligently tuned for your post. Tap any setting below to fine-tune visual focus, image portrayal, and cues.</p>
+      <p class="equalizer-sheet-subtitle">Intelligently tuned for your post. Tap any setting below to fine-tune visual focus, image portrayal, and regional setting.</p>
 
       <div class="equalizer-sheet-body">
         <!-- 1. Visual Focus (Source Grounded vs Hybrid vs Curator) -->
@@ -1143,8 +1143,8 @@
           </div>
         </div>
 
-        <!-- 4. Visual Metaphors & Cues (Streamlined, text walls hidden, tap-to-inspect overlay) -->
-        <div class="equalizer-section">
+        <!-- 4. Visual Metaphors & Cues (Hidden from UI; generated silently under the hood) -->
+        <div class="equalizer-section" style="display:none;">
           <div class="equalizer-section-header">
             <span class="equalizer-section-icon">🎯</span>
             <div class="equalizer-section-title-wrap">

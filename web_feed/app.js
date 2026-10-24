@@ -5776,10 +5776,6 @@ function openGenerationContextModal(postId) {
   if (inputs.sourceUrl) copyLines.push(`\n[SOURCE URL]:\n${inputs.sourceUrl}`);
   if (inputs.scrapedTitle) copyLines.push(`[SOURCE TITLE]: ${inputs.scrapedTitle}`);
   if (inputs.scrapedContent) copyLines.push(`\n[SOURCE CONTENT EXCERPT]:\n${inputs.scrapedContent.slice(0, 1000)}...`);
-  if (inputs.cues && inputs.cues.length) {
-    copyLines.push(`\n[VISUAL CUES & METAPHORS]:`);
-    inputs.cues.forEach((c, idx) => copyLines.push(`  ${idx + 1}. ${c}${idx === 0 ? ' (HERO)' : ''}`));
-  }
   const isLikeness = Boolean(inputs.hasAttachedPhoto
     || inputs.characterRepresentation === 'likeness'
     || inputs.characterRepresentation === 'lookalike'
@@ -5942,27 +5938,7 @@ function openGenerationContextModal(postId) {
     `;
   }
 
-  // 4. Visual Cues & Metaphors
-  if (inputs.cues && inputs.cues.length > 0) {
-    html += `
-      <div class="gen-section-card">
-        <div class="gen-section-header">
-          <div class="gen-section-title-wrap">
-            <span class="gen-section-icon">🎨</span>
-            <span class="gen-section-label">VISUAL CUES & METAPHORS (${inputs.cues.length})</span>
-          </div>
-        </div>
-        <div class="gen-cues-list">
-          ${inputs.cues.map((cue, i) => `
-            <div class="gen-cue-row">
-              <span class="gen-cue-tag" style="${i === 0 ? 'background: rgba(245, 158, 11, 0.2); color: #FBBF24; font-weight: 900;' : ''}">${i === 0 ? '⭐ HERO' : '#' + (i + 1)}</span>
-              <span class="gen-cue-val">${escapeHtml(cue)}</span>
-            </div>
-          `).join('')}
-        </div>
-      </div>
-    `;
-  }
+  // 4. Visual Cues & Metaphors are kept internal to Slant's visual engine and hidden from UI
 
   // 5. Studio Parameters Grid
   html += `
@@ -11841,13 +11817,15 @@ function validateCreatorStage1(showPrompt = true) {
 }
 
 function validateCreatorStage2(showPrompt = true) {
-  const hasCues = Array.isArray(creatorCuePills) && creatorCuePills.length > 0;
-  if (!hasCues) {
-    if (showPrompt) {
-      const suggestBtn = document.getElementById('cuesSuggestBtn') || document.getElementById('cuesDeckContainer');
-      promptMandatoryField(suggestBtn, 'Visual cues are mandatory. Click "Generate Visual Cues" or add custom cues below before proceeding.');
-    }
-    return false;
+  if (!Array.isArray(creatorCuePills) || creatorCuePills.length === 0) {
+    const urlInput = document.getElementById('creatorUrlInput');
+    const slantTakeInput = document.getElementById('creatorSlantTakeInput');
+    const url = urlInput ? urlInput.value.trim() : '';
+    const slantTake = slantTakeInput ? slantTakeInput.value.trim() : '';
+    const isLink = (creatorSelectedSource === 'digital_link' || creatorSelectedSource === 'video_audio');
+    const articleTitle = isLink ? (currentScrapedArticle?.title || extractHeadlineFromUrl(url)) : '';
+    const articleBody = isLink ? (currentScrapedArticle?.content || '') : '';
+    creatorCuePills = extract6RankedCueDimensions(slantTake, articleTitle, articleBody);
   }
   clearMandatoryFieldPrompts();
   return true;
@@ -11949,22 +11927,17 @@ async function goToVisualCuesStep() {
   const combinedContext = slantTake + ' ' + (sparkInput ? sparkInput.value.trim() : '');
   checkAndTriggerFamilyCast(combinedContext);
 
-  // Smart Auto-Regenerate on Major Context Shift (Option A)
-  // If inputs changed since cues were generated or loaded from a previous post, refresh cues for the new context
+  // Silently refresh internal visual cues on context shift
   const hasShift = hasMajorCuesContextShift();
   if (hasShift && creatorCuePills.length > 0) {
-    showTemporaryToast('🔄 Inputs changed: Updating visual cues for the new context...');
-    creatorCuePills = [];
-    renderCuesDeck();
-    triggerCueSuggest();
-  } else {
-    if (creatorCuePills.length > 0 && (creatorCharacterRepresentation === 'cinematic' || creatorCharacterRepresentation === 'likeness')) {
-      const detected = detectPersonNameInContext(articleTitle, slantTake, currentScrapedArticle?.content);
-      if (detected && !creatorCuePills[0].toLowerCase().includes(detected.toLowerCase())) {
-        creatorCuePills[0] = `${detected} (Editorial Portrait)`;
-      }
+    creatorCuePills = extract6RankedCueDimensions(slantTake, articleTitle, articleBody);
+  } else if (creatorCuePills.length === 0) {
+    creatorCuePills = extract6RankedCueDimensions(slantTake, articleTitle, articleBody);
+  } else if (creatorCharacterRepresentation === 'cinematic' || creatorCharacterRepresentation === 'likeness') {
+    const detected = detectPersonNameInContext(articleTitle, slantTake, currentScrapedArticle?.content);
+    if (detected && !creatorCuePills[0].toLowerCase().includes(detected.toLowerCase())) {
+      creatorCuePills[0] = `${detected} (Editorial Portrait)`;
     }
-    renderCuesDeck();
   }
 }
 
