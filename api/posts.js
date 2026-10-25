@@ -147,7 +147,7 @@ module.exports = async function handler(req, res) {
     // 1. Primary: Fast 2-step retrieval (fetch lightweight IDs first, then point lookups)
     // This avoids Postgres statement timeout (57014) caused by ordering huge 2.5MB JSONB toast rows
     try {
-      let filterQuery = 'id=like.slant*';
+      let filterQuery = 'id=like.slant*&or=(data->>deleted.is.null,data->>deleted.neq.true)&or=(data->>isDeleted.is.null,data->>isDeleted.neq.true)';
       if (authorFilter) {
         const cleanAuthor = String(authorFilter).replace(/^@/, '').trim();
         if (cleanAuthor) {
@@ -160,13 +160,32 @@ module.exports = async function handler(req, res) {
         }
       }
 
-      const idResp = await fetch(`${SUPABASE_URL}/rest/v1/posts?select=id,created_at&${filterQuery}&order=created_at.desc&offset=${baseOffset}&limit=${limit}`, {
-        headers: {
-          'apikey': SUPABASE_KEY,
-          'Authorization': `Bearer ${SUPABASE_KEY}`,
-          'Prefer': 'count=exact'
-        }
-      });
+      const [idResp, tombResp] = await Promise.all([
+        fetch(`${SUPABASE_URL}/rest/v1/posts?select=id,created_at&${filterQuery}&order=created_at.desc&offset=${baseOffset}&limit=${limit}`, {
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`,
+            'Prefer': 'count=exact'
+          }
+        }),
+        fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.system_deleted_posts&select=data`, {
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`
+          }
+        }).catch(() => null)
+      ]);
+
+      let deletedIds = [];
+      if (tombResp && tombResp.ok) {
+        try {
+          const tRows = await tombResp.json();
+          if (tRows && tRows[0] && tRows[0].data && Array.isArray(tRows[0].data.deleted_ids)) {
+            deletedIds = tRows[0].data.deleted_ids;
+          }
+        } catch (_) {}
+      }
+      const deletedSet = new Set(deletedIds);
 
       if (idResp.ok) {
         let totalCount = null;
@@ -180,16 +199,16 @@ module.exports = async function handler(req, res) {
 
         const idRows = await idResp.json();
         if (Array.isArray(idRows) && idRows.length > 0) {
-          const orderedIds = idRows.map(r => r.id).filter(id => id && !id.startsWith('system_') && !id.startsWith('family_cast_'));
+          const orderedIds = idRows.map(r => r.id).filter(id => id && !id.startsWith('system_') && !id.startsWith('family_cast_') && !deletedSet.has(id));
 
           // Single indexed primary-key query for all ordered IDs (fast & zero dropped rows)
           const inFilter = orderedIds.map(id => '%22' + encodeURIComponent(id) + '%22').join(',');
-          const pResp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=in.(${inFilter})`, {
+          const pResp = orderedIds.length > 0 ? await fetch(`${SUPABASE_URL}/rest/v1/posts?id=in.(${inFilter})`, {
             headers: {
               'apikey': SUPABASE_KEY,
               'Authorization': `Bearer ${SUPABASE_KEY}`
             }
-          });
+          }) : { ok: false };
 
           let rows = [];
           if (pResp.ok) {
@@ -202,7 +221,7 @@ module.exports = async function handler(req, res) {
           if (Array.isArray(rows) && rows.length > 0) {
             const isAuthorQuery = Boolean(authorFilter || emailFilter);
             const posts = rows.map(formatPostRow).filter(p => {
-              if (!p || p.deleted || p.isDeleted) return false;
+              if (!p || p.deleted || p.isDeleted || deletedSet.has(p.id)) return false;
               if (!isAuthorQuery && (p.isDraft || p.isPrivate || p.status === 'draft')) return false;
               return (p.adaptedHeadline || p.originalHeadline || p.summary);
             });
@@ -216,6 +235,7 @@ module.exports = async function handler(req, res) {
                 total: effectiveTotal,
                 hasMore,
                 offset: baseOffset,
+                deletedIds,
                 posts
               });
             }
@@ -234,6 +254,7 @@ module.exports = async function handler(req, res) {
       total: fallbackPosts.length,
       hasMore: (baseOffset + slicedFallback.length) < fallbackPosts.length,
       offset: baseOffset,
+      deletedIds: [],
       posts: slicedFallback
     });
   }
@@ -393,7 +414,40 @@ module.exports = async function handler(req, res) {
         });
       } catch (_) {}
 
-      // 2. Also attempt direct DELETE
+      // 2. Append to global system_deleted_posts tombstone registry so static/cached posts stay deleted across all devices
+      try {
+        const tombResp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.system_deleted_posts&select=data`, {
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`
+          }
+        });
+        let deletedIds = [];
+        if (tombResp.ok) {
+          const tRows = await tombResp.json();
+          if (tRows && tRows[0] && tRows[0].data && Array.isArray(tRows[0].data.deleted_ids)) {
+            deletedIds = tRows[0].data.deleted_ids;
+          }
+        }
+        if (!deletedIds.includes(id)) {
+          deletedIds.push(id);
+        }
+        await fetch(`${SUPABASE_URL}/rest/v1/posts`, {
+          method: 'POST',
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'resolution=merge-duplicates'
+          },
+          body: JSON.stringify({
+            id: 'system_deleted_posts',
+            data: { deleted_ids: deletedIds, updatedAt: new Date().toISOString() }
+          })
+        });
+      } catch (_) {}
+
+      // 3. Also attempt direct DELETE
       try {
         const supaResp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.${encodeURIComponent(id)}`, {
           method: 'DELETE',

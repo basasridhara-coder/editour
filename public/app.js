@@ -326,6 +326,63 @@ let isUserWhitelistAllowed = false;
 let currentUserCredits = null;
 let savedPostIds = new Set(JSON.parse(localStorage.getItem('slant_saved_posts') || localStorage.getItem('editour_saved_posts') || '[]'));
 let myCreatedPostIds = new Set(JSON.parse(localStorage.getItem('slant_my_posts') || '[]'));
+let deletedPostIds = new Set(JSON.parse(localStorage.getItem('slant_deleted_posts') || '[]'));
+
+function applyDeletedPostsTombstone(ids) {
+  if (!Array.isArray(ids) || ids.length === 0) return false;
+  let changed = false;
+  ids.forEach(id => {
+    if (id && !deletedPostIds.has(id)) {
+      deletedPostIds.add(id);
+      changed = true;
+    }
+    if (myCreatedPostIds && myCreatedPostIds.has(id)) {
+      myCreatedPostIds.delete(id);
+      changed = true;
+    }
+    if (savedPostIds && savedPostIds.has(id)) {
+      savedPostIds.delete(id);
+      changed = true;
+    }
+  });
+  const beforeLen = allPosts.length;
+  allPosts = allPosts.filter(p => p && !deletedPostIds.has(p.id) && !p.deleted && !p.isDeleted);
+  if (allPosts.length !== beforeLen) changed = true;
+  if (Array.isArray(currentBatchFilteredPosts)) {
+    currentBatchFilteredPosts = currentBatchFilteredPosts.filter(p => p && !deletedPostIds.has(p.id) && !p.deleted && !p.isDeleted);
+  }
+  try {
+    localStorage.setItem('slant_deleted_posts', JSON.stringify(Array.from(deletedPostIds)));
+    localStorage.setItem('slant_my_posts', JSON.stringify(Array.from(myCreatedPostIds)));
+    localStorage.setItem('slant_saved_posts', JSON.stringify(Array.from(savedPostIds)));
+    const cached = JSON.parse(localStorage.getItem('slant_user_posts_cache') || '[]');
+    const filteredCache = cached.filter(p => p && !deletedPostIds.has(p.id) && !p.deleted && !p.isDeleted);
+    if (filteredCache.length !== cached.length) {
+      localStorage.setItem('slant_user_posts_cache', JSON.stringify(filteredCache));
+      changed = true;
+    }
+  } catch (_) {}
+  return changed;
+}
+
+async function fetchGlobalDeletedPostsRegistry() {
+  try {
+    const resp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.system_deleted_posts&select=data`, {
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`
+      }
+    });
+    if (resp.ok) {
+      const rows = await resp.json();
+      const ids = rows?.[0]?.data?.deleted_ids;
+      if (Array.isArray(ids) && ids.length > 0) {
+        return applyDeletedPostsTombstone(ids);
+      }
+    }
+  } catch (_) {}
+  return false;
+}
 
 function updateCreatorStudioCreditBadge(creditsObj) {
   if (creditsObj && typeof creditsObj === 'object') {
@@ -490,6 +547,22 @@ async function initAuth() {
         currentUser = session.user;
         isCurrentUserAdmin = check.isAdmin;
         isUserWhitelistAllowed = true;
+        if (currentUser?.user_metadata) {
+          const cloudDeleted = currentUser.user_metadata.deleted_posts;
+          if (Array.isArray(cloudDeleted) && cloudDeleted.length > 0) {
+            applyDeletedPostsTombstone(cloudDeleted);
+          }
+          const cloudSaved = currentUser.user_metadata.saved_posts;
+          if (Array.isArray(cloudSaved) && cloudSaved.length > 0) {
+            cloudSaved.forEach(id => { if (!deletedPostIds.has(id)) savedPostIds.add(id); });
+            localStorage.setItem('slant_saved_posts', JSON.stringify(Array.from(savedPostIds)));
+          }
+          const cloudMy = currentUser.user_metadata.my_posts;
+          if (Array.isArray(cloudMy) && cloudMy.length > 0) {
+            cloudMy.forEach(id => { if (!deletedPostIds.has(id)) myCreatedPostIds.add(id); });
+            localStorage.setItem('slant_my_posts', JSON.stringify(Array.from(myCreatedPostIds)));
+          }
+        }
         closeAuthModal();
         checkPendingSharedDataOnAuth();
         loadFamilyCastProfile(true);
@@ -537,16 +610,20 @@ async function initAuth() {
             });
           } catch (_) {}
 
-          // Restore cloud-saved bookmarks and authored stories from user metadata
+          // Restore cloud-saved bookmarks, authored stories, and deleted tombstones from user metadata
           if (currentUser?.user_metadata) {
+            const cloudDeleted = currentUser.user_metadata.deleted_posts;
+            if (Array.isArray(cloudDeleted) && cloudDeleted.length > 0) {
+              applyDeletedPostsTombstone(cloudDeleted);
+            }
             const cloudSaved = currentUser.user_metadata.saved_posts;
             if (Array.isArray(cloudSaved) && cloudSaved.length > 0) {
-              cloudSaved.forEach(id => savedPostIds.add(id));
+              cloudSaved.forEach(id => { if (!deletedPostIds.has(id)) savedPostIds.add(id); });
               localStorage.setItem('slant_saved_posts', JSON.stringify(Array.from(savedPostIds)));
             }
             const cloudMy = currentUser.user_metadata.my_posts;
             if (Array.isArray(cloudMy) && cloudMy.length > 0) {
-              cloudMy.forEach(id => myCreatedPostIds.add(id));
+              cloudMy.forEach(id => { if (!deletedPostIds.has(id)) myCreatedPostIds.add(id); });
               localStorage.setItem('slant_my_posts', JSON.stringify(Array.from(myCreatedPostIds)));
             }
           }
@@ -626,7 +703,8 @@ function syncUserMetadataToCloud() {
       supabaseClient.auth.updateUser({
         data: {
           saved_posts: Array.from(savedPostIds),
-          my_posts: Array.from(myCreatedPostIds)
+          my_posts: Array.from(myCreatedPostIds),
+          deleted_posts: Array.from(deletedPostIds)
         }
       }).catch(err => console.warn('Could not sync user metadata:', err));
     } catch (e) {}
@@ -1992,9 +2070,9 @@ function mergeAndSortPosts(newPosts) {
   if (!Array.isArray(newPosts) || newPosts.length === 0) return false;
 
   const existingMap = new Map();
-  // 1. Keep track of all current posts
+  // 1. Keep track of all current posts (excluding deleted tombstones)
   for (const post of allPosts) {
-    if (post && post.id) {
+    if (post && post.id && !deletedPostIds.has(post.id) && !post.deleted && !post.isDeleted) {
       existingMap.set(post.id, post);
     }
   }
@@ -2004,7 +2082,11 @@ function mergeAndSortPosts(newPosts) {
     if (!raw) continue;
     const p = raw.data || raw;
     const postId = p.id || raw.id;
-    if (!postId || p.deleted || p.isDeleted || raw.deleted || raw.isDeleted) continue;
+    if (!postId || p.deleted || p.isDeleted || raw.deleted || raw.isDeleted) {
+      if (postId) applyDeletedPostsTombstone([postId]);
+      continue;
+    }
+    if (deletedPostIds.has(postId)) continue;
     if (!p.adaptedHeadline && !p.originalHeadline && !p.summary) continue;
 
     // Normalize IDs and timestamps
@@ -2363,6 +2445,9 @@ async function loadPosts() {
     clearTimeout(timeoutId);
     if (apiResp.ok) {
       const data = await apiResp.json();
+      if (data && Array.isArray(data.deletedIds) && data.deletedIds.length > 0) {
+        applyDeletedPostsTombstone(data.deletedIds);
+      }
       if (data && Array.isArray(data.posts) && data.posts.length > 0) {
         fetchedLiveBatch = data.posts;
         if (data.total) feedCloudTotal = data.total;
@@ -2476,6 +2561,9 @@ async function syncLiveCloudPosts(forceRender = false) {
     clearTimeout(timeoutId);
     if (apiResp.ok) {
       const data = await apiResp.json();
+      if (data && Array.isArray(data.deletedIds) && data.deletedIds.length > 0) {
+        applyDeletedPostsTombstone(data.deletedIds);
+      }
       if (data && Array.isArray(data.posts) && data.posts.length > 0) {
         fetchedPosts = data.posts;
         if (data.total) feedCloudTotal = data.total;
@@ -2499,7 +2587,8 @@ async function syncLiveCloudPosts(forceRender = false) {
   }
 
   if (Array.isArray(fetchedPosts) && fetchedPosts.length > 0) {
-    const validPosts = fetchedPosts.filter(p => p && !p.deleted && !p.isDeleted && (p.adaptedHeadline || p.originalHeadline || p.summary));
+    await fetchGlobalDeletedPostsRegistry();
+    const validPosts = fetchedPosts.filter(p => p && !p.deleted && !p.isDeleted && !deletedPostIds.has(p.id) && (p.adaptedHeadline || p.originalHeadline || p.summary));
     const hasNew = mergeAndSortPosts(validPosts);
 
     // Persist synced user-created stories into local cache so they persist offline & across sessions
@@ -2521,17 +2610,18 @@ async function syncLiveCloudPosts(forceRender = false) {
         };
         const existingLocal = JSON.parse(localStorage.getItem('slant_user_posts_cache') || '[]');
         const map = new Map();
-        userStories.map(sanitizeForCache).filter(Boolean).forEach(p => map.set(p.id, p));
-        existingLocal.map(sanitizeForCache).filter(Boolean).forEach(p => { if (!map.has(p.id)) map.set(p.id, p); });
+        userStories.map(sanitizeForCache).filter(Boolean).forEach(p => { if (!deletedPostIds.has(p.id)) map.set(p.id, p); });
+        existingLocal.map(sanitizeForCache).filter(Boolean).forEach(p => { if (!map.has(p.id) && !deletedPostIds.has(p.id) && !p.deleted && !p.isDeleted) map.set(p.id, p); });
         localStorage.setItem('slant_user_posts_cache', JSON.stringify(Array.from(map.values()).slice(0, 30)));
       }
     } catch (_) {}
 
-    if (forceRender) {
+    if (forceRender && currentRenderedBatch === 0 && window.scrollY < 400) {
       updateBadge(true, `Live Feed (${allPosts.length} posts)`);
       updateAuthUI();
       renderFeed();
     } else {
+      currentBatchFilteredPosts = getFilteredPostsForFilter(allPosts, currentFilter, searchQuery);
       updateBadge(true, `Live Feed (${allPosts.length} posts)`);
       updateAuthUI();
     }
@@ -2540,23 +2630,44 @@ async function syncLiveCloudPosts(forceRender = false) {
   // 3. Always refresh author's created stories & private drafts directly from Supabase
   if (myCreatedPostIds && myCreatedPostIds.size > 0) {
     try {
-      const myIdsArray = Array.from(myCreatedPostIds).slice(0, 30);
+      const myIdsArray = Array.from(myCreatedPostIds).filter(id => !deletedPostIds.has(id)).slice(0, 30);
       const inFilter = myIdsArray.map(id => '%22' + encodeURIComponent(id) + '%22').join(',');
-      const myResp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=in.(${inFilter})`, {
+      const myResp = myIdsArray.length > 0 ? await fetch(`${SUPABASE_URL}/rest/v1/posts?id=in.(${inFilter})`, {
         headers: {
           'apikey': SUPABASE_KEY,
           'Authorization': `Bearer ${SUPABASE_KEY}`
         }
-      });
+      }) : { ok: false };
       if (myResp.ok) {
         const myRows = await myResp.json();
-        if (Array.isArray(myRows) && myRows.length > 0) {
-          const freshUserPosts = myRows.map(r => {
+        if (Array.isArray(myRows)) {
+          const returnedIds = new Set();
+          const softDeletedIds = [];
+          const freshUserPosts = [];
+          myRows.forEach(r => {
             const p = r.data || r;
-            p.id = p.id || r.id;
+            const id = p.id || r.id;
+            if (!id) return;
+            if (p.deleted || p.isDeleted || r.deleted || r.isDeleted || deletedPostIds.has(id)) {
+              softDeletedIds.push(id);
+              return;
+            }
+            returnedIds.add(id);
+            p.id = id;
             p.createdAt = p.createdAt || r.created_at || new Date().toISOString();
-            return p;
+            freshUserPosts.push(p);
           });
+          // Any ID in myIdsArray that is missing from Supabase (hard-deleted on another device) is also purged!
+          myIdsArray.forEach(id => {
+            if (!returnedIds.has(id)) {
+              softDeletedIds.push(id);
+            }
+          });
+          let hadDeletions = false;
+          if (softDeletedIds.length > 0) {
+            hadDeletions = applyDeletedPostsTombstone(softDeletedIds);
+            syncUserMetadataToCloud();
+          }
           const hasDraftUpdates = mergeAndSortPosts(freshUserPosts);
           // Overwrite localStorage cache with fresh copies from Supabase
           const sanitizeForCache = (p) => {
@@ -2574,11 +2685,11 @@ async function syncLiveCloudPosts(forceRender = false) {
           };
           const existingLocal = JSON.parse(localStorage.getItem('slant_user_posts_cache') || '[]');
           const map = new Map();
-          existingLocal.map(sanitizeForCache).filter(Boolean).forEach(p => map.set(p.id, p));
-          freshUserPosts.map(sanitizeForCache).filter(Boolean).forEach(p => map.set(p.id, p));
+          existingLocal.map(sanitizeForCache).filter(Boolean).forEach(p => { if (!deletedPostIds.has(p.id) && !p.deleted && !p.isDeleted) map.set(p.id, p); });
+          freshUserPosts.map(sanitizeForCache).filter(Boolean).forEach(p => { if (!deletedPostIds.has(p.id)) map.set(p.id, p); });
           localStorage.setItem('slant_user_posts_cache', JSON.stringify(Array.from(map.values()).slice(0, 30)));
-          if (hasDraftUpdates || currentFilter === 'my_stories') {
-            renderFeed();
+          if (hasDraftUpdates || hadDeletions) {
+            softDeletesDOMPrune(softDeletedIds);
           }
         }
       }
@@ -2607,13 +2718,21 @@ async function fetchAuthorStoriesFromCloud() {
     const resp = await fetch(`/api/posts?${authorParam}&limit=50&ts=${Date.now()}`);
     if (resp.ok) {
       const data = await resp.json();
+      if (data && Array.isArray(data.deletedIds) && data.deletedIds.length > 0) {
+        applyDeletedPostsTombstone(data.deletedIds);
+      }
       if (data && Array.isArray(data.posts) && data.posts.length > 0) {
         data.posts.forEach(p => {
-          if (p && p.id) myCreatedPostIds.add(p.id);
+          if (p && p.id && !deletedPostIds.has(p.id) && !p.deleted && !p.isDeleted) {
+            myCreatedPostIds.add(p.id);
+          }
         });
         localStorage.setItem('slant_my_posts', JSON.stringify(Array.from(myCreatedPostIds)));
         const added = mergeAndSortPosts(data.posts);
-        if (added || currentFilter === 'my_stories') {
+        currentBatchFilteredPosts = getFilteredPostsForFilter(allPosts, currentFilter, searchQuery);
+        updateBadge(true, `Live Feed (${allPosts.length} posts)`);
+        updateAuthUI();
+        if (currentFilter === 'my_stories' && currentRenderedBatch === 0) {
           renderFeed();
         }
       }
@@ -2973,11 +3092,14 @@ async function preloadBatchImages(posts, timeoutMs = 8000) {
   ]);
 }
 
+let feedNextCardIndexSeq = 0;
+
 function renderBatchCards(posts, offset = 0) {
   const container = document.getElementById('feedContainer');
   if (!container || !posts) return;
   posts.forEach((post, i) => {
-    const cardIndex = offset + i;
+    const cardIndex = Math.max(offset + i, feedNextCardIndexSeq++);
+    if (cardIndex >= feedNextCardIndexSeq) feedNextCardIndexSeq = cardIndex + 1;
     const card = createPostCardElement(post, cardIndex);
     container.appendChild(card);
     setupCarouselGestures(cardIndex);
@@ -3055,6 +3177,9 @@ async function triggerNextFeedBatch() {
         const apiResp = await fetch(`/api/posts?offset=${nextOffset}&limit=${FEED_BATCH_SIZE}&ts=${Date.now()}`);
         if (apiResp.ok) {
           const data = await apiResp.json();
+          if (data && Array.isArray(data.deletedIds) && data.deletedIds.length > 0) {
+            applyDeletedPostsTombstone(data.deletedIds);
+          }
           if (data && Array.isArray(data.posts) && data.posts.length > 0) {
             mergeAndSortPosts(data.posts);
             if (data.total) feedCloudTotal = data.total;
@@ -3149,7 +3274,8 @@ async function triggerNextFeedBatch() {
   isNextBatchReady = false;
 
   // Smoothly scroll to the first card of the new batch
-  const firstNewCard = document.getElementById(`post-card-${nextStartIdx}`);
+  const firstNewPost = nextBatch && nextBatch[0];
+  const firstNewCard = (firstNewPost && document.getElementById(`post-${firstNewPost.id}`)) || document.getElementById(`post-card-${nextStartIdx}`);
   if (firstNewCard) {
     firstNewCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
@@ -3226,6 +3352,16 @@ function getPostFromIndexOrId(indexOrId) {
   if (indexOrId === 'preview') return (typeof currentSynthesizedPost !== 'undefined' ? currentSynthesizedPost : null);
   if (indexOrId === 'sample') return (typeof window.currentSampleStoryPost !== 'undefined' ? window.currentSampleStoryPost : null);
   if (typeof indexOrId === 'number' || (typeof indexOrId === 'string' && /^\d+$/.test(indexOrId))) {
+    // First check DOM card with matching carousel-<idx> to resolve exact post ID even after in-place deletions
+    const carouselEl = document.getElementById(`carousel-${indexOrId}`);
+    if (carouselEl) {
+      const parentCard = carouselEl.closest('.post-card');
+      const domPostId = parentCard && parentCard.getAttribute('data-post-id');
+      if (domPostId) {
+        const byDomId = (typeof allPosts !== 'undefined' && allPosts.find(p => p && p.id === domPostId));
+        if (byDomId) return byDomId;
+      }
+    }
     const idx = parseInt(indexOrId, 10);
     return (typeof currentBatchFilteredPosts !== 'undefined' && currentBatchFilteredPosts[idx]) || (typeof allPosts !== 'undefined' && allPosts[idx]) || null;
   }
@@ -3237,7 +3373,7 @@ function getFilteredPostsForFilter(posts, filter, query) {
   const q = (query || '').toLowerCase().trim();
 
   return posts.filter(post => {
-    if (!post) return false;
+    if (!post || post.deleted || post.isDeleted || deletedPostIds.has(post.id)) return false;
 
     const isPrivateDraft = post.isDraft === true || post.isPrivate === true || post.status === 'draft';
     const isOwnedByMe = isPostOwnedByCurrentUser(post);
@@ -3296,6 +3432,7 @@ async function renderFeed(isInitial = false) {
   if (!container) return;
   container.innerHTML = '';
   currentRenderedBatch = 0;
+  feedNextCardIndexSeq = 0;
   nextBatchPreloadPromise = null;
 
   const filtered = getFilteredPostsForFilter(allPosts, currentFilter, searchQuery);
@@ -6500,9 +6637,35 @@ function loadPostIntoStudioToRegenerate(postId) {
   showTemporaryToast('✨ Loaded inputs into Creator Studio! Tweak or regenerate 🚀');
 }
 
+function softDeletesDOMPrune(idsToRemove = []) {
+  if (!Array.isArray(idsToRemove) || idsToRemove.length === 0) return;
+  const container = document.getElementById('feedContainer');
+  let removedAny = false;
+  idsToRemove.forEach(pid => {
+    const el = document.getElementById('post-' + pid) || (container && container.querySelector(`[data-post-id="${pid}"]`));
+    if (el && el.parentNode) {
+      el.parentNode.removeChild(el);
+      removedAny = true;
+    }
+  });
+  currentBatchFilteredPosts = getFilteredPostsForFilter(allPosts, currentFilter, searchQuery);
+  updateBadge(true, `Live Feed (${allPosts.length} posts)`);
+  updateAuthUI();
+  if (removedAny && container) {
+    const remainingCards = container.querySelectorAll('.post-card').length;
+    if (remainingCards === 0) {
+      renderFeed();
+    } else {
+      const effectiveTotal = (feedCloudTotal && feedCloudTotal > currentBatchFilteredPosts.length) ? feedCloudTotal : currentBatchFilteredPosts.length;
+      appendBatchEndBarrier(currentRenderedBatch, remainingCards, effectiveTotal);
+    }
+  }
+}
+
 function handleDetailModalDelete() {
-  if (activePostIndex === null || !allPosts[activePostIndex]) return;
-  const post = allPosts[activePostIndex];
+  if (activePostIndex === null) return;
+  const post = getPostFromIndexOrId(activePostIndex) || allPosts[activePostIndex];
+  if (!post || !post.id) return;
   confirmDeletePost(post.id);
 }
 
@@ -6520,23 +6683,98 @@ async function confirmDeletePost(postId) {
 async function executeDeletePost(postId) {
   showTemporaryToast('🗑️ Deleting Slant...');
 
-  // 1. Immediately remove from local memory & UI for instant responsiveness
-  allPosts = allPosts.filter(p => p && p.id !== postId);
-  if (myCreatedPostIds) myCreatedPostIds.delete(postId);
-  if (savedPostIds) savedPostIds.delete(postId);
+  // Capture exact DOM card and viewport position BEFORE removal so the feed stays anchored on the next post!
+  const container = document.getElementById('feedContainer');
+  const targetCard = document.getElementById('post-' + postId) || (container && container.querySelector(`[data-post-id="${postId}"]`));
+  let nextCardEl = null;
+  let prevCardEl = null;
+  let targetCardTopOffset = null;
 
-  try {
-    localStorage.setItem('slant_my_posts', JSON.stringify(Array.from(myCreatedPostIds)));
-    localStorage.setItem('slant_saved_posts', JSON.stringify(Array.from(savedPostIds)));
-    const cachedPosts = JSON.parse(localStorage.getItem('slant_user_posts_cache') || '[]');
-    localStorage.setItem('slant_user_posts_cache', JSON.stringify(cachedPosts.filter(p => p && p.id !== postId)));
-  } catch (_) {}
+  if (targetCard) {
+    targetCardTopOffset = targetCard.getBoundingClientRect().top;
+    let sib = targetCard.nextElementSibling;
+    while (sib && !sib.classList.contains('post-card')) {
+      sib = sib.nextElementSibling;
+    }
+    nextCardEl = sib;
+
+    let prevSib = targetCard.previousElementSibling;
+    while (prevSib && !prevSib.classList.contains('post-card')) {
+      prevSib = prevSib.previousElementSibling;
+    }
+    prevCardEl = prevSib;
+  }
+
+  // 1. Immediately record deletion in tombstone registry & remove from local memory + cloud user metadata
+  applyDeletedPostsTombstone([postId]);
+  syncUserMetadataToCloud();
+  if (feedCloudTotal && feedCloudTotal > 0) {
+    feedCloudTotal = Math.max(allPosts.length, feedCloudTotal - 1);
+  }
 
   closeDetailModal();
   updateBadge(true, `Live Feed (${allPosts.length} posts)`);
-  renderFeed();
+  updateAuthUI();
 
-  // 2. Call backend DELETE endpoint
+  // 2. Surgical in-place DOM removal so user stays in the exact same frame at the next post (never resetting to initial Batch 1)
+  if (targetCard && container) {
+    targetCard.remove();
+
+    // If there is an unrendered Replacement Post at the end of the currently loaded batch window, append it before the batch barrier
+    const renderedCardIds = new Set(
+      Array.from(container.querySelectorAll('.post-card'))
+        .map(el => el.getAttribute('data-post-id'))
+        .filter(Boolean)
+    );
+    const maxSlotCount = (currentRenderedBatch + 1) * FEED_BATCH_SIZE;
+    const targetVisibleSlice = currentBatchFilteredPosts.slice(0, maxSlotCount);
+    const replacementPost = targetVisibleSlice.find(p => p && p.id && !renderedCardIds.has(p.id));
+
+    if (replacementPost) {
+      const newCardIndex = feedNextCardIndexSeq++;
+      const newCard = createPostCardElement(replacementPost, newCardIndex);
+      const barrier = document.getElementById('feedBatchEndBarrier') || document.getElementById('deepLinkFeedGate');
+      if (barrier && barrier.parentNode === container) {
+        container.insertBefore(newCard, barrier);
+      } else {
+        container.appendChild(newCard);
+      }
+      setupCarouselGestures(newCardIndex);
+      if (!nextCardEl) {
+        nextCardEl = newCard;
+      }
+    }
+
+    const remainingCardsCount = container.querySelectorAll('.post-card').length;
+    if (remainingCardsCount === 0) {
+      renderFeed();
+    } else {
+      // Update batch barrier counts without touching existing cards
+      if (!(isDeepLinkScrollGated && !currentUser)) {
+        const effectiveTotal = (feedCloudTotal && feedCloudTotal > currentBatchFilteredPosts.length) ? feedCloudTotal : currentBatchFilteredPosts.length;
+        appendBatchEndBarrier(currentRenderedBatch, remainingCardsCount, effectiveTotal);
+      }
+
+      // Anchor viewport smoothly so the next post (or previous if last) sits naturally in the exact frame where the deleted post was
+      const anchorCard = nextCardEl || prevCardEl;
+      if (anchorCard) {
+        const header = document.querySelector('header');
+        const headerHeight = header ? header.offsetHeight : 60;
+        const desiredTop = (targetCardTopOffset !== null && targetCardTopOffset >= headerHeight && targetCardTopOffset < window.innerHeight * 0.65)
+          ? targetCardTopOffset
+          : (headerHeight + 12);
+        const currentAnchorTop = anchorCard.getBoundingClientRect().top;
+        const deltaY = currentAnchorTop - desiredTop;
+        if (Math.abs(deltaY) > 4) {
+          window.scrollBy({ top: deltaY, behavior: 'instant' });
+        }
+      }
+    }
+  } else {
+    renderFeed();
+  }
+
+  // 3. Call backend DELETE endpoint (which also updates system_deleted_posts in Supabase)
   try {
     const resp = await fetch(`/api/posts?id=${encodeURIComponent(postId)}`, {
       method: 'DELETE',
@@ -6550,7 +6788,40 @@ async function executeDeletePost(postId) {
     console.warn('Backend DELETE error:', err);
   }
 
-  // 3. Resilient Direct Supabase delete / soft-delete
+  // 4. Resilient Direct Supabase delete / soft-delete + global tombstone update
+  try {
+    const tombResp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.system_deleted_posts&select=data`, {
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`
+      }
+    });
+    let cloudDeletedIds = Array.from(deletedPostIds);
+    if (tombResp.ok) {
+      const tRows = await tombResp.json();
+      if (tRows && tRows[0] && tRows[0].data && Array.isArray(tRows[0].data.deleted_ids)) {
+        tRows[0].data.deleted_ids.forEach(id => {
+          if (id && !cloudDeletedIds.includes(id)) cloudDeletedIds.push(id);
+        });
+      }
+    }
+    if (!cloudDeletedIds.includes(postId)) cloudDeletedIds.push(postId);
+    applyDeletedPostsTombstone(cloudDeletedIds);
+    await fetch(`${SUPABASE_URL}/rest/v1/posts`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates'
+      },
+      body: JSON.stringify({
+        id: 'system_deleted_posts',
+        data: { deleted_ids: cloudDeletedIds, updatedAt: new Date().toISOString() }
+      })
+    });
+  } catch (_) {}
+
   try {
     await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.${encodeURIComponent(postId)}`, {
       method: 'PATCH',
@@ -7263,11 +7534,47 @@ function setupRealtimeSubscription() {
           if (payload && payload.new) {
             const p = payload.new.data || payload.new;
             p.id = p.id || payload.new.id;
+            if (p.id && (p.id.startsWith('system_') || p.id.startsWith('family_cast_') || p.id.startsWith('curator_style_'))) {
+              if (p.id === 'system_deleted_posts' && Array.isArray(p.deleted_ids)) {
+                if (applyDeletedPostsTombstone(p.deleted_ids)) {
+                  softDeletesDOMPrune(p.deleted_ids);
+                }
+              }
+              return;
+            }
             p.createdAt = p.createdAt || payload.new.created_at || new Date().toISOString();
-            if (!p.deleted && !p.isDeleted && (p.adaptedHeadline || p.originalHeadline || p.summary)) {
+            if (!p.deleted && !p.isDeleted && !deletedPostIds.has(p.id) && (p.adaptedHeadline || p.originalHeadline || p.summary)) {
               mergeAndSortPosts([p]);
               updateBadge(true, `Live Feed (${allPosts.length} posts)`);
-              renderFeed();
+              if (currentRenderedBatch === 0 && window.scrollY < 400) {
+                renderFeed();
+              }
+            }
+          }
+        })
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'posts' }, payload => {
+          if (payload && payload.new) {
+            const rowId = payload.new.id;
+            const p = payload.new.data || payload.new;
+            if (rowId === 'system_deleted_posts' && Array.isArray(p.deleted_ids)) {
+              if (applyDeletedPostsTombstone(p.deleted_ids)) {
+                softDeletesDOMPrune(p.deleted_ids);
+              }
+              return;
+            }
+            const postId = p.id || rowId;
+            if (postId && (p.deleted || p.isDeleted)) {
+              if (applyDeletedPostsTombstone([postId])) {
+                softDeletesDOMPrune([postId]);
+              }
+            }
+          }
+        })
+        .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'posts' }, payload => {
+          const oldId = payload?.old?.id || payload?.old?.data?.id;
+          if (oldId) {
+            if (applyDeletedPostsTombstone([oldId])) {
+              softDeletesDOMPrune([oldId]);
             }
           }
         })
