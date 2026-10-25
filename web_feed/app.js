@@ -4317,6 +4317,14 @@ function buildSlide1Html(post, index, totalSlides = 2) {
   }
 
   const handle = escapeHtml(post.creatorHandle || '@curator');
+  const isInnerVoice = isInnerVoicePost(post);
+  const rawHandle = (post.creatorHandle || '@curator').trim();
+  const initial = escapeHtml((rawHandle.replace('@', '').trim().charAt(0) || 'C').toUpperCase());
+  const curatorKickerHtml = !isInnerVoice ? `
+        <div class="slide-hook-curator-kicker">
+          <span class="slide-hook-curator-kicker-avatar">${initial}</span>
+          <span class="slide-hook-curator-kicker-text">${handle}'s Perspective</span>
+        </div>` : '';
 
   return `
     ${bgHtml}
@@ -4336,7 +4344,7 @@ function buildSlide1Html(post, index, totalSlides = 2) {
         </div>
       </div>
       <div class="slide-hook-bottom">
-        ${newsFragmentHtml}
+        ${newsFragmentHtml}${curatorKickerHtml}
         <h3 class="slide-hook-headline">${headline}</h3>
         <!-- Bottom-Left: slant.today disabled for now | Bottom-Right: Every thought deserves a frame -->
         <div class="poster-brand-footer">
@@ -4723,19 +4731,25 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
   }
   const opinion = escapeHtml(rawOpinion);
 
-  let pullquoteLabel = "✦ THE SLANT";
-  if (tier === "tier3_opinion") {
-    pullquoteLabel = `${slantIcon} INNER VOICE`;
+  const rawHandle = (post.creatorHandle || "@curator").trim();
+  const initial = escapeHtml((rawHandle.replace("@", "").trim().charAt(0) || "C").toUpperCase());
+  let rightPillText = "✍️ MY VIEW ON THIS SOURCE";
+  if (isInnerVoice || tier === "tier3_opinion") {
+    rightPillText = `${slantIcon} PERSONAL VOICE`;
   } else if (tier === "tier_book") {
-    pullquoteLabel = "📖 LITERARY REFLECTION";
+    rightPillText = "📖 LITERARY REFLECTION";
   }
 
   const pullquoteHtml = `
-    <div class="essay-highlight-pullquote">
-      <div class="essay-pullquote-label">
-        <span>${escapeHtml(pullquoteLabel)}</span>
+    <div class="essay-highlight-pullquote signed-curator-note">
+      <div class="signed-curator-header">
+        <div class="signed-curator-identity">
+          <span class="signed-curator-avatar">${initial}</span>
+          <span class="signed-curator-title">${handle}'s Slant</span>
+        </div>
+        <span class="signed-curator-badge-pill">${escapeHtml(rightPillText)}</span>
       </div>
-      <p class="essay-pullquote-text">&ldquo;${opinion}&rdquo;</p>
+      <p class="essay-pullquote-text">${opinion}</p>
     </div>
   `;
 
@@ -4787,7 +4801,7 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
         : "ARCHIVAL CATALYST SNAPSHOT";
     } else if (tier === "tier_video" || post.sourceType === "video_audio") {
       captionIcon = "🎬";
-      captionText = `BROADCAST STILL • ${cleanPubUpper || "SOURCE DISPATCH"}`;
+      captionText = `SOURCE VIDEO • ${cleanPubUpper || "SOURCE DISPATCH"}`;
     } else if (isFallbackToPosterPhoto) {
       captionIcon = "🎨";
       captionText = `EDITORIAL METAPHOR • ${cleanPubUpper || "DISPATCH"}`;
