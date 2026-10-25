@@ -6655,17 +6655,11 @@ function loadPostIntoStudioToRegenerate(postId) {
     if (ledgerCard) ledgerCard.style.display = 'none';
   }
 
-  // Preserve existing post ID & load directly onto Step 3 Preview Deck with Selective Regenerate sheet
+  // Preserve existing post ID when regenerating from Studio Step 1
   window._regeneratingExistingPostId = post.id;
   window._regeneratingExistingCreatedAt = post.createdAt || null;
-  currentSynthesizedPost = JSON.parse(JSON.stringify(post));
-  posterFilesCache.delete(post.id);
 
-  showStep3Preview();
-  setTimeout(() => {
-    openSelectiveRegenModal();
-  }, 120);
-  showTemporaryToast('✨ Post loaded! Choose whether to regenerate Headline, Essay, Artwork, or Full Post.');
+  showTemporaryToast('✨ Loaded inputs into Creator Studio! Tweak or regenerate 🚀');
 }
 
 function softDeletesDOMPrune(idsToRemove = []) {
@@ -9816,10 +9810,6 @@ function toggleActiveCastMember(memberId) {
     activeCastMemberIds.add(memberId);
   }
   renderFamilyCastStagingUI();
-  const regenModal = document.getElementById('selectiveRegenModal');
-  if (regenModal && regenModal.classList.contains('open')) {
-    unlockImageWhenVisualSettingChanges();
-  }
 }
 
 function clearActiveCastSelection() {
@@ -9830,10 +9820,6 @@ function clearActiveCastSelection() {
   if (hint) hint.style.display = 'none';
   if (eqHint) eqHint.style.display = 'none';
   renderFamilyCastStagingUI();
-  const regenModal = document.getElementById('selectiveRegenModal');
-  if (regenModal && regenModal.classList.contains('open')) {
-    unlockImageWhenVisualSettingChanges();
-  }
   showTemporaryToast('Cleared selected cast members for this post.');
 }
 
@@ -10010,7 +9996,7 @@ function renderFamilyCastStagingUI() {
     `;
   }).join('');
 
-  ['familyCastMembersRow', 'equalizerCastMembersRow', 'selectiveRegenCastMembersRow'].forEach(containerId => {
+  ['familyCastMembersRow', 'equalizerCastMembersRow'].forEach(containerId => {
     const el = document.getElementById(containerId);
     if (el) el.innerHTML = chipsHtml;
   });
@@ -15257,372 +15243,8 @@ function setupWholePosterGestures() {
 // --- Step 3 Toolbar Actions (Matches Flutter create_postcard_screen.dart:3417-3490) ---
 
 function handleStep3Regenerate() {
-  openSelectiveRegenModal();
-}
-
-let lastSelectiveHeadlineOptions = [];
-
-// true = 🔒 Locked (Keep current), false = 🔄 Regenerate
-let selectiveRegenLocks = {
-  headline: false,
-  slantNote: false,
-  essay: true,
-  image: true
-};
-
-function openSelectiveRegenModal() {
-  const modal = document.getElementById('selectiveRegenModal');
-  if (!modal) {
-    backToStep1();
-    return;
-  }
-  const dirInput = document.getElementById('selectiveRegenDirectionInput');
-  if (dirInput) dirInput.value = '';
-  const optionsList = document.getElementById('selectiveHeadlineOptionsList');
-  if (optionsList) {
-    optionsList.style.display = 'none';
-    optionsList.innerHTML = '';
-  }
-
-  window._regenSettingsModified = false;
-
-  // Ensure Family Cast & current post settings are synced into the modal
-  const p = currentSynthesizedPost || {};
-  const combinedText = [
-    p.userSlantTake || '',
-    p.curatorTake || '',
-    p.spark || '',
-    p.adaptedHeadline || '',
-    document.getElementById('creatorSlantTakeInput')?.value || '',
-    document.getElementById('creatorSparkInput')?.value || ''
-  ].join(' ');
-  checkAndTriggerFamilyCast(combinedText);
-  syncSelectiveRegenSettingsUI();
-
-  // Default: Lock Artwork (protect ₹4.00 image) and Lock Essay; unlock Headline & Slant Note by default
-  // If user is currently viewing Slide 2/3 (the Essay), unlock Essay by default and lock Headline
-  if (currentPreviewSlide >= 1) {
-    selectiveRegenLocks = { headline: true, slantNote: true, essay: false, image: true };
-  } else {
-    selectiveRegenLocks = { headline: false, slantNote: false, essay: true, image: true };
-  }
-
-  updateSelectiveRegenLockUI();
-  modal.classList.add('open');
-}
-
-function syncSelectiveRegenSettingsUI() {
-  const focusMode = creatorPerspectiveMode || 'source';
-  ['source', 'blend', 'curator'].forEach(m => {
-    const btn = document.getElementById(`regenFocus_${m}`);
-    if (btn) btn.classList.toggle('active', m === focusMode);
-  });
-
-  const repStyle = creatorCharacterRepresentation || 'realistic';
-  ['exact', 'realistic', 'painting', 'silhouette', 'conceptual'].forEach(s => {
-    const btn = document.getElementById(`regenPortrayal_${s}`);
-    if (btn) btn.classList.toggle('active', s === repStyle);
-  });
-
-  const cCode = (creatorCountryContext && creatorCountryContext.code) ? creatorCountryContext.code : 'IN';
-  ['IN', 'US', 'UK', 'GLOBAL'].forEach(code => {
-    const btn = document.getElementById(`regenCountry_${code}`);
-    if (btn) btn.classList.toggle('active', code === cCode);
-  });
-
-  renderFamilyCastStagingUI();
-}
-
-function unlockImageWhenVisualSettingChanges() {
-  window._regenSettingsModified = true;
-  if (selectiveRegenLocks.image) {
-    selectiveRegenLocks.image = false;
-    updateSelectiveRegenLockUI();
-    showTemporaryToast('🎨 Unlocked Poster Artwork so your new visual setting will apply on regenerate.');
-  }
-}
-
-function setRegenPerspectiveMode(mode) {
-  setEqualizerPerspectiveMode(mode, true);
-  syncSelectiveRegenSettingsUI();
-  unlockImageWhenVisualSettingChanges();
-}
-
-function setRegenPortrayal(style) {
-  selectEqualizerPortrayal(style);
-  syncSelectiveRegenSettingsUI();
-  unlockImageWhenVisualSettingChanges();
-}
-
-function setRegenCountry(code) {
-  selectEqualizerCountry(code);
-  syncSelectiveRegenSettingsUI();
-  unlockImageWhenVisualSettingChanges();
-}
-
-function closeSelectiveRegenModal() {
-  const modal = document.getElementById('selectiveRegenModal');
-  if (modal) modal.classList.remove('open');
-}
-
-function toggleSelectiveRegenLock(key) {
-  if (!(key in selectiveRegenLocks)) return;
-  selectiveRegenLocks[key] = !selectiveRegenLocks[key];
-  updateSelectiveRegenLockUI();
-}
-
-function applySelectiveLockPreset(preset) {
-  if (preset === 'text_only') {
-    selectiveRegenLocks = { headline: false, slantNote: false, essay: false, image: true };
-  } else if (preset === 'headline_only') {
-    selectiveRegenLocks = { headline: false, slantNote: false, essay: true, image: true };
-  } else if (preset === 'essay_only') {
-    selectiveRegenLocks = { headline: true, slantNote: true, essay: false, image: true };
-  } else if (preset === 'image_only') {
-    selectiveRegenLocks = { headline: true, slantNote: true, essay: true, image: false };
-  }
-  updateSelectiveRegenLockUI();
-}
-
-function updateSelectiveRegenLockUI() {
-  const p = currentSynthesizedPost || {};
-  const previews = {
-    headline: p.adaptedHeadline || 'Slide 1 adapted editorial headline',
-    slantNote: p.curatorTake || p.creatorOpinion || '2-sentence signed slant callout on Slide 2',
-    essay: (Array.isArray(p.resolvedArticleExcerpts) && p.resolvedArticleExcerpts.length > 0)
-      ? p.resolvedArticleExcerpts[0]
-      : (p.summary || '3-paragraph broadsheet essay & concluding reflection'),
-    image: (p.illustrationPrompt || 'Custom editorial illustration on Slide 1')
-  };
-
-  const keys = ['headline', 'slantNote', 'essay', 'image'];
-  keys.forEach(k => {
-    const isLocked = Boolean(selectiveRegenLocks[k]);
-    const row = document.getElementById(`selectiveLockRow_${k}`);
-    const btn = document.getElementById(`selectiveLockBtn_${k}`);
-    const icon = document.getElementById(`selectiveLockIcon_${k}`);
-    const label = document.getElementById(`selectiveLockLabel_${k}`);
-    const prevEl = document.getElementById(`selectivePreview_${k}`);
-
-    if (prevEl && previews[k]) {
-      const clean = String(previews[k]).trim();
-      prevEl.textContent = clean.length > 82 ? clean.slice(0, 82) + '...' : clean;
-    }
-
-    if (row) {
-      row.classList.toggle('is-locked', isLocked);
-      row.classList.toggle('is-unlocked', !isLocked);
-    }
-    if (btn) {
-      btn.classList.toggle('locked', isLocked);
-      btn.classList.toggle('unlocked', !isLocked);
-    }
-    if (icon) icon.textContent = isLocked ? '🔒' : '🔄';
-    if (label) label.textContent = isLocked ? 'Locked' : 'Regenerate';
-  });
-
-  const unlockedNames = [];
-  if (!selectiveRegenLocks.headline) unlockedNames.push('Headline');
-  if (!selectiveRegenLocks.slantNote) unlockedNames.push('Slant Note');
-  if (!selectiveRegenLocks.essay) unlockedNames.push('Essay');
-  if (!selectiveRegenLocks.image) unlockedNames.push('Artwork');
-
-  const runBtn = document.getElementById('selectiveRegenRunBtn');
-  const runTxt = document.getElementById('selectiveRegenRunBtnText');
-  const costBadge = document.getElementById('selectiveRegenRunCostBadge');
-
-  if (unlockedNames.length === 0) {
-    if (runBtn) runBtn.disabled = true;
-    if (runTxt) runTxt.textContent = 'All 4 Parts Locked (Unlock at least 1 to regenerate)';
-    if (costBadge) costBadge.textContent = '🔒 ₹0.00';
-  } else {
-    if (runBtn) runBtn.disabled = false;
-    if (runTxt) {
-      runTxt.textContent = `Regenerate ${unlockedNames.join(' + ')}`;
-    }
-    let estCost = 0;
-    if (!selectiveRegenLocks.headline || !selectiveRegenLocks.slantNote) estCost += 0.12;
-    if (!selectiveRegenLocks.essay) estCost += 0.35;
-    if (!selectiveRegenLocks.image) estCost += 3.99;
-    if (costBadge) {
-      costBadge.textContent = !selectiveRegenLocks.image
-        ? `🎨 ~₹${estCost.toFixed(2)}`
-        : `⚡ Text Only (~₹${estCost.toFixed(2)})`;
-    }
-  }
-}
-
-function applySelectiveHeadlineOption(idx) {
-  const opt = lastSelectiveHeadlineOptions[idx];
-  if (!opt || !currentSynthesizedPost) return;
-
-  currentSynthesizedPost.adaptedHeadline = opt.adaptedHeadline;
-  if (opt.curatorTake) {
-    currentSynthesizedPost.curatorTake = opt.curatorTake;
-    currentSynthesizedPost.creatorOpinion = opt.curatorTake;
-  }
-
-  const headInput = document.getElementById('editModalHeadline');
-  if (headInput) headInput.value = opt.adaptedHeadline;
-  if (opt.curatorTake) {
-    const opinionInput = document.getElementById('editModalOpinion');
-    if (opinionInput) opinionInput.value = opt.curatorTake;
-  }
-
-  if (currentSynthesizedPost.id) posterFilesCache.delete(currentSynthesizedPost.id);
-  renderCreatorPreview();
-  updateSelectiveRegenLockUI();
-
-  const cards = document.querySelectorAll('.selective-headline-choice-card');
-  cards.forEach((c, i) => {
-    if (i === idx) c.classList.add('selected');
-    else c.classList.remove('selected');
-  });
-
-  showTemporaryToast('✓ Applied Headline Option ' + (idx + 1) + '!');
-}
-
-async function runLockedSelectiveRegenerate() {
-  if (!currentSynthesizedPost) {
-    closeSelectiveRegenModal();
-    backToStep1();
-    return;
-  }
-
-  const regenHeadline = !selectiveRegenLocks.headline;
-  const regenSlant = !selectiveRegenLocks.slantNote;
-  const regenEssay = !selectiveRegenLocks.essay;
-  const regenImage = !selectiveRegenLocks.image;
-
-  if (!regenHeadline && !regenSlant && !regenEssay && !regenImage) {
-    showTemporaryToast('🔒 Unlock at least one component to regenerate.');
-    return;
-  }
-
-  const dirInput = document.getElementById('selectiveRegenDirectionInput');
-  const customDirection = dirInput ? dirInput.value.trim() : '';
-
-  const runBtn = document.getElementById('selectiveRegenRunBtn');
-  const runTxt = document.getElementById('selectiveRegenRunBtnText');
-  const listEl = document.getElementById('selectiveHeadlineOptionsList');
-  if (runBtn) runBtn.disabled = true;
-  if (runTxt) runTxt.textContent = 'Regenerating Unlocked Parts... ⏳';
-
-  try {
-    const tasks = [];
-
-    // 1. Unified single call for any unlocked text components (Headline, Slant Note, Essay)
-    if (regenHeadline || regenSlant || regenEssay) {
-      tasks.push((async () => {
-        const resp = await fetch('/api/synthesize', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'selective_regenerate',
-            regenerateHeadline: regenHeadline,
-            regenerateSlantNote: regenSlant,
-            regenerateEssay: regenEssay,
-            adaptedHeadline: currentSynthesizedPost.adaptedHeadline || '',
-            originalHeadline: currentSynthesizedPost.sourceHeadline || currentSynthesizedPost.originalHeadline || '',
-            curatorTake: currentSynthesizedPost.curatorTake || currentSynthesizedPost.creatorOpinion || '',
-            userSlant: currentSynthesizedPost.userSlantTake || currentSynthesizedPost.polishedCuratorTake || document.getElementById('creatorSlantTakeInput')?.value || '',
-            spark: currentSynthesizedPost.spark || document.getElementById('creatorSparkInput')?.value || '',
-            summary: currentSynthesizedPost.summary || (Array.isArray(currentSynthesizedPost.resolvedArticleExcerpts) ? currentSynthesizedPost.resolvedArticleExcerpts.join('\n\n') : ''),
-            scrapedTitle: currentScrapedArticle?.title || currentSynthesizedPost.generationInputs?.scrapedTitle || '',
-            scrapedContent: currentScrapedArticle?.content || currentSynthesizedPost.generationInputs?.scrapedContent || currentSynthesizedPost.sourceContext || '',
-            sourceLedger: currentSynthesizedPost.sourceLedger || currentSourceLedger || null,
-            sourceType: currentSynthesizedPost.sourceType || creatorSelectedSource || 'digital_link',
-            vocabularyStyle: creatorVocabularyStyle || 'casual',
-            customDirection
-          })
-        });
-
-        const data = await resp.json().catch(() => null);
-        if (!resp.ok || !data || !data.success) {
-          throw new Error(data?.error || 'Could not regenerate text components.');
-        }
-
-        if (regenHeadline && data.adaptedHeadline) {
-          currentSynthesizedPost.adaptedHeadline = data.adaptedHeadline;
-          const headInput = document.getElementById('editModalHeadline');
-          if (headInput) headInput.value = data.adaptedHeadline;
-
-          if (Array.isArray(data.headlineOptions) && data.headlineOptions.length > 0) {
-            lastSelectiveHeadlineOptions = data.headlineOptions;
-            if (listEl) {
-              listEl.style.display = 'flex';
-              listEl.innerHTML = data.headlineOptions.map((opt, i) => `
-                <div class="selective-headline-choice-card ${i === 0 ? 'selected' : ''}" onclick="applySelectiveHeadlineOption(${i})">
-                  <div class="selective-headline-choice-top">
-                    <span class="selective-headline-choice-badge">${escapeHtml(opt.label || ('Option ' + (i + 1)))}</span>
-                    <span class="selective-headline-choice-apply">${i === 0 ? '✓ Active on Deck' : 'Tap to Switch'}</span>
-                  </div>
-                  <div class="selective-headline-choice-hl">${escapeHtml(opt.adaptedHeadline)}</div>
-                </div>
-              `).join('');
-            }
-          }
-        }
-
-        if (regenSlant && data.curatorTake) {
-          currentSynthesizedPost.curatorTake = data.curatorTake;
-          currentSynthesizedPost.creatorOpinion = data.curatorTake;
-          const opinionInput = document.getElementById('editModalOpinion');
-          if (opinionInput) opinionInput.value = data.curatorTake;
-        }
-
-        if (regenEssay && Array.isArray(data.resolvedArticleExcerpts) && data.resolvedArticleExcerpts.length > 0) {
-          currentSynthesizedPost.resolvedArticleExcerpts = data.resolvedArticleExcerpts;
-          currentSynthesizedPost.summary = data.summary || data.resolvedArticleExcerpts.join('\n\n');
-          if (data.whyItMatters) {
-            currentSynthesizedPost.whyItMatters = data.whyItMatters;
-            currentSynthesizedPost.broadsheetReflection = data.whyItMatters;
-          }
-        }
-      })());
-    }
-
-    // 2. If Artwork is unlocked, trigger artwork regeneration (rebuilding prompt from current Studio Settings & Casting Vault)
-    if (regenImage) {
-      tasks.push(retryStep3ArtworkGeneration(null, {
-        rebuildPromptFromSettings: true,
-        customDirection
-      }));
-    }
-
-    await Promise.all(tasks);
-
-    if (currentSynthesizedPost.id) posterFilesCache.delete(currentSynthesizedPost.id);
-    renderCreatorPreview();
-    updateSelectiveRegenLockUI();
-
-    // If only Essay or Image was regenerated (without Headline choices to pick), close modal and jump to that slide
-    if (!regenHeadline) {
-      closeSelectiveRegenModal();
-      setTimeout(() => {
-        const previewCard = document.querySelector('#creatorPreviewContainer .post-card');
-        if (previewCard && typeof goToSlide === 'function') {
-          goToSlide(previewCard, regenImage ? 0 : 1);
-        }
-      }, 80);
-    }
-
-    showTemporaryToast('✓ Unlocked components regenerated! Locked parts kept intact.');
-  } catch (err) {
-    showTemporaryToast('⚠️ ' + (err.message || 'Error during selective regeneration.'));
-  } finally {
-    updateSelectiveRegenLockUI();
-  }
-}
-
-async function triggerSelectiveRegenerate(mode) {
-  if (mode === 'full') {
-    closeSelectiveRegenModal();
-    backToStep1();
-    return;
-  }
-  applySelectiveLockPreset(mode === 'headline' ? 'headline_only' : (mode === 'essay' ? 'essay_only' : 'image_only'));
-  await runLockedSelectiveRegenerate();
+  // Reopen the editor deck from the beginning (Step 1) without changing visual cues
+  backToStep1();
 }
 
 let editModalOriginalSnapshot = null;
