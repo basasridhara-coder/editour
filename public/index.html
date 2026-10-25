@@ -1714,6 +1714,110 @@
     </div>
   </div>
 
+  <!-- Selective Regenerate Modal (Choose Headline, Essay, Image, or Full Step 1) -->
+  <div class="modal-overlay" id="selectiveRegenModal" onclick="if(event.target===this) closeSelectiveRegenModal()">
+    <div class="modal-card selective-regen-modal-card" onclick="event.stopPropagation()">
+      <div class="selective-regen-header">
+        <div>
+          <span class="selective-regen-kicker">✨ TARGETED STUDIO CONTROLS</span>
+          <h3 class="selective-regen-title">What would you like to regenerate?</h3>
+          <p class="selective-regen-subtitle">Update only the part you want while keeping the rest of your post intact.</p>
+        </div>
+        <button type="button" class="modal-close" onclick="closeSelectiveRegenModal()" title="Close">&times;</button>
+      </div>
+
+      <div class="selective-regen-body">
+        <div class="selective-regen-direction-box">
+          <label for="selectiveRegenDirectionInput" class="selective-regen-direction-label">
+            <span>🧭 Optional Direction / Tweak</span>
+            <span class="selective-regen-direction-hint">Applies to whichever part you regenerate below</span>
+          </label>
+          <input
+            type="text"
+            id="selectiveRegenDirectionInput"
+            class="selective-regen-direction-input"
+            placeholder="e.g. Make headline sharper, focus essay on civic dignity, or warm sunset lighting..."
+          >
+        </div>
+
+        <div class="selective-regen-grid">
+          <!-- Option 1: Headline & Slant Note Only -->
+          <div class="selective-regen-option-card" id="selectiveRegenCardHeadline">
+            <div class="selective-regen-option-top">
+              <div class="selective-regen-option-icon headline">🎯</div>
+              <div class="selective-regen-option-info">
+                <div class="selective-regen-option-title-row">
+                  <span class="selective-regen-option-name">Headline &amp; Slant Note Only</span>
+                  <span class="selective-regen-cost-pill fast">⚡ ~2s • Text Only</span>
+                </div>
+                <p class="selective-regen-option-desc">Generates 3 fresh Headline + Signed Slant Note options to pick from. Keeps your Poster Artwork &amp; Essay untouched.</p>
+              </div>
+            </div>
+            <button type="button" class="selective-regen-action-btn headline" id="selectiveRegenHeadlineBtn" onclick="triggerSelectiveRegenerate('headline')">
+              <span>🎯</span>
+              <span id="selectiveRegenHeadlineBtnText">Generate 3 Headline Options</span>
+            </button>
+            <div class="selective-headline-options-list" id="selectiveHeadlineOptionsList" style="display:none;"></div>
+          </div>
+
+          <!-- Option 2: Broadsheet Essay Only -->
+          <div class="selective-regen-option-card" id="selectiveRegenCardEssay">
+            <div class="selective-regen-option-top">
+              <div class="selective-regen-option-icon essay">📜</div>
+              <div class="selective-regen-option-info">
+                <div class="selective-regen-option-title-row">
+                  <span class="selective-regen-option-name">Broadsheet Essay Only</span>
+                  <span class="selective-regen-cost-pill fast">⚡ ~4s • Text Only</span>
+                </div>
+                <p class="selective-regen-option-desc">Re-synthesizes the 3-paragraph broadsheet essay &amp; reflection in-place. Keeps your Poster Artwork &amp; Headline untouched.</p>
+              </div>
+            </div>
+            <button type="button" class="selective-regen-action-btn essay" id="selectiveRegenEssayBtn" onclick="triggerSelectiveRegenerate('essay')">
+              <span>📜</span>
+              <span id="selectiveRegenEssayBtnText">Regenerate Essay Only</span>
+            </button>
+          </div>
+
+          <!-- Option 3: Poster Artwork Only -->
+          <div class="selective-regen-option-card" id="selectiveRegenCardImage">
+            <div class="selective-regen-option-top">
+              <div class="selective-regen-option-icon image">🎨</div>
+              <div class="selective-regen-option-info">
+                <div class="selective-regen-option-title-row">
+                  <span class="selective-regen-option-name">Poster Artwork Only</span>
+                  <span class="selective-regen-cost-pill image">🎨 ~10s • 1 Artwork Credit</span>
+                </div>
+                <p class="selective-regen-option-desc">Re-renders only Slide 1's visual artwork (applying any direction typed above). Keeps your Headline, Slant Note &amp; Essay untouched.</p>
+              </div>
+            </div>
+            <button type="button" class="selective-regen-action-btn image" id="selectiveRegenImageBtn" onclick="triggerSelectiveRegenerate('image')">
+              <span>🎨</span>
+              <span id="selectiveRegenImageBtnText">Regenerate Poster Artwork Only</span>
+            </button>
+          </div>
+
+          <!-- Option 4: Back to Step 1 Inputs -->
+          <div class="selective-regen-option-card full" id="selectiveRegenCardFull">
+            <div class="selective-regen-option-top">
+              <div class="selective-regen-option-icon full">🔄</div>
+              <div class="selective-regen-option-info">
+                <div class="selective-regen-option-title-row">
+                  <span class="selective-regen-option-name">Edit Source / Raw Inputs (Step 1)</span>
+                  <span class="selective-regen-cost-pill neutral">Step 1 Studio</span>
+                </div>
+                <p class="selective-regen-option-desc">Return to Step 1 to edit your core take, source URL, or visual cues before running a full synthesis.</p>
+              </div>
+            </div>
+            <button type="button" class="selective-regen-action-btn secondary" onclick="triggerSelectiveRegenerate('full')">
+              <span>↩️</span>
+              <span>Go to Step 1 Inputs</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Private Preview Access Gate Modal (Shown when an uninvited user tries to sign in) -->
   <div class="modal-overlay" id="privatePreviewGateModal" onclick="if(event.target===this) closePrivatePreviewGateModal()">
     <div class="modal-card" style="max-width: 440px; padding: 28px 22px; text-align: center; border-radius: 20px;" onclick="event.stopPropagation()">

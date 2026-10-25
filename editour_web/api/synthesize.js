@@ -9,25 +9,118 @@ const GEMINI_MODEL = 'gemini-3.8-flash';
 const SUPABASE_URL = 'https://fxfklefnkpmhofncqhfh.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ4ZmtsZWZua3BtaG9mbmNxaGZoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI0NzM4NzYsImV4cCI6MjEwODA0OTg3Nn0.0nw5ZDvlEsYal6EYXcqyaAPRHoxkXxZgDsNQDppEYgM';
 const MASTER_ADMINS = ['shridharoct16@gmail.com', 'basasridhara@gmail.com'];
+const DEFAULT_DAILY_CREDIT_LIMIT = 5;
 
-async function verifyEmailIsWhitelisted(email) {
-  if (!email) return false;
+function getTodayDateKeyIST() {
+  try {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).format(new Date());
+  } catch (_) {
+    return new Date().toISOString().slice(0, 10);
+  }
+}
+
+async function verifyAndConsumeUserCredit(email, consume = false) {
+  if (!email) return { allowed: false, hasCredits: false, credits: null };
   const clean = String(email).toLowerCase().trim();
-  if (MASTER_ADMINS.includes(clean)) return true;
+  const isMaster = MASTER_ADMINS.includes(clean);
+  const todayKey = getTodayDateKeyIST();
+
   try {
     const resp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.system_beta_whitelist&select=data`, {
       headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
     });
     if (resp.ok) {
       const rows = await resp.json();
-      const list = rows?.[0]?.data?.allowed_emails || [];
-      const admins = rows?.[0]?.data?.admin_emails || [];
-      return list.map(e => e.toLowerCase()).includes(clean) || admins.map(e => e.toLowerCase()).includes(clean);
+      const d = rows?.[0]?.data || {};
+      const list = (d.allowed_emails || []).map(e => String(e).toLowerCase().trim());
+      const admins = (d.admin_emails || []).map(e => String(e).toLowerCase().trim());
+      const isAllowed = isMaster || list.includes(clean) || admins.includes(clean);
+      if (!isAllowed) {
+        return { allowed: false, hasCredits: false, credits: null };
+      }
+
+      const defaultLimit = Number(d.default_daily_limit) > 0 ? Number(d.default_daily_limit) : DEFAULT_DAILY_CREDIT_LIMIT;
+      if (!d.user_credits || typeof d.user_credits !== 'object') {
+        d.user_credits = {};
+      }
+      const existing = d.user_credits[clean] || {};
+      const dailyLimit = Number(existing.dailyLimit) > 0 ? Number(existing.dailyLimit) : defaultLimit;
+      let usedToday = (existing.lastDateKey === todayKey) ? (Number(existing.usedToday) || 0) : 0;
+      let bonusCredits = Math.max(0, Number(existing.bonusCredits) || 0);
+      let totalUsed = Math.max(0, Number(existing.totalUsed) || 0);
+
+      const dailyRemainingBefore = Math.max(0, dailyLimit - usedToday);
+      const hasCredits = isMaster || dailyRemainingBefore > 0 || bonusCredits > 0;
+
+      if (hasCredits && consume) {
+        if (!isMaster && dailyRemainingBefore <= 0 && bonusCredits > 0) {
+          bonusCredits = Math.max(0, bonusCredits - 1);
+        }
+        usedToday += 1;
+        totalUsed += 1;
+        d.user_credits[clean] = {
+          ...existing,
+          dailyLimit,
+          usedToday,
+          lastDateKey: todayKey,
+          bonusCredits,
+          totalUsed,
+          lastUsedAt: new Date().toISOString()
+        };
+        // Persist updated credit count non-blockingly so synthesis latency is unaffected
+        fetch(`${SUPABASE_URL}/rest/v1/posts`, {
+          method: 'POST',
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'resolution=merge-duplicates'
+          },
+          body: JSON.stringify({ id: 'system_beta_whitelist', data: d })
+        }).catch(() => {});
+      }
+
+      const dailyRemainingAfter = Math.max(0, dailyLimit - usedToday);
+      const remainingToday = isMaster ? 9999 : (dailyRemainingAfter + bonusCredits);
+
+      return {
+        allowed: true,
+        hasCredits,
+        credits: {
+          email: clean,
+          isUnlimited: isMaster,
+          dailyLimit,
+          usedToday,
+          dailyRemaining: dailyRemainingAfter,
+          bonusCredits,
+          remainingToday,
+          totalUsed,
+          lastDateKey: todayKey
+        }
+      };
     }
   } catch (err) {
-    console.warn('Synthesize whitelist check notice:', err);
+    console.warn('Synthesize credit & whitelist check notice:', err);
   }
-  return false;
+
+  if (isMaster) {
+    return {
+      allowed: true,
+      hasCredits: true,
+      credits: { email: clean, isUnlimited: true, dailyLimit: 9999, usedToday: 0, dailyRemaining: 9999, bonusCredits: 0, remainingToday: 9999, totalUsed: 0 }
+    };
+  }
+  return { allowed: false, hasCredits: false, credits: null };
+}
+
+async function verifyEmailIsWhitelisted(email) {
+  const res = await verifyAndConsumeUserCredit(email, false);
+  return res.allowed;
 }
 
 const avatarMemoryCache = new Map();
@@ -95,9 +188,16 @@ module.exports = async function handler(req, res) {
       if (!userEmail) {
         userEmail = 'shridharoct16@gmail.com';
       }
-      const isAllowed = await verifyEmailIsWhitelisted(userEmail);
-      if (!isAllowed) {
+      const creditCheck = await verifyAndConsumeUserCredit(userEmail, Boolean(body.isManualRegenerate));
+      if (!creditCheck.allowed) {
         return res.status(403).json({ error: 'Slant Studio is currently in Private Preview by invitation only.' });
+      }
+      if (!creditCheck.hasCredits) {
+        return res.status(429).json({
+          error: '⚡ Your daily Slant poster credits are used up for today. Ask the curator admin for an instant credit top-up or continue tomorrow!',
+          creditsExhausted: true,
+          credits: creditCheck.credits
+        });
       }
       if (!prompt) {
         return res.status(400).json({ error: 'Missing prompt for artwork generation' });
@@ -136,7 +236,8 @@ module.exports = async function handler(req, res) {
           const cleanB64 = geminiArt.replace(/^data:image\/[^;]+;base64,/, '');
           return res.status(200).json({
             success: true,
-            illustrationBase64: cleanB64
+            illustrationBase64: cleanB64,
+            credits: creditCheck.credits
           });
         }
         return res.status(200).json({
@@ -166,9 +267,16 @@ module.exports = async function handler(req, res) {
       } = body;
 
       const userEmail = (creatorEmail || 'shridharoct16@gmail.com').toLowerCase().trim();
-      const isAllowed = await verifyEmailIsWhitelisted(userEmail);
-      if (!isAllowed) {
+      const creditCheck = await verifyAndConsumeUserCredit(userEmail, Boolean(body.isManualRegenerate));
+      if (!creditCheck.allowed) {
         return res.status(403).json({ error: 'Slant Studio is currently in Private Preview by invitation only.' });
+      }
+      if (!creditCheck.hasCredits) {
+        return res.status(429).json({
+          error: '⚡ Your daily Slant poster credits are used up for today. Ask the curator admin for an instant credit top-up or continue tomorrow!',
+          creditsExhausted: true,
+          credits: creditCheck.credits
+        });
       }
 
       if (!memberId) {
@@ -395,6 +503,216 @@ module.exports = async function handler(req, res) {
       }
     }
 
+    // Selective Regeneration Endpoint 1: Regenerate Headline & Slant Note Only (~₹0.12, zero image cost)
+    if (body && body.action === 'regenerate_headline') {
+      const {
+        adaptedHeadline = '',
+        originalHeadline = '',
+        curatorTake = '',
+        userSlant = '',
+        summary = '',
+        sourceType = 'digital_link',
+        vocabularyStyle = 'punchy',
+        customDirection = ''
+      } = body;
+
+      const styleInstruction = (vocabularyStyle === 'literary')
+        ? 'Use elevated, literary broadsheet phrasing with rich cadence.'
+        : (vocabularyStyle === 'casual')
+          ? 'Use clear, conversational, everyday English that feels warm and accessible.'
+          : 'Use punchy, high-contrast, hard-hitting editorial phrasing.';
+
+      const prompt = `You are the Executive Editor of SLANT.
+The curator wants to regenerate ONLY the Headline ("adaptedHeadline") and the 2-sentence Signed Slant Note ("curatorTake") for their post, while keeping their existing broadsheet essay and poster artwork untouched.
+
+CONTEXT OF THE POST:
+- Source / Original Topic: "${originalHeadline || 'Personal Reflection'}"
+- Source Type: ${sourceType}
+- Curator's Core Slant / Take: "${userSlant || curatorTake || ''}"
+- Current Adapted Headline: "${adaptedHeadline}"
+- Current Signed Slant Note: "${curatorTake}"
+- Broadsheet Essay Body: "${String(summary || '').slice(0, 900)}"
+${customDirection ? `- Curator's Specific Direction for this Regeneration: "${customDirection}"` : ''}
+
+EDITORIAL RULES:
+1. ${styleInstruction}
+2. Generate 3 distinct, compelling options so the curator can pick their favorite angle (or use Option 1 immediately):
+   - Option 1 ("Direct & Punchy"): Sharp, decisive editorial headline (6-10 words) + 2-sentence signed slant note (24-34 words).
+   - Option 2 ("Contrarian / Provocative"): Challenges conventional wisdom (6-10 words) + 2-sentence signed slant note (24-34 words).
+   - Option 3 ("Human & Reflective"): Focuses on the human/civic stakes (6-10 words) + 2-sentence signed slant note (24-34 words).
+3. STRICT BAN ON EM DASHES: Never use em dashes, en dashes, or "--". Use commas, colons, or periods.
+4. Stay 100% faithful to the curator's actual stance and proper nouns. Do NOT invent unstated opinions.
+
+Respond strictly with valid JSON:
+{
+  "options": [
+    {
+      "label": "Direct & Punchy",
+      "adaptedHeadline": "6-10 word headline",
+      "curatorTake": "2 complete sentences (24-34 words total)"
+    },
+    {
+      "label": "Contrarian Angle",
+      "adaptedHeadline": "6-10 word headline",
+      "curatorTake": "2 complete sentences (24-34 words total)"
+    },
+    {
+      "label": "Human Stakes",
+      "adaptedHeadline": "6-10 word headline",
+      "curatorTake": "2 complete sentences (24-34 words total)"
+    }
+  ]
+}`;
+
+      try {
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 25000);
+        const geminiResp = await fetch(geminiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+              temperature: 0.75,
+              thinkingConfig: { thinkingBudget: 0 },
+              responseMimeType: 'application/json'
+            }
+          }),
+          signal: controller.signal
+        });
+        clearTimeout(timeout);
+
+        if (geminiResp.ok) {
+          const geminiData = await geminiResp.json();
+          let raw = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          raw = raw.trim().replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```$/i, '').trim();
+          const parsed = JSON.parse(raw);
+          if (parsed && Array.isArray(parsed.options) && parsed.options.length > 0) {
+            const cleanOptions = parsed.options.map(opt => ({
+              label: String(opt.label || 'Editorial Option').trim(),
+              adaptedHeadline: String(opt.adaptedHeadline || adaptedHeadline).replace(/\s*([\u2014\u2013\u2015]|--)\s*/g, ': ').trim(),
+              curatorTake: String(opt.curatorTake || curatorTake).replace(/\s*([\u2014\u2013\u2015]|--)\s*/g, ', ').trim()
+            }));
+            return res.status(200).json({
+              success: true,
+              options: cleanOptions,
+              adaptedHeadline: cleanOptions[0].adaptedHeadline,
+              curatorTake: cleanOptions[0].curatorTake
+            });
+          }
+        }
+        return res.status(500).json({ success: false, error: 'Could not regenerate headline options. Please try again.' });
+      } catch (err) {
+        return res.status(500).json({ success: false, error: err.message || 'Headline regeneration failed' });
+      }
+    }
+
+    // Selective Regeneration Endpoint 2: Regenerate Broadsheet Essay Only (~₹0.35, zero image cost)
+    if (body && body.action === 'regenerate_essay') {
+      const {
+        adaptedHeadline = '',
+        originalHeadline = '',
+        curatorTake = '',
+        userSlant = '',
+        spark = '',
+        scrapedTitle = '',
+        scrapedContent = '',
+        sourceLedger = null,
+        sourceType = 'digital_link',
+        vocabularyStyle = 'punchy',
+        customDirection = ''
+      } = body;
+
+      const styleInstruction = (vocabularyStyle === 'literary')
+        ? 'Write in an elevated, literary broadsheet style with rich narrative flow.'
+        : (vocabularyStyle === 'casual')
+          ? 'Write in clear, natural, everyday English (simple, direct words; zero academic jargon).'
+          : 'Write in crisp, authoritative, punchy broadsheet prose.';
+
+      let ledgerText = '';
+      if (sourceLedger && typeof sourceLedger === 'object') {
+        const claims = Array.isArray(sourceLedger.core_claims_and_evidence)
+          ? sourceLedger.core_claims_and_evidence.map((c, i) => `${i + 1}. ${typeof c === 'object' ? (c.evidence || c.text || '') : c}`).join('\n')
+          : '';
+        if (claims) ledgerText = `\nVerified Source Facts:\n${claims}`;
+      }
+
+      const prompt = `You are the Lead Broadsheet Essayist for SLANT.
+The curator wants to regenerate ONLY the 3-paragraph broadsheet essay ("summary" / "resolvedArticleExcerpts") and concluding reflection ("whyItMatters"), while keeping their existing Headline ("${adaptedHeadline}") and Poster Artwork untouched.
+
+POST CONTEXT:
+- Headline: "${adaptedHeadline}"
+- Original Source / Topic: "${originalHeadline || scrapedTitle || 'Personal Reflection'}"
+- Source Type: ${sourceType}
+- Curator's Core Slant / Take: "${userSlant || curatorTake || ''}"
+- Signed Slant Pullquote: "${curatorTake}"
+${spark ? `- Spark / Personal Context: "${spark}"` : ''}
+${scrapedContent ? `- Source Excerpt: "${String(scrapedContent).slice(0, 1800)}"` : ''}${ledgerText}
+${customDirection ? `\nCRITICAL CURATOR DIRECTION FOR THIS REWRITE: "${customDirection}"` : ''}
+
+STRICT ESSAY STRUCTURE (180-210 WORDS TOTAL ACROSS 3 PARAGRAPHS):
+1. ${styleInstruction}
+2. Paragraph 1 (60-70 words, 3-4 sentences): Strong opening observation connecting the curator's angle to the catalyst/source (designed for a broadsheet dropcap).
+3. Paragraph 2 (60-70 words, 3-4 sentences): Deepen the argument by engaging the concrete facts, friction, or lived reality.
+4. Paragraph 3 (55-65 words, 3 sentences): Human or civic stakes and lasting resolution.
+5. "whyItMatters" (18-26 words, 1-2 sentences): Crisp concluding reflection (must NOT repeat the curatorTake verbatim).
+6. STRICT BAN ON EM DASHES: Never use em dashes, en dashes, or "--". Use commas, semicolons, or periods.
+7. Stay 100% faithful to the curator's voice, proper nouns, and perspective without fabricating unstated claims.
+
+Respond strictly with valid JSON:
+{
+  "resolvedArticleExcerpts": [
+    "Paragraph 1 (60-70 words, pure prose without labels)",
+    "Paragraph 2 (60-70 words, pure prose without labels)",
+    "Paragraph 3 (55-65 words, pure prose without labels)"
+  ],
+  "whyItMatters": "18-26 word concluding reflection sentence"
+}`;
+
+      try {
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 30000);
+        const geminiResp = await fetch(geminiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+              temperature: 0.65,
+              thinkingConfig: { thinkingBudget: 0 },
+              responseMimeType: 'application/json'
+            }
+          }),
+          signal: controller.signal
+        });
+        clearTimeout(timeout);
+
+        if (geminiResp.ok) {
+          const geminiData = await geminiResp.json();
+          let raw = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          raw = raw.trim().replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```$/i, '').trim();
+          const parsed = JSON.parse(raw);
+          if (parsed && Array.isArray(parsed.resolvedArticleExcerpts) && parsed.resolvedArticleExcerpts.length > 0) {
+            const cleanParas = parsed.resolvedArticleExcerpts
+              .map(p => String(p || '').replace(/^(paragraph \d+|the spark|curator stance)\s*:\s*/i, '').replace(/\s*([\u2014\u2013\u2015]|--)\s*/g, ', ').trim())
+              .filter(Boolean);
+            const cleanWhy = String(parsed.whyItMatters || '').replace(/\s*([\u2014\u2013\u2015]|--)\s*/g, ', ').trim();
+            return res.status(200).json({
+              success: true,
+              resolvedArticleExcerpts: cleanParas,
+              summary: cleanParas.join('\n\n'),
+              whyItMatters: cleanWhy
+            });
+          }
+        }
+        return res.status(500).json({ success: false, error: 'Could not regenerate essay. Please try again.' });
+      } catch (err) {
+        return res.status(500).json({ success: false, error: err.message || 'Essay regeneration failed' });
+      }
+    }
+
     // Direct Single-Purpose Endpoint: Polish & Review Take with Pedagogical Highlighters
     if (body && (body.action === 'polish_take' || body.action === 'review_take')) {
       const { text = '', slantTake = '' } = body;
@@ -596,9 +914,16 @@ Respond strictly with valid JSON with this exact structure:
     if (!userEmail) {
       return res.status(401).json({ error: 'Slant Studio is currently in Private Preview. Please sign in with your invited Google account.' });
     }
-    const isAllowed = await verifyEmailIsWhitelisted(userEmail);
-    if (!isAllowed) {
+    const creditCheck = await verifyAndConsumeUserCredit(userEmail, true);
+    if (!creditCheck.allowed) {
       return res.status(403).json({ error: 'Slant Studio is currently in Private Preview by invitation only.' });
+    }
+    if (!creditCheck.hasCredits) {
+      return res.status(429).json({
+        error: '⚡ Your daily Slant poster credits are used up for today. Ask the curator admin for an instant credit top-up or continue tomorrow!',
+        creditsExhausted: true,
+        credits: creditCheck.credits
+      });
     }
 
     const userSlant = (slantTake || text || '').trim();
@@ -899,70 +1224,73 @@ CRITICAL SLANT EDITORIAL CONTRACT (CURATOR THOUGHTS IN SUBSTANTIVE DIALOGUE WITH
 - In Poster 3 ("THE RECEIPTS & BROADSHEET REPORT"): Deliver a rich, substantive 3-paragraph broadsheet editorial where the curator's stance is ELABORATED IN DIRECT, DETAILED DIALOGUE WITH THE SOURCE FACTS, DATA, AND ARGUMENTS. Directly engage with the author's/speaker's concrete concepts, figures, claims, or institutional developments, using them to substantiate, deepen, and prove the curator's stance.
 
 ${visualFocusDirective}
-${sourceType === 'inner_voice' ? `CRITICAL INNER VOICE & LIVED EXPERIENCE DIRECTIVE:
-- This is an INNER VOICE perspective rooted in the curator's personal life, emotional experience, philosophical stance, or daily human reality (e.g. travel anticipation, family moments, work-life balance, craft, relief).
-- MATCH THE EMOTIONAL ENERGY OF THE USER'S CONTEXT:
-  * If the user is excited about a vacation, Kerala trip, beach, hills, or time with family, MATCH THAT VIBRANT EXCITEMENT AND ANTICIPATION!
-  * NEVER produce gloomy, melodramatic, depressing headlines like "The Heavy Art of Leaving Real Life Behind"!
-  * Frame the friction as relatable, humorous, and heartwarming pre-trip scramble (packing, forgotten items, last emails, excitement of what lies ahead).
-- IN POSTER 1 ("VISUAL HOOK"):
-  * Headline MUST be vibrant, positive, memorable, and directly relevant to their story (e.g. "The Sweet Rush Before the Backwaters", "Trading Pending Tabs for Kerala Sun", "When Packing Chaos Meets Pure Anticipation", "The Art of Finally Switching Off").
-  * The Hook sentence must capture the excitement and relatable rush of preparing for the journey.
-- IN POSTER 2 ("THE CRITICAL PERSPECTIVE" / curatorTake):
-  * Ground the conviction directly in their specific context (Kerala, the trip, the son's reminder, closing pending tasks, the relief of the break).
-  * STRICT BAN: NEVER echo the user's raw input slant verbatim! You MUST synthesize an articulate, elevated 2-sentence editorial conviction (EXACTLY 2 complete sentences, 25-35 words total, ending definitively with a period) that refines their thoughts into an inspiring insight.
-  * In "keyTakeaways", give 3 sharp, uplifting insights about breaking away, presence over perfection, and why the destination makes the frantic packing worth it.
-- IN POSTER 3 ("THE RECEIPTS & CORE CONVICTION" / resolvedArticleExcerpts):
-  * Deliver exactly 3 substantive, evocative broadsheet narrative paragraphs (each 60-75 words, 3-4 full sentences; 180-220 words total):
-    1. Paragraph 1 (Scene & Catalyst): Ground the situation in sensory detail around the spark ("${spark}"): the open suitcases, packing lists, children holding forgotten travel items, and the rush to close remaining tasks.
-    2. Paragraph 2 (The Turning Point): The joyful realization when you realize work will never be 100% finished, but vacation countdown waits for no one.
-    3. Paragraph 3 (The Lasting Truth): A deep, warm closing reflection on Kerala's tranquil backwaters, green hills, and why presence with family is the greatest luxury.
-  * STRICT BAN: NEVER prefix paragraphs with labels like "The spark:", "Curator stance:", "Paragraph 1:", or bullet points! Output pure, narrative broadsheet text.
-- IN "originalHeadline":
-  * Set to the spark statement or a refined 6–12 word hook of the spark (e.g. "When a forgotten packing item breaks the work trance and signals the escape"). NEVER set to the raw user slant.
-- IN "illustrationPrompt":
-  * Describe a warm, colorful, sunny scene of real people packing or getting ready, with smiling illuminated faces, colorful room, suitcase, tropical palms visible through window, warm golden light.
-  * Explicitly instruct: "Realistic people with clearly visible smiling faces, warm daylight, vibrant colors, Kerala palm trees, cheerful atmosphere, highly detailed, no silhouettes, no dark shadows, no faceless figures, no text".` : (userSlant ? `CRITICAL POLISHED CURATOR INPUT DIRECTIVE:
+${userSlant ? `CRITICAL PROPER-NOUN, ORGANIZATION & CULTURAL ENTITY FIDELITY RULE:
+- Every specific organization, institution, movement, festival, deity, historical milestone, or proper noun explicitly named by the curator in "${userSlant}"${spark ? ` or "${spark}"` : ''} (such as "RSS", "Vijayadashami", "Swayamsevaks", "Maa Bharati", "Durga", "Shakti", "Pathasanchalan", or any named nation, company, or leader) MUST be explicitly named and preserved across Poster 1 ("hook"), Poster 2 ("curatorTake"), and Poster 3 ("summary" and "resolvedArticleExcerpts").
+- STRICT BAN ON SANITIZATION OR OMISSION: NEVER drop, generalize, or replace named organizations (like "RSS") with vague euphemisms like "this movement" or "community group". If the curator explicitly mentions "RSS" (e.g. "Vijayadashami, the founding day of RSS"), you MUST explicitly name "RSS" in Poster 2 ("curatorTake") and in the opening paragraph of Poster 3 ("summary" / "resolvedArticleExcerpts")!
+
+CRITICAL POLISHED CURATOR INPUT DIRECTIVE:
 - The curator provided their authentic stance: "${userSlant}".
 - In "polishedCuratorTake": Polish the curator's exact input for grammar, spelling, punctuation, capitalization, and smooth phrasing flow.
 - STRICT REQUIREMENTS FOR "polishedCuratorTake":
-  * 100% PRESERVATION: Retain 100% of the curator's original thoughts, arguments, conviction, personal voice, style, and full length.
+  * 100% PRESERVATION: Retain 100% of the curator's original thoughts, arguments, conviction, proper nouns, organizations, personal voice, style, and full length.
   * ZERO SUMMARIZATION: Do NOT summarize, cut short, or compress their take into 2 sentences.
   * ZERO ALTERATION: Do NOT change the curator's stance or introduce unsolicited opinions. It is purely gentle grammar and phrase correction.
   * ZERO EM-DASHES: NEVER use em-dashes ("—"), en-dashes ("–"), or double hyphens ("--"). They scream artificial AI generation. Connect clauses with natural commas, semicolons, or standard punctuation so it feels authentic and human.
 CRITICAL POSTER 2 DIRECTIVE (PULL-QUOTE DERIVED DIRECTLY FROM CURATOR INPUT):
 ${refineCoreTake ? `- Poster 2 ("THE CRITICAL PERSPECTIVE" / curatorTake) is an authentic, high-impact PULL-QUOTE (EXACTLY 2 complete sentences, 25-35 words total, ending definitively with a period).
 - EDITORIAL PULL-QUOTE METHOD (CULL & TIGHTEN, NEVER REINVENT):
-  * DO NOT throw away the user's authentic words to invent stiff corporate or NGO rhetoric (e.g. NEVER write "Unprecedented deluges remind us that...", "natural systems pushed beyond capacity", or "cooperative sustainable living").
+  * DO NOT throw away the user's authentic words or named organizations/subjects to invent generic slogans.
   * Identify the author's STRONGEST, MOST VIVID core lines from: "${userSlant}".
-  * RETAIN their powerful metaphors, idioms, and contrasts (e.g. "bring the richest and strongest among us to their knees", "what humanity is truly worth in front of nature", "narrow perspective", "small mistakes", "live selflessly").
+  * RETAIN their explicit proper nouns, organizations (e.g. "RSS", "Vijayadashami", "Maa Bharati"), metaphors, idioms, and contrasts.
   * Polish the grammar, articles, and prepositions so their authentic voice rings with crisp, effortless, natural English.` : `- USE TAKE AS-IS (VERBATIM): The curator chose to keep their exact typed take as-is on Poster 2.
-- In "curatorTake", you MUST output the curator's authentic take: "${userSlant}" verbatim without rephrasing or altering their sentence structure.`}` : '')}
+- In "curatorTake", you MUST output the curator's authentic take: "${userSlant}" verbatim without rephrasing or altering their sentence structure.`}` : ''}
+${sourceType === 'inner_voice' ? `CRITICAL INNER VOICE & LIVED EXPERIENCE DIRECTIVE (ELABORATE USER VOICE ONLY, ZERO CONCEPT FABRICATION):
+- This is an INNER VOICE perspective rooted in the curator's personal life, emotional experience, philosophical stance, or daily human reality.
+- MATCH THE EXACT EMOTIONAL ENERGY & SUBJECT OF THE USER'S INPUT:
+  * Faithfully mirror the specific topic, mood, setting, and emotional warmth present in "${userSlant}"${spark ? ` and "${spark}"` : ''}.
+  * NEVER inject unrelated travel, vacation, or packing tropes unless the curator's input is explicitly about a trip.
+  * NEVER produce gloomy or melodramatic headlines when the curator's reflection is warm, proud, or celebratory.
+- ZERO CONCEPT FABRICATION (1:1 STRUCTURAL ELABORATION):
+  * You are elaborating the curator's own thoughts, NOT writing your own opinion or inventing unmentioned subplots.
+  * Map the curator's input directly across the 3 broadsheet paragraphs in Poster 3 ("summary" and "resolvedArticleExcerpts", 180-220 words total):
+    1. Paragraph 1 (The Moment / Concrete Catalyst, 60-70 words, 3-4 sentences): Unpack the opening trigger, scene, or concrete observation described by the curator${spark ? ` ("${spark}")` : ''}. Strong opening for the broadsheet dropcap.
+    2. Paragraph 2 (Why It Matters / The Underlying Tension, 60-75 words, 3-4 sentences): Elaborate the curator's reasoning, contrast, or turning point, explaining why this moment stood out and what deeper dynamics are at play in their own words and logic.
+    3. Paragraph 3 (The Core Conviction / Lasting Truth, 55-70 words, 3 sentences): Articulate the curator's closing takeaway, personal truth, or principle for living/working/parenting.
+  * STRICT BAN: NEVER prefix paragraphs with labels like "The spark:", "Curator stance:", "Paragraph 1:", or bullet points! Output pure, narrative broadsheet text.
+- IN "originalHeadline":
+  * Set to the spark statement or a refined 6 to 12 word hook capturing the catalyst moment. NEVER set to the raw full-length user slant.` : ''}
 ${sourceType === 'video_audio' ? `CRITICAL VIDEO & AUDIO BROADCAST DIRECTIVE:
 - This slant is rooted in a VIDEO or AUDIO broadcast (e.g. YouTube interview, podcast episode, keynote, or debate).
 - Mental model: "I watched/listened to something that sparked a reaction."
 - Frame the adapted headline with the immediacy, conversational tension, or contrarian takeaway of a spoken dialogue.
 - Poster 2 ("THE CRITICAL PERSPECTIVE" / curatorTake): Capture the key realization, counter-slant, or pushback against what was said in the broadcast.` : ''}
-${userSlant && sourceType !== 'inner_voice' ? `CRITICAL POSTER 3 DIRECTIVE (ELABORATED USER TAKE IN DIALOGUE WITH SOURCE):
+${userSlant && sourceType !== 'inner_voice' ? `CRITICAL POSTER 3 DIRECTIVE (ELABORATED USER TAKE IN DIALOGUE WITH SOURCE, ZERO CONCEPT FABRICATION):
 - Poster 3 is the curator's broadsheet essay where the curator's stance/take is ELABORATED IN DIRECT CONNECTION WITH THE ATTACHED SOURCE.
 - It must NOT be a dry, third-person summary or detached book report of the source piece (the objective source ledger is already accessible to the reader on tap from Posters 1 & 2).
-- Poster 3 must synthesize the curator's perspective into a substantive 3-paragraph broadsheet editorial:
-  * Paragraph 1 (The Catalyst & The Modern Friction): The curator's opening thesis connecting their personal conviction/angle to the core dilemma explored by the source author/speaker (exactly 50-60 words, 3 concise sentences with strong opening for dropcap).
-  * Paragraph 2 (Engaging the Source in Depth): Directly engage with the author's/speaker's concrete concepts, arguments, or data points (e.g. citing specific teachings, findings, or claims), using them to substantiate and deepen the curator's stance (exactly 45-55 words, 2-3 sentences).
-  * Paragraph 3 (The Human Stakes & Prescriptive Resolution): Detail the deeper personal, familial, or societal implications, offering an intentional boundary or forward-looking resolution (exactly 40-50 words, 2 sentences).
-- STRICT BAN: Never echo the user's raw slant verbatim across paragraphs! Elaborate the thought with depth, narrative richness, and intellectual conviction. Output pure broadsheet paragraphs without labels like "Paragraph 1:".
+- ZERO CONCEPT FABRICATION (1:1 STRUCTURAL ELABORATION):
+  * Do NOT invent opinions or arguments the curator did not express. Unpack and elaborate the curator's own stance across 3 broadsheet paragraphs (180-220 words total):
+  * Paragraph 1 (The Moment / Catalyst & Modern Friction, 60-70 words, 3-4 sentences): The curator's opening observation connecting their personal angle to the core trigger or dilemma in the source (strong opening for broadsheet dropcap).
+  * Paragraph 2 (Why It Matters / Engaging the Source, 60-75 words, 3-4 sentences): Elaborate the curator's reasoning and tension in direct dialogue with the source's concrete facts, claims, or figures to substantiate their critique.
+  * Paragraph 3 (Core Conviction / Human Stakes & Resolution, 55-70 words, 3 sentences): Detail the personal, human, or societal stakes of the curator's conviction and their lasting takeaway.
+- STRICT BAN: Never echo the user's raw slant verbatim across paragraphs! Elaborate the thought with depth, narrative richness, and intellectual conviction while staying 100% faithful to the user's voice. Output pure broadsheet paragraphs without labels like "Paragraph 1:".
 - "keyTakeaways": Exactly 3 sharp, structured conviction principles formulated from the elaborated take in dialogue with the source (each exactly 10-13 words with bold title prefix, e.g. "Title: Core insight").
 - "receiptHighlightQuote": A poignant, high-impact core conviction sentence (exactly 18-22 words) capturing the heart of the curator's stance in connection with the source.` : ''}
 
 CRITICAL POSTER 3 "1-MINUTE READ" ESSAY DIRECTIVE:
 Poster 3 ("SLANT MINUTE" / 60-SEC BROADSHEET) is a pure, substantive broadsheet essay in paragraphs.
 It MUST strictly target 180 to 220 words total for the 3-paragraph essay itself in "summary" (and "resolvedArticleExcerpts"):
-- Paragraph 1: 60-70 words (strong opening for broadsheet dropcap)
-- Paragraph 2: 60-75 words (core elaboration and conceptual depth)
-- Paragraph 3: 55-70 words (human stakes, lasting conviction, and forward-looking resolution)
+- Paragraph 1: 60-70 words (strong opening for broadsheet dropcap; fits cleanly on Page 1)
+- Paragraph 2: 60-75 words (core elaboration and conceptual depth; completes Page 1 without orphan splits)
+- Paragraph 3: 55-70 words (human stakes, lasting conviction, and forward-looking resolution; anchors Page 2 above the reflection box)
 TOTAL ESSAY: 180-220 words for an authentic 1-minute read.
-The curator's intellectual perspective, conviction, and provided context must be deeply carried and elaborated throughout.
+The curator's intellectual perspective, conviction, and provided context must be deeply carried and elaborated throughout without inventing unrequested concepts.
 If a catalyst photo is attached, subtly ground the atmosphere where natural, but NEVER compromise the curator's perspective or intellectual depth for scene description filler.
+CRITICAL CULTURAL, INSTITUTIONAL & UNIFORM VISUAL AUTHENTICITY DIRECTIVE (FOR "illustrationPrompt" AND CUES):
+- Whenever the input references a specific real-world organization, cultural march, historical uniform, or traditional ceremony, your "illustrationPrompt" and visual cues MUST specify exact, encyclopedically accurate attire, headgear, and posture with strict negative constraints against AI hallucinations:
+  * If RSS (Rashtriya Swayamsevak Sangh), Swayamsevaks, or Pathasanchalan (route march) is referenced:
+    1. UNIFORM (GANAVESH): Crisp FULL-SLEEVED (long-sleeved) white buttoned collared shirt tucked neatly into khaki-brown full-length trousers with a brown belt and black lace-up shoes (strictly NO short-sleeved or half-sleeved shirts).
+    2. HEADGEAR (KALI TOPI): Traditional Indian foldable boat-shaped black cloth cap (Gandhi-cap / boat-cap geometry with a central lengthwise crease) worn straight and centered on the head. STRICT BAN: NEVER write "side cap" or "beret", NEVER draw round military berets, and strictly NO metal badges, police crests, or emblems on the cap!
+    3. STAFF (DANDA / LATHI) & FLAGS: Swayamsevaks march carrying a plain unadorned wooden bamboo staff (danda) resting at a 45-degree angle on the right shoulder or held at their side. STRICT BAN: NEVER attach or tie flags onto the swayamsevaks' bamboo staffs/lathis like spears, and strictly NO "Om" symbols or text on flags! Any saffron flag (Bhagwa Dhwaj) must only be a plain unadorned saffron two-pennant flag on a single standalone flagpole in the background, separate from the marching ranks.
 ${cues && cues.length > 0 ? `CRITICAL VISUAL RULE: The Hook poster artwork and cues MUST be anchored in #1 HERO: "${cues[0]}", incorporating #2 MOTIF: "${cues[1] || ''}" and #3 TENSION: "${cues[2] || ''}".` : ''}
 
 Respond strictly with valid JSON with this exact structure:
@@ -1386,7 +1714,8 @@ Respond strictly with valid JSON with this exact structure:
 
     return res.status(200).json({
       success: true,
-      post: postItem
+      post: postItem,
+      credits: creditCheck.credits
     });
   } catch (error) {
     console.error('Server error in /api/synthesize:', error);
@@ -1973,19 +2302,19 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
   }
 
   const imageModels = [
-    'gemini-2.5-flash-image',
-    'gemini-3.1-flash-image',
-    'gemini-3.1-flash-lite-image'
+    'gemini-2.5-flash-image'
   ];
 
   let enhancedPrompt = prompt || '';
 
   // Detect family context with 2 sons or family group (strictly requires explicit family cast or personal first-person context)
-  const hasTwoSons = /\b(two sons|2 sons|both boys|two boys|elder son.*younger son|elder brother.*younger brother)\b/i.test(enhancedPrompt);
-  const hasFamilyContext = hasTwoSons || (activeCast && Array.isArray(activeCast.members) && activeCast.members.length > 0) || /\b(my family.*temple|my family.*trip|me, wife and 2 sons|road trip with my family)\b/i.test(enhancedPrompt);
+  const isSingleProtagonist = /\b(sole protagonist|exactly one protagonist|single protagonist|lone protagonist)\b/i.test(enhancedPrompt);
+  const hasTwoSons = !isSingleProtagonist && /\b(two sons|2 sons|both boys|two boys|elder son.*younger son|elder brother.*younger brother)\b/i.test(enhancedPrompt);
+  const hasExplicitFamilyGroup = !isSingleProtagonist && /\b(whole family|entire family|all 4 of us|all four of us|family of four|family portrait|parents and children|with my wife and kids|with my family|me, wife and 2 sons|road trip with my family)\b/i.test(enhancedPrompt);
+  const hasFamilyContext = hasTwoSons || hasExplicitFamilyGroup;
   const isIndianFamilyCast = (!countryContext || /india/i.test(countryContext));
 
-  if ((hasTwoSons || hasFamilyContext) && isIndianFamilyCast) {
+  if (hasFamilyContext && isIndianFamilyCast) {
     const headcountAnchor = 'GROUP PORTRAIT OF EXACTLY FOUR (4) DISTINCT INDIVIDUAL PEOPLE VISIBLE SIDE BY SIDE (3 MALES, 1 FEMALE). STRICT COUNT = 4 PEOPLE: 1) Adult Father (man, mid 40s) with sturdy broad-shouldered build, 2) Adult Mother (woman, mid 30s) with natural healthy medium adult build (strictly not ultra-slim or runway model thin), 3) Elder Son (11-year-old pre-teen boy) reaching father chest level with healthy sturdy youth build and square shoulders (not skinny, not frail), 4) Younger Son (7-year-old young schoolboy) noticeably shorter reaching older brother shoulder with healthy solid child proportions. REALISTIC NATURAL HUMAN BUILDS, STRICT BAN ON SKINNY OR WAIF-LIKE BODIES. BOTH SONS ARE SEPARATE INDIVIDUAL PEOPLE. STRICT BAN ON MERGING: Do NOT draw only one child; both the 11yo boy and 7yo boy must be fully drawn side by side. ';
     if (!enhancedPrompt.includes('EXACTLY FOUR') && !enhancedPrompt.includes('STRICT COUNT = 4')) {
       enhancedPrompt = headcountAnchor + enhancedPrompt;
@@ -2023,6 +2352,26 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
   // Country Setting Anchor for General Editorial Posters
   if (countryContext && countryContext !== 'Global' && !enhancedPrompt.toLowerCase().includes(countryContext.toLowerCase())) {
     enhancedPrompt = `${countryContext} regional setting and authentic cultural atmosphere, ${enhancedPrompt}`;
+  }
+
+  // Encyclopedic Uniform & Cultural Accuracy Enforcer for RSS / Swayamsevak / Pathasanchalan
+  if (/\b(rss|swayamsevak|swayamsevaks|pathasanchalan|ganavesh)\b/i.test(enhancedPrompt)) {
+    enhancedPrompt = enhancedPrompt
+      .replace(/\b(?:short-sleeved|half-sleeved)\s+white\s+(?:collared\s+)?shirts?\b/gi, 'full-sleeved long-sleeved white buttoned collared shirts with full sleeves down to the wrists')
+      .replace(/\bblack\s+side\s+caps?\b/gi, 'traditional Indian foldable boat-shaped black cloth Kali Topi caps (Gandhi-cap boat geometry worn straight on the head, strictly NOT round military berets and strictly NO metal badges or insignia on the caps)')
+      .replace(/\b(?:holding|carrying)\s+(?:traditional\s+)?(?:polished\s+)?wooden\s+lathis?\b/gi, 'carrying plain unadorned wooden bamboo staffs (dandas) resting at a 45-degree angle on their right shoulders (strictly plain bamboo sticks with NO flags tied or mounted on the staffs)');
+    if (!/strictly NOT round military berets/i.test(enhancedPrompt)) {
+      enhancedPrompt += '. AUTHENTIC RSS GANAVESH UNIFORM SPECIFICATION: Full-sleeved (long-sleeved) white buttoned shirts tucked into khaki-brown full trousers, traditional Indian foldable boat-shaped black cloth caps (Kali Topi worn straight like a boat cap, strictly NOT military berets and strictly NO metal badges or emblems on the front of the cap), carrying plain wooden bamboo staffs (dandas) resting on their right shoulders with strictly NO flags attached to the staffs and NO symbols or text on any flag.';
+    }
+  }
+
+  // Complete Human Anatomy & Limb Integrity Enforcer (Prevents missing legs / legless torsos on chairs / floating bodies)
+  if (/\b(sits|sitting|seated)\b/i.test(enhancedPrompt) && /\b(chair|sofa|couch|bench|stool|floor)\b/i.test(enhancedPrompt)) {
+    if (!/\b(trousers|pants|jeans|chinos|feet resting on the floor)\b/i.test(enhancedPrompt)) {
+      enhancedPrompt += '. COMPLETE HUMAN ANATOMY & LOWER-BODY INTEGRITY: Every seated person MUST have complete, natural, anatomically connected full legs wearing trousers/pants extending downward from the seat with both feet resting naturally on the floor (or framed cleanly as a waist-up medium portrait). STRICT BAN on legless torsos, missing legs, amputated limbs, cross-legged stumps on chairs, or bodies merging into chair seats.';
+    }
+  } else {
+    enhancedPrompt += '. Complete natural human anatomy with intact connected limbs, strictly no missing legs or floating torsos.';
   }
 
   const isPhotoMedium = /photograph|film still|35mm|photojournalism|documentary|editorial portrait photograph/i.test(enhancedPrompt);
@@ -2382,7 +2731,16 @@ function detectRelevantCastMembers(combined = '', cast = null) {
   const c = String(combined || '').toLowerCase();
   const members = (cast && Array.isArray(cast.members)) ? cast.members : [];
 
-  const mentionsCollective = /\b(my family|our family|my kids|our kids|my sons|our sons|both my boys|both our boys|my children|our children|11 and 7|11yo and 7yo|road trip with my family|vacation with my family)\b/i.test(c);
+  // 0. First-Person Separation / Solitude Scene:
+  // When the narrator (Father / Self) writes that he is alone, stuck in one city while wife/kids are away,
+  // or missing/waiting for them to return, the present-tense visual HERO is exclusively Father / Self (Shridhar)!
+  const isNarratorAloneMissingFamily = /\b(i am alone|being alone|stuck in [a-z]+ while|miss them|missing them|how much i miss|waiting for them|when my wife is out|feeling of separation|feeling of separateness)\b/i.test(c);
+  if (isNarratorAloneMissingFamily) {
+    const selfMember = members.find(m => m.relationship === 'self') || { id: 'member_father' };
+    return new Set([selfMember.id]);
+  }
+
+  const mentionsCollective = /\b(my family|our family|the four of us|all four of us|my kids|our kids|my sons|our sons|both my boys|both our boys|my children|our children|11 and 7|11yo and 7yo|road trip with my family|vacation with my family)\b/i.test(c);
   if (mentionsCollective) {
     return new Set(members.map(m => m.id));
   }
@@ -2432,13 +2790,13 @@ function detectRelevantCastMembers(combined = '', cast = null) {
     }
   });
 
-  // 4. Guardian / Accompanying Parent Context:
-  // If one of the children is in the scene (e.g. learning cycle, drawing, playing)
-  // and the narrative is in first-person ("I remain by his side", "beside him", "support him", "with me", "holding my hand", "I watched him", "I stood"):
-  // The accompanying adult is specifically Father / Self (Shridhar), NOT the mother!
+  // 4. First-Person Narrator Participation:
+  // If the narrator ("I / me / my") is actively participating alongside spouse or children
+  // (e.g. "between Aru and me", "with me", "I remain by his side", "beside him"), include Father / Self!
   const hasChild = detected.has('member_elder_son') || detected.has('member_younger_son');
-  const hasFirstPersonGuardian = /\b(i remain|i am|by my side|by his side|beside him|beside her|with me|holding my hand|teaching him|walked with him|support him|safe from|i watched|i stood|standing beside him|watching him|as i see|as i saw)\b/i.test(c);
-  if (hasChild && hasFirstPersonGuardian) {
+  const hasSpouse = detected.has('member_mother');
+  const hasFirstPersonCoPresence = /\b(and me|with me|between .* and me|i remain|by my side|by his side|beside him|beside her|holding my hand|teaching him|walked with him|support him|i stood|standing beside)\b/i.test(c);
+  if ((hasChild || hasSpouse) && hasFirstPersonCoPresence) {
     detected.add('member_father');
   }
 
@@ -2461,15 +2819,15 @@ function buildFamilyCastDirectives({ familyCast, activeCast, castStaging, userSl
   }
 
   let activeMembers = [];
-  if (hasExplicitCast) {
+  if (hasExplicitCast && activeCast.manuallySelected) {
     activeMembers = activeCast.members;
-    // If client sent all 4 members by default, refine to the detected members if detectedIds is non-empty
-    if (activeMembers.length > 1 && detectedIds.size > 0 && detectedIds.size < activeMembers.length) {
-      const refined = activeMembers.filter(m => detectedIds.has(m.id));
-      if (refined.length > 0) activeMembers = refined;
-    }
-  } else {
+  } else if (detectedIds.size > 0) {
     activeMembers = (cast.members || []).filter(m => detectedIds.has(m.id));
+    if (activeMembers.length === 0 && hasExplicitCast) {
+      activeMembers = activeCast.members;
+    }
+  } else if (hasExplicitCast) {
+    activeMembers = activeCast.members;
   }
 
   if (activeMembers.length === 0) {
@@ -2491,11 +2849,12 @@ function buildFamilyCastDirectives({ familyCast, activeCast, castStaging, userSl
   const femaleCount = totalCount - maleCount;
 
   if (isSoloProtagonist) {
-    directives.push(`SOLE PROTAGONIST DIRECTIVE:
+    directives.push(`SOLE PROTAGONIST & COMPLETE HUMAN ANATOMY DIRECTIVE:
 - VISIBLE INDIVIDUALS: EXACTLY 1 PERSON (${soloMember.name || soloMember.roleLabel}).
 - THE SCENE FOCUSES ENTIRELY ON THIS SINGLE PROTAGONIST.
-- STRICT BAN ON EXTRA CHARACTERS: Strictly do NOT draw other family members, parents, or siblings. The scene is solely about ${soloMember.name || soloMember.roleLabel}.`);
-    promptSnippets.push(`solo portrait of exactly 1 person: ${soloMember.name || soloMember.roleLabel} as the sole protagonist, strictly no other family members or extra people`);
+- STRICT BAN ON EXTRA CHARACTERS: Strictly do NOT draw other family members, parents, or siblings. The scene is solely about ${soloMember.name || soloMember.roleLabel}.
+- COMPLETE HUMAN ANATOMY & LOWER-BODY INTEGRITY: If the protagonist is seated on a chair, sofa, or bench, you MUST explicitly specify their lower-body attire (e.g. wearing dark trousers/chinos or jeans) with both full legs extending downward and both feet resting naturally on the floor, OR frame the shot as a clean waist-up medium portrait. STRICTLY NEVER describe a person sitting on a chair alongside "empty chairs" without specifying their full legs and trousers on the floor (to prevent legless torso hallucinations).`);
+    promptSnippets.push(`solo portrait of exactly 1 person: ${soloMember.name || soloMember.roleLabel} as the sole protagonist with complete natural human anatomy (full connected legs in trousers with feet resting on the floor or waist-up medium portrait), strictly no other family members or extra people`);
   } else {
     // 0. Mandatory Exact Headcount & Enumeration
     directives.push(`MANDATORY EXACT HEADCOUNT & ANTI-MERGING DIRECTIVE:

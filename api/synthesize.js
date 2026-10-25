@@ -503,6 +503,216 @@ module.exports = async function handler(req, res) {
       }
     }
 
+    // Selective Regeneration Endpoint 1: Regenerate Headline & Slant Note Only (~₹0.12, zero image cost)
+    if (body && body.action === 'regenerate_headline') {
+      const {
+        adaptedHeadline = '',
+        originalHeadline = '',
+        curatorTake = '',
+        userSlant = '',
+        summary = '',
+        sourceType = 'digital_link',
+        vocabularyStyle = 'punchy',
+        customDirection = ''
+      } = body;
+
+      const styleInstruction = (vocabularyStyle === 'literary')
+        ? 'Use elevated, literary broadsheet phrasing with rich cadence.'
+        : (vocabularyStyle === 'casual')
+          ? 'Use clear, conversational, everyday English that feels warm and accessible.'
+          : 'Use punchy, high-contrast, hard-hitting editorial phrasing.';
+
+      const prompt = `You are the Executive Editor of SLANT.
+The curator wants to regenerate ONLY the Headline ("adaptedHeadline") and the 2-sentence Signed Slant Note ("curatorTake") for their post, while keeping their existing broadsheet essay and poster artwork untouched.
+
+CONTEXT OF THE POST:
+- Source / Original Topic: "${originalHeadline || 'Personal Reflection'}"
+- Source Type: ${sourceType}
+- Curator's Core Slant / Take: "${userSlant || curatorTake || ''}"
+- Current Adapted Headline: "${adaptedHeadline}"
+- Current Signed Slant Note: "${curatorTake}"
+- Broadsheet Essay Body: "${String(summary || '').slice(0, 900)}"
+${customDirection ? `- Curator's Specific Direction for this Regeneration: "${customDirection}"` : ''}
+
+EDITORIAL RULES:
+1. ${styleInstruction}
+2. Generate 3 distinct, compelling options so the curator can pick their favorite angle (or use Option 1 immediately):
+   - Option 1 ("Direct & Punchy"): Sharp, decisive editorial headline (6-10 words) + 2-sentence signed slant note (24-34 words).
+   - Option 2 ("Contrarian / Provocative"): Challenges conventional wisdom (6-10 words) + 2-sentence signed slant note (24-34 words).
+   - Option 3 ("Human & Reflective"): Focuses on the human/civic stakes (6-10 words) + 2-sentence signed slant note (24-34 words).
+3. STRICT BAN ON EM DASHES: Never use em dashes, en dashes, or "--". Use commas, colons, or periods.
+4. Stay 100% faithful to the curator's actual stance and proper nouns. Do NOT invent unstated opinions.
+
+Respond strictly with valid JSON:
+{
+  "options": [
+    {
+      "label": "Direct & Punchy",
+      "adaptedHeadline": "6-10 word headline",
+      "curatorTake": "2 complete sentences (24-34 words total)"
+    },
+    {
+      "label": "Contrarian Angle",
+      "adaptedHeadline": "6-10 word headline",
+      "curatorTake": "2 complete sentences (24-34 words total)"
+    },
+    {
+      "label": "Human Stakes",
+      "adaptedHeadline": "6-10 word headline",
+      "curatorTake": "2 complete sentences (24-34 words total)"
+    }
+  ]
+}`;
+
+      try {
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 25000);
+        const geminiResp = await fetch(geminiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+              temperature: 0.75,
+              thinkingConfig: { thinkingBudget: 0 },
+              responseMimeType: 'application/json'
+            }
+          }),
+          signal: controller.signal
+        });
+        clearTimeout(timeout);
+
+        if (geminiResp.ok) {
+          const geminiData = await geminiResp.json();
+          let raw = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          raw = raw.trim().replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```$/i, '').trim();
+          const parsed = JSON.parse(raw);
+          if (parsed && Array.isArray(parsed.options) && parsed.options.length > 0) {
+            const cleanOptions = parsed.options.map(opt => ({
+              label: String(opt.label || 'Editorial Option').trim(),
+              adaptedHeadline: String(opt.adaptedHeadline || adaptedHeadline).replace(/\s*([\u2014\u2013\u2015]|--)\s*/g, ': ').trim(),
+              curatorTake: String(opt.curatorTake || curatorTake).replace(/\s*([\u2014\u2013\u2015]|--)\s*/g, ', ').trim()
+            }));
+            return res.status(200).json({
+              success: true,
+              options: cleanOptions,
+              adaptedHeadline: cleanOptions[0].adaptedHeadline,
+              curatorTake: cleanOptions[0].curatorTake
+            });
+          }
+        }
+        return res.status(500).json({ success: false, error: 'Could not regenerate headline options. Please try again.' });
+      } catch (err) {
+        return res.status(500).json({ success: false, error: err.message || 'Headline regeneration failed' });
+      }
+    }
+
+    // Selective Regeneration Endpoint 2: Regenerate Broadsheet Essay Only (~₹0.35, zero image cost)
+    if (body && body.action === 'regenerate_essay') {
+      const {
+        adaptedHeadline = '',
+        originalHeadline = '',
+        curatorTake = '',
+        userSlant = '',
+        spark = '',
+        scrapedTitle = '',
+        scrapedContent = '',
+        sourceLedger = null,
+        sourceType = 'digital_link',
+        vocabularyStyle = 'punchy',
+        customDirection = ''
+      } = body;
+
+      const styleInstruction = (vocabularyStyle === 'literary')
+        ? 'Write in an elevated, literary broadsheet style with rich narrative flow.'
+        : (vocabularyStyle === 'casual')
+          ? 'Write in clear, natural, everyday English (simple, direct words; zero academic jargon).'
+          : 'Write in crisp, authoritative, punchy broadsheet prose.';
+
+      let ledgerText = '';
+      if (sourceLedger && typeof sourceLedger === 'object') {
+        const claims = Array.isArray(sourceLedger.core_claims_and_evidence)
+          ? sourceLedger.core_claims_and_evidence.map((c, i) => `${i + 1}. ${typeof c === 'object' ? (c.evidence || c.text || '') : c}`).join('\n')
+          : '';
+        if (claims) ledgerText = `\nVerified Source Facts:\n${claims}`;
+      }
+
+      const prompt = `You are the Lead Broadsheet Essayist for SLANT.
+The curator wants to regenerate ONLY the 3-paragraph broadsheet essay ("summary" / "resolvedArticleExcerpts") and concluding reflection ("whyItMatters"), while keeping their existing Headline ("${adaptedHeadline}") and Poster Artwork untouched.
+
+POST CONTEXT:
+- Headline: "${adaptedHeadline}"
+- Original Source / Topic: "${originalHeadline || scrapedTitle || 'Personal Reflection'}"
+- Source Type: ${sourceType}
+- Curator's Core Slant / Take: "${userSlant || curatorTake || ''}"
+- Signed Slant Pullquote: "${curatorTake}"
+${spark ? `- Spark / Personal Context: "${spark}"` : ''}
+${scrapedContent ? `- Source Excerpt: "${String(scrapedContent).slice(0, 1800)}"` : ''}${ledgerText}
+${customDirection ? `\nCRITICAL CURATOR DIRECTION FOR THIS REWRITE: "${customDirection}"` : ''}
+
+STRICT ESSAY STRUCTURE (180-210 WORDS TOTAL ACROSS 3 PARAGRAPHS):
+1. ${styleInstruction}
+2. Paragraph 1 (60-70 words, 3-4 sentences): Strong opening observation connecting the curator's angle to the catalyst/source (designed for a broadsheet dropcap).
+3. Paragraph 2 (60-70 words, 3-4 sentences): Deepen the argument by engaging the concrete facts, friction, or lived reality.
+4. Paragraph 3 (55-65 words, 3 sentences): Human or civic stakes and lasting resolution.
+5. "whyItMatters" (18-26 words, 1-2 sentences): Crisp concluding reflection (must NOT repeat the curatorTake verbatim).
+6. STRICT BAN ON EM DASHES: Never use em dashes, en dashes, or "--". Use commas, semicolons, or periods.
+7. Stay 100% faithful to the curator's voice, proper nouns, and perspective without fabricating unstated claims.
+
+Respond strictly with valid JSON:
+{
+  "resolvedArticleExcerpts": [
+    "Paragraph 1 (60-70 words, pure prose without labels)",
+    "Paragraph 2 (60-70 words, pure prose without labels)",
+    "Paragraph 3 (55-65 words, pure prose without labels)"
+  ],
+  "whyItMatters": "18-26 word concluding reflection sentence"
+}`;
+
+      try {
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 30000);
+        const geminiResp = await fetch(geminiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+              temperature: 0.65,
+              thinkingConfig: { thinkingBudget: 0 },
+              responseMimeType: 'application/json'
+            }
+          }),
+          signal: controller.signal
+        });
+        clearTimeout(timeout);
+
+        if (geminiResp.ok) {
+          const geminiData = await geminiResp.json();
+          let raw = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          raw = raw.trim().replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```$/i, '').trim();
+          const parsed = JSON.parse(raw);
+          if (parsed && Array.isArray(parsed.resolvedArticleExcerpts) && parsed.resolvedArticleExcerpts.length > 0) {
+            const cleanParas = parsed.resolvedArticleExcerpts
+              .map(p => String(p || '').replace(/^(paragraph \d+|the spark|curator stance)\s*:\s*/i, '').replace(/\s*([\u2014\u2013\u2015]|--)\s*/g, ', ').trim())
+              .filter(Boolean);
+            const cleanWhy = String(parsed.whyItMatters || '').replace(/\s*([\u2014\u2013\u2015]|--)\s*/g, ', ').trim();
+            return res.status(200).json({
+              success: true,
+              resolvedArticleExcerpts: cleanParas,
+              summary: cleanParas.join('\n\n'),
+              whyItMatters: cleanWhy
+            });
+          }
+        }
+        return res.status(500).json({ success: false, error: 'Could not regenerate essay. Please try again.' });
+      } catch (err) {
+        return res.status(500).json({ success: false, error: err.message || 'Essay regeneration failed' });
+      }
+    }
+
     // Direct Single-Purpose Endpoint: Polish & Review Take with Pedagogical Highlighters
     if (body && (body.action === 'polish_take' || body.action === 'review_take')) {
       const { text = '', slantTake = '' } = body;
@@ -2092,9 +2302,7 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
   }
 
   const imageModels = [
-    'gemini-2.5-flash-image',
-    'gemini-3.1-flash-image',
-    'gemini-3.1-flash-lite-image'
+    'gemini-2.5-flash-image'
   ];
 
   let enhancedPrompt = prompt || '';

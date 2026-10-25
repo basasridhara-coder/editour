@@ -6656,7 +6656,17 @@ function loadPostIntoStudioToRegenerate(postId) {
     if (ledgerCard) ledgerCard.style.display = 'none';
   }
 
-  showTemporaryToast('✨ Loaded inputs into Creator Studio! Tweak or regenerate 🚀');
+  // Preserve existing post ID & load directly onto Step 3 Preview Deck with Selective Regenerate sheet
+  window._regeneratingExistingPostId = post.id;
+  window._regeneratingExistingCreatedAt = post.createdAt || null;
+  currentSynthesizedPost = JSON.parse(JSON.stringify(post));
+  posterFilesCache.delete(post.id);
+
+  showStep3Preview();
+  setTimeout(() => {
+    openSelectiveRegenModal();
+  }, 120);
+  showTemporaryToast('✨ Post loaded! Choose whether to regenerate Headline, Essay, Artwork, or Full Post.');
 }
 
 function softDeletesDOMPrune(idsToRemove = []) {
@@ -12074,6 +12084,8 @@ function resetCreatorState() {
   renderSourceLedger(null);
   removeInnerVoicePhoto();
   currentSynthesizedPost = null;
+  window._regeneratingExistingPostId = null;
+  window._regeneratingExistingCreatedAt = null;
   creatorCuePills = [];
   if (creatorSelectedCueIndices && creatorSelectedCueIndices.clear) {
     creatorSelectedCueIndices.clear();
@@ -14498,6 +14510,13 @@ async function startAiSynthesis() {
     }
 
     currentSynthesizedPost = data.post;
+    if (window._regeneratingExistingPostId) {
+      currentSynthesizedPost.id = window._regeneratingExistingPostId;
+      if (window._regeneratingExistingCreatedAt) {
+        currentSynthesizedPost.createdAt = window._regeneratingExistingCreatedAt;
+      }
+      posterFilesCache.delete(currentSynthesizedPost.id);
+    }
     currentSynthesizedPost.perspectiveMode = creatorPerspectiveMode || 'hybrid';
     if (Array.isArray(currentSynthesizedPost.cues) && currentSynthesizedPost.cues.length > 0) {
       creatorCuePills = currentSynthesizedPost.cues;
@@ -15172,8 +15191,201 @@ function setupWholePosterGestures() {
 // --- Step 3 Toolbar Actions (Matches Flutter create_postcard_screen.dart:3417-3490) ---
 
 function handleStep3Regenerate() {
-  // Reopen the editor deck from the beginning (Step 1) without changing visual cues
-  backToStep1();
+  openSelectiveRegenModal();
+}
+
+let lastSelectiveHeadlineOptions = [];
+
+function openSelectiveRegenModal() {
+  const modal = document.getElementById('selectiveRegenModal');
+  if (!modal) {
+    backToStep1();
+    return;
+  }
+  const dirInput = document.getElementById('selectiveRegenDirectionInput');
+  if (dirInput) dirInput.value = '';
+  const optionsList = document.getElementById('selectiveHeadlineOptionsList');
+  if (optionsList) {
+    optionsList.style.display = 'none';
+    optionsList.innerHTML = '';
+  }
+  modal.classList.add('open');
+}
+
+function closeSelectiveRegenModal() {
+  const modal = document.getElementById('selectiveRegenModal');
+  if (modal) modal.classList.remove('open');
+}
+
+function applySelectiveHeadlineOption(idx) {
+  const opt = lastSelectiveHeadlineOptions[idx];
+  if (!opt || !currentSynthesizedPost) return;
+
+  currentSynthesizedPost.adaptedHeadline = opt.adaptedHeadline;
+  currentSynthesizedPost.curatorTake = opt.curatorTake;
+  currentSynthesizedPost.creatorOpinion = opt.curatorTake;
+
+  const headInput = document.getElementById('editModalHeadline');
+  if (headInput) headInput.value = opt.adaptedHeadline;
+  const opinionInput = document.getElementById('editModalOpinion');
+  if (opinionInput) opinionInput.value = opt.curatorTake;
+
+  if (currentSynthesizedPost.id) posterFilesCache.delete(currentSynthesizedPost.id);
+  renderCreatorPreview();
+
+  const cards = document.querySelectorAll('.selective-headline-choice-card');
+  cards.forEach((c, i) => {
+    if (i === idx) c.classList.add('selected');
+    else c.classList.remove('selected');
+  });
+
+  showTemporaryToast('✓ Applied Headline & Slant Note Option ' + (idx + 1) + '!');
+}
+
+async function triggerSelectiveRegenerate(mode) {
+  if (!currentSynthesizedPost && mode !== 'full') {
+    closeSelectiveRegenModal();
+    backToStep1();
+    return;
+  }
+
+  const dirInput = document.getElementById('selectiveRegenDirectionInput');
+  const customDirection = dirInput ? dirInput.value.trim() : '';
+
+  if (mode === 'full') {
+    closeSelectiveRegenModal();
+    backToStep1();
+    return;
+  }
+
+  if (mode === 'headline') {
+    const btn = document.getElementById('selectiveRegenHeadlineBtn');
+    const txt = document.getElementById('selectiveRegenHeadlineBtnText');
+    const listEl = document.getElementById('selectiveHeadlineOptionsList');
+    if (btn) btn.disabled = true;
+    if (txt) txt.textContent = 'Generating 3 Headline Options... ⏳';
+
+    try {
+      const resp = await fetch('/api/synthesize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'regenerate_headline',
+          adaptedHeadline: currentSynthesizedPost.adaptedHeadline || '',
+          originalHeadline: currentSynthesizedPost.sourceHeadline || currentSynthesizedPost.originalHeadline || '',
+          curatorTake: currentSynthesizedPost.curatorTake || currentSynthesizedPost.creatorOpinion || '',
+          userSlant: currentSynthesizedPost.userSlantTake || currentSynthesizedPost.polishedCuratorTake || document.getElementById('creatorSlantTakeInput')?.value || '',
+          summary: currentSynthesizedPost.summary || (Array.isArray(currentSynthesizedPost.resolvedArticleExcerpts) ? currentSynthesizedPost.resolvedArticleExcerpts.join('\n\n') : ''),
+          sourceType: currentSynthesizedPost.sourceType || creatorSelectedSource || 'digital_link',
+          vocabularyStyle: creatorVocabularyStyle || 'casual',
+          customDirection
+        })
+      });
+
+      const data = await resp.json().catch(() => null);
+      if (resp.ok && data && data.success && Array.isArray(data.options) && data.options.length > 0) {
+        lastSelectiveHeadlineOptions = data.options;
+        // Immediately apply Option 1 and show all 3 options so the user can switch with 1 tap
+        applySelectiveHeadlineOption(0);
+        if (listEl) {
+          listEl.style.display = 'flex';
+          listEl.innerHTML = data.options.map((opt, i) => `
+            <div class="selective-headline-choice-card ${i === 0 ? 'selected' : ''}" onclick="applySelectiveHeadlineOption(${i})">
+              <div class="selective-headline-choice-top">
+                <span class="selective-headline-choice-badge">${escapeHtml(opt.label || ('Option ' + (i + 1)))}</span>
+                <span class="selective-headline-choice-apply">${i === 0 ? '✓ Active on Deck' : 'Tap to Apply'}</span>
+              </div>
+              <div class="selective-headline-choice-hl">${escapeHtml(opt.adaptedHeadline)}</div>
+              <div class="selective-headline-choice-take">${escapeHtml(opt.curatorTake)}</div>
+            </div>
+          `).join('');
+        }
+      } else {
+        showTemporaryToast('⚠️ ' + (data?.error || 'Could not regenerate headline. Please try again.'));
+      }
+    } catch (err) {
+      showTemporaryToast('⚠️ Network error while regenerating headline.');
+    } finally {
+      if (btn) btn.disabled = false;
+      if (txt) txt.textContent = 'Regenerate 3 New Headline Options';
+    }
+    return;
+  }
+
+  if (mode === 'essay') {
+    const btn = document.getElementById('selectiveRegenEssayBtn');
+    const txt = document.getElementById('selectiveRegenEssayBtnText');
+    if (btn) btn.disabled = true;
+    if (txt) txt.textContent = 'Re-synthesizing Broadsheet Essay... ⏳';
+
+    try {
+      const resp = await fetch('/api/synthesize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'regenerate_essay',
+          adaptedHeadline: currentSynthesizedPost.adaptedHeadline || '',
+          originalHeadline: currentSynthesizedPost.sourceHeadline || currentSynthesizedPost.originalHeadline || '',
+          curatorTake: currentSynthesizedPost.curatorTake || currentSynthesizedPost.creatorOpinion || '',
+          userSlant: currentSynthesizedPost.userSlantTake || currentSynthesizedPost.polishedCuratorTake || document.getElementById('creatorSlantTakeInput')?.value || '',
+          spark: currentSynthesizedPost.spark || document.getElementById('creatorSparkInput')?.value || '',
+          scrapedTitle: currentScrapedArticle?.title || currentSynthesizedPost.generationInputs?.scrapedTitle || '',
+          scrapedContent: currentScrapedArticle?.content || currentSynthesizedPost.generationInputs?.scrapedContent || currentSynthesizedPost.sourceContext || '',
+          sourceLedger: currentSynthesizedPost.sourceLedger || currentSourceLedger || null,
+          sourceType: currentSynthesizedPost.sourceType || creatorSelectedSource || 'digital_link',
+          vocabularyStyle: creatorVocabularyStyle || 'casual',
+          customDirection
+        })
+      });
+
+      const data = await resp.json().catch(() => null);
+      if (resp.ok && data && data.success && Array.isArray(data.resolvedArticleExcerpts)) {
+        currentSynthesizedPost.resolvedArticleExcerpts = data.resolvedArticleExcerpts;
+        currentSynthesizedPost.summary = data.summary || data.resolvedArticleExcerpts.join('\n\n');
+        if (data.whyItMatters) {
+          currentSynthesizedPost.whyItMatters = data.whyItMatters;
+          currentSynthesizedPost.broadsheetReflection = data.whyItMatters;
+        }
+        if (currentSynthesizedPost.id) posterFilesCache.delete(currentSynthesizedPost.id);
+        renderCreatorPreview();
+        closeSelectiveRegenModal();
+        // Switch preview carousel to Slide 2 (Essay Page 1) so user immediately sees the new essay
+        setTimeout(() => {
+          const previewCard = document.querySelector('#creatorPreviewContainer .post-card');
+          if (previewCard && typeof goToSlide === 'function') {
+            goToSlide(previewCard, 1);
+          }
+        }, 80);
+        showTemporaryToast('✓ Broadsheet Essay regenerated! (Poster Image & Headline kept intact)');
+      } else {
+        showTemporaryToast('⚠️ ' + (data?.error || 'Could not regenerate essay. Please try again.'));
+      }
+    } catch (err) {
+      showTemporaryToast('⚠️ Network error while regenerating essay.');
+    } finally {
+      if (btn) btn.disabled = false;
+      if (txt) txt.textContent = 'Regenerate Essay Only';
+    }
+    return;
+  }
+
+  if (mode === 'image') {
+    if (customDirection && currentSynthesizedPost) {
+      const basePrompt = currentSynthesizedPost.illustrationPrompt || currentSynthesizedPost.adaptedHeadline || '';
+      currentSynthesizedPost.illustrationPrompt = `${basePrompt}. Additional visual direction: ${customDirection}`;
+    }
+    if (currentSynthesizedPost && currentSynthesizedPost.id) {
+      posterFilesCache.delete(currentSynthesizedPost.id);
+    }
+    closeSelectiveRegenModal();
+    // Switch preview carousel to Slide 1 so user sees the artwork rendering spinner and result
+    const previewCard = document.querySelector('#creatorPreviewContainer .post-card');
+    if (previewCard && typeof goToSlide === 'function') {
+      goToSlide(previewCard, 0);
+    }
+    await retryStep3ArtworkGeneration();
+    return;
+  }
 }
 
 let editModalOriginalSnapshot = null;
@@ -15936,7 +16148,7 @@ async function uploadArtworkToSupabaseStorage(postId, base64Data) {
         body: blob
       }).catch(() => {});
 
-      return `${SUPABASE_URL}/storage/v1/object/public/posters/${fileName}`;
+      return `${SUPABASE_URL}/storage/v1/object/public/posters/${fileName}?v=${Date.now()}`;
     } else {
       console.warn('Direct storage upload HTTP status:', uploadResp.status);
     }
