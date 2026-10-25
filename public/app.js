@@ -4398,6 +4398,9 @@ function handleReceiptPhotoLoad(img) {
 window.handleReceiptPhotoLoad = handleReceiptPhotoLoad;
 
 function evaluateEssayBifurcation(post, index) {
+  if (post && post._cachedBifurcation) {
+    return post._cachedBifurcation;
+  }
   const cleanExcerpt = (txt) => {
     if (!txt) return "";
     return String(txt)
@@ -4495,18 +4498,46 @@ function evaluateEssayBifurcation(post, index) {
     };
   }
 
-  // Editorial Page 1 target word budgets calibrated for 1-line margin at page end:
-  // - No photo: ~168 words (fills upper fold cleanly with 1-line margin at bottom edge)
-  // - Portrait photo (floated 3:4): ~128 words (fits alongside floated photo with 1-line margin)
-  // - Landscape photo (16:9 full width): ~98 words (fits below wide photo with 1-line margin)
-  const isVideoOrWide = post.sourceType === 'video_audio'
-    || (typeof rawPhoto === 'string' && (rawPhoto.includes('ytimg.com') || rawPhoto.includes('youtube') || rawPhoto.includes('wide')));
+  // Editorial Page 1 target word budgets calibrated for 1-line margin at page end
+  // in the 450x600 broadsheet frame, dynamically accounting for headline and pullquote height:
+  const isVideoOrWide = Boolean(
+    post._isVideoOrWide
+    || post.sourceType === 'video_audio'
+    || (typeof rawPhoto === 'string' && (rawPhoto.includes('ytimg.com') || rawPhoto.includes('youtube') || rawPhoto.includes('wide')))
+  );
 
-  let targetPage1Words = 128;
+  const tierForBudget = typeof getSourceTier === 'function' ? getSourceTier(post) : '';
+  const rawHeadlineForBudget = String(
+    post.broadsheetHeadline ||
+    (tierForBudget === 'tier3_opinion'
+      ? (post.adaptedHeadline || post.sourceHeadline || post.originalHeadline)
+      : (post.sourceHeadline || post.originalHeadline || post.adaptedHeadline)) || 'Curated Editorial'
+  ).trim();
+  const headlineWordsCount = rawHeadlineForBudget.split(/\s+/).filter(Boolean).length;
+  const estHeadlineLines = Math.max(1, Math.ceil(headlineWordsCount / 8));
+
+  const rawOpinionForBudget = String(
+    (post.curatorTake && post.curatorTake.trim())
+      ? post.curatorTake.trim()
+      : ((post.creatorOpinion && post.creatorOpinion.trim())
+          ? post.creatorOpinion.trim()
+          : ((post.whyItMatters && post.whyItMatters.trim())
+              ? post.whyItMatters.trim()
+              : (post.hook || 'Strategic structural shift in motion.')))
+  ).trim();
+  const opinionWordsCount = rawOpinionForBudget.split(/\s+/).filter(Boolean).length;
+  const estOpinionLines = Math.max(2, Math.ceil(opinionWordsCount / 8));
+
+  const headerOverheadWords = Math.max(0, estHeadlineLines - 1) * 8 + Math.max(0, estOpinionLines - 3) * 7;
+
+  let targetPage1Words = Math.max(96, 122 - headerOverheadWords);
+  let maxPage1Ceiling = Math.max(108, 132 - headerOverheadWords);
   if (!hasPhoto) {
-    targetPage1Words = 168;
+    targetPage1Words = Math.max(120, 154 - headerOverheadWords);
+    maxPage1Ceiling = Math.max(132, 166 - headerOverheadWords);
   } else if (isVideoOrWide) {
-    targetPage1Words = 98;
+    targetPage1Words = Math.max(68, 86 - headerOverheadWords);
+    maxPage1Ceiling = Math.max(76, 96 - headerOverheadWords);
   }
 
   function splitIntoParagraphUnits(text) {
@@ -4558,8 +4589,6 @@ function evaluateEssayBifurcation(post, index) {
       continue;
     }
 
-    const maxPage1Ceiling = hasPhoto ? (isVideoOrWide ? 115 : 148) : 185;
-
     if (accumulatedWords + pWords <= maxPage1Ceiling) {
       page1Paras.push(p);
       accumulatedWords += pWords;
@@ -4591,12 +4620,12 @@ function evaluateEssayBifurcation(post, index) {
       // Typographic Integrity Rules:
       // 1. No Orphan Starts: If Page 1 already has content and u1 has fewer than 2 sentences,
       //    never chop off just 1 sentence (2 lines) at the foot of Page 1. Move whole paragraph to Page 2!
-      // 2. No Orphan Endings: If u2 has only 1 sentence, and Page 1 can stretch slightly (<= maxPage1Ceiling + 10),
+      // 2. No Orphan Endings: If u2 has only 1 sentence and fits within maxPage1Ceiling,
       //    keep the entire paragraph together on Page 1!
       if (page1Paras.length > 0 && u1.length < 2) {
         page2Paras.push(p);
         hasSplit = true;
-      } else if (u2.length === 1 && (curWords + u2[0].split(/\s+/).length <= maxPage1Ceiling + 10)) {
+      } else if (u2.length === 1 && (curWords + u2[0].split(/\s+/).length <= maxPage1Ceiling)) {
         page1Paras.push(p);
         accumulatedWords += pWords;
       } else if (u1.length > 0 && u2.length > 0) {
@@ -4764,9 +4793,12 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
       captionText = `EDITORIAL METAPHOR • ${cleanPubUpper || "DISPATCH"}`;
     }
 
-    const isVideoOrWide = tier === "tier_video"
+    const isVideoOrWide = Boolean(
+      post._isVideoOrWide
+      || tier === "tier_video"
       || post.sourceType === "video_audio"
-      || (typeof rawPhoto === "string" && (rawPhoto.includes("ytimg.com") || rawPhoto.includes("youtube") || rawPhoto.includes("wide")));
+      || (typeof rawPhoto === "string" && (rawPhoto.includes("ytimg.com") || rawPhoto.includes("youtube") || rawPhoto.includes("wide")))
+    );
     const initialAspectClass = isVideoOrWide ? "photo-aspect-landscape" : "photo-aspect-portrait";
 
     scenePhotoHtml = `
@@ -4825,79 +4857,9 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
 
   const p1SlideBadge = bifurcation.isBifurcated ? (forExportPage > 0 ? "02 / 03 • ESSAY P1" : "PAGE 1 / 2") : (forExportPage > 0 ? "02 / 02 • ESSAY" : "02 / 02");
   const p2SlideBadge = forExportPage > 0 ? "03 / 03 • ESSAY P2" : "PAGE 2 / 2";
+  const folioRightP2 = forExportPage > 0 ? "Every thought deserves a frame • 03 / 03" : "Every thought deserves a frame • 02 / 02";
 
-  // Specific Discrete Export Page 1
-  if (forExportPage === 1) {
-    return `
-      <div class="slant-minute-scroll-viewport essay-scroll-viewport ${bifurcation.hasPhoto ? "has-inset-photo" : ""} ${bifurcation.densityClass}" lang="en" style="overflow:hidden !important; height:100% !important;">
-        <div class="receipt-brand-corner-bar">
-          <div class="receipt-corner-brand">
-            <img src="/logo.png" class="receipt-corner-logo" alt="Slant">
-            <span class="receipt-brand-text">SLANT MINUTES</span>
-          </div>
-          <div class="receipt-corner-creator">
-            <span class="receipt-creator-name">${handle}</span>
-            <span class="receipt-corner-slide-num">${p1SlideBadge}</span>
-          </div>
-        </div>
-        ${headline ? `<div class="receipts-headline-box"><h2 class="receipt-headline">${headline}</h2></div>` : ""}
-        <div class="receipt-paragraphs">
-          ${pullquoteHtml}
-          ${scenePhotoHtml}
-          ${page1ParasHtml}
-          ${!bifurcation.isBifurcated ? reflectionHtml : ""}
-        </div>
-        ${!bifurcation.isBifurcated ? `
-        <div class="receipt-footer">
-          <div class="receipt-folio-rule"></div>
-          <div class="receipt-folio-text">
-            <span class="receipt-folio-left">${isInnerVoice ? `PERSONAL ESSAY • ${handle.toUpperCase()}` : (cleanPubUpper ? `IN DIALOGUE WITH ${cleanPubUpper}` : "EDITORIAL ESSAY")}</span>
-            <span class="receipt-folio-right">Every thought deserves a frame • 02 / 02</span>
-          </div>
-        </div>` : ""}
-      </div>
-    `;
-  }
-
-  // Specific Discrete Export Page 2 (Only generated when bifurcated)
-  if (forExportPage === 2) {
-    return `
-      <div class="slant-minute-scroll-viewport essay-scroll-viewport ${bifurcation.densityClass}" lang="en" style="overflow:hidden !important; height:100% !important;">
-        <div class="receipt-brand-corner-bar continuation-header">
-          <div class="receipt-corner-brand">
-            <img src="/logo.png" class="receipt-corner-logo" alt="Slant">
-            <span class="receipt-brand-text">SLANT MINUTES ...</span>
-          </div>
-          <div class="receipt-corner-creator">
-            <span class="receipt-creator-name">${handle}</span>
-            <span class="receipt-corner-slide-num">${p2SlideBadge}</span>
-          </div>
-        </div>
-        ${headline ? `<div class="receipts-headline-box"><h2 class="receipt-headline" style="font-size:12.5px !important; opacity:0.85;">${headline}</h2></div>` : ""}
-        <div class="receipt-paragraphs">
-          ${page2ParasHtml}
-          ${reflectionHtml}
-        </div>
-        <div class="receipt-footer">
-          <div class="receipt-folio-rule"></div>
-          <div class="receipt-folio-text">
-            <span class="receipt-folio-left">${isInnerVoice ? `PERSONAL ESSAY • ${handle.toUpperCase()}` : (cleanPubUpper ? `IN DIALOGUE WITH ${cleanPubUpper}` : "EDITORIAL ESSAY")}</span>
-            <span class="receipt-folio-right">Every thought deserves a frame • 03 / 03</span>
-          </div>
-        </div>
-      </div>
-    `;
-  }
-
-  // Interactive Feed View (Single poster with smooth vertical scrolling and optional bifurcation seam)
-  return `
-    <div class="slant-minute-scroll-viewport essay-scroll-viewport ${bifurcation.hasPhoto ? "has-inset-photo" : ""} ${bifurcation.densityClass}"
-         lang="en"
-         data-bifurcated="${bifurcation.isBifurcated ? "true" : "false"}"
-         onscroll="window._lastSlantMinuteScroll = Date.now()">
-      
-      <!-- PAGE 1 SECTION -->
-      <div class="essay-page-block essay-page-1" id="essay-p1-${index}">
+  const page1InnerHtml = `
         <div class="receipt-brand-corner-bar">
           <div class="receipt-corner-brand">
             <img src="/logo.png" class="receipt-corner-logo" alt="Slant">
@@ -4927,6 +4889,72 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
           </div>
         </div>
         ` : ""}
+  `;
+
+  const page2InnerHtml = `
+        <div class="receipt-brand-corner-bar continuation-header">
+          <div class="receipt-corner-brand">
+            <img src="/logo.png" class="receipt-corner-logo" alt="Slant">
+            <span class="receipt-brand-text">SLANT MINUTES ...</span>
+          </div>
+          <div class="receipt-corner-creator">
+            <span class="receipt-creator-name">${handle}</span>
+            <span class="receipt-corner-slide-num">${p2SlideBadge}</span>
+          </div>
+        </div>
+
+        <div class="receipt-paragraphs">
+          ${page2ParasHtml}
+          ${reflectionHtml}
+        </div>
+
+        <div class="receipt-footer">
+          <div class="receipt-folio-rule"></div>
+          <div class="receipt-folio-text">
+            <span class="receipt-folio-left">${isInnerVoice ? `PERSONAL ESSAY • ${handle.toUpperCase()}` : (cleanPubUpper ? `IN DIALOGUE WITH ${cleanPubUpper}` : "EDITORIAL ESSAY")}</span>
+            <span class="receipt-folio-right">${folioRightP2}</span>
+          </div>
+        </div>
+  `;
+
+  // Specific Discrete Export Page 1 (Identical DOM structure and classes to Web View Page 1)
+  if (forExportPage === 1) {
+    return `
+      <div class="slant-minute-scroll-viewport essay-scroll-viewport ${bifurcation.hasPhoto ? "has-inset-photo" : ""} ${bifurcation.densityClass}"
+           lang="en"
+           data-bifurcated="${bifurcation.isBifurcated ? "true" : "false"}"
+           style="overflow:hidden !important; height:100% !important;">
+        <div class="essay-page-block essay-page-1" style="height:100% !important; min-height:100% !important; padding-bottom:4px !important;">
+          ${page1InnerHtml}
+        </div>
+      </div>
+    `;
+  }
+
+  // Specific Discrete Export Page 2 (Identical DOM structure and classes to Web View Page 2)
+  if (forExportPage === 2) {
+    return `
+      <div class="slant-minute-scroll-viewport essay-scroll-viewport ${bifurcation.hasPhoto ? "has-inset-photo" : ""} ${bifurcation.densityClass}"
+           lang="en"
+           data-bifurcated="true"
+           style="overflow:hidden !important; height:100% !important;">
+        <div class="essay-page-block essay-page-2" style="height:100% !important; min-height:100% !important; padding-bottom:4px !important;">
+          ${page2InnerHtml}
+        </div>
+      </div>
+    `;
+  }
+
+  // Interactive Feed View (Single poster with smooth vertical scrolling and optional bifurcation seam)
+  return `
+    <div class="slant-minute-scroll-viewport essay-scroll-viewport ${bifurcation.hasPhoto ? "has-inset-photo" : ""} ${bifurcation.densityClass}"
+         lang="en"
+         data-bifurcated="${bifurcation.isBifurcated ? "true" : "false"}"
+         onscroll="window._lastSlantMinuteScroll = Date.now()">
+      
+      <!-- PAGE 1 SECTION -->
+      <div class="essay-page-block essay-page-1" id="essay-p1-${index}">
+        ${page1InnerHtml}
       </div>
 
       ${bifurcation.isBifurcated ? `
@@ -4942,27 +4970,7 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
 
       <!-- PAGE 2 SECTION -->
       <div class="essay-page-block essay-page-2" id="essay-p2-${index}">
-        <div class="receipt-brand-corner-bar continuation-header">
-          <div class="receipt-corner-brand">
-            <span class="receipt-brand-text">SLANT MINUTES ...</span>
-          </div>
-          <div class="receipt-corner-creator">
-            <span class="receipt-corner-slide-num">${p2SlideBadge}</span>
-          </div>
-        </div>
-
-        <div class="receipt-paragraphs">
-          ${page2ParasHtml}
-          ${reflectionHtml}
-        </div>
-
-        <div class="receipt-footer">
-          <div class="receipt-folio-rule"></div>
-          <div class="receipt-folio-text">
-            <span class="receipt-folio-left">${isInnerVoice ? `PERSONAL ESSAY • ${handle.toUpperCase()}` : (cleanPubUpper ? `IN DIALOGUE WITH ${cleanPubUpper}` : "EDITORIAL ESSAY")}</span>
-            <span class="receipt-folio-right">Every thought deserves a frame • 02 / 02</span>
-          </div>
-        </div>
+        ${page2InnerHtml}
       </div>
       ` : ""}
     </div>
@@ -6891,8 +6899,20 @@ async function capturePostSlidesAsFiles(post, index) {
   const padX = 15; // (480 - 450) / 2 = 15px
   const padY = 20; // (640 - 600) / 2 = 20px
 
+  // Evaluate bifurcation on original post before mutating URLs to blob: URLs so web and export splits are 100% identical
+  const bifurcation = evaluateEssayBifurcation(post, index);
+  const origRawPhoto = post.sourceImageUrl || post.referencePhotoUrl || post.originalPhotoUrl || post.catalystPhoto || post.illustrationUrl || post.aiIllustrationUrl || '';
+  const origIsVideoOrWide = Boolean(
+    post.sourceType === 'video_audio'
+    || (typeof origRawPhoto === 'string' && (origRawPhoto.includes('ytimg.com') || origRawPhoto.includes('youtube') || origRawPhoto.includes('wide')))
+  );
+
   // Convert poster image to local blob URL to bypass any CORS taint or delay in html2canvas
-  let exportPost = { ...post };
+  let exportPost = {
+    ...post,
+    _cachedBifurcation: bifurcation,
+    _isVideoOrWide: origIsVideoOrWide
+  };
   const rawPosterUrl = post.illustrationUrl || post.aiIllustrationUrl || '';
   let createdBlobUrl = null;
   let createdSourceBlobUrl = null;
@@ -6918,7 +6938,6 @@ async function capturePostSlidesAsFiles(post, index) {
     } catch (_) {}
   }
 
-  const bifurcation = evaluateEssayBifurcation(exportPost);
   const slideConfigs = [];
 
   if (bifurcation.isBifurcated) {
