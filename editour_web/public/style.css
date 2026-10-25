@@ -19845,6 +19845,125 @@ mark.polish-mark:hover, mark.polish-mark.active {
   border-color: rgba(245, 158, 11, 0.5);
 }
 
+/* Studio Settings & Casting Vault inside Selective Regenerate Modal */
+.selective-regen-settings-panel {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.45);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+[data-theme="daylight"] .selective-regen-settings-panel {
+  background: rgba(241, 245, 249, 0.85);
+  border-color: rgba(148, 163, 184, 0.35);
+}
+
+.selective-settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+.selective-settings-title {
+  font-family: 'Space Grotesk', 'Inter', sans-serif;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #F59E0B;
+  text-transform: uppercase;
+}
+
+.selective-settings-sub {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.selective-setting-block {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.selective-setting-block-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.selective-setting-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.selective-setting-pills-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.selective-setting-pill {
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: rgba(30, 41, 59, 0.65);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+[data-theme="daylight"] .selective-setting-pill {
+  background: #FFFFFF;
+  border-color: #CBD5E1;
+  color: #334155;
+}
+
+.selective-setting-pill:hover {
+  border-color: rgba(245, 158, 11, 0.55);
+  color: var(--text-primary);
+}
+
+.selective-setting-pill.active {
+  background: rgba(245, 158, 11, 0.18);
+  border-color: #F59E0B;
+  color: #F59E0B;
+  font-weight: 800;
+}
+
+[data-theme="daylight"] .selective-setting-pill.active {
+  background: rgba(245, 158, 11, 0.16);
+  border-color: #D97706;
+  color: #B45309;
+}
+
+.selective-compare-mini-btn {
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  color: #F59E0B;
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.selective-compare-mini-btn:hover {
+  background: rgba(245, 158, 11, 0.22);
+}
+
+
 
 
 

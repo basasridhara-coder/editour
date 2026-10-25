@@ -175,23 +175,40 @@ Explore a fresh artistic perspective, novel symbolic motifs, or alternative ligh
   }
 
   const combinedCuratorText = `${curatorAngle} ${spark}`.toLowerCase();
-  const hasFamilyContext = (activeCast && activeCast.members && activeCast.members.length > 0) ||
-    /\b(family|my family|kids|my kids|sons|my sons|both boys|boys|children|wife|mom|mother|dad|father|11 and 7|road trip)\b/i.test(combinedCuratorText);
+  const hasExplicitActiveCast = Boolean(activeCast && Array.isArray(activeCast.members) && activeCast.members.length > 0);
+  const mentionsWholeFamily = /\b(family|my family|kids|my kids|sons|my sons|both boys|boys|children|11 and 7|road trip with my family)\b/i.test(combinedCuratorText);
+  const hasFirstPersonSelf = /\b(i|me|my|myself|mine|i'm|i’m|i've|i’ve|i'd|i’d)\b/i.test(combinedCuratorText);
 
   let familyDirective = '';
-  if (hasFamilyContext) {
+  if (hasExplicitActiveCast) {
+    const activeMembers = activeCast.members;
+    if (activeMembers.length === 1 && (activeMembers[0].relationship === 'self' || activeMembers[0].id === 'member_father')) {
+      familyDirective = `CRITICAL CASTING VAULT PROTAGONIST DIRECTIVE (SOLO CURATOR / SHRIDHAR, AGE 40 MID-AGE):
+The sole protagonist in the scene is the curator himself: Father (Shridhar), a fit mid-age 40-year-old Indian man in his prime early 40s (full head of thick short jet-black hair, neat dark trimmed beard, smooth unwrinkled skin, sturdy broad-shouldered build).
+- #1 HERO MUST specify "Fit 40yo Mid-Age Indian Man (Shridhar)" in the action of the post. STRICT BAN: NEVER call him "Indian father figure" without "40yo mid-age", and NEVER portray him as an old or elderly man!`;
+    } else {
+      const namesList = activeMembers.map(m => `${m.name || m.roleLabel} (age ${m.age || 40})`).join(', ');
+      familyDirective = `CRITICAL CASTING VAULT DIRECTIVE:
+Active protagonists selected from the Family Cast Vault (${activeMembers.length} people): ${namesList}.
+- #1 HERO must accurately reflect these exact ${activeMembers.length} cast member(s). For Father (Shridhar), always specify fit mid-age 40-year-old man (strictly not old/elderly). For the two sons, enforce the 4-year age gap (11yo pre-teen vs 7yo young child).`;
+    }
+  } else if (mentionsWholeFamily) {
     familyDirective = `CRITICAL FAMILY CAST & BIOLOGICAL CONTRAST DIRECTIVE:
 The curator is reflecting on their family.
-1. HERO: The central focal subjects should be all four family members: "Family of four (Father, Mother, 11yo Elder Son and 7yo Younger Son - 3 males, 1 female)", "Two Brothers with 4-Year Age Gap", or "Father and Sons Preparing Luggage". Always specify all 4 members so image models never omit any person.
-2. AGE CONTRAST: The two boys must have an unmistakable 4-year age gap: older 11yo pre-teen boy (visibly taller by a head, leaner) alongside younger 7yo boy (shorter, shoulder height, round child cheeks). STRICTLY NEVER identical twins!
+1. HERO: The central focal subjects should be all four family members: "Family of four (40yo Father, Mother, 11yo Elder Son and 7yo Younger Son - 3 males, 1 female)", "Two Brothers with 4-Year Age Gap", or "Father and Sons Preparing Luggage". Always specify all 4 members so image models never omit any person.
+2. AGE CONTRAST: The two boys must have an unmistakable 4-year age gap: older 11yo pre-teen boy (visibly taller by a head, sturdy build) alongside younger 7yo boy (shorter, shoulder height, round child cheeks). STRICTLY NEVER identical twins!
 3. REGIONAL VEHICLE RULES: If a road trip / car is portrayed in India, enforce Indian Right-Hand Drive (adult father driving on right, mother passenger on left, boys separately in rear seats).
 4. EXACT HEADCOUNT & ANTI-MERGING: Family consists of 4 members (3 males, 1 female: Father, Mother, 11yo Elder Son, 7yo Younger Son). Never use ambiguous phrases like "a family with kids" that lead image generators to draw only 1 child. Both sons must be individually enumerated.`;
+  } else if ((sourceType === 'inner_voice' || perspectiveMode === 'curator') && hasFirstPersonSelf) {
+    familyDirective = `CRITICAL FIRST-PERSON PROTAGONIST DIRECTIVE (CURATOR / SHRIDHAR, AGE 40 MID-AGE):
+The curator is writing in the first person ("I / me / my") about their own lived experience.
+- #1 HERO MUST portray the curator as a "Fit 40yo Mid-Age Indian Man (Shridhar)" in the exact setting/action of the reflection (e.g. "Fit 40yo Mid-Age Man in Quiet Contemplation"). STRICT BAN: NEVER use "father figure" alone and NEVER suggest an elderly or old man!`;
   }
 
   const perspectiveDirective = (perspectiveMode === 'curator')
     ? `CRITICAL PERSPECTIVE DIRECTIVE (CURATOR ANGLE):
 The curator selected CURATOR ANGLE mode. The visual storytelling must be 100% anchored in the curator's personal thesis, philosophical critique, and evocative metaphor ("${curatorAngle}").
-- #1 HERO: Must directly embody the curator's core insight, thesis, or central metaphor (e.g. an elderly farmer planting a sapling, an artisan at a workbench, an individual standing against an algorithm). Do NOT default to dry newspaper buildings unless that is the curator's metaphor.
+- #1 HERO: Must directly embody the curator's core insight, thesis, or central metaphor (e.g. a fit 40-year-old mid-age professional or artisan at a workbench, an individual standing against an algorithm). Do NOT default to dry newspaper buildings unless that is the curator's metaphor.
 - #2 MOTIF & #3 TENSION: Expand the curator's conceptual tension, friction, and critique.`
     : (perspectiveMode === 'source')
     ? `CRITICAL PERSPECTIVE DIRECTIVE (SOURCE GROUNDED - STRICT PHYSICAL REALITY):

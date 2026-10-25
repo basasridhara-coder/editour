@@ -183,7 +183,27 @@ module.exports = async function handler(req, res) {
 
     // Direct Single-Purpose Endpoint: Generate artwork only in background (has dedicated full execution window)
     if (body && body.action === 'artwork_only') {
-      let { prompt = '', imageBase64 = null, imageMimeType = 'image/jpeg', creatorEmail = '', familyCast = null, activeCast = null, countryContext = '' } = body;
+      let {
+        prompt = '',
+        imageBase64 = null,
+        imageMimeType = 'image/jpeg',
+        creatorEmail = '',
+        familyCast = null,
+        activeCast = null,
+        castStaging = null,
+        countryContext = '',
+        rebuildPromptFromSettings = false,
+        perspectiveMode = 'source',
+        characterRepresentation = 'realistic',
+        sourceType = 'digital_link',
+        userSlant = '',
+        spark = '',
+        adaptedHeadline = '',
+        originalHeadline = '',
+        scrapedTitle = '',
+        scrapedContent = '',
+        customDirection = ''
+      } = body;
       let userEmail = (creatorEmail || '').toLowerCase().trim();
       if (!userEmail) {
         userEmail = 'shridharoct16@gmail.com';
@@ -199,7 +219,7 @@ module.exports = async function handler(req, res) {
           credits: creditCheck.credits
         });
       }
-      if (!prompt) {
+      if (!prompt && !userSlant && !adaptedHeadline) {
         return res.status(400).json({ error: 'Missing prompt for artwork generation' });
       }
 
@@ -217,6 +237,97 @@ module.exports = async function handler(req, res) {
           }
         } catch (_) {}
       }
+      if (!familyCast || !Array.isArray(familyCast.members) || familyCast.members.length === 0) {
+        familyCast = getDefaultFamilyCast(userEmail);
+      }
+
+      let updatedCues = null;
+      if (rebuildPromptFromSettings) {
+        const familyCastDirectives = buildFamilyCastDirectives({
+          familyCast,
+          activeCast,
+          castStaging,
+          userSlant: userSlant || adaptedHeadline,
+          spark,
+          countryContext,
+          sourceType,
+          perspectiveMode
+        });
+
+        const stylePrefix = (characterRepresentation === 'cinematic' || characterRepresentation === 'likeness')
+          ? 'Award-winning 35mm editorial documentary photograph in 4:5 vertical portrait format, sharp camera focus, natural skin textures, lifelike human expressions, authentic ambient lighting (strictly no painterly brushstrokes or canvas texture)'
+          : (characterRepresentation === 'painting'
+            ? 'Masterpiece warm broadsheet painted illustration in gouache and oil style, rich painted pigments, lifelike human expression'
+            : (characterRepresentation === 'silhouette'
+              ? 'High-contrast minimalist graphic silhouette editorial art, stark architectural shadows'
+              : 'High-impact editorial broadsheet illustration in 4:5 vertical portrait format capturing vivid editorial realism, warm natural lighting on faces, dramatic journalistic clarity'));
+
+        const focusRule = (perspectiveMode === 'curator')
+          ? `Visual Focus is CURATOR ANGLE: Anchor the scene in the curator's personal experience, metaphor, or thesis ("${userSlant || adaptedHeadline}").`
+          : (perspectiveMode === 'source'
+            ? `Visual Focus is SOURCE GROUNDED: Anchor the scene in the physical reality and concrete subjects of "${originalHeadline || scrapedTitle || adaptedHeadline || userSlant}".`
+            : `Visual Focus is HYBRID BLEND: Blend the real-world subject ("${originalHeadline || scrapedTitle || adaptedHeadline}") with the curator's personal perspective ("${userSlant}").`);
+
+        try {
+          const promptBuilderText = `You are the Visual Director for SLANT. Build a fresh "illustrationPrompt" and 6 visual "cues" for Poster 1 based on the curator's updated Studio Settings:
+- Medium & Portrayal Style: ${stylePrefix}
+- ${focusRule}
+- Regional & Cultural Setting: ${countryContext || 'India'}
+- Headline: "${adaptedHeadline}"
+- Curator's Slant / Take: "${userSlant}"
+${spark ? `- Spark / Catalyst: "${spark}"` : ''}
+${scrapedTitle ? `- Source Title: "${scrapedTitle}"` : ''}
+${scrapedContent ? `- Source Context: "${String(scrapedContent).slice(0, 600)}"` : ''}
+${familyCastDirectives ? `\nMANDATORY CASTING VAULT & PROTAGONIST ANCHORS:\n${familyCastDirectives.systemPromptSection}` : ''}
+${customDirection ? `\nCURATOR'S SPECIFIC VISUAL DIRECTION: "${customDirection}"` : ''}
+
+STRICT RULES:
+1. If Father (Shridhar) is in the scene, you MUST describe him as a "fit mid-age 40-year-old Indian man in his prime early 40s with a full head of thick short jet-black hair, smooth unwrinkled skin, neat short dark trimmed beard, and sturdy broad-shouldered build (strictly NOT an old man, strictly NOT elderly, strictly NO gray/white head hair)". NEVER call him "an Indian father figure" without specifying "fit mid-age 40-year-old man".
+2. Output strictly valid JSON:
+{
+  "illustrationPrompt": "Detailed 70-110 word visual prompt beginning with the medium style, describing the exact protagonists, setting, lighting, and metaphor. No text or letters.",
+  "cues": ["#1 HERO (3-6 words)", "#2 MOTIF", "#3 TENSION", "#4 ATMOSPHERE", "#5 LIGHTING", "#6 STYLE"]
+}`;
+          const gUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+          const pCtrl = new AbortController();
+          const pTimer = setTimeout(() => pCtrl.abort(), 9000);
+          const pResp = await fetch(gUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: promptBuilderText }] }],
+              generationConfig: {
+                temperature: 0.65,
+                thinkingBudget: 0,
+                thinkingConfig: { thinkingBudget: 0 },
+                responseMimeType: 'application/json'
+              }
+            }),
+            signal: pCtrl.signal
+          });
+          clearTimeout(pTimer);
+          if (pResp.ok) {
+            const pData = await pResp.json();
+            let raw = pData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            raw = raw.trim().replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```$/i, '').trim();
+            const parsedP = JSON.parse(raw);
+            if (parsedP && parsedP.illustrationPrompt) {
+              prompt = parsedP.illustrationPrompt;
+              if (Array.isArray(parsedP.cues) && parsedP.cues.length > 0) {
+                updatedCues = parsedP.cues;
+              }
+            }
+          }
+        } catch (_) {}
+
+        if (familyCastDirectives && familyCastDirectives.promptSnippet && !prompt.includes(familyCastDirectives.promptSnippet.slice(0, 28))) {
+          prompt = `${stylePrefix}. ${familyCastDirectives.promptSnippet}. ${prompt}`;
+        }
+        if (customDirection && !prompt.toLowerCase().includes(customDirection.toLowerCase())) {
+          prompt = `${prompt}. Additional direction: ${customDirection}`;
+        }
+      }
+
       // Multi-avatar image conditioning retired per design alignment: text-based Casting Vault anchors provide superior consistency,
       // eliminate token bleed, avoid clothing swaps, and maintain strict zero digital footprint.
       const stylizedAvatars = null;
@@ -237,6 +348,8 @@ module.exports = async function handler(req, res) {
           return res.status(200).json({
             success: true,
             illustrationBase64: cleanB64,
+            illustrationPrompt: prompt,
+            cues: updatedCues,
             credits: creditCheck.credits
           });
         }
@@ -1295,7 +1408,8 @@ Respond strictly with valid JSON with this exact structure:
       userSlant,
       spark,
       countryContext,
-      sourceType
+      sourceType,
+      perspectiveMode
     });
 
     const isCinematicPhoto = (characterRepresentation === 'cinematic' || characterRepresentation === 'cinematic_photo' || characterRepresentation === 'likeness' || (Boolean(effectiveCatalystImage || sourceImageBase64) && characterRepresentation !== 'painting' && characterRepresentation !== 'exact' && characterRepresentation !== 'silhouette' && characterRepresentation !== 'realistic'));
@@ -2496,9 +2610,39 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
     }
 
     // Enforce father physical anchor if present
-    if (/\b(father|dad|shridhar)\b/i.test(enhancedPrompt) && !enhancedPrompt.includes('salt-and-pepper')) {
-      enhancedPrompt += ', Father physical anchor: adult Indian male, early 40s, medium-brown skin, oval face, neat salt-and-pepper trimmed beard, short textured dark hair, sturdy broad-shouldered build';
+    if (/\b(father|dad|shridhar)\b/i.test(enhancedPrompt)) {
+      enhancedPrompt += ', Father physical anchor: fit mid-age 40-year-old Indian man in his prime early 40s, medium-brown skin, oval face, full head of thick short jet-black hair (strictly NO gray or white hair on head), smooth unwrinkled skin, neat short dark trimmed beard, sturdy broad-shouldered build (strictly NOT an old man or senior)';
     }
+  }
+
+  // Enforce Solo / Active Cast Father (Shridhar, Age 40 Mid-Age) & Prevent Elderly Hallucinations
+  const activeCastList = (activeCast && Array.isArray(activeCast.members)) ? activeCast.members : [];
+  const hasSelfInActiveCast = activeCastList.some(m => m && (m.id === 'member_father' || m.relationship === 'self'));
+  const mentionsFatherOrSelf = hasSelfInActiveCast || /\b(shridhar|father\s*\(shridhar\)|indian father figure|member_father)\b/i.test(enhancedPrompt);
+
+  if (mentionsFatherOrSelf) {
+    enhancedPrompt = enhancedPrompt
+      .replace(/\ban?\s+indian\s+father\s+figure(?:,\s*shridhar)?\b/gi, 'a fit mid-age 40-year-old Indian man in his prime early 40s (Shridhar, full head of thick short jet-black hair, smooth unwrinkled forehead, neat short dark trimmed beard, sturdy broad-shouldered build, strictly NOT old or elderly)')
+      .replace(/\bfather\s+figure\b/gi, 'fit mid-age 40-year-old man in his prime early 40s')
+      .replace(/\bsalt-and-pepper\s+(?:trimmed\s+)?beard\b/gi, 'neat short dark trimmed beard')
+      .replace(/\bsalt-and-pepper\s+hair\b/gi, 'thick short jet-black hair')
+      .replace(/\b(elderly|old\s+man|aged\s+man|aging|senior\s+citizen|white-haired|gray-haired|grey-haired|silver-haired|weathered\s+old)\b/gi, 'fit mid-age 40-year-old');
+
+    if (!/strictly NOT old or elderly/i.test(enhancedPrompt)) {
+      enhancedPrompt += '. PROTAGONIST AGE & APPEARANCE LOCK (SHRIDHAR, AGE 40 MID-AGE ADULT): Portray the male protagonist as a fit, prime mid-age 40-year-old Indian man (strictly age 38-40) with a full head of thick short jet-black hair, smooth unwrinkled facial skin, neat short dark trimmed beard, medium-brown skin, and sturdy broad-shouldered build. STRICT BAN ON AGING: Strictly NOT an old man, strictly NOT elderly, strictly NO gray or white hair on the head, strictly NO balding, and strictly NO senior wrinkles.';
+    }
+  }
+
+  // Inject any other activeCast member uncompromisable anchors if not already present in prompt
+  if (activeCastList.length > 0) {
+    activeCastList.forEach(m => {
+      if (!m) return;
+      const anchorText = String(m.uncompromisableAnchors || m.visualTraits || '').trim()
+        .replace(/\bsalt-and-pepper\s+(?:trimmed\s+)?beard\b/gi, 'neat short dark trimmed beard');
+      if (anchorText && !enhancedPrompt.includes(anchorText.slice(0, 24))) {
+        enhancedPrompt += `. Character Anchor (${m.name || m.roleLabel}, age ${m.age || 40}): ${anchorText}`;
+      }
+    });
   }
 
   // Country Setting Anchor for General Editorial Posters
@@ -2816,10 +2960,10 @@ function getDefaultFamilyCast(userIdentifier) {
         name: 'Father (Shridhar)',
         aliases: ['dad', 'father', 'shridhar', 'myself', 'me', 'i', 'husband'],
         age: 40,
-        ageBracket: 'Adult (Late 30s / Early 40s)',
+        ageBracket: 'Mid-Age Adult (Age 40, Prime Early 40s)',
         heightDesc: '5ft 10in (178cm), adult stature',
-        uncompromisableAnchors: 'Adult Indian male, age 40, medium-brown skin, oval face, neat salt-and-pepper trimmed beard, short textured dark hair, sturdy broad-shouldered build with upright grounded posture.',
-        visualTraits: 'Adult father in early 40s, neat short dark hair, warm confident expression, seasoned contemporary styling.',
+        uncompromisableAnchors: 'Fit mid-age 40-year-old Indian man in his prime early 40s (strictly age 38-40, STRICTLY NOT old or elderly, STRICTLY NO gray or white hair on head, STRICTLY NO senior facial wrinkles), medium-brown skin, oval face, full head of thick short jet-black hair, smooth unwrinkled forehead, neat short dark trimmed beard, sturdy broad-shouldered build with upright grounded posture.',
+        visualTraits: 'Fit mid-age 40-year-old Indian man in his prime early 40s, full head of short dark black hair, neat dark trimmed beard, warm confident expression, smooth unwrinkled skin, contemporary styling (strictly NOT an old man or senior).',
         vehicleRole: 'driver_right',
         defaultClothing: 'Casual dark linen shirt or jacket',
         stylizedAvatarUrl: 'https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/avatar_member_father.jpg'
@@ -2942,9 +3086,10 @@ function detectRelevantCastMembers(combined = '', cast = null) {
     }
   });
 
-  // 4. First-Person Narrator Participation:
-  // If the narrator ("I / me / my") is actively participating alongside spouse or children
-  // (e.g. "between Aru and me", "with me", "I remain by his side", "beside him"), include Father / Self!
+  // 4. First-Person Narrator Participation & Solo Self-Reference:
+  // If the narrator ("I / me / my / myself") is actively participating alongside spouse or children,
+  // OR if the narrator is writing a first-person reflection about themselves (with no other family member as exclusive solo subject),
+  // include Father / Self (Shridhar, age 40)!
   const hasChild = detected.has('member_elder_son') || detected.has('member_younger_son');
   const hasSpouse = detected.has('member_mother');
   const hasFirstPersonCoPresence = /\b(and me|with me|between .* and me|i remain|by my side|by his side|beside him|beside her|holding my hand|teaching him|walked with him|support him|i stood|standing beside)\b/i.test(c);
@@ -2952,18 +3097,24 @@ function detectRelevantCastMembers(combined = '', cast = null) {
     detected.add('member_father');
   }
 
+  const hasFirstPersonSelf = /\b(i|me|my|myself|mine|i'm|i’m|i've|i’ve|i'd|i’d)\b/i.test(c);
+  if (detected.size === 0 && hasFirstPersonSelf) {
+    const selfMember = members.find(m => m.relationship === 'self') || { id: 'member_father' };
+    detected.add(selfMember.id);
+  }
+
   return detected;
 }
 
-function buildFamilyCastDirectives({ familyCast, activeCast, castStaging, userSlant = '', spark = '', countryContext = '', sourceType = 'digital_link' }) {
-  if (sourceType !== 'inner_voice' && (!activeCast || !Array.isArray(activeCast.members) || activeCast.members.length === 0)) {
+function buildFamilyCastDirectives({ familyCast, activeCast, castStaging, userSlant = '', spark = '', countryContext = '', sourceType = 'digital_link', perspectiveMode = 'source' }) {
+  const hasExplicitCast = activeCast && Array.isArray(activeCast.members) && activeCast.members.length > 0;
+  if (sourceType !== 'inner_voice' && !hasExplicitCast && perspectiveMode !== 'curator') {
     return null;
   }
   const combined = `${userSlant} ${spark}`.toLowerCase();
   const cast = familyCast || getDefaultFamilyCast();
   const detectedIds = detectRelevantCastMembers(combined, cast);
 
-  const hasExplicitCast = activeCast && Array.isArray(activeCast.members) && activeCast.members.length > 0;
   const isFamilyContext = (detectedIds.size > 0);
 
   if (!isFamilyContext && !hasExplicitCast) {
@@ -2973,13 +3124,10 @@ function buildFamilyCastDirectives({ familyCast, activeCast, castStaging, userSl
   let activeMembers = [];
   if (hasExplicitCast && activeCast.manuallySelected) {
     activeMembers = activeCast.members;
-  } else if (detectedIds.size > 0) {
-    activeMembers = (cast.members || []).filter(m => detectedIds.has(m.id));
-    if (activeMembers.length === 0 && hasExplicitCast) {
-      activeMembers = activeCast.members;
-    }
   } else if (hasExplicitCast) {
     activeMembers = activeCast.members;
+  } else if (detectedIds.size > 0) {
+    activeMembers = (cast.members || []).filter(m => detectedIds.has(m.id));
   }
 
   if (activeMembers.length === 0) {
@@ -3080,18 +3228,30 @@ ${activeMembers.map((m, i) => `  * Person #${i + 1}: ${m.name || m.roleLabel} ($
     promptSnippets.push('family road trip scenic overlook by parked vehicle: family members standing naturally together admiring the vista');
   }
 
+  if (hasFather) {
+    directives.push(`FATHER (SHRIDHAR) STRICT MID-AGE (40 YEARS OLD) & ANTI-AGING LOCK:
+- Shridhar is a fit mid-age 40-year-old Indian man in his prime early 40s (full head of thick short jet-black hair, smooth unwrinkled facial skin, neat short dark trimmed beard, sturdy broad-shouldered build).
+- STRICT BAN ON AGING OR ELDERLY PORTRAYAL: NEVER describe him as "an Indian father figure" without specifying "fit mid-age 40-year-old man in his prime early 40s", NEVER use "salt-and-pepper", and STRICTLY NEVER portray him as an old man, elderly figure, grandfather, or senior citizen with gray/white head hair or facial wrinkles!`);
+    promptSnippets.push('fit mid-age 40-year-old Indian man in his prime early 40s with full thick short jet-black hair, smooth unwrinkled skin, neat short dark trimmed beard, sturdy broad-shouldered build, strictly NOT old or elderly');
+  }
+
   // 3. Member-Specific Facial Traits & Visual Likeness Anchors (Face, Hair & Body Stature)
   const memberTraitDirectives = [];
   const anchorDirectives = [];
 
   activeMembers.forEach(m => {
-    const anchors = m.uncompromisableAnchors && String(m.uncompromisableAnchors).trim();
+    const rawAnchors = m.uncompromisableAnchors && String(m.uncompromisableAnchors).trim();
+    const anchors = rawAnchors
+      ? rawAnchors.replace(/\bsalt-and-pepper\s+(?:trimmed\s+)?beard\b/gi, 'neat short dark trimmed beard, full head of thick short jet-black hair (strictly NOT old or elderly)')
+      : '';
     if (anchors) {
       anchorDirectives.push(`${m.name || m.roleLabel} (${m.roleLabel || m.relationship}): ${anchors}`);
       promptSnippets.push(`STRICT ANCHOR for ${m.name || m.roleLabel}: ${anchors}`);
     }
 
-    const traitParts = [m.visualTraits, m.bodyBuild, m.heightDesc].filter(t => t && String(t).trim()).map(t => String(t).trim());
+    const traitParts = [m.visualTraits, m.bodyBuild, m.heightDesc]
+      .filter(t => t && String(t).trim())
+      .map(t => String(t).trim().replace(/\bsalt-and-pepper\s+(?:trimmed\s+)?beard\b/gi, 'neat short dark trimmed beard'));
     const combinedTraits = traitParts.join(', ');
     if (combinedTraits) {
       memberTraitDirectives.push(`${m.name || m.roleLabel} (${m.roleLabel || m.relationship}): ${combinedTraits}`);

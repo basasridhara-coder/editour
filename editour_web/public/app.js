@@ -6523,9 +6523,8 @@ function loadPostIntoStudioToRegenerate(postId) {
 
   // 1. Set source mode
   setAnchorMode(inputs.sourceType || 'digital_link');
-  if (inputs.sourceType !== 'inner_voice' && typeof dismissFamilyCastStaging === 'function') {
-    dismissFamilyCastStaging();
-  }
+  window._userManuallyToggledCast = false;
+  checkAndTriggerFamilyCast(`${inputs.slantTake || ''} ${inputs.spark || ''}`);
 
   // 1b. Restore Attached Catalyst Photo or Source Visual if present
   if (inputs.sourcePhoto && typeof inputs.sourcePhoto === 'string' && inputs.sourcePhoto.length > 20) {
@@ -8661,8 +8660,26 @@ function renderCuratorStyleProfile() {
 // ============================================================
 
 let familyCastProfileCache = null;
-let activeCastMemberIds = new Set(['member_father', 'member_mother', 'member_elder_son', 'member_younger_son']);
-let activeCastStagingMode = 'vehicle_rhd';
+let activeCastMemberIds = new Set();
+let activeCastStagingMode = 'general';
+
+function sanitizeLoadedFamilyCast(cast) {
+  if (!cast || !Array.isArray(cast.members)) return cast;
+  cast.members = cast.members.filter(m => m && (m.name || m.roleLabel !== 'New Member'));
+  cast.members.forEach(m => {
+    if (m.id === 'member_father' || m.relationship === 'self') {
+      if (m.uncompromisableAnchors) {
+        m.uncompromisableAnchors = m.uncompromisableAnchors
+          .replace(/\bsalt-and-pepper\s+(?:trimmed\s+)?beard\b/gi, 'neat short dark trimmed beard, full head of thick short jet-black hair (strictly NOT old or elderly)');
+      }
+      if (m.visualTraits) {
+        m.visualTraits = m.visualTraits
+          .replace(/\bsalt-and-pepper\s+(?:trimmed\s+)?beard\b/gi, 'neat short dark trimmed beard');
+      }
+    }
+  });
+  return cast;
+}
 
 function getDefaultClientFamilyCast() {
   const userHandle = (currentUser && currentUser.email) || '@Shridhar Reddy';
@@ -8678,8 +8695,8 @@ function getDefaultClientFamilyCast() {
         aliases: ['dad', 'father', 'shridhar', 'myself', 'me', 'i', 'husband'],
         age: 40,
         heightDesc: '5ft 10in (178cm), adult stature',
-        uncompromisableAnchors: 'Adult Indian male, age 40, medium-brown skin, oval face, neat salt-and-pepper trimmed beard, short textured dark hair, sturdy broad-shouldered build with upright grounded posture.',
-        visualTraits: 'Adult father in early 40s, neat short dark hair, warm confident expression, seasoned contemporary styling.',
+        uncompromisableAnchors: 'Fit mid-age 40-year-old Indian man in his prime early 40s (strictly age 38-40, STRICTLY NOT old or elderly, STRICTLY NO gray or white hair on head, STRICTLY NO senior facial wrinkles), medium-brown skin, oval face, full head of thick short jet-black hair, smooth unwrinkled forehead, neat short dark trimmed beard, sturdy broad-shouldered build with upright grounded posture.',
+        visualTraits: 'Fit mid-age 40-year-old Indian man in his prime early 40s, full head of short dark black hair, neat dark trimmed beard, warm confident expression, smooth unwrinkled skin, contemporary styling (strictly NOT an old man or senior).',
         vehicleRole: 'driver_right',
         stylizedAvatarUrl: 'https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/avatar_member_father.jpg'
       },
@@ -8733,7 +8750,7 @@ async function loadFamilyCastProfile(forceRefresh = false) {
   const local = localStorage.getItem('slant_family_cast');
   if (local && !familyCastProfileCache) {
     try {
-      familyCastProfileCache = JSON.parse(local);
+      familyCastProfileCache = sanitizeLoadedFamilyCast(JSON.parse(local));
     } catch (_) {}
   }
 
@@ -8766,13 +8783,14 @@ async function loadFamilyCastProfile(forceRefresh = false) {
     if (resp.ok) {
       const data = await resp.json();
       if (data && data.cast && Array.isArray(data.cast.members)) {
-        familyCastProfileCache = data.cast;
+        familyCastProfileCache = sanitizeLoadedFamilyCast(data.cast);
         try {
-          localStorage.setItem('slant_family_cast', JSON.stringify(data.cast));
+          localStorage.setItem('slant_family_cast', JSON.stringify(familyCastProfileCache));
         } catch (_) {}
 
-        if (activeCastMemberIds.size === 0 && data.cast.members.length > 0) {
-          data.cast.members.forEach(m => activeCastMemberIds.add(m.id));
+        const currentSlant = (document.getElementById('creatorSlantTakeInput')?.value || '') + ' ' + (document.getElementById('creatorSparkInput')?.value || '');
+        if (!window._userManuallyToggledCast && currentSlant.trim()) {
+          checkAndTriggerFamilyCast(currentSlant);
         }
 
         if (!activeVaultMemberId && data.cast.members.length > 0) {
@@ -9775,24 +9793,48 @@ function resetFamilyCastToDefault() {
 }
 
 function setFamilyCastStagingMode(mode) {
-  activeCastStagingMode = mode || 'vehicle_rhd';
-  ['stagingPillRhd', 'stagingPillOverlook', 'stagingPillDomestic'].forEach(id => {
+  activeCastStagingMode = mode || 'general';
+  [
+    ['stagingPillRhd', 'vehicle_rhd'],
+    ['stagingPillOverlook', 'scenic_overlook'],
+    ['stagingPillDomestic', 'general'],
+    ['eqStagingPillRhd', 'vehicle_rhd'],
+    ['eqStagingPillOverlook', 'scenic_overlook'],
+    ['eqStagingPillDomestic', 'general']
+  ].forEach(([id, targetMode]) => {
     const el = document.getElementById(id);
     if (!el) return;
-    const match = (id === 'stagingPillRhd' && mode === 'vehicle_rhd') ||
-                  (id === 'stagingPillOverlook' && mode === 'scenic_overlook') ||
-                  (id === 'stagingPillDomestic' && mode === 'general');
-    el.classList.toggle('active', match);
+    el.classList.toggle('active', mode === targetMode);
   });
 }
 
 function toggleActiveCastMember(memberId) {
+  window._userManuallyToggledCast = true;
   if (activeCastMemberIds.has(memberId)) {
     activeCastMemberIds.delete(memberId);
   } else {
     activeCastMemberIds.add(memberId);
   }
   renderFamilyCastStagingUI();
+  const regenModal = document.getElementById('selectiveRegenModal');
+  if (regenModal && regenModal.classList.contains('open')) {
+    unlockImageWhenVisualSettingChanges();
+  }
+}
+
+function clearActiveCastSelection() {
+  window._userManuallyToggledCast = true;
+  activeCastMemberIds.clear();
+  const hint = document.getElementById('familyCastAutoHint');
+  const eqHint = document.getElementById('equalizerCastAutoHint');
+  if (hint) hint.style.display = 'none';
+  if (eqHint) eqHint.style.display = 'none';
+  renderFamilyCastStagingUI();
+  const regenModal = document.getElementById('selectiveRegenModal');
+  if (regenModal && regenModal.classList.contains('open')) {
+    unlockImageWhenVisualSettingChanges();
+  }
+  showTemporaryToast('Cleared selected cast members for this post.');
 }
 
 function detectRelevantCastMembers(text = '', cast = null) {
@@ -9859,9 +9901,10 @@ function detectRelevantCastMembers(text = '', cast = null) {
     }
   });
 
-  // 4. First-Person Narrator Participation:
-  // If the narrator ("I / me / my") is actively participating alongside spouse or children
-  // (e.g. "between Aru and me", "with me", "I remain by his side", "beside him"), include Father / Self!
+  // 4. First-Person Narrator Participation & Solo Self-Reference:
+  // If the narrator ("I / me / my / myself") is actively participating alongside spouse or children,
+  // OR if the narrator is writing a first-person reflection about themselves (with no other family member as exclusive solo subject),
+  // include Father / Self (Shridhar, age 40)!
   const hasChild = detected.has('member_elder_son') || detected.has('member_younger_son');
   const hasSpouse = detected.has('member_mother');
   const hasFirstPersonCoPresence = /\b(and me|with me|between .* and me|i remain|by my side|by his side|beside him|beside her|holding my hand|teaching him|walked with him|support him|i stood|standing beside)\b/i.test(combined);
@@ -9869,32 +9912,27 @@ function detectRelevantCastMembers(text = '', cast = null) {
     detected.add('member_father');
   }
 
+  const hasFirstPersonSelf = /\b(i|me|my|myself|mine|i'm|i’m|i've|i’ve|i'd|i’d)\b/i.test(combined);
+  if (detected.size === 0 && hasFirstPersonSelf && (creatorSelectedSource === 'inner_voice' || creatorPerspectiveMode === 'curator')) {
+    const selfMember = members.find(m => m.relationship === 'self') || { id: 'member_father' };
+    detected.add(selfMember.id);
+  }
+
   return detected;
 }
 
 function dismissFamilyCastStaging() {
-  const card = document.getElementById('familyCastStagingCard');
-  const launcher = document.getElementById('familyCastLauncherWrap');
-  const hint = document.getElementById('familyCastAutoHint');
-  if (card) {
-    card.style.display = 'none';
-    card.dataset.manuallyDismissed = 'true';
-    delete card.dataset.manuallyOpened;
-  }
-  if (hint) hint.style.display = 'none';
-  if (launcher) launcher.style.display = 'block';
-  activeCastMemberIds.clear();
-  renderFamilyCastStagingUI();
-  showTemporaryToast('Family cast disabled for this post.');
+  clearActiveCastSelection();
 }
 
 function manuallyOpenFamilyCastStaging() {
   const card = document.getElementById('familyCastStagingCard');
   const launcher = document.getElementById('familyCastLauncherWrap');
-  if (!card) return;
-  card.style.display = 'flex';
-  card.dataset.manuallyOpened = 'true';
-  delete card.dataset.manuallyDismissed;
+  if (card) {
+    card.style.display = 'flex';
+    card.dataset.manuallyOpened = 'true';
+    delete card.dataset.manuallyDismissed;
+  }
   if (launcher) launcher.style.display = 'none';
 
   const cast = familyCastProfileCache || getDefaultClientFamilyCast();
@@ -9905,17 +9943,16 @@ function manuallyOpenFamilyCastStaging() {
 }
 
 function checkAndTriggerFamilyCast(text = '') {
-  if (creatorSelectedSource !== 'inner_voice') {
-    return;
-  }
   const combined = String(text || '').toLowerCase();
   const card = document.getElementById('familyCastStagingCard');
   const launcher = document.getElementById('familyCastLauncherWrap');
   const hint = document.getElementById('familyCastAutoHint');
-  if (!card) return;
+  const eqHint = document.getElementById('equalizerCastAutoHint');
+  if (card) card.style.display = 'flex';
+  if (launcher) launcher.style.display = 'none';
 
-  if (card.dataset.manuallyDismissed) {
-    if (launcher) launcher.style.display = 'block';
+  if (window._userManuallyToggledCast) {
+    renderFamilyCastStagingUI();
     return;
   }
 
@@ -9923,16 +9960,18 @@ function checkAndTriggerFamilyCast(text = '') {
   const detectedIds = detectRelevantCastMembers(combined, cast);
 
   if (detectedIds.size > 0) {
-    card.style.display = 'flex';
-    if (launcher) launcher.style.display = 'none';
-
     activeCastMemberIds = detectedIds;
     renderFamilyCastStagingUI();
 
+    const names = (cast.members || []).filter(m => detectedIds.has(m.id)).map(m => m.name || m.roleLabel);
+    const hintHtml = `<span>🎯 Auto-identified from Vault: <strong>${escapeHtml(names.join(' & '))}</strong></span>`;
     if (hint) {
-      const names = (cast.members || []).filter(m => detectedIds.has(m.id)).map(m => m.name || m.roleLabel);
       hint.style.display = 'block';
-      hint.innerHTML = `<span>🎯 Auto-identified for poster: <strong>${escapeHtml(names.join(' & '))}</strong></span>`;
+      hint.innerHTML = hintHtml;
+    }
+    if (eqHint) {
+      eqHint.style.display = 'block';
+      eqHint.innerHTML = hintHtml;
     }
 
     // Auto-detect vehicle context
@@ -9942,36 +9981,39 @@ function checkAndTriggerFamilyCast(text = '') {
       } else {
         setFamilyCastStagingMode('vehicle_rhd');
       }
+    } else {
+      setFamilyCastStagingMode('general');
     }
   } else {
-    if (!card.dataset.manuallyOpened) {
-      card.style.display = 'none';
-      if (hint) hint.style.display = 'none';
-      if (launcher && (cast.members || []).length > 0) {
-        launcher.style.display = 'block';
-      }
-    }
+    activeCastMemberIds.clear();
+    if (hint) hint.style.display = 'none';
+    if (eqHint) eqHint.style.display = 'none';
+    renderFamilyCastStagingUI();
   }
 }
 
 function renderFamilyCastStagingUI() {
-  const container = document.getElementById('familyCastMembersRow');
-  if (!container) return;
-
   const cast = familyCastProfileCache || getDefaultClientFamilyCast();
-  const members = cast.members || [];
+  const members = (cast.members || []).filter(m => m && (m.name || m.roleLabel !== 'New Member'));
 
-  container.innerHTML = members.map(m => {
+  const chipsHtml = members.map(m => {
     const isActive = activeCastMemberIds.has(m.id);
-    const avatarThumb = m.photoBase64 ? `<img src="${m.photoBase64}" class="chip-avatar-img" alt="">` : '';
+    const avatarSrc = m.photoBase64 || m.stylizedAvatarUrl || '';
+    const avatarThumb = avatarSrc ? `<img src="${avatarSrc}" class="chip-avatar-img" alt="">` : '';
+    const ageLabel = m.age ? ` (${m.age})` : '';
     return `
-      <div class="family-cast-chip ${isActive ? 'active' : ''}" onclick="toggleActiveCastMember('${m.id}')" title="Toggle ${escapeHtml(m.name)}">
-        <span class="chip-check">${isActive ? '✓' : ''}</span>
+      <div class="family-cast-chip ${isActive ? 'active' : ''}" onclick="toggleActiveCastMember('${m.id}')" title="Toggle ${escapeHtml(m.name || m.roleLabel)}">
+        <span class="chip-check">${isActive ? '✓' : '+'}</span>
         ${avatarThumb}
-        <span>${escapeHtml(m.name || m.roleLabel)}</span>
+        <span>${escapeHtml((m.name || m.roleLabel) + ageLabel)}</span>
       </div>
     `;
   }).join('');
+
+  ['familyCastMembersRow', 'equalizerCastMembersRow', 'selectiveRegenCastMembersRow'].forEach(containerId => {
+    const el = document.getElementById(containerId);
+    if (el) el.innerHTML = chipsHtml;
+  });
 
   const hasElder = activeCastMemberIds.has('member_elder_son') || members.some(m => activeCastMemberIds.has(m.id) && m.age === 11);
   const hasYounger = activeCastMemberIds.has('member_younger_son') || members.some(m => activeCastMemberIds.has(m.id) && m.age === 7);
@@ -9991,15 +10033,6 @@ function renderFamilyCastStagingUI() {
 }
 
 function getActiveCastPayload() {
-  const card = document.getElementById('familyCastStagingCard');
-  if (creatorSelectedSource !== 'inner_voice') {
-    if (!card || !card.dataset.manuallyOpened) {
-      return null;
-    }
-  }
-  if (card && card.style.display === 'none' && !card.dataset.manuallyOpened) {
-    return null;
-  }
   const cast = familyCastProfileCache || getDefaultClientFamilyCast();
   const activeList = (cast.members || []).filter(m => activeCastMemberIds.has(m.id));
   if (activeList.length === 0) {
@@ -10007,7 +10040,8 @@ function getActiveCastPayload() {
   }
   return {
     members: activeList,
-    stagingMode: activeCastStagingMode
+    stagingMode: activeCastStagingMode,
+    manuallySelected: Boolean(window._userManuallyToggledCast)
   };
 }
 
@@ -10043,6 +10077,7 @@ function getSanitizedActiveCastPayload() {
   if (!activePayload) return null;
   return {
     stagingMode: activePayload.stagingMode,
+    manuallySelected: Boolean(activePayload.manuallySelected),
     members: (activePayload.members || []).map(getSanitizedCastMember)
   };
 }
@@ -10575,6 +10610,13 @@ function openCreatorEqualizer() {
 
     // Sync Cues
     renderEqualizerCues();
+
+    // Sync Casting Vault & Character Staging inside Settings modal
+    const slantInput = document.getElementById('creatorSlantTakeInput');
+    const sparkInput = document.getElementById('creatorSparkInput');
+    const combinedText = ((slantInput && slantInput.value) || '') + ' ' + ((sparkInput && sparkInput.value) || '');
+    checkAndTriggerFamilyCast(combinedText);
+    renderFamilyCastStagingUI();
 
     modal.classList.add('open');
     modal.classList.add('active');
@@ -14737,8 +14779,8 @@ async function startAiSynthesis() {
 
 let isArtworkEnhancing = false;
 
-async function retryStep3ArtworkGeneration(event) {
-  if (event) event.stopPropagation();
+async function retryStep3ArtworkGeneration(event, options = {}) {
+  if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
   if (!currentSynthesizedPost || isArtworkEnhancing) return;
 
   currentSynthesizedPost.isArtworkRetrying = true;
@@ -14748,6 +14790,9 @@ async function retryStep3ArtworkGeneration(event) {
 
   const userEmail = getResolvedCreatorEmail();
   isArtworkEnhancing = true;
+
+  const shouldRebuildFromSettings = Boolean(options.rebuildPromptFromSettings || window._regenSettingsModified);
+  const customDirection = options.customDirection || '';
 
   try {
     const artController = new AbortController();
@@ -14759,8 +14804,20 @@ async function retryStep3ArtworkGeneration(event) {
       body: JSON.stringify({
         action: 'artwork_only',
         isManualRegenerate: true,
+        rebuildPromptFromSettings: shouldRebuildFromSettings,
         creatorEmail: userEmail,
         prompt: currentSynthesizedPost.illustrationPrompt,
+        customDirection,
+        perspectiveMode: creatorPerspectiveMode || 'source',
+        characterRepresentation: creatorCharacterRepresentation || 'realistic',
+        sourceType: currentSynthesizedPost.sourceType || creatorSelectedSource || 'digital_link',
+        userSlant: currentSynthesizedPost.userSlantTake || currentSynthesizedPost.polishedCuratorTake || document.getElementById('creatorSlantTakeInput')?.value || '',
+        spark: currentSynthesizedPost.spark || document.getElementById('creatorSparkInput')?.value || '',
+        adaptedHeadline: currentSynthesizedPost.adaptedHeadline || '',
+        originalHeadline: currentSynthesizedPost.originalHeadline || currentSynthesizedPost.sourceHeadline || '',
+        scrapedTitle: currentScrapedArticle?.title || currentSynthesizedPost.generationInputs?.scrapedTitle || '',
+        scrapedContent: currentScrapedArticle?.content || currentSynthesizedPost.generationInputs?.scrapedContent || currentSynthesizedPost.sourceContext || '',
+        castStaging: { mode: activeCastStagingMode },
         countryContext: creatorCountryContext?.name || 'India',
         familyCast: getSanitizedCastPayload(familyCastProfileCache),
         activeCast: getSanitizedActiveCastPayload(),
@@ -14778,6 +14835,12 @@ async function retryStep3ArtworkGeneration(event) {
       if (artData && artData.credits) {
         updateCreatorStudioCreditBadge(artData.credits);
       }
+      if (artData && artData.illustrationPrompt) {
+        currentSynthesizedPost.illustrationPrompt = artData.illustrationPrompt;
+      }
+      if (artData && artData.cues) {
+        currentSynthesizedPost.cues = artData.cues;
+      }
       if (artData && artData.success && artData.illustrationBase64) {
         const isDataUri = artData.illustrationBase64.startsWith('data:');
         const formatted = isDataUri ? artData.illustrationBase64 : `data:image/png;base64,${artData.illustrationBase64}`;
@@ -14792,6 +14855,9 @@ async function retryStep3ArtworkGeneration(event) {
         currentSynthesizedPost.illustrationBase64 = formatted;
         currentSynthesizedPost.posterBase64 = formatted;
         currentSynthesizedPost.artworkPending = false;
+        currentSynthesizedPost.characterRepresentation = creatorCharacterRepresentation;
+        currentSynthesizedPost.perspectiveMode = creatorPerspectiveMode;
+        window._regenSettingsModified = false;
         delete currentSynthesizedPost.artworkError;
         showTemporaryToast('✓ Visual poster artwork successfully generated!');
       } else {
@@ -15218,6 +15284,21 @@ function openSelectiveRegenModal() {
     optionsList.innerHTML = '';
   }
 
+  window._regenSettingsModified = false;
+
+  // Ensure Family Cast & current post settings are synced into the modal
+  const p = currentSynthesizedPost || {};
+  const combinedText = [
+    p.userSlantTake || '',
+    p.curatorTake || '',
+    p.spark || '',
+    p.adaptedHeadline || '',
+    document.getElementById('creatorSlantTakeInput')?.value || '',
+    document.getElementById('creatorSparkInput')?.value || ''
+  ].join(' ');
+  checkAndTriggerFamilyCast(combinedText);
+  syncSelectiveRegenSettingsUI();
+
   // Default: Lock Artwork (protect ₹4.00 image) and Lock Essay; unlock Headline & Slant Note by default
   // If user is currently viewing Slide 2/3 (the Essay), unlock Essay by default and lock Headline
   if (currentPreviewSlide >= 1) {
@@ -15228,6 +15309,55 @@ function openSelectiveRegenModal() {
 
   updateSelectiveRegenLockUI();
   modal.classList.add('open');
+}
+
+function syncSelectiveRegenSettingsUI() {
+  const focusMode = creatorPerspectiveMode || 'source';
+  ['source', 'blend', 'curator'].forEach(m => {
+    const btn = document.getElementById(`regenFocus_${m}`);
+    if (btn) btn.classList.toggle('active', m === focusMode);
+  });
+
+  const repStyle = creatorCharacterRepresentation || 'realistic';
+  ['exact', 'realistic', 'painting', 'silhouette', 'conceptual'].forEach(s => {
+    const btn = document.getElementById(`regenPortrayal_${s}`);
+    if (btn) btn.classList.toggle('active', s === repStyle);
+  });
+
+  const cCode = (creatorCountryContext && creatorCountryContext.code) ? creatorCountryContext.code : 'IN';
+  ['IN', 'US', 'UK', 'GLOBAL'].forEach(code => {
+    const btn = document.getElementById(`regenCountry_${code}`);
+    if (btn) btn.classList.toggle('active', code === cCode);
+  });
+
+  renderFamilyCastStagingUI();
+}
+
+function unlockImageWhenVisualSettingChanges() {
+  window._regenSettingsModified = true;
+  if (selectiveRegenLocks.image) {
+    selectiveRegenLocks.image = false;
+    updateSelectiveRegenLockUI();
+    showTemporaryToast('🎨 Unlocked Poster Artwork so your new visual setting will apply on regenerate.');
+  }
+}
+
+function setRegenPerspectiveMode(mode) {
+  setEqualizerPerspectiveMode(mode, true);
+  syncSelectiveRegenSettingsUI();
+  unlockImageWhenVisualSettingChanges();
+}
+
+function setRegenPortrayal(style) {
+  selectEqualizerPortrayal(style);
+  syncSelectiveRegenSettingsUI();
+  unlockImageWhenVisualSettingChanges();
+}
+
+function setRegenCountry(code) {
+  selectEqualizerCountry(code);
+  syncSelectiveRegenSettingsUI();
+  unlockImageWhenVisualSettingChanges();
 }
 
 function closeSelectiveRegenModal() {
@@ -15452,13 +15582,12 @@ async function runLockedSelectiveRegenerate() {
       })());
     }
 
-    // 2. If Artwork is unlocked, trigger artwork regeneration
+    // 2. If Artwork is unlocked, trigger artwork regeneration (rebuilding prompt from current Studio Settings & Casting Vault)
     if (regenImage) {
-      if (customDirection && currentSynthesizedPost) {
-        const basePrompt = currentSynthesizedPost.illustrationPrompt || currentSynthesizedPost.adaptedHeadline || '';
-        currentSynthesizedPost.illustrationPrompt = `${basePrompt}. Additional visual direction: ${customDirection}`;
-      }
-      tasks.push(retryStep3ArtworkGeneration());
+      tasks.push(retryStep3ArtworkGeneration(null, {
+        rebuildPromptFromSettings: true,
+        customDirection
+      }));
     }
 
     await Promise.all(tasks);

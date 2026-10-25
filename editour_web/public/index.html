@@ -27,7 +27,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Merriweather:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,400;1,600;1,700;1,900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261025_0750">
+  <link rel="stylesheet" href="style.css?v=20261025_1745">
   <!-- Favicon & Brand Icons -->
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
@@ -741,22 +741,22 @@
               </div>
             </div>
 
-            <!-- 5. Family Cast & Physical Staging Card (Zero-Footprint Consistent Characters) -->
-            <div class="family-cast-card" id="familyCastStagingCard" style="display: none;">
+            <!-- 5. Family Cast & Physical Staging Card (Zero-Footprint Consistent Characters - Always Visible in Settings) -->
+            <div class="family-cast-card" id="familyCastStagingCard">
               <div class="family-cast-header">
                 <div class="family-cast-title-group">
                   <span class="family-cast-icon">👥</span>
                   <div>
-                    <div class="family-cast-title">Family Cast & Physical Staging</div>
-                    <div class="family-cast-subtitle">Guaranteed age difference & Indian driving physics (Zero Digital Footprint)</div>
+                    <div class="family-cast-title">Casting Vault &amp; Family Staging</div>
+                    <div class="family-cast-subtitle">Consistent character likeness (40yo mid-age Father &amp; family • Zero Digital Footprint)</div>
                   </div>
                 </div>
                 <div class="family-cast-actions">
                   <button type="button" class="family-cast-vault-btn" onclick="openFamilyCastModal()" title="Manage family members in vault">
                     <span>⚙️ Manage Vault</span>
                   </button>
-                  <button type="button" class="family-cast-dismiss-btn" onclick="dismissFamilyCastStaging()" title="Disable family cast for this post">
-                    <span>✕ Dismiss</span>
+                  <button type="button" class="family-cast-dismiss-btn" onclick="dismissFamilyCastStaging()" title="Clear selected cast members for this post">
+                    <span>✕ Clear Selection</span>
                   </button>
                 </div>
               </div>
@@ -1157,6 +1157,41 @@
             <button type="button" class="equalizer-country-pill" id="eqCountryJP" data-country="JP" onclick="selectEqualizerCountry('JP')">🇯🇵 Japan</button>
             <button type="button" class="equalizer-country-pill" id="eqCountryEU" data-country="EU" onclick="selectEqualizerCountry('EU')">🇪🇺 Europe</button>
             <button type="button" class="equalizer-country-pill" id="eqCountryGLOBAL" data-country="GLOBAL" onclick="selectEqualizerCountry('GLOBAL')">🌐 Global</button>
+          </div>
+        </div>
+
+        <!-- 4. Casting Vault & Family Cast (Always Visible in Settings) -->
+        <div class="equalizer-section" id="equalizerCastingVaultSection">
+          <div class="equalizer-section-header">
+            <span class="equalizer-section-icon">👥</span>
+            <div style="flex:1;">
+              <div class="equalizer-section-title">CASTING VAULT &amp; CHARACTER STAGING</div>
+              <div class="equalizer-section-sub">Toggle recurring Vault characters (e.g. Father Shridhar, 40yo mid-age) or manage photos</div>
+            </div>
+            <button type="button" class="family-cast-vault-btn" onclick="openFamilyCastModal()" title="Open Family Cast Vault">
+              <span>⚙️ Manage Vault</span>
+            </button>
+          </div>
+
+          <div class="family-cast-auto-hint" id="equalizerCastAutoHint" style="display:none; margin-bottom: 8px;"></div>
+
+          <div class="family-cast-members-row" id="equalizerCastMembersRow" style="margin-bottom: 10px;">
+            <!-- Populated dynamically by renderFamilyCastStagingUI() -->
+          </div>
+
+          <div class="family-cast-staging-controls" style="margin-top: 6px;">
+            <label class="staging-control-label">🚗 Scene &amp; Road Staging:</label>
+            <div class="staging-pills">
+              <button type="button" class="staging-pill active" id="eqStagingPillRhd" onclick="setFamilyCastStagingMode('vehicle_rhd')">
+                <span>🇮🇳 RHD Car</span>
+              </button>
+              <button type="button" class="staging-pill" id="eqStagingPillOverlook" onclick="setFamilyCastStagingMode('scenic_overlook')">
+                <span>🏔️ Scenic Overlook</span>
+              </button>
+              <button type="button" class="staging-pill" id="eqStagingPillDomestic" onclick="setFamilyCastStagingMode('general')">
+                <span>🏡 Natural Activity / Outdoors</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -1819,7 +1854,7 @@
           </div>
         </div>
 
-        <div class="selective-regen-direction-box" style="margin-top: 12px; margin-bottom: 14px;">
+        <div class="selective-regen-direction-box" style="margin-top: 12px; margin-bottom: 12px;">
           <label for="selectiveRegenDirectionInput" class="selective-regen-direction-label">
             <span>🧭 Optional Guidance for Unlocked Parts</span>
             <span class="selective-regen-direction-hint">Leave blank for automatic fresh synthesis</span>
@@ -1832,6 +1867,89 @@
           >
         </div>
 
+        <!-- Integrated Studio Settings & Casting Vault Panel inside Regeneration -->
+        <div class="selective-regen-settings-panel" id="selectiveRegenSettingsPanel">
+          <div class="selective-settings-header">
+            <div class="selective-settings-title-wrap">
+              <span class="selective-settings-kicker">🎚️ STUDIO SETTINGS &amp; CASTING VAULT</span>
+              <span class="selective-settings-sub">Adjust Visual Focus, Portrayal, Region, or Casting Vault before regenerating</span>
+            </div>
+            <button type="button" class="family-cast-vault-btn" onclick="openFamilyCastModal()" title="Open Family Cast Vault">
+              <span>⚙️ Manage Vault</span>
+            </button>
+          </div>
+
+          <!-- Setting 1: Visual Focus -->
+          <div class="selective-setting-block">
+            <div class="selective-setting-label-row">
+              <span class="selective-setting-label">⚖️ Visual Focus (Poster 1 Angle)</span>
+              <span class="selective-setting-hint" id="regenFocusHintLabel">Source Grounded</span>
+            </div>
+            <div class="selective-setting-pills-row">
+              <button type="button" class="selective-setting-pill" id="regenFocusPill_source" onclick="setRegenPerspectiveMode('source')">
+                <span>📰 Source Grounded</span>
+              </button>
+              <button type="button" class="selective-setting-pill" id="regenFocusPill_hybrid" onclick="setRegenPerspectiveMode('hybrid')">
+                <span>⚖️ Hybrid Blend</span>
+              </button>
+              <button type="button" class="selective-setting-pill" id="regenFocusPill_curator" onclick="setRegenPerspectiveMode('curator')">
+                <span>⚡ Curator Angle</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Setting 2: Character & Image Portrayal -->
+          <div class="selective-setting-block">
+            <div class="selective-setting-label-row">
+              <span class="selective-setting-label">🎨 Character &amp; Image Portrayal</span>
+              <button type="button" class="selective-compare-mini-btn" onclick="openPortrayalComparisonModal()">👀 Compare 5 Styles</button>
+            </div>
+            <div class="selective-setting-pills-row wrap">
+              <button type="button" class="selective-setting-pill" id="regenRepPill_realistic" onclick="setRegenPortrayal('realistic')">
+                <span>🎨 AI Illustration</span>
+              </button>
+              <button type="button" class="selective-setting-pill" id="regenRepPill_cinematic" onclick="setRegenPortrayal('cinematic')">
+                <span>📸 Cinematic Photo</span>
+              </button>
+              <button type="button" class="selective-setting-pill" id="regenRepPill_painting" onclick="setRegenPortrayal('painting')">
+                <span>🖌️ Broadsheet Painting</span>
+              </button>
+              <button type="button" class="selective-setting-pill" id="regenRepPill_silhouette" onclick="setRegenPortrayal('silhouette')">
+                <span>👥 Silhouette</span>
+              </button>
+              <button type="button" class="selective-setting-pill" id="regenRepPill_exact" onclick="setRegenPortrayal('exact')" style="display:none;">
+                <span>📷 Exact Photo</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Setting 3: Regional & Cultural Setting -->
+          <div class="selective-setting-block">
+            <div class="selective-setting-label-row">
+              <span class="selective-setting-label">🌍 Regional &amp; Cultural Setting</span>
+            </div>
+            <div class="selective-setting-pills-row wrap">
+              <button type="button" class="selective-setting-pill" id="regenCountryPill_IN" onclick="setRegenCountry('IN')">🇮🇳 India</button>
+              <button type="button" class="selective-setting-pill" id="regenCountryPill_US" onclick="setRegenCountry('US')">🇺🇸 US</button>
+              <button type="button" class="selective-setting-pill" id="regenCountryPill_GB" onclick="setRegenCountry('GB')">🇬🇧 UK</button>
+              <button type="button" class="selective-setting-pill" id="regenCountryPill_JP" onclick="setRegenCountry('JP')">🇯🇵 Japan</button>
+              <button type="button" class="selective-setting-pill" id="regenCountryPill_EU" onclick="setRegenCountry('EU')">🇪🇺 Europe</button>
+              <button type="button" class="selective-setting-pill" id="regenCountryPill_GLOBAL" onclick="setRegenCountry('GLOBAL')">🌐 Global</button>
+            </div>
+          </div>
+
+          <!-- Setting 4: Casting Vault & Family Cast Toggles -->
+          <div class="selective-setting-block">
+            <div class="selective-setting-label-row">
+              <span class="selective-setting-label">👥 Casting Vault Characters in Scene</span>
+              <button type="button" class="selective-compare-mini-btn" onclick="clearActiveCastSelection()">✕ Clear</button>
+            </div>
+            <div class="family-cast-members-row" id="selectiveRegenCastMembersRow" style="margin-top: 4px;">
+              <!-- Populated dynamically by renderFamilyCastStagingUI() -->
+            </div>
+          </div>
+        </div>
+
         <div class="selective-regen-footer-actions">
           <button type="button" class="selective-regen-run-btn" id="selectiveRegenRunBtn" onclick="runLockedSelectiveRegenerate()">
             <span id="selectiveRegenRunBtnIcon">✨</span>
@@ -1839,8 +1957,8 @@
             <span class="selective-regen-run-cost-badge" id="selectiveRegenRunCostBadge">⚡ Text Only</span>
           </button>
           <button type="button" class="selective-regen-step1-link-btn" onclick="triggerSelectiveRegenerate('full')">
-            <span>↩️</span>
-            <span>Need to change your raw take or source link? Go to Step 1 Inputs</span>
+            <span>✏️</span>
+            <span>Edit Raw Take, Spark, or Source Link in Step 1</span>
           </button>
         </div>
       </div>
@@ -2264,6 +2382,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261025_0750"></script>
+  <script src="app.js?v=20261025_1745"></script>
 </body>
 </html>
