@@ -1714,105 +1714,134 @@
     </div>
   </div>
 
-  <!-- Selective Regenerate Modal (Choose Headline, Essay, Image, or Full Step 1) -->
+  <!-- Selective Regenerate Modal (Lock what to keep, Regenerate the rest in 1 click) -->
   <div class="modal-overlay" id="selectiveRegenModal" onclick="if(event.target===this) closeSelectiveRegenModal()">
     <div class="modal-card selective-regen-modal-card" onclick="event.stopPropagation()">
       <div class="selective-regen-header">
         <div>
-          <span class="selective-regen-kicker">✨ TARGETED STUDIO CONTROLS</span>
-          <h3 class="selective-regen-title">What would you like to regenerate?</h3>
-          <p class="selective-regen-subtitle">Update only the part you want while keeping the rest of your post intact.</p>
+          <span class="selective-regen-kicker">🔒 LOCK &amp; REGENERATE CONTROLS</span>
+          <h3 class="selective-regen-title">Lock what you like, regenerate the rest</h3>
+          <p class="selective-regen-subtitle">Toggle <strong>🔒 Locked</strong> on parts you want to keep, and leave <strong>🔄 Regenerate</strong> on the parts you want updated together.</p>
         </div>
         <button type="button" class="modal-close" onclick="closeSelectiveRegenModal()" title="Close">&times;</button>
       </div>
 
       <div class="selective-regen-body">
-        <div class="selective-regen-direction-box">
+        <!-- Quick Lock Presets -->
+        <div class="selective-lock-presets-row">
+          <span class="selective-lock-presets-label">Quick Presets:</span>
+          <button type="button" class="selective-preset-chip" onclick="applySelectiveLockPreset('text_only')" title="Keep current Poster Image locked, regenerate Headline + Slant + Essay">
+            🔒 Lock Artwork (Text Only)
+          </button>
+          <button type="button" class="selective-preset-chip" onclick="applySelectiveLockPreset('headline_only')" title="Regenerate Headline & Slant Note only">
+            🎯 Headline &amp; Slant
+          </button>
+          <button type="button" class="selective-preset-chip" onclick="applySelectiveLockPreset('essay_only')" title="Regenerate Essay only">
+            📜 Essay Only
+          </button>
+          <button type="button" class="selective-preset-chip" onclick="applySelectiveLockPreset('image_only')" title="Keep all text locked, regenerate Poster Artwork only">
+            🎨 Artwork Only
+          </button>
+        </div>
+
+        <div class="selective-regen-grid">
+          <!-- Row 1: Cover Headline -->
+          <div class="selective-lock-row" id="selectiveLockRow_headline" onclick="toggleSelectiveRegenLock('headline')">
+            <div class="selective-lock-row-main">
+              <div class="selective-regen-option-icon headline">🎯</div>
+              <div class="selective-regen-option-info">
+                <div class="selective-regen-option-title-row">
+                  <span class="selective-regen-option-name">1. Cover Headline</span>
+                  <span class="selective-regen-cost-pill fast">Text (~₹0.06)</span>
+                </div>
+                <p class="selective-lock-preview-text" id="selectivePreview_headline">Slide 1 adapted editorial headline</p>
+              </div>
+              <button type="button" class="selective-lock-toggle-btn" id="selectiveLockBtn_headline" onclick="event.stopPropagation(); toggleSelectiveRegenLock('headline')">
+                <span class="lock-toggle-icon" id="selectiveLockIcon_headline">🔄</span>
+                <span class="lock-toggle-label" id="selectiveLockLabel_headline">Regenerate</span>
+              </button>
+            </div>
+            <div class="selective-headline-options-list" id="selectiveHeadlineOptionsList" style="display:none;" onclick="event.stopPropagation()"></div>
+          </div>
+
+          <!-- Row 2: Signed Slant Note -->
+          <div class="selective-lock-row" id="selectiveLockRow_slantNote" onclick="toggleSelectiveRegenLock('slantNote')">
+            <div class="selective-lock-row-main">
+              <div class="selective-regen-option-icon headline">✍️</div>
+              <div class="selective-regen-option-info">
+                <div class="selective-regen-option-title-row">
+                  <span class="selective-regen-option-name">2. Signed Slant Note (Pullquote)</span>
+                  <span class="selective-regen-cost-pill fast">Text (~₹0.06)</span>
+                </div>
+                <p class="selective-lock-preview-text" id="selectivePreview_slantNote">2-sentence curator callout note on Slide 2</p>
+              </div>
+              <button type="button" class="selective-lock-toggle-btn" id="selectiveLockBtn_slantNote" onclick="event.stopPropagation(); toggleSelectiveRegenLock('slantNote')">
+                <span class="lock-toggle-icon" id="selectiveLockIcon_slantNote">🔒</span>
+                <span class="lock-toggle-label" id="selectiveLockLabel_slantNote">Locked</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Row 3: Broadsheet Essay & Reflection -->
+          <div class="selective-lock-row" id="selectiveLockRow_essay" onclick="toggleSelectiveRegenLock('essay')">
+            <div class="selective-lock-row-main">
+              <div class="selective-regen-option-icon essay">📜</div>
+              <div class="selective-regen-option-info">
+                <div class="selective-regen-option-title-row">
+                  <span class="selective-regen-option-name">3. Broadsheet Essay &amp; Reflection</span>
+                  <span class="selective-regen-cost-pill fast">Text (~₹0.35)</span>
+                </div>
+                <p class="selective-lock-preview-text" id="selectivePreview_essay">3-paragraph broadsheet essay &amp; concluding reflection</p>
+              </div>
+              <button type="button" class="selective-lock-toggle-btn" id="selectiveLockBtn_essay" onclick="event.stopPropagation(); toggleSelectiveRegenLock('essay')">
+                <span class="lock-toggle-icon" id="selectiveLockIcon_essay">🔒</span>
+                <span class="lock-toggle-label" id="selectiveLockLabel_essay">Locked</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Row 4: Poster Artwork (Slide 1 Image) -->
+          <div class="selective-lock-row" id="selectiveLockRow_image" onclick="toggleSelectiveRegenLock('image')">
+            <div class="selective-lock-row-main">
+              <div class="selective-regen-option-icon image">🎨</div>
+              <div class="selective-regen-option-info">
+                <div class="selective-regen-option-title-row">
+                  <span class="selective-regen-option-name">4. Poster Artwork (Slide 1 Image)</span>
+                  <span class="selective-regen-cost-pill image">1 Image Credit (~₹3.99)</span>
+                </div>
+                <p class="selective-lock-preview-text" id="selectivePreview_image">Custom editorial illustration on Slide 1</p>
+              </div>
+              <button type="button" class="selective-lock-toggle-btn" id="selectiveLockBtn_image" onclick="event.stopPropagation(); toggleSelectiveRegenLock('image')">
+                <span class="lock-toggle-icon" id="selectiveLockIcon_image">🔒</span>
+                <span class="lock-toggle-label" id="selectiveLockLabel_image">Locked</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="selective-regen-direction-box" style="margin-top: 12px; margin-bottom: 14px;">
           <label for="selectiveRegenDirectionInput" class="selective-regen-direction-label">
-            <span>🧭 Optional Direction / Tweak</span>
-            <span class="selective-regen-direction-hint">Applies to whichever part you regenerate below</span>
+            <span>🧭 Optional Guidance for Unlocked Parts</span>
+            <span class="selective-regen-direction-hint">Leave blank for automatic fresh synthesis</span>
           </label>
           <input
             type="text"
             id="selectiveRegenDirectionInput"
             class="selective-regen-direction-input"
-            placeholder="e.g. Make headline sharper, focus essay on civic dignity, or warm sunset lighting..."
+            placeholder="e.g. Make headline punchier, focus essay on small businesses, or warm sunset lighting..."
           >
         </div>
 
-        <div class="selective-regen-grid">
-          <!-- Option 1: Headline & Slant Note Only -->
-          <div class="selective-regen-option-card" id="selectiveRegenCardHeadline">
-            <div class="selective-regen-option-top">
-              <div class="selective-regen-option-icon headline">🎯</div>
-              <div class="selective-regen-option-info">
-                <div class="selective-regen-option-title-row">
-                  <span class="selective-regen-option-name">Headline &amp; Slant Note Only</span>
-                  <span class="selective-regen-cost-pill fast">⚡ ~2s • Text Only</span>
-                </div>
-                <p class="selective-regen-option-desc">Generates 3 fresh Headline + Signed Slant Note options to pick from. Keeps your Poster Artwork &amp; Essay untouched.</p>
-              </div>
-            </div>
-            <button type="button" class="selective-regen-action-btn headline" id="selectiveRegenHeadlineBtn" onclick="triggerSelectiveRegenerate('headline')">
-              <span>🎯</span>
-              <span id="selectiveRegenHeadlineBtnText">Generate 3 Headline Options</span>
-            </button>
-            <div class="selective-headline-options-list" id="selectiveHeadlineOptionsList" style="display:none;"></div>
-          </div>
-
-          <!-- Option 2: Broadsheet Essay Only -->
-          <div class="selective-regen-option-card" id="selectiveRegenCardEssay">
-            <div class="selective-regen-option-top">
-              <div class="selective-regen-option-icon essay">📜</div>
-              <div class="selective-regen-option-info">
-                <div class="selective-regen-option-title-row">
-                  <span class="selective-regen-option-name">Broadsheet Essay Only</span>
-                  <span class="selective-regen-cost-pill fast">⚡ ~4s • Text Only</span>
-                </div>
-                <p class="selective-regen-option-desc">Re-synthesizes the 3-paragraph broadsheet essay &amp; reflection in-place. Keeps your Poster Artwork &amp; Headline untouched.</p>
-              </div>
-            </div>
-            <button type="button" class="selective-regen-action-btn essay" id="selectiveRegenEssayBtn" onclick="triggerSelectiveRegenerate('essay')">
-              <span>📜</span>
-              <span id="selectiveRegenEssayBtnText">Regenerate Essay Only</span>
-            </button>
-          </div>
-
-          <!-- Option 3: Poster Artwork Only -->
-          <div class="selective-regen-option-card" id="selectiveRegenCardImage">
-            <div class="selective-regen-option-top">
-              <div class="selective-regen-option-icon image">🎨</div>
-              <div class="selective-regen-option-info">
-                <div class="selective-regen-option-title-row">
-                  <span class="selective-regen-option-name">Poster Artwork Only</span>
-                  <span class="selective-regen-cost-pill image">🎨 ~10s • 1 Artwork Credit</span>
-                </div>
-                <p class="selective-regen-option-desc">Re-renders only Slide 1's visual artwork (applying any direction typed above). Keeps your Headline, Slant Note &amp; Essay untouched.</p>
-              </div>
-            </div>
-            <button type="button" class="selective-regen-action-btn image" id="selectiveRegenImageBtn" onclick="triggerSelectiveRegenerate('image')">
-              <span>🎨</span>
-              <span id="selectiveRegenImageBtnText">Regenerate Poster Artwork Only</span>
-            </button>
-          </div>
-
-          <!-- Option 4: Back to Step 1 Inputs -->
-          <div class="selective-regen-option-card full" id="selectiveRegenCardFull">
-            <div class="selective-regen-option-top">
-              <div class="selective-regen-option-icon full">🔄</div>
-              <div class="selective-regen-option-info">
-                <div class="selective-regen-option-title-row">
-                  <span class="selective-regen-option-name">Edit Source / Raw Inputs (Step 1)</span>
-                  <span class="selective-regen-cost-pill neutral">Step 1 Studio</span>
-                </div>
-                <p class="selective-regen-option-desc">Return to Step 1 to edit your core take, source URL, or visual cues before running a full synthesis.</p>
-              </div>
-            </div>
-            <button type="button" class="selective-regen-action-btn secondary" onclick="triggerSelectiveRegenerate('full')">
-              <span>↩️</span>
-              <span>Go to Step 1 Inputs</span>
-            </button>
-          </div>
+        <div class="selective-regen-footer-actions">
+          <button type="button" class="selective-regen-run-btn" id="selectiveRegenRunBtn" onclick="runLockedSelectiveRegenerate()">
+            <span id="selectiveRegenRunBtnIcon">✨</span>
+            <span id="selectiveRegenRunBtnText">Regenerate Unlocked Parts</span>
+            <span class="selective-regen-run-cost-badge" id="selectiveRegenRunCostBadge">⚡ Text Only</span>
+          </button>
+          <button type="button" class="selective-regen-step1-link-btn" onclick="triggerSelectiveRegenerate('full')">
+            <span>↩️</span>
+            <span>Need to change your raw take or source link? Go to Step 1 Inputs</span>
+          </button>
         </div>
       </div>
     </div>

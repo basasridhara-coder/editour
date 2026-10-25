@@ -19657,6 +19657,195 @@ mark.polish-mark:hover, mark.polish-mark.active {
   line-height: 1.38;
 }
 
+.selective-lock-presets-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.selective-lock-presets-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-right: 2px;
+}
+
+.selective-preset-chip {
+  padding: 4px 9px;
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: 10.5px;
+  font-weight: 700;
+  cursor: pointer;
+  background: rgba(99, 102, 241, 0.12);
+  border: 1px solid rgba(99, 102, 241, 0.28);
+  color: var(--text-primary);
+  transition: all 0.16s ease;
+}
+
+[data-theme="daylight"] .selective-preset-chip {
+  background: #F1F5F9;
+  border-color: #CBD5E1;
+  color: #0F172A;
+}
+
+.selective-preset-chip:hover {
+  border-color: #F59E0B;
+  transform: translateY(-1px);
+}
+
+.selective-lock-row {
+  border-radius: 13px;
+  padding: 11px 13px;
+  background: rgba(30, 41, 59, 0.48);
+  border: 1.5px solid rgba(148, 163, 184, 0.18);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+[data-theme="daylight"] .selective-lock-row {
+  background: #F8FAFC;
+  border-color: #E2E8F0;
+}
+
+.selective-lock-row.is-unlocked {
+  border-color: rgba(245, 158, 11, 0.65);
+  background: rgba(245, 158, 11, 0.08);
+}
+
+[data-theme="daylight"] .selective-lock-row.is-unlocked {
+  border-color: #D97706;
+  background: #FFFBEB;
+}
+
+.selective-lock-row.is-locked {
+  opacity: 0.78;
+}
+
+.selective-lock-row-main {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.selective-lock-preview-text {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  margin: 2px 0 0 0;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.selective-lock-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 11px;
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  flex-shrink: 0;
+  border: 1px solid transparent;
+  transition: all 0.16s ease;
+}
+
+.selective-lock-toggle-btn.locked {
+  background: rgba(15, 23, 42, 0.65);
+  border-color: rgba(148, 163, 184, 0.32);
+  color: var(--text-secondary);
+}
+
+[data-theme="daylight"] .selective-lock-toggle-btn.locked {
+  background: #E2E8F0;
+  border-color: #CBD5E1;
+  color: #475569;
+}
+
+.selective-lock-toggle-btn.unlocked {
+  background: linear-gradient(135deg, #D97706 0%, #F59E0B 100%);
+  color: #0F172A;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.28);
+}
+
+.selective-regen-footer-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.selective-regen-run-btn {
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: none;
+  background: linear-gradient(135deg, #D97706 0%, #F59E0B 100%);
+  color: #0F172A;
+  font-family: 'Space Grotesk', 'Inter', sans-serif;
+  font-size: 13.5px;
+  font-weight: 800;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 6px 18px rgba(245, 158, 11, 0.25);
+  transition: all 0.18s ease;
+}
+
+.selective-regen-run-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(1.05);
+}
+
+.selective-regen-run-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.selective-regen-run-cost-badge {
+  font-family: 'Inter', sans-serif;
+  font-size: 10.5px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.16);
+  color: #0F172A;
+}
+
+.selective-regen-step1-link-btn {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 9px;
+  background: transparent;
+  border: 1px dashed rgba(148, 163, 184, 0.28);
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.16s ease;
+}
+
+.selective-regen-step1-link-btn:hover {
+  color: var(--text-primary);
+  border-color: rgba(245, 158, 11, 0.5);
+}
+
+
 
 
 

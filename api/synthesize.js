@@ -503,6 +503,158 @@ module.exports = async function handler(req, res) {
       }
     }
 
+    // Unified Multi-Part Selective Regeneration Endpoint (Regenerates any unlocked combination of Headline, Slant Note, and Essay in 1 call)
+    if (body && body.action === 'selective_regenerate') {
+      const {
+        regenerateHeadline = false,
+        regenerateSlantNote = false,
+        regenerateEssay = false,
+        adaptedHeadline = '',
+        originalHeadline = '',
+        curatorTake = '',
+        userSlant = '',
+        spark = '',
+        summary = '',
+        scrapedTitle = '',
+        scrapedContent = '',
+        sourceLedger = null,
+        sourceType = 'digital_link',
+        vocabularyStyle = 'punchy',
+        customDirection = ''
+      } = body;
+
+      if (!regenerateHeadline && !regenerateSlantNote && !regenerateEssay) {
+        return res.status(400).json({ success: false, error: 'No text components unlocked for regeneration.' });
+      }
+
+      const styleInstruction = (vocabularyStyle === 'literary')
+        ? 'Write in an elevated, literary broadsheet style with rich narrative flow.'
+        : (vocabularyStyle === 'casual')
+          ? 'Write in clear, natural, everyday English (simple, direct words; zero academic jargon).'
+          : 'Write in crisp, authoritative, punchy editorial prose.';
+
+      let ledgerText = '';
+      if (sourceLedger && typeof sourceLedger === 'object') {
+        const claims = Array.isArray(sourceLedger.core_claims_and_evidence)
+          ? sourceLedger.core_claims_and_evidence.map((c, i) => `${i + 1}. ${typeof c === 'object' ? (c.evidence || c.text || '') : c}`).join('\n')
+          : '';
+        if (claims) ledgerText = `\nVerified Source Facts:\n${claims}`;
+      }
+
+      const lockedContextLines = [];
+      if (!regenerateHeadline && adaptedHeadline) {
+        lockedContextLines.push(`- LOCKED Headline (DO NOT CHANGE, align with this): "${adaptedHeadline}"`);
+      }
+      if (!regenerateSlantNote && curatorTake) {
+        lockedContextLines.push(`- LOCKED Signed Slant Note (DO NOT CHANGE, align with this): "${curatorTake}"`);
+      }
+      if (!regenerateEssay && summary) {
+        lockedContextLines.push(`- LOCKED Broadsheet Essay Body: "${String(summary).slice(0, 900)}"`);
+      }
+
+      const requestedFieldsDesc = [];
+      const jsonSchemaParts = [];
+
+      if (regenerateHeadline) {
+        requestedFieldsDesc.push(`- "adaptedHeadline": A fresh, bold 6-10 word editorial headline (plus "headlineOptions": 3 distinct 6-10 word headline alternatives: Direct & Punchy, Contrarian Angle, Human Stakes).`);
+        jsonSchemaParts.push(`  "adaptedHeadline": "6-10 word bold editorial headline",\n  "headlineOptions": [\n    { "label": "Direct & Punchy", "adaptedHeadline": "6-10 word headline" },\n    { "label": "Contrarian Angle", "adaptedHeadline": "6-10 word headline" },\n    { "label": "Human Stakes", "adaptedHeadline": "6-10 word headline" }\n  ]`);
+      }
+      if (regenerateSlantNote) {
+        requestedFieldsDesc.push(`- "curatorTake": Exactly 2 complete sentences (24-34 words total, ending with a period) capturing the author's strongest, most poignant conviction in their authentic voice.`);
+        jsonSchemaParts.push(`  "curatorTake": "2 complete sentences (24-34 words total)"`);
+      }
+      if (regenerateEssay) {
+        requestedFieldsDesc.push(`- "resolvedArticleExcerpts": Exactly 3 broadsheet paragraphs (180-210 words total across the 3 paragraphs: P1 = 60-70 words opening for dropcap, P2 = 60-70 words engaging concrete facts/friction, P3 = 55-65 words human/civic stakes and resolution) + "whyItMatters" (18-26 word concluding reflection).`);
+        jsonSchemaParts.push(`  "resolvedArticleExcerpts": [\n    "Paragraph 1 (60-70 words, pure prose without labels)",\n    "Paragraph 2 (60-70 words, pure prose without labels)",\n    "Paragraph 3 (55-65 words, pure prose without labels)"\n  ],\n  "whyItMatters": "18-26 word concluding reflection sentence"`);
+      }
+
+      const prompt = `You are the Executive Editor of SLANT.
+The curator has LOCKED certain parts of their post and wants to regenerate ONLY the UNLOCKED parts listed below.
+
+POST CONTEXT:
+- Source / Original Topic: "${originalHeadline || scrapedTitle || 'Personal Reflection'}"
+- Source Type: ${sourceType}
+- Curator's Core Slant / Take: "${userSlant || curatorTake || ''}"
+${spark ? `- Spark / Personal Context: "${spark}"` : ''}
+${scrapedContent ? `- Source Excerpt: "${String(scrapedContent).slice(0, 1600)}"` : ''}${ledgerText}
+${lockedContextLines.length > 0 ? `\nLOCKED COMPONENTS (Keep harmony with these):\n${lockedContextLines.join('\n')}` : ''}
+${customDirection ? `\nCRITICAL CURATOR DIRECTION FOR THIS REGENERATION: "${customDirection}"` : ''}
+
+UNLOCKED PARTS TO REGENERATE NOW:
+${requestedFieldsDesc.join('\n')}
+
+STRICT EDITORIAL RULES:
+1. ${styleInstruction}
+2. STRICT BAN ON EM DASHES: Never use em dashes, en dashes, or "--". Use commas, colons, or periods.
+3. Stay 100% faithful to the curator's actual stance, proper nouns, and perspective without fabricating unstated opinions.
+
+Respond strictly with valid JSON matching this schema:
+{
+${jsonSchemaParts.join(',\n')}
+}`;
+
+      try {
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 30000);
+        const geminiResp = await fetch(geminiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+              temperature: 0.7,
+              thinkingConfig: { thinkingBudget: 0 },
+              responseMimeType: 'application/json'
+            }
+          }),
+          signal: controller.signal
+        });
+        clearTimeout(timeout);
+
+        if (geminiResp.ok) {
+          const geminiData = await geminiResp.json();
+          let raw = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          raw = raw.trim().replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```$/i, '').trim();
+          const parsed = JSON.parse(raw);
+          const result = { success: true };
+
+          if (regenerateHeadline) {
+            const cleanHl = String(parsed.adaptedHeadline || parsed.headlineOptions?.[0]?.adaptedHeadline || adaptedHeadline)
+              .replace(/\s*([\u2014\u2013\u2015]|--)\s*/g, ': ')
+              .trim();
+            result.adaptedHeadline = cleanHl;
+            if (Array.isArray(parsed.headlineOptions) && parsed.headlineOptions.length > 0) {
+              result.headlineOptions = parsed.headlineOptions.map(opt => ({
+                label: String(opt.label || 'Editorial Option').trim(),
+                adaptedHeadline: String(opt.adaptedHeadline || cleanHl).replace(/\s*([\u2014\u2013\u2015]|--)\s*/g, ': ').trim()
+              }));
+            }
+          }
+          if (regenerateSlantNote) {
+            result.curatorTake = String(parsed.curatorTake || curatorTake)
+              .replace(/\s*([\u2014\u2013\u2015]|--)\s*/g, ', ')
+              .trim();
+          }
+          if (regenerateEssay && Array.isArray(parsed.resolvedArticleExcerpts) && parsed.resolvedArticleExcerpts.length > 0) {
+            const cleanParas = parsed.resolvedArticleExcerpts
+              .map(p => String(p || '').replace(/^(paragraph \d+|the spark|curator stance)\s*:\s*/i, '').replace(/\s*([\u2014\u2013\u2015]|--)\s*/g, ', ').trim())
+              .filter(Boolean);
+            result.resolvedArticleExcerpts = cleanParas;
+            result.summary = cleanParas.join('\n\n');
+            if (parsed.whyItMatters) {
+              result.whyItMatters = String(parsed.whyItMatters).replace(/\s*([\u2014\u2013\u2015]|--)\s*/g, ', ').trim();
+            }
+          }
+
+          return res.status(200).json(result);
+        }
+        return res.status(500).json({ success: false, error: 'Selective regeneration failed. Please try again.' });
+      } catch (err) {
+        return res.status(500).json({ success: false, error: err.message || 'Selective regeneration failed' });
+      }
+    }
+
     // Selective Regeneration Endpoint 1: Regenerate Headline & Slant Note Only (~₹0.12, zero image cost)
     if (body && body.action === 'regenerate_headline') {
       const {
