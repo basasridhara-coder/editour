@@ -4968,6 +4968,78 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
   const savedMomentsList = (post && (post.chronicleMoments || post.generationInputs?.chronicleMoments)) || [];
   const hasExplicitStarMoment = Array.isArray(savedMomentsList) && savedMomentsList.some(m => Boolean(m && m.isStarred));
 
+  const hyphenateEditorialWord = (word) => {
+    if (!word || word.length < 6) return word;
+    const n = word.length;
+    const isVowel = (ch) => /[aeiouyAEIOUY]/.test(ch);
+    const breakAfter = new Set();
+    let suffixBreak = -1;
+
+    const suffixes = /(tions|sions|tion|sion|ments|ment|ness|able|ible|ling|ings|ing|fully|ful|less|ward|wards|wise|ly)$/i;
+    const sufMatch = word.match(suffixes);
+    if (sufMatch && sufMatch.index >= 3) {
+      suffixBreak = sufMatch.index - 1;
+      breakAfter.add(suffixBreak);
+    }
+
+    const scanLimit = suffixBreak >= 3 ? suffixBreak + 1 : n;
+    let i = 0;
+    while (i < scanLimit) {
+      if (isVowel(word[i])) {
+        while (i + 1 < scanLimit && isVowel(word[i + 1])) i++;
+        const v1End = i;
+        let j = v1End + 1;
+        while (j < n && !isVowel(word[j])) j++;
+        if (j < n && (suffixBreak === -1 || j <= suffixBreak)) {
+          const tail = word.slice(j).toLowerCase();
+          const isSilentTail = (tail === "e" || (tail === "ed" && !/[td]$/i.test(word.slice(0, j))) || (tail === "es" && !/(?:[sxz]|ch|sh)$/i.test(word.slice(0, j))));
+          if (!isSilentTail) {
+            const cCount = j - (v1End + 1);
+            let splitPos = -1;
+            if (cCount === 1) {
+              splitPos = v1End;
+            } else if (cCount >= 2) {
+              const lastTwo = word.slice(j - 2, j).toLowerCase();
+              if (/^(ch|sh|th|ph|wh|gh|tr|dr|pr|br|cr|gr|fr|pl|bl|cl|gl|fl|sp|st|sk|sl|sm|sn|sw|tw|qu)$/.test(lastTwo)) {
+                splitPos = j - 3 >= v1End ? j - 3 : v1End;
+              } else {
+                splitPos = j - 2;
+              }
+            }
+            if (splitPos >= 2 && (n - (splitPos + 1)) >= 3 && (suffixBreak === -1 || Math.abs(splitPos - suffixBreak) >= 2)) {
+              breakAfter.add(splitPos);
+            }
+          }
+        }
+      }
+      i++;
+    }
+
+    const sorted = Array.from(breakAfter).sort((a, b) => a - b);
+    const filtered = [];
+    let last = -1;
+    for (const pos of sorted) {
+      if (pos >= 2 && (n - (pos + 1)) >= 2 && (last === -1 || pos - last >= 2)) {
+        filtered.push(pos);
+        last = pos;
+      }
+    }
+    if (filtered.length === 0) return word;
+    let out = "";
+    let prev = 0;
+    for (const pos of filtered) {
+      out += word.slice(prev, pos + 1) + "\u00AD";
+      prev = pos + 1;
+    }
+    out += word.slice(prev);
+    return out;
+  };
+
+  const hyphenateEditorialText = (txt) => {
+    if (!txt) return "";
+    return String(txt).replace(/[A-Za-z]{6,}/g, hyphenateEditorialWord);
+  };
+
   const formatBroadsheetPara = (txt, isLead = false, extraClass = "") => {
     const clean = String(txt || "").trim();
     const momentMatch = clean.match(/^((?:0?[1-9]|Moment\s+\d+)\s*[·•.-]?\s*[^:]{1,38}:)\s*([\s\S]+)$/i);
@@ -4979,15 +5051,16 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
         ? (hasExplicitStarMoment ? Boolean(savedMomentsList[mIdxZero].isStarred) : false)
         : false;
       const starBadge = isThisMomentStarred ? ` <span class="chronicle-inline-star" title="Important Highlight Moment">★</span>` : "";
-      return `<p class="${cls} ${isThisMomentStarred ? "is-starred-moment-para" : ""}"><strong class="chronicle-moment-inline-tag">${escapeHtml(momentMatch[1])}${starBadge}</strong> ${escapeHtml(momentMatch[2])}</p>`;
+      return `<p class="${cls} ${isThisMomentStarred ? "is-starred-moment-para" : ""}" lang="en"><strong class="chronicle-moment-inline-tag">${escapeHtml(momentMatch[1])}${starBadge}</strong> ${escapeHtml(hyphenateEditorialText(momentMatch[2]))}</p>`;
     }
     if (isLead) {
-      const firstChar = clean.charAt(0).toUpperCase();
-      const restLead = clean.slice(1);
-      return `<p class="receipt-p1"><span class="broadsheet-dropcap">${escapeHtml(firstChar)}</span>${escapeHtml(restLead)}</p>`;
+      const hyphenatedClean = hyphenateEditorialText(clean);
+      const firstChar = hyphenatedClean.charAt(0).toUpperCase();
+      const restLead = hyphenatedClean.slice(1);
+      return `<p class="receipt-p1" lang="en"><span class="broadsheet-dropcap">${escapeHtml(firstChar)}</span>${escapeHtml(restLead)}</p>`;
     }
     const cls = ["receipt-p3", extraClass].filter(Boolean).join(" ");
-    return `<p class="${cls}">${escapeHtml(clean)}</p>`;
+    return `<p class="${cls}" lang="en">${escapeHtml(hyphenateEditorialText(clean))}</p>`;
   };
 
   // Page 1 Paragraphs

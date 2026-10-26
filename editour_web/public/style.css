@@ -2903,9 +2903,9 @@ header {
   text-align: left;
   word-spacing: normal !important;
   letter-spacing: normal !important;
-  hyphens: none !important;
-  -webkit-hyphens: none !important;
-  -ms-hyphens: none !important;
+  hyphens: auto !important;
+  -webkit-hyphens: auto !important;
+  -ms-hyphens: auto !important;
   flex-shrink: 0;
   display: block;
 }
@@ -3300,9 +3300,9 @@ header {
   text-align: left !important;
   word-spacing: normal !important;
   letter-spacing: normal !important;
-  hyphens: none !important;
-  -webkit-hyphens: none !important;
-  -ms-hyphens: none !important;
+  hyphens: auto !important;
+  -webkit-hyphens: auto !important;
+  -ms-hyphens: auto !important;
   overflow-wrap: normal !important;
   word-break: normal !important;
   flex-shrink: 0;
@@ -3321,9 +3321,9 @@ header {
 .receipt-paragraphs p.receipt-reflection-text {
   text-indent: 0 !important;
   text-align: left !important;
-  hyphens: none !important;
-  -webkit-hyphens: none !important;
-  -ms-hyphens: none !important;
+  hyphens: auto !important;
+  -webkit-hyphens: auto !important;
+  -ms-hyphens: auto !important;
 }
 
 .receipt-p-continuation,
@@ -4302,9 +4302,9 @@ header {
     text-align: left !important;
     word-spacing: normal !important;
     letter-spacing: normal !important;
-    hyphens: none !important;
-    -webkit-hyphens: none !important;
-    -ms-hyphens: none !important;
+    hyphens: auto !important;
+    -webkit-hyphens: auto !important;
+    -ms-hyphens: auto !important;
     overflow-wrap: normal !important;
     word-break: normal !important;
     color: #1E293B !important;
@@ -4383,9 +4383,9 @@ header {
     text-align: left !important;
     word-spacing: normal !important;
     letter-spacing: normal !important;
-    hyphens: none !important;
-    -webkit-hyphens: none !important;
-    -ms-hyphens: none !important;
+    hyphens: auto !important;
+    -webkit-hyphens: auto !important;
+    -ms-hyphens: auto !important;
     overflow-wrap: normal !important;
     word-break: normal !important;
     color: #1E293B !important;
@@ -7561,9 +7561,9 @@ header {
   text-align: left;
   word-spacing: normal !important;
   letter-spacing: normal !important;
-  hyphens: none !important;
-  -webkit-hyphens: none !important;
-  -ms-hyphens: none !important;
+  hyphens: auto !important;
+  -webkit-hyphens: auto !important;
+  -ms-hyphens: auto !important;
   overflow-wrap: normal;
   word-break: normal;
   color: #1E293B;
@@ -7656,9 +7656,9 @@ header {
   text-align: left;
   word-spacing: normal !important;
   letter-spacing: normal !important;
-  hyphens: none !important;
-  -webkit-hyphens: none !important;
-  -ms-hyphens: none !important;
+  hyphens: auto !important;
+  -webkit-hyphens: auto !important;
+  -ms-hyphens: auto !important;
   overflow-wrap: normal;
   word-break: normal;
   color: #1E293B;
@@ -7891,9 +7891,9 @@ header {
   text-align: left !important;
   word-spacing: normal !important;
   letter-spacing: normal !important;
-  hyphens: none !important;
-  -webkit-hyphens: none !important;
-  -ms-hyphens: none !important;
+  hyphens: auto !important;
+  -webkit-hyphens: auto !important;
+  -ms-hyphens: auto !important;
   overflow-wrap: normal !important;
   word-break: normal !important;
   color: #1E293B !important;
@@ -7983,9 +7983,9 @@ header {
   text-align: left !important;
   word-spacing: normal !important;
   letter-spacing: normal !important;
-  hyphens: none !important;
-  -webkit-hyphens: none !important;
-  -ms-hyphens: none !important;
+  hyphens: auto !important;
+  -webkit-hyphens: auto !important;
+  -ms-hyphens: auto !important;
   overflow-wrap: normal !important;
   word-break: normal !important;
   color: #1E293B !important;
