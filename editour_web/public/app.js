@@ -61,6 +61,9 @@ function applyAtmosphere(pref) {
 }
 
 function openDrawer() {
+  if (typeof syncDrawerDiaryCounts === 'function') {
+    syncDrawerDiaryCounts();
+  }
   const drawer = document.getElementById('optionsDrawer');
   const overlay = document.getElementById('optionsDrawerOverlay');
   if (drawer && overlay) {
@@ -852,6 +855,10 @@ function updateAuthUI() {
     if (drawerSavedCount) drawerSavedCount.textContent = savedCount;
     if (drawerMyCount) drawerMyCount.textContent = myPostsCount;
     if (drawerDraftsCount) drawerDraftsCount.textContent = totalDraftsCount;
+
+    if (typeof syncDrawerDiaryCounts === 'function') {
+      syncDrawerDiaryCounts();
+    }
 
     const drawerAdminBetaRow = document.getElementById('drawerAdminBetaRow');
     if (drawerAdminBetaRow) {
@@ -4404,9 +4411,9 @@ function buildSlide1Html(post, index, totalSlides = 2) {
       <div class="slide-hook-bottom">
         ${newsFragmentHtml}${curatorKickerHtml}
         <h3 class="slide-hook-headline">${headline}</h3>
-        <!-- Bottom-Left: slant.today disabled for now | Bottom-Right: Every thought deserves a frame -->
+        <!-- Bottom-Right: slant.today -->
         <div class="poster-brand-footer">
-          <span class="poster-footer-punchline" style="margin-left: auto;">Every thought deserves a frame</span>
+          <span class="poster-footer-punchline" style="margin-left: auto; font-style: normal; font-weight: 800; letter-spacing: 0.6px;">slant.today</span>
         </div>
       </div>
     </div>
@@ -5091,7 +5098,7 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
   const p2SlideBadge = isChronicle
     ? (forExportPage > 0 ? "03 / 03 • REFLECTION" : "03 / 03")
     : (forExportPage > 0 ? "03 / 03 • ESSAY P2" : "PAGE 2 / 2");
-  const folioRightP2 = (forExportPage > 0 || isChronicle) ? "Every thought deserves a frame • 03 / 03" : "Every thought deserves a frame • 02 / 02";
+  const folioRightP2 = "slant.today";
   const receiptBrandTitle = isChronicle ? "SLANT MOMENTS" : "SLANT MINUTES";
   const chronicleDateStr = isChronicle ? formatChronicleDateDisplay(post.createdAt || post.date) : "";
 
@@ -5137,7 +5144,7 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
           <div class="receipt-folio-rule"></div>
           <div class="receipt-folio-text">
             <span class="receipt-folio-left">${isChronicle ? `${escapeHtml(chronicleDateStr.toUpperCase())} • ${handle.toUpperCase()}` : (isInnerVoice ? `PERSONAL ESSAY • ${handle.toUpperCase()}` : (cleanPubUpper ? `IN DIALOGUE WITH ${cleanPubUpper}` : "EDITORIAL ESSAY"))}</span>
-            <span class="receipt-folio-right">Every thought deserves a frame • ${isChronicle ? "02 / 03" : "02 / 02"}</span>
+            <span class="receipt-folio-right">slant.today</span>
           </div>
         </div>
         ` : ""}
@@ -8688,6 +8695,330 @@ function closeCuratorStyleModal() {
   const overlay = document.getElementById('curatorStyleModalOverlay');
   if (modal) modal.style.display = 'none';
   if (overlay) overlay.style.display = 'none';
+}
+
+// ============================================================
+// PERSONAL DIARY — DAILY CHRONICLES CALENDAR MODAL
+// ============================================================
+let diaryCalendarState = {
+  year: new Date().getFullYear(),
+  month: new Date().getMonth(), // 0-11
+  selectedDateKey: null,
+  activeSlideNum: 1,
+  initialized: false
+};
+
+function getChroniclePostTimestamp(post) {
+  if (!post) return 0;
+  const parsedCreated = Date.parse(post.createdAt || post.date || '') || 0;
+  const idMatch = String(post.id || '').match(/slant-(\d{11,15})-/i);
+  const idTs = idMatch ? parseInt(idMatch[1], 10) : 0;
+  return Math.max(parsedCreated, idTs);
+}
+
+function getChroniclePostDateKey(post) {
+  if (!post) return null;
+  const rawDate = post.createdAt || post.date;
+  let d = rawDate ? new Date(rawDate) : null;
+  if (!d || isNaN(d.getTime())) {
+    const idMatch = String(post.id || '').match(/slant-(\d{11,15})-/i);
+    if (idMatch) {
+      d = new Date(parseInt(idMatch[1], 10));
+    }
+  }
+  if (!d || isNaN(d.getTime())) return null;
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function getDiaryChroniclesByDateMap() {
+  const dateMap = new Map();
+  const pool = [];
+  const seenIds = new Set();
+  const combinedSource = []
+    .concat(Array.isArray(allPosts) ? allPosts : [])
+    .concat(Array.isArray(posts) ? posts : []);
+
+  combinedSource.forEach(p => {
+    if (!p || !p.id || seenIds.has(p.id)) return;
+    if (!isPostChronicleDiary(p)) return;
+    const isOwned = isPostOwnedByCurrentUser(p)
+      || String(p.creatorHandle || '').toLowerCase().includes('shridhar');
+    if (!isOwned) return;
+    seenIds.add(p.id);
+    pool.push(p);
+  });
+
+  pool.forEach(p => {
+    const dateKey = getChroniclePostDateKey(p);
+    if (!dateKey) return;
+    const ts = getChroniclePostTimestamp(p);
+    const existing = dateMap.get(dateKey);
+    // If multiple chronicle posts exist for the same date, always keep the latest one
+    if (!existing || ts >= existing.ts) {
+      dateMap.set(dateKey, {
+        dateKey,
+        ts,
+        post: p,
+        totalForDate: (existing ? existing.totalForDate : 0) + 1
+      });
+    } else {
+      existing.totalForDate += 1;
+    }
+  });
+
+  return dateMap;
+}
+
+function syncDrawerDiaryCounts() {
+  const dateMap = getDiaryChroniclesByDateMap();
+  const daysCount = dateMap.size;
+  const pill1 = document.getElementById('drawerDiaryCount');
+  const pill2 = document.getElementById('drawerDiaryRowCount');
+  if (pill1) pill1.textContent = `${daysCount} ${daysCount === 1 ? 'day' : 'days'}`;
+  if (pill2) pill2.textContent = String(daysCount);
+}
+
+function openDiaryCalendarModal() {
+  const modal = document.getElementById('diaryCalendarModal');
+  const overlay = document.getElementById('diaryCalendarModalOverlay');
+  if (modal) modal.style.display = 'flex';
+  if (overlay) overlay.style.display = 'block';
+
+  const dateMap = getDiaryChroniclesByDateMap();
+  if (!diaryCalendarState.initialized || !diaryCalendarState.selectedDateKey || !dateMap.has(diaryCalendarState.selectedDateKey)) {
+    const sortedEntries = Array.from(dateMap.values()).sort((a, b) => b.ts - a.ts);
+    if (sortedEntries.length > 0) {
+      const latest = sortedEntries[0];
+      const [yyyy, mm] = latest.dateKey.split('-').map(Number);
+      diaryCalendarState.year = yyyy;
+      diaryCalendarState.month = mm - 1;
+      diaryCalendarState.selectedDateKey = latest.dateKey;
+    } else {
+      const now = new Date();
+      diaryCalendarState.year = now.getFullYear();
+      diaryCalendarState.month = now.getMonth();
+      diaryCalendarState.selectedDateKey = null;
+    }
+    diaryCalendarState.activeSlideNum = 1;
+    diaryCalendarState.initialized = true;
+  }
+
+  syncDrawerDiaryCounts();
+  renderDiaryCalendarModal();
+}
+
+function closeDiaryCalendarModal() {
+  const modal = document.getElementById('diaryCalendarModal');
+  const overlay = document.getElementById('diaryCalendarModalOverlay');
+  if (modal) modal.style.display = 'none';
+  if (overlay) overlay.style.display = 'none';
+}
+
+function changeDiaryCalendarMonth(delta) {
+  let nextMonth = diaryCalendarState.month + delta;
+  let nextYear = diaryCalendarState.year;
+  if (nextMonth < 0) {
+    nextMonth = 11;
+    nextYear -= 1;
+  } else if (nextMonth > 11) {
+    nextMonth = 0;
+    nextYear += 1;
+  }
+  diaryCalendarState.month = nextMonth;
+  diaryCalendarState.year = nextYear;
+
+  const dateMap = getDiaryChroniclesByDateMap();
+  const prefix = `${nextYear}-${String(nextMonth + 1).padStart(2, '0')}-`;
+  const monthEntries = Array.from(dateMap.values())
+    .filter(e => e.dateKey.startsWith(prefix))
+    .sort((a, b) => b.ts - a.ts);
+  if (monthEntries.length > 0) {
+    diaryCalendarState.selectedDateKey = monthEntries[0].dateKey;
+    diaryCalendarState.activeSlideNum = 1;
+  }
+  renderDiaryCalendarModal();
+}
+
+function jumpToLatestDiaryChronicleDate() {
+  const dateMap = getDiaryChroniclesByDateMap();
+  const sortedEntries = Array.from(dateMap.values()).sort((a, b) => b.ts - a.ts);
+  if (sortedEntries.length > 0) {
+    const latest = sortedEntries[0];
+    const [yyyy, mm] = latest.dateKey.split('-').map(Number);
+    diaryCalendarState.year = yyyy;
+    diaryCalendarState.month = mm - 1;
+    diaryCalendarState.selectedDateKey = latest.dateKey;
+    diaryCalendarState.activeSlideNum = 1;
+    renderDiaryCalendarModal();
+  }
+}
+
+function selectDiaryCalendarDate(dateKey) {
+  const dateMap = getDiaryChroniclesByDateMap();
+  if (!dateMap.has(dateKey)) return;
+  diaryCalendarState.selectedDateKey = dateKey;
+  diaryCalendarState.activeSlideNum = 1;
+  renderDiaryCalendarModal();
+  const previewEl = document.getElementById('diaryCalendarSelectedPreview');
+  if (previewEl) {
+    previewEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+}
+
+function setDiaryCalendarPreviewSlide(slideNum) {
+  diaryCalendarState.activeSlideNum = Number(slideNum) || 1;
+  renderDiaryCalendarModal();
+}
+
+function openDiaryPostInMainFeed(postId) {
+  if (!postId) return;
+  closeDiaryCalendarModal();
+  const targetUrl = `${window.location.pathname}?p=${encodeURIComponent(postId)}`;
+  window.history.pushState({ postId }, '', targetUrl);
+  currentFilter = 'all';
+  applyFilters();
+  setTimeout(() => {
+    const card = document.querySelector(`.post-card[data-post-id="${postId}"]`);
+    if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 120);
+}
+
+function renderDiaryCalendarModal() {
+  const root = document.getElementById('diaryCalendarModalRoot');
+  if (!root) return;
+
+  const dateMap = getDiaryChroniclesByDateMap();
+  const year = diaryCalendarState.year;
+  const month = diaryCalendarState.month;
+  const monthNames = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+  const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+  const firstDayOfWeek = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const monthPrefix = `${year}-${String(month + 1).padStart(2, '0')}-`;
+  const monthChronicleCount = Array.from(dateMap.keys()).filter(k => k.startsWith(monthPrefix)).length;
+
+  let cellsHtml = '';
+  for (let e = 0; e < firstDayOfWeek; e++) {
+    cellsHtml += `<div class="diary-cal-day-square is-empty-slot" aria-hidden="true"></div>`;
+  }
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const ddStr = String(day).padStart(2, '0');
+    const dateKey = `${monthPrefix}${ddStr}`;
+    const entry = dateMap.get(dateKey);
+    const isSelected = diaryCalendarState.selectedDateKey === dateKey;
+
+    if (entry && entry.post) {
+      const p = entry.post;
+      const rawImg = p.illustrationBase64 || p.illustrationUrl || p.aiIllustrationUrl || '';
+      const hl = String(p.adaptedHeadline || p.originalHeadline || 'Daily Chronicle').trim();
+      const rawSummary = String(p.summary || (Array.isArray(p.resolvedArticleExcerpts) ? p.resolvedArticleExcerpts.join(' ') : '') || '').replace(/\s+/g, ' ').trim();
+      const shortSnippet = rawSummary.slice(0, 95);
+
+      cellsHtml += `
+        <button type="button"
+                class="diary-cal-day-square has-chronicle-post ${isSelected ? 'is-selected' : ''}"
+                onclick="selectDiaryCalendarDate('${dateKey}')"
+                title="${escapeHtml(`${day} ${monthNames[month]} ${year} • ${hl}${entry.totalForDate > 1 ? ` (Latest of ${entry.totalForDate} posts)` : ''}`)}">
+          ${rawImg ? `<img src="${escapeHtml(rawImg)}" class="diary-cal-mini-poster-img" alt="" loading="lazy">` : `<div class="diary-cal-mini-poster-fallback"></div>`}
+          <div class="diary-cal-mini-scrim-top">
+            <span class="diary-cal-day-num has-post-num">${day}</span>
+            <span class="diary-cal-mini-badge">📔</span>
+          </div>
+          <div class="diary-cal-mini-scrim-bottom">
+            <div class="diary-cal-mini-headline">${escapeHtml(hl)}</div>
+            <div class="diary-cal-mini-snippet">${escapeHtml(shortSnippet)}</div>
+            <div class="diary-cal-mini-domain">slant.today</div>
+          </div>
+        </button>
+      `;
+    } else {
+      cellsHtml += `
+        <div class="diary-cal-day-square is-blank-day">
+          <span class="diary-cal-day-num">${day}</span>
+        </div>
+      `;
+    }
+  }
+
+  const selectedEntry = diaryCalendarState.selectedDateKey ? dateMap.get(diaryCalendarState.selectedDateKey) : null;
+  let previewHtml = '';
+  if (selectedEntry && selectedEntry.post) {
+    const p = selectedEntry.post;
+    const sNum = diaryCalendarState.activeSlideNum || 1;
+    let activeSlideInnerHtml = '';
+    if (sNum === 1) {
+      activeSlideInnerHtml = `<div class="card-slide slide-hook active" style="position:relative; width:100%; height:100%;">${buildSlide1Html(p, 'diary_preview')}</div>`;
+    } else if (sNum === 2) {
+      activeSlideInnerHtml = `<div class="card-slide slide-receipt active" style="position:relative; width:100%; height:100%;">${buildSlide2Html(p, 'diary_preview', 1)}</div>`;
+    } else {
+      activeSlideInnerHtml = `<div class="card-slide slide-receipt slide-receipt-p2 active" style="position:relative; width:100%; height:100%;">${buildSlide2Html(p, 'diary_preview', 2)}</div>`;
+    }
+
+    const formattedSelectedDate = formatChronicleDateDisplay(p.createdAt || p.date || selectedEntry.ts);
+    previewHtml = `
+      <div class="diary-cal-selected-section" id="diaryCalendarSelectedPreview">
+        <div class="diary-cal-selected-header">
+          <div class="diary-cal-selected-meta">
+            <span class="diary-cal-selected-date-pill">📅 ${escapeHtml(formattedSelectedDate)}</span>
+            ${selectedEntry.totalForDate > 1 ? `<span class="diary-cal-latest-note">Showing latest of ${selectedEntry.totalForDate} chronicles on this date</span>` : ''}
+          </div>
+          <div class="diary-cal-selected-actions">
+            <div class="diary-cal-slide-tabs">
+              <button type="button" class="diary-cal-slide-tab ${sNum === 1 ? 'active' : ''}" onclick="setDiaryCalendarPreviewSlide(1)">01 • Vignettes</button>
+              <button type="button" class="diary-cal-slide-tab ${sNum === 2 ? 'active' : ''}" onclick="setDiaryCalendarPreviewSlide(2)">02 • Moments</button>
+              <button type="button" class="diary-cal-slide-tab ${sNum === 3 ? 'active' : ''}" onclick="setDiaryCalendarPreviewSlide(3)">03 • Takeaway</button>
+            </div>
+            <button type="button" class="diary-cal-open-feed-btn" onclick="openDiaryPostInMainFeed('${escapeHtml(p.id)}')">
+              Open Post ↗
+            </button>
+          </div>
+        </div>
+        <div class="diary-cal-poster-stage-wrap">
+          <div class="diary-cal-poster-frame carousel-view">
+            ${activeSlideInnerHtml}
+          </div>
+        </div>
+      </div>
+    `;
+  } else {
+    previewHtml = `
+      <div class="diary-cal-empty-selected">
+        <span>📔 Tap any highlighted date square on the calendar to read that day's Chronicle Moments.</span>
+      </div>
+    `;
+  }
+
+  root.innerHTML = `
+    <div class="diary-cal-toolbar">
+      <div class="diary-cal-nav-group">
+        <button type="button" class="diary-cal-nav-btn" onclick="changeDiaryCalendarMonth(-1)" title="Previous Month">‹ Prev</button>
+        <div class="diary-cal-current-month">${monthNames[month]} ${year}</div>
+        <button type="button" class="diary-cal-nav-btn" onclick="changeDiaryCalendarMonth(1)" title="Next Month">Next ›</button>
+      </div>
+      <div class="diary-cal-toolbar-right">
+        <span class="diary-cal-stats-badge">${monthChronicleCount} in ${monthNames[month].slice(0, 3)} • ${dateMap.size} Total Days</span>
+        ${dateMap.size > 0 ? `<button type="button" class="diary-cal-jump-btn" onclick="jumpToLatestDiaryChronicleDate()">Latest Entry</button>` : ''}
+      </div>
+    </div>
+
+    <div class="diary-cal-weekdays-row">
+      ${weekdays.map(w => `<div class="diary-cal-weekday-cell">${w}</div>`).join('')}
+    </div>
+
+    <div class="diary-cal-grid">
+      ${cellsHtml}
+    </div>
+
+    ${previewHtml}
+  `;
 }
 
 async function loadCuratorStyleProfile() {

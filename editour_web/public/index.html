@@ -27,7 +27,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Merriweather:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,400;1,600;1,700;1,900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261027_0005">
+  <link rel="stylesheet" href="style.css?v=20261027_0050">
   <!-- Favicon & Brand Icons -->
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
@@ -1981,6 +1981,11 @@
               <span class="row-label">My Stories (All)</span>
               <span class="row-pill" id="drawerMyCount">0</span>
             </button>
+            <button class="drawer-menu-row" id="drawerDiaryRow" onclick="closeDrawer(); openDiaryCalendarModal();">
+              <span class="row-icon">📔</span>
+              <span class="row-label">Diary (Chronicle Calendar)</span>
+              <span class="row-pill" id="drawerDiaryRowCount" style="background:rgba(245,158,11,0.2); color:#F59E0B;">0</span>
+            </button>
             <button class="drawer-menu-row drawer-admin-row" id="drawerAdminBetaRow" style="display:none;" onclick="openAdminBetaModal();">
               <span class="row-icon">🛡️</span>
               <span class="row-label">Beta Access & Invites</span>
@@ -2001,6 +2006,23 @@
               <span class="row-label">Sign Out</span>
             </button>
           </div>
+        </div>
+      </div>
+
+      <!-- Dedicated Diary Section (Calendar of Daily Chronicle Moments) -->
+      <div class="drawer-section" id="drawerDiarySection">
+        <div class="drawer-section-title">Diary</div>
+        <div class="drawer-card drawer-diary-card">
+          <button type="button" class="drawer-diary-open-btn" onclick="closeDrawer(); openDiaryCalendarModal();">
+            <div class="drawer-diary-left">
+              <span class="drawer-diary-icon">📔</span>
+              <div class="drawer-diary-text">
+                <div class="drawer-diary-title">Personal Diary Chronicles</div>
+                <div class="drawer-diary-desc">Calendar view of all your daily chronicle moments</div>
+              </div>
+            </div>
+            <span class="drawer-diary-count-pill" id="drawerDiaryCount">0 days</span>
+          </button>
         </div>
       </div>
 
@@ -2093,6 +2115,25 @@
 
     <div class="curator-style-modal-body" id="curatorStyleAnalyticsRoot">
       <!-- 3 Interactive Graphs Rendered Dynamically via app.js -->
+    </div>
+  </div>
+
+  <!-- Personal Diary Chronicles Calendar Modal -->
+  <div class="diary-calendar-modal-overlay" id="diaryCalendarModalOverlay" onclick="closeDiaryCalendarModal()" style="display: none;"></div>
+  <div class="diary-calendar-modal" id="diaryCalendarModal" style="display: none;" role="dialog" aria-modal="true">
+    <div class="diary-calendar-modal-header">
+      <div class="diary-calendar-title-wrap">
+        <span class="diary-calendar-icon">📔</span>
+        <div>
+          <div class="diary-calendar-title">Diary — Daily Chronicles Calendar</div>
+          <div class="diary-calendar-subtitle">Rounded date squares show a miniature preview of each day's latest chronicle • Tap any date to read</div>
+        </div>
+      </div>
+      <button type="button" class="diary-calendar-close-btn" onclick="closeDiaryCalendarModal()" aria-label="Close Diary Calendar">&times;</button>
+    </div>
+
+    <div class="diary-calendar-modal-body" id="diaryCalendarModalRoot">
+      <!-- Rendered dynamically by renderDiaryCalendarModal() in app.js -->
     </div>
   </div>
 
@@ -2212,6 +2253,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261027_0005"></script>
+  <script src="app.js?v=20261027_0050"></script>
 </body>
 </html>
