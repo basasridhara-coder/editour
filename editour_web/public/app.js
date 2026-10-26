@@ -10017,7 +10017,7 @@ function detectRelevantCastMembers(text = '', cast = null) {
     return new Set([selfMember.id]);
   }
 
-  const mentionsCollective = /\b(my family|our family|the four of us|all four of us|my kids|our kids|my sons|our sons|both my boys|both our boys|my children|our children|11 and 7|11yo and 7yo|road trip with my family|vacation with my family)\b/i.test(combined);
+  const mentionsCollective = /\b(my family|our family|whole family|entire family|the four of us|all four of us|my kids|our kids|the kids|kids returned|kids are|kids and|and the kids|with the kids|both kids|my sons|our sons|the sons|both sons|both my boys|both our boys|both boys|the boys|my boys|my children|our children|the children|11 and 7|11yo and 7yo|road trip with my family|vacation with my family)\b/i.test(combined);
   if (mentionsCollective) {
     return new Set(members.map(m => m.id));
   }
@@ -10047,17 +10047,17 @@ function detectRelevantCastMembers(text = '', cast = null) {
       }
     }
 
-    // 3. Role-specific semantic keywords (must be first-person personal possessives)
+    // 3. Role-specific semantic keywords (must be first-person personal possessives or family terms)
     if (m.relationship === 'elder_son') {
-      if (/\b(my elder son|my older son|my older boy|my first son|11-year-old|11yo|gahan)\b/i.test(combined)) {
+      if (/\b(my elder son|my older son|my older boy|my first son|11-year-old|11yo|gahan|the kids|my kids|our kids|kids returned|with kids|the boys|my boys|my sons|our sons|my children|the children)\b/i.test(combined)) {
         detected.add(m.id);
       }
     } else if (m.relationship === 'younger_son') {
-      if (/\b(my younger son|my little son|my younger boy|my second son|7-year-old|7yo|rishu)\b/i.test(combined)) {
+      if (/\b(my younger son|my little son|my younger boy|my second son|7-year-old|7yo|rishu|the kids|my kids|our kids|kids returned|with kids|the boys|my boys|my sons|our sons|my children|the children)\b/i.test(combined)) {
         detected.add(m.id);
       }
     } else if (m.relationship === 'spouse') {
-      if (/\b(my wife|my spouse|with my wife|aru)\b/i.test(combined)) {
+      if (/\b(my wife|my spouse|with my wife|aru|aruna)\b/i.test(combined)) {
         detected.add(m.id);
       }
     } else if (m.relationship === 'self') {
@@ -10073,7 +10073,7 @@ function detectRelevantCastMembers(text = '', cast = null) {
   // include Father / Self (Shridhar, age 40)!
   const hasChild = detected.has('member_elder_son') || detected.has('member_younger_son');
   const hasSpouse = detected.has('member_mother');
-  const hasFirstPersonCoPresence = /\b(and me|with me|between .* and me|i remain|by my side|by his side|beside him|beside her|holding my hand|teaching him|walked with him|support him|i stood|standing beside)\b/i.test(combined);
+  const hasFirstPersonCoPresence = /\b(and me|with me|between .* and me|i remain|by my side|by his side|beside him|beside her|holding my hand|teaching him|walked with him|support him|i stood|standing beside|my home|my life|attended|launched)\b/i.test(combined);
   if ((hasChild || hasSpouse) && hasFirstPersonCoPresence) {
     detected.add('member_father');
   }
@@ -11745,6 +11745,20 @@ function openDraftInStudio(postId) {
   if (slantInput) slantInput.value = genInputs.slantTake || post.userSlantTake || post.polishedCuratorTake || post.curatorTake || '';
   if (sparkInput) sparkInput.value = genInputs.spark || post.spark || '';
   if (urlInput) urlInput.value = genInputs.url || post.sourceUrl || '';
+
+  const savedChronicleMoments = post.chronicleMoments || genInputs.chronicleMoments;
+  if (mode === 'inner_voice' && (post.chronicleMode || genInputs.chronicleMode || isChronicleModePost(post)) && Array.isArray(savedChronicleMoments) && savedChronicleMoments.length >= 2) {
+    dailyChronicleMoments = savedChronicleMoments.map((m, idx) => ({
+      id: idx + 1,
+      title: m.title || '',
+      text: m.text || '',
+      imageBase64: m.imageBase64 || null,
+      imageMimeType: m.imageMimeType || 'image/jpeg'
+    }));
+    setInnerVoiceSubmode('chronicle');
+  } else {
+    checkAndTriggerFamilyCast(`${slantInput ? slantInput.value : ''} ${sparkInput ? sparkInput.value : ''}`);
+  }
 
   currentSynthesizedPost = JSON.parse(JSON.stringify(post));
   if (post.sourceLedger) {
@@ -14995,7 +15009,9 @@ async function startAiSynthesis() {
       index: m.index,
       title: m.title,
       text: m.text,
-      hasPhoto: Boolean(m.imageBase64)
+      hasPhoto: Boolean(m.imageBase64),
+      imageBase64: m.imageBase64 || null,
+      imageMimeType: m.imageMimeType || 'image/jpeg'
     })),
     url: isLink ? url : '',
     text: slantTake,

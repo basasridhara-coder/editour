@@ -271,6 +271,23 @@ module.exports = async function handler(req, res) {
             : `Visual Focus is HYBRID BLEND: Blend the real-world subject ("${originalHeadline || scrapedTitle || adaptedHeadline}") with the curator's personal perspective ("${userSlant}").`);
 
         try {
+          const validRebuildMomentImgs = Array.isArray(chronicleMomentImages)
+            ? chronicleMomentImages.filter(m => m && m.imageBase64 && typeof m.imageBase64 === 'string')
+            : [];
+          const rebuildParts = [];
+          validRebuildMomentImgs.forEach((m, idx) => {
+            const cleanM = m.imageBase64.includes(',') ? m.imageBase64.split(',')[1] : m.imageBase64;
+            rebuildParts.push({
+              inlineData: {
+                mimeType: m.imageMimeType || 'image/jpeg',
+                data: cleanM
+              }
+            });
+            rebuildParts.push({
+              text: `[Attached Reference Photo/Logo for Moment 0${m.index || (idx + 1)} (${m.title || 'Moment ' + (idx + 1)}): "${m.text || ''}"]`
+            });
+          });
+
           const promptBuilderText = `You are the Visual Director for SLANT. Build a fresh "illustrationPrompt" and 6 visual "cues" for Poster 1 based on the curator's updated Studio Settings:
 - Medium & Portrayal Style: ${stylePrefix}
 - ${focusRule}
@@ -281,15 +298,18 @@ ${spark ? `- Spark / Catalyst: "${spark}"` : ''}
 ${scrapedTitle ? `- Source Title: "${scrapedTitle}"` : ''}
 ${scrapedContent ? `- Source Context: "${String(scrapedContent).slice(0, 600)}"` : ''}
 ${familyCastDirectives ? `\nMANDATORY CASTING VAULT & PROTAGONIST ANCHORS:\n${familyCastDirectives.systemPromptSection}` : ''}
+${validRebuildMomentImgs.length > 0 ? `\nCRITICAL ATTACHED MOMENT PHOTO / LOGO INTEGRATION DIRECTIVE:\n- The curator attached ${validRebuildMomentImgs.length} reference image(s) for specific moment(s) of their Daily Chronicle.\n- Inspect each attached image above and explicitly describe its exact visual graphic, emblem, or scene in "illustrationPrompt" so it is prominently featured inside its corresponding moment vignette (for example, if an attached image is a black fountain-pen nib emblem containing a contemplative upward-tilted portrait face on a cream background for an app-launch moment, explicitly instruct "illustrationPrompt" to display that exact black fountain-pen nib portrait emblem large and crisp on the glowing smartphone screen in that vignette rather than a generic blank screen).` : ''}
 ${customDirection ? `\nCURATOR'S SPECIFIC VISUAL DIRECTION: "${customDirection}"` : ''}
 
 STRICT RULES:
 1. If Father (Shridhar) is in the scene, you MUST describe him as a "fit mid-age 40-year-old Indian man in his prime early 40s with a full head of thick short jet-black hair, smooth unwrinkled skin, neat short dark trimmed beard, and sturdy broad-shouldered build (strictly NOT an old man, strictly NOT elderly, strictly NO gray/white head hair)". NEVER call him "an Indian father figure" without specifying "fit mid-age 40-year-old man".
-2. Output strictly valid JSON:
+2. If multiple family members are in MANDATORY CASTING VAULT & PROTAGONIST ANCHORS, you MUST include ALL ${familyCastDirectives ? familyCastDirectives.totalCount : ''} family members visibly side by side in the foreground (including both sons with their graduated height difference and contrasting navy-blue vs bright emerald-green t-shirts when the kids are present).
+3. Output strictly valid JSON:
 {
-  "illustrationPrompt": "Detailed 70-110 word visual prompt beginning with the medium style, describing the exact protagonists, setting, lighting, and metaphor. No text or letters.",
+  "illustrationPrompt": "Detailed 80-130 word visual prompt beginning with the medium style, describing the exact protagonists, setting, lighting, and each vignette (including any attached logo/photo subject). No random text or letters.",
   "cues": ["#1 HERO (3-6 words)", "#2 MOTIF", "#3 TENSION", "#4 ATMOSPHERE", "#5 LIGHTING", "#6 STYLE"]
 }`;
+          rebuildParts.push({ text: promptBuilderText });
           const gUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
           const pCtrl = new AbortController();
           const pTimer = setTimeout(() => pCtrl.abort(), 9000);
@@ -297,7 +317,7 @@ STRICT RULES:
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              contents: [{ parts: [{ text: promptBuilderText }] }],
+              contents: [{ parts: rebuildParts }],
               generationConfig: {
                 temperature: 0.65,
                 thinkingBudget: 0,
@@ -1552,9 +1572,13 @@ ${validChronicleMoments.map((m, i) => `  * Moment 0${i + 1} (${m.title || 'Momen
 - 4. CLOSING THREAD ("whyItMatters"):
   * Write a 1-2 sentence closing takeaway ("The Day's Thread") connecting what the day taught or meant.
 - 5. RADIAL MONTAGE / COLLAGE ARTWORK PROMPT ("illustrationPrompt"):
-  * Describe a cohesive editorial broadsheet montage / radial story collage where the central protagonist is a fit mid-age 40-year-old Indian man in his prime early 40s (Shridhar, full head of thick short jet-black hair, smooth unwrinkled forehead, neat short dark trimmed beard, sturdy broad-shouldered build, strictly NOT old or elderly) anchored in the center foreground, surrounded by ${validChronicleMoments.length} seamless radial vignettes illustrating each moment of his day:
-    ${validChronicleMoments.map((m, i) => `Vignette ${i + 1}: ${m.text}`).join(' | ')}
-  * Strictly zero text, letters, or numbers in the image.` : (sourceType === 'inner_voice' ? `CRITICAL INNER VOICE & LIVED EXPERIENCE DIRECTIVE (ELABORATE USER VOICE ONLY, ZERO CONCEPT FABRICATION):
+  * Describe a cohesive editorial broadsheet montage / radial story collage where ${familyCastDirectives && !familyCastDirectives.isSolo ? `ALL ${familyCastDirectives.totalCount} family members (${familyCastDirectives.promptSnippet}) are warmly depicted together in the foreground` : `the central protagonist is a fit mid-age 40-year-old Indian man in his prime early 40s (Shridhar, full head of thick short jet-black hair, smooth unwrinkled forehead, neat short dark trimmed beard, sturdy broad-shouldered build, strictly NOT old or elderly) anchored in the center foreground`}, surrounded by ${validChronicleMoments.length} seamless radial vignettes illustrating each moment of his day:
+    ${validChronicleMoments.map((m, i) => `Vignette ${i + 1}${m.hasPhoto || m.imageBase64 ? ' [ATTACHED REFERENCE PHOTO/LOGO MUST BE FEATURED PROMINENTLY IN THIS VIGNETTE]' : ''}: ${m.text}`).join(' | ')}
+  * CRITICAL ATTACHED MOMENT PHOTO / LOGO INTEGRATION RULE:
+    Whenever a Moment has `[Photo Attached]`, inspect the attached image for that moment and weave it MEANINGFULLY and PROMINENTLY into that moment's vignette in direct connection with what the moment describes:
+    - If the attached image is an app logo, brand emblem, or icon (for example, a black fountain-pen nib emblem containing a contemplative upward-tilted portrait face on a cream background) and the moment describes building or soft-launching an app, explicitly instruct "illustrationPrompt" to display that EXACT attached emblem/logo glowing large, crisp, and unmistakable on the smartphone/device screen in that vignette (never replace it with a generic blank blue screen).
+    - If the attached image is a photograph of a scene, object, or activity, explicitly describe its exact visual subject and composition as the visual centerpiece of that vignette.
+  * Strictly zero random background text or gibberish letters in the image.` : (sourceType === 'inner_voice' ? `CRITICAL INNER VOICE & LIVED EXPERIENCE DIRECTIVE (ELABORATE USER VOICE ONLY, ZERO CONCEPT FABRICATION):
 - This is an INNER VOICE perspective rooted in the curator's personal life, emotional experience, philosophical stance, or daily human reality.
 - MATCH THE EXACT EMOTIONAL ENERGY & SUBJECT OF THE USER'S INPUT:
   * Faithfully mirror the specific topic, mood, setting, and emotional warmth present in "${userSlant}"${spark ? ` and "${spark}"` : ''}.
@@ -1598,8 +1622,8 @@ If a catalyst photo is attached, subtly ground the atmosphere where natural, but
 CRITICAL CULTURAL, INSTITUTIONAL & UNIFORM VISUAL AUTHENTICITY DIRECTIVE (FOR "illustrationPrompt" AND CUES):
 - Whenever the input references a specific real-world organization, cultural march, historical uniform, or traditional ceremony, your "illustrationPrompt" and visual cues MUST specify exact, encyclopedically accurate attire, headgear, and posture with strict negative constraints against AI hallucinations:
   * If RSS (Rashtriya Swayamsevak Sangh), Swayamsevaks, or Pathasanchalan (route march) is referenced:
-    1. UNIFORM (GANAVESH): Crisp FULL-SLEEVED (long-sleeved) white buttoned collared shirt tucked neatly into khaki-brown full-length trousers with a brown belt and black lace-up shoes (strictly NO short-sleeved or half-sleeved shirts).
-    2. HEADGEAR (KALI TOPI): Traditional Indian foldable boat-shaped black cloth cap (Gandhi-cap / boat-cap geometry with a central lengthwise crease) worn straight and centered on the head. STRICT BAN: NEVER write "side cap" or "beret", NEVER draw round military berets, and strictly NO metal badges, police crests, or emblems on the cap!
+    1. UNIFORM (GANAVESH): Crisp FULL-SLEEVED (long-sleeved down to the wrists) white buttoned collared shirt tucked neatly into khaki-brown full-length trousers with a simple plain brown waist belt ONLY and black lace-up shoes (strictly NO short-sleeved or half-sleeved shirts, strictly NO diagonal cross-shoulder police straps, strictly NO red neck scarves or ascots, and strictly NO khaki shirts).
+    2. HEADGEAR (KALI TOPI): Traditional Indian foldable boat-shaped black cloth cap (Gandhi-cap / boat-cap geometry with a pointed front-to-back crease) worn straight and centered on the head. STRICT BAN: NEVER write "side cap" or "beret", NEVER draw round military/police berets, and strictly NO metal badges, police crests, or emblems on the cap!
     3. STAFF (DANDA / LATHI) & FLAGS: Swayamsevaks march carrying a plain unadorned wooden bamboo staff (danda) resting at a 45-degree angle on the right shoulder or held at their side. STRICT BAN: NEVER attach or tie flags onto the swayamsevaks' bamboo staffs/lathis like spears, and strictly NO "Om" symbols or text on flags! Any saffron flag (Bhagwa Dhwaj) must only be a plain unadorned saffron two-pennant flag on a single standalone flagpole in the background, separate from the marching ranks.
 ${cues && cues.length > 0 ? `CRITICAL VISUAL RULE: The Hook poster artwork and cues MUST be anchored in #1 HERO: "${cues[0]}", incorporating #2 MOTIF: "${cues[1] || ''}" and #3 TENSION: "${cues[2] || ''}".` : ''}
 
@@ -1657,6 +1681,22 @@ Respond strictly with valid JSON with this exact structure:
           inlineData: {
             mimeType: effectiveCatalystMime,
             data: cleanData
+          }
+        });
+      }
+      if (isChronicle && Array.isArray(validChronicleMoments)) {
+        validChronicleMoments.forEach((m, idx) => {
+          if (m && m.imageBase64 && typeof m.imageBase64 === 'string') {
+            const cleanM = m.imageBase64.includes(',') ? m.imageBase64.split(',')[1] : m.imageBase64;
+            parts.push({
+              inlineData: {
+                mimeType: m.imageMimeType || 'image/jpeg',
+                data: cleanM
+              }
+            });
+            parts.push({
+              text: `[Attached Reference Image/Logo for Moment 0${idx + 1} (${m.title || 'Moment ' + (idx + 1)}): "${m.text}" — Inspect this attached graphic/photo and explicitly describe its exact visual emblem or subject inside Vignette 0${idx + 1} of "illustrationPrompt".]`
+            });
           }
         });
       }
@@ -2754,7 +2794,7 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
       .replace(/\bblack\s+side\s+caps?\b/gi, 'traditional Indian foldable boat-shaped black cloth Kali Topi caps (Gandhi-cap boat geometry worn straight on the head, strictly NOT round military berets and strictly NO metal badges or insignia on the caps)')
       .replace(/\b(?:holding|carrying)\s+(?:traditional\s+)?(?:polished\s+)?wooden\s+lathis?\b/gi, 'carrying plain unadorned wooden bamboo staffs (dandas) resting at a 45-degree angle on their right shoulders (strictly plain bamboo sticks with NO flags tied or mounted on the staffs)');
     if (!/strictly NOT round military berets/i.test(enhancedPrompt)) {
-      enhancedPrompt += '. AUTHENTIC RSS GANAVESH UNIFORM SPECIFICATION: Full-sleeved (long-sleeved) white buttoned shirts tucked into khaki-brown full trousers, traditional Indian foldable boat-shaped black cloth caps (Kali Topi worn straight like a boat cap, strictly NOT military berets and strictly NO metal badges or emblems on the front of the cap), carrying plain wooden bamboo staffs (dandas) resting on their right shoulders with strictly NO flags attached to the staffs and NO symbols or text on any flag.';
+      enhancedPrompt += '. AUTHENTIC RSS GANAVESH UNIFORM SPECIFICATION: Full-sleeved (long-sleeved down to the wrists) plain white buttoned shirts tucked into khaki-brown full trousers with a simple waist belt ONLY (strictly NO short sleeves, strictly NO diagonal cross-shoulder police straps, strictly NO red neck scarves), traditional Indian foldable boat-shaped black cloth caps (Gandhi-cap boat geometry with pointed front-to-back crease worn straight on the head, strictly NOT round military/police berets and strictly NO metal badges or emblems on the front of the cap), carrying plain wooden bamboo staffs (dandas) resting on their right shoulders with strictly NO flags attached to the staffs.';
     }
   }
 
@@ -2780,6 +2820,8 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
   if (validMomentImages.length > 0) {
     validMomentImages.forEach((m, i) => {
       const cleanB64 = m.imageBase64.includes(',') ? m.imageBase64.split(',')[1] : m.imageBase64;
+      const mIdx = m.index || (i + 1);
+      const isAppOrLaunchMoment = /\b(app|launch|soft-launch|launched|built|software|product|website|platform|screen|interface|logo)\b/i.test(m.text || '');
       parts.push({
         inlineData: {
           mimeType: m.imageMimeType || 'image/jpeg',
@@ -2787,11 +2829,13 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
         }
       });
       parts.push({
-        text: `Reference Photo #${i + 1} for Day Vignette 0${m.index || (i + 1)} (${m.title || 'Moment ' + (i + 1)}): "${m.text || ''}". Incorporate the scene, objects, and composition of this photo into Vignette 0${m.index || (i + 1)} of the radial montage.`
+        text: isAppOrLaunchMoment
+          ? `CRITICAL VISUAL GROUNDING FOR VIGNETTE 0${mIdx} (${m.title || 'Moment ' + mIdx}: "${m.text || ''}"): The user attached this exact app logo / brand emblem for Moment 0${mIdx}. In Vignette 0${mIdx}, you MUST prominently and faithfully render THIS EXACT ATTACHED EMBLEM / GRAPHIC (preserving its exact black fountain-pen nib silhouette, inner portrait face, and warm cream/gold contrast) filling the glowing smartphone/device screen in Vignette 0${mIdx}. Strictly do NOT draw a generic blank or blue app interface screen!`
+          : `CRITICAL VISUAL GROUNDING FOR VIGNETTE 0${mIdx} (${m.title || 'Moment ' + mIdx}: "${m.text || ''}"): You MUST prominently and faithfully incorporate the exact visual subject, objects, and composition of this attached Reference Photo as the centerpiece of Vignette 0${mIdx} of the radial montage.`
       });
     });
     parts.push({
-      text: `Create a cohesive 4:5 vertical editorial broadsheet montage / radial story collage: ${enhancedPrompt}. Put the central protagonist (fit mid-age 40-year-old Indian man in his prime early 40s, Shridhar, full head of thick short jet-black hair, smooth unwrinkled forehead, neat short dark trimmed beard, sturdy broad-shouldered build, strictly NOT old or elderly) at the center foreground, surrounded by the distinct vignettes of his day (using the attached Reference Photos for their corresponding vignettes and illustrating the remaining moments seamlessly in the same style). ${textureStyle}, masterwork, strictly zero text, no letters, no numbers.`
+      text: `Create a cohesive 4:5 vertical editorial broadsheet montage / radial story collage: ${enhancedPrompt}. Keep all foreground family members specified in the prompt (including Father Shridhar as a fit mid-age 40-year-old Indian man with thick short jet-black hair and neat dark beard, Mother Aruna, and when included in the prompt, both sons with their unmistakable 4-year height difference: tall 11-year-old Elder Son in dark navy-blue t-shirt reaching Mother's shoulder/chin and shorter 7-year-old Younger Son a full head shorter in bright emerald-green t-shirt) clearly visible in the foreground, surrounded by the distinct vignettes of the day. Faithfully display the attached Reference Photo/Logo prominently inside its corresponding vignette. ${textureStyle}, masterwork, no random background words or gibberish sentences.`
     });
   } else if (Array.isArray(stylizedAvatars) && stylizedAvatars.length > 0) {
     stylizedAvatars.forEach((av, i) => {
@@ -3158,7 +3202,7 @@ function detectRelevantCastMembers(combined = '', cast = null) {
     return new Set([selfMember.id]);
   }
 
-  const mentionsCollective = /\b(my family|our family|the four of us|all four of us|my kids|our kids|the kids|kids returned|kids and|and the kids|my sons|our sons|both my boys|both our boys|both boys|my children|our children|11 and 7|11yo and 7yo|road trip with my family|vacation with my family)\b/i.test(c);
+  const mentionsCollective = /\b(my family|our family|whole family|entire family|the four of us|all four of us|my kids|our kids|the kids|kids returned|kids are|kids and|and the kids|with the kids|both kids|my sons|our sons|the sons|both sons|both my boys|both our boys|both boys|the boys|my boys|my children|our children|the children|11 and 7|11yo and 7yo|road trip with my family|vacation with my family)\b/i.test(c);
   if (mentionsCollective) {
     return new Set(members.map(m => m.id));
   }
@@ -3188,13 +3232,13 @@ function detectRelevantCastMembers(combined = '', cast = null) {
       }
     }
 
-    // 3. Role-specific semantic keywords (must be first-person personal possessives)
+    // 3. Role-specific semantic keywords (must be first-person personal possessives or family terms)
     if (m.relationship === 'elder_son') {
-      if (/\b(my elder son|my older son|my older boy|my first son|11-year-old|11yo|gahan)\b/i.test(c)) {
+      if (/\b(my elder son|my older son|my older boy|my first son|11-year-old|11yo|gahan|the kids|my kids|our kids|kids returned|with kids|the boys|my boys|my sons|our sons|my children|the children)\b/i.test(c)) {
         detected.add(m.id);
       }
     } else if (m.relationship === 'younger_son') {
-      if (/\b(my younger son|my little son|my younger boy|my second son|7-year-old|7yo|rishu)\b/i.test(c)) {
+      if (/\b(my younger son|my little son|my younger boy|my second son|7-year-old|7yo|rishu|the kids|my kids|our kids|kids returned|with kids|the boys|my boys|my sons|our sons|my children|the children)\b/i.test(c)) {
         detected.add(m.id);
       }
     } else if (m.relationship === 'spouse') {
@@ -3214,7 +3258,7 @@ function detectRelevantCastMembers(combined = '', cast = null) {
   // include Father / Self (Shridhar, age 40)!
   const hasChild = detected.has('member_elder_son') || detected.has('member_younger_son');
   const hasSpouse = detected.has('member_mother');
-  const hasFirstPersonCoPresence = /\b(and me|with me|between .* and me|i remain|by my side|by his side|beside him|beside her|holding my hand|teaching him|walked with him|support him|i stood|standing beside)\b/i.test(c);
+  const hasFirstPersonCoPresence = /\b(and me|with me|between .* and me|i remain|by my side|by his side|beside him|beside her|holding my hand|teaching him|walked with him|support him|i stood|standing beside|my home|my life|attended|launched)\b/i.test(c);
   if ((hasChild || hasSpouse) && hasFirstPersonCoPresence) {
     detected.add('member_father');
   }
@@ -3244,8 +3288,15 @@ function buildFamilyCastDirectives({ familyCast, activeCast, castStaging, userSl
   }
 
   let activeMembers = [];
-  if (hasExplicitCast && activeCast.manuallySelected) {
+  if (hasExplicitCast && activeCast.manuallySelected && detectedIds.size <= activeCast.members.length) {
     activeMembers = activeCast.members;
+  } else if (hasExplicitCast && detectedIds.size > 0) {
+    const mergedIds = new Set([
+      ...activeCast.members.map(m => m.id),
+      ...Array.from(detectedIds)
+    ]);
+    activeMembers = (cast.members || []).filter(m => mergedIds.has(m.id));
+    if (activeMembers.length === 0) activeMembers = activeCast.members;
   } else if (hasExplicitCast) {
     activeMembers = activeCast.members;
   } else if (detectedIds.size > 0) {
