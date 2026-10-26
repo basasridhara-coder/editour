@@ -34,11 +34,42 @@ module.exports = async function handler(req, res) {
 
   try {
     let id = '';
-    if (req.query && req.query.id) {
-      id = req.query.id;
-    } else {
+    let proxyUrl = '';
+    if (req.query) {
+      id = req.query.id || '';
+      proxyUrl = req.query.proxyUrl || '';
+    }
+    if (!id && !proxyUrl && req.url) {
       const url = new URL(req.url, 'http://localhost');
       id = url.searchParams.get('id') || '';
+      proxyUrl = url.searchParams.get('proxyUrl') || '';
+    }
+
+    // Safe CORS-friendly server proxy for external news wire images during 3-poster share export
+    if (proxyUrl && /^https?:\/\//i.test(String(proxyUrl))) {
+      try {
+        const parsed = new URL(String(proxyUrl));
+        if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+          const upstream = await fetch(parsed.toString(), {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (compatible; SlantEditorial/1.0; +https://slant.today)',
+              'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8'
+            }
+          });
+          if (upstream.ok) {
+            const arrBuf = await upstream.arrayBuffer();
+            const buf = Buffer.from(arrBuf);
+            const upstreamType = upstream.headers.get('content-type') || 'image/jpeg';
+            return sendImageBuffer(res, buf, upstreamType);
+          }
+        }
+      } catch (proxyErr) {
+        console.warn('Image proxy fetch error:', proxyErr?.message || proxyErr);
+      }
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      if (res.status) return res.status(502).send('Unable to fetch external image');
+      res.statusCode = 502;
+      return res.end('Unable to fetch external image');
     }
 
     if (!id) {

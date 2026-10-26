@@ -6958,14 +6958,48 @@ let currentShareFiles = null;
 
 async function fetchAsBlobUrl(url) {
   if (!url || url.startsWith('data:') || url.startsWith('blob:')) return url;
-  try {
-    const res = await fetch(url);
-    if (!res.ok) return url;
-    const blob = await res.blob();
-    return URL.createObjectURL(blob);
-  } catch (e) {
-    return url;
+  const cleanUrl = String(url).replace(/&amp;/g, '&').trim();
+  const isExternalHttp = /^https?:\/\//i.test(cleanUrl)
+    && !cleanUrl.includes('supabase.co')
+    && !cleanUrl.startsWith(window.location.origin);
+
+  // For external news publisher CDNs (e.g., The Hindu, NYT, Indian Express) that omit CORS headers,
+  // try our same-origin server image proxy first or as automatic fallback so html2canvas never drops the photo
+  if (isExternalHttp) {
+    try {
+      const proxyRes = await fetch(`/api/poster?proxyUrl=${encodeURIComponent(cleanUrl)}`);
+      if (proxyRes.ok) {
+        const blob = await proxyRes.blob();
+        if (blob && blob.size > 0) {
+          return URL.createObjectURL(blob);
+        }
+      }
+    } catch (_) {}
   }
+
+  try {
+    const res = await fetch(cleanUrl);
+    if (res.ok) {
+      const blob = await res.blob();
+      if (blob && blob.size > 0) {
+        return URL.createObjectURL(blob);
+      }
+    }
+  } catch (_) {}
+
+  if (!isExternalHttp && /^https?:\/\//i.test(cleanUrl)) {
+    try {
+      const proxyRes = await fetch(`/api/poster?proxyUrl=${encodeURIComponent(cleanUrl)}`);
+      if (proxyRes.ok) {
+        const blob = await proxyRes.blob();
+        if (blob && blob.size > 0) {
+          return URL.createObjectURL(blob);
+        }
+      }
+    } catch (_) {}
+  }
+
+  return url;
 }
 
 async function capturePostSlidesAsFiles(post, index) {
@@ -7005,7 +7039,13 @@ async function capturePostSlidesAsFiles(post, index) {
       }
     } catch (_) {}
   }
-  const rawSourcePhoto = post.sourceImageUrl || post.referencePhotoUrl || post.originalPhotoUrl || post.catalystPhoto || '';
+  const rawSourcePhoto = post.sourceImageUrl
+    || post.referencePhotoUrl
+    || post.originalPhotoUrl
+    || post.catalystPhoto
+    || post.generationInputs?.sourceImageUrl
+    || post.generationInputs?.catalystPhoto
+    || '';
   if (rawSourcePhoto && typeof rawSourcePhoto === 'string' && rawSourcePhoto.startsWith('http')) {
     try {
       const sbUrl = await fetchAsBlobUrl(rawSourcePhoto);
@@ -7014,6 +7054,14 @@ async function capturePostSlidesAsFiles(post, index) {
         exportPost.sourceImageUrl = sbUrl;
         exportPost.referencePhotoUrl = sbUrl;
         exportPost.originalPhotoUrl = sbUrl;
+        exportPost.catalystPhoto = sbUrl;
+        if (exportPost.generationInputs && typeof exportPost.generationInputs === 'object') {
+          exportPost.generationInputs = {
+            ...exportPost.generationInputs,
+            sourceImageUrl: sbUrl,
+            catalystPhoto: sbUrl
+          };
+        }
       }
     } catch (_) {}
   }
