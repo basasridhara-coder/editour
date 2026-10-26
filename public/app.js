@@ -3404,9 +3404,10 @@ function getFilteredPostsForFilter(posts, filter, query) {
     const isChronicleDiary = isPostChronicleDiary(post);
     const isPrivateDraft = isPostPrivateOrDraft(post);
     const isOwnedByMe = isPostOwnedByCurrentUser(post);
+    const deepPostId = typeof getDeepLinkedPostId === 'function' ? getDeepLinkedPostId() : null;
 
-    // Unpublished drafts and private diary entries must NEVER be visible to anyone other than their creator
-    if (isPrivateDraft && !isOwnedByMe) {
+    // Unpublished drafts and private diary entries must NEVER be visible to anyone other than their creator (unless directly deep-linked)
+    if (isPrivateDraft && !isOwnedByMe && post.id !== deepPostId) {
       return false;
     }
 
