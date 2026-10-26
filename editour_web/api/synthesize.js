@@ -1586,8 +1586,8 @@ ${validChronicleMoments.map((m, i) => `  * Moment 0${i + 1} (${m.title || 'Momen
 - 3. POSTER 2 ELABORATED MOMENTS ("resolvedArticleExcerpts" and "summary"):
   * DO NOT merge the moments into one continuous generic essay!
   * Instead, output ${validChronicleMoments.length} distinct, vivid micro-entries in "resolvedArticleExcerpts" (one array element per moment, 35-48 words / 2-3 polished sentences each so all ${validChronicleMoments.length} moments fit cleanly together on Poster 2), preserving 100% of the author's voice and details.
-  * Format each array element with its numbered moment header followed by a colon:
-    ${validChronicleMoments.map((m, i) => `"0${i + 1} · ${m.title || 'Moment ' + (i + 1)}: [2-3 polished, natural sentences elaborating Moment 0${i + 1}]"`).join(',\n    ')}
+  * Format each array element with its numbered moment header ("Moment 01:", "Moment 02:", etc., strictly WITHOUT a leading "01 · " prefix) followed by a colon:
+    ${validChronicleMoments.map((m, i) => `"Moment 0${i + 1}: [2-3 polished, natural sentences elaborating Moment 0${i + 1}]"`).join(',\n    ')}
   * Set "summary" to those exact ${validChronicleMoments.length} formatted entries joined by "\\n\\n".
 - 4. CONSISTENT 3-VIGNETTE WATERCOLOR & GOUACHE SPOT-ILLUSTRATION LAYOUT ON OPEN CREAM ARCHIVAL PAPER ("illustrationPrompt"):
   * MANDATORY DEFAULT VIGNETTE STYLE (3 ISOLATED SPOT ILLUSTRATIONS ON OPEN CREAM ARCHIVAL PAPER): Every Daily Chronicle Poster 1 MUST use our signature 3-spot-vignette painted layout on open unpainted warm cream archival watercolor paper: "Masterpiece ${validChronicleMoments.length}-vignette editorial watercolor and gouache spot-illustration page on open unpainted textured warm cream archival paper, featuring ${validChronicleMoments.length} separate, self-contained soft-edged oval watercolor-and-gouache spot-illustration vignettes floating on the open cream paper background with wide unpainted cream paper margins surrounding and separating each vignette (strictly NOT a single merged full-bleed background scene, strictly zero overlapping figures between vignettes, and strictly zero printed captions or labels): ..."
@@ -1981,7 +1981,16 @@ Respond strictly with valid JSON with this exact structure:
     }
 
     const rawExcerpts = Array.isArray(parsed.resolvedArticleExcerpts) ? parsed.resolvedArticleExcerpts : [];
-    const cleanedExcerpts = rawExcerpts.map(e => String(e).replace(/^(the spark|curator stance|paragraph \d+)\s*:\s*["']?/i, '').replace(/["']?$/i, '').trim());
+    const cleanedExcerpts = rawExcerpts.map(e => {
+      let s = String(e).replace(/^(the spark|curator stance|paragraph \d+)\s*:\s*["']?/i, '').replace(/["']?$/i, '').trim();
+      if (isChronicle) {
+        s = s.replace(/^0?\d+\s*[·•.-]\s*(?=Moment\s+\d+)/i, '');
+      }
+      return s;
+    });
+    const cleanedSummary = isChronicle
+      ? String(parsed.summary || '').replace(/(^|\n\s*)0?\d+\s*[·•.-]\s*(?=Moment\s+\d+)/gi, '$1')
+      : (parsed.summary || '');
 
     let effectiveIllustrationPrompt = parsed.illustrationPrompt || concisePrompt || '';
     if (countryContext && countryContext !== 'Global' && !effectiveIllustrationPrompt.toLowerCase().includes(countryContext.toLowerCase())) {
@@ -2002,7 +2011,7 @@ Respond strictly with valid JSON with this exact structure:
       categoryBadge: parsed.categoryBadge || (sourceType === 'inner_voice' ? 'OPINION' : 'DISCOVERY'),
       targetAudience: targetAudience || 'General',
       hook: parsed.hook || '',
-      summary: parsed.summary || '',
+      summary: cleanedSummary,
       whyItMatters: isChronicle ? '' : (parsed.whyItMatters || ''),
       keyTakeaways: Array.isArray(parsed.keyTakeaways) ? parsed.keyTakeaways : [],
       receiptHighlightQuote: parsed.receiptHighlightQuote || '',
@@ -2321,9 +2330,8 @@ function generateSmartFallbackSynthesis({
   if (isStrictlyInnerVoice && isChronicle && Array.isArray(validChronicleMoments) && validChronicleMoments.length >= 2) {
     const formattedEntries = validChronicleMoments.map((m, i) => {
       const numStr = String(i + 1).padStart(2, '0');
-      const titleStr = String(m.title || `Moment ${numStr}`).trim();
       const bodyStr = formatCuratorTakeApt(String(m.text || '').trim());
-      return `${numStr} · ${titleStr}: ${bodyStr.endsWith('.') ? bodyStr : bodyStr + '.'}`;
+      return `Moment ${numStr}: ${bodyStr.endsWith('.') ? bodyStr : bodyStr + '.'}`;
     });
     const titlesList = validChronicleMoments.map(m => String(m.title || '').trim()).filter(Boolean);
     const chronicleHeadline = titlesList.length >= 2

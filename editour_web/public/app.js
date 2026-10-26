@@ -739,7 +739,7 @@ function isPostChronicleDiary(post) {
     || post.generationInputs?.chronicleMode
     || (Array.isArray(post.chronicleMoments) && post.chronicleMoments.length > 0)
     || (Array.isArray(post.generationInputs?.chronicleMoments) && post.generationInputs.chronicleMoments.length > 0)
-    || /\b01\s*[·•.-]\s*[^:]{1,38}:/i.test(String(post.summary || post.broadsheetObservation || ''))
+    || /(?:\b01\s*[·•.-]\s*[^:]{1,38}:|\bMoment\s+0?1\s*:)/i.test(String(post.summary || post.broadsheetObservation || ''))
   );
 }
 
@@ -5042,16 +5042,18 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
 
   const formatBroadsheetPara = (txt, isLead = false, extraClass = "") => {
     const clean = String(txt || "").trim();
-    const momentMatch = clean.match(/^((?:0?[1-9]|Moment\s+\d+)\s*[·•.-]?\s*[^:]{1,38}:)\s*([\s\S]+)$/i);
+    const momentMatch = clean.match(/^((?:0?[1-9]\s*[·•.-]\s*)?Moment\s+\d+(?:\s*[·•.-]\s*[^:]{1,38})?:|0?[1-9]\s*[·•.-]\s*[^:]{1,38}:)\s*([\s\S]+)$/i);
     if (momentMatch) {
       const cls = ["receipt-p3", "chronicle-moment-para", extraClass].filter(Boolean).join(" ");
       const numDigits = momentMatch[1].match(/\d+/);
-      const mIdxZero = numDigits ? (parseInt(numDigits[0], 10) - 1) : -1;
+      const mNum = numDigits ? parseInt(numDigits[0], 10) : 1;
+      const mIdxZero = mNum - 1;
       const isThisMomentStarred = (mIdxZero >= 0 && Array.isArray(savedMomentsList) && savedMomentsList[mIdxZero])
         ? (hasExplicitStarMoment ? Boolean(savedMomentsList[mIdxZero].isStarred) : false)
         : false;
       const starBadge = isThisMomentStarred ? ` <span class="chronicle-inline-star" title="Important Highlight Moment">★</span>` : "";
-      return `<p class="${cls} ${isThisMomentStarred ? "is-starred-moment-para" : ""}" lang="en"><strong class="chronicle-moment-inline-tag">${escapeHtml(momentMatch[1])}${starBadge}</strong> ${escapeHtml(hyphenateEditorialText(momentMatch[2]))}</p>`;
+      const cleanMomentLabel = `Moment ${String(mNum).padStart(2, "0")}:`;
+      return `<p class="${cls} ${isThisMomentStarred ? "is-starred-moment-para" : ""}" lang="en"><strong class="chronicle-moment-inline-tag">${escapeHtml(cleanMomentLabel)}${starBadge}</strong> ${escapeHtml(hyphenateEditorialText(momentMatch[2]))}</p>`;
     }
     if (isLead) {
       const hyphenatedClean = hyphenateEditorialText(clean);
@@ -10715,8 +10717,7 @@ function syncChronicleMomentsToSlantInput() {
       const txt = String(m.text || '').trim();
       if (!txt) return '';
       const numStr = String(idx + 1).padStart(2, '0');
-      const titleStr = String(m.title || '').trim() || `Moment ${numStr}`;
-      return `${numStr} · ${titleStr}: ${txt}`;
+      return `Moment ${numStr}: ${txt}`;
     })
     .filter(Boolean);
 
@@ -10886,18 +10887,20 @@ function acceptPolishedTake() {
   if (input && lastPolishedTake) {
     input.value = lastPolishedTake;
     if (creatorSelectedSource === 'inner_voice' && isDailyChronicleMode) {
-      const blocks = String(lastPolishedTake).split(/\n\s*\n|(?:^|\s+)(?=0?[1-4]\s*[·•.-])/g).map(b => b.trim()).filter(Boolean);
+      const blocks = String(lastPolishedTake).split(/\n\s*\n|(?:^|\s+)(?=(?:0?[1-4]\s*[·•.-]\s*)?Moment\s+0?[1-4]\b|0?[1-4]\s*[·•.-])/gi).map(b => b.trim()).filter(Boolean);
       if (blocks.length >= 2) {
         blocks.slice(0, 4).forEach((blk, idx) => {
           if (!dailyChronicleMoments[idx]) {
             dailyChronicleMoments[idx] = { id: Date.now() + idx, title: '', text: '', imageBase64: null, imageMimeType: 'image/jpeg' };
           }
-          const mMatch = blk.match(/^(?:0?[1-9]|Moment\s+\d+)\s*[·•.-]?\s*([^:]{1,38}):\s*([\s\S]+)$/i);
+          const mMatch = blk.match(/^(?:0?[1-9]\s*[·•.-]\s*)?Moment\s+\d+(?:\s*[·•.-]\s*([^:]{1,38}))?:\s*([\s\S]+)$/i);
           if (mMatch) {
-            dailyChronicleMoments[idx].title = mMatch[1].trim();
+            if (mMatch[1] && !/^moment\s*\d+$/i.test(mMatch[1].trim())) {
+              dailyChronicleMoments[idx].title = mMatch[1].trim();
+            }
             dailyChronicleMoments[idx].text = mMatch[2].trim();
           } else {
-            dailyChronicleMoments[idx].text = blk.replace(/^(?:0?[1-9]|Moment\s+\d+)\s*[·•.:-]\s*/i, '').trim();
+            dailyChronicleMoments[idx].text = blk.replace(/^(?:0?[1-9]\s*[·•.-]\s*)?(?:Moment\s+\d+\s*:?\s*)?/i, '').trim();
           }
         });
         renderDailyChronicleCards();
@@ -15944,7 +15947,7 @@ function isChronicleModePost(post) {
     || post.generationInputs?.chronicleMode
     || (Array.isArray(post.chronicleMoments) && post.chronicleMoments.length > 0)
     || (Array.isArray(post.generationInputs?.chronicleMoments) && post.generationInputs.chronicleMoments.length > 0)
-    || /\b01\s*[·•.-]\s*[^:]{1,38}:/i.test(String(post.summary || post.broadsheetObservation || ''))
+    || /(?:\b01\s*[·•.-]\s*[^:]{1,38}:|\bMoment\s+0?1\s*:)/i.test(String(post.summary || post.broadsheetObservation || ''))
   );
 }
 
