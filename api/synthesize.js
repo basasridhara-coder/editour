@@ -1110,6 +1110,20 @@ Respond strictly with valid JSON with this exact structure:
               counts
             });
           }
+        } else {
+          const errJson = await geminiResp.json().catch(() => null);
+          const apiErrMsg = errJson?.error?.message || `Gemini API returned HTTP ${geminiResp.status}`;
+          return res.status(200).json({
+            success: false,
+            error: geminiResp.status === 402
+              ? 'Google AI Studio prepayment credits are depleted (HTTP 402). Please top up your balance at ai.studio/projects.'
+              : apiErrMsg,
+            original: rawText,
+            polished: baselinePolished,
+            highlightedHtml: baselinePolished,
+            corrections: [],
+            counts: { spelling: 0, grammar: 0, punctuation: 0, phrasing: 0, total: 0 }
+          });
         }
       } catch (err) {
         console.warn('Gemini copy-edit notice:', err.message);
