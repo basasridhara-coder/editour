@@ -8738,8 +8738,9 @@ function getDiaryChroniclesByDateMap() {
   const pool = [];
   const seenIds = new Set();
   const combinedSource = []
-    .concat(Array.isArray(allPosts) ? allPosts : [])
-    .concat(Array.isArray(posts) ? posts : []);
+    .concat(typeof allPosts !== 'undefined' && Array.isArray(allPosts) ? allPosts : [])
+    .concat(typeof window !== 'undefined' && Array.isArray(window.posts) ? window.posts : [])
+    .concat(typeof filteredPosts !== 'undefined' && Array.isArray(filteredPosts) ? filteredPosts : []);
 
   combinedSource.forEach(p => {
     if (!p || !p.id || seenIds.has(p.id)) return;
@@ -8773,12 +8774,16 @@ function getDiaryChroniclesByDateMap() {
 }
 
 function syncDrawerDiaryCounts() {
-  const dateMap = getDiaryChroniclesByDateMap();
-  const daysCount = dateMap.size;
-  const pill1 = document.getElementById('drawerDiaryCount');
-  const pill2 = document.getElementById('drawerDiaryRowCount');
-  if (pill1) pill1.textContent = `${daysCount} ${daysCount === 1 ? 'day' : 'days'}`;
-  if (pill2) pill2.textContent = String(daysCount);
+  try {
+    const dateMap = getDiaryChroniclesByDateMap();
+    const daysCount = dateMap.size;
+    const pill1 = document.getElementById('drawerDiaryCount');
+    const pill2 = document.getElementById('drawerDiaryRowCount');
+    if (pill1) pill1.textContent = `${daysCount} ${daysCount === 1 ? 'day' : 'days'}`;
+    if (pill2) pill2.textContent = String(daysCount);
+  } catch (err) {
+    console.warn('syncDrawerDiaryCounts error:', err);
+  }
 }
 
 function openDiaryCalendarModal() {
