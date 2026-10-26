@@ -13615,26 +13615,26 @@ function extract6RankedCueDimensions(curatorAngle, newsHeadline, newsBody) {
 
   // 2. MOTIF (Core Metaphor from Curator Angle)
   let motif = '';
-  if (combined.includes('farmer') || combined.includes('tree') || combined.includes('mango') || combined.includes('plant') || combined.includes('seed') || combined.includes('root')) {
+  if (/\b(family|kids|children|sons|wife|mother|father|love|heart|home|memoir|mysore)\b/i.test(combined)) {
+    motif = 'Warm Brass Coffee Tumbler & Family Keepsakes';
+  } else if (/\b(farmer|tree|mango|plant|seed|root)\b/i.test(combined)) {
     motif = 'Ancient Roots Entwined in Fertile Soil';
-  } else if (combined.includes('court') || combined.includes('judge') || combined.includes('law') || combined.includes('crime') || combined.includes('scale') || combined.includes('justice') || combined.includes('balance') || combined.includes('fair')) {
+  } else if (/\b(court|judge|law|crime|scale|justice|balance|fair)\b/i.test(combined)) {
     motif = isIndia ? 'Ashoka Lion Capital & Scales of Justice' : 'Tipping Brass Balance Scales';
-  } else if (combined.includes('taste') || combined.includes('craft') || combined.includes('art') || combined.includes('design')) {
-    motif = 'Sculptor Chisel against Uncarved Marble';
-  } else if (combined.includes('family') || combined.includes('love') || combined.includes('heart') || combined.includes('home') || combined.includes('memoir')) {
-    motif = 'Worn Keepsakes and Handwritten Letters';
-  } else if (combined.includes('puppet') || combined.includes('control') || combined.includes('manipulat')) {
+  } else if (/\b(taste|craftsmanship|fine art|architecture|design)\b/i.test(combined)) {
+    motif = 'Handcrafted Brass Lamp & Open Sketchbook';
+  } else if (/\b(puppet|control|manipulat)/i.test(combined)) {
     motif = 'Tangled Marionette Puppet Strings';
-  } else if (combined.includes('hourglass') || combined.includes('time') || combined.includes('delay') || combined.includes('wait') || combined.includes('patience')) {
-    motif = 'Crumbling Glass Hourglass';
-  } else if (combined.includes('power') || combined.includes('grid') || combined.includes('cable') || combined.includes('energy')) {
+  } else if (/\b(hourglass|time|delay|wait|patience)\b/i.test(combined)) {
+    motif = 'Vintage Brass Pocket Compass & Open Journal';
+  } else if (/\b(power|grid|cable|energy)\b/i.test(combined)) {
     motif = 'Tangled High-Voltage Transmission Cables';
   } else if (curatorAngle && curatorAngle.trim().length > 0) {
     const parts = curatorAngle.trim().split(/[;,–—]/);
     motif = (parts[1] || parts[0]).trim();
     if (motif.length > 38) motif = motif.substring(0, 35) + '...';
   } else {
-    motif = 'Symbolic Editorial Metaphor';
+    motif = 'Warm Brass Lamp & Open Notebook';
   }
 
   // 3. TENSION (Conflict / Friction / Obstacle)

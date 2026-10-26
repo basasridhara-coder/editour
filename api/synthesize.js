@@ -2657,7 +2657,9 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
     'gemini-2.5-flash-image'
   ];
 
-  let enhancedPrompt = prompt || '';
+  let enhancedPrompt = (prompt || '')
+    .replace(/[^.!?]*\b(?:sculptor(?:'s)?\s+)?chisel\b[^.!?]*\bmarble\b[^.!?]*[.!?]?/gi, '')
+    .replace(/\b(?:a\s+)?(?:sculptor(?:'s)?\s+)?(?:steel\s+)?chisel\s+(?:resting|sitting|placed)?\s*(?:on|against)\s+(?:an?\s+)?(?:uncarved\s+)?marble(?:\s+plinth|\s+slab|\s+block)?/gi, 'a warm brass filter-coffee tumbler and open journal');
 
   // Detect family context with 2 sons or family group (strictly requires explicit family cast or personal first-person context)
   const isSingleProtagonist = /\b(sole protagonist|exactly one protagonist|single protagonist|lone protagonist)\b/i.test(enhancedPrompt);

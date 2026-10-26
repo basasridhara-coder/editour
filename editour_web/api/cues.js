@@ -272,7 +272,7 @@ ${variationDirective}
 
 STRICT VISUAL CUE REQUIREMENTS (Must be short, punchy 3-6 word phrases):
 1. HERO: Central focal figure, subject, or architectural centerpiece. ${hasPersonFocus ? 'For stories with a recognizable public figure, leader, or speaker, explicitly name and identify the central individual (e.g. "French President Emmanuel Macron at podium", "Actor Ashish Vidyarthi (Editorial Portrait)").' : (isSilhouette ? 'Minimalist silhouette or outline.' : 'Warm, realistic protagonist or subject with visible human expression (e.g. "Parent and Child Packing Suitcase", "Monolithic Obsidian Server Tower", "Lone Sweeper with Traditional Broom"). NEVER pitch-black silhouettes, NEVER ghost figures!')} Never output a URL, protocol, or punctuation!
-2. MOTIF: Secondary symbolic metaphorical object capturing the curator's philosophical stance or critique (e.g. "Child Holding Forgotten Travel Item", "Tangled Marionette Puppet Strings", "Sculptor Chisel against Marble", "Tipping Balance Scales").
+2. MOTIF: Secondary symbolic metaphorical object capturing the curator's philosophical stance or critique (e.g. "Child Holding Forgotten Travel Item", "Warm Brass Filter Coffee Tumbler", "Open Fountain Pen & Journal", "Tipping Balance Scales"). NEVER use "Sculptor Chisel against Marble" or knives/chisels in home or family scenes.
 3. TENSION: Opposing visual friction, conflict, shadow, crisis, or counter-force (e.g. "Work Deadlines Clashing with Escape", "Relentless Tidal Wave of Noise", "Cracking Stone Foundation", "Looming Corporate Shadow").
 4. ATMOSPHERE: Setting, environmental scale, weather, or time of day (e.g. "Cluttered Study with Kerala Palms", "Damp Rain-Slicked City Boulevard", "Smoke-Filled High-Rise Boardroom").
 5. LIGHTING: Evocative 3-6 word lighting mood strictly reflecting the topic and emotional stance (e.g. "Cold Steel-Blue Chiaroscuro Rim", "Forensic Overhead Halogen Grid", "Soft Fog-Diffused Morning Light", "Dramatic Low-Angle Razor Spotlight"). STRICTLY AVOID generic "Golden Hour" or "Warm Sunset" cliches unless an outdoor sunset is explicitly central to the narrative!
@@ -473,7 +473,7 @@ function generateSmartFallbackCues(curatorAngle = '', spark = '', newsHeadline =
   // Alternative pools to ensure variation when regenerating
   const motifPool = (combined.includes('minister') || combined.includes('polic') || combined.includes('econom') || isIndia)
     ? ['Ashoka Lion Capital & Policy Dockets', 'Gilded Scales of Fiscal Governance', 'Microphone at Press Podium', 'Unfurled Economic Blueprint']
-    : ['Tipping Brass Balance Scales', 'Sculptor Chisel against Uncarved Marble', 'Tangled Marionette Puppet Strings', 'Hourglass with Flowing Sand'];
+    : ['Tipping Brass Balance Scales', 'Warm Brass Lamp & Open Journal', 'Vintage Brass Compass on Desk', 'Hourglass with Flowing Sand'];
 
   const tensionPool = (combined.includes('minister') || combined.includes('polic') || combined.includes('econom'))
     ? ['Hard Public Questions Met with Conviction', 'Fiscal Discipline Clashing with Populist Demands', 'Structural Reform vs Bureaucratic Inertia', 'Sharp Media Inquiries under Stage Lights']
