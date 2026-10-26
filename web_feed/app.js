@@ -754,14 +754,14 @@ function isPostPrivateOrDraft(post) {
 function isPostOwnedByCurrentUser(post) {
   if (!post) return false;
   if (myCreatedPostIds.has(post.id)) return true;
-  if (!currentUser) return false;
-  const userEmail = (currentUser.email || '').toLowerCase();
-  const userHandle = (currentUser.user_metadata?.user_name || currentUser.user_metadata?.name || userEmail.split('@')[0] || '').toLowerCase().replace('@', '');
+  const userEmail = (currentUser?.email || localStorage.getItem('slant_user_email') || '').toLowerCase();
+  if (!currentUser && !userEmail) return false;
+  const userHandle = (currentUser?.user_metadata?.user_name || currentUser?.user_metadata?.name || userEmail.split('@')[0] || '').toLowerCase().replace('@', '');
   const postAuthor = (post.creatorHandle || '').toLowerCase().replace('@', '');
   const postUserId = post.user_id || post.userId;
-  const isAdminAuthorMatch = (userEmail === 'shridharoct16@gmail.com' || userEmail === 'basasridhara@gmail.com') && postAuthor === 'shridhar reddy';
+  const isAdminAuthorMatch = (userEmail === 'shridharoct16@gmail.com' || userEmail === 'basasridhara@gmail.com') && (postAuthor === 'shridhar reddy' || postAuthor.includes('shridhar'));
   return Boolean(
-    (postUserId && postUserId === currentUser.id) ||
+    (currentUser?.id && postUserId && postUserId === currentUser.id) ||
     (userHandle && postAuthor && postAuthor === userHandle) ||
     (userEmail && (post.userEmail || '').toLowerCase() === userEmail) ||
     isAdminAuthorMatch
@@ -2713,6 +2713,9 @@ async function syncLiveCloudPosts(forceRender = false) {
           localStorage.setItem('slant_user_posts_cache', JSON.stringify(Array.from(map.values()).slice(0, 30)));
           if (hasDraftUpdates || hadDeletions) {
             softDeletesDOMPrune(softDeletedIds);
+            if (currentRenderedBatch === 0 && window.scrollY < 400) {
+              renderFeed();
+            }
           }
         }
       }
@@ -2755,7 +2758,7 @@ async function fetchAuthorStoriesFromCloud() {
         currentBatchFilteredPosts = getFilteredPostsForFilter(allPosts, currentFilter, searchQuery);
         updateBadge(true, `Live Feed (${allPosts.length} posts)`);
         updateAuthUI();
-        if (currentFilter === 'my_stories' && currentRenderedBatch === 0) {
+        if ((added || currentFilter === 'my_stories') && currentRenderedBatch === 0 && window.scrollY < 400) {
           renderFeed();
         }
       }
@@ -12825,7 +12828,7 @@ function resetCreatorState() {
   const eyeLabel = document.getElementById('step3EyeViewLabel');
   if (eyeLabel) eyeLabel.textContent = 'Clear Text';
   const saveBtn = document.getElementById('step3SaveBtn');
-  if (saveBtn) { saveBtn.disabled = false; saveBtn.classList.remove('active'); }
+  if (saveBtn) { saveBtn.disabled = false; saveBtn.classList.remove('active', 'diary-save-highlight'); }
   const saveLbl = document.getElementById('step3SaveLabel');
   if (saveLbl) saveLbl.textContent = 'Save';
   const bottomSaveBtn = document.getElementById('step3BottomSaveDraftBtn');
@@ -12838,7 +12841,8 @@ function resetCreatorState() {
   if (publishBtn) {
     publishBtn.disabled = false;
     publishBtn.style.display = '';
-    publishBtn.innerHTML = '<span>Publish to Live Feed</span><span class="btn-arrow">🚀</span>';
+    publishBtn.classList.remove('creator-publish-deemphasized');
+    publishBtn.innerHTML = '<span>Publish 🚀</span>';
   }
   const actionPublishBtn = document.getElementById('step3PublishActionBtn');
   if (actionPublishBtn) { actionPublishBtn.disabled = false; actionPublishBtn.classList.remove('active'); }
@@ -15724,9 +15728,10 @@ function syncStep3SaveButtonLabel(post = currentSynthesizedPost) {
   const isChronicle = isChronicleModePost(post);
   const bottomSaveBtn = document.getElementById('step3BottomSaveDraftBtn');
   const publishBtn = document.getElementById('publishBtn');
+  const saveBtn = document.getElementById('step3SaveBtn');
   if (bottomSaveBtn) {
     bottomSaveBtn.innerHTML = isChronicle
-      ? '<span>📔 Save to Diary</span><span class="btn-arrow">✨</span>'
+      ? '<span>📔 Save to Diary</span>'
       : '<span>🔖 Save Draft</span>';
     bottomSaveBtn.title = isChronicle
       ? 'Save to your feed as a private diary entry (you can publish it to everyone anytime from the top-right diary icon)'
@@ -15734,7 +15739,15 @@ function syncStep3SaveButtonLabel(post = currentSynthesizedPost) {
     bottomSaveBtn.classList.toggle('creator-diary-primary-cta', isChronicle);
   }
   if (publishBtn) {
-    publishBtn.style.display = isChronicle ? 'none' : '';
+    publishBtn.style.display = '';
+    publishBtn.classList.toggle('creator-publish-deemphasized', isChronicle);
+    publishBtn.innerHTML = isChronicle ? '<span>Publish</span>' : '<span>Publish 🚀</span>';
+    publishBtn.title = isChronicle
+      ? 'Publish immediately for everyone on the public feed'
+      : 'Publish to the live public feed';
+  }
+  if (saveBtn) {
+    saveBtn.classList.toggle('diary-save-highlight', isChronicle);
   }
   const saveLbl = document.getElementById('step3SaveLabel');
   if (saveLbl && saveLbl.textContent !== 'Saved') {

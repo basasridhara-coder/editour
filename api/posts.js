@@ -222,7 +222,15 @@ module.exports = async function handler(req, res) {
             const isAuthorQuery = Boolean(authorFilter || emailFilter);
             const posts = rows.map(formatPostRow).filter(p => {
               if (!p || p.deleted || p.isDeleted || deletedSet.has(p.id)) return false;
-              if (!isAuthorQuery && (p.isDraft || p.isPrivate || p.status === 'draft')) return false;
+              const isChronicleDiary = Boolean(
+                p.isDiary
+                || p.chronicleMode
+                || p.innerVoiceSubMode === 'chronicle'
+                || p.generationInputs?.chronicleMode
+                || (Array.isArray(p.chronicleMoments) && p.chronicleMoments.length > 0)
+                || (Array.isArray(p.generationInputs?.chronicleMoments) && p.generationInputs.chronicleMoments.length > 0)
+              );
+              if (!isAuthorQuery && !isChronicleDiary && (p.isDraft || p.isPrivate || p.status === 'draft')) return false;
               return (p.adaptedHeadline || p.originalHeadline || p.summary);
             });
 
