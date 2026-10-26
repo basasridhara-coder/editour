@@ -4924,12 +4924,23 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
   const p1SlideBadge = bifurcation.isBifurcated ? (forExportPage > 0 ? "02 / 03 • ESSAY P1" : "PAGE 1 / 2") : (forExportPage > 0 ? "02 / 02 • ESSAY" : "02 / 02");
   const p2SlideBadge = forExportPage > 0 ? "03 / 03 • ESSAY P2" : "PAGE 2 / 2";
   const folioRightP2 = forExportPage > 0 ? "Every thought deserves a frame • 03 / 03" : "Every thought deserves a frame • 02 / 02";
+  const isChronicle = Boolean(
+    post && (
+      post.chronicleMode
+      || post.innerVoiceSubMode === "chronicle"
+      || post.generationInputs?.chronicleMode
+      || (Array.isArray(post.chronicleMoments) && post.chronicleMoments.length > 0)
+      || (Array.isArray(post.generationInputs?.chronicleMoments) && post.generationInputs.chronicleMoments.length > 0)
+      || /\b01\s*[·•.-]\s*[^:]{1,38}:/i.test(String(post.summary || post.broadsheetObservation || ""))
+    )
+  );
+  const receiptBrandTitle = isChronicle ? "SLANT MOMENTS" : "SLANT MINUTES";
 
   const page1InnerHtml = `
         <div class="receipt-brand-corner-bar">
           <div class="receipt-corner-brand">
             <img src="/logo.png" class="receipt-corner-logo" alt="Slant">
-            <span class="receipt-brand-text">SLANT MINUTES</span>
+            <span class="receipt-brand-text">${receiptBrandTitle}</span>
           </div>
           <div class="receipt-corner-creator">
             <span class="receipt-creator-name">${handle}</span>
@@ -4961,7 +4972,7 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
         <div class="receipt-brand-corner-bar continuation-header">
           <div class="receipt-corner-brand">
             <img src="/logo.png" class="receipt-corner-logo" alt="Slant">
-            <span class="receipt-brand-text">SLANT MINUTES ...</span>
+            <span class="receipt-brand-text">${receiptBrandTitle} ...</span>
           </div>
           <div class="receipt-corner-creator">
             <span class="receipt-creator-name">${handle}</span>
@@ -10295,6 +10306,9 @@ function syncInnerVoiceSubmodeUI() {
     if (sub) sub.textContent = 'Express your conviction or reflection freely. AI transforms this into your lead take.';
     if (heroIcon) heroIcon.textContent = '💭';
   }
+  if (typeof syncStep3SaveButtonLabel === 'function') {
+    syncStep3SaveButtonLabel();
+  }
 }
 
 function renderDailyChronicleCards() {
@@ -15519,9 +15533,40 @@ function showStep3Preview() {
   }
 }
 
+function isChronicleModePost(post) {
+  const isFormChronicle = (typeof creatorSelectedSource !== 'undefined' && creatorSelectedSource === 'inner_voice' && typeof isDailyChronicleMode !== 'undefined' && isDailyChronicleMode);
+  if (!post) return isFormChronicle;
+  return Boolean(
+    isFormChronicle
+    || post.chronicleMode
+    || post.innerVoiceSubMode === 'chronicle'
+    || post.generationInputs?.chronicleMode
+    || (Array.isArray(post.chronicleMoments) && post.chronicleMoments.length > 0)
+    || (Array.isArray(post.generationInputs?.chronicleMoments) && post.generationInputs.chronicleMoments.length > 0)
+    || /\b01\s*[·•.-]\s*[^:]{1,38}:/i.test(String(post.summary || post.broadsheetObservation || ''))
+  );
+}
+
+function syncStep3SaveButtonLabel(post = currentSynthesizedPost) {
+  const isChronicle = isChronicleModePost(post);
+  const bottomSaveBtn = document.getElementById('step3BottomSaveDraftBtn');
+  if (bottomSaveBtn) {
+    bottomSaveBtn.innerHTML = isChronicle ? '<span>📔 Save to Diary</span>' : '<span>🔖 Save Draft</span>';
+    bottomSaveBtn.title = isChronicle
+      ? 'Save privately to your personal diary without publishing'
+      : 'Save privately to your feed & drafts without publishing';
+  }
+  const saveLbl = document.getElementById('step3SaveLabel');
+  if (saveLbl && saveLbl.textContent !== 'Saved') {
+    saveLbl.textContent = isChronicle ? 'Diary' : 'Save';
+  }
+}
+
 function renderCreatorPreview(targetSlide = null) {
   const wrapper = document.getElementById('creatorCardPreviewWrapper');
   if (!wrapper || !currentSynthesizedPost) return;
+
+  syncStep3SaveButtonLabel(currentSynthesizedPost);
 
   wrapper.innerHTML = '';
   // Pass index as 'preview'
@@ -16580,6 +16625,7 @@ async function saveSynthesizedPost() {
     }
   }
 
+  const isChronicle = isChronicleModePost(currentSynthesizedPost);
   const saveBtn = document.getElementById('step3SaveBtn');
   const saveLbl = document.getElementById('step3SaveLabel');
   const bottomSaveBtn = document.getElementById('step3BottomSaveDraftBtn');
@@ -16587,7 +16633,7 @@ async function saveSynthesizedPost() {
   if (saveLbl) saveLbl.textContent = 'Saving...';
   if (bottomSaveBtn) {
     bottomSaveBtn.disabled = true;
-    bottomSaveBtn.innerHTML = '<span>Saving Draft... ⏳</span>';
+    bottomSaveBtn.innerHTML = isChronicle ? '<span>Saving to Diary... ⏳</span>' : '<span>Saving Draft... ⏳</span>';
   }
 
   if (currentUser) {
@@ -16752,7 +16798,7 @@ async function saveSynthesizedPost() {
   if (saveLbl) saveLbl.textContent = 'Saved';
   if (bottomSaveBtn) {
     bottomSaveBtn.disabled = false;
-    bottomSaveBtn.innerHTML = '<span>🔖 Save Draft</span>';
+    bottomSaveBtn.innerHTML = isChronicle ? '<span>📔 Save to Diary</span>' : '<span>🔖 Save Draft</span>';
   }
 
   // Graduate active Step 1 form draft since the 3-poster deck is now saved
@@ -16768,7 +16814,9 @@ async function saveSynthesizedPost() {
   // 7. Close modal & reset state & notify user
   closeCreatorModal(true);
   resetCreatorState();
-  showTemporaryToast('🔒 Saved as private draft! Visible only to you in your Feed & Drafts.');
+  showTemporaryToast(isChronicle
+    ? '📔 Saved to your Personal Diary! Visible only to you.'
+    : '🔒 Saved as private draft! Visible only to you in your Feed & Drafts.');
 }
 
 async function publishSynthesizedPost() {
