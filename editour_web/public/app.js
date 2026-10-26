@@ -4547,6 +4547,21 @@ function evaluateEssayBifurcation(post, index) {
     essayParas = ["Reporting examines key structural developments and observed outcomes."];
   }
 
+  // Daily Chronicle 3-Poster Layout:
+  // Poster 2 holds all 3 elaborated moments on a single clean page with zero photo;
+  // Poster 3 features the Reflection of the Day in a larger font centered on the poster.
+  if (isPostChronicleDiary(post)) {
+    return {
+      isBifurcated: true,
+      hasPhoto: false,
+      page1Paras: essayParas,
+      page2Paras: [],
+      hasContinuedPara: false,
+      isChronicleLayout: true,
+      densityClass: (essayParas.join(" ").length > 620) ? "essay-density-compact" : "essay-density-medium"
+    };
+  }
+
   // Check photo source: grounded source photo first, fallback to poster photo from Slide 1
   const rawPhoto = post.sourceImageBase64
     || post.sourceImageUrl
@@ -4917,12 +4932,21 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
     }
   }
 
+  const savedMomentsList = (post && (post.chronicleMoments || post.generationInputs?.chronicleMoments)) || [];
+  const hasExplicitStarMoment = Array.isArray(savedMomentsList) && savedMomentsList.some(m => Boolean(m && m.isStarred));
+
   const formatBroadsheetPara = (txt, isLead = false, extraClass = "") => {
     const clean = String(txt || "").trim();
     const momentMatch = clean.match(/^((?:0?[1-9]|Moment\s+\d+)\s*[·•.-]?\s*[^:]{1,38}:)\s*([\s\S]+)$/i);
     if (momentMatch) {
       const cls = ["receipt-p3", "chronicle-moment-para", extraClass].filter(Boolean).join(" ");
-      return `<p class="${cls}"><strong class="chronicle-moment-inline-tag">${escapeHtml(momentMatch[1])}</strong> ${escapeHtml(momentMatch[2])}</p>`;
+      const numDigits = momentMatch[1].match(/\d+/);
+      const mIdxZero = numDigits ? (parseInt(numDigits[0], 10) - 1) : -1;
+      const isThisMomentStarred = (mIdxZero >= 0 && Array.isArray(savedMomentsList) && savedMomentsList[mIdxZero])
+        ? (hasExplicitStarMoment ? Boolean(savedMomentsList[mIdxZero].isStarred) : false)
+        : false;
+      const starBadge = isThisMomentStarred ? ` <span class="chronicle-inline-star" title="Important Highlight Moment">★</span>` : "";
+      return `<p class="${cls} ${isThisMomentStarred ? "is-starred-moment-para" : ""}"><strong class="chronicle-moment-inline-tag">${escapeHtml(momentMatch[1])}${starBadge}</strong> ${escapeHtml(momentMatch[2])}</p>`;
     }
     if (isLead) {
       const firstChar = clean.charAt(0).toUpperCase();
@@ -4953,20 +4977,41 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
     }
   });
 
-  const p1SlideBadge = bifurcation.isBifurcated ? (forExportPage > 0 ? "02 / 03 • ESSAY P1" : "PAGE 1 / 2") : (forExportPage > 0 ? "02 / 02 • ESSAY" : "02 / 02");
-  const p2SlideBadge = forExportPage > 0 ? "03 / 03 • ESSAY P2" : "PAGE 2 / 2";
-  const folioRightP2 = forExportPage > 0 ? "Every thought deserves a frame • 03 / 03" : "Every thought deserves a frame • 02 / 02";
-  const isChronicle = Boolean(
-    post && (
-      post.chronicleMode
-      || post.innerVoiceSubMode === "chronicle"
-      || post.generationInputs?.chronicleMode
-      || (Array.isArray(post.chronicleMoments) && post.chronicleMoments.length > 0)
-      || (Array.isArray(post.generationInputs?.chronicleMoments) && post.generationInputs.chronicleMoments.length > 0)
-      || /\b01\s*[·•.-]\s*[^:]{1,38}:/i.test(String(post.summary || post.broadsheetObservation || ""))
-    )
-  );
+  const isChronicle = isPostChronicleDiary(post);
+  const p1SlideBadge = isChronicle
+    ? (forExportPage > 0 ? "02 / 03 • MOMENTS" : "02 / 03")
+    : (bifurcation.isBifurcated ? (forExportPage > 0 ? "02 / 03 • ESSAY P1" : "PAGE 1 / 2") : (forExportPage > 0 ? "02 / 02 • ESSAY" : "02 / 02"));
+  const p2SlideBadge = isChronicle
+    ? (forExportPage > 0 ? "03 / 03 • REFLECTION" : "03 / 03")
+    : (forExportPage > 0 ? "03 / 03 • ESSAY P2" : "PAGE 2 / 2");
+  const folioRightP2 = (forExportPage > 0 || isChronicle) ? "Every thought deserves a frame • 03 / 03" : "Every thought deserves a frame • 02 / 02";
   const receiptBrandTitle = isChronicle ? "SLANT MOMENTS" : "SLANT MINUTES";
+
+  const hasDistinctSubReflection = Boolean(
+    cleanReflection &&
+    cleanReflection.toLowerCase() !== rawOpinion.toLowerCase() &&
+    !rawOpinion.toLowerCase().includes(cleanReflection.slice(0, 24).toLowerCase())
+  );
+
+  const chroniclePoster3ReflectionHtml = `
+        <div class="chronicle-reflection-centerpiece">
+          <div class="chronicle-reflection-kicker">
+            <span class="kicker-star">✦</span>
+            <span>REFLECTION OF THE DAY</span>
+            <span class="kicker-star">✦</span>
+          </div>
+          <div class="chronicle-reflection-quote-mark">&ldquo;</div>
+          <p class="chronicle-reflection-main-text">${opinion}</p>
+          ${hasDistinctSubReflection ? `
+            <div class="chronicle-reflection-divider">❖</div>
+            <p class="chronicle-reflection-thread-text">${escapeHtml(cleanReflection)}</p>
+          ` : ""}
+          <div class="chronicle-reflection-signature">
+            <span class="signed-curator-avatar">${initial}</span>
+            <span class="chronicle-signature-handle">${handle}</span>
+          </div>
+        </div>
+  `;
 
   const page1InnerHtml = `
         <div class="receipt-brand-corner-bar">
@@ -4982,19 +5027,19 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
 
         ${headline ? `<div class="receipts-headline-box"><h2 class="receipt-headline">${headline}</h2></div>` : ""}
 
-        <div class="receipt-paragraphs">
-          ${pullquoteHtml}
-          ${scenePhotoHtml}
+        <div class="receipt-paragraphs ${isChronicle ? "chronicle-moments-only-list" : ""}">
+          ${isChronicle ? "" : pullquoteHtml}
+          ${isChronicle ? "" : scenePhotoHtml}
           ${page1ParasHtml}
-          ${!bifurcation.isBifurcated ? reflectionHtml : ""}
+          ${(!bifurcation.isBifurcated && !isChronicle) ? reflectionHtml : ""}
         </div>
 
-        ${!bifurcation.isBifurcated ? `
+        ${(!bifurcation.isBifurcated || isChronicle) ? `
         <div class="receipt-footer">
           <div class="receipt-folio-rule"></div>
           <div class="receipt-folio-text">
-            <span class="receipt-folio-left">${isInnerVoice ? `PERSONAL ESSAY • ${handle.toUpperCase()}` : (cleanPubUpper ? `IN DIALOGUE WITH ${cleanPubUpper}` : "EDITORIAL ESSAY")}</span>
-            <span class="receipt-folio-right">Every thought deserves a frame • 02 / 02</span>
+            <span class="receipt-folio-left">${isChronicle ? `DAILY CHRONICLE • ${handle.toUpperCase()}` : (isInnerVoice ? `PERSONAL ESSAY • ${handle.toUpperCase()}` : (cleanPubUpper ? `IN DIALOGUE WITH ${cleanPubUpper}` : "EDITORIAL ESSAY"))}</span>
+            <span class="receipt-folio-right">Every thought deserves a frame • ${isChronicle ? "02 / 03" : "02 / 02"}</span>
           </div>
         </div>
         ` : ""}
@@ -5004,7 +5049,7 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
         <div class="receipt-brand-corner-bar continuation-header">
           <div class="receipt-corner-brand">
             <img src="/logo.png" class="receipt-corner-logo" alt="Slant">
-            <span class="receipt-brand-text">${receiptBrandTitle} ...</span>
+            <span class="receipt-brand-text">${isChronicle ? receiptBrandTitle : `${receiptBrandTitle} ...`}</span>
           </div>
           <div class="receipt-corner-creator">
             <span class="receipt-creator-name">${handle}</span>
@@ -5012,15 +5057,17 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
           </div>
         </div>
 
+        ${isChronicle ? chroniclePoster3ReflectionHtml : `
         <div class="receipt-paragraphs">
           ${page2ParasHtml}
           ${reflectionHtml}
         </div>
+        `}
 
         <div class="receipt-footer">
           <div class="receipt-folio-rule"></div>
           <div class="receipt-folio-text">
-            <span class="receipt-folio-left">${isInnerVoice ? `PERSONAL ESSAY • ${handle.toUpperCase()}` : (cleanPubUpper ? `IN DIALOGUE WITH ${cleanPubUpper}` : "EDITORIAL ESSAY")}</span>
+            <span class="receipt-folio-left">${isChronicle ? `DAILY CHRONICLE • ${handle.toUpperCase()}` : (isInnerVoice ? `PERSONAL ESSAY • ${handle.toUpperCase()}` : (cleanPubUpper ? `IN DIALOGUE WITH ${cleanPubUpper}` : "EDITORIAL ESSAY"))}</span>
             <span class="receipt-folio-right">${folioRightP2}</span>
           </div>
         </div>
@@ -5176,10 +5223,11 @@ function createPostCardElement(post, index) {
   }
 
   const isInnerVoice = isInnerVoicePost(post);
+  const cardSlideCount = isChronicle ? 3 : 2;
 
-  // 2-Poster Carousel Frame in 3:4 Aspect Ratio (Clean, Unobstructed Editorial Artwork)
+  // Carousel Frame in 3:4 Aspect Ratio (3-Slide for Daily Chronicle; 2-Slide for Standard Slants)
   const visualSectionHtml = `
-    <div class="carousel-view ${isClean ? 'clean-view' : ''}" id="carousel-${index}" data-post-index="${index}" data-current-slide="0" data-slide-count="2">
+    <div class="carousel-view ${isClean ? 'clean-view' : ''}" id="carousel-${index}" data-post-index="${index}" data-current-slide="0" data-slide-count="${cardSlideCount}">
       ${index === 'preview' ? `
         <button type="button" class="preview-poster-eye-btn ${isClean ? 'active' : ''}" onclick="togglePreviewCleanView(event)" title="Clear text overlays to inspect pure artwork on deck">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -5191,11 +5239,16 @@ function createPostCardElement(post, index) {
       ` : ''}
       <div class="carousel-track" id="track-${index}">
         <div class="carousel-slide slide-hook" ${isInnerVoice ? 'style="cursor: default;"' : (index === 'preview' ? `onclick="togglePreviewCleanView(event)" style="cursor: pointer;" title="Click to toggle clear text"` : `onclick="openDetailModal('${index}')" style="cursor: pointer;"`)}>
-          ${buildSlide1Html(post, index, 2)}
+          ${buildSlide1Html(post, index, cardSlideCount)}
         </div>
         <div class="carousel-slide slide-receipt" style="cursor: default;">
-          ${buildSlide2Html(post, index, 0)}
+          ${isChronicle ? buildUnifiedEssayPosterHtml(post, index, 1) : buildSlide2Html(post, index, 0)}
         </div>
+        ${isChronicle ? `
+        <div class="carousel-slide slide-receipt" style="cursor: default;">
+          ${buildUnifiedEssayPosterHtml(post, index, 2)}
+        </div>
+        ` : ''}
       </div>
 
       <!-- Navigation Buttons -->
@@ -5206,6 +5259,7 @@ function createPostCardElement(post, index) {
       <div class="carousel-dots" id="dots-${index}">
         <span class="carousel-dot active" onclick="goToSlide(event, '${index}', 0)"></span>
         <span class="carousel-dot" onclick="goToSlide(event, '${index}', 1)"></span>
+        ${isChronicle ? `<span class="carousel-dot" onclick="goToSlide(event, '${index}', 2)"></span>` : ''}
       </div>
     </div>
   `;
@@ -6797,10 +6851,12 @@ function loadPostIntoStudioToRegenerate(postId) {
   // Restore Daily Chronicle moments if this post was created in Daily Chronicle mode
   const savedChronicleMoments = post.chronicleMoments || post.generationInputs?.chronicleMoments;
   if (inputs.sourceType === 'inner_voice' && (post.chronicleMode || post.generationInputs?.chronicleMode) && Array.isArray(savedChronicleMoments) && savedChronicleMoments.length >= 2) {
+    const hasExplicitStar = savedChronicleMoments.some(m => Boolean(m && m.isStarred));
     dailyChronicleMoments = savedChronicleMoments.map((m, idx) => ({
       id: idx + 1,
       title: m.title || '',
       text: m.text || '',
+      isStarred: hasExplicitStar ? Boolean(m.isStarred) : (idx === savedChronicleMoments.length - 1),
       imageBase64: m.imageBase64 || null,
       imageMimeType: m.imageMimeType || 'image/jpeg'
     }));
@@ -10380,9 +10436,9 @@ function getSanitizedActiveCastPayload() {
 let isDailyChronicleMode = false;
 let activeChroniclePhotoUploadIdx = -1;
 let dailyChronicleMoments = [
-  { id: 1, title: '', text: '', imageBase64: null, imageMimeType: 'image/jpeg' },
-  { id: 2, title: '', text: '', imageBase64: null, imageMimeType: 'image/jpeg' },
-  { id: 3, title: '', text: '', imageBase64: null, imageMimeType: 'image/jpeg' }
+  { id: 1, title: '', text: '', isStarred: false, imageBase64: null, imageMimeType: 'image/jpeg' },
+  { id: 2, title: '', text: '', isStarred: false, imageBase64: null, imageMimeType: 'image/jpeg' },
+  { id: 3, title: '', text: '', isStarred: true, imageBase64: null, imageMimeType: 'image/jpeg' }
 ];
 
 function setInnerVoiceSubmode(submode) {
@@ -10417,7 +10473,7 @@ function syncInnerVoiceSubmodeUI() {
     if (slantTextarea) slantTextarea.style.display = 'none';
     if (chronDeck) chronDeck.style.display = 'flex';
     if (label) label.textContent = 'Your Day in Moments (2 to 4 Vignettes)';
-    if (sub) sub.textContent = 'Write 2 to 3 lines for each moment. Attach optional photos to weave them into a single collage around you.';
+    if (sub) sub.textContent = 'Write 2 to 3 lines for each moment. Tap ★ Star on the moment you feel is most important to give it larger showcase space in Poster 1.';
     if (heroIcon) heroIcon.textContent = '📓';
 
     // Always ensure Father (Shridhar, 40yo) is active in Family Cast as the center of the Daily Chronicle collage
@@ -10454,7 +10510,13 @@ function renderDailyChronicleCards() {
     const numStr = String(idx + 1).padStart(2, '0');
     const ph = placeholders[idx] || placeholders[0];
     const hasPhoto = Boolean(m.imageBase64);
+    const isStarred = Boolean(m.isStarred);
     const canDelete = dailyChronicleMoments.length > 2;
+
+    const starBtnHtml = `<button type="button" class="chronicle-moment-star-btn ${isStarred ? 'is-starred' : ''}" onclick="toggleChronicleMomentStar(${idx}, event)" title="${isStarred ? 'Starred as the most important moment (gets larger showcase space in Poster 1)' : 'Star this moment if you feel it is the most important (gives it more space in Poster 1)'}">
+      <span class="chronicle-star-icon">${isStarred ? '★' : '☆'}</span>
+      <span class="chronicle-star-label">${isStarred ? 'Important (Larger Space)' : 'Star'}</span>
+    </button>`;
 
     const photoActionHtml = hasPhoto
       ? `<div class="chronicle-moment-photo-chip">
@@ -10472,10 +10534,10 @@ function renderDailyChronicleCards() {
       : '';
 
     return `
-      <div class="chronicle-moment-card" data-moment-idx="${idx}">
+      <div class="chronicle-moment-card ${isStarred ? 'is-starred-moment' : ''}" data-moment-idx="${idx}">
         <div class="chronicle-moment-card-header">
           <div class="chronicle-moment-left">
-            <span class="chronicle-moment-num-badge">MOMENT ${numStr}</span>
+            <span class="chronicle-moment-num-badge">${isStarred ? '★ ' : ''}MOMENT ${numStr}</span>
             <input
               type="text"
               class="chronicle-moment-title-input"
@@ -10485,6 +10547,7 @@ function renderDailyChronicleCards() {
             >
           </div>
           <div class="chronicle-moment-actions">
+            ${starBtnHtml}
             ${photoActionHtml}
             ${deleteBtnHtml}
           </div>
@@ -10504,13 +10567,29 @@ function renderDailyChronicleCards() {
   const countHint = document.getElementById('chronicleMomentsCountHint');
   const count = dailyChronicleMoments.length;
   const photosCount = dailyChronicleMoments.filter(m => Boolean(m.imageBase64)).length;
+  const starredIdx = dailyChronicleMoments.findIndex(m => Boolean(m.isStarred));
 
   if (addBtn) {
     addBtn.style.display = count >= 4 ? 'none' : 'inline-flex';
     if (addTxt) addTxt.textContent = `Add ${count + 1 === 3 ? '3rd' : '4th'} Moment`;
   }
   if (countHint) {
-    countHint.textContent = `${count} of 4 Moments${photosCount > 0 ? ` • ${photosCount} Photo${photosCount > 1 ? 's' : ''} Attached` : ''} • Center: Father (Shridhar, 40y)`;
+    const starText = starredIdx >= 0 ? `★ Moment 0${starredIdx + 1} Highlighted (Larger Poster Space)` : 'Tap ☆ Star on your main moment for larger space';
+    countHint.textContent = `${count} of 4 Moments${photosCount > 0 ? ` • ${photosCount} Photo${photosCount > 1 ? 's' : ''} Attached` : ''} • ${starText}`;
+  }
+}
+
+function toggleChronicleMomentStar(idx, event) {
+  if (event) event.stopPropagation();
+  if (!dailyChronicleMoments[idx]) return;
+  const nextVal = !dailyChronicleMoments[idx].isStarred;
+  dailyChronicleMoments.forEach((m, i) => {
+    m.isStarred = (i === idx) ? nextVal : false;
+  });
+  renderDailyChronicleCards();
+  syncChronicleMomentsToSlantInput();
+  if (nextVal && typeof showTemporaryToast === 'function') {
+    showTemporaryToast(`★ Moment 0${idx + 1} marked as important! It will get the larger showcase space in Poster 1.`);
   }
 }
 
@@ -10550,6 +10629,7 @@ function addDailyChronicleMoment() {
     id: Date.now(),
     title: '',
     text: '',
+    isStarred: false,
     imageBase64: null,
     imageMimeType: 'image/jpeg'
   });
@@ -10605,6 +10685,7 @@ function getActiveChronicleMomentsPayload() {
       index: idx + 1,
       title: String(m.title || '').trim() || `Moment 0${idx + 1}`,
       text: String(m.text || '').trim(),
+      isStarred: Boolean(m.isStarred),
       imageBase64: m.imageBase64 || null,
       imageMimeType: m.imageMimeType || 'image/jpeg'
     }))
@@ -11876,10 +11957,12 @@ function openDraftInStudio(postId) {
 
   const savedChronicleMoments = post.chronicleMoments || genInputs.chronicleMoments;
   if (mode === 'inner_voice' && (post.chronicleMode || genInputs.chronicleMode || isChronicleModePost(post)) && Array.isArray(savedChronicleMoments) && savedChronicleMoments.length >= 2) {
+    const hasExplicitStar = savedChronicleMoments.some(m => Boolean(m && m.isStarred));
     dailyChronicleMoments = savedChronicleMoments.map((m, idx) => ({
       id: idx + 1,
       title: m.title || '',
       text: m.text || '',
+      isStarred: hasExplicitStar ? Boolean(m.isStarred) : (idx === savedChronicleMoments.length - 1),
       imageBase64: m.imageBase64 || null,
       imageMimeType: m.imageMimeType || 'image/jpeg'
     }));
@@ -15171,6 +15254,7 @@ async function startAiSynthesis() {
       index: m.index,
       title: m.title,
       text: m.text,
+      isStarred: Boolean(m.isStarred),
       hasPhoto: Boolean(m.imageBase64),
       imageBase64: m.imageBase64 || null,
       imageMimeType: m.imageMimeType || 'image/jpeg'
@@ -15368,6 +15452,7 @@ async function startAiSynthesis() {
         index: m.index,
         title: m.title,
         text: m.text,
+        isStarred: Boolean(m.isStarred),
         imageBase64: m.imageBase64 || null,
         imageMimeType: m.imageMimeType || 'image/jpeg'
       }));
@@ -15754,6 +15839,21 @@ function syncStep3SaveButtonLabel(post = currentSynthesizedPost) {
   if (saveLbl && saveLbl.textContent !== 'Saved') {
     saveLbl.textContent = isChronicle ? 'Save to Diary' : 'Save';
   }
+  const prevTab1 = document.getElementById('prevTab1');
+  const prevTab2 = document.getElementById('prevTab2');
+  if (prevTab1) {
+    prevTab1.innerHTML = isChronicle
+      ? '<span>📓</span> Poster 2: 3 Moments'
+      : '<span>📜</span> Poster 2: The Essay';
+  }
+  if (prevTab2) {
+    if (isChronicle) {
+      prevTab2.style.display = 'inline-flex';
+      prevTab2.innerHTML = '<span>✨</span> Poster 3: Reflection';
+    } else {
+      prevTab2.style.display = 'none';
+    }
+  }
 }
 
 function renderCreatorPreview(targetSlide = null) {
@@ -15818,7 +15918,8 @@ function setPreviewArtworkSource(source) {
 }
 
 function switchPreviewSlide(slideIdx) {
-  currentPreviewSlide = Math.max(0, Math.min(1, slideIdx));
+  const maxIdx = isChronicleModePost(currentSynthesizedPost) ? 2 : 1;
+  currentPreviewSlide = Math.max(0, Math.min(maxIdx, slideIdx));
   goToSlide(null, 'preview', currentPreviewSlide);
 
   document.querySelectorAll('.preview-tab').forEach((tab, idx) => {
@@ -15893,17 +15994,24 @@ function openWholePosterModal(slideIdx) {
   }
 
   isWholePosterClean = false;
+  const isChronicleWhole = isChronicleModePost(currentSynthesizedPost);
+  const wholeSlideCount = isChronicleWhole ? 3 : 2;
 
-  // Build the complete 2-slide carousel inside the whole poster frame
+  // Build the complete carousel inside the whole poster frame
   frame.innerHTML = `
-    <div class="carousel-view ${isWholePosterClean ? 'clean-view' : ''}" id="carousel-whole" data-post-index="whole" data-current-slide="${currentWholePosterSlide}" data-slide-count="2">
+    <div class="carousel-view ${isWholePosterClean ? 'clean-view' : ''}" id="carousel-whole" data-post-index="whole" data-current-slide="${currentWholePosterSlide}" data-slide-count="${wholeSlideCount}">
       <div class="carousel-track" id="track-whole">
         <div class="carousel-slide slide-hook">
-          ${buildSlide1Html(currentSynthesizedPost, 'whole', 2)}
+          ${buildSlide1Html(currentSynthesizedPost, 'whole', wholeSlideCount)}
         </div>
         <div class="carousel-slide slide-receipt" style="cursor: default;">
-          ${buildSlide2Html(currentSynthesizedPost, 'whole', 0)}
+          ${isChronicleWhole ? buildUnifiedEssayPosterHtml(currentSynthesizedPost, 'whole', 1) : buildSlide2Html(currentSynthesizedPost, 'whole', 0)}
         </div>
+        ${isChronicleWhole ? `
+        <div class="carousel-slide slide-receipt" style="cursor: default;">
+          ${buildUnifiedEssayPosterHtml(currentSynthesizedPost, 'whole', 2)}
+        </div>
+        ` : ''}
       </div>
     </div>
   `;
@@ -15955,7 +16063,9 @@ function handleWholePosterKeydown(e) {
 }
 
 function switchWholePosterSlide(slideIdx) {
-  currentWholePosterSlide = Math.max(0, Math.min(1, slideIdx));
+  const isChronicleWhole = isChronicleModePost(currentSynthesizedPost);
+  const maxIdx = isChronicleWhole ? 2 : 1;
+  currentWholePosterSlide = Math.max(0, Math.min(maxIdx, slideIdx));
 
   goToSlide(null, 'whole', currentWholePosterSlide);
 
@@ -15964,20 +16074,30 @@ function switchWholePosterSlide(slideIdx) {
   const p2 = document.getElementById('wholePill2');
   if (p0) p0.classList.toggle('active', currentWholePosterSlide === 0);
   if (p1) p1.classList.toggle('active', currentWholePosterSlide === 1);
-  if (p2) p2.style.display = 'none';
+  if (p2) {
+    p2.style.display = isChronicleWhole ? 'inline-flex' : 'none';
+    p2.classList.toggle('active', currentWholePosterSlide === 2);
+  }
 
   const titleEl = document.getElementById('wholePosterSlideTitle');
   if (titleEl) {
-    const titles = [
-      'Poster 1: The Visual Hook',
-      'Poster 2: Unified Essay & Slant'
-    ];
+    const titles = isChronicleWhole
+      ? [
+          'Poster 1: Daily Moments Montage',
+          'Poster 2: The 3 Moments',
+          'Poster 3: Reflection of the Day'
+        ]
+      : [
+          'Poster 1: The Visual Hook',
+          'Poster 2: Unified Essay & Slant'
+        ];
     titleEl.textContent = titles[currentWholePosterSlide] || 'Whole Poster';
   }
 }
 
 function changeWholePosterSlide(delta) {
-  const nextSlide = (currentWholePosterSlide + delta + 2) % 2;
+  const count = isChronicleModePost(currentSynthesizedPost) ? 3 : 2;
+  const nextSlide = (currentWholePosterSlide + delta + count) % count;
   switchWholePosterSlide(nextSlide);
 }
 

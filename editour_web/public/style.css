@@ -20563,6 +20563,231 @@ mark.polish-mark:hover, mark.polish-mark.active {
   border-color: rgba(245, 158, 11, 0.5);
 }
 
+/* ============================================================
+   DAILY CHRONICLE: STARRED MOMENT BUTTON & POSTERS 2 & 3 LAYOUT
+   ============================================================ */
+.chronicle-moment-card.is-starred-moment {
+  border-color: rgba(245, 158, 11, 0.65) !important;
+  background: linear-gradient(180deg, rgba(245, 158, 11, 0.11) 0%, rgba(15, 23, 42, 0.65) 100%) !important;
+  box-shadow: 0 4px 16px rgba(245, 158, 11, 0.14);
+}
+
+[data-theme="daylight"] .chronicle-moment-card.is-starred-moment {
+  background: linear-gradient(180deg, rgba(254, 243, 199, 0.72) 0%, #FFFFFF 100%) !important;
+  border-color: rgba(217, 119, 6, 0.55) !important;
+}
+
+.chronicle-moment-star-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border-radius: 99px;
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  background: rgba(30, 41, 59, 0.55);
+  color: #CBD5E1;
+  font-family: 'Space Grotesk', 'Inter', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.16s ease;
+  white-space: nowrap;
+}
+
+[data-theme="daylight"] .chronicle-moment-star-btn {
+  background: #F8FAFC;
+  border-color: #CBD5E1;
+  color: #475569;
+}
+
+.chronicle-moment-star-btn:hover {
+  border-color: rgba(245, 158, 11, 0.65);
+  color: #FBBF24;
+}
+
+.chronicle-moment-star-btn.is-starred {
+  border-color: rgba(245, 158, 11, 0.78);
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.25) 0%, rgba(217, 119, 6, 0.18) 100%);
+  color: #FBBF24;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.2);
+}
+
+[data-theme="daylight"] .chronicle-moment-star-btn.is-starred {
+  background: #FEF3C7;
+  border-color: #D97706;
+  color: #B45309;
+}
+
+.chronicle-star-icon {
+  font-size: 13px;
+  line-height: 1;
+}
+
+/* Poster 2: 3 Moments Elaborated Within Page Without Photo */
+.receipt-paragraphs.chronicle-moments-only-list {
+  flex: 1 1 auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: space-evenly !important;
+  gap: 10px !important;
+  padding: 6px 0 8px 0 !important;
+}
+
+.receipt-paragraphs.chronicle-moments-only-list .chronicle-moment-para {
+  margin: 0 !important;
+  padding: 10px 12px !important;
+  border-radius: 10px !important;
+  background: rgba(15, 23, 42, 0.035);
+  border-left: 3px solid #D97706 !important;
+  font-size: 13px !important;
+  line-height: 1.5 !important;
+}
+
+[data-theme="obsidian"] .receipt-paragraphs.chronicle-moments-only-list .chronicle-moment-para {
+  background: rgba(255, 255, 255, 0.04);
+  border-left-color: #F59E0B !important;
+}
+
+.poster-export-sandbox .receipt-paragraphs.chronicle-moments-only-list .chronicle-moment-para {
+  background: rgba(15, 23, 42, 0.035) !important;
+  border-left: 3px solid #D97706 !important;
+}
+
+.receipt-paragraphs.chronicle-moments-only-list .chronicle-moment-para.is-starred-moment-para {
+  background: rgba(245, 158, 11, 0.09);
+  border-left: 3.5px solid #B45309 !important;
+}
+
+.chronicle-inline-star {
+  color: #D97706;
+  font-size: 12px;
+  margin-left: 2px;
+}
+
+/* Poster 3: Reflection of the Day in Larger Font Central to Poster */
+.chronicle-reflection-centerpiece {
+  flex: 1 1 auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+  padding: 18px 22px !important;
+  margin: auto 0 !important;
+  position: relative;
+}
+
+.chronicle-reflection-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  border-radius: 99px;
+  background: rgba(217, 119, 6, 0.11);
+  border: 1px solid rgba(217, 119, 6, 0.32);
+  color: #B45309;
+  font-family: 'Space Grotesk', 'Inter', sans-serif;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin-bottom: 14px;
+}
+
+[data-theme="obsidian"] .chronicle-reflection-kicker {
+  background: rgba(245, 158, 11, 0.15);
+  border-color: rgba(245, 158, 11, 0.38);
+  color: #FBBF24;
+}
+
+.poster-export-sandbox .chronicle-reflection-kicker {
+  background: rgba(217, 119, 6, 0.11) !important;
+  border-color: rgba(217, 119, 6, 0.32) !important;
+  color: #B45309 !important;
+}
+
+.chronicle-reflection-quote-mark {
+  font-family: 'Fraunces', 'Playfair Display', Georgia, serif;
+  font-size: 44px;
+  line-height: 0.75;
+  color: rgba(217, 119, 6, 0.42);
+  margin-bottom: 6px;
+  user-select: none;
+}
+
+.chronicle-reflection-main-text {
+  font-family: 'Fraunces', 'Playfair Display', Georgia, serif !important;
+  font-size: 19.5px !important;
+  line-height: 1.56 !important;
+  font-weight: 600 !important;
+  color: #0F172A;
+  text-align: center !important;
+  margin: 0 0 14px 0 !important;
+  max-width: 96%;
+  letter-spacing: -0.01em;
+}
+
+[data-theme="obsidian"] .chronicle-reflection-main-text {
+  color: #F8FAFC;
+}
+
+.poster-export-sandbox .chronicle-reflection-main-text {
+  color: #0F172A !important;
+}
+
+.chronicle-reflection-divider {
+  font-size: 13px;
+  color: #D97706;
+  opacity: 0.75;
+  margin: 4px 0 12px 0;
+}
+
+.chronicle-reflection-thread-text {
+  font-family: 'Newsreader', Georgia, serif !important;
+  font-size: 15px !important;
+  line-height: 1.52 !important;
+  font-weight: 500 !important;
+  font-style: italic;
+  color: #334155;
+  text-align: center !important;
+  margin: 0 0 16px 0 !important;
+  max-width: 92%;
+}
+
+[data-theme="obsidian"] .chronicle-reflection-thread-text {
+  color: #CBD5E1;
+}
+
+.poster-export-sandbox .chronicle-reflection-thread-text {
+  color: #334155 !important;
+}
+
+.chronicle-reflection-signature {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(217, 119, 6, 0.25);
+}
+
+.chronicle-signature-handle {
+  font-family: 'Space Grotesk', 'Inter', sans-serif;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: #475569;
+}
+
+[data-theme="obsidian"] .chronicle-signature-handle {
+  color: #E2E8F0;
+}
+
+.poster-export-sandbox .chronicle-signature-handle {
+  color: #475569 !important;
+}
+
+
 
 
 
