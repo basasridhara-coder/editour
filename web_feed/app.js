@@ -4381,7 +4381,7 @@ function buildSlide1Html(post, index, totalSlides = 2) {
   const curatorKickerHtml = (!isInnerVoice && !isChronicle) ? `
         <div class="slide-hook-curator-kicker">
           <span class="slide-hook-curator-kicker-avatar">${initial}</span>
-          <span class="slide-hook-curator-kicker-text">${handle}'s Perspective</span>
+          <span class="slide-hook-curator-kicker-text">My Perspective</span>
         </div>` : '';
 
   return `
@@ -10479,7 +10479,11 @@ function syncInnerVoiceSubmodeUI() {
   if (singleBtn) singleBtn.classList.toggle('active', !isDailyChronicleMode);
   if (chronBtn) chronBtn.classList.toggle('active', isDailyChronicleMode);
 
+  const secVoice = document.getElementById('triggerVoiceSection');
+  const triggerPanel = secVoice ? secVoice.closest('.creator-trigger-panel') : null;
+
   if (!isVoice) {
+    if (triggerPanel) triggerPanel.style.display = '';
     if (slantTextarea) slantTextarea.style.display = 'block';
     if (chronDeck) chronDeck.style.display = 'none';
     return;
@@ -10487,11 +10491,13 @@ function syncInnerVoiceSubmodeUI() {
 
   if (isDailyChronicleMode) {
     if (singleSparkWrap) singleSparkWrap.style.display = 'none';
-    if (chronBanner) chronBanner.style.display = 'block';
+    if (chronBanner) chronBanner.style.display = 'none';
+    if (secVoice) secVoice.style.display = 'none';
+    if (triggerPanel) triggerPanel.style.display = 'none';
     if (slantTextarea) slantTextarea.style.display = 'none';
     if (chronDeck) chronDeck.style.display = 'flex';
     if (label) label.textContent = 'Diary Chronicle: Your Day in Moments (2 to 4 Vignettes)';
-    if (sub) sub.textContent = '🔒 Strictly personal diary (never goes to people\'s feed). Write 2 to 3 lines for each moment, and tap ★ Star on the moment you feel is most important for larger poster space.';
+    if (sub) sub.textContent = 'Record 2 to 4 distinct moments from your day, and tap ★ Star on the moment you feel is most important to give it more space in Poster 1.';
     if (heroIcon) heroIcon.textContent = '📔';
     if (heroBox) heroBox.style.color = '#F59E0B';
 
@@ -10506,6 +10512,8 @@ function syncInnerVoiceSubmodeUI() {
     renderDailyChronicleCards();
     syncChronicleMomentsToSlantInput();
   } else {
+    if (triggerPanel) triggerPanel.style.display = '';
+    if (secVoice) secVoice.style.display = 'flex';
     if (singleSparkWrap) singleSparkWrap.style.display = 'block';
     if (chronBanner) chronBanner.style.display = 'none';
     if (slantTextarea) slantTextarea.style.display = 'block';
@@ -12359,7 +12367,7 @@ function setAnchorMode(mode) {
     const mentalCard = document.getElementById('anchorMentalModelCard');
     if (isDiaryCategory) {
       if (mentalPill) {
-        mentalPill.textContent = '🔒 Personal Diary Only';
+        mentalPill.textContent = 'Diary Chronicle';
         mentalPill.style.background = 'rgba(245, 158, 11, 0.16)';
         mentalPill.style.color = '#F59E0B';
       }
