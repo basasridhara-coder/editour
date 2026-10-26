@@ -4211,8 +4211,14 @@ function buildSlide1Html(post, index, totalSlides = 2) {
   const cleanHost = getCleanDomain(post.digitalLink);
   const slantIcon = (post.slantIcon && post.slantIcon !== '💭') ? post.slantIcon : (post.slantTone === 'heart' ? '❤️' : '🧠');
 
+  const isChronicle = isPostChronicleDiary(post);
+  const diaryPenBadgeHtml = `<svg class="poster-diary-pen-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:-1.5px; margin-right:4px; color:#FBBF24;"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path><path d="M14.5 6.5l3 3L11 16H8v-3l6.5-6.5z"></path></svg>Chronicles`;
+
   let sourceLabel = pubName;
-  if (tier === 'tier2_web') {
+  if (isChronicle) {
+    sourceLabel = 'Chronicles';
+    catBadge = diaryPenBadgeHtml;
+  } else if (tier === 'tier2_web') {
     sourceLabel = cleanHost || 'Web Commentary';
   } else if (tier === 'tier3_opinion') {
     sourceLabel = 'Inner Voice';
@@ -4221,7 +4227,7 @@ function buildSlide1Html(post, index, totalSlides = 2) {
     sourceLabel = post.bookTitle || 'Book Excerpt';
   }
 
-  if (catBadge.includes('•') && tier !== 'tier3_opinion') {
+  if (!isChronicle && catBadge.includes('•') && tier !== 'tier3_opinion') {
     const parts = catBadge.split('•');
     catBadge = parts[0].trim();
     if (parts[1] && parts[1].trim()) {
@@ -4329,7 +4335,6 @@ function buildSlide1Html(post, index, totalSlides = 2) {
     rawNews = rawNews.replace(/^(the spark|curator stance|source headline)\s*:\s*["']?/i, '').replace(/["']?$/i, '').trim();
   }
 
-  const isChronicle = isPostChronicleDiary(post);
   let newsFragmentHtml = '';
   if (isChronicle) {
     const chronicleDateText = formatChronicleDateDisplay(post.createdAt || post.date);
@@ -5186,7 +5191,9 @@ function createPostCardElement(post, index) {
   const slantIcon = (post.slantIcon && post.slantIcon !== '💭') ? post.slantIcon : (post.slantTone === 'heart' ? '❤️' : '🧠');
 
   let catBadge = post.categoryBadge || 'DISCOVERY';
-  if (tier === 'tier3_opinion') {
+  if (isChronicle) {
+    catBadge = 'Chronicles';
+  } else if (tier === 'tier3_opinion') {
     catBadge = `${slantIcon} OPINION`;
   }
   const audience = post.targetAudience || 'General';
