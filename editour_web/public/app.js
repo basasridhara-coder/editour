@@ -7161,34 +7161,27 @@ async function capturePostSlidesAsFiles(post, index) {
         handleReceiptPhotoLoad(img);
       });
 
-      // Overflow safety guard for Essay slides: ensure zero vertical clipping at the bottom of the 600px frame
+      // Overflow safety guard for Essay slides: only trigger if real content overflows by >10px
       const pageBlock = container.querySelector('.essay-page-block');
-      if (pageBlock && pageBlock.scrollHeight > pageBlock.clientHeight) {
-        const parasEl = pageBlock.querySelector('.receipt-paragraphs');
+      if (pageBlock && pageBlock.scrollHeight > pageBlock.clientHeight + 10) {
         const pullquoteEl = pageBlock.querySelector('.essay-highlight-pullquote');
         const scenePhotoEl = pageBlock.querySelector('.receipt-scene-photo');
-        const headlineEl = pageBlock.querySelector('.receipt-headline');
         const bodyParas = Array.from(pageBlock.querySelectorAll('.receipt-p1, .receipt-p3'));
-        const scales = [0.96, 0.92, 0.88, 0.84, 0.80];
+        const baseFontSize = bodyParas[0] ? (parseFloat(window.getComputedStyle(bodyParas[0]).fontSize) || 13.6) : 13.6;
+        const scales = [0.97, 0.94, 0.91, 0.88];
         for (const s of scales) {
-          if (pageBlock.scrollHeight <= pageBlock.clientHeight) break;
+          if (pageBlock.scrollHeight <= pageBlock.clientHeight + 4) break;
           bodyParas.forEach(p => {
-            p.style.setProperty('font-size', `${Math.max(10.5, 13 * s).toFixed(2)}px`, 'important');
-            p.style.setProperty('line-height', `${Math.max(1.34, 1.52 * s).toFixed(2)}`, 'important');
-            p.style.setProperty('margin-bottom', `${Math.max(4, Math.round(9 * s))}px`, 'important');
+            p.style.setProperty('font-size', `${Math.max(11.5, baseFontSize * s).toFixed(2)}px`, 'important');
+            p.style.setProperty('line-height', `${Math.max(1.44, 1.58 * s).toFixed(2)}`, 'important');
+            p.style.setProperty('margin-bottom', `${Math.max(4, Math.round(5 * s))}px`, 'important');
           });
           if (pullquoteEl) {
-            pullquoteEl.style.setProperty('padding', `${Math.max(6, Math.round(10 * s))}px ${Math.max(8, Math.round(12 * s))}px`, 'important');
-            pullquoteEl.style.setProperty('margin-bottom', `${Math.max(6, Math.round(10 * s))}px`, 'important');
+            pullquoteEl.style.setProperty('padding', `${Math.max(5, Math.round(7 * s))}px ${Math.max(9, Math.round(11 * s))}px`, 'important');
+            pullquoteEl.style.setProperty('margin-bottom', `${Math.max(5, Math.round(8 * s))}px`, 'important');
           }
           if (scenePhotoEl && scenePhotoEl.closest('.photo-aspect-landscape')) {
-            scenePhotoEl.style.setProperty('max-height', `${Math.max(82, Math.round(112 * s))}px`, 'important');
-          }
-          if (headlineEl && s <= 0.88) {
-            headlineEl.style.setProperty('font-size', `${Math.max(15, Math.round(18 * s))}px`, 'important');
-          }
-          if (parasEl) {
-            parasEl.style.setProperty('gap', '0px', 'important');
+            scenePhotoEl.style.setProperty('max-height', `${Math.max(95, Math.round(145 * s))}px`, 'important');
           }
         }
       }
@@ -7263,10 +7256,10 @@ async function capturePostSlidesAsFiles(post, index) {
         });
       }
 
-      let blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.97));
+      let blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 1.0));
       if (!blob) {
         try {
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+          const dataUrl = canvas.toDataURL('image/jpeg', 1.0);
           const parts = dataUrl.split(',');
           const mime = parts[0].match(/:(.*?);/)[1];
           const bstr = atob(parts[1]);
