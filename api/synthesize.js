@@ -253,7 +253,8 @@ module.exports = async function handler(req, res) {
           spark,
           countryContext,
           sourceType,
-          perspectiveMode
+          perspectiveMode,
+          chronicleMode: Boolean(chronicleMode)
         });
 
         const stylePrefix = (characterRepresentation === 'cinematic' || characterRepresentation === 'likeness')
@@ -1454,7 +1455,8 @@ Respond strictly with valid JSON with this exact structure:
       spark,
       countryContext,
       sourceType,
-      perspectiveMode
+      perspectiveMode,
+      chronicleMode: Boolean(isChronicle)
     });
 
     const isCinematicPhoto = (characterRepresentation === 'cinematic' || characterRepresentation === 'cinematic_photo' || characterRepresentation === 'likeness' || (Boolean(effectiveCatalystImage || sourceImageBase64) && characterRepresentation !== 'painting' && characterRepresentation !== 'exact' && characterRepresentation !== 'silhouette' && characterRepresentation !== 'realistic'));
@@ -1571,14 +1573,16 @@ ${validChronicleMoments.map((m, i) => `  * Moment 0${i + 1} (${m.title || 'Momen
   * Set "summary" to those exact ${validChronicleMoments.length} formatted entries joined by "\\n\\n".
 - 4. CLOSING THREAD ("whyItMatters"):
   * Write a 1-2 sentence closing takeaway ("The Day's Thread") connecting what the day taught or meant.
-- 5. RADIAL MONTAGE / COLLAGE ARTWORK PROMPT ("illustrationPrompt"):
-  * Describe a cohesive editorial broadsheet montage / radial story collage where ${familyCastDirectives && !familyCastDirectives.isSolo ? `ALL ${familyCastDirectives.totalCount} family members (${familyCastDirectives.promptSnippet}) are warmly depicted together in the foreground` : `the central protagonist is a fit mid-age 40-year-old Indian man in his prime early 40s (Shridhar, full head of thick short jet-black hair, smooth unwrinkled forehead, neat short dark trimmed beard, sturdy broad-shouldered build, strictly NOT old or elderly) anchored in the center foreground`}, surrounded by ${validChronicleMoments.length} seamless radial vignettes illustrating each moment of his day:
-    ${validChronicleMoments.map((m, i) => `Vignette ${i + 1}${m.hasPhoto || m.imageBase64 ? ' [ATTACHED REFERENCE PHOTO/LOGO MUST BE FEATURED PROMINENTLY IN THIS VIGNETTE]' : ''}: ${m.text}`).join(' | ')}
+- 5. MULTI-SCENE EDITORIAL STORY MONTAGE / COLLAGE ARTWORK PROMPT ("illustrationPrompt"):
+  * CRITICAL EQUAL-WEIGHT MULTI-MOMENT RULE: You MUST visually represent ALL ${validChronicleMoments.length} MOMENTS of the day as ${validChronicleMoments.length} complete, distinct, equally prominent narrative scenes woven into a seamless 3:4 vertical broadsheet story montage!
+  * STRICT BAN ON REDUCING MOMENTS TO TINY WALL PROPS: NEVER let the first moment occupy 80% of the room while reducing the second or third moment to a disembodied floating laptop on a wall or an empty closed door! Every single moment MUST be depicted as a rich, complete lived-in mini-scene showing its own setting, human action, and all named colleagues, friends, hosts, tenants, or family members:
+    ${validChronicleMoments.map((m, i) => `Vignette ${i + 1}${m.hasPhoto || m.imageBase64 ? ' [ATTACHED REFERENCE PHOTO/LOGO MUST BE FEATURED PROMINENTLY IN THIS SCENE]' : ''}: Depict the complete lived scene, environment, human action, and people of "${m.text}"`).join(' | ')}
+  * Composition & Protagonist Continuity: Describe the ${validChronicleMoments.length} scenes using natural spatial transitions ("In the upper-left scene, ...; in the upper-right scene, ...; in the lower panoramic scene, ...") seamlessly blended with warm broadsheet editorial brushwork. STRICT BAN ON PRINTED LABELS OR CAPTIONS: Do NOT write numbered titles like "Moment 01:" or "Scene 1:" inside "illustrationPrompt" (as image models will print those words as text captions onto the painting!). ${familyCastDirectives && !familyCastDirectives.isSolo ? `Include ALL ${familyCastDirectives.totalCount} family members (${familyCastDirectives.promptSnippet}) where family is present.` : `Whenever the narrator (Shridhar) appears in the scenes, portray him as a fit mid-age 40-year-old Indian man in his prime early 40s (full head of thick short jet-black hair, smooth unwrinkled forehead, neat short dark trimmed beard, sturdy broad-shouldered build, strictly NOT old or elderly), and actively include any colleagues, friends, tenants, or companions mentioned in each moment (e.g. demoing a feature on a laptop to a colleague, being warmly welcomed at an apartment doorway by a gracious host/tenant)!`}
   * CRITICAL ATTACHED MOMENT PHOTO / LOGO INTEGRATION RULE:
-    Whenever a Moment has [Photo Attached], inspect the attached image for that moment and weave it MEANINGFULLY and PROMINENTLY into that moment's vignette in direct connection with what the moment describes:
-    - If the attached image is an app logo, brand emblem, or icon (for example, a black fountain-pen nib emblem containing a contemplative upward-tilted portrait face on a cream background) and the moment describes building or soft-launching an app, explicitly instruct "illustrationPrompt" to display that EXACT attached emblem/logo glowing large, crisp, and unmistakable on the smartphone/device screen in that vignette (never replace it with a generic blank blue screen).
-    - If the attached image is a photograph of a scene, object, or activity, explicitly describe its exact visual subject and composition as the visual centerpiece of that vignette.
-  * Strictly zero random background text or gibberish letters in the image.` : (sourceType === 'inner_voice' ? `CRITICAL INNER VOICE & LIVED EXPERIENCE DIRECTIVE (ELABORATE USER VOICE ONLY, ZERO CONCEPT FABRICATION):
+    Whenever a Moment has [Photo Attached], inspect the attached image for that moment and weave it MEANINGFULLY and PROMINENTLY into that moment's scene in direct connection with what the moment describes:
+    - If the attached image is an app logo, brand emblem, or icon (for example, a black fountain-pen nib emblem containing a contemplative upward-tilted portrait face on a cream background) and the moment describes building or soft-launching an app, explicitly instruct "illustrationPrompt" to display that EXACT attached emblem/logo glowing large, crisp, and unmistakable on the smartphone/device screen in that scene (never replace it with a generic blank blue screen).
+    - If the attached image is a photograph of a scene, object, or activity, explicitly describe its exact visual subject and composition as the visual centerpiece of that scene.
+  * Strictly zero printed captions, zero subheadings, zero signage text, and zero random letters anywhere in the artwork.` : (sourceType === 'inner_voice' ? `CRITICAL INNER VOICE & LIVED EXPERIENCE DIRECTIVE (ELABORATE USER VOICE ONLY, ZERO CONCEPT FABRICATION):
 - This is an INNER VOICE perspective rooted in the curator's personal life, emotional experience, philosophical stance, or daily human reality.
 - MATCH THE EXACT EMOTIONAL ENERGY & SUBJECT OF THE USER'S INPUT:
   * Faithfully mirror the specific topic, mood, setting, and emotional warmth present in "${userSlant}"${spark ? ` and "${spark}"` : ''}.
@@ -1657,7 +1661,7 @@ Respond strictly with valid JSON with this exact structure:
   "atmosphereCue": "Environmental setting or mood",
   "lightingCue": "Dramatic lighting description",
   "styleCue": "Aesthetic style and medium (e.g. Broadsheet Gouache and Oil Painting, 35mm Editorial Photography)",
-  "illustrationPrompt": "${isCinematicPhoto ? 'Award-winning 35mm editorial news photograph in 4:5 vertical portrait format, sharp camera focus, natural skin textures, lifelike human expressions, realistic clothing and environment observed from the attached photo. Natural ambient lighting, cinematic color grading, strictly no painterly brushstrokes, no canvas textures, no oil paint, no text, no letters.' : (isArtisticPainting ? 'Masterpiece editorial broadsheet painted illustration describing the scene in vivid detail. Specifically incorporate the observed facial structures, hairstyles, expressions, clothing colors, and postures from the attached photo into a rich painterly composition. Clear, warmly lit faces, lifelike human expression, no text, no letters.' : (familyCastDirectives ? (familyCastDirectives.isSolo ? `Cinematic visual art prompt describing the scene with rich detail. Focus exclusively on the single protagonist: ${familyCastDirectives.soloName} (${familyCastDirectives.soloTraits}). Strictly do not draw any extra family members, parents, or background companions. Warm natural lighting, clear human form, no text, no letters, no typography.` : `Cinematic visual art prompt describing the scene with rich detail. MANDATORY HEADCOUNT: You MUST begin with the exact headcount of all ${familyCastDirectives.totalCount} family members visible side by side. All ${familyCastDirectives.totalCount} members must be individually visible with warm, fully illuminated faces. Preserve each character uncompromisable physical anatomy (face shape, natural hair length, real-world body build) strictly without morphing into western catalog models or salon blowouts. Do not draw detached foreground hands or extra people. No text, no letters, no typography.`) : 'High-impact editorial broadsheet illustration in 4:5 vertical portrait format faithfully capturing key figures, real-world setting, and dramatic journalistic realism. For public leaders or figures from source news/video, name and portray them directly in the foreground with vivid realistic faces, natural warm lighting on skin tones, balanced studio spotlights, and dramatic journalistic realism. Strictly avoid pitch-black silhouettes, faceless shadow figures, dark ghosts, or generic substitutes. No text, no letters, no typography.'))}"
+  "illustrationPrompt": "${isChronicle ? `Multi-scene editorial broadsheet painted story montage in 3:4 vertical portrait format giving equal visual weight to ALL ${validChronicleMoments.length} moments of the day as complete, distinct lived-in scenes ("In the upper-left scene...; in the upper-right scene...; in the lower panoramic scene..."), depicting the exact setting, human action, and colleagues/friends/hosts/family in each moment without reducing any moment to a tiny wall prop. Strictly zero printed captions, zero labels, zero text, no letters, no typography.` : (isCinematicPhoto ? 'Award-winning 35mm editorial news photograph in 4:5 vertical portrait format, sharp camera focus, natural skin textures, lifelike human expressions, realistic clothing and environment observed from the attached photo. Natural ambient lighting, cinematic color grading, strictly no painterly brushstrokes, no canvas textures, no oil paint, no text, no letters.' : (isArtisticPainting ? 'Masterpiece editorial broadsheet painted illustration describing the scene in vivid detail. Specifically incorporate the observed facial structures, hairstyles, expressions, clothing colors, and postures from the attached photo into a rich painterly composition. Clear, warmly lit faces, lifelike human expression, no text, no letters.' : (familyCastDirectives ? (familyCastDirectives.isSolo ? `Cinematic visual art prompt describing the scene with rich detail. Focus exclusively on the single protagonist: ${familyCastDirectives.soloName} (${familyCastDirectives.soloTraits}). Strictly do not draw any extra family members, parents, or background companions. Warm natural lighting, clear human form, no text, no letters, no typography.` : `Cinematic visual art prompt describing the scene with rich detail. MANDATORY HEADCOUNT: You MUST begin with the exact headcount of all ${familyCastDirectives.totalCount} family members visible side by side. All ${familyCastDirectives.totalCount} members must be individually visible with warm, fully illuminated faces. Preserve each character uncompromisable physical anatomy (face shape, natural hair length, real-world body build) strictly without morphing into western catalog models or salon blowouts. Do not draw detached foreground hands or extra people. No text, no letters, no typography.`) : 'High-impact editorial broadsheet illustration in 4:5 vertical portrait format faithfully capturing key figures, real-world setting, and dramatic journalistic realism. For public leaders or figures from source news/video, name and portray them directly in the foreground with vivid realistic faces, natural warm lighting on skin tones, balanced studio spotlights, and dramatic journalistic realism. Strictly avoid pitch-black silhouettes, faceless shadow figures, dark ghosts, or generic substitutes. No text, no letters, no typography.')))} "
 }`;
 
     const parts = [];
@@ -2799,12 +2803,16 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
   }
 
   // Complete Human Anatomy & Limb Integrity Enforcer (Prevents missing legs / legless torsos on chairs / floating bodies)
-  if (/\b(sits|sitting|seated)\b/i.test(enhancedPrompt) && /\b(chair|sofa|couch|bench|stool|floor)\b/i.test(enhancedPrompt)) {
+  if (!chronicleMode && /\b(sits|sitting|seated)\b/i.test(enhancedPrompt) && /\b(chair|sofa|couch|bench|stool|floor)\b/i.test(enhancedPrompt)) {
     if (!/\b(trousers|pants|jeans|chinos|feet resting on the floor)\b/i.test(enhancedPrompt)) {
       enhancedPrompt += '. COMPLETE HUMAN ANATOMY & LOWER-BODY INTEGRITY: Every seated person MUST have complete, natural, anatomically connected full legs wearing trousers/pants extending downward from the seat with both feet resting naturally on the floor (or framed cleanly as a waist-up medium portrait). STRICT BAN on legless torsos, missing legs, amputated limbs, cross-legged stumps on chairs, or bodies merging into chair seats.';
     }
   } else {
     enhancedPrompt += '. Complete natural human anatomy with intact connected limbs, strictly no missing legs or floating torsos.';
+  }
+
+  if (chronicleMode) {
+    enhancedPrompt += '. CRITICAL MULTI-MOMENT EDITORIAL STORY MONTAGE: Depict ALL moments/scenes described in the prompt with equal visual weight as complete, distinct, lived-in narrative scenes in a balanced 3-part broadsheet story montage / collage, including the people, conversations, demos, and hospitality in each scene (strictly NEVER reduce a moment to a tiny disembodied object floating on a wall).';
   }
 
   const isPhotoMedium = /photograph|film still|35mm|photojournalism|documentary|editorial portrait photograph/i.test(enhancedPrompt);
@@ -3272,7 +3280,7 @@ function detectRelevantCastMembers(combined = '', cast = null) {
   return detected;
 }
 
-function buildFamilyCastDirectives({ familyCast, activeCast, castStaging, userSlant = '', spark = '', countryContext = '', sourceType = 'digital_link', perspectiveMode = 'source' }) {
+function buildFamilyCastDirectives({ familyCast, activeCast, castStaging, userSlant = '', spark = '', countryContext = '', sourceType = 'digital_link', perspectiveMode = 'source', chronicleMode = false }) {
   const hasExplicitCast = activeCast && Array.isArray(activeCast.members) && activeCast.members.length > 0;
   if (sourceType !== 'inner_voice' && !hasExplicitCast && perspectiveMode !== 'curator') {
     return null;
@@ -3321,7 +3329,12 @@ function buildFamilyCastDirectives({ familyCast, activeCast, castStaging, userSl
   const maleCount = activeMembers.filter(m => m.relationship === 'self' || m.relationship === 'elder_son' || m.relationship === 'younger_son' || /father|dad|son|boy|brother|male/i.test(`${m.roleLabel} ${m.relationship}`)).length;
   const femaleCount = totalCount - maleCount;
 
-  if (isSoloProtagonist) {
+  if (isSoloProtagonist && chronicleMode) {
+    directives.push(`DAILY CHRONICLE PROTAGONIST & MULTI-SCENE COMPANION DIRECTIVE:
+- Narrator Identity Anchor: Whenever the narrator (${soloMember.name || soloMember.roleLabel}) appears across the Daily Chronicle montage scenes, portray him with his exact physical identity anchor (${soloMember.uncompromisableAnchors || soloMember.visualTraits}).
+- INCLUDE COLLEAGUES, FRIENDS, HOSTS & COMPANIONS IN EACH MOMENT SCENE: Because this is a multi-moment Daily Chronicle, if any moment mentions colleagues, friends, tenants, hosts, or companions (e.g. demoing a feature to Shrikanth, meeting and being welcomed by Swapnil), YOU MUST ACTIVELY DEPICT THOSE PEOPLE interacting naturally inside their respective moment scenes! Strictly do NOT restrict the montage to 1 person alone in a room.`);
+    promptSnippets.push(`Daily Chronicle multi-scene montage featuring ${soloMember.name || soloMember.roleLabel} alongside the colleagues, hosts, or companions described in each moment`);
+  } else if (isSoloProtagonist) {
     directives.push(`SOLE PROTAGONIST & COMPLETE HUMAN ANATOMY DIRECTIVE:
 - VISIBLE INDIVIDUALS: EXACTLY 1 PERSON (${soloMember.name || soloMember.roleLabel}).
 - THE SCENE FOCUSES ENTIRELY ON THIS SINGLE PROTAGONIST.
