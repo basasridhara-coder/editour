@@ -730,6 +730,27 @@ function getResolvedCreatorEmail() {
   return 'shridharoct16@gmail.com';
 }
 
+function isPostChronicleDiary(post) {
+  if (!post) return false;
+  return Boolean(
+    post.chronicleMode
+    || post.innerVoiceSubMode === 'chronicle'
+    || post.isDiary
+    || post.generationInputs?.chronicleMode
+    || (Array.isArray(post.chronicleMoments) && post.chronicleMoments.length > 0)
+    || (Array.isArray(post.generationInputs?.chronicleMoments) && post.generationInputs.chronicleMoments.length > 0)
+    || /\b01\s*[·•.-]\s*[^:]{1,38}:/i.test(String(post.summary || post.broadsheetObservation || ''))
+  );
+}
+
+function isPostPrivateOrDraft(post) {
+  if (!post) return false;
+  if (isPostChronicleDiary(post)) {
+    return post.isPubliclyPublished !== true;
+  }
+  return Boolean(post.isDraft === true || post.isPrivate === true || post.status === 'draft');
+}
+
 function isPostOwnedByCurrentUser(post) {
   if (!post) return false;
   if (myCreatedPostIds.has(post.id)) return true;
@@ -738,10 +759,12 @@ function isPostOwnedByCurrentUser(post) {
   const userHandle = (currentUser.user_metadata?.user_name || currentUser.user_metadata?.name || userEmail.split('@')[0] || '').toLowerCase().replace('@', '');
   const postAuthor = (post.creatorHandle || '').toLowerCase().replace('@', '');
   const postUserId = post.user_id || post.userId;
+  const isAdminAuthorMatch = (userEmail === 'shridharoct16@gmail.com' || userEmail === 'basasridhara@gmail.com') && postAuthor === 'shridhar reddy';
   return Boolean(
     (postUserId && postUserId === currentUser.id) ||
     (userHandle && postAuthor && postAuthor === userHandle) ||
-    (userEmail && (post.userEmail || '').toLowerCase() === userEmail)
+    (userEmail && (post.userEmail || '').toLowerCase() === userEmail) ||
+    isAdminAuthorMatch
   );
 }
 
@@ -3375,10 +3398,11 @@ function getFilteredPostsForFilter(posts, filter, query) {
   return posts.filter(post => {
     if (!post || post.deleted || post.isDeleted || deletedPostIds.has(post.id)) return false;
 
-    const isPrivateDraft = post.isDraft === true || post.isPrivate === true || post.status === 'draft';
+    const isChronicleDiary = isPostChronicleDiary(post);
+    const isPrivateDraft = isPostPrivateOrDraft(post);
     const isOwnedByMe = isPostOwnedByCurrentUser(post);
 
-    // Unpublished drafts must NEVER be visible to anyone other than their creator
+    // Unpublished drafts and private diary entries must NEVER be visible to anyone other than their creator
     if (isPrivateDraft && !isOwnedByMe) {
       return false;
     }
@@ -3395,8 +3419,8 @@ function getFilteredPostsForFilter(posts, filter, query) {
       return isOwnedByMe;
     }
 
-    // In specific topic categories, hide unpublished drafts; in 'all' feed, show author's own drafts with unpublished badge
-    if (isPrivateDraft && filter !== 'all') {
+    // In specific topic categories, hide non-chronicle unpublished drafts; allow creator's own chronicle diary entries in 'all' and 'opinion'
+    if (isPrivateDraft && filter !== 'all' && !(isChronicleDiary && filter === 'opinion')) {
       return false;
     }
 
@@ -5068,8 +5092,9 @@ function buildSlide3Html(post, index) {
 
 function createPostCardElement(post, index) {
   const card = document.createElement('article');
-  const isUnpublishedDraft = Boolean(post && (post.isDraft || post.status === 'draft' || post.isPrivate) && index !== 'preview');
-  card.className = isUnpublishedDraft ? 'post-card post-card-unpublished-draft' : 'post-card';
+  const isChronicle = isPostChronicleDiary(post);
+  const isUnpublishedDraft = Boolean(isPostPrivateOrDraft(post) && index !== 'preview');
+  card.className = (isUnpublishedDraft && !isChronicle) ? 'post-card post-card-unpublished-draft' : 'post-card';
   if (post && post.id) {
     card.id = `post-${post.id}`;
     card.setAttribute('data-post-id', post.id);
@@ -5220,12 +5245,41 @@ function createPostCardElement(post, index) {
         ${index === 'preview' ? `<button type="button" class="preview-card-edit-btn" onclick="event.stopPropagation(); openEditPosterModal(currentPreviewSlide || 0)" title="Edit poster headlines, takes, and receipts">✏️ Edit Content</button>` : ''}
       </div>
       <div class="post-header-right-actions">
-        ${isUnpublishedDraft ? `
+        ${isChronicle && index !== 'preview' ? `
+          <div class="diary-corner-container">
+            <button type="button" class="diary-corner-btn ${isUnpublishedDraft ? 'is-private-diary' : 'is-published-diary'}" onclick="event.stopPropagation(); toggleDiaryCornerMenu('${index}')" title="${isUnpublishedDraft ? 'Personal Diary Note (Private to you) • Tap to Publish to Feed' : 'Daily Chronicle Note (Public on Feed)'}" aria-label="Diary Note Options">
+              <svg class="diary-corner-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+                <path d="M14.5 6.5l3 3L11 16H8v-3l6.5-6.5z"></path>
+              </svg>
+            </button>
+            <div class="diary-corner-popover" id="diary-popover-${index}">
+              ${isUnpublishedDraft ? `
+                <div class="diary-popover-status">🔒 Private Diary Note (Only you can see this)</div>
+                <button type="button" class="diary-popover-publish-btn" onclick="event.stopPropagation(); closeAllPostMenus(); publishDraftPostFromFeed('${post.id}', this)">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 20h9"></path>
+                    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                  </svg>
+                  <span>Publish to Feed</span>
+                </button>
+              ` : `
+                <div class="diary-popover-status">🌐 Published to Public Feed</div>
+                ${canDelete ? `
+                  <button type="button" class="diary-popover-secondary-btn" onclick="event.stopPropagation(); closeAllPostMenus(); makeDiaryPostPrivate('${post.id}')">
+                    <span>🔒 Keep Private in Diary Only</span>
+                  </button>
+                ` : ''}
+              `}
+            </div>
+          </div>
+        ` : (isUnpublishedDraft ? `
           <button type="button" class="draft-rocket-publish-btn" onclick="event.stopPropagation(); publishDraftPostFromFeed('${post.id}', this)" title="Not published yet: tap rocket to publish">
             <span class="draft-rocket-icon">🚀</span>
             <span class="draft-rocket-text">Unpublished</span>
           </button>
-        ` : ''}
+        ` : '')}
         <div class="post-menu-container">
         <button type="button" class="post-menu-btn" onclick="event.stopPropagation(); togglePostMenu('${index}')" title="More options" aria-label="More options">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -5237,12 +5291,12 @@ function createPostCardElement(post, index) {
         <div class="post-menu-dropdown" id="post-menu-${index}">
           ${isUnpublishedDraft && canDelete ? `
             <button type="button" class="post-menu-item text-primary-action" onclick="event.stopPropagation(); closeAllPostMenus(); publishDraftPostFromFeed('${post.id}')">
-              <span>🚀</span>
-              <span>Publish Draft Now</span>
+              <span>${isChronicle ? '📔' : '🚀'}</span>
+              <span>${isChronicle ? 'Publish to Feed' : 'Publish Draft Now'}</span>
             </button>
             <button type="button" class="post-menu-item" onclick="event.stopPropagation(); closeAllPostMenus(); openDraftInStudio('${post.id}')">
               <span>✏️</span>
-              <span>Edit Draft in Studio</span>
+              <span>${isChronicle ? 'Edit Diary Entry in Studio' : 'Edit Draft in Studio'}</span>
             </button>
           ` : ''}
           ${canDelete ? `
@@ -5614,12 +5668,22 @@ function togglePostMenu(index) {
   }
 }
 
+function toggleDiaryCornerMenu(index) {
+  const pop = document.getElementById(`diary-popover-${index}`);
+  if (!pop) return;
+  const isShowing = pop.classList.contains('show');
+  closeAllPostMenus();
+  if (!isShowing) {
+    pop.classList.add('show');
+  }
+}
+
 function closeAllPostMenus() {
-  document.querySelectorAll('.post-menu-dropdown.show').forEach(m => m.classList.remove('show'));
+  document.querySelectorAll('.post-menu-dropdown.show, .diary-corner-popover.show').forEach(m => m.classList.remove('show'));
 }
 
 document.addEventListener('click', (e) => {
-  if (!e.target.closest('.post-menu-container')) {
+  if (!e.target.closest('.post-menu-container') && !e.target.closest('.diary-corner-container')) {
     closeAllPostMenus();
   }
 });
@@ -11851,16 +11915,21 @@ async function publishDraftPostFromFeed(postId, btnEl = null) {
   const post = getPostFromIndexOrId(postId);
   if (!post) return;
 
-  if (btnEl) {
+  const isChronicle = isPostChronicleDiary(post);
+
+  if (btnEl && btnEl.classList.contains('draft-rocket-publish-btn')) {
     btnEl.disabled = true;
     btnEl.innerHTML = '<span class="draft-rocket-icon">⏳</span><span class="draft-rocket-text">Publishing...</span>';
   }
   if (typeof showTemporaryToast === 'function') {
-    showTemporaryToast('🚀 Publishing your draft to the live feed...');
+    showTemporaryToast(isChronicle
+      ? '📔 Publishing your diary note to the public feed...'
+      : '🚀 Publishing your draft to the live feed...');
   }
 
   post.isDraft = false;
   post.isPrivate = false;
+  post.isPubliclyPublished = true;
   post.status = 'published';
   post.createdAt = new Date().toISOString();
 
@@ -11868,12 +11937,30 @@ async function publishDraftPostFromFeed(postId, btnEl = null) {
   if (cardEl) {
     cardEl.classList.remove('post-card-unpublished-draft');
   }
-  if (btnEl) {
+  if (btnEl && btnEl.classList.contains('draft-rocket-publish-btn')) {
     btnEl.remove();
   }
 
   currentSynthesizedPost = post;
   await publishSynthesizedPost();
+}
+
+async function makeDiaryPostPrivate(postId) {
+  const post = getPostFromIndexOrId(postId);
+  if (!post) return;
+
+  post.isDraft = true;
+  post.isPrivate = true;
+  post.isDiary = true;
+  post.isPubliclyPublished = false;
+  post.status = 'draft';
+
+  if (typeof showTemporaryToast === 'function') {
+    showTemporaryToast('🔒 Diary note is now private to you only.');
+  }
+
+  currentSynthesizedPost = post;
+  await saveSynthesizedPost();
 }
 
 // Protect half-written thoughts if the user accidentally closes or refreshes the browser tab
@@ -12742,7 +12829,17 @@ function resetCreatorState() {
   const saveLbl = document.getElementById('step3SaveLabel');
   if (saveLbl) saveLbl.textContent = 'Save';
   const bottomSaveBtn = document.getElementById('step3BottomSaveDraftBtn');
-  if (bottomSaveBtn) { bottomSaveBtn.disabled = false; bottomSaveBtn.innerHTML = '<span>🔖 Save Draft</span>'; }
+  if (bottomSaveBtn) {
+    bottomSaveBtn.disabled = false;
+    bottomSaveBtn.classList.remove('creator-diary-primary-cta');
+    bottomSaveBtn.innerHTML = '<span>🔖 Save Draft</span>';
+  }
+  const publishBtn = document.getElementById('publishBtn');
+  if (publishBtn) {
+    publishBtn.disabled = false;
+    publishBtn.style.display = '';
+    publishBtn.innerHTML = '<span>Publish to Live Feed</span><span class="btn-arrow">🚀</span>';
+  }
   const actionPublishBtn = document.getElementById('step3PublishActionBtn');
   if (actionPublishBtn) { actionPublishBtn.disabled = false; actionPublishBtn.classList.remove('active'); }
   const actionPublishLbl = document.getElementById('step3PublishActionLabel');
@@ -15626,15 +15723,22 @@ function isChronicleModePost(post) {
 function syncStep3SaveButtonLabel(post = currentSynthesizedPost) {
   const isChronicle = isChronicleModePost(post);
   const bottomSaveBtn = document.getElementById('step3BottomSaveDraftBtn');
+  const publishBtn = document.getElementById('publishBtn');
   if (bottomSaveBtn) {
-    bottomSaveBtn.innerHTML = isChronicle ? '<span>📔 Save to Diary</span>' : '<span>🔖 Save Draft</span>';
+    bottomSaveBtn.innerHTML = isChronicle
+      ? '<span>📔 Save to Diary</span><span class="btn-arrow">✨</span>'
+      : '<span>🔖 Save Draft</span>';
     bottomSaveBtn.title = isChronicle
-      ? 'Save privately to your personal diary without publishing'
+      ? 'Save to your feed as a private diary entry (you can publish it to everyone anytime from the top-right diary icon)'
       : 'Save privately to your feed & drafts without publishing';
+    bottomSaveBtn.classList.toggle('creator-diary-primary-cta', isChronicle);
+  }
+  if (publishBtn) {
+    publishBtn.style.display = isChronicle ? 'none' : '';
   }
   const saveLbl = document.getElementById('step3SaveLabel');
   if (saveLbl && saveLbl.textContent !== 'Saved') {
-    saveLbl.textContent = isChronicle ? 'Diary' : 'Save';
+    saveLbl.textContent = isChronicle ? 'Save to Diary' : 'Save';
   }
 }
 
@@ -16720,6 +16824,10 @@ async function saveSynthesizedPost() {
   currentSynthesizedPost.isUserCreated = true;
   currentSynthesizedPost.isDraft = true;
   currentSynthesizedPost.isPrivate = true;
+  currentSynthesizedPost.isPubliclyPublished = false;
+  if (isChronicle) {
+    currentSynthesizedPost.isDiary = true;
+  }
   currentSynthesizedPost.status = 'draft';
 
   // 1. Clean & compress payload: store lightweight CDN pointer so Supabase rows never trigger timeout
@@ -16751,6 +16859,10 @@ async function saveSynthesizedPost() {
   }
   postToSave.isDraft = true;
   postToSave.isPrivate = true;
+  postToSave.isPubliclyPublished = false;
+  if (isChronicle) {
+    postToSave.isDiary = true;
+  }
   postToSave.status = 'draft';
 
   let hasUploadedPublicUrl = false;
@@ -16916,6 +17028,7 @@ async function publishSynthesizedPost() {
   currentSynthesizedPost.isUserCreated = true;
   currentSynthesizedPost.isDraft = false;
   currentSynthesizedPost.isPrivate = false;
+  currentSynthesizedPost.isPubliclyPublished = true;
   currentSynthesizedPost.status = 'published';
 
   // 1. Clean & compress payload: store crisp ~60KB WebP so Supabase rows never trigger timeout
@@ -16947,6 +17060,7 @@ async function publishSynthesizedPost() {
   }
   postToSave.isDraft = false;
   postToSave.isPrivate = false;
+  postToSave.isPubliclyPublished = true;
   postToSave.status = 'published';
 
   let hasUploadedPublicUrl = false;
