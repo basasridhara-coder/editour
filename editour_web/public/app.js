@@ -4384,6 +4384,27 @@ function isDuplicateOfUserTake(candidateText, post) {
   return false;
 }
 
+function isWideOrLandscapeReceiptPhoto(post, rawPhoto) {
+  if (!post) return false;
+  if (post._isVideoOrWide === true) return true;
+  if (post._isPortraitPhoto === true) return false;
+  if (post.sourceType === 'video_audio') return true;
+  const photoStr = String(rawPhoto || '');
+  if (/ytimg\.com|youtube|wide|landscape|1200|1280|1920|16x9|16-9/i.test(photoStr)) {
+    return true;
+  }
+  const hasRealSourceImage = Boolean(
+    post.sourceImageBase64
+    || post.sourceImageUrl
+    || post.generationInputs?.sourceImageBase64
+    || post.generationInputs?.sourceImageUrl
+  );
+  if (post.sourceType === 'digital_link' && hasRealSourceImage) {
+    return true;
+  }
+  return false;
+}
+
 function handleReceiptPhotoLoad(img) {
   if (!img || img.dataset.aspectEvaluated === 'true' || !img.naturalWidth || !img.naturalHeight) return;
   const ratio = img.naturalWidth / img.naturalHeight;
@@ -4391,7 +4412,10 @@ function handleReceiptPhotoLoad(img) {
   if (!box) return;
 
   img.dataset.aspectEvaluated = 'true';
-  if (ratio < 1.15) {
+  const isNowLandscape = ratio >= 1.15;
+  const wasLandscape = box.classList.contains('photo-aspect-landscape');
+
+  if (!isNowLandscape) {
     if (!box.classList.contains('photo-aspect-portrait')) {
       box.classList.add('photo-aspect-portrait');
       box.classList.remove('photo-aspect-landscape');
@@ -4400,6 +4424,27 @@ function handleReceiptPhotoLoad(img) {
     if (!box.classList.contains('photo-aspect-landscape')) {
       box.classList.add('photo-aspect-landscape');
       box.classList.remove('photo-aspect-portrait');
+    }
+  }
+
+  // If live web card assumed a different aspect ratio during initial bifurcation, sync post state and re-render slide
+  if (isNowLandscape !== wasLandscape && !img.closest('.poster-export-sandbox')) {
+    const postId = box.dataset.postId || img.closest('[data-post-id]')?.dataset?.postId;
+    if (postId && Array.isArray(window.posts)) {
+      const postIdx = window.posts.findIndex(p => p && String(p.id) === String(postId));
+      if (postIdx !== -1) {
+        const postObj = window.posts[postIdx];
+        postObj._isVideoOrWide = isNowLandscape;
+        postObj._isPortraitPhoto = !isNowLandscape;
+        delete postObj._cachedBifurcation;
+        if (typeof posterFilesCache !== 'undefined' && posterFilesCache) {
+          posterFilesCache.delete(postObj.id);
+        }
+        const slideReceipt = img.closest('.slide-receipt');
+        if (slideReceipt) {
+          slideReceipt.innerHTML = buildUnifiedEssayPosterHtml(postObj, postIdx, 0);
+        }
+      }
     }
   }
 }
@@ -4507,12 +4552,8 @@ function evaluateEssayBifurcation(post, index) {
   }
 
   // Editorial Page 1 target word budgets calibrated for 1-line margin at page end
-  // in the 450x600 broadsheet frame, dynamically accounting for headline and pullquote height:
-  const isVideoOrWide = Boolean(
-    post._isVideoOrWide
-    || post.sourceType === 'video_audio'
-    || (typeof rawPhoto === 'string' && (rawPhoto.includes('ytimg.com') || rawPhoto.includes('youtube') || rawPhoto.includes('wide')))
-  );
+  // in the 450x600 broadsheet frame, dynamically accounting for headline, signed curator header, and pullquote height:
+  const isVideoOrWide = isWideOrLandscapeReceiptPhoto(post, rawPhoto);
 
   const tierForBudget = typeof getSourceTier === 'function' ? getSourceTier(post) : '';
   const rawHeadlineForBudget = String(
@@ -4538,14 +4579,14 @@ function evaluateEssayBifurcation(post, index) {
 
   const headerOverheadWords = Math.max(0, estHeadlineLines - 1) * 8 + Math.max(0, estOpinionLines - 3) * 7;
 
-  let targetPage1Words = Math.max(96, 122 - headerOverheadWords);
-  let maxPage1Ceiling = Math.max(108, 132 - headerOverheadWords);
+  let targetPage1Words = Math.max(78, 100 - headerOverheadWords);
+  let maxPage1Ceiling = Math.max(88, 110 - headerOverheadWords);
   if (!hasPhoto) {
-    targetPage1Words = Math.max(120, 154 - headerOverheadWords);
-    maxPage1Ceiling = Math.max(132, 166 - headerOverheadWords);
+    targetPage1Words = Math.max(104, 134 - headerOverheadWords);
+    maxPage1Ceiling = Math.max(116, 146 - headerOverheadWords);
   } else if (isVideoOrWide) {
-    targetPage1Words = Math.max(68, 86 - headerOverheadWords);
-    maxPage1Ceiling = Math.max(76, 96 - headerOverheadWords);
+    targetPage1Words = Math.max(52, 66 - headerOverheadWords);
+    maxPage1Ceiling = Math.max(60, 74 - headerOverheadWords);
   }
 
   function splitIntoParagraphUnits(text) {
@@ -4808,15 +4849,12 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
     }
 
     const isVideoOrWide = Boolean(
-      post._isVideoOrWide
-      || tier === "tier_video"
-      || post.sourceType === "video_audio"
-      || (typeof rawPhoto === "string" && (rawPhoto.includes("ytimg.com") || rawPhoto.includes("youtube") || rawPhoto.includes("wide")))
+      tier === "tier_video" || isWideOrLandscapeReceiptPhoto(post, rawPhoto)
     );
     const initialAspectClass = isVideoOrWide ? "photo-aspect-landscape" : "photo-aspect-portrait";
 
     scenePhotoHtml = `
-      <div class="receipt-scene-box ${initialAspectClass}">
+      <div class="receipt-scene-box ${initialAspectClass}" data-post-id="${escapeHtml(String(post.id || ""))}">
         <div class="receipt-scene-frame">
           <img src="${escapeHtml(imgSrc)}" class="receipt-scene-photo" alt="Editorial Wire Photo" onload="window.handleReceiptPhotoLoad && window.handleReceiptPhotoLoad(this)" onerror="this.closest('.receipt-scene-box').style.display='none'">
         </div>
@@ -6945,20 +6983,16 @@ async function capturePostSlidesAsFiles(post, index) {
   const padX = 15; // (480 - 450) / 2 = 15px
   const padY = 20; // (640 - 600) / 2 = 20px
 
-  // Evaluate bifurcation on original post before mutating URLs to blob: URLs so web and export splits are 100% identical
-  const bifurcation = evaluateEssayBifurcation(post, index);
+  // Convert poster and source images to local blob URLs and probe real aspect ratio BEFORE bifurcation
   const origRawPhoto = post.sourceImageUrl || post.referencePhotoUrl || post.originalPhotoUrl || post.catalystPhoto || post.illustrationUrl || post.aiIllustrationUrl || '';
-  const origIsVideoOrWide = Boolean(
-    post.sourceType === 'video_audio'
-    || (typeof origRawPhoto === 'string' && (origRawPhoto.includes('ytimg.com') || origRawPhoto.includes('youtube') || origRawPhoto.includes('wide')))
-  );
+  const origIsVideoOrWide = isWideOrLandscapeReceiptPhoto(post, origRawPhoto);
 
-  // Convert poster image to local blob URL to bypass any CORS taint or delay in html2canvas
   let exportPost = {
     ...post,
-    _cachedBifurcation: bifurcation,
     _isVideoOrWide: origIsVideoOrWide
   };
+  delete exportPost._cachedBifurcation;
+
   const rawPosterUrl = post.illustrationUrl || post.aiIllustrationUrl || '';
   let createdBlobUrl = null;
   let createdSourceBlobUrl = null;
@@ -6983,6 +7017,32 @@ async function capturePostSlidesAsFiles(post, index) {
       }
     } catch (_) {}
   }
+
+  // Probe the exact natural dimensions of the receipt photo so _isVideoOrWide is 100% accurate before bifurcation
+  const probePhotoUrl = createdSourceBlobUrl || rawSourcePhoto || createdBlobUrl || rawPosterUrl;
+  if (probePhotoUrl && typeof probePhotoUrl === 'string' && (probePhotoUrl.startsWith('blob:') || probePhotoUrl.startsWith('data:') || probePhotoUrl.startsWith('http') || probePhotoUrl.startsWith('/'))) {
+    try {
+      const dims = await new Promise(resolve => {
+        const probeImg = new Image();
+        probeImg.onload = () => resolve({ w: probeImg.naturalWidth, h: probeImg.naturalHeight });
+        probeImg.onerror = () => resolve(null);
+        setTimeout(() => resolve(null), 2000);
+        probeImg.src = probePhotoUrl;
+      });
+      if (dims && dims.w > 0 && dims.h > 0) {
+        const isLandscape = (dims.w / dims.h) >= 1.15;
+        exportPost._isVideoOrWide = isLandscape;
+        exportPost._isPortraitPhoto = !isLandscape;
+        post._isVideoOrWide = isLandscape;
+        post._isPortraitPhoto = !isLandscape;
+        delete post._cachedBifurcation;
+      }
+    } catch (_) {}
+  }
+
+  const bifurcation = evaluateEssayBifurcation(exportPost, index);
+  exportPost._cachedBifurcation = bifurcation;
+  post._cachedBifurcation = bifurcation;
 
   const slideConfigs = [];
 
@@ -7052,6 +7112,38 @@ async function capturePostSlidesAsFiles(post, index) {
       container.querySelectorAll('.receipt-scene-photo').forEach(img => {
         handleReceiptPhotoLoad(img);
       });
+
+      // Overflow safety guard for Essay slides: ensure zero vertical clipping at the bottom of the 600px frame
+      const pageBlock = container.querySelector('.essay-page-block');
+      if (pageBlock && pageBlock.scrollHeight > pageBlock.clientHeight) {
+        const parasEl = pageBlock.querySelector('.receipt-paragraphs');
+        const pullquoteEl = pageBlock.querySelector('.essay-highlight-pullquote');
+        const scenePhotoEl = pageBlock.querySelector('.receipt-scene-photo');
+        const headlineEl = pageBlock.querySelector('.receipt-headline');
+        const bodyParas = Array.from(pageBlock.querySelectorAll('.receipt-p1, .receipt-p3'));
+        const scales = [0.96, 0.92, 0.88, 0.84, 0.80];
+        for (const s of scales) {
+          if (pageBlock.scrollHeight <= pageBlock.clientHeight) break;
+          bodyParas.forEach(p => {
+            p.style.setProperty('font-size', `${Math.max(10.5, 13 * s).toFixed(2)}px`, 'important');
+            p.style.setProperty('line-height', `${Math.max(1.34, 1.52 * s).toFixed(2)}`, 'important');
+            p.style.setProperty('margin-bottom', `${Math.max(4, Math.round(9 * s))}px`, 'important');
+          });
+          if (pullquoteEl) {
+            pullquoteEl.style.setProperty('padding', `${Math.max(6, Math.round(10 * s))}px ${Math.max(8, Math.round(12 * s))}px`, 'important');
+            pullquoteEl.style.setProperty('margin-bottom', `${Math.max(6, Math.round(10 * s))}px`, 'important');
+          }
+          if (scenePhotoEl && scenePhotoEl.closest('.photo-aspect-landscape')) {
+            scenePhotoEl.style.setProperty('max-height', `${Math.max(82, Math.round(112 * s))}px`, 'important');
+          }
+          if (headlineEl && s <= 0.88) {
+            headlineEl.style.setProperty('font-size', `${Math.max(15, Math.round(18 * s))}px`, 'important');
+          }
+          if (parasEl) {
+            parasEl.style.setProperty('gap', '0px', 'important');
+          }
+        }
+      }
 
       // Calculate un-stretched dimensions
       const bgImgs = container.querySelectorAll('.slide-hook-bg');
