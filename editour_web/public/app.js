@@ -4411,9 +4411,10 @@ function buildSlide1Html(post, index, totalSlides = 2) {
       <div class="slide-hook-bottom">
         ${newsFragmentHtml}${curatorKickerHtml}
         <h3 class="slide-hook-headline">${headline}</h3>
-        <!-- Bottom-Right: slant.today -->
+        <!-- Bottom-Left: slant.today | Bottom-Right: Every thought deserves a frame -->
         <div class="poster-brand-footer">
-          <span class="poster-footer-punchline" style="margin-left: auto; font-style: normal; font-weight: 800; letter-spacing: 0.6px;">slant.today</span>
+          <span class="poster-footer-domain">slant.today</span>
+          <span class="poster-footer-punchline" style="margin-left: auto;">Every thought deserves a frame</span>
         </div>
       </div>
     </div>
@@ -5098,7 +5099,7 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
   const p2SlideBadge = isChronicle
     ? (forExportPage > 0 ? "03 / 03 • REFLECTION" : "03 / 03")
     : (forExportPage > 0 ? "03 / 03 • ESSAY P2" : "PAGE 2 / 2");
-  const folioRightP2 = "slant.today";
+  const folioRightP2 = (forExportPage > 0 || isChronicle) ? "Every thought deserves a frame • 03 / 03" : "Every thought deserves a frame • 02 / 02";
   const receiptBrandTitle = isChronicle ? "SLANT MOMENTS" : "SLANT MINUTES";
   const chronicleDateStr = isChronicle ? formatChronicleDateDisplay(post.createdAt || post.date) : "";
 
@@ -5139,12 +5140,12 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
           ${(!bifurcation.isBifurcated && !isChronicle) ? reflectionHtml : ""}
         </div>
 
-        ${(!bifurcation.isBifurcated || isChronicle) ? `
+        ${(!bifurcation.isBifurcated || isChronicle || forExportPage === 1) ? `
         <div class="receipt-footer">
           <div class="receipt-folio-rule"></div>
           <div class="receipt-folio-text">
-            <span class="receipt-folio-left">${isChronicle ? `${escapeHtml(chronicleDateStr.toUpperCase())} • ${handle.toUpperCase()}` : (isInnerVoice ? `PERSONAL ESSAY • ${handle.toUpperCase()}` : (cleanPubUpper ? `IN DIALOGUE WITH ${cleanPubUpper}` : "EDITORIAL ESSAY"))}</span>
-            <span class="receipt-folio-right">slant.today</span>
+            <span class="receipt-folio-left">slant.today</span>
+            <span class="receipt-folio-right">Every thought deserves a frame • ${isChronicle ? "02 / 03" : "02 / 02"}</span>
           </div>
         </div>
         ` : ""}
@@ -5172,7 +5173,7 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
         <div class="receipt-footer">
           <div class="receipt-folio-rule"></div>
           <div class="receipt-folio-text">
-            <span class="receipt-folio-left">${isChronicle ? `${escapeHtml(chronicleDateStr.toUpperCase())} • ${handle.toUpperCase()}` : (isInnerVoice ? `PERSONAL ESSAY • ${handle.toUpperCase()}` : (cleanPubUpper ? `IN DIALOGUE WITH ${cleanPubUpper}` : "EDITORIAL ESSAY"))}</span>
+            <span class="receipt-folio-left">slant.today</span>
             <span class="receipt-folio-right">${folioRightP2}</span>
           </div>
         </div>
@@ -8957,38 +8958,36 @@ function renderDiaryCalendarModal() {
   let previewHtml = '';
   if (selectedEntry && selectedEntry.post) {
     const p = selectedEntry.post;
-    const sNum = diaryCalendarState.activeSlideNum || 1;
-    let activeSlideInnerHtml = '';
-    if (sNum === 1) {
-      activeSlideInnerHtml = `<div class="card-slide slide-hook active" style="position:relative; width:100%; height:100%;">${buildSlide1Html(p, 'diary_preview')}</div>`;
-    } else if (sNum === 2) {
-      activeSlideInnerHtml = `<div class="card-slide slide-receipt active" style="position:relative; width:100%; height:100%;">${buildSlide2Html(p, 'diary_preview', 1)}</div>`;
-    } else {
-      activeSlideInnerHtml = `<div class="card-slide slide-receipt slide-receipt-p2 active" style="position:relative; width:100%; height:100%;">${buildSlide2Html(p, 'diary_preview', 2)}</div>`;
-    }
-
-    const formattedSelectedDate = formatChronicleDateDisplay(p.createdAt || p.date || selectedEntry.ts);
+    const isChronicle = isPostChronicleDiary(p);
+    const cardSlideCount = isChronicle ? 3 : 2;
     previewHtml = `
       <div class="diary-cal-selected-section" id="diaryCalendarSelectedPreview">
-        <div class="diary-cal-selected-header">
-          <div class="diary-cal-selected-meta">
-            <span class="diary-cal-selected-date-pill">📅 ${escapeHtml(formattedSelectedDate)}</span>
-            ${selectedEntry.totalForDate > 1 ? `<span class="diary-cal-latest-note">Showing latest of ${selectedEntry.totalForDate} chronicles on this date</span>` : ''}
-          </div>
-          <div class="diary-cal-selected-actions">
-            <div class="diary-cal-slide-tabs">
-              <button type="button" class="diary-cal-slide-tab ${sNum === 1 ? 'active' : ''}" onclick="setDiaryCalendarPreviewSlide(1)">01 • Vignettes</button>
-              <button type="button" class="diary-cal-slide-tab ${sNum === 2 ? 'active' : ''}" onclick="setDiaryCalendarPreviewSlide(2)">02 • Moments</button>
-              <button type="button" class="diary-cal-slide-tab ${sNum === 3 ? 'active' : ''}" onclick="setDiaryCalendarPreviewSlide(3)">03 • Takeaway</button>
-            </div>
-            <button type="button" class="diary-cal-open-feed-btn" onclick="openDiaryPostInMainFeed('${escapeHtml(p.id)}')">
-              Open Post ↗
-            </button>
-          </div>
-        </div>
         <div class="diary-cal-poster-stage-wrap">
-          <div class="diary-cal-poster-frame carousel-view">
-            ${activeSlideInnerHtml}
+          <div class="diary-cal-poster-frame carousel-view" id="carousel-diary_preview" data-post-index="diary_preview" data-current-slide="0" data-slide-count="${cardSlideCount}">
+            <div class="carousel-track" id="track-diary_preview">
+              <div class="carousel-slide slide-hook" style="cursor: default;">
+                ${buildSlide1Html(p, 'diary_preview', cardSlideCount)}
+              </div>
+              <div class="carousel-slide slide-receipt" style="cursor: default;">
+                ${isChronicle ? buildUnifiedEssayPosterHtml(p, 'diary_preview', 1) : buildSlide2Html(p, 'diary_preview', 0)}
+              </div>
+              ${isChronicle ? `
+              <div class="carousel-slide slide-receipt" style="cursor: default;">
+                ${buildUnifiedEssayPosterHtml(p, 'diary_preview', 2)}
+              </div>
+              ` : ''}
+            </div>
+
+            <!-- Navigation Buttons -->
+            <button class="carousel-nav-btn prev-btn" onclick="changeSlide(event, 'diary_preview', -1)" title="Previous Slide">&#x2039;</button>
+            <button class="carousel-nav-btn next-btn" onclick="changeSlide(event, 'diary_preview', 1)" title="Next Slide">&#x203A;</button>
+
+            <!-- Bottom Dot Indicators -->
+            <div class="carousel-dots" id="dots-diary_preview">
+              <span class="carousel-dot active" onclick="goToSlide(event, 'diary_preview', 0)"></span>
+              <span class="carousel-dot" onclick="goToSlide(event, 'diary_preview', 1)"></span>
+              ${isChronicle ? `<span class="carousel-dot" onclick="goToSlide(event, 'diary_preview', 2)"></span>` : ''}
+            </div>
           </div>
         </div>
       </div>
@@ -9024,6 +9023,10 @@ function renderDiaryCalendarModal() {
 
     ${previewHtml}
   `;
+
+  if (selectedEntry && selectedEntry.post && typeof setupCarouselGestures === 'function') {
+    setupCarouselGestures('diary_preview');
+  }
 }
 
 async function loadCuratorStyleProfile() {
