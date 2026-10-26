@@ -3084,6 +3084,17 @@ header {
   background: rgba(217, 119, 6, 0.14);
   padding: 1.5px 6px;
   border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3.5px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.signed-curator-pill-icon {
+  display: inline-block;
+  line-height: 1;
+  font-style: normal;
 }
 
 [data-theme="obsidian"] .signed-curator-badge-pill {
@@ -3091,9 +3102,29 @@ header {
   background: rgba(245, 158, 11, 0.2);
 }
 
+.poster-export-sandbox .signed-curator-header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  white-space: nowrap !important;
+}
+
+.poster-export-sandbox .signed-curator-title {
+  color: #92400E !important;
+  letter-spacing: 0px !important;
+  text-transform: none !important;
+  white-space: nowrap !important;
+}
+
 .poster-export-sandbox .signed-curator-badge-pill {
   color: #B45309 !important;
   background: rgba(217, 119, 6, 0.14) !important;
+  letter-spacing: 0px !important;
+  text-transform: none !important;
+  white-space: nowrap !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 3.5px !important;
 }
 
 .essay-pullquote-label {
@@ -3243,17 +3274,17 @@ header {
 /* Dynamic Fit: Compact Density when overflow < 40% */
 .slant-minute-scroll-viewport.essay-density-compact .receipt-p1,
 .slant-minute-scroll-viewport.essay-density-compact .receipt-p3 {
-  font-size: 11.5px !important;
-  line-height: 1.38 !important;
+  font-size: 12px !important;
+  line-height: 1.44 !important;
   margin-bottom: 4px !important;
 }
 
-.slant-minute-scroll-viewport.essay-density-compact .receipt-scene-box {
-  margin: 1px 0 4px 10px !important;
+.slant-minute-scroll-viewport.essay-density-compact .receipt-scene-box.photo-aspect-landscape .receipt-scene-frame {
+  max-height: 125px !important;
 }
 
-.slant-minute-scroll-viewport.essay-density-compact .receipt-scene-frame {
-  max-height: 95px !important;
+.slant-minute-scroll-viewport.essay-density-compact .receipt-scene-box.photo-aspect-portrait .receipt-scene-frame {
+  max-height: 155px !important;
 }
 
 .receipt-paragraphs p.receipt-p1,
@@ -7995,7 +8026,14 @@ header {
 .poster-export-sandbox * {
   -webkit-font-smoothing: antialiased !important;
   -moz-osx-font-smoothing: grayscale !important;
-  text-rendering: geometricPrecision !important;
+  text-rendering: auto !important;
+  letter-spacing: 0px !important;
+  word-spacing: normal !important;
+  font-variant-ligatures: none !important;
+  -webkit-font-variant-ligatures: none !important;
+  font-feature-settings: "liga" 0, "clig" 0, "dlig" 0, "hlig" 0, "calt" 0 !important;
+  -webkit-font-feature-settings: "liga" 0, "clig" 0, "dlig" 0, "hlig" 0, "calt" 0 !important;
+  font-kerning: normal !important;
 }
 
 .poster-export-sandbox .continuation-header {
@@ -20306,11 +20344,22 @@ mark.polish-mark:hover, mark.polish-mark.active {
   font-weight: 600;
 }
 
+.chronicle-moment-para,
+.receipt-paragraphs p.chronicle-moment-para,
+.slant-minute-scroll-viewport.has-inset-photo .chronicle-moment-para,
+.slant-minute-scroll-viewport:not(.has-inset-photo) .chronicle-moment-para,
+.carousel-view .slant-minute-scroll-viewport.has-inset-photo .chronicle-moment-para,
+.carousel-view .slant-minute-scroll-viewport:not(.has-inset-photo) .chronicle-moment-para,
+.poster-export-sandbox .slant-minute-scroll-viewport.has-inset-photo .chronicle-moment-para,
+.poster-export-sandbox .slant-minute-scroll-viewport:not(.has-inset-photo) .chronicle-moment-para {
+  text-indent: 0 !important;
+}
+
 .chronicle-moment-inline-tag {
   font-family: 'Space Grotesk', 'Inter', sans-serif;
   font-weight: 800;
   color: #B45309;
-  letter-spacing: 0.02em;
+  letter-spacing: 0px;
   margin-right: 4px;
 }
 

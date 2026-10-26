@@ -4707,7 +4707,7 @@ function evaluateEssayBifurcation(post, index) {
       page1Paras: essayParas,
       page2Paras: [],
       hasContinuedPara: false,
-      densityClass: (essayParas.join(" ").length > 440) ? "essay-density-compact" : "essay-density-medium"
+      densityClass: (essayParas.join(" ").length > 760) ? "essay-density-compact" : "essay-density-medium"
     };
   } else {
     return {
@@ -4774,11 +4774,15 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
 
   const rawHandle = (post.creatorHandle || "@curator").trim();
   const initial = escapeHtml((rawHandle.replace("@", "").trim().charAt(0) || "C").toUpperCase());
-  let rightPillText = "✍️ MY VIEW ON THIS SOURCE";
+  const titleUpper = escapeHtml(`${rawHandle.toUpperCase()}'S SLANT`);
+  let pillIcon = "✍️";
+  let pillLabel = "MY VIEW ON THIS SOURCE";
   if (isInnerVoice || tier === "tier3_opinion") {
-    rightPillText = `${slantIcon} PERSONAL VOICE`;
+    pillIcon = slantIcon;
+    pillLabel = "PERSONAL VOICE";
   } else if (tier === "tier_book") {
-    rightPillText = "📖 LITERARY REFLECTION";
+    pillIcon = "📖";
+    pillLabel = "LITERARY REFLECTION";
   }
 
   const pullquoteHtml = `
@@ -4786,9 +4790,9 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
       <div class="signed-curator-header">
         <div class="signed-curator-identity">
           <span class="signed-curator-avatar">${initial}</span>
-          <span class="signed-curator-title">${handle}'s Slant</span>
+          <span class="signed-curator-title">${titleUpper}</span>
         </div>
-        <span class="signed-curator-badge-pill">${escapeHtml(rightPillText)}</span>
+        <span class="signed-curator-badge-pill"><span class="signed-curator-pill-icon">${pillIcon}</span><span>${escapeHtml(pillLabel)}</span></span>
       </div>
       <p class="essay-pullquote-text">${opinion}</p>
     </div>
@@ -7078,7 +7082,20 @@ async function capturePostSlidesAsFiles(post, index) {
   }
 
   // Probe the exact natural dimensions of the receipt photo so _isVideoOrWide is 100% accurate before bifurcation
-  const probePhotoUrl = createdSourceBlobUrl || rawSourcePhoto || createdBlobUrl || rawPosterUrl;
+  const rawBase64Photo = post.sourceImageBase64
+    || post.catalystPhotoBase64
+    || post.originalPhotoBase64
+    || post.generationInputs?.sourceImageBase64
+    || post.generationInputs?.catalystPhotoBase64
+    || post.generationInputs?.innerVoiceImageBase64
+    || post.illustrationBase64
+    || post.posterBase64
+    || post.aiPosterBase64
+    || '';
+  const normalizedBase64Photo = (rawBase64Photo && typeof rawBase64Photo === 'string' && rawBase64Photo.length > 20)
+    ? (rawBase64Photo.startsWith('data:') ? rawBase64Photo : `data:image/jpeg;base64,${rawBase64Photo}`)
+    : '';
+  const probePhotoUrl = createdSourceBlobUrl || rawSourcePhoto || normalizedBase64Photo || createdBlobUrl || rawPosterUrl;
   if (probePhotoUrl && typeof probePhotoUrl === 'string' && (probePhotoUrl.startsWith('blob:') || probePhotoUrl.startsWith('data:') || probePhotoUrl.startsWith('http') || probePhotoUrl.startsWith('/'))) {
     try {
       const dims = await new Promise(resolve => {
@@ -7123,18 +7140,73 @@ async function capturePostSlidesAsFiles(post, index) {
   const rawHeadline = post.adaptedHeadline || post.originalHeadline || post.hook || 'slant';
   const slug = rawHeadline.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 30) || 'slant-story';
 
-  // Render all 3 slides in PARALLEL with dedicated offscreen sandboxes
+  // Helper to bake exact center-crop (object-fit: cover) into an <img> data URL so html2canvas NEVER stretches photos
+  const bakeObjectFitCoverOnImage = async (img, targetW, targetH) => {
+    if (!img || !img.src || targetW <= 0 || targetH <= 0) return;
+    const natW = img.naturalWidth;
+    const natH = img.naturalHeight;
+    if (!natW || !natH) return;
+    try {
+      const dpr = 3;
+      const cw = Math.max(1, Math.round(targetW * dpr));
+      const ch = Math.max(1, Math.round(targetH * dpr));
+      const offCanvas = document.createElement('canvas');
+      offCanvas.width = cw;
+      offCanvas.height = ch;
+      const ctx = offCanvas.getContext('2d');
+      if (!ctx) return;
+
+      const rImg = natW / natH;
+      const rBox = targetW / targetH;
+      let sx = 0, sy = 0, sw = natW, sh = natH;
+      if (rImg > rBox) {
+        sw = natH * rBox;
+        sx = (natW - sw) / 2;
+      } else if (rImg < rBox) {
+        sh = natW / rBox;
+        sy = (natH - sh) / 2;
+      }
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, cw, ch);
+      const croppedUrl = offCanvas.toDataURL('image/jpeg', 0.98);
+      if (croppedUrl && croppedUrl.length > 100) {
+        await new Promise(res => {
+          img.onload = () => res(true);
+          img.onerror = () => res(false);
+          setTimeout(() => res(false), 1500);
+          img.src = croppedUrl;
+        });
+        img.style.setProperty('width', '100%', 'important');
+        img.style.setProperty('height', '100%', 'important');
+        img.style.setProperty('left', '0px', 'important');
+        img.style.setProperty('top', '0px', 'important');
+        img.style.setProperty('right', '0px', 'important');
+        img.style.setProperty('bottom', '0px', 'important');
+        img.style.setProperty('max-width', '100%', 'important');
+        img.style.setProperty('max-height', '100%', 'important');
+        img.style.setProperty('object-fit', 'fill', 'important');
+      }
+    } catch (_) {}
+  };
+
+  // Render slides sequentially with dedicated offscreen sandboxes to prevent WebKit range layout thrashing
   const renderSlide = async (cfg) => {
     const container = document.createElement('div');
     container.className = 'poster-export-sandbox';
     container.style.cssText = `
       position: fixed !important;
-      left: -9999px !important;
-      top: 0 !important;
+      left: 0px !important;
+      top: 0px !important;
       width: ${canvasWidth}px !important;
       height: ${canvasHeight}px !important;
+      min-width: ${canvasWidth}px !important;
+      min-height: ${canvasHeight}px !important;
+      max-width: ${canvasWidth}px !important;
+      max-height: ${canvasHeight}px !important;
       overflow: hidden !important;
       z-index: -9999 !important;
+      pointer-events: none !important;
       background: #F8F5EE !important;
       padding: ${padY}px ${padX}px !important;
       margin: 0 !important;
@@ -7148,8 +7220,8 @@ async function capturePostSlidesAsFiles(post, index) {
 
     try {
       container.innerHTML = `
-        <div class="share-card-frame" style="width: ${cardWidth}px !important; height: ${cardHeight}px !important; border-radius: 16px !important; overflow: hidden !important; border: 1px solid rgba(15, 23, 42, 0.12) !important; box-shadow: 0 10px 28px -4px rgba(0, 0, 0, 0.18), 0 2px 6px rgba(0, 0, 0, 0.06) !important; position: relative !important; background: ${cfg.bg} !important; display: flex !important; box-sizing: border-box !important;">
-          <div class="carousel-slide ${cfg.class}" style="width: ${cardWidth}px !important; height: ${cardHeight}px !important; position: relative !important; left: 0 !important; top: 0 !important; transform: none !important; flex: none !important; display: flex !important; border-radius: 15px !important; overflow: hidden !important;">
+        <div class="share-card-frame" style="width: ${cardWidth}px !important; height: ${cardHeight}px !important; min-width: ${cardWidth}px !important; min-height: ${cardHeight}px !important; max-width: ${cardWidth}px !important; max-height: ${cardHeight}px !important; flex: none !important; flex-shrink: 0 !important; border-radius: 16px !important; overflow: hidden !important; border: 1px solid rgba(15, 23, 42, 0.12) !important; box-shadow: 0 10px 28px -4px rgba(0, 0, 0, 0.18), 0 2px 6px rgba(0, 0, 0, 0.06) !important; position: relative !important; background: ${cfg.bg} !important; display: flex !important; box-sizing: border-box !important;">
+          <div class="carousel-slide ${cfg.class}" style="width: ${cardWidth}px !important; height: ${cardHeight}px !important; min-width: ${cardWidth}px !important; min-height: ${cardHeight}px !important; max-width: ${cardWidth}px !important; max-height: ${cardHeight}px !important; position: relative !important; left: 0 !important; top: 0 !important; transform: none !important; flex: none !important; flex-shrink: 0 !important; display: flex !important; flex-direction: column !important; border-radius: 15px !important; overflow: hidden !important;">
             ${cfg.html}
           </div>
         </div>
@@ -7176,7 +7248,7 @@ async function capturePostSlidesAsFiles(post, index) {
       const pageBlock = container.querySelector('.essay-page-block');
       if (pageBlock && pageBlock.scrollHeight > pageBlock.clientHeight + 10) {
         const pullquoteEl = pageBlock.querySelector('.essay-highlight-pullquote');
-        const scenePhotoEl = pageBlock.querySelector('.receipt-scene-photo');
+        const sceneFrameEl = pageBlock.querySelector('.photo-aspect-landscape .receipt-scene-frame');
         const bodyParas = Array.from(pageBlock.querySelectorAll('.receipt-p1, .receipt-p3'));
         const baseFontSize = bodyParas[0] ? (parseFloat(window.getComputedStyle(bodyParas[0]).fontSize) || 13.6) : 13.6;
         const scales = [0.97, 0.94, 0.91, 0.88];
@@ -7191,47 +7263,26 @@ async function capturePostSlidesAsFiles(post, index) {
             pullquoteEl.style.setProperty('padding', `${Math.max(5, Math.round(7 * s))}px ${Math.max(9, Math.round(11 * s))}px`, 'important');
             pullquoteEl.style.setProperty('margin-bottom', `${Math.max(5, Math.round(8 * s))}px`, 'important');
           }
-          if (scenePhotoEl && scenePhotoEl.closest('.photo-aspect-landscape')) {
-            scenePhotoEl.style.setProperty('max-height', `${Math.max(95, Math.round(145 * s))}px`, 'important');
+          if (sceneFrameEl) {
+            sceneFrameEl.style.setProperty('max-height', `${Math.max(115, Math.round(155 * s))}px`, 'important');
           }
         }
       }
 
-      // Calculate un-stretched dimensions
-      const bgImgs = container.querySelectorAll('.slide-hook-bg');
-      bgImgs.forEach(img => {
-        const natW = img.naturalWidth || img.width;
-        const natH = img.naturalHeight || img.height;
-        if (natW > 0 && natH > 0) {
-          const rImg = natW / natH;
-          const rBox = cardWidth / cardHeight; // 450 / 600 = 0.75
-          if (rImg >= rBox) {
-            const rw = Math.round(cardHeight * rImg);
-            const rh = cardHeight;
-            const left = Math.round((cardWidth - rw) / 2);
-            img.style.setProperty('position', 'absolute', 'important');
-            img.style.setProperty('width', rw + 'px', 'important');
-            img.style.setProperty('height', rh + 'px', 'important');
-            img.style.setProperty('left', left + 'px', 'important');
-            img.style.setProperty('top', '0px', 'important');
-            img.style.setProperty('max-width', 'none', 'important');
-            img.style.setProperty('max-height', 'none', 'important');
-            img.style.setProperty('object-fit', 'fill', 'important');
-          } else {
-            const rw = cardWidth;
-            const rh = Math.round(cardWidth / rImg);
-            const top = Math.round((cardHeight - rh) / 2);
-            img.style.setProperty('position', 'absolute', 'important');
-            img.style.setProperty('width', rw + 'px', 'important');
-            img.style.setProperty('height', rh + 'px', 'important');
-            img.style.setProperty('left', '0px', 'important');
-            img.style.setProperty('top', top + 'px', 'important');
-            img.style.setProperty('max-width', 'none', 'important');
-            img.style.setProperty('max-height', 'none', 'important');
-            img.style.setProperty('object-fit', 'fill', 'important');
-          }
-        }
-      });
+      // Bake true object-fit: cover crops onto Slide 1 background images and Slide 2 inset scene photos
+      const bgImgs = Array.from(container.querySelectorAll('.slide-hook-bg'));
+      for (const img of bgImgs) {
+        await bakeObjectFitCoverOnImage(img, cardWidth, cardHeight);
+      }
+
+      const sceneImgs = Array.from(container.querySelectorAll('.receipt-scene-photo'));
+      for (const img of sceneImgs) {
+        const frame = img.closest('.receipt-scene-frame') || img.parentElement;
+        const rect = frame ? frame.getBoundingClientRect() : img.getBoundingClientRect();
+        const fw = Math.round(rect.width) || frame?.clientWidth || 145;
+        const fh = Math.round(rect.height) || frame?.clientHeight || 155;
+        await bakeObjectFitCoverOnImage(img, fw, fh);
+      }
 
       // Wait for web fonts (Merriweather, Playfair Display, Space Grotesk) to be 100% ready before rasterizing
       if (document.fonts && document.fonts.ready) {
@@ -7243,27 +7294,32 @@ async function capturePostSlidesAsFiles(post, index) {
       // Micro-delay for fonts and styles to paint
       await new Promise(r => setTimeout(r, 60));
 
+      const h2cBaseOpts = {
+        scale: 3, // 480 * 3 = 1440, 640 * 3 = 1920 (Ultra-Retina 3x supersampling for razor-sharp serif typography)
+        useCORS: true,
+        backgroundColor: '#F8F5EE',
+        logging: false,
+        width: canvasWidth,
+        height: canvasHeight,
+        windowWidth: 1200,
+        windowHeight: 1200,
+        scrollX: 0,
+        scrollY: 0,
+        x: 0,
+        y: 0
+      };
+
       let canvas;
       try {
         canvas = await html2canvas(container, {
-          scale: 3, // 480 * 3 = 1440, 640 * 3 = 1920 (Ultra-Retina 3x supersampling for razor-sharp serif typography)
-          useCORS: true,
-          allowTaint: true,
-          backgroundColor: '#F8F5EE',
-          logging: false,
-          width: canvasWidth,
-          height: canvasHeight
+          ...h2cBaseOpts,
+          allowTaint: true
         });
       } catch (renderErr) {
         console.warn('html2canvas primary render failed, retrying without taint:', renderErr);
         canvas = await html2canvas(container, {
-          scale: 3,
-          useCORS: true,
-          allowTaint: false,
-          backgroundColor: '#F8F5EE',
-          logging: false,
-          width: canvasWidth,
-          height: canvasHeight
+          ...h2cBaseOpts,
+          allowTaint: false
         });
       }
 
@@ -7297,7 +7353,11 @@ async function capturePostSlidesAsFiles(post, index) {
     }
   };
 
-  const files = (await Promise.all(slideConfigs.map(renderSlide))).filter(Boolean);
+  const files = [];
+  for (const cfg of slideConfigs) {
+    const f = await renderSlide(cfg);
+    if (f) files.push(f);
+  }
   if (createdBlobUrl) {
     try { URL.revokeObjectURL(createdBlobUrl); } catch (_) {}
   }
