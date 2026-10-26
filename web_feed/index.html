@@ -27,7 +27,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Merriweather:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,400;1,600;1,700;1,900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261026_2225">
+  <link rel="stylesheet" href="style.css?v=20261026_2240">
   <!-- Favicon & Brand Icons -->
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
@@ -350,6 +350,13 @@
               <div class="anchor-card-title">Inner Voice</div>
               <div class="anchor-card-subtitle">Personal reflection</div>
             </button>
+
+            <!-- 3. Diary Chronicle (Strictly Personal Diary) -->
+            <button type="button" class="anchor-card" data-mode="diary_chronicle" id="anchorDiaryBtn" onclick="setAnchorMode('diary_chronicle')">
+              <div class="anchor-icon-circle anchor-diary">📔</div>
+              <div class="anchor-card-title">Diary Chronicle</div>
+              <div class="anchor-card-subtitle">🔒 Personal • Never goes to people's feed</div>
+            </button>
           </div>
 
           <!-- Dynamic Mental Model Banner -->
@@ -387,18 +394,17 @@
             <div id="sourceLedgerCard" class="source-ledger-card" style="display:none;"></div>
           </div>
 
-          <!-- Inner Voice Trigger Panel: The Spark & Real-World Scene -->
+          <!-- Inner Voice & Diary Chronicle Trigger Panel -->
           <div class="trigger-section" id="triggerVoiceSection" style="display:none;">
-            <!-- Inner Voice Sub-Mode Switcher: Single Reflection vs Daily Chronicle Collage -->
-            <div class="inner-voice-submode-bar" id="innerVoiceSubmodeBar">
+            <!-- Legacy submode bar hidden because Diary Chronicle is now a dedicated top-level category -->
+            <div class="inner-voice-submode-bar" id="innerVoiceSubmodeBar" style="display:none !important;">
               <button type="button" class="inner-voice-submode-pill active" id="innerVoiceSubSingleBtn" onclick="setInnerVoiceSubmode('single')">
                 <span class="submode-icon">💭</span>
                 <span class="submode-label">Single Reflection</span>
               </button>
               <button type="button" class="inner-voice-submode-pill" id="innerVoiceSubChronicleBtn" onclick="setInnerVoiceSubmode('chronicle')">
-                <span class="submode-icon">📓</span>
-                <span class="submode-label">Daily Chronicle (Collage)</span>
-                <span class="submode-new-badge">NEW</span>
+                <span class="submode-icon">📔</span>
+                <span class="submode-label">Diary Chronicle</span>
               </button>
             </div>
 
@@ -445,14 +451,14 @@
               </div>
             </div>
 
-            <!-- Daily Chronicle Banner (Shown when Daily Chronicle mode is selected) -->
+            <!-- Diary Chronicle Banner (Shown when Diary Chronicle category is selected) -->
             <div class="daily-chronicle-intro-banner" id="dailyChronicleIntroBanner" style="display:none;">
               <div class="chronicle-banner-top">
-                <span class="chronicle-banner-badge">📓 DAILY CHRONICLE &amp; RADIAL MONTAGE</span>
-                <span class="chronicle-banner-meta">You at Center + 2 to 4 Day Vignettes</span>
+                <span class="chronicle-banner-badge">📔 DIARY CHRONICLE • 🔒 STRICTLY PERSONAL</span>
+                <span class="chronicle-banner-meta">Personal Diary Only • Never Goes to People's Feed</span>
               </div>
               <p class="chronicle-banner-desc">
-                Share 2 to 4 distinct moments from your day (2 to 3 lines each). Attach an optional photo to any moment card to weave that scene into a single unified collage with you at the center.
+                This is your private personal diary and will <strong>never go to people's feed</strong>. Record 2 to 4 distinct moments from your day, and tap <strong>★ Star</strong> on the moment you feel is most important to give it more space in Poster 1.
               </p>
             </div>
           </div>
@@ -2207,6 +2213,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261026_2225"></script>
+  <script src="app.js?v=20261026_2240"></script>
 </body>
 </html>
