@@ -7229,13 +7229,20 @@ async function capturePostSlidesAsFiles(post, index) {
         }
       });
 
+      // Wait for web fonts (Merriweather, Playfair Display, Space Grotesk) to be 100% ready before rasterizing
+      if (document.fonts && document.fonts.ready) {
+        try {
+          await document.fonts.ready;
+        } catch (_) {}
+      }
+
       // Micro-delay for fonts and styles to paint
       await new Promise(r => setTimeout(r, 60));
 
       let canvas;
       try {
         canvas = await html2canvas(container, {
-          scale: 2.25, // 480 * 2.25 = 1080, 640 * 2.25 = 1440 (Ultra HD 1080x1440, perfect 3:4 Instagram portrait)
+          scale: 3, // 480 * 3 = 1440, 640 * 3 = 1920 (Ultra-Retina 3x supersampling for razor-sharp serif typography)
           useCORS: true,
           allowTaint: true,
           backgroundColor: '#F8F5EE',
@@ -7246,7 +7253,7 @@ async function capturePostSlidesAsFiles(post, index) {
       } catch (renderErr) {
         console.warn('html2canvas primary render failed, retrying without taint:', renderErr);
         canvas = await html2canvas(container, {
-          scale: 2.25,
+          scale: 3,
           useCORS: true,
           allowTaint: false,
           backgroundColor: '#F8F5EE',
@@ -7256,7 +7263,7 @@ async function capturePostSlidesAsFiles(post, index) {
         });
       }
 
-      let blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.95));
+      let blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.97));
       if (!blob) {
         try {
           const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
