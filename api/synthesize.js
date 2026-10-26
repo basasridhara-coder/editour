@@ -2667,10 +2667,19 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
   const isIndianFamilyCast = (!countryContext || /india/i.test(countryContext));
 
   if (hasFamilyContext && isIndianFamilyCast) {
-    const headcountAnchor = 'GROUP PORTRAIT OF EXACTLY FOUR (4) DISTINCT INDIVIDUAL PEOPLE VISIBLE SIDE BY SIDE (3 MALES, 1 FEMALE). STRICT COUNT = 4 PEOPLE: 1) Adult Father (man, mid 40s) with sturdy broad-shouldered build, 2) Adult Mother (woman, mid 30s) with natural healthy medium adult build (strictly not ultra-slim or runway model thin), 3) Elder Son (11-year-old pre-teen boy) reaching father chest level with healthy sturdy youth build and square shoulders (not skinny, not frail), 4) Younger Son (7-year-old young schoolboy) noticeably shorter reaching older brother shoulder with healthy solid child proportions. REALISTIC NATURAL HUMAN BUILDS, STRICT BAN ON SKINNY OR WAIF-LIKE BODIES. BOTH SONS ARE SEPARATE INDIVIDUAL PEOPLE. STRICT BAN ON MERGING: Do NOT draw only one child; both the 11yo boy and 7yo boy must be fully drawn side by side. ';
+    const headcountAnchor = 'GROUP PORTRAIT OF EXACTLY FOUR (4) DISTINCT INDIVIDUAL PEOPLE STANDING ON THE SAME LEVEL FLOOR WITH CLEAR GRADUATED HEIGHT DIFFERENCES (3 MALES, 1 FEMALE). STRICT COUNT = 4 PEOPLE: 1) Adult Father (man, mid 40s, tallest adult) with sturdy broad-shouldered build, 2) Adult Mother (woman, mid 30s, second tallest adult) with natural healthy medium adult build (strictly not ultra-slim or runway model thin), 3) Elder Son (Gahan, 11-year-old tall pre-teen boy whose head reaches up to his Mother\'s shoulder/chin and Father\'s upper chest/collarbone) with sturdy youth build wearing a DARK NAVY-BLUE casual t-shirt, 4) Younger Son (Rishu, 7-year-old young schoolboy standing a full head shorter than his older brother so the top of his head reaches to his older brother\'s shoulder/upper chest and his Mother\'s elbow/waist level) with soft round child cheeks wearing a CONTRASTING BRIGHT EMERALD-GREEN OR MUSTARD-YELLOW t-shirt. STRICT BAN ON EQUAL-HEIGHT SONS OR MATCHING WHITE SHIRTS: Never draw the two boys at the same height and never dress them in identical white polo shirts. ';
     if (!enhancedPrompt.includes('EXACTLY FOUR') && !enhancedPrompt.includes('STRICT COUNT = 4')) {
       enhancedPrompt = headcountAnchor + enhancedPrompt;
     }
+
+    // Rewrite confusing numeric foot/inch strings and chest-level compression so Gemini creates an unmistakable height difference between the 11yo and 7yo sons
+    enhancedPrompt = enhancedPrompt
+      .replace(/standing at 4ft 10in,\s*reaching to father chest level/gi, 'tall pre-teen boy whose head reaches up to his mother\'s shoulder/chin and father\'s collarbone level, wearing a dark navy-blue casual t-shirt')
+      .replace(/reaching (?:only )?to father(?:'s)? chest level/gi, 'tall pre-teen whose head reaches up to his mother\'s shoulder/chin and father\'s collarbone level, wearing a dark navy-blue casual t-shirt')
+      .replace(/standing at (?:4ft 2in|3ft 11in),\s*reaching only to his older brother(?:'s)? shoulder/gi, 'shorter 7-year-old schoolboy standing a full head shorter than his older brother, with the top of his head reaching to his older brother\'s shoulder/upper chest, wearing a contrasting bright green or warm mustard-yellow t-shirt')
+      .replace(/reaching only to (?:his )?older brother(?:'s)? shoulder/gi, 'standing a full head shorter than his older brother, with the top of his head reaching to his older brother\'s shoulder/upper chest, wearing a contrasting bright green or mustard-yellow t-shirt')
+      .replace(/\b4ft\s*10in\b|\b147\s*cm\b/gi, 'tall pre-teen stature reaching mother\'s shoulder/chin')
+      .replace(/\b4ft\s*2in\b|\b3ft\s*11in\b|\b120\s*cm\b/gi, 'shorter 7yo stature reaching older brother\'s shoulder/upper chest');
 
     // Sanitize detached foreground hands, salon blowout hair, and remove skinny runway-model biases
     enhancedPrompt = enhancedPrompt
@@ -3094,12 +3103,12 @@ function getDefaultFamilyCast(userIdentifier) {
         relationship: 'elder_son',
         roleLabel: 'Elder Son (Age 11)',
         name: 'Elder Son',
-        aliases: ['elder son', 'older son', 'older boy', 'elder brother', 'big brother', 'first son', '11-year-old', '11yo'],
+        aliases: ['gahan', 'elder son', 'older son', 'older boy', 'elder brother', 'big brother', 'first son', '11-year-old', '11yo'],
         age: 11,
         ageBracket: 'Pre-teen / Adolescent (11 Years Old)',
-        heightDesc: '4ft 10in (147cm): Stands a full head taller than his younger brother',
-        uncompromisableAnchors: 'Warm brown-skinned 11-year-old pre-teen Indian boy with neat short dark hair, square shoulders, sturdy healthy youth build (strictly not skinny, not frail), stands visibly a full head taller than his younger brother.',
-        visualTraits: '11-year-old pre-teen boy, healthy sturdy build with square shoulders, distinct mature pre-teen facial structure, neat side-parted dark hair, visibly older and taller by a head than his younger brother.',
+        heightDesc: 'Tall pre-teen stature: Head reaches up to Mother\'s shoulder/chin and Father\'s collarbone, stands a full head taller than his younger brother',
+        uncompromisableAnchors: 'Warm brown-skinned 11-year-old tall pre-teen Indian boy with neat short dark hair, square shoulders, sturdy healthy youth build (strictly not skinny, not frail), head reaches up to his mother\'s shoulder/chin, stands visibly a full head taller than his younger brother, wearing a dark navy-blue casual t-shirt.',
+        visualTraits: '11-year-old tall pre-teen boy, healthy sturdy build with square shoulders, distinct mature pre-teen facial structure, neat side-parted dark hair, head reaching mother\'s shoulder/chin, visibly older and taller by a full head than his younger brother.',
         vehicleRole: 'passenger_rear_right',
         defaultClothing: 'Navy blue or dark graphic tee / hoodie',
         stylizedAvatarUrl: 'https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/avatar_member_elder_son.jpg'
@@ -3109,12 +3118,12 @@ function getDefaultFamilyCast(userIdentifier) {
         relationship: 'younger_son',
         roleLabel: 'Younger Son (Age 7)',
         name: 'Younger Son',
-        aliases: ['younger son', 'little son', 'younger boy', 'younger brother', 'little brother', 'second son', '7-year-old', '7yo'],
+        aliases: ['rishu', 'younger son', 'little son', 'younger boy', 'younger brother', 'little brother', 'second son', '7-year-old', '7yo'],
         age: 7,
         ageBracket: 'Young Child / Primary School (7 Years Old)',
-        heightDesc: '3ft 11in (120cm): Head reaches only to older brother\'s shoulder',
-        uncompromisableAnchors: 'Warm brown-skinned 7-year-old schoolboy with soft rounded cheeks, expressive playful eyes, wavy dark hair, healthy solid child proportions, head reaches only to his older brother shoulder.',
-        visualTraits: '7-year-old young schoolboy, noticeably shorter by a full head, top of head reaches only to his older brother\'s shoulder, soft round youthful child cheeks, playful energetic expression, wavy dark hair, lively child proportions.',
+        heightDesc: 'Shorter 7yo child stature: Head reaches only to older brother\'s shoulder/upper chest, stands a full head shorter than older brother',
+        uncompromisableAnchors: 'Warm fair-skinned 7-year-old schoolboy with soft rounded cheeks, expressive playful eyes, wavy dark hair, healthy solid child proportions, stands a full head shorter than his older brother so his head reaches only to his older brother\'s shoulder/upper chest, wearing a contrasting bright emerald-green or mustard-yellow graphic t-shirt.',
+        visualTraits: '7-year-old young schoolboy, noticeably shorter by a full head, top of head reaches only to his older brother\'s shoulder/upper chest, soft round youthful child cheeks, playful energetic expression, wavy dark hair, lively child proportions.',
         vehicleRole: 'passenger_rear_left',
         defaultClothing: 'Mustard yellow or bright green graphic t-shirt',
         stylizedAvatarUrl: 'https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/avatar_member_younger_son.jpg'
@@ -3131,7 +3140,12 @@ function getDefaultFamilyCast(userIdentifier) {
 
 function detectRelevantCastMembers(combined = '', cast = null) {
   const c = String(combined || '').toLowerCase();
-  const members = (cast && Array.isArray(cast.members)) ? cast.members : [];
+  const rawMembers = (cast && Array.isArray(cast.members)) ? cast.members : [];
+  const members = rawMembers.filter(m => m && (
+    (m.name && String(m.name).trim())
+    || (m.roleLabel && String(m.roleLabel).trim() && String(m.roleLabel).trim() !== 'New Member')
+    || ['self', 'spouse', 'elder_son', 'younger_son'].includes(m.relationship)
+  ));
 
   // 0. First-Person Separation / Solitude Scene:
   // When the narrator (Father / Self) writes that he is alone, stuck in one city while wife/kids are away,
@@ -3142,7 +3156,7 @@ function detectRelevantCastMembers(combined = '', cast = null) {
     return new Set([selfMember.id]);
   }
 
-  const mentionsCollective = /\b(my family|our family|the four of us|all four of us|my kids|our kids|my sons|our sons|both my boys|both our boys|my children|our children|11 and 7|11yo and 7yo|road trip with my family|vacation with my family)\b/i.test(c);
+  const mentionsCollective = /\b(my family|our family|the four of us|all four of us|my kids|our kids|the kids|kids returned|kids and|and the kids|my sons|our sons|both my boys|both our boys|both boys|my children|our children|11 and 7|11yo and 7yo|road trip with my family|vacation with my family)\b/i.test(c);
   if (mentionsCollective) {
     return new Set(members.map(m => m.id));
   }
@@ -3182,7 +3196,7 @@ function detectRelevantCastMembers(combined = '', cast = null) {
         detected.add(m.id);
       }
     } else if (m.relationship === 'spouse') {
-      if (/\b(my wife|my spouse|with my wife|aru)\b/i.test(c)) {
+      if (/\b(my wife|my spouse|with my wife|aru|aruna)\b/i.test(c)) {
         detected.add(m.id);
       }
     } else if (m.relationship === 'self') {
@@ -3282,12 +3296,12 @@ ${activeMembers.map((m, i) => `  * Person #${i + 1}: ${m.name || m.roleLabel} ($
 
   // 1. Strict Age & Height Differentiation
   if (hasElderBoy && hasYoungerBoy) {
-    directives.push(`BIOLOGICAL AGE & HEIGHT CONTRAST:
-- Unmistakable 4-year age gap between the two brothers:
-  * ELDER BROTHER (Age 11): Pre-teen adolescent boy (around 147cm / 4ft 10in). Top of his head reaches only to the chest level of his adult father. Strictly NOT as tall as the father or mother; distinctly a pre-teen child with youthful rounded facial structure and sturdy youth build (not skinny, not frail).
-  * YOUNGER BROTHER (Age 7): Young primary school child (around 120cm / 3ft 11in). Noticeably shorter, top of his head reaches only to his older brother shoulder, soft round youthful child cheeks, lively playful child proportions, wavy dark hair.
-- STRICT BAN ON CLONING OR ADULT AGING: NEVER draw identical twins, NEVER uniform height! NEVER draw the 11-year-old elder son as tall as an adult or teenager; he must stand distinctly at father chest height with child/pre-teen proportions.`);
-    promptSnippets.push('two brothers with distinct 4-year age gap: older 11-year-old pre-teen boy reaching father chest height standing a head taller than his younger 7-year-old brother whose head reaches only older brother shoulder, strictly not twins');
+    directives.push(`BIOLOGICAL AGE, GRADUATED HEIGHT CONTRAST & CONTRASTING OUTFIT COLORS:
+- Unmistakable 4-year height difference between the two brothers standing on the same level floor (NEVER use feet/inches numbers like 4ft 10in or 4ft 2in in the prompt, as numbers confuse image generators into drawing equal-height twins):
+  * ELDER BROTHER (Gahan, Age 11 - TALL PRE-TEEN): Tall pre-teen boy whose head reaches UP TO HIS MOTHER'S SHOULDER / CHIN and HIS FATHER'S COLLARBONE LEVEL. Longer pre-teen torso and legs, sturdy square-shouldered youth build, wearing a DARK NAVY-BLUE casual t-shirt.
+  * YOUNGER BROTHER (Rishu, Age 7 - SHORTER SCHOOLBOY): Shorter 7-year-old schoolboy standing A FULL HEAD SHORTER than his older brother. The top of his head reaches ONLY TO HIS OLDER BROTHER'S SHOULDER / UPPER CHEST and HIS MOTHER'S ELBOW / WAIST LEVEL. Soft round child cheeks, wavy dark hair, wearing a contrasting BRIGHT EMERALD-GREEN or MUSTARD-YELLOW graphic t-shirt.
+- STRICT BAN ON EQUAL-HEIGHT TWINS OR MATCHING SHIRTS: NEVER draw the two boys at the same height! NEVER dress both boys in matching white polo shirts or identical school uniforms (matching outfits cause image models to clone their heights). Always give the tall 11yo Elder Son a dark navy-blue shirt and the shorter 7yo Younger Son a bright green or warm mustard-yellow t-shirt.`);
+    promptSnippets.push('two brothers standing on the same level floor with clear height difference and contrasting shirt colors: tall 11-year-old Elder Son (head reaching up to Mother\'s shoulder/chin and Father\'s collarbone, wearing dark navy-blue t-shirt) standing a full head taller than his shorter 7-year-old Younger Son (head reaching to Elder Son\'s shoulder/upper chest, wearing bright emerald-green or mustard-yellow t-shirt; strictly NOT equal height and strictly NOT matching white shirts)');
   }
 
   // 1b. Realistic Authentic Body Statures (Strict Ban on Skinny / Runway Model Bias)
