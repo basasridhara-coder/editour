@@ -202,7 +202,9 @@ module.exports = async function handler(req, res) {
         originalHeadline = '',
         scrapedTitle = '',
         scrapedContent = '',
-        customDirection = ''
+        customDirection = '',
+        chronicleMode = false,
+        chronicleMomentImages = []
       } = body;
       let userEmail = (creatorEmail || '').toLowerCase().trim();
       if (!userEmail) {
@@ -341,7 +343,9 @@ STRICT RULES:
           familyCast,
           activeCast,
           stylizedAvatars,
-          countryContext
+          countryContext,
+          chronicleMode,
+          chronicleMomentImages
         });
         if (geminiArt) {
           const cleanB64 = geminiArt.replace(/^data:image\/[^;]+;base64,/, '');
@@ -1179,8 +1183,15 @@ Respond strictly with valid JSON with this exact structure:
       sourceLedger = null,
       familyCast = null,
       activeCast = null,
-      castStaging = null
+      castStaging = null,
+      chronicleMode = false,
+      chronicleMoments = []
     } = body || {};
+
+    const validChronicleMoments = Array.isArray(chronicleMoments)
+      ? chronicleMoments.filter(m => m && String(m.text || '').trim().length >= 2)
+      : [];
+    const isChronicle = Boolean(chronicleMode && validChronicleMoments.length >= 2);
 
     if (sourceImageUrl && typeof sourceImageUrl === 'string') {
       sourceImageUrl = decodeHtmlEntities(sourceImageUrl).replace(/&amp;/g, '&').trim();
@@ -1524,7 +1535,26 @@ ${refineCoreTake ? `- Poster 2 ("THE CRITICAL PERSPECTIVE" / curatorTake) is an 
   * RETAIN their explicit proper nouns, organizations (e.g. "RSS", "Vijayadashami", "Maa Bharati"), metaphors, idioms, and contrasts.
   * Polish the grammar, articles, and prepositions so their authentic voice rings with crisp, effortless, natural English.` : `- USE TAKE AS-IS (VERBATIM): The curator chose to keep their exact typed take as-is on Poster 2.
 - In "curatorTake", you MUST output the curator's authentic take: "${userSlant}" verbatim without rephrasing or altering their sentence structure.`}` : ''}
-${sourceType === 'inner_voice' ? `CRITICAL INNER VOICE & LIVED EXPERIENCE DIRECTIVE (ELABORATE USER VOICE ONLY, ZERO CONCEPT FABRICATION):
+${sourceType === 'inner_voice' && isChronicle ? `CRITICAL DAILY CHRONICLE & MULTI-MOMENT RADIAL COLLAGE DIRECTIVE:
+- The curator is recording a DAILY CHRONICLE (Diary / Multi-Moment Day in Review) consisting of ${validChronicleMoments.length} distinct moments from their day:
+${validChronicleMoments.map((m, i) => `  * Moment 0${i + 1} (${m.title || 'Moment ' + (i + 1)}${m.hasPhoto ? ' [Photo Attached]' : ''}): "${m.text}"`).join('\n')}
+- 1. SLIDE 1 HEADLINE ("adaptedHeadline") & BADGE ("categoryBadge"):
+  * Set "categoryBadge" to "DAILY CHRONICLE" and "publicationName" to "Daily Chronicle".
+  * Set "adaptedHeadline" to a warm, unifying 7 to 12 word headline that connects the themes or rhythm of these ${validChronicleMoments.length} moments of the day.
+- 2. SLIDE 2 SIGNED SLANT NOTE ("curatorTake"):
+  * Write an authentic 2-sentence unifying reflection (25-35 words total) capturing the common thread or feeling that ties today's moments together.
+- 3. SLIDES 2 & 3 MOMENT BRIEFS ("resolvedArticleExcerpts" and "summary"):
+  * DO NOT merge the moments into one continuous generic essay!
+  * Instead, output ${validChronicleMoments.length} distinct, vivid micro-entries in "resolvedArticleExcerpts" (one array element per moment, 35-55 words / 2-3 polished sentences each), preserving 100% of the author's voice and details.
+  * Format each array element with its numbered moment header followed by a colon:
+    ${validChronicleMoments.map((m, i) => `"0${i + 1} · ${m.title || 'Moment ' + (i + 1)}: [2-3 polished, natural sentences capturing Moment 0${i + 1}]"`).join(',\n    ')}
+  * Set "summary" to those exact ${validChronicleMoments.length} formatted entries joined by "\\n\\n".
+- 4. CLOSING THREAD ("whyItMatters"):
+  * Write a 1-2 sentence closing takeaway ("The Day's Thread") connecting what the day taught or meant.
+- 5. RADIAL MONTAGE / COLLAGE ARTWORK PROMPT ("illustrationPrompt"):
+  * Describe a cohesive editorial broadsheet montage / radial story collage where the central protagonist is a fit mid-age 40-year-old Indian man in his prime early 40s (Shridhar, full head of thick short jet-black hair, smooth unwrinkled forehead, neat short dark trimmed beard, sturdy broad-shouldered build, strictly NOT old or elderly) anchored in the center foreground, surrounded by ${validChronicleMoments.length} seamless radial vignettes illustrating each moment of his day:
+    ${validChronicleMoments.map((m, i) => `Vignette ${i + 1}: ${m.text}`).join(' | ')}
+  * Strictly zero text, letters, or numbers in the image.` : (sourceType === 'inner_voice' ? `CRITICAL INNER VOICE & LIVED EXPERIENCE DIRECTIVE (ELABORATE USER VOICE ONLY, ZERO CONCEPT FABRICATION):
 - This is an INNER VOICE perspective rooted in the curator's personal life, emotional experience, philosophical stance, or daily human reality.
 - MATCH THE EXACT EMOTIONAL ENERGY & SUBJECT OF THE USER'S INPUT:
   * Faithfully mirror the specific topic, mood, setting, and emotional warmth present in "${userSlant}"${spark ? ` and "${spark}"` : ''}.
@@ -1538,7 +1568,7 @@ ${sourceType === 'inner_voice' ? `CRITICAL INNER VOICE & LIVED EXPERIENCE DIRECT
     3. Paragraph 3 (The Core Conviction / Lasting Truth, 55-70 words, 3 sentences): Articulate the curator's closing takeaway, personal truth, or principle for living/working/parenting.
   * STRICT BAN: NEVER prefix paragraphs with labels like "The spark:", "Curator stance:", "Paragraph 1:", or bullet points! Output pure, narrative broadsheet text.
 - IN "originalHeadline":
-  * Set to the spark statement or a refined 6 to 12 word hook capturing the catalyst moment. NEVER set to the raw full-length user slant.` : ''}
+  * Set to the spark statement or a refined 6 to 12 word hook capturing the catalyst moment. NEVER set to the raw full-length user slant.` : '')}
 ${sourceType === 'video_audio' ? `CRITICAL VIDEO & AUDIO BROADCAST DIRECTIVE:
 - This slant is rooted in a VIDEO or AUDIO broadcast (e.g. YouTube interview, podcast episode, keynote, or debate).
 - Mental model: "I watched/listened to something that sparked a reaction."
@@ -1841,7 +1871,9 @@ Respond strictly with valid JSON with this exact structure:
         creatorHandle,
         characterRepresentation,
         refineCoreTake,
-        sourceLedger
+        sourceLedger,
+        isChronicle,
+        validChronicleMoments
       });
     }
 
@@ -2203,7 +2235,9 @@ function generateSmartFallbackSynthesis({
   creatorHandle,
   characterRepresentation,
   refineCoreTake = true,
-  sourceLedger = null
+  sourceLedger = null,
+  isChronicle = false,
+  validChronicleMoments = []
 }) {
   const isStrictlyInnerVoice = (sourceType === 'inner_voice');
   const combined = `${userSlant || ''} ${spark || ''} ${extractedTitle || ''} ${extractedContent || ''}`.toLowerCase();
@@ -2214,6 +2248,44 @@ function generateSmartFallbackSynthesis({
   const atmosphere = (cues && cues[3]) || 'Atmospheric Minimalist Setting';
   const lighting = (cues && cues[4]) || 'Dramatic Chiaroscuro Editorial Spotlight';
   const style = (cues && cues[5]) || 'Cinematic Warm Editorial Illustration';
+
+  if (isStrictlyInnerVoice && isChronicle && Array.isArray(validChronicleMoments) && validChronicleMoments.length >= 2) {
+    const formattedEntries = validChronicleMoments.map((m, i) => {
+      const numStr = String(i + 1).padStart(2, '0');
+      const titleStr = String(m.title || `Moment ${numStr}`).trim();
+      const bodyStr = formatCuratorTakeApt(String(m.text || '').trim());
+      return `${numStr} · ${titleStr}: ${bodyStr.endsWith('.') ? bodyStr : bodyStr + '.'}`;
+    });
+    const titlesList = validChronicleMoments.map(m => String(m.title || '').trim()).filter(Boolean);
+    const chronicleHeadline = titlesList.length >= 2
+      ? `Snapshots of the Day: ${titlesList.slice(0, 3).join(', ')}`
+      : 'Snapshots from an Intentional Day in Motion';
+
+    return {
+      adaptedHeadline: chronicleHeadline,
+      originalHeadline: chronicleHeadline,
+      publicationName: 'Daily Chronicle',
+      categoryBadge: 'DAILY CHRONICLE',
+      hook: `A day captured in ${validChronicleMoments.length} distinct moments of work, family, and reflection.`,
+      curatorTake: 'Each small moment of a day carries its own quiet rhythm. Looking back at them together reveals what truly anchors our time and attention.',
+      polishedCuratorTake: formattedEntries.join('\n\n'),
+      creatorOpinion: 'Each small moment of a day carries its own quiet rhythm. Looking back at them together reveals what truly anchors our time and attention.',
+      summary: formattedEntries.join('\n\n'),
+      whyItMatters: 'Capturing the distinct moments of an ordinary day turns fleeting routines into lasting personal clarity.',
+      keyTakeaways: formattedEntries.slice(0, 3),
+      receiptHighlightQuote: 'Looking back across the moments of a single day reveals the quiet thread that holds our routines together.',
+      resolvedArticleExcerpts: formattedEntries,
+      keyMetric: `${validChronicleMoments.length} Day Moments`,
+      visualMood: 'Warm Editorial Radial Montage',
+      heroCue: 'Fit 40yo Mid-Age Indian Man (Shridhar) at Center',
+      motifCue: 'Radial Story Vignettes of the Day',
+      tensionCue: 'Balance of Daily Rhythm and Quiet Reflection',
+      atmosphereCue: 'Warm Indian Broadsheet Montage',
+      lightingCue: 'Golden Hour and Warm Daylight Vignettes',
+      styleCue: style,
+      illustrationPrompt: `Cohesive editorial broadsheet radial montage with a fit mid-age 40-year-old Indian man in his prime early 40s (Shridhar, full head of thick short jet-black hair, smooth unwrinkled forehead, neat short dark trimmed beard, sturdy broad-shouldered build, strictly NOT old or elderly) anchored in the center foreground, surrounded by ${validChronicleMoments.length} seamless radial vignettes illustrating each moment of his day: ${validChronicleMoments.map((m, i) => `Vignette ${i + 1}: ${m.text}`).join(' | ')}. Warm natural lighting, zero text or letters.`
+    };
+  }
 
   // 1. Genuine Personal Reflection / Inner Voice Fallback
   if (isStrictlyInnerVoice) {
@@ -2553,7 +2625,7 @@ function isLikelyPersonSubject(name) {
   return personKeywords.some(w => lower.includes(w));
 }
 
-async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeType = 'image/jpeg', timeoutMs = 35000, familyCast = null, activeCast = null, stylizedAvatars = null, countryContext = '' }) {
+async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeType = 'image/jpeg', timeoutMs = 35000, familyCast = null, activeCast = null, stylizedAvatars = null, countryContext = '', chronicleMode = false, chronicleMomentImages = [] }) {
   if (!GEMINI_API_KEY) return null;
 
   // If a remote HTTP/HTTPS URL was passed instead of base64, fetch and convert to base64 safely
@@ -2689,8 +2761,28 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
     ? 'sharp focus, natural skin textures, 35mm film grain, authentic ambient lighting'
     : 'painterly texture, dramatic lighting';
 
+  const validMomentImages = Array.isArray(chronicleMomentImages)
+    ? chronicleMomentImages.filter(m => m && m.imageBase64 && typeof m.imageBase64 === 'string')
+    : [];
+
   const parts = [];
-  if (Array.isArray(stylizedAvatars) && stylizedAvatars.length > 0) {
+  if (validMomentImages.length > 0) {
+    validMomentImages.forEach((m, i) => {
+      const cleanB64 = m.imageBase64.includes(',') ? m.imageBase64.split(',')[1] : m.imageBase64;
+      parts.push({
+        inlineData: {
+          mimeType: m.imageMimeType || 'image/jpeg',
+          data: cleanB64
+        }
+      });
+      parts.push({
+        text: `Reference Photo #${i + 1} for Day Vignette 0${m.index || (i + 1)} (${m.title || 'Moment ' + (i + 1)}): "${m.text || ''}". Incorporate the scene, objects, and composition of this photo into Vignette 0${m.index || (i + 1)} of the radial montage.`
+      });
+    });
+    parts.push({
+      text: `Create a cohesive 4:5 vertical editorial broadsheet montage / radial story collage: ${enhancedPrompt}. Put the central protagonist (fit mid-age 40-year-old Indian man in his prime early 40s, Shridhar, full head of thick short jet-black hair, smooth unwrinkled forehead, neat short dark trimmed beard, sturdy broad-shouldered build, strictly NOT old or elderly) at the center foreground, surrounded by the distinct vignettes of his day (using the attached Reference Photos for their corresponding vignettes and illustrating the remaining moments seamlessly in the same style). ${textureStyle}, masterwork, strictly zero text, no letters, no numbers.`
+    });
+  } else if (Array.isArray(stylizedAvatars) && stylizedAvatars.length > 0) {
     stylizedAvatars.forEach((av, i) => {
       const cleanAv = av.imageBase64.includes(',') ? av.imageBase64.split(',')[1] : av.imageBase64;
       parts.push({

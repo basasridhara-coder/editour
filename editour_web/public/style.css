@@ -19963,6 +19963,351 @@ mark.polish-mark:hover, mark.polish-mark.active {
   background: rgba(245, 158, 11, 0.22);
 }
 
+/* Inner Voice Sub-Mode Switcher & Daily Chronicle Multi-Moment Deck */
+.inner-voice-submode-bar {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 5px;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  margin-bottom: 12px;
+}
+
+[data-theme="daylight"] .inner-voice-submode-bar {
+  background: #F1F5F9;
+  border-color: #CBD5E1;
+}
+
+.inner-voice-submode-pill {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 10px;
+  border-radius: 9px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: 'Space Grotesk', 'Inter', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.inner-voice-submode-pill:hover {
+  color: var(--text-primary);
+}
+
+.inner-voice-submode-pill.active {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.22) 0%, rgba(245, 158, 11, 0.22) 100%);
+  border-color: rgba(245, 158, 11, 0.55);
+  color: var(--text-primary);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="daylight"] .inner-voice-submode-pill.active {
+  background: #FFFFFF;
+  border-color: #D97706;
+  color: #0F172A;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
+}
+
+.submode-new-badge {
+  font-size: 9px;
+  font-weight: 800;
+  padding: 1.5px 5px;
+  border-radius: 999px;
+  background: #F59E0B;
+  color: #0F172A;
+  letter-spacing: 0.04em;
+}
+
+.daily-chronicle-intro-banner {
+  padding: 11px 13px;
+  border-radius: 11px;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(139, 92, 246, 0.08) 100%);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+.chronicle-banner-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.chronicle-banner-badge {
+  font-family: 'Space Grotesk', 'Inter', sans-serif;
+  font-size: 11px;
+  font-weight: 800;
+  color: #F59E0B;
+  letter-spacing: 0.05em;
+}
+
+[data-theme="daylight"] .chronicle-banner-badge {
+  color: #B45309;
+}
+
+.chronicle-banner-meta {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.chronicle-banner-desc {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.daily-chronicle-deck-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.daily-chronicle-cards-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.chronicle-moment-card {
+  padding: 11px 12px;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.45);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: border-color 0.18s ease;
+}
+
+[data-theme="daylight"] .chronicle-moment-card {
+  background: #F8FAFC;
+  border-color: #CBD5E1;
+}
+
+.chronicle-moment-card:focus-within {
+  border-color: #F59E0B;
+}
+
+.chronicle-moment-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.chronicle-moment-left {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex: 1;
+  min-width: 0;
+}
+
+.chronicle-moment-num-badge {
+  font-family: 'Space Grotesk', 'Inter', sans-serif;
+  font-size: 10.5px;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(245, 158, 11, 0.16);
+  color: #F59E0B;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+
+[data-theme="daylight"] .chronicle-moment-num-badge {
+  background: rgba(217, 119, 6, 0.14);
+  color: #B45309;
+}
+
+.chronicle-moment-title-input {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 8px;
+  border-radius: 7px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(15, 23, 42, 0.35);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+[data-theme="daylight"] .chronicle-moment-title-input {
+  background: #FFFFFF;
+  border-color: #CBD5E1;
+  color: #0F172A;
+}
+
+.chronicle-moment-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.chronicle-moment-photo-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border-radius: 8px;
+  border: 1px dashed rgba(245, 158, 11, 0.45);
+  background: rgba(245, 158, 11, 0.08);
+  color: #F59E0B;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.16s ease;
+}
+
+[data-theme="daylight"] .chronicle-moment-photo-btn {
+  color: #B45309;
+  border-color: rgba(180, 83, 9, 0.45);
+}
+
+.chronicle-moment-photo-btn:hover {
+  background: rgba(245, 158, 11, 0.18);
+}
+
+.chronicle-moment-photo-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px 3px 4px;
+  border-radius: 8px;
+  background: rgba(16, 185, 129, 0.14);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  color: #10B981;
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+[data-theme="daylight"] .chronicle-moment-photo-chip {
+  color: #047857;
+}
+
+.chronicle-moment-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  object-fit: cover;
+}
+
+.chronicle-moment-photo-remove {
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  padding: 0 2px;
+}
+
+.chronicle-moment-delete-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 6px;
+}
+
+.chronicle-moment-delete-btn:hover {
+  color: #EF4444;
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.chronicle-moment-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(15, 23, 42, 0.35);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.45;
+  resize: vertical;
+  min-height: 54px;
+}
+
+[data-theme="daylight"] .chronicle-moment-textarea {
+  background: #FFFFFF;
+  border-color: #CBD5E1;
+  color: #0F172A;
+}
+
+.daily-chronicle-deck-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.chronicle-add-moment-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px dashed rgba(245, 158, 11, 0.5);
+  background: rgba(245, 158, 11, 0.08);
+  color: #F59E0B;
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.16s ease;
+}
+
+[data-theme="daylight"] .chronicle-add-moment-btn {
+  color: #B45309;
+}
+
+.chronicle-add-moment-btn:hover:not(:disabled) {
+  background: rgba(245, 158, 11, 0.18);
+}
+
+.chronicle-add-moment-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.chronicle-moments-count-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.chronicle-moment-inline-tag {
+  font-family: 'Space Grotesk', 'Inter', sans-serif;
+  font-weight: 800;
+  color: #B45309;
+  letter-spacing: 0.02em;
+  margin-right: 4px;
+}
+
+[data-theme="obsidian"] .chronicle-moment-inline-tag {
+  color: #D97706;
+}
+
+
 
 
 

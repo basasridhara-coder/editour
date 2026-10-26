@@ -4847,15 +4847,29 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
     }
   }
 
+  const formatBroadsheetPara = (txt, isLead = false, extraClass = "") => {
+    const clean = String(txt || "").trim();
+    const momentMatch = clean.match(/^((?:0?[1-9]|Moment\s+\d+)\s*[·•.-]?\s*[^:]{1,38}:)\s*([\s\S]+)$/i);
+    if (momentMatch) {
+      const cls = ["receipt-p3", "chronicle-moment-para", extraClass].filter(Boolean).join(" ");
+      return `<p class="${cls}"><strong class="chronicle-moment-inline-tag">${escapeHtml(momentMatch[1])}</strong> ${escapeHtml(momentMatch[2])}</p>`;
+    }
+    if (isLead) {
+      const firstChar = clean.charAt(0).toUpperCase();
+      const restLead = clean.slice(1);
+      return `<p class="receipt-p1"><span class="broadsheet-dropcap">${escapeHtml(firstChar)}</span>${escapeHtml(restLead)}</p>`;
+    }
+    const cls = ["receipt-p3", extraClass].filter(Boolean).join(" ");
+    return `<p class="${cls}">${escapeHtml(clean)}</p>`;
+  };
+
   // Page 1 Paragraphs
   let page1ParasHtml = "";
   const p1Lead = bifurcation.page1Paras[0] || "Reporting examines key structural developments and observed outcomes.";
-  const firstChar = p1Lead.charAt(0).toUpperCase();
-  const restLead = p1Lead.slice(1);
-  page1ParasHtml += `<p class="receipt-p1"><span class="broadsheet-dropcap">${escapeHtml(firstChar)}</span>${escapeHtml(restLead)}</p>`;
+  page1ParasHtml += formatBroadsheetPara(p1Lead, true);
   bifurcation.page1Paras.slice(1).forEach(p => {
     if (p && p !== p1Lead) {
-      page1ParasHtml += `<p class="receipt-p3">${escapeHtml(p)}</p>`;
+      page1ParasHtml += formatBroadsheetPara(p, false);
     }
   });
 
@@ -4864,8 +4878,8 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
   bifurcation.page2Paras.forEach((p, idx) => {
     if (p && p !== p1Lead) {
       const isContinuation = (idx === 0 && bifurcation.hasContinuedPara);
-      const paraClass = isContinuation ? "receipt-p3 receipt-p-continuation" : "receipt-p3";
-      page2ParasHtml += `<p class="${paraClass}">${escapeHtml(p)}</p>`;
+      const extraClass = isContinuation ? "receipt-p-continuation" : "";
+      page2ParasHtml += formatBroadsheetPara(p, false, extraClass);
     }
   });
 
@@ -6658,6 +6672,21 @@ function loadPostIntoStudioToRegenerate(postId) {
   // Preserve existing post ID when regenerating from Studio Step 1
   window._regeneratingExistingPostId = post.id;
   window._regeneratingExistingCreatedAt = post.createdAt || null;
+
+  // Restore Daily Chronicle moments if this post was created in Daily Chronicle mode
+  const savedChronicleMoments = post.chronicleMoments || post.generationInputs?.chronicleMoments;
+  if (inputs.sourceType === 'inner_voice' && (post.chronicleMode || post.generationInputs?.chronicleMode) && Array.isArray(savedChronicleMoments) && savedChronicleMoments.length >= 2) {
+    dailyChronicleMoments = savedChronicleMoments.map((m, idx) => ({
+      id: idx + 1,
+      title: m.title || '',
+      text: m.text || '',
+      imageBase64: m.imageBase64 || null,
+      imageMimeType: m.imageMimeType || 'image/jpeg'
+    }));
+    setInnerVoiceSubmode('chronicle');
+  } else if (inputs.sourceType === 'inner_voice') {
+    setInnerVoiceSubmode('single');
+  }
 
   showTemporaryToast('✨ Loaded inputs into Creator Studio! Tweak or regenerate 🚀');
 }
@@ -10068,11 +10097,344 @@ function getSanitizedActiveCastPayload() {
   };
 }
 
+// --- Daily Chronicle (Multi-Moment Collage) State & Helpers ---
+let isDailyChronicleMode = false;
+let activeChroniclePhotoUploadIdx = -1;
+let dailyChronicleMoments = [
+  { id: 1, title: '', text: '', imageBase64: null, imageMimeType: 'image/jpeg' },
+  { id: 2, title: '', text: '', imageBase64: null, imageMimeType: 'image/jpeg' },
+  { id: 3, title: '', text: '', imageBase64: null, imageMimeType: 'image/jpeg' }
+];
+
+function setInnerVoiceSubmode(submode) {
+  isDailyChronicleMode = (submode === 'chronicle');
+  syncInnerVoiceSubmodeUI();
+}
+
+function syncInnerVoiceSubmodeUI() {
+  const isVoice = (creatorSelectedSource === 'inner_voice');
+  const singleBtn = document.getElementById('innerVoiceSubSingleBtn');
+  const chronBtn = document.getElementById('innerVoiceSubChronicleBtn');
+  const singleSparkWrap = document.getElementById('innerVoiceSingleSparkWrap');
+  const chronBanner = document.getElementById('dailyChronicleIntroBanner');
+  const slantTextarea = document.getElementById('creatorSlantTakeInput');
+  const chronDeck = document.getElementById('dailyChronicleDeckWrap');
+  const label = document.getElementById('slantTakeLabel');
+  const sub = document.getElementById('slantTakeSubtitle');
+  const heroIcon = document.getElementById('slantHeroIcon');
+
+  if (singleBtn) singleBtn.classList.toggle('active', !isDailyChronicleMode);
+  if (chronBtn) chronBtn.classList.toggle('active', isDailyChronicleMode);
+
+  if (!isVoice) {
+    if (slantTextarea) slantTextarea.style.display = 'block';
+    if (chronDeck) chronDeck.style.display = 'none';
+    return;
+  }
+
+  if (isDailyChronicleMode) {
+    if (singleSparkWrap) singleSparkWrap.style.display = 'none';
+    if (chronBanner) chronBanner.style.display = 'block';
+    if (slantTextarea) slantTextarea.style.display = 'none';
+    if (chronDeck) chronDeck.style.display = 'flex';
+    if (label) label.textContent = 'Your Day in Moments (2 to 4 Vignettes)';
+    if (sub) sub.textContent = 'Write 2 to 3 lines for each moment. Attach optional photos to weave them into a single collage around you.';
+    if (heroIcon) heroIcon.textContent = '📓';
+
+    // Always ensure Father (Shridhar, 40yo) is active in Family Cast as the center of the Daily Chronicle collage
+    activeCastMemberIds.add('member_father');
+    renderFamilyCastStagingUI();
+    renderDailyChronicleCards();
+    syncChronicleMomentsToSlantInput();
+  } else {
+    if (singleSparkWrap) singleSparkWrap.style.display = 'block';
+    if (chronBanner) chronBanner.style.display = 'none';
+    if (slantTextarea) slantTextarea.style.display = 'block';
+    if (chronDeck) chronDeck.style.display = 'none';
+    if (label) label.textContent = 'What is your Slant or Perspective?';
+    if (sub) sub.textContent = 'Express your conviction or reflection freely. AI transforms this into your lead take.';
+    if (heroIcon) heroIcon.textContent = '💭';
+  }
+}
+
+function renderDailyChronicleCards() {
+  const container = document.getElementById('dailyChronicleCardsList');
+  if (!container) return;
+
+  const placeholders = [
+    { title: 'e.g. Morning Walk / Routine', text: 'Write 2-3 lines about your first key moment of the day...' },
+    { title: 'e.g. Work / Midday Observation', text: 'Write 2-3 lines about the second moment or conversation...' },
+    { title: 'e.g. Family / Evening Reflection', text: 'Write 2-3 lines about the third moment that stayed with you...' },
+    { title: 'e.g. Late Night Thought', text: 'Write 2-3 lines about a fourth moment of the day...' }
+  ];
+
+  container.innerHTML = dailyChronicleMoments.map((m, idx) => {
+    const numStr = String(idx + 1).padStart(2, '0');
+    const ph = placeholders[idx] || placeholders[0];
+    const hasPhoto = Boolean(m.imageBase64);
+    const canDelete = dailyChronicleMoments.length > 2;
+
+    const photoActionHtml = hasPhoto
+      ? `<div class="chronicle-moment-photo-chip">
+           <img src="${m.imageBase64}" class="chronicle-moment-thumb" alt="Moment ${numStr}">
+           <span>✓ Photo Attached</span>
+           <button type="button" class="chronicle-moment-photo-remove" onclick="removeChronicleMomentPhoto(${idx}, event)" title="Remove photo">&times;</button>
+         </div>`
+      : `<button type="button" class="chronicle-moment-photo-btn" onclick="triggerChronicleMomentPhoto(${idx})">
+           <span>📷</span>
+           <span>Attach Photo</span>
+         </button>`;
+
+    const deleteBtnHtml = canDelete
+      ? `<button type="button" class="chronicle-moment-delete-btn" onclick="removeDailyChronicleMoment(${idx})" title="Remove this moment card">✕</button>`
+      : '';
+
+    return `
+      <div class="chronicle-moment-card" data-moment-idx="${idx}">
+        <div class="chronicle-moment-card-header">
+          <div class="chronicle-moment-left">
+            <span class="chronicle-moment-num-badge">MOMENT ${numStr}</span>
+            <input
+              type="text"
+              class="chronicle-moment-title-input"
+              placeholder="${escapeHtml(ph.title)}"
+              value="${escapeHtml(m.title || '')}"
+              oninput="onChronicleMomentInput(${idx}, 'title', this.value)"
+            >
+          </div>
+          <div class="chronicle-moment-actions">
+            ${photoActionHtml}
+            ${deleteBtnHtml}
+          </div>
+        </div>
+        <textarea
+          class="chronicle-moment-textarea"
+          rows="2"
+          placeholder="${escapeHtml(ph.text)}"
+          oninput="onChronicleMomentInput(${idx}, 'text', this.value)"
+        >${escapeHtml(m.text || '')}</textarea>
+      </div>
+    `;
+  }).join('');
+
+  const addBtn = document.getElementById('chronicleAddMomentBtn');
+  const addTxt = document.getElementById('chronicleAddMomentBtnText');
+  const countHint = document.getElementById('chronicleMomentsCountHint');
+  const count = dailyChronicleMoments.length;
+  const photosCount = dailyChronicleMoments.filter(m => Boolean(m.imageBase64)).length;
+
+  if (addBtn) {
+    addBtn.style.display = count >= 4 ? 'none' : 'inline-flex';
+    if (addTxt) addTxt.textContent = `Add ${count + 1 === 3 ? '3rd' : '4th'} Moment`;
+  }
+  if (countHint) {
+    countHint.textContent = `${count} of 4 Moments${photosCount > 0 ? ` • ${photosCount} Photo${photosCount > 1 ? 's' : ''} Attached` : ''} • Center: Father (Shridhar, 40y)`;
+  }
+}
+
+function onChronicleMomentInput(idx, field, val) {
+  if (!dailyChronicleMoments[idx]) return;
+  dailyChronicleMoments[idx][field] = val;
+  syncChronicleMomentsToSlantInput();
+}
+
+function syncChronicleMomentsToSlantInput() {
+  if (!isDailyChronicleMode) return;
+  const input = document.getElementById('creatorSlantTakeInput');
+  if (!input) return;
+
+  const lines = dailyChronicleMoments
+    .map((m, idx) => {
+      const txt = String(m.text || '').trim();
+      if (!txt) return '';
+      const numStr = String(idx + 1).padStart(2, '0');
+      const titleStr = String(m.title || '').trim() || `Moment ${numStr}`;
+      return `${numStr} · ${titleStr}: ${txt}`;
+    })
+    .filter(Boolean);
+
+  input.value = lines.join('\n\n');
+  checkAndTriggerFamilyCast(input.value);
+  activeCastMemberIds.add('member_father');
+  renderFamilyCastStagingUI();
+}
+
+function addDailyChronicleMoment() {
+  if (dailyChronicleMoments.length >= 4) {
+    showTemporaryToast('Maximum 4 moments per Daily Chronicle so each vignette stays crisp.');
+    return;
+  }
+  dailyChronicleMoments.push({
+    id: Date.now(),
+    title: '',
+    text: '',
+    imageBase64: null,
+    imageMimeType: 'image/jpeg'
+  });
+  renderDailyChronicleCards();
+  syncChronicleMomentsToSlantInput();
+}
+
+function removeDailyChronicleMoment(idx) {
+  if (dailyChronicleMoments.length <= 2) {
+    showTemporaryToast('A Daily Chronicle requires at least 2 moments.');
+    return;
+  }
+  dailyChronicleMoments.splice(idx, 1);
+  renderDailyChronicleCards();
+  syncChronicleMomentsToSlantInput();
+}
+
+function triggerChronicleMomentPhoto(idx) {
+  activeChroniclePhotoUploadIdx = idx;
+  const fileInput = document.getElementById('chronicleMomentFileInput');
+  if (fileInput) {
+    fileInput.value = '';
+    fileInput.click();
+  }
+}
+
+function handleChronicleMomentPhotoSelect(event) {
+  const file = event.target?.files?.[0];
+  if (!file || activeChroniclePhotoUploadIdx < 0 || !dailyChronicleMoments[activeChroniclePhotoUploadIdx]) return;
+  const targetIdx = activeChroniclePhotoUploadIdx;
+
+  compressImage(file, 900, 0.82, (compressedDataUrl) => {
+    dailyChronicleMoments[targetIdx].imageBase64 = compressedDataUrl;
+    dailyChronicleMoments[targetIdx].imageMimeType = 'image/jpeg';
+    renderDailyChronicleCards();
+    updateReferencePhotoUI();
+    showTemporaryToast(`📸 Attached photo to Moment 0${targetIdx + 1}!`);
+  });
+}
+
+function removeChronicleMomentPhoto(idx, event) {
+  if (event) event.stopPropagation();
+  if (!dailyChronicleMoments[idx]) return;
+  dailyChronicleMoments[idx].imageBase64 = null;
+  renderDailyChronicleCards();
+  updateReferencePhotoUI();
+}
+
+function getActiveChronicleMomentsPayload() {
+  if (creatorSelectedSource !== 'inner_voice' || !isDailyChronicleMode) return [];
+  return dailyChronicleMoments
+    .map((m, idx) => ({
+      index: idx + 1,
+      title: String(m.title || '').trim() || `Moment 0${idx + 1}`,
+      text: String(m.text || '').trim(),
+      imageBase64: m.imageBase64 || null,
+      imageMimeType: m.imageMimeType || 'image/jpeg'
+    }))
+    .filter(m => m.text.length >= 2);
+}
+
+async function buildClientExactChronicleCollage(momentsWithPhotos) {
+  const photos = (momentsWithPhotos || []).filter(m => m && m.imageBase64);
+  if (photos.length === 0) return null;
+
+  const canvas = document.createElement('canvas');
+  const W = 1200;
+  const H = 960;
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d');
+
+  // Warm archival cream background
+  ctx.fillStyle = '#F7F3EA';
+  ctx.fillRect(0, 0, W, H);
+
+  const loadedImgs = await Promise.all(photos.map(p => new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve({ img, meta: p });
+    img.onerror = () => resolve(null);
+    img.src = p.imageBase64;
+  })));
+  const valid = loadedImgs.filter(Boolean);
+  if (valid.length === 0) return null;
+
+  const drawCoverCell = (imgObj, x, y, w, h, badgeLabel) => {
+    ctx.save();
+    ctx.beginPath();
+    ctx.roundRect ? ctx.roundRect(x, y, w, h, 14) : ctx.rect(x, y, w, h);
+    ctx.clip();
+
+    const img = imgObj.img;
+    const scale = Math.max(w / img.width, h / img.height);
+    const sw = img.width * scale;
+    const sh = img.height * scale;
+    const sx = x + (w - sw) / 2;
+    const sy = y + (h - sh) / 2;
+    ctx.drawImage(img, sx, sy, sw, sh);
+
+    // Subtle dark gradient at top-left for moment number badge
+    if (badgeLabel) {
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.78)';
+      ctx.fillRect(x + 12, y + 12, 96, 30);
+      ctx.fillStyle = '#F59E0B';
+      ctx.font = '800 14px Inter, sans-serif';
+      ctx.fillText(badgeLabel, x + 22, y + 32);
+    }
+    ctx.restore();
+
+    ctx.strokeStyle = '#E2D9C5';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(x, y, w, h);
+  };
+
+  const pad = 18;
+  const gap = 14;
+  if (valid.length === 1) {
+    drawCoverCell(valid[0], pad, pad, W - pad * 2, H - pad * 2, `MOMENT 0${valid[0].meta.index}`);
+  } else if (valid.length === 2) {
+    const cellW = (W - pad * 2 - gap) / 2;
+    const cellH = H - pad * 2;
+    drawCoverCell(valid[0], pad, pad, cellW, cellH, `MOMENT 0${valid[0].meta.index}`);
+    drawCoverCell(valid[1], pad + cellW + gap, pad, cellW, cellH, `MOMENT 0${valid[1].meta.index}`);
+  } else if (valid.length === 3) {
+    const leftW = Math.round((W - pad * 2 - gap) * 0.52);
+    const rightW = (W - pad * 2 - gap) - leftW;
+    const rightH = (H - pad * 2 - gap) / 2;
+    drawCoverCell(valid[0], pad, pad, leftW, H - pad * 2, `MOMENT 0${valid[0].meta.index}`);
+    drawCoverCell(valid[1], pad + leftW + gap, pad, rightW, rightH, `MOMENT 0${valid[1].meta.index}`);
+    drawCoverCell(valid[2], pad + leftW + gap, pad + rightH + gap, rightW, rightH, `MOMENT 0${valid[2].meta.index}`);
+  } else {
+    const cellW = (W - pad * 2 - gap) / 2;
+    const cellH = (H - pad * 2 - gap) / 2;
+    drawCoverCell(valid[0], pad, pad, cellW, cellH, `MOMENT 0${valid[0].meta.index}`);
+    drawCoverCell(valid[1], pad + cellW + gap, pad, cellW, cellH, `MOMENT 0${valid[1].meta.index}`);
+    drawCoverCell(valid[2], pad, pad + cellH + gap, cellW, cellH, `MOMENT 0${valid[2].meta.index}`);
+    drawCoverCell(valid[3], pad + cellW + gap, pad + cellH + gap, cellW, cellH, `MOMENT 0${valid[3].meta.index}`);
+  }
+
+  return canvas.toDataURL('image/jpeg', 0.88);
+}
+
 function acceptPolishedTake() {
   const input = document.getElementById('creatorSlantTakeInput');
   const reviewCard = document.getElementById('slantPolishReviewCard');
   if (input && lastPolishedTake) {
     input.value = lastPolishedTake;
+    if (creatorSelectedSource === 'inner_voice' && isDailyChronicleMode) {
+      const blocks = String(lastPolishedTake).split(/\n\s*\n|(?:^|\s+)(?=0?[1-4]\s*[·•.-])/g).map(b => b.trim()).filter(Boolean);
+      if (blocks.length >= 2) {
+        blocks.slice(0, 4).forEach((blk, idx) => {
+          if (!dailyChronicleMoments[idx]) {
+            dailyChronicleMoments[idx] = { id: Date.now() + idx, title: '', text: '', imageBase64: null, imageMimeType: 'image/jpeg' };
+          }
+          const mMatch = blk.match(/^(?:0?[1-9]|Moment\s+\d+)\s*[·•.-]?\s*([^:]{1,38}):\s*([\s\S]+)$/i);
+          if (mMatch) {
+            dailyChronicleMoments[idx].title = mMatch[1].trim();
+            dailyChronicleMoments[idx].text = mMatch[2].trim();
+          } else {
+            dailyChronicleMoments[idx].text = blk.replace(/^(?:0?[1-9]|Moment\s+\d+)\s*[·•.:-]\s*/i, '').trim();
+          }
+        });
+        renderDailyChronicleCards();
+        syncChronicleMomentsToSlantInput();
+      }
+    }
     input.dispatchEvent(new Event('input', { bubbles: true }));
   }
   if (reviewCard) {
@@ -11578,7 +11940,9 @@ function setAnchorMode(mode) {
     if (input) input.placeholder = 'What perspective demands to be shared? e.g. The real risk of AI isn’t superintelligence taking over, it’s that we surrender our curiosity and critical judgment to automated convenience...';
     if (heroIcon) heroIcon.textContent = '💭';
     if (heroBox) heroBox.style.color = '#8B5CF6';
+    syncInnerVoiceSubmodeUI();
   } else {
+    syncInnerVoiceSubmodeUI();
     // Both video_audio and digital_link use Web Link input
     if (secLink) secLink.style.display = 'flex';
     if (secVoice) secVoice.style.display = 'none';
@@ -13411,7 +13775,18 @@ function validateCreatorStage1(showPrompt = true) {
   const slantTake = slantTakeInput ? slantTakeInput.value.trim() : '';
 
   if (creatorSelectedSource === 'inner_voice') {
-    if (!slantTake) {
+    if (isDailyChronicleMode) {
+      syncChronicleMomentsToSlantInput();
+      const filledMoments = dailyChronicleMoments.filter(m => m && String(m.text || '').trim().length >= 3);
+      if (filledMoments.length < 2) {
+        if (showPrompt) {
+          showTemporaryToast('⚠️ Please write at least 2 moments of your day for the Daily Chronicle collage.');
+          const firstTextarea = document.querySelector('.chronicle-moment-textarea');
+          if (firstTextarea) firstTextarea.focus();
+        }
+        return false;
+      }
+    } else if (!slantTake) {
       if (showPrompt) {
         promptMandatoryField(slantTakeInput, 'Please share your slant or perspective to continue.');
       }
@@ -14455,8 +14830,19 @@ async function startAiSynthesis() {
   const rawSourceImgUrl = (isLink && currentScrapedArticle) ? (currentScrapedArticle.imageUrl || null) : (creatorReferenceImageBase64?.startsWith('http') ? creatorReferenceImageBase64 : null);
   const cleanSourceImgUrl = (rawSourceImgUrl && typeof rawSourceImgUrl === 'string') ? rawSourceImgUrl.replace(/&amp;/g, '&') : null;
 
+  const isChronicleActive = (creatorSelectedSource === 'inner_voice' && isDailyChronicleMode);
+  const activeChronicleMoments = isChronicleActive ? getActiveChronicleMomentsPayload() : [];
+  const chronicleMomentImages = activeChronicleMoments.filter(m => Boolean(m.imageBase64));
+
   const payload = {
     sourceType: creatorSelectedSource,
+    chronicleMode: isChronicleActive,
+    chronicleMoments: activeChronicleMoments.map(m => ({
+      index: m.index,
+      title: m.title,
+      text: m.text,
+      hasPhoto: Boolean(m.imageBase64)
+    })),
     url: isLink ? url : '',
     text: slantTake,
     slantTake: slantTake,
@@ -14644,9 +15030,32 @@ async function startAiSynthesis() {
     const s2TitleInput = document.getElementById('editModalS2Title');
     if (s2TitleInput) s2TitleInput.value = currentSynthesizedPost.critiqueBadge || (currentSynthesizedPost.keyTakeaways && currentSynthesizedPost.keyTakeaways[0] ? currentSynthesizedPost.keyTakeaways[0].toUpperCase() : 'THE CRITICAL PERSPECTIVE');
 
+    if (isChronicleActive) {
+      currentSynthesizedPost.chronicleMode = true;
+      currentSynthesizedPost.chronicleMoments = activeChronicleMoments.map(m => ({
+        index: m.index,
+        title: m.title,
+        text: m.text,
+        imageBase64: m.imageBase64 || null,
+        imageMimeType: m.imageMimeType || 'image/jpeg'
+      }));
+      if (currentSynthesizedPost.generationInputs) {
+        currentSynthesizedPost.generationInputs.chronicleMode = true;
+        currentSynthesizedPost.generationInputs.chronicleMoments = currentSynthesizedPost.chronicleMoments;
+      }
+      if (creatorCharacterRepresentation === 'exact' && chronicleMomentImages.length > 0) {
+        const exactCollageDataUrl = await buildClientExactChronicleCollage(activeChronicleMoments);
+        if (exactCollageDataUrl) {
+          currentSynthesizedPost.illustrationBase64 = exactCollageDataUrl;
+          currentSynthesizedPost.posterBase64 = exactCollageDataUrl;
+          currentSynthesizedPost.artworkPending = false;
+        }
+      }
+    }
+
     // Hold logo animation until custom editorial illustration is actually loaded in memory
     if (currentSynthesizedPost && !currentSynthesizedPost.illustrationBase64 && currentSynthesizedPost.illustrationPrompt) {
-      if (stepText) stepText.textContent = 'Rendering custom editorial poster artwork & visual metaphors...';
+      if (stepText) stepText.textContent = isChronicleActive ? 'Composing Daily Chronicle collage around you at the center...' : 'Rendering custom editorial poster artwork & visual metaphors...';
       if (fill) fill.style.width = '88%';
 
       const userEmail = getResolvedCreatorEmail();
@@ -14665,6 +15074,8 @@ async function startAiSynthesis() {
             countryContext: creatorCountryContext?.name || 'India',
             familyCast: getSanitizedCastPayload(familyCastProfileCache),
             activeCast: getSanitizedActiveCastPayload(),
+            chronicleMode: isChronicleActive,
+            chronicleMomentImages: chronicleMomentImages,
             imageBase64: ((creatorPerspectiveMode === 'source' && creatorCharacterRepresentation !== 'silhouette') || creatorCharacterRepresentation === 'exact')
               ? (creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || currentSynthesizedPost?.sourceImageBase64 || null)
               : null,
@@ -14807,6 +15218,8 @@ async function retryStep3ArtworkGeneration(event, options = {}) {
         countryContext: creatorCountryContext?.name || 'India',
         familyCast: getSanitizedCastPayload(familyCastProfileCache),
         activeCast: getSanitizedActiveCastPayload(),
+        chronicleMode: Boolean(currentSynthesizedPost.chronicleMode || (creatorSelectedSource === 'inner_voice' && isDailyChronicleMode)),
+        chronicleMomentImages: (currentSynthesizedPost.chronicleMoments || getActiveChronicleMomentsPayload() || []).filter(m => m && m.imageBase64),
         imageBase64: ((creatorPerspectiveMode === 'source' && creatorCharacterRepresentation !== 'silhouette') || creatorCharacterRepresentation === 'exact')
           ? (creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || currentSynthesizedPost?.sourceImageBase64 || null)
           : null,

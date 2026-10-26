@@ -27,7 +27,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Merriweather:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,400;1,600;1,700;1,900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261025_1756">
+  <link rel="stylesheet" href="style.css?v=20261026_1308">
   <!-- Favicon & Brand Icons -->
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
@@ -389,45 +389,71 @@
 
           <!-- Inner Voice Trigger Panel: The Spark & Real-World Scene -->
           <div class="trigger-section" id="triggerVoiceSection" style="display:none;">
-            <div class="trigger-header">
-              <div class="trigger-title-row">
-                <span class="trigger-icon" style="color: #F59E0B;">⚡</span>
-                <span class="trigger-title">The Spark (What sparked this?)</span>
-              </div>
-              <span class="trigger-sub">Optional • Words or Scene</span>
+            <!-- Inner Voice Sub-Mode Switcher: Single Reflection vs Daily Chronicle Collage -->
+            <div class="inner-voice-submode-bar" id="innerVoiceSubmodeBar">
+              <button type="button" class="inner-voice-submode-pill active" id="innerVoiceSubSingleBtn" onclick="setInnerVoiceSubmode('single')">
+                <span class="submode-icon">💭</span>
+                <span class="submode-label">Single Reflection</span>
+              </button>
+              <button type="button" class="inner-voice-submode-pill" id="innerVoiceSubChronicleBtn" onclick="setInnerVoiceSubmode('chronicle')">
+                <span class="submode-icon">📓</span>
+                <span class="submode-label">Daily Chronicle (Collage)</span>
+                <span class="submode-new-badge">NEW</span>
+              </button>
             </div>
-            <p class="trigger-desc">The real-world observation, memory, or moment that triggered this perspective.</p>
-            <input type="text" id="creatorSparkInput" class="creator-input" placeholder="e.g. A conversation with an old colleague about vanishing craft...">
 
-            <!-- Scene Photo / Camera Input for Inner Voice -->
-            <div class="inner-voice-photo-wrap" id="innerVoicePhotoWrap">
-              <input type="file" id="innerVoiceCameraInput" accept="image/*" capture="environment" style="display:none;" onchange="handleInnerVoicePhotoSelect(event)">
-              <input type="file" id="innerVoiceFileInput" accept="image/*" style="display:none;" onchange="handleInnerVoicePhotoSelect(event)">
-              
-              <!-- Empty state: action buttons -->
-              <div class="inner-voice-photo-empty" id="innerVoicePhotoEmpty">
-                <button type="button" class="inner-voice-photo-btn" onclick="triggerInnerVoiceCamera()">
-                  <span class="btn-icon">📷</span>
-                  <span class="btn-label">Snap Scene</span>
-                </button>
-                <button type="button" class="inner-voice-photo-btn" onclick="triggerInnerVoiceUpload()">
-                  <span class="btn-icon">🖼️</span>
-                  <span class="btn-label">Upload Photo</span>
-                </button>
-                <span class="inner-voice-photo-hint">Snap what's in front of you to guide visual cues</span>
-              </div>
-
-              <!-- Attached state: preview card -->
-              <div class="inner-voice-photo-preview" id="innerVoicePhotoPreview" style="display:none;">
-                <div class="photo-preview-left">
-                  <img id="innerVoicePhotoThumb" class="photo-preview-thumb" src="" alt="Catalyst Scene">
-                  <div class="photo-preview-info">
-                    <div class="photo-preview-badge">📸 Catalyst Scene Attached</div>
-                    <div class="photo-preview-sub">AI will identify this scene & fuse it with your written slant</div>
-                  </div>
+            <div id="innerVoiceSingleSparkWrap">
+              <div class="trigger-header">
+                <div class="trigger-title-row">
+                  <span class="trigger-icon" style="color: #F59E0B;">⚡</span>
+                  <span class="trigger-title">The Spark (What sparked this?)</span>
                 </div>
-                <button type="button" class="photo-preview-remove" onclick="removeInnerVoicePhoto(event)" title="Remove photo">✕</button>
+                <span class="trigger-sub">Optional • Words or Scene</span>
               </div>
+              <p class="trigger-desc">The real-world observation, memory, or moment that triggered this perspective.</p>
+              <input type="text" id="creatorSparkInput" class="creator-input" placeholder="e.g. A conversation with an old colleague about vanishing craft...">
+
+              <!-- Scene Photo / Camera Input for Inner Voice -->
+              <div class="inner-voice-photo-wrap" id="innerVoicePhotoWrap">
+                <input type="file" id="innerVoiceCameraInput" accept="image/*" capture="environment" style="display:none;" onchange="handleInnerVoicePhotoSelect(event)">
+                <input type="file" id="innerVoiceFileInput" accept="image/*" style="display:none;" onchange="handleInnerVoicePhotoSelect(event)">
+                
+                <!-- Empty state: action buttons -->
+                <div class="inner-voice-photo-empty" id="innerVoicePhotoEmpty">
+                  <button type="button" class="inner-voice-photo-btn" onclick="triggerInnerVoiceCamera()">
+                    <span class="btn-icon">📷</span>
+                    <span class="btn-label">Snap Scene</span>
+                  </button>
+                  <button type="button" class="inner-voice-photo-btn" onclick="triggerInnerVoiceUpload()">
+                    <span class="btn-icon">🖼️</span>
+                    <span class="btn-label">Upload Photo</span>
+                  </button>
+                  <span class="inner-voice-photo-hint">Snap what's in front of you to guide visual cues</span>
+                </div>
+
+                <!-- Attached state: preview card -->
+                <div class="inner-voice-photo-preview" id="innerVoicePhotoPreview" style="display:none;">
+                  <div class="photo-preview-left">
+                    <img id="innerVoicePhotoThumb" class="photo-preview-thumb" src="" alt="Catalyst Scene">
+                    <div class="photo-preview-info">
+                      <div class="photo-preview-badge">📸 Catalyst Scene Attached</div>
+                      <div class="photo-preview-sub">AI will identify this scene & fuse it with your written slant</div>
+                    </div>
+                  </div>
+                  <button type="button" class="photo-preview-remove" onclick="removeInnerVoicePhoto(event)" title="Remove photo">✕</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Daily Chronicle Banner (Shown when Daily Chronicle mode is selected) -->
+            <div class="daily-chronicle-intro-banner" id="dailyChronicleIntroBanner" style="display:none;">
+              <div class="chronicle-banner-top">
+                <span class="chronicle-banner-badge">📓 DAILY CHRONICLE &amp; RADIAL MONTAGE</span>
+                <span class="chronicle-banner-meta">You at Center + 2 to 4 Day Vignettes</span>
+              </div>
+              <p class="chronicle-banner-desc">
+                Share 2 to 4 distinct moments from your day (2 to 3 lines each). Attach an optional photo to any moment card to weave that scene into a single unified collage with you at the center.
+              </p>
             </div>
           </div>
         </div>
@@ -488,6 +514,21 @@
           </div>
 
           <textarea id="creatorSlantTakeInput" class="creator-textarea hero-textarea" rows="4" placeholder="e.g. [Moment/Trigger] What caught your attention... [Why It Matters] The deeper tension or contrast... [Core Conviction] Your lasting takeaway..."></textarea>
+
+          <!-- Daily Chronicle Multi-Moment Cards Deck (Option B) -->
+          <div class="daily-chronicle-deck-wrap" id="dailyChronicleDeckWrap" style="display: none;">
+            <input type="file" id="chronicleMomentFileInput" accept="image/*" style="display: none;" onchange="handleChronicleMomentPhotoSelect(event)">
+            <div class="daily-chronicle-cards-list" id="dailyChronicleCardsList">
+              <!-- Populated dynamically by renderDailyChronicleCards() -->
+            </div>
+            <div class="daily-chronicle-deck-footer">
+              <button type="button" class="chronicle-add-moment-btn" id="chronicleAddMomentBtn" onclick="addDailyChronicleMoment()">
+                <span>＋</span>
+                <span id="chronicleAddMomentBtnText">Add 4th Moment</span>
+              </button>
+              <span class="chronicle-moments-count-hint" id="chronicleMomentsCountHint">3 of 4 Moments • Center: Father (Shridhar, 40y)</span>
+            </div>
+          </div>
 
           <div class="slant-take-action-bar">
             <div class="slant-take-action-btns">
@@ -2166,6 +2207,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261025_1756"></script>
+  <script src="app.js?v=20261026_1308"></script>
 </body>
 </html>
