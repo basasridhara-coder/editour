@@ -257,13 +257,15 @@ module.exports = async function handler(req, res) {
           chronicleMode: Boolean(chronicleMode)
         });
 
-        const stylePrefix = (characterRepresentation === 'cinematic' || characterRepresentation === 'likeness')
-          ? 'Award-winning 35mm editorial documentary photograph in 4:5 vertical portrait format, sharp camera focus, natural skin textures, lifelike human expressions, authentic ambient lighting (strictly no painterly brushstrokes or canvas texture)'
-          : (characterRepresentation === 'painting'
-            ? 'Masterpiece warm broadsheet painted illustration in gouache and oil style, rich painted pigments, lifelike human expression'
-            : (characterRepresentation === 'silhouette'
-              ? 'High-contrast minimalist graphic silhouette editorial art, stark architectural shadows'
-              : 'High-impact editorial broadsheet illustration in 4:5 vertical portrait format capturing vivid editorial realism, warm natural lighting on faces, dramatic journalistic clarity'));
+        const stylePrefix = chronicleMode
+          ? 'Masterpiece 3-vignette editorial watercolor and gouache spot-illustration page on open unpainted textured warm cream archival watercolor paper, featuring 3 separate, self-contained soft-edged oval spot-illustration vignettes floating on the open cream paper background with wide unpainted cream paper margins surrounding and separating each vignette'
+          : ((characterRepresentation === 'cinematic' || characterRepresentation === 'likeness')
+            ? 'Award-winning 35mm editorial documentary photograph in 4:5 vertical portrait format, sharp camera focus, natural skin textures, lifelike human expressions, authentic ambient lighting (strictly no painterly brushstrokes or canvas texture)'
+            : (characterRepresentation === 'painting'
+              ? 'Masterpiece warm broadsheet painted illustration in gouache and oil style, rich painted pigments, lifelike human expression'
+              : (characterRepresentation === 'silhouette'
+                ? 'High-contrast minimalist graphic silhouette editorial art, stark architectural shadows'
+                : 'High-impact editorial broadsheet illustration in 4:5 vertical portrait format capturing vivid editorial realism, warm natural lighting on faces, dramatic journalistic clarity')));
 
         const focusRule = (perspectiveMode === 'curator')
           ? `Visual Focus is CURATOR ANGLE: Anchor the scene in the curator's personal experience, metaphor, or thesis ("${userSlant || adaptedHeadline}").`
@@ -304,7 +306,9 @@ ${customDirection ? `\nCURATOR'S SPECIFIC VISUAL DIRECTION: "${customDirection}"
 
 STRICT RULES:
 1. If Father (Shridhar) is in the scene, you MUST describe him as a "fit mid-age 40-year-old Indian man in his prime early 40s with a full head of thick short jet-black hair, smooth unwrinkled skin, neat short dark trimmed beard, and sturdy broad-shouldered build (strictly NOT an old man, strictly NOT elderly, strictly NO gray/white head hair)". NEVER call him "an Indian father figure" without specifying "fit mid-age 40-year-old man".
-2. If multiple family members are in MANDATORY CASTING VAULT & PROTAGONIST ANCHORS, you MUST include ALL ${familyCastDirectives ? familyCastDirectives.totalCount : ''} family members visibly side by side in the foreground (including both sons with their graduated height difference and contrasting navy-blue vs bright emerald-green t-shirts when the kids are present).
+2. ${chronicleMode
+  ? 'DAILY CHRONICLE 3-SPOT-VIGNETTE LAYOUT: Present 3 separate, self-contained soft-edged oval watercolor-and-gouache spot-illustration vignettes floating on open unpainted textured warm cream archival paper (Top-Left spot vignette ~25%, Top-Right spot vignette ~25%, Bottom-Center larger spot vignette ~45-50% for the starred highlight moment), with wide unpainted cream paper margins separating them. Depict family members or companions ONLY inside the specific moment vignette where they are mentioned (strictly NEVER merge all 3 moments into a single full-bleed background scene!).'
+  : `If multiple family members are in MANDATORY CASTING VAULT & PROTAGONIST ANCHORS, you MUST include ALL ${familyCastDirectives ? familyCastDirectives.totalCount : ''} family members visibly side by side in the foreground (including both sons with their graduated height difference and contrasting navy-blue vs bright emerald-green t-shirts when the kids are present).`}
 3. Output strictly valid JSON:
 {
   "illustrationPrompt": "Detailed 80-130 word visual prompt beginning with the medium style, describing the exact protagonists, setting, lighting, and each vignette (including any attached logo/photo subject). No random text or letters.",
@@ -343,7 +347,7 @@ STRICT RULES:
           }
         } catch (_) {}
 
-        if (familyCastDirectives && familyCastDirectives.promptSnippet && !prompt.includes(familyCastDirectives.promptSnippet.slice(0, 28))) {
+        if (!chronicleMode && familyCastDirectives && familyCastDirectives.promptSnippet && !prompt.includes(familyCastDirectives.promptSnippet.slice(0, 28))) {
           prompt = `${stylePrefix}. ${familyCastDirectives.promptSnippet}. ${prompt}`;
         }
         if (customDirection && !prompt.toLowerCase().includes(customDirection.toLowerCase())) {
@@ -1213,6 +1217,9 @@ Respond strictly with valid JSON with this exact structure:
       ? chronicleMoments.filter(m => m && String(m.text || '').trim().length >= 2)
       : [];
     const isChronicle = Boolean(chronicleMode && validChronicleMoments.length >= 2);
+    if (isChronicle && (!characterRepresentation || characterRepresentation === 'realistic')) {
+      characterRepresentation = 'painting';
+    }
     const explicitStarredIdx = validChronicleMoments.findIndex(m => Boolean(m && m.isStarred));
     const starredChronicleIdx = isChronicle
       ? (explicitStarredIdx >= 0 ? explicitStarredIdx : (validChronicleMoments.length - 1))
@@ -1568,29 +1575,30 @@ ${refineCoreTake ? `- Poster 2 ("THE CRITICAL PERSPECTIVE" / curatorTake) is an 
 ${sourceType === 'inner_voice' && isChronicle ? `CRITICAL DAILY CHRONICLE & MULTI-MOMENT NON-OVERLAPPING VIGNETTE POSTER DIRECTIVE:
 - The curator is recording a DAILY CHRONICLE (Diary / Multi-Moment Day in Review) consisting of ${validChronicleMoments.length} distinct moments from their day:
 ${validChronicleMoments.map((m, i) => `  * Moment 0${i + 1} (${m.title || 'Moment ' + (i + 1)}${i === starredChronicleIdx ? ' [★ STARRED IMPORTANT HIGHLIGHT OF THE DAY - GIVE EXTRA SHOWCASE SPACE IN POSTER]' : ''}${m.hasPhoto ? ' [Photo Attached]' : ''}): "${m.text}"`).join('\n')}
-- 1. SLIDE 1 HEADLINE ("adaptedHeadline") & BADGE ("categoryBadge"):
+- 1. SLIDE 1 HEADLINE ("adaptedHeadline"), DATE ("originalHeadline") & BADGE ("categoryBadge"):
   * Set "categoryBadge" to "DAILY CHRONICLE" and "publicationName" to "Daily Chronicle".
-  * Set "adaptedHeadline" to a warm, unifying 7 to 12 word headline that connects the themes or rhythm of these ${validChronicleMoments.length} moments of the day.
-- 2. REFLECTION OF THE DAY ("curatorTake"):
-  * Write an authentic, resonant 2-sentence unifying reflection of the day (28-40 words total) capturing the common thread, insight, or feeling that ties today's moments together. This will be displayed as the central showcase quote on Poster 3.
+  * Set "adaptedHeadline" to a warm, natural 6 to 10 word headline formed directly from the moments of the day.
+  * Set "originalHeadline" strictly to today's date in the format "${formatChronicleDateLabel(new Date())}" (strictly NO "Daily Chronicle: ..." source headline prefix!).
+- 2. GENERAL TAKEAWAY OF THE DAY ("curatorTake" — Displayed Alone on Poster 3):
+  * Write a simple, natural, general takeaway from that day (1 to 2 grounded sentences, 16-28 words total).
+  * CRITICAL RULE: DO NOT try hard to stitch all ${validChronicleMoments.length} moments together or force keywords from all ${validChronicleMoments.length} instances into a convoluted compound sentence! Instead, express one warm, effortless general life/day takeaway that captures the spirit or lesson of the day.
+  * Set "whyItMatters" to "" (empty string) so Poster 3 displays ONLY this single general takeaway of the day.
 - 3. POSTER 2 ELABORATED MOMENTS ("resolvedArticleExcerpts" and "summary"):
   * DO NOT merge the moments into one continuous generic essay!
   * Instead, output ${validChronicleMoments.length} distinct, vivid micro-entries in "resolvedArticleExcerpts" (one array element per moment, 35-48 words / 2-3 polished sentences each so all ${validChronicleMoments.length} moments fit cleanly together on Poster 2), preserving 100% of the author's voice and details.
   * Format each array element with its numbered moment header followed by a colon:
     ${validChronicleMoments.map((m, i) => `"0${i + 1} · ${m.title || 'Moment ' + (i + 1)}: [2-3 polished, natural sentences elaborating Moment 0${i + 1}]"`).join(',\n    ')}
   * Set "summary" to those exact ${validChronicleMoments.length} formatted entries joined by "\\n\\n".
-- 4. CLOSING THREAD ("whyItMatters"):
-  * Write a 1-2 sentence closing takeaway ("The Day's Thread") connecting what the day taught or meant.
-- 5. CONSISTENT 3-VIGNETTE NON-OVERLAPPING ARCHIVAL BROADSHEET ARTWORK PROMPT ("illustrationPrompt"):
-  * MANDATORY SIGNATURE STYLE & ZERO-OVERLAP RULE: Every Daily Chronicle poster MUST use our signature clean multi-vignette painted broadsheet layout: "Masterpiece ${validChronicleMoments.length}-scene editorial broadsheet painted story montage in rich gouache and warm India ink tones, presenting ${validChronicleMoments.length} distinct, clearly separated lived-in scenes on textured warm cream archival paper with clean unpaved cream paper margins separating each vignette (strictly zero overlapping figures between scenes and strictly zero printed captions or labels): ..."
+- 4. CONSISTENT 3-VIGNETTE WATERCOLOR & GOUACHE SPOT-ILLUSTRATION LAYOUT ON OPEN CREAM ARCHIVAL PAPER ("illustrationPrompt"):
+  * MANDATORY DEFAULT VIGNETTE STYLE (3 ISOLATED SPOT ILLUSTRATIONS ON OPEN CREAM ARCHIVAL PAPER): Every Daily Chronicle Poster 1 MUST use our signature 3-spot-vignette painted layout on open unpainted warm cream archival watercolor paper: "Masterpiece ${validChronicleMoments.length}-vignette editorial watercolor and gouache spot-illustration page on open unpainted textured warm cream archival paper, featuring ${validChronicleMoments.length} separate, self-contained soft-edged oval watercolor-and-gouache spot-illustration vignettes floating on the open cream paper background with wide unpainted cream paper margins surrounding and separating each vignette (strictly NOT a single merged full-bleed background scene, strictly zero overlapping figures between vignettes, and strictly zero printed captions or labels): ..."
   * STARRED MOMENT EXTRA SPACE RULE (★ HIGHLIGHT MOMENT = Moment 0${starredChronicleIdx + 1} "${starredChronicleMoment?.title || 'Moment ' + (starredChronicleIdx + 1)}"):
-    - Give the ★ STARRED IMPORTANT MOMENT (Moment 0${starredChronicleIdx + 1}: "${starredChronicleMoment?.text || ''}") MORE SPACE IN THE POSTER by placing it in the LARGE LOWER PANORAMIC SHOWCASE VIGNETTE (~50% of the canvas spanning the full width of the lower half of the 3:4 poster)!
-    - Place the other moments (${secondaryChronicleMoments.map(m => `Moment 0${m.origIdx + 1}: "${m.text}"`).join(' AND ')}) in DISTINCT, NON-OVERLAPPING SIDE-BY-SIDE UPPER VIGNETTES ("In the upper-left vignette (~25% of canvas, separated by clean cream archival paper margin), ...; in the upper-right vignette (~25% of canvas, separated by clean cream archival paper margin), ...; in the large lower panoramic showcase vignette (~50% of canvas across the full lower half), ...").
-  * STRICT BAN ON REDUCING MOMENTS TO TINY WALL PROPS OR OVERLAPPING COLLAGES: Never merge scenes into a chaotic overlapping collage, and never reduce any moment to a tiny floating icon on a wall! Every single vignette must be a complete, self-contained lived-in scene inside its own clean archival vignette space with clear cream paper breathing room between vignettes.
-  * STRICT BAN ON PRINTED LABELS OR CAPTIONS: Do NOT write numbered titles like "Moment 01:" or "Scene 1:" inside "illustrationPrompt" (as image models will print those words as text captions onto the painting!). ${familyCastDirectives && !familyCastDirectives.isSolo ? `Include ALL ${familyCastDirectives.totalCount} family members (${familyCastDirectives.promptSnippet}) where family is present.` : `Whenever the narrator (Shridhar) appears in a vignette, portray him as a fit mid-age 40-year-old Indian man in his prime early 40s (full head of thick short jet-black hair, smooth unwrinkled forehead, neat short dark trimmed beard, sturdy broad-shouldered build, strictly NOT old or elderly), and actively include any colleagues, friends, tenants, or companions mentioned in each moment!`}
+    - Place the two secondary moments (${secondaryChronicleMoments.map(m => `Moment 0${m.origIdx + 1}: "${m.text}"`).join(' AND ')}) as TWO SEPARATE SOFT-EDGED OVAL SPOT-ILLUSTRATION VIGNETTES in the upper half ("In the top-left isolated soft-edged watercolor-and-gouache spot vignette (~25% of canvas surrounded by wide unpainted cream archival paper), ...; in the top-right isolated soft-edged watercolor-and-gouache spot vignette (~25% of canvas surrounded by wide unpainted cream archival paper), ...").
+    - Give the ★ STARRED IMPORTANT MOMENT (Moment 0${starredChronicleIdx + 1}: "${starredChronicleMoment?.text || ''}") MORE SPACE IN THE POSTER by placing it in the LARGER BOTTOM-CENTER SOFT-EDGED SPOT-ILLUSTRATION VIGNETTE (~45-50% of the canvas centered across the lower half, surrounded by unpainted cream archival paper)!
+  * STRICT BAN ON FULL-BLEED MERGED BACKGROUNDS OR OVERLAPPING SCENES: Never merge the 3 moments into a single full-bleed scene (never put one moment's characters standing in front of another moment's background!), and never float a giant disembodied phone in the sky above another moment! Each of the 3 moments must live strictly inside its own isolated soft-edged watercolor/gouache spot vignette on the cream archival paper.
+  * STRICT BAN ON PRINTED LABELS OR CAPTIONS: Do NOT write numbered titles like "Moment 01:" or "Scene 1:" inside "illustrationPrompt" (as image models will print those words as text captions onto the painting!). Whenever the narrator (Shridhar) appears in a vignette, portray him as a fit mid-age 40-year-old Indian man in his prime early 40s (full head of thick short jet-black hair, smooth unwrinkled forehead, neat short dark trimmed beard, sturdy broad-shouldered build, strictly NOT old or elderly), and depict any family members, colleagues, friends, or companions ONLY inside the specific vignette where they are mentioned!
   * CRITICAL ATTACHED MOMENT PHOTO / LOGO INTEGRATION RULE:
-    Whenever a Moment has [Photo Attached], inspect the attached image for that moment and weave it MEANINGFULLY and PROMINENTLY into that moment's vignette in direct connection with what the moment describes:
-    - If the attached image is an app logo, brand emblem, or icon (for example, a black fountain-pen nib emblem containing a contemplative upward-tilted portrait face on a cream background) and the moment describes building or soft-launching an app, explicitly instruct "illustrationPrompt" to display that EXACT attached emblem/logo glowing large, crisp, and unmistakable on the smartphone/device screen in that vignette (never replace it with a generic blank blue screen).
+    Whenever a Moment has [Photo Attached], inspect the attached image for that moment and weave it MEANINGFULLY and PROMINENTLY into that specific moment's isolated vignette:
+    - If the attached image is an app logo, brand emblem, or icon (for example, a black fountain-pen nib emblem containing a contemplative upward-tilted portrait face on a cream background) and the moment describes building or soft-launching an app, explicitly instruct "illustrationPrompt" to show Shridhar at his desk inside that moment's vignette holding a smartphone or laptop displaying that EXACT attached emblem/logo crisp and unmistakable on the screen.
     - If the attached image is a photograph of a scene, object, or activity, explicitly describe its exact visual subject and composition as the visual centerpiece of that vignette.
   * Strictly zero printed captions, zero subheadings, zero signage text, and zero random letters anywhere in the artwork.` : (sourceType === 'inner_voice' ? `CRITICAL INNER VOICE & LIVED EXPERIENCE DIRECTIVE (ELABORATE USER VOICE ONLY, ZERO CONCEPT FABRICATION):
 - This is an INNER VOICE perspective rooted in the curator's personal life, emotional experience, philosophical stance, or daily human reality.
@@ -1987,12 +1995,14 @@ Respond strictly with valid JSON with this exact structure:
       digitalLink: url || '',
       publicationName: parsed.publicationName || pubName || (sourceType === 'inner_voice' ? 'Inner Voice' : 'Curated Press'),
       adaptedHeadline: parsed.adaptedHeadline || 'Perspectives in Flux',
-      originalHeadline: (sourceType === 'inner_voice' && spark) ? (parsed.originalHeadline || spark) : (parsed.originalHeadline || extractedTitle || parsed.adaptedHeadline),
+      originalHeadline: isChronicle
+        ? formatChronicleDateLabel(new Date())
+        : ((sourceType === 'inner_voice' && spark) ? (parsed.originalHeadline || spark) : (parsed.originalHeadline || extractedTitle || parsed.adaptedHeadline)),
       categoryBadge: parsed.categoryBadge || (sourceType === 'inner_voice' ? 'OPINION' : 'DISCOVERY'),
       targetAudience: targetAudience || 'General',
       hook: parsed.hook || '',
       summary: parsed.summary || '',
-      whyItMatters: parsed.whyItMatters || '',
+      whyItMatters: isChronicle ? '' : (parsed.whyItMatters || ''),
       keyTakeaways: Array.isArray(parsed.keyTakeaways) ? parsed.keyTakeaways : [],
       receiptHighlightQuote: parsed.receiptHighlightQuote || '',
       resolvedArticleExcerpts: cleanedExcerpts,
@@ -2734,7 +2744,7 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
   const hasFamilyContext = hasTwoSons || hasExplicitFamilyGroup;
   const isIndianFamilyCast = (!countryContext || /india/i.test(countryContext));
 
-  if (hasFamilyContext && isIndianFamilyCast) {
+  if (hasFamilyContext && isIndianFamilyCast && !chronicleMode) {
     const headcountAnchor = 'GROUP PORTRAIT OF EXACTLY FOUR (4) DISTINCT INDIVIDUAL PEOPLE STANDING ON THE SAME LEVEL FLOOR WITH CLEAR GRADUATED HEIGHT DIFFERENCES (3 MALES, 1 FEMALE). STRICT COUNT = 4 PEOPLE: 1) Adult Father (man, mid 40s, tallest adult) with sturdy broad-shouldered build, 2) Adult Mother (woman, mid 30s, second tallest adult) with natural healthy medium adult build (strictly not ultra-slim or runway model thin), 3) Elder Son (Gahan, 11-year-old tall pre-teen boy whose head reaches up to his Mother\'s shoulder/chin and Father\'s upper chest/collarbone) with sturdy youth build wearing a DARK NAVY-BLUE casual t-shirt, 4) Younger Son (Rishu, 7-year-old young schoolboy standing a full head shorter than his older brother so the top of his head reaches to his older brother\'s shoulder/upper chest and his Mother\'s elbow/waist level) with soft round child cheeks wearing a CONTRASTING BRIGHT EMERALD-GREEN OR MUSTARD-YELLOW t-shirt. STRICT BAN ON EQUAL-HEIGHT SONS OR MATCHING WHITE SHIRTS: Never draw the two boys at the same height and never dress them in identical white polo shirts. ';
     if (!enhancedPrompt.includes('EXACTLY FOUR') && !enhancedPrompt.includes('STRICT COUNT = 4')) {
       enhancedPrompt = headcountAnchor + enhancedPrompt;
@@ -2834,7 +2844,7 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
   }
 
   if (chronicleMode) {
-    enhancedPrompt += '. CRITICAL 3-VIGNETTE NON-OVERLAPPING ARCHIVAL BROADSHEET LAYOUT: Render in rich editorial gouache and warm India ink tones on textured warm cream archival broadsheet paper, presenting distinct, clearly separated lived-in narrative vignettes with clean unpaved cream paper margins separating each vignette (strictly ZERO overlapping figures between vignettes and strictly ZERO printed text captions, numbers, or labels). Place the two secondary moments in clean side-by-side upper vignettes (~25% each) and give the starred highlight moment the large lower panoramic showcase vignette (~50% across the full lower half of the 3:4 canvas), depicting the complete people, conversations, demos, and hospitality in each scene.';
+    enhancedPrompt += '. CRITICAL 3-SPOT-VIGNETTE WATERCOLOR & GOUACHE LAYOUT ON OPEN CREAM ARCHIVAL PAPER: Render in warm editorial watercolor and gouache on open, unpainted textured warm cream archival watercolor paper, presenting 3 separate, self-contained soft-edged oval spot-illustration vignettes floating on the open cream paper background with wide unpainted cream paper margins surrounding and separating each vignette (strictly NOT a single merged full-bleed background scene, strictly ZERO overlapping figures between vignettes, and strictly ZERO printed text captions, numbers, or labels). Place the two secondary moments in two separate soft-edged oval spot vignettes at the top-left and top-right (~25% each, surrounded by unpainted cream paper) and give the starred highlight moment the larger bottom-center soft-edged spot vignette (~45-50% centered across the lower half, surrounded by unpainted cream paper).';
   }
 
   const isPhotoMedium = /photograph|film still|35mm|photojournalism|documentary|editorial portrait photograph/i.test(enhancedPrompt);
@@ -2865,7 +2875,7 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
       });
     });
     parts.push({
-      text: `Create a masterpiece 3-scene editorial broadsheet painted story montage in rich gouache and warm India ink tones on textured warm cream archival paper with clean unpaved cream paper margins clearly separating each vignette (strictly zero overlapping figures between vignettes and strictly zero printed captions or labels): ${enhancedPrompt}. Keep all family members and companions specified in the prompt (including Father Shridhar as a fit mid-age 40-year-old Indian man with thick short jet-black hair and neat dark beard, Mother Aruna, and when included in the prompt, both sons with their unmistakable 4-year height difference: tall 11-year-old Elder Son in dark navy-blue t-shirt reaching Mother's shoulder/chin and shorter 7-year-old Younger Son a full head shorter in bright emerald-green t-shirt) clearly depicted inside their respective vignettes without overlapping across vignette margins. Faithfully display the attached Reference Photo/Logo prominently inside its corresponding vignette. ${textureStyle}, masterwork, strictly no printed captions, no numbers, and no random background words.`
+      text: `Create a masterpiece 3-vignette editorial watercolor and gouache spot-illustration page on open unpainted textured warm cream archival watercolor paper, featuring 3 separate, self-contained soft-edged oval spot-illustration vignettes floating on the open cream paper background with wide unpainted cream paper margins surrounding and separating each vignette (strictly NOT a single merged full-bleed background scene, strictly zero overlapping figures between vignettes, and strictly zero printed captions or labels): ${enhancedPrompt}. Keep all family members and companions specified in the prompt (including Father Shridhar as a fit mid-age 40-year-old Indian man with thick short jet-black hair and neat dark beard, Mother Aruna, and when included in a specific vignette, both sons with their unmistakable 4-year height difference: tall 11-year-old Elder Son in dark navy-blue t-shirt reaching Mother's shoulder/chin and shorter 7-year-old Younger Son a full head shorter in bright emerald-green t-shirt) strictly inside their respective moment's isolated vignette without overlapping across the unpainted cream paper margins. Faithfully display the attached Reference Photo/Logo inside its corresponding vignette. ${textureStyle}, masterwork, strictly no printed captions, no numbers, and no random background words.`
     });
   } else if (Array.isArray(stylizedAvatars) && stylizedAvatars.length > 0) {
     stylizedAvatars.forEach((av, i) => {
@@ -2960,6 +2970,22 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
 function getCuratedEditorialPhoto() {
   // Completely eliminated external stock photo fallbacks
   return '';
+}
+
+function formatChronicleDateLabel(dateInput) {
+  const d = dateInput ? new Date(dateInput) : new Date();
+  const validDate = isNaN(d.getTime()) ? new Date() : d;
+  const day = validDate.getDate();
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const month = months[validDate.getMonth()];
+  const year = validDate.getFullYear();
+  const mod10 = day % 10;
+  const mod100 = day % 100;
+  let suffix = 'th';
+  if (mod10 === 1 && mod100 !== 11) suffix = 'st';
+  else if (mod10 === 2 && mod100 !== 12) suffix = 'nd';
+  else if (mod10 === 3 && mod100 !== 13) suffix = 'rd';
+  return `${day}${suffix} ${month} ${year}`;
 }
 
 function decodeHtmlEntities(str) {
@@ -3351,11 +3377,11 @@ function buildFamilyCastDirectives({ familyCast, activeCast, castStaging, userSl
   const maleCount = activeMembers.filter(m => m.relationship === 'self' || m.relationship === 'elder_son' || m.relationship === 'younger_son' || /father|dad|son|boy|brother|male/i.test(`${m.roleLabel} ${m.relationship}`)).length;
   const femaleCount = totalCount - maleCount;
 
-  if (isSoloProtagonist && chronicleMode) {
-    directives.push(`DAILY CHRONICLE PROTAGONIST & MULTI-SCENE COMPANION DIRECTIVE:
-- Narrator Identity Anchor: Whenever the narrator (${soloMember.name || soloMember.roleLabel}) appears across the Daily Chronicle montage scenes, portray him with his exact physical identity anchor (${soloMember.uncompromisableAnchors || soloMember.visualTraits}).
-- INCLUDE COLLEAGUES, FRIENDS, HOSTS & COMPANIONS IN EACH MOMENT SCENE: Because this is a multi-moment Daily Chronicle, if any moment mentions colleagues, friends, tenants, hosts, or companions (e.g. demoing a feature to Shrikanth, meeting and being welcomed by Swapnil), YOU MUST ACTIVELY DEPICT THOSE PEOPLE interacting naturally inside their respective moment scenes! Strictly do NOT restrict the montage to 1 person alone in a room.`);
-    promptSnippets.push(`Daily Chronicle multi-scene montage featuring ${soloMember.name || soloMember.roleLabel} alongside the colleagues, hosts, or companions described in each moment`);
+  if (chronicleMode) {
+    directives.push(`DAILY CHRONICLE PROTAGONIST & VIGNETTE-SPECIFIC CAST DIRECTIVE:
+- Narrator Identity Anchor: Whenever the narrator (Father Shridhar) appears in a vignette, portray him as a fit mid-age 40-year-old Indian man in his prime early 40s (full head of thick short jet-black hair, smooth unwrinkled forehead, neat short dark trimmed beard, sturdy broad-shouldered build, strictly NOT old or elderly).
+- VIGNETTE-SCOPED CHARACTER PLACEMENT (DO NOT MERGE ALL CHARACTERS INTO ONE SCENE): Each of the 3 Daily Chronicle vignettes is a separate, isolated soft-edged watercolor-and-gouache spot-illustration floating on open cream archival paper. Depict family members (${activeMembers.map(m => m.name || m.roleLabel).join(', ')}), colleagues, friends, or hosts ONLY inside the specific moment vignette where they are mentioned! Never combine all 3 moments into a single full-bleed family portrait.`);
+    promptSnippets.push(`Daily Chronicle 3 isolated soft-edged watercolor-and-gouache spot-illustration vignettes on open cream archival paper`);
   } else if (isSoloProtagonist) {
     directives.push(`SOLE PROTAGONIST & COMPLETE HUMAN ANATOMY DIRECTIVE:
 - VISIBLE INDIVIDUALS: EXACTLY 1 PERSON (${soloMember.name || soloMember.roleLabel}).

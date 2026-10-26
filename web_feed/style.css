@@ -2481,7 +2481,7 @@ header {
 
 .carousel-view .slant-minute-scroll-viewport:not([data-bifurcated="true"]),
 .slant-minute-scroll-viewport:not([data-bifurcated="true"]) {
-  overflow-y: hidden !important;
+  overflow-y: auto !important;
   overscroll-behavior-y: auto !important;
 }
 
@@ -20827,6 +20827,26 @@ mark.polish-mark:hover, mark.polish-mark.active {
   transform: translateY(-1px);
   box-shadow: 0 8px 24px rgba(217, 119, 6, 0.42);
 }
+
+.chronicle-poster-date-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  padding: 4px 10px;
+  margin-bottom: 6px;
+  border-radius: 99px;
+  background: rgba(15, 23, 42, 0.72);
+  border: 1px solid rgba(251, 191, 36, 0.45);
+  color: #FDE68A;
+  font-family: 'Space Grotesk', 'Inter', sans-serif;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
 
 
 

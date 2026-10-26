@@ -4186,6 +4186,22 @@ window.handlePosterImageError = function(imgEl, category) {
    SLIDE BUILDERS (SLIDE 1, SLIDE 2, SLIDE 3)
    ============================================================ */
 
+function formatChronicleDateDisplay(dateInput) {
+  const d = dateInput ? new Date(dateInput) : new Date();
+  const validDate = isNaN(d.getTime()) ? new Date() : d;
+  const day = validDate.getDate();
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const month = months[validDate.getMonth()];
+  const year = validDate.getFullYear();
+  const mod10 = day % 10;
+  const mod100 = day % 100;
+  let suffix = 'th';
+  if (mod10 === 1 && mod100 !== 11) suffix = 'st';
+  else if (mod10 === 2 && mod100 !== 12) suffix = 'nd';
+  else if (mod10 === 3 && mod100 !== 13) suffix = 'rd';
+  return `${day}${suffix} ${month} ${year}`;
+}
+
 function buildSlide1Html(post, index, totalSlides = 2) {
   const headline = escapeHtml(post.adaptedHeadline || post.originalHeadline || 'Untitled Story');
   const audience = escapeHtml(post.targetAudience || 'General');
@@ -4313,8 +4329,17 @@ function buildSlide1Html(post, index, totalSlides = 2) {
     rawNews = rawNews.replace(/^(the spark|curator stance|source headline)\s*:\s*["']?/i, '').replace(/["']?$/i, '').trim();
   }
 
+  const isChronicle = isPostChronicleDiary(post);
   let newsFragmentHtml = '';
-  if (rawNews) {
+  if (isChronicle) {
+    const chronicleDateText = formatChronicleDateDisplay(post.createdAt || post.date);
+    newsFragmentHtml = `
+      <div class="chronicle-poster-date-pill">
+        <span>📅</span>
+        <span>${escapeHtml(chronicleDateText)}</span>
+      </div>
+    `;
+  } else if (rawNews) {
     const words = rawNews.split(/\s+/);
     const formattedNews = words.length > 14 ? words.slice(0, 14).join(' ') + '...' : rawNews;
     
@@ -4348,7 +4373,7 @@ function buildSlide1Html(post, index, totalSlides = 2) {
   const isInnerVoice = isInnerVoicePost(post);
   const rawHandle = (post.creatorHandle || '@curator').trim();
   const initial = escapeHtml((rawHandle.replace('@', '').trim().charAt(0) || 'C').toUpperCase());
-  const curatorKickerHtml = !isInnerVoice ? `
+  const curatorKickerHtml = (!isInnerVoice && !isChronicle) ? `
         <div class="slide-hook-curator-kicker">
           <span class="slide-hook-curator-kicker-avatar">${initial}</span>
           <span class="slide-hook-curator-kicker-text">${handle}'s Perspective</span>
@@ -4780,11 +4805,14 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
   if (!pubName) pubName = "THE NEW INDIAN EXPRESS";
   const cleanPubUpper = escapeHtml(pubName.toUpperCase());
 
+  const isChronicle = isPostChronicleDiary(post);
   const headline = escapeHtml(
-    post.broadsheetHeadline ||
-    (tier === "tier3_opinion"
-      ? (post.adaptedHeadline || post.sourceHeadline || post.originalHeadline)
-      : (post.sourceHeadline || post.originalHeadline || post.adaptedHeadline)) || "Curated Editorial"
+    isChronicle
+      ? (post.adaptedHeadline || post.broadsheetHeadline || "Moments of the Day")
+      : (post.broadsheetHeadline ||
+        (tier === "tier3_opinion"
+          ? (post.adaptedHeadline || post.sourceHeadline || post.originalHeadline)
+          : (post.sourceHeadline || post.originalHeadline || post.adaptedHeadline)) || "Curated Editorial")
   );
 
   const cleanExcerpt = (txt) => {
@@ -4977,7 +5005,6 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
     }
   });
 
-  const isChronicle = isPostChronicleDiary(post);
   const p1SlideBadge = isChronicle
     ? (forExportPage > 0 ? "02 / 03 • MOMENTS" : "02 / 03")
     : (bifurcation.isBifurcated ? (forExportPage > 0 ? "02 / 03 • ESSAY P1" : "PAGE 1 / 2") : (forExportPage > 0 ? "02 / 02 • ESSAY" : "02 / 02"));
@@ -4986,26 +5013,17 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
     : (forExportPage > 0 ? "03 / 03 • ESSAY P2" : "PAGE 2 / 2");
   const folioRightP2 = (forExportPage > 0 || isChronicle) ? "Every thought deserves a frame • 03 / 03" : "Every thought deserves a frame • 02 / 02";
   const receiptBrandTitle = isChronicle ? "SLANT MOMENTS" : "SLANT MINUTES";
-
-  const hasDistinctSubReflection = Boolean(
-    cleanReflection &&
-    cleanReflection.toLowerCase() !== rawOpinion.toLowerCase() &&
-    !rawOpinion.toLowerCase().includes(cleanReflection.slice(0, 24).toLowerCase())
-  );
+  const chronicleDateStr = isChronicle ? formatChronicleDateDisplay(post.createdAt || post.date) : "";
 
   const chroniclePoster3ReflectionHtml = `
         <div class="chronicle-reflection-centerpiece">
           <div class="chronicle-reflection-kicker">
             <span class="kicker-star">✦</span>
-            <span>REFLECTION OF THE DAY</span>
+            <span>TAKEAWAY OF THE DAY • ${escapeHtml(chronicleDateStr)}</span>
             <span class="kicker-star">✦</span>
           </div>
           <div class="chronicle-reflection-quote-mark">&ldquo;</div>
           <p class="chronicle-reflection-main-text">${opinion}</p>
-          ${hasDistinctSubReflection ? `
-            <div class="chronicle-reflection-divider">❖</div>
-            <p class="chronicle-reflection-thread-text">${escapeHtml(cleanReflection)}</p>
-          ` : ""}
           <div class="chronicle-reflection-signature">
             <span class="signed-curator-avatar">${initial}</span>
             <span class="chronicle-signature-handle">${handle}</span>
@@ -5020,7 +5038,7 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
             <span class="receipt-brand-text">${receiptBrandTitle}</span>
           </div>
           <div class="receipt-corner-creator">
-            <span class="receipt-creator-name">${handle}</span>
+            <span class="receipt-creator-name">${isChronicle ? escapeHtml(chronicleDateStr) : handle}</span>
             <span class="receipt-corner-slide-num">${p1SlideBadge}</span>
           </div>
         </div>
@@ -5038,7 +5056,7 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
         <div class="receipt-footer">
           <div class="receipt-folio-rule"></div>
           <div class="receipt-folio-text">
-            <span class="receipt-folio-left">${isChronicle ? `DAILY CHRONICLE • ${handle.toUpperCase()}` : (isInnerVoice ? `PERSONAL ESSAY • ${handle.toUpperCase()}` : (cleanPubUpper ? `IN DIALOGUE WITH ${cleanPubUpper}` : "EDITORIAL ESSAY"))}</span>
+            <span class="receipt-folio-left">${isChronicle ? `${escapeHtml(chronicleDateStr.toUpperCase())} • ${handle.toUpperCase()}` : (isInnerVoice ? `PERSONAL ESSAY • ${handle.toUpperCase()}` : (cleanPubUpper ? `IN DIALOGUE WITH ${cleanPubUpper}` : "EDITORIAL ESSAY"))}</span>
             <span class="receipt-folio-right">Every thought deserves a frame • ${isChronicle ? "02 / 03" : "02 / 02"}</span>
           </div>
         </div>
@@ -5052,7 +5070,7 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
             <span class="receipt-brand-text">${isChronicle ? receiptBrandTitle : `${receiptBrandTitle} ...`}</span>
           </div>
           <div class="receipt-corner-creator">
-            <span class="receipt-creator-name">${handle}</span>
+            <span class="receipt-creator-name">${isChronicle ? escapeHtml(chronicleDateStr) : handle}</span>
             <span class="receipt-corner-slide-num">${p2SlideBadge}</span>
           </div>
         </div>
@@ -5067,34 +5085,36 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
         <div class="receipt-footer">
           <div class="receipt-folio-rule"></div>
           <div class="receipt-folio-text">
-            <span class="receipt-folio-left">${isChronicle ? `DAILY CHRONICLE • ${handle.toUpperCase()}` : (isInnerVoice ? `PERSONAL ESSAY • ${handle.toUpperCase()}` : (cleanPubUpper ? `IN DIALOGUE WITH ${cleanPubUpper}` : "EDITORIAL ESSAY"))}</span>
+            <span class="receipt-folio-left">${isChronicle ? `${escapeHtml(chronicleDateStr.toUpperCase())} • ${handle.toUpperCase()}` : (isInnerVoice ? `PERSONAL ESSAY • ${handle.toUpperCase()}` : (cleanPubUpper ? `IN DIALOGUE WITH ${cleanPubUpper}` : "EDITORIAL ESSAY"))}</span>
             <span class="receipt-folio-right">${folioRightP2}</span>
           </div>
         </div>
   `;
 
-  // Specific Discrete Export Page 1 (Identical DOM structure and classes to Web View Page 1)
+  const isStaticExport = (index === "export");
+
+  // Specific Discrete Page 1 (Used for Export Page 1 AND Live Feed Slide 2 of Daily Chronicle)
   if (forExportPage === 1) {
     return `
       <div class="slant-minute-scroll-viewport essay-scroll-viewport ${bifurcation.hasPhoto ? "has-inset-photo" : ""} ${bifurcation.densityClass}"
            lang="en"
            data-bifurcated="${bifurcation.isBifurcated ? "true" : "false"}"
-           style="overflow:hidden !important; height:100% !important;">
-        <div class="essay-page-block essay-page-1" style="height:100% !important; min-height:100% !important; padding-bottom:4px !important;">
+           ${isStaticExport ? 'style="overflow:hidden !important; height:100% !important;"' : 'style="overflow-y:auto !important; overflow-x:hidden !important; height:100% !important; -webkit-overflow-scrolling:touch;" onscroll="window._lastSlantMinuteScroll = Date.now()"'}>
+        <div class="essay-page-block essay-page-1" style="${isStaticExport ? "height:100% !important; min-height:100% !important; padding-bottom:4px !important;" : "min-height:100% !important; height:auto !important; padding-bottom:10px !important;"}">
           ${page1InnerHtml}
         </div>
       </div>
     `;
   }
 
-  // Specific Discrete Export Page 2 (Identical DOM structure and classes to Web View Page 2)
+  // Specific Discrete Page 2 (Used for Export Page 2 AND Live Feed Slide 3 of Daily Chronicle)
   if (forExportPage === 2) {
     return `
       <div class="slant-minute-scroll-viewport essay-scroll-viewport ${bifurcation.hasPhoto ? "has-inset-photo" : ""} ${bifurcation.densityClass}"
            lang="en"
            data-bifurcated="true"
-           style="overflow:hidden !important; height:100% !important;">
-        <div class="essay-page-block essay-page-2" style="height:100% !important; min-height:100% !important; padding-bottom:4px !important;">
+           ${isStaticExport ? 'style="overflow:hidden !important; height:100% !important;"' : 'style="overflow-y:auto !important; overflow-x:hidden !important; height:100% !important; -webkit-overflow-scrolling:touch;" onscroll="window._lastSlantMinuteScroll = Date.now()"'}>
+        <div class="essay-page-block essay-page-2" style="${isStaticExport ? "height:100% !important; min-height:100% !important; padding-bottom:4px !important;" : "min-height:100% !important; height:auto !important; padding-bottom:10px !important;"}">
           ${page2InnerHtml}
         </div>
       </div>
@@ -10467,6 +10487,11 @@ function syncInnerVoiceSubmodeUI() {
     if (sub) sub.textContent = '🔒 Strictly personal diary (never goes to people\'s feed). Write 2 to 3 lines for each moment, and tap ★ Star on the moment you feel is most important for larger poster space.';
     if (heroIcon) heroIcon.textContent = '📔';
     if (heroBox) heroBox.style.color = '#F59E0B';
+
+    // Default portrayal style for Diary Chronicle is Painted Vignettes (matching 4bovq style)
+    if (typeof selectCharacterRep === 'function') {
+      selectCharacterRep('painting');
+    }
 
     // Always ensure Father (Shridhar, 40yo) is active in Family Cast as the center of the Daily Chronicle collage
     activeCastMemberIds.add('member_father');
