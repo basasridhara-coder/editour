@@ -21621,15 +21621,23 @@ mark.polish-mark:hover, mark.polish-mark.active {
   }
 }
 
-/* Blur curator handle (@Shridhar Reddy) on Login Page Showcase Cards */
+/* Blur curator handle (@Shridhar Reddy) & account name on Login Page Showcase Cards */
+#loginPostsScrollTrack .creator-handle,
+#loginPostsScrollTrack .creator-avatar,
 #loginPostsScrollTrack .poster-corner-creator,
 #loginPostsScrollTrack .receipt-creator-name,
 #loginPostsScrollTrack .signed-curator-title,
+#loginPostsScrollTrack .signed-curator-avatar,
+#loginPostsScrollTrack .slide-hook-curator-kicker-avatar,
 #loginPostsScrollTrack .post-creator-handle,
 #loginPostsScrollTrack .chronicle-signature-handle,
+.sample-feed-card .creator-handle,
+.sample-feed-card .creator-avatar,
 .sample-feed-card .poster-corner-creator,
 .sample-feed-card .receipt-creator-name,
 .sample-feed-card .signed-curator-title,
+.sample-feed-card .signed-curator-avatar,
+.sample-feed-card .slide-hook-curator-kicker-avatar,
 .sample-feed-card .post-creator-handle,
 .sample-feed-card .chronicle-signature-handle {
   filter: blur(5.5px) !important;
