@@ -6450,9 +6450,19 @@ header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 20px;
-  padding-bottom: 14px;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding-bottom: 12px;
   border-bottom: 1px solid var(--border-subtle);
+}
+
+.creator-modal-header .modal-close {
+  position: static !important;
+  flex-shrink: 0;
+}
+
+.creator-steps-bar {
+  display: none !important;
 }
 
 .creator-modal-title-wrap {
@@ -20162,6 +20172,9 @@ mark.polish-mark:hover, mark.polish-mark.active {
   flex-direction: column;
   gap: 8px;
   transition: border-color 0.18s ease;
+  box-sizing: border-box;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 [data-theme="daylight"] .chronicle-moment-card {
@@ -20177,14 +20190,17 @@ mark.polish-mark:hover, mark.polish-mark.active {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 6px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .chronicle-moment-left {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 7px;
-  flex: 1;
+  gap: 6px;
+  flex: 0 0 auto;
   min-width: 0;
 }
 
@@ -20225,10 +20241,13 @@ mark.polish-mark:hover, mark.polish-mark.active {
 }
 
 .chronicle-moment-actions {
-  display: flex;
+  display: inline-flex;
   align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 6px;
-  flex-shrink: 0;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .chronicle-moment-photo-btn {
@@ -21080,6 +21099,149 @@ mark.polish-mark:hover, mark.polish-mark.active {
 
 [data-theme="obsidian"] .diary-cal-stats-badge {
   color: #FBBF24;
+}
+
+/* Chronicle Discipline & Rhythm Stage Banner */
+.diary-discipline-banner {
+  border-radius: 13px;
+  padding: 9px 12px;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(16, 185, 129, 0.08) 100%);
+  border: 1px solid rgba(245, 158, 11, 0.34);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  box-sizing: border-box;
+}
+
+.diary-discipline-banner.stage-nudge,
+.diary-discipline-banner.stage-reignite {
+  background: linear-gradient(135deg, rgba(249, 115, 22, 0.14) 0%, rgba(239, 68, 68, 0.08) 100%);
+  border-color: rgba(249, 115, 22, 0.42);
+}
+
+.diary-discipline-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.diary-discipline-badge-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.diary-discipline-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.diary-discipline-title {
+  font-family: 'Space Grotesk', 'Inter', sans-serif;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.diary-discipline-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.diary-discipline-status-pill {
+  font-size: 10.5px;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 99px;
+  background: rgba(245, 158, 11, 0.18);
+  color: #B45309;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+[data-theme="obsidian"] .diary-discipline-status-pill {
+  color: #FBBF24;
+}
+
+.diary-discipline-cta-btn {
+  padding: 3px 9px;
+  border-radius: 99px;
+  border: none;
+  background: #D97706;
+  color: #FFFFFF;
+  font-size: 10.5px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform 0.14s ease, background 0.14s ease;
+}
+
+.diary-discipline-cta-btn:hover {
+  background: #B45309;
+  transform: translateY(-1px);
+}
+
+.diary-discipline-motivation {
+  font-size: 11.5px;
+  line-height: 1.35;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.diary-discipline-ladder {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-top: 2px;
+}
+
+.diary-discipline-ladder::-webkit-scrollbar {
+  display: none;
+}
+
+.diary-stage-step-chip {
+  font-size: 9.5px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 99px;
+  white-space: nowrap;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  color: var(--text-secondary);
+  background: rgba(148, 163, 184, 0.08);
+  opacity: 0.65;
+}
+
+.diary-stage-step-chip.is-unlocked {
+  opacity: 0.9;
+  border-color: rgba(16, 185, 129, 0.4);
+  color: #059669;
+  background: rgba(16, 185, 129, 0.1);
+}
+
+[data-theme="obsidian"] .diary-stage-step-chip.is-unlocked {
+  color: #34D399;
+}
+
+.diary-stage-step-chip.is-current {
+  opacity: 1;
+  font-weight: 800;
+  border-color: #D97706;
+  color: #B45309;
+  background: rgba(245, 158, 11, 0.22);
+}
+
+[data-theme="obsidian"] .diary-stage-step-chip.is-current {
+  color: #FDE68A;
+  border-color: #F59E0B;
+}
+
+.diary-stage-step-arrow {
+  font-size: 10px;
+  color: var(--text-secondary);
+  opacity: 0.5;
 }
 
 .diary-cal-weekdays-row {

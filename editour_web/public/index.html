@@ -27,7 +27,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Merriweather:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,400;1,600;1,700;1,900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261027_0716">
+  <link rel="stylesheet" href="style.css?v=20261027_0845">
   <!-- Favicon & Brand Icons -->
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
@@ -303,14 +303,14 @@
           <div class="creator-badge">STUDIO</div>
           <h2 class="creator-title" id="creatorModalTitle">Create New Slant</h2>
         </div>
-        <div style="display:flex; align-items:center; gap:8px;">
-          <span id="creatorStudioCreditBadge" onclick="if(typeof isCurrentUserAdmin!=='undefined' && isCurrentUserAdmin){openAdminBetaModal();}" style="display:none; align-items:center; gap:4px; font-size:11px; font-weight:800; padding:4px 9px; border-radius:99px; background:rgba(16,185,129,0.14); color:#34D399; border:1px solid rgba(16,185,129,0.35); cursor:pointer;" title="Your available Slant Studio poster credits for today">⚡ 5 Credits</span>
+        <div class="creator-header-right-actions" style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
+          <span id="creatorStudioCreditBadge" onclick="if(typeof isCurrentUserAdmin!=='undefined' && isCurrentUserAdmin){openAdminBetaModal();}" style="display:none; align-items:center; gap:4px; font-size:11px; font-weight:800; padding:4px 9px; border-radius:99px; background:rgba(16,185,129,0.14); color:#34D399; border:1px solid rgba(16,185,129,0.35); cursor:pointer; white-space:nowrap;" title="Your available Slant Studio poster credits for today">⚡ 5 left</span>
           <button class="modal-close" onclick="closeCreatorModal()">&times;</button>
         </div>
       </div>
 
-      <!-- Step Indicator Bar -->
-      <div class="creator-steps-bar">
+      <!-- Step Indicator Bar (Hidden per user preference) -->
+      <div class="creator-steps-bar" style="display:none !important;">
         <div class="creator-step-dot active" id="stepDot1" onclick="backToStep1()" style="cursor:pointer;">
           <span class="step-num">1</span>
           <span class="step-text">Source & Thoughts</span>
@@ -2230,6 +2230,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261027_0716"></script>
+  <script src="app.js?v=20261027_0845"></script>
 </body>
 </html>

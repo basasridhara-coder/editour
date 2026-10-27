@@ -402,8 +402,7 @@ function updateCreatorStudioCreditBadge(creditsObj) {
   badge.style.display = 'inline-flex';
 
   if (isMaster || currentUserCredits?.isUnlimited) {
-    const usedToday = currentUserCredits?.usedToday || 0;
-    badge.textContent = usedToday > 0 ? `⚡ ∞ Credits (${usedToday} today)` : '⚡ ∞ Credits';
+    badge.textContent = '⚡ ∞';
     badge.style.background = 'rgba(99,102,241,0.15)';
     badge.style.color = '#818CF8';
     badge.style.borderColor = 'rgba(99,102,241,0.38)';
@@ -414,13 +413,13 @@ function updateCreatorStudioCreditBadge(creditsObj) {
   const remaining = currentUserCredits ? Number(currentUserCredits.remainingToday ?? 5) : 5;
   const bonus = currentUserCredits ? Number(currentUserCredits.bonusCredits || 0) : 0;
   if (remaining <= 0) {
-    badge.textContent = '🚨 0 Credits Today';
+    badge.textContent = '🚨 0 left';
     badge.style.background = 'rgba(239,68,68,0.16)';
     badge.style.color = '#F87171';
     badge.style.borderColor = 'rgba(239,68,68,0.45)';
     badge.title = 'Your daily Slant poster credits are used up for today. Ask the curator admin for an instant top-up!';
   } else {
-    badge.textContent = `⚡ ${remaining} ${remaining === 1 ? 'Credit' : 'Credits'} Left`;
+    badge.textContent = `⚡ ${remaining} left`;
     badge.style.background = 'rgba(16,185,129,0.14)';
     badge.style.color = '#34D399';
     badge.style.borderColor = 'rgba(16,185,129,0.35)';
@@ -8790,13 +8789,165 @@ function getDiaryChroniclesByDateMap() {
   return dateMap;
 }
 
+function computeDiaryDisciplineStage(dateMap) {
+  const map = dateMap || getDiaryChroniclesByDateMap();
+  const totalDays = map ? map.size : 0;
+
+  const formatLocalKey = (d) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  const now = new Date();
+  const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const todayKey = formatLocalKey(todayMidnight);
+  const yesterdayDate = new Date(todayMidnight.getTime() - 86400000);
+  const yesterdayKey = formatLocalKey(yesterdayDate);
+
+  const hasToday = Boolean(map && map.has(todayKey));
+  const hasYesterday = Boolean(map && map.has(yesterdayKey));
+
+  // Consecutive daily streak up to today or yesterday
+  let streak = 0;
+  if (hasToday || hasYesterday) {
+    let cursor = hasToday ? new Date(todayMidnight) : new Date(yesterdayDate);
+    while (map.has(formatLocalKey(cursor))) {
+      streak += 1;
+      cursor = new Date(cursor.getTime() - 86400000);
+    }
+  }
+
+  // Days since most recent chronicle entry
+  let daysSinceLast = null;
+  if (totalDays > 0) {
+    const sortedKeys = Array.from(map.keys()).sort();
+    const latestKey = sortedKeys[sortedKeys.length - 1];
+    const [ly, lm, ld] = latestKey.split('-').map(Number);
+    if (ly && lm && ld) {
+      const latestMidnight = new Date(ly, lm - 1, ld);
+      const diffDays = Math.round((todayMidnight.getTime() - latestMidnight.getTime()) / 86400000);
+      daysSinceLast = Math.max(0, diffDays);
+    }
+  }
+
+  const tiers = [
+    { id: 'spark', icon: '🌱', name: 'Spark Seeker', minDays: 1, role: 'Early Adopter' },
+    { id: 'catcher', icon: '✨', name: 'Moment Catcher', minDays: 3, role: 'Rising Chronicler' },
+    { id: 'rhythm', icon: '🔥', name: 'Rhythm Keeper', minDays: 7, role: 'Habit Builder' },
+    { id: 'archivist', icon: '🧭', name: 'Mindful Archivist', minDays: 15, role: 'Steady Chronicler' },
+    { id: 'weaver', icon: '👑', name: 'Master Time-Weaver', minDays: 30, role: 'Chronicle Legend' }
+  ];
+
+  let activeTierIdx = 0;
+  for (let i = tiers.length - 1; i >= 0; i--) {
+    if (totalDays >= tiers[i].minDays) {
+      activeTierIdx = i;
+      break;
+    }
+  }
+  const currentTier = tiers[activeTierIdx];
+  const nextTier = tiers[activeTierIdx + 1] || null;
+
+  // Stage 0: Brand new user (0 entries yet)
+  if (totalDays === 0) {
+    return {
+      icon: '🌱',
+      badgeTitle: 'First Spark • Early Explorer',
+      pillText: 'Start Day 1',
+      motivation: 'Every timeless diary begins with a single day — frame your first 3 moments today to unlock Spark Seeker!',
+      themeClass: 'stage-seed',
+      hasToday: false,
+      isMissed: false,
+      tiers,
+      activeTierIdx: -1,
+      drawerLabel: '🌱 Early Explorer'
+    };
+  }
+
+  // Missed-Day Motivational Stages (when user missed yesterday or longer)
+  if (daysSinceLast !== null && daysSinceLast >= 2) {
+    const missedDays = daysSinceLast - 1;
+    if (missedDays === 1) {
+      return {
+        icon: '⏳',
+        badgeTitle: `Ember Waiting • ${currentTier.name}`,
+        pillText: 'Missed Yesterday',
+        motivation: `You paused for a day — pen today's 3 moments now to reignite your ${currentTier.name} rhythm!`,
+        themeClass: 'stage-nudge',
+        hasToday: false,
+        isMissed: true,
+        tiers,
+        activeTierIdx,
+        drawerLabel: `⏳ Reignite • ${currentTier.name}`
+      };
+    }
+    return {
+      icon: '🌅',
+      badgeTitle: `Fresh Chapter • ${currentTier.name}`,
+      pillText: `${missedDays}d Pause • Resume`,
+      motivation: `It's been ${daysSinceLast} days since your last chronicle — today's moments deserve a frame. Jump right back in!`,
+      themeClass: 'stage-reignite',
+      hasToday: false,
+      isMissed: true,
+      tiers,
+      activeTierIdx,
+      drawerLabel: `🌅 Resume • ${currentTier.name}`
+    };
+  }
+
+  // Active Discipline Stages (wrote today or yesterday)
+  const daysToNext = nextTier ? Math.max(1, nextTier.minDays - totalDays) : 0;
+  let motivation = '';
+  if (totalDays <= 2) {
+    motivation = hasToday
+      ? `Early adopter spark lit! ${daysToNext} more ${daysToNext === 1 ? 'day' : 'days'} of moments to unlock ${nextTier.icon} ${nextTier.name}.`
+      : `Great start as a ${currentTier.name}! Pen today's moments to keep your early momentum glowing.`;
+  } else if (nextTier) {
+    motivation = hasToday
+      ? `${streak > 1 ? `${streak}-day streak active! ` : ''}${daysToNext} more ${daysToNext === 1 ? 'day' : 'days'} to ascend to ${nextTier.icon} ${nextTier.name}.`
+      : `Your ${Math.max(1, streak)}-day rhythm is alive — capture today's moments to advance toward ${nextTier.icon} ${nextTier.name}!`;
+  } else {
+    motivation = `Rare discipline — your daily chronicles form a living treasury of your days.`;
+  }
+
+  return {
+    icon: currentTier.icon,
+    badgeTitle: `${currentTier.name} • ${currentTier.role}`,
+    pillText: streak > 1 ? `🔥 ${streak}-Day Streak` : (hasToday ? '✓ Framed Today' : 'Pen Today'),
+    motivation,
+    themeClass: 'stage-active',
+    hasToday,
+    isMissed: false,
+    tiers,
+    activeTierIdx,
+    drawerLabel: `${currentTier.icon} ${currentTier.name}`
+  };
+}
+
+function openChronicleStudioFromDiary() {
+  closeDiaryCalendarModal();
+  if (typeof openCreatorModal === 'function') {
+    openCreatorModal();
+    setTimeout(() => {
+      if (typeof selectCreatorSource === 'function') {
+        selectCreatorSource('chronicle_diary');
+      }
+    }, 80);
+  }
+}
+
 function syncDrawerDiaryCounts() {
   try {
     const dateMap = getDiaryChroniclesByDateMap();
     const daysCount = dateMap.size;
+    const stage = computeDiaryDisciplineStage(dateMap);
     const pill1 = document.getElementById('drawerDiaryCount');
     const pill2 = document.getElementById('drawerDiaryRowCount');
-    if (pill1) pill1.textContent = `${daysCount} ${daysCount === 1 ? 'day' : 'days'}`;
+    if (pill1) {
+      pill1.textContent = stage.drawerLabel || `${daysCount} ${daysCount === 1 ? 'day' : 'days'}`;
+    }
     if (pill2) pill2.textContent = String(daysCount);
   } catch (err) {
     console.warn('syncDrawerDiaryCounts error:', err);
@@ -9180,6 +9331,14 @@ function renderDiaryCalendarModal() {
     `;
   }
 
+  const disciplineStage = computeDiaryDisciplineStage(dateMap);
+  const stageStepsHtml = disciplineStage.tiers.map((t, idx) => {
+    const stateCls = idx < disciplineStage.activeTierIdx
+      ? 'is-unlocked'
+      : (idx === disciplineStage.activeTierIdx ? 'is-current' : 'is-upcoming');
+    return `<span class="diary-stage-step-chip ${stateCls}" title="${escapeHtml(`${t.name} (${t.minDays}+ days)`) }">${t.icon} ${escapeHtml(t.name)}</span>`;
+  }).join('<span class="diary-stage-step-arrow">›</span>');
+
   root.innerHTML = `
     <div class="diary-cal-toolbar">
       <div class="diary-cal-nav-group">
@@ -9187,10 +9346,21 @@ function renderDiaryCalendarModal() {
         <div class="diary-cal-current-month">${monthNames[month]} ${year}</div>
         <button type="button" class="diary-cal-nav-btn" onclick="changeDiaryCalendarMonth(1)" title="Next Month">Next ›</button>
       </div>
-      <div class="diary-cal-toolbar-right">
-        <span class="diary-cal-stats-badge">${monthChronicleCount} in ${shortMonthName} • ${dateMap.size} Total Days</span>
-        ${dateMap.size > 0 ? `<button type="button" class="diary-cal-jump-btn" onclick="jumpToLatestDiaryChronicleDate()">Latest Entry</button>` : ''}
+    </div>
+
+    <div class="diary-discipline-banner ${disciplineStage.themeClass}">
+      <div class="diary-discipline-top">
+        <div class="diary-discipline-badge-wrap">
+          <span class="diary-discipline-icon">${disciplineStage.icon}</span>
+          <span class="diary-discipline-title">${escapeHtml(disciplineStage.badgeTitle)}</span>
+        </div>
+        <div class="diary-discipline-right">
+          <span class="diary-discipline-status-pill">${escapeHtml(disciplineStage.pillText)}</span>
+          ${!disciplineStage.hasToday ? `<button type="button" class="diary-discipline-cta-btn" onclick="openChronicleStudioFromDiary()">+ Pen Today</button>` : ''}
+        </div>
       </div>
+      <div class="diary-discipline-motivation">${escapeHtml(disciplineStage.motivation)}</div>
+      <div class="diary-discipline-ladder">${stageStepsHtml}</div>
     </div>
 
     <div class="diary-cal-weekdays-row">
@@ -11255,13 +11425,13 @@ function renderDailyChronicleCards() {
 
     const starBtnHtml = `<button type="button" class="chronicle-moment-star-btn ${isStarred ? 'is-starred' : ''}" onclick="toggleChronicleMomentStar(${idx}, event)" title="${isStarred ? 'Starred as the most important moment (gets larger showcase space in Poster 1)' : 'Star this moment if you feel it is the most important (gives it more space in Poster 1)'}">
       <span class="chronicle-star-icon">${isStarred ? '★' : '☆'}</span>
-      <span class="chronicle-star-label">${isStarred ? 'Important (Larger Space)' : 'Star'}</span>
+      <span class="chronicle-star-label">${isStarred ? 'Starred' : 'Star'}</span>
     </button>`;
 
     const photoActionHtml = hasPhoto
       ? `<div class="chronicle-moment-photo-chip">
            <img src="${m.imageBase64}" class="chronicle-moment-thumb" alt="Moment ${numStr}">
-           <span>✓ Photo Attached</span>
+           <span>✓ Photo</span>
            <button type="button" class="chronicle-moment-photo-remove" onclick="removeChronicleMomentPhoto(${idx}, event)" title="Remove photo">&times;</button>
          </div>`
       : `<button type="button" class="chronicle-moment-photo-btn" onclick="triggerChronicleMomentPhoto(${idx})">
@@ -11277,14 +11447,7 @@ function renderDailyChronicleCards() {
       <div class="chronicle-moment-card ${isStarred ? 'is-starred-moment' : ''}" data-moment-idx="${idx}">
         <div class="chronicle-moment-card-header">
           <div class="chronicle-moment-left">
-            <span class="chronicle-moment-num-badge">${isStarred ? '★ ' : ''}MOMENT ${numStr}</span>
-            <input
-              type="text"
-              class="chronicle-moment-title-input"
-              placeholder="${escapeHtml(ph.title)}"
-              value="${escapeHtml(m.title || '')}"
-              oninput="onChronicleMomentInput(${idx}, 'title', this.value)"
-            >
+            <span class="chronicle-moment-num-badge">MOMENT ${numStr}</span>
           </div>
           <div class="chronicle-moment-actions">
             ${starBtnHtml}
