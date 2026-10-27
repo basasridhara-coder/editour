@@ -527,6 +527,9 @@
 
           <!-- Daily Chronicle Multi-Moment Cards Deck (Option B) -->
           <div class="daily-chronicle-deck-wrap" id="dailyChronicleDeckWrap" style="display: none;">
+            <div class="diary-encryption-trust-bar" style="display:flex; align-items:center; gap:6px; padding:6px 10px; margin-bottom:8px; border-radius:8px; background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.28); font-size:11px; font-weight:700; color:#34D399;" title="Your moments and takeaways are encrypted in your browser with AES-256-GCM before saving to the cloud. Even database admins cannot read your diary.">
+              <span>🔒 AES-256 End-to-End Encrypted • Strictly Private to You</span>
+            </div>
             <input type="file" id="chronicleMomentFileInput" accept="image/*" style="display: none;" onchange="handleChronicleMomentPhotoSelect(event)">
             <div class="daily-chronicle-cards-list" id="dailyChronicleCardsList">
               <!-- Populated dynamically by renderDailyChronicleCards() -->
@@ -2110,6 +2113,7 @@
       <div class="diary-calendar-title-wrap">
         <span class="diary-calendar-icon">📔</span>
         <div class="diary-calendar-title">Diary — Daily Chronicles Calendar</div>
+        <span style="display:inline-flex; align-items:center; gap:4px; padding:2px 8px; margin-left:6px; border-radius:99px; background:rgba(16,185,129,0.12); border:1px solid rgba(16,185,129,0.32); color:#34D399; font-size:10px; font-weight:800; white-space:nowrap;" title="Encrypted in your browser with AES-256-GCM — readable only by you">🔒 Encrypted</span>
       </div>
       <button type="button" class="diary-calendar-close-btn" onclick="closeDiaryCalendarModal()" aria-label="Close Diary Calendar">&times;</button>
     </div>
@@ -2235,6 +2239,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261027_2036"></script>
+  <script src="app.js?v=20261027_2101"></script>
 </body>
 </html>

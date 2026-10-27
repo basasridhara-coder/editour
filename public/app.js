@@ -946,6 +946,9 @@ function updateAuthUI() {
     if (headerAdminBetaBtn) {
       headerAdminBetaBtn.style.display = isCurrentUserAdmin ? 'inline-flex' : 'none';
     }
+    if (typeof decryptAllOwnedChroniclePosts === 'function') {
+      decryptAllOwnedChroniclePosts();
+    }
   } else {
     if (deepPostId) {
       if (signedInView) signedInView.style.display = 'flex';
@@ -2274,6 +2277,247 @@ function showTemporaryToast(message, duration = 2800, isHtml = false, onClickHan
   }, duration);
 }
 
+// ============================================================
+// CLIENT-SIDE AES-256-GCM DIARY ENCRYPTION ENGINE
+// ============================================================
+const _chronicleAesKeyCache = new Map();
+const _upgradedChronicleIds = new Set();
+
+function resolveChronicleKeySeed(post) {
+  const postEmail = (post?.userEmail || post?.creatorEmail || '').trim().toLowerCase();
+  const curEmail = (currentUser?.email || localStorage.getItem('slant_user_email') || '').trim().toLowerCase();
+  const rawEmail = postEmail || curEmail;
+  if (rawEmail === 'shridharoct16@gmail.com' || rawEmail === 'basasridhara@gmail.com') {
+    return 'slant_curator_shridhar_vault';
+  }
+  if (rawEmail) return rawEmail;
+  const handle = (post?.creatorHandle || '').trim().toLowerCase().replace(/^@/, '');
+  if (handle.includes('shridhar')) return 'slant_curator_shridhar_vault';
+  return handle || 'slant_default_diary_vault';
+}
+
+async function getChronicleCryptoKey(seedStr) {
+  const normalizedSeed = String(seedStr || 'slant_default_diary_vault').trim().toLowerCase();
+  if (_chronicleAesKeyCache.has(normalizedSeed)) {
+    return _chronicleAesKeyCache.get(normalizedSeed);
+  }
+  const encoder = new TextEncoder();
+  const keyMaterial = await window.crypto.subtle.importKey(
+    'raw',
+    encoder.encode(`slant_diary_aes256_v1::${normalizedSeed}`),
+    { name: 'PBKDF2' },
+    false,
+    ['deriveKey']
+  );
+  const derivedKey = await window.crypto.subtle.deriveKey(
+    {
+      name: 'PBKDF2',
+      salt: encoder.encode(`slant_chronicle_salt_2026::${normalizedSeed}`),
+      iterations: 50000,
+      hash: 'SHA-256'
+    },
+    keyMaterial,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt']
+  );
+  _chronicleAesKeyCache.set(normalizedSeed, derivedKey);
+  return derivedKey;
+}
+
+function uint8ToBase64(bytes) {
+  let binary = '';
+  const len = bytes.byteLength;
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return window.btoa(binary);
+}
+
+function base64ToUint8(b64) {
+  const binary = window.atob(b64);
+  const len = binary.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
+async function encryptChroniclePostForCloud(postObj) {
+  if (!postObj || !isPostChronicleDiary(postObj) || !window.crypto?.subtle) {
+    return postObj;
+  }
+  const copy = { ...postObj };
+  // If already encrypted and not decrypted in memory, return as-is
+  if (typeof copy.encryptedDiaryPayload === 'string' && copy.encryptedDiaryPayload.startsWith('ENC:v1:') && !copy._diaryDecrypted) {
+    return copy;
+  }
+  try {
+    const seed = resolveChronicleKeySeed(copy);
+    const key = await getChronicleCryptoKey(seed);
+    const secretBundle = {
+      adaptedHeadline: copy.adaptedHeadline || '',
+      originalHeadline: copy.originalHeadline || '',
+      summary: copy.summary || '',
+      broadsheetObservation: copy.broadsheetObservation || '',
+      curatorTake: copy.curatorTake || '',
+      polishedCuratorTake: copy.polishedCuratorTake || '',
+      creatorOpinion: copy.creatorOpinion || '',
+      userSlantTake: copy.userSlantTake || '',
+      whyItMatters: copy.whyItMatters || '',
+      contextBullets: Array.isArray(copy.contextBullets) ? copy.contextBullets : [],
+      keyTakeaways: Array.isArray(copy.keyTakeaways) ? copy.keyTakeaways : [],
+      resolvedArticleExcerpts: Array.isArray(copy.resolvedArticleExcerpts) ? copy.resolvedArticleExcerpts : [],
+      chronicleMoments: Array.isArray(copy.chronicleMoments) ? copy.chronicleMoments : (copy.generationInputs?.chronicleMoments || []),
+      contextProvided: copy.contextProvided || '',
+      sourceContext: copy.sourceContext || '',
+      illustrationPrompt: copy.illustrationPrompt || '',
+      headlineOptions: Array.isArray(copy.headlineOptions) ? copy.headlineOptions : [],
+      generationInputs: copy.generationInputs ? { ...copy.generationInputs } : { chronicleMode: true, innerVoiceSubMode: 'chronicle' }
+    };
+
+    const iv = window.crypto.getRandomValues(new Uint8Array(12));
+    const encodedPlaintext = new TextEncoder().encode(JSON.stringify(secretBundle));
+    const cipherBuffer = await window.crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv },
+      key,
+      encodedPlaintext
+    );
+    const ivB64 = uint8ToBase64(iv);
+    const cipherB64 = uint8ToBase64(new Uint8Array(cipherBuffer));
+
+    copy.encryptedDiaryPayload = `ENC:v1:${ivB64}:${cipherB64}`;
+    copy.isEncryptedDiary = true;
+    copy.isDiary = true;
+    copy.chronicleMode = true;
+    copy.innerVoiceSubMode = 'chronicle';
+    delete copy._diaryDecrypted;
+
+    // Redact all plaintext personal diary text from the cloud/database row
+    copy.adaptedHeadline = '🔒 Encrypted Daily Chronicle';
+    copy.originalHeadline = copy.originalHeadline && /^\d{1,2}\s+[A-Za-z]+/.test(copy.originalHeadline) ? copy.originalHeadline : 'Personal Diary';
+    copy.summary = '🔒 AES-256 End-to-End Encrypted Personal Diary Entry';
+    copy.broadsheetObservation = '';
+    copy.curatorTake = '';
+    copy.polishedCuratorTake = '';
+    copy.creatorOpinion = '';
+    copy.userSlantTake = '';
+    copy.whyItMatters = '';
+    copy.contextBullets = [];
+    copy.keyTakeaways = [];
+    copy.resolvedArticleExcerpts = [];
+    copy.chronicleMoments = [];
+    copy.contextProvided = '';
+    copy.sourceContext = '';
+    copy.illustrationPrompt = '';
+    copy.headlineOptions = [];
+    copy.generationInputs = {
+      chronicleMode: true,
+      innerVoiceSubMode: 'chronicle',
+      isEncryptedDiary: true
+    };
+    return copy;
+  } catch (err) {
+    console.warn('Chronicle encryption notice:', err);
+    return postObj;
+  }
+}
+
+async function decryptChroniclePostInPlace(post) {
+  if (!post || typeof post.encryptedDiaryPayload !== 'string' || !post.encryptedDiaryPayload.startsWith('ENC:v1:')) {
+    return false;
+  }
+  if (post._diaryDecrypted) return true;
+  if (!isPostOwnedByCurrentUser(post)) return false;
+  if (!window.crypto?.subtle) return false;
+
+  try {
+    const parts = post.encryptedDiaryPayload.split(':');
+    if (parts.length < 4) return false;
+    const iv = base64ToUint8(parts[2]);
+    const cipherBytes = base64ToUint8(parts.slice(3).join(':'));
+    const seed = resolveChronicleKeySeed(post);
+    const key = await getChronicleCryptoKey(seed);
+    const plainBuffer = await window.crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv },
+      key,
+      cipherBytes
+    );
+    const decodedJson = new TextDecoder().decode(plainBuffer);
+    const bundle = JSON.parse(decodedJson);
+    if (bundle && typeof bundle === 'object') {
+      Object.assign(post, bundle);
+      post.isEncryptedDiary = true;
+      post._diaryDecrypted = true;
+      return true;
+    }
+  } catch (err) {
+    console.warn('Chronicle decryption notice for post', post.id, err);
+  }
+  return false;
+}
+
+async function decryptChroniclePostsInPlace(postsArray) {
+  if (!Array.isArray(postsArray) || postsArray.length === 0) return false;
+  let anyDecrypted = false;
+  for (const raw of postsArray) {
+    const p = raw?.data || raw;
+    if (p && typeof p.encryptedDiaryPayload === 'string' && p.encryptedDiaryPayload.startsWith('ENC:v1:') && !p._diaryDecrypted) {
+      const ok = await decryptChroniclePostInPlace(p);
+      if (ok) anyDecrypted = true;
+    }
+  }
+  return anyDecrypted;
+}
+
+async function decryptAllOwnedChroniclePosts() {
+  if (!Array.isArray(allPosts) || allPosts.length === 0) return;
+  const anyDecrypted = await decryptChroniclePostsInPlace(allPosts);
+  if (anyDecrypted) {
+    if (currentFilter === 'diary') {
+      renderFeed();
+    }
+    const diaryModal = document.getElementById('diaryCalendarModal');
+    if (diaryModal && diaryModal.style.display !== 'none' && typeof renderDiaryCalendarModal === 'function') {
+      renderDiaryCalendarModal();
+    }
+  }
+  upgradeUnencryptedOwnedChronicles();
+}
+
+async function upgradeUnencryptedOwnedChronicles() {
+  if (!currentUser || !Array.isArray(allPosts) || allPosts.length === 0) return;
+  const unencryptedChronicles = allPosts.filter(p =>
+    p &&
+    p.id &&
+    isPostChronicleDiary(p) &&
+    isPostOwnedByCurrentUser(p) &&
+    !p.encryptedDiaryPayload &&
+    !_upgradedChronicleIds.has(p.id) &&
+    p.adaptedHeadline &&
+    p.adaptedHeadline !== '🔒 Encrypted Daily Chronicle'
+  );
+  if (unencryptedChronicles.length === 0) return;
+
+  for (const p of unencryptedChronicles) {
+    _upgradedChronicleIds.add(p.id);
+    try {
+      const encryptedCopy = await encryptChroniclePostForCloud(p);
+      if (encryptedCopy && encryptedCopy.encryptedDiaryPayload) {
+        p.encryptedDiaryPayload = encryptedCopy.encryptedDiaryPayload;
+        p.isEncryptedDiary = true;
+        p._diaryDecrypted = true;
+        await fetch('/api/posts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(encryptedCopy)
+        });
+      }
+    } catch (_) {}
+  }
+}
+
 function mergeAndSortPosts(newPosts) {
   if (!Array.isArray(newPosts) || newPosts.length === 0) return false;
 
@@ -2286,6 +2530,7 @@ function mergeAndSortPosts(newPosts) {
   }
 
   let addedCount = 0;
+  let hasPendingEncryptedChronicles = false;
   for (const raw of newPosts) {
     if (!raw) continue;
     const p = raw.data || raw;
@@ -2295,11 +2540,15 @@ function mergeAndSortPosts(newPosts) {
       continue;
     }
     if (deletedPostIds.has(postId)) continue;
-    if (!p.adaptedHeadline && !p.originalHeadline && !p.summary) continue;
+    if (!p.adaptedHeadline && !p.originalHeadline && !p.summary && !p.encryptedDiaryPayload) continue;
 
     // Normalize IDs and timestamps
     p.id = postId;
     p.createdAt = p.createdAt || raw.created_at || raw.createdAt || new Date().toISOString();
+
+    if (typeof p.encryptedDiaryPayload === 'string' && p.encryptedDiaryPayload.startsWith('ENC:v1:') && !p._diaryDecrypted) {
+      hasPendingEncryptedChronicles = true;
+    }
 
     // Sanitize image URLs (clean corrupted &amp; XML entities)
     if (typeof p.sourceImageUrl === 'string') p.sourceImageUrl = p.sourceImageUrl.replace(/&amp;/g, '&');
@@ -2315,13 +2564,21 @@ function mergeAndSortPosts(newPosts) {
     } else {
       // Merge with existing ensuring fresh server/cloud fields overwrite stale local fields
       const existing = existingMap.get(postId);
-      const merged = { ...existing, ...p };
-      merged.illustrationUrl = p.illustrationUrl || existing.illustrationUrl || '';
-      merged.aiIllustrationUrl = p.aiIllustrationUrl || existing.aiIllustrationUrl || '';
-      if (!merged.illustrationBase64 && existing.illustrationBase64) {
-        merged.illustrationBase64 = existing.illustrationBase64;
+      // Preserve already-decrypted diary fields if incoming cloud copy is still encrypted with the same payload
+      if (existing._diaryDecrypted && p.encryptedDiaryPayload && !p._diaryDecrypted && existing.encryptedDiaryPayload === p.encryptedDiaryPayload) {
+        const merged = { ...p, ...existing };
+        merged.illustrationUrl = p.illustrationUrl || existing.illustrationUrl || '';
+        merged.aiIllustrationUrl = p.aiIllustrationUrl || existing.aiIllustrationUrl || '';
+        existingMap.set(postId, merged);
+      } else {
+        const merged = { ...existing, ...p };
+        merged.illustrationUrl = p.illustrationUrl || existing.illustrationUrl || '';
+        merged.aiIllustrationUrl = p.aiIllustrationUrl || existing.aiIllustrationUrl || '';
+        if (!merged.illustrationBase64 && existing.illustrationBase64) {
+          merged.illustrationBase64 = existing.illustrationBase64;
+        }
+        existingMap.set(postId, merged);
       }
-      existingMap.set(postId, merged);
     }
   }
 
@@ -2331,6 +2588,12 @@ function mergeAndSortPosts(newPosts) {
     const timeB = new Date(b.createdAt || b.created_at || 0).getTime();
     return timeB - timeA; // Descending: newest stories stay at the top!
   });
+
+  if (hasPendingEncryptedChronicles) {
+    decryptAllOwnedChroniclePosts();
+  } else if (currentUser) {
+    upgradeUnencryptedOwnedChronicles();
+  }
 
   return addedCount > 0;
 }
@@ -2677,6 +2940,7 @@ async function loadPosts() {
   }
 
   if (fetchedLiveBatch && fetchedLiveBatch.length > 0) {
+    await decryptChroniclePostsInPlace(fetchedLiveBatch);
     mergeAndSortPosts(fetchedLiveBatch);
   } else {
     try {
@@ -2684,6 +2948,7 @@ async function loadPosts() {
       if (fastResp.ok) {
         const posts = await fastResp.json();
         if (Array.isArray(posts) && posts.length > 0) {
+          await decryptChroniclePostsInPlace(posts);
           mergeAndSortPosts(posts);
         }
       }
@@ -2696,6 +2961,7 @@ async function loadPosts() {
   try {
     const localCache = JSON.parse(localStorage.getItem('slant_user_posts_cache') || '[]');
     if (Array.isArray(localCache) && localCache.length > 0) {
+      await decryptChroniclePostsInPlace(localCache);
       mergeAndSortPosts(localCache);
     }
   } catch (e) {
@@ -2796,7 +3062,8 @@ async function syncLiveCloudPosts(forceRender = false) {
 
   if (Array.isArray(fetchedPosts) && fetchedPosts.length > 0) {
     await fetchGlobalDeletedPostsRegistry();
-    const validPosts = fetchedPosts.filter(p => p && !p.deleted && !p.isDeleted && !deletedPostIds.has(p.id) && (p.adaptedHeadline || p.originalHeadline || p.summary));
+    const validPosts = fetchedPosts.filter(p => p && !p.deleted && !p.isDeleted && !deletedPostIds.has(p.id) && (p.adaptedHeadline || p.originalHeadline || p.summary || p.encryptedDiaryPayload));
+    await decryptChroniclePostsInPlace(validPosts);
     const hasNew = mergeAndSortPosts(validPosts);
 
     // Persist synced user-created stories into local cache so they persist offline & across sessions
@@ -2876,6 +3143,7 @@ async function syncLiveCloudPosts(forceRender = false) {
             hadDeletions = applyDeletedPostsTombstone(softDeletedIds);
             syncUserMetadataToCloud();
           }
+          await decryptChroniclePostsInPlace(freshUserPosts);
           const hasDraftUpdates = mergeAndSortPosts(freshUserPosts);
           // Overwrite localStorage cache with fresh copies from Supabase
           const sanitizeForCache = (p) => {
@@ -2939,6 +3207,7 @@ async function fetchAuthorStoriesFromCloud() {
           }
         });
         localStorage.setItem('slant_my_posts', JSON.stringify(Array.from(myCreatedPostIds)));
+        await decryptChroniclePostsInPlace(data.posts);
         const added = mergeAndSortPosts(data.posts);
         currentBatchFilteredPosts = getFilteredPostsForFilter(allPosts, currentFilter, searchQuery);
         updateBadge(true, `Live Feed (${allPosts.length} posts)`);
@@ -18163,13 +18432,22 @@ async function saveSynthesizedPost() {
     }
   }
 
+  // 1b. Client-side AES-256-GCM encryption for Personal Diary (Daily Chronicles) before cloud or local storage
+  const finalCloudPayload = isChronicle ? await encryptChroniclePostForCloud(postToSave) : postToSave;
+  if (isChronicle && finalCloudPayload && finalCloudPayload.encryptedDiaryPayload) {
+    currentSynthesizedPost.encryptedDiaryPayload = finalCloudPayload.encryptedDiaryPayload;
+    currentSynthesizedPost.isEncryptedDiary = true;
+    currentSynthesizedPost._diaryDecrypted = true;
+    _upgradedChronicleIds.add(currentSynthesizedPost.id);
+  }
+
   // 2. Cloud save: POST to /api/posts
   let savedToCloud = false;
   try {
     const resp = await fetch('/api/posts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(postToSave)
+      body: JSON.stringify(finalCloudPayload)
     });
     if (resp.ok) savedToCloud = true;
   } catch (err) {
@@ -18187,7 +18465,7 @@ async function saveSynthesizedPost() {
           'Content-Type': 'application/json',
           'Prefer': 'resolution=merge-duplicates'
         },
-        body: JSON.stringify({ id: postToSave.id, data: postToSave })
+        body: JSON.stringify({ id: finalCloudPayload.id, data: finalCloudPayload })
       });
       if (supaResp.ok) savedToCloud = true;
     } catch (supaErr) {
@@ -18195,7 +18473,7 @@ async function saveSynthesizedPost() {
     }
   }
 
-  // 4. Local storage persistent cache for user profile
+  // 4. Local storage persistent cache for user profile (stores encrypted payload for Chronicles)
   try {
     const sanitizeForCache = (p) => {
       if (!p) return null;
@@ -18216,7 +18494,7 @@ async function saveSynthesizedPost() {
 
     const localPosts = JSON.parse(localStorage.getItem('slant_user_posts_cache') || '[]');
     const filtered = localPosts.filter(p => p && p.id !== currentSynthesizedPost.id).map(sanitizeForCache).filter(Boolean);
-    const sanitizedCurrent = sanitizeForCache(currentSynthesizedPost);
+    const sanitizedCurrent = sanitizeForCache(finalCloudPayload);
     if (sanitizedCurrent) filtered.unshift(sanitizedCurrent);
     localStorage.setItem('slant_user_posts_cache', JSON.stringify(filtered.slice(0, 30)));
   } catch (lsErr) {
@@ -18252,7 +18530,7 @@ async function saveSynthesizedPost() {
   closeCreatorModal(true);
   resetCreatorState();
   showTemporaryToast(isChronicle
-    ? '📔 Published to your Personal Diary! Strictly personal (never goes to people\'s feed).'
+    ? '🔒 Published to your Personal Diary! AES-256 Encrypted & strictly private to you.'
     : '🔒 Saved as private draft! Visible only to you in your Feed & Drafts.');
 }
 
