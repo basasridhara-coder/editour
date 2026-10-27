@@ -8878,17 +8878,114 @@ function jumpToLatestDiaryChronicleDate() {
   }
 }
 
+let diaryTrainProgrammaticScrollUntil = 0;
+
+function buildDiarySelectedPosterCarouselHtml(p) {
+  if (!p) return '';
+  const isChronicle = isPostChronicleDiary(p);
+  const cardSlideCount = isChronicle ? 3 : 2;
+  return `
+    <div class="diary-cal-poster-frame carousel-view" id="carousel-diary_preview" data-post-index="diary_preview" data-current-slide="0" data-slide-count="${cardSlideCount}">
+      <div class="carousel-track" id="track-diary_preview">
+        <div class="carousel-slide slide-hook" style="cursor: default;">
+          ${buildSlide1Html(p, 'diary_preview', cardSlideCount)}
+        </div>
+        <div class="carousel-slide slide-receipt" style="cursor: default;">
+          ${isChronicle ? buildUnifiedEssayPosterHtml(p, 'diary_preview', 1) : buildSlide2Html(p, 'diary_preview', 0)}
+        </div>
+        ${isChronicle ? `
+        <div class="carousel-slide slide-receipt" style="cursor: default;">
+          ${buildUnifiedEssayPosterHtml(p, 'diary_preview', 2)}
+        </div>
+        ` : ''}
+      </div>
+
+      <!-- Navigation Buttons -->
+      <button class="carousel-nav-btn prev-btn" onclick="changeSlide(event, 'diary_preview', -1)" title="Previous Slide">&#x2039;</button>
+      <button class="carousel-nav-btn next-btn" onclick="changeSlide(event, 'diary_preview', 1)" title="Next Slide">&#x203A;</button>
+
+      <!-- Bottom Dot Indicators -->
+      <div class="carousel-dots" id="dots-diary_preview">
+        <span class="carousel-dot active" onclick="goToSlide(event, 'diary_preview', 0)"></span>
+        <span class="carousel-dot" onclick="goToSlide(event, 'diary_preview', 1)"></span>
+        ${isChronicle ? `<span class="carousel-dot" onclick="goToSlide(event, 'diary_preview', 2)"></span>` : ''}
+      </div>
+    </div>
+  `;
+}
+
+function updateDiaryActivePostInPlace(dateKey) {
+  if (!dateKey || diaryCalendarState.selectedDateKey === dateKey) return false;
+  const dateMap = getDiaryChroniclesByDateMap();
+  const entry = dateMap.get(dateKey);
+  if (!entry || !entry.post) return false;
+
+  diaryCalendarState.selectedDateKey = dateKey;
+  diaryCalendarState.activeSlideNum = 1;
+
+  // 1. Update selected highlight in Top Calendar Grid
+  const calGridEl = document.getElementById('diaryCalDaysGrid');
+  if (calGridEl) {
+    calGridEl.querySelectorAll('[data-cal-date]').forEach(el => {
+      el.classList.toggle('is-selected', el.getAttribute('data-cal-date') === dateKey);
+    });
+  }
+
+  // 2. Update selected highlight in Bottom Date Train (without re-creating DOM so active scroll is untouched)
+  const trainEl = document.getElementById('diaryCalDateTrain');
+  if (trainEl) {
+    trainEl.querySelectorAll('[data-train-date]').forEach(el => {
+      el.classList.toggle('is-selected', el.getAttribute('data-train-date') === dateKey);
+    });
+  }
+
+  // 3. Update Middle Poster Stage in-place
+  const stageWrap = document.getElementById('diaryCalPosterStageWrap');
+  if (stageWrap) {
+    stageWrap.innerHTML = buildDiarySelectedPosterCarouselHtml(entry.post);
+    if (typeof setupCarouselGestures === 'function') {
+      setupCarouselGestures('diary_preview');
+    }
+  } else {
+    renderDiaryCalendarModal();
+  }
+  return true;
+}
+
+function scrollDiaryTrainToDate(dateKey, smooth = true) {
+  const trainEl = document.getElementById('diaryCalDateTrain');
+  if (!trainEl || !dateKey) return;
+  const targetEl = trainEl.querySelector(`[data-train-date="${dateKey}"]`);
+  if (!targetEl) return;
+  const targetLeft = Math.max(
+    0,
+    targetEl.offsetLeft - (trainEl.clientWidth / 2) + (targetEl.offsetWidth / 2)
+  );
+  try {
+    trainEl.scrollTo({ left: targetLeft, behavior: smooth ? 'smooth' : 'auto' });
+  } catch (_) {
+    trainEl.scrollLeft = targetLeft;
+  }
+  updateDiaryActivePostInPlace(dateKey);
+}
+
 function selectDiaryCalendarDate(dateKey, fromTopCalendar = true) {
   const dateMap = getDiaryChroniclesByDateMap();
   if (!dateMap.has(dateKey)) return;
   const [yyyy, mm] = dateKey.split('-').map(Number);
+  const monthChanged = Boolean(yyyy && mm && (diaryCalendarState.year !== yyyy || diaryCalendarState.month !== mm - 1));
   if (yyyy && mm) {
     diaryCalendarState.year = yyyy;
     diaryCalendarState.month = mm - 1;
   }
-  diaryCalendarState.selectedDateKey = dateKey;
-  diaryCalendarState.activeSlideNum = 1;
-  renderDiaryCalendarModal();
+  if (!monthChanged && document.getElementById('diaryCalPosterStageWrap')) {
+    diaryTrainProgrammaticScrollUntil = Date.now() + 450;
+    scrollDiaryTrainToDate(dateKey, true);
+  } else {
+    diaryCalendarState.selectedDateKey = dateKey;
+    diaryCalendarState.activeSlideNum = 1;
+    renderDiaryCalendarModal();
+  }
   if (fromTopCalendar) {
     const previewEl = document.getElementById('diaryCalendarSelectedPreview');
     if (previewEl) {
@@ -8920,9 +9017,15 @@ function navigateDiaryChronicleDay(dayDelta) {
   if (!targetDateKey) return false;
 
   const [yyyy, mm] = targetDateKey.split('-').map(Number);
+  const monthChanged = Boolean(yyyy && mm && (diaryCalendarState.year !== yyyy || diaryCalendarState.month !== mm - 1));
   if (yyyy && mm) {
     diaryCalendarState.year = yyyy;
     diaryCalendarState.month = mm - 1;
+  }
+  if (!monthChanged && document.getElementById('diaryCalPosterStageWrap')) {
+    diaryTrainProgrammaticScrollUntil = Date.now() + 450;
+    scrollDiaryTrainToDate(targetDateKey, true);
+    return true;
   }
   diaryCalendarState.selectedDateKey = targetDateKey;
   diaryCalendarState.activeSlideNum = 1; // Always start at Poster 1 whether triggered by left or right swipe
@@ -8995,6 +9098,7 @@ function renderDiaryCalendarModal() {
       cellsHtml += `
         <button type="button"
                 class="diary-cal-day-square has-chronicle-post ${isSelected ? 'is-selected' : ''}"
+                data-cal-date="${dateKey}"
                 onclick="selectDiaryCalendarDate('${dateKey}', true)"
                 title="${escapeHtml(titleText)}">
           ${rawImg ? `<img src="${escapeHtml(rawImg)}" class="diary-cal-mini-poster-img" alt="" loading="lazy">` : `<div class="diary-cal-mini-poster-fallback"></div>`}
@@ -9014,7 +9118,8 @@ function renderDiaryCalendarModal() {
         <button type="button"
                 class="diary-cal-day-square diary-cal-train-square has-chronicle-post ${isSelected ? 'is-selected' : ''}"
                 data-train-date="${dateKey}"
-                onclick="selectDiaryCalendarDate('${dateKey}', false)"
+                data-has-post="true"
+                onclick="scrollDiaryTrainToDate('${dateKey}', true)"
                 title="${escapeHtml(titleText)}">
           ${rawImg ? `<img src="${escapeHtml(rawImg)}" class="diary-cal-mini-poster-img" alt="" loading="lazy">` : `<div class="diary-cal-mini-poster-fallback"></div>`}
           <div class="diary-cal-mini-scrim-top">
@@ -9029,7 +9134,7 @@ function renderDiaryCalendarModal() {
       `;
     } else {
       cellsHtml += `
-        <div class="diary-cal-day-square is-blank-day">
+        <div class="diary-cal-day-square is-blank-day" data-cal-date="${dateKey}">
           <span class="diary-cal-day-num">${day}</span>
         </div>
       `;
@@ -9046,42 +9151,15 @@ function renderDiaryCalendarModal() {
   const selectedEntry = diaryCalendarState.selectedDateKey ? dateMap.get(diaryCalendarState.selectedDateKey) : null;
   let previewHtml = '';
   if (selectedEntry && selectedEntry.post) {
-    const p = selectedEntry.post;
-    const isChronicle = isPostChronicleDiary(p);
-    const cardSlideCount = isChronicle ? 3 : 2;
     previewHtml = `
       <div class="diary-cal-selected-section" id="diaryCalendarSelectedPreview">
-        <div class="diary-cal-poster-stage-wrap">
-          <div class="diary-cal-poster-frame carousel-view" id="carousel-diary_preview" data-post-index="diary_preview" data-current-slide="0" data-slide-count="${cardSlideCount}">
-            <div class="carousel-track" id="track-diary_preview">
-              <div class="carousel-slide slide-hook" style="cursor: default;">
-                ${buildSlide1Html(p, 'diary_preview', cardSlideCount)}
-              </div>
-              <div class="carousel-slide slide-receipt" style="cursor: default;">
-                ${isChronicle ? buildUnifiedEssayPosterHtml(p, 'diary_preview', 1) : buildSlide2Html(p, 'diary_preview', 0)}
-              </div>
-              ${isChronicle ? `
-              <div class="carousel-slide slide-receipt" style="cursor: default;">
-                ${buildUnifiedEssayPosterHtml(p, 'diary_preview', 2)}
-              </div>
-              ` : ''}
-            </div>
-
-            <!-- Navigation Buttons -->
-            <button class="carousel-nav-btn prev-btn" onclick="changeSlide(event, 'diary_preview', -1)" title="Previous Slide">&#x2039;</button>
-            <button class="carousel-nav-btn next-btn" onclick="changeSlide(event, 'diary_preview', 1)" title="Next Slide">&#x203A;</button>
-
-            <!-- Bottom Dot Indicators -->
-            <div class="carousel-dots" id="dots-diary_preview">
-              <span class="carousel-dot active" onclick="goToSlide(event, 'diary_preview', 0)"></span>
-              <span class="carousel-dot" onclick="goToSlide(event, 'diary_preview', 1)"></span>
-              ${isChronicle ? `<span class="carousel-dot" onclick="goToSlide(event, 'diary_preview', 2)"></span>` : ''}
-            </div>
-          </div>
+        <div class="diary-cal-poster-stage-wrap" id="diaryCalPosterStageWrap">
+          ${buildDiarySelectedPosterCarouselHtml(selectedEntry.post)}
         </div>
 
-        <!-- Bottom Train of Rounded Date Squares for Direct Sliding & Day Navigation -->
+        <!-- Bottom Train of Rounded Date Squares for Direct Sliding & Auto-Center Post Loading -->
         <div class="diary-cal-date-train-wrap">
+          <div class="diary-cal-train-center-marker" aria-hidden="true"></div>
           <div class="diary-cal-date-train" id="diaryCalDateTrain" role="region" aria-label="Slide through dates">
             ${trainCellsHtml}
           </div>
@@ -9094,6 +9172,7 @@ function renderDiaryCalendarModal() {
         <span>📔 Tap any highlighted date square on the calendar to read that day's Chronicle Moments.</span>
       </div>
       <div class="diary-cal-date-train-wrap">
+        <div class="diary-cal-train-center-marker" aria-hidden="true"></div>
         <div class="diary-cal-date-train" id="diaryCalDateTrain" role="region" aria-label="Slide through dates">
           ${trainCellsHtml}
         </div>
@@ -9131,28 +9210,67 @@ function renderDiaryCalendarModal() {
     setupCarouselGestures('diary_preview');
   }
 
-  // Center the active date square inside the bottom date train smoothly
+  // Center the active date square inside the bottom date train smoothly & auto-select centered date on scroll
   const trainEl = document.getElementById('diaryCalDateTrain');
   if (trainEl) {
-    if (prevTrainScrollLeft !== null) {
-      trainEl.scrollLeft = prevTrainScrollLeft;
-    }
     const activeTrainItem = diaryCalendarState.selectedDateKey
       ? trainEl.querySelector(`[data-train-date="${diaryCalendarState.selectedDateKey}"]`)
       : null;
     if (activeTrainItem) {
-      const targetLeft = Math.max(
-        0,
-        activeTrainItem.offsetLeft - (trainEl.clientWidth / 2) + (activeTrainItem.offsetWidth / 2)
-      );
+      diaryTrainProgrammaticScrollUntil = Date.now() + 350;
       requestAnimationFrame(() => {
+        const targetLeft = Math.max(
+          0,
+          activeTrainItem.offsetLeft - (trainEl.clientWidth / 2) + (activeTrainItem.offsetWidth / 2)
+        );
         try {
           trainEl.scrollTo({ left: targetLeft, behavior: prevTrainScrollLeft === null ? 'auto' : 'smooth' });
         } catch (_) {
           trainEl.scrollLeft = targetLeft;
         }
       });
+    } else if (prevTrainScrollLeft !== null) {
+      trainEl.scrollLeft = prevTrainScrollLeft;
     }
+
+    let scrollRaf = null;
+    const syncTrainCenteredDate = () => {
+      scrollRaf = null;
+      const rect = trainEl.getBoundingClientRect();
+      if (!rect.width) return;
+      const centerX = rect.left + rect.width / 2;
+      const items = trainEl.querySelectorAll('.diary-cal-train-square[data-train-date]');
+      let closestItem = null;
+      let minDist = Infinity;
+
+      items.forEach((item) => {
+        const iRect = item.getBoundingClientRect();
+        const iCenter = iRect.left + iRect.width / 2;
+        const dist = Math.abs(iCenter - centerX);
+        if (dist < minDist) {
+          minDist = dist;
+          closestItem = item;
+        }
+      });
+
+      items.forEach((item) => {
+        item.classList.toggle('is-train-centered', item === closestItem);
+      });
+
+      if (Date.now() < diaryTrainProgrammaticScrollUntil) return;
+
+      if (closestItem) {
+        const centeredDateKey = closestItem.getAttribute('data-train-date');
+        if (centeredDateKey && dateMap.has(centeredDateKey)) {
+          updateDiaryActivePostInPlace(centeredDateKey);
+        }
+      }
+    };
+
+    trainEl.addEventListener('scroll', () => {
+      if (scrollRaf) return;
+      scrollRaf = requestAnimationFrame(syncTrainCenteredDate);
+    }, { passive: true });
 
     // Enable smooth mouse-drag sliding on the date train for desktop/laptop in addition to native touch scrolling
     let isDraggingTrain = false;
@@ -9160,6 +9278,7 @@ function renderDiaryCalendarModal() {
     let dragScrollLeft = 0;
     trainEl.addEventListener('mousedown', (e) => {
       isDraggingTrain = true;
+      diaryTrainProgrammaticScrollUntil = 0;
       dragStartX = e.pageX - trainEl.offsetLeft;
       dragScrollLeft = trainEl.scrollLeft;
     });
@@ -9172,6 +9291,9 @@ function renderDiaryCalendarModal() {
       const walk = (x - dragStartX) * 1.4;
       trainEl.scrollLeft = dragScrollLeft - walk;
     });
+    trainEl.addEventListener('touchstart', () => {
+      diaryTrainProgrammaticScrollUntil = 0;
+    }, { passive: true });
   }
 
   const calGridEl = document.getElementById('diaryCalDaysGrid');

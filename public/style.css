@@ -21352,6 +21352,21 @@ mark.polish-mark:hover, mark.polish-mark.active {
 .diary-cal-date-train-wrap {
   width: 100%;
   padding-top: 4px;
+  position: relative;
+}
+
+.diary-cal-train-center-marker {
+  position: absolute;
+  top: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #F59E0B;
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.75);
+  pointer-events: none;
+  z-index: 4;
 }
 
 .diary-cal-date-train {
@@ -21360,10 +21375,11 @@ mark.polish-mark:hover, mark.polish-mark.active {
   gap: 8px;
   overflow-x: auto;
   overflow-y: hidden;
-  scroll-snap-type: x proximity;
+  scroll-snap-type: x mandatory;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-x;
-  padding: 6px 4px 10px;
+  padding: 10px calc(50% - 29px) 12px;
+  box-sizing: border-box;
   scrollbar-width: thin;
   cursor: grab;
 }
@@ -21388,7 +21404,16 @@ mark.polish-mark:hover, mark.polish-mark.active {
   aspect-ratio: 1 / 1;
   border-radius: 12px;
   scroll-snap-align: center;
+  scroll-snap-stop: normal;
   user-select: none;
+  transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+}
+
+.diary-cal-train-square.is-train-centered,
+.diary-cal-train-square.is-selected {
+  transform: scale(1.08);
+  border-color: #F59E0B;
+  box-shadow: 0 0 0 2.5px rgba(245, 158, 11, 0.36), 0 6px 16px rgba(217, 119, 6, 0.28);
 }
 
 .diary-cal-train-square.is-blank-day {
@@ -21419,6 +21444,9 @@ mark.polish-mark:hover, mark.polish-mark.active {
   }
   .diary-cal-day-square {
     border-radius: 10px;
+  }
+  .diary-cal-date-train {
+    padding: 10px calc(50% - 26px) 12px;
   }
   .diary-cal-train-square {
     width: 52px;
