@@ -5599,6 +5599,20 @@ function changeSlide(event, postIndex, direction) {
   const slideCount = parseInt(carousel.getAttribute('data-slide-count') || '2', 10);
   let cur = parseInt(carousel.getAttribute('data-current-slide') || '0', 10);
   let next = cur + direction;
+
+  // In Diary Calendar preview: swiping right from Poster 1 or swiping left after the final poster
+  // automatically advances the calendar highlight to the previous or next chronicle day, always starting at Poster 1.
+  if (postIndex === 'diary_preview' && typeof navigateDiaryChronicleDay === 'function') {
+    if (next < 0) {
+      navigateDiaryChronicleDay(-1);
+      return;
+    }
+    if (next >= slideCount) {
+      navigateDiaryChronicleDay(1);
+      return;
+    }
+  }
+
   if (next < 0) next = slideCount - 1;
   if (next >= slideCount) next = 0;
   goToSlide(event, postIndex, next);
@@ -8865,6 +8879,11 @@ function jumpToLatestDiaryChronicleDate() {
 function selectDiaryCalendarDate(dateKey) {
   const dateMap = getDiaryChroniclesByDateMap();
   if (!dateMap.has(dateKey)) return;
+  const [yyyy, mm] = dateKey.split('-').map(Number);
+  if (yyyy && mm) {
+    diaryCalendarState.year = yyyy;
+    diaryCalendarState.month = mm - 1;
+  }
   diaryCalendarState.selectedDateKey = dateKey;
   diaryCalendarState.activeSlideNum = 1;
   renderDiaryCalendarModal();
@@ -8872,6 +8891,39 @@ function selectDiaryCalendarDate(dateKey) {
   if (previewEl) {
     previewEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
+}
+
+function navigateDiaryChronicleDay(dayDelta) {
+  const dateMap = getDiaryChroniclesByDateMap();
+  if (!dateMap || dateMap.size === 0) return false;
+
+  const sortedDateKeys = Array.from(dateMap.keys()).sort();
+  if (sortedDateKeys.length === 0) return false;
+
+  const currentKey = diaryCalendarState.selectedDateKey;
+  const currentIdx = currentKey ? sortedDateKeys.indexOf(currentKey) : -1;
+
+  let nextIdx;
+  if (currentIdx === -1) {
+    nextIdx = dayDelta > 0 ? 0 : sortedDateKeys.length - 1;
+  } else {
+    nextIdx = currentIdx + (dayDelta > 0 ? 1 : -1);
+    if (nextIdx < 0) nextIdx = sortedDateKeys.length - 1;
+    if (nextIdx >= sortedDateKeys.length) nextIdx = 0;
+  }
+
+  const targetDateKey = sortedDateKeys[nextIdx];
+  if (!targetDateKey) return false;
+
+  const [yyyy, mm] = targetDateKey.split('-').map(Number);
+  if (yyyy && mm) {
+    diaryCalendarState.year = yyyy;
+    diaryCalendarState.month = mm - 1;
+  }
+  diaryCalendarState.selectedDateKey = targetDateKey;
+  diaryCalendarState.activeSlideNum = 1; // Always start at Poster 1 whether triggered by left or right swipe
+  renderDiaryCalendarModal();
+  return true;
 }
 
 function setDiaryCalendarPreviewSlide(slideNum) {
@@ -9017,7 +9069,7 @@ function renderDiaryCalendarModal() {
       ${weekdays.map(w => `<div class="diary-cal-weekday-cell">${w}</div>`).join('')}
     </div>
 
-    <div class="diary-cal-grid">
+    <div class="diary-cal-grid" id="diaryCalDaysGrid">
       ${cellsHtml}
     </div>
 
@@ -9026,6 +9078,31 @@ function renderDiaryCalendarModal() {
 
   if (selectedEntry && selectedEntry.post && typeof setupCarouselGestures === 'function') {
     setupCarouselGestures('diary_preview');
+  }
+
+  const calGridEl = document.getElementById('diaryCalDaysGrid');
+  if (calGridEl && !calGridEl.dataset.swipeAttached) {
+    calGridEl.dataset.swipeAttached = 'true';
+    let gStartX = 0;
+    let gStartY = 0;
+    calGridEl.addEventListener('touchstart', (e) => {
+      if (e.touches && e.touches.length === 1) {
+        gStartX = e.touches[0].clientX;
+        gStartY = e.touches[0].clientY;
+      }
+    }, { passive: true });
+    calGridEl.addEventListener('touchend', (e) => {
+      if (!e.changedTouches || e.changedTouches.length === 0) return;
+      const dx = e.changedTouches[0].clientX - gStartX;
+      const dy = e.changedTouches[0].clientY - gStartY;
+      if (Math.abs(dx) > 35 && Math.abs(dx) > Math.abs(dy)) {
+        if (dx < 0) {
+          navigateDiaryChronicleDay(1);
+        } else {
+          navigateDiaryChronicleDay(-1);
+        }
+      }
+    }, { passive: true });
   }
 }
 
