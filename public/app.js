@@ -831,8 +831,23 @@ function isPostPrivateOrDraft(post) {
   return Boolean(post.isDraft === true || post.isPrivate === true || post.status === 'draft');
 }
 
+const LOGIN_SHOWCASE_ONLY_POST_IDS = new Set([
+  'slant-1792357651142-l7z3b',
+  'slant-1792397027404-7rawu',
+  'slant-1792429695314-6thox',
+  'slant-1792437452220-xd5vt'
+]);
+
+function isLoginShowcaseOnlyPost(postOrId) {
+  const id = typeof postOrId === 'string' ? postOrId : postOrId?.id;
+  if (!id) return false;
+  if (LOGIN_SHOWCASE_ONLY_POST_IDS.has(id)) return true;
+  if (typeof postOrId === 'object' && postOrId?.isLoginFeatured) return true;
+  return false;
+}
+
 function isPostOwnedByCurrentUser(post) {
-  if (!post) return false;
+  if (!post || isLoginShowcaseOnlyPost(post)) return false;
   if (myCreatedPostIds.has(post.id)) return true;
   const userEmail = (currentUser?.email || localStorage.getItem('slant_user_email') || '').toLowerCase();
   if (!currentUser && !userEmail) return false;
@@ -1191,25 +1206,16 @@ function renderLoginPostsPreview() {
   const switcher = document.getElementById("loginStoriesSwitcher");
   if (!track) return;
 
-  // Ensure featured login posts are merged into allPosts so any lookup succeeds
-  if (Array.isArray(FEATURED_LOGIN_POSTS)) {
-    if (typeof mergeAndSortPosts === "function") {
-      mergeAndSortPosts(FEATURED_LOGIN_POSTS);
-    } else {
-      if (!Array.isArray(allPosts)) allPosts = [];
-      FEATURED_LOGIN_POSTS.forEach(fp => {
-        if (!allPosts.some(p => p && p.id === fp.id)) {
-          allPosts.push(fp);
-        }
-      });
-    }
+  // Keep featured login sample posts strictly on the login showcase and out of the user's account/feed
+  if (typeof myCreatedPostIds !== 'undefined' && myCreatedPostIds.size > 0) {
+    LOGIN_SHOWCASE_ONLY_POST_IDS.forEach(id => myCreatedPostIds.delete(id));
   }
 
   // Find the selected colourful posts strictly matching FEATURED_COLORFUL_POST_CONFIGS
   const selectedPosts = [];
   FEATURED_COLORFUL_POST_CONFIGS.forEach(cfg => {
-    const post = (allPosts || []).find(p => p && p.id === cfg.id) ||
-      (FEATURED_LOGIN_POSTS || []).find(p => p && p.id === cfg.id);
+    const post = (FEATURED_LOGIN_POSTS || []).find(p => p && p.id === cfg.id) ||
+      (allPosts || []).find(p => p && p.id === cfg.id);
     if (post) {
       selectedPosts.push({ post, cfg });
     }
@@ -2522,9 +2528,9 @@ function mergeAndSortPosts(newPosts) {
   if (!Array.isArray(newPosts) || newPosts.length === 0) return false;
 
   const existingMap = new Map();
-  // 1. Keep track of all current posts (excluding deleted tombstones)
+  // 1. Keep track of all current posts (excluding deleted tombstones & login-only showcase posts)
   for (const post of allPosts) {
-    if (post && post.id && !deletedPostIds.has(post.id) && !post.deleted && !post.isDeleted) {
+    if (post && post.id && !deletedPostIds.has(post.id) && !post.deleted && !post.isDeleted && !isLoginShowcaseOnlyPost(post)) {
       existingMap.set(post.id, post);
     }
   }
@@ -2539,7 +2545,7 @@ function mergeAndSortPosts(newPosts) {
       if (postId) applyDeletedPostsTombstone([postId]);
       continue;
     }
-    if (deletedPostIds.has(postId)) continue;
+    if (deletedPostIds.has(postId) || isLoginShowcaseOnlyPost(postId) || isLoginShowcaseOnlyPost(p)) continue;
     if (!p.adaptedHeadline && !p.originalHeadline && !p.summary && !p.encryptedDiaryPayload) continue;
 
     // Normalize IDs and timestamps
@@ -3845,7 +3851,9 @@ function getPostFromIndexOrId(indexOrId) {
     const idx = parseInt(indexOrId, 10);
     return (typeof currentBatchFilteredPosts !== 'undefined' && currentBatchFilteredPosts[idx]) || (typeof allPosts !== 'undefined' && allPosts[idx]) || null;
   }
-  return (typeof allPosts !== 'undefined' && allPosts.find(p => p && p.id === indexOrId)) || null;
+  return (typeof allPosts !== 'undefined' && allPosts.find(p => p && p.id === indexOrId)) ||
+    (typeof FEATURED_LOGIN_POSTS !== 'undefined' && FEATURED_LOGIN_POSTS.find(p => p && p.id === indexOrId)) ||
+    null;
 }
 
 function getFilteredPostsForFilter(posts, filter, query) {
@@ -3853,7 +3861,7 @@ function getFilteredPostsForFilter(posts, filter, query) {
   const q = (query || '').toLowerCase().trim();
 
   return posts.filter(post => {
-    if (!post || post.deleted || post.isDeleted || deletedPostIds.has(post.id)) return false;
+    if (!post || post.deleted || post.isDeleted || deletedPostIds.has(post.id) || isLoginShowcaseOnlyPost(post)) return false;
 
     const isChronicleDiary = isPostChronicleDiary(post);
     const isPrivateDraft = isPostPrivateOrDraft(post);

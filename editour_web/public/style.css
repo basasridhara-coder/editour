@@ -21621,6 +21621,23 @@ mark.polish-mark:hover, mark.polish-mark.active {
   }
 }
 
+/* Blur curator handle (@Shridhar Reddy) on Login Page Showcase Cards */
+#loginPostsScrollTrack .poster-corner-creator,
+#loginPostsScrollTrack .receipt-creator-name,
+#loginPostsScrollTrack .signed-curator-title,
+#loginPostsScrollTrack .post-creator-handle,
+#loginPostsScrollTrack .chronicle-signature-handle,
+.sample-feed-card .poster-corner-creator,
+.sample-feed-card .receipt-creator-name,
+.sample-feed-card .signed-curator-title,
+.sample-feed-card .post-creator-handle,
+.sample-feed-card .chronicle-signature-handle {
+  filter: blur(5.5px) !important;
+  -webkit-filter: blur(5.5px) !important;
+  user-select: none !important;
+  pointer-events: none !important;
+}
+
 
 
 
