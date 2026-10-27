@@ -959,6 +959,9 @@ function updateAuthUI() {
       }
       document.body.classList.add('signed-out-active');
       dismissInitialFeedLoader(true);
+      if (typeof initGoogleIdentityServices === 'function') {
+        initGoogleIdentityServices();
+      }
     }
 
     if (signInBtn) signInBtn.style.display = 'inline-flex';
@@ -1381,6 +1384,8 @@ function openAuthModal(customDesc) {
     googleBtn.classList.add('pulse-highlight');
   }
 
+  initGoogleIdentityServices();
+
   // Push #login to URL hash if not already present and not deep-linked
   const deepId = typeof getDeepLinkedPostId === 'function' ? getDeepLinkedPostId() : null;
   if (!deepId && window.location.hash !== '#login') {
@@ -1428,16 +1433,88 @@ function showAuthStatus(msg, type = 'normal') {
 }
 
 const GOOGLE_OAUTH_CLIENT_ID = '1083411450922-ijsu44kduj3fsp4nggmc6bohb5b5t9ej.apps.googleusercontent.com';
+let _gsiRawNonce = null;
+let _gsiInitialized = false;
+let _gsiRetryCount = 0;
+
+async function generateGoogleGsiNoncePair() {
+  const array = new Uint8Array(24);
+  window.crypto.getRandomValues(array);
+  const rawNonce = Array.from(array, b => b.toString(16).padStart(2, '0')).join('');
+  const encoder = new TextEncoder();
+  const hashBuffer = await window.crypto.subtle.digest('SHA-256', encoder.encode(rawNonce));
+  const hashedNonce = Array.from(new Uint8Array(hashBuffer), b => b.toString(16).padStart(2, '0')).join('');
+  return { rawNonce, hashedNonce };
+}
+
+async function initGoogleIdentityServices() {
+  if (currentUser) return;
+  if (!window.google || !window.google.accounts || !window.google.accounts.id) {
+    if (_gsiRetryCount < 20) {
+      _gsiRetryCount++;
+      setTimeout(initGoogleIdentityServices, 250);
+    }
+    return;
+  }
+  try {
+    if (!_gsiInitialized) {
+      const { rawNonce, hashedNonce } = await generateGoogleGsiNoncePair();
+      _gsiRawNonce = rawNonce;
+      window.google.accounts.id.initialize({
+        client_id: GOOGLE_OAUTH_CLIENT_ID,
+        callback: handleGoogleIdTokenCallback,
+        nonce: hashedNonce,
+        ux_mode: 'popup',
+        auto_select: false,
+        use_fedcm_for_prompt: true
+      });
+      _gsiInitialized = true;
+    }
+    const mountEl = document.getElementById('googleGsiButtonMount');
+    const fallbackBtn = document.getElementById('googleLoginBtn');
+    if (mountEl && !mountEl.dataset.rendered) {
+      const parentWidth = fallbackBtn?.offsetWidth || mountEl.parentElement?.offsetWidth || 320;
+      const targetWidth = Math.max(240, Math.min(380, Math.floor(parentWidth)));
+      window.google.accounts.id.renderButton(mountEl, {
+        theme: 'filled_black',
+        size: 'large',
+        shape: 'pill',
+        text: 'continue_with',
+        logo_alignment: 'left',
+        width: targetWidth
+      });
+      mountEl.dataset.rendered = 'true';
+      mountEl.style.display = 'flex';
+      if (fallbackBtn) fallbackBtn.style.display = 'none';
+    }
+  } catch (err) {
+    console.warn('GSI init notice:', err);
+  }
+}
 
 async function handleGoogleIdTokenCallback(response) {
   if (!response || !response.credential || !supabaseClient) return;
   showAuthStatus('Signing into Slant...', 'normal');
   try {
-    const { error } = await supabaseClient.auth.signInWithIdToken({
+    const signInPayload = {
       provider: 'google',
       token: response.credential
-    });
+    };
+    if (_gsiRawNonce) {
+      signInPayload.nonce = _gsiRawNonce;
+    }
+    let { error } = await supabaseClient.auth.signInWithIdToken(signInPayload);
+    if (error && _gsiRawNonce) {
+      // Retry without nonce if Supabase provider has Skip Nonce Checks enabled
+      const retryRes = await supabaseClient.auth.signInWithIdToken({
+        provider: 'google',
+        token: response.credential
+      });
+      error = retryRes.error;
+    }
     if (error) throw error;
+    // Reset GSI nonce for any future sign-in in the same tab
+    _gsiInitialized = false;
   } catch (err) {
     console.warn('Google ID Token sign-in notice, falling back to redirect OAuth:', err);
     await triggerSupabaseGoogleOAuthRedirect();

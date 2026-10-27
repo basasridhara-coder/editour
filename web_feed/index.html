@@ -114,7 +114,8 @@
               <p class="auth-desc" id="authModalDesc">Sign in to save your favorite visual stories, customize your reading atmosphere, and publish your own editorials.</p>
             </div>
 
-            <!-- Google 1-Click Sign-In -->
+            <!-- Google 1-Click Sign-In (Direct GSI on slant.today + OAuth Fallback) -->
+            <div id="googleGsiButtonMount" style="display:none; width:100%; justify-content:center; align-items:center; min-height:44px;"></div>
             <button class="oauth-login-btn google-login-btn" onclick="signInWithGoogle()" id="googleLoginBtn">
               <svg class="google-svg" viewBox="0 0 24 24" width="18" height="18">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -2234,6 +2235,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261027_1018"></script>
+  <script src="app.js?v=20261027_2036"></script>
 </body>
 </html>
