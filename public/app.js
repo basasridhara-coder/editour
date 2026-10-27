@@ -290,7 +290,10 @@ async function init() {
     }
   }, 60000);
 
+  // Start fetching feed posts in parallel with auth verification for instant login & boot
+  const postsPromise = loadPosts();
   await initAuth();
+
   const gateEmail = sessionStorage.getItem('slant_gate_active_email');
   if (gateEmail) {
     openPrivatePreviewGateModal(gateEmail);
@@ -300,7 +303,7 @@ async function init() {
     dismissInitialFeedLoader(true);
     renderLoginPostsPreview();
   }
-  await loadPosts();
+  await postsPromise;
   setupEventListeners();
   setupPullToRefresh();
   await checkDeepLink();
@@ -433,44 +436,111 @@ function updateCreatorStudioCreditBadge(creditsObj) {
 // AUTHENTICATION & USER PROFILE CONTROLLER
 // ============================================================
 
+let _inflightWhitelistPromises = new Map();
+
+function getCachedWhitelistEntry(email) {
+  try {
+    const raw = localStorage.getItem('slant_whitelist_cache_v1');
+    if (!raw) return null;
+    const map = JSON.parse(raw);
+    const entry = map && map[email];
+    // Cache allowed status for up to 24 hours for instant 0ms login boot
+    if (entry && entry.allowed && (Date.now() - (entry.ts || 0) < 86400000)) {
+      return entry;
+    }
+  } catch (_) {}
+  return null;
+}
+
+function setCachedWhitelistEntry(email, result) {
+  try {
+    if (!email || !result || !result.allowed) return;
+    const raw = localStorage.getItem('slant_whitelist_cache_v1');
+    const map = raw ? JSON.parse(raw) : {};
+    map[email] = {
+      allowed: Boolean(result.allowed),
+      isAdmin: Boolean(result.isAdmin),
+      credits: result.credits || null,
+      ts: Date.now()
+    };
+    localStorage.setItem('slant_whitelist_cache_v1', JSON.stringify(map));
+  } catch (_) {}
+}
+
+async function fetchWhitelistFromNetwork(email) {
+  if (_inflightWhitelistPromises.has(email)) {
+    return _inflightWhitelistPromises.get(email);
+  }
+  const promise = (async () => {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3500);
+      const resp = await fetch(`/api/whitelist?email=${encodeURIComponent(email)}`, {
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data.credits) {
+          updateCreatorStudioCreditBadge(data.credits);
+        }
+        const res = { allowed: Boolean(data.allowed), isAdmin: Boolean(data.isAdmin), credits: data.credits || null };
+        if (res.allowed) setCachedWhitelistEntry(email, res);
+        return res;
+      }
+    } catch (err) {
+      console.warn('Whitelist API check notice, falling back to direct Supabase:', err);
+    }
+
+    // Resilient fallback: direct Supabase point lookup
+    try {
+      const supaResp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.system_beta_whitelist&select=data`, {
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+      });
+      if (supaResp.ok) {
+        const rows = await supaResp.json();
+        const list = rows?.[0]?.data?.allowed_emails || [];
+        const admins = rows?.[0]?.data?.admin_emails || [];
+        const isAllowed = list.map(e => e.toLowerCase()).includes(email) || admins.map(e => e.toLowerCase()).includes(email);
+        const isAdmin = admins.map(e => e.toLowerCase()).includes(email);
+        const res = { allowed: isAllowed, isAdmin };
+        if (res.allowed) setCachedWhitelistEntry(email, res);
+        return res;
+      }
+    } catch (_) {}
+
+    return { allowed: false, isAdmin: false };
+  })();
+
+  _inflightWhitelistPromises.set(email, promise);
+  try {
+    return await promise;
+  } finally {
+    _inflightWhitelistPromises.delete(email);
+  }
+}
+
 async function verifyUserWhitelist(user) {
   if (!user || !user.email) return { allowed: false, isAdmin: false };
   const email = user.email.toLowerCase().trim();
 
-  try {
-    const resp = await fetch(`/api/whitelist?email=${encodeURIComponent(email)}`);
-    if (resp.ok) {
-      const data = await resp.json();
-      if (data.credits) {
-        updateCreatorStudioCreditBadge(data.credits);
-      }
-      return { allowed: Boolean(data.allowed), isAdmin: Boolean(data.isAdmin), credits: data.credits || null };
-    }
-  } catch (err) {
-    console.warn('Whitelist API check notice, falling back to direct Supabase:', err);
-  }
-
-  // Fast-track Master Admin: never blocked even if offline
+  // 1. Instant 0ms fast-track for Master Admin
   if (email === 'shridharoct16@gmail.com' || email === 'basasridhara@gmail.com') {
     updateCreatorStudioCreditBadge({ isUnlimited: true, usedToday: 0, remainingToday: 9999 });
+    fetchWhitelistFromNetwork(email).catch(() => {});
     return { allowed: true, isAdmin: true };
   }
 
-  // Resilient fallback: direct Supabase point lookup
-  try {
-    const supaResp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.system_beta_whitelist&select=data`, {
-      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-    });
-    if (supaResp.ok) {
-      const rows = await supaResp.json();
-      const list = rows?.[0]?.data?.allowed_emails || [];
-      const admins = rows?.[0]?.data?.admin_emails || [];
-      const isAllowed = list.map(e => e.toLowerCase()).includes(email) || admins.map(e => e.toLowerCase()).includes(email);
-      return { allowed: isAllowed, isAdmin: admins.map(e => e.toLowerCase()).includes(email) };
-    }
-  } catch (_) {}
+  // 2. Instant 0ms fast-track for previously verified curators (refreshing credits in background)
+  const cached = getCachedWhitelistEntry(email);
+  if (cached && cached.allowed) {
+    if (cached.credits) updateCreatorStudioCreditBadge(cached.credits);
+    fetchWhitelistFromNetwork(email).catch(() => {});
+    return { allowed: true, isAdmin: Boolean(cached.isAdmin), credits: cached.credits || null };
+  }
 
-  return { allowed: false, isAdmin: false };
+  // 3. First-time sign-in check with deduplicated network lookup
+  return fetchWhitelistFromNetwork(email);
 }
 
 let suppressSignOutNotice = false;
@@ -588,17 +658,23 @@ async function initAuth() {
   supabaseClient.auth.onAuthStateChange(async (event, session) => {
     if (event === 'SIGNED_IN') {
       if (session?.user) {
-        const check = await verifyUserWhitelist(session.user);
+        // Avoid duplicate verification & duplicate post fetches if initAuth() already processed this user on boot
+        const alreadyBootedSameUser = Boolean(currentUser && isUserWhitelistAllowed && currentUser.id === session.user.id);
+        const check = alreadyBootedSameUser
+          ? { allowed: true, isAdmin: isCurrentUserAdmin }
+          : await verifyUserWhitelist(session.user);
         if (check.allowed) {
           currentUser = session.user;
           isCurrentUserAdmin = check.isAdmin;
           isUserWhitelistAllowed = true;
           closeAuthModal();
           checkPendingSharedDataOnAuth();
-          loadFamilyCastProfile(true);
-          showTemporaryToast(`Welcome to Slant, ${escapeHtml(getUserDisplayName())}! ✨`);
+          if (!alreadyBootedSameUser) {
+            loadFamilyCastProfile(true);
+            showTemporaryToast(`Welcome to Slant, ${escapeHtml(getUserDisplayName())}! ✨`);
+          }
 
-          // Log access timestamp
+          // Log access timestamp asynchronously
           try {
             fetch('/api/whitelist', {
               method: 'POST',
@@ -664,7 +740,9 @@ async function initAuth() {
             } catch (_) {}
           }
 
-          checkLiveSupabaseUpdates(true);
+          if (!alreadyBootedSameUser) {
+            checkLiveSupabaseUpdates(true);
+          }
           updateAuthUI();
           if (isCurrentUserAdmin) {
             loadAdminBetaPendingCount();
@@ -1349,6 +1427,36 @@ function showAuthStatus(msg, type = 'normal') {
   el.style.display = 'block';
 }
 
+const GOOGLE_OAUTH_CLIENT_ID = '1083411450922-ijsu44kduj3fsp4nggmc6bohb5b5t9ej.apps.googleusercontent.com';
+
+async function handleGoogleIdTokenCallback(response) {
+  if (!response || !response.credential || !supabaseClient) return;
+  showAuthStatus('Signing into Slant...', 'normal');
+  try {
+    const { error } = await supabaseClient.auth.signInWithIdToken({
+      provider: 'google',
+      token: response.credential
+    });
+    if (error) throw error;
+  } catch (err) {
+    console.warn('Google ID Token sign-in notice, falling back to redirect OAuth:', err);
+    await triggerSupabaseGoogleOAuthRedirect();
+  }
+}
+
+async function triggerSupabaseGoogleOAuthRedirect() {
+  const { error } = await supabaseClient.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: window.location.origin,
+      queryParams: {
+        prompt: 'select_account'
+      }
+    }
+  });
+  if (error) throw error;
+}
+
 async function signInWithGoogle() {
   if (!supabaseClient) {
     showAuthStatus('Supabase client is initializing. Please try again in a moment.', 'error');
@@ -1367,13 +1475,7 @@ async function signInWithGoogle() {
         sessionStorage.setItem('slant_auth_redirect_url', cleanUrl || window.location.origin);
       } catch (_) {}
     }
-    const { error } = await supabaseClient.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: window.location.origin
-      }
-    });
-    if (error) throw error;
+    await triggerSupabaseGoogleOAuthRedirect();
   } catch (err) {
     console.error('Google OAuth error:', err);
     showAuthStatus(err.message || 'Google sign in failed. Please try magic link email.', 'error');

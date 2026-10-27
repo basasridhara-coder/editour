@@ -26,8 +26,10 @@
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://fxfklefnkpmhofncqhfh.supabase.co" crossorigin>
+  <link rel="preconnect" href="https://accounts.google.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Merriweather:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,400;1,600;1,700;1,900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261027_0845">
+  <link rel="stylesheet" href="style.css?v=20261027_1018">
   <!-- Favicon & Brand Icons -->
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
@@ -42,8 +44,10 @@
   <meta name="twitter:image" content="https://www.slant.today/logo.png">
   <!-- Supabase JS Client for Authentication & Real-time -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <!-- html2canvas for high-fidelity 3-poster set export & native sharing -->
-  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <!-- Google Identity Services for Fast First-Party Sign-In on slant.today -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <!-- html2canvas for high-fidelity 3-poster set export & native sharing (deferred for fast initial boot) -->
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" defer></script>
 </head>
 <body data-theme="daylight">
 
@@ -2230,6 +2234,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261027_0845"></script>
+  <script src="app.js?v=20261027_1018"></script>
 </body>
 </html>
