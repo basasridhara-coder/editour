@@ -5726,18 +5726,20 @@ function setupCarouselGestures(postIndex) {
       const atTop = essayVp.scrollTop <= 2;
       const atBottom = maxScroll <= 4 || (essayVp.scrollTop >= maxScroll - 3);
 
-      // If essay page is at its end (bottom or top), seamlessly continue the swipe into the main feed scroll
+      // If essay page is at its end (bottom or top), seamlessly continue the swipe into the scroll container
+      const scrollHost = essayVp.closest('.diary-calendar-modal-body') || window;
       if ((atBottom && dy > 0) || (atTop && dy < 0)) {
         if (e.cancelable) {
           e.preventDefault();
         }
         isHandingOffToFeed = true;
-        window.scrollBy(0, dy);
+        scrollHost.scrollBy(0, dy);
       }
     }, { passive: false });
 
     essayVp.addEventListener('touchend', () => {
       if (!isHandingOffToFeed || Math.abs(velocityY) < 0.16) return;
+      const scrollHost = essayVp.closest('.diary-calendar-modal-body') || window;
       let stepVel = Math.max(-42, Math.min(42, velocityY * 16));
       const coast = () => {
         stepVel *= 0.93;
@@ -5745,7 +5747,7 @@ function setupCarouselGestures(postIndex) {
           activeEssayMomentumRaf = null;
           return;
         }
-        window.scrollBy(0, stepVel);
+        scrollHost.scrollBy(0, stepVel);
         activeEssayMomentumRaf = requestAnimationFrame(coast);
       };
       activeEssayMomentumRaf = requestAnimationFrame(coast);
@@ -8876,7 +8878,7 @@ function jumpToLatestDiaryChronicleDate() {
   }
 }
 
-function selectDiaryCalendarDate(dateKey) {
+function selectDiaryCalendarDate(dateKey, fromTopCalendar = true) {
   const dateMap = getDiaryChroniclesByDateMap();
   if (!dateMap.has(dateKey)) return;
   const [yyyy, mm] = dateKey.split('-').map(Number);
@@ -8887,9 +8889,11 @@ function selectDiaryCalendarDate(dateKey) {
   diaryCalendarState.selectedDateKey = dateKey;
   diaryCalendarState.activeSlideNum = 1;
   renderDiaryCalendarModal();
-  const previewEl = document.getElementById('diaryCalendarSelectedPreview');
-  if (previewEl) {
-    previewEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  if (fromTopCalendar) {
+    const previewEl = document.getElementById('diaryCalendarSelectedPreview');
+    if (previewEl) {
+      previewEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
   }
 }
 
@@ -8948,6 +8952,10 @@ function renderDiaryCalendarModal() {
   const root = document.getElementById('diaryCalendarModalRoot');
   if (!root) return;
 
+  const prevModalScrollTop = root.scrollTop;
+  const prevTrainEl = document.getElementById('diaryCalDateTrain');
+  const prevTrainScrollLeft = prevTrainEl ? prevTrainEl.scrollLeft : null;
+
   const dateMap = getDiaryChroniclesByDateMap();
   const year = diaryCalendarState.year;
   const month = diaryCalendarState.month;
@@ -8955,6 +8963,7 @@ function renderDiaryCalendarModal() {
     'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'
   ];
+  const shortMonthName = monthNames[month].slice(0, 3);
   const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
   const firstDayOfWeek = new Date(year, month, 1).getDay();
@@ -8963,6 +8972,7 @@ function renderDiaryCalendarModal() {
   const monthChronicleCount = Array.from(dateMap.keys()).filter(k => k.startsWith(monthPrefix)).length;
 
   let cellsHtml = '';
+  let trainCellsHtml = '';
   for (let e = 0; e < firstDayOfWeek; e++) {
     cellsHtml += `<div class="diary-cal-day-square is-empty-slot" aria-hidden="true"></div>`;
   }
@@ -8972,6 +8982,7 @@ function renderDiaryCalendarModal() {
     const dateKey = `${monthPrefix}${ddStr}`;
     const entry = dateMap.get(dateKey);
     const isSelected = diaryCalendarState.selectedDateKey === dateKey;
+    const dayOfWeekName = weekdays[new Date(year, month, day).getDay()];
 
     if (entry && entry.post) {
       const p = entry.post;
@@ -8979,12 +8990,13 @@ function renderDiaryCalendarModal() {
       const hl = String(p.adaptedHeadline || p.originalHeadline || 'Daily Chronicle').trim();
       const rawSummary = String(p.summary || (Array.isArray(p.resolvedArticleExcerpts) ? p.resolvedArticleExcerpts.join(' ') : '') || '').replace(/\s+/g, ' ').trim();
       const shortSnippet = rawSummary.slice(0, 95);
+      const titleText = `${day} ${monthNames[month]} ${year} • ${hl}${entry.totalForDate > 1 ? ` (Latest of ${entry.totalForDate} posts)` : ''}`;
 
       cellsHtml += `
         <button type="button"
                 class="diary-cal-day-square has-chronicle-post ${isSelected ? 'is-selected' : ''}"
-                onclick="selectDiaryCalendarDate('${dateKey}')"
-                title="${escapeHtml(`${day} ${monthNames[month]} ${year} • ${hl}${entry.totalForDate > 1 ? ` (Latest of ${entry.totalForDate} posts)` : ''}`)}">
+                onclick="selectDiaryCalendarDate('${dateKey}', true)"
+                title="${escapeHtml(titleText)}">
           ${rawImg ? `<img src="${escapeHtml(rawImg)}" class="diary-cal-mini-poster-img" alt="" loading="lazy">` : `<div class="diary-cal-mini-poster-fallback"></div>`}
           <div class="diary-cal-mini-scrim-top">
             <span class="diary-cal-day-num has-post-num">${day}</span>
@@ -8997,10 +9009,35 @@ function renderDiaryCalendarModal() {
           </div>
         </button>
       `;
+
+      trainCellsHtml += `
+        <button type="button"
+                class="diary-cal-day-square diary-cal-train-square has-chronicle-post ${isSelected ? 'is-selected' : ''}"
+                data-train-date="${dateKey}"
+                onclick="selectDiaryCalendarDate('${dateKey}', false)"
+                title="${escapeHtml(titleText)}">
+          ${rawImg ? `<img src="${escapeHtml(rawImg)}" class="diary-cal-mini-poster-img" alt="" loading="lazy">` : `<div class="diary-cal-mini-poster-fallback"></div>`}
+          <div class="diary-cal-mini-scrim-top">
+            <span class="diary-cal-day-num has-post-num">${day}</span>
+            <span class="diary-cal-mini-badge">📔</span>
+          </div>
+          <div class="diary-cal-mini-scrim-bottom">
+            <div class="diary-cal-mini-headline">${escapeHtml(hl)}</div>
+            <div class="diary-cal-mini-domain">${escapeHtml(shortMonthName)}</div>
+          </div>
+        </button>
+      `;
     } else {
       cellsHtml += `
         <div class="diary-cal-day-square is-blank-day">
           <span class="diary-cal-day-num">${day}</span>
+        </div>
+      `;
+
+      trainCellsHtml += `
+        <div class="diary-cal-day-square diary-cal-train-square is-blank-day" data-train-date="${dateKey}">
+          <span class="diary-cal-day-num">${day}</span>
+          <span class="diary-cal-train-sub">${escapeHtml(dayOfWeekName)}</span>
         </div>
       `;
     }
@@ -9042,12 +9079,24 @@ function renderDiaryCalendarModal() {
             </div>
           </div>
         </div>
+
+        <!-- Bottom Train of Rounded Date Squares for Direct Sliding & Day Navigation -->
+        <div class="diary-cal-date-train-wrap">
+          <div class="diary-cal-date-train" id="diaryCalDateTrain" role="region" aria-label="Slide through dates">
+            ${trainCellsHtml}
+          </div>
+        </div>
       </div>
     `;
   } else {
     previewHtml = `
       <div class="diary-cal-empty-selected">
         <span>📔 Tap any highlighted date square on the calendar to read that day's Chronicle Moments.</span>
+      </div>
+      <div class="diary-cal-date-train-wrap">
+        <div class="diary-cal-date-train" id="diaryCalDateTrain" role="region" aria-label="Slide through dates">
+          ${trainCellsHtml}
+        </div>
       </div>
     `;
   }
@@ -9060,7 +9109,7 @@ function renderDiaryCalendarModal() {
         <button type="button" class="diary-cal-nav-btn" onclick="changeDiaryCalendarMonth(1)" title="Next Month">Next ›</button>
       </div>
       <div class="diary-cal-toolbar-right">
-        <span class="diary-cal-stats-badge">${monthChronicleCount} in ${monthNames[month].slice(0, 3)} • ${dateMap.size} Total Days</span>
+        <span class="diary-cal-stats-badge">${monthChronicleCount} in ${shortMonthName} • ${dateMap.size} Total Days</span>
         ${dateMap.size > 0 ? `<button type="button" class="diary-cal-jump-btn" onclick="jumpToLatestDiaryChronicleDate()">Latest Entry</button>` : ''}
       </div>
     </div>
@@ -9076,8 +9125,53 @@ function renderDiaryCalendarModal() {
     ${previewHtml}
   `;
 
+  root.scrollTop = prevModalScrollTop;
+
   if (selectedEntry && selectedEntry.post && typeof setupCarouselGestures === 'function') {
     setupCarouselGestures('diary_preview');
+  }
+
+  // Center the active date square inside the bottom date train smoothly
+  const trainEl = document.getElementById('diaryCalDateTrain');
+  if (trainEl) {
+    if (prevTrainScrollLeft !== null) {
+      trainEl.scrollLeft = prevTrainScrollLeft;
+    }
+    const activeTrainItem = diaryCalendarState.selectedDateKey
+      ? trainEl.querySelector(`[data-train-date="${diaryCalendarState.selectedDateKey}"]`)
+      : null;
+    if (activeTrainItem) {
+      const targetLeft = Math.max(
+        0,
+        activeTrainItem.offsetLeft - (trainEl.clientWidth / 2) + (activeTrainItem.offsetWidth / 2)
+      );
+      requestAnimationFrame(() => {
+        try {
+          trainEl.scrollTo({ left: targetLeft, behavior: prevTrainScrollLeft === null ? 'auto' : 'smooth' });
+        } catch (_) {
+          trainEl.scrollLeft = targetLeft;
+        }
+      });
+    }
+
+    // Enable smooth mouse-drag sliding on the date train for desktop/laptop in addition to native touch scrolling
+    let isDraggingTrain = false;
+    let dragStartX = 0;
+    let dragScrollLeft = 0;
+    trainEl.addEventListener('mousedown', (e) => {
+      isDraggingTrain = true;
+      dragStartX = e.pageX - trainEl.offsetLeft;
+      dragScrollLeft = trainEl.scrollLeft;
+    });
+    trainEl.addEventListener('mouseleave', () => { isDraggingTrain = false; });
+    trainEl.addEventListener('mouseup', () => { isDraggingTrain = false; });
+    trainEl.addEventListener('mousemove', (e) => {
+      if (!isDraggingTrain) return;
+      e.preventDefault();
+      const x = e.pageX - trainEl.offsetLeft;
+      const walk = (x - dragStartX) * 1.4;
+      trainEl.scrollLeft = dragScrollLeft - walk;
+    });
   }
 
   const calGridEl = document.getElementById('diaryCalDaysGrid');

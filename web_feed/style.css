@@ -20959,56 +20959,58 @@ mark.polish-mark:hover, mark.polish-mark.active {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 16px 20px;
+  gap: 10px;
+  padding: 10px 16px;
   border-bottom: 1px solid var(--border-subtle, rgba(148, 163, 184, 0.2));
   background: linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(245, 158, 11, 0.02) 100%);
+  flex-shrink: 0;
 }
 
 .diary-calendar-title-wrap {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
 }
 
 .diary-calendar-icon {
-  font-size: 24px;
+  font-size: 20px;
 }
 
 .diary-calendar-title {
   font-family: 'Space Grotesk', 'Inter', sans-serif;
-  font-size: 17px;
+  font-size: 15.5px;
   font-weight: 800;
   color: var(--text-primary);
 }
 
 .diary-calendar-subtitle {
-  font-size: 12px;
-  color: var(--text-secondary);
-  margin-top: 2px;
+  display: none;
 }
 
 .diary-calendar-close-btn {
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   border: 1px solid var(--border-subtle, rgba(148, 163, 184, 0.25));
   background: var(--bg-surface, rgba(255, 255, 255, 0.8));
   color: var(--text-primary);
-  font-size: 20px;
+  font-size: 18px;
   line-height: 1;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
 .diary-calendar-modal-body {
-  padding: 16px 20px 22px;
+  padding: 10px 14px 16px;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
 }
 
 .diary-cal-toolbar {
@@ -21346,15 +21348,82 @@ mark.polish-mark:hover, mark.polish-mark.active {
   background: #F7F5EE;
 }
 
+/* Horizontal Train of Rounded Date Squares Below Poster */
+.diary-cal-date-train-wrap {
+  width: 100%;
+  padding-top: 4px;
+}
+
+.diary-cal-date-train {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x;
+  padding: 6px 4px 10px;
+  scrollbar-width: thin;
+  cursor: grab;
+}
+
+.diary-cal-date-train:active {
+  cursor: grabbing;
+}
+
+.diary-cal-date-train::-webkit-scrollbar {
+  height: 5px;
+}
+
+.diary-cal-date-train::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.38);
+  border-radius: 99px;
+}
+
+.diary-cal-train-square {
+  width: 58px;
+  height: 58px;
+  flex: 0 0 58px;
+  aspect-ratio: 1 / 1;
+  border-radius: 12px;
+  scroll-snap-align: center;
+  user-select: none;
+}
+
+.diary-cal-train-square.is-blank-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  opacity: 0.72;
+}
+
+.diary-cal-train-sub {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
 @media (max-width: 600px) {
   .diary-calendar-modal-body {
-    padding: 12px 12px 18px;
+    padding: 8px 10px 14px;
+    gap: 6px;
   }
   .diary-cal-grid,
   .diary-cal-weekdays-row {
     gap: 5px;
   }
   .diary-cal-day-square {
+    border-radius: 10px;
+  }
+  .diary-cal-train-square {
+    width: 52px;
+    height: 52px;
+    flex: 0 0 52px;
     border-radius: 10px;
   }
   .diary-cal-mini-snippet {
