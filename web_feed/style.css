@@ -21298,6 +21298,70 @@ mark.polish-mark:hover, mark.polish-mark.active {
   border-color: transparent;
 }
 
+.diary-cal-day-square.is-today-empty {
+  cursor: pointer;
+  border: 1.5px dashed rgba(217, 119, 6, 0.82);
+  background: linear-gradient(145deg, rgba(245, 158, 11, 0.14) 0%, rgba(217, 119, 6, 0.05) 100%);
+  box-shadow: 0 2px 8px rgba(217, 119, 6, 0.12);
+  transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease, background 0.16s ease;
+  opacity: 1 !important;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 5px;
+}
+
+.diary-cal-day-square.is-today-empty:hover {
+  transform: translateY(-1.5px) scale(1.03);
+  border-color: #F59E0B;
+  background: linear-gradient(145deg, rgba(245, 158, 11, 0.24) 0%, rgba(217, 119, 6, 0.12) 100%);
+  box-shadow: 0 6px 14px rgba(245, 158, 11, 0.24);
+}
+
+.diary-cal-day-num.is-today-num {
+  color: #D97706;
+  font-weight: 800;
+}
+
+[data-theme="obsidian"] .diary-cal-day-num.is-today-num {
+  color: #FBBF24;
+}
+
+.diary-cal-today-pen-cta {
+  align-self: center;
+  margin: auto;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(245, 158, 11, 0.2);
+  border: 1px solid rgba(217, 119, 6, 0.48);
+  color: #D97706;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(217, 119, 6, 0.18);
+  transition: transform 0.16s ease, background 0.16s ease;
+}
+
+[data-theme="obsidian"] .diary-cal-today-pen-cta {
+  background: rgba(245, 158, 11, 0.22);
+  border-color: rgba(251, 191, 36, 0.55);
+  color: #FBBF24;
+}
+
+.diary-cal-day-square.is-today-empty:hover .diary-cal-today-pen-cta {
+  transform: scale(1.1);
+  background: #D97706;
+  color: #FFFFFF;
+}
+
+.diary-cal-pen-svg {
+  width: 13px;
+  height: 13px;
+  display: block;
+}
+
 .diary-cal-day-square.has-chronicle-post {
   cursor: pointer;
   padding: 0;
@@ -21630,6 +21694,14 @@ mark.polish-mark:hover, mark.polish-mark.active {
   }
   .diary-cal-mini-snippet {
     display: none;
+  }
+  .diary-cal-today-pen-cta {
+    width: 20px;
+    height: 20px;
+  }
+  .diary-cal-pen-svg {
+    width: 11px;
+    height: 11px;
   }
 }
 

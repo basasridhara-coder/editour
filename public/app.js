@@ -10428,10 +10428,23 @@ function openChronicleStudioFromDiary() {
   if (typeof openCreatorModal === 'function') {
     openCreatorModal();
     setTimeout(() => {
-      if (typeof selectCreatorSource === 'function') {
-        selectCreatorSource('chronicle_diary');
+      if (typeof setAnchorMode === 'function') {
+        setAnchorMode('diary_chronicle');
+      } else if (typeof selectCreatorSource === 'function') {
+        selectCreatorSource('diary_chronicle');
       }
-    }, 80);
+      if (typeof setInnerVoiceSubmode === 'function') {
+        setInnerVoiceSubmode('chronicle');
+      }
+      const deckWrap = document.getElementById('dailyChronicleDeckWrap');
+      if (deckWrap) {
+        deckWrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+      const firstMomentInput = document.querySelector('#chronicleMomentsCardsList .chronicle-moment-textarea');
+      if (firstMomentInput) {
+        firstMomentInput.focus({ preventScroll: true });
+      }
+    }, 90);
   }
 }
 
@@ -10721,6 +10734,8 @@ function renderDiaryCalendarModal() {
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const monthPrefix = `${year}-${String(month + 1).padStart(2, '0')}-`;
   const monthChronicleCount = Array.from(dateMap.keys()).filter(k => k.startsWith(monthPrefix)).length;
+  const nowLocal = new Date();
+  const todayDateKey = `${nowLocal.getFullYear()}-${String(nowLocal.getMonth() + 1).padStart(2, '0')}-${String(nowLocal.getDate()).padStart(2, '0')}`;
 
   let cellsHtml = '';
   let trainCellsHtml = '';
@@ -10781,18 +10796,53 @@ function renderDiaryCalendarModal() {
         </button>
       `;
     } else {
-      cellsHtml += `
-        <div class="diary-cal-day-square is-blank-day" data-cal-date="${dateKey}">
-          <span class="diary-cal-day-num">${day}</span>
-        </div>
-      `;
+      const isTodayEmpty = (dateKey === todayDateKey);
+      if (isTodayEmpty) {
+        cellsHtml += `
+          <button type="button"
+                  class="diary-cal-day-square is-blank-day is-today-empty"
+                  data-cal-date="${dateKey}"
+                  onclick="openChronicleStudioFromDiary()"
+                  title="Today (${day} ${monthNames[month]}) — Not yet journaled. Tap to pen your Daily Chronicle">
+            <span class="diary-cal-day-num is-today-num">${day}</span>
+            <span class="diary-cal-today-pen-cta" aria-hidden="true">
+              <svg class="diary-cal-pen-svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 20h9"/>
+                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+              </svg>
+            </span>
+          </button>
+        `;
 
-      trainCellsHtml += `
-        <div class="diary-cal-day-square diary-cal-train-square is-blank-day" data-train-date="${dateKey}">
-          <span class="diary-cal-day-num">${day}</span>
-          <span class="diary-cal-train-sub">${escapeHtml(dayOfWeekName)}</span>
-        </div>
-      `;
+        trainCellsHtml += `
+          <button type="button"
+                  class="diary-cal-day-square diary-cal-train-square is-blank-day is-today-empty"
+                  data-train-date="${dateKey}"
+                  onclick="openChronicleStudioFromDiary()"
+                  title="Today (${day} ${monthNames[month]}) — Tap to pen your Daily Chronicle">
+            <span class="diary-cal-day-num is-today-num">${day}</span>
+            <span class="diary-cal-today-pen-cta" aria-hidden="true">
+              <svg class="diary-cal-pen-svg" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 20h9"/>
+                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+              </svg>
+            </span>
+          </button>
+        `;
+      } else {
+        cellsHtml += `
+          <div class="diary-cal-day-square is-blank-day" data-cal-date="${dateKey}">
+            <span class="diary-cal-day-num">${day}</span>
+          </div>
+        `;
+
+        trainCellsHtml += `
+          <div class="diary-cal-day-square diary-cal-train-square is-blank-day" data-train-date="${dateKey}">
+            <span class="diary-cal-day-num">${day}</span>
+            <span class="diary-cal-train-sub">${escapeHtml(dayOfWeekName)}</span>
+          </div>
+        `;
+      }
     }
   }
 
