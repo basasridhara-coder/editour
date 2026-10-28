@@ -22285,17 +22285,47 @@ mark.polish-mark:hover, mark.polish-mark.active {
 }
 
 @media (max-width: 680px) {
+  .login-main-wrap {
+    padding: 6px 8px 24px 8px !important;
+  }
+
+  .login-page-card-standalone {
+    padding: 10px 10px 20px 10px !important;
+  }
+
+  .slant-triad-layout.slant-two-col-stage {
+    gap: 12px;
+  }
+
   .triad-col-pillars.triad-col-brand-narrative {
-    gap: 8px;
-    padding: 0 0 8px 0;
+    gap: 6px;
+    padding: 0 0 6px 0;
   }
 
   .login-brand-masthead-row {
     flex-direction: column;
     align-items: center;
     text-align: center;
-    gap: 6px;
+    gap: 4px;
     padding-bottom: 0;
+  }
+
+  .login-brand-masthead-identity {
+    gap: 8px;
+  }
+
+  .login-brand-emblem-frame {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+  }
+
+  .login-brand-masthead-title {
+    font-size: 22px;
+  }
+
+  .login-brand-masthead-domain {
+    font-size: 9.5px;
   }
 
   .pillars-switcher-pills {
@@ -22303,7 +22333,7 @@ mark.polish-mark:hover, mark.polish-mark.active {
     align-items: center;
     justify-content: space-between;
     gap: 3px;
-    padding: 3px;
+    padding: 2.5px;
     overflow: hidden;
   }
 
@@ -22311,7 +22341,7 @@ mark.polish-mark:hover, mark.polish-mark.active {
     flex: 1 1 auto;
     justify-content: center;
     gap: 3.5px;
-    padding: 6px 5px;
+    padding: 5px 5px;
     font-size: 10.5px;
     letter-spacing: -0.15px;
     overflow: hidden;
@@ -22320,7 +22350,7 @@ mark.polish-mark:hover, mark.polish-mark.active {
   .pillar-switch-pill-chronicle {
     flex: 1.25 1 auto;
     justify-content: center;
-    padding: 6px 6px;
+    padding: 5px 6px;
     overflow: hidden !important;
   }
 
@@ -22356,58 +22386,84 @@ mark.polish-mark:hover, mark.polish-mark.active {
   .slant-pillars-carousel-viewport {
     min-height: 0;
     flex: 0 0 auto;
+    border-radius: 16px;
   }
 
   .slant-pillar-vertical-card {
-    padding: 10px 14px 24px;
-    gap: 6px;
+    padding: 8px 12px 18px;
+    gap: 4px;
+  }
+
+  .slant-pillar-card-top-bar {
+    padding-bottom: 4px;
+  }
+
+  .slant-pillar-kicker-tag {
+    font-size: 9.5px;
   }
 
   .slant-pillar-card-content-split {
     flex-direction: column;
     justify-content: flex-start;
-    gap: 8px;
-    padding: 2px 4px 0;
+    gap: 5px;
+    padding: 0 4px;
   }
 
   .slant-pillar-vertical-visual {
     width: 100%;
     flex: 0 0 auto;
-    height: 152px;
+    height: 130px;
   }
 
   .slant-pillar-vertical-img {
-    max-height: 146px;
-    border-radius: 15px;
+    max-height: 124px;
+    border-radius: 14px;
   }
 
   .slant-pillar-vertical-body {
     margin-top: 0;
     padding-bottom: 2px;
-    gap: 4px;
+    gap: 3px;
+  }
+
+  .slant-pillar-vertical-header {
+    gap: 7px;
+    margin-bottom: 0;
   }
 
   .slant-pillar-vertical-icon {
-    width: 28px;
-    height: 28px;
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
   }
 
   .slant-pillar-vertical-title {
-    font-size: 19px;
+    font-size: 17.5px;
   }
 
   .slant-pillar-vertical-hook {
-    font-size: 13.5px;
+    font-size: 13px;
+    line-height: 1.25;
   }
 
   .slant-pillar-vertical-desc {
-    font-size: 12.5px;
-    line-height: 1.42;
+    font-size: 11.8px;
+    line-height: 1.35;
+  }
+
+  .pillar-carousel-dots {
+    bottom: 5px !important;
   }
 
   .manifesto-audience-pill {
-    font-size: 10px;
-    padding: 4px 12px;
+    font-size: 9.5px;
+    padding: 3px 11px;
+  }
+
+  .mobile-scroll-to-login-cue {
+    margin-top: 0;
+    padding: 6px 15px;
+    font-size: 11px;
   }
 }
 
