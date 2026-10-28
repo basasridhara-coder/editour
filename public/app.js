@@ -11814,11 +11814,14 @@ function syncInnerVoiceSubmodeUI() {
 
   const secVoice = document.getElementById('triggerVoiceSection');
   const triggerPanel = secVoice ? secVoice.closest('.creator-trigger-panel') : null;
+  const guideBtn = document.getElementById('slantGuideToggleBtn');
+  const guideCard = document.getElementById('slantStructureGuideCard');
 
   if (!isVoice) {
     if (triggerPanel) triggerPanel.style.display = '';
     if (slantTextarea) slantTextarea.style.display = 'block';
     if (chronDeck) chronDeck.style.display = 'none';
+    if (guideBtn) guideBtn.style.display = 'inline-flex';
     return;
   }
 
@@ -11829,6 +11832,11 @@ function syncInnerVoiceSubmodeUI() {
     if (triggerPanel) triggerPanel.style.display = 'none';
     if (slantTextarea) slantTextarea.style.display = 'none';
     if (chronDeck) chronDeck.style.display = 'flex';
+    if (guideBtn) {
+      guideBtn.style.display = 'none';
+      guideBtn.classList.remove('active');
+    }
+    if (guideCard) guideCard.style.display = 'none';
     if (label) label.textContent = 'Diary Chronicle: Your Day in Moments (2 to 4 Vignettes)';
     if (sub) sub.textContent = 'Record 2 to 4 distinct moments from your day, and tap ★ Star on the moment you feel is most important to give it more space in Poster 1.';
     if (heroIcon) heroIcon.textContent = '📔';
@@ -11851,6 +11859,7 @@ function syncInnerVoiceSubmodeUI() {
     if (chronBanner) chronBanner.style.display = 'none';
     if (slantTextarea) slantTextarea.style.display = 'block';
     if (chronDeck) chronDeck.style.display = 'none';
+    if (guideBtn) guideBtn.style.display = 'inline-flex';
     if (label) label.textContent = 'What is your Slant or Perspective?';
     if (sub) sub.textContent = 'Express your conviction or reflection freely. AI transforms this into your lead take.';
     if (heroIcon) heroIcon.textContent = '💭';
@@ -15563,6 +15572,7 @@ function toggleSlantStructureGuide(e) {
   if (e && typeof e.stopPropagation === 'function') {
     e.stopPropagation();
   }
+  if (isDailyChronicleMode) return;
   const card = document.getElementById('slantStructureGuideCard');
   const btn = document.getElementById('slantGuideToggleBtn');
   if (!card) return;
