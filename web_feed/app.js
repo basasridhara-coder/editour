@@ -1353,17 +1353,83 @@ const LOGIN_LIVE_SHOWCASE_POST = {
   "targetAudience": "General Public",
   "isLoginFeatured": true,
   "_allowLoginBifurcation": true,
-  "_isVideoOrWide": true
+  "_isVideoOrWide": true,
+  "_blurInlineNames": true
 };
 
-let _loginMinutesAutoScrollRaf = null;
+const LOGIN_CHRONICLE_SHOWCASE_POST = {
+  "id": "slant-1793031039451-4bovq",
+  "categoryBadge": "DAILY CHRONICLE",
+  "adaptedHeadline": "Deliberate Focus at Work and Warmth in Every Welcome",
+  "originalHeadline": "26th Oct 2026",
+  "publicationName": "Daily Chronicle",
+  "creatorHandle": "@Shridhar Reddy",
+  "createdAt": "2026-10-26T16:11:49.451Z",
+  "chronicleMode": true,
+  "innerVoiceSubMode": "chronicle",
+  "isDiary": true,
+  "curatorTake": "Small, intentional shifts in how we focus our energy and how warmly we welcome people can quietly transform an ordinary day.",
+  "polishedCuratorTake": "01 · Moment 01: Usual work, not giving it the deserved focus. I will change this attitude, mark a few items to close, and get them done. 02 · Moment 02: Explained the dietary preference update feature in Cukre to Shrikanth. The demo looked good, and we both discussed releasing it at the earliest. 03 · Moment 03: Went to meet Swapnil, Shrikanth's tenant in V Classic. He is a nice person; the way they welcome people and talk to them was worth noting and adapting.",
+  "creatorOpinion": "Small, intentional shifts in how we focus our energy and how warmly we welcome people can quietly transform an ordinary day.",
+  "hook": "When routine drifts into distraction, true change begins with choosing to close open loops and learning from genuine human warmth.",
+  "summary": "01 · Moment 01: I caught myself slipping through the motions of usual work without giving tasks the deep attention they deserved. A productive day requires deliberate discipline, so I am resetting my approach to select a clear list of pending items and close them out completely.\n\n02 · Moment 02: I walked Shrikanth through the new dietary preference update feature in Cukre during an engaging walkthrough. The demonstration ran smoothly, highlighting how small intuitive design choices solve real user friction, and we agreed to release the update as soon as possible.\n\n03 · Moment 03: Visiting Swapnil at V Classic offered a refreshing masterclass in hospitality and grounded conversation. The ease with which he welcomed us and held dialogue showed how attentive listening transforms simple everyday social encounters into lasting, memorable human bonds.",
+  "keyTakeaways": [
+    "Focus On Finish: Mark a few essential tasks and close them.",
+    "Ship Useful Features: Clear product walkthroughs turn ideas into immediate action.",
+    "Adopt Everyday Warmth: Gracious hospitality creates an enduring impression on others."
+  ],
+  "resolvedArticleExcerpts": [
+    "01 · Moment 01: I caught myself slipping through the motions of usual work without giving tasks the deep attention they deserved. A productive day requires deliberate discipline, so I am resetting my approach to select a clear list of pending items and close them out completely.",
+    "02 · Moment 02: I walked Shrikanth through the new dietary preference update feature in Cukre during an engaging walkthrough. The demonstration ran smoothly, highlighting how small intuitive design choices solve real user friction, and we agreed to release the update as soon as possible.",
+    "03 · Moment 03: Visiting Swapnil at V Classic offered a refreshing masterclass in hospitality and grounded conversation. The ease with which he welcomed us and held dialogue showed how attentive listening transforms simple everyday social encounters into lasting, memorable human bonds."
+  ],
+  "chronicleMoments": [
+    {
+      "index": 1,
+      "title": "Moment 01",
+      "text": "Usual work, not giving it the deserved focus. I will change this attitude, mark a few items to close, and get them done.",
+      "isStarred": true
+    },
+    {
+      "index": 2,
+      "title": "Moment 02",
+      "text": "Explained the dietary preference update feature in Cukre to Shrikanth. The demo looked good, and we both discussed releasing it at the earliest."
+    },
+    {
+      "index": 3,
+      "title": "Moment 03",
+      "text": "Went to meet Swapnil, Shrikanth's tenant in V Classic. He is a nice person; the way they welcome people and talk to them was worth noting and adapting."
+    }
+  ],
+  "sourceType": "inner_voice",
+  "illustrationUrl": "/posters/slant-1793031039451-4bovq.jpg",
+  "aiIllustrationUrl": "/posters/slant-1793031039451-4bovq.jpg",
+  "slantIcon": "❤️",
+  "slantTone": "heart",
+  "pullQuote": "Changing an attitude begins the moment we decide to stop drifting and finish what we started.",
+  "receiptHighlightQuote": "Changing an attitude begins the moment we decide to stop drifting and finish what we started.",
+  "targetAudience": "General Public",
+  "isLoginFeatured": true,
+  "_allowLoginBifurcation": true,
+  "_blurInlineNames": true
+};
+
+let _loginMinutesAutoScrollRafs = [];
+let _currentLoginShowcaseSetIdx = 0;
+let _loginShowcaseSetSwapTimer = null;
+let _isLoginShowcaseSetLockedByClick = false;
+
+function stopAllLoginMinutesAutoScrolls() {
+  if (Array.isArray(_loginMinutesAutoScrollRafs)) {
+    _loginMinutesAutoScrollRafs.forEach(id => {
+      if (id) cancelAnimationFrame(id);
+    });
+  }
+  _loginMinutesAutoScrollRafs = [];
+}
 
 function startLoginMinutesAutoScroll(viewportEl) {
   if (!viewportEl) return;
-  if (_loginMinutesAutoScrollRaf) {
-    cancelAnimationFrame(_loginMinutesAutoScrollRaf);
-    _loginMinutesAutoScrollRaf = null;
-  }
 
   let isPaused = false;
   let resumeTimeout = null;
@@ -1371,6 +1437,7 @@ function startLoginMinutesAutoScroll(viewportEl) {
   let phaseStartTime = performance.now();
   let lastFrameTime = performance.now();
   let scrollUpStartPos = 0;
+  let rafId = null;
 
   const pauseScroll = () => {
     isPaused = true;
@@ -1393,7 +1460,6 @@ function startLoginMinutesAutoScroll(viewportEl) {
   const step = (now) => {
     const signedOutView = document.getElementById('signedOutPageView');
     if (!signedOutView || signedOutView.style.display === 'none' || !document.body.contains(viewportEl)) {
-      _loginMinutesAutoScrollRaf = null;
       return;
     }
 
@@ -1438,78 +1504,238 @@ function startLoginMinutesAutoScroll(viewportEl) {
       }
     }
 
-    _loginMinutesAutoScrollRaf = requestAnimationFrame(step);
+    rafId = requestAnimationFrame(step);
   };
 
-  _loginMinutesAutoScrollRaf = requestAnimationFrame(step);
+  rafId = requestAnimationFrame(step);
+  _loginMinutesAutoScrollRafs.push(rafId);
+}
+
+window.goToLoginShowcaseSet = function(setIdx, fromUserClick = false) {
+  const totalSets = 2;
+  _currentLoginShowcaseSetIdx = ((setIdx % totalSets) + totalSets) % totalSets;
+
+  if (fromUserClick) {
+    _isLoginShowcaseSetLockedByClick = true;
+    if (_loginShowcaseSetSwapTimer) {
+      clearInterval(_loginShowcaseSetSwapTimer);
+      _loginShowcaseSetSwapTimer = null;
+    }
+    const statusPill = document.getElementById('loginShowcaseSwapStatus');
+    if (statusPill) {
+      statusPill.textContent = '⏸ Paused on click';
+      statusPill.classList.add('is-paused');
+    }
+  }
+
+  const track = document.getElementById('loginShowcaseSetsTrack');
+  if (track) {
+    track.style.transform = `translate3d(-${_currentLoginShowcaseSetIdx * 50}%, 0, 0)`;
+  }
+
+  const tabs = document.querySelectorAll('.login-showcase-set-tab');
+  tabs.forEach((tab, idx) => {
+    tab.classList.toggle('active', idx === _currentLoginShowcaseSetIdx);
+    tab.setAttribute('aria-selected', idx === _currentLoginShowcaseSetIdx ? 'true' : 'false');
+  });
+
+  // Reset scroll position of newly revealed set's rightmost viewport to top so user sees it scroll fresh
+  const activeViewportId = _currentLoginShowcaseSetIdx === 0
+    ? 'loginAutoScrollMinutesCardSet0'
+    : 'loginAutoScrollChronicleCardSet1';
+  const cardEl = document.getElementById(activeViewportId);
+  if (cardEl) {
+    const vp = cardEl.querySelector('.slant-minute-scroll-viewport');
+    if (vp) vp.scrollTop = 0;
+  }
+};
+
+window.lockLoginShowcaseSetOnCardClick = function() {
+  if (_isLoginShowcaseSetLockedByClick) return;
+  _isLoginShowcaseSetLockedByClick = true;
+  if (_loginShowcaseSetSwapTimer) {
+    clearInterval(_loginShowcaseSetSwapTimer);
+    _loginShowcaseSetSwapTimer = null;
+  }
+  const statusPill = document.getElementById('loginShowcaseSwapStatus');
+  if (statusPill) {
+    statusPill.textContent = '⏸ Paused on click';
+    statusPill.classList.add('is-paused');
+  }
+};
+
+function startLoginShowcaseSetsAutoSwap() {
+  if (_loginShowcaseSetSwapTimer) {
+    clearInterval(_loginShowcaseSetSwapTimer);
+    _loginShowcaseSetSwapTimer = null;
+  }
+  _isLoginShowcaseSetLockedByClick = false;
+  _loginShowcaseSetSwapTimer = setInterval(() => {
+    if (_isLoginShowcaseSetLockedByClick) return;
+    const signedOutView = document.getElementById('signedOutPageView');
+    if (!signedOutView || signedOutView.style.display === 'none') return;
+    const nextIdx = (_currentLoginShowcaseSetIdx + 1) % 2;
+    window.goToLoginShowcaseSet(nextIdx, false);
+  }, 11500);
 }
 
 function renderLoginSamplesGrid() {
   const samplesGrid = document.getElementById("loginSampleCarouselsGrid");
   if (!samplesGrid) return;
 
-  const showcasePost = Object.assign({}, LOGIN_LIVE_SHOWCASE_POST);
-  delete showcasePost._cachedBifurcation;
+  stopAllLoginMinutesAutoScrolls();
+
+  const webShowcasePost = Object.assign({}, LOGIN_LIVE_SHOWCASE_POST);
+  delete webShowcasePost._cachedBifurcation;
+
+  const chronicleShowcasePost = Object.assign({}, LOGIN_CHRONICLE_SHOWCASE_POST);
+  delete chronicleShowcasePost._cachedBifurcation;
 
   samplesGrid.innerHTML = `
-    <!-- Card 1 (Leftmost): Live Input Typing SVG Animation -->
-    <div class="sample-feed-card-host login-grid-sample-host login-step-showcase-col" data-sample-idx="0">
-      <div class="login-showcase-step-header">
-        <span class="login-step-badge-num">01</span>
-        <span class="login-step-badge-title">LIVE INPUT &bull; LINK + YOUR REACTION</span>
+    <div class="login-showcase-sets-ControlsBar">
+      <div class="login-showcase-set-tabs" role="tablist" aria-label="Sample Slant Sets">
+        <button type="button" class="login-showcase-set-tab active" role="tab" aria-selected="true" onclick="window.goToLoginShowcaseSet(0, true)">
+          <span class="set-tab-dot"></span>
+          <span>🌐 Web / Video Slant</span>
+        </button>
+        <button type="button" class="login-showcase-set-tab" role="tab" aria-selected="false" onclick="window.goToLoginShowcaseSet(1, true)">
+          <span class="set-tab-dot"></span>
+          <span>📔 Daily Chronicle Slant</span>
+        </button>
       </div>
-      <article class="post-card sample-feed-card login-showcase-pure-card login-live-typing-card">
-        <div class="carousel-view login-live-typing-viewport">
-          <img src="/slant-live-typing.svg?v=20261029_01" alt="Live input typing animation" class="login-live-typing-svg-img" loading="eager">
-        </div>
-      </article>
+      <span class="login-showcase-swap-status" id="loginShowcaseSwapStatus" title="Click any card or tab to pause auto-swapping">⟳ Auto-swapping sets</span>
     </div>
 
-    <!-- Card 2 (Middle): Hook Poster of slant-1793068863990-8c9pd (Names Blurred) -->
-    <div class="sample-feed-card-host login-grid-sample-host login-step-showcase-col" data-sample-idx="1">
-      <div class="login-showcase-step-header">
-        <span class="login-step-badge-num">02</span>
-        <span class="login-step-badge-title">HOOK POSTER &bull; VISUAL FRAME</span>
-      </div>
-      <article class="post-card sample-feed-card login-showcase-pure-card">
-        <div class="carousel-view">
-          <div class="carousel-track" style="width:100%; height:100%;">
-            <div class="carousel-slide slide-hook" style="width:100%; height:100%; cursor:default;">
-              ${buildSlide1Html(showcasePost, 'login_hook_showcase', 2)}
+    <div class="login-showcase-sets-viewport" onclick="window.lockLoginShowcaseSetOnCardClick()">
+      <div class="login-showcase-sets-track" id="loginShowcaseSetsTrack">
+
+        <!-- ================= SET 1: WEB / VIDEO LINK SLANT (slant-1793068863990-8c9pd) ================= -->
+        <div class="login-showcase-set-slide" data-showcase-set="0">
+          <div class="login-samples-grid">
+            <!-- Card 1 (Leftmost): Live Input Typing SVG Animation -->
+            <div class="sample-feed-card-host login-grid-sample-host login-step-showcase-col" data-sample-idx="0">
+              <div class="login-showcase-step-header">
+                <span class="login-step-badge-num">01</span>
+                <span class="login-step-badge-title">LIVE INPUT &bull; LINK + YOUR REACTION</span>
+              </div>
+              <article class="post-card sample-feed-card login-showcase-pure-card login-live-typing-card">
+                <div class="carousel-view login-live-typing-viewport">
+                  <img src="/slant-live-typing.svg?v=20261029_02" alt="Live input typing animation for Web/Video Slant" class="login-live-typing-svg-img" loading="eager">
+                </div>
+              </article>
+            </div>
+
+            <!-- Card 2 (Middle): Hook Poster of slant-1793068863990-8c9pd (Names Blurred) -->
+            <div class="sample-feed-card-host login-grid-sample-host login-step-showcase-col" data-sample-idx="1">
+              <div class="login-showcase-step-header">
+                <span class="login-step-badge-num">02</span>
+                <span class="login-step-badge-title">HOOK POSTER &bull; VISUAL FRAME</span>
+              </div>
+              <article class="post-card sample-feed-card login-showcase-pure-card">
+                <div class="carousel-view">
+                  <div class="carousel-track" style="width:100%; height:100%;">
+                    <div class="carousel-slide slide-hook" style="width:100%; height:100%; cursor:pointer;">
+                      ${buildSlide1Html(webShowcasePost, 'login_hook_showcase_set0', 2)}
+                    </div>
+                  </div>
+                </div>
+              </article>
+            </div>
+
+            <!-- Card 3 (Rightmost): Auto-Scrolling Slant Minutes Poster of slant-1793068863990-8c9pd (Names Blurred) -->
+            <div class="sample-feed-card-host login-grid-sample-host login-step-showcase-col" data-sample-idx="2">
+              <div class="login-showcase-step-header">
+                <span class="login-step-badge-num">03</span>
+                <span class="login-step-badge-title">SLANT MINUTES &bull; AUTO-SCROLLING ESSAY</span>
+              </div>
+              <article class="post-card sample-feed-card login-showcase-pure-card" id="loginAutoScrollMinutesCardSet0">
+                <div class="carousel-view">
+                  <div class="carousel-track" style="width:100%; height:100%;">
+                    <div class="carousel-slide slide-receipt" style="width:100%; height:100%; cursor:pointer;">
+                      ${buildSlide2Html(webShowcasePost, 'login_minutes_showcase_set0', 0)}
+                    </div>
+                  </div>
+                </div>
+              </article>
             </div>
           </div>
         </div>
-      </article>
-    </div>
 
-    <!-- Card 3 (Rightmost): Auto-Scrolling Slant Minutes Poster of slant-1793068863990-8c9pd (Names Blurred) -->
-    <div class="sample-feed-card-host login-grid-sample-host login-step-showcase-col" data-sample-idx="2">
-      <div class="login-showcase-step-header">
-        <span class="login-step-badge-num">03</span>
-        <span class="login-step-badge-title">SLANT MINUTES &bull; AUTO-SCROLLING ESSAY</span>
-      </div>
-      <article class="post-card sample-feed-card login-showcase-pure-card" id="loginAutoScrollMinutesCard">
-        <div class="carousel-view">
-          <div class="carousel-track" style="width:100%; height:100%;">
-            <div class="carousel-slide slide-receipt" style="width:100%; height:100%; cursor:default;">
-              ${buildSlide2Html(showcasePost, 'login_minutes_showcase', 0)}
+        <!-- ================= SET 2: DAILY CHRONICLE SLANT (slant-1793031039451-4bovq) ================= -->
+        <div class="login-showcase-set-slide" data-showcase-set="1">
+          <div class="login-samples-grid">
+            <!-- Card 1 (Leftmost): Daily Chronicle Live Input Typing SVG Animation -->
+            <div class="sample-feed-card-host login-grid-sample-host login-step-showcase-col" data-sample-idx="3">
+              <div class="login-showcase-step-header">
+                <span class="login-step-badge-num">01</span>
+                <span class="login-step-badge-title">LIVE INPUT &bull; MOMENTS OF THE DAY</span>
+              </div>
+              <article class="post-card sample-feed-card login-showcase-pure-card login-live-typing-card">
+                <div class="carousel-view login-live-typing-viewport">
+                  <img src="/slant-diary-live-typing.svg?v=20261029_02" alt="Live input typing animation for Daily Chronicle" class="login-live-typing-svg-img" loading="eager">
+                </div>
+              </article>
+            </div>
+
+            <!-- Card 2 (Middle): Hook Poster of slant-1793031039451-4bovq (Names Blurred) -->
+            <div class="sample-feed-card-host login-grid-sample-host login-step-showcase-col" data-sample-idx="4">
+              <div class="login-showcase-step-header">
+                <span class="login-step-badge-num">02</span>
+                <span class="login-step-badge-title">HOOK POSTER &bull; 3-VIGNETTE WATERCOLOR</span>
+              </div>
+              <article class="post-card sample-feed-card login-showcase-pure-card">
+                <div class="carousel-view">
+                  <div class="carousel-track" style="width:100%; height:100%;">
+                    <div class="carousel-slide slide-hook" style="width:100%; height:100%; cursor:pointer;">
+                      ${buildSlide1Html(chronicleShowcasePost, 'login_hook_showcase_set1', 3)}
+                    </div>
+                  </div>
+                </div>
+              </article>
+            </div>
+
+            <!-- Card 3 (Rightmost): Auto-Scrolling Moments & Reflection Poster of slant-1793031039451-4bovq (Names Blurred) -->
+            <div class="sample-feed-card-host login-grid-sample-host login-step-showcase-col" data-sample-idx="5">
+              <div class="login-showcase-step-header">
+                <span class="login-step-badge-num">03</span>
+                <span class="login-step-badge-title">MOMENTS &amp; REFLECTION &bull; AUTO-SCROLLING</span>
+              </div>
+              <article class="post-card sample-feed-card login-showcase-pure-card" id="loginAutoScrollChronicleCardSet1">
+                <div class="carousel-view">
+                  <div class="carousel-track" style="width:100%; height:100%;">
+                    <div class="carousel-slide slide-receipt" style="width:100%; height:100%; cursor:pointer;">
+                      ${buildUnifiedEssayPosterHtml(chronicleShowcasePost, 'login_chronicle_showcase_set1', 0)}
+                    </div>
+                  </div>
+                </div>
+              </article>
             </div>
           </div>
         </div>
-      </article>
+
+      </div>
     </div>
   `;
 
   samplesGrid.dataset.populated = 'true';
+  _currentLoginShowcaseSetIdx = 0;
+  startLoginShowcaseSetsAutoSwap();
 
   if (typeof requestAnimationFrame === 'function') {
     requestAnimationFrame(() => {
-      const minutesCard = document.getElementById('loginAutoScrollMinutesCard');
-      if (minutesCard) {
-        const vp = minutesCard.querySelector('.slant-minute-scroll-viewport');
-        if (vp) {
-          calibrateEssayViewportPagination(vp);
-          startLoginMinutesAutoScroll(vp);
+      const minutesCard0 = document.getElementById('loginAutoScrollMinutesCardSet0');
+      if (minutesCard0) {
+        const vp0 = minutesCard0.querySelector('.slant-minute-scroll-viewport');
+        if (vp0) {
+          calibrateEssayViewportPagination(vp0);
+          startLoginMinutesAutoScroll(vp0);
+        }
+      }
+      const chronicleCard1 = document.getElementById('loginAutoScrollChronicleCardSet1');
+      if (chronicleCard1) {
+        const vp1 = chronicleCard1.querySelector('.slant-minute-scroll-viewport');
+        if (vp1) {
+          startLoginMinutesAutoScroll(vp1);
         }
       }
     });
@@ -6265,6 +6491,11 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
     return String(txt).replace(/[A-Za-z]{6,}/g, hyphenateEditorialWord);
   };
 
+  const applyShowcaseInlineNameBlur = (safeHtmlText) => {
+    if (!safeHtmlText || !post._blurInlineNames) return safeHtmlText;
+    return safeHtmlText.replace(/\b(Shri\u00AD?kanth|Swap\u00AD?nil|Dr\.\s*Pal(?:'s)?)\b/g, '<span class="login-inline-blurred-name">$1</span>');
+  };
+
   const formatBroadsheetPara = (txt, isLead = false, extraClass = "") => {
     const clean = String(txt || "").trim();
     const momentMatch = clean.match(/^((?:0?[1-9]\s*[·•.-]\s*)?Moment\s+\d+(?:\s*[·•.-]\s*[^:]{1,38})?:|0?[1-9]\s*[·•.-]\s*[^:]{1,38}:)\s*([\s\S]+)$/i);
@@ -6278,16 +6509,17 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
         : false;
       const starBadge = isThisMomentStarred ? ` <span class="chronicle-inline-star" title="Important Highlight Moment">★</span>` : "";
       const cleanMomentLabel = `Moment ${String(mNum).padStart(2, "0")}:`;
-      return `<p class="${cls} ${isThisMomentStarred ? "is-starred-moment-para" : ""}" lang="en"><strong class="chronicle-moment-inline-tag">${escapeHtml(cleanMomentLabel)}${starBadge}</strong> ${escapeHtml(hyphenateEditorialText(momentMatch[2]))}</p>`;
+      const bodySafe = applyShowcaseInlineNameBlur(escapeHtml(hyphenateEditorialText(momentMatch[2])));
+      return `<p class="${cls} ${isThisMomentStarred ? "is-starred-moment-para" : ""}" lang="en"><strong class="chronicle-moment-inline-tag">${escapeHtml(cleanMomentLabel)}${starBadge}</strong> ${bodySafe}</p>`;
     }
     if (isLead) {
       const hyphenatedClean = hyphenateEditorialText(clean);
       const firstChar = hyphenatedClean.charAt(0).toUpperCase();
-      const restLead = hyphenatedClean.slice(1);
-      return `<p class="receipt-p1" lang="en"><span class="broadsheet-dropcap">${escapeHtml(firstChar)}</span>${escapeHtml(restLead)}</p>`;
+      const restLead = applyShowcaseInlineNameBlur(escapeHtml(hyphenatedClean.slice(1)));
+      return `<p class="receipt-p1" lang="en"><span class="broadsheet-dropcap">${escapeHtml(firstChar)}</span>${restLead}</p>`;
     }
     const cls = ["receipt-p3", extraClass].filter(Boolean).join(" ");
-    return `<p class="${cls}" lang="en">${escapeHtml(hyphenateEditorialText(clean))}</p>`;
+    return `<p class="${cls}" lang="en">${applyShowcaseInlineNameBlur(escapeHtml(hyphenateEditorialText(clean)))}</p>`;
   };
 
   // Page 1 Paragraphs
@@ -6357,7 +6589,7 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
           ${(!bifurcation.isBifurcated && !isChronicle) ? reflectionHtml : ""}
         </div>
 
-        ${(!bifurcation.isBifurcated || isChronicle || forExportPage === 1) ? `
+        ${(!bifurcation.isBifurcated || forExportPage === 1) ? `
         <div class="receipt-footer">
           <div class="receipt-folio-rule"></div>
           <div class="receipt-folio-text">
@@ -6404,7 +6636,7 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
       <div class="slant-minute-scroll-viewport essay-scroll-viewport ${bifurcation.hasPhoto ? "has-inset-photo" : ""} ${bifurcation.densityClass}"
            lang="en"
            data-bifurcated="${bifurcation.isBifurcated ? "true" : "false"}"
-           ${isStaticExport ? 'style="overflow:hidden !important; height:100% !important;"' : 'style="overflow-y:auto !important; overflow-x:hidden !important; height:100% !important; -webkit-overflow-scrolling:touch;" onscroll="window._lastSlantMinuteScroll = Date.now()"'}>
+           ${isStaticExport ? 'style="overflow:hidden !important; height:100% !important;"' : 'style="overflow:auto !important; overflow-x:hidden !important; height:100% !important; -webkit-overflow-scrolling:touch;" onscroll="window._lastSlantMinuteScroll = Date.now()"'}>
         <div class="essay-page-block essay-page-1" style="${isStaticExport ? "height:100% !important; min-height:100% !important; padding-bottom:4px !important;" : "min-height:100% !important; height:auto !important; padding-bottom:10px !important;"}">
           ${page1InnerHtml}
         </div>
@@ -6445,7 +6677,7 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
         <div class="seam-line"></div>
         <div class="seam-badge">
           <span>✦</span>
-          <span>PAGE 2 ...</span>
+          <span>${isChronicle ? "REFLECTION ..." : "PAGE 2 ..."}</span>
         </div>
         <div class="seam-line"></div>
       </div>
