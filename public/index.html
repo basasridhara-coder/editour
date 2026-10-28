@@ -29,7 +29,7 @@
   <link rel="preconnect" href="https://fxfklefnkpmhofncqhfh.supabase.co" crossorigin>
   <link rel="preconnect" href="https://accounts.google.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Merriweather:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,400;1,600;1,700;1,900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261028_2255">
+  <link rel="stylesheet" href="style.css?v=20261029_0210">
   <!-- Favicon & Brand Icons -->
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
@@ -93,16 +93,28 @@
             <!-- Switcher Pills for the 3 Pillars -->
             <div class="stories-switcher-pills pillars-switcher-pills" id="loginPillarsSwitcher" role="tablist" aria-label="Slant Expression Modes">
               <button type="button" class="story-switch-pill pillar-switch-pill active" data-pillar-idx="0" onclick="goToLoginPillarSlide(0)">
-                <img src="/slant-icon-weblink.jpg?v=20261028_1645" alt="" class="pillar-pill-icon" width="18" height="18">
-                <span>Web Link</span>
+                <span class="pillar-pill-icon-wrap">
+                  <img src="/slant-icon-weblink.jpg?v=20261028_1645" alt="" class="pillar-pill-icon" width="18" height="18">
+                </span>
+                <span class="pillar-pill-label-viewport">
+                  <span class="pillar-pill-label-track">Web Link</span>
+                </span>
               </button>
               <button type="button" class="story-switch-pill pillar-switch-pill" data-pillar-idx="1" onclick="goToLoginPillarSlide(1)">
-                <img src="/slant-icon-innervoice.jpg?v=20261028_1645" alt="" class="pillar-pill-icon" width="18" height="18">
-                <span>Inner Voice</span>
+                <span class="pillar-pill-icon-wrap">
+                  <img src="/slant-icon-innervoice.jpg?v=20261028_1645" alt="" class="pillar-pill-icon" width="18" height="18">
+                </span>
+                <span class="pillar-pill-label-viewport">
+                  <span class="pillar-pill-label-track">Inner Voice</span>
+                </span>
               </button>
-              <button type="button" class="story-switch-pill pillar-switch-pill" data-pillar-idx="2" onclick="goToLoginPillarSlide(2)">
-                <img src="/slant-icon-chronicles.jpg?v=20261028_1645" alt="" class="pillar-pill-icon" width="18" height="18">
-                <span>Daily Chronicles</span>
+              <button type="button" class="story-switch-pill pillar-switch-pill pillar-switch-pill-chronicle" data-pillar-idx="2" onclick="goToLoginPillarSlide(2)">
+                <span class="pillar-pill-icon-wrap">
+                  <img src="/slant-icon-chronicles.jpg?v=20261028_1645" alt="" class="pillar-pill-icon" width="18" height="18">
+                </span>
+                <span class="pillar-pill-label-viewport">
+                  <span class="pillar-pill-label-track pillar-chronicle-slide-track">Daily Chronicles</span>
+                </span>
               </button>
             </div>
 
@@ -2397,6 +2409,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261028_2255"></script>
+  <script src="app.js?v=20261029_0210"></script>
 </body>
 </html>

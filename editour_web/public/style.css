@@ -21829,7 +21829,7 @@ mark.polish-mark:hover, mark.polish-mark.active {
   justify-content: center;
   gap: 6px;
   min-width: 0;
-  padding: 7px 8px;
+  padding: 7px 9px;
   border-radius: 9px;
   border: 1px solid transparent;
   background: transparent;
@@ -21841,14 +21841,34 @@ mark.polish-mark:hover, mark.polish-mark.active {
   transition: all 0.2s ease;
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
   box-sizing: border-box;
+  position: relative;
 }
 
-.pillar-switch-pill span {
+.pillar-pill-icon-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 17px;
+  width: 17px;
+  height: 17px;
+  position: relative;
+  z-index: 2;
+  background: inherit;
+}
+
+.pillar-pill-label-viewport {
+  display: inline-flex;
+  align-items: center;
   min-width: 0;
   overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: nowrap;
+  position: relative;
+}
+
+.pillar-pill-label-track {
+  display: inline-block;
+  white-space: nowrap;
 }
 
 .pillar-switch-pill.active {
@@ -21874,6 +21894,7 @@ mark.polish-mark:hover, mark.polish-mark.active {
   border-radius: 4px;
   object-fit: contain;
   flex-shrink: 0;
+  display: block;
 }
 
 .slant-pillars-carousel-viewport {
@@ -22261,19 +22282,52 @@ mark.polish-mark:hover, mark.polish-mark.active {
   }
 
   .pillars-switcher-pills {
+    grid-template-columns: 0.92fr 0.96fr 1.12fr;
     gap: 4px;
     padding: 3px;
   }
 
   .pillar-switch-pill {
-    gap: 4px;
-    padding: 6px 5px;
-    font-size: 10.5px;
+    justify-content: flex-start;
+    gap: 5px;
+    padding: 6px 8px;
+    font-size: 11px;
+  }
+
+  .pillar-pill-icon-wrap {
+    flex: 0 0 15px;
+    width: 15px;
+    height: 15px;
+    margin-left: 1px;
   }
 
   .pillar-pill-icon {
-    width: 14px;
-    height: 14px;
+    width: 15px;
+    height: 15px;
+  }
+
+  .pillar-pill-label-viewport {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    mask-image: linear-gradient(90deg, #000 0%, #000 88%, transparent 100%);
+    -webkit-mask-image: linear-gradient(90deg, #000 0%, #000 88%, transparent 100%);
+  }
+
+  .pillar-chronicle-slide-track {
+    display: inline-block;
+    padding-right: 8px;
+    animation: pillarChronicleLabelSlide 4.8s ease-in-out infinite alternate;
+    will-change: transform;
+  }
+
+  @keyframes pillarChronicleLabelSlide {
+    0%, 22% {
+      transform: translateX(0);
+    }
+    78%, 100% {
+      transform: translateX(-22px);
+    }
   }
 
   .slant-pillar-card-content-split {
