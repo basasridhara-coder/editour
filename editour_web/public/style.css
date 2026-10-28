@@ -3186,13 +3186,12 @@ header {
   clear: both !important;
 }
 
-/* Page 1 Block: Fills 100% minimum height of the viewport so the seam is not visible on initial load.
-   Leaves an exact 1-line editorial gap at the bottom edge before the page transition. */
+/* Page 1 Block: Calibrated to end 1 line before the bottom of the viewport without forcing an artificial blank void above the seam. */
 .carousel-view .slant-minute-scroll-viewport[data-bifurcated="true"] .essay-page-1,
 .slant-minute-scroll-viewport[data-bifurcated="true"] .essay-page-1 {
-  min-height: 100% !important;
+  min-height: 0 !important;
   height: auto !important;
-  padding-bottom: 14px !important;
+  padding-bottom: 10px !important;
   margin-bottom: 0px !important;
   box-sizing: border-box !important;
   display: flex !important;
@@ -3215,8 +3214,8 @@ header {
   align-items: center !important;
   justify-content: center !important;
   gap: 10px !important;
-  margin: 12px 0 10px 0 !important;
-  padding: 4px 0 !important;
+  margin: 6px 0 8px 0 !important;
+  padding: 3px 0 !important;
   width: 100% !important;
   box-sizing: border-box !important;
   flex-shrink: 0 !important;
@@ -4190,9 +4189,9 @@ header {
   }
   .carousel-view .slant-minute-scroll-viewport .receipt-headline {
     font-family: 'Merriweather', 'Playfair Display', Georgia, serif !important;
-    font-size: 13px !important;
+    font-size: clamp(13.6px, 3.6vw, 14.8px) !important;
     font-weight: 900 !important;
-    line-height: 1.25 !important;
+    line-height: 1.24 !important;
     color: #0F172A !important;
     margin: 0 !important;
     letter-spacing: -0.2px !important;
@@ -4270,7 +4269,7 @@ header {
   .carousel-view .receipt-scene-box.photo-aspect-portrait {
     float: right !important;
     width: 36% !important;
-    max-width: 132px !important;
+    max-width: 140px !important;
     margin: 1px 0 6px 11px !important;
     padding: 3px !important;
     clear: none !important;
@@ -4278,7 +4277,7 @@ header {
   .carousel-view .receipt-scene-box.photo-aspect-portrait .receipt-scene-frame {
     width: 100% !important;
     aspect-ratio: 3 / 4 !important;
-    max-height: 150px !important;
+    max-height: 160px !important;
   }
 
   .carousel-view .slant-minute-scroll-viewport .receipt-paragraphs {
@@ -4294,7 +4293,7 @@ header {
 
   /* Base Mobile Typography (Medium Density: ~140-200 words) */
   .carousel-view .slant-minute-scroll-viewport.has-inset-photo .broadsheet-dropcap {
-    font-size: 31px !important;
+    font-size: 34px !important;
     line-height: 0.8 !important;
     padding-top: 2px !important;
     padding-right: 5px !important;
@@ -4302,9 +4301,9 @@ header {
   }
   .carousel-view .slant-minute-scroll-viewport.has-inset-photo .receipt-p1,
   .carousel-view .slant-minute-scroll-viewport.has-inset-photo .receipt-p3 {
-    font-size: 11.4px !important;
-    line-height: 1.54 !important;
-    margin-bottom: 4.5px !important;
+    font-size: clamp(12.2px, 3.3vw, 13.4px) !important;
+    line-height: 1.56 !important;
+    margin-bottom: 5px !important;
     text-align: left !important;
     word-spacing: normal !important;
     letter-spacing: normal !important;
@@ -4318,73 +4317,73 @@ header {
   .carousel-view .slant-minute-scroll-viewport.has-inset-photo .receipt-p3:not(.receipt-p-continuation) {
     text-indent: 1.1em !important;
     margin-top: 0 !important;
-    margin-bottom: 4.5px !important;
+    margin-bottom: 5px !important;
   }
   .carousel-view .slant-minute-scroll-viewport.has-inset-photo .receipt-p1 {
     text-indent: 0 !important;
     margin-top: 0 !important;
-    margin-bottom: 4.5px !important;
+    margin-bottom: 5px !important;
   }
 
   /* Light Density Mobile (~100-140 words): larger photo and typography */
   .carousel-view .slant-minute-scroll-viewport.essay-density-light .receipt-scene-box.photo-aspect-landscape .receipt-scene-frame,
   .carousel-view .slant-minute-scroll-viewport.essay-density-light .receipt-scene-box:not(.photo-aspect-portrait) .receipt-scene-frame {
-    max-height: 140px !important;
+    max-height: 145px !important;
   }
   .carousel-view .slant-minute-scroll-viewport.essay-density-light .receipt-scene-box.photo-aspect-portrait {
-    max-width: 142px !important;
+    max-width: 146px !important;
     margin: 1px 0 6px 12px !important;
   }
   .carousel-view .slant-minute-scroll-viewport.essay-density-light .receipt-scene-box.photo-aspect-portrait .receipt-scene-frame {
-    max-height: 162px !important;
+    max-height: 168px !important;
     aspect-ratio: 3 / 4 !important;
   }
   .carousel-view .slant-minute-scroll-viewport.essay-density-light.has-inset-photo .broadsheet-dropcap {
-    font-size: 34px !important;
+    font-size: 36px !important;
   }
   .carousel-view .slant-minute-scroll-viewport.essay-density-light.has-inset-photo .receipt-p1,
   .carousel-view .slant-minute-scroll-viewport.essay-density-light.has-inset-photo .receipt-p3 {
-    font-size: 11.8px !important;
-    line-height: 1.56 !important;
-    margin-bottom: 5px !important;
+    font-size: clamp(12.6px, 3.4vw, 13.8px) !important;
+    line-height: 1.58 !important;
+    margin-bottom: 5.5px !important;
     color: #1E293B !important;
   }
 
   /* Dense Text Mobile (>200 words): compact photo and concise text */
   .carousel-view .slant-minute-scroll-viewport.essay-density-dense .receipt-scene-box.photo-aspect-landscape .receipt-scene-frame,
   .carousel-view .slant-minute-scroll-viewport.essay-density-dense .receipt-scene-box:not(.photo-aspect-portrait) .receipt-scene-frame {
-    max-height: 96px !important;
+    max-height: 104px !important;
   }
   .carousel-view .slant-minute-scroll-viewport.essay-density-dense .receipt-scene-box.photo-aspect-portrait {
-    max-width: 125px !important;
+    max-width: 130px !important;
     margin: 1px 0 4px 8px !important;
   }
   .carousel-view .slant-minute-scroll-viewport.essay-density-dense .receipt-scene-box.photo-aspect-portrait .receipt-scene-frame {
-    max-height: 130px !important;
+    max-height: 138px !important;
     aspect-ratio: 3 / 4 !important;
   }
   .carousel-view .slant-minute-scroll-viewport.essay-density-dense.has-inset-photo .broadsheet-dropcap {
-    font-size: 26px !important;
+    font-size: 28px !important;
   }
   .carousel-view .slant-minute-scroll-viewport.essay-density-dense.has-inset-photo .receipt-p1,
   .carousel-view .slant-minute-scroll-viewport.essay-density-dense.has-inset-photo .receipt-p3 {
-    font-size: 10.2px !important;
-    line-height: 1.42 !important;
-    margin-bottom: 3.5px !important;
+    font-size: clamp(11.4px, 3.1vw, 12.4px) !important;
+    line-height: 1.48 !important;
+    margin-bottom: 4px !important;
     color: #1E293B !important;
   }
 
   /* Without Photo Mobile */
   .carousel-view .slant-minute-scroll-viewport:not(.has-inset-photo) .broadsheet-dropcap {
-    font-size: 36px !important;
+    font-size: 38px !important;
     line-height: 0.8 !important;
     padding-top: 2px !important;
     padding-right: 6px !important;
   }
   .carousel-view .slant-minute-scroll-viewport:not(.has-inset-photo) .receipt-p1,
   .carousel-view .slant-minute-scroll-viewport:not(.has-inset-photo) .receipt-p3 {
-    font-size: 12.0px !important;
-    line-height: 1.56 !important;
+    font-size: clamp(12.6px, 3.4vw, 13.8px) !important;
+    line-height: 1.58 !important;
     margin-bottom: 5.5px !important;
     text-align: left !important;
     word-spacing: normal !important;
