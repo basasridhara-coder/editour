@@ -4746,7 +4746,7 @@ function buildSlide1Html(post, index, totalSlides = 2) {
             <img src="/slanlogo.svg?v=20261013_2100" class="deck-logo-pulse" alt="Rendering artwork...">
           </div>
           <div class="deck-art-loading-title">Rendering Poster Artwork...</div>
-          <div class="deck-art-loading-desc">Gemini is rendering custom editorial composition & metaphors</div>
+          <div class="deck-art-loading-desc">Rendering custom editorial composition &amp; visual metaphors</div>
         </div>
       `;
     } else if (!post.illustrationBase64 && (post.artworkError || post.artworkPending)) {
@@ -10898,7 +10898,7 @@ function renderActiveMemberScreen() {
 
         <div class="vault-analyzing-progress" id="vaultAnalyzingProgress" style="display:none;">
           <span class="vault-spinner"></span>
-          <span id="vaultAnalyzingText">Cross-referencing multiple photos with Gemini 3.8 Flash Vision...</span>
+          <span id="vaultAnalyzingText">Cross-referencing multiple photos for character likeness...</span>
         </div>
       </div>
 
@@ -10941,7 +10941,7 @@ function renderActiveMemberScreen() {
 
         <div class="vault-avatar-generating-progress" id="vaultAvatarProgress" style="display:none;">
           <span class="vault-spinner"></span>
-          <span id="vaultAvatarProgressText">Painting stylized editorial character model with Gemini 2.5 Flash Image...</span>
+          <span id="vaultAvatarProgressText">Painting stylized editorial character model...</span>
         </div>
       </div>
 

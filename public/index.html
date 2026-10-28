@@ -29,7 +29,7 @@
   <link rel="preconnect" href="https://fxfklefnkpmhofncqhfh.supabase.co" crossorigin>
   <link rel="preconnect" href="https://accounts.google.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Merriweather:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,400;1,600;1,700;1,900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261028_1005">
+  <link rel="stylesheet" href="style.css?v=20261028_1645">
   <!-- Favicon & Brand Icons -->
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
@@ -67,44 +67,93 @@
     <main class="login-main-wrap">
       <div class="login-page-card-standalone">
         
-        <!-- 3-Section Editorial Stage: Carousel | Quote with Logo Animation | Login -->
-        <div class="slant-triad-layout">
+        <!-- Unified Editorial Stage: Combined Manifesto + 3 Poster Pillars | Login Sanctuary -->
+        <div class="slant-triad-layout slant-combined-stage-layout">
           
-          <!-- Section 1: Overview Poster (Desktop: Col 1 Left, Mobile: Order 3; Sample Carousel kept as backup) -->
-          <section class="slant-triad-col triad-col-carousel" id="sectionCarousel" aria-label="Slant Overview Poster">
-            <!-- Primary Login Overview Poster -->
-            <div class="login-overview-poster-card" id="loginOverviewPosterCard">
-              <img src="/slant-overview-poster.jpg?v=20261028_1005" alt="Slant — Every thought deserves a frame: Web Link, Inner Voice, and Daily Chronicles" class="login-overview-poster-img" />
-            </div>
-            <!-- Backup: Single Authentic 3:4 Feed Carousel Card Host (Continuous Slide) -->
+          <!-- Backup: Sample Carousel Host (Kept hidden as backup per user request) -->
+          <section class="slant-triad-col triad-col-carousel" id="sectionCarousel" aria-label="Sample Editorial Carousel Backup" style="display:none;">
             <div class="sample-feed-card-host" id="loginPostsScrollTrack" style="display:none;">
               <!-- Dynamically populated with authentic 3:4 .carousel-view card (preserved as backup) -->
             </div>
           </section>
 
-          <!-- Section 2: Quote with Logo Animation (Desktop: Col 2 Center, Mobile: Order 1 Top) -->
-          <section class="slant-triad-col triad-col-manifesto" id="sectionManifesto">
-            <div class="manifesto-quote-block">
-              <div class="manifesto-badge">
-                <span class="manifesto-sparkle">✦</span>
-                <span>A PERSPECTIVE ENGINE</span>
+          <!-- Combined Showcase: Statement + Larger Animated Logo + Audience + 3 Poster Visuals & Text -->
+          <section class="slant-triad-col triad-col-manifesto slant-combined-showcase" id="sectionManifesto">
+            
+            <!-- Top Hero: Who Slant Belongs To + Statement Above Larger Animated Logo -->
+            <div class="combined-hero-top">
+              <div class="manifesto-quote-block">
+                <div class="manifesto-audience-pill" aria-label="Who Slant belongs to">
+                  <span class="manifesto-sparkle">✦</span>
+                  <span>For people who think and reflect</span>
+                </div>
+                <blockquote class="manifesto-quote">
+                  <p class="manifesto-lead">
+                    &ldquo;Thoughts are passing clouds. Left alone, they vanish into thin air. Gathered and condensed, they bring the rain that nourishes the earth.&rdquo;
+                  </p>
+                  <p class="manifesto-question">
+                    When an insight crosses your mind, what will you do &mdash; let it drift past, or <span class="manifesto-slant-word">slant it?</span>
+                  </p>
+                </blockquote>
               </div>
-              <blockquote class="manifesto-quote">
-                <p class="manifesto-lead">
-                  &ldquo;Thoughts are passing clouds. Left alone, they vanish into thin air. Gathered and condensed, they bring the rain that nourishes the earth.&rdquo;
-                </p>
-                <p class="manifesto-question">
-                  When an insight crosses your mind, what will you do &mdash; let it drift past, or <span class="manifesto-slant-word">slant it?</span>
-                </p>
-              </blockquote>
+
+              <!-- Larger Animated Logo of Slant directly below Statement -->
+              <div class="manifesto-logo-block">
+                <div class="manifesto-logo-frame manifesto-logo-frame-lg">
+                  <img class="manifesto-logo-animated" src="/slanlogo.svg?v=20261013_2100" alt="Slant animated mark" width="1024" height="1024">
+                </div>
+                <span class="manifesto-logo-tag">Every thought deserves a frame</span>
+              </div>
             </div>
 
-            <!-- Logo Animation of Slant -->
-            <div class="manifesto-logo-block">
-              <div class="manifesto-logo-frame">
-                <img class="manifesto-logo-animated" src="/slanlogo.svg?v=20261013_2100" alt="Slant animated mark" width="1024" height="1024">
-              </div>
-              <span class="manifesto-logo-tag">FRAME YOUR STANCE</span>
+            <!-- Middle Three Sections from Left Poster: Three Watercolor Visuals & Associated Text -->
+            <div class="slant-three-pillars-grid" aria-label="Three ways to express on Slant">
+              
+              <!-- Pillar 1: Web Link -->
+              <article class="slant-pillar-card">
+                <div class="slant-pillar-visual-wrap">
+                  <img src="/slant-pillar-weblink.jpg?v=20261028_1645" alt="Web Link watercolor illustration" class="slant-pillar-visual-img" loading="eager">
+                </div>
+                <div class="slant-pillar-body">
+                  <div class="slant-pillar-header">
+                    <img src="/slant-icon-weblink.jpg?v=20261028_1645" alt="" class="slant-pillar-icon" width="28" height="28">
+                    <h3 class="slant-pillar-title">Web Link</h3>
+                  </div>
+                  <p class="slant-pillar-hook">Found an article worth sharing?</p>
+                  <p class="slant-pillar-desc">Paste any link. Add your personal take &mdash; Slant frames the story and your perspective into a shareable editorial card.</p>
+                </div>
+              </article>
+
+              <!-- Pillar 2: Inner Voice -->
+              <article class="slant-pillar-card">
+                <div class="slant-pillar-visual-wrap">
+                  <img src="/slant-pillar-innervoice.jpg?v=20261028_1645" alt="Inner Voice watercolor illustration" class="slant-pillar-visual-img" loading="eager">
+                </div>
+                <div class="slant-pillar-body">
+                  <div class="slant-pillar-header">
+                    <img src="/slant-icon-innervoice.jpg?v=20261028_1645" alt="" class="slant-pillar-icon" width="28" height="28">
+                    <h3 class="slant-pillar-title">Inner Voice</h3>
+                  </div>
+                  <p class="slant-pillar-hook">Have a view on your mind?</p>
+                  <p class="slant-pillar-desc">No link needed. Speak your raw opinion, reflection, or hot take &mdash; Slant turns your words into a bold visual statement.</p>
+                </div>
+              </article>
+
+              <!-- Pillar 3: Daily Chronicles -->
+              <article class="slant-pillar-card">
+                <div class="slant-pillar-visual-wrap">
+                  <img src="/slant-pillar-chronicles.jpg?v=20261028_1645" alt="Daily Chronicles watercolor illustration" class="slant-pillar-visual-img" loading="eager">
+                </div>
+                <div class="slant-pillar-body">
+                  <div class="slant-pillar-header">
+                    <img src="/slant-icon-chronicles.jpg?v=20261028_1645" alt="" class="slant-pillar-icon" width="28" height="28">
+                    <h3 class="slant-pillar-title">Daily Chronicles</h3>
+                  </div>
+                  <p class="slant-pillar-hook">Capture the life you&rsquo;re living.</p>
+                  <p class="slant-pillar-desc">Journal your everyday moments, milestones, and quiet observations &mdash; preserved as timeless illustrated postcards.</p>
+                </div>
+              </article>
+
             </div>
           </section>
 
@@ -937,7 +986,6 @@
           <div class="synthesis-progress-bar">
             <div class="synthesis-progress-fill" id="synthesisProgressFill"></div>
           </div>
-          <div class="synthesis-model-badge">Powered by Gemini 3.8 Flash</div>
         </div>
       </div>
 
@@ -2262,6 +2310,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261028_1005"></script>
+  <script src="app.js?v=20261028_1645"></script>
 </body>
 </html>
