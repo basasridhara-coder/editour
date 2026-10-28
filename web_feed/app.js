@@ -2395,7 +2395,8 @@ async function encryptChroniclePostForCloud(postObj) {
 
     copy.encryptedDiaryPayload = `ENC:v1:${ivB64}:${cipherB64}`;
     copy.isEncryptedDiary = true;
-    copy.isDiary = true;
+    copy.isDiaryDraftOnly = Boolean(postObj.isDiaryDraftOnly);
+    copy.isDiary = !copy.isDiaryDraftOnly;
     copy.chronicleMode = true;
     copy.innerVoiceSubMode = 'chronicle';
     delete copy._diaryDecrypted;
@@ -2453,7 +2454,11 @@ async function decryptChroniclePostInPlace(post) {
     const decodedJson = new TextDecoder().decode(plainBuffer);
     const bundle = JSON.parse(decodedJson);
     if (bundle && typeof bundle === 'object') {
+      const preservedDraftFlag = Boolean(post.isDiaryDraftOnly);
+      const preservedDiaryFlag = post.isDiary;
       Object.assign(post, bundle);
+      post.isDiaryDraftOnly = preservedDraftFlag;
+      post.isDiary = preservedDraftFlag ? false : (preservedDiaryFlag !== undefined ? preservedDiaryFlag : true);
       post.isEncryptedDiary = true;
       post._diaryDecrypted = true;
       return true;
@@ -5868,7 +5873,7 @@ function createPostCardElement(post, index) {
         ${index === 'preview' ? `<button type="button" class="preview-card-edit-btn" onclick="event.stopPropagation(); openEditPosterModal(currentPreviewSlide || 0)" title="Edit poster headlines, takes, and receipts">✏️ Edit Content</button>` : ''}
       </div>
       <div class="post-header-right-actions">
-        ${isChronicle && index !== 'preview' ? `
+        ${isChronicle && index !== 'preview' && !post.isDiaryDraftOnly ? `
           <div class="diary-corner-container">
             <button type="button" class="diary-corner-btn is-private-diary" onclick="event.stopPropagation(); toggleDiaryCornerMenu('${index}')" title="Personal Diary Chronicle • Strictly private to you (Never goes to people's feed)" aria-label="Personal Diary Note">
               <svg class="diary-corner-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -5883,9 +5888,9 @@ function createPostCardElement(post, index) {
             </div>
           </div>
         ` : (isUnpublishedDraft ? `
-          <button type="button" class="draft-rocket-publish-btn" onclick="event.stopPropagation(); publishDraftPostFromFeed('${post.id}', this)" title="Not published yet: tap rocket to publish">
-            <span class="draft-rocket-icon">🚀</span>
-            <span class="draft-rocket-text">Unpublished</span>
+          <button type="button" class="draft-rocket-publish-btn" onclick="event.stopPropagation(); publishDraftPostFromFeed('${post.id}', this)" title="${isChronicle ? 'Saved as draft: tap to Save to My Diary Calendar' : 'Not published yet: tap rocket to publish'}">
+            <span class="draft-rocket-icon">${isChronicle ? '📔' : '🚀'}</span>
+            <span class="draft-rocket-text">${isChronicle ? 'Save to My Diary' : 'Unpublished'}</span>
           </button>
         ` : '')}
         <div class="post-menu-container">
@@ -5903,7 +5908,12 @@ function createPostCardElement(post, index) {
                 <span>🚀</span>
                 <span>Publish Draft Now</span>
               </button>
-            ` : ''}
+            ` : (post.isDiaryDraftOnly ? `
+              <button type="button" class="post-menu-item text-primary-action" onclick="event.stopPropagation(); closeAllPostMenus(); publishDraftPostFromFeed('${post.id}')">
+                <span>📔</span>
+                <span>Save to My Diary</span>
+              </button>
+            ` : '')}
             <button type="button" class="post-menu-item" onclick="event.stopPropagation(); closeAllPostMenus(); openDraftInStudio('${post.id}')">
               <span>✏️</span>
               <span>${isChronicle ? 'Edit Diary Entry in Studio' : 'Edit Draft in Studio'}</span>
@@ -9217,6 +9227,7 @@ function getDiaryChroniclesByDateMap() {
   combinedSource.forEach(p => {
     if (!p || !p.id || seenIds.has(p.id)) return;
     if (!isPostChronicleDiary(p)) return;
+    if (p.isDiaryDraftOnly) return;
     const isOwned = isPostOwnedByCurrentUser(p)
       || String(p.creatorHandle || '').toLowerCase().includes('shridhar');
     if (!isOwned) return;
@@ -13377,6 +13388,13 @@ async function publishDraftPostFromFeed(postId, btnEl = null) {
 
   const isChronicle = isPostChronicleDiary(post);
   if (isChronicle) {
+    if (post.isDiaryDraftOnly) {
+      post.isDiaryDraftOnly = false;
+      post.isDiary = true;
+      currentSynthesizedPost = post;
+      await saveSynthesizedPost({ asDraftOnly: false });
+      return;
+    }
     if (typeof showTemporaryToast === 'function') {
       showTemporaryToast('🔒 Diary Chronicles are strictly personal and never go to people\'s feed.');
     }
@@ -17219,27 +17237,30 @@ function syncStep3SaveButtonLabel(post = currentSynthesizedPost) {
   const saveBtn = document.getElementById('step3SaveBtn');
   if (bottomSaveBtn) {
     bottomSaveBtn.innerHTML = isChronicle
-      ? '<span>📔 Publish to Diary</span>'
+      ? '<span>📔 Save to My Diary</span>'
       : '<span>🔖 Save Draft</span>';
     bottomSaveBtn.title = isChronicle
-      ? 'Publish to your strictly personal Diary (never goes to people\'s feed)'
+      ? 'Save to your strictly personal Diary Calendar (never goes to people\'s feed)'
       : 'Save privately to your feed & drafts without publishing';
     bottomSaveBtn.classList.toggle('creator-diary-primary-cta', isChronicle);
     bottomSaveBtn.classList.toggle('single-diary-cta', isChronicle);
   }
   if (publishBtn) {
-    // Diary Chronicles have a single "Publish to Diary" button and can NEVER be published to people's public feed
+    // Diary Chronicles have a single "Save to My Diary" button and can NEVER be published to people's public feed
     publishBtn.style.display = isChronicle ? 'none' : '';
     publishBtn.classList.remove('creator-publish-deemphasized');
     publishBtn.innerHTML = '<span>Publish 🚀</span>';
     publishBtn.title = 'Publish to the live public feed';
   }
   if (saveBtn) {
-    saveBtn.classList.toggle('diary-save-highlight', isChronicle);
+    saveBtn.classList.remove('diary-save-highlight');
+    saveBtn.title = isChronicle
+      ? 'Save to your Drafts so you can keep editing later without pushing to your Diary Calendar'
+      : 'Save to your Drafts & Feed (Private • Only visible to you)';
   }
   const saveLbl = document.getElementById('step3SaveLabel');
   if (saveLbl && saveLbl.textContent !== 'Saved') {
-    saveLbl.textContent = isChronicle ? 'Publish to Diary' : 'Save';
+    saveLbl.textContent = 'Save';
   }
   const prevTab1 = document.getElementById('prevTab1');
   const prevTab2 = document.getElementById('prevTab2');
@@ -18331,7 +18352,7 @@ async function uploadArtworkToSupabaseStorage(postId, base64Data) {
   return null;
 }
 
-async function saveSynthesizedPost() {
+async function saveSynthesizedPost(options = {}) {
   if (!currentSynthesizedPost) return;
 
   if (!currentSynthesizedPost.illustrationBase64 && !currentSynthesizedPost.posterBase64 && currentSynthesizedPost.artworkError) {
@@ -18342,14 +18363,17 @@ async function saveSynthesizedPost() {
   }
 
   const isChronicle = isChronicleModePost(currentSynthesizedPost);
+  const asDraftOnly = Boolean(options && options.asDraftOnly);
   const saveBtn = document.getElementById('step3SaveBtn');
   const saveLbl = document.getElementById('step3SaveLabel');
   const bottomSaveBtn = document.getElementById('step3BottomSaveDraftBtn');
   if (saveBtn) saveBtn.disabled = true;
-  if (saveLbl) saveLbl.textContent = isChronicle ? 'Publishing...' : 'Saving...';
+  if (saveLbl) saveLbl.textContent = 'Saving...';
   if (bottomSaveBtn) {
     bottomSaveBtn.disabled = true;
-    bottomSaveBtn.innerHTML = isChronicle ? '<span>Publishing to Diary... ⏳</span>' : '<span>Saving Draft... ⏳</span>';
+    bottomSaveBtn.innerHTML = (isChronicle && !asDraftOnly)
+      ? '<span>Saving to My Diary... ⏳</span>'
+      : '<span>Saving Draft... ⏳</span>';
   }
 
   if (currentUser) {
@@ -18362,7 +18386,8 @@ async function saveSynthesizedPost() {
   currentSynthesizedPost.isPrivate = true;
   currentSynthesizedPost.isPubliclyPublished = false;
   if (isChronicle) {
-    currentSynthesizedPost.isDiary = true;
+    currentSynthesizedPost.isDiaryDraftOnly = asDraftOnly;
+    currentSynthesizedPost.isDiary = !asDraftOnly;
   }
   currentSynthesizedPost.status = 'draft';
 
@@ -18397,7 +18422,8 @@ async function saveSynthesizedPost() {
   postToSave.isPrivate = true;
   postToSave.isPubliclyPublished = false;
   if (isChronicle) {
-    postToSave.isDiary = true;
+    postToSave.isDiaryDraftOnly = asDraftOnly;
+    postToSave.isDiary = !asDraftOnly;
   }
   postToSave.status = 'draft';
 
@@ -18531,7 +18557,7 @@ async function saveSynthesizedPost() {
   if (saveLbl) saveLbl.textContent = 'Saved';
   if (bottomSaveBtn) {
     bottomSaveBtn.disabled = false;
-    bottomSaveBtn.innerHTML = isChronicle ? '<span>📔 Publish to Diary</span>' : '<span>🔖 Save Draft</span>';
+    bottomSaveBtn.innerHTML = isChronicle ? '<span>📔 Save to My Diary</span>' : '<span>🔖 Save Draft</span>';
   }
 
   // Graduate active Step 1 form draft since the 3-poster deck is now saved
@@ -18548,7 +18574,9 @@ async function saveSynthesizedPost() {
   closeCreatorModal(true);
   resetCreatorState();
   showTemporaryToast(isChronicle
-    ? '🔒 Published to your Personal Diary! AES-256 Encrypted & strictly private to you.'
+    ? (asDraftOnly
+      ? '🔖 Saved to My Drafts! You can keep editing it anytime before saving to your Diary Calendar.'
+      : '📔 Saved to My Diary! AES-256 Encrypted & added to your Diary Calendar.')
     : '🔒 Saved as private draft! Visible only to you in your Feed & Drafts.');
 }
 

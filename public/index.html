@@ -29,7 +29,7 @@
   <link rel="preconnect" href="https://fxfklefnkpmhofncqhfh.supabase.co" crossorigin>
   <link rel="preconnect" href="https://accounts.google.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Merriweather:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,400;1,600;1,700;1,900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261028_0626">
+  <link rel="stylesheet" href="style.css?v=20261028_0640">
   <!-- Favicon & Brand Icons -->
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
@@ -988,7 +988,7 @@
             </button>
 
             <!-- 4. Save as Private Draft (Visible only to you in Feed & Drafts) -->
-            <button type="button" class="action-icon-btn save save-draft" id="step3SaveBtn" onclick="saveSynthesizedPost()" title="Save to your Drafts & Feed (Private • Only visible to you)">
+            <button type="button" class="action-icon-btn save save-draft" id="step3SaveBtn" onclick="saveSynthesizedPost({ asDraftOnly: true })" title="Save to your Drafts so you can keep editing later without pushing to your Diary Calendar">
               <div class="action-icon-circle">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
@@ -1020,7 +1020,7 @@
                 <polyline points="12 19 5 12 12 5"></polyline>
               </svg>
             </button>
-            <button type="button" class="creator-save-draft-deck-btn" id="step3BottomSaveDraftBtn" onclick="saveSynthesizedPost()" title="Save privately to your feed & drafts without publishing">
+            <button type="button" class="creator-save-draft-deck-btn" id="step3BottomSaveDraftBtn" onclick="saveSynthesizedPost({ asDraftOnly: false })" title="Save privately to your feed & drafts without publishing">
               <span>🔖 Save Draft</span>
             </button>
             <button type="button" class="creator-publish-btn creator-nav-main-btn" id="publishBtn" onclick="publishSynthesizedPost()">
@@ -2239,6 +2239,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261028_0626"></script>
+  <script src="app.js?v=20261028_0640"></script>
 </body>
 </html>
