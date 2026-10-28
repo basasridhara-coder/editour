@@ -22172,13 +22172,26 @@ mark.polish-mark:hover, mark.polish-mark.active {
   margin-bottom: 14px;
 }
 
+.mobile-scroll-to-login-cue {
+  display: none;
+}
+
+@keyframes mobileLoginArrowBounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(3.5px);
+  }
+}
+
 /* Responsive Tablet & Mobile Layout */
 @media (max-width: 1020px) {
   .slant-triad-layout.slant-two-col-stage {
     grid-template-columns: 1fr;
     display: flex;
     flex-direction: column;
-    gap: 22px;
+    gap: 18px;
     height: auto !important;
   }
 
@@ -22186,7 +22199,41 @@ mark.polish-mark:hover, mark.polish-mark.active {
     order: 1;
     border-right: none;
     border-bottom: 1px solid rgba(15, 23, 42, 0.08);
-    padding: 0 0 20px 0;
+    padding: 0 0 14px 0;
+  }
+
+  .mobile-scroll-to-login-cue {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    align-self: center;
+    gap: 6px;
+    margin-top: 2px;
+    padding: 7px 16px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
+    color: #F8FAFC;
+    border: 1px solid rgba(251, 191, 36, 0.45);
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.16);
+    font-family: 'Space Grotesk', 'Inter', sans-serif;
+    font-size: 11.5px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  [data-theme="obsidian"] .mobile-scroll-to-login-cue {
+    background: linear-gradient(135deg, #1E293B 0%, #334155 100%);
+    color: #FBBF24;
+    border-color: rgba(251, 191, 36, 0.55);
+  }
+
+  .mobile-scroll-cue-arrow {
+    color: #FBBF24;
+    animation: mobileLoginArrowBounce 1.35s ease-in-out infinite;
+    flex-shrink: 0;
   }
 
   .slant-two-col-stage .triad-col-auth {

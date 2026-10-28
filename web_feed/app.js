@@ -1564,6 +1564,13 @@ window.lockLoginShowcaseSetOnCardClick = function() {
   }
 };
 
+window.scrollToLoginAuthSection = function() {
+  const authSection = document.getElementById('sectionAuth');
+  if (authSection) {
+    authSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+};
+
 function startLoginShowcaseSetsAutoSwap() {
   if (_loginShowcaseSetSwapTimer) {
     clearInterval(_loginShowcaseSetSwapTimer);
