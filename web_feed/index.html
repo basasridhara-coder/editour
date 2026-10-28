@@ -29,7 +29,7 @@
   <link rel="preconnect" href="https://fxfklefnkpmhofncqhfh.supabase.co" crossorigin>
   <link rel="preconnect" href="https://accounts.google.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Merriweather:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,400;1,600;1,700;1,900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261028_0640">
+  <link rel="stylesheet" href="style.css?v=20261029_0240">
   <!-- Favicon & Brand Icons -->
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
@@ -67,25 +67,154 @@
     <main class="login-main-wrap">
       <div class="login-page-card-standalone">
         
-        <!-- 3-Section Editorial Stage: Carousel | Quote with Logo Animation | Login -->
-        <div class="slant-triad-layout">
+        <!-- 2-Column Hero Stage: Left (Brand & Narrative Showcase) | Right (Clean Auth Gateway) -->
+        <div class="slant-triad-layout slant-two-col-stage">
           
-          <!-- Section 1: Carousel (Desktop: Col 1 Left, Mobile: Order 3) -->
-          <section class="slant-triad-col triad-col-carousel" id="sectionCarousel" aria-label="Sample Visual Postcards">
-            <!-- Single Authentic 3:4 Feed Carousel Card Host (Continuous Slide) -->
-            <div class="sample-feed-card-host" id="loginPostsScrollTrack">
-              <!-- Dynamically populated with authentic 3:4 .carousel-view card -->
+          <!-- Left Column: Brand Masthead, Identity Tagline, Interactive 3-Option Carousel, Editorial Quote & Anchor Seal -->
+          <section class="slant-triad-col triad-col-carousel triad-col-pillars triad-col-brand-narrative" id="sectionCarousel" aria-label="Slant Brand and Narrative Showcase">
+            
+            <!-- Masthead Header: Slant pen-nib emblem & title + Identity Tagline -->
+            <div class="login-brand-masthead-row">
+              <div class="login-brand-masthead-identity">
+                <div class="login-brand-emblem-frame">
+                  <img class="login-brand-emblem-img" src="/slanlogo.svg?v=20261013_2100" alt="Slant Pen-Nib Emblem" width="56" height="56">
+                </div>
+                <div class="login-brand-title-group">
+                  <h1 class="login-brand-masthead-title">Slant</h1>
+                  <span class="login-brand-masthead-domain">slant.today</span>
+                </div>
+              </div>
+              <div class="manifesto-audience-pill" aria-label="Who Slant belongs to">
+                <span class="manifesto-sparkle">✦</span>
+                <span>For people who think and reflect.</span>
+              </div>
             </div>
+
+            <!-- Switcher Pills for the 3 Pillars -->
+            <div class="stories-switcher-pills pillars-switcher-pills" id="loginPillarsSwitcher" role="tablist" aria-label="Slant Expression Modes">
+              <button type="button" class="story-switch-pill pillar-switch-pill active" data-pillar-idx="0" onclick="goToLoginPillarSlide(0)">
+                <span class="pillar-pill-icon-wrap">
+                  <img src="/slant-icon-weblink.jpg?v=20261028_1645" alt="" class="pillar-pill-icon" width="18" height="18">
+                </span>
+                <span class="pillar-pill-label-viewport">
+                  <span class="pillar-pill-label-track">Web Link</span>
+                </span>
+              </button>
+              <button type="button" class="story-switch-pill pillar-switch-pill" data-pillar-idx="1" onclick="goToLoginPillarSlide(1)">
+                <span class="pillar-pill-icon-wrap">
+                  <img src="/slant-icon-innervoice.jpg?v=20261028_1645" alt="" class="pillar-pill-icon" width="18" height="18">
+                </span>
+                <span class="pillar-pill-label-viewport">
+                  <span class="pillar-pill-label-track">Inner Voice</span>
+                </span>
+              </button>
+              <button type="button" class="story-switch-pill pillar-switch-pill pillar-switch-pill-chronicle" data-pillar-idx="2" onclick="goToLoginPillarSlide(2)">
+                <span class="pillar-pill-icon-wrap">
+                  <img src="/slant-icon-chronicles.jpg?v=20261028_1645" alt="" class="pillar-pill-icon" width="18" height="18">
+                </span>
+                <span class="pillar-pill-label-viewport">
+                  <span class="pillar-pill-label-track pillar-chronicle-slide-track">Daily Chronicles</span>
+                </span>
+              </button>
+            </div>
+
+            <!-- Interactive 3-Option Carousel Viewport -->
+            <div class="slant-pillars-carousel-viewport" id="loginPillarsCarousel" data-current-pillar="0">
+              <div class="slant-pillars-carousel-track" id="loginPillarsTrack">
+                
+                <!-- Slide 1: Web Link Card -->
+                <article class="slant-pillar-vertical-card" onclick="stepLoginPillarSlide(1)" title="Tap or swipe for next card">
+                  <div class="slant-pillar-card-top-bar">
+                    <span class="slant-pillar-kicker-tag">🌐 WEB CURATION</span>
+                    <span class="slant-pillar-slide-num">01 / 03</span>
+                  </div>
+                  <div class="slant-pillar-card-content-split">
+                    <div class="slant-pillar-vertical-visual">
+                      <img src="/slant-pillar-weblink.jpg?v=20261028_1645" alt="Web Link watercolor illustration" class="slant-pillar-vertical-img" loading="eager">
+                    </div>
+                    <div class="slant-pillar-vertical-body">
+                      <div class="slant-pillar-vertical-header">
+                        <img src="/slant-icon-weblink.jpg?v=20261028_1645" alt="" class="slant-pillar-vertical-icon" width="34" height="34">
+                        <h3 class="slant-pillar-vertical-title">Web Link</h3>
+                      </div>
+                      <p class="slant-pillar-vertical-hook">Found an article worth sharing?</p>
+                      <p class="slant-pillar-vertical-desc">Paste any link. Add your personal take &mdash; Slant frames the story and your perspective into a shareable editorial card.</p>
+                    </div>
+                  </div>
+                </article>
+
+                <!-- Slide 2: Inner Voice Card -->
+                <article class="slant-pillar-vertical-card" onclick="stepLoginPillarSlide(1)" title="Tap or swipe for next card">
+                  <div class="slant-pillar-card-top-bar">
+                    <span class="slant-pillar-kicker-tag">💭 PERSONAL PERSPECTIVE</span>
+                    <span class="slant-pillar-slide-num">02 / 03</span>
+                  </div>
+                  <div class="slant-pillar-card-content-split">
+                    <div class="slant-pillar-vertical-visual">
+                      <img src="/slant-pillar-innervoice.jpg?v=20261028_1645" alt="Inner Voice watercolor illustration" class="slant-pillar-vertical-img" loading="eager">
+                    </div>
+                    <div class="slant-pillar-vertical-body">
+                      <div class="slant-pillar-vertical-header">
+                        <img src="/slant-icon-innervoice.jpg?v=20261028_1645" alt="" class="slant-pillar-vertical-icon" width="34" height="34">
+                        <h3 class="slant-pillar-vertical-title">Inner Voice</h3>
+                      </div>
+                      <p class="slant-pillar-vertical-hook">Have a view on your mind?</p>
+                      <p class="slant-pillar-vertical-desc">No link needed. Speak your raw opinion, reflection, or hot take &mdash; Slant turns your words into a bold visual statement.</p>
+                    </div>
+                  </div>
+                </article>
+
+                <!-- Slide 3: Daily Chronicles Card -->
+                <article class="slant-pillar-vertical-card" onclick="stepLoginPillarSlide(1)" title="Tap or swipe for next card">
+                  <div class="slant-pillar-card-top-bar">
+                    <span class="slant-pillar-kicker-tag">📔 DAILY CHRONICLE</span>
+                    <span class="slant-pillar-slide-num">03 / 03</span>
+                  </div>
+                  <div class="slant-pillar-card-content-split">
+                    <div class="slant-pillar-vertical-visual">
+                      <img src="/slant-pillar-chronicles.jpg?v=20261028_1645" alt="Daily Chronicles watercolor illustration" class="slant-pillar-vertical-img" loading="eager">
+                    </div>
+                    <div class="slant-pillar-vertical-body">
+                      <div class="slant-pillar-vertical-header">
+                        <img src="/slant-icon-chronicles.jpg?v=20261028_1645" alt="" class="slant-pillar-vertical-icon" width="34" height="34">
+                        <h3 class="slant-pillar-vertical-title">Daily Chronicles</h3>
+                      </div>
+                      <p class="slant-pillar-vertical-hook">Capture the life you&rsquo;re living.</p>
+                      <p class="slant-pillar-vertical-desc">Journal your everyday moments, milestones, and quiet observations &mdash; preserved as timeless illustrated postcards.</p>
+                    </div>
+                  </div>
+                </article>
+
+              </div>
+
+              <!-- Prev / Next Navigation Buttons -->
+              <button type="button" class="carousel-nav-btn prev-btn pillar-carousel-nav" onclick="event.stopPropagation(); stepLoginPillarSlide(-1)" title="Previous Mode">&#x2039;</button>
+              <button type="button" class="carousel-nav-btn next-btn pillar-carousel-nav" onclick="event.stopPropagation(); stepLoginPillarSlide(1)" title="Next Mode">&#x203A;</button>
+
+            <!-- Bottom Dot Indicators -->
+              <div class="carousel-dots pillar-carousel-dots" id="loginPillarsDots">
+                <span class="carousel-dot active" onclick="event.stopPropagation(); goToLoginPillarSlide(0)"></span>
+                <span class="carousel-dot" onclick="event.stopPropagation(); goToLoginPillarSlide(1)"></span>
+                <span class="carousel-dot" onclick="event.stopPropagation(); goToLoginPillarSlide(2)"></span>
+              </div>
+            </div>
+
+            <!-- Mobile / Tablet Scroll-to-Login Indicator Pill -->
+            <button type="button" class="mobile-scroll-to-login-cue" onclick="window.scrollToLoginAuthSection && window.scrollToLoginAuthSection()" aria-label="Swipe up for Login">
+              <span>Swipe up for Login</span>
+              <svg class="mobile-scroll-cue-arrow" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </button>
+
           </section>
 
-          <!-- Section 2: Quote with Logo Animation (Desktop: Col 2 Center, Mobile: Order 1 Top) -->
-          <section class="slant-triad-col triad-col-manifesto" id="sectionManifesto">
-            <div class="manifesto-quote-block">
-              <div class="manifesto-badge">
-                <span class="manifesto-sparkle">✦</span>
-                <span>A PERSPECTIVE ENGINE</span>
-              </div>
-              <blockquote class="manifesto-quote">
+          <!-- Right Column: Editorial Quote Banner Over Clean Auth Gateway -->
+          <section class="slant-triad-col triad-col-auth slant-login-auth-col" id="sectionAuth">
+            
+            <!-- Editorial Quote & Anchor Seal directly over Welcome to Slant -->
+            <div class="login-narrative-quote-footer login-auth-top-quote" id="sectionManifesto">
+              <blockquote class="manifesto-quote login-integrated-quote">
                 <p class="manifesto-lead">
                   &ldquo;Thoughts are passing clouds. Left alone, they vanish into thin air. Gathered and condensed, they bring the rain that nourishes the earth.&rdquo;
                 </p>
@@ -93,83 +222,84 @@
                   When an insight crosses your mind, what will you do &mdash; let it drift past, or <span class="manifesto-slant-word">slant it?</span>
                 </p>
               </blockquote>
+              <div class="login-anchor-seal-row">
+                <span class="login-anchor-seal-line"></span>
+                <span class="manifesto-logo-tag login-anchor-seal-text">✦ Every thought deserves a frame.</span>
+                <span class="login-anchor-seal-line"></span>
+              </div>
             </div>
 
-            <!-- Logo Animation of Slant -->
-            <div class="manifesto-logo-block">
-              <div class="manifesto-logo-frame">
-                <img class="manifesto-logo-animated" src="/slanlogo.svg?v=20261013_2100" alt="Slant animated mark" width="1024" height="1024">
-              </div>
-              <span class="manifesto-logo-tag">FRAME YOUR STANCE</span>
-            </div>
-          </section>
-
-          <!-- Section 3: Dedicated Auth Sanctuary (Desktop: Col 3 Right, Mobile: Order 2) -->
-          <section class="slant-triad-col triad-col-auth slant-login-auth-col" id="sectionAuth">
-            <div class="auth-header">
-              <div class="auth-badge-icon auth-badge-video-wrap">
-                <img class="auth-badge-video" src="/slanlogo.svg?v=20261013_2100" alt="Slant Logo" width="1024" height="1024">
-              </div>
-              <h2 class="auth-title">Welcome to Slant</h2>
-              <p class="auth-desc" id="authModalDesc">Sign in to save your favorite visual stories, customize your reading atmosphere, and publish your own editorials.</p>
-            </div>
-
-            <!-- Google 1-Click Sign-In (Direct GSI on slant.today + OAuth Fallback) -->
-            <div id="googleGsiButtonMount" style="display:none; width:100%; justify-content:center; align-items:center; min-height:44px;"></div>
-            <button class="oauth-login-btn google-login-btn" onclick="signInWithGoogle()" id="googleLoginBtn">
-              <svg class="google-svg" viewBox="0 0 24 24" width="18" height="18">
-                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
-                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
-              </svg>
-              <span>Continue with Google</span>
-            </button>
-
-            <div class="auth-separator">
-              <span>or sign in with email</span>
-            </div>
-
-            <!-- Email Magic Link / Password Form -->
-            <form id="authEmailForm" onsubmit="handleEmailAuth(event)">
-              <div class="auth-field">
-                <label for="authEmailInput">Email address</label>
-                <input type="email" id="authEmailInput" placeholder="name@domain.com" required autocomplete="email" />
+            <div class="login-auth-gateway-body">
+              <div class="auth-header">
+                <h2 class="auth-title">Welcome to Slant</h2>
+                <p class="auth-desc" id="authModalDesc">Sign in to synthesize what you read, frame what you observe, and build your private chronicle.</p>
               </div>
 
-              <!-- Optional Password Field (toggled on demand) -->
-              <div class="auth-field" id="loginPasswordWrap" style="display:none;">
-                <div class="auth-field-label-row">
-                  <label for="loginPasswordInput">Password</label>
-                  <button type="button" class="auth-toggle-link" onclick="togglePasswordMode(false)">Use Magic Link</button>
-                </div>
-                <input type="password" id="loginPasswordInput" placeholder="••••••••" autocomplete="current-password" />
-              </div>
-              
-              <div class="auth-helper-text" id="authHelperText">
-                We'll send an instant passwordless magic link to your email.
-              </div>
-
-              <button type="submit" class="auth-primary-btn" id="emailAuthBtn">
-                <span>Send Magic Link &rarr;</span>
+              <!-- Google 1-Click Sign-In (Direct GSI on slant.today + OAuth Fallback) -->
+              <div id="googleGsiButtonMount" style="display:none; width:100%; justify-content:center; align-items:center; min-height:44px;"></div>
+              <button class="oauth-login-btn google-login-btn" onclick="signInWithGoogle()" id="googleLoginBtn">
+                <svg class="google-svg" viewBox="0 0 24 24" width="18" height="18">
+                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                </svg>
+                <span>Continue with Google</span>
               </button>
 
-              <!-- Password mode toggle button -->
-              <div class="auth-alt-row" id="authAltRow">
-                <button type="button" class="auth-toggle-btn" id="togglePasswordModeBtn" onclick="togglePasswordMode(true)">
-                  Have a password? Sign in with password
-                </button>
+              <div class="auth-separator">
+                <span>or sign in with email</span>
               </div>
-            </form>
 
-            <div class="auth-status-msg" id="authStatusMsg" style="display:none;"></div>
+              <!-- Email Magic Link / Password Form -->
+              <form id="authEmailForm" onsubmit="handleEmailAuth(event)">
+                <div class="auth-field">
+                  <label for="authEmailInput">Email address</label>
+                  <input type="email" id="authEmailInput" placeholder="name@domain.com" required autocomplete="email" />
+                </div>
 
-            <div class="auth-terms-note">
-              🔒 100% Ad-Free • Zero Data Selling • Saved Bookmarks Sync Across Devices
+                <!-- Optional Password Field (toggled on demand) -->
+                <div class="auth-field" id="loginPasswordWrap" style="display:none;">
+                  <div class="auth-field-label-row">
+                    <label for="loginPasswordInput">Password</label>
+                    <button type="button" class="auth-toggle-link" onclick="togglePasswordMode(false)">Use Magic Link</button>
+                  </div>
+                  <input type="password" id="loginPasswordInput" placeholder="••••••••" autocomplete="current-password" />
+                </div>
+                
+                <div class="auth-helper-text" id="authHelperText">
+                  We'll send an instant passwordless magic link to your email.
+                </div>
+
+                <button type="submit" class="auth-primary-btn" id="emailAuthBtn">
+                  <span>Send Magic Link &rarr;</span>
+                </button>
+
+                <!-- Password mode toggle button -->
+                <div class="auth-alt-row" id="authAltRow">
+                  <button type="button" class="auth-toggle-btn" id="togglePasswordModeBtn" onclick="togglePasswordMode(true)">
+                    Have a password? Sign in with password
+                  </button>
+                </div>
+              </form>
+
+              <div class="auth-status-msg" id="authStatusMsg" style="display:none;"></div>
             </div>
           </section>
 
         </div>
+
+        <!-- Lower Continuous Flow: 3-Step Live Transformation Showcase (Left: Live Input SVG | Middle: Hook Poster | Right: Perspective / Moments & Reflection) -->
+        <section class="login-lower-samples-flow" id="loginLowerSamplesSection" aria-label="How Slant Comes to Life">
+          <div class="login-samples-divider-row">
+            <span class="login-samples-line"></span>
+            <span class="login-samples-kicker">✦ HOW SLANT COMES TO LIFE &bull; 01 LIVE INPUT &rarr; 02 HOOK POSTER &rarr; 03 PERSPECTIVE &bull; POLISHED OP-ED</span>
+            <span class="login-samples-line"></span>
+          </div>
+          <div class="login-showcase-sets-host" id="loginSampleCarouselsGrid">
+            <!-- Dynamically populated with swapping 3-step showcase sets (Web/Video Slant & Daily Chronicle Slant) -->
+          </div>
+        </section>
       </div>
 
       <!-- Trust Badges -->
@@ -311,6 +441,26 @@
         <div class="creator-header-right-actions" style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
           <span id="creatorStudioCreditBadge" onclick="if(typeof isCurrentUserAdmin!=='undefined' && isCurrentUserAdmin){openAdminBetaModal();}" style="display:none; align-items:center; gap:4px; font-size:11px; font-weight:800; padding:4px 9px; border-radius:99px; background:rgba(16,185,129,0.14); color:#34D399; border:1px solid rgba(16,185,129,0.35); cursor:pointer; white-space:nowrap;" title="Your available Slant Studio poster credits for today">⚡ 5 left</span>
           <button class="modal-close" onclick="closeCreatorModal()">&times;</button>
+        </div>
+      </div>
+
+      <!-- 3-Way Regeneration Scope Toggle (Icon-Only Pills: 📝 Text Only | ✨ Both | 🎨 Visuals Only) -->
+      <div class="creator-regen-scope-bar is-locked-fresh" id="creatorRegenScopeBar">
+        <div class="regen-scope-info-col">
+          <span class="regen-scope-label" id="regenScopeModeLabel">SCOPE: ✨ BOTH (TEXT &amp; VISUALS)</span>
+          <span class="regen-scope-hint" id="regenScopeStatusHint">🔒 Fresh Slant: Generates both text &amp; visuals</span>
+        </div>
+        <div class="regen-scope-track" id="regenScopeTrack" data-scope="both" role="radiogroup" aria-label="Generation Scope">
+          <div class="regen-scope-thumb" id="regenScopeThumb"></div>
+          <button type="button" class="regen-scope-option" id="regenScopeBtnText" data-scope="text_only" onclick="setCreatorRegenScope('text_only', true)" disabled aria-label="Text Only" title="Text Only — Regenerate text across all 3 slides and keep current poster artwork">
+            <span class="scope-opt-icon">📝</span>
+          </button>
+          <button type="button" class="regen-scope-option active" id="regenScopeBtnBoth" data-scope="both" onclick="setCreatorRegenScope('both', true)" aria-label="Both Text and Visuals" title="Both — Generate editorial text and poster visuals">
+            <span class="scope-opt-icon">✨</span>
+          </button>
+          <button type="button" class="regen-scope-option" id="regenScopeBtnVisuals" data-scope="visuals_only" onclick="setCreatorRegenScope('visuals_only', true)" disabled aria-label="Visuals Only" title="Visuals Only — Regenerate poster artwork and keep current editorial text">
+            <span class="scope-opt-icon">🎨</span>
+          </button>
         </div>
       </div>
 
@@ -2257,6 +2407,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261028_1635"></script>
+  <script src="app.js?v=20261029_0240"></script>
 </body>
 </html>

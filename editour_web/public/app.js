@@ -834,6 +834,8 @@ function isPostPrivateOrDraft(post) {
 const LOGIN_SHOWCASE_ONLY_POST_IDS = new Set([
   'slant-1792357651142-l7z3b',
   'slant-1792397027404-7rawu',
+  'slant-1793003556503-aa54x-showcase',
+  'slant-1793031039451-4bovq-showcase',
   'slant-1792429695314-6thox',
   'slant-1792437452220-xd5vt'
 ]);
@@ -1043,23 +1045,18 @@ function togglePasswordMode(isPassword) {
 const FEATURED_COLORFUL_POST_CONFIGS = [
   {
     id: "slant-1792357651142-l7z3b",
-    icon: "🎓",
-    shortName: "AI & Homework"
-  },
-  {
-    id: "slant-1792397027404-7rawu",
-    icon: "🌊",
-    shortName: "Urban Deluge"
+    icon: "🌐",
+    shortName: "Web Link • AI & Homework"
   },
   {
     id: "slant-1792429695314-6thox",
-    icon: "✨",
-    shortName: "Wonder & Grace"
+    icon: "💭",
+    shortName: "Inner Voice • Wonder & Grace"
   },
   {
-    id: "slant-1792437452220-xd5vt",
-    icon: "✈️",
-    shortName: "Cockpit Safety"
+    id: "slant-1793031039451-4bovq-showcase",
+    icon: "📔",
+    shortName: "Daily Chronicle • 26 Oct"
   }
 ];
 
@@ -1098,39 +1095,6 @@ const FEATURED_LOGIN_POSTS = [
     "isLoginFeatured": true
   },
   {
-    "id": "slant-1792397027404-7rawu",
-    "categoryBadge": "CLIMATE",
-    "adaptedHeadline": "When Record Waters Bring Concrete Empires to Their Knees",
-    "originalHeadline": "Istanbul floods: Turkey hit by heaviest rainfall in 80 years",
-    "publicationName": "youtu.be",
-    "creatorHandle": "@Shridhar Reddy",
-    "curatorTake": "These calamities bring the richest and strongest among us to their knees, revealing humanity's true insignificance before nature. Blinded by narrow perspectives, we must face our small mistakes and learn to live selflessly.",
-    "polishedCuratorTake": "These unexpected natural calamities across the globe have created so much material destruction, along with the hopelessness and future insecurities they create. These kinds of calamities bring the richest of the rich and the strongest of the strong to their knees, showing humanity what it is truly worth in front of nature. We might wonder how our individual actions lead to this, yet collectively as a human race we are causing great harm to nature, and this is merely a reaction to that. Because our perspective is so narrow, we do not realize that our small mistakes cause these disasters at much later stages. Humans must self-reflect and start living sustainably, in a truly cooperative and selfless way.",
-    "creatorOpinion": "These calamities bring the richest and strongest among us to their knees, revealing humanity's true insignificance before nature. Blinded by narrow perspectives, we must face our small mistakes and learn to live selflessly.",
-    "whyItMatters": "Historic floods reveal that no modern city is immune to climate backlash, demanding immediate community cooperation and sustainable planning.",
-    "hook": "Record deluges across major metropolises show that even the most fortified urban centers stand fragile before natural systems pushed past their limit.",
-    "keyTakeaways": [
-      "Ecological Reality: Modern urban infrastructure cannot overpower planetary water cycles.",
-      "Collective Consequence: Small daily mistakes accumulate into catastrophic downstream natural disasters.",
-      "Sustainable Stewardship: Lasting survival requires genuine cross-community cooperation and humility."
-    ],
-    "resolvedArticleExcerpts": [
-      "Record rainstorms in Istanbul demonstrate how quickly natural forces dismantle urban routine. Rushing water fills busy intersections and drowns vehicles, exposing the fragile reality of concrete growth and humbling the most advanced municipal systems in hours.",
-      "Broadcast reports of eighty-year deluges show that modern infrastructure cannot overpower planetary water cycles. Protecting our neighborhoods requires shifting from reactive repairs to genuine ecological cooperation, building resilient communities grounded in shared stewardship."
-    ],
-    "sourceType": "video_audio",
-    "digitalLink": "https://youtu.be/sEb0_Gplrvs?si=nTdG92traw5_5hs9",
-    "sourceImageUrl": "https://i.ytimg.com/vi/sEb0_Gplrvs/maxresdefault.jpg",
-    "illustrationUrl": "/posters/slant-1792397027404-7rawu.png",
-    "illustrationPrompt": "Award-winning 35mm editorial documentary photograph in 4:5 vertical portrait format. A Turkish emergency responder in high-visibility reflective navy waterproof gear and a municipal municipal worker in dark uniform navigate a flooded Istanbul boulevard. Lifelike facial features showing serious determination, authentic skin pores, and natural eye gaze. Behind them, partially submerged white delivery vans and passenger cars sit stranded in muddy floodwaters rising along commercial storefronts. Harsh slate-gray overcast daylight reflects across the deep water puddles. Natural depth of field, gentle optical background blur, raw documentary photojournalism style, strictly no painterly brushstrokes, no canvas texture, no digital CGI artifacts, no text, no logos.",
-    "slantIcon": "🧠",
-    "slantTone": "mind",
-    "pullQuote": "Severe weather brings the strongest institutions to their knees, proving that true urban security demands cooperative, sustainable living.",
-    "receiptHighlightQuote": "Severe weather brings the strongest institutions to their knees, proving that true urban security demands cooperative, sustainable living.",
-    "targetAudience": "General Public",
-    "isLoginFeatured": true
-  },
-  {
     "id": "slant-1792429695314-6thox",
     "categoryBadge": "CULTURE",
     "adaptedHeadline": "When Childhood Wonder Meets Fierce Divine Grace",
@@ -1163,35 +1127,55 @@ const FEATURED_LOGIN_POSTS = [
     "isLoginFeatured": true
   },
   {
-    "id": "slant-1792437452220-xd5vt",
-    "categoryBadge": "AVIATION",
-    "adaptedHeadline": "When Cockpit Safety Hinges on Mindset",
-    "originalHeadline": "Flydubai captain on the cockpit battle to save his plane",
-    "publicationName": "The National News • YouTube",
+    "id": "slant-1793031039451-4bovq-showcase",
+    "categoryBadge": "DAILY CHRONICLE",
+    "adaptedHeadline": "Deliberate Focus at Work and Warmth in Every Welcome",
+    "originalHeadline": "26th Oct 2026",
+    "publicationName": "Daily Chronicle",
     "creatorHandle": "@Shridhar Reddy",
-    "curatorTake": "Vetting human pilots remains aviation's toughest challenge because personal ideology cannot be quantified. If intent turns destructive, automated flights may ultimately offer the only foolproof safety barrier.",
-    "polishedCuratorTake": "For airlines, vetting pilots as part of their safety protocols will be highly challenging. If a pilot decides to cause harm, they can make the plane fail and crash at any time; it is purely a matter of their personal mindset and ideology. How airlines will quantify that and ensure safety remains to be seen. Much like driverless cars, pilotless flights could be the safe future.",
-    "creatorOpinion": "Vetting human pilots remains aviation's toughest challenge because personal ideology cannot be quantified. If intent turns destructive, automated flights may ultimately offer the only foolproof safety barrier.",
-    "whyItMatters": "Standard airline checks cannot detect hidden radical shifts in human intent, leaving millions of travelers vulnerable to private cockpit decisions.",
-    "hook": "A harrowing cockpit struggle proves that no mechanical checklist can protect passengers when human intent itself turns volatile.",
+    "createdAt": "2026-10-26T16:11:49.451Z",
+    "chronicleMode": true,
+    "innerVoiceSubMode": "chronicle",
+    "isDiary": true,
+    "curatorTake": "Small, intentional shifts in how we focus our energy and how warmly we welcome people can quietly transform an ordinary day.",
+    "polishedCuratorTake": "01 · Moment 01: Usual work, not giving it the deserved focus. I will change this attitude, mark a few items to close, and get them done. 02 · Moment 02: Explained the dietary preference update feature in Cukre to Shrikanth. The demo looked good, and we both discussed releasing it at the earliest. 03 · Moment 03: Went to meet Swapnil, Shrikanth's tenant in V Classic. He is a nice person; the way they welcome people and talk to them was worth noting and adapting.",
+    "creatorOpinion": "Small, intentional shifts in how we focus our energy and how warmly we welcome people can quietly transform an ordinary day.",
+    "hook": "When routine drifts into distraction, true change begins with choosing to close open loops and learning from genuine human warmth.",
+    "summary": "01 · Moment 01: I caught myself slipping through the motions of usual work without giving tasks the deep attention they deserved. A productive day requires deliberate discipline, so I am resetting my approach to select a clear list of pending items and close them out completely.\n\n02 · Moment 02: I walked Shrikanth through the new dietary preference update feature in Cukre during an engaging walkthrough. The demonstration ran smoothly, highlighting how small intuitive design choices solve real user friction, and we agreed to release the update as soon as possible.\n\n03 · Moment 03: Visiting Swapnil at V Classic offered a refreshing masterclass in hospitality and grounded conversation. The ease with which he welcomed us and held dialogue showed how attentive listening transforms simple everyday social encounters into lasting, memorable human bonds.",
     "keyTakeaways": [
-      "Vetting Limits: Mental health exams cannot reliably predict sudden ideological shifts.",
-      "Internal Danger: Hostile pilot actions instantly bypass complex mechanical safety nets.",
-      "Automated Future: Autonomous cockpits offer standard protection against unpredictable human behavior."
+      "Focus On Finish: Mark a few essential tasks and close them.",
+      "Ship Useful Features: Clear product walkthroughs turn ideas into immediate action.",
+      "Adopt Everyday Warmth: Gracious hospitality creates an enduring impression on others."
     ],
     "resolvedArticleExcerpts": [
-      "Every commercial flight operates on absolute trust in the crew holding the controls. While airline protocols train pilots to master brutal mechanical failures, standard vetting cannot reliably detect sudden ideological shifts or hidden psychological collapse in the flight deck.",
-      "Accounts of high-altitude struggles reveal how vulnerable passengers remain when human intent itself turns volatile. Much like driverless ground transit, automated cockpits may emerge as the necessary safety frontier, ensuring split-second navigation is governed by unyielding code."
+      "01 · Moment 01: I caught myself slipping through the motions of usual work without giving tasks the deep attention they deserved. A productive day requires deliberate discipline, so I am resetting my approach to select a clear list of pending items and close them out completely.",
+      "02 · Moment 02: I walked Shrikanth through the new dietary preference update feature in Cukre during an engaging walkthrough. The demonstration ran smoothly, highlighting how small intuitive design choices solve real user friction, and we agreed to release the update as soon as possible.",
+      "03 · Moment 03: Visiting Swapnil at V Classic offered a refreshing masterclass in hospitality and grounded conversation. The ease with which he welcomed us and held dialogue showed how attentive listening transforms simple everyday social encounters into lasting, memorable human bonds."
     ],
-    "sourceType": "video_audio",
-    "digitalLink": "https://youtu.be/1MsLWFqaJmk?si=1GLBeRqezlu-gj-N",
-    "sourceImageUrl": "https://i.ytimg.com/vi/1MsLWFqaJmk/maxresdefault.jpg",
-    "illustrationUrl": "/posters/slant-1792437452220-xd5vt.png",
-    "illustrationPrompt": "Cinematic dramatic editorial photography of an exhausted Indian commercial airline captain sitting in a tight flight deck cockpit interior. The captain has visible facial features, realistic weathered skin tones, dark hair, and wears an unbuttoned pilot uniform shirt. His hands grip an analog flight yoke resting beside scattered paper manuals. Gleaming amber control panel warning alarms glow across the dashboard, casting a harsh instrument panel screen glare across his determined face. Realistic warm ambient lighting contrasts with the flashing cockpit indicators.",
+    "chronicleMoments": [
+      {
+        "index": 1,
+        "title": "Moment 01",
+        "text": "Usual work, not giving it the deserved focus. I will change this attitude, mark a few items to close, and get them done."
+      },
+      {
+        "index": 2,
+        "title": "Moment 02",
+        "text": "Explained the dietary preference update feature in Cukre to Shrikanth. The demo looked good, and we both discussed releasing it at the earliest."
+      },
+      {
+        "index": 3,
+        "title": "Moment 03",
+        "text": "Went to meet Swapnil, Shrikanth's tenant in V Classic. He is a nice person; the way they welcome people and talk to them was worth noting and adapting."
+      }
+    ],
+    "sourceType": "inner_voice",
+    "illustrationUrl": "/posters/slant-1793031039451-4bovq.jpg",
+    "aiIllustrationUrl": "/posters/slant-1793031039451-4bovq.jpg",
     "slantIcon": "❤️",
     "slantTone": "heart",
-    "pullQuote": "If a pilot chooses harm, safety nets fail instantly; autonomous cockpits may become aviation's only true safeguard.",
-    "receiptHighlightQuote": "If a pilot chooses harm, safety nets fail instantly; autonomous cockpits may become aviation's only true safeguard.",
+    "pullQuote": "Changing an attitude begins the moment we decide to stop drifting and finish what we started.",
+    "receiptHighlightQuote": "Changing an attitude begins the moment we decide to stop drifting and finish what we started.",
     "targetAudience": "General Public",
     "isLoginFeatured": true
   }
@@ -1200,11 +1184,87 @@ const FEATURED_LOGIN_POSTS = [
 let currentSampleStoryIndex = 0;
 let sampleCarouselAutoPlayTimer = null;
 let isSampleCarouselHovered = false;
+let currentLoginPillarIndex = 0;
+let loginPillarAutoPlayTimer = null;
+let isLoginPillarHovered = false;
+
+function goToLoginPillarSlide(pillarIdx) {
+  const viewport = document.getElementById('loginPillarsCarousel');
+  const track = document.getElementById('loginPillarsTrack');
+  if (!viewport || !track) return;
+  const total = 3;
+  const normalized = ((pillarIdx % total) + total) % total;
+  currentLoginPillarIndex = normalized;
+  viewport.setAttribute('data-current-pillar', String(normalized));
+  track.style.transform = `translateX(-${normalized * (100 / total)}%)`;
+
+  document.querySelectorAll('#loginPillarsSwitcher .pillar-switch-pill').forEach((pill, i) => {
+    pill.classList.toggle('active', i === normalized);
+  });
+  document.querySelectorAll('#loginPillarsDots .carousel-dot').forEach((dot, i) => {
+    dot.classList.toggle('active', i === normalized);
+  });
+}
+
+function stepLoginPillarSlide(delta) {
+  goToLoginPillarSlide(currentLoginPillarIndex + (delta || 1));
+}
+
+function setupLoginPillarsCarousel() {
+  const viewport = document.getElementById('loginPillarsCarousel');
+  if (!viewport) return;
+  if (!viewport.dataset.gesturesBound) {
+    viewport.dataset.gesturesBound = 'true';
+    viewport.addEventListener('mouseenter', () => { isLoginPillarHovered = true; });
+    viewport.addEventListener('mouseleave', () => { isLoginPillarHovered = false; });
+
+    let startX = 0;
+    let startY = 0;
+    viewport.addEventListener('touchstart', (e) => {
+      isLoginPillarHovered = true;
+      if (e.touches && e.touches[0]) {
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+      }
+    }, { passive: true });
+
+    viewport.addEventListener('touchend', (e) => {
+      setTimeout(() => { isLoginPillarHovered = false; }, 3500);
+      if (e.changedTouches && e.changedTouches[0]) {
+        const dx = e.changedTouches[0].clientX - startX;
+        const dy = e.changedTouches[0].clientY - startY;
+        if (Math.abs(dx) > 36 && Math.abs(dx) > Math.abs(dy)) {
+          stepLoginPillarSlide(dx < 0 ? 1 : -1);
+        }
+      }
+    }, { passive: true });
+  }
+
+  goToLoginPillarSlide(currentLoginPillarIndex || 0);
+
+  if (loginPillarAutoPlayTimer) {
+    clearInterval(loginPillarAutoPlayTimer);
+  }
+  loginPillarAutoPlayTimer = setInterval(() => {
+    if (isLoginPillarHovered) return;
+    const signedOutView = document.getElementById('signedOutPageView');
+    if (!signedOutView || signedOutView.style.display === 'none') {
+      clearInterval(loginPillarAutoPlayTimer);
+      return;
+    }
+    stepLoginPillarSlide(1);
+  }, 4500);
+}
 
 function renderLoginPostsPreview() {
   const track = document.getElementById("loginPostsScrollTrack");
   const switcher = document.getElementById("loginStoriesSwitcher");
-  if (!track) return;
+  const samplesGrid = document.getElementById("loginSampleCarouselsGrid");
+  const pillarsViewport = document.getElementById("loginPillarsCarousel");
+  if (pillarsViewport) {
+    setupLoginPillarsCarousel();
+  }
+  if (!track && !samplesGrid) return;
 
   // Keep featured login sample posts strictly on the login showcase and out of the user's account/feed
   if (typeof myCreatedPostIds !== 'undefined' && myCreatedPostIds.size > 0) {
@@ -1233,7 +1293,7 @@ function renderLoginPostsPreview() {
 
   window._selectedSamplePosts = selectedPosts;
 
-  // 1. Build Story Switcher Pills
+  // 1. Build Story Switcher Pills (if present)
   if (switcher) {
     switcher.innerHTML = '';
     selectedPosts.forEach(({ post, cfg }, idx) => {
@@ -1249,9 +1309,444 @@ function renderLoginPostsPreview() {
     });
   }
 
-  // 2. Render initial sample story into authentic 3:4 feed card
-  renderSampleStory(currentSampleStoryIndex);
+  // 2. Render lower 4-card sample showcase grid (single-page scroll flow)
+  if (samplesGrid) {
+    renderLoginSamplesGrid(selectedPosts);
+  }
+
+  // 3. Render initial sample story into single track if present
+  if (track) {
+    renderSampleStory(currentSampleStoryIndex);
+  }
   startSampleCarouselAutoPlay();
+}
+
+const LOGIN_LIVE_SHOWCASE_POST = {
+  "id": "slant-1793068863990-8c9pd",
+  "categoryBadge": "PARENTING & MIND",
+  "adaptedHeadline": "Children Mirror Our Reactions, Not Just Our Rules",
+  "originalHeadline": "How to Raise Emotionally Healthy Children",
+  "publicationName": "youtu.be",
+  "creatorHandle": "@Shridhar Reddy",
+  "createdAt": "2026-10-27T02:43:25.866Z",
+  "curatorTake": "Our behaviors and emotional reactions become default training data for our children. Because they never asked to be brought into this world, raising them with steady personal care remains our deepest moral duty.",
+  "polishedCuratorTake": "We spend close to half of our life's journey being a child, experiencing every emotion, and unknowingly it keeps redefining who we are. Once we have a child, we have a soul that constantly looks to us; our behaviors, our emotions, and everything else become default training data for them. As kids bring immense joy to our lives beyond all their tantrums, they also test our patience, emotional strength, discipline in caring for daily needs, and what not. They act as training data for us, while our responsible handling of how we respond to situations plays a large role in how they will face and conduct themselves in the world tomorrow. Therefore, it is our moral responsibility to raise them with all the personal care they deserve, as they did not ask to be brought into the world.",
+  "creatorOpinion": "Our behaviors and emotional reactions become default training data for our children. Because they never asked to be brought into this world, raising them with steady personal care remains our deepest moral duty.",
+  "whyItMatters": "How parents handle daily frustration forms their child's emotional blueprint, shaping generational resilience and long-term mental health.",
+  "hook": "We spend decades recovering from childhood, yet forget our daily reactions become our children's lifelong inner voice.",
+  "summary": "We spend nearly half our lives navigating childhood, where early experiences quietly shape who we become as adults. Bringing a child into the world introduces a soul that constantly observes our moods, words, and daily habits. As highlighted in Dr. Pal's conversation, children naturally absorb our emotional regulation, making our everyday responses the very blueprint they rely on to understand themselves and their surroundings.\n\nWhile parenting delivers immense warmth and joy, tantrums inevitably stretch our patience, emotional endurance, and daily discipline. Yet these challenging moments serve as mutual training data for both parent and child. Instead of enforcing silent compliance through dismissal or anger, choosing calm validation helps de-escalate baseline stress. Our steady handling of pressure teaches children how to process frustration constructively rather than storing it away as unresolved anxiety.\n\nChildren did not ask to be brought here, which places the responsibility squarely on us to offer thoughtful, compassionate care. When we show up with intentional discipline, predictable routines, and gentle patience, we equip them with authentic resilience. Healing our own impulsive habits is the most generous legacy we can offer, ensuring our children step confidently into tomorrow feeling truly seen, protected, and loved.",
+  "resolvedArticleExcerpts": [
+    "We spend nearly half our lives navigating childhood, where early experiences quietly shape who we become as adults. Bringing a child into the world introduces a soul that constantly observes our moods, words, and daily habits. As highlighted in Dr. Pal's conversation, children naturally absorb our emotional regulation, making our everyday responses the very blueprint they rely on to understand themselves and their surroundings.",
+    "While parenting delivers immense warmth and joy, tantrums inevitably stretch our patience, emotional endurance, and daily discipline. Yet these challenging moments serve as mutual training data for both parent and child. Instead of enforcing silent compliance through dismissal or anger, choosing calm validation helps de-escalate baseline stress. Our steady handling of pressure teaches children how to process frustration constructively rather than storing it away as unresolved anxiety.",
+    "Children did not ask to be brought here, which places the responsibility squarely on us to offer thoughtful, compassionate care. When we show up with intentional discipline, predictable routines, and gentle patience, we equip them with authentic resilience. Healing our own impulsive habits is the most generous legacy we can offer, ensuring our children step confidently into tomorrow feeling truly seen, protected, and loved."
+  ],
+  "sourceType": "video_audio",
+  "digitalLink": "https://youtu.be/LkbYOzOn1VA?si=160bbR-hlyHS1-PW",
+  "sourceImageUrl": "https://i.ytimg.com/vi/LkbYOzOn1VA/maxresdefault.jpg",
+  "referencePhotoUrl": "https://i.ytimg.com/vi/LkbYOzOn1VA/maxresdefault.jpg",
+  "illustrationUrl": "https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/slant-1793068863990-8c9pd.webp?v=1793069007614",
+  "aiIllustrationUrl": "https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/slant-1793068863990-8c9pd.webp?v=1793069007614",
+  "slantIcon": "❤️",
+  "slantTone": "heart",
+  "pullQuote": "Our behaviors become default training data for our children, making calm self-regulation our greatest moral duty as loving caregivers.",
+  "receiptHighlightQuote": "Our behaviors become default training data for our children, making calm self-regulation our greatest moral duty as loving caregivers.",
+  "targetAudience": "General Public",
+  "isLoginFeatured": true,
+  "_allowLoginBifurcation": true,
+  "_isVideoOrWide": true,
+  "_blurInlineNames": true
+};
+
+const LOGIN_CHRONICLE_SHOWCASE_POST = {
+  "id": "slant-1793031039451-4bovq",
+  "categoryBadge": "DAILY CHRONICLE",
+  "adaptedHeadline": "Deliberate Focus at Work and Warmth in Every Welcome",
+  "originalHeadline": "26th Oct 2026",
+  "publicationName": "Daily Chronicle",
+  "creatorHandle": "@Shridhar Reddy",
+  "createdAt": "2026-10-26T16:11:49.451Z",
+  "chronicleMode": true,
+  "innerVoiceSubMode": "chronicle",
+  "isDiary": true,
+  "curatorTake": "Small, intentional shifts in how we focus our energy and how warmly we welcome people can quietly transform an ordinary day.",
+  "polishedCuratorTake": "01 · Moment 01: Usual work, not giving it the deserved focus. I will change this attitude, mark a few items to close, and get them done. 02 · Moment 02: Explained the dietary preference update feature in Cukre to Shrikanth. The demo looked good, and we both discussed releasing it at the earliest. 03 · Moment 03: Went to meet Swapnil, Shrikanth's tenant in V Classic. He is a nice person; the way they welcome people and talk to them was worth noting and adapting.",
+  "creatorOpinion": "Small, intentional shifts in how we focus our energy and how warmly we welcome people can quietly transform an ordinary day.",
+  "hook": "When routine drifts into distraction, true change begins with choosing to close open loops and learning from genuine human warmth.",
+  "summary": "01 · Moment 01: I caught myself slipping through the motions of usual work without giving tasks the deep attention they deserved. A productive day requires deliberate discipline, so I am resetting my approach to select a clear list of pending items and close them out completely.\n\n02 · Moment 02: I walked Shrikanth through the new dietary preference update feature in Cukre during an engaging walkthrough. The demonstration ran smoothly, highlighting how small intuitive design choices solve real user friction, and we agreed to release the update as soon as possible.\n\n03 · Moment 03: Visiting Swapnil at V Classic offered a refreshing masterclass in hospitality and grounded conversation. The ease with which he welcomed us and held dialogue showed how attentive listening transforms simple everyday social encounters into lasting, memorable human bonds.",
+  "keyTakeaways": [
+    "Focus On Finish: Mark a few essential tasks and close them.",
+    "Ship Useful Features: Clear product walkthroughs turn ideas into immediate action.",
+    "Adopt Everyday Warmth: Gracious hospitality creates an enduring impression on others."
+  ],
+  "resolvedArticleExcerpts": [
+    "01 · Moment 01: I caught myself slipping through the motions of usual work without giving tasks the deep attention they deserved. A productive day requires deliberate discipline, so I am resetting my approach to select a clear list of pending items and close them out completely.",
+    "02 · Moment 02: I walked Shrikanth through the new dietary preference update feature in Cukre during an engaging walkthrough. The demonstration ran smoothly, highlighting how small intuitive design choices solve real user friction, and we agreed to release the update as soon as possible.",
+    "03 · Moment 03: Visiting Swapnil at V Classic offered a refreshing masterclass in hospitality and grounded conversation. The ease with which he welcomed us and held dialogue showed how attentive listening transforms simple everyday social encounters into lasting, memorable human bonds."
+  ],
+  "chronicleMoments": [
+    {
+      "index": 1,
+      "title": "Moment 01",
+      "text": "Usual work, not giving it the deserved focus. I will change this attitude, mark a few items to close, and get them done.",
+      "isStarred": true
+    },
+    {
+      "index": 2,
+      "title": "Moment 02",
+      "text": "Explained the dietary preference update feature in Cukre to Shrikanth. The demo looked good, and we both discussed releasing it at the earliest."
+    },
+    {
+      "index": 3,
+      "title": "Moment 03",
+      "text": "Went to meet Swapnil, Shrikanth's tenant in V Classic. He is a nice person; the way they welcome people and talk to them was worth noting and adapting."
+    }
+  ],
+  "sourceType": "inner_voice",
+  "illustrationUrl": "/posters/slant-1793031039451-4bovq.jpg",
+  "aiIllustrationUrl": "/posters/slant-1793031039451-4bovq.jpg",
+  "slantIcon": "❤️",
+  "slantTone": "heart",
+  "pullQuote": "Changing an attitude begins the moment we decide to stop drifting and finish what we started.",
+  "receiptHighlightQuote": "Changing an attitude begins the moment we decide to stop drifting and finish what we started.",
+  "targetAudience": "General Public",
+  "isLoginFeatured": true,
+  "_allowLoginBifurcation": true,
+  "_blurInlineNames": true
+};
+
+let _loginMinutesAutoScrollRafs = [];
+let _currentLoginShowcaseSetIdx = 0;
+let _loginShowcaseSetSwapTimer = null;
+let _isLoginShowcaseSetLockedByClick = false;
+
+function stopAllLoginMinutesAutoScrolls() {
+  if (Array.isArray(_loginMinutesAutoScrollRafs)) {
+    _loginMinutesAutoScrollRafs.forEach(id => {
+      if (id) cancelAnimationFrame(id);
+    });
+  }
+  _loginMinutesAutoScrollRafs = [];
+}
+
+function startLoginMinutesAutoScroll(viewportEl) {
+  if (!viewportEl) return;
+
+  let isPaused = false;
+  let resumeTimeout = null;
+  let phase = 'hold_top'; // 'hold_top' | 'scroll_down' | 'hold_bottom' | 'scroll_up'
+  let phaseStartTime = performance.now();
+  let lastFrameTime = performance.now();
+  let scrollUpStartPos = 0;
+  let rafId = null;
+
+  const pauseScroll = () => {
+    isPaused = true;
+    if (resumeTimeout) clearTimeout(resumeTimeout);
+  };
+  const scheduleResume = () => {
+    if (resumeTimeout) clearTimeout(resumeTimeout);
+    resumeTimeout = setTimeout(() => {
+      isPaused = false;
+      lastFrameTime = performance.now();
+      phaseStartTime = performance.now();
+    }, 2200);
+  };
+
+  viewportEl.addEventListener('mouseenter', pauseScroll);
+  viewportEl.addEventListener('mouseleave', scheduleResume);
+  viewportEl.addEventListener('touchstart', pauseScroll, { passive: true });
+  viewportEl.addEventListener('touchend', scheduleResume, { passive: true });
+
+  const step = (now) => {
+    const signedOutView = document.getElementById('signedOutPageView');
+    if (!signedOutView || signedOutView.style.display === 'none' || !document.body.contains(viewportEl)) {
+      return;
+    }
+
+    const dt = Math.min(64, Math.max(0, now - lastFrameTime));
+    lastFrameTime = now;
+
+    if (!isPaused) {
+      const maxScroll = Math.max(0, viewportEl.scrollHeight - viewportEl.clientHeight);
+      if (maxScroll > 12) {
+        if (phase === 'hold_top') {
+          if (now - phaseStartTime >= 2400) {
+            phase = 'scroll_down';
+            phaseStartTime = now;
+          }
+        } else if (phase === 'scroll_down') {
+          const speedPxPerSec = 34; // Smooth editorial reading pace
+          const nextTop = viewportEl.scrollTop + (speedPxPerSec * dt) / 1000;
+          if (nextTop >= maxScroll - 1) {
+            viewportEl.scrollTop = maxScroll;
+            phase = 'hold_bottom';
+            phaseStartTime = now;
+          } else {
+            viewportEl.scrollTop = nextTop;
+          }
+        } else if (phase === 'hold_bottom') {
+          if (now - phaseStartTime >= 2600) {
+            phase = 'scroll_up';
+            phaseStartTime = now;
+            scrollUpStartPos = viewportEl.scrollTop;
+          }
+        } else if (phase === 'scroll_up') {
+          const duration = 1200;
+          const t = Math.min(1, (now - phaseStartTime) / duration);
+          const ease = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+          viewportEl.scrollTop = scrollUpStartPos * (1 - ease);
+          if (t >= 1) {
+            viewportEl.scrollTop = 0;
+            phase = 'hold_top';
+            phaseStartTime = now;
+          }
+        }
+      }
+    }
+
+    rafId = requestAnimationFrame(step);
+  };
+
+  rafId = requestAnimationFrame(step);
+  _loginMinutesAutoScrollRafs.push(rafId);
+}
+
+window.goToLoginShowcaseSet = function(setIdx, fromUserClick = false) {
+  const totalSets = 2;
+  _currentLoginShowcaseSetIdx = ((setIdx % totalSets) + totalSets) % totalSets;
+
+  if (fromUserClick) {
+    _isLoginShowcaseSetLockedByClick = true;
+    if (_loginShowcaseSetSwapTimer) {
+      clearInterval(_loginShowcaseSetSwapTimer);
+      _loginShowcaseSetSwapTimer = null;
+    }
+    const statusPill = document.getElementById('loginShowcaseSwapStatus');
+    if (statusPill) {
+      statusPill.textContent = '⏸ Paused on click';
+      statusPill.classList.add('is-paused');
+    }
+  }
+
+  const track = document.getElementById('loginShowcaseSetsTrack');
+  if (track) {
+    track.style.transform = `translate3d(-${_currentLoginShowcaseSetIdx * 50}%, 0, 0)`;
+  }
+
+  const tabs = document.querySelectorAll('.login-showcase-set-tab');
+  tabs.forEach((tab, idx) => {
+    tab.classList.toggle('active', idx === _currentLoginShowcaseSetIdx);
+    tab.setAttribute('aria-selected', idx === _currentLoginShowcaseSetIdx ? 'true' : 'false');
+  });
+
+  // Reset scroll position of newly revealed set's rightmost viewport to top so user sees it scroll fresh
+  const activeViewportId = _currentLoginShowcaseSetIdx === 0
+    ? 'loginAutoScrollMinutesCardSet0'
+    : 'loginAutoScrollChronicleCardSet1';
+  const cardEl = document.getElementById(activeViewportId);
+  if (cardEl) {
+    const vp = cardEl.querySelector('.slant-minute-scroll-viewport');
+    if (vp) vp.scrollTop = 0;
+  }
+};
+
+window.lockLoginShowcaseSetOnCardClick = function() {
+  if (_isLoginShowcaseSetLockedByClick) return;
+  _isLoginShowcaseSetLockedByClick = true;
+  if (_loginShowcaseSetSwapTimer) {
+    clearInterval(_loginShowcaseSetSwapTimer);
+    _loginShowcaseSetSwapTimer = null;
+  }
+  const statusPill = document.getElementById('loginShowcaseSwapStatus');
+  if (statusPill) {
+    statusPill.textContent = '⏸ Paused on click';
+    statusPill.classList.add('is-paused');
+  }
+};
+
+window.scrollToLoginAuthSection = function() {
+  const authSection = document.getElementById('sectionAuth');
+  if (authSection) {
+    authSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+};
+
+function startLoginShowcaseSetsAutoSwap() {
+  if (_loginShowcaseSetSwapTimer) {
+    clearInterval(_loginShowcaseSetSwapTimer);
+    _loginShowcaseSetSwapTimer = null;
+  }
+  _isLoginShowcaseSetLockedByClick = false;
+  _loginShowcaseSetSwapTimer = setInterval(() => {
+    if (_isLoginShowcaseSetLockedByClick) return;
+    const signedOutView = document.getElementById('signedOutPageView');
+    if (!signedOutView || signedOutView.style.display === 'none') return;
+    const nextIdx = (_currentLoginShowcaseSetIdx + 1) % 2;
+    window.goToLoginShowcaseSet(nextIdx, false);
+  }, 11500);
+}
+
+function renderLoginSamplesGrid() {
+  const samplesGrid = document.getElementById("loginSampleCarouselsGrid");
+  if (!samplesGrid) return;
+
+  stopAllLoginMinutesAutoScrolls();
+
+  const webShowcasePost = Object.assign({}, LOGIN_LIVE_SHOWCASE_POST);
+  delete webShowcasePost._cachedBifurcation;
+
+  const chronicleShowcasePost = Object.assign({}, LOGIN_CHRONICLE_SHOWCASE_POST);
+  delete chronicleShowcasePost._cachedBifurcation;
+
+  samplesGrid.innerHTML = `
+    <div class="login-showcase-sets-ControlsBar">
+      <div class="login-showcase-set-tabs" role="tablist" aria-label="Sample Slant Sets">
+        <button type="button" class="login-showcase-set-tab active" role="tab" aria-selected="true" onclick="window.goToLoginShowcaseSet(0, true)">
+          <span class="set-tab-dot"></span>
+          <span>🌐 Web / Video Slant</span>
+        </button>
+        <button type="button" class="login-showcase-set-tab" role="tab" aria-selected="false" onclick="window.goToLoginShowcaseSet(1, true)">
+          <span class="set-tab-dot"></span>
+          <span>📔 Daily Chronicle Slant</span>
+        </button>
+      </div>
+      <span class="login-showcase-swap-status" id="loginShowcaseSwapStatus" title="Click any card or tab to pause auto-swapping">⟳ Auto-swapping sets</span>
+    </div>
+
+    <div class="login-showcase-sets-viewport" onclick="window.lockLoginShowcaseSetOnCardClick()">
+      <div class="login-showcase-sets-track" id="loginShowcaseSetsTrack">
+
+        <!-- ================= SET 1: WEB / VIDEO LINK SLANT (slant-1793068863990-8c9pd) ================= -->
+        <div class="login-showcase-set-slide" data-showcase-set="0">
+          <div class="login-samples-grid">
+            <!-- Card 1 (Leftmost): Live Input Typing SVG Animation -->
+            <div class="sample-feed-card-host login-grid-sample-host login-step-showcase-col" data-sample-idx="0">
+              <div class="login-showcase-step-header">
+                <span class="login-step-badge-num">01</span>
+                <span class="login-step-badge-title">LIVE INPUT &bull; LINK + YOUR REACTION</span>
+              </div>
+              <article class="post-card sample-feed-card login-showcase-pure-card login-live-typing-card">
+                <div class="carousel-view login-live-typing-viewport">
+                  <img src="/slant-live-typing.svg?v=20261029_02" alt="Live input typing animation for Web/Video Slant" class="login-live-typing-svg-img" loading="eager">
+                </div>
+              </article>
+            </div>
+
+            <!-- Card 2 (Middle): Hook Poster of slant-1793068863990-8c9pd (Names Blurred) -->
+            <div class="sample-feed-card-host login-grid-sample-host login-step-showcase-col" data-sample-idx="1">
+              <div class="login-showcase-step-header">
+                <span class="login-step-badge-num">02</span>
+                <span class="login-step-badge-title">HOOK POSTER &bull; VISUAL FRAME</span>
+              </div>
+              <article class="post-card sample-feed-card login-showcase-pure-card">
+                <div class="carousel-view">
+                  <div class="carousel-track" style="width:100%; height:100%;">
+                    <div class="carousel-slide slide-hook" style="width:100%; height:100%; cursor:pointer;">
+                      ${buildSlide1Html(webShowcasePost, 'login_hook_showcase_set0', 2)}
+                    </div>
+                  </div>
+                </div>
+              </article>
+            </div>
+
+            <!-- Card 3 (Rightmost): Auto-Scrolling Perspective Poster of slant-1793068863990-8c9pd (Names Blurred) -->
+            <div class="sample-feed-card-host login-grid-sample-host login-step-showcase-col" data-sample-idx="2">
+              <div class="login-showcase-step-header">
+                <span class="login-step-badge-num">03</span>
+                <span class="login-step-badge-title">PERSPECTIVE &bull; POLISHED OP-ED</span>
+              </div>
+              <article class="post-card sample-feed-card login-showcase-pure-card" id="loginAutoScrollMinutesCardSet0">
+                <div class="carousel-view">
+                  <div class="carousel-track" style="width:100%; height:100%;">
+                    <div class="carousel-slide slide-receipt" style="width:100%; height:100%; cursor:pointer;">
+                      ${buildSlide2Html(webShowcasePost, 'login_minutes_showcase_set0', 0)}
+                    </div>
+                  </div>
+                </div>
+              </article>
+            </div>
+          </div>
+        </div>
+
+        <!-- ================= SET 2: DAILY CHRONICLE SLANT (slant-1793031039451-4bovq) ================= -->
+        <div class="login-showcase-set-slide" data-showcase-set="1">
+          <div class="login-samples-grid">
+            <!-- Card 1 (Leftmost): Daily Chronicle Live Input Typing SVG Animation -->
+            <div class="sample-feed-card-host login-grid-sample-host login-step-showcase-col" data-sample-idx="3">
+              <div class="login-showcase-step-header">
+                <span class="login-step-badge-num">01</span>
+                <span class="login-step-badge-title">LIVE INPUT &bull; MOMENTS OF THE DAY</span>
+              </div>
+              <article class="post-card sample-feed-card login-showcase-pure-card login-live-typing-card">
+                <div class="carousel-view login-live-typing-viewport">
+                  <img src="/slant-diary-live-typing.svg?v=20261029_02" alt="Live input typing animation for Daily Chronicle" class="login-live-typing-svg-img" loading="eager">
+                </div>
+              </article>
+            </div>
+
+            <!-- Card 2 (Middle): Hook Poster of slant-1793031039451-4bovq (Names Blurred) -->
+            <div class="sample-feed-card-host login-grid-sample-host login-step-showcase-col" data-sample-idx="4">
+              <div class="login-showcase-step-header">
+                <span class="login-step-badge-num">02</span>
+                <span class="login-step-badge-title">HOOK POSTER &bull; VISUAL FRAME</span>
+              </div>
+              <article class="post-card sample-feed-card login-showcase-pure-card">
+                <div class="carousel-view">
+                  <div class="carousel-track" style="width:100%; height:100%;">
+                    <div class="carousel-slide slide-hook" style="width:100%; height:100%; cursor:pointer;">
+                      ${buildSlide1Html(chronicleShowcasePost, 'login_hook_showcase_set1', 3)}
+                    </div>
+                  </div>
+                </div>
+              </article>
+            </div>
+
+            <!-- Card 3 (Rightmost): Auto-Scrolling Moments & Reflection Poster of slant-1793031039451-4bovq (Names Blurred) -->
+            <div class="sample-feed-card-host login-grid-sample-host login-step-showcase-col" data-sample-idx="5">
+              <div class="login-showcase-step-header">
+                <span class="login-step-badge-num">03</span>
+                <span class="login-step-badge-title">PERSPECTIVE &bull; MOMENTS &amp; REFLECTION</span>
+              </div>
+              <article class="post-card sample-feed-card login-showcase-pure-card" id="loginAutoScrollChronicleCardSet1">
+                <div class="carousel-view">
+                  <div class="carousel-track" style="width:100%; height:100%;">
+                    <div class="carousel-slide slide-receipt" style="width:100%; height:100%; cursor:pointer;">
+                      ${buildUnifiedEssayPosterHtml(chronicleShowcasePost, 'login_chronicle_showcase_set1', 0)}
+                    </div>
+                  </div>
+                </div>
+              </article>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  `;
+
+  samplesGrid.dataset.populated = 'true';
+  _currentLoginShowcaseSetIdx = 0;
+  startLoginShowcaseSetsAutoSwap();
+
+  if (typeof requestAnimationFrame === 'function') {
+    requestAnimationFrame(() => {
+      const minutesCard0 = document.getElementById('loginAutoScrollMinutesCardSet0');
+      if (minutesCard0) {
+        const vp0 = minutesCard0.querySelector('.slant-minute-scroll-viewport');
+        if (vp0) {
+          calibrateEssayViewportPagination(vp0);
+          startLoginMinutesAutoScroll(vp0);
+        }
+      }
+      const chronicleCard1 = document.getElementById('loginAutoScrollChronicleCardSet1');
+      if (chronicleCard1) {
+        const vp1 = chronicleCard1.querySelector('.slant-minute-scroll-viewport');
+        if (vp1) {
+          startLoginMinutesAutoScroll(vp1);
+        }
+      }
+    });
+  }
 }
 
 function selectSampleStory(storyIdx) {
@@ -1328,6 +1823,27 @@ function startSampleCarouselAutoPlay() {
       clearInterval(sampleCarouselAutoPlayTimer);
       return;
     }
+
+    // Gentle auto-flip across the 4-card lower sample showcase grid (one card at a time)
+    const gridCarousels = document.querySelectorAll('#loginSampleCarouselsGrid .carousel-view');
+    if (gridCarousels && gridCarousels.length > 0) {
+      const selectedPosts = window._selectedSamplePosts || [];
+      const activeIdx = currentSampleStoryIndex % gridCarousels.length;
+      const sampleKey = `sample_${activeIdx}`;
+      const activeCarousel = document.getElementById(`carousel-${sampleKey}`);
+      if (activeCarousel) {
+        const cur = parseInt(activeCarousel.getAttribute('data-current-slide') || '0', 10);
+        const maxSlide = parseInt(activeCarousel.getAttribute('data-slide-count') || '2', 10) - 1;
+        if (cur >= maxSlide) {
+          goToSlide(null, sampleKey, 0);
+          currentSampleStoryIndex = (activeIdx + 1) % (selectedPosts.length || gridCarousels.length);
+        } else {
+          goToSlide(null, sampleKey, cur + 1);
+        }
+      }
+      return;
+    }
+
     const carousel = document.getElementById('carousel-sample');
     if (!carousel) return;
     const cur = parseInt(carousel.getAttribute('data-current-slide') || '0', 10);
@@ -1373,7 +1889,7 @@ function openAuthModal(customDesc) {
   if (descEl && customDesc) {
     descEl.textContent = customDesc;
   } else if (descEl) {
-    descEl.textContent = 'Sign in to save your favorite visual stories, customize your reading atmosphere, and publish your own editorials.';
+    descEl.textContent = 'Sign in to synthesize what you read, frame what you observe, and build your private chronicle.';
   }
 
   const signedInView = document.getElementById('signedInAppView');
@@ -3842,6 +4358,13 @@ function setupSwipeBlockedListener() {
 function getPostFromIndexOrId(indexOrId) {
   if (indexOrId === 'preview') return (typeof currentSynthesizedPost !== 'undefined' ? currentSynthesizedPost : null);
   if (indexOrId === 'sample') return (typeof window.currentSampleStoryPost !== 'undefined' ? window.currentSampleStoryPost : null);
+  if (typeof indexOrId === 'string' && indexOrId.startsWith('sample_')) {
+    const sampleIdx = parseInt(indexOrId.replace('sample_', ''), 10);
+    const selectedPosts = window._selectedSamplePosts || [];
+    if (selectedPosts[sampleIdx] && selectedPosts[sampleIdx].post) {
+      return selectedPosts[sampleIdx].post;
+    }
+  }
   if (typeof indexOrId === 'number' || (typeof indexOrId === 'string' && /^\d+$/.test(indexOrId))) {
     // First check DOM card with matching carousel-<idx> to resolve exact post ID even after in-place deletions
     const carouselEl = document.getElementById(`carousel-${indexOrId}`);
@@ -4746,7 +5269,7 @@ function buildSlide1Html(post, index, totalSlides = 2) {
             <img src="/slanlogo.svg?v=20261013_2100" class="deck-logo-pulse" alt="Rendering artwork...">
           </div>
           <div class="deck-art-loading-title">Rendering Poster Artwork...</div>
-          <div class="deck-art-loading-desc">Rendering custom editorial composition & visual metaphors</div>
+          <div class="deck-art-loading-desc">Rendering custom editorial composition &amp; visual metaphors</div>
         </div>
       `;
     } else if (!post.illustrationBase64 && (post.artworkError || post.artworkPending)) {
@@ -5564,8 +6087,8 @@ function evaluateEssayBifurcation(post, index) {
     || post.aiPosterBase64;
   const hasPhoto = Boolean(rawPhoto && typeof rawPhoto === "string" && rawPhoto.length > 20);
 
-  // Forced single page for sample / login posts (Strict 2-poster style: Slide 1 Hook -> Slide 2 Essay)
-  if (index === "sample" || post.isLoginFeatured || post._forceSinglePage) {
+  // Forced single page for sample / login posts unless explicitly allowed to bifurcate for auto-scrolling showcase
+  if (!post._allowLoginBifurcation && (index === "sample" || post.isLoginFeatured || post._forceSinglePage)) {
     return {
       isBifurcated: false,
       hasPhoto,
@@ -5975,6 +6498,11 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
     return String(txt).replace(/[A-Za-z]{6,}/g, hyphenateEditorialWord);
   };
 
+  const applyShowcaseInlineNameBlur = (safeHtmlText) => {
+    if (!safeHtmlText || !post._blurInlineNames) return safeHtmlText;
+    return safeHtmlText.replace(/\b(Shri\u00AD?kanth|Swap\u00AD?nil|Dr\.\s*Pal(?:'s)?)\b/g, '<span class="login-inline-blurred-name">$1</span>');
+  };
+
   const formatBroadsheetPara = (txt, isLead = false, extraClass = "") => {
     const clean = String(txt || "").trim();
     const momentMatch = clean.match(/^((?:0?[1-9]\s*[·•.-]\s*)?Moment\s+\d+(?:\s*[·•.-]\s*[^:]{1,38})?:|0?[1-9]\s*[·•.-]\s*[^:]{1,38}:)\s*([\s\S]+)$/i);
@@ -5988,16 +6516,17 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
         : false;
       const starBadge = isThisMomentStarred ? ` <span class="chronicle-inline-star" title="Important Highlight Moment">★</span>` : "";
       const cleanMomentLabel = `Moment ${String(mNum).padStart(2, "0")}:`;
-      return `<p class="${cls} ${isThisMomentStarred ? "is-starred-moment-para" : ""}" lang="en"><strong class="chronicle-moment-inline-tag">${escapeHtml(cleanMomentLabel)}${starBadge}</strong> ${escapeHtml(hyphenateEditorialText(momentMatch[2]))}</p>`;
+      const bodySafe = applyShowcaseInlineNameBlur(escapeHtml(hyphenateEditorialText(momentMatch[2])));
+      return `<p class="${cls} ${isThisMomentStarred ? "is-starred-moment-para" : ""}" lang="en"><strong class="chronicle-moment-inline-tag">${escapeHtml(cleanMomentLabel)}${starBadge}</strong> ${bodySafe}</p>`;
     }
     if (isLead) {
       const hyphenatedClean = hyphenateEditorialText(clean);
       const firstChar = hyphenatedClean.charAt(0).toUpperCase();
-      const restLead = hyphenatedClean.slice(1);
-      return `<p class="receipt-p1" lang="en"><span class="broadsheet-dropcap">${escapeHtml(firstChar)}</span>${escapeHtml(restLead)}</p>`;
+      const restLead = applyShowcaseInlineNameBlur(escapeHtml(hyphenatedClean.slice(1)));
+      return `<p class="receipt-p1" lang="en"><span class="broadsheet-dropcap">${escapeHtml(firstChar)}</span>${restLead}</p>`;
     }
     const cls = ["receipt-p3", extraClass].filter(Boolean).join(" ");
-    return `<p class="${cls}" lang="en">${escapeHtml(hyphenateEditorialText(clean))}</p>`;
+    return `<p class="${cls}" lang="en">${applyShowcaseInlineNameBlur(escapeHtml(hyphenateEditorialText(clean)))}</p>`;
   };
 
   // Page 1 Paragraphs
@@ -6053,7 +6582,7 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
             <span class="receipt-brand-text">${receiptBrandTitle}</span>
           </div>
           <div class="receipt-corner-creator">
-            <span class="receipt-creator-name">${isChronicle ? escapeHtml(chronicleDateStr) : handle}</span>
+            <span class="receipt-creator-name ${isChronicle ? "is-chronicle-date-label" : ""}">${isChronicle ? escapeHtml(chronicleDateStr) : handle}</span>
             <span class="receipt-corner-slide-num">${p1SlideBadge}</span>
           </div>
         </div>
@@ -6067,7 +6596,7 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
           ${(!bifurcation.isBifurcated && !isChronicle) ? reflectionHtml : ""}
         </div>
 
-        ${(!bifurcation.isBifurcated || isChronicle || forExportPage === 1) ? `
+        ${(!bifurcation.isBifurcated || forExportPage === 1) ? `
         <div class="receipt-footer">
           <div class="receipt-folio-rule"></div>
           <div class="receipt-folio-text">
@@ -6085,7 +6614,7 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
             <span class="receipt-brand-text">${isChronicle ? receiptBrandTitle : `${receiptBrandTitle} ...`}</span>
           </div>
           <div class="receipt-corner-creator">
-            <span class="receipt-creator-name">${isChronicle ? escapeHtml(chronicleDateStr) : handle}</span>
+            <span class="receipt-creator-name ${isChronicle ? "is-chronicle-date-label" : ""}">${isChronicle ? escapeHtml(chronicleDateStr) : handle}</span>
             <span class="receipt-corner-slide-num">${p2SlideBadge}</span>
           </div>
         </div>
@@ -6114,7 +6643,7 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
       <div class="slant-minute-scroll-viewport essay-scroll-viewport ${bifurcation.hasPhoto ? "has-inset-photo" : ""} ${bifurcation.densityClass}"
            lang="en"
            data-bifurcated="${bifurcation.isBifurcated ? "true" : "false"}"
-           ${isStaticExport ? 'style="overflow:hidden !important; height:100% !important;"' : 'style="overflow-y:auto !important; overflow-x:hidden !important; height:100% !important; -webkit-overflow-scrolling:touch;" onscroll="window._lastSlantMinuteScroll = Date.now()"'}>
+           ${isStaticExport ? 'style="overflow:hidden !important; height:100% !important;"' : 'style="overflow:auto !important; overflow-x:hidden !important; height:100% !important; -webkit-overflow-scrolling:touch;" onscroll="window._lastSlantMinuteScroll = Date.now()"'}>
         <div class="essay-page-block essay-page-1" style="${isStaticExport ? "height:100% !important; min-height:100% !important; padding-bottom:4px !important;" : "min-height:100% !important; height:auto !important; padding-bottom:10px !important;"}">
           ${page1InnerHtml}
         </div>
@@ -6155,7 +6684,7 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
         <div class="seam-line"></div>
         <div class="seam-badge">
           <span>✦</span>
-          <span>PAGE 2 ...</span>
+          <span>${isChronicle ? "REFLECTION ..." : "PAGE 2 ..."}</span>
         </div>
         <div class="seam-line"></div>
       </div>
@@ -7004,7 +7533,8 @@ function renderProofSummarySections(post, ledger) {
 
 function openDetailModal(index) {
   if (index === 'preview') return;
-  if (!currentUser && (isDeepLinkScrollGated || index === 'sample')) {
+  const isSampleCard = index === 'sample' || (typeof index === 'string' && index.startsWith('sample_'));
+  if (!currentUser && (isDeepLinkScrollGated || isSampleCard)) {
     openAuthModal('Sign in to view verified source context, receipts, and community discussion.');
     return;
   }
@@ -7929,6 +8459,18 @@ function loadPostIntoStudioToRegenerate(postId) {
   } else if (inputs.sourceType === 'inner_voice') {
     setInnerVoiceSubmode('single');
   }
+
+  // Enable 3-Way Regeneration Scope Toggle (Text Only | Both | Visuals Only) with Smart Auto-Switch
+  try {
+    const clonedBaseline = JSON.parse(JSON.stringify(post));
+    if (!clonedBaseline.illustrationUrl && post.id) {
+      clonedBaseline.illustrationUrl = `/posters/${post.id}.png`;
+    }
+    clonedBaseline.id = 'slant-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7);
+    if (typeof enableCreatorRegenMode === 'function') {
+      enableCreatorRegenMode(clonedBaseline, 'Loaded from Generation Inputs');
+    }
+  } catch (_) {}
 
   showTemporaryToast('✨ Loaded inputs into Creator Studio! Tweak or regenerate 🚀');
 }
@@ -11381,7 +11923,7 @@ function renderActiveMemberScreen() {
 
         <div class="vault-analyzing-progress" id="vaultAnalyzingProgress" style="display:none;">
           <span class="vault-spinner"></span>
-          <span id="vaultAnalyzingText">Cross-referencing multiple photos into Character DNA...</span>
+          <span id="vaultAnalyzingText">Cross-referencing multiple photos for character likeness...</span>
         </div>
       </div>
 
@@ -12009,6 +12551,9 @@ function setFamilyCastStagingMode(mode) {
     if (!el) return;
     el.classList.toggle('active', mode === targetMode);
   });
+  if (typeof evaluateSmartRegenScopeAutoSwitch === 'function') {
+    evaluateSmartRegenScopeAutoSwitch();
+  }
 }
 
 function toggleActiveCastMember(memberId) {
@@ -12019,6 +12564,9 @@ function toggleActiveCastMember(memberId) {
     activeCastMemberIds.add(memberId);
   }
   renderFamilyCastStagingUI();
+  if (typeof evaluateSmartRegenScopeAutoSwitch === 'function') {
+    evaluateSmartRegenScopeAutoSwitch();
+  }
 }
 
 function clearActiveCastSelection() {
@@ -12457,12 +13005,18 @@ function toggleChronicleMomentStar(idx, event) {
   if (nextVal && typeof showTemporaryToast === 'function') {
     showTemporaryToast(`★ Moment 0${idx + 1} marked as important! It will get the larger showcase space in Poster 1.`);
   }
+  if (typeof evaluateSmartRegenScopeAutoSwitch === 'function') {
+    evaluateSmartRegenScopeAutoSwitch();
+  }
 }
 
 function onChronicleMomentInput(idx, field, val) {
   if (!dailyChronicleMoments[idx]) return;
   dailyChronicleMoments[idx][field] = val;
   syncChronicleMomentsToSlantInput();
+  if (typeof evaluateSmartRegenScopeAutoSwitch === 'function') {
+    evaluateSmartRegenScopeAutoSwitch();
+  }
 }
 
 function syncChronicleMomentsToSlantInput() {
@@ -12715,6 +13269,9 @@ function toggleRefineCoreTake(val) {
     }
     if (sub) sub.textContent = 'Keeps your exact typed words verbatim on Poster 2 without rephrasing.';
   }
+  if (typeof evaluateSmartRegenScopeAutoSwitch === 'function') {
+    evaluateSmartRegenScopeAutoSwitch();
+  }
 }
 
 let creatorVocabularyStyle = 'casual'; // Internal default: Casual with simple, easily understood words
@@ -12739,6 +13296,9 @@ function setVocabularyStyle(style) {
     if (badge) badge.textContent = '⚡ Punchy';
     if (sub) sub.textContent = 'Emotional, vivid & clear. Strong verbs, zero academic jargon. Reads effortlessly.';
   }
+  if (typeof evaluateSmartRegenScopeAutoSwitch === 'function') {
+    evaluateSmartRegenScopeAutoSwitch();
+  }
 }
 
 let creatorPerspectiveMode = 'source'; // 'curator' | 'hybrid' | 'source' (Default: 'source')
@@ -12749,6 +13309,9 @@ function setPerspectiveMode(mode, fromUserClick = false) {
   }
   const prevMode = creatorPerspectiveMode;
   creatorPerspectiveMode = mode;
+  if (fromUserClick && typeof evaluateSmartRegenScopeAutoSwitch === 'function') {
+    setTimeout(() => evaluateSmartRegenScopeAutoSwitch(), 0);
+  }
 
   document.querySelectorAll('.slant-perspective-pill').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.perspective === mode);
@@ -14021,6 +14584,7 @@ function openCreatorModal(resumeDraftId = null) {
       checkAndTriggerFamilyCast(combined);
       onCreatorStage1InputChange();
       autoSaveCreatorFormState(false);
+      if (typeof evaluateSmartRegenScopeAutoSwitch === 'function') evaluateSmartRegenScopeAutoSwitch();
     });
   }
   const sparkInput = document.getElementById('creatorSparkInput');
@@ -14031,6 +14595,7 @@ function openCreatorModal(resumeDraftId = null) {
       const combined = (sltInput ? sltInput.value : '') + ' ' + (sparkInput.value || '');
       checkAndTriggerFamilyCast(combined);
       autoSaveCreatorFormState(false);
+      if (typeof evaluateSmartRegenScopeAutoSwitch === 'function') evaluateSmartRegenScopeAutoSwitch();
     });
   }
   const urlInput = document.getElementById('creatorUrlInput');
@@ -14038,6 +14603,7 @@ function openCreatorModal(resumeDraftId = null) {
     urlInput.dataset.draftAutosaveAttached = 'true';
     urlInput.addEventListener('input', () => {
       autoSaveCreatorFormState(false);
+      if (typeof evaluateSmartRegenScopeAutoSwitch === 'function') evaluateSmartRegenScopeAutoSwitch();
     });
   }
 }
@@ -14397,6 +14963,9 @@ function handleInnerVoicePhotoSelect(event) {
     if (preview) preview.style.display = 'flex';
     const emptyBox = document.getElementById('innerVoicePhotoEmpty');
     if (emptyBox) emptyBox.style.display = 'none';
+    if (typeof evaluateSmartRegenScopeAutoSwitch === 'function') {
+      evaluateSmartRegenScopeAutoSwitch();
+    }
   });
 }
 
@@ -14421,6 +14990,9 @@ function removeInnerVoicePhoto(event) {
     creatorReferenceImageBase64 = null;
     creatorReferenceImageSourceLabel = null;
     updateReferencePhotoUI();
+  }
+  if (typeof evaluateSmartRegenScopeAutoSwitch === 'function') {
+    evaluateSmartRegenScopeAutoSwitch();
   }
 }
 
@@ -14451,6 +15023,216 @@ function setupCreatorDropzone() {
   dropzoneInitialized = true;
 }
 
+// ============================================================
+// 3-Way Regeneration Scope Toggle (Text Only | Both | Visuals Only) + Smart Auto-Switch
+// ============================================================
+let creatorRegenScope = 'both'; // 'text_only' | 'both' | 'visuals_only'
+window._isCreatorRegenMode = false;
+window._regenBaselinePost = null;
+window._regenBaselineInputs = null;
+window._userManuallySetRegenScope = false;
+window._regenAutoSwitchReason = '';
+
+function getCreatorRegenInputsSnapshot() {
+  const urlInput = document.getElementById('creatorUrlInput');
+  const slantInput = document.getElementById('creatorSlantTakeInput');
+  const sparkInput = document.getElementById('creatorSparkInput');
+  const momentsTextSig = (typeof dailyChronicleMoments !== 'undefined' && Array.isArray(dailyChronicleMoments))
+    ? dailyChronicleMoments.map(m => `${(m.title || '').trim()}::${(m.text || '').trim()}`).join('||')
+    : '';
+  const momentsVisualSig = (typeof dailyChronicleMoments !== 'undefined' && Array.isArray(dailyChronicleMoments))
+    ? dailyChronicleMoments.map(m => `${Boolean(m.isStarred)}::${(m.imageBase64 || '').slice(0, 64)}`).join('||')
+    : '';
+  const activeCastSig = (typeof activeCastMemberIds !== 'undefined' && activeCastMemberIds instanceof Set)
+    ? Array.from(activeCastMemberIds).sort().join(',')
+    : '';
+
+  return {
+    sourceType: typeof creatorSelectedSource !== 'undefined' ? (creatorSelectedSource || 'digital_link') : 'digital_link',
+    isChronicle: typeof isDailyChronicleMode !== 'undefined' ? Boolean(isDailyChronicleMode) : false,
+    url: urlInput ? urlInput.value.trim() : '',
+    slantTake: slantInput ? slantInput.value.trim() : '',
+    refineCoreTake: typeof creatorRefineCoreTake !== 'undefined' ? Boolean(creatorRefineCoreTake) : true,
+    vocabularyStyle: typeof creatorVocabularyStyle !== 'undefined' ? (creatorVocabularyStyle || 'casual') : 'casual',
+    momentsTextSig,
+    spark: sparkInput ? sparkInput.value.trim() : '',
+    characterRepresentation: typeof creatorCharacterRepresentation !== 'undefined' ? (creatorCharacterRepresentation || 'realistic') : 'realistic',
+    perspectiveMode: typeof creatorPerspectiveMode !== 'undefined' ? (creatorPerspectiveMode || 'source') : 'source',
+    countryCode: (typeof creatorCountryContext !== 'undefined' && creatorCountryContext?.code) || document.getElementById('countryContextSelect')?.value || 'IN',
+    refPhotoSig: ((typeof creatorReferenceImageBase64 !== 'undefined' && creatorReferenceImageBase64) || (typeof innerVoicePhotoBase64 !== 'undefined' && innerVoicePhotoBase64) || '').slice(0, 80),
+    activeCastSig,
+    castStagingMode: typeof activeCastStagingMode !== 'undefined' ? activeCastStagingMode : 'vehicle_rhd',
+    momentsVisualSig
+  };
+}
+
+function updateCreatorRegenScopeUI() {
+  const bar = document.getElementById('creatorRegenScopeBar');
+  const track = document.getElementById('regenScopeTrack');
+  const hint = document.getElementById('regenScopeStatusHint');
+  const modeLabel = document.getElementById('regenScopeModeLabel');
+  const btnText = document.getElementById('regenScopeBtnText');
+  const btnBoth = document.getElementById('regenScopeBtnBoth');
+  const btnVisuals = document.getElementById('regenScopeBtnVisuals');
+
+  const isLockedFresh = !window._isCreatorRegenMode;
+  const effectiveScope = isLockedFresh ? 'both' : (creatorRegenScope || 'both');
+
+  if (bar) {
+    bar.classList.toggle('is-locked-fresh', isLockedFresh);
+    bar.classList.toggle('is-regen-unlocked', !isLockedFresh);
+  }
+  if (track) {
+    track.setAttribute('data-scope', effectiveScope);
+  }
+  if (btnText) {
+    btnText.disabled = isLockedFresh;
+    btnText.classList.toggle('active', effectiveScope === 'text_only');
+  }
+  if (btnBoth) {
+    btnBoth.disabled = false;
+    btnBoth.classList.toggle('active', effectiveScope === 'both');
+  }
+  if (btnVisuals) {
+    btnVisuals.disabled = isLockedFresh;
+    btnVisuals.classList.toggle('active', effectiveScope === 'visuals_only');
+  }
+
+  if (modeLabel) {
+    if (isLockedFresh) {
+      modeLabel.innerHTML = 'SCOPE: ✨ BOTH (TEXT &amp; VISUALS)';
+    } else if (effectiveScope === 'text_only') {
+      modeLabel.innerHTML = 'REGEN MODE: 📝 TEXT ONLY';
+    } else if (effectiveScope === 'visuals_only') {
+      modeLabel.innerHTML = 'REGEN MODE: 🎨 VISUALS ONLY';
+    } else {
+      modeLabel.innerHTML = 'REGEN MODE: ✨ BOTH (TEXT &amp; VISUALS)';
+    }
+    modeLabel.setAttribute('data-scope', effectiveScope);
+  }
+
+  if (hint) {
+    if (isLockedFresh) {
+      hint.innerHTML = '🔒 Fresh Slant generates both text &amp; visuals';
+    } else if (window._regenAutoSwitchReason && !window._userManuallySetRegenScope) {
+      hint.innerHTML = `✨ ${escapeHtml(window._regenAutoSwitchReason)}`;
+    } else if (effectiveScope === 'text_only') {
+      hint.innerHTML = 'Updates all 3 slides text • Keeps current poster visual';
+    } else if (effectiveScope === 'visuals_only') {
+      hint.innerHTML = 'Renders fresh poster visual • Keeps current text untouched';
+    } else {
+      hint.innerHTML = 'Regenerates both editorial text &amp; poster artwork';
+    }
+  }
+
+  const s1BtnText = document.querySelector('#step1SynthesizeBtn .btn-text');
+  const s2BtnText = document.querySelector('#synthesizeBtn .btn-text');
+  if (isLockedFresh) {
+    if (s1BtnText) s1BtnText.textContent = 'Synthesize Posters';
+    if (s2BtnText) s2BtnText.textContent = 'Generate Carousel';
+  } else if (effectiveScope === 'text_only') {
+    if (s1BtnText) s1BtnText.textContent = 'Regenerate Text Only';
+    if (s2BtnText) s2BtnText.textContent = 'Regenerate Text Only';
+  } else if (effectiveScope === 'visuals_only') {
+    if (s1BtnText) s1BtnText.textContent = 'Regenerate Visuals Only';
+    if (s2BtnText) s2BtnText.textContent = 'Regenerate Visuals Only';
+  } else {
+    if (s1BtnText) s1BtnText.textContent = 'Regenerate Both';
+    if (s2BtnText) s2BtnText.textContent = 'Regenerate Carousel (Both)';
+  }
+}
+
+function setCreatorRegenScope(scope, fromUserClick = false) {
+  if (fromUserClick && !window._isCreatorRegenMode) {
+    if (typeof showTemporaryToast === 'function') {
+      showTemporaryToast('🔒 Fresh Slants always generate both text and visuals.');
+    }
+    return;
+  }
+  if (scope !== 'text_only' && scope !== 'both' && scope !== 'visuals_only') {
+    scope = 'both';
+  }
+  creatorRegenScope = scope;
+  if (fromUserClick) {
+    window._userManuallySetRegenScope = true;
+    window._regenAutoSwitchReason = '';
+  }
+  updateCreatorRegenScopeUI();
+}
+
+function enableCreatorRegenMode(baselinePost, reasonLabel = '') {
+  if (baselinePost) {
+    try {
+      window._regenBaselinePost = JSON.parse(JSON.stringify(baselinePost));
+    } catch (_) {
+      window._regenBaselinePost = baselinePost;
+    }
+  }
+  window._isCreatorRegenMode = true;
+  window._userManuallySetRegenScope = false;
+  window._regenAutoSwitchReason = reasonLabel ? `${reasonLabel} • Slide left for Text Only or right for Visuals Only` : '';
+  creatorRegenScope = 'both';
+  window._regenBaselineInputs = getCreatorRegenInputsSnapshot();
+  const bar = document.getElementById('creatorRegenScopeBar');
+  if (bar) bar.style.display = 'flex';
+  updateCreatorRegenScopeUI();
+}
+
+function resetCreatorRegenModeToFresh() {
+  window._isCreatorRegenMode = false;
+  window._regenBaselinePost = null;
+  window._regenBaselineInputs = null;
+  window._userManuallySetRegenScope = false;
+  window._regenAutoSwitchReason = '';
+  creatorRegenScope = 'both';
+  const bar = document.getElementById('creatorRegenScopeBar');
+  if (bar) bar.style.display = 'flex';
+  updateCreatorRegenScopeUI();
+}
+
+function evaluateSmartRegenScopeAutoSwitch() {
+  if (!window._isCreatorRegenMode || !window._regenBaselineInputs) return;
+  if (window._userManuallySetRegenScope) return;
+
+  const base = window._regenBaselineInputs;
+  const curr = getCreatorRegenInputsSnapshot();
+
+  const textChanged = (
+    curr.sourceType !== base.sourceType ||
+    curr.isChronicle !== base.isChronicle ||
+    curr.url !== base.url ||
+    curr.slantTake !== base.slantTake ||
+    curr.refineCoreTake !== base.refineCoreTake ||
+    curr.vocabularyStyle !== base.vocabularyStyle ||
+    curr.momentsTextSig !== base.momentsTextSig
+  );
+
+  const visualChanged = (
+    curr.spark !== base.spark ||
+    curr.characterRepresentation !== base.characterRepresentation ||
+    curr.perspectiveMode !== base.perspectiveMode ||
+    curr.countryCode !== base.countryCode ||
+    curr.refPhotoSig !== base.refPhotoSig ||
+    curr.activeCastSig !== base.activeCastSig ||
+    curr.castStagingMode !== base.castStagingMode ||
+    curr.momentsVisualSig !== base.momentsVisualSig
+  );
+
+  if (textChanged && !visualChanged) {
+    window._regenAutoSwitchReason = 'Auto-selected Text Only (keeps your current poster artwork)';
+    setCreatorRegenScope('text_only', false);
+  } else if (visualChanged && !textChanged) {
+    window._regenAutoSwitchReason = 'Auto-selected Visuals Only (keeps your current poster text)';
+    setCreatorRegenScope('visuals_only', false);
+  } else if (textChanged && visualChanged) {
+    window._regenAutoSwitchReason = 'Auto-selected Both (text & visual settings modified)';
+    setCreatorRegenScope('both', false);
+  } else {
+    window._regenAutoSwitchReason = 'Slide left for Text Only or right for Visuals Only';
+    setCreatorRegenScope('both', false);
+  }
+}
+
 function backToStep1() {
   if (typeof clearMandatoryFieldPrompts === 'function') {
     clearMandatoryFieldPrompts();
@@ -14461,10 +15243,18 @@ function backToStep1() {
   const d1 = document.getElementById('stepDot1');
   const d2 = document.getElementById('stepDot2');
   const d3 = document.getElementById('stepDot3');
+  const scopeBar = document.getElementById('creatorRegenScopeBar');
 
   if (s1) s1.style.display = 'block';
   if (s2) s2.style.display = 'none';
   if (s3) s3.style.display = 'none';
+  if (scopeBar) scopeBar.style.display = 'flex';
+
+  if (currentSynthesizedPost && !window._isCreatorRegenMode) {
+    enableCreatorRegenMode(currentSynthesizedPost, 'Editing generated deck');
+  } else {
+    updateCreatorRegenScopeUI();
+  }
 
   if (d1) { d1.className = 'creator-step-dot active'; }
   if (d2) { d2.className = 'creator-step-dot'; }
@@ -14771,6 +15561,9 @@ function changeCountryContext(code) {
     showTemporaryToast(`🔄 Setting changed to ${creatorCountryContext.name}: Updating visual cues...`);
     triggerCueSuggest();
   }
+  if (prevCode && prevCode !== code && typeof evaluateSmartRegenScopeAutoSwitch === 'function') {
+    evaluateSmartRegenScopeAutoSwitch();
+  }
 }
 
 // Reference Photo Likeness State
@@ -14819,6 +15612,7 @@ function resetCreatorState() {
   setPerspectiveMode('source');
   creatorCharacterRepresentation = 'realistic';
   creatorSettingsGenerated = false;
+  resetCreatorRegenModeToFresh();
   resetStage1ActionBtn();
   const eqBadge = document.getElementById('creatorEqualizerBadge');
   if (eqBadge) {
@@ -16231,6 +17025,9 @@ async function goToVisualCuesStep() {
   if (s3) s3.style.display = 'none';
   if (cuesContent) cuesContent.style.display = 'flex';
   if (synthLoading) synthLoading.style.display = 'none';
+  const scopeBar = document.getElementById('creatorRegenScopeBar');
+  if (scopeBar) scopeBar.style.display = 'flex';
+  updateCreatorRegenScopeUI();
 
   if (d1) d1.className = 'creator-step-dot completed';
   if (d2) d2.className = 'creator-step-dot active';
@@ -17037,10 +17834,14 @@ function selectCharacterRepresentation(type) {
   if (type !== 'realistic' && type !== 'silhouette' && type !== 'exact' && type !== 'cinematic' && type !== 'painting' && type !== 'watercolor' && type !== 'likeness') {
     type = 'realistic';
   }
+  const prevRep = creatorCharacterRepresentation;
   creatorCharacterRepresentation = type;
   updateReferencePhotoUI();
   if (typeof updateEqualizerPortrayalUI === 'function') {
     updateEqualizerPortrayalUI();
+  }
+  if (prevRep !== type && typeof evaluateSmartRegenScopeAutoSwitch === 'function') {
+    evaluateSmartRegenScopeAutoSwitch();
   }
 }
 
@@ -17113,6 +17914,19 @@ async function startAiSynthesis() {
   const synthLoading = document.getElementById('synthesisLoadingState');
   const stepText = document.getElementById('synthesisStepText');
   const fill = document.getElementById('synthesisProgressFill');
+  const scopeBar = document.getElementById('creatorRegenScopeBar');
+  if (scopeBar) scopeBar.style.display = 'none';
+
+  const isRegenWithBaseline = Boolean(window._isCreatorRegenMode && (currentSynthesizedPost || window._regenBaselinePost));
+  const activeRegenScope = isRegenWithBaseline ? (creatorRegenScope || 'both') : 'both';
+  let baselinePost = null;
+  if (isRegenWithBaseline) {
+    try {
+      baselinePost = JSON.parse(JSON.stringify(currentSynthesizedPost || window._regenBaselinePost));
+    } catch (_) {
+      baselinePost = currentSynthesizedPost || window._regenBaselinePost;
+    }
+  }
 
   if (cuesContent) cuesContent.style.display = 'none';
   if (synthLoading) {
@@ -17133,24 +17947,43 @@ async function startAiSynthesis() {
     }
   }
 
-  if (stepText) stepText.textContent = 'Reading source and extracting core tension...';
+  if (stepText) {
+    if (activeRegenScope === 'visuals_only') {
+      stepText.textContent = 'Keeping your editorial text • Rebuilding visual prompt & composition...';
+    } else if (activeRegenScope === 'text_only') {
+      stepText.textContent = 'Synthesizing updated 3-poster narrative (preserving current poster artwork)...';
+    } else {
+      stepText.textContent = 'Reading source and extracting core tension...';
+    }
+  }
   if (fill) fill.style.width = '25%';
 
   const tickers = [];
-  tickers.push(setTimeout(() => {
-    if (stepText) stepText.textContent = 'Synthesizing 3-poster narrative (Hook → Take → Receipts)...';
-    if (fill) fill.style.width = '45%';
-  }, 1200));
+  if (activeRegenScope === 'visuals_only') {
+    tickers.push(setTimeout(() => {
+      if (stepText) stepText.textContent = 'Rendering new poster artwork with your updated visual direction...';
+      if (fill) fill.style.width = '68%';
+    }, 1400));
+  } else {
+    tickers.push(setTimeout(() => {
+      if (stepText) stepText.textContent = 'Synthesizing 3-poster narrative (Hook → Take → Receipts)...';
+      if (fill) fill.style.width = '45%';
+    }, 1200));
 
-  tickers.push(setTimeout(() => {
-    if (stepText) stepText.textContent = 'Drafting visual metaphors & editorial composition...';
-    if (fill) fill.style.width = '70%';
-  }, 2600));
+    tickers.push(setTimeout(() => {
+      if (stepText) {
+        stepText.textContent = activeRegenScope === 'text_only'
+          ? 'Polishing broadsheet copy & locking in your existing poster artwork...'
+          : 'Drafting visual metaphors & editorial composition...';
+      }
+      if (fill) fill.style.width = '70%';
+    }, 2600));
 
-  tickers.push(setTimeout(() => {
-    if (stepText) stepText.textContent = 'Polishing broadsheet copy, typography & color grade...';
-    if (fill) fill.style.width = '88%';
-  }, 4200));
+    tickers.push(setTimeout(() => {
+      if (stepText) stepText.textContent = 'Polishing broadsheet copy, typography & color grade...';
+      if (fill) fill.style.width = '88%';
+    }, 4200));
+  }
 
   // Author handle
   let userHandle = '@curator';
@@ -17175,6 +18008,174 @@ async function startAiSynthesis() {
   const isChronicleActive = (creatorSelectedSource === 'inner_voice' && isDailyChronicleMode);
   const activeChronicleMoments = isChronicleActive ? getActiveChronicleMomentsPayload() : [];
   const chronicleMomentImages = activeChronicleMoments.filter(m => Boolean(m.imageBase64));
+
+  // ============================================================
+  // MODE A: VISUALS ONLY (Preserves 100% of existing text on Slides 1-3)
+  // ============================================================
+  if (activeRegenScope === 'visuals_only' && baselinePost) {
+    const clearVisualsTimers = () => {
+      try { tickers.forEach(t => clearTimeout(t)); } catch (_) {}
+    };
+    try {
+      currentSynthesizedPost = baselinePost;
+      if (!window._regeneratingExistingPostId) {
+        currentSynthesizedPost.id = 'slant-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7);
+        currentSynthesizedPost.createdAt = new Date().toISOString();
+      }
+      currentSynthesizedPost.perspectiveMode = creatorPerspectiveMode || 'hybrid';
+      currentSynthesizedPost.characterRepresentation = creatorCharacterRepresentation || 'realistic';
+      currentSynthesizedPost.cues = [...creatorCuePills];
+      currentSynthesizedPost.heroCue = creatorCuePills[0] || currentSynthesizedPost.heroCue || '';
+      if (spark) currentSynthesizedPost.spark = spark;
+      if (cleanSourceImgUrl) currentSynthesizedPost.sourceImageUrl = cleanSourceImgUrl;
+      if (effectiveImageBase64) currentSynthesizedPost.sourceImageBase64 = effectiveImageBase64;
+      if (creatorSelectedSource === 'inner_voice' && innerVoicePhotoBase64) {
+        currentSynthesizedPost.catalystPhoto = innerVoicePhotoBase64;
+        currentSynthesizedPost.catalystPhotoBase64 = innerVoicePhotoBase64;
+        currentSynthesizedPost.originalPhotoBase64 = innerVoicePhotoBase64;
+        currentSynthesizedPost.originalPhotoMimeType = innerVoicePhotoMimeType || 'image/jpeg';
+      }
+      let refPhotoCandidate = currentSynthesizedPost.referencePhotoUrl
+        || currentSynthesizedPost.sourceImageUrl
+        || (currentSynthesizedPost.sourceImageBase64 ? (currentSynthesizedPost.sourceImageBase64.startsWith('data:') ? currentSynthesizedPost.sourceImageBase64 : `data:${currentSynthesizedPost.sourceImageMimeType || 'image/jpeg'};base64,${currentSynthesizedPost.sourceImageBase64}`) : null)
+        || null;
+      if (refPhotoCandidate && typeof refPhotoCandidate === 'string' && refPhotoCandidate.startsWith('http')) {
+        refPhotoCandidate = refPhotoCandidate.replace(/&amp;/g, '&');
+      }
+      currentSynthesizedPost.referencePhotoUrl = refPhotoCandidate;
+      if (currentSynthesizedPost.generationInputs) {
+        currentSynthesizedPost.generationInputs.perspectiveMode = creatorPerspectiveMode || 'hybrid';
+        currentSynthesizedPost.generationInputs.characterRepresentation = creatorCharacterRepresentation || 'realistic';
+        currentSynthesizedPost.generationInputs.countryContext = creatorCountryContext?.name || 'India';
+        currentSynthesizedPost.generationInputs.spark = spark || currentSynthesizedPost.generationInputs.spark || '';
+        currentSynthesizedPost.generationInputs.cues = [...creatorCuePills];
+        currentSynthesizedPost.generationInputs.heroCue = creatorCuePills[0] || '';
+      }
+
+      if (isChronicleActive && creatorCharacterRepresentation === 'exact' && chronicleMomentImages.length > 0) {
+        const exactCollageDataUrl = await buildClientExactChronicleCollage(activeChronicleMoments);
+        if (exactCollageDataUrl) {
+          currentSynthesizedPost.illustrationBase64 = exactCollageDataUrl;
+          currentSynthesizedPost.posterBase64 = exactCollageDataUrl;
+          currentSynthesizedPost.artworkPending = false;
+          delete currentSynthesizedPost.artworkError;
+        }
+      } else if (creatorCharacterRepresentation === 'exact' && currentSynthesizedPost.referencePhotoUrl) {
+        currentSynthesizedPost.illustrationUrl = currentSynthesizedPost.referencePhotoUrl;
+        currentSynthesizedPost.illustrationBase64 = currentSynthesizedPost.sourceImageBase64 || null;
+        currentSynthesizedPost.posterBase64 = currentSynthesizedPost.sourceImageBase64 || null;
+        currentSynthesizedPost.artworkPending = false;
+        delete currentSynthesizedPost.artworkError;
+      } else {
+        const userEmail = getResolvedCreatorEmail();
+        const artController = new AbortController();
+        const artTimeout = setTimeout(() => artController.abort(), 50000);
+        const artResp = await fetch('/api/synthesize', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'artwork_only',
+            isManualRegenerate: true,
+            rebuildPromptFromSettings: true,
+            creatorEmail: userEmail,
+            prompt: currentSynthesizedPost.illustrationPrompt || '',
+            perspectiveMode: creatorPerspectiveMode || 'source',
+            characterRepresentation: creatorCharacterRepresentation || 'realistic',
+            sourceType: currentSynthesizedPost.sourceType || creatorSelectedSource || 'digital_link',
+            userSlant: currentSynthesizedPost.userSlantTake || currentSynthesizedPost.polishedCuratorTake || slantTake || '',
+            spark: spark || currentSynthesizedPost.spark || '',
+            adaptedHeadline: currentSynthesizedPost.adaptedHeadline || '',
+            originalHeadline: currentSynthesizedPost.originalHeadline || currentSynthesizedPost.sourceHeadline || '',
+            scrapedTitle: (isLink && url) ? (currentScrapedArticle?.title || '') : (currentSynthesizedPost.generationInputs?.scrapedTitle || ''),
+            scrapedContent: (isLink && url) ? (currentScrapedArticle?.content || '').slice(0, 1500) : (currentSynthesizedPost.generationInputs?.scrapedContent || ''),
+            cues: creatorCuePills,
+            countryContext: creatorCountryContext?.name || 'India',
+            familyCast: getSanitizedCastPayload(familyCastProfileCache),
+            activeCast: getSanitizedActiveCastPayload(),
+            castStaging: { mode: activeCastStagingMode },
+            chronicleMode: isChronicleActive,
+            chronicleMomentImages: chronicleMomentImages,
+            imageBase64: (creatorSelectedSource === 'inner_voice' && innerVoicePhotoBase64 && shouldSendImage)
+              ? innerVoicePhotoBase64
+              : null,
+            imageMimeType: innerVoicePhotoMimeType || effectiveImageMime || 'image/jpeg'
+          }),
+          signal: artController.signal
+        });
+        clearTimeout(artTimeout);
+
+        if (artResp.ok) {
+          const artData = await artResp.json();
+          if (artData && artData.credits) {
+            updateCreatorStudioCreditBadge(artData.credits);
+          }
+          if (artData && artData.success && artData.illustrationBase64) {
+            const isDataUri = artData.illustrationBase64.startsWith('data:');
+            const formatted = isDataUri ? artData.illustrationBase64 : `data:image/png;base64,${artData.illustrationBase64}`;
+            await new Promise((resolve) => {
+              const preloadImg = new Image();
+              preloadImg.onload = () => resolve(true);
+              preloadImg.onerror = () => resolve(false);
+              preloadImg.src = formatted;
+            });
+            currentSynthesizedPost.illustrationBase64 = formatted;
+            currentSynthesizedPost.posterBase64 = formatted;
+            currentSynthesizedPost.artworkPending = false;
+            delete currentSynthesizedPost.artworkError;
+            if (artData.illustrationUrl) {
+              currentSynthesizedPost.illustrationUrl = artData.illustrationUrl;
+              currentSynthesizedPost.aiIllustrationUrl = artData.illustrationUrl;
+            }
+            const newPrompt = artData.updatedPrompt || artData.illustrationPrompt;
+            if (newPrompt) {
+              currentSynthesizedPost.illustrationPrompt = newPrompt;
+              if (currentSynthesizedPost.generationInputs) {
+                currentSynthesizedPost.generationInputs.illustrationPrompt = newPrompt;
+              }
+            }
+            if (Array.isArray(artData.cues) && artData.cues.length > 0) {
+              creatorCuePills = artData.cues;
+              currentSynthesizedPost.cues = artData.cues;
+              currentSynthesizedPost.heroCue = artData.cues[0] || currentSynthesizedPost.heroCue || '';
+              if (currentSynthesizedPost.generationInputs) {
+                currentSynthesizedPost.generationInputs.cues = [...artData.cues];
+                currentSynthesizedPost.generationInputs.heroCue = artData.cues[0] || '';
+              }
+              renderCuesDeck();
+            }
+          } else {
+            throw new Error(artData?.error || 'Artwork regeneration timed out. Please try again.');
+          }
+        } else {
+          throw new Error('Artwork service returned status ' + artResp.status);
+        }
+      }
+
+      clearVisualsTimers();
+      if (stepText) stepText.textContent = 'Updated poster visuals ready (editorial text preserved)!';
+      if (fill) fill.style.width = '100%';
+      setTimeout(() => {
+        if (window._synthVideoLoop) {
+          try { window._synthVideoLoop.stop(); } catch (_) {}
+          window._synthVideoLoop = null;
+        }
+        if (synthLoading) synthLoading.style.display = 'none';
+        showStep3Preview();
+      }, 350);
+      return;
+    } catch (visErr) {
+      clearVisualsTimers();
+      if (window._synthVideoLoop) {
+        try { window._synthVideoLoop.stop(); } catch (_) {}
+        window._synthVideoLoop = null;
+      }
+      if (cuesContent) cuesContent.style.display = 'flex';
+      if (synthLoading) synthLoading.style.display = 'none';
+      if (scopeBar) scopeBar.style.display = 'flex';
+      showTemporaryToast('⚠️ ' + (visErr.message || 'Visual regeneration failed. Please try again.'));
+      return;
+    }
+  }
 
   const payload = {
     sourceType: creatorSelectedSource,
@@ -17392,8 +18393,24 @@ async function startAiSynthesis() {
       }
     }
 
+    // ============================================================
+    // MODE B: TEXT ONLY (Preserves existing visual artwork from baselinePost)
+    // ============================================================
+    if (activeRegenScope === 'text_only' && baselinePost) {
+      currentSynthesizedPost.illustrationBase64 = baselinePost.illustrationBase64 || baselinePost.posterBase64 || null;
+      currentSynthesizedPost.posterBase64 = baselinePost.posterBase64 || baselinePost.illustrationBase64 || null;
+      currentSynthesizedPost.illustrationUrl = baselinePost.illustrationUrl || baselinePost.aiIllustrationUrl || '';
+      currentSynthesizedPost.aiIllustrationUrl = baselinePost.aiIllustrationUrl || baselinePost.illustrationUrl || '';
+      currentSynthesizedPost.illustrationPrompt = baselinePost.illustrationPrompt || currentSynthesizedPost.illustrationPrompt || '';
+      currentSynthesizedPost.characterRepresentation = baselinePost.characterRepresentation || currentSynthesizedPost.characterRepresentation;
+      currentSynthesizedPost.perspectiveMode = baselinePost.perspectiveMode || currentSynthesizedPost.perspectiveMode;
+      currentSynthesizedPost.artworkPending = false;
+      currentSynthesizedPost._preserveExistingVisuals = true;
+      delete currentSynthesizedPost.artworkError;
+    }
+
     // Hold logo animation until custom editorial illustration is actually loaded in memory
-    if (currentSynthesizedPost && !currentSynthesizedPost.illustrationBase64 && currentSynthesizedPost.illustrationPrompt) {
+    if (activeRegenScope !== 'text_only' && currentSynthesizedPost && !currentSynthesizedPost.illustrationBase64 && currentSynthesizedPost.illustrationPrompt) {
       if (stepText) stepText.textContent = isChronicleActive ? 'Composing Daily Chronicle collage around you at the center...' : 'Rendering custom editorial poster artwork & visual metaphors...';
       if (fill) fill.style.width = '88%';
 
@@ -17679,11 +18696,22 @@ function showStep3Preview() {
   const s3 = document.getElementById('creatorStep3');
   const d2 = document.getElementById('stepDot2');
   const d3 = document.getElementById('stepDot3');
+  const scopeBar = document.getElementById('creatorRegenScopeBar');
 
   if (s2) s2.style.display = 'none';
   if (s3) s3.style.display = 'flex';
+  if (scopeBar) scopeBar.style.display = 'none';
   if (d2) { d2.className = 'creator-step-dot completed'; }
   if (d3) { d3.className = 'creator-step-dot active'; }
+
+  // Snapshot the synthesized post as the baseline for any subsequent Regen action
+  if (currentSynthesizedPost) {
+    try {
+      window._regenBaselinePost = JSON.parse(JSON.stringify(currentSynthesizedPost));
+    } catch (_) {
+      window._regenBaselinePost = currentSynthesizedPost;
+    }
+  }
 
   const modalCard = document.querySelector('.creator-modal-card');
   if (modalCard) modalCard.scrollTop = 0;
@@ -17713,7 +18741,7 @@ function showStep3Preview() {
   renderCreatorPreview();
 
   // If AI artwork was not included in first phase, upgrade in background without blocking user
-  if (currentSynthesizedPost && !currentSynthesizedPost.illustrationBase64 && currentSynthesizedPost.illustrationPrompt) {
+  if (currentSynthesizedPost && !currentSynthesizedPost.illustrationBase64 && !currentSynthesizedPost.illustrationUrl && !currentSynthesizedPost._preserveExistingVisuals && currentSynthesizedPost.illustrationPrompt) {
     enhancePosterArtworkInBackground(currentSynthesizedPost);
   }
 }
@@ -18080,7 +19108,10 @@ function setupWholePosterGestures() {
 // --- Step 3 Toolbar Actions (Matches Flutter create_postcard_screen.dart:3417-3490) ---
 
 function handleStep3Regenerate() {
-  // Reopen the editor deck from the beginning (Step 1) without changing visual cues
+  // Enable 3-Way Regeneration Scope Toggle (Text Only | Both | Visuals Only) & reopen Step 1
+  if (typeof enableCreatorRegenMode === 'function' && (currentSynthesizedPost || window._regenBaselinePost)) {
+    enableCreatorRegenMode(currentSynthesizedPost || window._regenBaselinePost, 'Opened from Preview Regen');
+  }
   backToStep1();
 }
 

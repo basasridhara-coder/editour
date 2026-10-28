@@ -293,8 +293,9 @@ module.exports = async function handler(req, res) {
             });
           });
 
-          const promptBuilderText = `You are the Visual Director for SLANT. Build a fresh "illustrationPrompt" and 6 visual "cues" for Poster 1 based on the curator's updated Studio Settings:
-- Medium & Portrayal Style: ${stylePrefix}
+          const previousPrompt = String(prompt || '').trim();
+          const promptBuilderText = `You are the Visual Director for SLANT. Build a fresh, distinctly new "illustrationPrompt" and 6 visual "cues" for Poster 1 based on the curator's updated Studio Settings:
+- Medium & Portrayal Style (MANDATORY PRIMARY MEDIUM): ${stylePrefix}
 - ${focusRule}
 - Regional & Cultural Setting: ${countryContext || 'India'}
 - Headline: "${adaptedHeadline}"
@@ -302,6 +303,7 @@ module.exports = async function handler(req, res) {
 ${spark ? `- Spark / Catalyst: "${spark}"` : ''}
 ${scrapedTitle ? `- Source Title: "${scrapedTitle}"` : ''}
 ${scrapedContent ? `- Source Context: "${String(scrapedContent).slice(0, 600)}"` : ''}
+${previousPrompt ? `\nPREVIOUS VISUAL PROMPT (DO NOT REPEAT THIS COMPOSITION OR POSE):\n"${previousPrompt.slice(0, 500)}"\n\nCRITICAL VISUAL REGENERATION & VARIATION DIRECTIVE:\nThe curator explicitly requested a fresh visual regeneration. You MUST create a SIGNIFICANTLY DIFFERENT visual scene from the previous prompt above: choose a fresh visual metaphor or focal action, a noticeably different camera angle/perspective (e.g., wide atmospheric establishing shot vs. dramatic over-the-shoulder angle vs. symbolic close-up focal object), a distinct lighting palette, and strictly apply the selected Medium & Portrayal Style (${stylePrefix}).` : ''}
 ${familyCastDirectives ? `\nMANDATORY CASTING VAULT & PROTAGONIST ANCHORS:\n${familyCastDirectives.systemPromptSection}` : ''}
 ${validRebuildMomentImgs.length > 0 ? `\nCRITICAL ATTACHED MOMENT PHOTO / LOGO INTEGRATION DIRECTIVE:\n- The curator attached ${validRebuildMomentImgs.length} reference image(s) for specific moment(s) of their Daily Chronicle.\n- Inspect each attached image above and explicitly describe its exact visual graphic, emblem, or scene in "illustrationPrompt" so it is prominently featured inside its corresponding moment vignette (for example, if an attached image is a black fountain-pen nib emblem containing a contemplative upward-tilted portrait face on a cream background for an app-launch moment, explicitly instruct "illustrationPrompt" to display that exact black fountain-pen nib portrait emblem large and crisp on the glowing smartphone screen in that vignette rather than a generic blank screen).` : ''}
 ${customDirection ? `\nCURATOR'S SPECIFIC VISUAL DIRECTION: "${customDirection}"` : ''}
@@ -313,21 +315,21 @@ STRICT RULES:
   : `If multiple family members are in MANDATORY CASTING VAULT & PROTAGONIST ANCHORS, you MUST include ALL ${familyCastDirectives ? familyCastDirectives.totalCount : ''} family members visibly side by side in the foreground (including both sons with their graduated height difference and contrasting navy-blue vs bright emerald-green t-shirts when the kids are present).`}
 3. Output strictly valid JSON:
 {
-  "illustrationPrompt": "Detailed 80-130 word visual prompt beginning with the medium style, describing the exact protagonists, setting, lighting, and each vignette (including any attached logo/photo subject). No random text or letters.",
+  "illustrationPrompt": "Detailed 80-130 word visual prompt beginning with the exact Medium & Portrayal Style, describing a fresh scene composition, exact protagonists, setting, and lighting. No random text or letters.",
   "cues": ["#1 HERO (3-6 words)", "#2 MOTIF", "#3 TENSION", "#4 ATMOSPHERE", "#5 LIGHTING", "#6 STYLE"]
 }`;
           rebuildParts.push({ text: promptBuilderText });
           const gUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
           const pCtrl = new AbortController();
-          const pTimer = setTimeout(() => pCtrl.abort(), 9000);
+          const pTimer = setTimeout(() => pCtrl.abort(), 11000);
+          let promptRebuiltSuccessfully = false;
           const pResp = await fetch(gUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               contents: [{ parts: rebuildParts }],
               generationConfig: {
-                temperature: 0.65,
-                thinkingBudget: 0,
+                temperature: 0.9,
                 thinkingConfig: { thinkingBudget: 0 },
                 responseMimeType: 'application/json'
               }
@@ -342,13 +344,22 @@ STRICT RULES:
             const parsedP = JSON.parse(raw);
             if (parsedP && parsedP.illustrationPrompt) {
               prompt = parsedP.illustrationPrompt;
+              promptRebuiltSuccessfully = true;
               if (Array.isArray(parsedP.cues) && parsedP.cues.length > 0) {
                 updatedCues = parsedP.cues;
               }
             }
           }
-        } catch (_) {}
+          if (!promptRebuiltSuccessfully) {
+            prompt = `${stylePrefix}. ${focusRule} Depict a fresh editorial perspective and distinct camera framing for "${adaptedHeadline || userSlant}"${spark ? ` inspired by "${spark}"` : ''} in ${countryContext || 'India'}.`;
+          }
+        } catch (_) {
+          prompt = `${stylePrefix}. ${focusRule} Depict a fresh editorial perspective and distinct camera framing for "${adaptedHeadline || userSlant}"${spark ? ` inspired by "${spark}"` : ''} in ${countryContext || 'India'}.`;
+        }
 
+        if (!prompt.toLowerCase().includes(stylePrefix.slice(0, 24).toLowerCase())) {
+          prompt = `${stylePrefix}. ${prompt}`;
+        }
         if (!chronicleMode && familyCastDirectives && familyCastDirectives.promptSnippet && !prompt.includes(familyCastDirectives.promptSnippet.slice(0, 28))) {
           prompt = `${stylePrefix}. ${familyCastDirectives.promptSnippet}. ${prompt}`;
         }
@@ -380,6 +391,7 @@ STRICT RULES:
             success: true,
             illustrationBase64: cleanB64,
             illustrationPrompt: prompt,
+            updatedPrompt: prompt,
             cues: updatedCues,
             credits: creditCheck.credits
           });
