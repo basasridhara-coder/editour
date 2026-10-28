@@ -29,7 +29,7 @@
   <link rel="preconnect" href="https://fxfklefnkpmhofncqhfh.supabase.co" crossorigin>
   <link rel="preconnect" href="https://accounts.google.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Merriweather:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,400;1,600;1,700;1,900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261028_1645">
+  <link rel="stylesheet" href="style.css?v=20261028_1745">
   <!-- Favicon & Brand Icons -->
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
@@ -364,6 +364,29 @@
         <div class="creator-header-right-actions" style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
           <span id="creatorStudioCreditBadge" onclick="if(typeof isCurrentUserAdmin!=='undefined' && isCurrentUserAdmin){openAdminBetaModal();}" style="display:none; align-items:center; gap:4px; font-size:11px; font-weight:800; padding:4px 9px; border-radius:99px; background:rgba(16,185,129,0.14); color:#34D399; border:1px solid rgba(16,185,129,0.35); cursor:pointer; white-space:nowrap;" title="Your available Slant Studio poster credits for today">⚡ 5 left</span>
           <button class="modal-close" onclick="closeCreatorModal()">&times;</button>
+        </div>
+      </div>
+
+      <!-- 3-Way Regeneration Scope Toggle (Left: Text Only | Center: Both | Right: Visuals Only) -->
+      <div class="creator-regen-scope-bar is-locked-fresh" id="creatorRegenScopeBar">
+        <div class="regen-scope-top-row">
+          <span class="regen-scope-label" id="regenScopeModeLabel">GENERATION SCOPE</span>
+          <span class="regen-scope-hint" id="regenScopeStatusHint">🔒 Fresh Slant: Generates both text &amp; visuals</span>
+        </div>
+        <div class="regen-scope-track" id="regenScopeTrack" data-scope="both" role="radiogroup" aria-label="Generation Scope">
+          <div class="regen-scope-thumb" id="regenScopeThumb"></div>
+          <button type="button" class="regen-scope-option" id="regenScopeBtnText" data-scope="text_only" onclick="setCreatorRegenScope('text_only', true)" disabled title="Regenerate only text across all 3 slides and keep current poster artwork">
+            <span class="scope-opt-icon">📝</span>
+            <span class="scope-opt-text">Text Only</span>
+          </button>
+          <button type="button" class="regen-scope-option active" id="regenScopeBtnBoth" data-scope="both" onclick="setCreatorRegenScope('both', true)" title="Generate both editorial text and poster visuals">
+            <span class="scope-opt-icon">✨</span>
+            <span class="scope-opt-text">Both (Text &amp; Visuals)</span>
+          </button>
+          <button type="button" class="regen-scope-option" id="regenScopeBtnVisuals" data-scope="visuals_only" onclick="setCreatorRegenScope('visuals_only', true)" disabled title="Regenerate only poster visuals and keep current editorial text">
+            <span class="scope-opt-icon">🎨</span>
+            <span class="scope-opt-text">Visuals Only</span>
+          </button>
         </div>
       </div>
 
@@ -2310,6 +2333,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261028_1645"></script>
+  <script src="app.js?v=20261028_1745"></script>
 </body>
 </html>

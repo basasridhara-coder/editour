@@ -7447,6 +7447,18 @@ function loadPostIntoStudioToRegenerate(postId) {
     setInnerVoiceSubmode('single');
   }
 
+  // Enable 3-Way Regeneration Scope Toggle (Text Only | Both | Visuals Only) with Smart Auto-Switch
+  try {
+    const clonedBaseline = JSON.parse(JSON.stringify(post));
+    if (!clonedBaseline.illustrationUrl && post.id) {
+      clonedBaseline.illustrationUrl = `/posters/${post.id}.png`;
+    }
+    clonedBaseline.id = 'slant-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7);
+    if (typeof enableCreatorRegenMode === 'function') {
+      enableCreatorRegenMode(clonedBaseline, 'Loaded from Generation Inputs');
+    }
+  } catch (_) {}
+
   showTemporaryToast('✨ Loaded inputs into Creator Studio! Tweak or regenerate 🚀');
 }
 
@@ -11526,6 +11538,9 @@ function setFamilyCastStagingMode(mode) {
     if (!el) return;
     el.classList.toggle('active', mode === targetMode);
   });
+  if (typeof evaluateSmartRegenScopeAutoSwitch === 'function') {
+    evaluateSmartRegenScopeAutoSwitch();
+  }
 }
 
 function toggleActiveCastMember(memberId) {
@@ -11536,6 +11551,9 @@ function toggleActiveCastMember(memberId) {
     activeCastMemberIds.add(memberId);
   }
   renderFamilyCastStagingUI();
+  if (typeof evaluateSmartRegenScopeAutoSwitch === 'function') {
+    evaluateSmartRegenScopeAutoSwitch();
+  }
 }
 
 function clearActiveCastSelection() {
@@ -11974,12 +11992,18 @@ function toggleChronicleMomentStar(idx, event) {
   if (nextVal && typeof showTemporaryToast === 'function') {
     showTemporaryToast(`★ Moment 0${idx + 1} marked as important! It will get the larger showcase space in Poster 1.`);
   }
+  if (typeof evaluateSmartRegenScopeAutoSwitch === 'function') {
+    evaluateSmartRegenScopeAutoSwitch();
+  }
 }
 
 function onChronicleMomentInput(idx, field, val) {
   if (!dailyChronicleMoments[idx]) return;
   dailyChronicleMoments[idx][field] = val;
   syncChronicleMomentsToSlantInput();
+  if (typeof evaluateSmartRegenScopeAutoSwitch === 'function') {
+    evaluateSmartRegenScopeAutoSwitch();
+  }
 }
 
 function syncChronicleMomentsToSlantInput() {
@@ -12232,6 +12256,9 @@ function toggleRefineCoreTake(val) {
     }
     if (sub) sub.textContent = 'Keeps your exact typed words verbatim on Poster 2 without rephrasing.';
   }
+  if (typeof evaluateSmartRegenScopeAutoSwitch === 'function') {
+    evaluateSmartRegenScopeAutoSwitch();
+  }
 }
 
 let creatorVocabularyStyle = 'casual'; // Internal default: Casual with simple, easily understood words
@@ -12256,6 +12283,9 @@ function setVocabularyStyle(style) {
     if (badge) badge.textContent = '⚡ Punchy';
     if (sub) sub.textContent = 'Emotional, vivid & clear. Strong verbs, zero academic jargon. Reads effortlessly.';
   }
+  if (typeof evaluateSmartRegenScopeAutoSwitch === 'function') {
+    evaluateSmartRegenScopeAutoSwitch();
+  }
 }
 
 let creatorPerspectiveMode = 'source'; // 'curator' | 'hybrid' | 'source' (Default: 'source')
@@ -12266,6 +12296,9 @@ function setPerspectiveMode(mode, fromUserClick = false) {
   }
   const prevMode = creatorPerspectiveMode;
   creatorPerspectiveMode = mode;
+  if (fromUserClick && typeof evaluateSmartRegenScopeAutoSwitch === 'function') {
+    setTimeout(() => evaluateSmartRegenScopeAutoSwitch(), 0);
+  }
 
   document.querySelectorAll('.slant-perspective-pill').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.perspective === mode);
@@ -13538,6 +13571,7 @@ function openCreatorModal(resumeDraftId = null) {
       checkAndTriggerFamilyCast(combined);
       onCreatorStage1InputChange();
       autoSaveCreatorFormState(false);
+      if (typeof evaluateSmartRegenScopeAutoSwitch === 'function') evaluateSmartRegenScopeAutoSwitch();
     });
   }
   const sparkInput = document.getElementById('creatorSparkInput');
@@ -13548,6 +13582,7 @@ function openCreatorModal(resumeDraftId = null) {
       const combined = (sltInput ? sltInput.value : '') + ' ' + (sparkInput.value || '');
       checkAndTriggerFamilyCast(combined);
       autoSaveCreatorFormState(false);
+      if (typeof evaluateSmartRegenScopeAutoSwitch === 'function') evaluateSmartRegenScopeAutoSwitch();
     });
   }
   const urlInput = document.getElementById('creatorUrlInput');
@@ -13555,6 +13590,7 @@ function openCreatorModal(resumeDraftId = null) {
     urlInput.dataset.draftAutosaveAttached = 'true';
     urlInput.addEventListener('input', () => {
       autoSaveCreatorFormState(false);
+      if (typeof evaluateSmartRegenScopeAutoSwitch === 'function') evaluateSmartRegenScopeAutoSwitch();
     });
   }
 }
@@ -13914,6 +13950,9 @@ function handleInnerVoicePhotoSelect(event) {
     if (preview) preview.style.display = 'flex';
     const emptyBox = document.getElementById('innerVoicePhotoEmpty');
     if (emptyBox) emptyBox.style.display = 'none';
+    if (typeof evaluateSmartRegenScopeAutoSwitch === 'function') {
+      evaluateSmartRegenScopeAutoSwitch();
+    }
   });
 }
 
@@ -13938,6 +13977,9 @@ function removeInnerVoicePhoto(event) {
     creatorReferenceImageBase64 = null;
     creatorReferenceImageSourceLabel = null;
     updateReferencePhotoUI();
+  }
+  if (typeof evaluateSmartRegenScopeAutoSwitch === 'function') {
+    evaluateSmartRegenScopeAutoSwitch();
   }
 }
 
@@ -13968,6 +14010,207 @@ function setupCreatorDropzone() {
   dropzoneInitialized = true;
 }
 
+// ============================================================
+// 3-Way Regeneration Scope Toggle (Text Only | Both | Visuals Only) + Smart Auto-Switch
+// ============================================================
+let creatorRegenScope = 'both'; // 'text_only' | 'both' | 'visuals_only'
+window._isCreatorRegenMode = false;
+window._regenBaselinePost = null;
+window._regenBaselineInputs = null;
+window._userManuallySetRegenScope = false;
+window._regenAutoSwitchReason = '';
+
+function getCreatorRegenInputsSnapshot() {
+  const urlInput = document.getElementById('creatorUrlInput');
+  const slantInput = document.getElementById('creatorSlantTakeInput');
+  const sparkInput = document.getElementById('creatorSparkInput');
+  const momentsTextSig = (typeof dailyChronicleMoments !== 'undefined' && Array.isArray(dailyChronicleMoments))
+    ? dailyChronicleMoments.map(m => `${(m.title || '').trim()}::${(m.text || '').trim()}`).join('||')
+    : '';
+  const momentsVisualSig = (typeof dailyChronicleMoments !== 'undefined' && Array.isArray(dailyChronicleMoments))
+    ? dailyChronicleMoments.map(m => `${Boolean(m.isStarred)}::${(m.imageBase64 || '').slice(0, 64)}`).join('||')
+    : '';
+  const activeCastSig = (typeof activeCastMemberIds !== 'undefined' && activeCastMemberIds instanceof Set)
+    ? Array.from(activeCastMemberIds).sort().join(',')
+    : '';
+
+  return {
+    sourceType: typeof creatorSelectedSource !== 'undefined' ? (creatorSelectedSource || 'digital_link') : 'digital_link',
+    isChronicle: typeof isDailyChronicleMode !== 'undefined' ? Boolean(isDailyChronicleMode) : false,
+    url: urlInput ? urlInput.value.trim() : '',
+    slantTake: slantInput ? slantInput.value.trim() : '',
+    refineCoreTake: typeof creatorRefineCoreTake !== 'undefined' ? Boolean(creatorRefineCoreTake) : true,
+    vocabularyStyle: typeof creatorVocabularyStyle !== 'undefined' ? (creatorVocabularyStyle || 'casual') : 'casual',
+    momentsTextSig,
+    spark: sparkInput ? sparkInput.value.trim() : '',
+    characterRepresentation: typeof creatorCharacterRepresentation !== 'undefined' ? (creatorCharacterRepresentation || 'realistic') : 'realistic',
+    perspectiveMode: typeof creatorPerspectiveMode !== 'undefined' ? (creatorPerspectiveMode || 'source') : 'source',
+    countryCode: (typeof creatorCountryContext !== 'undefined' && creatorCountryContext?.code) || document.getElementById('countryContextSelect')?.value || 'IN',
+    refPhotoSig: ((typeof creatorReferenceImageBase64 !== 'undefined' && creatorReferenceImageBase64) || (typeof innerVoicePhotoBase64 !== 'undefined' && innerVoicePhotoBase64) || '').slice(0, 80),
+    activeCastSig,
+    castStagingMode: typeof activeCastStagingMode !== 'undefined' ? activeCastStagingMode : 'vehicle_rhd',
+    momentsVisualSig
+  };
+}
+
+function updateCreatorRegenScopeUI() {
+  const bar = document.getElementById('creatorRegenScopeBar');
+  const track = document.getElementById('regenScopeTrack');
+  const hint = document.getElementById('regenScopeStatusHint');
+  const modeLabel = document.getElementById('regenScopeModeLabel');
+  const btnText = document.getElementById('regenScopeBtnText');
+  const btnBoth = document.getElementById('regenScopeBtnBoth');
+  const btnVisuals = document.getElementById('regenScopeBtnVisuals');
+
+  const isLockedFresh = !window._isCreatorRegenMode;
+  const effectiveScope = isLockedFresh ? 'both' : (creatorRegenScope || 'both');
+
+  if (bar) {
+    bar.classList.toggle('is-locked-fresh', isLockedFresh);
+    bar.classList.toggle('is-regen-unlocked', !isLockedFresh);
+  }
+  if (track) {
+    track.setAttribute('data-scope', effectiveScope);
+  }
+  if (btnText) {
+    btnText.disabled = isLockedFresh;
+    btnText.classList.toggle('active', effectiveScope === 'text_only');
+  }
+  if (btnBoth) {
+    btnBoth.disabled = false;
+    btnBoth.classList.toggle('active', effectiveScope === 'both');
+  }
+  if (btnVisuals) {
+    btnVisuals.disabled = isLockedFresh;
+    btnVisuals.classList.toggle('active', effectiveScope === 'visuals_only');
+  }
+
+  if (modeLabel) {
+    modeLabel.textContent = isLockedFresh ? 'GENERATION SCOPE' : 'REGENERATION SCOPE';
+  }
+
+  if (hint) {
+    if (isLockedFresh) {
+      hint.innerHTML = '🔒 Fresh Slant: Generates both text &amp; visuals';
+    } else if (window._regenAutoSwitchReason && !window._userManuallySetRegenScope) {
+      hint.innerHTML = `✨ ${escapeHtml(window._regenAutoSwitchReason)}`;
+    } else if (effectiveScope === 'text_only') {
+      hint.innerHTML = '📝 Regenerates all 3 slides text • Keeps current poster visual';
+    } else if (effectiveScope === 'visuals_only') {
+      hint.innerHTML = '🎨 Regenerates poster artwork • Keeps current text untouched';
+    } else {
+      hint.innerHTML = '✨ Regenerates both editorial text &amp; poster artwork';
+    }
+  }
+
+  const s1BtnText = document.querySelector('#step1SynthesizeBtn .btn-text');
+  const s2BtnText = document.querySelector('#synthesizeBtn .btn-text');
+  if (isLockedFresh) {
+    if (s1BtnText) s1BtnText.textContent = 'Synthesize Posters';
+    if (s2BtnText) s2BtnText.textContent = 'Generate Carousel';
+  } else if (effectiveScope === 'text_only') {
+    if (s1BtnText) s1BtnText.textContent = 'Regenerate Text Only';
+    if (s2BtnText) s2BtnText.textContent = 'Regenerate Text Only';
+  } else if (effectiveScope === 'visuals_only') {
+    if (s1BtnText) s1BtnText.textContent = 'Regenerate Visuals Only';
+    if (s2BtnText) s2BtnText.textContent = 'Regenerate Visuals Only';
+  } else {
+    if (s1BtnText) s1BtnText.textContent = 'Regenerate Both';
+    if (s2BtnText) s2BtnText.textContent = 'Regenerate Carousel (Both)';
+  }
+}
+
+function setCreatorRegenScope(scope, fromUserClick = false) {
+  if (fromUserClick && !window._isCreatorRegenMode) {
+    if (typeof showTemporaryToast === 'function') {
+      showTemporaryToast('🔒 Fresh Slants always generate both text and visuals.');
+    }
+    return;
+  }
+  if (scope !== 'text_only' && scope !== 'both' && scope !== 'visuals_only') {
+    scope = 'both';
+  }
+  creatorRegenScope = scope;
+  if (fromUserClick) {
+    window._userManuallySetRegenScope = true;
+    window._regenAutoSwitchReason = '';
+  }
+  updateCreatorRegenScopeUI();
+}
+
+function enableCreatorRegenMode(baselinePost, reasonLabel = '') {
+  if (baselinePost) {
+    try {
+      window._regenBaselinePost = JSON.parse(JSON.stringify(baselinePost));
+    } catch (_) {
+      window._regenBaselinePost = baselinePost;
+    }
+  }
+  window._isCreatorRegenMode = true;
+  window._userManuallySetRegenScope = false;
+  window._regenAutoSwitchReason = reasonLabel ? `${reasonLabel} • Slide left for Text Only or right for Visuals Only` : '';
+  creatorRegenScope = 'both';
+  window._regenBaselineInputs = getCreatorRegenInputsSnapshot();
+  const bar = document.getElementById('creatorRegenScopeBar');
+  if (bar) bar.style.display = 'flex';
+  updateCreatorRegenScopeUI();
+}
+
+function resetCreatorRegenModeToFresh() {
+  window._isCreatorRegenMode = false;
+  window._regenBaselinePost = null;
+  window._regenBaselineInputs = null;
+  window._userManuallySetRegenScope = false;
+  window._regenAutoSwitchReason = '';
+  creatorRegenScope = 'both';
+  const bar = document.getElementById('creatorRegenScopeBar');
+  if (bar) bar.style.display = 'flex';
+  updateCreatorRegenScopeUI();
+}
+
+function evaluateSmartRegenScopeAutoSwitch() {
+  if (!window._isCreatorRegenMode || !window._regenBaselineInputs) return;
+  if (window._userManuallySetRegenScope) return;
+
+  const base = window._regenBaselineInputs;
+  const curr = getCreatorRegenInputsSnapshot();
+
+  const textChanged = (
+    curr.sourceType !== base.sourceType ||
+    curr.isChronicle !== base.isChronicle ||
+    curr.url !== base.url ||
+    curr.slantTake !== base.slantTake ||
+    curr.refineCoreTake !== base.refineCoreTake ||
+    curr.vocabularyStyle !== base.vocabularyStyle ||
+    curr.momentsTextSig !== base.momentsTextSig
+  );
+
+  const visualChanged = (
+    curr.spark !== base.spark ||
+    curr.characterRepresentation !== base.characterRepresentation ||
+    curr.perspectiveMode !== base.perspectiveMode ||
+    curr.countryCode !== base.countryCode ||
+    curr.refPhotoSig !== base.refPhotoSig ||
+    curr.activeCastSig !== base.activeCastSig ||
+    curr.castStagingMode !== base.castStagingMode ||
+    curr.momentsVisualSig !== base.momentsVisualSig
+  );
+
+  if (textChanged && !visualChanged) {
+    window._regenAutoSwitchReason = 'Auto-selected Text Only (keeps your current poster artwork)';
+    setCreatorRegenScope('text_only', false);
+  } else if (visualChanged && !textChanged) {
+    window._regenAutoSwitchReason = 'Auto-selected Visuals Only (keeps your current poster text)';
+    setCreatorRegenScope('visuals_only', false);
+  } else if (textChanged && visualChanged) {
+    window._regenAutoSwitchReason = 'Auto-selected Both (text & visual settings modified)';
+    setCreatorRegenScope('both', false);
+  } else {
+    window._regenAutoSwitchReason = 'Slide left for Text Only or right for Visuals Only';
+    setCreatorRegenScope('both', false);
+  }
+}
+
 function backToStep1() {
   if (typeof clearMandatoryFieldPrompts === 'function') {
     clearMandatoryFieldPrompts();
@@ -13978,10 +14221,18 @@ function backToStep1() {
   const d1 = document.getElementById('stepDot1');
   const d2 = document.getElementById('stepDot2');
   const d3 = document.getElementById('stepDot3');
+  const scopeBar = document.getElementById('creatorRegenScopeBar');
 
   if (s1) s1.style.display = 'block';
   if (s2) s2.style.display = 'none';
   if (s3) s3.style.display = 'none';
+  if (scopeBar) scopeBar.style.display = 'flex';
+
+  if (currentSynthesizedPost && !window._isCreatorRegenMode) {
+    enableCreatorRegenMode(currentSynthesizedPost, 'Editing generated deck');
+  } else {
+    updateCreatorRegenScopeUI();
+  }
 
   if (d1) { d1.className = 'creator-step-dot active'; }
   if (d2) { d2.className = 'creator-step-dot'; }
@@ -14288,6 +14539,9 @@ function changeCountryContext(code) {
     showTemporaryToast(`🔄 Setting changed to ${creatorCountryContext.name}: Updating visual cues...`);
     triggerCueSuggest();
   }
+  if (prevCode && prevCode !== code && typeof evaluateSmartRegenScopeAutoSwitch === 'function') {
+    evaluateSmartRegenScopeAutoSwitch();
+  }
 }
 
 // Reference Photo Likeness State
@@ -14336,6 +14590,7 @@ function resetCreatorState() {
   setPerspectiveMode('source');
   creatorCharacterRepresentation = 'realistic';
   creatorSettingsGenerated = false;
+  resetCreatorRegenModeToFresh();
   resetStage1ActionBtn();
   const eqBadge = document.getElementById('creatorEqualizerBadge');
   if (eqBadge) {
@@ -15748,6 +16003,9 @@ async function goToVisualCuesStep() {
   if (s3) s3.style.display = 'none';
   if (cuesContent) cuesContent.style.display = 'flex';
   if (synthLoading) synthLoading.style.display = 'none';
+  const scopeBar = document.getElementById('creatorRegenScopeBar');
+  if (scopeBar) scopeBar.style.display = 'flex';
+  updateCreatorRegenScopeUI();
 
   if (d1) d1.className = 'creator-step-dot completed';
   if (d2) d2.className = 'creator-step-dot active';
@@ -16554,10 +16812,14 @@ function selectCharacterRepresentation(type) {
   if (type !== 'realistic' && type !== 'silhouette' && type !== 'exact' && type !== 'cinematic' && type !== 'painting' && type !== 'watercolor' && type !== 'likeness') {
     type = 'realistic';
   }
+  const prevRep = creatorCharacterRepresentation;
   creatorCharacterRepresentation = type;
   updateReferencePhotoUI();
   if (typeof updateEqualizerPortrayalUI === 'function') {
     updateEqualizerPortrayalUI();
+  }
+  if (prevRep !== type && typeof evaluateSmartRegenScopeAutoSwitch === 'function') {
+    evaluateSmartRegenScopeAutoSwitch();
   }
 }
 
@@ -16630,6 +16892,19 @@ async function startAiSynthesis() {
   const synthLoading = document.getElementById('synthesisLoadingState');
   const stepText = document.getElementById('synthesisStepText');
   const fill = document.getElementById('synthesisProgressFill');
+  const scopeBar = document.getElementById('creatorRegenScopeBar');
+  if (scopeBar) scopeBar.style.display = 'none';
+
+  const isRegenWithBaseline = Boolean(window._isCreatorRegenMode && (currentSynthesizedPost || window._regenBaselinePost));
+  const activeRegenScope = isRegenWithBaseline ? (creatorRegenScope || 'both') : 'both';
+  let baselinePost = null;
+  if (isRegenWithBaseline) {
+    try {
+      baselinePost = JSON.parse(JSON.stringify(currentSynthesizedPost || window._regenBaselinePost));
+    } catch (_) {
+      baselinePost = currentSynthesizedPost || window._regenBaselinePost;
+    }
+  }
 
   if (cuesContent) cuesContent.style.display = 'none';
   if (synthLoading) {
@@ -16650,24 +16925,43 @@ async function startAiSynthesis() {
     }
   }
 
-  if (stepText) stepText.textContent = 'Reading source and extracting core tension...';
+  if (stepText) {
+    if (activeRegenScope === 'visuals_only') {
+      stepText.textContent = 'Keeping your editorial text • Rebuilding visual prompt & composition...';
+    } else if (activeRegenScope === 'text_only') {
+      stepText.textContent = 'Synthesizing updated 3-poster narrative (preserving current poster artwork)...';
+    } else {
+      stepText.textContent = 'Reading source and extracting core tension...';
+    }
+  }
   if (fill) fill.style.width = '25%';
 
   const tickers = [];
-  tickers.push(setTimeout(() => {
-    if (stepText) stepText.textContent = 'Synthesizing 3-poster narrative (Hook → Take → Receipts)...';
-    if (fill) fill.style.width = '45%';
-  }, 1200));
+  if (activeRegenScope === 'visuals_only') {
+    tickers.push(setTimeout(() => {
+      if (stepText) stepText.textContent = 'Rendering new poster artwork with your updated visual direction...';
+      if (fill) fill.style.width = '68%';
+    }, 1400));
+  } else {
+    tickers.push(setTimeout(() => {
+      if (stepText) stepText.textContent = 'Synthesizing 3-poster narrative (Hook → Take → Receipts)...';
+      if (fill) fill.style.width = '45%';
+    }, 1200));
 
-  tickers.push(setTimeout(() => {
-    if (stepText) stepText.textContent = 'Drafting visual metaphors & editorial composition...';
-    if (fill) fill.style.width = '70%';
-  }, 2600));
+    tickers.push(setTimeout(() => {
+      if (stepText) {
+        stepText.textContent = activeRegenScope === 'text_only'
+          ? 'Polishing broadsheet copy & locking in your existing poster artwork...'
+          : 'Drafting visual metaphors & editorial composition...';
+      }
+      if (fill) fill.style.width = '70%';
+    }, 2600));
 
-  tickers.push(setTimeout(() => {
-    if (stepText) stepText.textContent = 'Polishing broadsheet copy, typography & color grade...';
-    if (fill) fill.style.width = '88%';
-  }, 4200));
+    tickers.push(setTimeout(() => {
+      if (stepText) stepText.textContent = 'Polishing broadsheet copy, typography & color grade...';
+      if (fill) fill.style.width = '88%';
+    }, 4200));
+  }
 
   // Author handle
   let userHandle = '@curator';
@@ -16692,6 +16986,163 @@ async function startAiSynthesis() {
   const isChronicleActive = (creatorSelectedSource === 'inner_voice' && isDailyChronicleMode);
   const activeChronicleMoments = isChronicleActive ? getActiveChronicleMomentsPayload() : [];
   const chronicleMomentImages = activeChronicleMoments.filter(m => Boolean(m.imageBase64));
+
+  // ============================================================
+  // MODE A: VISUALS ONLY (Preserves 100% of existing text on Slides 1-3)
+  // ============================================================
+  if (activeRegenScope === 'visuals_only' && baselinePost) {
+    const clearVisualsTimers = () => {
+      try { tickers.forEach(t => clearTimeout(t)); } catch (_) {}
+    };
+    try {
+      currentSynthesizedPost = baselinePost;
+      if (!window._regeneratingExistingPostId) {
+        currentSynthesizedPost.id = 'slant-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7);
+        currentSynthesizedPost.createdAt = new Date().toISOString();
+      }
+      currentSynthesizedPost.perspectiveMode = creatorPerspectiveMode || 'hybrid';
+      currentSynthesizedPost.characterRepresentation = creatorCharacterRepresentation || 'realistic';
+      currentSynthesizedPost.cues = [...creatorCuePills];
+      currentSynthesizedPost.heroCue = creatorCuePills[0] || currentSynthesizedPost.heroCue || '';
+      if (spark) currentSynthesizedPost.spark = spark;
+      if (cleanSourceImgUrl) currentSynthesizedPost.sourceImageUrl = cleanSourceImgUrl;
+      if (effectiveImageBase64) currentSynthesizedPost.sourceImageBase64 = effectiveImageBase64;
+      if (creatorSelectedSource === 'inner_voice' && innerVoicePhotoBase64) {
+        currentSynthesizedPost.catalystPhoto = innerVoicePhotoBase64;
+        currentSynthesizedPost.catalystPhotoBase64 = innerVoicePhotoBase64;
+        currentSynthesizedPost.originalPhotoBase64 = innerVoicePhotoBase64;
+        currentSynthesizedPost.originalPhotoMimeType = innerVoicePhotoMimeType || 'image/jpeg';
+      }
+      let refPhotoCandidate = currentSynthesizedPost.referencePhotoUrl
+        || currentSynthesizedPost.sourceImageUrl
+        || (currentSynthesizedPost.sourceImageBase64 ? (currentSynthesizedPost.sourceImageBase64.startsWith('data:') ? currentSynthesizedPost.sourceImageBase64 : `data:${currentSynthesizedPost.sourceImageMimeType || 'image/jpeg'};base64,${currentSynthesizedPost.sourceImageBase64}`) : null)
+        || null;
+      if (refPhotoCandidate && typeof refPhotoCandidate === 'string' && refPhotoCandidate.startsWith('http')) {
+        refPhotoCandidate = refPhotoCandidate.replace(/&amp;/g, '&');
+      }
+      currentSynthesizedPost.referencePhotoUrl = refPhotoCandidate;
+      if (currentSynthesizedPost.generationInputs) {
+        currentSynthesizedPost.generationInputs.perspectiveMode = creatorPerspectiveMode || 'hybrid';
+        currentSynthesizedPost.generationInputs.characterRepresentation = creatorCharacterRepresentation || 'realistic';
+        currentSynthesizedPost.generationInputs.countryContext = creatorCountryContext?.name || 'India';
+        currentSynthesizedPost.generationInputs.spark = spark || currentSynthesizedPost.generationInputs.spark || '';
+        currentSynthesizedPost.generationInputs.cues = [...creatorCuePills];
+        currentSynthesizedPost.generationInputs.heroCue = creatorCuePills[0] || '';
+      }
+
+      if (isChronicleActive && creatorCharacterRepresentation === 'exact' && chronicleMomentImages.length > 0) {
+        const exactCollageDataUrl = await buildClientExactChronicleCollage(activeChronicleMoments);
+        if (exactCollageDataUrl) {
+          currentSynthesizedPost.illustrationBase64 = exactCollageDataUrl;
+          currentSynthesizedPost.posterBase64 = exactCollageDataUrl;
+          currentSynthesizedPost.artworkPending = false;
+          delete currentSynthesizedPost.artworkError;
+        }
+      } else if (creatorCharacterRepresentation === 'exact' && currentSynthesizedPost.referencePhotoUrl) {
+        currentSynthesizedPost.illustrationUrl = currentSynthesizedPost.referencePhotoUrl;
+        currentSynthesizedPost.illustrationBase64 = currentSynthesizedPost.sourceImageBase64 || null;
+        currentSynthesizedPost.posterBase64 = currentSynthesizedPost.sourceImageBase64 || null;
+        currentSynthesizedPost.artworkPending = false;
+        delete currentSynthesizedPost.artworkError;
+      } else {
+        const userEmail = getResolvedCreatorEmail();
+        const artController = new AbortController();
+        const artTimeout = setTimeout(() => artController.abort(), 50000);
+        const artResp = await fetch('/api/synthesize', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'artwork_only',
+            isManualRegenerate: true,
+            rebuildPromptFromSettings: true,
+            creatorEmail: userEmail,
+            prompt: currentSynthesizedPost.illustrationPrompt || '',
+            perspectiveMode: creatorPerspectiveMode || 'source',
+            characterRepresentation: creatorCharacterRepresentation || 'realistic',
+            sourceType: currentSynthesizedPost.sourceType || creatorSelectedSource || 'digital_link',
+            userSlant: currentSynthesizedPost.userSlantTake || currentSynthesizedPost.polishedCuratorTake || slantTake || '',
+            spark: spark || currentSynthesizedPost.spark || '',
+            adaptedHeadline: currentSynthesizedPost.adaptedHeadline || '',
+            originalHeadline: currentSynthesizedPost.originalHeadline || currentSynthesizedPost.sourceHeadline || '',
+            scrapedTitle: (isLink && url) ? (currentScrapedArticle?.title || '') : (currentSynthesizedPost.generationInputs?.scrapedTitle || ''),
+            scrapedContent: (isLink && url) ? (currentScrapedArticle?.content || '').slice(0, 1500) : (currentSynthesizedPost.generationInputs?.scrapedContent || ''),
+            cues: creatorCuePills,
+            countryContext: creatorCountryContext?.name || 'India',
+            familyCast: getSanitizedCastPayload(familyCastProfileCache),
+            activeCast: getSanitizedActiveCastPayload(),
+            castStaging: { mode: activeCastStagingMode },
+            chronicleMode: isChronicleActive,
+            chronicleMomentImages: chronicleMomentImages,
+            imageBase64: shouldSendImage
+              ? (creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || currentSynthesizedPost?.sourceImageBase64 || (creatorSelectedSource === 'inner_voice' ? innerVoicePhotoBase64 : null) || null)
+              : null,
+            imageMimeType: effectiveImageMime || innerVoicePhotoMimeType || 'image/jpeg'
+          }),
+          signal: artController.signal
+        });
+        clearTimeout(artTimeout);
+
+        if (artResp.ok) {
+          const artData = await artResp.json();
+          if (artData && artData.credits) {
+            updateCreatorStudioCreditBadge(artData.credits);
+          }
+          if (artData && artData.success && artData.illustrationBase64) {
+            const isDataUri = artData.illustrationBase64.startsWith('data:');
+            const formatted = isDataUri ? artData.illustrationBase64 : `data:image/png;base64,${artData.illustrationBase64}`;
+            await new Promise((resolve) => {
+              const preloadImg = new Image();
+              preloadImg.onload = () => resolve(true);
+              preloadImg.onerror = () => resolve(false);
+              preloadImg.src = formatted;
+            });
+            currentSynthesizedPost.illustrationBase64 = formatted;
+            currentSynthesizedPost.posterBase64 = formatted;
+            currentSynthesizedPost.artworkPending = false;
+            delete currentSynthesizedPost.artworkError;
+            if (artData.illustrationUrl) {
+              currentSynthesizedPost.illustrationUrl = artData.illustrationUrl;
+              currentSynthesizedPost.aiIllustrationUrl = artData.illustrationUrl;
+            }
+            if (artData.updatedPrompt) {
+              currentSynthesizedPost.illustrationPrompt = artData.updatedPrompt;
+              if (currentSynthesizedPost.generationInputs) {
+                currentSynthesizedPost.generationInputs.illustrationPrompt = artData.updatedPrompt;
+              }
+            }
+          } else {
+            throw new Error(artData?.error || 'Artwork regeneration timed out. Please try again.');
+          }
+        } else {
+          throw new Error('Artwork service returned status ' + artResp.status);
+        }
+      }
+
+      clearVisualsTimers();
+      if (stepText) stepText.textContent = 'Updated poster visuals ready (editorial text preserved)!';
+      if (fill) fill.style.width = '100%';
+      setTimeout(() => {
+        if (window._synthVideoLoop) {
+          try { window._synthVideoLoop.stop(); } catch (_) {}
+          window._synthVideoLoop = null;
+        }
+        if (synthLoading) synthLoading.style.display = 'none';
+        showStep3Preview();
+      }, 350);
+      return;
+    } catch (visErr) {
+      clearVisualsTimers();
+      if (window._synthVideoLoop) {
+        try { window._synthVideoLoop.stop(); } catch (_) {}
+        window._synthVideoLoop = null;
+      }
+      if (cuesContent) cuesContent.style.display = 'flex';
+      if (synthLoading) synthLoading.style.display = 'none';
+      if (scopeBar) scopeBar.style.display = 'flex';
+      showTemporaryToast('⚠️ ' + (visErr.message || 'Visual regeneration failed. Please try again.'));
+      return;
+    }
+  }
 
   const payload = {
     sourceType: creatorSelectedSource,
@@ -16909,8 +17360,24 @@ async function startAiSynthesis() {
       }
     }
 
+    // ============================================================
+    // MODE B: TEXT ONLY (Preserves existing visual artwork from baselinePost)
+    // ============================================================
+    if (activeRegenScope === 'text_only' && baselinePost) {
+      currentSynthesizedPost.illustrationBase64 = baselinePost.illustrationBase64 || baselinePost.posterBase64 || null;
+      currentSynthesizedPost.posterBase64 = baselinePost.posterBase64 || baselinePost.illustrationBase64 || null;
+      currentSynthesizedPost.illustrationUrl = baselinePost.illustrationUrl || baselinePost.aiIllustrationUrl || '';
+      currentSynthesizedPost.aiIllustrationUrl = baselinePost.aiIllustrationUrl || baselinePost.illustrationUrl || '';
+      currentSynthesizedPost.illustrationPrompt = baselinePost.illustrationPrompt || currentSynthesizedPost.illustrationPrompt || '';
+      currentSynthesizedPost.characterRepresentation = baselinePost.characterRepresentation || currentSynthesizedPost.characterRepresentation;
+      currentSynthesizedPost.perspectiveMode = baselinePost.perspectiveMode || currentSynthesizedPost.perspectiveMode;
+      currentSynthesizedPost.artworkPending = false;
+      currentSynthesizedPost._preserveExistingVisuals = true;
+      delete currentSynthesizedPost.artworkError;
+    }
+
     // Hold logo animation until custom editorial illustration is actually loaded in memory
-    if (currentSynthesizedPost && !currentSynthesizedPost.illustrationBase64 && currentSynthesizedPost.illustrationPrompt) {
+    if (activeRegenScope !== 'text_only' && currentSynthesizedPost && !currentSynthesizedPost.illustrationBase64 && currentSynthesizedPost.illustrationPrompt) {
       if (stepText) stepText.textContent = isChronicleActive ? 'Composing Daily Chronicle collage around you at the center...' : 'Rendering custom editorial poster artwork & visual metaphors...';
       if (fill) fill.style.width = '88%';
 
@@ -17196,11 +17663,22 @@ function showStep3Preview() {
   const s3 = document.getElementById('creatorStep3');
   const d2 = document.getElementById('stepDot2');
   const d3 = document.getElementById('stepDot3');
+  const scopeBar = document.getElementById('creatorRegenScopeBar');
 
   if (s2) s2.style.display = 'none';
   if (s3) s3.style.display = 'flex';
+  if (scopeBar) scopeBar.style.display = 'none';
   if (d2) { d2.className = 'creator-step-dot completed'; }
   if (d3) { d3.className = 'creator-step-dot active'; }
+
+  // Snapshot the synthesized post as the baseline for any subsequent Regen action
+  if (currentSynthesizedPost) {
+    try {
+      window._regenBaselinePost = JSON.parse(JSON.stringify(currentSynthesizedPost));
+    } catch (_) {
+      window._regenBaselinePost = currentSynthesizedPost;
+    }
+  }
 
   const modalCard = document.querySelector('.creator-modal-card');
   if (modalCard) modalCard.scrollTop = 0;
@@ -17230,7 +17708,7 @@ function showStep3Preview() {
   renderCreatorPreview();
 
   // If AI artwork was not included in first phase, upgrade in background without blocking user
-  if (currentSynthesizedPost && !currentSynthesizedPost.illustrationBase64 && currentSynthesizedPost.illustrationPrompt) {
+  if (currentSynthesizedPost && !currentSynthesizedPost.illustrationBase64 && !currentSynthesizedPost.illustrationUrl && !currentSynthesizedPost._preserveExistingVisuals && currentSynthesizedPost.illustrationPrompt) {
     enhancePosterArtworkInBackground(currentSynthesizedPost);
   }
 }
@@ -17597,7 +18075,10 @@ function setupWholePosterGestures() {
 // --- Step 3 Toolbar Actions (Matches Flutter create_postcard_screen.dart:3417-3490) ---
 
 function handleStep3Regenerate() {
-  // Reopen the editor deck from the beginning (Step 1) without changing visual cues
+  // Enable 3-Way Regeneration Scope Toggle (Text Only | Both | Visuals Only) & reopen Step 1
+  if (typeof enableCreatorRegenMode === 'function' && (currentSynthesizedPost || window._regenBaselinePost)) {
+    enableCreatorRegenMode(currentSynthesizedPost || window._regenBaselinePost, 'Opened from Preview Regen');
+  }
   backToStep1();
 }
 
