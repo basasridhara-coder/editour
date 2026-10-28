@@ -22175,23 +22175,86 @@ mark.polish-mark:hover, mark.polish-mark.active {
   height: auto;
   display: flex;
   flex-direction: column;
+  gap: 8px;
+}
+
+.login-showcase-step-header {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 4px 10px;
+  border-radius: 99px;
+  background: rgba(15, 23, 42, 0.05);
+  border: 1px solid rgba(15, 23, 42, 0.10);
+  align-self: center;
+}
+
+[data-theme="obsidian"] .login-showcase-step-header {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.login-step-badge-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #4F46E5;
+  color: #FFFFFF;
+  font-family: 'Space Grotesk', 'Inter', sans-serif;
+  font-size: 9.5px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.login-step-badge-title {
+  font-family: 'Space Grotesk', 'Inter', sans-serif;
+  font-size: 9.8px;
+  font-weight: 800;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  color: var(--text-primary, #0F172A);
+  white-space: nowrap;
+}
+
+[data-theme="obsidian"] .login-step-badge-title {
+  color: #E2E8F0;
 }
 
 .login-samples-grid .login-grid-sample-host .post-card {
   width: 100%;
-  height: 100%;
+  height: auto;
   margin: 0;
   border-radius: 18px;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
-/* Proportionally size each 3:4 sample carousel inside the 4-column login grid */
+/* Proportionally size each 3:4 sample card inside the 3-column login grid */
 .login-samples-grid .login-grid-sample-host .post-card .carousel-view {
   flex: 0 0 auto !important;
   width: 100% !important;
   height: auto !important;
   aspect-ratio: 3 / 4 !important;
+}
+
+.login-live-typing-viewport {
+  background: #FFFFFF !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  overflow: hidden !important;
+}
+
+.login-live-typing-svg-img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: fill !important;
+  display: block !important;
 }
 
 /* Hide social action bar on login sample cards so they stay clean & compact */

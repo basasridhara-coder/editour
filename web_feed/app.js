@@ -1321,49 +1321,199 @@ function renderLoginPostsPreview() {
   startSampleCarouselAutoPlay();
 }
 
-function renderLoginSamplesGrid(selectedPosts) {
+const LOGIN_LIVE_SHOWCASE_POST = {
+  "id": "slant-1793068863990-8c9pd",
+  "categoryBadge": "PARENTING & MIND",
+  "adaptedHeadline": "Children Mirror Our Reactions, Not Just Our Rules",
+  "originalHeadline": "How to Raise Emotionally Healthy Children",
+  "publicationName": "youtu.be",
+  "creatorHandle": "@Shridhar Reddy",
+  "createdAt": "2026-10-27T02:43:25.866Z",
+  "curatorTake": "Our behaviors and emotional reactions become default training data for our children. Because they never asked to be brought into this world, raising them with steady personal care remains our deepest moral duty.",
+  "polishedCuratorTake": "We spend close to half of our life's journey being a child, experiencing every emotion, and unknowingly it keeps redefining who we are. Once we have a child, we have a soul that constantly looks to us; our behaviors, our emotions, and everything else become default training data for them. As kids bring immense joy to our lives beyond all their tantrums, they also test our patience, emotional strength, discipline in caring for daily needs, and what not. They act as training data for us, while our responsible handling of how we respond to situations plays a large role in how they will face and conduct themselves in the world tomorrow. Therefore, it is our moral responsibility to raise them with all the personal care they deserve, as they did not ask to be brought into the world.",
+  "creatorOpinion": "Our behaviors and emotional reactions become default training data for our children. Because they never asked to be brought into this world, raising them with steady personal care remains our deepest moral duty.",
+  "whyItMatters": "How parents handle daily frustration forms their child's emotional blueprint, shaping generational resilience and long-term mental health.",
+  "hook": "We spend decades recovering from childhood, yet forget our daily reactions become our children's lifelong inner voice.",
+  "summary": "We spend nearly half our lives navigating childhood, where early experiences quietly shape who we become as adults. Bringing a child into the world introduces a soul that constantly observes our moods, words, and daily habits. As highlighted in Dr. Pal's conversation, children naturally absorb our emotional regulation, making our everyday responses the very blueprint they rely on to understand themselves and their surroundings.\n\nWhile parenting delivers immense warmth and joy, tantrums inevitably stretch our patience, emotional endurance, and daily discipline. Yet these challenging moments serve as mutual training data for both parent and child. Instead of enforcing silent compliance through dismissal or anger, choosing calm validation helps de-escalate baseline stress. Our steady handling of pressure teaches children how to process frustration constructively rather than storing it away as unresolved anxiety.\n\nChildren did not ask to be brought here, which places the responsibility squarely on us to offer thoughtful, compassionate care. When we show up with intentional discipline, predictable routines, and gentle patience, we equip them with authentic resilience. Healing our own impulsive habits is the most generous legacy we can offer, ensuring our children step confidently into tomorrow feeling truly seen, protected, and loved.",
+  "resolvedArticleExcerpts": [
+    "We spend nearly half our lives navigating childhood, where early experiences quietly shape who we become as adults. Bringing a child into the world introduces a soul that constantly observes our moods, words, and daily habits. As highlighted in Dr. Pal's conversation, children naturally absorb our emotional regulation, making our everyday responses the very blueprint they rely on to understand themselves and their surroundings.",
+    "While parenting delivers immense warmth and joy, tantrums inevitably stretch our patience, emotional endurance, and daily discipline. Yet these challenging moments serve as mutual training data for both parent and child. Instead of enforcing silent compliance through dismissal or anger, choosing calm validation helps de-escalate baseline stress. Our steady handling of pressure teaches children how to process frustration constructively rather than storing it away as unresolved anxiety.",
+    "Children did not ask to be brought here, which places the responsibility squarely on us to offer thoughtful, compassionate care. When we show up with intentional discipline, predictable routines, and gentle patience, we equip them with authentic resilience. Healing our own impulsive habits is the most generous legacy we can offer, ensuring our children step confidently into tomorrow feeling truly seen, protected, and loved."
+  ],
+  "sourceType": "video_audio",
+  "digitalLink": "https://youtu.be/LkbYOzOn1VA?si=160bbR-hlyHS1-PW",
+  "sourceImageUrl": "https://i.ytimg.com/vi/LkbYOzOn1VA/maxresdefault.jpg",
+  "referencePhotoUrl": "https://i.ytimg.com/vi/LkbYOzOn1VA/maxresdefault.jpg",
+  "illustrationUrl": "https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/slant-1793068863990-8c9pd.webp?v=1793069007614",
+  "aiIllustrationUrl": "https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/slant-1793068863990-8c9pd.webp?v=1793069007614",
+  "slantIcon": "❤️",
+  "slantTone": "heart",
+  "pullQuote": "Our behaviors become default training data for our children, making calm self-regulation our greatest moral duty as loving caregivers.",
+  "receiptHighlightQuote": "Our behaviors become default training data for our children, making calm self-regulation our greatest moral duty as loving caregivers.",
+  "targetAudience": "General Public",
+  "isLoginFeatured": true,
+  "_allowLoginBifurcation": true,
+  "_isVideoOrWide": true
+};
+
+let _loginMinutesAutoScrollRaf = null;
+
+function startLoginMinutesAutoScroll(viewportEl) {
+  if (!viewportEl) return;
+  if (_loginMinutesAutoScrollRaf) {
+    cancelAnimationFrame(_loginMinutesAutoScrollRaf);
+    _loginMinutesAutoScrollRaf = null;
+  }
+
+  let isPaused = false;
+  let resumeTimeout = null;
+  let phase = 'hold_top'; // 'hold_top' | 'scroll_down' | 'hold_bottom' | 'scroll_up'
+  let phaseStartTime = performance.now();
+  let lastFrameTime = performance.now();
+  let scrollUpStartPos = 0;
+
+  const pauseScroll = () => {
+    isPaused = true;
+    if (resumeTimeout) clearTimeout(resumeTimeout);
+  };
+  const scheduleResume = () => {
+    if (resumeTimeout) clearTimeout(resumeTimeout);
+    resumeTimeout = setTimeout(() => {
+      isPaused = false;
+      lastFrameTime = performance.now();
+      phaseStartTime = performance.now();
+    }, 2200);
+  };
+
+  viewportEl.addEventListener('mouseenter', pauseScroll);
+  viewportEl.addEventListener('mouseleave', scheduleResume);
+  viewportEl.addEventListener('touchstart', pauseScroll, { passive: true });
+  viewportEl.addEventListener('touchend', scheduleResume, { passive: true });
+
+  const step = (now) => {
+    const signedOutView = document.getElementById('signedOutPageView');
+    if (!signedOutView || signedOutView.style.display === 'none' || !document.body.contains(viewportEl)) {
+      _loginMinutesAutoScrollRaf = null;
+      return;
+    }
+
+    const dt = Math.min(64, Math.max(0, now - lastFrameTime));
+    lastFrameTime = now;
+
+    if (!isPaused) {
+      const maxScroll = Math.max(0, viewportEl.scrollHeight - viewportEl.clientHeight);
+      if (maxScroll > 12) {
+        if (phase === 'hold_top') {
+          if (now - phaseStartTime >= 2400) {
+            phase = 'scroll_down';
+            phaseStartTime = now;
+          }
+        } else if (phase === 'scroll_down') {
+          const speedPxPerSec = 34; // Smooth editorial reading pace
+          const nextTop = viewportEl.scrollTop + (speedPxPerSec * dt) / 1000;
+          if (nextTop >= maxScroll - 1) {
+            viewportEl.scrollTop = maxScroll;
+            phase = 'hold_bottom';
+            phaseStartTime = now;
+          } else {
+            viewportEl.scrollTop = nextTop;
+          }
+        } else if (phase === 'hold_bottom') {
+          if (now - phaseStartTime >= 2600) {
+            phase = 'scroll_up';
+            phaseStartTime = now;
+            scrollUpStartPos = viewportEl.scrollTop;
+          }
+        } else if (phase === 'scroll_up') {
+          const duration = 1200;
+          const t = Math.min(1, (now - phaseStartTime) / duration);
+          const ease = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+          viewportEl.scrollTop = scrollUpStartPos * (1 - ease);
+          if (t >= 1) {
+            viewportEl.scrollTop = 0;
+            phase = 'hold_top';
+            phaseStartTime = now;
+          }
+        }
+      }
+    }
+
+    _loginMinutesAutoScrollRaf = requestAnimationFrame(step);
+  };
+
+  _loginMinutesAutoScrollRaf = requestAnimationFrame(step);
+}
+
+function renderLoginSamplesGrid() {
   const samplesGrid = document.getElementById("loginSampleCarouselsGrid");
-  if (!samplesGrid || !Array.isArray(selectedPosts) || selectedPosts.length === 0) return;
+  if (!samplesGrid) return;
 
-  samplesGrid.innerHTML = '';
-  selectedPosts.forEach(({ post, cfg }, idx) => {
-    const sampleKey = `sample_${idx}`;
-    const cardHost = document.createElement('div');
-    cardHost.className = 'sample-feed-card-host login-grid-sample-host';
-    cardHost.setAttribute('data-sample-idx', String(idx));
+  const showcasePost = Object.assign({}, LOGIN_LIVE_SHOWCASE_POST);
+  delete showcasePost._cachedBifurcation;
 
-    const card = createPostCardElement(post, sampleKey);
-    card.classList.add('sample-feed-card');
+  samplesGrid.innerHTML = `
+    <!-- Card 1 (Leftmost): Live Input Typing SVG Animation -->
+    <div class="sample-feed-card-host login-grid-sample-host login-step-showcase-col" data-sample-idx="0">
+      <div class="login-showcase-step-header">
+        <span class="login-step-badge-num">01</span>
+        <span class="login-step-badge-title">LIVE INPUT &bull; LINK + YOUR REACTION</span>
+      </div>
+      <article class="post-card sample-feed-card login-showcase-pure-card login-live-typing-card">
+        <div class="carousel-view login-live-typing-viewport">
+          <img src="/slant-live-typing.svg?v=20261029_01" alt="Live input typing animation" class="login-live-typing-svg-img" loading="eager">
+        </div>
+      </article>
+    </div>
 
-    // Slide click behavior: tap any slide to advance to the next poster (supports both 2-poster and 3-poster Daily Chronicles)
-    const allSlides = card.querySelectorAll('.carousel-slide');
-    const totalSlides = allSlides.length || 2;
-    allSlides.forEach((slideEl, sIdx) => {
-      const nextSlideIdx = (sIdx + 1) % totalSlides;
-      slideEl.onclick = (e) => {
-        e.stopPropagation();
-        goToSlide(e, sampleKey, nextSlideIdx);
-      };
-      slideEl.style.cursor = 'pointer';
-      slideEl.setAttribute('title', nextSlideIdx === 0 ? 'Tap to flip back to Poster 1' : `Tap for Poster ${nextSlideIdx + 1} of ${totalSlides}`);
-    });
+    <!-- Card 2 (Middle): Hook Poster of slant-1793068863990-8c9pd (Names Blurred) -->
+    <div class="sample-feed-card-host login-grid-sample-host login-step-showcase-col" data-sample-idx="1">
+      <div class="login-showcase-step-header">
+        <span class="login-step-badge-num">02</span>
+        <span class="login-step-badge-title">HOOK POSTER &bull; VISUAL FRAME</span>
+      </div>
+      <article class="post-card sample-feed-card login-showcase-pure-card">
+        <div class="carousel-view">
+          <div class="carousel-track" style="width:100%; height:100%;">
+            <div class="carousel-slide slide-hook" style="width:100%; height:100%; cursor:default;">
+              ${buildSlide1Html(showcasePost, 'login_hook_showcase', 2)}
+            </div>
+          </div>
+        </div>
+      </article>
+    </div>
 
-    cardHost.appendChild(card);
-    samplesGrid.appendChild(cardHost);
+    <!-- Card 3 (Rightmost): Auto-Scrolling Slant Minutes Poster of slant-1793068863990-8c9pd (Names Blurred) -->
+    <div class="sample-feed-card-host login-grid-sample-host login-step-showcase-col" data-sample-idx="2">
+      <div class="login-showcase-step-header">
+        <span class="login-step-badge-num">03</span>
+        <span class="login-step-badge-title">SLANT MINUTES &bull; AUTO-SCROLLING ESSAY</span>
+      </div>
+      <article class="post-card sample-feed-card login-showcase-pure-card" id="loginAutoScrollMinutesCard">
+        <div class="carousel-view">
+          <div class="carousel-track" style="width:100%; height:100%;">
+            <div class="carousel-slide slide-receipt" style="width:100%; height:100%; cursor:default;">
+              ${buildSlide2Html(showcasePost, 'login_minutes_showcase', 0)}
+            </div>
+          </div>
+        </div>
+      </article>
+    </div>
+  `;
 
-    // Attach touch swipe gestures and reset to Slide 0 (Hook)
-    setupCarouselGestures(sampleKey);
-    goToSlide(null, sampleKey, 0);
-
-    // Pause gentle auto-flip while user hovers or touches any sample card
-    card.addEventListener('mouseenter', () => { isSampleCarouselHovered = true; });
-    card.addEventListener('mouseleave', () => { isSampleCarouselHovered = false; });
-    card.addEventListener('touchstart', () => { isSampleCarouselHovered = true; }, { passive: true });
-    card.addEventListener('touchend', () => {
-      setTimeout(() => { isSampleCarouselHovered = false; }, 3500);
-    }, { passive: true });
-  });
   samplesGrid.dataset.populated = 'true';
+
+  if (typeof requestAnimationFrame === 'function') {
+    requestAnimationFrame(() => {
+      const minutesCard = document.getElementById('loginAutoScrollMinutesCard');
+      if (minutesCard) {
+        const vp = minutesCard.querySelector('.slant-minute-scroll-viewport');
+        if (vp) {
+          calibrateEssayViewportPagination(vp);
+          startLoginMinutesAutoScroll(vp);
+        }
+      }
+    });
+  }
 }
 
 function selectSampleStory(storyIdx) {
@@ -5701,8 +5851,8 @@ function evaluateEssayBifurcation(post, index) {
     || post.aiPosterBase64;
   const hasPhoto = Boolean(rawPhoto && typeof rawPhoto === "string" && rawPhoto.length > 20);
 
-  // Forced single page for sample / login posts (Strict 2-poster style: Slide 1 Hook -> Slide 2 Essay)
-  if (index === "sample" || post.isLoginFeatured || post._forceSinglePage) {
+  // Forced single page for sample / login posts unless explicitly allowed to bifurcate for auto-scrolling showcase
+  if (!post._allowLoginBifurcation && (index === "sample" || post.isLoginFeatured || post._forceSinglePage)) {
     return {
       isBifurcated: false,
       hasPhoto,
