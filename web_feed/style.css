@@ -22285,10 +22285,17 @@ mark.polish-mark:hover, mark.polish-mark.active {
 }
 
 @media (max-width: 680px) {
+  .triad-col-pillars.triad-col-brand-narrative {
+    gap: 8px;
+    padding: 0 0 8px 0;
+  }
+
   .login-brand-masthead-row {
     flex-direction: column;
     align-items: center;
     text-align: center;
+    gap: 6px;
+    padding-bottom: 0;
   }
 
   .pillars-switcher-pills {
@@ -22346,38 +22353,61 @@ mark.polish-mark:hover, mark.polish-mark.active {
     transform: none;
   }
 
+  .slant-pillars-carousel-viewport {
+    min-height: 0;
+    flex: 0 0 auto;
+  }
+
+  .slant-pillar-vertical-card {
+    padding: 10px 14px 24px;
+    gap: 6px;
+  }
+
   .slant-pillar-card-content-split {
     flex-direction: column;
-    gap: 10px;
-    padding: 2px 6px 0;
+    justify-content: flex-start;
+    gap: 8px;
+    padding: 2px 4px 0;
   }
 
   .slant-pillar-vertical-visual {
     width: 100%;
     flex: 0 0 auto;
-    height: 175px;
+    height: 152px;
   }
 
   .slant-pillar-vertical-img {
-    max-height: 165px;
-    border-radius: 16px;
+    max-height: 146px;
+    border-radius: 15px;
+  }
+
+  .slant-pillar-vertical-body {
+    margin-top: 0;
+    padding-bottom: 2px;
+    gap: 4px;
+  }
+
+  .slant-pillar-vertical-icon {
+    width: 28px;
+    height: 28px;
   }
 
   .slant-pillar-vertical-title {
-    font-size: 20px;
+    font-size: 19px;
   }
 
   .slant-pillar-vertical-hook {
-    font-size: 14px;
+    font-size: 13.5px;
   }
 
   .slant-pillar-vertical-desc {
-    font-size: 13px;
+    font-size: 12.5px;
+    line-height: 1.42;
   }
 
   .manifesto-audience-pill {
-    font-size: 10.5px;
-    padding: 5px 13px;
+    font-size: 10px;
+    padding: 4px 12px;
   }
 }
 
