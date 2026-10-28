@@ -17,8 +17,17 @@
 <rect x="89" y="787" width="944" height="84"/>
 <rect x="89" y="1034" width="944" height="76"/>
 <rect x="89" y="1280" width="944" height="92"/>
-</clipPath></defs>
+</clipPath>
+<clipPath id="digit3-footer-clip" clipPathUnits="userSpaceOnUse"><rect x="374" y="1435" width="15" height="25"/></clipPath>
+</defs>
 <rect width="1140" height="1600" fill="white"/><use xlink:href="#source"/>
+<rect x="692" y="472" width="20" height="28" fill="white"/>
+<text x="693" y="497" font-family="Inter, -apple-system, BlinkMacSystemFont, sans-serif" font-size="25" font-weight="800" fill="#0F172A">3</text>
+<rect x="264" y="510" width="16" height="24" fill="white"/>
+<text x="265" y="531" font-family="Inter, -apple-system, BlinkMacSystemFont, sans-serif" font-size="21" font-weight="400" fill="#475569">3</text>
+<rect x="45" y="1410" width="315" height="75" fill="white"/>
+<rect x="421" y="1435" width="16" height="25" fill="white"/>
+<g transform="translate(48, 0)"><g clip-path="url(#digit3-footer-clip)"><use xlink:href="#source"/></g></g>
 <rect x="89" y="787" width="944" height="84" fill="white"/>
 <rect x="89" y="1034" width="944" height="76" fill="white"/>
 <rect x="89" y="1280" width="944" height="92" fill="white"/>

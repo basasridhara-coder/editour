@@ -1679,7 +1679,7 @@ function renderLoginSamplesGrid() {
               </div>
               <article class="post-card sample-feed-card login-showcase-pure-card login-live-typing-card">
                 <div class="carousel-view login-live-typing-viewport">
-                  <img src="/slant-diary-live-typing.svg?v=20261029_02" alt="Live input typing animation for Daily Chronicle" class="login-live-typing-svg-img" loading="eager">
+                  <img src="/slant-diary-live-typing.svg?v=20261029_0305" alt="Live input typing animation for Daily Chronicle" class="login-live-typing-svg-img" loading="eager">
                 </div>
               </article>
             </div>
@@ -8446,12 +8446,13 @@ function loadPostIntoStudioToRegenerate(postId) {
   // Restore Daily Chronicle moments if this post was created in Daily Chronicle mode
   const savedChronicleMoments = post.chronicleMoments || post.generationInputs?.chronicleMoments;
   if (inputs.sourceType === 'inner_voice' && (post.chronicleMode || post.generationInputs?.chronicleMode) && Array.isArray(savedChronicleMoments) && savedChronicleMoments.length >= 2) {
-    const hasExplicitStar = savedChronicleMoments.some(m => Boolean(m && m.isStarred));
-    dailyChronicleMoments = savedChronicleMoments.map((m, idx) => ({
+    const cappedSaved = savedChronicleMoments.slice(0, 3);
+    const hasExplicitStar = cappedSaved.some(m => Boolean(m && m.isStarred));
+    dailyChronicleMoments = cappedSaved.map((m, idx) => ({
       id: idx + 1,
       title: m.title || '',
       text: m.text || '',
-      isStarred: hasExplicitStar ? Boolean(m.isStarred) : (idx === savedChronicleMoments.length - 1),
+      isStarred: hasExplicitStar ? Boolean(m.isStarred) : (idx === cappedSaved.length - 1),
       imageBase64: m.imageBase64 || null,
       imageMimeType: m.imageMimeType || 'image/jpeg'
     }));
@@ -12883,8 +12884,8 @@ function syncInnerVoiceSubmodeUI() {
       guideBtn.classList.remove('active');
     }
     if (guideCard) guideCard.style.display = 'none';
-    if (label) label.textContent = 'Diary Chronicle: Your Day in Moments (2 to 4 Vignettes)';
-    if (sub) sub.textContent = 'Record 2 to 4 distinct moments from your day, and tap ★ Star on the moment you feel is most important to give it more space in Poster 1.';
+    if (label) label.textContent = 'Diary Chronicle: Your Day in Moments (2 to 3 Vignettes)';
+    if (sub) sub.textContent = 'Record 2 to 3 distinct moments from your day, and tap ★ Star on the moment you feel is most important to give it more space in Poster 1.';
     if (heroIcon) heroIcon.textContent = '📔';
     if (heroBox) heroBox.style.color = '#F59E0B';
 
@@ -12920,11 +12921,14 @@ function renderDailyChronicleCards() {
   const container = document.getElementById('dailyChronicleCardsList');
   if (!container) return;
 
+  if (dailyChronicleMoments.length > 3) {
+    dailyChronicleMoments = dailyChronicleMoments.slice(0, 3);
+  }
+
   const placeholders = [
     { title: 'e.g. Morning Walk / Routine', text: 'Write 2-3 lines about your first key moment of the day...' },
     { title: 'e.g. Work / Midday Observation', text: 'Write 2-3 lines about the second moment or conversation...' },
-    { title: 'e.g. Family / Evening Reflection', text: 'Write 2-3 lines about the third moment that stayed with you...' },
-    { title: 'e.g. Late Night Thought', text: 'Write 2-3 lines about a fourth moment of the day...' }
+    { title: 'e.g. Family / Evening Reflection', text: 'Write 2-3 lines about the third moment that stayed with you...' }
   ];
 
   container.innerHTML = dailyChronicleMoments.map((m, idx) => {
@@ -12984,12 +12988,12 @@ function renderDailyChronicleCards() {
   const starredIdx = dailyChronicleMoments.findIndex(m => Boolean(m.isStarred));
 
   if (addBtn) {
-    addBtn.style.display = count >= 4 ? 'none' : 'inline-flex';
-    if (addTxt) addTxt.textContent = `Add ${count + 1 === 3 ? '3rd' : '4th'} Moment`;
+    addBtn.style.display = count >= 3 ? 'none' : 'inline-flex';
+    if (addTxt) addTxt.textContent = 'Add 3rd Moment';
   }
   if (countHint) {
     const starText = starredIdx >= 0 ? `★ Moment 0${starredIdx + 1} Highlighted (Larger Poster Space)` : 'Tap ☆ Star on your main moment for larger space';
-    countHint.textContent = `${count} of 4 Moments${photosCount > 0 ? ` • ${photosCount} Photo${photosCount > 1 ? 's' : ''} Attached` : ''} • ${starText}`;
+    countHint.textContent = `${count} of 3 Moments${photosCount > 0 ? ` • ${photosCount} Photo${photosCount > 1 ? 's' : ''} Attached` : ''} • ${starText}`;
   }
 }
 
@@ -13040,8 +13044,8 @@ function syncChronicleMomentsToSlantInput() {
 }
 
 function addDailyChronicleMoment() {
-  if (dailyChronicleMoments.length >= 4) {
-    showTemporaryToast('Maximum 4 moments per Daily Chronicle so each vignette stays crisp.');
+  if (dailyChronicleMoments.length >= 3) {
+    showTemporaryToast('Maximum 3 moments per Daily Chronicle so each vignette stays crisp.');
     return;
   }
   dailyChronicleMoments.push({
@@ -13199,9 +13203,9 @@ function acceptPolishedTake() {
   if (input && lastPolishedTake) {
     input.value = lastPolishedTake;
     if (creatorSelectedSource === 'inner_voice' && isDailyChronicleMode) {
-      const blocks = String(lastPolishedTake).split(/\n\s*\n|(?:^|\s+)(?=(?:0?[1-4]\s*[·•.-]\s*)?Moment\s+0?[1-4]\b|0?[1-4]\s*[·•.-])/gi).map(b => b.trim()).filter(Boolean);
+      const blocks = String(lastPolishedTake).split(/\n\s*\n|(?:^|\s+)(?=(?:0?[1-3]\s*[·•.-]\s*)?Moment\s+0?[1-3]\b|0?[1-3]\s*[·•.-])/gi).map(b => b.trim()).filter(Boolean);
       if (blocks.length >= 2) {
-        blocks.slice(0, 4).forEach((blk, idx) => {
+        blocks.slice(0, 3).forEach((blk, idx) => {
           if (!dailyChronicleMoments[idx]) {
             dailyChronicleMoments[idx] = { id: Date.now() + idx, title: '', text: '', imageBase64: null, imageMimeType: 'image/jpeg' };
           }
@@ -14407,12 +14411,13 @@ function openDraftInStudio(postId) {
 
   const savedChronicleMoments = post.chronicleMoments || genInputs.chronicleMoments;
   if (isChroniclePost && Array.isArray(savedChronicleMoments) && savedChronicleMoments.length >= 2) {
-    const hasExplicitStar = savedChronicleMoments.some(m => Boolean(m && m.isStarred));
-    dailyChronicleMoments = savedChronicleMoments.map((m, idx) => ({
+    const cappedSaved = savedChronicleMoments.slice(0, 3);
+    const hasExplicitStar = cappedSaved.some(m => Boolean(m && m.isStarred));
+    dailyChronicleMoments = cappedSaved.map((m, idx) => ({
       id: idx + 1,
       title: m.title || '',
       text: m.text || '',
-      isStarred: hasExplicitStar ? Boolean(m.isStarred) : (idx === savedChronicleMoments.length - 1),
+      isStarred: hasExplicitStar ? Boolean(m.isStarred) : (idx === cappedSaved.length - 1),
       imageBase64: m.imageBase64 || null,
       imageMimeType: m.imageMimeType || 'image/jpeg'
     }));
