@@ -4969,12 +4969,492 @@ function handleReceiptPhotoLoad(img) {
         const slideReceipt = img.closest('.slide-receipt');
         if (slideReceipt) {
           slideReceipt.innerHTML = buildUnifiedEssayPosterHtml(postObj, postIdx, 0);
+          const vp = slideReceipt.querySelector('.slant-minute-scroll-viewport');
+          if (vp) {
+            requestAnimationFrame(() => calibrateEssayViewportPagination(vp));
+          }
+          return;
         }
       }
     }
   }
+
+  if (!img.closest('.poster-export-sandbox')) {
+    const vp = img.closest('.slant-minute-scroll-viewport');
+    if (vp) {
+      requestAnimationFrame(() => calibrateEssayViewportPagination(vp));
+    }
+  }
 }
 window.handleReceiptPhotoLoad = handleReceiptPhotoLoad;
+
+function splitEssayIntoSentences(text) {
+  if (!text) return [];
+  const protectedText = String(text)
+    .replace(/\u00AD/g, '')
+    .replace(/\b(Mr|Mrs|Ms|Dr|Prof|Sr|Jr|Gen|Gov|Capt|Lieut|Col|U\.S|e\.g|i\.e)\./gi, '$1__DOT__');
+
+  const quoteProtected = protectedText.replace(/(['"“‘][^'"”’]+['"”’])/g, (m) => {
+    return m.replace(/!/g, '__EXCL__').replace(/\?/g, '__QMARK__').replace(/\./g, '__DOT__');
+  });
+
+  const rawSentences = quoteProtected.match(/[^.!?]+(?:[.!?]+|$)/g) || [quoteProtected];
+  const sentences = rawSentences
+    .map(s => s
+      .replace(/__DOT__/g, '.')
+      .replace(/__EXCL__/g, '!')
+      .replace(/__QMARK__/g, '?')
+      .trim())
+    .filter(Boolean);
+
+  return sentences.length > 0 ? sentences : [String(text).trim()];
+}
+
+function splitSentenceIntoClauses(sentence) {
+  if (!sentence) return [];
+  const clean = String(sentence).replace(/\u00AD/g, '').trim();
+  const words = clean.split(/\s+/).filter(Boolean);
+  if (words.length < 16) return [clean];
+
+  // Split at semicolons, em/en dashes, colons, or commas followed by space
+  const rawParts = clean.match(/[^,;:\u2014\u2013]+(?:[,;:]|\s*[\u2014\u2013])?\s*/g);
+  if (!rawParts || rawParts.length <= 1) return [clean];
+
+  // Merge tiny fragments so every clause unit has at least 6 words
+  const merged = [];
+  let buf = '';
+  for (let i = 0; i < rawParts.length; i++) {
+    const part = rawParts[i].trim();
+    if (!part) continue;
+    buf = buf ? `${buf} ${part}` : part;
+    const wCount = buf.split(/\s+/).filter(Boolean).length;
+    if (wCount >= 6) {
+      merged.push(buf);
+      buf = '';
+    }
+  }
+  if (buf) {
+    if (merged.length > 0) {
+      merged[merged.length - 1] = `${merged[merged.length - 1]} ${buf}`;
+    } else {
+      merged.push(buf);
+    }
+  }
+  return merged.length > 1 ? merged : [clean];
+}
+
+function hyphenateBroadsheetWordGlobal(word) {
+  if (!word || word.length < 6) return word;
+  const n = word.length;
+  const isVowel = (ch) => /[aeiouyAEIOUY]/.test(ch);
+  const breakAfter = new Set();
+  let suffixBreak = -1;
+
+  const suffixes = /(tions|sions|tion|sion|ments|ment|ness|able|ible|ling|ings|ing|fully|ful|less|ward|wards|wise|ly)$/i;
+  const sufMatch = word.match(suffixes);
+  if (sufMatch && sufMatch.index >= 3) {
+    suffixBreak = sufMatch.index - 1;
+    breakAfter.add(suffixBreak);
+  }
+
+  const scanLimit = suffixBreak >= 3 ? suffixBreak + 1 : n;
+  let i = 0;
+  while (i < scanLimit) {
+    if (isVowel(word[i])) {
+      while (i + 1 < scanLimit && isVowel(word[i + 1])) i++;
+      const v1End = i;
+      let j = v1End + 1;
+      while (j < n && !isVowel(word[j])) j++;
+      if (j < n && (suffixBreak === -1 || j <= suffixBreak)) {
+        const tail = word.slice(j).toLowerCase();
+        const isSilentTail = (tail === 'e' || (tail === 'ed' && !/[td]$/i.test(word.slice(0, j))) || (tail === 'es' && !/(?:[sxz]|ch|sh)$/i.test(word.slice(0, j))));
+        if (!isSilentTail) {
+          const cCount = j - (v1End + 1);
+          let splitPos = -1;
+          if (cCount === 1) {
+            splitPos = v1End;
+          } else if (cCount >= 2) {
+            const lastTwo = word.slice(j - 2, j).toLowerCase();
+            if (/^(ch|sh|th|ph|wh|gh|tr|dr|pr|br|cr|gr|fr|pl|bl|cl|gl|fl|sp|st|sk|sl|sm|sn|sw|tw|qu)$/.test(lastTwo)) {
+              splitPos = j - 3 >= v1End ? j - 3 : v1End;
+            } else {
+              splitPos = j - 2;
+            }
+          }
+          if (splitPos >= 2 && (n - (splitPos + 1)) >= 3 && (suffixBreak === -1 || Math.abs(splitPos - suffixBreak) >= 2)) {
+            breakAfter.add(splitPos);
+          }
+        }
+      }
+    }
+    i++;
+  }
+
+  const sorted = Array.from(breakAfter).sort((a, b) => a - b);
+  const filtered = [];
+  let last = -1;
+  for (const pos of sorted) {
+    if (pos >= 2 && (n - (pos + 1)) >= 2 && (last === -1 || pos - last >= 2)) {
+      filtered.push(pos);
+      last = pos;
+    }
+  }
+  if (filtered.length === 0) return word;
+  let out = '';
+  let prev = 0;
+  for (const pos of filtered) {
+    out += word.slice(prev, pos + 1) + '\u00AD';
+    prev = pos + 1;
+  }
+  out += word.slice(prev);
+  return out;
+}
+
+function hyphenateBroadsheetTextGlobal(txt) {
+  if (!txt) return '';
+  return String(txt).replace(/\u00AD/g, '').replace(/[A-Za-z]{6,}/g, hyphenateBroadsheetWordGlobal);
+}
+
+function createBroadsheetParaElement(text, isLead = false, isContinuation = false) {
+  const p = document.createElement('p');
+  p.setAttribute('lang', 'en');
+  const clean = String(text || '').replace(/\u00AD/g, '').trim();
+  const hyphenated = hyphenateBroadsheetTextGlobal(clean);
+  if (isLead) {
+    p.className = 'receipt-p1';
+    const firstChar = hyphenated.charAt(0).toUpperCase();
+    const rest = hyphenated.slice(1);
+    p.innerHTML = `<span class="broadsheet-dropcap">${escapeHtml(firstChar)}</span>${escapeHtml(rest)}`;
+  } else {
+    p.className = isContinuation ? 'receipt-p3 receipt-p-continuation' : 'receipt-p3';
+    p.textContent = hyphenated;
+  }
+  return p;
+}
+
+function calibrateEssayViewportPagination(viewportEl) {
+  if (!viewportEl || viewportEl.closest('.poster-export-sandbox')) return;
+  if (viewportEl.getAttribute('data-bifurcated') !== 'true') return;
+  if (viewportEl.querySelector('.chronicle-moments-only-list')) return;
+
+  const page1El = viewportEl.querySelector('.essay-page-1');
+  const page2El = viewportEl.querySelector('.essay-page-2');
+  const seamEl = viewportEl.querySelector('.page-bifurcation-seam');
+  if (!page1El || !page2El) return;
+
+  const p1Container = page1El.querySelector('.receipt-paragraphs');
+  const p2Container = page2El.querySelector('.receipt-paragraphs');
+  if (!p1Container || !p2Container) return;
+
+  const vpHeight = viewportEl.clientHeight;
+  const vpWidth = viewportEl.clientWidth;
+  if (!vpHeight || vpHeight < 180 || !vpWidth || vpWidth < 150) return;
+
+  // Extract and cache complete logical paragraphs on first calibration pass
+  if (!Array.isArray(viewportEl._fullLogicalParas) || viewportEl._fullLogicalParas.length === 0) {
+    const p1Nodes = Array.from(p1Container.querySelectorAll('p.receipt-p1, p.receipt-p3'));
+    const p2Nodes = Array.from(p2Container.querySelectorAll('p.receipt-p1, p.receipt-p3'));
+    const logical = [];
+    p1Nodes.forEach(node => {
+      const txt = (node.textContent || '').replace(/\u00AD/g, '').trim();
+      if (txt) logical.push(txt);
+    });
+    p2Nodes.forEach((node, idx) => {
+      const txt = (node.textContent || '').replace(/\u00AD/g, '').trim();
+      if (!txt) return;
+      if (idx === 0 && node.classList.contains('receipt-p-continuation') && logical.length > 0) {
+        logical[logical.length - 1] = `${logical[logical.length - 1]} ${txt}`;
+      } else {
+        logical.push(txt);
+      }
+    });
+    if (logical.length === 0) return;
+    viewportEl._fullLogicalParas = logical;
+  }
+
+  const fullParas = viewportEl._fullLogicalParas;
+  if (!fullParas || fullParas.length === 0) return;
+
+  // Reset prior inline spacing overrides before measuring
+  page1El.style.setProperty('min-height', '0px', 'important');
+  page1El.style.setProperty('height', 'auto', 'important');
+  page1El.style.setProperty('padding-bottom', '0px', 'important');
+  const headlineBox = page1El.querySelector('.receipts-headline-box');
+  const pullquoteBox = page1El.querySelector('.essay-highlight-pullquote');
+  if (headlineBox) headlineBox.style.removeProperty('margin-bottom');
+  if (pullquoteBox) pullquoteBox.style.removeProperty('margin-bottom');
+
+  const vpStyle = window.getComputedStyle(viewportEl);
+  const vpPadTop = parseFloat(vpStyle.paddingTop) || 12;
+
+  // Ensure at least one temp paragraph exists to read computed line-height
+  let existingP1Paras = Array.from(p1Container.querySelectorAll('p.receipt-p1, p.receipt-p3'));
+  existingP1Paras.forEach(p => {
+    p.style.removeProperty('line-height');
+    p.style.removeProperty('margin-bottom');
+  });
+  const sampleP = existingP1Paras[0] || p2Container.querySelector('p.receipt-p1, p.receipt-p3');
+  const baseLineHeight = sampleP ? (parseFloat(window.getComputedStyle(sampleP).lineHeight) || 19.5) : 19.5;
+  const baseParaMargin = sampleP ? (parseFloat(window.getComputedStyle(sampleP).marginBottom) || 5) : 5;
+
+  // Available height from top of Page 1 to the bottom edge of the viewport
+  const availableP1Height = vpHeight - vpPadTop;
+  // Target: Page 1 content ends ~1 line before the bottom edge of the viewport
+  const minOneLineMargin = Math.max(13, baseLineHeight * 0.78);
+  const maxAllowedContentHeight = availableP1Height - minOneLineMargin;
+
+  // Remove old paragraphs from Page 1 & Page 2 containers (preserving pullquote, scene photo, reflection box)
+  existingP1Paras.forEach(p => p.remove());
+  Array.from(p2Container.querySelectorAll('p.receipt-p1, p.receipt-p3')).forEach(p => p.remove());
+
+  const reflectionBox = p2Container.querySelector('.receipt-reflection-box') || p1Container.querySelector('.receipt-reflection-box');
+
+  const getP1ContentHeight = () => {
+    const curParas = Array.from(p1Container.querySelectorAll('p.receipt-p1, p.receipt-p3'));
+    curParas.forEach((el, idx) => {
+      if (idx === curParas.length - 1) {
+        el.style.setProperty('margin-bottom', '0px', 'important');
+      } else {
+        el.style.removeProperty('margin-bottom');
+      }
+    });
+    const p1Rect = page1El.getBoundingClientRect();
+    const contRect = p1Container.getBoundingClientRect();
+    return Math.max(0, contRect.bottom - p1Rect.top);
+  };
+
+  const page2Items = [];
+  let splitOccurred = false;
+
+  for (let i = 0; i < fullParas.length; i++) {
+    const paraText = fullParas[i];
+    const isLead = (i === 0);
+    const isLastPara = (i === fullParas.length - 1);
+
+    if (splitOccurred) {
+      page2Items.push({ text: paraText, isContinuation: false });
+      continue;
+    }
+
+    const pEl = createBroadsheetParaElement(paraText, isLead, false);
+    p1Container.appendChild(pEl);
+    const h = getP1ContentHeight();
+
+    // If this is the very last paragraph and it fits on Page 1, check if we have a reflectionBox that wouldn't fit on Page 1.
+    // We never want Page 2 to have ONLY a reflection box with 0 sentences of essay text.
+    let mustHoldBackForReflection = false;
+    if (isLastPara && h <= maxAllowedContentHeight && reflectionBox) {
+      const estReflectionHeight = reflectionBox.offsetHeight || 62;
+      if (h + estReflectionHeight + 28 > maxAllowedContentHeight) {
+        mustHoldBackForReflection = true;
+      }
+    }
+
+    if (h <= maxAllowedContentHeight && !mustHoldBackForReflection) {
+      // Entire paragraph fits cleanly on Page 1
+      continue;
+    }
+
+    // Paragraph overflows maxAllowedContentHeight (or needs to leave concluding sentence(s) on Page 2 for reflectionBox).
+    // Greedily pack sentences & clauses onto Page 1 until right before 1 line from page end.
+    const sentences = splitEssayIntoSentences(paraText);
+    const acceptedUnits = [];
+    const remainingUnits = [];
+    let activeP1El = pEl;
+
+    // If mustHoldBackForReflection is true and sentences.length > 1, reserve the final sentence for Page 2
+    const packLimit = (mustHoldBackForReflection && sentences.length > 1) ? (sentences.length - 1) : sentences.length;
+
+    for (let j = 0; j < sentences.length; j++) {
+      const s = sentences[j];
+      if (j >= packLimit || remainingUnits.length > 0) {
+        remainingUnits.push(s);
+        continue;
+      }
+
+      const testText = [...acceptedUnits, s].join(' ');
+      const testEl = createBroadsheetParaElement(testText, isLead, false);
+      if (activeP1El && activeP1El.parentNode === p1Container) {
+        activeP1El.replaceWith(testEl);
+      } else {
+        p1Container.appendChild(testEl);
+      }
+      activeP1El = testEl;
+
+      const testH = getP1ContentHeight();
+      if (testH <= maxAllowedContentHeight) {
+        acceptedUnits.push(s);
+      } else {
+        // Sentence s overflowed. Check how much vertical space was left before adding s:
+        let prevH = 0;
+        if (acceptedUnits.length > 0) {
+          const revertEl = createBroadsheetParaElement(acceptedUnits.join(' '), isLead, false);
+          activeP1El.replaceWith(revertEl);
+          activeP1El = revertEl;
+          prevH = getP1ContentHeight();
+        } else {
+          activeP1El.remove();
+          activeP1El = null;
+          prevH = getP1ContentHeight();
+        }
+
+        const gapBeforeS = availableP1Height - prevH;
+        const sWords = s.split(/\s+/).filter(Boolean).length;
+
+        // If there are still ~1.75+ empty lines at the bottom of Page 1 and sentence s has clauses, pack fitting clauses!
+        if (gapBeforeS >= baseLineHeight * 1.75 && sWords >= 16) {
+          const clauses = splitSentenceIntoClauses(s);
+          if (clauses.length > 1) {
+            const fittedClauses = [];
+            const leftoverClauses = [];
+            for (let k = 0; k < clauses.length; k++) {
+              if (leftoverClauses.length > 0) {
+                leftoverClauses.push(clauses[k]);
+                continue;
+              }
+              const candidateClauseText = [...acceptedUnits, ...fittedClauses, clauses[k]].join(' ');
+              const clauseEl = createBroadsheetParaElement(candidateClauseText, isLead, false);
+              if (activeP1El && activeP1El.parentNode === p1Container) {
+                activeP1El.replaceWith(clauseEl);
+              } else {
+                p1Container.appendChild(clauseEl);
+              }
+              activeP1El = clauseEl;
+              if (getP1ContentHeight() <= maxAllowedContentHeight) {
+                fittedClauses.push(clauses[k]);
+              } else {
+                leftoverClauses.push(clauses[k]);
+              }
+            }
+            if (fittedClauses.length > 0) {
+              acceptedUnits.push(fittedClauses.join(' '));
+              if (leftoverClauses.length > 0) {
+                remainingUnits.push(leftoverClauses.join(' '));
+              }
+              continue;
+            }
+          }
+        }
+        remainingUnits.push(s);
+      }
+    }
+
+    // Re-sync DOM element on Page 1 for this split paragraph
+    if (activeP1El && activeP1El.parentNode === p1Container) {
+      activeP1El.remove();
+    }
+
+    const acceptedText = acceptedUnits.join(' ').trim();
+    const acceptedWordCount = acceptedText ? acceptedText.split(/\s+/).filter(Boolean).length : 0;
+
+    if (acceptedText && (isLead || acceptedWordCount >= 6)) {
+      const finalP1Para = createBroadsheetParaElement(acceptedText, isLead, false);
+      p1Container.appendChild(finalP1Para);
+      if (remainingUnits.length > 0) {
+        page2Items.push({ text: remainingUnits.join(' '), isContinuation: true });
+        splitOccurred = true;
+      }
+    } else {
+      page2Items.push({ text: paraText, isContinuation: false });
+      splitOccurred = true;
+    }
+  }
+
+  // Render Page 2 paragraphs before reflectionBox
+  page2Items.forEach(item => {
+    const p2El = createBroadsheetParaElement(item.text, false, item.isContinuation);
+    if (reflectionBox && reflectionBox.parentElement === p2Container) {
+      p2Container.insertBefore(p2El, reflectionBox);
+    } else {
+      p2Container.appendChild(p2El);
+    }
+  });
+
+  // Micro-Typographic Vertical Justification:
+  // Smoothly distribute any sub-sentence remainder so the final line of Page 1 ends ~1 line before the page end.
+  const finalContentH = getP1ContentHeight();
+  const bottomGap = availableP1Height - finalContentH;
+  const targetOneLineGap = Math.max(15, Math.min(22, baseLineHeight * 0.96));
+
+  if (bottomGap > targetOneLineGap + 3) {
+    const deficit = bottomGap - targetOneLineGap;
+    const p1ParasNow = Array.from(p1Container.querySelectorAll('p.receipt-p1, p.receipt-p3'));
+    const totalP1TextHeight = p1ParasNow.reduce((acc, el) => acc + el.offsetHeight, 0);
+    const estLines = Math.max(6, Math.round(totalP1TextHeight / baseLineHeight));
+    const numBlocks = Math.max(1, (p1ParasNow.length - 1) + (pullquoteBox ? 1 : 0) + (headlineBox ? 1 : 0));
+
+    // Allocate up to 3.5px per block gap and up to 2.6px per line-height
+    const blockGapBoost = Math.min(3.5, (deficit * 0.35) / numBlocks);
+    const usedByBlocks = blockGapBoost * numBlocks;
+    const remainingDeficit = Math.max(0, deficit - usedByBlocks);
+    const lineHeightBoost = Math.min(2.6, remainingDeficit / estLines);
+
+    if (headlineBox && blockGapBoost > 0.3) {
+      const curMb = parseFloat(window.getComputedStyle(headlineBox).marginBottom) || 4;
+      headlineBox.style.setProperty('margin-bottom', `${(curMb + blockGapBoost).toFixed(1)}px`, 'important');
+    }
+    if (pullquoteBox && blockGapBoost > 0.3) {
+      const curMb = parseFloat(window.getComputedStyle(pullquoteBox).marginBottom) || 6;
+      pullquoteBox.style.setProperty('margin-bottom', `${(curMb + blockGapBoost).toFixed(1)}px`, 'important');
+    }
+    p1ParasNow.forEach((el, idx) => {
+      if (lineHeightBoost > 0.15) {
+        el.style.setProperty('line-height', `${(baseLineHeight + lineHeightBoost).toFixed(2)}px`, 'important');
+      }
+      if (idx < p1ParasNow.length - 1 && blockGapBoost > 0.3) {
+        el.style.setProperty('margin-bottom', `${(baseParaMargin + blockGapBoost).toFixed(1)}px`, 'important');
+      } else if (idx === p1ParasNow.length - 1) {
+        el.style.setProperty('margin-bottom', '0px', 'important');
+      }
+    });
+  }
+
+  // Set exact 1-line bottom padding before the Page 2 seam
+  page1El.style.setProperty('padding-bottom', `${Math.round(baseLineHeight * 0.55)}px`, 'important');
+  if (seamEl) {
+    seamEl.style.setProperty('margin', '4px 0 8px 0', 'important');
+  }
+
+  // Save calibrated split back onto post object for export consistency
+  const postId = viewportEl.getAttribute('data-post-id') || viewportEl.closest('[data-post-id]')?.getAttribute('data-post-id');
+  if (postId && Array.isArray(window.posts)) {
+    const postObj = window.posts.find(p => p && String(p.id) === String(postId));
+    if (postObj && page2Items.length > 0) {
+      const calP1 = Array.from(p1Container.querySelectorAll('p.receipt-p1, p.receipt-p3'))
+        .map(el => (el.textContent || '').replace(/\u00AD/g, '').trim())
+        .filter(Boolean);
+      const calP2 = page2Items.map(it => it.text).filter(Boolean);
+      if (calP1.length > 0 && calP2.length > 0) {
+        postObj._calibratedBifurcation = {
+          isBifurcated: true,
+          hasPhoto: viewportEl.classList.contains('has-inset-photo'),
+          page1Paras: calP1,
+          page2Paras: calP2,
+          hasContinuedPara: Boolean(page2Items[0]?.isContinuation),
+          densityClass: 'essay-density-spacious'
+        };
+      }
+    }
+  }
+}
+
+function calibrateAllLiveEssayPaginations(root = document) {
+  if (!root || typeof root.querySelectorAll !== 'function') return;
+  const viewports = root.querySelectorAll('.slant-minute-scroll-viewport[data-bifurcated="true"]');
+  viewports.forEach(vp => calibrateEssayViewportPagination(vp));
+}
+window.calibrateEssayViewportPagination = calibrateEssayViewportPagination;
+window.calibrateAllLiveEssayPaginations = calibrateAllLiveEssayPaginations;
+
+if (typeof window !== 'undefined') {
+  let _essayResizeTimer = null;
+  window.addEventListener('resize', () => {
+    if (_essayResizeTimer) clearTimeout(_essayResizeTimer);
+    _essayResizeTimer = setTimeout(() => {
+      calibrateAllLiveEssayPaginations(document);
+    }, 120);
+  });
+}
 
 function evaluateEssayBifurcation(post, index) {
   if (post && post._cachedBifurcation) {
@@ -5118,49 +5598,20 @@ function evaluateEssayBifurcation(post, index) {
   const opinionWordsCount = rawOpinionForBudget.split(/\s+/).filter(Boolean).length;
   const estOpinionLines = Math.max(2, Math.ceil(opinionWordsCount / 8));
 
-  const headerOverheadWords = Math.max(0, estHeadlineLines - 1) * 8 + Math.max(0, estOpinionLines - 3) * 7;
+  const headerOverheadWords = Math.max(0, estHeadlineLines - 1) * 7 + Math.max(0, estOpinionLines - 3) * 6;
 
-  let targetPage1Words = Math.max(78, 100 - headerOverheadWords);
-  let maxPage1Ceiling = Math.max(88, 110 - headerOverheadWords);
+  let targetPage1Words = Math.max(98, 120 - headerOverheadWords);
+  let maxPage1Ceiling = Math.max(110, 134 - headerOverheadWords);
   if (!hasPhoto) {
-    targetPage1Words = Math.max(104, 134 - headerOverheadWords);
-    maxPage1Ceiling = Math.max(116, 146 - headerOverheadWords);
+    targetPage1Words = Math.max(122, 152 - headerOverheadWords);
+    maxPage1Ceiling = Math.max(136, 166 - headerOverheadWords);
   } else if (isVideoOrWide) {
-    targetPage1Words = Math.max(52, 66 - headerOverheadWords);
-    maxPage1Ceiling = Math.max(60, 74 - headerOverheadWords);
+    targetPage1Words = Math.max(66, 82 - headerOverheadWords);
+    maxPage1Ceiling = Math.max(76, 92 - headerOverheadWords);
   }
 
   function splitIntoParagraphUnits(text) {
-    if (!text) return [];
-    const protectedText = text
-      .replace(/\b(Mr|Mrs|Ms|Dr|Prof|Sr|Jr|Gen|Gov|Capt|Lieut|Col|U\.S|e\.g|i\.e)\./gi, '$1__DOT__');
-    
-    // Protect punctuation inside single/double quotes or dialogue (e.g. 'Gahan! Gahan!' or "Look out!")
-    const quoteProtected = protectedText.replace(/(['"“‘][^'"”’]+['"”’])/g, (m) => {
-      return m.replace(/!/g, '__EXCL__').replace(/\?/g, '__QMARK__').replace(/\./g, '__DOT__');
-    });
-
-    const rawSentences = quoteProtected.match(/[^.!?]+(?:[.!?]+|$)/g) || [quoteProtected];
-    const sentences = rawSentences
-      .map(s => s
-        .replace(/__DOT__/g, '.')
-        .replace(/__EXCL__/g, '!')
-        .replace(/__QMARK__/g, '?')
-        .trim())
-      .filter(Boolean);
-
-    if (sentences.length > 1) {
-      return sentences;
-    }
-
-    const words = text.trim().split(/\s+/).filter(Boolean);
-    if (words.length > 28) {
-      const clauses = text.match(/[^,;:]+[,;:]?|\s*[^,;:]+$/g);
-      if (clauses && clauses.length > 1) {
-        return clauses.map(c => c.trim()).filter(Boolean);
-      }
-    }
-    return [text.trim()];
+    return splitEssayIntoSentences(text);
   }
 
   const page1Paras = [];
@@ -5184,8 +5635,8 @@ function evaluateEssayBifurcation(post, index) {
       accumulatedWords += pWords;
     } else {
       // Entire paragraph does not fit within ceiling.
-      // Squeeze portion of this paragraph onto Page 1 only if it provides substantial presence
-      // (avoiding awkward 1-sentence / 2-line orphan starts or endings).
+      // Greedily pack sentences (and natural clauses if a long sentence would leave >15 words of empty space)
+      // onto Page 1 so Page 1 ends ~1 line before the page end.
       const units = splitIntoParagraphUnits(p);
       const u1 = [];
       const u2 = [];
@@ -5196,30 +5647,43 @@ function evaluateEssayBifurcation(post, index) {
         if (!u) continue;
         const uw = u.split(/\s+/).filter(Boolean).length;
 
-        // Place on Page 1 if it fits within targetPage1Words or ceiling
         const canFitOnP1 = (curWords + uw <= targetPage1Words) || (curWords + uw <= maxPage1Ceiling && u2.length === 0);
 
         if (u2.length === 0 && canFitOnP1) {
           u1.push(u);
           curWords += uw;
+        } else if (u2.length === 0 && uw >= 18 && (targetPage1Words - curWords) >= 10) {
+          // Long sentence that would leave >1 line of empty space if pushed whole to Page 2: split at clause boundaries
+          const clauses = splitSentenceIntoClauses(u);
+          const c1 = [];
+          const c2 = [];
+          for (let k = 0; k < clauses.length; k++) {
+            const c = clauses[k].trim();
+            if (!c) continue;
+            const cw = c.split(/\s+/).filter(Boolean).length;
+            if (c2.length === 0 && (curWords + cw <= maxPage1Ceiling)) {
+              c1.push(c);
+              curWords += cw;
+            } else {
+              c2.push(c);
+            }
+          }
+          if (c1.length > 0) u1.push(c1.join(" "));
+          if (c2.length > 0) u2.push(c2.join(" "));
         } else {
           u2.push(u);
         }
       }
 
-      // Typographic Integrity Rules:
-      // 1. No Orphan Starts: If Page 1 already has content and u1 has fewer than 2 sentences,
-      //    never chop off just 1 sentence (2 lines) at the foot of Page 1. Move whole paragraph to Page 2!
-      // 2. No Orphan Endings: If u2 has only 1 sentence and fits within maxPage1Ceiling,
-      //    keep the entire paragraph together on Page 1!
-      if (page1Paras.length > 0 && u1.length < 2) {
-        page2Paras.push(p);
-        hasSplit = true;
-      } else if (u2.length === 1 && (curWords + u2[0].split(/\s+/).length <= maxPage1Ceiling)) {
+      const u1Text = u1.join(" ").trim();
+      const u1WordCount = u1Text ? u1Text.split(/\s+/).filter(Boolean).length : 0;
+
+      // Keep any sentence/clause chunk of >= 7 words (~1 full line) on Page 1 so Page 1 never leaves multiple empty lines
+      if (u2.length === 1 && (curWords + u2[0].split(/\s+/).length <= maxPage1Ceiling)) {
         page1Paras.push(p);
         accumulatedWords += pWords;
-      } else if (u1.length > 0 && u2.length > 0) {
-        page1Paras.push(u1.join(" "));
+      } else if (u1.length > 0 && u2.length > 0 && (page1Paras.length === 0 || u1WordCount >= 7)) {
+        page1Paras.push(u1Text);
         page2Paras.push(u2.join(" "));
         accumulatedWords = curWords;
         hasSplit = true;
@@ -5237,8 +5701,8 @@ function evaluateEssayBifurcation(post, index) {
   const remainingText = page2Paras.join(" ").trim();
   const remainingWords = remainingText.split(/\s+/).filter(Boolean).length;
 
-  const THRESHOLD_WORDS = 45;
-  const THRESHOLD_CHARS = 140;
+  const THRESHOLD_WORDS = 20;
+  const THRESHOLD_CHARS = 85;
   const isOverflowSubstantial = (remainingWords >= THRESHOLD_WORDS || remainingText.length >= THRESHOLD_CHARS);
 
   if (!isOverflowSubstantial) {
@@ -5673,6 +6137,7 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
   return `
     <div class="slant-minute-scroll-viewport essay-scroll-viewport ${bifurcation.hasPhoto ? "has-inset-photo" : ""} ${bifurcation.densityClass}"
          lang="en"
+         data-post-id="${escapeHtml(String(post.id || ""))}"
          data-bifurcated="${bifurcation.isBifurcated ? "true" : "false"}"
          onscroll="window._lastSlantMinuteScroll = Date.now()">
       
@@ -6050,6 +6515,12 @@ function createPostCardElement(post, index) {
     </div>
   `;
 
+  if (typeof requestAnimationFrame === 'function') {
+    requestAnimationFrame(() => {
+      calibrateAllLiveEssayPaginations(card);
+    });
+  }
+
   return card;
 }
 
@@ -6131,6 +6602,12 @@ function goToSlide(event, postIndex, slideIndex) {
       tab.classList.toggle('active', i === slideIndex);
     });
   }
+
+  if (slideIndex >= 1 && typeof requestAnimationFrame === 'function') {
+    requestAnimationFrame(() => {
+      calibrateAllLiveEssayPaginations(carousel);
+    });
+  }
 }
 
 let activeEssayMomentumRaf = null;
@@ -6147,6 +6624,9 @@ function setupCarouselGestures(postIndex) {
   // Seamless Essay-to-Feed Scroll Handoff when essay page reaches top or bottom end
   const essayViewports = carousel.querySelectorAll('.slant-minute-scroll-viewport');
   essayViewports.forEach((essayVp) => {
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(() => calibrateEssayViewportPagination(essayVp));
+    }
     if (essayVp.dataset.scrollHandoffAttached) return;
     essayVp.dataset.scrollHandoffAttached = 'true';
 
