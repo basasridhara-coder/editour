@@ -1204,7 +1204,8 @@ let isSampleCarouselHovered = false;
 function renderLoginPostsPreview() {
   const track = document.getElementById("loginPostsScrollTrack");
   const switcher = document.getElementById("loginStoriesSwitcher");
-  if (!track) return;
+  const samplesGrid = document.getElementById("loginSampleCarouselsGrid");
+  if (!track && !samplesGrid) return;
 
   // Keep featured login sample posts strictly on the login showcase and out of the user's account/feed
   if (typeof myCreatedPostIds !== 'undefined' && myCreatedPostIds.size > 0) {
@@ -1233,7 +1234,7 @@ function renderLoginPostsPreview() {
 
   window._selectedSamplePosts = selectedPosts;
 
-  // 1. Build Story Switcher Pills
+  // 1. Build Story Switcher Pills (if present)
   if (switcher) {
     switcher.innerHTML = '';
     selectedPosts.forEach(({ post, cfg }, idx) => {
@@ -1249,9 +1250,68 @@ function renderLoginPostsPreview() {
     });
   }
 
-  // 2. Render initial sample story into authentic 3:4 feed card
-  renderSampleStory(currentSampleStoryIndex);
+  // 2. Render lower 4-card sample showcase grid (single-page scroll flow)
+  if (samplesGrid) {
+    renderLoginSamplesGrid(selectedPosts);
+  }
+
+  // 3. Render initial sample story into single track if present
+  if (track) {
+    renderSampleStory(currentSampleStoryIndex);
+  }
   startSampleCarouselAutoPlay();
+}
+
+function renderLoginSamplesGrid(selectedPosts) {
+  const samplesGrid = document.getElementById("loginSampleCarouselsGrid");
+  if (!samplesGrid || !Array.isArray(selectedPosts) || selectedPosts.length === 0) return;
+
+  samplesGrid.innerHTML = '';
+  selectedPosts.forEach(({ post, cfg }, idx) => {
+    const sampleKey = `sample_${idx}`;
+    const cardHost = document.createElement('div');
+    cardHost.className = 'sample-feed-card-host login-grid-sample-host';
+    cardHost.setAttribute('data-sample-idx', String(idx));
+
+    const card = createPostCardElement(post, sampleKey);
+    card.classList.add('sample-feed-card');
+
+    // Slide click behavior: Slide 1 clicks to Slide 2 (Essay); Slide 2 clicks back to Slide 1
+    const slide1 = card.querySelector('.slide-hook');
+    const slide2 = card.querySelector('.slide-receipt');
+    if (slide1) {
+      slide1.onclick = (e) => {
+        e.stopPropagation();
+        goToSlide(e, sampleKey, 1);
+      };
+      slide1.style.cursor = 'pointer';
+      slide1.setAttribute('title', 'Tap to flip to The Essay');
+    }
+    if (slide2) {
+      slide2.onclick = (e) => {
+        e.stopPropagation();
+        goToSlide(e, sampleKey, 0);
+      };
+      slide2.style.cursor = 'pointer';
+      slide2.setAttribute('title', 'Tap to flip back to Visual Poster');
+    }
+
+    cardHost.appendChild(card);
+    samplesGrid.appendChild(cardHost);
+
+    // Attach touch swipe gestures and reset to Slide 0 (Hook)
+    setupCarouselGestures(sampleKey);
+    goToSlide(null, sampleKey, 0);
+
+    // Pause gentle auto-flip while user hovers or touches any sample card
+    card.addEventListener('mouseenter', () => { isSampleCarouselHovered = true; });
+    card.addEventListener('mouseleave', () => { isSampleCarouselHovered = false; });
+    card.addEventListener('touchstart', () => { isSampleCarouselHovered = true; }, { passive: true });
+    card.addEventListener('touchend', () => {
+      setTimeout(() => { isSampleCarouselHovered = false; }, 3500);
+    }, { passive: true });
+  });
+  samplesGrid.dataset.populated = 'true';
 }
 
 function selectSampleStory(storyIdx) {
@@ -1328,6 +1388,27 @@ function startSampleCarouselAutoPlay() {
       clearInterval(sampleCarouselAutoPlayTimer);
       return;
     }
+
+    // Gentle auto-flip across the 4-card lower sample showcase grid (one card at a time)
+    const gridCarousels = document.querySelectorAll('#loginSampleCarouselsGrid .carousel-view');
+    if (gridCarousels && gridCarousels.length > 0) {
+      const selectedPosts = window._selectedSamplePosts || [];
+      const activeIdx = currentSampleStoryIndex % gridCarousels.length;
+      const sampleKey = `sample_${activeIdx}`;
+      const activeCarousel = document.getElementById(`carousel-${sampleKey}`);
+      if (activeCarousel) {
+        const cur = parseInt(activeCarousel.getAttribute('data-current-slide') || '0', 10);
+        const maxSlide = parseInt(activeCarousel.getAttribute('data-slide-count') || '2', 10) - 1;
+        if (cur >= maxSlide) {
+          goToSlide(null, sampleKey, 0);
+          currentSampleStoryIndex = (activeIdx + 1) % (selectedPosts.length || gridCarousels.length);
+        } else {
+          goToSlide(null, sampleKey, cur + 1);
+        }
+      }
+      return;
+    }
+
     const carousel = document.getElementById('carousel-sample');
     if (!carousel) return;
     const cur = parseInt(carousel.getAttribute('data-current-slide') || '0', 10);
@@ -3842,6 +3923,13 @@ function setupSwipeBlockedListener() {
 function getPostFromIndexOrId(indexOrId) {
   if (indexOrId === 'preview') return (typeof currentSynthesizedPost !== 'undefined' ? currentSynthesizedPost : null);
   if (indexOrId === 'sample') return (typeof window.currentSampleStoryPost !== 'undefined' ? window.currentSampleStoryPost : null);
+  if (typeof indexOrId === 'string' && indexOrId.startsWith('sample_')) {
+    const sampleIdx = parseInt(indexOrId.replace('sample_', ''), 10);
+    const selectedPosts = window._selectedSamplePosts || [];
+    if (selectedPosts[sampleIdx] && selectedPosts[sampleIdx].post) {
+      return selectedPosts[sampleIdx].post;
+    }
+  }
   if (typeof indexOrId === 'number' || (typeof indexOrId === 'string' && /^\d+$/.test(indexOrId))) {
     // First check DOM card with matching carousel-<idx> to resolve exact post ID even after in-place deletions
     const carouselEl = document.getElementById(`carousel-${indexOrId}`);
@@ -6521,7 +6609,8 @@ function renderProofSummarySections(post, ledger) {
 
 function openDetailModal(index) {
   if (index === 'preview') return;
-  if (!currentUser && (isDeepLinkScrollGated || index === 'sample')) {
+  const isSampleCard = index === 'sample' || (typeof index === 'string' && index.startsWith('sample_'));
+  if (!currentUser && (isDeepLinkScrollGated || isSampleCard)) {
     openAuthModal('Sign in to view verified source context, receipts, and community discussion.');
     return;
   }

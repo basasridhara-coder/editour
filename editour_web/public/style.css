@@ -21647,18 +21647,38 @@ mark.polish-mark:hover, mark.polish-mark.active {
 }
 
 /* ============================================================
-   COMBINED LOGIN SHOWCASE:
+   COMBINED LOGIN SHOWCASE (UNIFIED SINGLE-PAGE SCROLL):
    Statement + Larger Animated Logo + "For people who think and reflect"
    + Three Watercolor Pillar Sections (Web Link, Inner Voice, Daily Chronicles)
+   + Lower 4-Card Interactive Sample Carousels Flow
    ============================================================ */
 
+.signed-out-page-view {
+  height: 100vh !important;
+  min-height: 100vh !important;
+  max-height: 100vh !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  -webkit-overflow-scrolling: touch;
+  justify-content: flex-start !important;
+  scroll-behavior: smooth;
+}
+
 .login-main-wrap {
-  overflow-y: auto;
+  flex: 0 0 auto !important;
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+  justify-content: flex-start !important;
+  padding: 18px 24px 36px !important;
 }
 
 .login-page-card-standalone {
-  max-height: calc(100vh - 28px);
-  overflow-y: auto;
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+  padding: 22px 26px 28px !important;
+  gap: 0;
 }
 
 .slant-triad-layout.slant-combined-stage-layout {
@@ -21667,6 +21687,7 @@ mark.polish-mark:hover, mark.polish-mark.active {
   gap: 24px;
   align-items: stretch;
   width: 100%;
+  height: auto !important;
 }
 
 .slant-combined-showcase {
@@ -21953,6 +21974,148 @@ mark.polish-mark:hover, mark.polish-mark.active {
   .manifesto-audience-pill {
     font-size: 11px;
     padding: 4px 13px;
+  }
+}
+
+/* ============================================================
+   LOWER SAMPLE CAROUSELS FLOW (CONTINUOUS SINGLE-PAGE CANVAS)
+   ============================================================ */
+.login-lower-samples-flow {
+  width: 100%;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-sizing: border-box;
+}
+
+[data-theme="obsidian"] .login-lower-samples-flow {
+  border-top-color: rgba(255, 255, 255, 0.08);
+}
+
+.login-samples-divider-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  width: 100%;
+}
+
+.login-samples-divider-line {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(15, 23, 42, 0.12), transparent);
+}
+
+[data-theme="obsidian"] .login-samples-divider-line {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.14), transparent);
+}
+
+.login-samples-kicker {
+  font-family: 'Space Grotesk', 'Inter', -apple-system, sans-serif;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1.1px;
+  text-transform: uppercase;
+  color: var(--text-secondary, #64748B);
+  text-align: center;
+  white-space: nowrap;
+}
+
+[data-theme="obsidian"] .login-samples-kicker {
+  color: #94A3B8;
+}
+
+.login-samples-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  width: 100%;
+  align-items: stretch;
+  box-sizing: border-box;
+}
+
+.login-samples-grid .login-grid-sample-host {
+  width: 100%;
+  min-width: 0;
+  height: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.login-samples-grid .login-grid-sample-host .post-card {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  border-radius: 18px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Proportionally size each 3:4 sample carousel inside the 4-column login grid */
+.login-samples-grid .login-grid-sample-host .post-card .carousel-view {
+  flex: 0 0 auto !important;
+  width: 100% !important;
+  height: auto !important;
+  aspect-ratio: 3 / 4 !important;
+}
+
+/* Hide social action bar on login sample cards so they stay clean & compact */
+.login-samples-grid .login-grid-sample-host .post-card .post-actions,
+.login-samples-grid .login-grid-sample-host .post-card .comments-drawer {
+  display: none !important;
+}
+
+.login-samples-grid .login-grid-sample-host .post-card .post-content {
+  padding: 6px 12px 10px 12px;
+}
+
+.login-samples-grid .login-grid-sample-host .post-card .post-summary-snippet {
+  font-size: 11px;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+@media (max-width: 1180px) {
+  .login-samples-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    max-width: 720px;
+    margin: 0 auto;
+  }
+}
+
+@media (max-width: 680px) {
+  .login-main-wrap {
+    padding: 10px 12px 28px !important;
+  }
+
+  .login-page-card-standalone {
+    padding: 16px 14px 22px !important;
+  }
+
+  .login-lower-samples-flow {
+    margin-top: 18px;
+    padding-top: 16px;
+    gap: 12px;
+  }
+
+  .login-samples-kicker {
+    font-size: 9.8px;
+    letter-spacing: 0.7px;
+    white-space: normal;
+  }
+
+  .login-samples-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    max-width: 400px;
+    margin: 0 auto;
   }
 }
 
