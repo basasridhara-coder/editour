@@ -21718,8 +21718,8 @@ mark.polish-mark:hover, mark.polish-mark.active {
   order: 1;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  gap: 14px;
+  justify-content: flex-start;
+  gap: 12px;
   padding-right: 26px;
   border-right: 1px solid rgba(15, 23, 42, 0.08);
   height: 100%;
@@ -21871,8 +21871,8 @@ mark.polish-mark:hover, mark.polish-mark.active {
 .slant-pillars-carousel-viewport {
   position: relative;
   width: 100%;
-  flex: 1;
-  min-height: 365px;
+  flex: 0 0 auto;
+  height: auto;
   border-radius: 20px;
   overflow: hidden;
   background: #F5EFE2;
@@ -21891,20 +21891,21 @@ mark.polish-mark:hover, mark.polish-mark.active {
 .slant-pillars-carousel-track {
   display: flex;
   width: 300%;
-  height: 100%;
-  flex: 1;
+  height: auto;
+  align-items: stretch;
   transition: transform 0.38s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .slant-pillar-vertical-card {
   width: 33.333333%;
   flex: 0 0 33.333333%;
-  height: 100%;
-  padding: 18px 26px 36px;
+  height: auto;
+  padding: 12px 24px 26px;
   background: #F5EFE2;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: flex-start;
+  gap: 8px;
   box-sizing: border-box;
   cursor: pointer;
   user-select: none;
@@ -21916,14 +21917,14 @@ mark.polish-mark:hover, mark.polish-mark.active {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  margin-bottom: 14px;
-  padding-bottom: 8px;
+  margin-bottom: 0;
+  padding-bottom: 6px;
   border-bottom: 1px solid rgba(139, 115, 85, 0.16);
 }
 
 .slant-pillar-kicker-tag {
   font-family: 'Space Grotesk', 'Inter', sans-serif;
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 800;
   letter-spacing: 0.9px;
   text-transform: uppercase;
@@ -21941,16 +21942,21 @@ mark.polish-mark:hover, mark.polish-mark.active {
 }
 
 .slant-pillar-card-content-split {
-  display: grid;
-  grid-template-columns: 270px minmax(0, 1fr);
-  gap: 24px;
+  display: flex;
   align-items: center;
-  flex: 1;
+  justify-content: center;
+  gap: 24px;
+  max-width: 580px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 2px 18px 0;
+  box-sizing: border-box;
 }
 
 .slant-pillar-vertical-visual {
-  width: 100%;
-  height: 256px;
+  width: 175px;
+  height: 192px;
+  flex: 0 0 175px;
   background: #F5EFE2;
   border-radius: 18px;
   overflow: hidden;
@@ -21958,7 +21964,7 @@ mark.polish-mark:hover, mark.polish-mark.active {
   align-items: center;
   justify-content: center;
   margin: 0;
-  padding: 6px;
+  padding: 2px;
   box-sizing: border-box;
 }
 
@@ -21966,7 +21972,7 @@ mark.polish-mark:hover, mark.polish-mark.active {
   width: auto;
   height: auto;
   max-width: 100%;
-  max-height: 244px;
+  max-height: 186px;
   border-radius: 18px;
   overflow: hidden;
   display: block;
@@ -21976,29 +21982,30 @@ mark.polish-mark:hover, mark.polish-mark.active {
 .slant-pillar-vertical-body {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 6px;
   flex: 1;
+  max-width: 345px;
   justify-content: center;
 }
 
 .slant-pillar-vertical-header {
   display: flex;
   align-items: center;
-  gap: 11px;
+  gap: 10px;
   margin-bottom: 2px;
 }
 
 .slant-pillar-vertical-icon {
-  width: 38px;
-  height: 38px;
+  width: 36px;
+  height: 36px;
   object-fit: cover;
-  border-radius: 10px;
+  border-radius: 9px;
   flex-shrink: 0;
 }
 
 .slant-pillar-vertical-title {
   font-family: 'Playfair Display', 'Merriweather', Georgia, serif;
-  font-size: 26px;
+  font-size: 24px;
   font-weight: 800;
   color: #1E242B;
   margin: 0;
@@ -22008,18 +22015,18 @@ mark.polish-mark:hover, mark.polish-mark.active {
 
 .slant-pillar-vertical-hook {
   font-family: 'Merriweather', Georgia, serif;
-  font-size: 16.5px;
+  font-size: 15.5px;
   font-weight: 700;
   font-style: italic;
   color: #2C353F;
   margin: 0 0 2px 0;
-  line-height: 1.38;
+  line-height: 1.35;
 }
 
 .slant-pillar-vertical-desc {
   font-family: 'Inter', -apple-system, sans-serif;
-  font-size: 14.8px;
-  line-height: 1.54;
+  font-size: 14px;
+  line-height: 1.48;
   color: #3B444E;
   margin: 0;
 }
@@ -22051,16 +22058,16 @@ mark.polish-mark:hover, mark.polish-mark.active {
   width: 18px !important;
 }
 
-/* Integrated Editorial Quote & Anchor Seal over Welcome to Slant */
+/* Horizontal Statement Banner comfortably spaced below the cream carousel */
 .login-narrative-quote-footer {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 12px 14px 10px;
-  border-radius: 14px;
-  background: rgba(15, 23, 42, 0.03);
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  margin-bottom: 14px;
+  padding: 13px 20px 11px;
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.025);
+  border: 1px solid rgba(15, 23, 42, 0.07);
+  margin-top: 2px;
 }
 
 [data-theme="obsidian"] .login-narrative-quote-footer {
@@ -22073,40 +22080,40 @@ mark.polish-mark:hover, mark.polish-mark.active {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
   text-align: center;
 }
 
 .login-integrated-quote .manifesto-lead {
-  font-size: 13.5px;
-  line-height: 1.44;
+  font-size: 15.2px;
+  line-height: 1.42;
 }
 
 .login-integrated-quote .manifesto-question {
-  font-size: 12.6px;
-  line-height: 1.4;
+  font-size: 14px;
+  line-height: 1.38;
 }
 
 .login-anchor-seal-row {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 10px;
   padding-top: 2px;
 }
 
 .login-anchor-seal-line {
   flex: 1;
-  max-width: 55px;
+  max-width: 90px;
   height: 1px;
   background: linear-gradient(90deg, transparent, rgba(180, 83, 9, 0.35), transparent);
 }
 
 .login-anchor-seal-text {
   font-family: 'Space Grotesk', 'Inter', sans-serif;
-  font-size: 9.5px;
+  font-size: 10px;
   font-weight: 800;
-  letter-spacing: 0.9px;
+  letter-spacing: 1px;
   text-transform: uppercase;
   color: #B45309;
   white-space: nowrap;
@@ -22191,11 +22198,14 @@ mark.polish-mark:hover, mark.polish-mark.active {
   }
 
   .slant-pillar-card-content-split {
-    grid-template-columns: 1fr;
+    flex-direction: column;
     gap: 10px;
+    padding: 2px 6px 0;
   }
 
   .slant-pillar-vertical-visual {
+    width: 100%;
+    flex: 0 0 auto;
     height: 175px;
   }
 
