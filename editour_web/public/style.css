@@ -21828,7 +21828,8 @@ mark.polish-mark:hover, mark.polish-mark.active {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 7px 10px;
+  min-width: 0;
+  padding: 7px 8px;
   border-radius: 9px;
   border: 1px solid transparent;
   background: transparent;
@@ -21839,6 +21840,13 @@ mark.polish-mark:hover, mark.polish-mark.active {
   cursor: pointer;
   transition: all 0.2s ease;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-sizing: border-box;
+}
+
+.pillar-switch-pill span {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -22252,6 +22260,22 @@ mark.polish-mark:hover, mark.polish-mark.active {
     text-align: center;
   }
 
+  .pillars-switcher-pills {
+    gap: 4px;
+    padding: 3px;
+  }
+
+  .pillar-switch-pill {
+    gap: 4px;
+    padding: 6px 5px;
+    font-size: 10.5px;
+  }
+
+  .pillar-pill-icon {
+    width: 14px;
+    height: 14px;
+  }
+
   .slant-pillar-card-content-split {
     flex-direction: column;
     gap: 10px;
@@ -22651,6 +22675,19 @@ mark.polish-mark:hover, mark.polish-mark.active {
     gap: 16px;
     max-width: 400px;
     margin: 0 auto;
+  }
+
+  .login-showcase-set-tabs {
+    max-width: 100%;
+    padding: 3px;
+    gap: 4px;
+  }
+
+  .login-showcase-set-tab {
+    font-size: 10px;
+    padding: 5px 10px;
+    gap: 4px;
+    white-space: nowrap;
   }
 }
 
