@@ -90,12 +90,13 @@ module.exports = async function handler(req, res) {
   const effectiveNewsHeadline = (sourceType === 'digital_link' || sourceType === 'video_audio') ? (newsHeadline || '').trim() : '';
   const effectiveNewsBody = (sourceType === 'digital_link' || sourceType === 'video_audio') ? (newsBody || '').trim() : '';
 
-  const isCinematic = (characterRepresentation === 'cinematic' || characterRepresentation === 'cinematic_photo' || characterRepresentation === 'likeness' || characterRepresentation === 'lookalike' || (effectivePhoto && characterRepresentation !== 'painting' && characterRepresentation !== 'exact' && characterRepresentation !== 'silhouette' && characterRepresentation !== 'realistic'));
+  const isCinematic = (characterRepresentation === 'cinematic' || characterRepresentation === 'cinematic_photo' || characterRepresentation === 'likeness' || characterRepresentation === 'lookalike' || (effectivePhoto && characterRepresentation !== 'painting' && characterRepresentation !== 'watercolor' && characterRepresentation !== 'exact' && characterRepresentation !== 'silhouette' && characterRepresentation !== 'realistic'));
   const isPainting = (characterRepresentation === 'painting');
+  const isWatercolor = (characterRepresentation === 'watercolor');
   const isExact = (characterRepresentation === 'exact');
   const isSilhouette = (characterRepresentation === 'silhouette');
-  const isRealistic = (characterRepresentation === 'realistic' || (!isCinematic && !isPainting && !isExact && !isSilhouette));
-  const hasPersonFocus = isCinematic || isPainting || isExact || isRealistic;
+  const isRealistic = (characterRepresentation === 'realistic' || (!isCinematic && !isPainting && !isWatercolor && !isExact && !isSilhouette));
+  const hasPersonFocus = isCinematic || isPainting || isWatercolor || isExact || isRealistic;
 
   const combinedTopic = `${curatorAngle || ''} ${spark || ''} ${effectiveNewsHeadline} ${effectiveNewsBody}`.toLowerCase();
   const isPersonalStory = (sourceType === 'inner_voice') ||
@@ -147,11 +148,13 @@ ENCYCLOPEDIC CULTURAL & UNIFORM ACCURACY: If the curator references RSS, Swayams
       ? (isPersonalStory && effectivePhoto
         ? 'CRITICAL ARTISTIC BROADSHEET PAINTING DIRECTIVE (PAINTED ARTWORK): The curator requested ARTISTIC BROADSHEET PAINTING portrayal from the attached photo. The #1 HERO cue MUST specify the key subjects from the photo. #6 STYLE MUST be "Warm Cinematic Editorial Gouache Painting" or "Editorial Oil and Gouache Broadsheet Art".'
         : 'CRITICAL ARTISTIC PAINTING DIRECTIVE: The #1 HERO cue should portray the subject in broadsheet painted editorial art style.')
-      : (isExact
-        ? 'CRITICAL EXACT PHOTO DIRECTIVE: The curator requested to USE THE EXACT PHOTO. The #1 HERO cue should specify the primary photographic subject (e.g. "Donald Trump (Lead Photo Focus)").'
-        : (isSilhouette
-          ? 'MINIMALIST SILHOUETTE DIRECTIVE: The curator explicitly requested silhouette portrayal. #1 HERO should use minimalist shadow outlines.'
-          : 'CRITICAL AI ILLUSTRATION (VIVID EDITORIAL REALISM) DIRECTIVE: High-impact editorial broadsheet illustration faithfully capturing key figures, real-world setting, and dramatic journalistic realism. In Source Grounded mode or for news stories with a clear public figure, leader, or speaker in the thumbnail/article, the #1 HERO cue MUST explicitly name and identify the central individual (e.g. "French President Emmanuel Macron at podium", "Italian Prime Minister Giorgia Meloni", "Actor Ashish Vidyarthi (Editorial Portrait)"). Style: Vivid editorial realism with clear, recognizable facial features, natural lighting, and sharp journalistic clarity. STRICT BAN: NEVER pitch-black silhouettes, NEVER faceless shadows, NEVER creepy ghost-like phantoms!')));
+      : (isWatercolor
+        ? 'CRITICAL WATERCOLOR ILLUSTRATION DIRECTIVE (HAND-PAINTED WATERCOLOR & INK WASH): The curator requested WATERCOLOR ILLUSTRATION portrayal. The #1 HERO cue should portray the central subject or protagonist with expressive human presence, and #6 STYLE MUST be "Hand-Painted Watercolor & Ink-Wash Illustration" or "Translucent Editorial Watercolor on Archival Paper".'
+        : (isExact
+          ? 'CRITICAL EXACT PHOTO DIRECTIVE: The curator requested to USE THE EXACT PHOTO. The #1 HERO cue should specify the primary photographic subject (e.g. "Donald Trump (Lead Photo Focus)").'
+          : (isSilhouette
+            ? 'MINIMALIST SILHOUETTE DIRECTIVE: The curator explicitly requested silhouette portrayal. #1 HERO should use minimalist shadow outlines.'
+            : 'CRITICAL AI ILLUSTRATION (VIVID EDITORIAL REALISM) DIRECTIVE: High-impact editorial broadsheet illustration faithfully capturing key figures, real-world setting, and dramatic journalistic realism. In Source Grounded mode or for news stories with a clear public figure, leader, or speaker in the thumbnail/article, the #1 HERO cue MUST explicitly name and identify the central individual (e.g. "French President Emmanuel Macron at podium", "Italian Prime Minister Giorgia Meloni", "Actor Ashish Vidyarthi (Editorial Portrait)"). Style: Vivid editorial realism with clear, recognizable facial features, natural lighting, and sharp journalistic clarity. STRICT BAN: NEVER pitch-black silhouettes, NEVER faceless shadows, NEVER creepy ghost-like phantoms!'))));
 
   const dimensionNames = ['#1 HERO', '#2 MOTIF', '#3 TENSION', '#4 ATMOSPHERE', '#5 LIGHTING', '#6 STYLE'];
   let variationDirective = '';
@@ -252,7 +255,7 @@ Source Type: ${sourceType}
 Visual Focus: ${perspectiveMode === 'curator' ? 'Curator Angle (Metaphor)' : (perspectiveMode === 'source' ? 'Source Grounded (Physical Reality)' : 'Hybrid Blend')}
 Slant Tone: ${slantTone === 'heart' ? 'Out of Heart (Emotive, Humanistic, Personal Reflection)' : 'Out of Mind (Analytical, Strategic, Systemic Broadsheet)'}
 Regional & Cultural Setting: ${countryContext || 'Global / Contextually Detected'}
-Character Portrayal Style: ${isExact ? 'EXACT PHOTO FOCUS' : (isCinematic ? 'CINEMATIC EDITORIAL PHOTO (35MM CAMERA FIDELITY)' : (isPainting ? 'ARTISTIC BROADSHEET PAINTING (GOUACHE & OIL)' : (isSilhouette ? 'Stylized Minimalist Silhouette' : 'AI Illustration (Vivid Editorial Realism)')))}
+Character Portrayal Style: ${isExact ? 'EXACT PHOTO FOCUS' : (isCinematic ? 'CINEMATIC EDITORIAL PHOTO (35MM CAMERA FIDELITY)' : (isPainting ? 'ARTISTIC BROADSHEET PAINTING (GOUACHE & OIL)' : (isWatercolor ? 'WATERCOLOR ILLUSTRATION (HAND-PAINTED WATERCOLOR & INK WASH ON ARCHIVAL PAPER)' : (isSilhouette ? 'Stylized Minimalist Silhouette' : 'AI Illustration (Vivid Editorial Realism)'))))}
 
 ${perspectiveDirective}
 
@@ -276,7 +279,7 @@ STRICT VISUAL CUE REQUIREMENTS (Must be short, punchy 3-6 word phrases):
 3. TENSION: Opposing visual friction, conflict, shadow, crisis, or counter-force (e.g. "Work Deadlines Clashing with Escape", "Relentless Tidal Wave of Noise", "Cracking Stone Foundation", "Looming Corporate Shadow").
 4. ATMOSPHERE: Setting, environmental scale, weather, or time of day (e.g. "Cluttered Study with Kerala Palms", "Damp Rain-Slicked City Boulevard", "Smoke-Filled High-Rise Boardroom").
 5. LIGHTING: Evocative 3-6 word lighting mood strictly reflecting the topic and emotional stance (e.g. "Cold Steel-Blue Chiaroscuro Rim", "Forensic Overhead Halogen Grid", "Soft Fog-Diffused Morning Light", "Dramatic Low-Angle Razor Spotlight"). STRICTLY AVOID generic "Golden Hour" or "Warm Sunset" cliches unless an outdoor sunset is explicitly central to the narrative!
-6. STYLE: Specific high-aesthetic visual medium (e.g. ${isCinematic ? '"Cinematic 35mm Editorial Photography"' : (isPainting ? '"Warm Cinematic Editorial Gouache Painting"' : '"Cinematic News Broadcast Editorial Illustration" or "High-Impact Broadsheet Editorial Illustration"')}, "High-Contrast Noir Risograph Print", "Bauhaus Geometric Vector Art").
+6. STYLE: Specific high-aesthetic visual medium (e.g. ${isCinematic ? '"Cinematic 35mm Editorial Photography"' : (isPainting ? '"Warm Cinematic Editorial Gouache Painting"' : (isWatercolor ? '"Hand-Painted Watercolor & Ink-Wash Illustration"' : '"Cinematic News Broadcast Editorial Illustration" or "High-Impact Broadsheet Editorial Illustration"'))}, "High-Contrast Noir Risograph Print", "Bauhaus Geometric Vector Art").
 
 CRITICAL RULE: Under no circumstances output URLs, web links, "https", or technical domain strings. Every cue must be evocative visual imagery.
 VOCABULARY DIRECTIVE: Use crisp, vivid, easily understood visual English. NEVER use pretentious academic jargon or obscure Latinate words. Ground every cue in tangible, emotional, concrete reality.
@@ -497,9 +500,11 @@ function generateSmartFallbackCues(curatorAngle = '', spark = '', newsHeadline =
         'Cyan Terminal Glare and Charcoal Shadows'
       ];
 
-  const stylePool = isIndia
-    ? ['Cinematic Warm Editorial Photography', 'Editorial Sandstone & Indigo Broadsheet Woodcut', 'Warm Fine-Art Editorial Illustration', 'High-Contrast Risograph Print']
-    : ['Cinematic Warm Editorial Illustration', 'High-Contrast Noir Risograph Print', 'Bauhaus Graphic Vector Style', 'Editorial Portrait Oil Texture'];
+  const stylePool = (characterRepresentation === 'watercolor')
+    ? ['Hand-Painted Watercolor & Ink-Wash Illustration', 'Translucent Editorial Watercolor on Archival Paper', 'Loose Fountain-Pen Ink & Watercolor Wash']
+    : (isIndia
+      ? ['Cinematic Warm Editorial Photography', 'Editorial Sandstone & Indigo Broadsheet Woodcut', 'Warm Fine-Art Editorial Illustration', 'High-Contrast Risograph Print']
+      : ['Cinematic Warm Editorial Illustration', 'High-Contrast Noir Risograph Print', 'Bauhaus Graphic Vector Style', 'Editorial Portrait Oil Texture']);
 
   // Select item from pool that does not duplicate current cue
   function pickFresh(pool, currentCue) {

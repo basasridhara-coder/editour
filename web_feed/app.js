@@ -6919,7 +6919,9 @@ function getPostGenerationInputs(post) {
   let characterRepresentation = raw.characterRepresentation || post.characterRepresentation;
   if (!characterRepresentation) {
     const prompt = (raw.illustrationPrompt || post.illustrationPrompt || '').toLowerCase();
-    if (prompt.includes('broadsheet painting') || prompt.includes('gouache and oil') || prompt.includes('oil and gouache') || prompt.includes('painted artwork') || prompt.includes('broadsheet oil and gouache')) {
+    if (prompt.includes('watercolor') || prompt.includes('water colour') || prompt.includes('ink wash') || prompt.includes('ink-wash')) {
+      characterRepresentation = 'watercolor';
+    } else if (prompt.includes('broadsheet painting') || prompt.includes('gouache and oil') || prompt.includes('oil and gouache') || prompt.includes('painted artwork') || prompt.includes('broadsheet oil and gouache')) {
       characterRepresentation = 'painting';
     } else if (prompt.includes('35mm') || prompt.includes('documentary photograph') || prompt.includes('camera fidelity')) {
       characterRepresentation = 'cinematic';
@@ -7026,7 +7028,9 @@ function openGenerationContextModal(postId) {
   else if (inputs.vocabularyStyle === 'analytical') vocabLabel = '🏛 Analytical Voice';
 
   let portrayalLabel = '🎨 Editorial Realism';
-  if (inputs.characterRepresentation === 'painting') {
+  if (inputs.characterRepresentation === 'watercolor') {
+    portrayalLabel = '🖌️ Watercolor Illustration';
+  } else if (inputs.characterRepresentation === 'painting') {
     portrayalLabel = '🎨 Painted Artwork';
   } else if (inputs.characterRepresentation === 'cinematic' || inputs.characterRepresentation === 'cinematic_photo') {
     portrayalLabel = '📸 Cinematic Editorial Photo';
@@ -12358,6 +12362,16 @@ const PORTRAYAL_STYLE_PREVIEWS = {
     desc: 'Warm editorial broadsheet artwork rendered in rich gouache, oil textures, and painterly pigments. Captures people with recognizable presence and artistic craft.',
     image: 'https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/slant-1792700793906-bv1gb.webp'
   },
+  watercolor: {
+    key: 'watercolor',
+    name: 'Watercolor Illustration',
+    badge: 'Watercolor & Ink Wash',
+    title: 'Translucent Watercolor & Fine Ink',
+    medium: 'Hand-painted watercolor & fountain-pen ink wash',
+    texture: 'Cold-press archival paper grain & soft wet-on-wet blooms',
+    desc: 'Expressive hand-painted watercolor washes with delicate ink contours on warm textured archival paper, featuring luminous pigment blooms and soft feathered edges.',
+    image: 'https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/slant-watercolor-preview-v2-1793154969840.png'
+  },
   silhouette: {
     key: 'silhouette',
     name: 'Minimalist Silhouette',
@@ -12488,7 +12502,7 @@ function renderPortrayalComparisonGrid() {
   const grid = document.getElementById('portrayalCompareGrid');
   if (!grid) return;
 
-  const styles = ['realistic', 'cinematic', 'painting', 'silhouette', 'exact'];
+  const styles = ['realistic', 'cinematic', 'painting', 'watercolor', 'silhouette', 'exact'];
   grid.innerHTML = styles.map(key => {
     const style = PORTRAYAL_STYLE_PREVIEWS[key];
     if (!style) return '';
@@ -12576,9 +12590,11 @@ function updateEqualizerSummary() {
       ? 'Cinematic Photo'
       : (creatorCharacterRepresentation === 'painting'
         ? 'Painted Artwork'
-        : (creatorCharacterRepresentation === 'silhouette'
-          ? 'Silhouette'
-          : (creatorCharacterRepresentation === 'exact' ? 'Authentic Photo' : 'AI Illustration'))));
+        : (creatorCharacterRepresentation === 'watercolor'
+          ? 'Watercolor Illustration'
+          : (creatorCharacterRepresentation === 'silhouette'
+            ? 'Silhouette'
+            : (creatorCharacterRepresentation === 'exact' ? 'Authentic Photo' : 'AI Illustration')))));
 
   const countryName = creatorCountryContext ? (creatorCountryContext.flag + ' ' + creatorCountryContext.name) : '🇮🇳 India';
 
@@ -12790,6 +12806,7 @@ function updateEqualizerPortrayalUI() {
 
   // Active state on portrayal cards
   const repPainting = document.getElementById('eqRepPainting');
+  const repWatercolor = document.getElementById('eqRepWatercolor');
   const repCinematic = document.getElementById('eqRepCinematic');
   const repRealistic = document.getElementById('eqRepRealistic');
   const repSilhouette = document.getElementById('eqRepSilhouette');
@@ -12797,6 +12814,7 @@ function updateEqualizerPortrayalUI() {
   if (repRealistic) repRealistic.classList.toggle('active', creatorCharacterRepresentation === 'realistic');
   if (repCinematic) repCinematic.classList.toggle('active', creatorCharacterRepresentation === 'cinematic' || creatorCharacterRepresentation === 'likeness');
   if (repPainting) repPainting.classList.toggle('active', creatorCharacterRepresentation === 'painting');
+  if (repWatercolor) repWatercolor.classList.toggle('active', creatorCharacterRepresentation === 'watercolor');
   if (repSilhouette) repSilhouette.classList.toggle('active', creatorCharacterRepresentation === 'silhouette');
   if (eqExact) eqExact.classList.toggle('active', creatorCharacterRepresentation === 'exact');
 
@@ -12806,6 +12824,8 @@ function updateEqualizerPortrayalUI() {
     activeCard = repCinematic;
   } else if (creatorCharacterRepresentation === 'painting') {
     activeCard = repPainting;
+  } else if (creatorCharacterRepresentation === 'watercolor') {
+    activeCard = repWatercolor;
   } else if (creatorCharacterRepresentation === 'silhouette') {
     activeCard = repSilhouette;
   } else if (creatorCharacterRepresentation === 'exact') {
@@ -16437,6 +16457,7 @@ function updateReferencePhotoUI() {
   const photoLabel = document.getElementById('sourcePhotoLabel');
   const optCinematic = document.getElementById('repOptionCinematic');
   const optPainting = document.getElementById('repOptionPainting');
+  const optWatercolor = document.getElementById('repOptionWatercolor');
   const optLikeness = document.getElementById('repOptionLikeness');
   const optExact = document.getElementById('repOptionExact');
   const optReal = document.getElementById('repOptionRealistic');
@@ -16470,6 +16491,10 @@ function updateReferencePhotoUI() {
 
   if (optPainting) {
     optPainting.style.display = 'flex';
+  }
+
+  if (optWatercolor) {
+    optWatercolor.style.display = 'flex';
   }
 
   if (optLikeness) {
@@ -16515,6 +16540,7 @@ function updateReferencePhotoUI() {
   if (optCinematic) optCinematic.classList.toggle('active', isCinematicActive);
   if (optLikeness) optLikeness.classList.toggle('active', isCinematicActive);
   if (optPainting) optPainting.classList.toggle('active', creatorCharacterRepresentation === 'painting');
+  if (optWatercolor) optWatercolor.classList.toggle('active', creatorCharacterRepresentation === 'watercolor');
   if (optReal) optReal.classList.toggle('active', creatorCharacterRepresentation === 'realistic');
   if (optSil) optSil.classList.toggle('active', creatorCharacterRepresentation === 'silhouette');
   if (optExact) optExact.classList.toggle('active', creatorCharacterRepresentation === 'exact');
@@ -16525,7 +16551,7 @@ function updateReferencePhotoUI() {
 }
 
 function selectCharacterRepresentation(type) {
-  if (type !== 'realistic' && type !== 'silhouette' && type !== 'exact' && type !== 'cinematic' && type !== 'painting' && type !== 'likeness') {
+  if (type !== 'realistic' && type !== 'silhouette' && type !== 'exact' && type !== 'cinematic' && type !== 'painting' && type !== 'watercolor' && type !== 'likeness') {
     type = 'realistic';
   }
   creatorCharacterRepresentation = type;
@@ -16654,7 +16680,7 @@ async function startAiSynthesis() {
     try { await activeScrapePromise; } catch (_) {}
   }
 
-  const isPhotoPortrayal = (creatorPerspectiveMode === 'source' || creatorCharacterRepresentation === 'cinematic' || creatorCharacterRepresentation === 'painting' || creatorCharacterRepresentation === 'likeness' || creatorCharacterRepresentation === 'exact' || creatorCharacterRepresentation === 'lookalike');
+  const isPhotoPortrayal = (creatorPerspectiveMode === 'source' || creatorCharacterRepresentation === 'cinematic' || creatorCharacterRepresentation === 'painting' || creatorCharacterRepresentation === 'watercolor' || creatorCharacterRepresentation === 'likeness' || creatorCharacterRepresentation === 'exact' || creatorCharacterRepresentation === 'lookalike');
   const rawSourceImg = creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || currentScrapedArticle?.imageUrl || null;
   const shouldSendImage = isPhotoPortrayal && Boolean(rawSourceImg);
   const effectiveImageBase64 = shouldSendImage ? (creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || null) : null;
@@ -17057,7 +17083,7 @@ async function retryStep3ArtworkGeneration(event, options = {}) {
         activeCast: getSanitizedActiveCastPayload(),
         chronicleMode: Boolean(currentSynthesizedPost.chronicleMode || (creatorSelectedSource === 'inner_voice' && isDailyChronicleMode)),
         chronicleMomentImages: (currentSynthesizedPost.chronicleMoments || getActiveChronicleMomentsPayload() || []).filter(m => m && m.imageBase64),
-        imageBase64: ((creatorPerspectiveMode === 'source' && creatorCharacterRepresentation !== 'silhouette') || creatorCharacterRepresentation === 'exact')
+        imageBase64: ((creatorPerspectiveMode === 'source' && creatorCharacterRepresentation !== 'silhouette') || creatorCharacterRepresentation === 'exact' || creatorCharacterRepresentation === 'watercolor' || creatorCharacterRepresentation === 'painting' || creatorCharacterRepresentation === 'cinematic')
           ? (creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || currentSynthesizedPost?.sourceImageBase64 || null)
           : null,
         imageMimeType: creatorReferenceImageMimeType || currentScrapedArticle?.imageMimeType || currentSynthesizedPost?.sourceImageMimeType || 'image/jpeg'

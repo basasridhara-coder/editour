@@ -778,6 +778,13 @@
                     <span class="rep-option-desc" id="repPaintingDesc">Warm editorial broadsheet illustration in gouache and oil textures capturing the scene and figures in rich painted pigments.</span>
                   </div>
                 </div>
+                <div class="rep-option" id="repOptionWatercolor" onclick="selectCharacterRepresentation('watercolor')">
+                  <div class="rep-radio-circle"></div>
+                  <div class="rep-option-body">
+                    <span class="rep-option-title" id="repWatercolorTitle">🖌️ Watercolor Illustration (Hand-Painted Wash)</span>
+                    <span class="rep-option-desc" id="repWatercolorDesc">Translucent watercolor washes and fine ink linework on warm textured archival paper with soft feathered edges.</span>
+                  </div>
+                </div>
                 <div class="rep-option" id="repOptionSilhouette" onclick="selectCharacterRepresentation('silhouette')">
                   <div class="rep-radio-circle"></div>
                   <div class="rep-option-body">
@@ -1092,7 +1099,7 @@
               <div class="equalizer-section-title">IMAGE PORTRAYAL</div>
               <div class="equalizer-section-sub">Select visual style for Poster 1 (Tap to preview)</div>
             </div>
-            <button type="button" class="portrayal-compare-pill" onclick="openPortrayalComparisonModal()" title="Compare all 5 styles side by side">
+            <button type="button" class="portrayal-compare-pill" onclick="openPortrayalComparisonModal()" title="Compare all 6 styles side by side">
               <span>👀 Compare Styles</span>
             </button>
           </div>
@@ -1138,7 +1145,7 @@
                     <span>🔍 View Large</span>
                   </button>
                   <button type="button" class="portrayal-preview-action-btn secondary" onclick="openPortrayalComparisonModal()">
-                    <span>👀 Compare All 5</span>
+                    <span>👀 Compare All 6</span>
                   </button>
                 </div>
               </div>
@@ -1165,6 +1172,18 @@
                   <span class="portrayal-card-title">🎨 Artistic Broadsheet Painting</span>
                 </div>
                 <span class="portrayal-card-summary">Warm broadsheet painting in rich gouache and oil textures</span>
+              </div>
+            </button>
+
+            <button type="button" class="equalizer-portrayal-card" id="eqRepWatercolor" onclick="selectEqualizerPortrayal('watercolor')">
+              <div class="portrayal-card-thumb-mini">
+                <img src="https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/slant-watercolor-preview-v2-1793154969840.png" alt="Watercolor Illustration">
+              </div>
+              <div class="portrayal-card-info">
+                <div class="portrayal-card-title-row">
+                  <span class="portrayal-card-title">🖌️ Watercolor Illustration</span>
+                </div>
+                <span class="portrayal-card-summary">Translucent watercolor washes and fine ink linework on warm archival paper</span>
               </div>
             </button>
 
@@ -2239,6 +2258,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261028_0640"></script>
+  <script src="app.js?v=20261028_0810"></script>
 </body>
 </html>
