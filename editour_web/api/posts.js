@@ -7,14 +7,19 @@ const path = require('path');
 const SUPABASE_URL = 'https://fxfklefnkpmhofncqhfh.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ4ZmtsZWZua3BtaG9mbmNxaGZoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI0NzM4NzYsImV4cCI6MjEwODA0OTg3Nn0.0nw5ZDvlEsYal6EYXcqyaAPRHoxkXxZgDsNQDppEYgM';
 
+let STATIC_POSTERS_SET = new Set();
+try {
+  const staticList = require('./static_posters.json');
+  if (Array.isArray(staticList)) {
+    STATIC_POSTERS_SET = new Set(staticList);
+  }
+} catch (_) {}
+
 let fallbackPosts = [];
 try {
   const slantPath = path.join(__dirname, '../public/slant_feed.json');
-  const dataPath = path.join(__dirname, '../public/postcards_data.json');
   if (fs.existsSync(slantPath)) {
     fallbackPosts = JSON.parse(fs.readFileSync(slantPath, 'utf8'));
-  } else if (fs.existsSync(dataPath)) {
-    fallbackPosts = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
   }
 } catch (e) {
   console.warn('Could not read slant_feed.json:', e);
@@ -34,9 +39,8 @@ function formatPostRow(r) {
     p.aiIllustrationUrl = '';
   }
 
-  // If static poster image exists in /posters/, serve high-speed CDN asset; otherwise serve storage URL or posterBase64
-  const posterFile = path.join(__dirname, '../public/posters', p.id + '.png');
-  const hasStaticPosterOnDisk = fs.existsSync(posterFile);
+  // If static poster image exists in /posters/ manifest, serve high-speed CDN asset; otherwise serve storage URL
+  const hasStaticPosterOnDisk = Boolean(p.id && STATIC_POSTERS_SET.has(p.id));
 
   if (hasStaticPosterOnDisk) {
     p.illustrationUrl = '/posters/' + p.id + '.png';
@@ -44,18 +48,46 @@ function formatPostRow(r) {
     delete p.posterBase64;
   } else if (p.illustrationUrl && (p.illustrationUrl.startsWith('http://') || p.illustrationUrl.startsWith('https://'))) {
     p.aiIllustrationUrl = p.illustrationUrl;
+    delete p.posterBase64;
   } else if (p.posterBase64 && p.posterBase64.length > 50) {
     p.illustrationUrl = p.posterBase64;
     p.aiIllustrationUrl = p.posterBase64;
   } else if (p.illustrationUrl && p.illustrationUrl.startsWith('/posters/')) {
     p.aiIllustrationUrl = p.illustrationUrl;
+    delete p.posterBase64;
   } else if (p.id) {
     p.illustrationUrl = `${SUPABASE_URL}/storage/v1/object/public/posters/${p.id}.webp`;
     p.aiIllustrationUrl = p.illustrationUrl;
+    delete p.posterBase64;
   }
 
+  // Strip heavy base64 blobs so /api/posts stays lightweight and minimizes Fast Origin Transfer
   delete p.illustrationBase64;
   delete p.originalPhotoBase64;
+  delete p.sourceImageBase64;
+  delete p.catalystPhotoBase64;
+  if (typeof p.catalystPhoto === 'string' && p.catalystPhoto.startsWith('data:image/')) {
+    delete p.catalystPhoto;
+  }
+  if (typeof p.referencePhotoUrl === 'string' && p.referencePhotoUrl.startsWith('data:image/')) {
+    delete p.referencePhotoUrl;
+  }
+  if (p.generationInputs && typeof p.generationInputs === 'object') {
+    delete p.generationInputs.sourceImageBase64;
+    delete p.generationInputs.catalystPhotoBase64;
+    delete p.generationInputs.innerVoiceImageBase64;
+    delete p.generationInputs.scrapedContent;
+    if (p.sourceLedger) delete p.generationInputs.sourceLedger;
+    if (p.illustrationPrompt) delete p.generationInputs.illustrationPrompt;
+    if (p.contextProvided) delete p.generationInputs.contextProvided;
+    if (p.cues) delete p.generationInputs.cues;
+    if (typeof p.generationInputs.catalystPhoto === 'string' && p.generationInputs.catalystPhoto.startsWith('data:image/')) {
+      delete p.generationInputs.catalystPhoto;
+    }
+    if (typeof p.generationInputs.referencePhotoUrl === 'string' && p.generationInputs.referencePhotoUrl.startsWith('data:image/')) {
+      delete p.generationInputs.referencePhotoUrl;
+    }
+  }
 
   return p;
 }
@@ -318,17 +350,6 @@ module.exports = async function handler(req, res) {
 
           postData.illustrationUrl = `${SUPABASE_URL}/storage/v1/object/public/posters/${fileName}`;
           postData.aiIllustrationUrl = postData.illustrationUrl;
-
-          const targetDirs = [
-            path.join(__dirname, '../public/posters'),
-            path.join(__dirname, '../web_feed/posters')
-          ];
-          targetDirs.forEach(dir => {
-            try {
-              if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-              fs.writeFileSync(path.join(dir, fileName), buf);
-            } catch (_) {}
-          });
         } catch (uploadErr) {
           console.warn('Storage upload error:', uploadErr);
         }

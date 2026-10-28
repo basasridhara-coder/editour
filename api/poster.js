@@ -81,25 +81,8 @@ module.exports = async function handler(req, res) {
 
     id = String(id).replace(/\.png$/i, '').replace(/\.webp$/i, '').trim();
 
-    // 1. Check if the static poster file exists on disk
-    const candidateDirs = [
-      path.join(__dirname, '../public/posters'),
-      path.join(__dirname, '../web_feed/posters'),
-      path.join(__dirname, 'public/posters')
-    ];
-
-    for (const dir of candidateDirs) {
-      for (const ext of ['webp', 'png', 'jpg']) {
-        const filePath = path.join(dir, `${id}.${ext}`);
-        if (fs.existsSync(filePath)) {
-          const buf = fs.readFileSync(filePath);
-          return sendImageBuffer(res, buf);
-        }
-      }
-    }
-
-    // 2. Direct edge redirect to Supabase Public Storage CDN
-    // Check webp and png in Supabase storage CDN
+    // Direct edge redirect to Supabase Public Storage CDN
+    // (Static files in /public/posters/ are served directly by Vercel's Flat-Rate CDN before rewrites)
     try {
       const webpUrl = `${SUPABASE_URL}/storage/v1/object/public/posters/${id}.webp`;
       const pngUrl = `${SUPABASE_URL}/storage/v1/object/public/posters/${id}.png`;
