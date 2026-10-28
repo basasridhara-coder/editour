@@ -21702,11 +21702,11 @@ mark.polish-mark:hover, mark.polish-mark.active {
 
 .slant-triad-layout.slant-two-col-stage {
   display: grid;
-  grid-template-columns: minmax(0, 1.55fr) minmax(340px, 390px);
-  gap: 28px;
+  grid-template-columns: minmax(0, 1.72fr) minmax(350px, 400px);
+  gap: 30px;
   align-items: stretch;
   width: 100%;
-  max-width: 1140px;
+  max-width: 1200px;
   margin: 0 auto;
   height: auto !important;
 }
@@ -21719,8 +21719,8 @@ mark.polish-mark:hover, mark.polish-mark.active {
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
-  gap: 12px;
-  padding-right: 26px;
+  gap: 14px;
+  padding-right: 28px;
   border-right: 1px solid rgba(15, 23, 42, 0.08);
   height: 100%;
   box-sizing: border-box;
@@ -21808,13 +21808,13 @@ mark.polish-mark:hover, mark.polish-mark.active {
 .pillars-switcher-pills {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 6px;
+  gap: 8px;
   width: 100%;
   margin: 0;
-  padding: 4px;
+  padding: 5px;
   background: rgba(15, 23, 42, 0.04);
   border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 12px;
+  border-radius: 14px;
   box-sizing: border-box;
 }
 
@@ -21827,14 +21827,14 @@ mark.polish-mark:hover, mark.polish-mark.active {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 7px;
   min-width: 0;
-  padding: 7px 9px;
-  border-radius: 9px;
+  padding: 8px 12px;
+  border-radius: 10px;
   border: 1px solid transparent;
   background: transparent;
   font-family: 'Inter', -apple-system, sans-serif;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--text-secondary, #475569);
   cursor: pointer;
@@ -21849,9 +21849,9 @@ mark.polish-mark:hover, mark.polish-mark.active {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  flex: 0 0 17px;
-  width: 17px;
-  height: 17px;
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
   position: relative;
   z-index: 2;
   background: inherit;
@@ -21867,7 +21867,9 @@ mark.polish-mark:hover, mark.polish-mark.active {
 }
 
 .pillar-pill-label-track {
-  display: inline-block;
+  display: block;
+  overflow: hidden;
+  text-overflow: clip;
   white-space: nowrap;
 }
 
@@ -21889,8 +21891,8 @@ mark.polish-mark:hover, mark.polish-mark.active {
 }
 
 .pillar-pill-icon {
-  width: 17px;
-  height: 17px;
+  width: 18px;
+  height: 18px;
   border-radius: 4px;
   object-fit: contain;
   flex-shrink: 0;
@@ -21901,7 +21903,7 @@ mark.polish-mark:hover, mark.polish-mark.active {
   position: relative;
   width: 100%;
   flex: 1;
-  min-height: 410px;
+  min-height: 465px;
   border-radius: 20px;
   overflow: hidden;
   background: #F5EFE2;
@@ -21929,13 +21931,13 @@ mark.polish-mark:hover, mark.polish-mark.active {
   width: 33.333333%;
   flex: 0 0 33.333333%;
   height: 100%;
-  padding: 14px 28px 32px;
+  padding: 16px 32px 36px;
   background: #F5EFE2;
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   box-sizing: border-box;
   cursor: pointer;
   user-select: none;
@@ -21976,19 +21978,19 @@ mark.polish-mark:hover, mark.polish-mark.active {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-start;
-  gap: 14px;
+  justify-content: space-between;
+  gap: 18px;
   width: 100%;
-  max-width: 600px;
+  max-width: 680px;
   margin: 0 auto;
-  padding: 2px 16px 0;
+  padding: 8px 20px 8px;
   box-sizing: border-box;
   flex: 1;
 }
 
 .slant-pillar-vertical-visual {
   width: 100%;
-  height: 215px;
+  height: 278px;
   flex: 0 0 auto;
   background: #F5EFE2;
   border-radius: 18px;
@@ -22005,11 +22007,11 @@ mark.polish-mark:hover, mark.polish-mark.active {
   width: auto;
   height: auto;
   max-width: 100%;
-  max-height: 208px;
+  max-height: 268px;
   border-radius: 18px;
   overflow: hidden;
   display: block;
-  box-shadow: 0 8px 22px rgba(139, 115, 85, 0.16);
+  box-shadow: 0 10px 26px rgba(139, 115, 85, 0.18);
 }
 
 .slant-pillar-vertical-body {
@@ -22017,10 +22019,12 @@ mark.polish-mark:hover, mark.polish-mark.active {
   flex-direction: column;
   align-items: center;
   text-align: center;
-  gap: 6px;
+  gap: 8px;
   width: 100%;
-  max-width: 560px;
+  max-width: 600px;
   justify-content: flex-start;
+  margin-top: auto;
+  padding-bottom: 10px;
 }
 
 .slant-pillar-vertical-header {
@@ -22041,7 +22045,7 @@ mark.polish-mark:hover, mark.polish-mark.active {
 
 .slant-pillar-vertical-title {
   font-family: 'Playfair Display', 'Merriweather', Georgia, serif;
-  font-size: 24px;
+  font-size: 25px;
   font-weight: 800;
   color: #1E242B;
   margin: 0;
@@ -22051,7 +22055,7 @@ mark.polish-mark:hover, mark.polish-mark.active {
 
 .slant-pillar-vertical-hook {
   font-family: 'Merriweather', Georgia, serif;
-  font-size: 16px;
+  font-size: 16.5px;
   font-weight: 700;
   font-style: italic;
   color: #2C353F;
@@ -22061,11 +22065,11 @@ mark.polish-mark:hover, mark.polish-mark.active {
 
 .slant-pillar-vertical-desc {
   font-family: 'Inter', -apple-system, sans-serif;
-  font-size: 14.2px;
-  line-height: 1.5;
+  font-size: 14.5px;
+  line-height: 1.52;
   color: #3B444E;
   margin: 0 auto;
-  max-width: 540px;
+  max-width: 560px;
 }
 
 .pillar-carousel-nav {
@@ -22288,47 +22292,55 @@ mark.polish-mark:hover, mark.polish-mark.active {
   }
 
   .pillars-switcher-pills {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 3px;
     padding: 3px;
-    overflow: visible;
+    overflow: hidden;
   }
 
   .pillar-switch-pill {
+    flex: 1 1 auto;
     justify-content: center;
-    gap: 5px;
-    padding: 6px 6px;
-    font-size: 11px;
+    gap: 3.5px;
+    padding: 6px 5px;
+    font-size: 10.5px;
+    letter-spacing: -0.15px;
+    overflow: hidden;
   }
 
   .pillar-switch-pill-chronicle {
-    justify-content: flex-start;
-    padding: 6px 2px 6px 8px;
-    overflow: visible !important;
+    flex: 1.25 1 auto;
+    justify-content: center;
+    padding: 6px 6px;
+    overflow: hidden !important;
   }
 
   .pillar-pill-icon-wrap {
-    flex: 0 0 15px;
-    width: 15px;
-    height: 15px;
+    flex: 0 0 13px;
+    width: 13px;
+    height: 13px;
     margin-left: 0;
   }
 
   .pillar-pill-icon {
-    width: 15px;
-    height: 15px;
+    width: 13px;
+    height: 13px;
   }
 
   .pillar-pill-label-viewport {
-    flex: 0 0 auto;
+    flex: 0 1 auto;
     min-width: 0;
-    overflow: visible !important;
+    overflow: hidden !important;
     mask-image: none;
     -webkit-mask-image: none;
   }
 
   .pillar-chronicle-slide-track {
-    display: inline-block;
+    display: block;
+    overflow: hidden;
+    text-overflow: clip;
     padding-right: 0;
     animation: none;
     transform: none;
