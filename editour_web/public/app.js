@@ -14086,20 +14086,29 @@ function updateCreatorRegenScopeUI() {
   }
 
   if (modeLabel) {
-    modeLabel.textContent = isLockedFresh ? 'GENERATION SCOPE' : 'REGENERATION SCOPE';
+    if (isLockedFresh) {
+      modeLabel.innerHTML = 'SCOPE: ✨ BOTH (TEXT &amp; VISUALS)';
+    } else if (effectiveScope === 'text_only') {
+      modeLabel.innerHTML = 'REGEN MODE: 📝 TEXT ONLY';
+    } else if (effectiveScope === 'visuals_only') {
+      modeLabel.innerHTML = 'REGEN MODE: 🎨 VISUALS ONLY';
+    } else {
+      modeLabel.innerHTML = 'REGEN MODE: ✨ BOTH (TEXT &amp; VISUALS)';
+    }
+    modeLabel.setAttribute('data-scope', effectiveScope);
   }
 
   if (hint) {
     if (isLockedFresh) {
-      hint.innerHTML = '🔒 Fresh Slant: Generates both text &amp; visuals';
+      hint.innerHTML = '🔒 Fresh Slant generates both text &amp; visuals';
     } else if (window._regenAutoSwitchReason && !window._userManuallySetRegenScope) {
       hint.innerHTML = `✨ ${escapeHtml(window._regenAutoSwitchReason)}`;
     } else if (effectiveScope === 'text_only') {
-      hint.innerHTML = '📝 Regenerates all 3 slides text • Keeps current poster visual';
+      hint.innerHTML = 'Updates all 3 slides text • Keeps current poster visual';
     } else if (effectiveScope === 'visuals_only') {
-      hint.innerHTML = '🎨 Regenerates poster artwork • Keeps current text untouched';
+      hint.innerHTML = 'Renders fresh poster visual • Keeps current text untouched';
     } else {
-      hint.innerHTML = '✨ Regenerates both editorial text &amp; poster artwork';
+      hint.innerHTML = 'Regenerates both editorial text &amp; poster artwork';
     }
   }
 
@@ -17073,10 +17082,10 @@ async function startAiSynthesis() {
             castStaging: { mode: activeCastStagingMode },
             chronicleMode: isChronicleActive,
             chronicleMomentImages: chronicleMomentImages,
-            imageBase64: shouldSendImage
-              ? (creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || currentSynthesizedPost?.sourceImageBase64 || (creatorSelectedSource === 'inner_voice' ? innerVoicePhotoBase64 : null) || null)
+            imageBase64: (creatorSelectedSource === 'inner_voice' && innerVoicePhotoBase64 && shouldSendImage)
+              ? innerVoicePhotoBase64
               : null,
-            imageMimeType: effectiveImageMime || innerVoicePhotoMimeType || 'image/jpeg'
+            imageMimeType: innerVoicePhotoMimeType || effectiveImageMime || 'image/jpeg'
           }),
           signal: artController.signal
         });
@@ -17104,11 +17113,22 @@ async function startAiSynthesis() {
               currentSynthesizedPost.illustrationUrl = artData.illustrationUrl;
               currentSynthesizedPost.aiIllustrationUrl = artData.illustrationUrl;
             }
-            if (artData.updatedPrompt) {
-              currentSynthesizedPost.illustrationPrompt = artData.updatedPrompt;
+            const newPrompt = artData.updatedPrompt || artData.illustrationPrompt;
+            if (newPrompt) {
+              currentSynthesizedPost.illustrationPrompt = newPrompt;
               if (currentSynthesizedPost.generationInputs) {
-                currentSynthesizedPost.generationInputs.illustrationPrompt = artData.updatedPrompt;
+                currentSynthesizedPost.generationInputs.illustrationPrompt = newPrompt;
               }
+            }
+            if (Array.isArray(artData.cues) && artData.cues.length > 0) {
+              creatorCuePills = artData.cues;
+              currentSynthesizedPost.cues = artData.cues;
+              currentSynthesizedPost.heroCue = artData.cues[0] || currentSynthesizedPost.heroCue || '';
+              if (currentSynthesizedPost.generationInputs) {
+                currentSynthesizedPost.generationInputs.cues = [...artData.cues];
+                currentSynthesizedPost.generationInputs.heroCue = artData.cues[0] || '';
+              }
+              renderCuesDeck();
             }
           } else {
             throw new Error(artData?.error || 'Artwork regeneration timed out. Please try again.');
