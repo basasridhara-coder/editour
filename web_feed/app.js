@@ -7426,9 +7426,9 @@ function loadPostIntoStudioToRegenerate(postId) {
     if (ledgerCard) ledgerCard.style.display = 'none';
   }
 
-  // Preserve existing post ID when regenerating from Studio Step 1
-  window._regeneratingExistingPostId = post.id;
-  window._regeneratingExistingCreatedAt = post.createdAt || null;
+  // Always generate a brand-new post ID so posts created from Generation Inputs never overwrite the original post
+  window._regeneratingExistingPostId = null;
+  window._regeneratingExistingCreatedAt = null;
 
   // Restore Daily Chronicle moments if this post was created in Daily Chronicle mode
   const savedChronicleMoments = post.chronicleMoments || post.generationInputs?.chronicleMoments;
@@ -16786,13 +16786,6 @@ async function startAiSynthesis() {
     }
 
     currentSynthesizedPost = data.post;
-    if (window._regeneratingExistingPostId) {
-      currentSynthesizedPost.id = window._regeneratingExistingPostId;
-      if (window._regeneratingExistingCreatedAt) {
-        currentSynthesizedPost.createdAt = window._regeneratingExistingCreatedAt;
-      }
-      posterFilesCache.delete(currentSynthesizedPost.id);
-    }
     currentSynthesizedPost.perspectiveMode = creatorPerspectiveMode || 'hybrid';
     if (Array.isArray(currentSynthesizedPost.cues) && currentSynthesizedPost.cues.length > 0) {
       creatorCuePills = currentSynthesizedPost.cues;
