@@ -1642,11 +1642,11 @@ function renderLoginSamplesGrid() {
               </article>
             </div>
 
-            <!-- Card 3 (Rightmost): Auto-Scrolling Slant Minutes Poster of slant-1793068863990-8c9pd (Names Blurred) -->
+            <!-- Card 3 (Rightmost): Auto-Scrolling Perspective Poster of slant-1793068863990-8c9pd (Names Blurred) -->
             <div class="sample-feed-card-host login-grid-sample-host login-step-showcase-col" data-sample-idx="2">
               <div class="login-showcase-step-header">
                 <span class="login-step-badge-num">03</span>
-                <span class="login-step-badge-title">SLANT MINUTES &bull; AUTO-SCROLLING ESSAY</span>
+                <span class="login-step-badge-title">PERSPECTIVE &bull; POLISHED OP-ED</span>
               </div>
               <article class="post-card sample-feed-card login-showcase-pure-card" id="loginAutoScrollMinutesCardSet0">
                 <div class="carousel-view">
@@ -1681,7 +1681,7 @@ function renderLoginSamplesGrid() {
             <div class="sample-feed-card-host login-grid-sample-host login-step-showcase-col" data-sample-idx="4">
               <div class="login-showcase-step-header">
                 <span class="login-step-badge-num">02</span>
-                <span class="login-step-badge-title">HOOK POSTER &bull; 3-VIGNETTE WATERCOLOR</span>
+                <span class="login-step-badge-title">HOOK POSTER &bull; VISUAL FRAME</span>
               </div>
               <article class="post-card sample-feed-card login-showcase-pure-card">
                 <div class="carousel-view">
@@ -1698,7 +1698,7 @@ function renderLoginSamplesGrid() {
             <div class="sample-feed-card-host login-grid-sample-host login-step-showcase-col" data-sample-idx="5">
               <div class="login-showcase-step-header">
                 <span class="login-step-badge-num">03</span>
-                <span class="login-step-badge-title">MOMENTS &amp; REFLECTION &bull; AUTO-SCROLLING</span>
+                <span class="login-step-badge-title">PERSPECTIVE &bull; MOMENTS &amp; REFLECTION</span>
               </div>
               <article class="post-card sample-feed-card login-showcase-pure-card" id="loginAutoScrollChronicleCardSet1">
                 <div class="carousel-view">
@@ -1882,7 +1882,7 @@ function openAuthModal(customDesc) {
   if (descEl && customDesc) {
     descEl.textContent = customDesc;
   } else if (descEl) {
-    descEl.textContent = 'Sign in to save your favorite visual stories, customize your reading atmosphere, and publish your own editorials.';
+    descEl.textContent = 'Sign in to synthesize what you read, frame what you observe, and build your private chronicle.';
   }
 
   const signedInView = document.getElementById('signedInAppView');

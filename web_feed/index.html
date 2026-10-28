@@ -67,11 +67,29 @@
     <main class="login-main-wrap">
       <div class="login-page-card-standalone">
         
-        <!-- 3-Column Triad Stage: Left (Vertical Pillar Cards Carousel) | Middle (Quote & Logo) | Right (Login Sanctuary) -->
-        <div class="slant-triad-layout slant-three-col-stage">
+        <!-- 2-Column Hero Stage: Left (Brand & Narrative Showcase) | Right (Clean Auth Gateway) -->
+        <div class="slant-triad-layout slant-two-col-stage">
           
-          <!-- Section 1 (Left): Web Link, Inner Voice & Daily Chronicles as Vertical Cards Carousel -->
-          <section class="slant-triad-col triad-col-carousel triad-col-pillars" id="sectionCarousel" aria-label="Three Ways to Express on Slant">
+          <!-- Left Column: Brand Masthead, Identity Tagline, Interactive 3-Option Carousel, Editorial Quote & Anchor Seal -->
+          <section class="slant-triad-col triad-col-carousel triad-col-pillars triad-col-brand-narrative" id="sectionCarousel" aria-label="Slant Brand and Narrative Showcase">
+            
+            <!-- Masthead Header: Slant pen-nib emblem & title + Identity Tagline -->
+            <div class="login-brand-masthead-row">
+              <div class="login-brand-masthead-identity">
+                <div class="login-brand-emblem-frame">
+                  <img class="login-brand-emblem-img" src="/slanlogo.svg?v=20261013_2100" alt="Slant Pen-Nib Emblem" width="56" height="56">
+                </div>
+                <div class="login-brand-title-group">
+                  <h1 class="login-brand-masthead-title">Slant</h1>
+                  <span class="login-brand-masthead-domain">slant.today</span>
+                </div>
+              </div>
+              <div class="manifesto-audience-pill" aria-label="Who Slant belongs to">
+                <span class="manifesto-sparkle">✦</span>
+                <span>For people who think and reflect.</span>
+              </div>
+            </div>
+
             <!-- Switcher Pills for the 3 Pillars -->
             <div class="stories-switcher-pills pillars-switcher-pills" id="loginPillarsSwitcher" role="tablist" aria-label="Slant Expression Modes">
               <button type="button" class="story-switch-pill pillar-switch-pill active" data-pillar-idx="0" onclick="goToLoginPillarSlide(0)">
@@ -88,64 +106,70 @@
               </button>
             </div>
 
-            <!-- Vertical Cards Carousel Viewport -->
+            <!-- Interactive 3-Option Carousel Viewport -->
             <div class="slant-pillars-carousel-viewport" id="loginPillarsCarousel" data-current-pillar="0">
               <div class="slant-pillars-carousel-track" id="loginPillarsTrack">
                 
-                <!-- Slide 1: Web Link Vertical Card -->
+                <!-- Slide 1: Web Link Card -->
                 <article class="slant-pillar-vertical-card" onclick="stepLoginPillarSlide(1)" title="Tap or swipe for next card">
                   <div class="slant-pillar-card-top-bar">
                     <span class="slant-pillar-kicker-tag">🌐 WEB CURATION</span>
                     <span class="slant-pillar-slide-num">01 / 03</span>
                   </div>
-                  <div class="slant-pillar-vertical-visual">
-                    <img src="/slant-pillar-weblink.jpg?v=20261028_1645" alt="Web Link watercolor illustration" class="slant-pillar-vertical-img" loading="eager">
-                  </div>
-                  <div class="slant-pillar-vertical-body">
-                    <div class="slant-pillar-vertical-header">
-                      <img src="/slant-icon-weblink.jpg?v=20261028_1645" alt="" class="slant-pillar-vertical-icon" width="34" height="34">
-                      <h3 class="slant-pillar-vertical-title">Web Link</h3>
+                  <div class="slant-pillar-card-content-split">
+                    <div class="slant-pillar-vertical-visual">
+                      <img src="/slant-pillar-weblink.jpg?v=20261028_1645" alt="Web Link watercolor illustration" class="slant-pillar-vertical-img" loading="eager">
                     </div>
-                    <p class="slant-pillar-vertical-hook">Found an article worth sharing?</p>
-                    <p class="slant-pillar-vertical-desc">Paste any link. Add your personal take &mdash; Slant frames the story and your perspective into a shareable editorial card.</p>
+                    <div class="slant-pillar-vertical-body">
+                      <div class="slant-pillar-vertical-header">
+                        <img src="/slant-icon-weblink.jpg?v=20261028_1645" alt="" class="slant-pillar-vertical-icon" width="34" height="34">
+                        <h3 class="slant-pillar-vertical-title">Web Link</h3>
+                      </div>
+                      <p class="slant-pillar-vertical-hook">Found an article worth sharing?</p>
+                      <p class="slant-pillar-vertical-desc">Paste any link. Add your personal take &mdash; Slant frames the story and your perspective into a shareable editorial card.</p>
+                    </div>
                   </div>
                 </article>
 
-                <!-- Slide 2: Inner Voice Vertical Card -->
+                <!-- Slide 2: Inner Voice Card -->
                 <article class="slant-pillar-vertical-card" onclick="stepLoginPillarSlide(1)" title="Tap or swipe for next card">
                   <div class="slant-pillar-card-top-bar">
                     <span class="slant-pillar-kicker-tag">💭 PERSONAL PERSPECTIVE</span>
                     <span class="slant-pillar-slide-num">02 / 03</span>
                   </div>
-                  <div class="slant-pillar-vertical-visual">
-                    <img src="/slant-pillar-innervoice.jpg?v=20261028_1645" alt="Inner Voice watercolor illustration" class="slant-pillar-vertical-img" loading="eager">
-                  </div>
-                  <div class="slant-pillar-vertical-body">
-                    <div class="slant-pillar-vertical-header">
-                      <img src="/slant-icon-innervoice.jpg?v=20261028_1645" alt="" class="slant-pillar-vertical-icon" width="34" height="34">
-                      <h3 class="slant-pillar-vertical-title">Inner Voice</h3>
+                  <div class="slant-pillar-card-content-split">
+                    <div class="slant-pillar-vertical-visual">
+                      <img src="/slant-pillar-innervoice.jpg?v=20261028_1645" alt="Inner Voice watercolor illustration" class="slant-pillar-vertical-img" loading="eager">
                     </div>
-                    <p class="slant-pillar-vertical-hook">Have a view on your mind?</p>
-                    <p class="slant-pillar-vertical-desc">No link needed. Speak your raw opinion, reflection, or hot take &mdash; Slant turns your words into a bold visual statement.</p>
+                    <div class="slant-pillar-vertical-body">
+                      <div class="slant-pillar-vertical-header">
+                        <img src="/slant-icon-innervoice.jpg?v=20261028_1645" alt="" class="slant-pillar-vertical-icon" width="34" height="34">
+                        <h3 class="slant-pillar-vertical-title">Inner Voice</h3>
+                      </div>
+                      <p class="slant-pillar-vertical-hook">Have a view on your mind?</p>
+                      <p class="slant-pillar-vertical-desc">No link needed. Speak your raw opinion, reflection, or hot take &mdash; Slant turns your words into a bold visual statement.</p>
+                    </div>
                   </div>
                 </article>
 
-                <!-- Slide 3: Daily Chronicles Vertical Card -->
+                <!-- Slide 3: Daily Chronicles Card -->
                 <article class="slant-pillar-vertical-card" onclick="stepLoginPillarSlide(1)" title="Tap or swipe for next card">
                   <div class="slant-pillar-card-top-bar">
-                    <span class="slant-pillar-kicker-tag">📔 ILLUSTRATED DIARY</span>
+                    <span class="slant-pillar-kicker-tag">📔 DAILY CHRONICLE</span>
                     <span class="slant-pillar-slide-num">03 / 03</span>
                   </div>
-                  <div class="slant-pillar-vertical-visual">
-                    <img src="/slant-pillar-chronicles.jpg?v=20261028_1645" alt="Daily Chronicles watercolor illustration" class="slant-pillar-vertical-img" loading="eager">
-                  </div>
-                  <div class="slant-pillar-vertical-body">
-                    <div class="slant-pillar-vertical-header">
-                      <img src="/slant-icon-chronicles.jpg?v=20261028_1645" alt="" class="slant-pillar-vertical-icon" width="34" height="34">
-                      <h3 class="slant-pillar-vertical-title">Daily Chronicles</h3>
+                  <div class="slant-pillar-card-content-split">
+                    <div class="slant-pillar-vertical-visual">
+                      <img src="/slant-pillar-chronicles.jpg?v=20261028_1645" alt="Daily Chronicles watercolor illustration" class="slant-pillar-vertical-img" loading="eager">
                     </div>
-                    <p class="slant-pillar-vertical-hook">Capture the life you&rsquo;re living.</p>
-                    <p class="slant-pillar-vertical-desc">Journal your everyday moments, milestones, and quiet observations &mdash; preserved as timeless illustrated postcards.</p>
+                    <div class="slant-pillar-vertical-body">
+                      <div class="slant-pillar-vertical-header">
+                        <img src="/slant-icon-chronicles.jpg?v=20261028_1645" alt="" class="slant-pillar-vertical-icon" width="34" height="34">
+                        <h3 class="slant-pillar-vertical-title">Daily Chronicles</h3>
+                      </div>
+                      <p class="slant-pillar-vertical-hook">Capture the life you&rsquo;re living.</p>
+                      <p class="slant-pillar-vertical-desc">Journal your everyday moments, milestones, and quiet observations &mdash; preserved as timeless illustrated postcards.</p>
+                    </div>
                   </div>
                 </article>
 
@@ -162,44 +186,31 @@
                 <span class="carousel-dot" onclick="event.stopPropagation(); goToLoginPillarSlide(2)"></span>
               </div>
             </div>
-          </section>
 
-          <!-- Section 2 (Middle): Quote Statement & Larger Animated Logo -->
-          <section class="slant-triad-col triad-col-manifesto" id="sectionManifesto">
-            <div class="combined-hero-top">
-              <div class="manifesto-quote-block">
-                <div class="manifesto-audience-pill" aria-label="Who Slant belongs to">
-                  <span class="manifesto-sparkle">✦</span>
-                  <span>For people who think and reflect</span>
-                </div>
-                <blockquote class="manifesto-quote">
-                  <p class="manifesto-lead">
-                    &ldquo;Thoughts are passing clouds. Left alone, they vanish into thin air. Gathered and condensed, they bring the rain that nourishes the earth.&rdquo;
-                  </p>
-                  <p class="manifesto-question">
-                    When an insight crosses your mind, what will you do &mdash; let it drift past, or <span class="manifesto-slant-word">slant it?</span>
-                  </p>
-                </blockquote>
-              </div>
-
-              <!-- Larger Animated Logo of Slant directly below Statement -->
-              <div class="manifesto-logo-block">
-                <div class="manifesto-logo-frame manifesto-logo-frame-lg">
-                  <img class="manifesto-logo-animated" src="/slanlogo.svg?v=20261013_2100" alt="Slant animated mark" width="1024" height="1024">
-                </div>
-                <span class="manifesto-logo-tag">Every thought deserves a frame</span>
+            <!-- Editorial Quote & Anchor Seal integrated directly below the showcase -->
+            <div class="login-narrative-quote-footer" id="sectionManifesto">
+              <blockquote class="manifesto-quote login-integrated-quote">
+                <p class="manifesto-lead">
+                  &ldquo;Thoughts are passing clouds. Left alone, they vanish into thin air. Gathered and condensed, they bring the rain that nourishes the earth.&rdquo;
+                </p>
+                <p class="manifesto-question">
+                  When an insight crosses your mind, what will you do &mdash; let it drift past, or <span class="manifesto-slant-word">slant it?</span>
+                </p>
+              </blockquote>
+              <div class="login-anchor-seal-row">
+                <span class="login-anchor-seal-line"></span>
+                <span class="manifesto-logo-tag login-anchor-seal-text">✦ Every thought deserves a frame.</span>
+                <span class="login-anchor-seal-line"></span>
               </div>
             </div>
+
           </section>
 
-          <!-- Section 3: Dedicated Auth Sanctuary (Desktop: Col 3 Right, Mobile: Order 2) -->
+          <!-- Right Column: Clean Auth Gateway (Pure Utility & Focus) -->
           <section class="slant-triad-col triad-col-auth slant-login-auth-col" id="sectionAuth">
             <div class="auth-header">
-              <div class="auth-badge-icon auth-badge-video-wrap">
-                <img class="auth-badge-video" src="/slanlogo.svg?v=20261013_2100" alt="Slant Logo" width="1024" height="1024">
-              </div>
               <h2 class="auth-title">Welcome to Slant</h2>
-              <p class="auth-desc" id="authModalDesc">Sign in to save your favorite visual stories, customize your reading atmosphere, and publish your own editorials.</p>
+              <p class="auth-desc" id="authModalDesc">Sign in to synthesize what you read, frame what you observe, and build your private chronicle.</p>
             </div>
 
             <!-- Google 1-Click Sign-In (Direct GSI on slant.today + OAuth Fallback) -->
@@ -259,11 +270,11 @@
 
         </div>
 
-        <!-- Lower Continuous Flow: 3-Step Live Transformation Showcase (Left: Live Input SVG | Middle: Hook Poster | Right: Auto-Scrolling Slant Minutes / Moments & Reflection) -->
-        <section class="login-lower-samples-flow" id="loginLowerSamplesSection" aria-label="How a Slant Comes to Life">
+        <!-- Lower Continuous Flow: 3-Step Live Transformation Showcase (Left: Live Input SVG | Middle: Hook Poster | Right: Perspective / Moments & Reflection) -->
+        <section class="login-lower-samples-flow" id="loginLowerSamplesSection" aria-label="How Slant Comes to Life">
           <div class="login-samples-divider-row">
             <span class="login-samples-line"></span>
-            <span class="login-samples-kicker">✦ HOW A SLANT COMES TO LIFE &bull; 01 LIVE INPUT &rarr; 02 HOOK POSTER &rarr; 03 SLANT MINUTES / MOMENTS</span>
+            <span class="login-samples-kicker">✦ HOW SLANT COMES TO LIFE &bull; 01 LIVE INPUT &rarr; 02 HOOK POSTER &rarr; 03 PERSPECTIVE &bull; POLISHED OP-ED</span>
             <span class="login-samples-line"></span>
           </div>
           <div class="login-showcase-sets-host" id="loginSampleCarouselsGrid">
