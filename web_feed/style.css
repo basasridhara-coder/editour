@@ -22154,9 +22154,12 @@ mark.polish-mark:hover, mark.polish-mark.active {
 
 .login-samples-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(3, minmax(0, 355px));
+  justify-content: center;
+  gap: 24px;
   width: 100%;
+  max-width: 1140px;
+  margin: 0 auto;
   align-items: stretch;
   box-sizing: border-box;
 }
@@ -22239,11 +22242,18 @@ mark.polish-mark:hover, mark.polish-mark.active {
   margin-bottom: 10px !important;
 }
 
-@media (max-width: 1180px) {
+@media (max-width: 1020px) {
   .login-samples-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 16px;
+    grid-template-columns: repeat(2, minmax(0, 340px));
+    justify-content: center;
+    gap: 18px;
     max-width: 720px;
+    margin: 0 auto;
+  }
+
+  .login-samples-grid .login-grid-sample-host:nth-child(3) {
+    grid-column: 1 / -1;
+    max-width: 340px;
     margin: 0 auto;
   }
 }

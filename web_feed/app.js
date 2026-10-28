@@ -835,6 +835,7 @@ const LOGIN_SHOWCASE_ONLY_POST_IDS = new Set([
   'slant-1792357651142-l7z3b',
   'slant-1792397027404-7rawu',
   'slant-1793003556503-aa54x-showcase',
+  'slant-1793031039451-4bovq-showcase',
   'slant-1792429695314-6thox',
   'slant-1792437452220-xd5vt'
 ]);
@@ -1044,23 +1045,18 @@ function togglePasswordMode(isPassword) {
 const FEATURED_COLORFUL_POST_CONFIGS = [
   {
     id: "slant-1792357651142-l7z3b",
-    icon: "🎓",
-    shortName: "AI & Homework"
-  },
-  {
-    id: "slant-1793003556503-aa54x-showcase",
-    icon: "📔",
-    shortName: "26 Oct Chronicle"
+    icon: "🌐",
+    shortName: "Web Link • AI & Homework"
   },
   {
     id: "slant-1792429695314-6thox",
-    icon: "✨",
-    shortName: "Wonder & Grace"
+    icon: "💭",
+    shortName: "Inner Voice • Wonder & Grace"
   },
   {
-    id: "slant-1792437452220-xd5vt",
-    icon: "✈️",
-    shortName: "Cockpit Safety"
+    id: "slant-1793031039451-4bovq-showcase",
+    icon: "📔",
+    shortName: "Daily Chronicle • 26 Oct"
   }
 ];
 
@@ -1099,62 +1095,6 @@ const FEATURED_LOGIN_POSTS = [
     "isLoginFeatured": true
   },
   {
-    "id": "slant-1793003556503-aa54x-showcase",
-    "categoryBadge": "DAILY CHRONICLE",
-    "adaptedHeadline": "When the Familiar Noise Finally Returns Home",
-    "originalHeadline": "26th Oct 2026",
-    "publicationName": "Daily Chronicle",
-    "creatorHandle": "@Shridhar Reddy",
-    "createdAt": "2026-10-26T18:43:18.207Z",
-    "chronicleMode": true,
-    "innerVoiceSubMode": "chronicle",
-    "isDiary": true,
-    "curatorTake": "A day spent between disciplined shared purpose and the nervous thrill of a creative launch finds its truest peace the instant noisy laughter fills the living room again.",
-    "polishedCuratorTake": "Moment 01: Attended the 101st RSS Vijaya Dashami Pathasanchalan, feeling proud to be part of it. Moment 02: Soft-launched a Slant app built over the past few months to a few friends; waiting for feedback is exciting, though waiting for feedback also creates anxiety. Moment 03: The kids and Aruna returned from Mysore; now my home is back to that noise which makes my life complete.",
-    "creatorOpinion": "A day spent between disciplined shared purpose and the nervous thrill of a creative launch finds its truest peace the instant noisy laughter fills the living room again.",
-    "hook": "Between disciplined morning marches and the quiet flutter of releasing new work into the world, life finds its truest anchor the second family footsteps cross the doorway.",
-    "summary": "Moment 01: Marching in step during the historic 101st RSS Vijaya Dashami Pathasanchalan brought a grounded sense of discipline and shared heritage, instilling a deep pride in walking shoulder to shoulder along familiar city avenues.\n\nMoment 02: Quietly sharing the newly built Slant app with a close circle of trusted friends sparked an exhilarating rush mixed with nervous anticipation, watching months of late-night craft head into real hands.\n\nMoment 03: The house sprang back to full life the second Aruna and the two boys walked through the door from Mysore, instantly filling empty rooms with chaotic chatter, discarded bags, and the joyful noise that makes everything whole.",
-    "keyTakeaways": [
-      "Grounding Heritage: Marching with thousands renews quiet resolve and communal belonging.",
-      "Creative Vulnerability: Sharing new work with friends blends honest excitement with nervous anticipation.",
-      "Domestic Completeness: The chaotic chatter of returning family anchors every personal endeavor."
-    ],
-    "resolvedArticleExcerpts": [
-      "Moment 01: Marching in step during the historic 101st RSS Vijaya Dashami Pathasanchalan brought a grounded sense of discipline and shared heritage, instilling a deep pride in walking shoulder to shoulder along familiar city avenues.",
-      "Moment 02: Quietly sharing the newly built Slant app with a close circle of trusted friends sparked an exhilarating rush mixed with nervous anticipation, watching months of late-night craft head into real hands.",
-      "Moment 03: The house sprang back to full life the second Aruna and the two boys walked through the door from Mysore, instantly filling empty rooms with chaotic chatter, discarded bags, and the joyful noise that makes everything whole."
-    ],
-    "chronicleMoments": [
-      {
-        "index": 1,
-        "title": "Moment 01",
-        "text": "Attended the 101st RSS Vijaya Dashami Pathasanchalan, feeling proud to be part of it.",
-        "isStarred": false
-      },
-      {
-        "index": 2,
-        "title": "Moment 02",
-        "text": "Soft-launched a slant app built over the past few months to a few friends; waiting for feedback is exciting, though waiting for feedback also creates anxiety.",
-        "isStarred": false
-      },
-      {
-        "index": 3,
-        "title": "Moment 03",
-        "text": "The kids and Aruna returned from Mysore; now my home is back to that noise which makes my life complete.",
-        "isStarred": true
-      }
-    ],
-    "sourceType": "inner_voice",
-    "illustrationUrl": "/posters/slant-1793003556503-aa54x.jpg",
-    "aiIllustrationUrl": "/posters/slant-1793003556503-aa54x.jpg",
-    "slantIcon": "❤️",
-    "slantTone": "heart",
-    "pullQuote": "The kids and Aruna returned from Mysore, and my home is back to the beautiful noise that makes life complete.",
-    "receiptHighlightQuote": "The kids and Aruna returned from Mysore, and my home is back to the beautiful noise that makes life complete.",
-    "targetAudience": "General Public",
-    "isLoginFeatured": true
-  },
-  {
     "id": "slant-1792429695314-6thox",
     "categoryBadge": "CULTURE",
     "adaptedHeadline": "When Childhood Wonder Meets Fierce Divine Grace",
@@ -1187,35 +1127,55 @@ const FEATURED_LOGIN_POSTS = [
     "isLoginFeatured": true
   },
   {
-    "id": "slant-1792437452220-xd5vt",
-    "categoryBadge": "AVIATION",
-    "adaptedHeadline": "When Cockpit Safety Hinges on Mindset",
-    "originalHeadline": "Flydubai captain on the cockpit battle to save his plane",
-    "publicationName": "The National News • YouTube",
+    "id": "slant-1793031039451-4bovq-showcase",
+    "categoryBadge": "DAILY CHRONICLE",
+    "adaptedHeadline": "Deliberate Focus at Work and Warmth in Every Welcome",
+    "originalHeadline": "26th Oct 2026",
+    "publicationName": "Daily Chronicle",
     "creatorHandle": "@Shridhar Reddy",
-    "curatorTake": "Vetting human pilots remains aviation's toughest challenge because personal ideology cannot be quantified. If intent turns destructive, automated flights may ultimately offer the only foolproof safety barrier.",
-    "polishedCuratorTake": "For airlines, vetting pilots as part of their safety protocols will be highly challenging. If a pilot decides to cause harm, they can make the plane fail and crash at any time; it is purely a matter of their personal mindset and ideology. How airlines will quantify that and ensure safety remains to be seen. Much like driverless cars, pilotless flights could be the safe future.",
-    "creatorOpinion": "Vetting human pilots remains aviation's toughest challenge because personal ideology cannot be quantified. If intent turns destructive, automated flights may ultimately offer the only foolproof safety barrier.",
-    "whyItMatters": "Standard airline checks cannot detect hidden radical shifts in human intent, leaving millions of travelers vulnerable to private cockpit decisions.",
-    "hook": "A harrowing cockpit struggle proves that no mechanical checklist can protect passengers when human intent itself turns volatile.",
+    "createdAt": "2026-10-26T16:11:49.451Z",
+    "chronicleMode": true,
+    "innerVoiceSubMode": "chronicle",
+    "isDiary": true,
+    "curatorTake": "Small, intentional shifts in how we focus our energy and how warmly we welcome people can quietly transform an ordinary day.",
+    "polishedCuratorTake": "01 · Moment 01: Usual work, not giving it the deserved focus. I will change this attitude, mark a few items to close, and get them done. 02 · Moment 02: Explained the dietary preference update feature in Cukre to Shrikanth. The demo looked good, and we both discussed releasing it at the earliest. 03 · Moment 03: Went to meet Swapnil, Shrikanth's tenant in V Classic. He is a nice person; the way they welcome people and talk to them was worth noting and adapting.",
+    "creatorOpinion": "Small, intentional shifts in how we focus our energy and how warmly we welcome people can quietly transform an ordinary day.",
+    "hook": "When routine drifts into distraction, true change begins with choosing to close open loops and learning from genuine human warmth.",
+    "summary": "01 · Moment 01: I caught myself slipping through the motions of usual work without giving tasks the deep attention they deserved. A productive day requires deliberate discipline, so I am resetting my approach to select a clear list of pending items and close them out completely.\n\n02 · Moment 02: I walked Shrikanth through the new dietary preference update feature in Cukre during an engaging walkthrough. The demonstration ran smoothly, highlighting how small intuitive design choices solve real user friction, and we agreed to release the update as soon as possible.\n\n03 · Moment 03: Visiting Swapnil at V Classic offered a refreshing masterclass in hospitality and grounded conversation. The ease with which he welcomed us and held dialogue showed how attentive listening transforms simple everyday social encounters into lasting, memorable human bonds.",
     "keyTakeaways": [
-      "Vetting Limits: Mental health exams cannot reliably predict sudden ideological shifts.",
-      "Internal Danger: Hostile pilot actions instantly bypass complex mechanical safety nets.",
-      "Automated Future: Autonomous cockpits offer standard protection against unpredictable human behavior."
+      "Focus On Finish: Mark a few essential tasks and close them.",
+      "Ship Useful Features: Clear product walkthroughs turn ideas into immediate action.",
+      "Adopt Everyday Warmth: Gracious hospitality creates an enduring impression on others."
     ],
     "resolvedArticleExcerpts": [
-      "Every commercial flight operates on absolute trust in the crew holding the controls. While airline protocols train pilots to master brutal mechanical failures, standard vetting cannot reliably detect sudden ideological shifts or hidden psychological collapse in the flight deck.",
-      "Accounts of high-altitude struggles reveal how vulnerable passengers remain when human intent itself turns volatile. Much like driverless ground transit, automated cockpits may emerge as the necessary safety frontier, ensuring split-second navigation is governed by unyielding code."
+      "01 · Moment 01: I caught myself slipping through the motions of usual work without giving tasks the deep attention they deserved. A productive day requires deliberate discipline, so I am resetting my approach to select a clear list of pending items and close them out completely.",
+      "02 · Moment 02: I walked Shrikanth through the new dietary preference update feature in Cukre during an engaging walkthrough. The demonstration ran smoothly, highlighting how small intuitive design choices solve real user friction, and we agreed to release the update as soon as possible.",
+      "03 · Moment 03: Visiting Swapnil at V Classic offered a refreshing masterclass in hospitality and grounded conversation. The ease with which he welcomed us and held dialogue showed how attentive listening transforms simple everyday social encounters into lasting, memorable human bonds."
     ],
-    "sourceType": "video_audio",
-    "digitalLink": "https://youtu.be/1MsLWFqaJmk?si=1GLBeRqezlu-gj-N",
-    "sourceImageUrl": "https://i.ytimg.com/vi/1MsLWFqaJmk/maxresdefault.jpg",
-    "illustrationUrl": "/posters/slant-1792437452220-xd5vt.png",
-    "illustrationPrompt": "Cinematic dramatic editorial photography of an exhausted Indian commercial airline captain sitting in a tight flight deck cockpit interior. The captain has visible facial features, realistic weathered skin tones, dark hair, and wears an unbuttoned pilot uniform shirt. His hands grip an analog flight yoke resting beside scattered paper manuals. Gleaming amber control panel warning alarms glow across the dashboard, casting a harsh instrument panel screen glare across his determined face. Realistic warm ambient lighting contrasts with the flashing cockpit indicators.",
+    "chronicleMoments": [
+      {
+        "index": 1,
+        "title": "Moment 01",
+        "text": "Usual work, not giving it the deserved focus. I will change this attitude, mark a few items to close, and get them done."
+      },
+      {
+        "index": 2,
+        "title": "Moment 02",
+        "text": "Explained the dietary preference update feature in Cukre to Shrikanth. The demo looked good, and we both discussed releasing it at the earliest."
+      },
+      {
+        "index": 3,
+        "title": "Moment 03",
+        "text": "Went to meet Swapnil, Shrikanth's tenant in V Classic. He is a nice person; the way they welcome people and talk to them was worth noting and adapting."
+      }
+    ],
+    "sourceType": "inner_voice",
+    "illustrationUrl": "/posters/slant-1793031039451-4bovq.jpg",
+    "aiIllustrationUrl": "/posters/slant-1793031039451-4bovq.jpg",
     "slantIcon": "❤️",
     "slantTone": "heart",
-    "pullQuote": "If a pilot chooses harm, safety nets fail instantly; autonomous cockpits may become aviation's only true safeguard.",
-    "receiptHighlightQuote": "If a pilot chooses harm, safety nets fail instantly; autonomous cockpits may become aviation's only true safeguard.",
+    "pullQuote": "Changing an attitude begins the moment we decide to stop drifting and finish what we started.",
+    "receiptHighlightQuote": "Changing an attitude begins the moment we decide to stop drifting and finish what we started.",
     "targetAudience": "General Public",
     "isLoginFeatured": true
   }
