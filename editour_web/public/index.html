@@ -29,7 +29,7 @@
   <link rel="preconnect" href="https://fxfklefnkpmhofncqhfh.supabase.co" crossorigin>
   <link rel="preconnect" href="https://accounts.google.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Merriweather:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,400;1,600;1,700;1,900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261028_0640">
+  <link rel="stylesheet" href="style.css?v=20261028_1005">
   <!-- Favicon & Brand Icons -->
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
@@ -70,11 +70,15 @@
         <!-- 3-Section Editorial Stage: Carousel | Quote with Logo Animation | Login -->
         <div class="slant-triad-layout">
           
-          <!-- Section 1: Carousel (Desktop: Col 1 Left, Mobile: Order 3) -->
-          <section class="slant-triad-col triad-col-carousel" id="sectionCarousel" aria-label="Sample Visual Postcards">
-            <!-- Single Authentic 3:4 Feed Carousel Card Host (Continuous Slide) -->
-            <div class="sample-feed-card-host" id="loginPostsScrollTrack">
-              <!-- Dynamically populated with authentic 3:4 .carousel-view card -->
+          <!-- Section 1: Overview Poster (Desktop: Col 1 Left, Mobile: Order 3; Sample Carousel kept as backup) -->
+          <section class="slant-triad-col triad-col-carousel" id="sectionCarousel" aria-label="Slant Overview Poster">
+            <!-- Primary Login Overview Poster -->
+            <div class="login-overview-poster-card" id="loginOverviewPosterCard">
+              <img src="/slant-overview-poster.jpg?v=20261028_1005" alt="Slant — Every thought deserves a frame: Web Link, Inner Voice, and Daily Chronicles" class="login-overview-poster-img" />
+            </div>
+            <!-- Backup: Single Authentic 3:4 Feed Carousel Card Host (Continuous Slide) -->
+            <div class="sample-feed-card-host" id="loginPostsScrollTrack" style="display:none;">
+              <!-- Dynamically populated with authentic 3:4 .carousel-view card (preserved as backup) -->
             </div>
           </section>
 
@@ -2258,6 +2262,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261028_0850"></script>
+  <script src="app.js?v=20261028_1005"></script>
 </body>
 </html>
