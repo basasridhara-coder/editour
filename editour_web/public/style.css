@@ -3174,6 +3174,7 @@ header {
 
 /* Bifurcated Essay Viewport: Uses block flow so pages stack sequentially without flex clamping */
 .carousel-view .slant-minute-scroll-viewport[data-bifurcated="true"],
+.sample-feed-card-host .post-card .slant-minute-scroll-viewport[data-bifurcated="true"],
 .slant-minute-scroll-viewport[data-bifurcated="true"] {
   display: block !important;
 }
@@ -3181,6 +3182,8 @@ header {
 .essay-page-block {
   display: block !important;
   width: 100% !important;
+  flex: 0 0 auto !important;
+  flex-shrink: 0 !important;
   box-sizing: border-box !important;
   position: relative !important;
   clear: both !important;
@@ -3188,9 +3191,12 @@ header {
 
 /* Page 1 Block: Calibrated to end 1 line before the bottom of the viewport without forcing an artificial blank void above the seam. */
 .carousel-view .slant-minute-scroll-viewport[data-bifurcated="true"] .essay-page-1,
+.sample-feed-card-host .post-card .slant-minute-scroll-viewport[data-bifurcated="true"] .essay-page-1,
 .slant-minute-scroll-viewport[data-bifurcated="true"] .essay-page-1 {
-  min-height: 0 !important;
+  min-height: auto !important;
   height: auto !important;
+  flex: 0 0 auto !important;
+  flex-shrink: 0 !important;
   padding-bottom: 10px !important;
   margin-bottom: 0px !important;
   box-sizing: border-box !important;
@@ -4591,11 +4597,18 @@ header {
   line-height: 1.4 !important;
 }
 
-.sample-feed-card-host .post-card .slant-minute-scroll-viewport {
+.sample-feed-card-host .post-card .slant-minute-scroll-viewport:not([data-bifurcated="true"]) {
   padding: 10px 14px 10px 14px !important;
   display: flex !important;
   flex-direction: column !important;
   justify-content: flex-start !important;
+}
+
+.sample-feed-card-host .post-card .slant-minute-scroll-viewport[data-bifurcated="true"] {
+  padding: 10px 14px 10px 14px !important;
+  display: block !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
 }
 
 .sample-feed-card-host .post-card .receipt-headline {

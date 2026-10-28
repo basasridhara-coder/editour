@@ -5175,10 +5175,13 @@ function calibrateEssayViewportPagination(viewportEl) {
   const fullParas = viewportEl._fullLogicalParas;
   if (!fullParas || fullParas.length === 0) return;
 
-  // Reset prior inline spacing overrides before measuring
-  page1El.style.setProperty('min-height', '0px', 'important');
+  // Ensure block layout on bifurcated viewport and prevent flex shrinking on page blocks
+  viewportEl.style.setProperty('display', 'block', 'important');
+  page1El.style.setProperty('min-height', 'auto', 'important');
   page1El.style.setProperty('height', 'auto', 'important');
+  page1El.style.setProperty('flex-shrink', '0', 'important');
   page1El.style.setProperty('padding-bottom', '0px', 'important');
+  page2El.style.setProperty('flex-shrink', '0', 'important');
   const headlineBox = page1El.querySelector('.receipts-headline-box');
   const pullquoteBox = page1El.querySelector('.essay-highlight-pullquote');
   if (headlineBox) headlineBox.style.removeProperty('margin-bottom');
