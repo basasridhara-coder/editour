@@ -834,6 +834,7 @@ function isPostPrivateOrDraft(post) {
 const LOGIN_SHOWCASE_ONLY_POST_IDS = new Set([
   'slant-1792357651142-l7z3b',
   'slant-1792397027404-7rawu',
+  'slant-1793003556503-aa54x-showcase',
   'slant-1792429695314-6thox',
   'slant-1792437452220-xd5vt'
 ]);
@@ -1047,9 +1048,9 @@ const FEATURED_COLORFUL_POST_CONFIGS = [
     shortName: "AI & Homework"
   },
   {
-    id: "slant-1792397027404-7rawu",
-    icon: "🌊",
-    shortName: "Urban Deluge"
+    id: "slant-1793003556503-aa54x-showcase",
+    icon: "📔",
+    shortName: "26 Oct Chronicle"
   },
   {
     id: "slant-1792429695314-6thox",
@@ -1098,35 +1099,58 @@ const FEATURED_LOGIN_POSTS = [
     "isLoginFeatured": true
   },
   {
-    "id": "slant-1792397027404-7rawu",
-    "categoryBadge": "CLIMATE",
-    "adaptedHeadline": "When Record Waters Bring Concrete Empires to Their Knees",
-    "originalHeadline": "Istanbul floods: Turkey hit by heaviest rainfall in 80 years",
-    "publicationName": "youtu.be",
+    "id": "slant-1793003556503-aa54x-showcase",
+    "categoryBadge": "DAILY CHRONICLE",
+    "adaptedHeadline": "When the Familiar Noise Finally Returns Home",
+    "originalHeadline": "26th Oct 2026",
+    "publicationName": "Daily Chronicle",
     "creatorHandle": "@Shridhar Reddy",
-    "curatorTake": "These calamities bring the richest and strongest among us to their knees, revealing humanity's true insignificance before nature. Blinded by narrow perspectives, we must face our small mistakes and learn to live selflessly.",
-    "polishedCuratorTake": "These unexpected natural calamities across the globe have created so much material destruction, along with the hopelessness and future insecurities they create. These kinds of calamities bring the richest of the rich and the strongest of the strong to their knees, showing humanity what it is truly worth in front of nature. We might wonder how our individual actions lead to this, yet collectively as a human race we are causing great harm to nature, and this is merely a reaction to that. Because our perspective is so narrow, we do not realize that our small mistakes cause these disasters at much later stages. Humans must self-reflect and start living sustainably, in a truly cooperative and selfless way.",
-    "creatorOpinion": "These calamities bring the richest and strongest among us to their knees, revealing humanity's true insignificance before nature. Blinded by narrow perspectives, we must face our small mistakes and learn to live selflessly.",
-    "whyItMatters": "Historic floods reveal that no modern city is immune to climate backlash, demanding immediate community cooperation and sustainable planning.",
-    "hook": "Record deluges across major metropolises show that even the most fortified urban centers stand fragile before natural systems pushed past their limit.",
+    "createdAt": "2026-10-26T18:43:18.207Z",
+    "chronicleMode": true,
+    "innerVoiceSubMode": "chronicle",
+    "isDiary": true,
+    "curatorTake": "A day spent between disciplined shared purpose and the nervous thrill of a creative launch finds its truest peace the instant noisy laughter fills the living room again.",
+    "polishedCuratorTake": "Moment 01: Attended the 101st RSS Vijaya Dashami Pathasanchalan, feeling proud to be part of it. Moment 02: Soft-launched a Slant app built over the past few months to a few friends; waiting for feedback is exciting, though waiting for feedback also creates anxiety. Moment 03: The kids and Aruna returned from Mysore; now my home is back to that noise which makes my life complete.",
+    "creatorOpinion": "A day spent between disciplined shared purpose and the nervous thrill of a creative launch finds its truest peace the instant noisy laughter fills the living room again.",
+    "hook": "Between disciplined morning marches and the quiet flutter of releasing new work into the world, life finds its truest anchor the second family footsteps cross the doorway.",
+    "summary": "Moment 01: Marching in step during the historic 101st RSS Vijaya Dashami Pathasanchalan brought a grounded sense of discipline and shared heritage, instilling a deep pride in walking shoulder to shoulder along familiar city avenues.\n\nMoment 02: Quietly sharing the newly built Slant app with a close circle of trusted friends sparked an exhilarating rush mixed with nervous anticipation, watching months of late-night craft head into real hands.\n\nMoment 03: The house sprang back to full life the second Aruna and the two boys walked through the door from Mysore, instantly filling empty rooms with chaotic chatter, discarded bags, and the joyful noise that makes everything whole.",
     "keyTakeaways": [
-      "Ecological Reality: Modern urban infrastructure cannot overpower planetary water cycles.",
-      "Collective Consequence: Small daily mistakes accumulate into catastrophic downstream natural disasters.",
-      "Sustainable Stewardship: Lasting survival requires genuine cross-community cooperation and humility."
+      "Grounding Heritage: Marching with thousands renews quiet resolve and communal belonging.",
+      "Creative Vulnerability: Sharing new work with friends blends honest excitement with nervous anticipation.",
+      "Domestic Completeness: The chaotic chatter of returning family anchors every personal endeavor."
     ],
     "resolvedArticleExcerpts": [
-      "Record rainstorms in Istanbul demonstrate how quickly natural forces dismantle urban routine. Rushing water fills busy intersections and drowns vehicles, exposing the fragile reality of concrete growth and humbling the most advanced municipal systems in hours.",
-      "Broadcast reports of eighty-year deluges show that modern infrastructure cannot overpower planetary water cycles. Protecting our neighborhoods requires shifting from reactive repairs to genuine ecological cooperation, building resilient communities grounded in shared stewardship."
+      "Moment 01: Marching in step during the historic 101st RSS Vijaya Dashami Pathasanchalan brought a grounded sense of discipline and shared heritage, instilling a deep pride in walking shoulder to shoulder along familiar city avenues.",
+      "Moment 02: Quietly sharing the newly built Slant app with a close circle of trusted friends sparked an exhilarating rush mixed with nervous anticipation, watching months of late-night craft head into real hands.",
+      "Moment 03: The house sprang back to full life the second Aruna and the two boys walked through the door from Mysore, instantly filling empty rooms with chaotic chatter, discarded bags, and the joyful noise that makes everything whole."
     ],
-    "sourceType": "video_audio",
-    "digitalLink": "https://youtu.be/sEb0_Gplrvs?si=nTdG92traw5_5hs9",
-    "sourceImageUrl": "https://i.ytimg.com/vi/sEb0_Gplrvs/maxresdefault.jpg",
-    "illustrationUrl": "/posters/slant-1792397027404-7rawu.png",
-    "illustrationPrompt": "Award-winning 35mm editorial documentary photograph in 4:5 vertical portrait format. A Turkish emergency responder in high-visibility reflective navy waterproof gear and a municipal municipal worker in dark uniform navigate a flooded Istanbul boulevard. Lifelike facial features showing serious determination, authentic skin pores, and natural eye gaze. Behind them, partially submerged white delivery vans and passenger cars sit stranded in muddy floodwaters rising along commercial storefronts. Harsh slate-gray overcast daylight reflects across the deep water puddles. Natural depth of field, gentle optical background blur, raw documentary photojournalism style, strictly no painterly brushstrokes, no canvas texture, no digital CGI artifacts, no text, no logos.",
-    "slantIcon": "🧠",
-    "slantTone": "mind",
-    "pullQuote": "Severe weather brings the strongest institutions to their knees, proving that true urban security demands cooperative, sustainable living.",
-    "receiptHighlightQuote": "Severe weather brings the strongest institutions to their knees, proving that true urban security demands cooperative, sustainable living.",
+    "chronicleMoments": [
+      {
+        "index": 1,
+        "title": "Moment 01",
+        "text": "Attended the 101st RSS Vijaya Dashami Pathasanchalan, feeling proud to be part of it.",
+        "isStarred": false
+      },
+      {
+        "index": 2,
+        "title": "Moment 02",
+        "text": "Soft-launched a slant app built over the past few months to a few friends; waiting for feedback is exciting, though waiting for feedback also creates anxiety.",
+        "isStarred": false
+      },
+      {
+        "index": 3,
+        "title": "Moment 03",
+        "text": "The kids and Aruna returned from Mysore; now my home is back to that noise which makes my life complete.",
+        "isStarred": true
+      }
+    ],
+    "sourceType": "inner_voice",
+    "illustrationUrl": "/posters/slant-1793003556503-aa54x.jpg",
+    "aiIllustrationUrl": "/posters/slant-1793003556503-aa54x.jpg",
+    "slantIcon": "❤️",
+    "slantTone": "heart",
+    "pullQuote": "The kids and Aruna returned from Mysore, and my home is back to the beautiful noise that makes life complete.",
+    "receiptHighlightQuote": "The kids and Aruna returned from Mysore, and my home is back to the beautiful noise that makes life complete.",
     "targetAudience": "General Public",
     "isLoginFeatured": true
   },
@@ -1200,11 +1224,86 @@ const FEATURED_LOGIN_POSTS = [
 let currentSampleStoryIndex = 0;
 let sampleCarouselAutoPlayTimer = null;
 let isSampleCarouselHovered = false;
+let currentLoginPillarIndex = 0;
+let loginPillarAutoPlayTimer = null;
+let isLoginPillarHovered = false;
+
+function goToLoginPillarSlide(pillarIdx) {
+  const viewport = document.getElementById('loginPillarsCarousel');
+  const track = document.getElementById('loginPillarsTrack');
+  if (!viewport || !track) return;
+  const total = 3;
+  const normalized = ((pillarIdx % total) + total) % total;
+  currentLoginPillarIndex = normalized;
+  viewport.setAttribute('data-current-pillar', String(normalized));
+  track.style.transform = `translateX(-${normalized * (100 / total)}%)`;
+
+  document.querySelectorAll('#loginPillarsSwitcher .pillar-switch-pill').forEach((pill, i) => {
+    pill.classList.toggle('active', i === normalized);
+  });
+  document.querySelectorAll('#loginPillarsDots .carousel-dot').forEach((dot, i) => {
+    dot.classList.toggle('active', i === normalized);
+  });
+}
+
+function stepLoginPillarSlide(delta) {
+  goToLoginPillarSlide(currentLoginPillarIndex + (delta || 1));
+}
+
+function setupLoginPillarsCarousel() {
+  const viewport = document.getElementById('loginPillarsCarousel');
+  if (!viewport) return;
+  if (!viewport.dataset.gesturesBound) {
+    viewport.dataset.gesturesBound = 'true';
+    viewport.addEventListener('mouseenter', () => { isLoginPillarHovered = true; });
+    viewport.addEventListener('mouseleave', () => { isLoginPillarHovered = false; });
+
+    let startX = 0;
+    let startY = 0;
+    viewport.addEventListener('touchstart', (e) => {
+      isLoginPillarHovered = true;
+      if (e.touches && e.touches[0]) {
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+      }
+    }, { passive: true });
+
+    viewport.addEventListener('touchend', (e) => {
+      setTimeout(() => { isLoginPillarHovered = false; }, 3500);
+      if (e.changedTouches && e.changedTouches[0]) {
+        const dx = e.changedTouches[0].clientX - startX;
+        const dy = e.changedTouches[0].clientY - startY;
+        if (Math.abs(dx) > 36 && Math.abs(dx) > Math.abs(dy)) {
+          stepLoginPillarSlide(dx < 0 ? 1 : -1);
+        }
+      }
+    }, { passive: true });
+  }
+
+  goToLoginPillarSlide(currentLoginPillarIndex || 0);
+
+  if (loginPillarAutoPlayTimer) {
+    clearInterval(loginPillarAutoPlayTimer);
+  }
+  loginPillarAutoPlayTimer = setInterval(() => {
+    if (isLoginPillarHovered) return;
+    const signedOutView = document.getElementById('signedOutPageView');
+    if (!signedOutView || signedOutView.style.display === 'none') {
+      clearInterval(loginPillarAutoPlayTimer);
+      return;
+    }
+    stepLoginPillarSlide(1);
+  }, 4500);
+}
 
 function renderLoginPostsPreview() {
   const track = document.getElementById("loginPostsScrollTrack");
   const switcher = document.getElementById("loginStoriesSwitcher");
   const samplesGrid = document.getElementById("loginSampleCarouselsGrid");
+  const pillarsViewport = document.getElementById("loginPillarsCarousel");
+  if (pillarsViewport) {
+    setupLoginPillarsCarousel();
+  }
   if (!track && !samplesGrid) return;
 
   // Keep featured login sample posts strictly on the login showcase and out of the user's account/feed
@@ -1276,25 +1375,18 @@ function renderLoginSamplesGrid(selectedPosts) {
     const card = createPostCardElement(post, sampleKey);
     card.classList.add('sample-feed-card');
 
-    // Slide click behavior: Slide 1 clicks to Slide 2 (Essay); Slide 2 clicks back to Slide 1
-    const slide1 = card.querySelector('.slide-hook');
-    const slide2 = card.querySelector('.slide-receipt');
-    if (slide1) {
-      slide1.onclick = (e) => {
+    // Slide click behavior: tap any slide to advance to the next poster (supports both 2-poster and 3-poster Daily Chronicles)
+    const allSlides = card.querySelectorAll('.carousel-slide');
+    const totalSlides = allSlides.length || 2;
+    allSlides.forEach((slideEl, sIdx) => {
+      const nextSlideIdx = (sIdx + 1) % totalSlides;
+      slideEl.onclick = (e) => {
         e.stopPropagation();
-        goToSlide(e, sampleKey, 1);
+        goToSlide(e, sampleKey, nextSlideIdx);
       };
-      slide1.style.cursor = 'pointer';
-      slide1.setAttribute('title', 'Tap to flip to The Essay');
-    }
-    if (slide2) {
-      slide2.onclick = (e) => {
-        e.stopPropagation();
-        goToSlide(e, sampleKey, 0);
-      };
-      slide2.style.cursor = 'pointer';
-      slide2.setAttribute('title', 'Tap to flip back to Visual Poster');
-    }
+      slideEl.style.cursor = 'pointer';
+      slideEl.setAttribute('title', nextSlideIdx === 0 ? 'Tap to flip back to Poster 1' : `Tap for Poster ${nextSlideIdx + 1} of ${totalSlides}`);
+    });
 
     cardHost.appendChild(card);
     samplesGrid.appendChild(cardHost);
@@ -5674,7 +5766,7 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
             <span class="receipt-brand-text">${receiptBrandTitle}</span>
           </div>
           <div class="receipt-corner-creator">
-            <span class="receipt-creator-name">${isChronicle ? escapeHtml(chronicleDateStr) : handle}</span>
+            <span class="receipt-creator-name ${isChronicle ? "is-chronicle-date-label" : ""}">${isChronicle ? escapeHtml(chronicleDateStr) : handle}</span>
             <span class="receipt-corner-slide-num">${p1SlideBadge}</span>
           </div>
         </div>
@@ -5706,7 +5798,7 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
             <span class="receipt-brand-text">${isChronicle ? receiptBrandTitle : `${receiptBrandTitle} ...`}</span>
           </div>
           <div class="receipt-corner-creator">
-            <span class="receipt-creator-name">${isChronicle ? escapeHtml(chronicleDateStr) : handle}</span>
+            <span class="receipt-creator-name ${isChronicle ? "is-chronicle-date-label" : ""}">${isChronicle ? escapeHtml(chronicleDateStr) : handle}</span>
             <span class="receipt-corner-slide-num">${p2SlideBadge}</span>
           </div>
         </div>
