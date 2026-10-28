@@ -21871,8 +21871,8 @@ mark.polish-mark:hover, mark.polish-mark.active {
 .slant-pillars-carousel-viewport {
   position: relative;
   width: 100%;
-  flex: 0 0 auto;
-  height: auto;
+  flex: 1;
+  min-height: 410px;
   border-radius: 20px;
   overflow: hidden;
   background: #F5EFE2;
@@ -21891,31 +21891,33 @@ mark.polish-mark:hover, mark.polish-mark.active {
 .slant-pillars-carousel-track {
   display: flex;
   width: 300%;
-  height: auto;
-  align-items: stretch;
+  height: 100%;
+  flex: 1;
   transition: transform 0.38s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .slant-pillar-vertical-card {
   width: 33.333333%;
   flex: 0 0 33.333333%;
-  height: auto;
-  padding: 12px 24px 26px;
+  height: 100%;
+  padding: 14px 28px 32px;
   background: #F5EFE2;
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
-  gap: 8px;
+  align-items: center;
+  gap: 10px;
   box-sizing: border-box;
   cursor: pointer;
   user-select: none;
-  text-align: left;
+  text-align: center;
 }
 
 .slant-pillar-card-top-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  width: 100%;
   gap: 8px;
   margin-bottom: 0;
   padding-bottom: 6px;
@@ -21943,27 +21945,29 @@ mark.polish-mark:hover, mark.polish-mark.active {
 
 .slant-pillar-card-content-split {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 24px;
-  max-width: 580px;
+  justify-content: flex-start;
+  gap: 14px;
   width: 100%;
+  max-width: 600px;
   margin: 0 auto;
-  padding: 2px 18px 0;
+  padding: 2px 16px 0;
   box-sizing: border-box;
+  flex: 1;
 }
 
 .slant-pillar-vertical-visual {
-  width: 175px;
-  height: 192px;
-  flex: 0 0 175px;
+  width: 100%;
+  height: 215px;
+  flex: 0 0 auto;
   background: #F5EFE2;
   border-radius: 18px;
   overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0;
+  margin: 0 auto;
   padding: 2px;
   box-sizing: border-box;
 }
@@ -21972,32 +21976,35 @@ mark.polish-mark:hover, mark.polish-mark.active {
   width: auto;
   height: auto;
   max-width: 100%;
-  max-height: 186px;
+  max-height: 208px;
   border-radius: 18px;
   overflow: hidden;
   display: block;
-  box-shadow: 0 6px 18px rgba(139, 115, 85, 0.14);
+  box-shadow: 0 8px 22px rgba(139, 115, 85, 0.16);
 }
 
 .slant-pillar-vertical-body {
   display: flex;
   flex-direction: column;
+  align-items: center;
+  text-align: center;
   gap: 6px;
-  flex: 1;
-  max-width: 345px;
-  justify-content: center;
+  width: 100%;
+  max-width: 560px;
+  justify-content: flex-start;
 }
 
 .slant-pillar-vertical-header {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 10px;
   margin-bottom: 2px;
 }
 
 .slant-pillar-vertical-icon {
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
   object-fit: cover;
   border-radius: 9px;
   flex-shrink: 0;
@@ -22015,20 +22022,21 @@ mark.polish-mark:hover, mark.polish-mark.active {
 
 .slant-pillar-vertical-hook {
   font-family: 'Merriweather', Georgia, serif;
-  font-size: 15.5px;
+  font-size: 16px;
   font-weight: 700;
   font-style: italic;
   color: #2C353F;
-  margin: 0 0 2px 0;
+  margin: 0;
   line-height: 1.35;
 }
 
 .slant-pillar-vertical-desc {
   font-family: 'Inter', -apple-system, sans-serif;
-  font-size: 14px;
-  line-height: 1.48;
+  font-size: 14.2px;
+  line-height: 1.5;
   color: #3B444E;
-  margin: 0;
+  margin: 0 auto;
+  max-width: 540px;
 }
 
 .pillar-carousel-nav {
@@ -22058,16 +22066,16 @@ mark.polish-mark:hover, mark.polish-mark.active {
   width: 18px !important;
 }
 
-/* Horizontal Statement Banner comfortably spaced below the cream carousel */
+/* Integrated Editorial Quote & Anchor Seal over Welcome to Slant */
 .login-narrative-quote-footer {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 13px 20px 11px;
-  border-radius: 16px;
-  background: rgba(15, 23, 42, 0.025);
-  border: 1px solid rgba(15, 23, 42, 0.07);
-  margin-top: 2px;
+  padding: 12px 14px 10px;
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.03);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  margin-bottom: 14px;
 }
 
 [data-theme="obsidian"] .login-narrative-quote-footer {
@@ -22080,40 +22088,40 @@ mark.polish-mark:hover, mark.polish-mark.active {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 6px;
   text-align: center;
 }
 
 .login-integrated-quote .manifesto-lead {
-  font-size: 15.2px;
-  line-height: 1.42;
+  font-size: 13.5px;
+  line-height: 1.44;
 }
 
 .login-integrated-quote .manifesto-question {
-  font-size: 14px;
-  line-height: 1.38;
+  font-size: 12.6px;
+  line-height: 1.4;
 }
 
 .login-anchor-seal-row {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 8px;
   padding-top: 2px;
 }
 
 .login-anchor-seal-line {
   flex: 1;
-  max-width: 90px;
+  max-width: 55px;
   height: 1px;
   background: linear-gradient(90deg, transparent, rgba(180, 83, 9, 0.35), transparent);
 }
 
 .login-anchor-seal-text {
   font-family: 'Space Grotesk', 'Inter', sans-serif;
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 800;
-  letter-spacing: 1px;
+  letter-spacing: 0.9px;
   text-transform: uppercase;
   color: #B45309;
   white-space: nowrap;
