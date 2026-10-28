@@ -2,7 +2,8 @@
   "version": 2,
   "functions": {
     "api/*.js": {
-      "maxDuration": 60
+      "maxDuration": 60,
+      "excludeFiles": "{public/posters/**,public/illustrations/**,public/clippings/**,public/postcards_data.json,public/*.mp4,web_feed/**,editour_web/**,build/**,android/**}"
     },
     "api/synthesize.js": {
       "maxDuration": 60

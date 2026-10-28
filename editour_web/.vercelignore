@@ -1,0 +1,13 @@
+editour_web/
+web_feed/
+build/
+android/
+ios/
+linux/
+macos/
+windows/
+lib/
+test/
+postcard.apk
+public/postcards_data.json
+.git/
