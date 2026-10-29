@@ -29,7 +29,7 @@
   <link rel="preconnect" href="https://fxfklefnkpmhofncqhfh.supabase.co" crossorigin>
   <link rel="preconnect" href="https://accounts.google.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Merriweather:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,400;1,600;1,700;1,900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261029_1313">
+  <link rel="stylesheet" href="style.css?v=20261029_1528">
   <!-- Favicon & Brand Icons -->
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
@@ -892,74 +892,42 @@
             <!-- 4. Character & Image Portrayal Card -->
             <div class="character-rep-card" id="characterRepCard">
               <div class="character-rep-header">
-                <span class="rep-icon">👤</span>
-                <div class="rep-titles">
-                  <span class="rep-title">Character & Image Portrayal</span>
-                  <span class="rep-subtitle">Select how characters and subjects are portrayed in the Hook poster.</span>
+                <span class="rep-icon">🎨</span>
+                <div class="rep-titles" style="display:flex; align-items:center; gap:6px; flex-direction:row;">
+                  <span class="rep-title">Image Portrayal</span>
+                  <button type="button" class="ui-info-dot-btn" onclick="toggleInfoTip(event, 'repInlineTip')" title="About Image Portrayal">i</button>
                 </div>
+              </div>
+              <div class="ui-info-popover-box" id="repInlineTip" style="display:none;">
+                Select how characters and scenes are visually rendered on Poster 1.
               </div>
               <!-- Source Photo Detected Banner -->
               <div class="source-photo-attached-card" id="sourcePhotoAttachedCard" style="display:none;">
                 <img id="sourcePhotoThumb" class="source-photo-thumb" alt="Source Photograph">
                 <div class="source-photo-meta">
-                  <span class="source-photo-badge" id="sourcePhotoBadge">📷 Authentic Source Photo Detected</span>
-                  <span class="source-photo-label" id="sourcePhotoLabel">Grounding visual cues & poster flow in physical reality</span>
+                  <span class="source-photo-badge" id="sourcePhotoBadge">📷 Source Photo Attached</span>
                 </div>
               </div>
-              <div class="character-rep-options">
-                <div class="rep-option active" id="repOptionRealistic" onclick="selectCharacterRepresentation('realistic')">
-                  <div class="rep-radio-circle"></div>
-                  <div class="rep-option-body">
-                    <span class="rep-option-title" id="repRealisticTitle">🎨 AI Illustration (Vivid Editorial Realism)</span>
-                    <span class="rep-option-desc" id="repRealisticDesc">High-impact editorial broadsheet illustration faithfully capturing key figures, real-world setting, and dramatic journalistic realism.</span>
-                  </div>
-                </div>
-                <div class="rep-option" id="repOptionCinematic" onclick="selectCharacterRepresentation('cinematic')">
-                  <div class="rep-radio-circle"></div>
-                  <div class="rep-option-body">
-                    <span class="rep-option-title" id="repCinematicTitle">📸 Cinematic Editorial Photo (Picture-Like Quality)</span>
-                    <span class="rep-option-desc" id="repCinematicDesc">Produces a sharp 35mm documentary photograph capturing facial structure, expression, and lighting with natural camera fidelity.</span>
-                  </div>
-                </div>
-                <div class="rep-option" id="repOptionPainting" onclick="selectCharacterRepresentation('painting')">
-                  <div class="rep-radio-circle"></div>
-                  <div class="rep-option-body">
-                    <span class="rep-option-title" id="repPaintingTitle">🎨 Artistic Broadsheet Painting (Artwork)</span>
-                    <span class="rep-option-desc" id="repPaintingDesc">Warm editorial broadsheet illustration in gouache and oil textures capturing the scene and figures in rich painted pigments.</span>
-                  </div>
-                </div>
-                <div class="rep-option" id="repOptionWatercolor" onclick="selectCharacterRepresentation('watercolor')">
-                  <div class="rep-radio-circle"></div>
-                  <div class="rep-option-body">
-                    <span class="rep-option-title" id="repWatercolorTitle">🖌️ Watercolor Illustration (Hand-Painted Wash)</span>
-                    <span class="rep-option-desc" id="repWatercolorDesc">Translucent watercolor washes and fine ink linework on warm textured archival paper with soft feathered edges.</span>
-                  </div>
-                </div>
-                <div class="rep-option" id="repOptionSilhouette" onclick="selectCharacterRepresentation('silhouette')">
-                  <div class="rep-radio-circle"></div>
-                  <div class="rep-option-body">
-                    <span class="rep-option-title">👥 Stylized Minimalist Silhouette (Shadow Art)</span>
-                    <span class="rep-option-desc">Minimalist dark silhouettes, architectural shadows, or high-contrast noir profiles for conceptual themes only.</span>
-                  </div>
-                </div>
-                <div class="rep-option" id="repOptionExact" onclick="selectCharacterRepresentation('exact')" style="display:none;">
-                  <div class="rep-radio-circle"></div>
-                  <div class="rep-option-body">
-                    <span class="rep-option-title" id="repExactTitle">📷 Authentic Source Photo (Direct Photo)</span>
-                    <span class="rep-option-desc" id="repExactDesc">Use the authentic photograph directly as Poster 1's hook visual without AI generation.</span>
-                  </div>
-                </div>
+              <div class="equalizer-portrayal-dropdown-row">
+                <select id="creatorRepSelect" class="equalizer-portrayal-select" onchange="selectCharacterRepresentation(this.value)">
+                  <option value="realistic">🎨 AI Illustration (Default)</option>
+                  <option value="watercolor">🖌️ Watercolor Illustration</option>
+                  <option value="painting">🖼️ Artistic Broadsheet Painting</option>
+                  <option value="cinematic">📸 Cinematic Editorial Photo</option>
+                  <option value="silhouette">👥 Minimalist Silhouette</option>
+                  <option value="exact" id="repOptExact" style="display:none;">📷 Authentic Source Photo</option>
+                </select>
               </div>
             </div>
 
-            <!-- 5. Family Cast & Physical Staging Card (Zero-Footprint Consistent Characters - Always Visible in Settings) -->
+            <!-- 5. Family Cast Card -->
             <div class="family-cast-card" id="familyCastStagingCard">
               <div class="family-cast-header">
                 <div class="family-cast-title-group">
                   <span class="family-cast-icon">👥</span>
-                  <div>
-                    <div class="family-cast-title">Casting Vault &amp; Family Staging</div>
-                    <div class="family-cast-subtitle">Consistent character likeness (40yo mid-age Father &amp; family • Zero Digital Footprint)</div>
+                  <div class="family-cast-title-inline">
+                    <span class="family-cast-title">Family Cast</span>
+                    <button type="button" class="ui-info-dot-btn" onclick="toggleInfoTip(event, 'castStagingTip1')" title="About Family Cast">i</button>
                   </div>
                 </div>
                 <div class="family-cast-actions">
@@ -967,9 +935,12 @@
                     <span>⚙️ Manage Vault</span>
                   </button>
                   <button type="button" class="family-cast-dismiss-btn" onclick="dismissFamilyCastStaging()" title="Clear selected cast members for this post">
-                    <span>✕ Clear Selection</span>
+                    <span>✕ Clear</span>
                   </button>
                 </div>
+              </div>
+              <div class="ui-info-popover-box" id="castStagingTip1" style="display:none;">
+                Consistent character likeness across posters with zero digital footprint.
               </div>
 
               <!-- Context-Aware Detection Badge -->
@@ -977,29 +948,7 @@
 
               <!-- Active Members Toggles -->
               <div class="family-cast-members-row" id="familyCastMembersRow">
-                <!-- Populated dynamically: [✓ Dad (Driver)] [✓ Mom] [✓ Elder Son (11)] [✓ Younger Son (7)] -->
-              </div>
-
-              <!-- Age & Biological Contrast Guarantee Banner -->
-              <div class="family-cast-guarantee-banner" id="familyCastAgeBanner">
-                <span class="guarantee-icon">✨</span>
-                <span class="guarantee-text"><strong>4-Year Age Gap Enforced:</strong> 11-year-old pre-teen (taller, lean build) vs 7-year-old young child (shorter by a head, round child cheeks). Strictly no identical twins.</span>
-              </div>
-
-              <!-- Vehicle / Scene Staging Selector -->
-              <div class="family-cast-staging-controls" id="familyCastStagingControls">
-                <label class="staging-control-label">🚗 Road & Scene Staging:</label>
-                <div class="staging-pills">
-                  <button type="button" class="staging-pill active" id="stagingPillRhd" onclick="setFamilyCastStagingMode('vehicle_rhd')">
-                    <span>🇮🇳 RHD Car (Father Drives on Right)</span>
-                  </button>
-                  <button type="button" class="staging-pill" id="stagingPillOverlook" onclick="setFamilyCastStagingMode('scenic_overlook')">
-                    <span>🏔️ Scenic Overlook (Standing by Car)</span>
-                  </button>
-                  <button type="button" class="staging-pill" id="stagingPillDomestic" onclick="setFamilyCastStagingMode('general')">
-                    <span>🏡 Natural Activity / Outdoors</span>
-                  </button>
-                </div>
+                <!-- Populated dynamically -->
               </div>
             </div>
 
@@ -1197,169 +1146,95 @@
       <!-- Modal Header -->
       <div class="equalizer-sheet-header">
         <div class="equalizer-sheet-title-wrap">
-          <div class="equalizer-sheet-badge">EQUALIZER</div>
+          <div class="equalizer-sheet-badge">SETTINGS</div>
           <h3 class="equalizer-sheet-title">Post Settings</h3>
+          <button type="button" class="ui-info-dot-btn" onclick="toggleInfoTip(event, 'eqHeaderTip')" title="About Post Settings">i</button>
         </div>
         <button type="button" class="equalizer-close-btn" onclick="closeCreatorEqualizer()" aria-label="Close Equalizer">&times;</button>
       </div>
-      <p class="equalizer-sheet-subtitle">Intelligently tuned for your post. Tap any setting below to fine-tune visual focus, image portrayal, and regional setting.</p>
+      <div class="ui-info-popover-box" id="eqHeaderTip" style="display:none; margin: 0 18px 10px;">
+        Fine-tune visual focus, image portrayal style, regional setting, and family cast.
+      </div>
 
       <div class="equalizer-sheet-body">
         <!-- 1. Visual Focus (Source Grounded vs Hybrid vs Curator) -->
         <div class="equalizer-section">
           <div class="equalizer-section-header">
             <span class="equalizer-section-icon">⚖️</span>
-            <div>
+            <div class="equalizer-title-inline-row">
               <div class="equalizer-section-title">VISUAL FOCUS</div>
-              <div class="equalizer-section-sub">Controls Poster 1 Artwork & Metaphor Anchoring</div>
+              <button type="button" class="ui-info-dot-btn" onclick="toggleInfoTip(event, 'eqFocusTip')" title="What is Visual Focus?">i</button>
             </div>
+          </div>
+          <div class="ui-info-popover-box" id="eqFocusTip" style="display:none;">
+            <span id="equalizerFocusExplainer">Physically anchored in authentic news subjects, real press setting, and source photograph.</span>
           </div>
           <div class="equalizer-focus-pills">
             <button type="button" class="equalizer-focus-pill active" id="eqFocusSource" onclick="setEqualizerPerspectiveMode('source')">
               <span class="focus-pill-icon">📰</span>
-              <div class="focus-pill-text">
-                <span class="focus-pill-name">Source Grounded</span>
-                <span class="focus-pill-tag">Default</span>
-              </div>
+              <span class="focus-pill-name">Source</span>
             </button>
             <button type="button" class="equalizer-focus-pill" id="eqFocusHybrid" onclick="setEqualizerPerspectiveMode('hybrid')">
               <span class="focus-pill-icon">⚖️</span>
-              <div class="focus-pill-text">
-                <span class="focus-pill-name">Hybrid Blend</span>
-              </div>
+              <span class="focus-pill-name">Hybrid</span>
             </button>
             <button type="button" class="equalizer-focus-pill" id="eqFocusCurator" onclick="setEqualizerPerspectiveMode('curator')">
               <span class="focus-pill-icon">⚡</span>
-              <div class="focus-pill-text">
-                <span class="focus-pill-name">Curator Angle</span>
-              </div>
+              <span class="focus-pill-name">Curator</span>
             </button>
-          </div>
-          <div class="equalizer-focus-explainer" id="equalizerFocusExplainer">
-            Physically anchored in authentic news subjects, real press setting, and source photograph.
           </div>
         </div>
 
-        <!-- 2. Image Portrayal (AI Illustration Default + Live Visual Previews) -->
+        <!-- 2. Image Portrayal (Compact Dropdown + Single Sample View) -->
         <div class="equalizer-section">
           <div class="equalizer-section-header">
             <span class="equalizer-section-icon">🎨</span>
-            <div style="flex:1;">
+            <div class="equalizer-title-inline-row" style="flex:1;">
               <div class="equalizer-section-title">IMAGE PORTRAYAL</div>
-              <div class="equalizer-section-sub">Select visual style for Poster 1 (Tap to preview)</div>
+              <button type="button" class="ui-info-dot-btn" onclick="toggleInfoTip(event, 'eqPortrayalTip')" title="About Image Portrayal">i</button>
             </div>
-            <button type="button" class="portrayal-compare-pill" onclick="openPortrayalComparisonModal()" title="Compare all 6 styles side by side">
-              <span>👀 Compare Styles</span>
+            <button type="button" class="portrayal-compare-pill" onclick="openPortrayalComparisonModal()" title="Compare all styles side by side">
+              <span>👀 Compare</span>
             </button>
           </div>
+          <div class="ui-info-popover-box" id="eqPortrayalTip" style="display:none;">
+            <div id="portrayalPreviewDesc">High-impact editorial broadsheet illustration faithfully capturing key figures and real-world setting.</div>
+            <div class="portrayal-preview-specs" id="portrayalPreviewSpecs" style="margin-top:6px;">
+              <span class="portrayal-spec-pill" id="portrayalSpecMedium">Medium: Editorial broadsheet illustration</span>
+              <span class="portrayal-spec-pill" id="portrayalSpecTexture">Texture: Rich digital ink</span>
+            </div>
+          </div>
 
-          <!-- Portrayal Selector Cards with Inline Dynamic Preview Directly Below Active Choice -->
-          <div class="equalizer-portrayal-grid" id="equalizerPortrayalGrid">
-            <button type="button" class="equalizer-portrayal-card active" id="eqRepRealistic" onclick="selectEqualizerPortrayal('realistic')">
-              <div class="portrayal-card-thumb-mini">
-                <img src="https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/slant-1792702237772-vx3sf.webp" alt="AI Illustration">
-              </div>
-              <div class="portrayal-card-info">
-                <div class="portrayal-card-title-row">
-                  <span class="portrayal-card-title">🎨 AI Illustration</span>
-                  <span class="portrayal-card-subtag">Default</span>
-                </div>
-                <span class="portrayal-card-summary">Vivid editorial realism faithfully capturing key figures and news setting</span>
-              </div>
-            </button>
+          <!-- Compact Dropdown Selector -->
+          <div class="equalizer-portrayal-dropdown-row">
+            <select id="equalizerPortrayalSelect" class="equalizer-portrayal-select" onchange="selectEqualizerPortrayal(this.value)">
+              <option value="realistic">🎨 AI Illustration (Default)</option>
+              <option value="watercolor">🖌️ Watercolor Illustration</option>
+              <option value="painting">🖼️ Artistic Broadsheet Painting</option>
+              <option value="cinematic">📸 Cinematic Editorial Photo</option>
+              <option value="silhouette">👥 Minimalist Silhouette</option>
+              <option value="exact" id="eqSelectOptExact" style="display:none;">📷 Authentic Source Photo</option>
+            </select>
+          </div>
 
-            <!-- Dynamic Live Visual Preview Box: positions directly beneath whichever portrayal is active -->
-            <div class="equalizer-portrayal-preview-card" id="equalizerPortrayalPreviewCard">
-              <div class="portrayal-preview-thumb-wrap" onclick="openPortrayalEnlargeModal()" title="Tap to zoom preview">
-                <img id="portrayalPreviewImg" src="https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/slant-1792702237772-vx3sf.webp" alt="AI Illustration preview" class="portrayal-preview-img">
-                <div class="portrayal-thumb-zoom-badge">
-                  <span>🔍 Zoom</span>
-                </div>
+          <!-- Compact Sample View for Selected Style Only -->
+          <div class="equalizer-portrayal-preview-card" id="equalizerPortrayalPreviewCard">
+            <div class="portrayal-preview-thumb-wrap" onclick="openPortrayalEnlargeModal()" title="Tap to zoom sample">
+              <img id="portrayalPreviewImg" src="https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/slant-1792702237772-vx3sf.webp" alt="Selected style sample" class="portrayal-preview-img">
+              <div class="portrayal-thumb-zoom-badge">🔍</div>
+            </div>
+            <div class="portrayal-preview-meta">
+              <div class="portrayal-preview-header-row">
+                <span class="portrayal-preview-name" id="portrayalPreviewName">AI Illustration</span>
+                <span class="portrayal-preview-badge" id="portrayalPreviewBadge">Sample</span>
               </div>
-              <div class="portrayal-preview-meta">
-                <div class="portrayal-preview-header-row">
-                  <span class="portrayal-preview-name" id="portrayalPreviewName">AI Illustration</span>
-                  <span class="portrayal-preview-badge" id="portrayalPreviewBadge">Default Style</span>
-                </div>
-                <div class="portrayal-preview-title" id="portrayalPreviewTitle">Vivid Editorial Realism</div>
-                <div class="portrayal-preview-specs" id="portrayalPreviewSpecs">
-                  <span class="portrayal-spec-pill" id="portrayalSpecMedium">Medium: Editorial broadsheet illustration</span>
-                  <span class="portrayal-spec-pill" id="portrayalSpecTexture">Texture: Rich digital ink and color saturation</span>
-                </div>
-                <p class="portrayal-preview-desc" id="portrayalPreviewDesc">
-                  High-impact editorial broadsheet illustration faithfully capturing key figures, real-world setting, and dramatic journalistic realism.
-                </p>
-                <div class="portrayal-preview-actions">
-                  <button type="button" class="portrayal-preview-action-btn" onclick="openPortrayalEnlargeModal()">
-                    <span>🔍 View Large</span>
-                  </button>
-                  <button type="button" class="portrayal-preview-action-btn secondary" onclick="openPortrayalComparisonModal()">
-                    <span>👀 Compare All 6</span>
-                  </button>
-                </div>
+              <div class="portrayal-preview-title" id="portrayalPreviewTitle">Vivid Editorial Realism</div>
+              <div class="portrayal-preview-actions">
+                <button type="button" class="portrayal-preview-action-btn" onclick="openPortrayalEnlargeModal()">
+                  <span>🔍 Enlarge Sample</span>
+                </button>
               </div>
             </div>
-
-            <button type="button" class="equalizer-portrayal-card" id="eqRepCinematic" onclick="selectEqualizerPortrayal('cinematic')">
-              <div class="portrayal-card-thumb-mini">
-                <img src="https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/slant-1792702859318-cy5u7.webp" alt="Cinematic Editorial Photo">
-              </div>
-              <div class="portrayal-card-info">
-                <div class="portrayal-card-title-row">
-                  <span class="portrayal-card-title">📸 Cinematic Editorial Photo</span>
-                </div>
-                <span class="portrayal-card-summary">35mm documentary camera realism and authentic skin lighting</span>
-              </div>
-            </button>
-
-            <button type="button" class="equalizer-portrayal-card" id="eqRepPainting" onclick="selectEqualizerPortrayal('painting')">
-              <div class="portrayal-card-thumb-mini">
-                <img src="https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/slant-1792700793906-bv1gb.webp" alt="Artistic Broadsheet Painting">
-              </div>
-              <div class="portrayal-card-info">
-                <div class="portrayal-card-title-row">
-                  <span class="portrayal-card-title">🎨 Artistic Broadsheet Painting</span>
-                </div>
-                <span class="portrayal-card-summary">Warm broadsheet painting in rich gouache and oil textures</span>
-              </div>
-            </button>
-
-            <button type="button" class="equalizer-portrayal-card" id="eqRepWatercolor" onclick="selectEqualizerPortrayal('watercolor')">
-              <div class="portrayal-card-thumb-mini">
-                <img src="https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/slant-watercolor-preview-v2-1793154969840.png" alt="Watercolor Illustration">
-              </div>
-              <div class="portrayal-card-info">
-                <div class="portrayal-card-title-row">
-                  <span class="portrayal-card-title">🖌️ Watercolor Illustration</span>
-                </div>
-                <span class="portrayal-card-summary">Translucent watercolor washes and fine ink linework on warm archival paper</span>
-              </div>
-            </button>
-
-            <button type="button" class="equalizer-portrayal-card" id="eqRepSilhouette" onclick="selectEqualizerPortrayal('silhouette')">
-              <div class="portrayal-card-thumb-mini">
-                <img src="https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/slant-1792728487515-hcyge.webp" alt="Minimalist Silhouette">
-              </div>
-              <div class="portrayal-card-info">
-                <div class="portrayal-card-title-row">
-                  <span class="portrayal-card-title">👥 Minimalist Silhouette</span>
-                </div>
-                <span class="portrayal-card-summary">High-contrast shadow art, architectural silhouettes, and noir profiles</span>
-              </div>
-            </button>
-
-            <button type="button" class="equalizer-portrayal-card" id="eqRepExact" onclick="selectEqualizerPortrayal('exact')" style="display:none;">
-              <div class="portrayal-card-thumb-mini">
-                <img id="eqRepExactThumb" src="https://i.ytimg.com/vi/m_qAkP5XFRI/maxresdefault.jpg" alt="Authentic Source Photo">
-              </div>
-              <div class="portrayal-card-info">
-                <div class="portrayal-card-title-row">
-                  <span class="portrayal-card-title">📷 Authentic Source Photo</span>
-                  <span class="portrayal-card-subtag">Direct</span>
-                </div>
-                <span class="portrayal-card-summary">Direct authentic news photo used as Poster 1 without AI regeneration</span>
-              </div>
-            </button>
           </div>
         </div>
 
@@ -1367,53 +1242,44 @@
         <div class="equalizer-section">
           <div class="equalizer-section-header">
             <span class="equalizer-section-icon" id="equalizerCountryFlag">🇮🇳</span>
-            <div>
-              <div class="equalizer-section-title">REGIONAL & CULTURAL SETTING</div>
-              <div class="equalizer-section-sub" id="equalizerCountrySub">Grounds visual composition and architecture in local motifs</div>
+            <div class="equalizer-title-inline-row">
+              <div class="equalizer-section-title">REGIONAL SETTING</div>
+              <button type="button" class="ui-info-dot-btn" onclick="toggleInfoTip(event, 'eqRegionTip')" title="About Regional Setting">i</button>
             </div>
+          </div>
+          <div class="ui-info-popover-box" id="eqRegionTip" style="display:none;">
+            <span id="equalizerCountrySub">Grounds visual composition and architecture in local motifs.</span>
           </div>
           <div class="equalizer-country-pills">
             <button type="button" class="equalizer-country-pill active" id="eqCountryIN" data-country="IN" onclick="selectEqualizerCountry('IN')">🇮🇳 India</button>
-            <button type="button" class="equalizer-country-pill" id="eqCountryUS" data-country="US" onclick="selectEqualizerCountry('US')">🇺🇸 United States</button>
-            <button type="button" class="equalizer-country-pill" id="eqCountryGB" data-country="GB" onclick="selectEqualizerCountry('GB')">🇬🇧 United Kingdom</button>
+            <button type="button" class="equalizer-country-pill" id="eqCountryUS" data-country="US" onclick="selectEqualizerCountry('US')">🇺🇸 USA</button>
+            <button type="button" class="equalizer-country-pill" id="eqCountryGB" data-country="GB" onclick="selectEqualizerCountry('GB')">🇬🇧 UK</button>
             <button type="button" class="equalizer-country-pill" id="eqCountryJP" data-country="JP" onclick="selectEqualizerCountry('JP')">🇯🇵 Japan</button>
             <button type="button" class="equalizer-country-pill" id="eqCountryEU" data-country="EU" onclick="selectEqualizerCountry('EU')">🇪🇺 Europe</button>
             <button type="button" class="equalizer-country-pill" id="eqCountryGLOBAL" data-country="GLOBAL" onclick="selectEqualizerCountry('GLOBAL')">🌐 Global</button>
           </div>
         </div>
 
-        <!-- 4. Casting Vault & Family Cast (Always Visible in Settings) -->
+        <!-- 4. Family Cast -->
         <div class="equalizer-section" id="equalizerCastingVaultSection">
           <div class="equalizer-section-header">
             <span class="equalizer-section-icon">👥</span>
-            <div style="flex:1;">
-              <div class="equalizer-section-title">CASTING VAULT &amp; CHARACTER STAGING</div>
-              <div class="equalizer-section-sub">Toggle recurring Vault characters (e.g. Father Shridhar, 40yo mid-age) or manage photos</div>
+            <div class="equalizer-title-inline-row" style="flex:1;">
+              <div class="equalizer-section-title">FAMILY CAST</div>
+              <button type="button" class="ui-info-dot-btn" onclick="toggleInfoTip(event, 'eqCastTip')" title="About Family Cast">i</button>
             </div>
             <button type="button" class="family-cast-vault-btn" onclick="openFamilyCastModal()" title="Open Family Cast Vault">
               <span>⚙️ Manage Vault</span>
             </button>
           </div>
+          <div class="ui-info-popover-box" id="eqCastTip" style="display:none;">
+            Toggle recurring family characters for this poster or manage their reference poses in the Vault.
+          </div>
 
           <div class="family-cast-auto-hint" id="equalizerCastAutoHint" style="display:none; margin-bottom: 8px;"></div>
 
-          <div class="family-cast-members-row" id="equalizerCastMembersRow" style="margin-bottom: 10px;">
+          <div class="family-cast-members-row" id="equalizerCastMembersRow">
             <!-- Populated dynamically by renderFamilyCastStagingUI() -->
-          </div>
-
-          <div class="family-cast-staging-controls" style="margin-top: 6px;">
-            <label class="staging-control-label">🚗 Scene &amp; Road Staging:</label>
-            <div class="staging-pills">
-              <button type="button" class="staging-pill active" id="eqStagingPillRhd" onclick="setFamilyCastStagingMode('vehicle_rhd')">
-                <span>🇮🇳 RHD Car</span>
-              </button>
-              <button type="button" class="staging-pill" id="eqStagingPillOverlook" onclick="setFamilyCastStagingMode('scenic_overlook')">
-                <span>🏔️ Scenic Overlook</span>
-              </button>
-              <button type="button" class="staging-pill" id="eqStagingPillDomestic" onclick="setFamilyCastStagingMode('general')">
-                <span>🏡 Natural Activity / Outdoors</span>
-              </button>
-            </div>
           </div>
         </div>
 
@@ -2172,10 +2038,7 @@
           <button type="button" class="drawer-diary-open-btn" onclick="closeDrawer(); openDiaryCalendarModal();">
             <div class="drawer-diary-left">
               <span class="drawer-diary-icon">📔</span>
-              <div class="drawer-diary-text">
-                <div class="drawer-diary-title">Personal Diary Chronicles</div>
-                <div class="drawer-diary-desc">Calendar view of all your daily chronicle moments</div>
-              </div>
+              <span class="drawer-diary-title">Daily Chronicles</span>
             </div>
             <span class="drawer-diary-count-pill" id="drawerDiaryCount">0 days</span>
           </button>
@@ -2295,16 +2158,19 @@
   <div class="modal-overlay family-cast-modal-overlay" id="familyCastModal" style="display:none;" onclick="if(event.target===this) closeFamilyCastModal()">
     <div class="vault-screen-window" id="familyCastModalWindow">
       
-      <!-- 1. Header Bar: Brand, Privacy Badge & Close -->
+      <!-- 1. Header Bar: Brand, Info & Close -->
       <div class="vault-window-header">
         <div class="vault-window-brand">
           <div class="vault-badge-pill">👥 Family Cast Vault</div>
-          <span class="vault-privacy-tag">🔒 Zero Digital Footprint</span>
+          <button type="button" class="ui-info-dot-btn" onclick="toggleInfoTip(event, 'vaultHeaderInfoTip')" title="About Family Cast Vault">i</button>
         </div>
         <div class="vault-header-actions">
-          <button type="button" class="vault-header-reset-btn" onclick="resetFamilyCastToDefault()" title="Reset to standard blueprint">Reset Defaults</button>
+          <button type="button" class="vault-header-reset-btn" onclick="resetFamilyCastToDefault()" title="Reset to standard blueprint">Reset</button>
           <button type="button" class="vault-window-close-btn" onclick="closeFamilyCastModal()" title="Close Vault">✕</button>
         </div>
+      </div>
+      <div class="ui-info-popover-box" id="vaultHeaderInfoTip" style="display:none; margin: 0 18px 8px;">
+        🔒 <strong>Zero Digital Footprint:</strong> Reference poses stay private and are used only to preserve consistent character likeness across your illustrated posters.
       </div>
 
       <!-- 2. Member Switcher Carousel Tabs (Easily jump between Dad, Mom, Elder Son, Younger Son, or Add New) -->
@@ -2321,14 +2187,10 @@
 
       <!-- 4. Fixed Bottom Action Bar -->
       <div class="vault-window-footer">
-        <div class="vault-footer-info">
-          <span class="vault-footer-dot"></span>
-          <span id="vaultFooterStatusText">Private local character blueprint for consistent AI illustrations</span>
-        </div>
         <div class="vault-footer-buttons">
           <button type="button" class="vault-secondary-btn" onclick="closeFamilyCastModal()">Done</button>
           <button type="button" class="vault-save-next-btn" id="vaultSaveNextBtn" onclick="saveActiveMemberAndNext()">
-            <span id="vaultSaveNextBtnText">Save & Next Member ➔</span>
+            <span id="vaultSaveNextBtnText">Save &amp; Next ➔</span>
           </button>
         </div>
       </div>
@@ -2407,6 +2269,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261029_1313"></script>
+  <script src="app.js?v=20261029_1528"></script>
 </body>
 </html>

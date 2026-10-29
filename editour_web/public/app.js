@@ -12076,7 +12076,19 @@ function closeFamilyCastModal() {
 }
 
 let activeVaultMemberId = null;
+let activeVaultPoseSlotIdx = 0;
 let isAnalyzingVaultPhotos = false;
+
+function toggleInfoTip(event, tipId) {
+  if (event) {
+    event.stopPropagation();
+    event.preventDefault();
+  }
+  const el = document.getElementById(tipId);
+  if (!el) return;
+  const isHidden = (el.style.display === 'none' || !el.style.display);
+  el.style.display = isHidden ? 'block' : 'none';
+}
 
 function renderVaultMemberTabs() {
   const track = document.getElementById('vaultMemberTabsList');
@@ -12100,22 +12112,20 @@ function renderVaultMemberTabs() {
   const tabsHtml = members.map(m => {
     const isActive = (m.id === activeVaultMemberId);
     const photosObj = m.photos || {};
-    const photoCount = [photosObj.frontal || m.photoBase64, photosObj.profile, photosObj.stature].filter(Boolean).length;
     const primaryAvatar = m.photoBase64 || photosObj.frontal;
 
     return `
-      <div class="vault-member-tab-item ${isActive ? 'active' : ''}" onclick="selectVaultMember('${m.id}')" title="Edit ${escapeHtml(m.name || m.roleLabel)}">
+      <button type="button" class="vault-member-tab-item ${isActive ? 'active' : ''}" onclick="selectVaultMember('${m.id}')" title="${escapeHtml(m.name || m.roleLabel)}">
         ${primaryAvatar ? `<img src="${primaryAvatar}" class="tab-avatar-mini" alt="">` : `<span class="tab-avatar-emoji">${icons[m.relationship] || '👤'}</span>`}
         <span>${escapeHtml(m.name || m.roleLabel)}</span>
-        ${photoCount > 0 ? `<span class="tab-badge-photos">📷 ${photoCount}</span>` : ''}
-      </div>
+      </button>
     `;
   }).join('');
 
   const addBtnHtml = `
-    <div class="vault-member-tab-item vault-add-member-tab" onclick="addNewVaultMember()" title="Add another family member">
-      <span>➕ Add Member</span>
-    </div>
+    <button type="button" class="vault-member-tab-item vault-add-member-tab" onclick="addNewVaultMember()" title="Add family member">
+      <span>＋</span>
+    </button>
   `;
 
   track.innerHTML = tabsHtml + addBtnHtml;
@@ -12123,10 +12133,22 @@ function renderVaultMemberTabs() {
 
 function selectVaultMember(memberId) {
   activeVaultMemberId = memberId;
+  activeVaultPoseSlotIdx = 0;
   renderVaultMemberTabs();
   renderActiveMemberScreen();
   const body = document.getElementById('vaultActiveMemberScreen');
   if (body) body.scrollTop = 0;
+}
+
+function stepVaultPoseSlot(delta) {
+  const total = 3;
+  activeVaultPoseSlotIdx = ((activeVaultPoseSlotIdx + (delta || 1)) % total + total) % total;
+  renderActiveMemberScreen();
+}
+
+function goToVaultPoseSlot(slotIdx) {
+  activeVaultPoseSlotIdx = Math.max(0, Math.min(2, Number(slotIdx) || 0));
+  renderActiveMemberScreen();
 }
 
 function addNewVaultMember() {
@@ -12152,12 +12174,15 @@ function addNewVaultMember() {
   activeCastMemberIds.add(newId);
   saveFamilyCastProfile(cast);
   activeVaultMemberId = newId;
+  activeVaultPoseSlotIdx = 0;
 
   renderVaultMemberTabs();
   renderActiveMemberScreen();
   renderFamilyCastStagingUI();
 
   setTimeout(() => {
+    const detailsEl = document.getElementById('vaultMemberDetailsAccordion');
+    if (detailsEl) detailsEl.open = true;
     const nameInput = document.getElementById('vField_name');
     if (nameInput) nameInput.focus();
   }, 100);
@@ -12176,7 +12201,7 @@ function renderActiveMemberScreen() {
       member = members[0];
       activeVaultMemberId = member.id;
     } else {
-      container.innerHTML = '<div style="text-align:center; padding:40px; color:#94A3B8;">No family members registered. Tap + Add Member above.</div>';
+      container.innerHTML = '<div style="text-align:center; padding:32px; color:var(--text-secondary);">No family members registered. Tap ＋ above.</div>';
       return;
     }
   }
@@ -12187,16 +12212,7 @@ function renderActiveMemberScreen() {
     member.photos.frontal = member.photoBase64;
   }
 
-  const icons = {
-    self: '👨',
-    spouse: '👩',
-    elder_son: '👦',
-    younger_son: '🧒',
-    child: '🧒'
-  };
-
   const isDefaultPrimary = (member.id === 'member_father');
-  const primaryAvatar = member.photoBase64 || member.photos.frontal;
   const photos = member.photos;
   const photoCount = [photos.frontal, photos.profile, photos.stature].filter(Boolean).length;
 
@@ -12204,256 +12220,206 @@ function renderActiveMemberScreen() {
   const currentIdx = members.findIndex(m => m.id === member.id);
   const hasNext = (currentIdx !== -1 && currentIdx < members.length - 1);
   const nextMember = hasNext ? members[currentIdx + 1] : null;
-  const nextLabel = nextMember ? `Save & Edit ${escapeHtml(nextMember.name || nextMember.roleLabel)} ➔` : 'Save All & Done ✓';
+  const nextLabel = nextMember ? `Next: ${escapeHtml(nextMember.name || nextMember.roleLabel)} ➔` : 'Save & Done ✓';
 
   const saveBtnText = document.getElementById('vaultSaveNextBtnText');
   if (saveBtnText) saveBtnText.textContent = nextLabel;
 
+  const poseConfigs = [
+    {
+      key: 'frontal',
+      num: 1,
+      title: 'Front Face & Smile',
+      sampleImg: '/pose_guide_frontal.jpg',
+      tip: 'Direct eye-level, soft daylight, natural smile.'
+    },
+    {
+      key: 'profile',
+      num: 2,
+      title: '35° Turn / Jawline',
+      sampleImg: '/pose_guide_profile.jpg',
+      tip: 'Turn head 30–45° to capture nose slope & jawline depth.'
+    },
+    {
+      key: 'stature',
+      num: 3,
+      title: 'Hair & Waist-Up Stature',
+      sampleImg: '/pose_guide_stature.jpg',
+      tip: 'Waist-up standing view showing natural hair volume & build.'
+    }
+  ];
+
+  const activePoseIdx = Math.max(0, Math.min(2, activeVaultPoseSlotIdx || 0));
+  const pose = poseConfigs[activePoseIdx];
+  const currentPosePhoto = photos[pose.key] || null;
+
   container.innerHTML = `
     <div class="vault-active-member-container">
-      
-      <!-- Top Banner -->
-      <div class="vault-member-banner">
-        <div class="vault-member-banner-left">
-          <div class="vault-member-hero-avatar">
-            ${primaryAvatar ? `<img src="${primaryAvatar}" alt="${escapeHtml(member.name || 'Member')}">` : `<span>${icons[member.relationship] || '👤'}</span>`}
+      <!-- Single-Card Sliding Pose Carousel -->
+      <div class="vault-pose-slider-card" id="vaultPoseSliderCard">
+        <div class="vault-pose-slider-header">
+          <div class="vault-pose-header-left">
+            <span class="vault-pose-step-pill">Pose ${pose.num} / 3</span>
+            <span class="vault-pose-title">${escapeHtml(pose.title)}</span>
+            <button type="button" class="ui-info-dot-btn" onclick="toggleInfoTip(event, 'vaultPoseTipBox')" title="Pose tip">i</button>
           </div>
-          <div class="vault-member-titles">
-            <div class="vault-member-name-row">
-              <h2 class="vault-member-heading">${escapeHtml(member.name || member.roleLabel || 'Family Member')}</h2>
-              <span class="vault-role-badge">${escapeHtml(member.roleLabel || member.relationship)}</span>
-            </div>
-            <p class="vault-member-subheading">
-              ${member.age ? `Age ${member.age} • ` : ''}
-              ${escapeHtml(member.heightDesc || 'Standard Stature')}
-            </p>
-          </div>
-        </div>
-        <div class="vault-member-banner-right">
-          ${!isDefaultPrimary ? `<button type="button" class="vault-member-delete-pill" onclick="deleteActiveMember('${member.id}')" title="Delete member from vault">✕ Remove Member</button>` : ''}
-        </div>
-      </div>
-
-      <!-- 3 Preferred Photo Style Dummy Guides -->
-      <div class="vault-slots-section">
-        <div class="vault-slots-title-row">
-          <span class="vault-section-title">📷 Reference Photo Slots (Multi-Angle Character DNA)</span>
-          <span class="vault-slots-counter">${photoCount} of 3 Styles Added</span>
-        </div>
-        <p class="vault-slots-desc">Touch any slot below to attach that style. Multi-angle photos help the AI render true jawline depth, natural hair texture, and accurate height ratios.</p>
-
-        <div class="vault-slots-grid">
-          
-          <!-- Slot 1: Frontal Portrait -->
-          <div class="vault-slot-card ${photos.frontal ? 'has-photo' : 'is-empty'}" onclick="triggerSlotUpload('frontal')" title="Upload frontal view">
-            <div class="slot-card-header-row">
-              <span class="slot-card-badge">Style 1 • Face & Smile</span>
-              <button type="button" class="slot-guide-pill-btn" onclick="event.stopPropagation(); openSlotStyleGuide('frontal')" title="View posture, face angle & smile guide">💡 Guide</button>
-            </div>
-            <div class="slot-preview-box">
-              ${photos.frontal ? `
-                <img src="${photos.frontal}" class="slot-photo-img" alt="Frontal">
-                <div class="slot-overlay-check">✓ Active Frontal</div>
-              ` : `
-                <img src="/pose_guide_frontal.jpg" class="slot-photo-img slot-sample-pose-img" alt="Sample Frontal Pose">
-                <div class="slot-sample-pose-badge">🎨 Sample Pose &middot; 0&deg; Frontal</div>
-                <span class="slot-touch-prompt">📷 Tap to Upload Yours</span>
-              `}
-            </div>
-            <div class="slot-meta">
-              <div class="slot-title">1. Clear Frontal</div>
-              <div class="slot-desc">Direct eye-level, soft daylight, natural smile</div>
-              <div class="slot-guide-link" onclick="event.stopPropagation(); openSlotStyleGuide('frontal')" title="View posture & angle guide">👁️ View Pose Guide ➔</div>
-            </div>
-            ${photos.frontal ? `
-              <div class="slot-card-actions" onclick="event.stopPropagation()">
-                <button type="button" class="slot-btn-replace" onclick="triggerSlotUpload('frontal')">Replace</button>
-                <button type="button" class="slot-btn-remove" onclick="removeSlotPhoto('frontal')">Remove</button>
-              </div>
-            ` : ''}
-          </div>
-
-          <!-- Slot 2: 3/4 Depth Angle -->
-          <div class="vault-slot-card ${photos.profile ? 'has-photo' : 'is-empty'}" onclick="triggerSlotUpload('profile')" title="Upload 3/4 depth angle">
-            <div class="slot-card-header-row">
-              <span class="slot-card-badge">Style 2 • Depth & Jawline</span>
-              <button type="button" class="slot-guide-pill-btn" onclick="event.stopPropagation(); openSlotStyleGuide('profile')" title="View posture, face angle & smile guide">💡 Guide</button>
-            </div>
-            <div class="slot-preview-box">
-              ${photos.profile ? `
-                <img src="${photos.profile}" class="slot-photo-img" alt="Profile">
-                <div class="slot-overlay-check">✓ Active Depth</div>
-              ` : `
-                <img src="/pose_guide_profile.jpg" class="slot-photo-img slot-sample-pose-img" alt="Sample 3/4 Depth Pose">
-                <div class="slot-sample-pose-badge">🎨 Sample Pose &middot; 35&deg; Turn</div>
-                <span class="slot-touch-prompt">📷 Tap to Upload Yours</span>
-              `}
-            </div>
-            <div class="slot-meta">
-              <div class="slot-title">2. 3/4 Depth Angle</div>
-              <div class="slot-desc">Head turned 30-45° for nose slope & jawline depth</div>
-              <div class="slot-guide-link" onclick="event.stopPropagation(); openSlotStyleGuide('profile')" title="View posture & angle guide">👁️ View Pose Guide ➔</div>
-            </div>
-            ${photos.profile ? `
-              <div class="slot-card-actions" onclick="event.stopPropagation()">
-                <button type="button" class="slot-btn-replace" onclick="triggerSlotUpload('profile')">Replace</button>
-                <button type="button" class="slot-btn-remove" onclick="removeSlotPhoto('profile')">Remove</button>
-              </div>
-            ` : ''}
-          </div>
-
-          <!-- Slot 3: Hair, Posture & Stature -->
-          <div class="vault-slot-card ${photos.stature ? 'has-photo' : 'is-empty'}" onclick="triggerSlotUpload('stature')" title="Upload hair or stature comparison">
-            <div class="slot-card-header-row">
-              <span class="slot-card-badge">Style 3 • Stature & Hair</span>
-              <button type="button" class="slot-guide-pill-btn" onclick="event.stopPropagation(); openSlotStyleGuide('stature')" title="View posture, face angle & smile guide">💡 Guide</button>
-            </div>
-            <div class="slot-preview-box">
-              ${photos.stature ? `
-                <img src="${photos.stature}" class="slot-photo-img" alt="Stature">
-                <div class="slot-overlay-check">✓ Active Stature</div>
-              ` : `
-                <img src="/pose_guide_stature.jpg" class="slot-photo-img slot-sample-pose-img" alt="Sample Stature & Hair Pose">
-                <div class="slot-sample-pose-badge">🎨 Sample Pose &middot; Waist-Up</div>
-                <span class="slot-touch-prompt">📷 Tap to Upload Yours</span>
-              `}
-            </div>
-            <div class="slot-meta">
-              <div class="slot-title">3. Hair & Stature</div>
-              <div class="slot-desc">Everyday hair volume or standing height ratio</div>
-              <div class="slot-guide-link" onclick="event.stopPropagation(); openSlotStyleGuide('stature')" title="View posture & angle guide">👁️ View Pose Guide ➔</div>
-            </div>
-            ${photos.stature ? `
-              <div class="slot-card-actions" onclick="event.stopPropagation()">
-                <button type="button" class="slot-btn-replace" onclick="triggerSlotUpload('stature')">Replace</button>
-                <button type="button" class="slot-btn-remove" onclick="removeSlotPhoto('stature')">Remove</button>
-              </div>
-            ` : ''}
-          </div>
-
-        </div>
-
-        <!-- AI Multi-Photo Status Bar -->
-        <div class="vault-ai-status-row">
-          <div class="vault-ai-status-text">
-            <span>✨</span>
-            <span id="vaultAiStatusText">${photoCount > 0 ? `AI cross-referenced ${photoCount} reference photo(s) into Character DNA` : 'Tap any slot above to attach a photo for AI likeness extraction'}</span>
-          </div>
-          ${photoCount > 0 ? `
-            <button type="button" class="vault-reanalyze-all-btn" id="vaultReanalyzeBtn" onclick="analyzeActiveMemberAllPhotos()">
-              <span>🔄 Re-analyze Photos</span>
+          <div class="vault-pose-header-right">
+            ${!isDefaultPrimary ? `<button type="button" class="vault-member-delete-icon-btn" onclick="deleteActiveMember('${member.id}')" title="Remove member">🗑️</button>` : ''}
+            <button type="button" class="vault-pose-next-pill" onclick="stepVaultPoseSlot(1)" title="Next Pose">
+              <span>Next Pose ➔</span>
             </button>
-          ` : ''}
+          </div>
+        </div>
+
+        <div class="ui-info-popover-box" id="vaultPoseTipBox" style="display:none; margin-bottom:8px;">
+          ${escapeHtml(pose.tip)}
+        </div>
+
+        <!-- Clear Uncropped Portrait Frame with Left/Right Arrows -->
+        <div class="vault-pose-stage-wrap" id="vaultPoseStageTouchArea">
+          <button type="button" class="vault-pose-nav-arrow prev" onclick="stepVaultPoseSlot(-1)" aria-label="Previous Pose">&#x2039;</button>
+
+          <div class="vault-pose-portrait-frame ${currentPosePhoto ? 'has-user-photo' : 'is-sample-pose'}" onclick="triggerSlotUpload('${pose.key}')">
+            <img src="${currentPosePhoto || pose.sampleImg}" class="vault-pose-clear-img" alt="${escapeHtml(pose.title)}">
+            <span class="vault-pose-corner-status ${currentPosePhoto ? 'is-added' : 'is-sample'}">
+              ${currentPosePhoto ? '✓ Photo Added' : 'Sample Pose'}
+            </span>
+          </div>
+
+          <button type="button" class="vault-pose-nav-arrow next" onclick="stepVaultPoseSlot(1)" aria-label="Next Pose">&#x203A;</button>
+        </div>
+
+        <!-- Pose Action Row & Dots -->
+        <div class="vault-pose-controls-row">
+          <div class="vault-pose-upload-actions">
+            <button type="button" class="vault-pose-primary-upload-btn" onclick="triggerSlotUpload('${pose.key}')">
+              <span>📷 ${currentPosePhoto ? 'Change Photo' : 'Add Photo'}</span>
+            </button>
+            ${currentPosePhoto ? `
+              <button type="button" class="vault-pose-remove-btn" onclick="removeSlotPhoto('${pose.key}')" title="Remove this photo">✕</button>
+            ` : ''}
+          </div>
+
+          <div class="vault-pose-dots">
+            ${poseConfigs.map((cfg, idx) => `
+              <button type="button"
+                      class="vault-pose-dot ${idx === activePoseIdx ? 'active' : ''} ${photos[cfg.key] ? 'has-photo' : ''}"
+                      onclick="goToVaultPoseSlot(${idx})"
+                      title="Pose ${cfg.num}: ${escapeHtml(cfg.title)}"></button>
+            `).join('')}
+          </div>
         </div>
 
         <div class="vault-analyzing-progress" id="vaultAnalyzingProgress" style="display:none;">
           <span class="vault-spinner"></span>
-          <span id="vaultAnalyzingText">Cross-referencing multiple photos for character likeness...</span>
+          <span id="vaultAnalyzingText">Updating character likeness...</span>
         </div>
       </div>
 
-      <!-- Stylized Editorial Character Model Section (Zero Digital Footprint) -->
-      <div class="vault-avatar-card ${member.stylizedAvatarUrl ? 'has-avatar' : 'no-avatar'}">
-        <div class="vault-avatar-header">
-          <div class="vault-avatar-title-group">
-            <span class="vault-avatar-icon">🎨</span>
-            <div>
-              <div class="vault-avatar-title">Stylized Editorial Character Model</div>
-              <div class="vault-avatar-subtitle">Zero Digital Footprint • Consistent recurring character across all posters</div>
-            </div>
-          </div>
-          ${member.stylizedAvatarUrl ? '<span class="vault-avatar-badge">✓ Active Illustrated Model</span>' : ''}
-        </div>
-
-        <div class="vault-avatar-body">
+      <!-- Compact Painted Character Avatar Bar (Single Row + Info Button) -->
+      <div class="vault-avatar-compact-bar">
+        <div class="vault-avatar-compact-left">
           ${member.stylizedAvatarUrl ? `
-            <div class="vault-avatar-thumb-box" onclick="previewImageModal('${member.stylizedAvatarUrl}', 'Stylized Character Model: ${escapeHtml(member.name || member.roleLabel)}')">
-              <img src="${member.stylizedAvatarUrl}" class="vault-avatar-thumb-img" alt="Avatar">
-              <span class="vault-avatar-zoom-tip">🔍 Tap to Enlarge</span>
-            </div>
-            <div class="vault-avatar-info-box">
-              <p class="vault-avatar-desc">This painted broadsheet model preserves ${escapeHtml(member.name || member.roleLabel)} authentic facial geometry, hair, and build across posters without ever publishing real photos.</p>
-              <div class="vault-avatar-actions">
-                <button type="button" class="vault-btn-regen-avatar" onclick="generateActiveMemberStylizedAvatar()" id="btnRegenAvatar">
-                  <span>🔄 Re-generate Avatar</span>
-                </button>
-              </div>
-            </div>
+            <img src="${member.stylizedAvatarUrl}" class="vault-avatar-compact-thumb" alt="Avatar" onclick="previewImageModal('${member.stylizedAvatarUrl}', '${escapeHtml(member.name || member.roleLabel)}')" title="Tap to enlarge">
           ` : `
-            <div class="vault-avatar-empty-box">
-              <p class="vault-avatar-desc">Generate a painted broadsheet character model for ${escapeHtml(member.name || member.roleLabel)}. Locks recurring facial likeness across posters with zero real-photo exposure.</p>
-              <button type="button" class="vault-btn-create-avatar" onclick="generateActiveMemberStylizedAvatar()" id="btnCreateAvatar" ${photoCount === 0 ? 'disabled title="Attach a reference photo first"' : ''}>
-                <span>🎨 Generate Stylized Character Model</span>
-              </button>
-            </div>
+            <span class="vault-avatar-compact-icon">🎨</span>
           `}
+          <div class="vault-avatar-compact-titles">
+            <span class="vault-avatar-compact-name">Character Model</span>
+            <button type="button" class="ui-info-dot-btn" onclick="toggleInfoTip(event, 'vaultAvatarInfoTip')" title="About Character Model">i</button>
+          </div>
         </div>
-
-        <div class="vault-avatar-generating-progress" id="vaultAvatarProgress" style="display:none;">
-          <span class="vault-spinner"></span>
-          <span id="vaultAvatarProgressText">Painting stylized editorial character model...</span>
-        </div>
+        <button type="button" class="vault-avatar-compact-btn" onclick="generateActiveMemberStylizedAvatar()" id="${member.stylizedAvatarUrl ? 'btnRegenAvatar' : 'btnCreateAvatar'}" ${(!member.stylizedAvatarUrl && photoCount === 0) ? 'disabled title="Add a photo first"' : ''}>
+          <span>${member.stylizedAvatarUrl ? '🔄 Regenerate' : '🎨 Generate'}</span>
+        </button>
+      </div>
+      <div class="ui-info-popover-box" id="vaultAvatarInfoTip" style="display:none;">
+        Preserves ${escapeHtml(member.name || member.roleLabel)}'s facial geometry, hair, and build across posters without publishing real photos.
+      </div>
+      <div class="vault-avatar-generating-progress" id="vaultAvatarProgress" style="display:none;">
+        <span class="vault-spinner"></span>
+        <span id="vaultAvatarProgressText">Painting character model...</span>
       </div>
 
-      <!-- Fields Section -->
-      <div class="vault-fields-section">
-        <div class="vault-fields-title">Character Attributes & Prompt Blueprints</div>
-        
-        <div class="vault-form-grid">
+      <!-- Collapsible Member Details (Tucked Away to Keep UI Clean) -->
+      <details class="vault-compact-details" id="vaultMemberDetailsAccordion">
+        <summary class="vault-compact-summary">
+          <span>✏️ Edit Name, Age &amp; Character Details</span>
+          <span class="vault-summary-meta">${escapeHtml(member.name || member.roleLabel)}${member.age ? ` • ${member.age}y` : ''}</span>
+        </summary>
+        <div class="vault-form-grid" style="margin-top: 10px;">
           <div class="vault-field-group">
-            <label>Relationship Role</label>
+            <label>Role</label>
             <select id="vField_relation" onchange="handleActiveMemberFieldChange('relationship', this.value)">
               <option value="self" ${member.relationship === 'self' ? 'selected' : ''}>Father / Self</option>
               <option value="spouse" ${member.relationship === 'spouse' ? 'selected' : ''}>Mother / Spouse</option>
-              <option value="elder_son" ${member.relationship === 'elder_son' ? 'selected' : ''}>Elder Son (Age 11)</option>
-              <option value="younger_son" ${member.relationship === 'younger_son' ? 'selected' : ''}>Younger Son (Age 7)</option>
+              <option value="elder_son" ${member.relationship === 'elder_son' ? 'selected' : ''}>Elder Son</option>
+              <option value="younger_son" ${member.relationship === 'younger_son' ? 'selected' : ''}>Younger Son</option>
               <option value="child" ${member.relationship === 'child' ? 'selected' : ''}>Child / Other</option>
             </select>
           </div>
 
           <div class="vault-field-group">
-            <label>Display Name or Label</label>
-            <input type="text" id="vField_name" value="${escapeHtml(member.name || '')}" placeholder="e.g. Dad, Vivaan, Priya" oninput="handleActiveMemberFieldChange('name', this.value)">
+            <label>Name</label>
+            <input type="text" id="vField_name" value="${escapeHtml(member.name || '')}" placeholder="e.g. Shridhar" oninput="handleActiveMemberFieldChange('name', this.value)">
           </div>
 
           <div class="vault-field-group">
-            <label>Age (Years)</label>
-            <input type="number" id="vField_age" value="${member.age || ''}" placeholder="e.g. 11" min="1" max="100" oninput="handleActiveMemberFieldChange('age', parseInt(this.value, 10) || null)">
+            <label>Age</label>
+            <input type="number" id="vField_age" value="${member.age || ''}" placeholder="e.g. 40" min="1" max="100" oninput="handleActiveMemberFieldChange('age', parseInt(this.value, 10) || null)">
           </div>
 
           <div class="vault-field-group">
-            <label>Height & Stature Comparison</label>
-            <input type="text" id="vField_height" value="${escapeHtml(member.heightDesc || '')}" placeholder="e.g. 4ft 10in, head taller than younger brother" oninput="handleActiveMemberFieldChange('heightDesc', this.value)">
-          </div>
-
-          <div class="vault-field-group full-width highlight-anchor-group">
-            <div class="vault-label-with-hint">
-              <label style="color: #F59E0B; display: flex; align-items: center; gap: 6px;">
-                <span>⭐</span>
-                <span>Uncompromisable Identity Anchors (Strict Anatomy & Looks)</span>
-              </label>
-              <span class="vault-label-hint" style="color: #FCD34D;">Anatomy & looks that MUST NEVER mutate across scenes, clothing, or moods (face shape, natural hair length, real-world build)</span>
-            </div>
-            <textarea id="vField_anchors" rows="2" placeholder="e.g. Soft round-to-oval maternal face, natural dark eyes without heavy makeup, natural shoulder-length wavy dark hair with center/side parting (strictly no past-chest salon blowout curls), healthy medium adult build with natural soft shoulders. Everyday authentic South Indian presence." oninput="handleActiveMemberFieldChange('uncompromisableAnchors', this.value)">${escapeHtml(member.uncompromisableAnchors || '')}</textarea>
+            <label>Stature</label>
+            <input type="text" id="vField_height" value="${escapeHtml(member.heightDesc || '')}" placeholder="e.g. 5ft 10in" oninput="handleActiveMemberFieldChange('heightDesc', this.value)">
           </div>
 
           <div class="vault-field-group full-width">
-            <div class="vault-label-with-hint">
-              <label>Distinct Features, Hair & Body Structure</label>
-              <span class="vault-label-hint">Auto-extracted by AI from your photos (face, hair, build) • Fully editable</span>
+            <div class="vault-label-with-hint" style="flex-direction:row; align-items:center; gap:6px;">
+              <label>Identity Anchors</label>
+              <button type="button" class="ui-info-dot-btn" onclick="toggleInfoTip(event, 'vaultAnchorsInfoTip')" title="About Identity Anchors">i</button>
             </div>
-            <textarea id="vField_traits" rows="2" placeholder="e.g. Pre-teen boy with sturdy solid build, square shoulders, rounded face, wavy dark hair with neat side parting, warm radiant smile" oninput="handleActiveMemberFieldChange('visualTraits', this.value)">${escapeHtml(member.visualTraits || '')}</textarea>
+            <div class="ui-info-popover-box" id="vaultAnchorsInfoTip" style="display:none; margin-bottom:6px;">
+              Key facial &amp; hair traits kept consistent across every scene.
+            </div>
+            <textarea id="vField_anchors" rows="2" placeholder="Face shape, natural hair length, build" oninput="handleActiveMemberFieldChange('uncompromisableAnchors', this.value)">${escapeHtml(member.uncompromisableAnchors || '')}</textarea>
           </div>
 
           <div class="vault-field-group full-width">
-            <label>Trigger Words / Nicknames (Comma separated)</label>
-            <input type="text" id="vField_aliases" value="${escapeHtml(Array.isArray(member.aliases) ? member.aliases.join(', ') : '')}" placeholder="e.g. dad, sridhar, me, father" oninput="handleActiveMemberAliasesChange(this.value)">
+            <label>Visual Traits</label>
+            <textarea id="vField_traits" rows="2" placeholder="Auto-extracted from your photos" oninput="handleActiveMemberFieldChange('visualTraits', this.value)">${escapeHtml(member.visualTraits || '')}</textarea>
+          </div>
+
+          <div class="vault-field-group full-width">
+            <label>Nicknames (Comma separated)</label>
+            <input type="text" id="vField_aliases" value="${escapeHtml(Array.isArray(member.aliases) ? member.aliases.join(', ') : '')}" placeholder="e.g. dad, shridhar, me" oninput="handleActiveMemberAliasesChange(this.value)">
           </div>
         </div>
-      </div>
-
+      </details>
     </div>
   `;
+
+  // Bind horizontal swipe gesture on the pose stage so user can swipe left/right between poses
+  const touchStage = document.getElementById('vaultPoseStageTouchArea');
+  if (touchStage) {
+    let startX = 0;
+    let startY = 0;
+    touchStage.addEventListener('touchstart', (e) => {
+      if (e.touches && e.touches[0]) {
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+      }
+    }, { passive: true });
+    touchStage.addEventListener('touchend', (e) => {
+      if (e.changedTouches && e.changedTouches[0]) {
+        const dx = e.changedTouches[0].clientX - startX;
+        const dy = e.changedTouches[0].clientY - startY;
+        if (Math.abs(dx) > 36 && Math.abs(dx) > Math.abs(dy)) {
+          stepVaultPoseSlot(dx < 0 ? 1 : -1);
+        }
+      }
+    }, { passive: true });
+  }
 }
 
 function triggerSlotUpload(slotType) {
@@ -12476,6 +12442,11 @@ function handleSlotPhotoSelect(slotType, event) {
     // Set primary avatar if frontal or if no primary avatar exists yet
     if (slotType === 'frontal' || !member.photoBase64) {
       member.photoBase64 = base64Data;
+    }
+
+    // Automatically advance to the next pose slot so user can smoothly add the next pose
+    if (activeVaultPoseSlotIdx < 2) {
+      activeVaultPoseSlotIdx += 1;
     }
 
     saveFamilyCastProfile(cast);
@@ -14257,64 +14228,32 @@ function selectEqualizerPortrayal(style) {
 function updateEqualizerPortrayalUI() {
   const hasPhoto = Boolean(creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || currentScrapedArticle?.imageUrl);
 
-  // Exact card visibility and thumbnail
-  const eqExact = document.getElementById('eqRepExact');
-  if (eqExact) eqExact.style.display = hasPhoto ? 'flex' : 'none';
-
-  const eqExactThumb = document.getElementById('eqRepExactThumb');
-  if (eqExactThumb) {
-    if (creatorReferenceImageBase64) {
-      eqExactThumb.src = creatorReferenceImageBase64;
-    } else if (currentScrapedArticle?.imageBase64) {
-      eqExactThumb.src = currentScrapedArticle.imageBase64;
-    } else if (currentScrapedArticle?.imageUrl) {
-      eqExactThumb.src = currentScrapedArticle.imageUrl;
-    } else {
-      eqExactThumb.src = PORTRAYAL_STYLE_PREVIEWS.exact.image;
-    }
-  }
-
   if (!hasPhoto && creatorCharacterRepresentation === 'exact') {
     creatorCharacterRepresentation = 'realistic';
   }
 
-  // Active state on portrayal cards
-  const repPainting = document.getElementById('eqRepPainting');
-  const repWatercolor = document.getElementById('eqRepWatercolor');
-  const repCinematic = document.getElementById('eqRepCinematic');
-  const repRealistic = document.getElementById('eqRepRealistic');
-  const repSilhouette = document.getElementById('eqRepSilhouette');
+  const normalizedVal = (creatorCharacterRepresentation === 'likeness') ? 'cinematic' : creatorCharacterRepresentation;
 
-  if (repRealistic) repRealistic.classList.toggle('active', creatorCharacterRepresentation === 'realistic');
-  if (repCinematic) repCinematic.classList.toggle('active', creatorCharacterRepresentation === 'cinematic' || creatorCharacterRepresentation === 'likeness');
-  if (repPainting) repPainting.classList.toggle('active', creatorCharacterRepresentation === 'painting');
-  if (repWatercolor) repWatercolor.classList.toggle('active', creatorCharacterRepresentation === 'watercolor');
-  if (repSilhouette) repSilhouette.classList.toggle('active', creatorCharacterRepresentation === 'silhouette');
-  if (eqExact) eqExact.classList.toggle('active', creatorCharacterRepresentation === 'exact');
+  // Toggle "Exact Original Photo" option in dropdowns
+  const eqSelectOptExact = document.getElementById('eqSelectOptExact');
+  if (eqSelectOptExact) eqSelectOptExact.style.display = hasPhoto ? '' : 'none';
 
-  // Move live preview card directly beneath whichever portrayal card is active
-  let activeCard = repRealistic;
-  if (creatorCharacterRepresentation === 'cinematic' || creatorCharacterRepresentation === 'likeness') {
-    activeCard = repCinematic;
-  } else if (creatorCharacterRepresentation === 'painting') {
-    activeCard = repPainting;
-  } else if (creatorCharacterRepresentation === 'watercolor') {
-    activeCard = repWatercolor;
-  } else if (creatorCharacterRepresentation === 'silhouette') {
-    activeCard = repSilhouette;
-  } else if (creatorCharacterRepresentation === 'exact') {
-    activeCard = eqExact;
+  const repOptExact = document.getElementById('repOptExact');
+  if (repOptExact) repOptExact.style.display = hasPhoto ? '' : 'none';
+
+  // Sync dropdown values
+  const eqSelect = document.getElementById('equalizerPortrayalSelect');
+  if (eqSelect && eqSelect.value !== normalizedVal) {
+    eqSelect.value = normalizedVal;
   }
 
-  const previewCard = document.getElementById('equalizerPortrayalPreviewCard');
-  if (activeCard && previewCard && activeCard.parentNode) {
-    if (activeCard.nextElementSibling !== previewCard) {
-      activeCard.insertAdjacentElement('afterend', previewCard);
-    }
+  const creatorRepSelect = document.getElementById('creatorRepSelect');
+  if (creatorRepSelect && creatorRepSelect.value !== normalizedVal) {
+    creatorRepSelect.value = normalizedVal;
   }
 
-  // Update live preview card
-  const preview = PORTRAYAL_STYLE_PREVIEWS[creatorCharacterRepresentation] || PORTRAYAL_STYLE_PREVIEWS.realistic;
+  // Update live sample preview card directly below the dropdown
+  const preview = PORTRAYAL_STYLE_PREVIEWS[normalizedVal] || PORTRAYAL_STYLE_PREVIEWS.realistic;
   const pImg = document.getElementById('portrayalPreviewImg');
   const pName = document.getElementById('portrayalPreviewName');
   const pBadge = document.getElementById('portrayalPreviewBadge');
@@ -14324,8 +14263,16 @@ function updateEqualizerPortrayalUI() {
   const pTexture = document.getElementById('portrayalSpecTexture');
 
   if (pImg) {
-    if (creatorCharacterRepresentation === 'exact' && creatorReferenceImageBase64) {
-      pImg.src = creatorReferenceImageBase64;
+    if (normalizedVal === 'exact') {
+      if (creatorReferenceImageBase64) {
+        pImg.src = creatorReferenceImageBase64;
+      } else if (currentScrapedArticle?.imageBase64) {
+        pImg.src = currentScrapedArticle.imageBase64;
+      } else if (currentScrapedArticle?.imageUrl) {
+        pImg.src = currentScrapedArticle.imageUrl;
+      } else {
+        pImg.src = preview.image;
+      }
     } else {
       pImg.src = preview.image;
     }
