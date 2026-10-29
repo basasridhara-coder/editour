@@ -29,7 +29,7 @@
   <link rel="preconnect" href="https://fxfklefnkpmhofncqhfh.supabase.co" crossorigin>
   <link rel="preconnect" href="https://accounts.google.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Merriweather:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,400;1,600;1,700;1,900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261030_0015">
+  <link rel="stylesheet" href="style.css?v=20261030_0045">
   <!-- Favicon & Brand Icons -->
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
@@ -484,7 +484,7 @@
           <h2 class="creator-title" id="creatorModalTitle">Create New Slant</h2>
         </div>
         <div class="creator-header-right-actions" style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
-          <span id="creatorStudioCreditBadge" onclick="if(typeof isCurrentUserAdmin!=='undefined' && isCurrentUserAdmin){openAdminBetaModal();}" style="display:none; align-items:center; gap:4px; font-size:11px; font-weight:800; padding:4px 9px; border-radius:99px; background:rgba(16,185,129,0.14); color:#34D399; border:1px solid rgba(16,185,129,0.35); cursor:pointer; white-space:nowrap;" title="Your available Slant Studio poster credits for today">⚡ 5 left</span>
+          <span id="creatorStudioCreditBadge" onclick="openStudioCreditBadgeAction()" style="display:none; align-items:center; gap:4px; font-size:11px; font-weight:800; padding:4px 9px; border-radius:99px; background:rgba(16,185,129,0.14); color:#34D399; border:1px solid rgba(16,185,129,0.35); cursor:pointer; white-space:nowrap;" title="Tap to view your visual illustration credits or request more">⚡ 5 left</span>
           <button class="modal-close" onclick="closeCreatorModal()">&times;</button>
         </div>
       </div>
@@ -1930,7 +1930,7 @@
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--border-subtle, rgba(15,23,42,0.1));">
         <div>
           <div style="font-size: 10.5px; font-weight: 800; color: #818CF8; letter-spacing: 0.8px; text-transform: uppercase;">Curator Admin &amp; Credit Manager</div>
-          <h2 style="font-size: 18px; font-weight: 800; color: var(--text-primary); margin: 2px 0 0;">Beta Invites &amp; Daily Credits</h2>
+          <h2 style="font-size: 18px; font-weight: 800; color: var(--text-primary); margin: 2px 0 0;">Community Roster &amp; Visual Credits</h2>
         </div>
         <button class="modal-close" onclick="closeAdminBetaModal()" style="color:var(--text-primary); background:rgba(128,128,128,0.15); font-size:22px; cursor:pointer;" aria-label="Close">&times;</button>
       </div>
@@ -1939,7 +1939,7 @@
         <!-- Live Beta Activity & Credits Summary -->
         <div id="adminStatsSummaryRow" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;">
           <div style="padding: 8px 8px; background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.2); border-radius: 10px; text-align: center;">
-            <div style="font-size: 9px; font-weight: 800; color: #818CF8; text-transform: uppercase; letter-spacing: 0.5px;">Curators</div>
+            <div style="font-size: 9px; font-weight: 800; color: #818CF8; text-transform: uppercase; letter-spacing: 0.5px;">Members</div>
             <div id="adminSummaryCuratorsCount" style="font-size: 16px; font-weight: 800; color: var(--text-primary); margin-top: 1px;">-</div>
           </div>
           <div style="padding: 8px 8px; background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.2); border-radius: 10px; text-align: center;">
@@ -1959,42 +1959,42 @@
         <!-- Default Daily Credit Limit Bar -->
         <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 12px; background:rgba(16,185,129,0.06); border:1px solid rgba(16,185,129,0.22); border-radius:11px; flex-wrap:wrap;">
           <div>
-            <div style="font-size:11.5px; font-weight:800; color:var(--text-primary);">⚡ Daily Credit Quota per Invited Curator</div>
-            <div style="font-size:10.5px; color:var(--text-secondary);">Auto-resets every midnight IST &middot; Use <strong>+5 Credits</strong> below if someone runs out today</div>
+            <div style="font-size:11.5px; font-weight:800; color:var(--text-primary);">⚡ Perspective Daily Limit (After First 5 Free Starter Credits)</div>
+            <div style="font-size:10.5px; color:var(--text-secondary);">Daily Chronicle: 1/day always free &middot; Text-only &amp; reflection rethink: always free</div>
           </div>
           <div style="display:flex; align-items:center; gap:5px;">
+            <button type="button" class="daily-limit-chip" id="dailyLimitChip1" onclick="handleAdminSetDefaultDailyLimit(1)" style="padding:4px 9px; border-radius:7px; border:1px solid rgba(16,185,129,0.5); background:rgba(16,185,129,0.16); color:#34D399; font-size:11px; font-weight:800; cursor:pointer;">1/day</button>
             <button type="button" class="daily-limit-chip" id="dailyLimitChip3" onclick="handleAdminSetDefaultDailyLimit(3)" style="padding:4px 9px; border-radius:7px; border:1px solid rgba(148,163,184,0.3); background:transparent; color:var(--text-primary); font-size:11px; font-weight:700; cursor:pointer;">3/day</button>
-            <button type="button" class="daily-limit-chip" id="dailyLimitChip5" onclick="handleAdminSetDefaultDailyLimit(5)" style="padding:4px 9px; border-radius:7px; border:1px solid rgba(16,185,129,0.5); background:rgba(16,185,129,0.16); color:#34D399; font-size:11px; font-weight:800; cursor:pointer;">5/day</button>
-            <button type="button" class="daily-limit-chip" id="dailyLimitChip10" onclick="handleAdminSetDefaultDailyLimit(10)" style="padding:4px 9px; border-radius:7px; border:1px solid rgba(148,163,184,0.3); background:transparent; color:var(--text-primary); font-size:11px; font-weight:700; cursor:pointer;">10/day</button>
+            <button type="button" class="daily-limit-chip" id="dailyLimitChip5" onclick="handleAdminSetDefaultDailyLimit(5)" style="padding:4px 9px; border-radius:7px; border:1px solid rgba(148,163,184,0.3); background:transparent; color:var(--text-primary); font-size:11px; font-weight:700; cursor:pointer;">5/day</button>
           </div>
         </div>
 
         <!-- 1. Add New Email Form -->
         <div>
-          <label style="font-size: 12px; font-weight: 700; color: var(--text-primary); display: block; margin-bottom: 6px;">Invite Friend by Gmail</label>
+          <label style="font-size: 12px; font-weight: 700; color: var(--text-primary); display: block; margin-bottom: 6px;">Grant Bonus Credits / Add Member by Email</label>
           <div style="display: flex; gap: 8px;">
-            <input type="email" id="adminNewInviteEmail" placeholder="friend@gmail.com" style="flex: 1; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--border-subtle, #CBD5E1); background: var(--bg-card, #FFF); color: var(--text-primary, #0F172A); font-size: 13.5px;" onkeydown="if(event.key==='Enter') handleAdminAddEmail()">
+            <input type="email" id="adminNewInviteEmail" placeholder="member@gmail.com" style="flex: 1; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--border-subtle, #CBD5E1); background: var(--bg-card, #FFF); color: var(--text-primary, #0F172A); font-size: 13.5px;" onkeydown="if(event.key==='Enter') handleAdminAddEmail()">
             <button type="button" class="creator-publish-btn" style="padding: 10px 18px; font-size: 13px; white-space: nowrap;" onclick="handleAdminAddEmail()">
-              + Invite
+              + Add &amp; Grant
             </button>
           </div>
         </div>
 
-        <!-- 2. Pending Access Requests Queue -->
+        <!-- 2. Pending Credit Requests Queue -->
         <div id="adminPendingSection" style="display: none; background: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 12px; padding: 12px;">
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
             <span style="font-size: 11.5px; font-weight: 800; color: #EF4444; letter-spacing: 0.5px; text-transform: uppercase;">
-              Pending Requests (<span id="adminPendingCountText">0</span>)
+              Pending Credit Requests (<span id="adminPendingCountText">0</span>)
             </span>
           </div>
           <div id="adminPendingList" style="display: flex; flex-direction: column; gap: 8px;"></div>
         </div>
 
-        <!-- 3. Active Whitelist Roster & Per-User Credit Manager -->
+        <!-- 3. Active Community Roster & Per-User Credit Manager -->
         <div>
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
             <span style="font-size: 11.5px; font-weight: 800; color: var(--text-secondary); letter-spacing: 0.5px; text-transform: uppercase;">
-              Curator Roster &amp; Credit Manager (<span id="adminAllowedCountText">1</span>)
+              Community Roster &amp; Credit Manager (<span id="adminAllowedCountText">1</span>)
             </span>
             <button type="button" onclick="loadAdminBetaData(true)" style="background:none; border:none; color:#818CF8; font-size:12px; font-weight:700; cursor:pointer;">↻ Refresh</button>
           </div>
@@ -2004,13 +2004,13 @@
         <!-- 4. Ready-to-Send WhatsApp / Email Invite Message -->
         <div style="background: rgba(99,102,241,0.06); border: 1px solid rgba(99,102,241,0.18); border-radius: 12px; padding: 12px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-            <span style="font-size: 12px; font-weight: 700; color: var(--text-primary);">Personal Invite Message Template</span>
+            <span style="font-size: 12px; font-weight: 700; color: var(--text-primary);">Community Invite Message</span>
             <button type="button" onclick="copyPersonalInviteMessage()" style="background:#4F46E5; color:#fff; border:none; padding:4px 10px; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer;">
-              📋 Copy Message
+              📋 Copy Invite
             </button>
           </div>
           <p style="font-size: 12px; color: var(--text-secondary); margin: 0; line-height: 1.45; font-style: italic;">
-            "Hey! I've been building Slant (a visual editorial journal for ideas & perspectives). I've added your Gmail to our Private Preview whitelist so you can test it out. Try it here: https://www.slant.today"
+            "Hey! Check out Slant (slant.today) — a place to share your perspective on what you read or observe as illustrated posters, and chronicle your daily moments in an encrypted private diary."
           </p>
         </div>
       </div>
@@ -2066,12 +2066,22 @@
           <div class="drawer-user-actions">
             <button class="drawer-menu-row drawer-admin-row" id="drawerAdminBetaRow" style="display:none;" onclick="openAdminBetaModal();">
               <span class="row-icon">🛡️</span>
-              <span class="row-label">Beta Access & Invites</span>
+              <span class="row-label">Admin Credits &amp; Requests</span>
               <span class="row-pill" id="drawerPendingBadge" style="background:#EF4444; color:#fff; display:none; padding:1px 7px; border-radius:10px; font-size:11px; font-weight:800;">0</span>
+            </button>
+            <button class="drawer-menu-row" id="drawerUserCreditsRow" onclick="closeDrawer(); openUserCreditsAndInviteModal('credits');">
+              <span class="row-icon">🎨</span>
+              <span class="row-label">Visual Credits &amp; Request More</span>
+              <span class="row-pill" id="drawerUserCreditPill" style="background:rgba(16,185,129,0.16); color:#34D399; font-size:10px; font-weight:800; padding:2px 8px; border-radius:10px;">⚡ Free</span>
+            </button>
+            <button class="drawer-menu-row" id="drawerInviteCommunityRow" onclick="closeDrawer(); openUserCreditsAndInviteModal('invite');">
+              <span class="row-icon">💌</span>
+              <span class="row-label">Invite Friends to Slant</span>
+              <span class="row-pill" style="background:rgba(245,158,11,0.18); color:#FBBF24; font-size:10px; font-weight:700; padding:2px 8px; border-radius:10px;">Share</span>
             </button>
             <button class="drawer-menu-row" id="drawerStyleProfileRow" onclick="closeDrawer(); openCuratorStyleModal();">
               <span class="row-icon">🧬</span>
-              <span class="row-label">Curator Style & Writing Growth</span>
+              <span class="row-label">Curator Style &amp; Writing Growth</span>
               <span class="row-pill" style="background:rgba(168,85,247,0.2); color:#C084FC; font-size:10px; font-weight:700; padding:2px 8px; border-radius:10px;">DNA</span>
             </button>
             <button class="drawer-menu-row" id="drawerFamilyCastRow" onclick="closeDrawer(); openFamilyCastModal();">
@@ -2325,6 +2335,65 @@
     </div>
   </div>
 
+  <!-- User Visual Credits, Request More Credits & Community Invite Modal -->
+  <div class="modal-overlay" id="userCreditsModal" style="display:none; z-index:11500;" onclick="if(event.target===this) closeUserCreditsAndInviteModal()">
+    <div class="modal-card" style="max-width: 460px; padding: 22px 22px 20px; border-radius: 20px; text-align: left; display: flex; flex-direction: column; gap: 14px;" onclick="event.stopPropagation()">
+      <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 10px; border-bottom: 1px solid var(--border-subtle, rgba(15,23,42,0.1));">
+        <div>
+          <div style="font-size: 10px; font-weight: 800; color: #10B981; letter-spacing: 0.8px; text-transform: uppercase;">Slant Studio &bull; Open Community</div>
+          <h2 style="font-size: 18px; font-weight: 800; color: var(--text-primary); margin: 2px 0 0;">Visual Credits &amp; Community</h2>
+        </div>
+        <button class="modal-close" onclick="closeUserCreditsAndInviteModal()" style="color:var(--text-primary); background:rgba(128,128,128,0.15); font-size:22px; cursor:pointer;" aria-label="Close">&times;</button>
+      </div>
+
+      <!-- Credit Breakdown Cards -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+        <div style="padding: 12px; border-radius: 14px; background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.28);">
+          <div style="font-size: 10px; font-weight: 800; color: #059669; text-transform: uppercase; letter-spacing: 0.5px;">🌐💭 Perspective Art</div>
+          <div id="userModalPerspectiveCreditsText" style="font-size: 17px; font-weight: 900; color: var(--text-primary); margin-top: 4px;">5 Free Left</div>
+          <div id="userModalPerspectiveSubText" style="font-size: 11px; color: var(--text-secondary); margin-top: 2px; line-height: 1.35;">First 5 free &bull; then 1/day</div>
+        </div>
+        <div style="padding: 12px; border-radius: 14px; background: rgba(245,158,11,0.09); border: 1px solid rgba(245,158,11,0.3);">
+          <div style="font-size: 10px; font-weight: 800; color: #B45309; text-transform: uppercase; letter-spacing: 0.5px;">📔 Daily Chronicle Art</div>
+          <div id="userModalChronicleCreditsText" style="font-size: 17px; font-weight: 900; color: var(--text-primary); margin-top: 4px;">1 / 1 Today</div>
+          <div style="font-size: 11px; color: var(--text-secondary); margin-top: 2px; line-height: 1.35;">1 visual/day always free</div>
+        </div>
+      </div>
+
+      <div style="padding: 9px 12px; border-radius: 11px; background: rgba(99,102,241,0.07); border: 1px solid rgba(99,102,241,0.2); font-size: 11.8px; color: var(--text-secondary); line-height: 1.4;">
+        ✨ <strong style="color: var(--text-primary);">Text &amp; Reflection Rethinking are Always Free:</strong> Only generating or regenerating illustrated poster artwork uses a visual credit.
+      </div>
+
+      <!-- Request More Credits Section -->
+      <div style="padding: 12px; border-radius: 14px; background: var(--bg-card, rgba(15,23,42,0.03)); border: 1px solid var(--border-subtle, rgba(15,23,42,0.1)); display: flex; flex-direction: column; gap: 8px;">
+        <div style="font-size: 12.5px; font-weight: 800; color: var(--text-primary);">⚡ Need More Perspective Visual Credits?</div>
+        <div style="font-size: 11.5px; color: var(--text-secondary); line-height: 1.38;">Request additional credits below — our curator admin reviews active perspectives and grants bonus credits.</div>
+        <div style="display: flex; gap: 8px;">
+          <input type="text" id="userCreditRequestReasonInput" placeholder="Optional note (e.g. Sharing tech &amp; book perspectives)" style="flex: 1; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--border-subtle, #CBD5E1); background: #FFFFFF; color: #0F172A; font-size: 12.5px;">
+          <button type="button" id="userCreditRequestSubmitBtn" onclick="submitUserCreditRequest()" style="padding: 9px 14px; border-radius: 10px; border: none; background: #253833; color: #FFFFFF; font-size: 12px; font-weight: 800; cursor: pointer; white-space: nowrap;">
+            Request +Credits
+          </button>
+        </div>
+      </div>
+
+      <!-- Invite Others to Slant Community Section -->
+      <div id="userInviteCommunitySection" style="padding: 12px; border-radius: 14px; background: linear-gradient(135deg, rgba(245,158,11,0.10), rgba(99,102,241,0.08)); border: 1px solid rgba(217,119,6,0.3); display: flex; flex-direction: column; gap: 8px;">
+        <div style="font-size: 12.5px; font-weight: 800; color: var(--text-primary);">💌 Invite Friends to the Slant Community</div>
+        <div style="font-size: 11.5px; color: var(--text-secondary); line-height: 1.38;">Invite thinkers, writers, and friends to share their perspectives and chronicle their days on <strong>slant.today</strong>.</div>
+        <div style="display: flex; gap: 8px;">
+          <button type="button" onclick="shareSlantCommunityInvite()" style="flex: 1; padding: 10px 12px; border-radius: 10px; border: none; background: linear-gradient(135deg, #0F172A, #1E293B); color: #FFFFFF; font-size: 12px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
+            <span>📤</span>
+            <span>Share Invite</span>
+          </button>
+          <button type="button" onclick="copyPersonalInviteMessage()" style="padding: 10px 14px; border-radius: 10px; border: 1px solid rgba(15,23,42,0.2); background: #FFFFFF; color: #0F172A; font-size: 12px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 5px;">
+            <span>📋</span>
+            <span>Copy Link</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Animated Slant Dictionary Meaning Postcard Modal (First-Time Welcome & On-Demand /slɑːnt/ Pill) -->
   <div class="slant-dict-modal-overlay" id="slantDictionaryModal" style="display:none;" onclick="if(event.target===this) closeSlantDictionaryModal()">
     <div class="slant-dict-postcard" id="slantDictPostcard" onclick="event.stopPropagation()">
@@ -2398,6 +2467,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261030_0025"></script>
+  <script src="app.js?v=20261030_0045"></script>
 </body>
 </html>

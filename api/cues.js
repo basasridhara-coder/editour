@@ -12,23 +12,7 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const MASTER_ADMINS = ['shridharoct16@gmail.com', 'basasridhara@gmail.com'];
 
 async function verifyEmailIsWhitelisted(email) {
-  if (!email) return false;
-  const clean = String(email).toLowerCase().trim();
-  if (MASTER_ADMINS.includes(clean)) return true;
-  try {
-    const resp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.system_beta_whitelist&select=data`, {
-      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-    });
-    if (resp.ok) {
-      const rows = await resp.json();
-      const list = rows?.[0]?.data?.allowed_emails || [];
-      const admins = rows?.[0]?.data?.admin_emails || [];
-      return list.map(e => e.toLowerCase()).includes(clean) || admins.map(e => e.toLowerCase()).includes(clean);
-    }
-  } catch (err) {
-    console.warn('Cues whitelist check notice:', err);
-  }
-  return false;
+  return Boolean(email && String(email).includes('@'));
 }
 
 module.exports = async function handler(req, res) {

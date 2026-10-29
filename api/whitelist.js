@@ -6,7 +6,9 @@ const SUPABASE_URL = 'https://fxfklefnkpmhofncqhfh.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ4ZmtsZWZua3BtaG9mbmNxaGZoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI0NzM4NzYsImV4cCI6MjEwODA0OTg3Nn0.0nw5ZDvlEsYal6EYXcqyaAPRHoxkXxZgDsNQDppEYgM';
 
 const MASTER_ADMINS = ['shridharoct16@gmail.com', 'basasridhara@gmail.com'];
-const DEFAULT_DAILY_CREDIT_LIMIT = 5;
+const STARTER_PERSPECTIVE_CREDITS = 5;
+const DEFAULT_DAILY_CREDIT_LIMIT = 1;
+const DAILY_CHRONICLE_FREE_LIMIT = 1;
 
 function getTodayDateKeyIST() {
   try {
@@ -26,23 +28,48 @@ function computeUserCreditSummary(whitelist, rawEmail) {
   const todayKey = getTodayDateKeyIST();
   const defaultLimit = Number(whitelist?.default_daily_limit) > 0 ? Number(whitelist.default_daily_limit) : DEFAULT_DAILY_CREDIT_LIMIT;
   const rawEntry = (whitelist?.user_credits && whitelist.user_credits[email]) ? whitelist.user_credits[email] : {};
-  const isMaster = MASTER_ADMINS.includes(email);
+  const isMaster = MASTER_ADMINS.includes(email) || Boolean(rawEntry.isUnlimited);
+
+  const starterTotal = STARTER_PERSPECTIVE_CREDITS;
+  const starterUsed = Math.min(starterTotal, Math.max(0, Number(rawEntry.starterUsed ?? 0)));
+  const starterRemaining = Math.max(0, starterTotal - starterUsed);
 
   const dailyLimit = Number(rawEntry.dailyLimit) > 0 ? Number(rawEntry.dailyLimit) : defaultLimit;
-  const usedToday = (rawEntry.lastDateKey === todayKey) ? (Number(rawEntry.usedToday) || 0) : 0;
+  const isSameDay = rawEntry.lastDateKey === todayKey;
+  const perspectiveUsedToday = isSameDay ? (Number(rawEntry.perspectiveUsedToday ?? rawEntry.usedToday) || 0) : 0;
+  const chronicleUsedToday = isSameDay ? (Number(rawEntry.chronicleUsedToday) || 0) : 0;
+  const usedToday = perspectiveUsedToday + chronicleUsedToday;
+
   const bonusCredits = Math.max(0, Number(rawEntry.bonusCredits) || 0);
   const totalUsed = Math.max(0, Number(rawEntry.totalUsed) || 0);
-  const dailyRemaining = Math.max(0, dailyLimit - usedToday);
-  const remainingToday = isMaster ? 9999 : (dailyRemaining + bonusCredits);
+
+  // Perspective credits: First 5 are free (starterRemaining), once done default 1/day + bonusCredits
+  const perspectiveDailyRemaining = Math.max(0, dailyLimit - perspectiveUsedToday);
+  const perspectiveBaseRemaining = starterRemaining > 0 ? starterRemaining : perspectiveDailyRemaining;
+  const perspectiveRemainingToday = isMaster ? 9999 : (perspectiveBaseRemaining + bonusCredits);
+
+  // Daily Chronicle visual credits: 1 per day always free + bonusCredits
+  const chronicleFreeRemainingToday = Math.max(0, DAILY_CHRONICLE_FREE_LIMIT - chronicleUsedToday);
+  const chronicleRemainingToday = isMaster ? 9999 : (chronicleFreeRemainingToday + bonusCredits);
 
   return {
     email,
     isUnlimited: isMaster,
+    starterTotal,
+    starterUsed,
+    starterRemaining,
     dailyLimit,
+    perspectiveUsedToday,
+    perspectiveDailyRemaining,
+    perspectiveRemainingToday,
+    chronicleDailyLimit: DAILY_CHRONICLE_FREE_LIMIT,
+    chronicleUsedToday,
+    chronicleFreeRemainingToday,
+    chronicleRemainingToday,
     usedToday,
-    dailyRemaining,
+    dailyRemaining: perspectiveBaseRemaining,
     bonusCredits,
-    remainingToday,
+    remainingToday: perspectiveRemainingToday,
     totalUsed,
     lastDateKey: todayKey,
     lastUsedAt: rawEntry.lastUsedAt || null
@@ -177,18 +204,21 @@ module.exports = async function handler(req, res) {
       const userCreditsMap = {};
       const allTrackedEmails = new Set([
         ...(whitelist.allowed_emails || []).map(e => String(e).toLowerCase().trim()),
+        ...(whitelist.access_logs || []).map(l => String(l.email || '').toLowerCase().trim()),
+        ...Object.keys(userStats || {}),
         ...Object.keys(whitelist.user_credits || {})
       ]);
       allTrackedEmails.forEach(em => {
         if (em) userCreditsMap[em] = computeUserCreditSummary(whitelist, em);
       });
 
+      const mergedAllowedEmails = Array.from(allTrackedEmails).filter(Boolean);
       const requesterEmail = email || adminCheck;
       const responsePayload = {
         allowed: true,
         isAdmin: true,
         adminEmails: whitelist.admin_emails,
-        allowedEmails: whitelist.allowed_emails,
+        allowedEmails: mergedAllowedEmails,
         pendingRequests: whitelist.pending_requests,
         accessLogs: whitelist.access_logs,
         userStats: userStats,
@@ -201,10 +231,11 @@ module.exports = async function handler(req, res) {
       return res.end(JSON.stringify(responsePayload));
     }
 
+    // Open access to all signed-in users without gatekeeping
     const responsePayload = {
-      allowed: Boolean(isAllowed),
+      allowed: true,
       isAdmin: false,
-      credits: isAllowed && email ? computeUserCreditSummary(whitelist, email) : null
+      credits: email ? computeUserCreditSummary(whitelist, email) : null
     };
     if (res.status) return res.status(200).json ? res.status(200).json(responsePayload) : res.status(200).end(JSON.stringify(responsePayload));
     res.setHeader('Content-Type', 'application/json');
@@ -235,27 +266,32 @@ module.exports = async function handler(req, res) {
     const isMasterAdmin = MASTER_ADMINS.includes(cleanAdmin);
     const isAdmin = isMasterAdmin || (whitelist.admin_emails && whitelist.admin_emails.includes(cleanAdmin));
 
-    // ACTION: User attempted login and requests access
-    if (action === 'request_access') {
+    // ACTION: User requests more visual credits (or legacy request_access)
+    if (action === 'request_access' || action === 'request_credits') {
       if (!cleanEmail) {
         const err = { error: 'Missing email' };
         if (res.status) return res.status(400).json ? res.status(400).json(err) : res.status(400).end(JSON.stringify(err));
         return res.end(JSON.stringify(err));
       }
 
-      // Check if already in pending
+      const reason = String(body.reason || body.note || '').trim().slice(0, 240);
       const existingIdx = whitelist.pending_requests.findIndex(p => p.email?.toLowerCase() === cleanEmail);
-      if (existingIdx === -1) {
-        whitelist.pending_requests.unshift({
-          email: cleanEmail,
-          name: name || cleanEmail.split('@')[0],
-          avatar: avatar || null,
-          requestedAt: new Date().toISOString()
-        });
-        await saveWhitelistData(whitelist);
+      const reqEntry = {
+        email: cleanEmail,
+        name: name || cleanEmail.split('@')[0],
+        avatar: avatar || null,
+        reason: reason || 'Requested additional Perspective visual credits',
+        type: 'credit_request',
+        requestedAt: new Date().toISOString()
+      };
+      if (existingIdx >= 0) {
+        whitelist.pending_requests[existingIdx] = reqEntry;
+      } else {
+        whitelist.pending_requests.unshift(reqEntry);
       }
+      await saveWhitelistData(whitelist);
 
-      const out = { success: true, message: 'Access request queued for curator approval' };
+      const out = { success: true, message: 'Credit request sent to admin for review' };
       if (res.status) return res.status(200).json ? res.status(200).json(out) : res.status(200).end(JSON.stringify(out));
       return res.end(JSON.stringify(out));
     }
@@ -263,6 +299,9 @@ module.exports = async function handler(req, res) {
     // ACTION: Log successful user access
     if (action === 'log_access') {
       if (cleanEmail) {
+        if (!whitelist.allowed_emails.map(e => e.toLowerCase()).includes(cleanEmail)) {
+          whitelist.allowed_emails.push(cleanEmail);
+        }
         const logIdx = whitelist.access_logs.findIndex(l => l.email?.toLowerCase() === cleanEmail);
         const logEntry = {
           email: cleanEmail,
@@ -277,7 +316,7 @@ module.exports = async function handler(req, res) {
         }
         await saveWhitelistData(whitelist);
       }
-      const out = { success: true };
+      const out = { success: true, credits: cleanEmail ? computeUserCreditSummary(whitelist, cleanEmail) : null };
       if (res.status) return res.status(200).json ? res.status(200).json(out) : res.status(200).end(JSON.stringify(out));
       return res.end(JSON.stringify(out));
     }
@@ -332,7 +371,7 @@ module.exports = async function handler(req, res) {
       return res.end(JSON.stringify(out));
     }
 
-    // ACTION: Approve pending request
+    // ACTION: Approve pending credit request (grants +5 bonus credits by default)
     if (action === 'approve_request') {
       if (!cleanEmail) {
         const err = { error: 'Missing email' };
@@ -343,13 +382,29 @@ module.exports = async function handler(req, res) {
       if (!whitelist.allowed_emails.map(e => e.toLowerCase()).includes(cleanEmail)) {
         whitelist.allowed_emails.push(cleanEmail);
       }
+      const grantAmount = Math.max(1, Math.min(100, Number(body.amount) || 5));
+      if (!whitelist.user_credits || typeof whitelist.user_credits !== 'object') {
+        whitelist.user_credits = {};
+      }
+      const todayKey = getTodayDateKeyIST();
+      const existing = whitelist.user_credits[cleanEmail] || {};
+      const currentBonus = Math.max(0, Number(existing.bonusCredits) || 0);
+      whitelist.user_credits[cleanEmail] = {
+        ...existing,
+        dailyLimit: Number(existing.dailyLimit) > 0 ? Number(existing.dailyLimit) : (whitelist.default_daily_limit || DEFAULT_DAILY_CREDIT_LIMIT),
+        lastDateKey: existing.lastDateKey || todayKey,
+        bonusCredits: currentBonus + grantAmount,
+        updatedAt: new Date().toISOString()
+      };
       whitelist.pending_requests = whitelist.pending_requests.filter(p => p.email?.toLowerCase() !== cleanEmail);
       await saveWhitelistData(whitelist);
 
       const out = {
         success: true,
+        granted: grantAmount,
         allowedEmails: whitelist.allowed_emails,
-        pendingRequests: whitelist.pending_requests
+        pendingRequests: whitelist.pending_requests,
+        credits: computeUserCreditSummary(whitelist, cleanEmail)
       };
       if (res.status) return res.status(200).json ? res.status(200).json(out) : res.status(200).end(JSON.stringify(out));
       return res.end(JSON.stringify(out));
@@ -421,6 +476,8 @@ module.exports = async function handler(req, res) {
         ...existing,
         dailyLimit: Number(existing.dailyLimit) > 0 ? Number(existing.dailyLimit) : (whitelist.default_daily_limit || DEFAULT_DAILY_CREDIT_LIMIT),
         usedToday: 0,
+        perspectiveUsedToday: 0,
+        chronicleUsedToday: 0,
         lastDateKey: todayKey,
         bonusCredits: Math.max(0, Number(existing.bonusCredits) || 0),
         totalUsed: Math.max(0, Number(existing.totalUsed) || 0),

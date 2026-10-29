@@ -395,13 +395,68 @@ function updateCreatorStudioCreditBadge(creditsObj) {
     currentUserCredits = creditsObj;
   }
   const badge = document.getElementById('creatorStudioCreditBadge');
-  if (!badge) return;
-  if (!currentUser || !isUserWhitelistAllowed) {
-    badge.style.display = 'none';
+  const drawerPill = document.getElementById('drawerUserCreditPill');
+  const perspTextEl = document.getElementById('userModalPerspectiveCreditsText');
+  const perspSubEl = document.getElementById('userModalPerspectiveSubText');
+  const chronTextEl = document.getElementById('userModalChronicleCreditsText');
+
+  if (!currentUser) {
+    if (badge) badge.style.display = 'none';
     return;
   }
+
   const email = (currentUser.email || '').toLowerCase().trim();
   const isMaster = email === 'shridharoct16@gmail.com' || email === 'basasridhara@gmail.com';
+  const isChronicleActive = typeof isDailyChronicleMode !== 'undefined' && Boolean(isDailyChronicleMode);
+
+  const starterRemaining = currentUserCredits ? Number(currentUserCredits.starterRemaining ?? 5) : 5;
+  const starterTotal = currentUserCredits ? Number(currentUserCredits.starterTotal ?? 5) : 5;
+  const perspLeft = currentUserCredits
+    ? Number(currentUserCredits.perspectiveRemainingToday ?? currentUserCredits.remainingToday ?? 5)
+    : 5;
+  const chronFreeLeft = currentUserCredits
+    ? Number(currentUserCredits.chronicleFreeRemainingToday ?? 1)
+    : 1;
+  const chronTotalLeft = currentUserCredits
+    ? Number(currentUserCredits.chronicleRemainingToday ?? 1)
+    : 1;
+  const bonus = currentUserCredits ? Number(currentUserCredits.bonusCredits || 0) : 0;
+  const dailyLimit = currentUserCredits ? Number(currentUserCredits.dailyLimit || 1) : 1;
+
+  // Update User Credits Modal cards if present
+  if (perspTextEl) {
+    if (isMaster || currentUserCredits?.isUnlimited) {
+      perspTextEl.textContent = '⚡ ∞ Unlimited';
+    } else if (starterRemaining > 0) {
+      perspTextEl.textContent = `🎨 ${starterRemaining}/${starterTotal} Starter Free${bonus > 0 ? ` (+${bonus} Bonus)` : ''}`;
+    } else {
+      perspTextEl.textContent = `🎨 ${perspLeft} Left Today`;
+    }
+  }
+  if (perspSubEl) {
+    if (starterRemaining > 0) {
+      perspSubEl.innerHTML = `You have <strong>${starterRemaining} of ${starterTotal} starter visual credits</strong> remaining. Once used, you receive <strong>${dailyLimit} free visual credit per day</strong>.`;
+    } else {
+      perspSubEl.innerHTML = `Starter pack completed · <strong>${dailyLimit}/day</strong> daily visual credit${bonus > 0 ? ` + <strong>${bonus} bonus credits</strong>` : ''}. Need more today? Request a top-up below!`;
+    }
+  }
+  if (chronTextEl) {
+    if (isMaster || currentUserCredits?.isUnlimited) {
+      chronTextEl.textContent = '⚡ ∞ Always Free';
+    } else {
+      chronTextEl.textContent = chronFreeLeft > 0 ? `📔 ${chronFreeLeft}/1 Free Today` : (chronTotalLeft > 0 ? `📔 ${chronTotalLeft} Bonus Left` : '📔 Used Today (Resets Tomorrow)');
+    }
+  }
+
+  if (drawerPill) {
+    if (isMaster || currentUserCredits?.isUnlimited) {
+      drawerPill.textContent = '⚡ ∞';
+    } else {
+      drawerPill.textContent = `${perspLeft} 🎨 · ${chronFreeLeft}/1 📔`;
+    }
+  }
+
+  if (!badge) return;
   badge.style.display = 'inline-flex';
 
   if (isMaster || currentUserCredits?.isUnlimited) {
@@ -413,27 +468,48 @@ function updateCreatorStudioCreditBadge(creditsObj) {
     return;
   }
 
-  const remaining = currentUserCredits ? Number(currentUserCredits.remainingToday ?? 5) : 5;
-  const bonus = currentUserCredits ? Number(currentUserCredits.bonusCredits || 0) : 0;
-  if (remaining <= 0) {
-    badge.textContent = '🚨 0 left';
+  if (isChronicleActive) {
+    if (chronTotalLeft <= 0) {
+      badge.textContent = '📔 0 left · Request +';
+      badge.style.background = 'rgba(239,68,68,0.16)';
+      badge.style.color = '#F87171';
+      badge.style.borderColor = 'rgba(239,68,68,0.45)';
+      badge.title = 'Your free Daily Chronicle visual credit is used for today (text edits & rethinking reflection remain free). Tap to request more credits!';
+    } else {
+      badge.textContent = chronFreeLeft > 0 ? `📔 ${chronFreeLeft}/1 Free Today` : `📔 ${chronTotalLeft} left`;
+      badge.style.background = 'rgba(16,185,129,0.14)';
+      badge.style.color = '#34D399';
+      badge.style.borderColor = 'rgba(16,185,129,0.35)';
+      badge.title = '1 Daily Chronicle visual illustration is always free every day (text-only & reflection rethink are always free). Tap for details.';
+    }
+    return;
+  }
+
+  if (perspLeft <= 0) {
+    badge.textContent = '🎨 0 left · Request +';
     badge.style.background = 'rgba(239,68,68,0.16)';
     badge.style.color = '#F87171';
     badge.style.borderColor = 'rgba(239,68,68,0.45)';
-    badge.title = 'Your daily Slant poster credits are used up for today. Ask the curator admin for an instant top-up!';
+    badge.title = 'Perspective visual credits used for today (Text-Only mode & Daily Chronicle remain free). Tap to request more credits from Admin!';
+  } else if (starterRemaining > 0) {
+    badge.textContent = `🎨 ${perspLeft} free`;
+    badge.style.background = 'rgba(16,185,129,0.14)';
+    badge.style.color = '#34D399';
+    badge.style.borderColor = 'rgba(16,185,129,0.35)';
+    badge.title = `${starterRemaining}/${starterTotal} free starter Perspective visual credits remaining (Text-Only & Daily Chronicle are always free). Tap for details or to request more.`;
   } else {
-    badge.textContent = `⚡ ${remaining} left`;
+    badge.textContent = `🎨 ${perspLeft} left`;
     badge.style.background = 'rgba(16,185,129,0.14)';
     badge.style.color = '#34D399';
     badge.style.borderColor = 'rgba(16,185,129,0.35)';
     badge.title = bonus > 0
-      ? `${remaining} credits available today (includes +${bonus} bonus credits)`
-      : `${remaining} daily poster credits available today`;
+      ? `${perspLeft} Perspective visual credits available today (includes +${bonus} bonus credits). Tap to request more.`
+      : `${perspLeft} daily Perspective visual credit available today. Tap to request more.`;
   }
 }
 
 // ============================================================
-// AUTHENTICATION & USER PROFILE CONTROLLER
+// AUTHENTICATION & USER PROFILE CONTROLLER (OPEN ACCESS)
 // ============================================================
 
 let _inflightWhitelistPromises = new Map();
@@ -454,11 +530,11 @@ function getCachedWhitelistEntry(email) {
 
 function setCachedWhitelistEntry(email, result) {
   try {
-    if (!email || !result || !result.allowed) return;
+    if (!email || !result) return;
     const raw = localStorage.getItem('slant_whitelist_cache_v1');
     const map = raw ? JSON.parse(raw) : {};
     map[email] = {
-      allowed: Boolean(result.allowed),
+      allowed: true,
       isAdmin: Boolean(result.isAdmin),
       credits: result.credits || null,
       ts: Date.now()
@@ -484,32 +560,18 @@ async function fetchWhitelistFromNetwork(email) {
         if (data.credits) {
           updateCreatorStudioCreditBadge(data.credits);
         }
-        const res = { allowed: Boolean(data.allowed), isAdmin: Boolean(data.isAdmin), credits: data.credits || null };
-        if (res.allowed) setCachedWhitelistEntry(email, res);
+        const res = { allowed: true, isAdmin: Boolean(data.isAdmin), credits: data.credits || null };
+        setCachedWhitelistEntry(email, res);
         return res;
       }
     } catch (err) {
-      console.warn('Whitelist API check notice, falling back to direct Supabase:', err);
+      console.warn('Credit & profile check notice:', err);
     }
 
-    // Resilient fallback: direct Supabase point lookup
-    try {
-      const supaResp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.system_beta_whitelist&select=data`, {
-        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-      });
-      if (supaResp.ok) {
-        const rows = await supaResp.json();
-        const list = rows?.[0]?.data?.allowed_emails || [];
-        const admins = rows?.[0]?.data?.admin_emails || [];
-        const isAllowed = list.map(e => e.toLowerCase()).includes(email) || admins.map(e => e.toLowerCase()).includes(email);
-        const isAdmin = admins.map(e => e.toLowerCase()).includes(email);
-        const res = { allowed: isAllowed, isAdmin };
-        if (res.allowed) setCachedWhitelistEntry(email, res);
-        return res;
-      }
-    } catch (_) {}
-
-    return { allowed: false, isAdmin: false };
+    const isAdmin = email === 'shridharoct16@gmail.com' || email === 'basasridhara@gmail.com';
+    const fallbackRes = { allowed: true, isAdmin, credits: null };
+    setCachedWhitelistEntry(email, fallbackRes);
+    return fallbackRes;
   })();
 
   _inflightWhitelistPromises.set(email, promise);
@@ -521,26 +583,27 @@ async function fetchWhitelistFromNetwork(email) {
 }
 
 async function verifyUserWhitelist(user) {
-  if (!user || !user.email) return { allowed: false, isAdmin: false };
+  if (!user || !user.email) return { allowed: true, isAdmin: false };
   const email = user.email.toLowerCase().trim();
 
   // 1. Instant 0ms fast-track for Master Admin
   if (email === 'shridharoct16@gmail.com' || email === 'basasridhara@gmail.com') {
-    updateCreatorStudioCreditBadge({ isUnlimited: true, usedToday: 0, remainingToday: 9999 });
+    updateCreatorStudioCreditBadge({ isUnlimited: true, usedToday: 0, remainingToday: 9999, perspectiveRemainingToday: 9999, chronicleRemainingToday: 9999 });
     fetchWhitelistFromNetwork(email).catch(() => {});
     return { allowed: true, isAdmin: true };
   }
 
-  // 2. Instant 0ms fast-track for previously verified curators (refreshing credits in background)
+  // 2. Instant 0ms fast-track for cached users (refreshing credits in background)
   const cached = getCachedWhitelistEntry(email);
-  if (cached && cached.allowed) {
+  if (cached) {
     if (cached.credits) updateCreatorStudioCreditBadge(cached.credits);
     fetchWhitelistFromNetwork(email).catch(() => {});
     return { allowed: true, isAdmin: Boolean(cached.isAdmin), credits: cached.credits || null };
   }
 
-  // 3. First-time sign-in check with deduplicated network lookup
-  return fetchWhitelistFromNetwork(email);
+  // 3. Open access for all users — fetch initial starter credit state in background
+  fetchWhitelistFromNetwork(email).catch(() => {});
+  return { allowed: true, isAdmin: false };
 }
 
 let suppressSignOutNotice = false;
@@ -2245,14 +2308,6 @@ async function handleEmailAuth(e) {
   const email = emailInput?.value?.trim();
   if (!email) return;
 
-  // Intercept uninvited email logins before requesting OTP or password
-  const check = await verifyUserWhitelist({ email });
-  if (!check.allowed) {
-    closeAuthModal();
-    await handleUninvitedUser({ email });
-    return;
-  }
-
   const submitBtn = document.getElementById('emailAuthBtn');
   const origBtnHtml = submitBtn ? submitBtn.innerHTML : '';
 
@@ -2401,6 +2456,125 @@ function closePrivatePreviewGateModal() {
   updateAuthUI();
 }
 
+function openStudioCreditBadgeAction() {
+  if (isCurrentUserAdmin) {
+    openAdminBetaModal();
+  } else {
+    openUserCreditsAndInviteModal('credits');
+  }
+}
+
+function openUserCreditsAndInviteModal(section = 'credits') {
+  if (typeof closeDrawer === 'function') closeDrawer();
+  const modal = document.getElementById('userCreditsModal');
+  if (!modal) return;
+  if (currentUser?.email) {
+    fetchWhitelistFromNetwork(currentUser.email.toLowerCase().trim()).catch(() => {});
+  }
+  updateCreatorStudioCreditBadge(currentUserCredits);
+  modal.style.display = 'flex';
+  modal.style.opacity = '1';
+  modal.style.visibility = 'visible';
+  modal.style.pointerEvents = 'auto';
+  modal.classList.add('open');
+  modal.classList.add('active');
+  document.body.style.overflow = 'hidden';
+
+  if (section === 'invite') {
+    setTimeout(() => {
+      const inviteSec = document.getElementById('userModalInviteSection');
+      if (inviteSec) inviteSec.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 100);
+  } else {
+    setTimeout(() => {
+      const creditsSec = document.getElementById('userModalCreditsSection');
+      if (creditsSec) creditsSec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 60);
+  }
+}
+
+function closeUserCreditsAndInviteModal() {
+  const modal = document.getElementById('userCreditsModal');
+  if (!modal) return;
+  modal.classList.remove('open');
+  modal.classList.remove('active');
+  modal.style.display = 'none';
+  modal.style.opacity = '';
+  modal.style.visibility = '';
+  modal.style.pointerEvents = '';
+  document.body.style.overflow = '';
+}
+
+async function submitUserCreditRequest() {
+  if (!currentUser || !currentUser.email) {
+    openAuthModal('Please sign in first to request more visual credits.');
+    return;
+  }
+  const btn = document.getElementById('userRequestCreditsSubmitBtn');
+  const noteInput = document.getElementById('userCreditRequestNoteInput');
+  const statusMsg = document.getElementById('userCreditRequestStatusMsg');
+  const reason = (noteInput?.value || '').trim();
+  const origHtml = btn ? btn.innerHTML : 'Request +Credits';
+
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = 'Sending...';
+  }
+
+  try {
+    const resp = await fetch('/api/whitelist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'request_credits',
+        email: currentUser.email,
+        name: getUserDisplayName(),
+        avatar: getUserAvatarUrl(),
+        reason: reason || 'Requesting additional visual art generation credits'
+      })
+    });
+    if (resp.ok) {
+      if (noteInput) noteInput.value = '';
+      if (statusMsg) {
+        statusMsg.style.display = 'block';
+        statusMsg.style.color = '#10B981';
+        statusMsg.textContent = '✓ Request sent to Admin! Your bonus visual credits will appear here as soon as approved.';
+      }
+      showTemporaryToast('⚡ Credit request sent to curator admin!');
+    } else {
+      throw new Error('Could not submit request');
+    }
+  } catch (e) {
+    if (statusMsg) {
+      statusMsg.style.display = 'block';
+      statusMsg.style.color = '#EF4444';
+      statusMsg.textContent = '⚠️ Network error sending request. Please try again.';
+    }
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = origHtml;
+    }
+  }
+}
+
+async function shareSlantCommunityInvite() {
+  const shareUrl = 'https://www.slant.today';
+  const shareTitle = 'Slant — Share Your Perspective & Chronicle Your Days';
+  const shareText = `Hey! Check out Slant (https://www.slant.today) — share your perspective on what you read or observe as illustrated posters, and chronicle your daily moments in an encrypted private diary.`;
+  if (navigator.share) {
+    try {
+      await navigator.share({
+        title: shareTitle,
+        text: shareText,
+        url: shareUrl
+      });
+      return;
+    } catch (_) {}
+  }
+  copyPersonalInviteMessage();
+}
+
 function openAdminBetaModal() {
   if (typeof closeDrawer === 'function') closeDrawer();
   const modal = document.getElementById('adminBetaModal');
@@ -2470,13 +2644,13 @@ async function loadAdminBetaPendingCount() {
         }
       }
 
-      // 3. If pending requests exist, alert the admin with an interactive banner toast
+      // 3. If pending credit requests exist, alert the admin with an interactive banner toast
       if (pendingCount > 0 && !sessionStorage.getItem('admin_notified_' + pendingCount)) {
         sessionStorage.setItem('admin_notified_' + pendingCount, 'true');
-        const latestRequester = pending[0]?.email || 'A user';
+        const latestRequester = pending[0]?.email || 'A member';
         const alertMsg = pendingCount === 1
-          ? `🔔 <strong>1 access request pending</strong> from <span style="color:#818CF8;">${escapeHtml(latestRequester)}</span>. Tap to review.`
-          : `🔔 <strong>${pendingCount} access requests pending</strong> (including <span style="color:#818CF8;">${escapeHtml(latestRequester)}</span>). Tap to review.`;
+          ? `🔔 <strong>1 credit request pending</strong> from <span style="color:#818CF8;">${escapeHtml(latestRequester)}</span>. Tap to review.`
+          : `🔔 <strong>${pendingCount} credit requests pending</strong> (including <span style="color:#818CF8;">${escapeHtml(latestRequester)}</span>). Tap to review.`;
         showTemporaryToast(alertMsg, 8000, true, () => {
           openAdminBetaModal();
         });
@@ -2485,7 +2659,7 @@ async function loadAdminBetaPendingCount() {
   } catch (_) {}
 }
 
-// Periodic live poll for admin so new friend requests appear in real time
+// Periodic live poll for admin so new credit requests appear in real time
 if (!window._adminBetaPollInterval) {
   window._adminBetaPollInterval = setInterval(() => {
     if (isCurrentUserAdmin) {
@@ -2516,13 +2690,13 @@ async function loadAdminBetaData(forceRefresh = false) {
     const accessLogs = Array.isArray(data.accessLogs) ? data.accessLogs : [];
     const userStats = (data.userStats && typeof data.userStats === 'object') ? data.userStats : {};
     const userCreditsMap = (data.userCreditsMap && typeof data.userCreditsMap === 'object') ? data.userCreditsMap : {};
-    const defaultDailyLimit = Number(data.defaultDailyLimit) > 0 ? Number(data.defaultDailyLimit) : 5;
+    const defaultDailyLimit = Number(data.defaultDailyLimit) > 0 ? Number(data.defaultDailyLimit) : 1;
     if (data.credits) {
       updateCreatorStudioCreditBadge(data.credits);
     }
 
     // Highlight active default daily limit chip
-    [3, 5, 10].forEach(val => {
+    [1, 3, 5].forEach(val => {
       const chip = document.getElementById(`dailyLimitChip${val}`);
       if (chip) {
         const isCurrent = val === defaultDailyLimit;
@@ -2536,12 +2710,18 @@ async function loadAdminBetaData(forceRefresh = false) {
     const logsMap = new Map();
     accessLogs.forEach(l => logsMap.set(l.email?.toLowerCase(), l));
 
+    // Merge any active users who signed in or posted even if not manually added
+    const allMemberEmailsSet = new Set(allowedEmails.map(e => e.toLowerCase().trim()));
+    accessLogs.forEach(l => { if (l.email) allMemberEmailsSet.add(l.email.toLowerCase().trim()); });
+    Object.keys(userStats).forEach(e => { if (e && e.includes('@')) allMemberEmailsSet.add(e.toLowerCase().trim()); });
+    Object.keys(userCreditsMap).forEach(e => { if (e && e.includes('@')) allMemberEmailsSet.add(e.toLowerCase().trim()); });
+    const memberRoster = Array.from(allMemberEmailsSet);
+
     // Calculate live summary metrics
     let totalSlants = 0;
     let activeCreatorsCount = 0;
     let totalCreditsUsedToday = 0;
-    allowedEmails.forEach(email => {
-      const clean = email.toLowerCase().trim();
+    memberRoster.forEach(clean => {
       const stats = userStats[clean];
       if (stats && stats.postCount > 0) {
         totalSlants += stats.postCount;
@@ -2557,15 +2737,15 @@ async function loadAdminBetaData(forceRefresh = false) {
     const sumActive = document.getElementById('adminSummaryActiveCount');
     const sumPosts = document.getElementById('adminSummaryPostsCount');
     const sumCreditsToday = document.getElementById('adminSummaryCreditsUsedCount');
-    if (sumCurators) sumCurators.textContent = allowedEmails.length;
+    if (sumCurators) sumCurators.textContent = memberRoster.length;
     if (sumActive) sumActive.textContent = activeCreatorsCount;
     if (sumPosts) sumPosts.textContent = totalSlants;
     if (sumCreditsToday) sumCreditsToday.textContent = `${totalCreditsUsedToday} ⚡`;
 
-    if (allowedCount) allowedCount.textContent = allowedEmails.length;
+    if (allowedCount) allowedCount.textContent = memberRoster.length;
     if (allowedList) {
       allowedList.innerHTML = '';
-      allowedEmails.forEach(email => {
+      memberRoster.forEach(email => {
         const cleanEmail = email.toLowerCase().trim();
         const isMaster = cleanEmail === 'shridharoct16@gmail.com' || cleanEmail === 'basasridhara@gmail.com';
         const log = logsMap.get(cleanEmail);
@@ -2575,15 +2755,19 @@ async function loadAdminBetaData(forceRefresh = false) {
 
         const cInfo = userCreditsMap[cleanEmail] || {
           isUnlimited: isMaster,
+          starterRemaining: 5,
+          starterTotal: 5,
           dailyLimit: defaultDailyLimit,
           usedToday: 0,
           dailyRemaining: defaultDailyLimit,
           bonusCredits: 0,
-          remainingToday: isMaster ? 9999 : defaultDailyLimit,
+          perspectiveRemainingToday: isMaster ? 9999 : 5,
+          chronicleFreeRemainingToday: 1,
+          remainingToday: isMaster ? 9999 : 5,
           totalUsed: 0
         };
 
-        let activityLabel = 'Pending first sign-in';
+        let activityLabel = 'Signed up · Ready to create';
         if (postCount > 0) {
           const pDate = stats?.latestPostAt ? new Date(stats.latestPostAt) : null;
           const pDateStr = pDate ? pDate.toLocaleDateString(undefined, { month:'short', day:'numeric' }) : 'recently';
@@ -2594,13 +2778,17 @@ async function loadAdminBetaData(forceRefresh = false) {
 
         // Credit status badge
         let creditBadgeHtml = '';
+        const perspLeft = cInfo.perspectiveRemainingToday ?? cInfo.remainingToday ?? 5;
+        const starterRem = cInfo.starterRemaining ?? 5;
+        const chronLeft = cInfo.chronicleFreeRemainingToday ?? 1;
         if (isMaster) {
           creditBadgeHtml = `<span style="font-size:10.5px; font-weight:700; color:#818CF8; background:rgba(99,102,241,0.14); border:1px solid rgba(99,102,241,0.3); padding:2px 7px; border-radius:6px;">⚡ ∞ Unlimited · ${cInfo.usedToday || 0} used today</span>`;
-        } else if (cInfo.remainingToday <= 0) {
-          creditBadgeHtml = `<span style="font-size:10.5px; font-weight:800; color:#F87171; background:rgba(239,68,68,0.16); border:1px solid rgba(239,68,68,0.4); padding:2px 7px; border-radius:6px;">🚨 0 Left Today (${cInfo.usedToday}/${cInfo.dailyLimit} used)</span>`;
+        } else if (perspLeft <= 0) {
+          creditBadgeHtml = `<span style="font-size:10.5px; font-weight:800; color:#F87171; background:rgba(239,68,68,0.16); border:1px solid rgba(239,68,68,0.4); padding:2px 7px; border-radius:6px;">🚨 0 Perspective Left Today · 📔 ${chronLeft}/1 Chronicle</span>`;
         } else {
-          const bonusTag = cInfo.bonusCredits > 0 ? ` · +${cInfo.bonusCredits} Bonus` : '';
-          creditBadgeHtml = `<span style="font-size:10.5px; font-weight:800; color:#34D399; background:rgba(16,185,129,0.14); border:1px solid rgba(16,185,129,0.35); padding:2px 7px; border-radius:6px;">⚡ ${cInfo.remainingToday} Left Today (${cInfo.usedToday}/${cInfo.dailyLimit} used${bonusTag})</span>`;
+          const starterOrDailyTag = starterRem > 0 ? `${starterRem}/5 Starter` : `${cInfo.dailyRemaining ?? 1}/${cInfo.dailyLimit || 1} Daily`;
+          const bonusTag = cInfo.bonusCredits > 0 ? ` +${cInfo.bonusCredits} Bonus` : '';
+          creditBadgeHtml = `<span style="font-size:10.5px; font-weight:800; color:#34D399; background:rgba(16,185,129,0.14); border:1px solid rgba(16,185,129,0.35); padding:2px 7px; border-radius:6px;">🎨 ${perspLeft} Left (${starterOrDailyTag}${bonusTag}) · 📔 ${chronLeft}/1</span>`;
         }
 
         const row = document.createElement('div');
@@ -2621,15 +2809,15 @@ async function loadAdminBetaData(forceRefresh = false) {
             </div>
             <div style="display:flex; align-items:center; gap:5px; flex-shrink:0;">
               ${postCount > 0 ? `<button type="button" onclick="closeAdminBetaModal(); filterFeedByCurator('${escapeHtml(stats?.handle || email)}');" style="background:rgba(99,102,241,0.12); color:#818CF8; border:1px solid rgba(99,102,241,0.25); border-radius:6px; font-size:10.5px; font-weight:700; padding:3px 7px; cursor:pointer;" title="View this curator posts in feed">Feed ➔</button>` : ''}
-              ${isMaster ? '<span style="font-size:10.5px; font-weight:700; color:#818CF8; background:rgba(99,102,241,0.1); padding:2px 6px; border-radius:4px;">Owner</span>' : `<button type="button" onclick="handleAdminRemoveEmail('${escapeHtml(email)}')" style="background:none; border:none; color:#EF4444; font-size:11px; font-weight:700; cursor:pointer; padding:3px 5px;" title="Revoke beta access">Revoke</button>`}
+              ${isMaster ? '<span style="font-size:10.5px; font-weight:700; color:#818CF8; background:rgba(99,102,241,0.1); padding:2px 6px; border-radius:4px;">Owner</span>' : ''}
             </div>
           </div>
           <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding-top:6px; border-top:1px dashed rgba(148,163,184,0.18); flex-wrap:wrap;">
             ${creditBadgeHtml}
             ${!isMaster ? `
               <div style="display:flex; align-items:center; gap:5px;">
-                <button type="button" onclick="handleAdminAddCredits('${escapeHtml(email)}', 5)" style="background:rgba(16,185,129,0.16); color:#34D399; border:1px solid rgba(16,185,129,0.4); border-radius:6px; font-size:10.5px; font-weight:800; padding:3px 8px; cursor:pointer;" title="Add 5 extra bonus credits right now">+5 Credits</button>
-                <button type="button" onclick="handleAdminAddCredits('${escapeHtml(email)}', 10)" style="background:rgba(56,189,248,0.15); color:#38BDF8; border:1px solid rgba(56,189,248,0.38); border-radius:6px; font-size:10.5px; font-weight:800; padding:3px 8px; cursor:pointer;" title="Add 10 extra bonus credits">+10</button>
+                <button type="button" onclick="handleAdminAddCredits('${escapeHtml(email)}', 5)" style="background:rgba(16,185,129,0.16); color:#34D399; border:1px solid rgba(16,185,129,0.4); border-radius:6px; font-size:10.5px; font-weight:800; padding:3px 8px; cursor:pointer;" title="Grant 5 extra bonus visual credits">+5 Credits</button>
+                <button type="button" onclick="handleAdminAddCredits('${escapeHtml(email)}', 10)" style="background:rgba(56,189,248,0.15); color:#38BDF8; border:1px solid rgba(56,189,248,0.38); border-radius:6px; font-size:10.5px; font-weight:800; padding:3px 8px; cursor:pointer;" title="Grant 10 extra bonus visual credits">+10</button>
                 ${cInfo.usedToday > 0 ? `<button type="button" onclick="handleAdminResetDailyCredits('${escapeHtml(email)}')" style="background:rgba(245,158,11,0.14); color:#FBBF24; border:1px solid rgba(245,158,11,0.35); border-radius:6px; font-size:10.5px; font-weight:700; padding:3px 7px; cursor:pointer;" title="Reset today's used counter to 0">Reset Today</button>` : ''}
               </div>
             ` : `<span style="font-size:10.5px; color:var(--text-secondary);">Total lifetime generations: <strong>${cInfo.totalUsed || postCount}</strong></span>`}
@@ -2639,7 +2827,7 @@ async function loadAdminBetaData(forceRefresh = false) {
       });
     }
 
-    // Pending Section
+    // Pending Credit Requests Section
     if (pendingSection && pendingList && pendingCount) {
       if (pending.length > 0) {
         pendingCount.textContent = pending.length;
@@ -2647,15 +2835,17 @@ async function loadAdminBetaData(forceRefresh = false) {
         pendingList.innerHTML = '';
         pending.forEach(item => {
           const pRow = document.createElement('div');
-          pRow.style.cssText = 'display:flex; justify-content:space-between; align-items:center; padding:8px 10px; background:var(--bg-card, #fff); border:1px solid rgba(239,68,68,0.25); border-radius:8px; font-size:12.5px;';
+          pRow.style.cssText = 'display:flex; justify-content:space-between; align-items:center; gap:8px; padding:10px 12px; background:var(--bg-card, #fff); border:1px solid rgba(239,68,68,0.28); border-radius:10px; font-size:12.5px;';
           pRow.innerHTML = `
-            <div>
+            <div style="min-width:0; flex:1;">
               <strong style="color:var(--text-primary); display:block;">${escapeHtml(item.name || item.email)}</strong>
-              <span style="font-size:11px; color:#818CF8;">${escapeHtml(item.email)}</span>
+              <span style="font-size:11px; color:#818CF8; display:block;">${escapeHtml(item.email)}</span>
+              ${item.reason ? `<span style="font-size:11px; color:var(--text-secondary); display:block; margin-top:3px; font-style:italic;">"${escapeHtml(item.reason)}"</span>` : ''}
             </div>
-            <div style="display:flex; gap:6px;">
-              <button type="button" onclick="handleAdminApproveRequest('${escapeHtml(item.email)}')" style="background:#10B981; color:#fff; border:none; padding:4px 10px; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer;">Approve ✓</button>
-              <button type="button" onclick="handleAdminDenyRequest('${escapeHtml(item.email)}')" style="background:rgba(239,68,68,0.1); color:#EF4444; border:none; padding:4px 8px; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer;">✕</button>
+            <div style="display:flex; gap:5px; flex-shrink:0;">
+              <button type="button" onclick="handleAdminApproveRequest('${escapeHtml(item.email)}', 5)" style="background:#10B981; color:#fff; border:none; padding:5px 9px; border-radius:6px; font-size:11px; font-weight:800; cursor:pointer;">Grant +5 ⚡</button>
+              <button type="button" onclick="handleAdminApproveRequest('${escapeHtml(item.email)}', 15)" style="background:#6366F1; color:#fff; border:none; padding:5px 9px; border-radius:6px; font-size:11px; font-weight:800; cursor:pointer;">+15 ⚡</button>
+              <button type="button" onclick="handleAdminDenyRequest('${escapeHtml(item.email)}')" style="background:rgba(239,68,68,0.1); color:#EF4444; border:none; padding:5px 8px; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer;">✕</button>
             </div>
           `;
           pendingList.appendChild(pRow);
@@ -2676,7 +2866,7 @@ async function handleAdminAddEmail() {
   const input = document.getElementById('adminNewInviteEmail');
   const email = (input?.value || '').trim().toLowerCase();
   if (!email || !email.includes('@')) {
-    alert('Please enter a valid Gmail address.');
+    alert('Please enter a valid email address.');
     return;
   }
   const adminEmail = currentUser?.email || 'shridharoct16@gmail.com';
@@ -2684,23 +2874,23 @@ async function handleAdminAddEmail() {
     const resp = await fetch('/api/whitelist', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'add_email', adminEmail, email })
+      body: JSON.stringify({ action: 'add_credits', adminEmail, email, amount: 5 })
     });
     if (resp.ok) {
       if (input) input.value = '';
-      showTemporaryToast(`✨ Added ${email} to whitelist!`);
+      showTemporaryToast(`⚡ Granted +5 bonus visual credits to ${email}!`);
       loadAdminBetaData(false);
     } else {
       const err = await resp.json().catch(() => ({}));
-      alert(err.error || 'Failed to add email');
+      alert(err.error || 'Failed to grant credits');
     }
   } catch (e) {
-    alert('Network error while adding email');
+    alert('Network error while granting credits');
   }
 }
 
 async function handleAdminRemoveEmail(email) {
-  if (!confirm(`Are you sure you want to revoke access for ${email}?`)) return;
+  if (!confirm(`Are you sure you want to remove ${email} from the member list?`)) return;
   const adminEmail = currentUser?.email || 'shridharoct16@gmail.com';
   try {
     const resp = await fetch('/api/whitelist', {
@@ -2709,24 +2899,24 @@ async function handleAdminRemoveEmail(email) {
       body: JSON.stringify({ action: 'remove_email', adminEmail, email })
     });
     if (resp.ok) {
-      showTemporaryToast(`Revoked access for ${email}`);
+      showTemporaryToast(`Removed ${email}`);
       loadAdminBetaData(false);
     }
   } catch (e) {
-    alert('Error revoking email');
+    alert('Error removing email');
   }
 }
 
-async function handleAdminApproveRequest(email) {
+async function handleAdminApproveRequest(email, amount = 5) {
   const adminEmail = currentUser?.email || 'shridharoct16@gmail.com';
   try {
     const resp = await fetch('/api/whitelist', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'approve_request', adminEmail, email })
+      body: JSON.stringify({ action: 'approve_request', adminEmail, email, amount })
     });
     if (resp.ok) {
-      showTemporaryToast(`✨ Approved access for ${email}!`);
+      showTemporaryToast(`⚡ Approved & granted +${amount} visual credits to ${email}!`);
       loadAdminBetaData(false);
     }
   } catch (e) {
@@ -2761,7 +2951,7 @@ async function handleAdminAddCredits(email, amount = 5) {
     });
     if (resp.ok) {
       const data = await resp.json();
-      const totalLeft = data.credits?.remainingToday ?? amount;
+      const totalLeft = data.credits?.perspectiveRemainingToday ?? data.credits?.remainingToday ?? amount;
       showTemporaryToast(`⚡ Added +${amount} credits to ${email} (${totalLeft} available today)!`);
       loadAdminBetaData(false);
     } else {
@@ -2790,7 +2980,7 @@ async function handleAdminResetDailyCredits(email) {
   }
 }
 
-async function handleAdminSetDefaultDailyLimit(dailyLimit = 5) {
+async function handleAdminSetDefaultDailyLimit(dailyLimit = 1) {
   const adminEmail = currentUser?.email || 'shridharoct16@gmail.com';
   try {
     const resp = await fetch('/api/whitelist', {
@@ -2799,7 +2989,7 @@ async function handleAdminSetDefaultDailyLimit(dailyLimit = 5) {
       body: JSON.stringify({ action: 'set_daily_limit', adminEmail, dailyLimit })
     });
     if (resp.ok) {
-      showTemporaryToast(`⚡ Default daily limit set to ${dailyLimit} credits/day per curator!`);
+      showTemporaryToast(`⚡ Default daily Perspective limit (after 5 starter credits) set to ${dailyLimit}/day!`);
       loadAdminBetaData(false);
     }
   } catch (e) {
@@ -2808,9 +2998,9 @@ async function handleAdminSetDefaultDailyLimit(dailyLimit = 5) {
 }
 
 function copyPersonalInviteMessage() {
-  const text = `Hey! I've been building Slant (a visual editorial journal for ideas & perspectives). I've added your Gmail to our Private Preview whitelist so you can test it. Try it out here: https://www.slant.today`;
+  const text = `Hey! Check out Slant (https://www.slant.today) — share your perspective on what you read or observe as illustrated posters, and chronicle your daily moments in an encrypted private diary.`;
   navigator.clipboard.writeText(text).then(() => {
-    showTemporaryToast('📋 Invite message copied to clipboard!');
+    showTemporaryToast('📋 Slant community invite copied to clipboard!');
   }).catch(() => {
     prompt('Copy your invite message:', text);
   });
@@ -5547,9 +5737,9 @@ function buildSlide1Html(post, index, totalSlides = 2) {
       <div class="slide-hook-bottom">
         ${newsFragmentHtml}${curatorKickerHtml}
         <h3 class="slide-hook-headline">${headline}</h3>
-        <!-- Bottom-Left: slant.today | Bottom-Right: Every thought deserves a frame -->
+        <!-- Bottom-Left: 🌐 slant.today | Bottom-Right: Every thought deserves a frame -->
         <div class="poster-brand-footer">
-          <span class="poster-footer-domain">slant.today</span>
+          <span class="poster-footer-domain"><span class="poster-web-globe-icon" aria-hidden="true">🌐</span>slant.today</span>
           <span class="poster-footer-punchline" style="margin-left: auto;">Every thought deserves a frame</span>
         </div>
       </div>
@@ -7095,7 +7285,7 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
         <div class="receipt-footer">
           <div class="receipt-folio-rule"></div>
           <div class="receipt-folio-text">
-            <span class="receipt-folio-left">slant.today</span>
+            <span class="receipt-folio-left"><span class="poster-web-globe-icon" aria-hidden="true">🌐</span>slant.today</span>
             <span class="receipt-folio-right">Every thought deserves a frame • ${isChronicle ? "02 / 03" : "02 / 02"}</span>
           </div>
         </div>
@@ -7124,7 +7314,7 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
         <div class="receipt-footer">
           <div class="receipt-folio-rule"></div>
           <div class="receipt-folio-text">
-            <span class="receipt-folio-left">slant.today</span>
+            <span class="receipt-folio-left"><span class="poster-web-globe-icon" aria-hidden="true">🌐</span>slant.today</span>
             <span class="receipt-folio-right">${folioRightP2}</span>
           </div>
         </div>
@@ -11267,7 +11457,7 @@ function renderDiaryCalendarModal() {
           <div class="diary-cal-mini-scrim-bottom">
             <div class="diary-cal-mini-headline">${escapeHtml(hl)}</div>
             <div class="diary-cal-mini-snippet">${escapeHtml(shortSnippet)}</div>
-            <div class="diary-cal-mini-domain">slant.today</div>
+            <div class="diary-cal-mini-domain"><span class="poster-web-globe-icon" aria-hidden="true">🌐</span>slant.today</div>
           </div>
         </button>
       `;
@@ -15427,6 +15617,9 @@ function setAnchorMode(mode) {
   }
   creatorSelectedSource = normalizedSource;
   isDailyChronicleMode = isDiaryCategory;
+  if (typeof updateCreatorStudioCreditBadge === 'function') {
+    updateCreatorStudioCreditBadge();
+  }
 
   // 1. Highlight selected top-level pillar card (Perspective vs Diary Chronicle)
   document.querySelectorAll('.anchor-card').forEach(card => {
@@ -18839,7 +19032,16 @@ async function startAiSynthesis() {
             throw new Error(artData?.error || 'Artwork regeneration timed out. Please try again.');
           }
         } else {
-          throw new Error('Artwork service returned status ' + artResp.status);
+          const errJson = await artResp.json().catch(() => null);
+          if (errJson && errJson.credits) updateCreatorStudioCreditBadge(errJson.credits);
+          if (artResp.status === 429 && errJson && errJson.creditsExhausted) {
+            setTimeout(() => {
+              if (typeof openUserCreditsAndInviteModal === 'function') {
+                openUserCreditsAndInviteModal('credits');
+              }
+            }, 300);
+          }
+          throw new Error(errJson?.error || ('Artwork service returned status ' + artResp.status));
         }
       }
 
@@ -18872,6 +19074,7 @@ async function startAiSynthesis() {
   const payload = {
     sourceType: creatorSelectedSource,
     chronicleMode: isChronicleActive,
+    regenScope: activeRegenScope,
     reflectionFeedbackHistory: isChronicleActive ? getReflectionFeedbackHistory() : null,
     chronicleMoments: activeChronicleMoments.map(m => ({
       index: m.index,
@@ -18938,6 +19141,13 @@ async function startAiSynthesis() {
         const errJson = await resp.json().catch(() => null);
         if (errJson && errJson.credits) updateCreatorStudioCreditBadge(errJson.credits);
         if (errJson && errJson.error) errMsg = errJson.error;
+        if (resp.status === 429 && errJson && errJson.creditsExhausted) {
+          setTimeout(() => {
+            if (typeof openUserCreditsAndInviteModal === 'function') {
+              openUserCreditsAndInviteModal('credits');
+            }
+          }, 300);
+        }
       } else {
         const text = await resp.text().catch(() => '');
         if (resp.status === 504 || text.includes('504')) {

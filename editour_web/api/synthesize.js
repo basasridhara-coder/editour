@@ -9,7 +9,9 @@ const GEMINI_MODEL = 'gemini-3.8-flash';
 const SUPABASE_URL = 'https://fxfklefnkpmhofncqhfh.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ4ZmtsZWZua3BtaG9mbmNxaGZoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI0NzM4NzYsImV4cCI6MjEwODA0OTg3Nn0.0nw5ZDvlEsYal6EYXcqyaAPRHoxkXxZgDsNQDppEYgM';
 const MASTER_ADMINS = ['shridharoct16@gmail.com', 'basasridhara@gmail.com'];
-const DEFAULT_DAILY_CREDIT_LIMIT = 5;
+const STARTER_PERSPECTIVE_CREDITS = 5;
+const DEFAULT_DAILY_CREDIT_LIMIT = 1;
+const DAILY_CHRONICLE_FREE_LIMIT = 1;
 
 function getTodayDateKeyIST() {
   try {
@@ -24,10 +26,9 @@ function getTodayDateKeyIST() {
   }
 }
 
-async function verifyAndConsumeUserCredit(email, consume = false) {
+async function verifyAndConsumeUserCredit(email, consume = false, isChronicleMode = false) {
   if (!email) return { allowed: false, hasCredits: false, credits: null };
   const clean = String(email).toLowerCase().trim();
-  const isMaster = MASTER_ADMINS.includes(clean);
   const todayKey = getTodayDateKeyIST();
 
   try {
@@ -37,36 +38,66 @@ async function verifyAndConsumeUserCredit(email, consume = false) {
     if (resp.ok) {
       const rows = await resp.json();
       const d = rows?.[0]?.data || {};
-      const list = (d.allowed_emails || []).map(e => String(e).toLowerCase().trim());
-      const admins = (d.admin_emails || []).map(e => String(e).toLowerCase().trim());
-      const isAllowed = isMaster || list.includes(clean) || admins.includes(clean);
-      if (!isAllowed) {
-        return { allowed: false, hasCredits: false, credits: null };
-      }
-
       const defaultLimit = Number(d.default_daily_limit) > 0 ? Number(d.default_daily_limit) : DEFAULT_DAILY_CREDIT_LIMIT;
       if (!d.user_credits || typeof d.user_credits !== 'object') {
         d.user_credits = {};
       }
       const existing = d.user_credits[clean] || {};
+      const isMaster = MASTER_ADMINS.includes(clean) || Boolean(existing.isUnlimited);
+
+      const starterTotal = STARTER_PERSPECTIVE_CREDITS;
+      let starterUsed = Math.min(starterTotal, Math.max(0, Number(existing.starterUsed ?? 0)));
+      let starterRemaining = Math.max(0, starterTotal - starterUsed);
+
       const dailyLimit = Number(existing.dailyLimit) > 0 ? Number(existing.dailyLimit) : defaultLimit;
-      let usedToday = (existing.lastDateKey === todayKey) ? (Number(existing.usedToday) || 0) : 0;
+      const isSameDay = existing.lastDateKey === todayKey;
+      let perspectiveUsedToday = isSameDay ? (Number(existing.perspectiveUsedToday ?? existing.usedToday) || 0) : 0;
+      let chronicleUsedToday = isSameDay ? (Number(existing.chronicleUsedToday) || 0) : 0;
       let bonusCredits = Math.max(0, Number(existing.bonusCredits) || 0);
       let totalUsed = Math.max(0, Number(existing.totalUsed) || 0);
 
-      const dailyRemainingBefore = Math.max(0, dailyLimit - usedToday);
-      const hasCredits = isMaster || dailyRemainingBefore > 0 || bonusCredits > 0;
+      const perspectiveDailyRemainingBefore = Math.max(0, dailyLimit - perspectiveUsedToday);
+      const perspectiveBaseBefore = starterRemaining > 0 ? starterRemaining : perspectiveDailyRemainingBefore;
+      const chronicleFreeRemainingBefore = Math.max(0, DAILY_CHRONICLE_FREE_LIMIT - chronicleUsedToday);
+
+      const hasCredits = isMaster
+        || (isChronicleMode
+          ? (chronicleFreeRemainingBefore > 0 || bonusCredits > 0)
+          : (perspectiveBaseBefore > 0 || bonusCredits > 0));
 
       if (hasCredits && consume) {
-        if (!isMaster && dailyRemainingBefore <= 0 && bonusCredits > 0) {
-          bonusCredits = Math.max(0, bonusCredits - 1);
+        if (isChronicleMode) {
+          if (!isMaster && chronicleFreeRemainingBefore <= 0 && bonusCredits > 0) {
+            bonusCredits = Math.max(0, bonusCredits - 1);
+          }
+          chronicleUsedToday += 1;
+        } else {
+          if (!isMaster) {
+            if (starterRemaining > 0) {
+              starterUsed += 1;
+            } else if (perspectiveDailyRemainingBefore > 0) {
+              perspectiveUsedToday += 1;
+            } else if (bonusCredits > 0) {
+              bonusCredits = Math.max(0, bonusCredits - 1);
+              perspectiveUsedToday += 1;
+            }
+          } else {
+            perspectiveUsedToday += 1;
+          }
         }
-        usedToday += 1;
         totalUsed += 1;
+
+        if (Array.isArray(d.allowed_emails) && !d.allowed_emails.map(e => String(e).toLowerCase()).includes(clean)) {
+          d.allowed_emails.push(clean);
+        }
+
         d.user_credits[clean] = {
           ...existing,
+          starterUsed,
           dailyLimit,
-          usedToday,
+          usedToday: perspectiveUsedToday + chronicleUsedToday,
+          perspectiveUsedToday,
+          chronicleUsedToday,
           lastDateKey: todayKey,
           bonusCredits,
           totalUsed,
@@ -85,8 +116,12 @@ async function verifyAndConsumeUserCredit(email, consume = false) {
         }).catch(() => {});
       }
 
-      const dailyRemainingAfter = Math.max(0, dailyLimit - usedToday);
-      const remainingToday = isMaster ? 9999 : (dailyRemainingAfter + bonusCredits);
+      starterRemaining = Math.max(0, starterTotal - starterUsed);
+      const perspectiveDailyRemainingAfter = Math.max(0, dailyLimit - perspectiveUsedToday);
+      const perspectiveBaseAfter = starterRemaining > 0 ? starterRemaining : perspectiveDailyRemainingAfter;
+      const perspectiveRemainingToday = isMaster ? 9999 : (perspectiveBaseAfter + bonusCredits);
+      const chronicleFreeRemainingToday = Math.max(0, DAILY_CHRONICLE_FREE_LIMIT - chronicleUsedToday);
+      const chronicleRemainingToday = isMaster ? 9999 : (chronicleFreeRemainingToday + bonusCredits);
 
       return {
         allowed: true,
@@ -94,11 +129,21 @@ async function verifyAndConsumeUserCredit(email, consume = false) {
         credits: {
           email: clean,
           isUnlimited: isMaster,
+          starterTotal,
+          starterUsed,
+          starterRemaining,
           dailyLimit,
-          usedToday,
-          dailyRemaining: dailyRemainingAfter,
+          perspectiveUsedToday,
+          perspectiveDailyRemaining: perspectiveDailyRemainingAfter,
+          perspectiveRemainingToday,
+          chronicleDailyLimit: DAILY_CHRONICLE_FREE_LIMIT,
+          chronicleUsedToday,
+          chronicleFreeRemainingToday,
+          chronicleRemainingToday,
+          usedToday: perspectiveUsedToday + chronicleUsedToday,
+          dailyRemaining: perspectiveBaseAfter,
           bonusCredits,
-          remainingToday,
+          remainingToday: perspectiveRemainingToday,
           totalUsed,
           lastDateKey: todayKey
         }
@@ -108,14 +153,25 @@ async function verifyAndConsumeUserCredit(email, consume = false) {
     console.warn('Synthesize credit & whitelist check notice:', err);
   }
 
-  if (isMaster) {
-    return {
-      allowed: true,
-      hasCredits: true,
-      credits: { email: clean, isUnlimited: true, dailyLimit: 9999, usedToday: 0, dailyRemaining: 9999, bonusCredits: 0, remainingToday: 9999, totalUsed: 0 }
-    };
-  }
-  return { allowed: false, hasCredits: false, credits: null };
+  return {
+    allowed: true,
+    hasCredits: true,
+    credits: {
+      email: clean,
+      isUnlimited: MASTER_ADMINS.includes(clean),
+      starterTotal: STARTER_PERSPECTIVE_CREDITS,
+      starterUsed: 0,
+      starterRemaining: STARTER_PERSPECTIVE_CREDITS,
+      dailyLimit: DEFAULT_DAILY_CREDIT_LIMIT,
+      perspectiveRemainingToday: STARTER_PERSPECTIVE_CREDITS,
+      chronicleRemainingToday: 1,
+      usedToday: 0,
+      dailyRemaining: STARTER_PERSPECTIVE_CREDITS,
+      bonusCredits: 0,
+      remainingToday: STARTER_PERSPECTIVE_CREDITS,
+      totalUsed: 0
+    }
+  };
 }
 
 async function verifyEmailIsWhitelisted(email) {
@@ -316,13 +372,10 @@ Respond strictly with valid JSON:
       if (!userEmail) {
         userEmail = 'shridharoct16@gmail.com';
       }
-      const creditCheck = await verifyAndConsumeUserCredit(userEmail, Boolean(body.isManualRegenerate));
-      if (!creditCheck.allowed) {
-        return res.status(403).json({ error: 'Slant Studio is currently in Private Preview by invitation only.' });
-      }
-      if (!creditCheck.hasCredits) {
+      const creditCheck = await verifyAndConsumeUserCredit(userEmail, Boolean(body.isManualRegenerate), Boolean(chronicleMode));
+      if (!creditCheck.hasCredits && Boolean(body.isManualRegenerate)) {
         return res.status(429).json({
-          error: '⚡ Your daily Slant poster credits are used up for today. Ask the curator admin for an instant credit top-up or continue tomorrow!',
+          error: '⚡ Your visual art generation credits are used up for today. Tap "Request More Credits" in Studio (text-only polish is always free)!',
           creditsExhausted: true,
           credits: creditCheck.credits
         });
@@ -529,13 +582,10 @@ STRICT RULES:
       } = body;
 
       const userEmail = (creatorEmail || 'shridharoct16@gmail.com').toLowerCase().trim();
-      const creditCheck = await verifyAndConsumeUserCredit(userEmail, Boolean(body.isManualRegenerate));
-      if (!creditCheck.allowed) {
-        return res.status(403).json({ error: 'Slant Studio is currently in Private Preview by invitation only.' });
-      }
-      if (!creditCheck.hasCredits) {
+      const creditCheck = await verifyAndConsumeUserCredit(userEmail, Boolean(body.isManualRegenerate), Boolean(chronicleMode));
+      if (!creditCheck.hasCredits && Boolean(body.isManualRegenerate)) {
         return res.status(429).json({
-          error: '⚡ Your daily Slant poster credits are used up for today. Ask the curator admin for an instant credit top-up or continue tomorrow!',
+          error: '⚡ Your visual art generation credits are used up for today. Tap "Request More Credits" in Studio (text-only polish is always free)!',
           creditsExhausted: true,
           credits: creditCheck.credits
         });
@@ -1359,15 +1409,17 @@ Respond strictly with valid JSON with this exact structure:
 
     const userEmail = (creatorEmail || '').toLowerCase().trim();
     if (!userEmail) {
-      return res.status(401).json({ error: 'Slant Studio is currently in Private Preview. Please sign in with your invited Google account.' });
+      return res.status(401).json({ error: 'Please sign in with your Google or email account to create a Slant.' });
     }
-    const creditCheck = await verifyAndConsumeUserCredit(userEmail, true);
-    if (!creditCheck.allowed) {
-      return res.status(403).json({ error: 'Slant Studio is currently in Private Preview by invitation only.' });
-    }
-    if (!creditCheck.hasCredits) {
+    const isTextOnlyRegen = body.regenScope === 'text_only';
+    const isExactPhotoOnly = characterRepresentation === 'exact';
+    const shouldConsumeVisualCredit = !isTextOnlyRegen && !isExactPhotoOnly;
+    const creditCheck = await verifyAndConsumeUserCredit(userEmail, shouldConsumeVisualCredit, Boolean(isChronicle));
+    if (shouldConsumeVisualCredit && !creditCheck.hasCredits) {
       return res.status(429).json({
-        error: '⚡ Your daily Slant poster credits are used up for today. Ask the curator admin for an instant credit top-up or continue tomorrow!',
+        error: isChronicle
+          ? '⚡ You have used your 1 free Daily Chronicle visual illustration for today. Tap "Request More Credits" in Studio or switch to Exact Photo!'
+          : '⚡ Your Perspective visual illustration credits are used up for today. Tap "Request More Credits" in Studio (text-only generation is always free)!',
         creditsExhausted: true,
         credits: creditCheck.credits
       });
