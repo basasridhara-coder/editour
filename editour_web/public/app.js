@@ -13350,7 +13350,7 @@ function syncInnerVoiceSubmodeUI() {
     if (label) label.textContent = 'Diary Chronicle: Your Day in Moments (2 to 3 Vignettes)';
     if (sub) sub.textContent = 'Record 2 to 3 distinct moments from your day, and tap ★ Star on the moment you feel is most important to give it more space in Poster 1.';
     if (heroIcon) heroIcon.textContent = '📔';
-    if (heroBox) heroBox.style.color = '#F59E0B';
+    if (heroBox) heroBox.style.color = '#253833';
 
     // Default portrayal style for Diary Chronicle is Painted Vignettes (matching 4bovq style)
     if (typeof selectCharacterRep === 'function') {
@@ -13373,7 +13373,7 @@ function syncInnerVoiceSubmodeUI() {
     if (label) label.textContent = 'What is your Slant or Perspective?';
     if (sub) sub.textContent = 'Express your conviction or reflection freely. AI transforms this into your lead take.';
     if (heroIcon) heroIcon.textContent = '💭';
-    if (heroBox) heroBox.style.color = '#8B5CF6';
+    if (heroBox) heroBox.style.color = '#253833';
   }
   if (typeof syncStep3SaveButtonLabel === 'function') {
     syncStep3SaveButtonLabel();
@@ -15126,14 +15126,14 @@ function updateWebLinkSubmode(isVideo) {
     if (webIconCircle) webIconCircle.textContent = '🎬';
     if (mentalPill) {
       mentalPill.textContent = 'Video / Audio Link';
-      mentalPill.style.background = 'rgba(239, 68, 68, 0.12)';
-      mentalPill.style.color = '#EF4444';
+      mentalPill.style.background = '#ECF2F0';
+      mentalPill.style.color = '#253833';
     }
     if (mentalText) mentalText.textContent = '"I watched or listened to something that sparked a reaction."';
-    if (mentalBadge) mentalBadge.style.color = '#EF4444';
+    if (mentalBadge) mentalBadge.style.color = '#37534C';
     if (mentalCard) {
-      mentalCard.style.background = 'rgba(239, 68, 68, 0.05)';
-      mentalCard.style.borderColor = 'rgba(239, 68, 68, 0.18)';
+      mentalCard.style.background = '#F2F6F4';
+      mentalCard.style.borderColor = '#C8D9D3';
     }
 
     if (linkIcon) linkIcon.textContent = '🎬';
@@ -15145,19 +15145,19 @@ function updateWebLinkSubmode(isVideo) {
     if (sub) sub.textContent = 'Framing your angle, counter-slant, or reaction to what you watched/listened to.';
     if (input && !input.value) input.placeholder = 'e.g. The speaker makes a compelling case, but completely overlooks how open protocols protect user autonomy...';
     if (heroIcon) heroIcon.textContent = '🎬';
-    if (heroBox) heroBox.style.color = '#EF4444';
+    if (heroBox) heroBox.style.color = '#253833';
   } else {
     if (webIconCircle) webIconCircle.textContent = '🌐';
     if (mentalPill) {
       mentalPill.textContent = 'Web Link';
-      mentalPill.style.background = 'rgba(2, 132, 199, 0.12)';
-      mentalPill.style.color = '#0284C7';
+      mentalPill.style.background = '#ECF2F0';
+      mentalPill.style.color = '#253833';
     }
     if (mentalText) mentalText.textContent = '"I found an article, video, or podcast and have a perspective on it."';
-    if (mentalBadge) mentalBadge.style.color = '#0284C7';
+    if (mentalBadge) mentalBadge.style.color = '#37534C';
     if (mentalCard) {
-      mentalCard.style.background = 'rgba(2, 132, 199, 0.05)';
-      mentalCard.style.borderColor = 'rgba(2, 132, 199, 0.18)';
+      mentalCard.style.background = '#F2F6F4';
+      mentalCard.style.borderColor = '#C8D9D3';
     }
 
     if (linkIcon) linkIcon.textContent = '🔗';
@@ -15169,7 +15169,7 @@ function updateWebLinkSubmode(isVideo) {
     if (sub) sub.textContent = 'A few sentences framing your angle, critique, or why this article matters.';
     if (input && !input.value) input.placeholder = 'e.g. The headline misses the real structural disruption happening behind the scenes...';
     if (heroIcon) heroIcon.textContent = '📰';
-    if (heroBox) heroBox.style.color = '#0284C7';
+    if (heroBox) heroBox.style.color = '#253833';
   }
 }
 
@@ -15235,26 +15235,26 @@ function setAnchorMode(mode) {
     if (isDiaryCategory) {
       if (mentalPill) {
         mentalPill.textContent = 'Diary Chronicle';
-        mentalPill.style.background = 'rgba(245, 158, 11, 0.16)';
-        mentalPill.style.color = '#F59E0B';
+        mentalPill.style.background = '#ECF2F0';
+        mentalPill.style.color = '#253833';
       }
       if (mentalText) mentalText.textContent = '"Personal Diary Chronicle — strictly for you and will never go to people\'s feed."';
-      if (mentalBadge) mentalBadge.style.color = '#F59E0B';
+      if (mentalBadge) mentalBadge.style.color = '#37534C';
       if (mentalCard) {
-        mentalCard.style.background = 'rgba(245, 158, 11, 0.06)';
-        mentalCard.style.borderColor = 'rgba(245, 158, 11, 0.28)';
+        mentalCard.style.background = '#F2F6F4';
+        mentalCard.style.borderColor = '#C8D9D3';
       }
     } else {
       if (mentalPill) {
         mentalPill.textContent = 'Inner Voice';
-        mentalPill.style.background = 'rgba(139, 92, 246, 0.12)';
-        mentalPill.style.color = '#8B5CF6';
+        mentalPill.style.background = '#ECF2F0';
+        mentalPill.style.color = '#253833';
       }
       if (mentalText) mentalText.textContent = '"This came from my own head/life; no link needed."';
-      if (mentalBadge) mentalBadge.style.color = '#8B5CF6';
+      if (mentalBadge) mentalBadge.style.color = '#37534C';
       if (mentalCard) {
-        mentalCard.style.background = 'rgba(139, 92, 246, 0.05)';
-        mentalCard.style.borderColor = 'rgba(139, 92, 246, 0.18)';
+        mentalCard.style.background = '#F2F6F4';
+        mentalCard.style.borderColor = '#C8D9D3';
       }
     }
 
@@ -15273,7 +15273,7 @@ function setAnchorMode(mode) {
     if (sub) sub.textContent = 'Express your conviction or reflection freely. AI transforms this into your lead take.';
     if (input) input.placeholder = 'What perspective demands to be shared? e.g. The real risk of AI isn’t superintelligence taking over, it’s that we surrender our curiosity and critical judgment to automated convenience...';
     if (heroIcon) heroIcon.textContent = '💭';
-    if (heroBox) heroBox.style.color = '#8B5CF6';
+    if (heroBox) heroBox.style.color = '#253833';
     syncInnerVoiceSubmodeUI();
   } else {
     syncInnerVoiceSubmodeUI();
