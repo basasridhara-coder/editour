@@ -22419,24 +22419,24 @@ mark.polish-mark:hover, mark.polish-mark.active {
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 14px;
   width: 100%;
-  padding-bottom: 4px;
+  padding: 4px 0 8px;
 }
 
 .login-brand-masthead-identity {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
 }
 
 .login-brand-emblem-frame {
-  width: 52px;
-  height: 52px;
-  border-radius: 14px;
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
   background: #FAF6ED;
   border: 1.5px solid rgba(99, 102, 241, 0.35);
-  box-shadow: 0 6px 18px rgba(99, 102, 241, 0.22);
+  box-shadow: 0 8px 22px rgba(99, 102, 241, 0.22);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -22460,15 +22460,15 @@ mark.polish-mark:hover, mark.polish-mark.active {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 1px;
+  gap: 2px;
 }
 
 .login-brand-masthead-title {
   font-family: 'Playfair Display', 'Merriweather', Georgia, serif;
-  font-size: 28px;
+  font-size: 36px;
   font-weight: 900;
-  line-height: 1.05;
-  letter-spacing: -0.5px;
+  line-height: 1.02;
+  letter-spacing: -0.6px;
   color: var(--text-primary, #0F172A);
   margin: 0;
 }
@@ -22479,9 +22479,9 @@ mark.polish-mark:hover, mark.polish-mark.active {
 
 .login-brand-masthead-domain {
   font-family: 'Space Grotesk', 'Inter', sans-serif;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
-  letter-spacing: 0.6px;
+  letter-spacing: 0.65px;
   color: var(--text-secondary, #64748B);
 }
 
@@ -22968,7 +22968,7 @@ mark.polish-mark:hover, mark.polish-mark.active {
     grid-template-columns: 1fr;
     display: flex;
     flex-direction: column;
-    gap: 18px;
+    gap: 22px;
     height: auto !important;
   }
 
@@ -22976,7 +22976,12 @@ mark.polish-mark:hover, mark.polish-mark.active {
     order: 1;
     border-right: none;
     border-bottom: 1px solid rgba(15, 23, 42, 0.08);
-    padding: 0 0 14px 0;
+    min-height: calc(100svh - 32px);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 8px 0 18px 0;
   }
 
   .mobile-scroll-to-login-cue {
@@ -22984,14 +22989,14 @@ mark.polish-mark:hover, mark.polish-mark.active {
     align-items: center;
     justify-content: center;
     align-self: center;
-    gap: 6px;
-    margin-top: 2px;
-    padding: 7px 16px;
+    gap: 7px;
+    margin-top: auto;
+    padding: 9px 20px;
     border-radius: 999px;
     background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
     color: #F8FAFC;
     border: 1px solid rgba(251, 191, 36, 0.45);
-    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.16);
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.18);
     font-family: 'Space Grotesk', 'Inter', sans-serif;
     font-size: 11.5px;
     font-weight: 800;
@@ -23024,84 +23029,89 @@ mark.polish-mark:hover, mark.polish-mark.active {
 
 @media (max-width: 680px) {
   .login-main-wrap {
-    padding: 6px 8px 24px 8px !important;
+    padding: 8px 8px 24px 8px !important;
   }
 
   .login-page-card-standalone {
-    padding: 10px 10px 20px 10px !important;
+    padding: 14px 12px 22px 12px !important;
   }
 
   .slant-triad-layout.slant-two-col-stage {
-    gap: 12px;
+    gap: 18px;
   }
 
   .triad-col-pillars.triad-col-brand-narrative {
-    gap: 6px;
-    padding: 0 0 6px 0;
+    min-height: max(620px, calc(100svh - 28px));
+    justify-content: space-between;
+    gap: 12px;
+    padding: 6px 0 16px 0;
   }
 
   .login-brand-masthead-row {
     flex-direction: column;
     align-items: center;
     text-align: center;
-    gap: 4px;
-    padding-bottom: 0;
+    gap: 10px;
+    padding: 6px 0 4px;
   }
 
   .login-brand-masthead-identity {
-    gap: 8px;
+    gap: 12px;
   }
 
   .login-brand-emblem-frame {
-    width: 38px;
-    height: 38px;
-    border-radius: 10px;
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
   }
 
   .login-brand-masthead-title {
-    font-size: 22px;
+    font-size: 32px;
+    line-height: 1.02;
+    letter-spacing: -0.5px;
   }
 
   .login-brand-masthead-domain {
-    font-size: 9.5px;
+    font-size: 11px;
+    letter-spacing: 0.7px;
   }
 
   .pillars-switcher-pills {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 3px;
-    padding: 2.5px;
+    gap: 5px;
+    padding: 4px;
     overflow: hidden;
   }
 
   .pillar-switch-pill {
     flex: 1 1 auto;
     justify-content: center;
-    gap: 3.5px;
-    padding: 5px 5px;
-    font-size: 10.5px;
-    letter-spacing: -0.15px;
+    gap: 5px;
+    padding: 8px 8px;
+    font-size: 12px;
+    letter-spacing: -0.1px;
     overflow: hidden;
   }
 
   .pillar-switch-pill-chronicle {
-    flex: 1.25 1 auto;
+    flex: 1.15 1 auto;
     justify-content: center;
-    padding: 5px 6px;
+    padding: 8px 8px;
     overflow: hidden !important;
   }
 
   .pillar-pill-icon-wrap {
-    flex: 0 0 13px;
-    width: 13px;
-    height: 13px;
+    flex: 0 0 16px;
+    width: 16px;
+    height: 16px;
     margin-left: 0;
   }
 
   .pillar-pill-icon {
-    width: 13px;
-    height: 13px;
+    width: 16px;
+    height: 16px;
   }
 
   .pillar-pill-label-viewport {
@@ -23122,92 +23132,94 @@ mark.polish-mark:hover, mark.polish-mark.active {
   }
 
   .slant-pillars-carousel-viewport {
-    min-height: 0;
-    flex: 0 0 auto;
-    border-radius: 16px;
+    min-height: 390px;
+    flex: 1 1 auto;
+    border-radius: 18px;
   }
 
   .slant-pillar-vertical-card {
-    padding: 8px 12px 18px;
-    gap: 4px;
+    padding: 14px 16px 26px;
+    gap: 8px;
+    justify-content: space-between;
   }
 
   .slant-pillar-card-top-bar {
-    padding-bottom: 4px;
+    padding-bottom: 6px;
   }
 
   .slant-pillar-kicker-tag {
-    font-size: 9.5px;
+    font-size: 10px;
   }
 
   .slant-pillar-card-content-split {
     flex-direction: column;
-    justify-content: flex-start;
-    gap: 5px;
-    padding: 0 4px;
+    justify-content: space-evenly;
+    gap: 10px;
+    padding: 4px 4px;
+    flex: 1;
   }
 
   .slant-pillar-above-image-goal {
-    font-size: 12.2px;
-    line-height: 1.3;
-    margin: 1px 0 2px;
+    font-size: 13.5px;
+    line-height: 1.35;
+    margin: 2px 0;
   }
 
   .slant-pillar-vertical-visual {
     width: 100%;
     flex: 0 0 auto;
-    height: 130px;
+    height: 182px;
   }
 
   .slant-pillar-vertical-img {
-    max-height: 124px;
+    max-height: 174px;
     border-radius: 14px;
   }
 
   .slant-pillar-vertical-body {
     margin-top: 0;
-    padding-bottom: 2px;
-    gap: 3px;
+    padding-bottom: 4px;
+    gap: 5px;
   }
 
   .slant-pillar-vertical-header {
-    gap: 7px;
-    margin-bottom: 0;
+    gap: 8px;
+    margin-bottom: 1px;
   }
 
   .slant-pillar-vertical-icon {
-    width: 24px;
-    height: 24px;
-    border-radius: 6px;
+    width: 26px;
+    height: 26px;
+    border-radius: 7px;
   }
 
   .slant-pillar-vertical-title {
-    font-size: 17.5px;
+    font-size: 19.5px;
   }
 
   .slant-pillar-vertical-hook {
-    font-size: 13px;
-    line-height: 1.25;
+    font-size: 13.8px;
+    line-height: 1.3;
   }
 
   .slant-pillar-vertical-desc {
-    font-size: 11.8px;
-    line-height: 1.35;
+    font-size: 12.6px;
+    line-height: 1.42;
   }
 
   .pillar-carousel-dots {
-    bottom: 5px !important;
+    bottom: 7px !important;
   }
 
   .manifesto-audience-pill {
-    font-size: 9.5px;
-    padding: 3px 11px;
+    font-size: 10.5px;
+    padding: 5px 14px;
   }
 
   .mobile-scroll-to-login-cue {
-    margin-top: 0;
-    padding: 6px 15px;
-    font-size: 11px;
+    margin-top: auto;
+    padding: 9px 20px;
+    font-size: 11.5px;
   }
 }
 
