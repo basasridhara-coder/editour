@@ -15223,7 +15223,7 @@ function updateWebLinkSubmode(isVideo) {
   if (isVideo) {
     if (webIconCircle) webIconCircle.textContent = '🎬';
     if (mentalPill) {
-      mentalPill.textContent = 'Video / Audio Link';
+      mentalPill.textContent = 'Perspective • Video / Audio';
       mentalPill.style.background = '#FFFFFF';
       mentalPill.style.color = '#253833';
     }
@@ -15247,7 +15247,7 @@ function updateWebLinkSubmode(isVideo) {
   } else {
     if (webIconCircle) webIconCircle.textContent = '🌐';
     if (mentalPill) {
-      mentalPill.textContent = 'Web Link';
+      mentalPill.textContent = 'Perspective • Web Link';
       mentalPill.style.background = '#FFFFFF';
       mentalPill.style.color = '#253833';
     }
@@ -15271,12 +15271,20 @@ function updateWebLinkSubmode(isVideo) {
   }
 }
 
+window.lastPerspectiveSparkMode = 'digital_link';
+
 function setAnchorMode(mode) {
   if (typeof clearMandatoryFieldPrompts === 'function') {
     clearMandatoryFieldPrompts();
   }
-  const isDiaryCategory = (mode === 'diary_chronicle');
-  const normalizedSource = isDiaryCategory ? 'inner_voice' : mode;
+  const effectiveMode = (mode === 'perspective')
+    ? (window.lastPerspectiveSparkMode || 'digital_link')
+    : mode;
+  const isDiaryCategory = (effectiveMode === 'diary_chronicle');
+  const normalizedSource = isDiaryCategory ? 'inner_voice' : effectiveMode;
+  if (!isDiaryCategory) {
+    window.lastPerspectiveSparkMode = (normalizedSource === 'inner_voice') ? 'inner_voice' : 'digital_link';
+  }
   const isSwitchingFamily = (creatorSelectedSource === 'inner_voice' && normalizedSource !== 'inner_voice') ||
                             (creatorSelectedSource !== 'inner_voice' && normalizedSource === 'inner_voice');
   if (isSwitchingFamily) {
@@ -15300,19 +15308,41 @@ function setAnchorMode(mode) {
   creatorSelectedSource = normalizedSource;
   isDailyChronicleMode = isDiaryCategory;
 
-  // 1. Highlight selected anchor card (Web Link, Inner Voice, or Diary Chronicle)
+  // 1. Highlight selected top-level pillar card (Perspective vs Diary Chronicle)
   document.querySelectorAll('.anchor-card').forEach(card => {
     const cardMode = card.getAttribute('data-mode');
     let isActive = false;
     if (isDiaryCategory) {
       isActive = (cardMode === 'diary_chronicle');
+    } else if (cardMode === 'perspective') {
+      isActive = true;
     } else if (normalizedSource === 'inner_voice') {
       isActive = (cardMode === 'inner_voice');
     } else {
-      isActive = (cardMode === mode) || ((mode === 'video_audio' || mode === 'digital_link') && cardMode === 'digital_link');
+      isActive = (cardMode === effectiveMode) || ((effectiveMode === 'video_audio' || effectiveMode === 'digital_link') && cardMode === 'digital_link');
     }
     card.classList.toggle('active', isActive);
   });
+
+  // 1b. Sync Perspective Spark Source switcher (Web Link vs Inner Voice)
+  const sparkToggleBar = document.getElementById('perspectiveSparkToggleBar');
+  const sparkWebBtn = document.getElementById('perspectiveSparkWebBtn');
+  const sparkVoiceBtn = document.getElementById('perspectiveSparkVoiceBtn');
+  const webIconCircle = document.getElementById('anchorWebIconCircle');
+  const webSub = document.getElementById('anchorWebSub');
+
+  if (sparkToggleBar) {
+    sparkToggleBar.style.display = isDiaryCategory ? 'none' : 'flex';
+  }
+  if (!isDiaryCategory) {
+    const isVoiceSpark = (normalizedSource === 'inner_voice');
+    if (sparkWebBtn) sparkWebBtn.classList.toggle('active', !isVoiceSpark);
+    if (sparkVoiceBtn) sparkVoiceBtn.classList.toggle('active', isVoiceSpark);
+    if (webIconCircle) webIconCircle.textContent = isVoiceSpark ? '💭' : '🌐';
+    if (webSub) webSub.textContent = isVoiceSpark ? 'Spark: 💭 Inner Voice' : 'Spark: 🌐 Web Link';
+  } else {
+    if (webSub) webSub.textContent = 'Web Link • Inner Voice';
+  }
 
   // 2. Toggle trigger sections
   const secLink = document.getElementById('triggerWebSection');
@@ -15344,7 +15374,7 @@ function setAnchorMode(mode) {
       }
     } else {
       if (mentalPill) {
-        mentalPill.textContent = 'Inner Voice';
+        mentalPill.textContent = 'Perspective • Inner Voice';
         mentalPill.style.background = '#FFFFFF';
         mentalPill.style.color = '#253833';
       }
@@ -15386,7 +15416,7 @@ function setAnchorMode(mode) {
 
     const urlInput = document.getElementById('creatorUrlInput');
     const currentVal = urlInput ? urlInput.value.trim() : '';
-    const isVideo = (mode === 'video_audio') || isVideoAudioUrl(currentVal) || (currentScrapedArticle && currentScrapedArticle.isVideo);
+    const isVideo = (effectiveMode === 'video_audio') || isVideoAudioUrl(currentVal) || (currentScrapedArticle && currentScrapedArticle.isVideo);
     updateWebLinkSubmode(isVideo);
   }
 }

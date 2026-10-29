@@ -29,7 +29,7 @@
   <link rel="preconnect" href="https://fxfklefnkpmhofncqhfh.supabase.co" crossorigin>
   <link rel="preconnect" href="https://accounts.google.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Merriweather:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,400;1,600;1,700;1,900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261029_1926">
+  <link rel="stylesheet" href="style.css?v=20261029_2215">
   <!-- Favicon & Brand Icons -->
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
@@ -549,27 +549,35 @@
             <span class="anchor-label">ROOT YOUR SLANT IN</span>
             <span class="anchor-tag">Source Anchor</span>
           </div>
-          <div class="creator-anchor-grid">
-            <!-- 1. Web Link (Articles, Videos, Podcasts) -->
-            <button type="button" class="anchor-card active" data-mode="digital_link" id="anchorWebBtn" onclick="setAnchorMode('digital_link')">
+          <div class="creator-anchor-grid is-two-pillar-grid">
+            <!-- 1. Perspective (Merged Web Link & Inner Voice) -->
+            <button type="button" class="anchor-card active" data-mode="perspective" id="anchorPerspectiveBtn" onclick="setAnchorMode(window.lastPerspectiveSparkMode || 'digital_link')">
               <div class="anchor-icon-circle anchor-web" id="anchorWebIconCircle">🌐</div>
-              <div class="anchor-card-title" id="anchorWebTitle">Web Link</div>
-              <div class="anchor-card-subtitle" id="anchorWebSub">Articles, Videos, Podcasts</div>
+              <div class="anchor-card-title" id="anchorWebTitle">Perspective</div>
+              <div class="anchor-card-subtitle" id="anchorWebSub">Web Link • Inner Voice</div>
             </button>
 
-            <!-- 2. Inner Voice -->
-            <button type="button" class="anchor-card" data-mode="inner_voice" id="anchorVoiceBtn" onclick="setAnchorMode('inner_voice')">
-              <div class="anchor-icon-circle anchor-voice">💭</div>
-              <div class="anchor-card-title">Inner Voice</div>
-              <div class="anchor-card-subtitle">Personal reflection</div>
-            </button>
-
-            <!-- 3. Diary Chronicle (Strictly Personal Diary) -->
+            <!-- 2. Diary Chronicle (Strictly Personal Diary) -->
             <button type="button" class="anchor-card" data-mode="diary_chronicle" id="anchorDiaryBtn" onclick="setAnchorMode('diary_chronicle')">
               <div class="anchor-icon-circle anchor-diary">📔</div>
               <div class="anchor-card-title">Diary Chronicle</div>
               <div class="anchor-card-subtitle">Your day in moments</div>
             </button>
+          </div>
+
+          <!-- Perspective Spark Source Switcher (Web Link vs Inner Voice — visible when Perspective is active) -->
+          <div class="perspective-spark-toggle-bar" id="perspectiveSparkToggleBar" role="tablist" aria-label="Perspective Spark Source">
+            <span class="perspective-spark-bar-label">SPARK SOURCE</span>
+            <div class="perspective-spark-pills">
+              <button type="button" class="perspective-spark-pill active" id="perspectiveSparkWebBtn" data-spark="digital_link" onclick="setAnchorMode('digital_link')">
+                <span class="spark-pill-icon">🌐</span>
+                <span class="spark-pill-text">Web Link</span>
+              </button>
+              <button type="button" class="perspective-spark-pill" id="perspectiveSparkVoiceBtn" data-spark="inner_voice" onclick="setAnchorMode('inner_voice')">
+                <span class="spark-pill-icon">💭</span>
+                <span class="spark-pill-text">Inner Voice</span>
+              </button>
+            </div>
           </div>
 
           <!-- Dynamic Mental Model Banner -->
@@ -2327,6 +2335,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261029_1926"></script>
+  <script src="app.js?v=20261029_2215"></script>
 </body>
 </html>
