@@ -966,6 +966,9 @@ function updateAuthUI() {
     if (typeof decryptAllOwnedChroniclePosts === 'function') {
       decryptAllOwnedChroniclePosts();
     }
+    if (typeof maybeShowFirstLoginSlantDictionaryModal === 'function') {
+      maybeShowFirstLoginSlantDictionaryModal();
+    }
   } else {
     if (deepPostId) {
       if (signedInView) signedInView.style.display = 'flex';
@@ -1004,6 +1007,85 @@ function updateAuthUI() {
     const headerDiaryBtn = document.getElementById('headerDiaryBtn');
     if (headerDiaryBtn) headerDiaryBtn.style.display = 'inline-flex';
   }
+}
+
+let _slantDictTimers = [];
+
+function clearSlantDictionaryTimers() {
+  while (_slantDictTimers.length > 0) {
+    clearTimeout(_slantDictTimers.pop());
+  }
+}
+
+window.openSlantDictionaryModal = function(event) {
+  if (event && typeof event.stopPropagation === 'function') {
+    event.stopPropagation();
+  }
+  const modal = document.getElementById('slantDictionaryModal');
+  if (!modal) return;
+  modal.style.display = 'flex';
+  window.replaySlantDictionaryAnimation();
+};
+
+window.closeSlantDictionaryModal = function() {
+  clearSlantDictionaryTimers();
+  const modal = document.getElementById('slantDictionaryModal');
+  if (modal) {
+    modal.style.display = 'none';
+  }
+};
+
+window.replaySlantDictionaryAnimation = function() {
+  clearSlantDictionaryTimers();
+  const card = document.getElementById('slantDictPostcard');
+  const queryEl = document.getElementById('slantDictTypedQuery');
+  const cursorEl = document.getElementById('slantDictCursor');
+  if (!card || !queryEl) return;
+
+  card.classList.remove('phase-focus', 'phase-finale');
+  const targetText = 'slant meaning';
+  queryEl.textContent = '';
+  if (cursorEl) cursorEl.style.display = 'inline';
+
+  // Step 1: Typewriter effect for "slant meaning" (~650ms)
+  for (let i = 1; i <= targetText.length; i++) {
+    const t = setTimeout(() => {
+      queryEl.textContent = targetText.slice(0, i);
+    }, i * 48);
+    _slantDictTimers.push(t);
+  }
+
+  // Step 2: Fade out Geometry Sense #1 and Illuminate Verb & Noun Sense #2 (~1050ms)
+  _slantDictTimers.push(setTimeout(() => {
+    card.classList.add('phase-focus');
+    if (cursorEl) cursorEl.style.display = 'none';
+  }, 1050));
+
+  // Step 3: Reveal Finale Quote & "Happy Slanting ✦" CTA (~1850ms)
+  _slantDictTimers.push(setTimeout(() => {
+    card.classList.add('phase-finale');
+  }, 1850));
+};
+
+function maybeShowFirstLoginSlantDictionaryModal() {
+  if (!currentUser || !currentUser.id) return;
+  const deepPostId = typeof getDeepLinkedPostId === 'function' ? getDeepLinkedPostId() : null;
+  if (deepPostId) return;
+
+  const storageKey = 'slant_dict_welcome_seen_v1_' + currentUser.id;
+  try {
+    if (localStorage.getItem(storageKey) === '1') return;
+    localStorage.setItem(storageKey, '1');
+  } catch (e) {
+    return;
+  }
+
+  setTimeout(() => {
+    const signedInView = document.getElementById('signedInAppView');
+    if (signedInView && signedInView.style.display !== 'none') {
+      window.openSlantDictionaryModal();
+    }
+  }, 650);
 }
 
 let isAuthPasswordMode = false;

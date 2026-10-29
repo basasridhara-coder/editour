@@ -29,7 +29,7 @@
   <link rel="preconnect" href="https://fxfklefnkpmhofncqhfh.supabase.co" crossorigin>
   <link rel="preconnect" href="https://accounts.google.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Merriweather:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,400;1,600;1,700;1,900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261029_2359">
+  <link rel="stylesheet" href="style.css?v=20261030_0015">
   <!-- Favicon & Brand Icons -->
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
@@ -88,7 +88,13 @@
                   <img class="login-brand-emblem-img" src="/slanlogo.svg?v=20261013_2100" alt="Slant Pen-Nib Emblem" width="56" height="56">
                 </div>
                 <div class="login-brand-title-group">
-                  <h1 class="login-brand-masthead-title">Slant</h1>
+                  <div class="login-brand-title-inline">
+                    <h1 class="login-brand-masthead-title">Slant</h1>
+                    <button type="button" class="slant-phonetic-pill" onclick="openSlantDictionaryModal(event)" title="What does 'Slant' mean?" aria-label="What does Slant mean?">
+                      <span class="phonetic-text">/slɑːnt/</span>
+                      <span class="phonetic-info-dot">i</span>
+                    </button>
+                  </div>
                   <span class="login-brand-masthead-domain">slant.today</span>
                 </div>
               </div>
@@ -306,7 +312,13 @@
             <img src="/logo.png" alt="Slant Logo" class="brand-logo-img">
           </div>
           <div class="brand-text">
-            <div class="brand-title">Slant</div>
+            <div class="brand-title-inline">
+              <div class="brand-title">Slant</div>
+              <button type="button" class="slant-phonetic-pill header-phonetic-pill" onclick="openSlantDictionaryModal(event)" title="What does 'Slant' mean?" aria-label="What does Slant mean?">
+                <span class="phonetic-text">/slɑːnt/</span>
+                <span class="phonetic-info-dot">i</span>
+              </button>
+            </div>
             <div class="brand-subtitle">slant.today</div>
           </div>
         </div>
@@ -2313,6 +2325,79 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261029_2330"></script>
+  <!-- Animated Slant Dictionary Meaning Postcard Modal (First-Time Welcome & On-Demand /slɑːnt/ Pill) -->
+  <div class="slant-dict-modal-overlay" id="slantDictionaryModal" style="display:none;" onclick="if(event.target===this) closeSlantDictionaryModal()">
+    <div class="slant-dict-postcard" id="slantDictPostcard" onclick="event.stopPropagation()">
+      <button type="button" class="slant-dict-close-btn" onclick="closeSlantDictionaryModal()" aria-label="Close">&times;</button>
+
+      <!-- Animated Typewriter Search Bar -->
+      <div class="slant-dict-search-bar">
+        <svg class="slant-dict-search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <span class="slant-dict-typed-query" id="slantDictTypedQuery">slant meaning</span>
+        <span class="slant-dict-cursor" id="slantDictCursor">|</span>
+        <button type="button" class="slant-dict-replay-btn" onclick="replaySlantDictionaryAnimation()" title="Replay animation">↻</button>
+      </div>
+
+      <!-- Dictionary Headword Header -->
+      <div class="slant-dict-headword-row">
+        <div class="slant-dict-word-group">
+          <span class="slant-dict-word">slant</span>
+          <span class="slant-dict-phonetic">/slɑːnt/</span>
+        </div>
+        <span class="slant-dict-lexicon-tag">VERB &amp; NOUN</span>
+      </div>
+
+      <!-- Dictionary Senses Body -->
+      <div class="slant-dict-senses-body">
+
+        <!-- VERB SECTION -->
+        <div class="slant-dict-pos-block">
+          <div class="slant-dict-pos-label">verb</div>
+          <div class="slant-dict-sense sense-fade-out" id="slantDictVerb1">
+            <span class="sense-num">1.</span>
+            <span class="sense-text">to be at an angle, not vertical or horizontal.</span>
+          </div>
+          <div class="slant-dict-sense sense-highlight-focus" id="slantDictVerb2">
+            <div class="sense-highlight-badge">✦ THE ACTION — TO SLANT IT</div>
+            <div class="sense-main-line">
+              <span class="sense-num">2.</span>
+              <span class="sense-text">to frame information, events, or daily moments in a way that expresses <strong>your own honest angle and voice</strong>.</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- NOUN SECTION -->
+        <div class="slant-dict-pos-block">
+          <div class="slant-dict-pos-label">noun</div>
+          <div class="slant-dict-sense sense-fade-out" id="slantDictNoun1">
+            <span class="sense-num">1.</span>
+            <span class="sense-text">a position at an angle, not horizontal or vertical.</span>
+          </div>
+          <div class="slant-dict-sense sense-highlight-focus" id="slantDictNoun2">
+            <div class="sense-highlight-badge">✦ THE PERSPECTIVE — YOUR SLANT</div>
+            <div class="sense-main-line">
+              <span class="sense-num">2.</span>
+              <span class="sense-text">a way of <strong>thinking or writing</strong> about something that sees things from <strong>a distinct point of view</strong>.</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Animated Finale Footer & CTA -->
+      <div class="slant-dict-finale-footer" id="slantDictFinaleFooter">
+        <p class="slant-dict-finale-quote">✦ Every thought deserves a frame.</p>
+        <button type="button" class="slant-dict-happy-btn" onclick="closeSlantDictionaryModal()">
+          <span>Happy Slanting</span>
+          <span class="happy-btn-sparkle">✦</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js?v=20261030_0015"></script>
 </body>
 </html>

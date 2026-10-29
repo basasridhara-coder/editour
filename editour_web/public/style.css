@@ -24842,3 +24842,429 @@ mark.polish-mark:hover, mark.polish-mark.active {
   border-color: #37534C !important;
   color: #192723 !important;
 }
+
+/* ============================================================
+   SLANT PHONETIC DICTIONARY PILL & ANIMATED MEANING POSTCARD
+   ============================================================ */
+.login-brand-title-inline,
+.brand-title-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.slant-phonetic-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px 2px 8px;
+  border-radius: 999px;
+  background: rgba(180, 83, 9, 0.10);
+  border: 1px solid rgba(180, 83, 9, 0.32);
+  color: #8B5E34;
+  font-family: 'Merriweather', Georgia, serif;
+  font-size: 11px;
+  font-style: italic;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.slant-phonetic-pill:hover {
+  background: rgba(180, 83, 9, 0.18);
+  border-color: rgba(180, 83, 9, 0.55);
+  transform: translateY(-1px);
+}
+
+.slant-phonetic-pill.header-phonetic-pill {
+  font-size: 10px;
+  padding: 1.5px 6px 1.5px 7px;
+}
+
+[data-theme="obsidian"] .slant-phonetic-pill {
+  background: rgba(251, 191, 36, 0.14);
+  border-color: rgba(251, 191, 36, 0.38);
+  color: #FBBF24;
+}
+
+.phonetic-info-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: rgba(139, 94, 52, 0.18);
+  color: #7C4D25;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-style: normal;
+  font-size: 9px;
+  font-weight: 800;
+}
+
+[data-theme="obsidian"] .phonetic-info-dot {
+  background: rgba(251, 191, 36, 0.22);
+  color: #FDE68A;
+}
+
+/* Modal Overlay & Postcard */
+.slant-dict-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  background: rgba(15, 23, 42, 0.68);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  box-sizing: border-box;
+  animation: slantDictOverlayFadeIn 0.28s ease;
+}
+
+@keyframes slantDictOverlayFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.slant-dict-postcard {
+  position: relative;
+  width: 100%;
+  max-width: 440px;
+  background: #FAF6ED;
+  border: 1.5px solid rgba(139, 115, 85, 0.36);
+  border-radius: 22px;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.65) inset;
+  padding: 22px 22px 20px;
+  color: #1E242B;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-sizing: border-box;
+  transform: translateY(0) scale(1);
+  animation: slantDictCardPop 0.34s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes slantDictCardPop {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.slant-dict-close-btn {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid rgba(139, 115, 85, 0.25);
+  background: rgba(255, 255, 255, 0.75);
+  color: #4A5A55;
+  font-size: 18px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.slant-dict-close-btn:hover {
+  background: #253833;
+  color: #FFFFFF;
+}
+
+/* Typewriter Search Bar */
+.slant-dict-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  margin-right: 34px;
+  border-radius: 999px;
+  background: #FFFFFF;
+  border: 1.5px solid #D5CEC0;
+  box-shadow: 0 3px 10px rgba(139, 115, 85, 0.08);
+}
+
+.slant-dict-search-icon {
+  color: #8B5E34;
+  flex-shrink: 0;
+}
+
+.slant-dict-typed-query {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1E242B;
+  letter-spacing: -0.1px;
+}
+
+.slant-dict-cursor {
+  font-family: monospace;
+  font-size: 14px;
+  font-weight: 700;
+  color: #B45309;
+  animation: slantDictBlink 0.75s step-end infinite;
+}
+
+@keyframes slantDictBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.slant-dict-replay-btn {
+  margin-left: auto;
+  border: none;
+  background: rgba(139, 115, 85, 0.12);
+  color: #6B533B;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.slant-dict-replay-btn:hover {
+  background: #253833;
+  color: #FFFFFF;
+}
+
+/* Headword Header */
+.slant-dict-headword-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(139, 115, 85, 0.22);
+}
+
+.slant-dict-word-group {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.slant-dict-word {
+  font-family: 'Playfair Display', 'Merriweather', Georgia, serif;
+  font-size: 32px;
+  font-weight: 900;
+  color: #192723;
+  letter-spacing: -0.6px;
+  line-height: 1;
+}
+
+.slant-dict-phonetic {
+  font-family: 'Merriweather', Georgia, serif;
+  font-size: 14px;
+  font-style: italic;
+  color: #8B5E34;
+  font-weight: 700;
+}
+
+.slant-dict-lexicon-tag {
+  font-family: 'Space Grotesk', 'Inter', sans-serif;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.9px;
+  text-transform: uppercase;
+  color: #253833;
+  background: rgba(37, 56, 51, 0.10);
+  padding: 3px 9px;
+  border-radius: 999px;
+}
+
+/* Senses Body */
+.slant-dict-senses-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.slant-dict-pos-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.slant-dict-pos-label {
+  font-family: 'Merriweather', Georgia, serif;
+  font-size: 12px;
+  font-style: italic;
+  font-weight: 700;
+  color: #7C4D25;
+}
+
+.slant-dict-sense {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 13px;
+  line-height: 1.44;
+  color: #2C353F;
+  transition: all 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.slant-dict-sense .sense-num {
+  font-weight: 800;
+  color: #64748B;
+  flex-shrink: 0;
+}
+
+/* Sense #1 (Geometry) — dims out when animation enters focus phase */
+.slant-dict-postcard.phase-focus .sense-fade-out {
+  opacity: 0.28;
+  filter: blur(0.3px);
+  transform: scale(0.985);
+  text-decoration: line-through;
+  text-decoration-color: rgba(100, 116, 139, 0.45);
+}
+
+/* Sense #2 (Human Perspective & Verb Action) — illuminates in focus phase */
+.slant-dict-sense.sense-highlight-focus {
+  flex-direction: column;
+  gap: 4px;
+  padding: 9px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.55);
+  border: 1.5px solid rgba(180, 83, 9, 0.16);
+  transition: all 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.slant-dict-sense.sense-highlight-focus .sense-main-line {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.sense-highlight-badge {
+  font-family: 'Space Grotesk', 'Inter', sans-serif;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.75px;
+  text-transform: uppercase;
+  color: #9A5B1A;
+  opacity: 0;
+  max-height: 0;
+  overflow: hidden;
+  transition: all 0.45s ease;
+}
+
+.slant-dict-postcard.phase-focus .slant-dict-sense.sense-highlight-focus {
+  background: linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%);
+  border-color: #D97706;
+  box-shadow: 0 8px 22px rgba(180, 83, 9, 0.16);
+  transform: translateY(-1px) scale(1.01);
+}
+
+.slant-dict-postcard.phase-focus .sense-highlight-badge {
+  opacity: 1;
+  max-height: 22px;
+  margin-bottom: 1px;
+}
+
+.slant-dict-postcard.phase-focus .slant-dict-sense.sense-highlight-focus .sense-num {
+  color: #B45309;
+}
+
+.slant-dict-postcard.phase-focus .slant-dict-sense.sense-highlight-focus .sense-text {
+  color: #192723;
+}
+
+.slant-dict-sense.sense-highlight-focus .sense-text strong {
+  color: #9A5B1A;
+  font-weight: 800;
+}
+
+/* Finale Footer */
+.slant-dict-finale-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(139, 115, 85, 0.22);
+  opacity: 0.25;
+  transform: translateY(4px);
+  transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.slant-dict-postcard.phase-finale .slant-dict-finale-footer {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.slant-dict-finale-quote {
+  margin: 0;
+  font-family: 'Playfair Display', 'Merriweather', Georgia, serif;
+  font-size: 13.5px;
+  font-style: italic;
+  font-weight: 700;
+  color: #8B5E34;
+}
+
+.slant-dict-happy-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 11px 20px;
+  border-radius: 999px;
+  border: 1.5px solid rgba(251, 191, 36, 0.55);
+  background: linear-gradient(135deg, #192723 0%, #253833 100%);
+  color: #FFFFFF;
+  font-family: 'Playfair Display', 'Merriweather', Georgia, serif;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+  box-shadow: 0 8px 22px rgba(25, 39, 35, 0.24);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.slant-dict-happy-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 26px rgba(25, 39, 35, 0.32);
+}
+
+.happy-btn-sparkle {
+  color: #FBBF24;
+  font-size: 14px;
+}
+
+@media (max-width: 680px) {
+  .slant-dict-postcard {
+    padding: 18px 16px 16px;
+    gap: 11px;
+  }
+
+  .slant-dict-word {
+    font-size: 27px;
+  }
+
+  .slant-dict-sense {
+    font-size: 12.2px;
+  }
+
+  .slant-phonetic-pill {
+    font-size: 10px;
+    padding: 1.5px 6px 1.5px 7px;
+  }
+}
+
