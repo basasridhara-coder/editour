@@ -20979,29 +20979,32 @@ mark.polish-mark:hover, mark.polish-mark.active {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 4px 12px;
-  border-radius: 99px;
-  background: rgba(217, 119, 6, 0.11);
-  border: 1px solid rgba(217, 119, 6, 0.32);
-  color: #B45309;
+  padding: 0 4px 8px 4px;
+  border-radius: 0;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(180, 83, 9, 0.24);
+  color: #9A5B1A;
   font-family: 'Space Grotesk', 'Inter', sans-serif;
   font-size: 10px;
   font-weight: 800;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.15em;
   text-transform: uppercase;
-  margin-bottom: 14px;
+  margin-bottom: 16px;
 }
 
 [data-theme="obsidian"] .chronicle-reflection-kicker {
-  background: rgba(245, 158, 11, 0.15);
-  border-color: rgba(245, 158, 11, 0.38);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(245, 158, 11, 0.32);
   color: #FBBF24;
 }
 
 .poster-export-sandbox .chronicle-reflection-kicker {
-  background: rgba(217, 119, 6, 0.11) !important;
-  border-color: rgba(217, 119, 6, 0.32) !important;
-  color: #B45309 !important;
+  background: transparent !important;
+  border: none !important;
+  border-bottom: 1px solid rgba(180, 83, 9, 0.24) !important;
+  color: #9A5B1A !important;
 }
 
 .chronicle-reflection-quote-mark {
@@ -21061,24 +21064,24 @@ mark.polish-mark:hover, mark.polish-mark.active {
 }
 
 .chronicle-reflection-centerpiece.has-two-quotes {
-  padding: 12px 18px !important;
-  gap: 8px;
+  padding: 10px 14px !important;
+  gap: 6px;
 }
 
 .chronicle-behavior-pill {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 3px 10px;
-  border-radius: 99px;
+  gap: 5px;
+  padding: 0;
+  border-radius: 0;
   font-family: 'Space Grotesk', 'Inter', sans-serif;
-  font-size: 9.2px;
+  font-size: 9.6px;
   font-weight: 800;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.11em;
   text-transform: uppercase;
-  background: rgba(217, 119, 6, 0.11);
-  border: 1px solid rgba(217, 119, 6, 0.28);
-  color: #B45309;
+  background: transparent !important;
+  border: none !important;
+  color: #9A5B1A;
 }
 
 .chronicle-behavior-pill.is-single-pill {
@@ -21086,78 +21089,103 @@ mark.polish-mark:hover, mark.polish-mark.active {
 }
 
 .chronicle-behavior-pill.is-positive {
-  background: rgba(5, 150, 105, 0.11);
-  border-color: rgba(5, 150, 105, 0.3);
-  color: #047857;
+  background: transparent !important;
+  border: none !important;
+  color: #1F6E58;
 }
 
 .chronicle-behavior-pill.is-corrective {
-  background: rgba(217, 119, 6, 0.14);
-  border-color: rgba(217, 119, 6, 0.38);
-  color: #B45309;
+  background: transparent !important;
+  border: none !important;
+  color: #9A5B1A;
 }
 
 [data-theme="obsidian"] .chronicle-behavior-pill {
-  background: rgba(245, 158, 11, 0.16);
-  border-color: rgba(245, 158, 11, 0.38);
+  background: transparent !important;
+  border: none !important;
   color: #FBBF24;
 }
 
 [data-theme="obsidian"] .chronicle-behavior-pill.is-positive {
-  background: rgba(16, 185, 129, 0.16);
-  border-color: rgba(16, 185, 129, 0.38);
+  background: transparent !important;
+  border: none !important;
   color: #34D399;
 }
 
 .chronicle-dual-reflections-stack {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  align-items: center;
+  gap: 12px;
   width: 100%;
-  margin: 2px 0 8px 0;
+  margin: 4px 0 12px 0;
+}
+
+.chronicle-dual-fleuron-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 64%;
+  margin: 2px auto;
+  opacity: 0.72;
+}
+
+.chronicle-dual-fleuron-divider .fleuron-line {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, rgba(154, 91, 26, 0.38) 50%, transparent 100%);
+}
+
+.chronicle-dual-fleuron-divider .fleuron-glyph {
+  font-size: 10px;
+  color: #9A5B1A;
+  line-height: 1;
 }
 
 .chronicle-reflection-quote-card {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  padding: 11px 14px;
-  border-radius: 14px;
-  background: rgba(15, 23, 42, 0.032);
-  border: 1px solid rgba(217, 119, 6, 0.22);
+  gap: 7px;
+  padding: 4px 8px;
+  border-radius: 0;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
   box-sizing: border-box;
   text-align: center;
 }
 
 .chronicle-reflection-quote-card.is-polarity-positive {
-  border-color: rgba(5, 150, 105, 0.24);
-  background: rgba(5, 150, 105, 0.04);
+  border: none !important;
+  background: transparent !important;
 }
 
 .chronicle-reflection-quote-card.is-polarity-corrective {
-  border-color: rgba(217, 119, 6, 0.28);
-  background: rgba(245, 158, 11, 0.055);
+  border: none !important;
+  background: transparent !important;
 }
 
 [data-theme="obsidian"] .chronicle-reflection-quote-card {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: rgba(245, 158, 11, 0.28);
+  background: transparent !important;
+  border: none !important;
 }
 
 [data-theme="obsidian"] .chronicle-reflection-quote-card.is-polarity-positive {
-  background: rgba(16, 185, 129, 0.06);
-  border-color: rgba(16, 185, 129, 0.28);
+  background: transparent !important;
+  border: none !important;
 }
 
 .chronicle-reflection-dual-text {
   font-family: 'Fraunces', 'Playfair Display', Georgia, serif !important;
-  font-size: 14.8px !important;
-  line-height: 1.46 !important;
+  font-size: 15.6px !important;
+  line-height: 1.50 !important;
   font-weight: 600 !important;
   color: #0F172A;
   margin: 0 !important;
   text-align: center !important;
+  max-width: 96%;
 }
 
 [data-theme="obsidian"] .chronicle-reflection-dual-text {
@@ -24560,17 +24588,20 @@ mark.polish-mark:hover, mark.polish-mark.active {
   box-shadow: 0 4px 14px rgba(40, 70, 62, 0.28) !important;
 }
 
-/* 6. Behavioral & Emotional Reflection Centerpiece — Boreal Pine & Birch Daylight Harmony */
+/* 6. Behavioral & Emotional Reflection Centerpiece — Open Literary Journal Typography (No Nested Boxes) */
 :root .chronicle-reflection-centerpiece,
 [data-theme="daylight"] .chronicle-reflection-centerpiece {
-  background: #F2F6F4 !important;
-  border: 1px solid #C8D9D3 !important;
-  box-shadow: 0 6px 20px rgba(25, 39, 35, 0.05) !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 
 :root .chronicle-reflection-kicker,
 [data-theme="daylight"] .chronicle-reflection-kicker {
-  color: #37534C !important;
+  color: #9A5B1A !important;
+  background: transparent !important;
+  border: none !important;
+  border-bottom: 1px solid rgba(154, 91, 26, 0.22) !important;
 }
 
 :root .chronicle-reflection-quote,

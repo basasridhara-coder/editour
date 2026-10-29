@@ -6506,7 +6506,8 @@ function buildChronicleReflectionCenterpieceHtml(post, showInteractiveFeedback =
           </div>
           ${hasTwoReflections ? `
             <div class="chronicle-dual-reflections-stack">
-              ${chronicleReflectionsList.slice(0, 2).map((refItem) => `
+              ${chronicleReflectionsList.slice(0, 2).map((refItem, idx) => `
+                ${idx > 0 ? `<div class="chronicle-dual-fleuron-divider" aria-hidden="true"><span class="fleuron-line"></span><span class="fleuron-glyph">✦</span><span class="fleuron-line"></span></div>` : ''}
                 <div class="chronicle-reflection-quote-card is-polarity-${escapeHtml(refItem.polarity || 'generic')}">
                   <div class="chronicle-behavior-pill is-${escapeHtml(refItem.polarity || 'generic')}">${escapeHtml(refItem.behaviorTag || '✦ DAILY REFLECTION')}</div>
                   <p class="chronicle-reflection-dual-text">&ldquo;${escapeHtml(refItem.quote)}&rdquo;</p>
