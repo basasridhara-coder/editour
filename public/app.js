@@ -12140,15 +12140,84 @@ function selectVaultMember(memberId) {
   if (body) body.scrollTop = 0;
 }
 
+const VAULT_POSE_CONFIGS = [
+  {
+    key: 'frontal',
+    num: 1,
+    title: 'Front Face & Smile',
+    sampleImg: '/pose_guide_frontal.jpg',
+    tip: 'Direct eye-level, soft daylight, natural smile.'
+  },
+  {
+    key: 'profile',
+    num: 2,
+    title: '35° Turn / Jawline',
+    sampleImg: '/pose_guide_profile.jpg',
+    tip: 'Turn head 30–45° to capture nose slope & jawline depth.'
+  },
+  {
+    key: 'stature',
+    num: 3,
+    title: 'Hair & Waist-Up Stature',
+    sampleImg: '/pose_guide_stature.jpg',
+    tip: 'Waist-up standing view showing natural hair volume & build.'
+  }
+];
+
 function stepVaultPoseSlot(delta) {
   const total = 3;
-  activeVaultPoseSlotIdx = ((activeVaultPoseSlotIdx + (delta || 1)) % total + total) % total;
-  renderActiveMemberScreen();
+  const nextIdx = ((activeVaultPoseSlotIdx + (delta || 1)) % total + total) % total;
+  goToVaultPoseSlot(nextIdx);
 }
 
 function goToVaultPoseSlot(slotIdx) {
   activeVaultPoseSlotIdx = Math.max(0, Math.min(2, Number(slotIdx) || 0));
-  renderActiveMemberScreen();
+  const track = document.getElementById('vaultPoseTrack');
+  if (!track) {
+    renderActiveMemberScreen();
+    return;
+  }
+
+  // Smoothly slide track in-place while keeping the outer frame 100% steady
+  track.style.transform = `translateX(-${activeVaultPoseSlotIdx * (100 / 3)}%)`;
+
+  const cast = familyCastProfileCache || getDefaultClientFamilyCast();
+  const member = (cast.members || []).find(m => m.id === activeVaultMemberId);
+  const photos = (member && member.photos) ? member.photos : {};
+  const pose = VAULT_POSE_CONFIGS[activeVaultPoseSlotIdx];
+  const currentPosePhoto = photos[pose.key] || null;
+
+  const stepPill = document.getElementById('vaultPoseStepPill');
+  if (stepPill) stepPill.textContent = `Pose ${pose.num} / 3`;
+
+  const titleEl = document.getElementById('vaultPoseTitleText');
+  if (titleEl) titleEl.textContent = pose.title;
+
+  const tipEl = document.getElementById('vaultPoseTipBox');
+  if (tipEl) tipEl.textContent = pose.tip;
+
+  const frameEl = document.getElementById('vaultPoseViewportFrame');
+  if (frameEl) {
+    frameEl.classList.toggle('has-user-photo', Boolean(currentPosePhoto));
+    frameEl.classList.toggle('is-sample-pose', !currentPosePhoto);
+  }
+
+  const uploadBtn = document.getElementById('vaultPosePrimaryUploadBtn');
+  if (uploadBtn) {
+    uploadBtn.onclick = () => triggerSlotUpload(pose.key);
+    uploadBtn.innerHTML = `<span>📷 ${currentPosePhoto ? 'Change Photo' : 'Add Photo'}</span>`;
+  }
+
+  const removeBtn = document.getElementById('vaultPoseRemoveBtn');
+  if (removeBtn) {
+    removeBtn.style.display = currentPosePhoto ? 'inline-flex' : 'none';
+    removeBtn.onclick = () => removeSlotPhoto(pose.key);
+  }
+
+  const dots = document.querySelectorAll('#vaultPoseDotsRow .vault-pose-dot');
+  dots.forEach((dot, idx) => {
+    dot.classList.toggle('active', idx === activeVaultPoseSlotIdx);
+  });
 }
 
 function addNewVaultMember() {
@@ -12214,7 +12283,6 @@ function renderActiveMemberScreen() {
 
   const isDefaultPrimary = (member.id === 'member_father');
   const photos = member.photos;
-  const photoCount = [photos.frontal, photos.profile, photos.stature].filter(Boolean).length;
 
   // Calculate Next member label
   const currentIdx = members.findIndex(m => m.id === member.id);
@@ -12225,65 +12293,50 @@ function renderActiveMemberScreen() {
   const saveBtnText = document.getElementById('vaultSaveNextBtnText');
   if (saveBtnText) saveBtnText.textContent = nextLabel;
 
-  const poseConfigs = [
-    {
-      key: 'frontal',
-      num: 1,
-      title: 'Front Face & Smile',
-      sampleImg: '/pose_guide_frontal.jpg',
-      tip: 'Direct eye-level, soft daylight, natural smile.'
-    },
-    {
-      key: 'profile',
-      num: 2,
-      title: '35° Turn / Jawline',
-      sampleImg: '/pose_guide_profile.jpg',
-      tip: 'Turn head 30–45° to capture nose slope & jawline depth.'
-    },
-    {
-      key: 'stature',
-      num: 3,
-      title: 'Hair & Waist-Up Stature',
-      sampleImg: '/pose_guide_stature.jpg',
-      tip: 'Waist-up standing view showing natural hair volume & build.'
-    }
-  ];
-
   const activePoseIdx = Math.max(0, Math.min(2, activeVaultPoseSlotIdx || 0));
-  const pose = poseConfigs[activePoseIdx];
+  const pose = VAULT_POSE_CONFIGS[activePoseIdx];
   const currentPosePhoto = photos[pose.key] || null;
 
   container.innerHTML = `
     <div class="vault-active-member-container">
-      <!-- Single-Card Sliding Pose Carousel -->
+      <!-- Single-Card Steady Sliding Pose Carousel -->
       <div class="vault-pose-slider-card" id="vaultPoseSliderCard">
-        <div class="vault-pose-slider-header">
-          <div class="vault-pose-header-left">
-            <span class="vault-pose-step-pill">Pose ${pose.num} / 3</span>
-            <span class="vault-pose-title">${escapeHtml(pose.title)}</span>
+        <div class="vault-pose-slider-top">
+          <div class="vault-pose-slider-title-group">
+            <span class="vault-pose-step-pill" id="vaultPoseStepPill">Pose ${pose.num} / 3</span>
+            <span class="vault-pose-stage-title" id="vaultPoseTitleText">${escapeHtml(pose.title)}</span>
             <button type="button" class="ui-info-dot-btn" onclick="toggleInfoTip(event, 'vaultPoseTipBox')" title="Pose tip">i</button>
           </div>
-          <div class="vault-pose-header-right">
+          <div class="vault-pose-top-right">
             ${!isDefaultPrimary ? `<button type="button" class="vault-member-delete-icon-btn" onclick="deleteActiveMember('${member.id}')" title="Remove member">🗑️</button>` : ''}
-            <button type="button" class="vault-pose-next-pill" onclick="stepVaultPoseSlot(1)" title="Next Pose">
+            <button type="button" class="vault-pose-next-btn" onclick="stepVaultPoseSlot(1)" title="Next Pose">
               <span>Next Pose ➔</span>
             </button>
           </div>
         </div>
 
-        <div class="ui-info-popover-box" id="vaultPoseTipBox" style="display:none; margin-bottom:8px;">
+        <div class="ui-info-popover-box" id="vaultPoseTipBox" style="display:none; width:100%; box-sizing:border-box;">
           ${escapeHtml(pose.tip)}
         </div>
 
-        <!-- Clear Uncropped Portrait Frame with Left/Right Arrows -->
+        <!-- Steady Portrait Viewport with 3-Slide Track & Left/Right Arrows -->
         <div class="vault-pose-stage-wrap" id="vaultPoseStageTouchArea">
           <button type="button" class="vault-pose-nav-arrow prev" onclick="stepVaultPoseSlot(-1)" aria-label="Previous Pose">&#x2039;</button>
 
-          <div class="vault-pose-portrait-frame ${currentPosePhoto ? 'has-user-photo' : 'is-sample-pose'}" onclick="triggerSlotUpload('${pose.key}')">
-            <img src="${currentPosePhoto || pose.sampleImg}" class="vault-pose-clear-img" alt="${escapeHtml(pose.title)}">
-            <span class="vault-pose-corner-status ${currentPosePhoto ? 'is-added' : 'is-sample'}">
-              ${currentPosePhoto ? '✓ Photo Added' : 'Sample Pose'}
-            </span>
+          <div class="vault-pose-portrait-frame ${currentPosePhoto ? 'has-user-photo' : 'is-sample-pose'}" id="vaultPoseViewportFrame">
+            <div class="vault-pose-track" id="vaultPoseTrack" style="transform: translateX(-${activePoseIdx * (100 / 3)}%);">
+              ${VAULT_POSE_CONFIGS.map((cfg) => {
+                const slotPhoto = photos[cfg.key] || null;
+                return `
+                  <div class="vault-pose-slide" onclick="triggerSlotUpload('${cfg.key}')">
+                    <img src="${slotPhoto || cfg.sampleImg}" class="vault-pose-clear-img" alt="${escapeHtml(cfg.title)}" draggable="false">
+                    <span class="vault-pose-status-pill ${slotPhoto ? 'is-saved' : 'is-sample'}">
+                      ${slotPhoto ? '✓ Photo Added' : 'Sample Pose • Tap to Add'}
+                    </span>
+                  </div>
+                `;
+              }).join('')}
+            </div>
           </div>
 
           <button type="button" class="vault-pose-nav-arrow next" onclick="stepVaultPoseSlot(1)" aria-label="Next Pose">&#x203A;</button>
@@ -12291,19 +12344,17 @@ function renderActiveMemberScreen() {
 
         <!-- Pose Action Row & Dots -->
         <div class="vault-pose-controls-row">
-          <div class="vault-pose-upload-actions">
-            <button type="button" class="vault-pose-primary-upload-btn" onclick="triggerSlotUpload('${pose.key}')">
+          <div class="vault-pose-action-btns">
+            <button type="button" class="vault-pose-add-btn" id="vaultPosePrimaryUploadBtn">
               <span>📷 ${currentPosePhoto ? 'Change Photo' : 'Add Photo'}</span>
             </button>
-            ${currentPosePhoto ? `
-              <button type="button" class="vault-pose-remove-btn" onclick="removeSlotPhoto('${pose.key}')" title="Remove this photo">✕</button>
-            ` : ''}
+            <button type="button" class="vault-pose-remove-btn" id="vaultPoseRemoveBtn" style="display:${currentPosePhoto ? 'inline-flex' : 'none'};" title="Remove this photo">✕</button>
           </div>
 
-          <div class="vault-pose-dots">
-            ${poseConfigs.map((cfg, idx) => `
+          <div class="vault-pose-dots" id="vaultPoseDotsRow">
+            ${VAULT_POSE_CONFIGS.map((cfg, idx) => `
               <button type="button"
-                      class="vault-pose-dot ${idx === activePoseIdx ? 'active' : ''} ${photos[cfg.key] ? 'has-photo' : ''}"
+                      class="vault-pose-dot ${idx === activePoseIdx ? 'active' : ''} ${photos[cfg.key] ? 'filled' : ''}"
                       onclick="goToVaultPoseSlot(${idx})"
                       title="Pose ${cfg.num}: ${escapeHtml(cfg.title)}"></button>
             `).join('')}
@@ -12314,31 +12365,6 @@ function renderActiveMemberScreen() {
           <span class="vault-spinner"></span>
           <span id="vaultAnalyzingText">Updating character likeness...</span>
         </div>
-      </div>
-
-      <!-- Compact Painted Character Avatar Bar (Single Row + Info Button) -->
-      <div class="vault-avatar-compact-bar">
-        <div class="vault-avatar-compact-left">
-          ${member.stylizedAvatarUrl ? `
-            <img src="${member.stylizedAvatarUrl}" class="vault-avatar-compact-thumb" alt="Avatar" onclick="previewImageModal('${member.stylizedAvatarUrl}', '${escapeHtml(member.name || member.roleLabel)}')" title="Tap to enlarge">
-          ` : `
-            <span class="vault-avatar-compact-icon">🎨</span>
-          `}
-          <div class="vault-avatar-compact-titles">
-            <span class="vault-avatar-compact-name">Character Model</span>
-            <button type="button" class="ui-info-dot-btn" onclick="toggleInfoTip(event, 'vaultAvatarInfoTip')" title="About Character Model">i</button>
-          </div>
-        </div>
-        <button type="button" class="vault-avatar-compact-btn" onclick="generateActiveMemberStylizedAvatar()" id="${member.stylizedAvatarUrl ? 'btnRegenAvatar' : 'btnCreateAvatar'}" ${(!member.stylizedAvatarUrl && photoCount === 0) ? 'disabled title="Add a photo first"' : ''}>
-          <span>${member.stylizedAvatarUrl ? '🔄 Regenerate' : '🎨 Generate'}</span>
-        </button>
-      </div>
-      <div class="ui-info-popover-box" id="vaultAvatarInfoTip" style="display:none;">
-        Preserves ${escapeHtml(member.name || member.roleLabel)}'s facial geometry, hair, and build across posters without publishing real photos.
-      </div>
-      <div class="vault-avatar-generating-progress" id="vaultAvatarProgress" style="display:none;">
-        <span class="vault-spinner"></span>
-        <span id="vaultAvatarProgressText">Painting character model...</span>
       </div>
 
       <!-- Collapsible Member Details (Tucked Away to Keep UI Clean) -->
@@ -12399,26 +12425,68 @@ function renderActiveMemberScreen() {
     </div>
   `;
 
-  // Bind horizontal swipe gesture on the pose stage so user can swipe left/right between poses
-  const touchStage = document.getElementById('vaultPoseStageTouchArea');
-  if (touchStage) {
+  const uploadBtn = document.getElementById('vaultPosePrimaryUploadBtn');
+  if (uploadBtn) {
+    uploadBtn.onclick = () => triggerSlotUpload(VAULT_POSE_CONFIGS[activeVaultPoseSlotIdx].key);
+  }
+  const removeBtn = document.getElementById('vaultPoseRemoveBtn');
+  if (removeBtn) {
+    removeBtn.onclick = () => removeSlotPhoto(VAULT_POSE_CONFIGS[activeVaultPoseSlotIdx].key);
+  }
+
+  // Bind steady horizontal swipe (touch & pointer) on the viewport frame without moving the photo element
+  const viewportFrame = document.getElementById('vaultPoseViewportFrame');
+  if (viewportFrame) {
     let startX = 0;
     let startY = 0;
-    touchStage.addEventListener('touchstart', (e) => {
+    let isPointerDown = false;
+    let didSwipe = false;
+
+    viewportFrame.addEventListener('touchstart', (e) => {
       if (e.touches && e.touches[0]) {
         startX = e.touches[0].clientX;
         startY = e.touches[0].clientY;
+        didSwipe = false;
       }
     }, { passive: true });
-    touchStage.addEventListener('touchend', (e) => {
+
+    viewportFrame.addEventListener('touchend', (e) => {
       if (e.changedTouches && e.changedTouches[0]) {
         const dx = e.changedTouches[0].clientX - startX;
         const dy = e.changedTouches[0].clientY - startY;
-        if (Math.abs(dx) > 36 && Math.abs(dx) > Math.abs(dy)) {
+        if (Math.abs(dx) > 28 && Math.abs(dx) > Math.abs(dy)) {
+          didSwipe = true;
           stepVaultPoseSlot(dx < 0 ? 1 : -1);
         }
       }
     }, { passive: true });
+
+    viewportFrame.addEventListener('mousedown', (e) => {
+      isPointerDown = true;
+      didSwipe = false;
+      startX = e.clientX;
+      startY = e.clientY;
+    });
+
+    viewportFrame.addEventListener('mouseup', (e) => {
+      if (!isPointerDown) return;
+      isPointerDown = false;
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      if (Math.abs(dx) > 28 && Math.abs(dx) > Math.abs(dy)) {
+        didSwipe = true;
+        stepVaultPoseSlot(dx < 0 ? 1 : -1);
+      }
+    });
+
+    // Prevent click-to-upload from firing right after a horizontal swipe
+    viewportFrame.addEventListener('click', (e) => {
+      if (didSwipe) {
+        e.stopPropagation();
+        e.preventDefault();
+        didSwipe = false;
+      }
+    }, true);
   }
 }
 
