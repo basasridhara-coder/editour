@@ -1203,11 +1203,44 @@ let currentLoginPillarIndex = 0;
 let loginPillarAutoPlayTimer = null;
 let isLoginPillarHovered = false;
 
+let currentLoginPerspectiveSpark = 'web';
+
+function setLoginPerspectiveSpark(sparkType) {
+  currentLoginPerspectiveSpark = (sparkType === 'voice') ? 'voice' : 'web';
+  const isVoice = (currentLoginPerspectiveSpark === 'voice');
+  const chipWeb = document.getElementById('loginSparkChipWeb');
+  const chipVoice = document.getElementById('loginSparkChipVoice');
+  const visualImg = document.getElementById('loginPerspectiveVisualImg');
+  const bodyIcon = document.getElementById('loginPerspectiveBodyIcon');
+  const tabIcon = document.getElementById('loginPerspectiveTabIcon');
+  const hookEl = document.getElementById('loginPerspectiveHook');
+  const descEl = document.getElementById('loginPerspectiveDesc');
+
+  if (chipWeb) chipWeb.classList.toggle('active', !isVoice);
+  if (chipVoice) chipVoice.classList.toggle('active', isVoice);
+  const iconSrc = isVoice ? '/slant-icon-innervoice.jpg?v=20261028_1645' : '/slant-icon-weblink.jpg?v=20261028_1645';
+  if (visualImg) {
+    visualImg.src = isVoice ? '/slant-pillar-innervoice.jpg?v=20261028_1645' : '/slant-pillar-weblink.jpg?v=20261028_1645';
+  }
+  if (bodyIcon) bodyIcon.src = iconSrc;
+  if (tabIcon) tabIcon.src = iconSrc;
+  if (hookEl) {
+    hookEl.textContent = isVoice
+      ? 'Have an observation or conviction on your mind?'
+      : 'Put your Slant on what you read, watch, or observe.';
+  }
+  if (descEl) {
+    descEl.innerHTML = isVoice
+      ? 'No link needed. Speak your <strong>Inner Voice</strong> (observation, reflection, or hot take) &mdash; or switch to a <strong>Web Link</strong> to frame any article into a 3-poster story.'
+      : 'Whether sparked by a <strong>Web Link</strong> (article, video, podcast) or your own <strong>Inner Voice</strong> (observation or reflection) &mdash; Slant frames your take into a shareable 3-poster story.';
+  }
+}
+
 function goToLoginPillarSlide(pillarIdx) {
   const viewport = document.getElementById('loginPillarsCarousel');
   const track = document.getElementById('loginPillarsTrack');
   if (!viewport || !track) return;
-  const total = 3;
+  const total = 2;
   const normalized = ((pillarIdx % total) + total) % total;
   currentLoginPillarIndex = normalized;
   viewport.setAttribute('data-current-pillar', String(normalized));
@@ -1267,7 +1300,14 @@ function setupLoginPillarsCarousel() {
       clearInterval(loginPillarAutoPlayTimer);
       return;
     }
-    stepLoginPillarSlide(1);
+    if (currentLoginPillarIndex === 0 && currentLoginPerspectiveSpark === 'web') {
+      setLoginPerspectiveSpark('voice');
+    } else if (currentLoginPillarIndex === 0 && currentLoginPerspectiveSpark === 'voice') {
+      goToLoginPillarSlide(1);
+    } else {
+      setLoginPerspectiveSpark('web');
+      goToLoginPillarSlide(0);
+    }
   }, 4500);
 }
 

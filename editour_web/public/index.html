@@ -29,7 +29,7 @@
   <link rel="preconnect" href="https://fxfklefnkpmhofncqhfh.supabase.co" crossorigin>
   <link rel="preconnect" href="https://accounts.google.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Merriweather:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,400;1,600;1,700;1,900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261029_2236">
+  <link rel="stylesheet" href="style.css?v=20261029_2258">
   <!-- Favicon & Brand Icons -->
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
@@ -98,25 +98,17 @@
               </div>
             </div>
 
-            <!-- Switcher Pills for the 3 Pillars -->
-            <div class="stories-switcher-pills pillars-switcher-pills" id="loginPillarsSwitcher" role="tablist" aria-label="Slant Expression Modes">
+            <!-- Switcher Pills for the 2 Pillars (Perspective & Daily Chronicles) -->
+            <div class="stories-switcher-pills pillars-switcher-pills is-two-pillars" id="loginPillarsSwitcher" role="tablist" aria-label="Slant Two Pillars">
               <button type="button" class="story-switch-pill pillar-switch-pill active" data-pillar-idx="0" onclick="goToLoginPillarSlide(0)">
                 <span class="pillar-pill-icon-wrap">
-                  <img src="/slant-icon-weblink.jpg?v=20261028_1645" alt="" class="pillar-pill-icon" width="18" height="18">
+                  <img src="/slant-icon-weblink.jpg?v=20261028_1645" alt="" class="pillar-pill-icon" id="loginPerspectiveTabIcon" width="18" height="18">
                 </span>
                 <span class="pillar-pill-label-viewport">
-                  <span class="pillar-pill-label-track">Web Link</span>
+                  <span class="pillar-pill-label-track">Perspective</span>
                 </span>
               </button>
-              <button type="button" class="story-switch-pill pillar-switch-pill" data-pillar-idx="1" onclick="goToLoginPillarSlide(1)">
-                <span class="pillar-pill-icon-wrap">
-                  <img src="/slant-icon-innervoice.jpg?v=20261028_1645" alt="" class="pillar-pill-icon" width="18" height="18">
-                </span>
-                <span class="pillar-pill-label-viewport">
-                  <span class="pillar-pill-label-track">Inner Voice</span>
-                </span>
-              </button>
-              <button type="button" class="story-switch-pill pillar-switch-pill pillar-switch-pill-chronicle" data-pillar-idx="2" onclick="goToLoginPillarSlide(2)">
+              <button type="button" class="story-switch-pill pillar-switch-pill pillar-switch-pill-chronicle" data-pillar-idx="1" onclick="goToLoginPillarSlide(1)">
                 <span class="pillar-pill-icon-wrap">
                   <img src="/slant-icon-chronicles.jpg?v=20261028_1645" alt="" class="pillar-pill-icon" width="18" height="18">
                 </span>
@@ -126,57 +118,40 @@
               </button>
             </div>
 
-            <!-- Interactive 3-Option Carousel Viewport -->
+            <!-- Interactive 2-Pillar Carousel Viewport -->
             <div class="slant-pillars-carousel-viewport" id="loginPillarsCarousel" data-current-pillar="0">
-              <div class="slant-pillars-carousel-track" id="loginPillarsTrack">
+              <div class="slant-pillars-carousel-track is-two-pillar-track" id="loginPillarsTrack">
                 
-                <!-- Slide 1: Web Link Card -->
+                <!-- Slide 1: Perspective Card (Covers both Web Link & Inner Voice) -->
                 <article class="slant-pillar-vertical-card" onclick="stepLoginPillarSlide(1)" title="Tap or swipe for next card">
                   <div class="slant-pillar-card-top-bar">
-                    <span class="slant-pillar-kicker-tag">🌐 WEB CURATION</span>
-                    <span class="slant-pillar-slide-num">01 / 03</span>
+                    <span class="slant-pillar-kicker-tag">✨ PUBLIC PERSPECTIVE</span>
+                    <div class="login-perspective-spark-chips" onclick="event.stopPropagation()">
+                      <button type="button" class="login-spark-chip active" id="loginSparkChipWeb" onclick="setLoginPerspectiveSpark('web')">🌐 Web Link</button>
+                      <button type="button" class="login-spark-chip" id="loginSparkChipVoice" onclick="setLoginPerspectiveSpark('voice')">💭 Inner Voice</button>
+                    </div>
+                    <span class="slant-pillar-slide-num">01 / 02</span>
                   </div>
                   <div class="slant-pillar-card-content-split">
                     <div class="slant-pillar-vertical-visual">
-                      <img src="/slant-pillar-weblink.jpg?v=20261028_1645" alt="Web Link watercolor illustration" class="slant-pillar-vertical-img" loading="eager">
+                      <img src="/slant-pillar-weblink.jpg?v=20261028_1645" id="loginPerspectiveVisualImg" alt="Perspective watercolor illustration" class="slant-pillar-vertical-img" loading="eager">
                     </div>
                     <div class="slant-pillar-vertical-body">
                       <div class="slant-pillar-vertical-header">
-                        <img src="/slant-icon-weblink.jpg?v=20261028_1645" alt="" class="slant-pillar-vertical-icon" width="34" height="34">
-                        <h3 class="slant-pillar-vertical-title">Web Link</h3>
+                        <img src="/slant-icon-weblink.jpg?v=20261028_1645" id="loginPerspectiveBodyIcon" alt="" class="slant-pillar-vertical-icon" width="34" height="34">
+                        <h3 class="slant-pillar-vertical-title" id="loginPerspectiveTitle">Share Your Perspective</h3>
                       </div>
-                      <p class="slant-pillar-vertical-hook">Found an article worth sharing?</p>
-                      <p class="slant-pillar-vertical-desc">Paste any link. Add your personal take &mdash; Slant frames the story and your perspective into a shareable editorial card.</p>
+                      <p class="slant-pillar-vertical-hook" id="loginPerspectiveHook">Put your Slant on what you read, watch, or observe.</p>
+                      <p class="slant-pillar-vertical-desc" id="loginPerspectiveDesc">Whether sparked by a <strong>Web Link</strong> (article, video, podcast) or your own <strong>Inner Voice</strong> (observation or reflection) &mdash; Slant frames your take into a shareable 3-poster story.</p>
                     </div>
                   </div>
                 </article>
 
-                <!-- Slide 2: Inner Voice Card -->
+                <!-- Slide 2: Daily Chronicles Card -->
                 <article class="slant-pillar-vertical-card" onclick="stepLoginPillarSlide(1)" title="Tap or swipe for next card">
                   <div class="slant-pillar-card-top-bar">
-                    <span class="slant-pillar-kicker-tag">💭 PERSONAL PERSPECTIVE</span>
-                    <span class="slant-pillar-slide-num">02 / 03</span>
-                  </div>
-                  <div class="slant-pillar-card-content-split">
-                    <div class="slant-pillar-vertical-visual">
-                      <img src="/slant-pillar-innervoice.jpg?v=20261028_1645" alt="Inner Voice watercolor illustration" class="slant-pillar-vertical-img" loading="eager">
-                    </div>
-                    <div class="slant-pillar-vertical-body">
-                      <div class="slant-pillar-vertical-header">
-                        <img src="/slant-icon-innervoice.jpg?v=20261028_1645" alt="" class="slant-pillar-vertical-icon" width="34" height="34">
-                        <h3 class="slant-pillar-vertical-title">Inner Voice</h3>
-                      </div>
-                      <p class="slant-pillar-vertical-hook">Have a view on your mind?</p>
-                      <p class="slant-pillar-vertical-desc">No link needed. Speak your raw opinion, reflection, or hot take &mdash; Slant turns your words into a bold visual statement.</p>
-                    </div>
-                  </div>
-                </article>
-
-                <!-- Slide 3: Daily Chronicles Card -->
-                <article class="slant-pillar-vertical-card" onclick="stepLoginPillarSlide(1)" title="Tap or swipe for next card">
-                  <div class="slant-pillar-card-top-bar">
-                    <span class="slant-pillar-kicker-tag">📔 DAILY CHRONICLE</span>
-                    <span class="slant-pillar-slide-num">03 / 03</span>
+                    <span class="slant-pillar-kicker-tag">📔 PRIVATE DIARY</span>
+                    <span class="slant-pillar-slide-num">02 / 02</span>
                   </div>
                   <div class="slant-pillar-card-content-split">
                     <div class="slant-pillar-vertical-visual">
@@ -185,10 +160,10 @@
                     <div class="slant-pillar-vertical-body">
                       <div class="slant-pillar-vertical-header">
                         <img src="/slant-icon-chronicles.jpg?v=20261028_1645" alt="" class="slant-pillar-vertical-icon" width="34" height="34">
-                        <h3 class="slant-pillar-vertical-title">Daily Chronicles</h3>
+                        <h3 class="slant-pillar-vertical-title">Chronicle Your Days</h3>
                       </div>
-                      <p class="slant-pillar-vertical-hook">Capture the life you&rsquo;re living.</p>
-                      <p class="slant-pillar-vertical-desc">Journal your everyday moments, milestones, and quiet observations &mdash; preserved as timeless illustrated postcards.</p>
+                      <p class="slant-pillar-vertical-hook">Capture the life you&rsquo;re living &mdash; strictly for you.</p>
+                      <p class="slant-pillar-vertical-desc">Jot down 2 to 3 daily moments. Slant paints your day into a timeless illustrated postcard and distills your personal reflections.</p>
                     </div>
                   </div>
                 </article>
@@ -196,14 +171,13 @@
               </div>
 
               <!-- Prev / Next Navigation Buttons -->
-              <button type="button" class="carousel-nav-btn prev-btn pillar-carousel-nav" onclick="event.stopPropagation(); stepLoginPillarSlide(-1)" title="Previous Mode">&#x2039;</button>
-              <button type="button" class="carousel-nav-btn next-btn pillar-carousel-nav" onclick="event.stopPropagation(); stepLoginPillarSlide(1)" title="Next Mode">&#x203A;</button>
+              <button type="button" class="carousel-nav-btn prev-btn pillar-carousel-nav" onclick="event.stopPropagation(); stepLoginPillarSlide(-1)" title="Previous Pillar">&#x2039;</button>
+              <button type="button" class="carousel-nav-btn next-btn pillar-carousel-nav" onclick="event.stopPropagation(); stepLoginPillarSlide(1)" title="Next Pillar">&#x203A;</button>
 
             <!-- Bottom Dot Indicators -->
               <div class="carousel-dots pillar-carousel-dots" id="loginPillarsDots">
                 <span class="carousel-dot active" onclick="event.stopPropagation(); goToLoginPillarSlide(0)"></span>
                 <span class="carousel-dot" onclick="event.stopPropagation(); goToLoginPillarSlide(1)"></span>
-                <span class="carousel-dot" onclick="event.stopPropagation(); goToLoginPillarSlide(2)"></span>
               </div>
             </div>
 
@@ -2338,6 +2312,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261029_2236"></script>
+  <script src="app.js?v=20261029_2258"></script>
 </body>
 </html>

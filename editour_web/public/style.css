@@ -22502,6 +22502,10 @@ mark.polish-mark:hover, mark.polish-mark.active {
   box-sizing: border-box;
 }
 
+.pillars-switcher-pills.is-two-pillars {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 [data-theme="obsidian"] .pillars-switcher-pills {
   background: rgba(255, 255, 255, 0.05);
   border-color: rgba(255, 255, 255, 0.10);
@@ -22611,6 +22615,10 @@ mark.polish-mark:hover, mark.polish-mark.active {
   transition: transform 0.38s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+.slant-pillars-carousel-track.is-two-pillar-track {
+  width: 200%;
+}
+
 .slant-pillar-vertical-card {
   width: 33.333333%;
   flex: 0 0 33.333333%;
@@ -22626,6 +22634,40 @@ mark.polish-mark:hover, mark.polish-mark.active {
   cursor: pointer;
   user-select: none;
   text-align: center;
+}
+
+.slant-pillars-carousel-track.is-two-pillar-track .slant-pillar-vertical-card {
+  width: 50%;
+  flex: 0 0 50%;
+}
+
+.login-perspective-spark-chips {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(37, 56, 51, 0.08);
+  padding: 2px;
+  border-radius: 999px;
+}
+
+.login-spark-chip {
+  border: none;
+  background: transparent;
+  color: #4A5A55;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+}
+
+.login-spark-chip.active {
+  background: #253833;
+  color: #FFFFFF;
+  box-shadow: 0 2px 6px rgba(37, 56, 51, 0.18);
 }
 
 .slant-pillar-card-top-bar {
