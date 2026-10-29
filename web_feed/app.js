@@ -959,9 +959,9 @@ function updateAuthUI() {
       drawerAdminBetaRow.style.display = isCurrentUserAdmin ? 'flex' : 'none';
     }
 
-    const headerAdminBetaBtn = document.getElementById('headerAdminBetaBtn');
-    if (headerAdminBetaBtn) {
-      headerAdminBetaBtn.style.display = isCurrentUserAdmin ? 'inline-flex' : 'none';
+    const headerDiaryBtn = document.getElementById('headerDiaryBtn');
+    if (headerDiaryBtn) {
+      headerDiaryBtn.style.display = 'inline-flex';
     }
     if (typeof decryptAllOwnedChroniclePosts === 'function') {
       decryptAllOwnedChroniclePosts();
@@ -1001,8 +1001,8 @@ function updateAuthUI() {
     const drawerAdminBetaRow = document.getElementById('drawerAdminBetaRow');
     if (drawerAdminBetaRow) drawerAdminBetaRow.style.display = 'none';
 
-    const headerAdminBetaBtn = document.getElementById('headerAdminBetaBtn');
-    if (headerAdminBetaBtn) headerAdminBetaBtn.style.display = 'none';
+    const headerDiaryBtn = document.getElementById('headerDiaryBtn');
+    if (headerDiaryBtn) headerDiaryBtn.style.display = 'inline-flex';
   }
 }
 
@@ -14963,7 +14963,69 @@ window.addEventListener('beforeunload', () => {
   }
 });
 
-function openCreatorModal(resumeDraftId = null) {
+function toggleSlantSpreadMenu(event, source = 'fab') {
+  if (event) {
+    event.stopPropagation();
+    event.preventDefault();
+  }
+  const fabDial = document.getElementById('fabSlantSpeedDial');
+  const fabBackdrop = document.getElementById('fabSpreadBackdrop');
+  const fabBtn = document.getElementById('fabCreateBtn');
+  const headerWrap = document.getElementById('headerSlantSpreadWrap');
+  const headerBtn = document.getElementById('headerCreateBtn');
+
+  if (source === 'header') {
+    if (fabDial) fabDial.classList.remove('open');
+    if (fabBackdrop) fabBackdrop.classList.remove('open');
+    if (fabBtn) fabBtn.setAttribute('aria-expanded', 'false');
+    if (headerWrap) {
+      const willOpen = !headerWrap.classList.contains('open');
+      headerWrap.classList.toggle('open', willOpen);
+      if (headerBtn) headerBtn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+    }
+  } else {
+    if (headerWrap) headerWrap.classList.remove('open');
+    if (headerBtn) headerBtn.setAttribute('aria-expanded', 'false');
+    if (fabDial) {
+      const willOpen = !fabDial.classList.contains('open');
+      fabDial.classList.toggle('open', willOpen);
+      if (fabBackdrop) fabBackdrop.classList.toggle('open', willOpen);
+      if (fabBtn) fabBtn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+    }
+  }
+}
+
+function closeSlantSpreadMenu() {
+  const fabDial = document.getElementById('fabSlantSpeedDial');
+  const fabBackdrop = document.getElementById('fabSpreadBackdrop');
+  const fabBtn = document.getElementById('fabCreateBtn');
+  const headerWrap = document.getElementById('headerSlantSpreadWrap');
+  const headerBtn = document.getElementById('headerCreateBtn');
+
+  if (fabDial) fabDial.classList.remove('open');
+  if (fabBackdrop) fabBackdrop.classList.remove('open');
+  if (fabBtn) fabBtn.setAttribute('aria-expanded', 'false');
+  if (headerWrap) headerWrap.classList.remove('open');
+  if (headerBtn) headerBtn.setAttribute('aria-expanded', 'false');
+}
+
+document.addEventListener('click', (e) => {
+  const fabDial = document.getElementById('fabSlantSpeedDial');
+  const headerWrap = document.getElementById('headerSlantSpreadWrap');
+  const clickedInsideFab = fabDial && fabDial.contains(e.target);
+  const clickedInsideHeader = headerWrap && headerWrap.contains(e.target);
+  if (!clickedInsideFab && !clickedInsideHeader) {
+    closeSlantSpreadMenu();
+  }
+});
+
+function openCreatorModalForSection(mode) {
+  closeSlantSpreadMenu();
+  openCreatorModal(null, mode);
+}
+
+function openCreatorModal(resumeDraftId = null, forcedAnchorMode = null) {
+  closeSlantSpreadMenu();
   if (!currentUser || !isUserWhitelistAllowed) {
     if (typeof openAuthModal === 'function') {
       openAuthModal('🔒 Slant Studio is currently in Private Preview by invitation only. Please sign in with your invited Google account.');
@@ -14982,8 +15044,9 @@ function openCreatorModal(resumeDraftId = null) {
   // Clean creator state first
   resetCreatorState();
 
-  // Sync anchor selection (default to digital_link or active mode)
-  setAnchorMode(creatorSelectedSource || 'digital_link');
+  // Sync anchor selection (default to forcedAnchorMode, digital_link, or active mode)
+  const initialMode = forcedAnchorMode || creatorSelectedSource || 'digital_link';
+  setAnchorMode(initialMode);
 
   // Reset to Step 1
   backToStep1();
@@ -14993,26 +15056,60 @@ function openCreatorModal(resumeDraftId = null) {
   let draftToRestore = null;
   if (resumeDraftId && typeof resumeDraftId === 'string') {
     draftToRestore = drafts.find(d => d.id === resumeDraftId) || null;
-  } else {
+  } else if (!forcedAnchorMode) {
     try {
       const lastId = localStorage.getItem('slant_last_active_form_draft_id');
       if (lastId) {
         draftToRestore = drafts.find(d => d.id === lastId) || null;
       }
     } catch (_) {}
+  } else {
+    // When user explicitly selected a spread button (Web Link, Inner Voice, or Diary Chronicle),
+    // only restore the last active draft if its anchor mode matches the chosen section
+    try {
+      const lastId = localStorage.getItem('slant_last_active_form_draft_id');
+      if (lastId) {
+        const candidate = drafts.find(d => d.id === lastId) || null;
+        if (candidate) {
+          const candMode = candidate.isDailyChronicleMode
+            ? 'diary_chronicle'
+            : (candidate.selectedSource === 'inner_voice' ? 'inner_voice' : 'digital_link');
+          if (candMode === forcedAnchorMode) {
+            draftToRestore = candidate;
+          }
+        }
+      }
+    } catch (_) {}
   }
 
   if (draftToRestore) {
     resumeCreatorFormDraft(draftToRestore.id);
+    if (forcedAnchorMode) {
+      setAnchorMode(forcedAnchorMode);
+    }
   } else {
     currentActiveFormDraftId = null;
     renderCreatorFormDraftsBar();
+    if (forcedAnchorMode) {
+      setAnchorMode(forcedAnchorMode);
+    }
   }
 
   // Show modal
   modal.classList.add('open');
   modal.classList.add('active');
   document.body.style.overflow = 'hidden';
+
+  if (forcedAnchorMode) {
+    setTimeout(() => {
+      const targetInput = (forcedAnchorMode === 'digital_link')
+        ? document.getElementById('creatorUrlInput')
+        : document.getElementById('creatorSlantTakeInput');
+      if (targetInput && typeof targetInput.focus === 'function') {
+        targetInput.focus({ preventScroll: true });
+      }
+    }, 90);
+  }
 
   // Attach drag-drop & url scrape listeners
   setupCreatorDropzone();

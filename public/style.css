@@ -983,60 +983,56 @@ header {
   pointer-events: auto !important;
 }
 
-/* Header Admin Beta & Invites Quick Access */
-.header-admin-beta-btn {
+/* Header Diary Calendar Quick Access (All Users) */
+.header-diary-btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: rgba(99, 102, 241, 0.12);
-  border: 1px solid rgba(99, 102, 241, 0.35);
-  color: #818CF8;
+  background: linear-gradient(135deg, #ECF2F0 0%, #FDF5EA 100%);
+  border: 1.5px solid rgba(184, 125, 50, 0.42);
+  color: #253833;
   padding: 6px 12px;
   border-radius: 9999px;
   font-size: 12.5px;
-  font-weight: 700;
+  font-weight: 800;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
+  box-shadow: 0 2px 8px rgba(37, 56, 51, 0.10);
 }
 
-.header-admin-beta-btn:hover {
-  background: rgba(99, 102, 241, 0.22);
-  border-color: #818CF8;
+.header-diary-btn:hover {
+  background: linear-gradient(135deg, #DFECE8 0%, #FCEBD4 100%);
+  border-color: #B87D32;
   transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(184, 125, 50, 0.22);
 }
 
-.header-pending-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
-  border-radius: 9999px;
-  background: #EF4444;
-  color: #FFFFFF;
-  font-size: 11px;
-  font-weight: 800;
+.header-diary-btn:active {
+  transform: translateY(0.5px);
+}
+
+.header-diary-icon {
+  font-size: 14px;
   line-height: 1;
 }
 
-.header-pending-badge.pulse {
-  animation: adminPulse 1.8s infinite;
+[data-theme="obsidian"] .header-diary-btn {
+  background: linear-gradient(135deg, rgba(33, 59, 52, 0.85) 0%, rgba(184, 125, 50, 0.28) 100%);
+  border-color: rgba(242, 208, 152, 0.48);
+  color: #FFF8EC;
 }
 
-@keyframes adminPulse {
-  0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6); }
-  70% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+[data-theme="obsidian"] .header-diary-btn:hover {
+  border-color: rgba(242, 208, 152, 0.85);
 }
 
 @media (max-width: 600px) {
-  .header-admin-btn-text {
+  .header-diary-btn-text {
     display: none;
   }
-  .header-admin-beta-btn {
-    padding: 6px 9px;
+  .header-diary-btn {
+    padding: 7px 10px;
   }
 }
 
@@ -5199,11 +5195,15 @@ header {
 
 
   /* Hide top header New Slant button on mobile since bottom floating Slant FAB exists */
-  .create-slant-header-btn {
+  .create-slant-header-btn,
+  .header-slant-spread-wrap {
     display: none !important;
   }
 
   /* Show floating Slant action button on mobile */
+  .fab-slant-speed-dial {
+    display: flex !important;
+  }
   .fab-create-btn {
     display: inline-flex !important;
   }
@@ -6385,13 +6385,173 @@ header {
   color: #FFFFFF;
 }
 
-/* Mobile Floating Action Button (FAB) — Luminous Boreal Pine & Burnished Brass over Darkened Poster */
-.fab-create-btn {
+/* Header & Floating Slant 3-Option Spread Menu */
+.header-slant-spread-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.header-spread-menu {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 1200;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 236px;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(-8px) scale(0.95);
+  transition: opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1), transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.header-slant-spread-wrap.open .header-spread-menu {
+  pointer-events: auto;
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.fab-spread-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 98;
+  background: rgba(15, 25, 22, 0.38);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.22s ease;
+}
+
+.fab-spread-backdrop.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.fab-slant-speed-dial {
   position: fixed;
   bottom: 24px;
   right: 20px;
   z-index: 99;
   display: none;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+  pointer-events: none;
+}
+
+.fab-spread-menu {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.slant-spread-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 11px;
+  padding: 9px 16px 9px 11px;
+  border-radius: 9999px;
+  background: linear-gradient(135deg, #1E352F 0%, #2C4B42 62%, #8F6024 100%);
+  color: #FFFFFF;
+  border: 1.5px solid rgba(242, 208, 152, 0.82);
+  box-shadow:
+    0 10px 26px rgba(15, 25, 22, 0.48),
+    0 0 0 2px rgba(212, 160, 86, 0.22),
+    inset 0 1px 1px rgba(255, 246, 224, 0.35);
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: transform 0.26s cubic-bezier(0.18, 1.25, 0.4, 1), opacity 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.slant-spread-btn:hover {
+  transform: translateY(-2px) scale(1.03) !important;
+  background: linear-gradient(135deg, #25423A 0%, #365B50 58%, #B87D32 100%);
+  box-shadow:
+    0 14px 30px rgba(15, 25, 22, 0.58),
+    0 0 0 3px rgba(242, 208, 152, 0.36),
+    inset 0 1px 2px rgba(255, 246, 224, 0.50);
+}
+
+.slant-spread-btn:active {
+  transform: scale(0.97) !important;
+}
+
+.slant-spread-btn .spread-btn-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(255, 248, 235, 0.16);
+  border: 1px solid rgba(242, 208, 152, 0.55);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.25);
+}
+
+.slant-spread-btn .spread-btn-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  line-height: 1.15;
+}
+
+.slant-spread-btn .spread-btn-title {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #FFFDF9;
+  letter-spacing: -0.15px;
+  white-space: nowrap;
+}
+
+.slant-spread-btn .spread-btn-sub {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: rgba(248, 232, 202, 0.88);
+  white-space: nowrap;
+}
+
+/* Staggered Fan-Out Animation for Floating Slant Spread */
+.fab-spread-item {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(24px) scale(0.75);
+  transform-origin: bottom right;
+}
+
+.fab-slant-speed-dial.open .fab-spread-menu {
+  pointer-events: auto;
+}
+
+.fab-slant-speed-dial.open .fab-spread-item {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0) scale(1);
+}
+
+.fab-slant-speed-dial.open .fab-spread-item:nth-child(3) {
+  transition-delay: 0.01s;
+}
+.fab-slant-speed-dial.open .fab-spread-item:nth-child(2) {
+  transition-delay: 0.05s;
+}
+.fab-slant-speed-dial.open .fab-spread-item:nth-child(1) {
+  transition-delay: 0.09s;
+}
+
+/* Mobile Floating Action Button (FAB) — Luminous Boreal Pine & Burnished Brass over Darkened Poster */
+.fab-create-btn {
+  position: relative;
+  z-index: 99;
+  display: none;
+  pointer-events: auto;
   align-items: center;
   gap: 8px;
   background: linear-gradient(135deg, #213B34 0%, #34564C 45%, #B87D32 100%);
@@ -6409,6 +6569,14 @@ header {
     inset 0 1px 1px rgba(255, 246, 224, 0.48);
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   letter-spacing: -0.2px;
+}
+
+.fab-slant-speed-dial.open .fab-create-btn {
+  background: linear-gradient(135deg, #192E28 0%, #2B473F 45%, #D4923D 100%);
+  box-shadow:
+    0 0 0 4px rgba(242, 208, 152, 0.44),
+    0 12px 32px rgba(184, 125, 50, 0.60),
+    0 4px 16px rgba(0, 0, 0, 0.72);
 }
 
 .fab-create-btn:hover {
@@ -6459,6 +6627,9 @@ header {
 }
 
 @media (max-width: 860px) {
+  .fab-slant-speed-dial {
+    display: flex;
+  }
   .fab-create-btn {
     display: inline-flex;
   }

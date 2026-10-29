@@ -29,7 +29,7 @@
   <link rel="preconnect" href="https://fxfklefnkpmhofncqhfh.supabase.co" crossorigin>
   <link rel="preconnect" href="https://accounts.google.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Merriweather:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,400;1,600;1,700;1,900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261029_1755">
+  <link rel="stylesheet" href="style.css?v=20261029_1830">
   <!-- Favicon & Brand Icons -->
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
@@ -328,11 +328,36 @@
           </div>
         </div>
         <div class="header-actions">
-          <!-- New Slant Creator Button (Header) -->
-          <button class="create-slant-header-btn" id="headerCreateBtn" onclick="openCreatorModal()" title="Create New Slant">
-            <span class="btn-sparkle">✨</span>
-            <span class="create-btn-text">+ New Slant</span>
-          </button>
+          <!-- New Slant Creator Button (Header) with 3-Option Spread -->
+          <div class="header-slant-spread-wrap" id="headerSlantSpreadWrap">
+            <button class="create-slant-header-btn" id="headerCreateBtn" onclick="toggleSlantSpreadMenu(event, 'header')" title="Create New Slant" aria-expanded="false">
+              <span class="btn-sparkle">✨</span>
+              <span class="create-btn-text">+ New Slant</span>
+            </button>
+            <div class="header-spread-menu" id="headerSpreadMenu" role="menu" aria-label="Choose Slant Section">
+              <button type="button" class="slant-spread-btn spread-weblink" onclick="openCreatorModalForSection('digital_link')">
+                <span class="spread-btn-icon">🌐</span>
+                <span class="spread-btn-copy">
+                  <span class="spread-btn-title">Web Link</span>
+                  <span class="spread-btn-sub">Articles, Videos &amp; Podcasts</span>
+                </span>
+              </button>
+              <button type="button" class="slant-spread-btn spread-innervoice" onclick="openCreatorModalForSection('inner_voice')">
+                <span class="spread-btn-icon">💭</span>
+                <span class="spread-btn-copy">
+                  <span class="spread-btn-title">Inner Voice</span>
+                  <span class="spread-btn-sub">Personal Reflection</span>
+                </span>
+              </button>
+              <button type="button" class="slant-spread-btn spread-diary" onclick="openCreatorModalForSection('diary_chronicle')">
+                <span class="spread-btn-icon">📔</span>
+                <span class="spread-btn-copy">
+                  <span class="spread-btn-title">Diary Chronicle</span>
+                  <span class="spread-btn-sub">Your Day in Moments</span>
+                </span>
+              </button>
+            </div>
+          </div>
           <!-- Auth Sign In / User Profile -->
           <button class="auth-btn" id="headerAuthBtn" onclick="openAuthModal()" title="Sign In to Slant">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -347,11 +372,10 @@
               <img class="user-avatar-img" id="userAvatarImg" src="" alt="User" style="display:none;" />
             </button>
           </div>
-          <!-- Admin Beta Access Quick Action Button (Master Admin Only) -->
-          <button class="header-admin-beta-btn" id="headerAdminBetaBtn" onclick="openAdminBetaModal()" style="display:none;" title="Curator Admin • Beta Access & Invites">
-            <span style="font-size: 13px;">👑</span>
-            <span class="header-admin-btn-text">Invites</span>
-            <span class="header-pending-badge" id="headerPendingBadge" style="display:none;">0</span>
+          <!-- Diary Quick Action Button (All Users -> Directly Opens Diary Calendar) -->
+          <button class="header-diary-btn" id="headerDiaryBtn" onclick="openDiaryCalendarModal()" title="Daily Chronicles Calendar" aria-label="Open Diary Calendar">
+            <span class="header-diary-icon">📔</span>
+            <span class="header-diary-btn-text">Diary</span>
           </button>
           <!-- Options Drawer Button -->
           <button class="icon-btn drawer-toggle-btn" id="drawerToggleBtn" onclick="toggleDrawer(event)" title="Options & Settings" aria-label="Open Options Drawer">
@@ -419,13 +443,39 @@
       </div>
     </div>
 
-    <!-- Floating Action Button for Mobile / Quick Create -->
-    <button class="fab-create-btn" id="fabCreateBtn" onclick="openCreatorModal()" title="Create New Slant">
-      <span class="fab-icon">
-        <img src="/slant-logo-divine-splash-transparent.svg?v=20261029_1755" alt="Slant Logo" class="fab-logo-img">
-      </span>
-      <span class="fab-label">Slant</span>
-    </button>
+    <!-- Floating Action Button for Mobile / Quick Create with 3-Button Spread -->
+    <div class="fab-spread-backdrop" id="fabSpreadBackdrop" onclick="closeSlantSpreadMenu()"></div>
+    <div class="fab-slant-speed-dial" id="fabSlantSpeedDial">
+      <div class="fab-spread-menu" id="fabSpreadMenu" role="menu" aria-label="Choose Slant Section">
+        <button type="button" class="slant-spread-btn fab-spread-item spread-weblink" onclick="openCreatorModalForSection('digital_link')">
+          <span class="spread-btn-icon">🌐</span>
+          <span class="spread-btn-copy">
+            <span class="spread-btn-title">Web Link</span>
+            <span class="spread-btn-sub">Articles, Videos &amp; Podcasts</span>
+          </span>
+        </button>
+        <button type="button" class="slant-spread-btn fab-spread-item spread-innervoice" onclick="openCreatorModalForSection('inner_voice')">
+          <span class="spread-btn-icon">💭</span>
+          <span class="spread-btn-copy">
+            <span class="spread-btn-title">Inner Voice</span>
+            <span class="spread-btn-sub">Personal Reflection</span>
+          </span>
+        </button>
+        <button type="button" class="slant-spread-btn fab-spread-item spread-diary" onclick="openCreatorModalForSection('diary_chronicle')">
+          <span class="spread-btn-icon">📔</span>
+          <span class="spread-btn-copy">
+            <span class="spread-btn-title">Diary Chronicle</span>
+            <span class="spread-btn-sub">Your Day in Moments</span>
+          </span>
+        </button>
+      </div>
+      <button class="fab-create-btn" id="fabCreateBtn" onclick="toggleSlantSpreadMenu(event, 'fab')" title="Create New Slant" aria-expanded="false">
+        <span class="fab-icon">
+          <img src="/slant-logo-divine-splash-transparent.svg?v=20261029_1755" alt="Slant Logo" class="fab-logo-img">
+        </span>
+        <span class="fab-label" id="fabCreateLabel">Slant</span>
+      </button>
+    </div>
   </div>
 
   <!-- ==========================================
@@ -2269,6 +2319,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261029_1755"></script>
+  <script src="app.js?v=20261029_1830"></script>
 </body>
 </html>
