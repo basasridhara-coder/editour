@@ -7300,7 +7300,7 @@ function createPostCardElement(post, index) {
         </button>
       ` : ''}
       <div class="carousel-track" id="track-${index}">
-        <div class="carousel-slide slide-hook" ${isInnerVoice ? 'style="cursor: default;"' : (index === 'preview' ? `onclick="togglePreviewCleanView(event)" style="cursor: pointer;" title="Click to toggle clear text"` : `onclick="openDetailModal('${index}')" style="cursor: pointer;"`)}>
+        <div class="carousel-slide slide-hook" ${index === 'preview' ? `onclick="togglePreviewCleanView(event)" style="cursor: pointer;" title="Click to toggle clear text"` : 'style="cursor: default;"'}>
           ${buildSlide1Html(post, index, cardSlideCount)}
         </div>
         <div class="carousel-slide slide-receipt" style="cursor: default;">
