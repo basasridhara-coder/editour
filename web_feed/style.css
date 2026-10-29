@@ -6499,12 +6499,21 @@ header {
 .slant-spread-btn .spread-btn-copy {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 2px;
   line-height: 1.15;
 }
 
+.slant-spread-btn .spread-btn-kicker {
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #F5CFA0;
+  white-space: nowrap;
+}
+
 .slant-spread-btn .spread-btn-title {
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 800;
   color: #FFFDF9;
   letter-spacing: -0.15px;
@@ -6518,12 +6527,25 @@ header {
   white-space: nowrap;
 }
 
-/* Staggered Fan-Out Animation for Floating Slant Spread */
+/* Symmetric Increasing-Size Stepped Fan for Floating Slant Spread */
 .fab-spread-item {
   opacity: 0;
   pointer-events: none;
   transform: translateY(24px) scale(0.75);
   transform-origin: bottom right;
+  box-sizing: border-box;
+}
+
+.fab-spread-item.spread-diary {
+  width: 224px;
+}
+
+.fab-spread-item.spread-innervoice {
+  width: 262px;
+}
+
+.fab-spread-item.spread-weblink {
+  width: 300px;
 }
 
 .fab-slant-speed-dial.open .fab-spread-menu {
