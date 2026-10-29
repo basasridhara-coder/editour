@@ -1,13 +1,13 @@
 {
   "id": "/",
-  "name": "Slant • Visual Editorial Feed",
+  "name": "Slant • Every Thought Deserves a Frame",
   "short_name": "Slant",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "background_color": "#050813",
   "theme_color": "#050813",
-  "description": "Visual editorial journalism distilled into high-impact posters.",
+  "description": "For people who think and reflect. Frame web links with your personal take, speak your inner voice, and preserve your daily chronicles as timeless illustrated editorial postcards.",
   "icons": [
     {
       "src": "/favicon-192.png",
