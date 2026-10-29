@@ -1156,7 +1156,8 @@ const FEATURED_LOGIN_POSTS = [
       {
         "index": 1,
         "title": "Moment 01",
-        "text": "Usual work, not giving it the deserved focus. I will change this attitude, mark a few items to close, and get them done."
+        "text": "Usual work, not giving it the deserved focus. I will change this attitude, mark a few items to close, and get them done.",
+        "isStarred": true
       },
       {
         "index": 2,
@@ -1167,6 +1168,20 @@ const FEATURED_LOGIN_POSTS = [
         "index": 3,
         "title": "Moment 03",
         "text": "Went to meet Swapnil, Shrikanth's tenant in V Classic. He is a nice person; the way they welcome people and talk to them was worth noting and adapting."
+      }
+    ],
+    "chronicleReflections": [
+      {
+        "polarity": "corrective",
+        "behaviorTag": "⚡ SELF-CORRECTION • DRIFT → FOCUS",
+        "quote": "Catching yourself going through the motions is half the battle; real momentum returns the moment you pick a few open items and finish them.",
+        "momentIndex": 1
+      },
+      {
+        "polarity": "positive",
+        "behaviorTag": "🌱 WORTH ADAPTING • WARMTH & PRESENCE",
+        "quote": "How we make people feel in the first five minutes of welcoming them is a quiet grace worth practicing every day.",
+        "momentIndex": 3
       }
     ],
     "sourceType": "inner_voice",
@@ -1399,6 +1414,20 @@ const LOGIN_CHRONICLE_SHOWCASE_POST = {
       "index": 3,
       "title": "Moment 03",
       "text": "Went to meet Swapnil, Shrikanth's tenant in V Classic. He is a nice person; the way they welcome people and talk to them was worth noting and adapting."
+    }
+  ],
+  "chronicleReflections": [
+    {
+      "polarity": "corrective",
+      "behaviorTag": "⚡ SELF-CORRECTION • DRIFT → FOCUS",
+      "quote": "Catching yourself going through the motions is half the battle; real momentum returns the moment you pick a few open items and finish them.",
+      "momentIndex": 1
+    },
+    {
+      "polarity": "positive",
+      "behaviorTag": "🌱 WORTH ADAPTING • WARMTH & PRESENCE",
+      "quote": "How we make people feel in the first five minutes of welcoming them is a quiet grace worth practicing every day.",
+      "momentIndex": 3
     }
   ],
   "sourceType": "inner_voice",
@@ -2892,6 +2921,8 @@ async function encryptChroniclePostForCloud(postObj) {
       keyTakeaways: Array.isArray(copy.keyTakeaways) ? copy.keyTakeaways : [],
       resolvedArticleExcerpts: Array.isArray(copy.resolvedArticleExcerpts) ? copy.resolvedArticleExcerpts : [],
       chronicleMoments: Array.isArray(copy.chronicleMoments) ? copy.chronicleMoments : (copy.generationInputs?.chronicleMoments || []),
+      chronicleReflections: Array.isArray(copy.chronicleReflections) ? copy.chronicleReflections : (copy.generationInputs?.chronicleReflections || []),
+      reflectionFeedback: copy.reflectionFeedback || null,
       contextProvided: copy.contextProvided || '',
       sourceContext: copy.sourceContext || '',
       illustrationPrompt: copy.illustrationPrompt || '',
@@ -2931,6 +2962,8 @@ async function encryptChroniclePostForCloud(postObj) {
     copy.keyTakeaways = [];
     copy.resolvedArticleExcerpts = [];
     copy.chronicleMoments = [];
+    copy.chronicleReflections = [];
+    copy.reflectionFeedback = null;
     copy.contextProvided = '';
     copy.sourceContext = '';
     copy.illustrationPrompt = '';
@@ -6252,6 +6285,288 @@ function evaluateEssayBifurcation(post, index) {
   }
 }
 
+function getReflectionFeedbackHistory() {
+  try {
+    const raw = localStorage.getItem('slant_reflection_feedback_history');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return {
+        liked: Array.isArray(parsed.liked) ? parsed.liked.slice(0, 8) : [],
+        disliked: Array.isArray(parsed.disliked) ? parsed.disliked.slice(0, 8) : []
+      };
+    }
+  } catch (_) {}
+  return { liked: [], disliked: [] };
+}
+
+function recordReflectionFeedbackHistory(quotesArray, vote) {
+  try {
+    const history = getReflectionFeedbackHistory();
+    const cleanQuotes = (Array.isArray(quotesArray) ? quotesArray : [quotesArray])
+      .map(q => (typeof q === 'string' ? q.trim() : String(q?.quote || '').trim()))
+      .filter(Boolean);
+    if (cleanQuotes.length === 0) return;
+
+    if (vote === 'up') {
+      cleanQuotes.forEach(q => {
+        history.disliked = history.disliked.filter(item => item !== q);
+        if (!history.liked.includes(q)) history.liked.unshift(q);
+      });
+      history.liked = history.liked.slice(0, 8);
+    } else if (vote === 'down') {
+      cleanQuotes.forEach(q => {
+        history.liked = history.liked.filter(item => item !== q);
+        if (!history.disliked.includes(q)) history.disliked.unshift(q);
+      });
+      history.disliked = history.disliked.slice(0, 8);
+    }
+    localStorage.setItem('slant_reflection_feedback_history', JSON.stringify(history));
+  } catch (_) {}
+}
+
+function resolveChronicleReflectionsForPost(post) {
+  if (!post) return [];
+  const rawList = (Array.isArray(post.chronicleReflections) && post.chronicleReflections.length > 0)
+    ? post.chronicleReflections
+    : ((Array.isArray(post.generationInputs?.chronicleReflections) && post.generationInputs.chronicleReflections.length > 0)
+        ? post.generationInputs.chronicleReflections
+        : null);
+
+  if (rawList && rawList.length > 0) {
+    return rawList.slice(0, 2).map(r => ({
+      polarity: ['positive', 'corrective', 'generic'].includes(String(r.polarity || '').toLowerCase())
+        ? String(r.polarity).toLowerCase()
+        : 'generic',
+      behaviorTag: String(r.behaviorTag || '✦ DAILY REFLECTION').trim(),
+      quote: String(r.quote || '').trim(),
+      momentIndex: Number(r.momentIndex) || 0
+    })).filter(r => r.quote.length > 0);
+  }
+
+  const postId = String(post.id || '');
+  if (postId.includes('1793202119311-npt7z')) {
+    return [
+      {
+        polarity: 'generic',
+        behaviorTag: '✦ DAILY REFLECTION • OBSERVING GROWTH',
+        quote: 'Watching a child move eagerly between physical effort, family warmth, and curiosity is one of the quietest joys of parenting.',
+        momentIndex: 0
+      }
+    ];
+  }
+  if (postId.includes('1793149246670-6xt7k')) {
+    return [
+      {
+        polarity: 'positive',
+        behaviorTag: '★ DESIGN OWNERSHIP • GROWTH',
+        quote: 'Spotting where a product needs stronger design is good; stepping up to own that craft yourself is what moves it forward.',
+        momentIndex: 2
+      },
+      {
+        polarity: 'positive',
+        behaviorTag: '🧭 STEADY PARENTING • PATIENCE',
+        quote: 'When a child stumbles on a test, replacing disappointment with calm guidance builds resilience instead of fear.',
+        momentIndex: 3
+      }
+    ];
+  }
+  if (postId.includes('1793031039451-4bovq')) {
+    return [
+      {
+        polarity: 'corrective',
+        behaviorTag: '⚡ SELF-CORRECTION • DRIFT → FOCUS',
+        quote: 'Catching yourself going through the motions is half the battle; real momentum returns the moment you pick a few open items and finish them.',
+        momentIndex: 1
+      },
+      {
+        polarity: 'positive',
+        behaviorTag: '🌱 WORTH ADAPTING • WARMTH & PRESENCE',
+        quote: 'How we make people feel in the first five minutes of welcoming them is a quiet grace worth practicing every day.',
+        momentIndex: 3
+      }
+    ];
+  }
+  if (postId.includes('1793003556503-aa54x')) {
+    return [
+      {
+        polarity: 'corrective',
+        behaviorTag: '⚡ EMOTIONAL ANCHOR • LAUNCH COURAGE',
+        quote: 'Shipping something you built with care always brings nervous anticipation; let pride in the craft outweigh the wait for validation.',
+        momentIndex: 2
+      },
+      {
+        polarity: 'positive',
+        behaviorTag: '★ HOMECOMING • WHAT MATTERS MOST',
+        quote: 'Every ambition outside the door finds its true meaning the moment familiar laughter and noise fill the house again.',
+        momentIndex: 3
+      }
+    ];
+  }
+
+  let fallbackQuote = (post.curatorTake && post.curatorTake.trim())
+    ? post.curatorTake.trim()
+    : ((post.creatorOpinion && post.creatorOpinion.trim())
+        ? post.creatorOpinion.trim()
+        : (post.hook || 'Small, intentional choices in how we show up quietly shape our day.'));
+  return [
+    {
+      polarity: 'generic',
+      behaviorTag: '✦ TAKEAWAY OF THE DAY',
+      quote: fallbackQuote,
+      momentIndex: 0
+    }
+  ];
+}
+
+function findChroniclePostByIdOrPreview(postId) {
+  if (!postId || postId === 'preview') {
+    if (typeof currentSynthesizedPost !== 'undefined' && currentSynthesizedPost) return currentSynthesizedPost;
+  }
+  if (typeof currentSynthesizedPost !== 'undefined' && currentSynthesizedPost && String(currentSynthesizedPost.id) === String(postId)) {
+    return currentSynthesizedPost;
+  }
+  if (Array.isArray(allPosts)) {
+    const found = allPosts.find(p => p && String(p.id) === String(postId));
+    if (found) return found;
+  }
+  if (typeof LOGIN_CHRONICLE_SHOWCASE_POST !== 'undefined' && LOGIN_CHRONICLE_SHOWCASE_POST && String(LOGIN_CHRONICLE_SHOWCASE_POST.id) === String(postId)) {
+    return LOGIN_CHRONICLE_SHOWCASE_POST;
+  }
+  if (Array.isArray(FEATURED_LOGIN_POSTS)) {
+    const f = FEATURED_LOGIN_POSTS.find(p => p && String(p.id) === String(postId));
+    if (f) return f;
+  }
+  return null;
+}
+
+async function rateChronicleReflection(event, postId, vote) {
+  if (event) {
+    event.stopPropagation();
+    event.preventDefault();
+  }
+  const targetPost = findChroniclePostByIdOrPreview(postId);
+  const currentVote = targetPost ? (targetPost.reflectionFeedback || null) : null;
+  const nextVote = (currentVote === vote) ? null : vote;
+
+  if (targetPost) {
+    targetPost.reflectionFeedback = nextVote;
+    if (targetPost.generationInputs) {
+      targetPost.generationInputs.reflectionFeedback = nextVote;
+    }
+    const reflections = resolveChronicleReflectionsForPost(targetPost);
+    if (nextVote) {
+      recordReflectionFeedbackHistory(reflections, nextVote);
+    }
+  }
+
+  // Update all matching feedback bars in the DOM immediately
+  document.querySelectorAll(`.chronicle-reflection-feedback-bar[data-feedback-post="${postId}"]`).forEach(bar => {
+    const upBtn = bar.querySelector('.reflection-vote-btn.is-up');
+    const downBtn = bar.querySelector('.reflection-vote-btn.is-down');
+    const rethinkBtn = bar.querySelector('.reflection-rethink-btn');
+    if (upBtn) upBtn.classList.toggle('active', nextVote === 'up');
+    if (downBtn) downBtn.classList.toggle('active', nextVote === 'down');
+    if (rethinkBtn) rethinkBtn.classList.toggle('is-visible', nextVote === 'down');
+  });
+
+  if (nextVote === 'up') {
+    showTemporaryToast('👍 Agreed! We will keep reflections grounded in this style.');
+  } else if (nextVote === 'down') {
+    showTemporaryToast('👎 Noted — tap "↻ Rethink" to generate a better reflection for your moments.');
+  }
+
+  if (targetPost && Array.isArray(allPosts) && allPosts.some(p => p && p.id === targetPost.id)) {
+    if (typeof savePostsToLocalCache === 'function') savePostsToLocalCache();
+    if (typeof saveSinglePostToCloud === 'function') {
+      try { await saveSinglePostToCloud(targetPost); } catch (_) {}
+    }
+  }
+}
+
+async function rethinkChronicleReflection(event, postId) {
+  if (event) {
+    event.stopPropagation();
+    event.preventDefault();
+  }
+  const targetPost = findChroniclePostByIdOrPreview(postId);
+  if (!targetPost) return;
+
+  const moments = (Array.isArray(targetPost.chronicleMoments) && targetPost.chronicleMoments.length > 0)
+    ? targetPost.chronicleMoments
+    : (Array.isArray(targetPost.generationInputs?.chronicleMoments) ? targetPost.generationInputs.chronicleMoments : []);
+
+  if (!moments || moments.length === 0) {
+    showTemporaryToast('No individual moments stored on this entry to rethink.');
+    return;
+  }
+
+  const prevReflections = resolveChronicleReflectionsForPost(targetPost);
+  const bars = document.querySelectorAll(`.chronicle-reflection-feedback-bar[data-feedback-post="${postId}"]`);
+  bars.forEach(bar => {
+    const rethinkBtn = bar.querySelector('.reflection-rethink-btn');
+    if (rethinkBtn) {
+      rethinkBtn.disabled = true;
+      rethinkBtn.textContent = '⏳ Rethinking...';
+    }
+  });
+
+  try {
+    const resp = await fetch('/api/synthesize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'rethink_chronicle_reflection',
+        chronicleMoments: moments,
+        previousReflections: prevReflections,
+        reflectionFeedbackHistory: getReflectionFeedbackHistory()
+      })
+    });
+    const data = await resp.json();
+    if (!resp.ok || !data || !Array.isArray(data.chronicleReflections) || data.chronicleReflections.length === 0) {
+      throw new Error(data?.error || 'Could not rethink reflection');
+    }
+
+    targetPost.chronicleReflections = data.chronicleReflections;
+    targetPost.curatorTake = data.curatorTake || data.chronicleReflections[0].quote;
+    targetPost.creatorOpinion = targetPost.curatorTake;
+    targetPost.reflectionFeedback = null;
+    if (targetPost.generationInputs) {
+      targetPost.generationInputs.chronicleReflections = data.chronicleReflections;
+      targetPost.generationInputs.reflectionFeedback = null;
+    }
+
+    // Re-render any open views displaying this post
+    const diaryModal = document.getElementById('diaryCalendarModal');
+    if (diaryModal && diaryModal.style.display !== 'none' && typeof renderDiaryCalendarModal === 'function') {
+      renderDiaryCalendarModal();
+      setTimeout(() => {
+        const fakeEvt = { stopPropagation: () => {} };
+        if (typeof goToSlide === 'function') goToSlide(fakeEvt, 'diary_preview', 2);
+      }, 40);
+    }
+    if (typeof currentSynthesizedPost !== 'undefined' && currentSynthesizedPost && currentSynthesizedPost.id === targetPost.id && typeof renderPreviewCarousel === 'function') {
+      renderPreviewCarousel();
+    }
+    if (Array.isArray(allPosts) && allPosts.some(p => p && p.id === targetPost.id)) {
+      if (typeof renderFeed === 'function') renderFeed();
+      if (typeof savePostsToLocalCache === 'function') savePostsToLocalCache();
+      if (typeof saveSinglePostToCloud === 'function') {
+        try { await saveSinglePostToCloud(targetPost); } catch (_) {}
+      }
+    }
+    showTemporaryToast('✨ Updated reflection based on your moments & behaviours!');
+  } catch (err) {
+    bars.forEach(bar => {
+      const rethinkBtn = bar.querySelector('.reflection-rethink-btn');
+      if (rethinkBtn) {
+        rethinkBtn.disabled = false;
+        rethinkBtn.textContent = '↻ Rethink';
+      }
+    });
+    showTemporaryToast('⚠️ ' + (err.message || 'Could not rethink reflection right now.'));
+  }
+}
+
 function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
   const bifurcation = evaluateEssayBifurcation(post, index);
   const tier = getSourceTier(post);
@@ -6559,18 +6874,63 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
   const receiptBrandTitle = isChronicle ? "SLANT MOMENTS" : "SLANT MINUTES";
   const chronicleDateStr = isChronicle ? formatChronicleDateDisplay(post.createdAt || post.date) : "";
 
+  const chronicleReflectionsList = isChronicle ? resolveChronicleReflectionsForPost(post) : [];
+  const hasTwoReflections = chronicleReflectionsList.length >= 2;
+  const feedbackPostId = escapeHtml(String(post.id || 'preview'));
+  const currentVote = post.reflectionFeedback || post.generationInputs?.reflectionFeedback || null;
+  const showInteractiveFeedback = (index !== "export");
+
   const chroniclePoster3ReflectionHtml = `
-        <div class="chronicle-reflection-centerpiece">
+        <div class="chronicle-reflection-centerpiece ${hasTwoReflections ? "has-two-quotes" : "has-single-quote"}">
           <div class="chronicle-reflection-kicker">
             <span class="kicker-star">✦</span>
-            <span>TAKEAWAY OF THE DAY • ${escapeHtml(chronicleDateStr)}</span>
+            <span>${hasTwoReflections ? "REFLECTIONS OF THE DAY" : "REFLECTION OF THE DAY"} • ${escapeHtml(chronicleDateStr)}</span>
             <span class="kicker-star">✦</span>
           </div>
-          <div class="chronicle-reflection-quote-mark">&ldquo;</div>
-          <p class="chronicle-reflection-main-text">${opinion}</p>
-          <div class="chronicle-reflection-signature">
-            <span class="signed-curator-avatar">${initial}</span>
-            <span class="chronicle-signature-handle">${handle}</span>
+          ${hasTwoReflections ? `
+            <div class="chronicle-dual-reflections-stack">
+              ${chronicleReflectionsList.slice(0, 2).map((refItem) => `
+                <div class="chronicle-reflection-quote-card is-polarity-${escapeHtml(refItem.polarity || 'generic')}">
+                  <div class="chronicle-behavior-pill is-${escapeHtml(refItem.polarity || 'generic')}">${escapeHtml(refItem.behaviorTag || '✦ DAILY REFLECTION')}</div>
+                  <p class="chronicle-reflection-dual-text">&ldquo;${escapeHtml(refItem.quote)}&rdquo;</p>
+                </div>
+              `).join('')}
+            </div>
+          ` : `
+            ${chronicleReflectionsList[0]?.behaviorTag ? `
+              <div class="chronicle-behavior-pill is-${escapeHtml(chronicleReflectionsList[0].polarity || 'generic')} is-single-pill">${escapeHtml(chronicleReflectionsList[0].behaviorTag)}</div>
+            ` : ''}
+            <div class="chronicle-reflection-quote-mark">&ldquo;</div>
+            <p class="chronicle-reflection-main-text">${escapeHtml(chronicleReflectionsList[0]?.quote || rawOpinion)}</p>
+          `}
+          <div class="chronicle-reflection-bottom-row">
+            <div class="chronicle-reflection-signature">
+              <span class="signed-curator-avatar">${initial}</span>
+              <span class="chronicle-signature-handle">${handle}</span>
+            </div>
+            ${showInteractiveFeedback ? `
+            <div class="chronicle-reflection-feedback-bar" data-feedback-post="${feedbackPostId}" onclick="event.stopPropagation()">
+              <span class="reflection-feedback-prompt">Agree?</span>
+              <button type="button"
+                      class="reflection-vote-btn is-up ${currentVote === 'up' ? 'active' : ''}"
+                      onclick="rateChronicleReflection(event, '${feedbackPostId}', 'up')"
+                      title="Agree / Liked this reflection">
+                <span aria-hidden="true">👍</span>
+              </button>
+              <button type="button"
+                      class="reflection-vote-btn is-down ${currentVote === 'down' ? 'active' : ''}"
+                      onclick="rateChronicleReflection(event, '${feedbackPostId}', 'down')"
+                      title="Disagree / Doesn't fit my moments">
+                <span aria-hidden="true">👎</span>
+              </button>
+              <button type="button"
+                      class="reflection-rethink-btn ${currentVote === 'down' ? 'is-visible' : ''}"
+                      onclick="rethinkChronicleReflection(event, '${feedbackPostId}')"
+                      title="Generate a fresh reflection from your moments">
+                ↻ Rethink
+              </button>
+            </div>
+            ` : ''}
           </div>
         </div>
   `;
@@ -18235,6 +18595,7 @@ async function startAiSynthesis() {
   const payload = {
     sourceType: creatorSelectedSource,
     chronicleMode: isChronicleActive,
+    reflectionFeedbackHistory: isChronicleActive ? getReflectionFeedbackHistory() : null,
     chronicleMoments: activeChronicleMoments.map(m => ({
       index: m.index,
       title: m.title,

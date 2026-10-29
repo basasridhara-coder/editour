@@ -20818,13 +20818,240 @@ mark.polish-mark:hover, mark.polish-mark.active {
   color: #334155 !important;
 }
 
+.chronicle-reflection-centerpiece.has-two-quotes {
+  padding: 12px 18px !important;
+  gap: 8px;
+}
+
+.chronicle-behavior-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 99px;
+  font-family: 'Space Grotesk', 'Inter', sans-serif;
+  font-size: 9.2px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: rgba(217, 119, 6, 0.11);
+  border: 1px solid rgba(217, 119, 6, 0.28);
+  color: #B45309;
+}
+
+.chronicle-behavior-pill.is-single-pill {
+  margin-bottom: 8px;
+}
+
+.chronicle-behavior-pill.is-positive {
+  background: rgba(5, 150, 105, 0.11);
+  border-color: rgba(5, 150, 105, 0.3);
+  color: #047857;
+}
+
+.chronicle-behavior-pill.is-corrective {
+  background: rgba(217, 119, 6, 0.14);
+  border-color: rgba(217, 119, 6, 0.38);
+  color: #B45309;
+}
+
+[data-theme="obsidian"] .chronicle-behavior-pill {
+  background: rgba(245, 158, 11, 0.16);
+  border-color: rgba(245, 158, 11, 0.38);
+  color: #FBBF24;
+}
+
+[data-theme="obsidian"] .chronicle-behavior-pill.is-positive {
+  background: rgba(16, 185, 129, 0.16);
+  border-color: rgba(16, 185, 129, 0.38);
+  color: #34D399;
+}
+
+.chronicle-dual-reflections-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  margin: 2px 0 8px 0;
+}
+
+.chronicle-reflection-quote-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 11px 14px;
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.032);
+  border: 1px solid rgba(217, 119, 6, 0.22);
+  box-sizing: border-box;
+  text-align: center;
+}
+
+.chronicle-reflection-quote-card.is-polarity-positive {
+  border-color: rgba(5, 150, 105, 0.24);
+  background: rgba(5, 150, 105, 0.04);
+}
+
+.chronicle-reflection-quote-card.is-polarity-corrective {
+  border-color: rgba(217, 119, 6, 0.28);
+  background: rgba(245, 158, 11, 0.055);
+}
+
+[data-theme="obsidian"] .chronicle-reflection-quote-card {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(245, 158, 11, 0.28);
+}
+
+[data-theme="obsidian"] .chronicle-reflection-quote-card.is-polarity-positive {
+  background: rgba(16, 185, 129, 0.06);
+  border-color: rgba(16, 185, 129, 0.28);
+}
+
+.chronicle-reflection-dual-text {
+  font-family: 'Fraunces', 'Playfair Display', Georgia, serif !important;
+  font-size: 14.8px !important;
+  line-height: 1.46 !important;
+  font-weight: 600 !important;
+  color: #0F172A;
+  margin: 0 !important;
+  text-align: center !important;
+}
+
+[data-theme="obsidian"] .chronicle-reflection-dual-text {
+  color: #F8FAFC;
+}
+
+.poster-export-sandbox .chronicle-reflection-dual-text {
+  color: #0F172A !important;
+}
+
+.chronicle-reflection-bottom-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  width: 100%;
+  margin-top: 6px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(217, 119, 6, 0.25);
+}
+
 .chronicle-reflection-signature {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  margin-top: 6px;
-  padding-top: 10px;
-  border-top: 1px solid rgba(217, 119, 6, 0.25);
+}
+
+.chronicle-reflection-feedback-bar {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 7px;
+  border-radius: 99px;
+  background: rgba(15, 23, 42, 0.045);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+}
+
+[data-theme="obsidian"] .chronicle-reflection-feedback-bar {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(148, 163, 184, 0.24);
+}
+
+.reflection-feedback-prompt {
+  font-family: 'Space Grotesk', 'Inter', sans-serif;
+  font-size: 9.5px;
+  font-weight: 700;
+  color: #64748B;
+  margin-right: 2px;
+}
+
+[data-theme="obsidian"] .reflection-feedback-prompt {
+  color: #94A3B8;
+}
+
+.reflection-vote-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  line-height: 1;
+  padding: 0;
+  transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+
+.reflection-vote-btn:hover {
+  transform: scale(1.12);
+  background: rgba(245, 158, 11, 0.14);
+}
+
+.reflection-vote-btn.is-up.active {
+  background: rgba(16, 185, 129, 0.2);
+  border-color: rgba(5, 150, 105, 0.55);
+  transform: scale(1.08);
+}
+
+.reflection-vote-btn.is-down.active {
+  background: rgba(239, 68, 68, 0.18);
+  border-color: rgba(220, 38, 38, 0.5);
+  transform: scale(1.08);
+}
+
+.reflection-rethink-btn {
+  display: none;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 8px;
+  border-radius: 99px;
+  border: 1px solid rgba(217, 119, 6, 0.45);
+  background: rgba(245, 158, 11, 0.16);
+  color: #B45309;
+  font-family: 'Space Grotesk', 'Inter', sans-serif;
+  font-size: 9.5px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+[data-theme="obsidian"] .reflection-rethink-btn {
+  color: #FBBF24;
+  border-color: rgba(251, 191, 36, 0.5);
+}
+
+.reflection-rethink-btn.is-visible {
+  display: inline-flex;
+}
+
+.reflection-rethink-btn:hover {
+  background: #D97706;
+  color: #FFFFFF;
+}
+
+.sample-feed-card-host .post-card .chronicle-dual-reflections-stack {
+  gap: 6px !important;
+}
+
+.sample-feed-card-host .post-card .chronicle-reflection-quote-card {
+  padding: 7px 9px !important;
+  gap: 4px !important;
+  border-radius: 10px !important;
+}
+
+.sample-feed-card-host .post-card .chronicle-behavior-pill {
+  font-size: 7.5px !important;
+  padding: 2px 7px !important;
+}
+
+.sample-feed-card-host .post-card .chronicle-reflection-dual-text {
+  font-size: 11px !important;
+  line-height: 1.35 !important;
 }
 
 .chronicle-signature-handle {

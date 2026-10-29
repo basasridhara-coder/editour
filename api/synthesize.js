@@ -181,6 +181,95 @@ module.exports = async function handler(req, res) {
       }
     }
 
+    // Fast Single-Purpose Endpoint: Rethink / Regenerate Daily Chronicle Reflection(s) when user taps Thumbs Down / Rethink
+    if (body && body.action === 'rethink_chronicle_reflection') {
+      const {
+        chronicleMoments = [],
+        previousReflections = [],
+        reflectionFeedbackHistory = null
+      } = body;
+      const validMoments = Array.isArray(chronicleMoments)
+        ? chronicleMoments.filter(m => m && String(m.text || '').trim().length >= 2)
+        : [];
+      if (validMoments.length === 0) {
+        return res.status(400).json({ error: 'No moments provided to reflect on.' });
+      }
+      const explicitStarred = validMoments.filter(m => Boolean(m && m.isStarred));
+      const likedList = Array.isArray(reflectionFeedbackHistory?.liked) ? reflectionFeedbackHistory.liked.slice(0, 5) : [];
+      const dislikedList = [
+        ...(Array.isArray(previousReflections) ? previousReflections.map(r => (typeof r === 'string' ? r : r?.quote)).filter(Boolean) : []),
+        ...(Array.isArray(reflectionFeedbackHistory?.disliked) ? reflectionFeedbackHistory.disliked.slice(0, 5) : [])
+      ];
+
+      const rethinkPrompt = `You are a thoughtful, grounded personal diary reflection coach for "Slant".
+The author recorded these ${validMoments.length} moments from their day:
+${validMoments.map((m, i) => `Moment 0${i + 1}${m.isStarred ? ' [★ STARRED IMPORTANT MOMENT]' : ''}: "${m.text}"`).join('\n')}
+
+${dislikedList.length > 0 ? `CRITICAL — THE AUTHOR DISLIKED / REJECTED THESE PREVIOUS REFLECTIONS (DO NOT REPEAT THIS ANGLE OR STYLE):\n${dislikedList.map(q => `- "${q}"`).join('\n')}\n` : ''}
+${likedList.length > 0 ? `THE AUTHOR LIKED THESE PAST REFLECTIONS (MATCH THIS PRAGMATIC, HUMAN STYLE):\n${likedList.map(q => `- "${q}"`).join('\n')}\n` : ''}
+
+YOUR TASK — GENERATE 1 OR 2 MEANINGFUL BEHAVIORAL/EMOTIONAL REFLECTIONS TO MAKE THE PERSON BETTER:
+1. NEVER stitch or force all ${validMoments.length} moments into a single convoluted sentence!
+2. ${explicitStarred.length > 0 ? `Focus primarily on the ★ STARRED moment(s) (${explicitStarred.map(m => `"${m.text}"`).join('; ')}), plus at most one other moment ONLY if it carries a strong, separate behavioral/emotional lesson.` : `Extract the real emotions and human behaviors associated with the moments—whether on the POSITIVE side of a behavior (strength, calm mentoring, warmth, ownership, gratitude) or the NEGATIVE / DRIFT side (scattered focus, procrastination, post-launch anxiety, impatience) that invites constructive course-correction.`}
+3. If ALL moments are purely factual/observational logs (e.g., logging a child's routine activities) with no behavioral tension, write 1 simple, warm generic reflection about everyday growth or presence WITHOUT forcing literal nouns from the moments into a riddle.
+4. Decide whether 1 quote or 2 quotes fits best:
+   - Output 1 reflection object if there is one clear starred/emotional lesson (16-24 words).
+   - Output 2 independent reflection objects if there are 2 distinct behavioral/emotional lessons from different moments that should NOT be combined into one sentence (14-22 words each).
+5. For each reflection object in "chronicleReflections":
+   - "polarity": "positive" (positive behavior to keep/adapt), "corrective" (negative/drift behavior turned into constructive action), or "generic" (warm general life reflection).
+   - "behaviorTag": Short uppercase badge naming the emotion/behavior and side, e.g. "⚡ SELF-CORRECTION • DRIFT → FOCUS", "🌱 WORTH ADAPTING • WARMTH & PRESENCE", "★ DESIGN OWNERSHIP • GROWTH", "🧭 STEADY PARENTING • PATIENCE", or "✦ DAILY REFLECTION • QUIET GRATITUDE".
+   - "quote": The crisp, plain-English reflection quote (14-24 words, zero pretentious jargon, no em-dashes).
+   - "momentIndex": 1-based moment number (1, 2, or 3) it primarily reflects on (or 0 if generic).
+
+Respond strictly with valid JSON:
+{
+  "chronicleReflections": [
+    {
+      "polarity": "positive | corrective | generic",
+      "behaviorTag": "SHORT EMOTION / BEHAVIOR BADGE",
+      "quote": "14-24 word grounded reflection quote that helps the person grow.",
+      "momentIndex": 1
+    }
+  ]
+}`;
+
+      try {
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+        const gResp = await fetch(geminiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: rethinkPrompt }] }],
+            generationConfig: {
+              temperature: 0.65,
+              maxOutputTokens: 600,
+              responseMimeType: 'application/json'
+            }
+          })
+        });
+        if (!gResp.ok) {
+          throw new Error('Gemini API error ' + gResp.status);
+        }
+        const gData = await gResp.json();
+        const rawText = gData.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+        const parsedRethink = JSON.parse(rawText.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim());
+        const reflections = Array.isArray(parsedRethink.chronicleReflections)
+          ? parsedRethink.chronicleReflections.slice(0, 2).filter(r => r && r.quote)
+          : [];
+        if (reflections.length === 0) {
+          throw new Error('Empty reflections returned');
+        }
+        const primaryQuote = reflections.map(r => r.quote).join(' ');
+        return res.status(200).json({
+          success: true,
+          chronicleReflections: reflections,
+          curatorTake: primaryQuote
+        });
+      } catch (err) {
+        return res.status(500).json({ error: err.message || 'Failed to rethink reflection' });
+      }
+    }
+
     // Direct Single-Purpose Endpoint: Generate artwork only in background (has dedicated full execution window)
     if (body && body.action === 'artwork_only') {
       let {
@@ -1224,7 +1313,8 @@ Respond strictly with valid JSON with this exact structure:
       activeCast = null,
       castStaging = null,
       chronicleMode = false,
-      chronicleMoments = []
+      chronicleMoments = [],
+      reflectionFeedbackHistory = null
     } = body || {};
 
     const validChronicleMoments = Array.isArray(chronicleMoments)
@@ -1601,10 +1691,20 @@ ${validChronicleMoments.map((m, i) => `  * Moment 0${i + 1} (${m.title || 'Momen
   * Set "categoryBadge" to "DAILY CHRONICLE" and "publicationName" to "Daily Chronicle".
   * Set "adaptedHeadline" to a warm, natural 6 to 10 word headline formed directly from the moments of the day.
   * Set "originalHeadline" strictly to today's date in the format "${formatChronicleDateLabel(new Date())}" (strictly NO "Daily Chronicle: ..." source headline prefix!).
-- 2. GENERAL TAKEAWAY OF THE DAY ("curatorTake" — Displayed Alone on Poster 3):
-  * Write a simple, natural, general takeaway from that day (1 to 2 grounded sentences, 16-28 words total).
-  * CRITICAL RULE: DO NOT try hard to stitch all ${validChronicleMoments.length} moments together or force keywords from all ${validChronicleMoments.length} instances into a convoluted compound sentence! Instead, express one warm, effortless general life/day takeaway that captures the spirit or lesson of the day.
-  * Set "whyItMatters" to "" (empty string) so Poster 3 displays ONLY this single general takeaway of the day.
+- 2. BEHAVIORAL & EMOTIONAL REFLECTIONS OF THE DAY ("chronicleReflections" & "curatorTake" — Displayed on Poster 3):
+  * CRITICAL ANTI-STITCHING RULE: NEVER stitch, blend, or force all ${validChronicleMoments.length} moments into a single convoluted sentence! Combining unrelated events (e.g., software work + a child's exam + eating dinner) into one sentence creates a puzzled, artificial riddle.
+  * PURPOSE OF POSTER 3: Poster 2 already records what happened. Poster 3 is a personal behavioral and emotional mirror designed to make the author a better, more self-aware person.
+  * HOW TO SELECT & EXTRACT REFLECTIONS:
+    1. First priority: Reflect on the ★ STARRED moment(s) (${explicitStarredIdx >= 0 ? `Moment 0${explicitStarredIdx + 1}: "${validChronicleMoments[explicitStarredIdx].text}"` : 'if any moment is starred'}) AND any moment that reveals a genuine EMOTION, SELF-CRITIQUE, ATTITUDE, or HUMAN BEHAVIOR.
+    2. Ignore purely logistical or routine filler moments when writing reflections.
+    3. Identify the underlying Emotion / Behavior and whether it sits on:
+       - The POSITIVE / CONSTRUCTIVE side ("polarity": "positive"): e.g., calm mentorship with a child, humility to admire and adapt someone's warm hospitality, stepping up to own design/craft, civic pride, or family gratitude. Format "behaviorTag" as "🌱 WORTH ADAPTING • [BEHAVIOR]", "🧭 STEADY PARENTING • [BEHAVIOR]", or "✦ STRENGTH • [BEHAVIOR]".
+       - The NEGATIVE / DRIFT / FRICTION side ("polarity": "corrective"): e.g., scattered focus / going through the motions at work, procrastination, or anxiety while waiting for feedback, framed as a constructive course-correction to make the person better. Format "behaviorTag" as "⚡ COURSE-CORRECTION • [DRIFT] → [ACTION]".
+       - GENERIC OBSERVATIONAL ("polarity": "generic"): If ALL ${validChronicleMoments.length} moments are simple factual logs (e.g., logging a child's running, meal, and class) with no starred moment or behavioral tension, write 1 simple, warm generic reflection on everyday rhythm or observing growth WITHOUT forcing literal nouns from the moments into the quote! Format "behaviorTag" as "✦ DAILY REFLECTION • EVERYDAY RHYTHM".
+    4. 1 QUOTE VS. 2 QUOTES ("chronicleReflections" array of 1 or 2 objects):
+       - Output 1 reflection object (16-24 words) if the day has one clear starred/behavioral lesson or one unified emotional thread.
+       - Output 2 independent reflection objects (14-22 words each) if the day contains 2 distinct emotional/behavioral lessons from different moments that should NOT be merged into one sentence (e.g., Quote 1 on correcting scattered work focus, and Quote 2 on adapting a host's warm welcome; OR Quote 1 on owning product design, and Quote 2 on guiding a child calmly after low marks).
+    5. Set "curatorTake" to the primary reflection quote (or both quotes joined by a space), and set "whyItMatters" to "" (empty string).${reflectionFeedbackHistory && (Array.isArray(reflectionFeedbackHistory.liked) || Array.isArray(reflectionFeedbackHistory.disliked)) ? `\n    6. LEARN FROM THE AUTHOR'S PAST REFLECTION FEEDBACK (👍 / 👎):${Array.isArray(reflectionFeedbackHistory.liked) && reflectionFeedbackHistory.liked.length > 0 ? `\n       - Liked (👍 Match this grounded, actionable style): ${reflectionFeedbackHistory.liked.slice(0, 4).map(q => `"${q}"`).join(' | ')}` : ''}${Array.isArray(reflectionFeedbackHistory.disliked) && reflectionFeedbackHistory.disliked.length > 0 ? `\n       - Disliked (👎 Avoid this puzzled/blended style): ${reflectionFeedbackHistory.disliked.slice(0, 4).map(q => `"${q}"`).join(' | ')}` : ''}` : ''}
 - 3. POSTER 2 ELABORATED MOMENTS ("resolvedArticleExcerpts" and "summary"):
   * DO NOT merge the moments into one continuous generic essay!
   * Instead, output ${validChronicleMoments.length} distinct, vivid micro-entries in "resolvedArticleExcerpts" (one array element per moment, 35-48 words / 2-3 polished sentences each so all ${validChronicleMoments.length} moments fit cleanly together on Poster 2), preserving 100% of the author's voice and details.
@@ -1683,7 +1783,15 @@ Respond strictly with valid JSON with this exact structure:
   "categoryBadge": "UPPERCASE CATEGORY (e.g. DEEP TECH, CULTURE, OPINION, CLIMATE, ECONOMY, HEALTH)",
   "hook": "1-2 sentence gripping hook that stops the reader mid-scroll",
   "polishedCuratorTake": "${userSlant ? 'The curator\'s exact full-length input with gentle grammar, spelling, and phrase corrections applied (preserving 100% of their voice, thoughts, and length).' : ''}",
-  "curatorTake": "EXACTLY 2 complete sentences (25-35 words total, ending with a period) capturing the author's strongest, most poignant lines from their input. Retain their vivid human phrasing and metaphors without inventing stiff academic summaries.",
+  "curatorTake": "${isChronicle ? 'The primary behavioral/emotional reflection quote of the day (16-24 words, plain grounded English, never stitching unrelated moments together).' : 'EXACTLY 2 complete sentences (25-35 words total, ending with a period) capturing the author\'s strongest, most poignant lines from their input. Retain their vivid human phrasing and metaphors without inventing stiff academic summaries.'}",
+  ${isChronicle ? `"chronicleReflections": [
+    {
+      "polarity": "positive | corrective | generic",
+      "behaviorTag": "SHORT EMOTION / BEHAVIOR BADGE (e.g. ⚡ COURSE-CORRECTION • DRIFT → FOCUS or 🌱 WORTH ADAPTING • WARMTH & PRESENCE)",
+      "quote": "14-24 word grounded reflection quote that helps the person grow (1 or 2 objects in array as suited; NEVER stitch unrelated moments into one quote).",
+      "momentIndex": 1
+    }
+  ],` : ''}
   "summary": "${sourceType === 'inner_voice' ? 'Exactly 3 broadsheet paragraphs of lived experience reflection deeply elaborating the curator perspective and context (60-70, 60-75, 55-70 words; 180-220 words total). Never sacrifice curator perspective for scene filler.' : (userSlant ? 'Exactly 3 broadsheet paragraphs carrying and deeply elaborating the curator take in direct dialogue with the attached source (60-70, 60-75, 55-70 words; 180-220 words total). Never an objective book report.' : 'Exactly 3 broadsheet paragraphs of objective journalistic reporting (60-70, 60-75, 55-70 words; 180-220 words total).')}",
   "whyItMatters": "1-2 sharp sentences on the stakes and why this perspective matters right now (18-28 words)",
   "keyTakeaways": [
@@ -1990,20 +2098,51 @@ Respond strictly with valid JSON with this exact structure:
       finalPolishedCuratorTake = formatCuratorTakeApt(userSlant.trim());
     }
 
-    // 2. Poster 2 Curated Take (2-sentence punchy visual pull-quote framed for Slide 2 card)
-    let finalCuratorTake = (!refineCoreTake && userSlant && userSlant.trim().length > 0)
-      ? userSlant.trim()
-      : ((parsed.curatorTake && parsed.curatorTake.trim().length > 10)
-          ? parsed.curatorTake.trim()
-          : (userSlant || 'Strategic structural shift in motion.'));
+    // 2. Poster 2 Curated Take (or Poster 3 Behavioral Reflections for Daily Chronicle)
+    let normalizedChronicleReflections = undefined;
+    if (isChronicle && Array.isArray(parsed.chronicleReflections) && parsed.chronicleReflections.length > 0) {
+      normalizedChronicleReflections = parsed.chronicleReflections
+        .filter(r => r && typeof r.quote === 'string' && r.quote.trim().length > 5)
+        .slice(0, 2)
+        .map(r => ({
+          polarity: ['positive', 'corrective', 'generic'].includes(String(r.polarity || '').toLowerCase())
+            ? String(r.polarity).toLowerCase()
+            : 'generic',
+          behaviorTag: String(r.behaviorTag || '✦ DAILY REFLECTION').trim(),
+          quote: formatCuratorTakeApt(String(r.quote).trim()),
+          momentIndex: Number(r.momentIndex) || 0
+        }));
+    }
 
-    finalCuratorTake = formatCuratorTakeApt(finalCuratorTake);
+    let finalCuratorTake = '';
+    if (isChronicle) {
+      if (normalizedChronicleReflections && normalizedChronicleReflections.length > 0) {
+        finalCuratorTake = normalizedChronicleReflections[0].quote;
+      } else if (parsed.curatorTake && parsed.curatorTake.trim().length > 10) {
+        finalCuratorTake = formatCuratorTakeApt(parsed.curatorTake.trim());
+        normalizedChronicleReflections = [{
+          polarity: 'generic',
+          behaviorTag: '✦ DAILY REFLECTION',
+          quote: finalCuratorTake,
+          momentIndex: starredChronicleIdx >= 0 ? (starredChronicleIdx + 1) : 0
+        }];
+      } else {
+        finalCuratorTake = 'Every small choice in how we focus and show up shapes the rhythm of our day.';
+      }
+    } else {
+      finalCuratorTake = (!refineCoreTake && userSlant && userSlant.trim().length > 0)
+        ? userSlant.trim()
+        : ((parsed.curatorTake && parsed.curatorTake.trim().length > 10)
+            ? parsed.curatorTake.trim()
+            : (userSlant || 'Strategic structural shift in motion.'));
+      finalCuratorTake = formatCuratorTakeApt(finalCuratorTake);
 
-    // Ensure Poster 2 curated take stays strictly within 2-sentence visual budget (25-35 words) only when refineCoreTake is true
-    if (refineCoreTake) {
-      const takeSents = finalCuratorTake.split(/(?<=[.!?])\s+/);
-      if (takeSents.length > 2 || finalCuratorTake.length > 200) {
-        finalCuratorTake = takeSents.slice(0, 2).join(' ');
+      // Ensure Poster 2 curated take stays strictly within 2-sentence visual budget (25-35 words) only when refineCoreTake is true
+      if (refineCoreTake) {
+        const takeSents = finalCuratorTake.split(/(?<=[.!?])\s+/);
+        if (takeSents.length > 2 || finalCuratorTake.length > 200) {
+          finalCuratorTake = takeSents.slice(0, 2).join(' ');
+        }
       }
     }
 
@@ -2091,12 +2230,14 @@ Respond strictly with valid JSON with this exact structure:
       sourceContext: extractedContent || '',
       chronicleMode: Boolean(isChronicle),
       chronicleMoments: isChronicle ? validChronicleMoments : undefined,
+      chronicleReflections: isChronicle ? normalizedChronicleReflections : undefined,
       generationInputs: {
         slantTake: finalPolishedCuratorTake || userSlant || '',
         sourceUrl: url || '',
         sourceType: sourceType,
         chronicleMode: Boolean(isChronicle),
         chronicleMoments: isChronicle ? validChronicleMoments : undefined,
+        chronicleReflections: isChronicle ? normalizedChronicleReflections : undefined,
         perspectiveMode: perspectiveMode || 'source',
         sourceImageUrl: sourceImageUrl || null,
         sourceImageBase64: sourceImageBase64 || null,
