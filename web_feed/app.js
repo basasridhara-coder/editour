@@ -6483,6 +6483,76 @@ async function rateChronicleReflection(event, postId, vote) {
   }
 }
 
+function buildChronicleReflectionCenterpieceHtml(post, showInteractiveFeedback = true) {
+  if (!post) return '';
+  const handle = escapeHtml(post.creatorHandle || '@curator');
+  const rawHandle = (post.creatorHandle || '@curator').trim();
+  const initial = escapeHtml((rawHandle.replace('@', '').trim().charAt(0) || 'C').toUpperCase());
+  const chronicleDateStr = formatChronicleDateDisplay(post.createdAt || post.date);
+  const chronicleReflectionsList = resolveChronicleReflectionsForPost(post);
+  const hasTwoReflections = chronicleReflectionsList.length >= 2;
+  const feedbackPostId = escapeHtml(String(post.id || 'preview'));
+  const currentVote = post.reflectionFeedback || post.generationInputs?.reflectionFeedback || null;
+  const rawOpinion = (post.curatorTake && post.curatorTake.trim())
+    ? post.curatorTake.trim()
+    : ((post.creatorOpinion && post.creatorOpinion.trim()) ? post.creatorOpinion.trim() : '');
+
+  return `
+        <div class="chronicle-reflection-centerpiece ${hasTwoReflections ? 'has-two-quotes' : 'has-single-quote'}" data-reflection-centerpiece-post="${feedbackPostId}">
+          <div class="chronicle-reflection-kicker">
+            <span class="kicker-star">✦</span>
+            <span>${hasTwoReflections ? 'REFLECTIONS OF THE DAY' : 'REFLECTION OF THE DAY'} • ${escapeHtml(chronicleDateStr)}</span>
+            <span class="kicker-star">✦</span>
+          </div>
+          ${hasTwoReflections ? `
+            <div class="chronicle-dual-reflections-stack">
+              ${chronicleReflectionsList.slice(0, 2).map((refItem) => `
+                <div class="chronicle-reflection-quote-card is-polarity-${escapeHtml(refItem.polarity || 'generic')}">
+                  <div class="chronicle-behavior-pill is-${escapeHtml(refItem.polarity || 'generic')}">${escapeHtml(refItem.behaviorTag || '✦ DAILY REFLECTION')}</div>
+                  <p class="chronicle-reflection-dual-text">&ldquo;${escapeHtml(refItem.quote)}&rdquo;</p>
+                </div>
+              `).join('')}
+            </div>
+          ` : `
+            ${chronicleReflectionsList[0]?.behaviorTag ? `
+              <div class="chronicle-behavior-pill is-${escapeHtml(chronicleReflectionsList[0].polarity || 'generic')} is-single-pill">${escapeHtml(chronicleReflectionsList[0].behaviorTag)}</div>
+            ` : ''}
+            <div class="chronicle-reflection-quote-mark">&ldquo;</div>
+            <p class="chronicle-reflection-main-text">${escapeHtml(chronicleReflectionsList[0]?.quote || rawOpinion)}</p>
+          `}
+          <div class="chronicle-reflection-bottom-row">
+            <div class="chronicle-reflection-signature">
+              <span class="signed-curator-avatar">${initial}</span>
+              <span class="chronicle-signature-handle">${handle}</span>
+            </div>
+            ${showInteractiveFeedback ? `
+            <div class="chronicle-reflection-feedback-bar" data-feedback-post="${feedbackPostId}" onclick="event.stopPropagation()">
+              <span class="reflection-feedback-prompt">Agree?</span>
+              <button type="button"
+                      class="reflection-vote-btn is-up ${currentVote === 'up' ? 'active' : ''}"
+                      onclick="rateChronicleReflection(event, '${feedbackPostId}', 'up')"
+                      title="Agree / Liked this reflection">
+                <span aria-hidden="true">👍</span>
+              </button>
+              <button type="button"
+                      class="reflection-vote-btn is-down ${currentVote === 'down' ? 'active' : ''}"
+                      onclick="rateChronicleReflection(event, '${feedbackPostId}', 'down')"
+                      title="Disagree / Doesn't fit my moments">
+                <span aria-hidden="true">👎</span>
+              </button>
+              <button type="button"
+                      class="reflection-rethink-btn ${currentVote === 'down' ? 'is-visible' : ''}"
+                      onclick="rethinkChronicleReflection(event, '${feedbackPostId}')"
+                      title="Generate a fresh reflection from your moments">
+                ↻ Rethink
+              </button>
+            </div>
+            ` : ''}
+          </div>
+        </div>
+  `;
+}
+
 async function rethinkChronicleReflection(event, postId) {
   if (event) {
     event.stopPropagation();
@@ -6491,9 +6561,17 @@ async function rethinkChronicleReflection(event, postId) {
   const targetPost = findChroniclePostByIdOrPreview(postId);
   if (!targetPost) return;
 
-  const moments = (Array.isArray(targetPost.chronicleMoments) && targetPost.chronicleMoments.length > 0)
+  let moments = (Array.isArray(targetPost.chronicleMoments) && targetPost.chronicleMoments.length > 0)
     ? targetPost.chronicleMoments
     : (Array.isArray(targetPost.generationInputs?.chronicleMoments) ? targetPost.generationInputs.chronicleMoments : []);
+
+  if ((!moments || moments.length === 0) && Array.isArray(targetPost.resolvedArticleExcerpts) && targetPost.resolvedArticleExcerpts.length > 0) {
+    moments = targetPost.resolvedArticleExcerpts.map((ex, i) => ({
+      index: i + 1,
+      title: `Moment 0${i + 1}`,
+      text: String(ex || '').replace(/^(?:0?\d+\s*[·•.-]\s*)?Moment\s+\d+\s*:\s*/i, '').trim()
+    })).filter(m => m.text.length > 2);
+  }
 
   if (!moments || moments.length === 0) {
     showTemporaryToast('No individual moments stored on this entry to rethink.');
@@ -6535,20 +6613,13 @@ async function rethinkChronicleReflection(event, postId) {
       targetPost.generationInputs.reflectionFeedback = null;
     }
 
-    // Re-render any open views displaying this post
-    const diaryModal = document.getElementById('diaryCalendarModal');
-    if (diaryModal && diaryModal.style.display !== 'none' && typeof renderDiaryCalendarModal === 'function') {
-      renderDiaryCalendarModal();
-      setTimeout(() => {
-        const fakeEvt = { stopPropagation: () => {} };
-        if (typeof goToSlide === 'function') goToSlide(fakeEvt, 'diary_preview', 2);
-      }, 40);
-    }
-    if (typeof currentSynthesizedPost !== 'undefined' && currentSynthesizedPost && currentSynthesizedPost.id === targetPost.id && typeof renderPreviewCarousel === 'function') {
-      renderPreviewCarousel();
-    }
+    // Update Slide 3 centerpiece in-place across all open views so the user stays on Slide 3
+    const updatedHtml = buildChronicleReflectionCenterpieceHtml(targetPost, true);
+    document.querySelectorAll(`.chronicle-reflection-centerpiece[data-reflection-centerpiece-post="${postId}"]`).forEach(el => {
+      el.outerHTML = updatedHtml;
+    });
+
     if (Array.isArray(allPosts) && allPosts.some(p => p && p.id === targetPost.id)) {
-      if (typeof renderFeed === 'function') renderFeed();
       if (typeof savePostsToLocalCache === 'function') savePostsToLocalCache();
       if (typeof saveSinglePostToCloud === 'function') {
         try { await saveSinglePostToCloud(targetPost); } catch (_) {}
@@ -6874,66 +6945,9 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
   const receiptBrandTitle = isChronicle ? "SLANT MOMENTS" : "SLANT MINUTES";
   const chronicleDateStr = isChronicle ? formatChronicleDateDisplay(post.createdAt || post.date) : "";
 
-  const chronicleReflectionsList = isChronicle ? resolveChronicleReflectionsForPost(post) : [];
-  const hasTwoReflections = chronicleReflectionsList.length >= 2;
-  const feedbackPostId = escapeHtml(String(post.id || 'preview'));
-  const currentVote = post.reflectionFeedback || post.generationInputs?.reflectionFeedback || null;
-  const showInteractiveFeedback = (index !== "export");
-
-  const chroniclePoster3ReflectionHtml = `
-        <div class="chronicle-reflection-centerpiece ${hasTwoReflections ? "has-two-quotes" : "has-single-quote"}">
-          <div class="chronicle-reflection-kicker">
-            <span class="kicker-star">✦</span>
-            <span>${hasTwoReflections ? "REFLECTIONS OF THE DAY" : "REFLECTION OF THE DAY"} • ${escapeHtml(chronicleDateStr)}</span>
-            <span class="kicker-star">✦</span>
-          </div>
-          ${hasTwoReflections ? `
-            <div class="chronicle-dual-reflections-stack">
-              ${chronicleReflectionsList.slice(0, 2).map((refItem) => `
-                <div class="chronicle-reflection-quote-card is-polarity-${escapeHtml(refItem.polarity || 'generic')}">
-                  <div class="chronicle-behavior-pill is-${escapeHtml(refItem.polarity || 'generic')}">${escapeHtml(refItem.behaviorTag || '✦ DAILY REFLECTION')}</div>
-                  <p class="chronicle-reflection-dual-text">&ldquo;${escapeHtml(refItem.quote)}&rdquo;</p>
-                </div>
-              `).join('')}
-            </div>
-          ` : `
-            ${chronicleReflectionsList[0]?.behaviorTag ? `
-              <div class="chronicle-behavior-pill is-${escapeHtml(chronicleReflectionsList[0].polarity || 'generic')} is-single-pill">${escapeHtml(chronicleReflectionsList[0].behaviorTag)}</div>
-            ` : ''}
-            <div class="chronicle-reflection-quote-mark">&ldquo;</div>
-            <p class="chronicle-reflection-main-text">${escapeHtml(chronicleReflectionsList[0]?.quote || rawOpinion)}</p>
-          `}
-          <div class="chronicle-reflection-bottom-row">
-            <div class="chronicle-reflection-signature">
-              <span class="signed-curator-avatar">${initial}</span>
-              <span class="chronicle-signature-handle">${handle}</span>
-            </div>
-            ${showInteractiveFeedback ? `
-            <div class="chronicle-reflection-feedback-bar" data-feedback-post="${feedbackPostId}" onclick="event.stopPropagation()">
-              <span class="reflection-feedback-prompt">Agree?</span>
-              <button type="button"
-                      class="reflection-vote-btn is-up ${currentVote === 'up' ? 'active' : ''}"
-                      onclick="rateChronicleReflection(event, '${feedbackPostId}', 'up')"
-                      title="Agree / Liked this reflection">
-                <span aria-hidden="true">👍</span>
-              </button>
-              <button type="button"
-                      class="reflection-vote-btn is-down ${currentVote === 'down' ? 'active' : ''}"
-                      onclick="rateChronicleReflection(event, '${feedbackPostId}', 'down')"
-                      title="Disagree / Doesn't fit my moments">
-                <span aria-hidden="true">👎</span>
-              </button>
-              <button type="button"
-                      class="reflection-rethink-btn ${currentVote === 'down' ? 'is-visible' : ''}"
-                      onclick="rethinkChronicleReflection(event, '${feedbackPostId}')"
-                      title="Generate a fresh reflection from your moments">
-                ↻ Rethink
-              </button>
-            </div>
-            ` : ''}
-          </div>
-        </div>
-  `;
+  const chroniclePoster3ReflectionHtml = isChronicle
+    ? buildChronicleReflectionCenterpieceHtml(post, index !== "export")
+    : '';
 
   const page1InnerHtml = `
         <div class="receipt-brand-corner-bar">

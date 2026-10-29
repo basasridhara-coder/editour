@@ -241,9 +241,12 @@ Respond strictly with valid JSON:
           body: JSON.stringify({
             contents: [{ parts: [{ text: rethinkPrompt }] }],
             generationConfig: {
-              temperature: 0.65,
-              maxOutputTokens: 600,
-              responseMimeType: 'application/json'
+              temperature: 0.7,
+              maxOutputTokens: 2048,
+              responseMimeType: 'application/json',
+              thinkingConfig: {
+                thinkingBudget: 0
+              }
             }
           })
         });
@@ -251,10 +254,24 @@ Respond strictly with valid JSON:
           throw new Error('Gemini API error ' + gResp.status);
         }
         const gData = await gResp.json();
-        const rawText = gData.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
-        const parsedRethink = JSON.parse(rawText.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim());
+        const partsArr = gData.candidates?.[0]?.content?.parts || [];
+        const textPart = partsArr.find(p => typeof p.text === 'string' && p.text.includes('{')) || partsArr[0];
+        let rawText = (textPart?.text || '{}').replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim();
+        const firstBrace = rawText.indexOf('{');
+        const lastBrace = rawText.lastIndexOf('}');
+        if (firstBrace >= 0 && lastBrace > firstBrace) {
+          rawText = rawText.slice(firstBrace, lastBrace + 1);
+        }
+        const parsedRethink = JSON.parse(rawText);
         const reflections = Array.isArray(parsedRethink.chronicleReflections)
-          ? parsedRethink.chronicleReflections.slice(0, 2).filter(r => r && r.quote)
+          ? parsedRethink.chronicleReflections.slice(0, 2).filter(r => r && r.quote).map(r => ({
+              polarity: ['positive', 'corrective', 'generic'].includes(String(r.polarity || '').toLowerCase())
+                ? String(r.polarity).toLowerCase()
+                : 'generic',
+              behaviorTag: String(r.behaviorTag || '✦ DAILY REFLECTION').trim(),
+              quote: formatCuratorTakeApt(String(r.quote).trim()),
+              momentIndex: Number(r.momentIndex) || 0
+            }))
           : [];
         if (reflections.length === 0) {
           throw new Error('Empty reflections returned');
