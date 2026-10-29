@@ -1226,13 +1226,11 @@ function setLoginPerspectiveSpark(sparkType) {
   if (tabIcon) tabIcon.src = iconSrc;
   if (hookEl) {
     hookEl.textContent = isVoice
-      ? 'Have an observation or conviction on your mind?'
-      : 'Put your Slant on what you read, watch, or observe.';
+      ? 'On an observation, experience, or conviction on your mind.'
+      : 'On what you read or watch on the web, in a few lines.';
   }
   if (descEl) {
-    descEl.innerHTML = isVoice
-      ? 'No link needed. Speak your <strong>Inner Voice</strong> (observation, reflection, or hot take) &mdash; or switch to a <strong>Web Link</strong> to frame any article into a 3-poster story.'
-      : 'Whether sparked by a <strong>Web Link</strong> (article, video, podcast) or your own <strong>Inner Voice</strong> (observation or reflection) &mdash; Slant frames your take into a shareable 3-poster story.';
+    descEl.textContent = 'Slant frames it into shareable illustrated posters, keeping your style and voice intact.';
   }
 }
 
