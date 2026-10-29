@@ -6385,7 +6385,7 @@ header {
   color: #FFFFFF;
 }
 
-/* Mobile Floating Action Button (FAB) — Flashy Luminous Boreal Aurora over Darkened Poster */
+/* Mobile Floating Action Button (FAB) — Luminous Boreal Pine & Burnished Brass over Darkened Poster */
 .fab-create-btn {
   position: fixed;
   bottom: 24px;
@@ -6393,32 +6393,32 @@ header {
   z-index: 99;
   display: none;
   align-items: center;
-  gap: 9px;
-  background: linear-gradient(135deg, #1E9E7A 0%, #2094B2 50%, #5B73D8 100%);
+  gap: 8px;
+  background: linear-gradient(135deg, #213B34 0%, #34564C 45%, #B87D32 100%);
   color: #FFFFFF;
-  border: 1.5px solid rgba(167, 243, 208, 0.90);
+  border: 1.5px solid rgba(242, 208, 152, 0.88);
   border-radius: 9999px;
-  padding: 10px 18px 10px 12px;
+  padding: 9px 18px 9px 12px;
   font-size: 15px;
   font-weight: 800;
   cursor: pointer;
   box-shadow:
-    0 0 0 3px rgba(45, 212, 191, 0.28),
-    0 10px 28px rgba(16, 185, 129, 0.48),
+    0 0 0 3px rgba(212, 160, 86, 0.28),
+    0 10px 28px rgba(184, 125, 50, 0.45),
     0 4px 14px rgba(0, 0, 0, 0.65),
-    inset 0 1px 1px rgba(255, 255, 255, 0.50);
+    inset 0 1px 1px rgba(255, 246, 224, 0.48);
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   letter-spacing: -0.2px;
 }
 
 .fab-create-btn:hover {
   transform: translateY(-2px) scale(1.03);
-  background: linear-gradient(135deg, #22B089 0%, #25A6C7 50%, #6880E6 100%);
+  background: linear-gradient(135deg, #284840 0%, #3F685C 45%, #C98B3B 100%);
   box-shadow:
-    0 0 0 4px rgba(45, 212, 191, 0.38),
-    0 14px 34px rgba(16, 185, 129, 0.58),
+    0 0 0 4px rgba(212, 160, 86, 0.38),
+    0 14px 34px rgba(184, 125, 50, 0.55),
     0 6px 18px rgba(0, 0, 0, 0.70),
-    inset 0 1px 2px rgba(255, 255, 255, 0.65);
+    inset 0 1px 2px rgba(255, 246, 224, 0.62);
 }
 
 .fab-create-btn:active {
@@ -6426,27 +6426,28 @@ header {
 }
 
 .fab-create-btn .fab-icon {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  background: #F4EEDC;
+  width: 30px;
+  height: 30px;
+  border-radius: 0;
+  background: transparent;
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  overflow: visible;
+  box-shadow: none;
   flex-shrink: 0;
-  padding: 1px;
+  padding: 0;
   box-sizing: border-box;
 }
 
 .fab-create-btn .fab-logo-img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
-  border-radius: 50%;
+  object-fit: contain;
+  border-radius: 0;
   display: block;
-  transform: scale(1.08) translateY(-1%);
+  transform: scale(1.25);
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.42));
 }
 
 .fab-create-btn .fab-label {
