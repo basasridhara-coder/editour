@@ -13348,8 +13348,8 @@ function syncInnerVoiceSubmodeUI() {
       guideBtn.classList.remove('active');
     }
     if (guideCard) guideCard.style.display = 'none';
-    if (label) label.textContent = 'Diary Chronicle: Your Day in Moments (2 to 3 Vignettes)';
-    if (sub) sub.textContent = 'Record 2 to 3 distinct moments from your day, and tap ★ Star on the moment you feel is most important to give it more space in Poster 1.';
+    if (label) label.textContent = 'Your Day in Moments';
+    if (sub) sub.textContent = 'Record 2 to 3 distinct moments from your day. Tap ★ Star on your main moment to give it the largest space in Poster 1. 🔒 End-to-end AES-256 encrypted.';
     if (heroIcon) heroIcon.textContent = '📔';
     if (heroBox) heroBox.style.color = '#253833';
 
@@ -13371,8 +13371,8 @@ function syncInnerVoiceSubmodeUI() {
     if (slantTextarea) slantTextarea.style.display = 'block';
     if (chronDeck) chronDeck.style.display = 'none';
     if (guideBtn) guideBtn.style.display = 'inline-flex';
-    if (label) label.textContent = 'What is your Slant or Perspective?';
-    if (sub) sub.textContent = 'Express your conviction or reflection freely. AI transforms this into your lead take.';
+    if (label) label.textContent = 'Your Perspective';
+    if (sub) sub.textContent = 'Express your conviction or reflection freely. AI frames 100% of your voice into your 3-poster story.';
     if (heroIcon) heroIcon.textContent = '💭';
     if (heroBox) heroBox.style.color = '#253833';
   }
@@ -13456,8 +13456,8 @@ function renderDailyChronicleCards() {
     if (addTxt) addTxt.textContent = 'Add 3rd Moment';
   }
   if (countHint) {
-    const starText = starredIdx >= 0 ? `★ Moment 0${starredIdx + 1} Highlighted (Larger Poster Space)` : 'Tap ☆ Star on your main moment for larger space';
-    countHint.textContent = `${count} of 3 Moments${photosCount > 0 ? ` • ${photosCount} Photo${photosCount > 1 ? 's' : ''} Attached` : ''} • ${starText}`;
+    const starText = starredIdx >= 0 ? `★ Moment 0${starredIdx + 1} Starred` : '';
+    countHint.textContent = `${count} / 3 Moments${photosCount > 0 ? ` • ${photosCount} Photo${photosCount > 1 ? 's' : ''}` : ''}${starText ? ` • ${starText}` : ''}`;
   }
 }
 
@@ -15237,11 +15237,11 @@ function updateWebLinkSubmode(isVideo) {
     if (linkIcon) linkIcon.textContent = '🎬';
     if (linkTitle) linkTitle.textContent = 'Video / Audio Link';
     if (linkSub) linkSub.textContent = 'YouTube, Podcast Timestamps';
-    if (urlInput && !urlInput.value) urlInput.placeholder = 'Paste YouTube (e.g. https://youtu.be/... or podcast link)';
+    if (urlInput && !urlInput.value) urlInput.placeholder = 'Paste YouTube or podcast link (https://...)';
 
-    if (label) label.textContent = 'Your Slant / Reaction';
-    if (sub) sub.textContent = 'Framing your angle, counter-slant, or reaction to what you watched/listened to.';
-    if (input && !input.value) input.placeholder = 'e.g. The speaker makes a compelling case, but completely overlooks how open protocols protect user autonomy...';
+    if (label) label.textContent = 'Your Perspective';
+    if (sub) sub.textContent = 'Frame your angle, counter-slant, or reaction to what you watched or listened to.';
+    if (input && !input.value) input.placeholder = 'Write your perspective or reaction here...';
     if (heroIcon) heroIcon.textContent = '🎬';
     if (heroBox) heroBox.style.color = '#253833';
   } else {
@@ -15259,13 +15259,13 @@ function updateWebLinkSubmode(isVideo) {
     }
 
     if (linkIcon) linkIcon.textContent = '🔗';
-    if (linkTitle) linkTitle.textContent = 'Source Article / Video Link';
+    if (linkTitle) linkTitle.textContent = 'Source Link';
     if (linkSub) linkSub.textContent = 'Articles, Videos, Podcasts, Newsletters';
-    if (urlInput && !urlInput.value) urlInput.placeholder = 'https://... (Article, YouTube, Substack, Podcast URL)';
+    if (urlInput && !urlInput.value) urlInput.placeholder = 'Paste article, YouTube, or podcast URL (https://...)';
 
-    if (label) label.textContent = 'Your Slant / Take';
-    if (sub) sub.textContent = 'A few sentences framing your angle, critique, or why this article matters.';
-    if (input && !input.value) input.placeholder = 'e.g. The headline misses the real structural disruption happening behind the scenes...';
+    if (label) label.textContent = 'Your Perspective';
+    if (sub) sub.textContent = 'A few sentences framing your angle, critique, or why this story matters.';
+    if (input && !input.value) input.placeholder = 'Write your perspective or take on this link...';
     if (heroIcon) heroIcon.textContent = '📰';
     if (heroBox) heroBox.style.color = '#253833';
   }
@@ -15393,13 +15393,13 @@ function setAnchorMode(mode) {
     const input = document.getElementById('creatorSlantTakeInput');
     const heroIcon = document.getElementById('slantHeroIcon');
     const heroBox = document.getElementById('slantIconBox');
-    if (label) label.textContent = 'What is your Slant or Perspective?';
+    if (label) label.textContent = 'Your Perspective';
     if (badge) {
       badge.textContent = 'Required';
       badge.className = 'creator-tag-badge badge-required';
     }
-    if (sub) sub.textContent = 'Express your conviction or reflection freely. AI transforms this into your lead take.';
-    if (input) input.placeholder = 'What perspective demands to be shared? e.g. The real risk of AI isn’t superintelligence taking over, it’s that we surrender our curiosity and critical judgment to automated convenience...';
+    if (sub) sub.textContent = 'Express your conviction or reflection freely. AI frames 100% of your voice into your 3-poster story.';
+    if (input) input.placeholder = 'Write your perspective or reflection here...';
     if (heroIcon) heroIcon.textContent = '💭';
     if (heroBox) heroBox.style.color = '#253833';
     syncInnerVoiceSubmodeUI();

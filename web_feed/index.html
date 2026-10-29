@@ -29,7 +29,7 @@
   <link rel="preconnect" href="https://fxfklefnkpmhofncqhfh.supabase.co" crossorigin>
   <link rel="preconnect" href="https://accounts.google.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Merriweather:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,400;1,600;1,700;1,900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261029_2215">
+  <link rel="stylesheet" href="style.css?v=20261029_2225">
   <!-- Favicon & Brand Icons -->
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
@@ -543,12 +543,8 @@
       <!-- STEP 1 CONTAINER: Slant & Source (Matches Mobile App Exact Sequence) -->
       <div class="creator-step-content" id="creatorStep1">
 
-        <!-- 1. ROOT YOUR SLANT IN (Source Anchor Selector) -->
+        <!-- 1. PILLAR SELECTOR (Perspective vs Diary Chronicle) -->
         <div class="creator-anchor-section">
-          <div class="creator-anchor-header">
-            <span class="anchor-label">ROOT YOUR SLANT IN</span>
-            <span class="anchor-tag">Source Anchor</span>
-          </div>
           <div class="creator-anchor-grid is-two-pillar-grid">
             <!-- 1. Perspective (Merged Web Link & Inner Voice) -->
             <button type="button" class="anchor-card active" data-mode="perspective" id="anchorPerspectiveBtn" onclick="setAnchorMode(window.lastPerspectiveSparkMode || 'digital_link')">
@@ -585,7 +581,7 @@
             <div class="mental-model-inner">
               <div class="mental-model-badge-row">
                 <span class="mental-model-badge" id="anchorMentalModelBadge">MENTAL MODEL</span>
-                <span class="mental-model-pill" id="anchorMentalModelPill">Web Link</span>
+                <span class="mental-model-pill" id="anchorMentalModelPill">Perspective • Web Link</span>
               </div>
               <p class="mental-model-quote" id="anchorMentalModelText">
                 "I found an article, video, or podcast and have a perspective on it."
@@ -599,16 +595,20 @@
           <!-- Web & Video/Audio Anchor Trigger Panel -->
           <div class="trigger-section" id="triggerWebSection">
             <div class="trigger-header">
-              <div class="trigger-title-row">
+              <div class="trigger-title-row" style="display:flex; align-items:center; gap:6px;">
                 <span class="trigger-icon" id="triggerLinkIcon">🔗</span>
-                <span class="trigger-title" id="triggerLinkTitle">Source Article / Video Link</span>
+                <span class="trigger-title" id="triggerLinkTitle">Source Link</span>
+                <button type="button" class="ui-info-dot-btn" onclick="toggleInfoTip(event, 'webLinkFieldInfoTip')" title="About Source Link">i</button>
               </div>
               <div class="trigger-header-right" style="display:flex; align-items:center; gap:8px;">
                 <span class="creator-tag-badge badge-required" id="triggerLinkBadge">Required</span>
-                <span class="trigger-sub" id="triggerLinkSub">Paste & Fetch</span>
+                <span class="trigger-sub" id="triggerLinkSub" style="display:none;">Paste &amp; Fetch</span>
               </div>
             </div>
-            <input type="url" id="creatorUrlInput" class="creator-input" placeholder="https://... (Article, YouTube, Substack, Podcast URL)" autocomplete="off">
+            <div class="ui-info-popover-box" id="webLinkFieldInfoTip" style="display:none;">
+              Paste any article, YouTube video, Substack, or podcast URL to ground your Slant.
+            </div>
+            <input type="url" id="creatorUrlInput" class="creator-input" placeholder="Paste article, YouTube, or podcast URL (https://...)" autocomplete="off">
             <!-- Scrape Status Indicator (Matches Mobile App Exactly) -->
             <div id="urlScrapeIndicator" class="url-scrape-indicator" style="display:none;"></div>
             <!-- Objective Editorial Research Assistant Ledger Card -->
@@ -631,14 +631,17 @@
 
             <div id="innerVoiceSingleSparkWrap">
               <div class="trigger-header">
-                <div class="trigger-title-row">
+                <div class="trigger-title-row" style="display:flex; align-items:center; gap:6px;">
                   <span class="trigger-icon" style="color: #9A5B1A;">⚡</span>
-                  <span class="trigger-title">The Spark (What sparked this?)</span>
+                  <span class="trigger-title">What Sparked This?</span>
+                  <button type="button" class="ui-info-dot-btn" onclick="toggleInfoTip(event, 'sparkFieldInfoTip')" title="About The Spark">i</button>
                 </div>
-                <span class="trigger-sub">Optional • Words or Scene</span>
+                <span class="trigger-sub">Optional</span>
               </div>
-              <p class="trigger-desc">The real-world observation, memory, or moment that triggered this perspective.</p>
-              <input type="text" id="creatorSparkInput" class="creator-input" placeholder="e.g. A conversation with an old colleague about vanishing craft...">
+              <div class="ui-info-popover-box" id="sparkFieldInfoTip" style="display:none;">
+                Jot down the real-world observation, memory, or moment that triggered your perspective—or attach a scene photo below to guide visual cues.
+              </div>
+              <input type="text" id="creatorSparkInput" class="creator-input" placeholder="Type what sparked this thought (e.g. A chat with a colleague...)">
 
               <!-- Scene Photo / Camera Input for Inner Voice -->
               <div class="inner-voice-photo-wrap" id="innerVoicePhotoWrap">
@@ -655,7 +658,6 @@
                     <span class="btn-icon">🖼️</span>
                     <span class="btn-label">Upload Photo</span>
                   </button>
-                  <span class="inner-voice-photo-hint">Snap what's in front of you to guide visual cues</span>
                 </div>
 
                 <!-- Attached state: preview card -->
@@ -664,7 +666,7 @@
                     <img id="innerVoicePhotoThumb" class="photo-preview-thumb" src="" alt="Catalyst Scene">
                     <div class="photo-preview-info">
                       <div class="photo-preview-badge">📸 Catalyst Scene Attached</div>
-                      <div class="photo-preview-sub">AI will identify this scene & fuse it with your written slant</div>
+                      <div class="photo-preview-sub">AI will fuse this scene with your written perspective</div>
                     </div>
                   </div>
                   <button type="button" class="photo-preview-remove" onclick="removeInnerVoicePhoto(event)" title="Remove photo">✕</button>
@@ -691,9 +693,9 @@
               <div class="creator-icon-box" id="slantIconBox">
                 <span id="slantHeroIcon">💬</span>
               </div>
-              <div class="creator-card-titles">
-                <span class="creator-card-title" id="slantTakeLabel">Your Slant / Take</span>
-                <span class="creator-card-subtitle" id="slantTakeSubtitle">Share your unique angle, critique, or why this story matters so Slant elaborates your authentic voice.</span>
+              <div class="creator-card-titles" style="display:flex; align-items:center; gap:6px; flex-direction:row;">
+                <span class="creator-card-title" id="slantTakeLabel">Your Perspective</span>
+                <button type="button" class="ui-info-dot-btn" onclick="toggleInfoTip(event, 'slantTakeFieldInfoTip')" title="How this field works">i</button>
               </div>
             </div>
             <div class="creator-card-header-badges">
@@ -703,6 +705,9 @@
               </button>
               <span class="creator-tag-badge badge-required" id="slantTakeBadge">Required</span>
             </div>
+          </div>
+          <div class="ui-info-popover-box" id="slantTakeFieldInfoTip" style="display:none;">
+            <span id="slantTakeSubtitle">Share your unique angle, critique, or conviction. Slant elaborates 100% of your authentic voice into your 3-poster story.</span>
           </div>
 
           <!-- Pop-up 3-Beat Structure Guide (Refer while writing) -->
@@ -739,13 +744,10 @@
             </div>
           </div>
 
-          <textarea id="creatorSlantTakeInput" class="creator-textarea hero-textarea" rows="4" placeholder="e.g. [Moment/Trigger] What caught your attention... [Why It Matters] The deeper tension or contrast... [Core Conviction] Your lasting takeaway..."></textarea>
+          <textarea id="creatorSlantTakeInput" class="creator-textarea hero-textarea" rows="4" placeholder="Write your perspective, reaction, or takeaway here..."></textarea>
 
           <!-- Daily Chronicle Multi-Moment Cards Deck (Option B) -->
           <div class="daily-chronicle-deck-wrap" id="dailyChronicleDeckWrap" style="display: none;">
-            <div class="diary-encryption-trust-bar" style="display:flex; align-items:center; gap:6px; padding:6px 10px; margin-bottom:8px; border-radius:8px; background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.28); font-size:11px; font-weight:700; color:#34D399;" title="Your moments and takeaways are encrypted in your browser with AES-256-GCM before saving to the cloud. Even database admins cannot read your diary.">
-              <span>🔒 AES-256 End-to-End Encrypted • Strictly Private to You</span>
-            </div>
             <input type="file" id="chronicleMomentFileInput" accept="image/*" style="display: none;" onchange="handleChronicleMomentPhotoSelect(event)">
             <div class="daily-chronicle-cards-list" id="dailyChronicleCardsList">
               <!-- Populated dynamically by renderDailyChronicleCards() -->
@@ -755,7 +757,7 @@
                 <span>＋</span>
                 <span id="chronicleAddMomentBtnText">Add 3rd Moment</span>
               </button>
-              <span class="chronicle-moments-count-hint" id="chronicleMomentsCountHint">3 of 3 Moments • Center: Father (Shridhar, 40y)</span>
+              <span class="chronicle-moments-count-hint" id="chronicleMomentsCountHint">2 of 3 Moments</span>
             </div>
           </div>
 
@@ -770,7 +772,7 @@
                 <span class="btn-draft-text" id="slantSaveDraftBtnText">Save Draft</span>
               </button>
             </div>
-            <span class="slant-take-hint" id="slantAutosaveStatus">Auto-saves as you type • Preserves 100% your voice</span>
+            <span class="slant-take-hint" id="slantAutosaveStatus">Auto-saves</span>
           </div>
 
           <!-- Review & Approve Polished Take Card with Pedagogical Coaching Highlighters -->
@@ -886,17 +888,12 @@
               <span>🎨</span>
             </div>
             <div class="cues-header-titles">
-              <h3 class="cues-title">Art Direction & Settings</h3>
-              <p class="cues-subtitle">Shape the visual focus, regional setting, and character portrayal for your 3-poster set.</p>
+              <h3 class="cues-title">Art Direction &amp; Settings</h3>
             </div>
           </div>
 
           <!-- Creative Direction Control Matrix (Visual Focus, Voice, Setting, Character Portrayal) -->
           <div class="creative-direction-panel">
-            <div class="creative-direction-header">
-              <span class="creative-direction-badge">EDITORIAL & ART DIRECTION</span>
-              <span class="creative-direction-sub">Dial in your angle, cultural setting, and character portrayal</span>
-            </div>
 
             <!-- 1. Visual Focus (Curator Angle vs Hybrid vs Source Grounded) -->
             <div class="slant-perspective-card" id="slantPerspectiveCardStage2">
@@ -906,13 +903,16 @@
                     <span class="slant-perspective-icon" id="slantPerspectiveIconStage2">📰</span>
                   </div>
                   <div class="slant-perspective-text-wrap">
-                    <div class="slant-perspective-title-row">
+                    <div class="slant-perspective-title-row" style="display:flex; align-items:center; gap:6px;">
                       <span class="slant-perspective-title">VISUAL FOCUS</span>
+                      <button type="button" class="ui-info-dot-btn" onclick="toggleInfoTip(event, 'visualFocusInfoTip')" title="About Visual Focus">i</button>
                       <span class="slant-perspective-badge slant-perspective-badge-dyn" id="slantPerspectiveBadgeStage2">📰 Source Grounded</span>
                     </div>
-                    <div class="slant-perspective-subtitle slant-perspective-sub-dyn" id="slantPerspectiveSubtitleStage2">Controls Poster 1 Artwork & Cues: Anchors artwork in real-world news subject and physical setting.</div>
                   </div>
                 </div>
+              </div>
+              <div class="ui-info-popover-box" id="visualFocusInfoTip" style="display:none;">
+                <span id="slantPerspectiveSubtitleStage2">Controls Poster 1 Artwork &amp; Cues: Anchors artwork in real-world news subject and physical setting.</span>
               </div>
               <div class="slant-perspective-pills">
                 <button type="button" class="slant-perspective-pill" id="perspectivePillCuratorStage2" data-perspective="curator" onclick="setPerspectiveMode('curator', true)">
@@ -935,12 +935,15 @@
               <div class="country-context-left">
                 <span class="country-context-flag" id="countryContextFlag">🇮🇳</span>
                 <div class="country-context-info">
-                  <div class="country-context-title-row">
-                    <span class="country-context-label">REGIONAL & CULTURAL SETTING:</span>
+                  <div class="country-context-title-row" style="display:flex; align-items:center; gap:6px;">
+                    <span class="country-context-label">REGIONAL SETTING:</span>
                     <span class="country-context-name" id="countryContextName">India</span>
+                    <button type="button" class="ui-info-dot-btn" onclick="toggleInfoTip(event, 'countryContextInfoTip')" title="About Regional Setting">i</button>
                     <span class="country-context-badge" id="countryContextBadge">Auto-detected</span>
                   </div>
-                  <span class="country-context-desc" id="countryContextDesc">Grounds visual cues, architecture, and lighting in authentic Indian institutional and environmental motifs.</span>
+                  <div class="ui-info-popover-box" id="countryContextInfoTip" style="display:none; margin-top:6px;">
+                    <span id="countryContextDesc">Grounds visual cues, architecture, and lighting in authentic Indian institutional and environmental motifs.</span>
+                  </div>
                 </div>
               </div>
               <div class="country-context-right">
@@ -2335,6 +2338,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261029_2215"></script>
+  <script src="app.js?v=20261029_2225"></script>
 </body>
 </html>
