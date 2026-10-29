@@ -15126,7 +15126,7 @@ function updateWebLinkSubmode(isVideo) {
     if (webIconCircle) webIconCircle.textContent = '🎬';
     if (mentalPill) {
       mentalPill.textContent = 'Video / Audio Link';
-      mentalPill.style.background = '#ECF2F0';
+      mentalPill.style.background = '#FFFFFF';
       mentalPill.style.color = '#253833';
     }
     if (mentalText) mentalText.textContent = '"I watched or listened to something that sparked a reaction."';
@@ -15150,7 +15150,7 @@ function updateWebLinkSubmode(isVideo) {
     if (webIconCircle) webIconCircle.textContent = '🌐';
     if (mentalPill) {
       mentalPill.textContent = 'Web Link';
-      mentalPill.style.background = '#ECF2F0';
+      mentalPill.style.background = '#FFFFFF';
       mentalPill.style.color = '#253833';
     }
     if (mentalText) mentalText.textContent = '"I found an article, video, or podcast and have a perspective on it."';
@@ -15235,7 +15235,7 @@ function setAnchorMode(mode) {
     if (isDiaryCategory) {
       if (mentalPill) {
         mentalPill.textContent = 'Diary Chronicle';
-        mentalPill.style.background = '#ECF2F0';
+        mentalPill.style.background = '#FFFFFF';
         mentalPill.style.color = '#253833';
       }
       if (mentalText) mentalText.textContent = '"Personal Diary Chronicle — strictly for you and will never go to people\'s feed."';
@@ -15247,7 +15247,7 @@ function setAnchorMode(mode) {
     } else {
       if (mentalPill) {
         mentalPill.textContent = 'Inner Voice';
-        mentalPill.style.background = '#ECF2F0';
+        mentalPill.style.background = '#FFFFFF';
         mentalPill.style.color = '#253833';
       }
       if (mentalText) mentalText.textContent = '"This came from my own head/life; no link needed."';
