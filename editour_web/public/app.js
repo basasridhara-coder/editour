@@ -682,6 +682,11 @@ async function initAuth() {
         currentUser = session.user;
         isCurrentUserAdmin = check.isAdmin;
         isUserWhitelistAllowed = true;
+        try {
+          if (currentUser.email) {
+            localStorage.setItem('slant_user_email', currentUser.email.toLowerCase().trim());
+          }
+        } catch (_) {}
         if (currentUser?.user_metadata) {
           const cloudDeleted = currentUser.user_metadata.deleted_posts;
           if (Array.isArray(cloudDeleted) && cloudDeleted.length > 0) {
@@ -698,9 +703,11 @@ async function initAuth() {
             localStorage.setItem('slant_my_posts', JSON.stringify(Array.from(myCreatedPostIds)));
           }
         }
+        sanitizeUserOwnershipAndCache();
         closeAuthModal();
         checkPendingSharedDataOnAuth();
         loadFamilyCastProfile(true);
+        fetchAuthorStoriesFromCloud();
       } else {
         await handleUninvitedUser(session.user);
         return;
@@ -709,6 +716,8 @@ async function initAuth() {
       currentUser = null;
       isCurrentUserAdmin = false;
       isUserWhitelistAllowed = false;
+      try { localStorage.removeItem('slant_user_email'); } catch (_) {}
+      sanitizeUserOwnershipAndCache();
     }
     updateAuthUI();
     if (isCurrentUserAdmin) {
@@ -730,6 +739,11 @@ async function initAuth() {
           currentUser = session.user;
           isCurrentUserAdmin = check.isAdmin;
           isUserWhitelistAllowed = true;
+          try {
+            if (currentUser.email) {
+              localStorage.setItem('slant_user_email', currentUser.email.toLowerCase().trim());
+            }
+          } catch (_) {}
           closeAuthModal();
           checkPendingSharedDataOnAuth();
           if (!alreadyBootedSameUser) {
@@ -769,6 +783,8 @@ async function initAuth() {
             }
           }
 
+          sanitizeUserOwnershipAndCache();
+
           if (isDeepLinkScrollGated) {
             isDeepLinkScrollGated = false;
             const gate = document.getElementById('deepLinkFeedGate');
@@ -805,6 +821,7 @@ async function initAuth() {
 
           if (!alreadyBootedSameUser) {
             checkLiveSupabaseUpdates(true);
+            fetchAuthorStoriesFromCloud();
           }
           updateAuthUI();
           if (isCurrentUserAdmin) {
@@ -818,6 +835,13 @@ async function initAuth() {
       currentUser = null;
       isCurrentUserAdmin = false;
       isUserWhitelistAllowed = false;
+      try {
+        localStorage.removeItem('slant_user_email');
+        localStorage.removeItem('slant_my_posts');
+        localStorage.removeItem('slant_user_posts_cache');
+      } catch (_) {}
+      myCreatedPostIds.clear();
+      sanitizeUserOwnershipAndCache();
       const deepPostId = typeof getDeepLinkedPostId === 'function' ? getDeepLinkedPostId() : null;
       if (deepPostId) {
         isDeepLinkScrollGated = true;
@@ -831,7 +855,7 @@ async function initAuth() {
         showTemporaryToast('Signed out successfully.');
       }
       suppressSignOutNotice = false;
-      if (currentFilter === 'my_stories') {
+      if (currentFilter === 'my_stories' || currentFilter === 'daily_chronicles' || currentFilter === 'diary' || currentFilter === 'drafts') {
         selectCategory('all');
       } else {
         renderFeed();
@@ -867,10 +891,8 @@ function getUserAvatarUrl() {
 }
 
 function getResolvedCreatorEmail() {
-  if (currentUser?.email) return currentUser.email;
-  const stored = localStorage.getItem('slant_user_email');
-  if (stored && stored.includes('@')) return stored;
-  return 'shridharoct16@gmail.com';
+  if (currentUser?.email) return currentUser.email.trim().toLowerCase();
+  return '';
 }
 
 function isPostChronicleDiary(post) {
@@ -879,6 +901,8 @@ function isPostChronicleDiary(post) {
     post.chronicleMode
     || post.innerVoiceSubMode === 'chronicle'
     || post.isDiary
+    || post.isEncryptedDiary
+    || post.encryptedDiaryPayload
     || post.generationInputs?.chronicleMode
     || (Array.isArray(post.chronicleMoments) && post.chronicleMoments.length > 0)
     || (Array.isArray(post.generationInputs?.chronicleMoments) && post.generationInputs.chronicleMoments.length > 0)
@@ -913,19 +937,132 @@ function isLoginShowcaseOnlyPost(postOrId) {
 
 function isPostOwnedByCurrentUser(post) {
   if (!post || isLoginShowcaseOnlyPost(post)) return false;
-  if (myCreatedPostIds.has(post.id)) return true;
-  const userEmail = (currentUser?.email || localStorage.getItem('slant_user_email') || '').toLowerCase();
-  if (!currentUser && !userEmail) return false;
-  const userHandle = (currentUser?.user_metadata?.user_name || currentUser?.user_metadata?.name || userEmail.split('@')[0] || '').toLowerCase().replace('@', '');
-  const postAuthor = (post.creatorHandle || '').toLowerCase().replace('@', '');
+  const userEmail = (currentUser?.email || '').trim().toLowerCase();
+  if (!currentUser || !userEmail) return false;
+
+  const isShridharUser = (userEmail === 'shridharoct16@gmail.com' || userEmail === 'basasridhara@gmail.com');
+  const postEmail = (post.userEmail || post.creatorEmail || '').trim().toLowerCase();
+  const postAuthor = (post.creatorHandle || '').trim().toLowerCase().replace(/^@/, '');
+  const isPostShridhar = (
+    postEmail === 'shridharoct16@gmail.com'
+    || postEmail === 'basasridhara@gmail.com'
+    || (!postEmail && (postAuthor === 'shridhar reddy' || postAuthor.includes('shridhar')))
+  );
+
+  // 1. If the post has an explicit author email stamped on it, enforce strict email equality
+  // (never allow polluted myCreatedPostIds or display name collisions to override userEmail!)
+  if (postEmail) {
+    if (isShridharUser && (postEmail === 'shridharoct16@gmail.com' || postEmail === 'basasridhara@gmail.com')) {
+      return true;
+    }
+    return postEmail === userEmail;
+  }
+
+  // 2. For private Daily Chronicles / Diary entries without postEmail, ONLY allow legacy Shridhar entries when Shridhar is signed in
+  if (isPostChronicleDiary(post)) {
+    return Boolean(isShridharUser && isPostShridhar);
+  }
+
+  // 3. Never allow a non-Shridhar user to claim a @Shridhar Reddy post via polluted localStorage
+  if (isPostShridhar && !isShridharUser) {
+    return false;
+  }
+
+  const userHandle = (currentUser?.user_metadata?.user_name || currentUser?.user_metadata?.name || userEmail.split('@')[0] || '').toLowerCase().replace(/^@/, '');
   const postUserId = post.user_id || post.userId;
-  const isAdminAuthorMatch = (userEmail === 'shridharoct16@gmail.com' || userEmail === 'basasridhara@gmail.com') && (postAuthor === 'shridhar reddy' || postAuthor.includes('shridhar'));
+
   return Boolean(
     (currentUser?.id && postUserId && postUserId === currentUser.id) ||
     (userHandle && postAuthor && postAuthor === userHandle) ||
-    (userEmail && (post.userEmail || '').toLowerCase() === userEmail) ||
-    isAdminAuthorMatch
+    (isShridharUser && isPostShridhar) ||
+    myCreatedPostIds.has(post.id)
   );
+}
+
+// Known Shridhar-authored diary IDs so they are immediately purged if they ever leaked into another user's localStorage/metadata
+const SHRIDHAR_PRIVATE_DIARY_IDS = new Set([
+  'slant-1793286852693-ktwwn',
+  'slant-1793202119311-npt7z',
+  'slant-1793149246670-6xt7k',
+  'slant-1793031039451-4bovq',
+  'slant-1793003556503-aa54x'
+]);
+
+function sanitizeUserOwnershipAndCache() {
+  const userEmail = (currentUser?.email || '').trim().toLowerCase();
+  const isShridharUser = (userEmail === 'shridharoct16@gmail.com' || userEmail === 'basasridhara@gmail.com');
+
+  // If the signed-in user changed since last session, reset local my_posts cache
+  try {
+    const prevEmail = (localStorage.getItem('slant_last_auth_owner_email') || '').trim().toLowerCase();
+    if (userEmail && prevEmail && prevEmail !== userEmail) {
+      myCreatedPostIds.clear();
+      localStorage.removeItem('slant_my_posts');
+      localStorage.removeItem('slant_user_posts_cache');
+    }
+    if (userEmail) {
+      localStorage.setItem('slant_last_auth_owner_email', userEmail);
+    }
+  } catch (_) {}
+
+  let myIdsModified = false;
+  if (!isShridharUser) {
+    for (const sid of SHRIDHAR_PRIVATE_DIARY_IDS) {
+      if (myCreatedPostIds.has(sid)) {
+        myCreatedPostIds.delete(sid);
+        myIdsModified = true;
+      }
+    }
+  }
+
+  // Purge any foreign posts from slant_user_posts_cache
+  try {
+    const rawCache = localStorage.getItem('slant_user_posts_cache');
+    if (rawCache) {
+      const parsedCache = JSON.parse(rawCache);
+      if (Array.isArray(parsedCache)) {
+        const cleanCache = parsedCache.filter(p => {
+          if (!p || !p.id) return false;
+          if (!currentUser) return !isPostChronicleDiary(p);
+          const owned = isPostOwnedByCurrentUser(p);
+          if (!owned && myCreatedPostIds.has(p.id)) {
+            myCreatedPostIds.delete(p.id);
+            myIdsModified = true;
+          }
+          if (isPostChronicleDiary(p) && !owned) return false;
+          return owned;
+        });
+        if (cleanCache.length !== parsedCache.length) {
+          localStorage.setItem('slant_user_posts_cache', JSON.stringify(cleanCache));
+        }
+      }
+    }
+  } catch (_) {}
+
+  // Purge any foreign diary posts from in-memory allPosts and purge non-owned IDs from myCreatedPostIds
+  if (Array.isArray(allPosts) && allPosts.length > 0) {
+    allPosts = allPosts.filter(p => {
+      if (!p) return false;
+      const owned = isPostOwnedByCurrentUser(p);
+      if (!owned && p.id && myCreatedPostIds.has(p.id)) {
+        myCreatedPostIds.delete(p.id);
+        myIdsModified = true;
+      }
+      if (isPostChronicleDiary(p) && !owned) {
+        return false;
+      }
+      return true;
+    });
+  }
+
+  if (myIdsModified) {
+    try {
+      localStorage.setItem('slant_my_posts', JSON.stringify(Array.from(myCreatedPostIds)));
+    } catch (_) {}
+    if (currentUser) {
+      syncUserMetadataToCloud();
+    }
+  }
 }
 
 function updateAuthUI() {
@@ -3227,21 +3364,18 @@ function showTemporaryToast(message, duration = 2800, isHtml = false, onClickHan
 const _chronicleAesKeyCache = new Map();
 const _upgradedChronicleIds = new Set();
 
-function resolveChronicleKeySeed(post) {
-  const postEmail = (post?.userEmail || post?.creatorEmail || '').trim().toLowerCase();
-  const curEmail = (currentUser?.email || localStorage.getItem('slant_user_email') || '').trim().toLowerCase();
-  const rawEmail = postEmail || curEmail;
-  if (rawEmail === 'shridharoct16@gmail.com' || rawEmail === 'basasridhara@gmail.com') {
+function resolveChronicleKeySeed() {
+  const curEmail = (currentUser?.email || '').trim().toLowerCase();
+  if (!curEmail) return null;
+  if (curEmail === 'shridharoct16@gmail.com' || curEmail === 'basasridhara@gmail.com') {
     return 'slant_curator_shridhar_vault';
   }
-  if (rawEmail) return rawEmail;
-  const handle = (post?.creatorHandle || '').trim().toLowerCase().replace(/^@/, '');
-  if (handle.includes('shridhar')) return 'slant_curator_shridhar_vault';
-  return handle || 'slant_default_diary_vault';
+  return curEmail;
 }
 
 async function getChronicleCryptoKey(seedStr) {
-  const normalizedSeed = String(seedStr || 'slant_default_diary_vault').trim().toLowerCase();
+  if (!seedStr) return null;
+  const normalizedSeed = String(seedStr).trim().toLowerCase();
   if (_chronicleAesKeyCache.has(normalizedSeed)) {
     return _chronicleAesKeyCache.get(normalizedSeed);
   }
@@ -3293,13 +3427,20 @@ async function encryptChroniclePostForCloud(postObj) {
     return postObj;
   }
   const copy = { ...postObj };
+  if (currentUser?.email) {
+    copy.userEmail = currentUser.email.trim().toLowerCase();
+  }
   // If already encrypted and not decrypted in memory, return as-is
   if (typeof copy.encryptedDiaryPayload === 'string' && copy.encryptedDiaryPayload.startsWith('ENC:v1:') && !copy._diaryDecrypted) {
+    copy.illustrationUrl = '';
+    copy.aiIllustrationUrl = '';
     return copy;
   }
   try {
-    const seed = resolveChronicleKeySeed(copy);
+    const seed = resolveChronicleKeySeed();
+    if (!seed) return postObj;
     const key = await getChronicleCryptoKey(seed);
+    if (!key) return postObj;
     const secretBundle = {
       adaptedHeadline: copy.adaptedHeadline || '',
       originalHeadline: copy.originalHeadline || '',
@@ -3310,6 +3451,8 @@ async function encryptChroniclePostForCloud(postObj) {
       creatorOpinion: copy.creatorOpinion || '',
       userSlantTake: copy.userSlantTake || '',
       whyItMatters: copy.whyItMatters || '',
+      illustrationUrl: copy.illustrationUrl || '',
+      aiIllustrationUrl: copy.aiIllustrationUrl || '',
       contextBullets: Array.isArray(copy.contextBullets) ? copy.contextBullets : [],
       keyTakeaways: Array.isArray(copy.keyTakeaways) ? copy.keyTakeaways : [],
       resolvedArticleExcerpts: Array.isArray(copy.resolvedArticleExcerpts) ? copy.resolvedArticleExcerpts : [],
@@ -3341,10 +3484,12 @@ async function encryptChroniclePostForCloud(postObj) {
     copy.innerVoiceSubMode = 'chronicle';
     delete copy._diaryDecrypted;
 
-    // Redact all plaintext personal diary text from the cloud/database row
+    // Redact all plaintext personal diary text & poster URLs from the cloud/database row
     copy.adaptedHeadline = '🔒 Encrypted Daily Chronicle';
     copy.originalHeadline = copy.originalHeadline && /^\d{1,2}\s+[A-Za-z]+/.test(copy.originalHeadline) ? copy.originalHeadline : 'Personal Diary';
     copy.summary = '🔒 AES-256 End-to-End Encrypted Personal Diary Entry';
+    copy.illustrationUrl = '';
+    copy.aiIllustrationUrl = '';
     copy.broadsheetObservation = '';
     copy.curatorTake = '';
     copy.polishedCuratorTake = '';
@@ -3378,7 +3523,7 @@ async function decryptChroniclePostInPlace(post) {
     return false;
   }
   if (post._diaryDecrypted) return true;
-  if (!isPostOwnedByCurrentUser(post)) return false;
+  if (!currentUser || !isPostOwnedByCurrentUser(post)) return false;
   if (!window.crypto?.subtle) return false;
 
   try {
@@ -3386,8 +3531,10 @@ async function decryptChroniclePostInPlace(post) {
     if (parts.length < 4) return false;
     const iv = base64ToUint8(parts[2]);
     const cipherBytes = base64ToUint8(parts.slice(3).join(':'));
-    const seed = resolveChronicleKeySeed(post);
+    const seed = resolveChronicleKeySeed();
+    if (!seed) return false;
     const key = await getChronicleCryptoKey(seed);
+    if (!key) return false;
     const plainBuffer = await window.crypto.subtle.decrypt(
       { name: 'AES-GCM', iv },
       key,
@@ -3399,6 +3546,10 @@ async function decryptChroniclePostInPlace(post) {
       const preservedDraftFlag = Boolean(post.isDiaryDraftOnly);
       const preservedDiaryFlag = post.isDiary;
       Object.assign(post, bundle);
+      if (!post.illustrationUrl && !post.isTextOnly && post.id) {
+        post.illustrationUrl = `${SUPABASE_URL}/storage/v1/object/public/posters/${post.id}.webp`;
+        post.aiIllustrationUrl = post.illustrationUrl;
+      }
       post.isDiaryDraftOnly = preservedDraftFlag;
       post.isDiary = preservedDraftFlag ? false : (preservedDiaryFlag !== undefined ? preservedDiaryFlag : true);
       post.isEncryptedDiary = true;
@@ -3475,9 +3626,12 @@ function mergeAndSortPosts(newPosts) {
   if (!Array.isArray(newPosts) || newPosts.length === 0) return false;
 
   const existingMap = new Map();
-  // 1. Keep track of all current posts (excluding deleted tombstones & login-only showcase posts)
+  // 1. Keep track of all current posts (excluding deleted tombstones, login-only showcase posts, & foreign diary entries)
   for (const post of allPosts) {
     if (post && post.id && !deletedPostIds.has(post.id) && !post.deleted && !post.isDeleted && !isLoginShowcaseOnlyPost(post)) {
+      if (isPostChronicleDiary(post) && !isPostOwnedByCurrentUser(post)) {
+        continue;
+      }
       existingMap.set(post.id, post);
     }
   }
@@ -3498,6 +3652,11 @@ function mergeAndSortPosts(newPosts) {
     // Normalize IDs and timestamps
     p.id = postId;
     p.createdAt = p.createdAt || raw.created_at || raw.createdAt || new Date().toISOString();
+
+    // STRICT PRIVACY BARRIER: Never allow another user's Daily Chronicle diary entry into memory
+    if (isPostChronicleDiary(p) && !isPostOwnedByCurrentUser(p)) {
+      continue;
+    }
 
     if (typeof p.encryptedDiaryPayload === 'string' && p.encryptedDiaryPayload.startsWith('ENC:v1:') && !p._diaryDecrypted) {
       hasPendingEncryptedChronicles = true;
@@ -3520,8 +3679,8 @@ function mergeAndSortPosts(newPosts) {
       // Preserve already-decrypted diary fields if incoming cloud copy is still encrypted with the same payload
       if (existing._diaryDecrypted && p.encryptedDiaryPayload && !p._diaryDecrypted && existing.encryptedDiaryPayload === p.encryptedDiaryPayload) {
         const merged = { ...p, ...existing };
-        merged.illustrationUrl = p.illustrationUrl || existing.illustrationUrl || '';
-        merged.aiIllustrationUrl = p.aiIllustrationUrl || existing.aiIllustrationUrl || '';
+        merged.illustrationUrl = existing.illustrationUrl || p.illustrationUrl || '';
+        merged.aiIllustrationUrl = existing.aiIllustrationUrl || p.aiIllustrationUrl || '';
         existingMap.set(postId, merged);
       } else {
         const merged = { ...existing, ...p };
@@ -3555,7 +3714,7 @@ async function fetchDirectSupabasePosts(limit = 12) {
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 6000);
-    const idResp = await fetch(`${SUPABASE_URL}/rest/v1/posts?select=id,created_at&id=like.slant*&order=created_at.desc&limit=${limit}`, {
+    const idResp = await fetch(`${SUPABASE_URL}/rest/v1/posts?select=id,created_at&id=like.slant*&or=(data->>isDiary.is.null,data->>isDiary.neq.true)&or=(data->>chronicleMode.is.null,data->>chronicleMode.neq.true)&or=(data->>isEncryptedDiary.is.null,data->>isEncryptedDiary.neq.true)&order=created_at.desc&limit=${limit}`, {
       signal: controller.signal,
       headers: {
         'apikey': SUPABASE_KEY,
@@ -3589,6 +3748,7 @@ async function fetchDirectSupabasePosts(limit = 12) {
       const p = r.data || r;
       p.id = p.id || r.id;
       p.createdAt = p.createdAt || r.created_at || new Date().toISOString();
+      if (isPostChronicleDiary(p)) return null;
       if (p.illustrationUrl && (p.illustrationUrl.includes('unsplash.com') || p.illustrationUrl.includes('pollinations.ai'))) {
         p.illustrationUrl = '';
       }
@@ -3600,7 +3760,7 @@ async function fetchDirectSupabasePosts(limit = 12) {
         p.aiIllustrationUrl = p.illustrationUrl;
       }
       return p;
-    });
+    }).filter(Boolean);
   } catch (err) {
     console.warn('fetchDirectSupabasePosts notice:', err);
     return [];
@@ -3932,18 +4092,22 @@ async function loadPosts() {
     }
   }
 
-  // Merge locally cached user stories so they never vanish
+  // Merge locally cached user stories so they never vanish (strictly filtered to owned posts)
   try {
+    sanitizeUserOwnershipAndCache();
     const localCache = JSON.parse(localStorage.getItem('slant_user_posts_cache') || '[]');
     if (Array.isArray(localCache) && localCache.length > 0) {
-      await decryptChroniclePostsInPlace(localCache);
-      mergeAndSortPosts(localCache);
+      const safeLocalCache = localCache.filter(p => p && (!isPostChronicleDiary(p) || isPostOwnedByCurrentUser(p)));
+      if (safeLocalCache.length > 0) {
+        await decryptChroniclePostsInPlace(safeLocalCache);
+        mergeAndSortPosts(safeLocalCache);
+      }
     }
   } catch (e) {
     console.warn('Error merging local user posts cache:', e);
   }
 
-  // Pre-fetch deep-linked post from cloud if not yet in memory
+  // Pre-fetch deep-linked post from cloud if not yet in memory (never pre-fetch another user's private diary)
   const deepPostId = getDeepLinkedPostId();
   if (deepPostId) {
     currentFilter = 'all';
@@ -3962,11 +4126,14 @@ async function loadPosts() {
             const p = rows[0].data || rows[0];
             p.id = p.id || rows[0].id;
             p.createdAt = p.createdAt || rows[0].created_at || new Date().toISOString();
-            if (!p.illustrationUrl && !p.illustrationBase64) {
-              p.illustrationUrl = `/posters/${p.id}.png`;
-              p.aiIllustrationUrl = p.illustrationUrl;
+            if (!isPostChronicleDiary(p) || isPostOwnedByCurrentUser(p)) {
+              if (!p.illustrationUrl && !p.illustrationBase64 && !isPostChronicleDiary(p)) {
+                p.illustrationUrl = `/posters/${p.id}.png`;
+                p.aiIllustrationUrl = p.illustrationUrl;
+              }
+              await decryptChroniclePostsInPlace([p]);
+              mergeAndSortPosts([p]);
             }
-            mergeAndSortPosts([p]);
           }
         }
       } catch (e) {
@@ -3993,7 +4160,9 @@ async function loadPosts() {
 
   // 4. In background, silently sync remaining posts from cloud
   syncLiveCloudPosts(false);
-  fetchAuthorStoriesFromCloud();
+  if (currentUser) {
+    fetchAuthorStoriesFromCloud();
+  }
 }
 
 async function syncLiveCloudPosts(forceRender = false) {
@@ -4037,22 +4206,22 @@ async function syncLiveCloudPosts(forceRender = false) {
 
   if (Array.isArray(fetchedPosts) && fetchedPosts.length > 0) {
     await fetchGlobalDeletedPostsRegistry();
-    const validPosts = fetchedPosts.filter(p => p && !p.deleted && !p.isDeleted && !deletedPostIds.has(p.id) && (p.adaptedHeadline || p.originalHeadline || p.summary || p.encryptedDiaryPayload));
+    const validPosts = fetchedPosts.filter(p => p && !p.deleted && !p.isDeleted && !deletedPostIds.has(p.id) && (!isPostChronicleDiary(p) || isPostOwnedByCurrentUser(p)) && (p.adaptedHeadline || p.originalHeadline || p.summary || p.encryptedDiaryPayload));
     await decryptChroniclePostsInPlace(validPosts);
     const hasNew = mergeAndSortPosts(validPosts);
 
     // Persist synced user-created stories into local cache so they persist offline & across sessions
     try {
-      const userStories = validPosts.filter(p => p.isUserCreated || myCreatedPostIds.has(p.id));
+      const userStories = validPosts.filter(p => isPostOwnedByCurrentUser(p));
       if (userStories.length > 0) {
         const sanitizeForCache = (p) => {
-          if (!p) return null;
+          if (!p || !isPostOwnedByCurrentUser(p)) return null;
           const copy = { ...p };
           delete copy.originalPhotoBase64;
           if (copy.illustrationBase64 && copy.illustrationBase64.length > 50000) {
             delete copy.illustrationBase64;
           }
-          if (!copy.illustrationUrl) {
+          if (!copy.illustrationUrl && !isPostChronicleDiary(copy)) {
             copy.illustrationUrl = '/posters/' + copy.id + '.png';
             copy.aiIllustrationUrl = copy.illustrationUrl;
           }
@@ -4077,9 +4246,10 @@ async function syncLiveCloudPosts(forceRender = false) {
     }
   }
 
-  // 3. Always refresh author's created stories & private drafts directly from Supabase
-  if (myCreatedPostIds && myCreatedPostIds.size > 0) {
+  // 3. Always refresh authenticated author's created stories & private drafts directly from Supabase
+  if (currentUser && myCreatedPostIds && myCreatedPostIds.size > 0) {
     try {
+      sanitizeUserOwnershipAndCache();
       const myIdsArray = Array.from(myCreatedPostIds).filter(id => !deletedPostIds.has(id)).slice(0, 30);
       const inFilter = myIdsArray.map(id => '%22' + encodeURIComponent(id) + '%22').join(',');
       const myResp = myIdsArray.length > 0 ? await fetch(`${SUPABASE_URL}/rest/v1/posts?id=in.(${inFilter})`, {
@@ -4094,19 +4264,30 @@ async function syncLiveCloudPosts(forceRender = false) {
           const returnedIds = new Set();
           const softDeletedIds = [];
           const freshUserPosts = [];
+          let purgedForeignIds = false;
           myRows.forEach(r => {
             const p = r.data || r;
             const id = p.id || r.id;
             if (!id) return;
+            returnedIds.add(id);
+            p.id = id;
+            p.createdAt = p.createdAt || r.created_at || new Date().toISOString();
+            // Strictly reject and un-claim any post that does not belong to currentUser
+            if (!isPostOwnedByCurrentUser(p)) {
+              myCreatedPostIds.delete(id);
+              purgedForeignIds = true;
+              return;
+            }
             if (p.deleted || p.isDeleted || r.deleted || r.isDeleted || deletedPostIds.has(id)) {
               softDeletedIds.push(id);
               return;
             }
-            returnedIds.add(id);
-            p.id = id;
-            p.createdAt = p.createdAt || r.created_at || new Date().toISOString();
             freshUserPosts.push(p);
           });
+          if (purgedForeignIds) {
+            localStorage.setItem('slant_my_posts', JSON.stringify(Array.from(myCreatedPostIds)));
+            syncUserMetadataToCloud();
+          }
           // Any ID in myIdsArray that is missing from Supabase (hard-deleted on another device) is also purged!
           myIdsArray.forEach(id => {
             if (!returnedIds.has(id)) {
@@ -4122,13 +4303,13 @@ async function syncLiveCloudPosts(forceRender = false) {
           const hasDraftUpdates = mergeAndSortPosts(freshUserPosts);
           // Overwrite localStorage cache with fresh copies from Supabase
           const sanitizeForCache = (p) => {
-            if (!p) return null;
+            if (!p || !isPostOwnedByCurrentUser(p)) return null;
             const copy = { ...p };
             delete copy.originalPhotoBase64;
             if (copy.illustrationBase64 && copy.illustrationBase64.length > 50000) {
               delete copy.illustrationBase64;
             }
-            if (!copy.illustrationUrl) {
+            if (!copy.illustrationUrl && !isPostChronicleDiary(copy)) {
               copy.illustrationUrl = '/posters/' + copy.id + '.png';
               copy.aiIllustrationUrl = copy.illustrationUrl;
             }
@@ -4155,39 +4336,34 @@ async function syncLiveCloudPosts(forceRender = false) {
 
 async function fetchAuthorStoriesFromCloud() {
   try {
-    let authorParam = '';
-    if (currentUser) {
-      const email = (currentUser.email || '').trim();
-      const handle = (currentUser.user_metadata?.user_name || currentUser.user_metadata?.name || email.split('@')[0] || '').replace('@', '').trim();
-      if (handle) {
-        authorParam = `author=${encodeURIComponent(handle)}`;
-      } else if (email) {
-        authorParam = `email=${encodeURIComponent(email)}`;
-      }
+    if (!currentUser || !currentUser.email) {
+      return;
     }
-    if (!authorParam) {
-      authorParam = 'author=Shridhar';
+    const email = (currentUser.email || '').trim().toLowerCase();
+    const handle = (currentUser.user_metadata?.user_name || currentUser.user_metadata?.name || email.split('@')[0] || '').replace('@', '').trim();
+    const queryParts = [`email=${encodeURIComponent(email)}`];
+    if (handle) {
+      queryParts.push(`author=${encodeURIComponent(handle)}`);
     }
 
-    const resp = await fetch(`/api/posts?${authorParam}&limit=50&ts=${Date.now()}`);
+    const resp = await fetch(`/api/posts?${queryParts.join('&')}&limit=50&ts=${Date.now()}`);
     if (resp.ok) {
       const data = await resp.json();
       if (data && Array.isArray(data.deletedIds) && data.deletedIds.length > 0) {
         applyDeletedPostsTombstone(data.deletedIds);
       }
       if (data && Array.isArray(data.posts) && data.posts.length > 0) {
-        data.posts.forEach(p => {
-          if (p && p.id && !deletedPostIds.has(p.id) && !p.deleted && !p.isDeleted) {
-            myCreatedPostIds.add(p.id);
-          }
+        const ownedPosts = data.posts.filter(p => p && p.id && !deletedPostIds.has(p.id) && !p.deleted && !p.isDeleted && isPostOwnedByCurrentUser(p));
+        ownedPosts.forEach(p => {
+          myCreatedPostIds.add(p.id);
         });
         localStorage.setItem('slant_my_posts', JSON.stringify(Array.from(myCreatedPostIds)));
-        await decryptChroniclePostsInPlace(data.posts);
-        const added = mergeAndSortPosts(data.posts);
+        await decryptChroniclePostsInPlace(ownedPosts);
+        const added = mergeAndSortPosts(ownedPosts);
         currentBatchFilteredPosts = getFilteredPostsForFilter(allPosts, currentFilter, searchQuery);
         updateBadge(true, `Live Feed (${allPosts.length} posts)`);
         updateAuthUI();
-        if ((added || currentFilter === 'my_stories') && currentRenderedBatch === 0 && window.scrollY < 400) {
+        if ((added || currentFilter === 'my_stories' || currentFilter === 'daily_chronicles' || currentFilter === 'diary') && currentRenderedBatch === 0 && window.scrollY < 400) {
           renderFeed();
         }
       }
@@ -4855,8 +5031,18 @@ function getFilteredPostsForFilter(posts, filter, query) {
     const isOwnedByMe = isPostOwnedByCurrentUser(post);
     const deepPostId = typeof getDeepLinkedPostId === 'function' ? getDeepLinkedPostId() : null;
 
-    // Unpublished drafts and private diary entries must NEVER be visible to anyone other than their creator (unless directly deep-linked)
-    if ((isPrivateDraft || isChronicleDiary) && !isOwnedByMe && post.id !== deepPostId) {
+    // Private diary entries must NEVER be visible to anyone other than their creator (not even via deep link)
+    if (isChronicleDiary && !isOwnedByMe) {
+      return false;
+    }
+
+    // Never render an encrypted diary card that has not been decrypted by the owner's key
+    if (isChronicleDiary && post.encryptedDiaryPayload && !post._diaryDecrypted) {
+      return false;
+    }
+
+    // Unpublished perspective drafts must never be visible to anyone other than their creator (unless directly deep-linked)
+    if (isPrivateDraft && !isChronicleDiary && !isOwnedByMe && post.id !== deepPostId) {
       return false;
     }
 
@@ -4875,8 +5061,8 @@ function getFilteredPostsForFilter(posts, filter, query) {
       return isPrivateDraft && matchesQuery(post);
     }
 
-    // STRICT SEPARATION: Daily Chronicle posts NEVER appear in the regular feed ('all', 'my_stories', 'saved', 'opinion', or topic categories) unless directly deep-linked
-    if (isChronicleDiary && post.id !== deepPostId) {
+    // STRICT SEPARATION: Daily Chronicle posts NEVER appear in the regular feed ('all', 'my_stories', 'saved', 'opinion', or topic categories)
+    if (isChronicleDiary) {
       return false;
     }
 
@@ -6871,7 +7057,8 @@ function resolveChronicleReflectionsForPost(post) {
   }
 
   const postId = String(post.id || '');
-  if (postId.includes('1793202119311-npt7z')) {
+  const canUseLegacyReflections = isLoginShowcaseOnlyPost(post) || isPostOwnedByCurrentUser(post);
+  if (canUseLegacyReflections && postId.includes('1793202119311-npt7z')) {
     return [
       {
         polarity: 'generic',
@@ -6881,7 +7068,7 @@ function resolveChronicleReflectionsForPost(post) {
       }
     ];
   }
-  if (postId.includes('1793149246670-6xt7k')) {
+  if (canUseLegacyReflections && postId.includes('1793149246670-6xt7k')) {
     return [
       {
         polarity: 'positive',
@@ -6897,7 +7084,7 @@ function resolveChronicleReflectionsForPost(post) {
       }
     ];
   }
-  if (postId.includes('1793031039451-4bovq')) {
+  if (canUseLegacyReflections && postId.includes('1793031039451-4bovq')) {
     return [
       {
         polarity: 'corrective',
@@ -6913,7 +7100,7 @@ function resolveChronicleReflectionsForPost(post) {
       }
     ];
   }
-  if (postId.includes('1793003556503-aa54x')) {
+  if (canUseLegacyReflections && postId.includes('1793003556503-aa54x')) {
     return [
       {
         polarity: 'corrective',
@@ -10384,7 +10571,7 @@ async function loadRemainingPosts() {
       p.id = p.id || r.id;
       p.createdAt = p.createdAt || r.created_at || new Date().toISOString();
       return p;
-    }).filter(p => p && !p.deleted && !p.isDeleted && (p.adaptedHeadline || p.originalHeadline || p.summary));
+    }).filter(p => p && !p.deleted && !p.isDeleted && (!isPostChronicleDiary(p) || isPostOwnedByCurrentUser(p)) && (p.adaptedHeadline || p.originalHeadline || p.summary));
 
     const hasNew = mergeAndSortPosts(newPosts);
     if (hasNew) {
@@ -10401,7 +10588,7 @@ function setupRealtimeSubscription() {
     try {
       supabaseClient
         .channel('public:posts')
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, payload => {
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, async payload => {
           if (payload && payload.new) {
             const p = payload.new.data || payload.new;
             p.id = p.id || payload.new.id;
@@ -10413,8 +10600,12 @@ function setupRealtimeSubscription() {
               }
               return;
             }
+            if (isPostChronicleDiary(p) && !isPostOwnedByCurrentUser(p)) {
+              return;
+            }
             p.createdAt = p.createdAt || payload.new.created_at || new Date().toISOString();
-            if (!p.deleted && !p.isDeleted && !deletedPostIds.has(p.id) && (p.adaptedHeadline || p.originalHeadline || p.summary)) {
+            if (!p.deleted && !p.isDeleted && !deletedPostIds.has(p.id) && (p.adaptedHeadline || p.originalHeadline || p.summary || p.encryptedDiaryPayload)) {
+              await decryptChroniclePostsInPlace([p]);
               mergeAndSortPosts([p]);
               updateBadge(true, `Live Feed (${allPosts.length} posts)`);
               if (currentRenderedBatch === 0 && window.scrollY < 400) {
@@ -11121,9 +11312,8 @@ function getDiaryChroniclesByDateMap() {
     if (!p || !p.id || seenIds.has(p.id)) return;
     if (!isPostChronicleDiary(p)) return;
     if (p.isDiaryDraftOnly) return;
-    const isOwned = isPostOwnedByCurrentUser(p)
-      || String(p.creatorHandle || '').toLowerCase().includes('shridhar');
-    if (!isOwned) return;
+    if (!isPostOwnedByCurrentUser(p)) return;
+    if (p.encryptedDiaryPayload && !p._diaryDecrypted) return;
     seenIds.add(p.id);
     pool.push(p);
   });

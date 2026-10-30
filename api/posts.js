@@ -25,6 +25,39 @@ try {
   console.warn('Could not read slant_feed.json:', e);
 }
 
+function isChronicleDiaryPost(p) {
+  if (!p) return false;
+  return Boolean(
+    p.isDiary
+    || p.chronicleMode
+    || p.innerVoiceSubMode === 'chronicle'
+    || p.isEncryptedDiary
+    || p.encryptedDiaryPayload
+    || p.generationInputs?.chronicleMode
+    || (Array.isArray(p.chronicleMoments) && p.chronicleMoments.length > 0)
+    || (Array.isArray(p.generationInputs?.chronicleMoments) && p.generationInputs.chronicleMoments.length > 0)
+  );
+}
+
+function isDiaryAuthorizedForEmail(p, emailFilter) {
+  if (!p || !emailFilter) return false;
+  const cleanReqEmail = String(emailFilter).trim().toLowerCase();
+  if (!cleanReqEmail || !cleanReqEmail.includes('@')) return false;
+  const postEmail = String(p.userEmail || p.creatorEmail || '').trim().toLowerCase();
+  const isShridharReq = (cleanReqEmail === 'shridharoct16@gmail.com' || cleanReqEmail === 'basasridhara@gmail.com');
+  if (postEmail) {
+    if (isShridharReq && (postEmail === 'shridharoct16@gmail.com' || postEmail === 'basasridhara@gmail.com')) {
+      return true;
+    }
+    return postEmail === cleanReqEmail;
+  }
+  const handle = String(p.creatorHandle || '').toLowerCase();
+  if (isShridharReq && handle.includes('shridhar')) {
+    return true;
+  }
+  return false;
+}
+
 function formatPostRow(r) {
   if (!r) return null;
   const p = r.data || r;
@@ -39,26 +72,34 @@ function formatPostRow(r) {
     p.aiIllustrationUrl = '';
   }
 
-  // If static poster image exists in /posters/ manifest, serve high-speed CDN asset; otherwise serve storage URL
-  const hasStaticPosterOnDisk = Boolean(p.id && STATIC_POSTERS_SET.has(p.id));
+  // If this is a private Daily Chronicle diary entry, redact poster URLs on the wire
+  // (the owner's browser restores illustrationUrl after AES-256-GCM decryption)
+  if (isChronicleDiaryPost(p)) {
+    p.illustrationUrl = '';
+    p.aiIllustrationUrl = '';
+    delete p.posterBase64;
+  } else {
+    // If static poster image exists in /posters/ manifest, serve high-speed CDN asset; otherwise serve storage URL
+    const hasStaticPosterOnDisk = Boolean(p.id && STATIC_POSTERS_SET.has(p.id));
 
-  if (hasStaticPosterOnDisk) {
-    p.illustrationUrl = '/posters/' + p.id + '.png';
-    p.aiIllustrationUrl = '/posters/' + p.id + '.png';
-    delete p.posterBase64;
-  } else if (p.illustrationUrl && (p.illustrationUrl.startsWith('http://') || p.illustrationUrl.startsWith('https://'))) {
-    p.aiIllustrationUrl = p.illustrationUrl;
-    delete p.posterBase64;
-  } else if (p.posterBase64 && p.posterBase64.length > 50) {
-    p.illustrationUrl = p.posterBase64;
-    p.aiIllustrationUrl = p.posterBase64;
-  } else if (p.illustrationUrl && p.illustrationUrl.startsWith('/posters/')) {
-    p.aiIllustrationUrl = p.illustrationUrl;
-    delete p.posterBase64;
-  } else if (p.id) {
-    p.illustrationUrl = `${SUPABASE_URL}/storage/v1/object/public/posters/${p.id}.webp`;
-    p.aiIllustrationUrl = p.illustrationUrl;
-    delete p.posterBase64;
+    if (hasStaticPosterOnDisk) {
+      p.illustrationUrl = '/posters/' + p.id + '.png';
+      p.aiIllustrationUrl = '/posters/' + p.id + '.png';
+      delete p.posterBase64;
+    } else if (p.illustrationUrl && (p.illustrationUrl.startsWith('http://') || p.illustrationUrl.startsWith('https://'))) {
+      p.aiIllustrationUrl = p.illustrationUrl;
+      delete p.posterBase64;
+    } else if (p.posterBase64 && p.posterBase64.length > 50) {
+      p.illustrationUrl = p.posterBase64;
+      p.aiIllustrationUrl = p.posterBase64;
+    } else if (p.illustrationUrl && p.illustrationUrl.startsWith('/posters/')) {
+      p.aiIllustrationUrl = p.illustrationUrl;
+      delete p.posterBase64;
+    } else if (p.id) {
+      p.illustrationUrl = `${SUPABASE_URL}/storage/v1/object/public/posters/${p.id}.webp`;
+      p.aiIllustrationUrl = p.illustrationUrl;
+      delete p.posterBase64;
+    }
   }
 
   // Strip heavy base64 blobs so /api/posts stays lightweight and minimizes Fast Origin Transfer
@@ -143,6 +184,9 @@ module.exports = async function handler(req, res) {
           const sRows = await sResp.json();
           if (Array.isArray(sRows) && sRows.length > 0) {
             const formatted = formatPostRow(sRows[0]);
+            if (formatted && isChronicleDiaryPost(formatted) && !isDiaryAuthorizedForEmail(formatted, emailFilter)) {
+              return res.status(403).json({ status: 'error', error: 'Private diary entry' });
+            }
             return res.status(200).json({ status: 'ok', count: 1, post: formatted, posts: [formatted] });
           }
         }
@@ -167,7 +211,13 @@ module.exports = async function handler(req, res) {
           });
           if (mResp.ok) {
             const mRows = await mResp.json();
-            const posts = (mRows || []).map(formatPostRow).filter(Boolean);
+            const posts = (mRows || []).map(formatPostRow).filter(p => {
+              if (!p) return false;
+              if (isChronicleDiaryPost(p)) {
+                return isDiaryAuthorizedForEmail(p, emailFilter);
+              }
+              return true;
+            });
             return res.status(200).json({ status: 'ok', count: posts.length, posts });
           }
         }
@@ -180,16 +230,17 @@ module.exports = async function handler(req, res) {
     // This avoids Postgres statement timeout (57014) caused by ordering huge 2.5MB JSONB toast rows
     try {
       let filterQuery = 'id=like.slant*&or=(data->>deleted.is.null,data->>deleted.neq.true)&or=(data->>isDeleted.is.null,data->>isDeleted.neq.true)';
-      if (authorFilter) {
-        const cleanAuthor = String(authorFilter).replace(/^@/, '').trim();
-        if (cleanAuthor) {
-          filterQuery += `&data->>creatorHandle=ilike.*${encodeURIComponent(cleanAuthor)}*`;
-        }
-      } else if (emailFilter) {
-        const cleanEmail = String(emailFilter).trim();
-        if (cleanEmail) {
-          filterQuery += `&data->>userEmail=eq.${encodeURIComponent(cleanEmail)}`;
-        }
+      const cleanAuthor = authorFilter ? String(authorFilter).replace(/^@/, '').trim() : '';
+      const cleanEmail = emailFilter ? String(emailFilter).trim() : '';
+      if (cleanEmail && cleanAuthor) {
+        filterQuery += `&or=(data->>userEmail.ilike.${encodeURIComponent(cleanEmail)},data->>creatorHandle.ilike.*${encodeURIComponent(cleanAuthor)}*)`;
+      } else if (cleanEmail) {
+        filterQuery += `&data->>userEmail=ilike.${encodeURIComponent(cleanEmail)}`;
+      } else if (cleanAuthor) {
+        filterQuery += `&data->>creatorHandle=ilike.*${encodeURIComponent(cleanAuthor)}*`;
+      } else {
+        // Public feed query: strictly exclude private Daily Chronicle diary rows at the SQL query level
+        filterQuery += '&or=(data->>isDiary.is.null,data->>isDiary.neq.true)&or=(data->>chronicleMode.is.null,data->>chronicleMode.neq.true)&or=(data->>isEncryptedDiary.is.null,data->>isEncryptedDiary.neq.true)';
       }
 
       const [idResp, tombResp] = await Promise.all([
@@ -254,16 +305,13 @@ module.exports = async function handler(req, res) {
             const isAuthorQuery = Boolean(authorFilter || emailFilter);
             const posts = rows.map(formatPostRow).filter(p => {
               if (!p || p.deleted || p.isDeleted || deletedSet.has(p.id)) return false;
-              const isChronicleDiary = Boolean(
-                p.isDiary
-                || p.chronicleMode
-                || p.innerVoiceSubMode === 'chronicle'
-                || p.generationInputs?.chronicleMode
-                || (Array.isArray(p.chronicleMoments) && p.chronicleMoments.length > 0)
-                || (Array.isArray(p.generationInputs?.chronicleMoments) && p.generationInputs.chronicleMoments.length > 0)
-              );
-              if (!isAuthorQuery && !isChronicleDiary && (p.isDraft || p.isPrivate || p.status === 'draft')) return false;
-              return (p.adaptedHeadline || p.originalHeadline || p.summary);
+              const isChronicleDiary = isChronicleDiaryPost(p);
+              // STRICT PRIVACY: Daily Chronicles / Diary entries are NEVER returned unless emailFilter strictly matches the diary owner
+              if (isChronicleDiary) {
+                return isDiaryAuthorizedForEmail(p, emailFilter);
+              }
+              if (!isAuthorQuery && (p.isDraft || p.isPrivate || p.status === 'draft')) return false;
+              return (p.adaptedHeadline || p.originalHeadline || p.summary || p.encryptedDiaryPayload);
             });
 
             if (posts.length > 0) {
@@ -287,7 +335,7 @@ module.exports = async function handler(req, res) {
     }
 
     // 2. Return fallback posts (synced with actual app posts)
-    const slicedFallback = fallbackPosts.filter(p => p && !p.deleted && !p.isDeleted && !p.isDraft && !p.isPrivate && p.status !== 'draft').slice(0, limit);
+    const slicedFallback = fallbackPosts.filter(p => p && !p.deleted && !p.isDeleted && !p.isDraft && !p.isPrivate && p.status !== 'draft' && !isChronicleDiaryPost(p)).slice(0, limit);
     return res.status(200).json({
       status: 'ok',
       count: slicedFallback.length,
@@ -348,14 +396,19 @@ module.exports = async function handler(req, res) {
             } catch (_) {}
           }
 
-          postData.illustrationUrl = `${SUPABASE_URL}/storage/v1/object/public/posters/${fileName}`;
-          postData.aiIllustrationUrl = postData.illustrationUrl;
+          if (!isChronicleDiaryPost(postData)) {
+            postData.illustrationUrl = `${SUPABASE_URL}/storage/v1/object/public/posters/${fileName}`;
+            postData.aiIllustrationUrl = postData.illustrationUrl;
+          }
         } catch (uploadErr) {
           console.warn('Storage upload error:', uploadErr);
         }
       }
 
-      if (!postData.illustrationUrl) {
+      if (isChronicleDiaryPost(postData)) {
+        postData.illustrationUrl = '';
+        postData.aiIllustrationUrl = '';
+      } else if (!postData.illustrationUrl) {
         postData.illustrationUrl = `${SUPABASE_URL}/storage/v1/object/public/posters/${postData.id}.webp`;
         postData.aiIllustrationUrl = postData.illustrationUrl;
       }
@@ -400,12 +453,14 @@ module.exports = async function handler(req, res) {
         console.error('Supabase write error:', err);
       }
 
-      // Insert at the front of fallback list
-      const existingIdx = fallbackPosts.findIndex(p => p.id === postData.id);
-      if (existingIdx >= 0) {
-        fallbackPosts[existingIdx] = postData;
-      } else {
-        fallbackPosts.unshift(postData);
+      // Insert at the front of fallback list ONLY for public non-diary posts
+      if (!isChronicleDiaryPost(postData) && !postData.isDraft && !postData.isPrivate) {
+        const existingIdx = fallbackPosts.findIndex(p => p.id === postData.id);
+        if (existingIdx >= 0) {
+          fallbackPosts[existingIdx] = postData;
+        } else {
+          fallbackPosts.unshift(postData);
+        }
       }
 
       return res.status(200).json({
