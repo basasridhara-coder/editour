@@ -12537,12 +12537,12 @@ function getDefaultClientFamilyCast() {
         id: 'member_father',
         relationship: 'self',
         roleLabel: 'Father / Self',
-        name: 'Father (Shridhar)',
+        name: 'Shridhar',
         aliases: ['dad', 'father', 'shridhar', 'myself', 'me', 'i', 'husband'],
         age: 40,
         heightDesc: '5ft 10in (178cm), adult stature',
-        uncompromisableAnchors: 'Fit mid-age 40-year-old Indian man in his prime early 40s (strictly age 38-40, STRICTLY NOT old or elderly, STRICTLY NO gray or white hair on head, STRICTLY NO senior facial wrinkles), medium-brown skin, oval face, full head of thick short jet-black hair, smooth unwrinkled forehead, neat short dark trimmed beard, sturdy broad-shouldered build with upright grounded posture.',
-        visualTraits: 'Fit mid-age 40-year-old Indian man in his prime early 40s, full head of short dark black hair, neat dark trimmed beard, warm confident expression, smooth unwrinkled skin, contemporary styling (strictly NOT an old man or senior).',
+        uncompromisableAnchors: 'Fit mid-age 40-year-old Indian man in his prime early 40s (strictly age 38-40, STRICTLY NOT old or elderly, STRICTLY NO gray or white hair on head, STRICTLY NO senior facial wrinkles), warm brown skin, soft oval face, calm dark eyes, full head of thick short dark hair styled up at the crown, smooth unwrinkled forehead, short light neat trimmed stubble beard, sturdy broad-shouldered solid adult frame.',
+        visualTraits: 'Warm brown skin, soft oval face, calm dark eyes, full head of thick short dark hair styled up, neat short trimmed stubble beard, and a sturdy, broad-shouldered solid adult frame.',
         vehicleRole: 'driver_right',
         stylizedAvatarUrl: 'https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/avatar_member_father.jpg'
       },
@@ -12550,12 +12550,12 @@ function getDefaultClientFamilyCast() {
         id: 'member_mother',
         relationship: 'spouse',
         roleLabel: 'Mother / Wife',
-        name: 'Mother',
-        aliases: ['wife', 'mother', 'mom'],
+        name: 'Aruna',
+        aliases: ['wife', 'mother', 'mom', 'aru', 'aruna'],
         age: 36,
         heightDesc: '5ft 4in (162cm), adult female stature',
-        uncompromisableAnchors: 'Warm wheatish skin, soft round-to-oval maternal face, gentle dark eyes without heavy makeup, natural shoulder-length wavy dark hair with center/side parting (strictly no past-chest salon blowout curls), healthy medium adult build with natural soft shoulders. Everyday authentic South Indian presence.',
-        visualTraits: 'Adult mother in her mid-30s, warm thoughtful smile, natural shoulder-length wavy dark hair, expressive eyes, elegant casual styling.',
+        uncompromisableAnchors: 'Warm golden-brown wheatish skin, soft fuller round-to-oval maternal face with warm full cheeks and soft rounded chin, gentle dark almond eyes without heavy makeup, small black circular bindi centered on forehead and subtle red kumkum at the upper forehead hairline, side-parted thick voluminous wavy black hair swept forward over her left shoulder past her collarbone, small gold stud earrings, and an authentic, healthy medium-to-full South Indian adult build with natural soft shoulders.',
+        visualTraits: 'Warm golden-brown skin, soft fuller round-to-oval maternal face with full cheeks, small black forehead bindi and subtle red kumkum at hairline, gentle dark eyes, side-parted long voluminous wavy black hair cascading over one shoulder, and an authentic, healthy medium adult build.',
         vehicleRole: 'passenger_front_left',
         stylizedAvatarUrl: 'https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/avatar_member_mother.jpg'
       },
@@ -12563,12 +12563,12 @@ function getDefaultClientFamilyCast() {
         id: 'member_elder_son',
         relationship: 'elder_son',
         roleLabel: 'Elder Son (Age 11)',
-        name: 'Elder Son',
+        name: 'Gahan',
         aliases: ['gahan', 'elder son', 'older son', 'older boy', 'elder brother', 'big brother', 'first son', '11-year-old', '11yo'],
         age: 11,
-        heightDesc: 'Tall pre-teen stature: Head reaches up to Mother\'s shoulder/chin and Father\'s collarbone, stands a full head taller than younger brother',
-        uncompromisableAnchors: 'Warm brown-skinned 11-year-old tall pre-teen Indian boy with neat short dark hair, square shoulders, sturdy healthy youth build (strictly not skinny, not frail), head reaches up to his mother\'s shoulder/chin, stands a full head taller than his younger brother, wearing a dark navy-blue casual t-shirt.',
-        visualTraits: '11-year-old tall pre-teen boy, healthy sturdy build with square shoulders, distinct mature pre-teen facial structure, neat side-parted dark hair, head reaching mother\'s shoulder/chin, visibly older and a full head taller than his younger brother.',
+        heightDesc: 'Tall 11yo pre-teen stature: Head reaches up to Mother\'s ear/chin and Father\'s shoulder/collarbone, slightly taller than younger brother whose head reaches Gahan\'s neck',
+        uncompromisableAnchors: 'Warm brown-skinned 11-year-old tall pre-teen Indian boy with a gentle round-oval face, full cheeks, dark expressive eyes, thick short textured black hair with a slight side part, square shoulders, and a sturdy solid pre-teen frame (strictly not skinny or frail), whose head reaches up to his mother\'s ear/chin level.',
+        visualTraits: 'Healthy 11-year-old pre-teen boy with a gentle round-oval face, dark expressive eyes, thick short textured black hair, and a sturdy, solid frame with natural square shoulders, reaching up to his mother\'s ear/chin level.',
         vehicleRole: 'passenger_rear_right',
         stylizedAvatarUrl: 'https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/avatar_member_elder_son.jpg'
       },
@@ -12576,12 +12576,12 @@ function getDefaultClientFamilyCast() {
         id: 'member_younger_son',
         relationship: 'younger_son',
         roleLabel: 'Younger Son (Age 7)',
-        name: 'Younger Son',
+        name: 'Rishu',
         aliases: ['rishu', 'younger son', 'little son', 'younger boy', 'younger brother', 'little brother', 'second son', '7-year-old', '7yo'],
         age: 7,
-        heightDesc: 'Shorter 7yo child stature: Stands a full head shorter than his older brother, head reaches only to older brother\'s shoulder/upper chest',
-        uncompromisableAnchors: 'Warm fair-skinned 7-year-old schoolboy with soft rounded cheeks, expressive playful eyes, wavy dark hair, healthy solid child proportions, stands a full head shorter than his older brother so his head reaches only to his older brother\'s shoulder/upper chest, wearing a contrasting bright emerald-green or mustard-yellow graphic t-shirt.',
-        visualTraits: '7-year-old young schoolboy, noticeably shorter by a full head, top of head reaches only to his older brother\'s shoulder/upper chest, soft round youthful child cheeks, playful energetic expression, wavy dark hair, lively child proportions.',
+        heightDesc: '7yo schoolboy stature: Top of his head reaches right up to his older brother Gahan\'s neck level and Mother\'s chest/shoulder level',
+        uncompromisableAnchors: 'Warm wheatish-skinned 7-year-old schoolboy with round youthful cheeks, large expressive dark eyes, neat short straight black hair with a front fringe, and a healthy compact child frame, standing right up to his older brother Gahan\'s neck level (top of Rishu\'s head meets Gahan\'s neck/chin-neck level, strictly NOT tiny or waist-high).',
+        visualTraits: 'Young 7-year-old boy with warm wheatish skin, round cheeks, dark expressive eyes, neat short black hair, and a healthy compact frame whose head reaches right up to his older brother Gahan\'s neck level.',
         vehicleRole: 'passenger_rear_left',
         stylizedAvatarUrl: 'https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/avatar_member_younger_son.jpg'
       }
@@ -13077,14 +13077,17 @@ function renderActiveMemberScreen() {
           </div>
 
           <div class="vault-field-group full-width">
-            <div class="vault-label-with-hint" style="flex-direction:row; align-items:center; gap:6px;">
-              <label>Identity Anchors</label>
-              <button type="button" class="ui-info-dot-btn" onclick="toggleInfoTip(event, 'vaultAnchorsInfoTip')" title="About Identity Anchors">i</button>
+            <div class="vault-label-with-hint" style="flex-direction:row; align-items:center; justify-content:space-between; gap:6px; width:100%;">
+              <div style="display:flex; align-items:center; gap:6px;">
+                <label>Identity Anchors</label>
+                <button type="button" class="ui-info-dot-btn" onclick="toggleInfoTip(event, 'vaultAnchorsInfoTip')" title="About Identity Anchors">i</button>
+              </div>
+              <button type="button" id="vaultReanalyzeBtn" onclick="analyzeActiveMemberAllPhotos()" style="background:rgba(212,175,55,0.14); border:1px solid rgba(212,175,55,0.4); color:#F3D27A; border-radius:999px; padding:3px 10px; font-size:11px; font-weight:600; cursor:pointer;">✨ Re-Extract from Photo</button>
             </div>
             <div class="ui-info-popover-box" id="vaultAnchorsInfoTip" style="display:none; margin-bottom:6px;">
-              Key facial &amp; hair traits kept consistent across every scene.
+              Core facial geometry, forehead landmarks (bindi/kumkum), hair length &amp; parting, and body build auto-extracted from your uploaded photos and kept consistent across every scene.
             </div>
-            <textarea id="vField_anchors" rows="2" placeholder="Face shape, natural hair length, build" oninput="handleActiveMemberFieldChange('uncompromisableAnchors', this.value)">${escapeHtml(member.uncompromisableAnchors || '')}</textarea>
+            <textarea id="vField_anchors" rows="2" placeholder="Auto-extracted from your uploaded photo(s): face shape, hair length, landmarks, build" oninput="handleActiveMemberFieldChange('uncompromisableAnchors', this.value)">${escapeHtml(member.uncompromisableAnchors || '')}</textarea>
           </div>
 
           <div class="vault-field-group full-width">
@@ -13292,14 +13295,14 @@ async function analyzeActiveMemberAllPhotos() {
       if (data.statureDesc && (!member.heightDesc || member.heightDesc.includes('Standard') || !member.heightDesc.trim())) {
         member.heightDesc = data.statureDesc;
       }
-      if (data.uncompromisableAnchors && !member.uncompromisableAnchors) {
+      if (data.uncompromisableAnchors) {
         member.uncompromisableAnchors = data.uncompromisableAnchors;
       }
 
       saveFamilyCastProfile(cast);
       renderActiveMemberScreen();
       renderFamilyCastStagingUI();
-      showTemporaryToast(`✓ Extracted Character DNA (face & body build) from ${photoList.length} photo(s)!`);
+      showTemporaryToast(`✓ Extracted Visual Traits & Identity Anchors from ${photoList.length} photo(s)!`);
     } else {
       showTemporaryToast('Photos attached. You can describe any additional visual features below.');
     }

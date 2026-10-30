@@ -2991,73 +2991,84 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
   const isIndianFamilyCast = (!countryContext || /india/i.test(countryContext));
 
   if (hasFamilyContext && isIndianFamilyCast && !chronicleMode) {
-    const headcountAnchor = 'GROUP PORTRAIT OF EXACTLY FOUR (4) DISTINCT INDIVIDUAL PEOPLE STANDING ON THE SAME LEVEL FLOOR WITH CLEAR GRADUATED HEIGHT DIFFERENCES (3 MALES, 1 FEMALE). STRICT COUNT = 4 PEOPLE: 1) Adult Father (man, mid 40s, tallest adult) with sturdy broad-shouldered build, 2) Adult Mother (woman, mid 30s, second tallest adult) with natural healthy medium adult build (strictly not ultra-slim or runway model thin), 3) Elder Son (Gahan, 11-year-old tall pre-teen boy whose head reaches up to his Mother\'s shoulder/chin and Father\'s upper chest/collarbone) with sturdy youth build wearing a DARK NAVY-BLUE casual t-shirt, 4) Younger Son (Rishu, 7-year-old young schoolboy standing a full head shorter than his older brother so the top of his head reaches to his older brother\'s shoulder/upper chest and his Mother\'s elbow/waist level) with soft round child cheeks wearing a CONTRASTING BRIGHT EMERALD-GREEN OR MUSTARD-YELLOW t-shirt. STRICT BAN ON EQUAL-HEIGHT SONS OR MATCHING WHITE SHIRTS: Never draw the two boys at the same height and never dress them in identical white polo shirts. ';
+    const headcountAnchor = 'GROUP PORTRAIT OF EXACTLY FOUR (4) DISTINCT INDIVIDUAL PEOPLE STANDING ON THE SAME LEVEL FLOOR WITH CLEAR GRADUATED HEIGHT DIFFERENCES (3 MALES, 1 FEMALE). STRICT COUNT = 4 PEOPLE: 1) Adult Father (man, mid 40s, tallest adult) with sturdy broad-shouldered build, 2) Adult Mother (Aruna, woman, mid 30s, second tallest adult) with warm golden-brown skin, soft fuller round-to-oval maternal face with warm full cheeks, small black circular bindi centered on forehead and subtle red kumkum at upper forehead hairline, side-parted thick voluminous wavy black hair swept forward over her left shoulder past her collarbone, and healthy medium-to-full South Indian adult build (strictly not ultra-slim or sharp-chinned), 3) Elder Son (Gahan, 11-year-old tall pre-teen boy whose head reaches up to his Mother\'s ear/chin and Father\'s shoulder/collarbone) with gentle round-oval face and sturdy youth build wearing a DARK NAVY-BLUE casual t-shirt, 4) Younger Son (Rishu, 7-year-old schoolboy whose head reaches RIGHT UP TO HIS OLDER BROTHER GAHAN\'S NECK LEVEL and his Mother\'s chest/under-shoulder level — slightly shorter than Gahan, strictly NOT tiny or waist-high) with round cheeks wearing a CONTRASTING BRIGHT EMERALD-GREEN OR MUSTARD-YELLOW t-shirt. STRICT BAN ON EQUAL-HEIGHT SONS OR MATCHING WHITE SHIRTS: Never draw the two boys at the same height and never dress them in identical white polo shirts. ';
     if (!enhancedPrompt.includes('EXACTLY FOUR') && !enhancedPrompt.includes('STRICT COUNT = 4')) {
       enhancedPrompt = headcountAnchor + enhancedPrompt;
     }
 
-    // Rewrite confusing numeric foot/inch strings and chest-level compression so Gemini creates an unmistakable height difference between the 11yo and 7yo sons
+    // Rewrite confusing numeric foot/inch strings and chest-level compression so Gemini creates the accurate neck-level height difference between the 11yo and 7yo sons
     enhancedPrompt = enhancedPrompt
-      .replace(/standing at 4ft 10in,\s*reaching to father chest level/gi, 'tall pre-teen boy whose head reaches up to his mother\'s shoulder/chin and father\'s collarbone level, wearing a dark navy-blue casual t-shirt')
-      .replace(/reaching (?:only )?to father(?:'s)? chest level/gi, 'tall pre-teen whose head reaches up to his mother\'s shoulder/chin and father\'s collarbone level, wearing a dark navy-blue casual t-shirt')
-      .replace(/standing at (?:4ft 2in|3ft 11in),\s*reaching only to his older brother(?:'s)? shoulder/gi, 'shorter 7-year-old schoolboy standing a full head shorter than his older brother, with the top of his head reaching to his older brother\'s shoulder/upper chest, wearing a contrasting bright green or warm mustard-yellow t-shirt')
-      .replace(/reaching only to (?:his )?older brother(?:'s)? shoulder/gi, 'standing a full head shorter than his older brother, with the top of his head reaching to his older brother\'s shoulder/upper chest, wearing a contrasting bright green or mustard-yellow t-shirt')
-      .replace(/\b4ft\s*10in\b|\b147\s*cm\b/gi, 'tall pre-teen stature reaching mother\'s shoulder/chin')
-      .replace(/\b4ft\s*2in\b|\b3ft\s*11in\b|\b120\s*cm\b/gi, 'shorter 7yo stature reaching older brother\'s shoulder/upper chest');
+      .replace(/standing at 4ft 10in,\s*reaching to father chest level/gi, 'tall pre-teen boy whose head reaches up to his mother\'s ear/chin and father\'s shoulder/collarbone level, wearing a dark navy-blue casual t-shirt')
+      .replace(/reaching (?:only )?to father(?:'s)? chest level/gi, 'tall pre-teen whose head reaches up to his mother\'s ear/chin and father\'s shoulder/collarbone level, wearing a dark navy-blue casual t-shirt')
+      .replace(/standing at (?:4ft 2in|3ft 11in),\s*reaching only to his older brother(?:'s)? shoulder/gi, '7-year-old schoolboy whose head reaches right up to his older brother Gahan\'s neck level, wearing a contrasting bright green or warm mustard-yellow t-shirt')
+      .replace(/reaching only to (?:his )?older brother(?:'s)? (?:shoulder(?:\/upper chest)?|nec\b)/gi, 'whose head reaches right up to his older brother Gahan\'s neck level, wearing a contrasting bright green or mustard-yellow t-shirt')
+      .replace(/standing a full head shorter than his older brother/gi, 'standing right up to his older brother Gahan\'s neck level (top of head meets older brother\'s neck)')
+      .replace(/\b4ft\s*10in\b|\b147\s*cm\b/gi, 'tall pre-teen stature reaching mother\'s ear/chin')
+      .replace(/\b4ft\s*2in\b|\b3ft\s*11in\b|\b120\s*cm\b/gi, '7yo stature reaching older brother\'s neck level');
 
     // Sanitize detached foreground hands, salon blowout hair, and remove skinny runway-model biases
     enhancedPrompt = enhancedPrompt
       .replace(/In the foreground,\s*(?:glowing\s*)?cupped hands receive drops of sacred theertha water/gi, 'The father and sons cup their hands to receive drops of sacred theertha water (no external detached arms)')
       .replace(/\b(lean|skinny|slender|frail)\s*(?:11-year-old|elder son|boy|adolescent)/gi, 'sturdy healthy 11-year-old')
-      .replace(/\bgraceful mother\b/gi, 'mother with natural healthy medium build')
+      .replace(/\bgraceful mother\b/gi, 'mother with natural healthy medium-to-full maternal build')
       .replace(/\b(lean|skinny|slender)\s*build/gi, 'healthy sturdy build')
-      .replace(/\blong flowing (?:dark )?hair\b/gi, 'natural shoulder-length wavy dark hair')
-      .replace(/\blong wavy (?:dark )?hair past (?:her )?chest\b/gi, 'natural shoulder-length wavy dark hair')
-      .replace(/\bsalon blowout\b/gi, 'natural everyday hair')
+      .replace(/\bsalon blowout\b/gi, 'natural thick wavy black hair')
       .replace(/\bcasual cotton attire\b/gi, 'comfortable cotton kurta or natural casual attire');
 
-    // Enforce mother physical anchor only for family cast
-    if (/\b(mother|wife|mom)\b/i.test(enhancedPrompt) && !enhancedPrompt.includes('shoulder-length wavy dark hair')) {
-      enhancedPrompt += ', Mother physical anchor: authentic Indian woman, warm wheatish skin, soft round-to-oval face, no heavy makeup, natural shoulder-length wavy dark hair, healthy medium adult build with natural soft shoulders (strictly not ultra-slim or runway model)';
-    }
-
     // If adult father is present with a child without mother, replace generic guardian with adult father
-    if (/\b(father|dad|shridhar)\b/i.test(enhancedPrompt) && !/\b(mother|mom|wife|woman|female)\b/i.test(enhancedPrompt)) {
+    if (/\b(father|dad|shridhar)\b/i.test(enhancedPrompt) && !/\b(mother|mom|wife|aruna|woman|female)\b/i.test(enhancedPrompt)) {
       enhancedPrompt = enhancedPrompt
         .replace(/\b(?:an attentive,?\s*smiling\s*)?guardian\b/gi, 'his adult father Shridhar (mid 40s man, trimmed beard)')
         .replace(/\ba parent\b/gi, 'his adult father Shridhar');
     }
+  }
 
-    // Enforce father physical anchor if present
-    if (/\b(father|dad|shridhar)\b/i.test(enhancedPrompt)) {
-      enhancedPrompt += ', Father physical anchor: fit mid-age 40-year-old Indian man in his prime early 40s, medium-brown skin, oval face, full head of thick short jet-black hair (strictly NO gray or white hair on head), smooth unwrinkled skin, neat short dark trimmed beard, sturdy broad-shouldered build (strictly NOT an old man or senior)';
-    }
+  // Also normalize any legacy "full head shorter / shoulder/upper chest / nec" height phrase in Chronicle Mode or general prompts
+  enhancedPrompt = enhancedPrompt
+    .replace(/standing a full head shorter(?: than his older brother)?/gi, 'standing right up to his older brother\'s neck level (top of head meets his older brother\'s neck)')
+    .replace(/reaches only to (?:his )?older brother(?:'s)? (?:shoulder(?:\/upper chest)?|nec\b)/gi, 'reaches right up to his older brother\'s neck level');
+
+  // Enforce Mother (Aruna) authentic physical anchor whenever she is present (including in Chronicle Mode vignettes!)
+  if (isIndianFamilyCast && /\b(mother|wife|mom|aruna)\b/i.test(enhancedPrompt) && !enhancedPrompt.includes('small black circular bindi')) {
+    enhancedPrompt += '. Mother (Aruna) Identity Anchor: authentic South Indian woman in her mid-30s with warm golden-brown wheatish skin, soft fuller round-to-oval maternal face with warm full cheeks and soft rounded chin (strictly NOT a narrow or sharp-chinned face), small black circular bindi centered on her forehead and subtle red kumkum at the upper forehead hairline, gentle dark eyes without heavy makeup, side-parted thick voluminous wavy black hair swept forward over her left shoulder past her collarbone, and a healthy natural medium-to-full adult build with soft shoulders.';
+  }
+
+  // Enforce Elder & Younger Brother (Gahan & Rishu) neck-height relationship whenever both boys are present (including in Chronicle Mode vignettes!)
+  if (isIndianFamilyCast && /\b(two sons|both boys|two boys|gahan.*rishu|rishu.*gahan|elder brother.*younger brother|older brother.*younger brother|11-year-old.*7-year-old)\b/i.test(enhancedPrompt) && !enhancedPrompt.includes('GAHAN & RISHU HEIGHT LOCK')) {
+    enhancedPrompt += '. GAHAN & RISHU HEIGHT LOCK: The 11-year-old elder brother (Gahan, gentle round-oval face, thick short black hair, sturdy youth build) reaches up to his mother\'s ear/chin level, and the 7-year-old younger brother (Rishu, round cheeks, neat short black hair, compact child frame) stands tall enough that the TOP OF RISHU\'S HEAD REACHES RIGHT UP TO GAHAN\'S NECK / CHIN-NECK LEVEL (and Mother\'s chest/under-shoulder level — strictly NOT a tiny toddler and strictly NOT down at Gahan\'s chest or waist!).';
   }
 
   // Enforce Solo / Active Cast Father (Shridhar, Age 40 Mid-Age) & Prevent Elderly Hallucinations
-  const activeCastList = (activeCast && Array.isArray(activeCast.members)) ? activeCast.members : [];
+  const activeCastList = (activeCast && Array.isArray(activeCast.members) && activeCast.members.length > 0)
+    ? activeCast.members
+    : ((familyCast && Array.isArray(familyCast.members))
+        ? familyCast.members.filter(m => m && detectRelevantCastMembers(enhancedPrompt, familyCast).has(m.id))
+        : []);
   const hasSelfInActiveCast = activeCastList.some(m => m && (m.id === 'member_father' || m.relationship === 'self'));
   const mentionsFatherOrSelf = hasSelfInActiveCast || /\b(shridhar|father\s*\(shridhar\)|indian father figure|member_father)\b/i.test(enhancedPrompt);
 
   if (mentionsFatherOrSelf) {
     enhancedPrompt = enhancedPrompt
-      .replace(/\ban?\s+indian\s+father\s+figure(?:,\s*shridhar)?\b/gi, 'a fit mid-age 40-year-old Indian man in his prime early 40s (Shridhar, full head of thick short jet-black hair, smooth unwrinkled forehead, neat short dark trimmed beard, sturdy broad-shouldered build, strictly NOT old or elderly)')
+      .replace(/\ban?\s+indian\s+father\s+figure(?:,\s*shridhar)?\b/gi, 'a fit mid-age 40-year-old Indian man in his prime early 40s (Shridhar, warm brown skin, soft oval face, full head of thick short dark hair styled up, smooth unwrinkled forehead, short light neat trimmed stubble beard, sturdy broad-shouldered build, strictly NOT old or elderly)')
       .replace(/\bfather\s+figure\b/gi, 'fit mid-age 40-year-old man in his prime early 40s')
-      .replace(/\bsalt-and-pepper\s+(?:trimmed\s+)?beard\b/gi, 'neat short dark trimmed beard')
-      .replace(/\bsalt-and-pepper\s+hair\b/gi, 'thick short jet-black hair')
+      .replace(/\bsalt-and-pepper\s+(?:trimmed\s+)?beard\b/gi, 'neat short dark trimmed stubble beard')
+      .replace(/\bsalt-and-pepper\s+hair\b/gi, 'thick short dark hair')
       .replace(/\b(elderly|old\s+man|aged\s+man|aging|senior\s+citizen|white-haired|gray-haired|grey-haired|silver-haired|weathered\s+old)\b/gi, 'fit mid-age 40-year-old');
 
     if (!/strictly NOT old or elderly/i.test(enhancedPrompt)) {
-      enhancedPrompt += '. PROTAGONIST AGE & APPEARANCE LOCK (SHRIDHAR, AGE 40 MID-AGE ADULT): Portray the male protagonist as a fit, prime mid-age 40-year-old Indian man (strictly age 38-40) with a full head of thick short jet-black hair, smooth unwrinkled facial skin, neat short dark trimmed beard, medium-brown skin, and sturdy broad-shouldered build. STRICT BAN ON AGING: Strictly NOT an old man, strictly NOT elderly, strictly NO gray or white hair on the head, strictly NO balding, and strictly NO senior wrinkles.';
+      enhancedPrompt += '. PROTAGONIST AGE & APPEARANCE LOCK (SHRIDHAR, AGE 40 MID-AGE ADULT): Portray the male protagonist as a fit, prime mid-age 40-year-old Indian man (strictly age 38-40) with warm brown skin, a soft oval face, a full head of thick short dark hair styled up at the crown, smooth unwrinkled facial skin, a short light neat trimmed stubble beard, and a sturdy broad-shouldered solid build. STRICT BAN ON AGING: Strictly NOT an old man, strictly NOT elderly, strictly NO gray or white hair on the head, strictly NO balding, and strictly NO senior wrinkles.';
     }
   }
 
-  // Inject any other activeCast member uncompromisable anchors if not already present in prompt
+  // Inject any other activeCast member uncompromisable anchors & heightDesc if not already present in prompt
   if (activeCastList.length > 0) {
     activeCastList.forEach(m => {
       if (!m) return;
-      const anchorText = String(m.uncompromisableAnchors || m.visualTraits || '').trim()
-        .replace(/\bsalt-and-pepper\s+(?:trimmed\s+)?beard\b/gi, 'neat short dark trimmed beard');
+      const anchorText = [m.uncompromisableAnchors, m.visualTraits, m.heightDesc]
+        .filter(Boolean)
+        .join(', ')
+        .trim()
+        .replace(/\bsalt-and-pepper\s+(?:trimmed\s+)?beard\b/gi, 'neat short dark trimmed stubble beard');
       if (anchorText && !enhancedPrompt.includes(anchorText.slice(0, 24))) {
         enhancedPrompt += `. Character Anchor (${m.name || m.roleLabel}, age ${m.age || 40}): ${anchorText}`;
       }
@@ -3422,13 +3433,13 @@ function getDefaultFamilyCast(userIdentifier) {
         id: 'member_father',
         relationship: 'self',
         roleLabel: 'Father / Self',
-        name: 'Father (Shridhar)',
+        name: 'Shridhar',
         aliases: ['dad', 'father', 'shridhar', 'myself', 'me', 'i', 'husband'],
         age: 40,
         ageBracket: 'Mid-Age Adult (Age 40, Prime Early 40s)',
         heightDesc: '5ft 10in (178cm), adult stature',
-        uncompromisableAnchors: 'Fit mid-age 40-year-old Indian man in his prime early 40s (strictly age 38-40, STRICTLY NOT old or elderly, STRICTLY NO gray or white hair on head, STRICTLY NO senior facial wrinkles), medium-brown skin, oval face, full head of thick short jet-black hair, smooth unwrinkled forehead, neat short dark trimmed beard, sturdy broad-shouldered build with upright grounded posture.',
-        visualTraits: 'Fit mid-age 40-year-old Indian man in his prime early 40s, full head of short dark black hair, neat dark trimmed beard, warm confident expression, smooth unwrinkled skin, contemporary styling (strictly NOT an old man or senior).',
+        uncompromisableAnchors: 'Fit mid-age 40-year-old Indian man in his prime early 40s (strictly age 38-40, STRICTLY NOT old or elderly, STRICTLY NO gray or white hair on head, STRICTLY NO senior facial wrinkles), warm brown skin, soft oval face, calm dark eyes, full head of thick short dark hair styled up at the crown, smooth unwrinkled forehead, short light neat trimmed stubble beard, sturdy broad-shouldered solid adult frame.',
+        visualTraits: 'Warm brown skin, soft oval face, calm dark eyes, full head of thick short dark hair styled up, neat short trimmed stubble beard, and a sturdy, broad-shouldered solid adult frame.',
         vehicleRole: 'driver_right',
         defaultClothing: 'Casual dark linen shirt or jacket',
         stylizedAvatarUrl: 'https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/avatar_member_father.jpg'
@@ -3437,13 +3448,13 @@ function getDefaultFamilyCast(userIdentifier) {
         id: 'member_mother',
         relationship: 'spouse',
         roleLabel: 'Mother / Wife',
-        name: 'Mother',
-        aliases: ['wife', 'mother', 'mom'],
+        name: 'Aruna',
+        aliases: ['wife', 'mother', 'mom', 'aru', 'aruna'],
         age: 36,
         ageBracket: 'Adult (Mid 30s)',
         heightDesc: '5ft 4in (162cm), adult female stature',
-        uncompromisableAnchors: 'Warm wheatish skin, soft round-to-oval maternal face, gentle dark eyes without heavy makeup, natural shoulder-length wavy dark hair with center/side parting (strictly no past-chest salon blowout curls), healthy medium adult build with natural soft shoulders. Everyday authentic South Indian presence.',
-        visualTraits: 'Adult mother in her mid-30s, warm thoughtful smile, natural shoulder-length wavy dark hair, expressive eyes, elegant casual styling.',
+        uncompromisableAnchors: 'Warm golden-brown wheatish skin, soft fuller round-to-oval maternal face with warm full cheeks and soft rounded chin, gentle dark almond eyes without heavy makeup, small black circular bindi centered on forehead and subtle red kumkum at the upper forehead hairline, side-parted thick voluminous wavy black hair swept forward over her left shoulder past her collarbone, small gold stud earrings, and an authentic, healthy medium-to-full South Indian adult build with natural soft shoulders.',
+        visualTraits: 'Warm golden-brown skin, soft fuller round-to-oval maternal face with full cheeks, small black forehead bindi and subtle red kumkum at hairline, gentle dark eyes, side-parted long voluminous wavy black hair cascading over one shoulder, and an authentic, healthy medium adult build.',
         vehicleRole: 'passenger_front_left',
         defaultClothing: 'Vibrant comfortable travel attire',
         stylizedAvatarUrl: 'https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/avatar_member_mother.jpg'
@@ -3452,13 +3463,13 @@ function getDefaultFamilyCast(userIdentifier) {
         id: 'member_elder_son',
         relationship: 'elder_son',
         roleLabel: 'Elder Son (Age 11)',
-        name: 'Elder Son',
+        name: 'Gahan',
         aliases: ['gahan', 'elder son', 'older son', 'older boy', 'elder brother', 'big brother', 'first son', '11-year-old', '11yo'],
         age: 11,
         ageBracket: 'Pre-teen / Adolescent (11 Years Old)',
-        heightDesc: 'Tall pre-teen stature: Head reaches up to Mother\'s shoulder/chin and Father\'s collarbone, stands a full head taller than his younger brother',
-        uncompromisableAnchors: 'Warm brown-skinned 11-year-old tall pre-teen Indian boy with neat short dark hair, square shoulders, sturdy healthy youth build (strictly not skinny, not frail), head reaches up to his mother\'s shoulder/chin, stands visibly a full head taller than his younger brother, wearing a dark navy-blue casual t-shirt.',
-        visualTraits: '11-year-old tall pre-teen boy, healthy sturdy build with square shoulders, distinct mature pre-teen facial structure, neat side-parted dark hair, head reaching mother\'s shoulder/chin, visibly older and taller by a full head than his younger brother.',
+        heightDesc: 'Tall 11yo pre-teen stature: Head reaches up to Mother\'s ear/chin and Father\'s shoulder/collarbone, slightly taller than younger brother whose head reaches Gahan\'s neck',
+        uncompromisableAnchors: 'Warm brown-skinned 11-year-old tall pre-teen Indian boy with a gentle round-oval face, full cheeks, dark expressive eyes, thick short textured black hair with a slight side part, square shoulders, and a sturdy solid pre-teen frame (strictly not skinny or frail), whose head reaches up to his mother\'s ear/chin level.',
+        visualTraits: 'Healthy 11-year-old pre-teen boy with a gentle round-oval face, dark expressive eyes, thick short textured black hair, and a sturdy, solid frame with natural square shoulders, reaching up to his mother\'s ear/chin level.',
         vehicleRole: 'passenger_rear_right',
         defaultClothing: 'Navy blue or dark graphic tee / hoodie',
         stylizedAvatarUrl: 'https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/avatar_member_elder_son.jpg'
@@ -3467,13 +3478,13 @@ function getDefaultFamilyCast(userIdentifier) {
         id: 'member_younger_son',
         relationship: 'younger_son',
         roleLabel: 'Younger Son (Age 7)',
-        name: 'Younger Son',
+        name: 'Rishu',
         aliases: ['rishu', 'younger son', 'little son', 'younger boy', 'younger brother', 'little brother', 'second son', '7-year-old', '7yo'],
         age: 7,
         ageBracket: 'Young Child / Primary School (7 Years Old)',
-        heightDesc: 'Shorter 7yo child stature: Head reaches only to older brother\'s shoulder/upper chest, stands a full head shorter than older brother',
-        uncompromisableAnchors: 'Warm fair-skinned 7-year-old schoolboy with soft rounded cheeks, expressive playful eyes, wavy dark hair, healthy solid child proportions, stands a full head shorter than his older brother so his head reaches only to his older brother\'s shoulder/upper chest, wearing a contrasting bright emerald-green or mustard-yellow graphic t-shirt.',
-        visualTraits: '7-year-old young schoolboy, noticeably shorter by a full head, top of head reaches only to his older brother\'s shoulder/upper chest, soft round youthful child cheeks, playful energetic expression, wavy dark hair, lively child proportions.',
+        heightDesc: '7yo schoolboy stature: Top of his head reaches right up to his older brother Gahan\'s neck level and Mother\'s chest/shoulder level',
+        uncompromisableAnchors: 'Warm wheatish-skinned 7-year-old schoolboy with round youthful cheeks, large expressive dark eyes, neat short straight black hair with a front fringe, and a healthy compact child frame, standing right up to his older brother Gahan\'s neck level (top of Rishu\'s head meets Gahan\'s neck/chin-neck level, strictly NOT tiny or waist-high).',
+        visualTraits: 'Young 7-year-old boy with warm wheatish skin, round cheeks, dark expressive eyes, neat short black hair, and a healthy compact frame whose head reaches right up to his older brother Gahan\'s neck level.',
         vehicleRole: 'passenger_rear_left',
         defaultClothing: 'Mustard yellow or bright green graphic t-shirt',
         stylizedAvatarUrl: 'https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/avatar_member_younger_son.jpg'
@@ -3627,8 +3638,10 @@ function buildFamilyCastDirectives({ familyCast, activeCast, castStaging, userSl
 
   if (chronicleMode) {
     directives.push(`DAILY CHRONICLE PROTAGONIST, SITUATIONAL ATTIRE & VIGNETTE-SPECIFIC CAST DIRECTIVE:
-- Narrator Identity Anchor: Whenever the narrator (Father Shridhar) appears in a vignette, portray him as a fit mid-age 40-year-old Indian man in his prime early 40s (full head of thick short jet-black hair, smooth unwrinkled forehead, neat short dark trimmed beard, sturdy broad-shouldered build, strictly NOT old or elderly).
-- SITUATION-SPECIFIC ATTIRE PER MOMENT (DO NOT COPY OUTFITS BLINDLY): Dress Shridhar in attire that matches the exact situation and activity of each individual moment (e.g. uniform for a uniformed march, smart casual shirt at a work desk, athletic wear for sports/walk, kurta or home wear at home). Never blindly copy his attire from one vignette into another!
+- Narrator Identity Anchor: Whenever the narrator (Father Shridhar) appears in a vignette, portray him as a fit mid-age 40-year-old Indian man in his prime early 40s (warm brown skin, soft oval face, full head of thick short dark hair styled up at the crown, smooth unwrinkled forehead, short light neat trimmed stubble beard, sturdy broad-shouldered build, strictly NOT old or elderly).
+- Mother / Wife (Aruna) Identity Anchor (WHEN PRESENT IN A VIGNETTE): Whenever Wife / Mother (Aruna) appears in a vignette, you MUST explicitly describe her exact authentic facial and hair traits in "illustrationPrompt": warm golden-brown wheatish skin, soft fuller round-to-oval maternal face with warm full cheeks and soft rounded chin (strictly NOT a narrow/sharp-chinned face), small black circular bindi centered on her forehead and subtle red kumkum at the upper forehead hairline, gentle dark eyes, side-parted thick voluminous wavy black hair swept forward over her left shoulder past her collarbone, and a healthy natural medium-to-full South Indian adult build.
+- Brothers (Gahan & Rishu) Stature & Neck-Height Anchor (WHEN PRESENT IN A VIGNETTE): Whenever Elder Son (Gahan, age 11) and Younger Son (Rishu, age 7) appear in a vignette, you MUST explicitly state in "illustrationPrompt" that 11yo Gahan reaches up to his mother's ear/chin level and 7yo Rishu's head reaches RIGHT UP TO GAHAN'S NECK LEVEL (and mother's chest/under-shoulder level — strictly NOT a tiny toddler and NOT down at Gahan's chest or waist!).
+- SITUATION-SPECIFIC ATTIRE PER MOMENT (DO NOT COPY OUTFITS BLINDLY): Dress Shridhar and family members in attire that matches the exact situation and activity of each individual moment (e.g. uniform for a uniformed march, smart casual shirt at a work desk, athletic wear for sports/walk, kurta or home wear at home). Never blindly copy attire from one vignette into another!
 - VIGNETTE-SCOPED CHARACTER PLACEMENT (DO NOT MERGE ALL CHARACTERS INTO ONE SCENE): Each of the 3 Daily Chronicle vignettes is a separate, isolated cloudy-shaded watercolor-and-gouache moment visual on warm parchment paper. Depict family members (${activeMembers.map(m => m.name || m.roleLabel).join(', ')}), colleagues, friends, or hosts ONLY inside the specific moment vignette where they are mentioned! Never combine all 3 moments into a single full-bleed family portrait.`);
     promptSnippets.push(`Daily Chronicle 3 isolated cloudy-shaded watercolor-and-gouache moment vignettes on warm parchment paper with situation-specific attire per moment`);
   } else if (isSoloProtagonist) {
@@ -3659,25 +3672,30 @@ ${activeMembers.map((m, i) => `  * Person #${i + 1}: ${m.name || m.roleLabel} ($
 
   // 1. Strict Age & Height Differentiation
   if (hasElderBoy && hasYoungerBoy) {
-    directives.push(`BIOLOGICAL AGE, GRADUATED HEIGHT CONTRAST & CONTRASTING OUTFIT COLORS:
-- Unmistakable 4-year height difference between the two brothers standing on the same level floor (NEVER use feet/inches numbers like 4ft 10in or 4ft 2in in the prompt, as numbers confuse image generators into drawing equal-height twins):
-  * ELDER BROTHER (Gahan, Age 11 - TALL PRE-TEEN): Tall pre-teen boy whose head reaches UP TO HIS MOTHER'S SHOULDER / CHIN and HIS FATHER'S COLLARBONE LEVEL. Longer pre-teen torso and legs, sturdy square-shouldered youth build, wearing a DARK NAVY-BLUE casual t-shirt.
-  * YOUNGER BROTHER (Rishu, Age 7 - SHORTER SCHOOLBOY): Shorter 7-year-old schoolboy standing A FULL HEAD SHORTER than his older brother. The top of his head reaches ONLY TO HIS OLDER BROTHER'S SHOULDER / UPPER CHEST and HIS MOTHER'S ELBOW / WAIST LEVEL. Soft round child cheeks, wavy dark hair, wearing a contrasting BRIGHT EMERALD-GREEN or MUSTARD-YELLOW graphic t-shirt.
-- STRICT BAN ON EQUAL-HEIGHT TWINS OR MATCHING SHIRTS: NEVER draw the two boys at the same height! NEVER dress both boys in matching white polo shirts or identical school uniforms (matching outfits cause image models to clone their heights). Always give the tall 11yo Elder Son a dark navy-blue shirt and the shorter 7yo Younger Son a bright green or warm mustard-yellow t-shirt.`);
-    promptSnippets.push('two brothers standing on the same level floor with clear height difference and contrasting shirt colors: tall 11-year-old Elder Son (head reaching up to Mother\'s shoulder/chin and Father\'s collarbone, wearing dark navy-blue t-shirt) standing a full head taller than his shorter 7-year-old Younger Son (head reaching to Elder Son\'s shoulder/upper chest, wearing bright emerald-green or mustard-yellow t-shirt; strictly NOT equal height and strictly NOT matching white shirts)');
+    const elderMem = activeMembers.find(m => m.relationship === 'elder_son' || m.age === 11);
+    const youngerMem = activeMembers.find(m => m.relationship === 'younger_son' || m.age === 7);
+    const elderCustomHeight = (elderMem && elderMem.heightDesc && !/shoulder\/upper chest|nec$/i.test(elderMem.heightDesc)) ? elderMem.heightDesc : '';
+    const youngerCustomHeight = (youngerMem && youngerMem.heightDesc && !/shoulder\/upper chest|full head shorter|nec$/i.test(youngerMem.heightDesc)) ? youngerMem.heightDesc : '';
+
+    directives.push(`BIOLOGICAL AGE, GRADUATED NECK-LEVEL HEIGHT CONTRAST & CONTRASTING OUTFIT COLORS:
+- Natural 4-year height difference between the two brothers standing on the same level floor (NEVER use feet/inches numbers like 4ft 10in or 4ft 2in in the prompt):
+  * ELDER BROTHER (Gahan, Age 11 - TALL PRE-TEEN): ${elderCustomHeight || "Tall pre-teen boy whose head reaches UP TO HIS MOTHER'S EAR / CHIN LEVEL and HIS FATHER'S SHOULDER / COLLARBONE LEVEL."} Gentle round-oval face, thick short black hair, sturdy square-shouldered youth build, wearing a DARK NAVY-BLUE casual t-shirt.
+  * YOUNGER BROTHER (Rishu, Age 7 - SCHOOLBOY REACHING GAHAN'S NECK): ${youngerCustomHeight || "7-year-old schoolboy whose head reaches RIGHT UP TO HIS OLDER BROTHER GAHAN'S NECK / CHIN-NECK LEVEL (and HIS MOTHER'S CHEST / UNDER-SHOULDER LEVEL)."} He is only slightly shorter than Gahan so the top of his head meets Gahan's neck height (STRICTLY NOT a tiny toddler and STRICTLY NOT down at Gahan's chest or Mother's waist/elbow!). Round cheeks, neat short straight black hair, compact healthy child frame, wearing a contrasting BRIGHT EMERALD-GREEN or MUSTARD-YELLOW graphic t-shirt.
+- STRICT BAN ON EQUAL-HEIGHT TWINS, TINY TODDLER SCALING, OR MATCHING SHIRTS: NEVER draw the two boys at the exact same height, and NEVER draw Rishu tiny at waist level! Always make Rishu's head reach Gahan's neck level, and dress the 11yo Elder Son in a dark navy-blue shirt and the 7yo Younger Son in a bright green or warm mustard-yellow t-shirt.`);
+    promptSnippets.push('two brothers standing on the same level floor with accurate neck-level height difference and contrasting shirt colors: tall 11-year-old Elder Son Gahan (head reaching up to Mother\'s ear/chin and Father\'s shoulder/collarbone, wearing dark navy-blue t-shirt) and 7-year-old Younger Son Rishu whose head reaches right up to Gahan\'s neck level and Mother\'s chest/under-shoulder level (wearing bright emerald-green or mustard-yellow t-shirt; strictly NOT tiny or waist-high and strictly NOT equal height)');
   }
 
   // 1b. Realistic Authentic Body Statures (Strict Ban on Skinny / Runway Model Bias)
   const statureGuidelines = [];
   activeMembers.forEach(m => {
     if (m.relationship === 'spouse') {
-      statureGuidelines.push('- Mother: Draw with an authentic, healthy medium adult build with natural soft shoulders and realistic everyday proportions. STRICTLY NEVER draw an ultra-slim, skinny, or waif-like runway model.');
+      statureGuidelines.push('- Mother (Aruna): Draw with an authentic, healthy medium-to-full South Indian adult build, soft fuller round-to-oval maternal face with warm full cheeks, small black forehead bindi and subtle red kumkum at the hairline, and side-parted long voluminous wavy black hair swept forward over her left shoulder. STRICTLY NEVER draw an ultra-slim, skinny, or sharp-chinned runway model.');
     } else if (m.relationship === 'elder_son') {
-      statureGuidelines.push('- Elder Son (Age 11): Draw with a healthy, sturdy pre-teen build and square shoulders. STRICTLY NEVER draw a skinny, frail, or gaunt boy.');
+      statureGuidelines.push('- Elder Son (Gahan, Age 11): Draw with a healthy, sturdy pre-teen build, gentle round-oval face, and square shoulders whose head reaches Mother\'s ear/chin level. STRICTLY NEVER draw a skinny, frail, or gaunt boy.');
     } else if (m.relationship === 'younger_son') {
-      statureGuidelines.push('- Younger Son (Age 7): Draw with healthy, energetic solid child proportions with soft rounded cheeks.');
+      statureGuidelines.push('- Younger Son (Rishu, Age 7): Draw with healthy, compact child proportions and soft rounded cheeks whose head reaches right up to his older brother Gahan\'s neck level.');
     } else if (m.relationship === 'self') {
-      statureGuidelines.push('- Father: Draw with a sturdy, broad-shouldered adult build with upright posture.');
+      statureGuidelines.push('- Father (Shridhar): Draw with a sturdy, broad-shouldered solid adult build, soft oval face, short light neat trimmed stubble beard, and upright posture.');
     }
   });
   if (statureGuidelines.length > 0) {

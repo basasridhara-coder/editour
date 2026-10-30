@@ -58,23 +58,23 @@ module.exports = async function handler(req, res) {
 ${multiPhotoHint}
 Target subject: ${roleHint}${name ? ', named ' + name : ''}${approxAge ? ', approx age ' + approxAge : ''}.
 
-Synthesize all visual likeness anchors across the provided photos, analyzing BOTH facial characteristics AND full body structure:
-1. Hairstyle: hair texture (straight, wavy, curly), hair color, volume, and parting style.
-2. Facial structure: face shape, jawline, cheekbones, eye shape, smile/expression, and mustache/beard if present.
-3. Eyeglasses / Spectacles: if wearing glasses, describe frame style. If none, omit.
+Synthesize all visual likeness anchors across the provided photos, analyzing BOTH facial characteristics AND full body structure with high observational precision:
+1. Hairstyle & Parting: exact hair texture (straight, wavy, curly), hair color, volume, parting style (e.g. side-parted, center-parted, or brushed up at the crown), exact hair length, and how it falls (e.g. long thick wavy black hair swept forward over one shoulder past the collarbone, or short neat dark hair).
+2. Facial Structure & Cheek/Jaw Geometry: exact face shape (e.g. soft fuller round-to-oval face with warm full cheeks and soft rounded chin vs. angular jaw), eye shape, eyebrow arch, nose shape, smile/expression, and exact facial hair if present (e.g. short light neat stubble beard vs. full beard vs. clean-shaven).
+3. Distinct Cultural & Facial Landmarks: carefully observe and explicitly include any visible forehead bindi (e.g. small black circular bindi on forehead), red kumkum/sindoor at the upper forehead hairline/parting, stud earrings, or eyeglasses/spectacles if present.
 4. Apparent biological age and life stage.
-5. Skin tone and complexion.
-6. Body structure, physique & stature: accurately observe visible body build (e.g. medium adult build, sturdy solid frame, broad-shouldered, compact child build), shoulder shape, and natural posture. STRICT BAN ON CALLING THEM SLENDER, SLIM, OR LEAN unless they are visibly very thin. Faithfully capture their authentic, healthy, real-world physique.
+5. Skin tone and complexion (e.g. warm golden-wheatish complexion, warm medium-brown skin).
+6. Body structure, physique & stature: accurately observe visible body build (e.g. healthy medium-to-full adult build with soft natural shoulders, sturdy broad-shouldered solid frame, or compact child build) and natural posture. STRICT BAN ON CALLING THEM SLENDER, SLIM, OR LEAN unless they are visibly very thin. Faithfully capture their authentic, healthy, real-world physique.
 
 Return strictly valid JSON with this exact schema:
 {
-  "uncompromisableAnchors": "The core immutable physical anatomy and looks that must never mutate across scenes, clothing, or moods (face shape, natural hair length, real-world build, skin tone, authentic presence, max 35-45 words). Example: 'Warm wheatish skin, soft round-to-oval maternal face, natural dark eyes, natural shoulder-length wavy dark hair, healthy medium adult build with natural soft shoulders.'",
-  "visualTraits": "A single coherent, evocative character sentence combining facial features, hair, AND authentic body build / stature (max 35-45 words). Example: 'Warm brown skin, friendly oval face, neat dark mustache, short parted dark hair, with a sturdy, broad-shouldered upright adult build.' or 'Healthy pre-teen boy with sturdy solid frame, square shoulders, rounded cheeks, and neat side-parted hair.'",
+  "uncompromisableAnchors": "The core immutable physical anatomy and looks that must never mutate across scenes, clothing, or moods: exact face shape & cheek fullness, forehead landmarks (bindi, hairline kumkum/sindoor if visible), exact hair parting/length/cascading direction, facial hair style, skin tone, and real-world body build (35-55 words). Describe ONLY what is authentically visible in the photo.",
+  "visualTraits": "A single coherent, vivid character description combining exact facial features, forehead landmarks (bindi/kumkum if visible), hair length & parting, AND authentic body build / stature (35-50 words).",
   "detectedAge": 38,
-  "hair": "Short neat dark hair with side part",
-  "facialFeatures": "Warm brown eyes, chevron mustache, structured jaw",
-  "bodyBuild": "Sturdy solid frame with natural shoulders and upright posture",
-  "statureDesc": "5ft 10in (178cm), tall adult stature with upright posture"
+  "hair": "Exact hair length, texture, parting, and styling observed in photo",
+  "facialFeatures": "Exact face shape, cheek fullness, eyes, smile, forehead bindi/kumkum or facial hair observed in photo",
+  "bodyBuild": "Authentic body build and shoulder proportions observed in photo",
+  "statureDesc": "Height/stature note appropriate to their role and build"
 }
 
 Do not include markdown code fences, do not include any em-dashes. Output pure JSON only.`;
