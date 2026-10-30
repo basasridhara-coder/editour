@@ -944,21 +944,28 @@ function updateAuthUI() {
   const userMenuMyCount = document.getElementById('userMenuMyCount');
   const badgeMyCount = document.getElementById('badgeMyCount');
   const badgeDraftsCount = document.getElementById('badgeDraftsCount');
+  const badgeChroniclesCount = document.getElementById('badgeChroniclesCount');
   const pillSaved = document.getElementById('pillSaved');
   const pillMyStories = document.getElementById('pillMyStories');
   const pillDrafts = document.getElementById('pillDrafts');
+  const pillDailyChronicles = document.getElementById('pillDailyChronicles');
 
   const savedCount = savedPostIds.size;
   if (userMenuSavedCount) userMenuSavedCount.textContent = savedCount;
   if (badgeSavedCount) badgeSavedCount.textContent = savedCount;
 
-  // Compute how many posts and drafts belong to this user
+  // Compute how many published stories, daily chronicles, and drafts belong to this user
   let myPostsCount = 0;
+  let myChroniclesCount = 0;
   let myPosterDraftsCount = 0;
   if (Array.isArray(allPosts)) {
     const ownedPosts = allPosts.filter(p => isPostOwnedByCurrentUser(p));
-    myPostsCount = ownedPosts.length;
-    myPosterDraftsCount = ownedPosts.filter(p => p.isDraft === true || p.isPrivate === true || p.status === 'draft').length;
+    myChroniclesCount = ownedPosts.filter(p => isPostChronicleDiary(p) && !p.isDiaryDraftOnly).length;
+    myPostsCount = ownedPosts.filter(p => !isPostChronicleDiary(p) && !isPostPrivateOrDraft(p)).length;
+    myPosterDraftsCount = ownedPosts.filter(p =>
+      (!isPostChronicleDiary(p) && isPostPrivateOrDraft(p)) ||
+      (isPostChronicleDiary(p) && Boolean(p.isDiaryDraftOnly))
+    ).length;
   }
   const myFormDraftsCount = typeof getSavedFormDrafts === 'function' ? getSavedFormDrafts().length : 0;
   const totalDraftsCount = myPosterDraftsCount + myFormDraftsCount;
@@ -966,6 +973,7 @@ function updateAuthUI() {
   if (userMenuMyCount) userMenuMyCount.textContent = myPostsCount;
   if (badgeMyCount) badgeMyCount.textContent = myPostsCount;
   if (badgeDraftsCount) badgeDraftsCount.textContent = totalDraftsCount;
+  if (badgeChroniclesCount) badgeChroniclesCount.textContent = myChroniclesCount;
 
   if (currentUser) {
     if (signedInView) signedInView.style.display = 'flex';
@@ -993,6 +1001,7 @@ function updateAuthUI() {
     if (pillSaved) pillSaved.style.display = '';
     if (pillMyStories) pillMyStories.style.display = '';
     if (pillDrafts) pillDrafts.style.display = '';
+    if (pillDailyChronicles) pillDailyChronicles.style.display = '';
 
     // Update Drawer Account UI
     const drawerAuthGuest = document.getElementById('drawerAuthGuest');
@@ -1057,6 +1066,7 @@ function updateAuthUI() {
     if (pillSaved) pillSaved.style.display = savedCount > 0 ? '' : 'none';
     if (pillMyStories) pillMyStories.style.display = myPostsCount > 0 ? '' : 'none';
     if (pillDrafts) pillDrafts.style.display = totalDraftsCount > 0 ? '' : 'none';
+    if (pillDailyChronicles) pillDailyChronicles.style.display = myChroniclesCount > 0 ? '' : 'none';
 
     // Update Drawer Account UI for guest
     const drawerAuthGuest = document.getElementById('drawerAuthGuest');
@@ -3345,7 +3355,7 @@ async function decryptAllOwnedChroniclePosts() {
   if (!Array.isArray(allPosts) || allPosts.length === 0) return;
   const anyDecrypted = await decryptChroniclePostsInPlace(allPosts);
   if (anyDecrypted) {
-    if (currentFilter === 'diary') {
+    if (currentFilter === 'diary' || currentFilter === 'daily_chronicles') {
       renderFeed();
     }
     const diaryModal = document.getElementById('diaryCalendarModal');
@@ -3582,7 +3592,7 @@ function getPostShareText(post) {
   if (!post) return '';
   const headline = (post.adaptedHeadline || post.originalHeadline || 'Curated Story').trim();
   const url = getPostShareUrl(post);
-  return `"${headline}"\n\nRead the full story & receipts on Slant:\n${url}`;
+  return `"${headline}"\n\nRead my brief opinion (1-min read) on Slant:\n${url}`;
 }
 
 function buildSharePayload(files, title, text, url, mode = 'status') {
@@ -4730,8 +4740,19 @@ function getPostFromIndexOrId(indexOrId) {
 function getFilteredPostsForFilter(posts, filter, query) {
   if (!Array.isArray(posts)) return [];
   const q = (query || '').toLowerCase().trim();
+  const isChroniclesFilter = (filter === 'daily_chronicles' || filter === 'diary');
 
-  return posts.filter(post => {
+  const matchesQuery = (post) => {
+    if (!q) return true;
+    const title = (post.adaptedHeadline || post.originalHeadline || '').toLowerCase();
+    const pub = (post.publicationName || '').toLowerCase();
+    const summary = (post.summary || '').toLowerCase();
+    const hook = (post.hook || '').toLowerCase();
+    const cat = (post.categoryBadge || '').toLowerCase();
+    return title.includes(q) || pub.includes(q) || summary.includes(q) || hook.includes(q) || cat.includes(q);
+  };
+
+  const result = posts.filter(post => {
     if (!post || post.deleted || post.isDeleted || deletedPostIds.has(post.id) || isLoginShowcaseOnlyPost(post)) return false;
 
     const isChronicleDiary = isPostChronicleDiary(post);
@@ -4740,24 +4761,40 @@ function getFilteredPostsForFilter(posts, filter, query) {
     const deepPostId = typeof getDeepLinkedPostId === 'function' ? getDeepLinkedPostId() : null;
 
     // Unpublished drafts and private diary entries must NEVER be visible to anyone other than their creator (unless directly deep-linked)
-    if (isPrivateDraft && !isOwnedByMe && post.id !== deepPostId) {
+    if ((isPrivateDraft || isChronicleDiary) && !isOwnedByMe && post.id !== deepPostId) {
       return false;
     }
 
+    // Dedicated "Daily Chronicles" section: strictly private to creator, shows non-draft chronicle entries
+    if (isChroniclesFilter) {
+      if (!isChronicleDiary || post.isDiaryDraftOnly || !isOwnedByMe) return false;
+      return matchesQuery(post);
+    }
+
+    // Dedicated "Drafts" section: shows unpublished perspective drafts and draft-only chronicle entries
     if (filter === 'drafts') {
-      return isPrivateDraft && isOwnedByMe;
+      if (!isOwnedByMe) return false;
+      if (isChronicleDiary) {
+        return Boolean(post.isDiaryDraftOnly) && matchesQuery(post);
+      }
+      return isPrivateDraft && matchesQuery(post);
+    }
+
+    // STRICT SEPARATION: Daily Chronicle posts NEVER appear in the regular feed ('all', 'my_stories', 'saved', 'opinion', or topic categories) unless directly deep-linked
+    if (isChronicleDiary && post.id !== deepPostId) {
+      return false;
     }
 
     if (filter === 'saved') {
-      return savedPostIds.has(post.id);
+      return savedPostIds.has(post.id) && matchesQuery(post);
     }
 
     if (filter === 'my_stories') {
-      return isOwnedByMe;
+      return isOwnedByMe && !isPrivateDraft && matchesQuery(post);
     }
 
-    // In specific topic categories, hide non-chronicle unpublished drafts; allow creator's own chronicle diary entries in 'all' and 'opinion'
-    if (isPrivateDraft && filter !== 'all' && !(isChronicleDiary && filter === 'opinion')) {
+    // Hide unpublished drafts from regular feed and topic categories (unless directly deep-linked)
+    if (isPrivateDraft && post.id !== deepPostId) {
       return false;
     }
 
@@ -4773,19 +4810,61 @@ function getFilteredPostsForFilter(posts, filter, query) {
       if (filter === 'literary' && !(type === 'book_excerpt' || cat.includes('literary') || cat.includes('book') || cat.includes('literature'))) return false;
     }
 
-    if (q) {
-      const title = (post.adaptedHeadline || post.originalHeadline || '').toLowerCase();
-      const pub = (post.publicationName || '').toLowerCase();
-      const summary = (post.summary || '').toLowerCase();
-      const hook = (post.hook || '').toLowerCase();
-      const cat = (post.categoryBadge || '').toLowerCase();
-      if (!title.includes(q) && !pub.includes(q) && !summary.includes(q) && !hook.includes(q) && !cat.includes(q)) {
-        return false;
-      }
-    }
-
-    return true;
+    return matchesQuery(post);
   });
+
+  // Ensure Daily Chronicles are strictly ordered from latest to oldest
+  if (isChroniclesFilter) {
+    result.sort((a, b) => {
+      const timeA = new Date(a.createdAt || a.created_at || a.date || 0).getTime();
+      const timeB = new Date(b.createdAt || b.created_at || b.date || 0).getTime();
+      return timeB - timeA;
+    });
+  }
+
+  return result;
+}
+
+function renderDailyChroniclesPrivateBanner(container, count = 0) {
+  if (!container) return;
+  const banner = document.createElement('div');
+  banner.className = 'daily-chronicles-feed-banner';
+  banner.style.cssText = `
+    width: 100%;
+    max-width: 460px;
+    margin: 4px auto 14px auto;
+    padding: 13px 15px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.10) 0%, rgba(15, 23, 42, 0.04) 100%);
+    border: 1px solid rgba(16, 185, 129, 0.30);
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  `;
+  banner.innerHTML = `
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;">
+      <div style="display:inline-flex; align-items:center; gap:6px;">
+        <span style="font-size:15px;">🔒</span>
+        <span style="font-size:12px; font-weight:800; color:var(--text-primary); letter-spacing:0.2px;">Only Visible to You &bull; Encrypted Private Diary</span>
+      </div>
+      <span style="font-size:10.5px; font-weight:700; color:#059669; background:rgba(16,185,129,0.14); padding:2px 8px; border-radius:99px;">Latest &rarr; Oldest (${count})</span>
+    </div>
+    <div style="font-size:12px; line-height:1.45; color:var(--text-secondary);">
+      Your Daily Chronicles are end-to-end encrypted and strictly private to you &mdash; they never appear in the public feed.
+    </div>
+    <div style="display:flex; align-items:center; gap:8px; margin-top:2px;">
+      <button type="button" onclick="openDiaryCalendarModal()" style="flex:1; padding:7px 11px; border-radius:10px; border:1px solid rgba(15,23,42,0.15); background:var(--bg-surface, #FFFFFF); color:var(--text-primary); font-size:11.5px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:5px;">
+        <span>📅</span>
+        <span>Calendar View</span>
+      </button>
+      <button type="button" onclick="openCreatorModalForSection('diary_chronicle')" style="flex:1; padding:7px 11px; border-radius:10px; border:none; background:#253833; color:#FFFFFF; font-size:11.5px; font-weight:800; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:5px;">
+        <span>📔</span>
+        <span>+ Pen Today's Moments</span>
+      </button>
+    </div>
+  `;
+  container.appendChild(banner);
 }
 
 async function renderFeed(isInitial = false) {
@@ -4799,11 +4878,31 @@ async function renderFeed(isInitial = false) {
   const filtered = getFilteredPostsForFilter(allPosts, currentFilter, searchQuery);
   currentBatchFilteredPosts = filtered;
 
+  if (currentFilter === 'daily_chronicles' || currentFilter === 'diary') {
+    renderDailyChroniclesPrivateBanner(container, filtered.length);
+  }
+
   if (currentFilter === 'drafts' && typeof renderFeedFormDraftsSection === 'function') {
     renderFeedFormDraftsSection(container, filtered.length);
   }
 
   if (filtered.length === 0) {
+    if (currentFilter === 'daily_chronicles' || currentFilter === 'diary') {
+      const emptyEl = document.createElement('div');
+      emptyEl.style.cssText = 'text-align:center; padding: 42px 16px; color: var(--text-muted);';
+      emptyEl.innerHTML = `
+        <div style="font-size:42px; margin-bottom:12px;">📔</div>
+        <div style="font-weight:700; font-size:17px; color:var(--text-primary); letter-spacing:-0.3px;">No Daily Chronicles yet</div>
+        <div style="font-size:13px; margin-top:6px; max-width:340px; margin-left:auto; margin-right:auto; line-height:1.5;">
+          Pen 2&ndash;3 moments from your day into an illustrated 3-poster diary entry. Strictly private and visible only to you.
+        </div>
+      `;
+      container.appendChild(emptyEl);
+      initialFeedBatchReady = true;
+      dismissInitialFeedLoader(true);
+      return;
+    }
+
     if (currentFilter === 'drafts') {
       const formDraftsCount = typeof getSavedFormDrafts === 'function' ? getSavedFormDrafts().length : 0;
       if (formDraftsCount === 0) {
@@ -5986,11 +6085,19 @@ function createBroadsheetParaElement(text, isLead = false, isContinuation = fals
   p.setAttribute('lang', 'en');
   const clean = String(text || '').replace(/\u00AD/g, '').trim();
   const hyphenated = hyphenateBroadsheetTextGlobal(clean);
-  if (isLead) {
+  if (isLead && hyphenated) {
     p.className = 'receipt-p1';
-    const firstChar = hyphenated.charAt(0).toUpperCase();
-    const rest = hyphenated.slice(1);
-    p.innerHTML = `<span class="broadsheet-dropcap">${escapeHtml(firstChar)}</span>${escapeHtml(rest)}`;
+    const leadMatch = hyphenated.match(/^(['"“‘«(\[]*\s*)([A-Za-z0-9])([\s\S]*)$/);
+    if (leadMatch) {
+      const prefix = leadMatch[1] || '';
+      const firstChar = leadMatch[2].toUpperCase();
+      const rest = leadMatch[3] || '';
+      p.innerHTML = `<span class="broadsheet-dropcap">${escapeHtml(prefix + firstChar)}</span>${escapeHtml(rest)}`;
+    } else {
+      const firstChar = hyphenated.charAt(0).toUpperCase();
+      const rest = hyphenated.slice(1);
+      p.innerHTML = `<span class="broadsheet-dropcap">${escapeHtml(firstChar)}</span>${escapeHtml(rest)}`;
+    }
   } else {
     p.className = isContinuation ? 'receipt-p3 receipt-p-continuation' : 'receipt-p3';
     p.textContent = hyphenated;
@@ -6216,7 +6323,7 @@ function calibrateEssayViewportPagination(viewportEl) {
     const acceptedText = acceptedUnits.join(' ').trim();
     const acceptedWordCount = acceptedText ? acceptedText.split(/\s+/).filter(Boolean).length : 0;
 
-    if (acceptedText && (isLead || acceptedWordCount >= 6)) {
+    if (acceptedText && acceptedWordCount >= 6) {
       const finalP1Para = createBroadsheetParaElement(acceptedText, isLead, false);
       p1Container.appendChild(finalP1Para);
       if (remainingUnits.length > 0) {
@@ -6229,9 +6336,13 @@ function calibrateEssayViewportPagination(viewportEl) {
     }
   }
 
-  // Render Page 2 paragraphs before reflectionBox
-  page2Items.forEach(item => {
-    const p2El = createBroadsheetParaElement(item.text, false, item.isContinuation);
+  // Render Page 2 paragraphs before reflectionBox.
+  // If Page 1 has 0 essay writing paragraphs (because headline + pullquote + photo filled Page 1),
+  // the actual essay writing starts at page2Items[0], so it MUST start with a drop cap!
+  const p1HasWriting = p1Container.querySelectorAll('p.receipt-p1, p.receipt-p3').length > 0;
+  page2Items.forEach((item, idx) => {
+    const isP2Lead = (!p1HasWriting && idx === 0);
+    const p2El = createBroadsheetParaElement(item.text, isP2Lead, isP2Lead ? false : item.isContinuation);
     if (reflectionBox && reflectionBox.parentElement === p2Container) {
       p2Container.insertBefore(p2El, reflectionBox);
     } else {
@@ -6293,13 +6404,13 @@ function calibrateEssayViewportPagination(viewportEl) {
         .map(el => (el.textContent || '').replace(/\u00AD/g, '').trim())
         .filter(Boolean);
       const calP2 = page2Items.map(it => it.text).filter(Boolean);
-      if (calP1.length > 0 && calP2.length > 0) {
+      if (calP2.length > 0) {
         postObj._calibratedBifurcation = {
           isBifurcated: true,
           hasPhoto: viewportEl.classList.contains('has-inset-photo'),
           page1Paras: calP1,
           page2Paras: calP2,
-          hasContinuedPara: Boolean(page2Items[0]?.isContinuation),
+          hasContinuedPara: calP1.length > 0 ? Boolean(page2Items[0]?.isContinuation) : false,
           densityClass: 'essay-density-spacious'
         };
       }
@@ -6326,6 +6437,9 @@ if (typeof window !== 'undefined') {
 }
 
 function evaluateEssayBifurcation(post, index) {
+  if (post && post._calibratedBifurcation) {
+    return post._calibratedBifurcation;
+  }
   if (post && post._cachedBifurcation) {
     return post._cachedBifurcation;
   }
@@ -7202,7 +7316,9 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
 
   const formatBroadsheetPara = (txt, isLead = false, extraClass = "") => {
     const clean = String(txt || "").trim();
-    const momentMatch = clean.match(/^((?:0?[1-9]\s*[·•.-]\s*)?Moment\s+\d+(?:\s*[·•.-]\s*[^:]{1,38})?:|0?[1-9]\s*[·•.-]\s*[^:]{1,38}:)\s*([\s\S]+)$/i);
+    const momentMatch = isChronicle
+      ? clean.match(/^((?:0?[1-9]\s*[·•.-]\s*)?Moment\s+\d+(?:\s*[·•.-]\s*[^:]{1,38})?:|0?[1-9]\s*[·•.-]\s*[^:]{1,38}:)\s*([\s\S]+)$/i)
+      : null;
     if (momentMatch) {
       const cls = ["receipt-p3", "chronicle-moment-para", extraClass].filter(Boolean).join(" ");
       const numDigits = momentMatch[1].match(/\d+/);
@@ -7216,8 +7332,15 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
       const bodySafe = applyShowcaseInlineNameBlur(escapeHtml(hyphenateEditorialText(momentMatch[2])));
       return `<p class="${cls} ${isThisMomentStarred ? "is-starred-moment-para" : ""}" lang="en"><strong class="chronicle-moment-inline-tag">${escapeHtml(cleanMomentLabel)}${starBadge}</strong> ${bodySafe}</p>`;
     }
-    if (isLead) {
+    if (isLead && clean) {
       const hyphenatedClean = hyphenateEditorialText(clean);
+      const leadMatch = hyphenatedClean.match(/^(['"“‘«(\[]*\s*)([A-Za-z0-9])([\s\S]*)$/);
+      if (leadMatch) {
+        const prefix = leadMatch[1] || "";
+        const firstChar = leadMatch[2].toUpperCase();
+        const restLead = applyShowcaseInlineNameBlur(escapeHtml(leadMatch[3] || ""));
+        return `<p class="receipt-p1" lang="en"><span class="broadsheet-dropcap">${escapeHtml(prefix + firstChar)}</span>${restLead}</p>`;
+      }
       const firstChar = hyphenatedClean.charAt(0).toUpperCase();
       const restLead = applyShowcaseInlineNameBlur(escapeHtml(hyphenatedClean.slice(1)));
       return `<p class="receipt-p1" lang="en"><span class="broadsheet-dropcap">${escapeHtml(firstChar)}</span>${restLead}</p>`;
@@ -7226,25 +7349,36 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
     return `<p class="${cls}" lang="en">${applyShowcaseInlineNameBlur(escapeHtml(hyphenateEditorialText(clean)))}</p>`;
   };
 
-  // Page 1 Paragraphs
+  // Page 1 & Page 2 Paragraphs: Guarantee drop cap wherever actual essay writing starts (whether on Page 1 or Page 2)
   let page1ParasHtml = "";
-  const p1Lead = bifurcation.page1Paras[0] || "Reporting examines key structural developments and observed outcomes.";
-  page1ParasHtml += formatBroadsheetPara(p1Lead, true);
-  bifurcation.page1Paras.slice(1).forEach(p => {
-    if (p && p !== p1Lead) {
-      page1ParasHtml += formatBroadsheetPara(p, false);
-    }
-  });
+  let leadDropCapRendered = false;
+  if (Array.isArray(bifurcation.page1Paras) && bifurcation.page1Paras.length > 0) {
+    bifurcation.page1Paras.forEach((p) => {
+      if (p && String(p).trim()) {
+        const useLead = !leadDropCapRendered;
+        page1ParasHtml += formatBroadsheetPara(p, useLead);
+        if (useLead) leadDropCapRendered = true;
+      }
+    });
+  } else if (!Array.isArray(bifurcation.page2Paras) || bifurcation.page2Paras.length === 0) {
+    const fallbackLead = "Reporting examines key structural developments and observed outcomes.";
+    page1ParasHtml += formatBroadsheetPara(fallbackLead, true);
+    leadDropCapRendered = true;
+  }
 
   // Page 2 Paragraphs
   let page2ParasHtml = "";
-  bifurcation.page2Paras.forEach((p, idx) => {
-    if (p && p !== p1Lead) {
-      const isContinuation = (idx === 0 && bifurcation.hasContinuedPara);
-      const extraClass = isContinuation ? "receipt-p-continuation" : "";
-      page2ParasHtml += formatBroadsheetPara(p, false, extraClass);
-    }
-  });
+  if (Array.isArray(bifurcation.page2Paras) && bifurcation.page2Paras.length > 0) {
+    bifurcation.page2Paras.forEach((p, idx) => {
+      if (p && String(p).trim()) {
+        const useLead = !leadDropCapRendered;
+        const isContinuation = (!useLead && idx === 0 && bifurcation.hasContinuedPara);
+        const extraClass = isContinuation ? "receipt-p-continuation" : "";
+        page2ParasHtml += formatBroadsheetPara(p, useLead, extraClass);
+        if (useLead) leadDropCapRendered = true;
+      }
+    });
+  }
 
   const p1SlideBadge = isChronicle
     ? (forExportPage > 0 ? "02 / 03 • MOMENTS" : "02 / 03")
@@ -7824,6 +7958,9 @@ function goToSlide(event, postIndex, slideIndex) {
     requestAnimationFrame(() => {
       calibrateAllLiveEssayPaginations(carousel);
     });
+    if (postIndex !== 'preview' && postIndex !== 'diary_preview' && typeof triggerPostPreRender === 'function') {
+      triggerPostPreRender(postIndex);
+    }
   }
 }
 
@@ -9460,17 +9597,6 @@ async function capturePostSlidesAsFiles(post, index) {
   delete exportPost._cachedBifurcation;
 
   const rawPosterUrl = post.illustrationUrl || post.aiIllustrationUrl || '';
-  let createdBlobUrl = null;
-  let createdSourceBlobUrl = null;
-  if (!post.illustrationBase64 && rawPosterUrl) {
-    try {
-      const bUrl = await fetchAsBlobUrl(rawPosterUrl);
-      if (bUrl && bUrl !== rawPosterUrl) {
-        createdBlobUrl = bUrl;
-        exportPost.illustrationUrl = bUrl;
-      }
-    } catch (_) {}
-  }
   const rawSourcePhoto = post.sourceImageUrl
     || post.referencePhotoUrl
     || post.originalPhotoUrl
@@ -9478,27 +9604,59 @@ async function capturePostSlidesAsFiles(post, index) {
     || post.generationInputs?.sourceImageUrl
     || post.generationInputs?.catalystPhoto
     || '';
-  if (rawSourcePhoto && typeof rawSourcePhoto === 'string' && rawSourcePhoto.startsWith('http')) {
+  let createdBlobUrl = null;
+  let createdSourceBlobUrl = null;
+
+  // Convert poster and source images to local blob URLs in parallel for fast export
+  const needPosterBlob = Boolean(!post.illustrationBase64 && rawPosterUrl);
+  const needSourceBlob = Boolean(rawSourcePhoto && typeof rawSourcePhoto === 'string' && rawSourcePhoto.startsWith('http'));
+  const samePhotoUrl = Boolean(needPosterBlob && needSourceBlob && rawPosterUrl === rawSourcePhoto);
+
+  if (samePhotoUrl) {
     try {
-      const sbUrl = await fetchAsBlobUrl(rawSourcePhoto);
-      if (sbUrl && sbUrl !== rawSourcePhoto) {
-        createdSourceBlobUrl = sbUrl;
-        exportPost.sourceImageUrl = sbUrl;
-        exportPost.referencePhotoUrl = sbUrl;
-        exportPost.originalPhotoUrl = sbUrl;
-        exportPost.catalystPhoto = sbUrl;
+      const bUrl = await fetchAsBlobUrl(rawPosterUrl);
+      if (bUrl && bUrl !== rawPosterUrl) {
+        createdBlobUrl = bUrl;
+        exportPost.illustrationUrl = bUrl;
+        exportPost.sourceImageUrl = bUrl;
+        exportPost.referencePhotoUrl = bUrl;
+        exportPost.originalPhotoUrl = bUrl;
+        exportPost.catalystPhoto = bUrl;
         if (exportPost.generationInputs && typeof exportPost.generationInputs === 'object') {
           exportPost.generationInputs = {
             ...exportPost.generationInputs,
-            sourceImageUrl: sbUrl,
-            catalystPhoto: sbUrl
+            sourceImageUrl: bUrl,
+            catalystPhoto: bUrl
           };
         }
       }
     } catch (_) {}
+  } else {
+    const [bUrl, sbUrl] = await Promise.all([
+      needPosterBlob ? fetchAsBlobUrl(rawPosterUrl).catch(() => null) : Promise.resolve(null),
+      needSourceBlob ? fetchAsBlobUrl(rawSourcePhoto).catch(() => null) : Promise.resolve(null)
+    ]);
+    if (bUrl && bUrl !== rawPosterUrl) {
+      createdBlobUrl = bUrl;
+      exportPost.illustrationUrl = bUrl;
+    }
+    if (sbUrl && sbUrl !== rawSourcePhoto) {
+      createdSourceBlobUrl = sbUrl;
+      exportPost.sourceImageUrl = sbUrl;
+      exportPost.referencePhotoUrl = sbUrl;
+      exportPost.originalPhotoUrl = sbUrl;
+      exportPost.catalystPhoto = sbUrl;
+      if (exportPost.generationInputs && typeof exportPost.generationInputs === 'object') {
+        exportPost.generationInputs = {
+          ...exportPost.generationInputs,
+          sourceImageUrl: sbUrl,
+          catalystPhoto: sbUrl
+        };
+      }
+    }
   }
 
-  // Probe the exact natural dimensions of the receipt photo so _isVideoOrWide is 100% accurate before bifurcation
+  // Probe the exact natural dimensions of the receipt photo only if not already evaluated on the live card
   const rawBase64Photo = post.sourceImageBase64
     || post.catalystPhotoBase64
     || post.originalPhotoBase64
@@ -9513,13 +9671,14 @@ async function capturePostSlidesAsFiles(post, index) {
     ? (rawBase64Photo.startsWith('data:') ? rawBase64Photo : `data:image/jpeg;base64,${rawBase64Photo}`)
     : '';
   const probePhotoUrl = createdSourceBlobUrl || rawSourcePhoto || normalizedBase64Photo || createdBlobUrl || rawPosterUrl;
-  if (probePhotoUrl && typeof probePhotoUrl === 'string' && (probePhotoUrl.startsWith('blob:') || probePhotoUrl.startsWith('data:') || probePhotoUrl.startsWith('http') || probePhotoUrl.startsWith('/'))) {
+  const alreadyKnowsAspect = (typeof post._isVideoOrWide === 'boolean' || typeof post._isPortraitPhoto === 'boolean');
+  if (!alreadyKnowsAspect && probePhotoUrl && typeof probePhotoUrl === 'string' && (probePhotoUrl.startsWith('blob:') || probePhotoUrl.startsWith('data:') || probePhotoUrl.startsWith('http') || probePhotoUrl.startsWith('/'))) {
     try {
       const dims = await new Promise(resolve => {
         const probeImg = new Image();
         probeImg.onload = () => resolve({ w: probeImg.naturalWidth, h: probeImg.naturalHeight });
         probeImg.onerror = () => resolve(null);
-        setTimeout(() => resolve(null), 2000);
+        setTimeout(() => resolve(null), 1200);
         probeImg.src = probePhotoUrl;
       });
       if (dims && dims.w > 0 && dims.h > 0) {
@@ -9557,6 +9716,12 @@ async function capturePostSlidesAsFiles(post, index) {
   const rawHeadline = post.adaptedHeadline || post.originalHeadline || post.hook || 'slant';
   const slug = rawHeadline.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 30) || 'slant-story';
 
+  if (document.fonts && document.fonts.ready) {
+    try {
+      await document.fonts.ready;
+    } catch (_) {}
+  }
+
   // Helper to bake exact center-crop (object-fit: cover) into an <img> data URL so html2canvas NEVER stretches photos
   const bakeObjectFitCoverOnImage = async (img, targetW, targetH) => {
     if (!img || !img.src || targetW <= 0 || targetH <= 0) return;
@@ -9564,7 +9729,7 @@ async function capturePostSlidesAsFiles(post, index) {
     const natH = img.naturalHeight;
     if (!natW || !natH) return;
     try {
-      const dpr = 3;
+      const dpr = 2;
       const cw = Math.max(1, Math.round(targetW * dpr));
       const ch = Math.max(1, Math.round(targetH * dpr));
       const offCanvas = document.createElement('canvas');
@@ -9586,12 +9751,12 @@ async function capturePostSlidesAsFiles(post, index) {
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = 'high';
       ctx.drawImage(img, sx, sy, sw, sh, 0, 0, cw, ch);
-      const croppedUrl = offCanvas.toDataURL('image/jpeg', 0.98);
+      const croppedUrl = offCanvas.toDataURL('image/jpeg', 0.92);
       if (croppedUrl && croppedUrl.length > 100) {
         await new Promise(res => {
           img.onload = () => res(true);
           img.onerror = () => res(false);
-          setTimeout(() => res(false), 1500);
+          setTimeout(() => res(false), 1200);
           img.src = croppedUrl;
         });
         img.style.setProperty('width', '100%', 'important');
@@ -9607,13 +9772,13 @@ async function capturePostSlidesAsFiles(post, index) {
     } catch (_) {}
   };
 
-  // Render slides sequentially with dedicated offscreen sandboxes to prevent WebKit range layout thrashing
+  // Render slides with dedicated offscreen sandboxes placed far outside the viewport (-10000px) so nothing ever shows behind the feed
   const renderSlide = async (cfg) => {
     const container = document.createElement('div');
     container.className = 'poster-export-sandbox';
     container.style.cssText = `
       position: fixed !important;
-      left: 0px !important;
+      left: -10000px !important;
       top: 0px !important;
       width: ${canvasWidth}px !important;
       height: ${canvasHeight}px !important;
@@ -9644,7 +9809,7 @@ async function capturePostSlidesAsFiles(post, index) {
         </div>
       `;
 
-      // Wait for images inside to load with 4.5s safe timeout
+      // Wait for images inside to load with 3.5s safe timeout
       const imgs = Array.from(container.querySelectorAll('img'));
       await Promise.all(imgs.map(img => {
         if (!img.src) return Promise.resolve(true);
@@ -9652,7 +9817,7 @@ async function capturePostSlidesAsFiles(post, index) {
         return new Promise(res => {
           img.onload = () => res(true);
           img.onerror = () => res(false);
-          setTimeout(() => res(false), 4500);
+          setTimeout(() => res(false), 3500);
         });
       }));
 
@@ -9701,18 +9866,11 @@ async function capturePostSlidesAsFiles(post, index) {
         await bakeObjectFitCoverOnImage(img, fw, fh);
       }
 
-      // Wait for web fonts (Merriweather, Playfair Display, Space Grotesk) to be 100% ready before rasterizing
-      if (document.fonts && document.fonts.ready) {
-        try {
-          await document.fonts.ready;
-        } catch (_) {}
-      }
-
-      // Micro-delay for fonts and styles to paint
-      await new Promise(r => setTimeout(r, 60));
+      // Single frame tick for layout settle
+      await new Promise(r => setTimeout(r, 16));
 
       const h2cBaseOpts = {
-        scale: 3, // 480 * 3 = 1440, 640 * 3 = 1920 (Ultra-Retina 3x supersampling for razor-sharp serif typography)
+        scale: 2, // 480 * 2 = 960, 640 * 2 = 1280 (Fast 2x Retina HD for crisp typography and rapid sharing)
         useCORS: true,
         backgroundColor: '#F8F5EE',
         logging: false,
@@ -9721,9 +9879,7 @@ async function capturePostSlidesAsFiles(post, index) {
         windowWidth: 1200,
         windowHeight: 1200,
         scrollX: 0,
-        scrollY: 0,
-        x: 0,
-        y: 0
+        scrollY: 0
       };
 
       let canvas;
@@ -9740,10 +9896,10 @@ async function capturePostSlidesAsFiles(post, index) {
         });
       }
 
-      let blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 1.0));
+      let blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.92));
       if (!blob) {
         try {
-          const dataUrl = canvas.toDataURL('image/jpeg', 1.0);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
           const parts = dataUrl.split(',');
           const mime = parts[0].match(/:(.*?);/)[1];
           const bstr = atob(parts[1]);
@@ -9917,10 +10073,10 @@ function openSharePostersModal(post, files) {
   const profileUrl = `${window.location.origin}/?curator=${encodeURIComponent(cleanHandle)}`;
 
   if (teaserDesc) {
-    teaserDesc.textContent = `know my detailed opinion on "${sourceHeadline}"`;
+    teaserDesc.textContent = `Read my brief opinion (1-min read) on "${sourceHeadline}"`;
   }
   if (carouselDesc) {
-    carouselDesc.textContent = `know more of such my opinions on topics at ${profileUrl}`;
+    carouselDesc.textContent = `Explore more of my brief 1-min opinions at ${profileUrl}`;
   }
 
   if (thumbsRow && files && files.length > 0) {
@@ -9974,7 +10130,7 @@ async function shareTeaserPoster(post, files) {
   if (!post || !files || files.length === 0) return;
   const sourceHeadline = getSourceHeadline(post);
   const shareUrl = getPostShareUrl(post);
-  const caption = `know my detailed opinion on "${sourceHeadline}" ${shareUrl}`;
+  const caption = `Read my brief opinion (1-min read) on "${sourceHeadline}" ${shareUrl}`;
   const poster1 = files[0];
 
   if (navigator.share && poster1 && navigator.canShare) {
@@ -10010,7 +10166,7 @@ async function shareCarouselPosters(post, files) {
   const handle = (post.creatorHandle || '@curator').trim();
   const cleanHandle = handle.replace('@', '');
   const profileUrl = `${window.location.origin}/?curator=${encodeURIComponent(cleanHandle)}`;
-  const caption = `know more of such my opinions on topics at ${profileUrl}`;
+  const caption = `Explore more of my brief 1-min opinions at ${profileUrl}`;
 
   // 1. Copy caption to clipboard first so user can paste it into the WhatsApp album caption
   if (navigator.clipboard) {
@@ -11387,14 +11543,11 @@ function setDiaryCalendarPreviewSlide(slideNum) {
 function openDiaryPostInMainFeed(postId) {
   if (!postId) return;
   closeDiaryCalendarModal();
-  const targetUrl = `${window.location.pathname}?p=${encodeURIComponent(postId)}`;
-  window.history.pushState({ postId }, '', targetUrl);
-  currentFilter = 'all';
-  applyFilters();
+  selectCategory('daily_chronicles');
   setTimeout(() => {
     const card = document.querySelector(`.post-card[data-post-id="${postId}"]`);
     if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }, 120);
+  }, 150);
 }
 
 function renderDiaryCalendarModal() {
@@ -21004,7 +21157,11 @@ async function saveSynthesizedPost(options = {}) {
   // 6. Merge & sort chronologically into allPosts
   mergeAndSortPosts([currentSynthesizedPost]);
   updateAuthUI();
-  renderFeed();
+  if (isChronicle) {
+    selectCategory(asDraftOnly ? 'drafts' : 'daily_chronicles');
+  } else {
+    renderFeed();
+  }
 
   // 7. Close modal & reset state & notify user
   closeCreatorModal(true);

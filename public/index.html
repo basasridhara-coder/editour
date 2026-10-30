@@ -397,6 +397,7 @@
       <!-- Filter Category Pills -->
       <div class="filter-bar" id="categoryFilterBar">
         <div class="filter-pill active" data-cat="all">All Stories</div>
+        <div class="filter-pill user-pill" id="pillDailyChronicles" data-cat="daily_chronicles" style="display:none;">📔 Daily Chronicles (<span id="badgeChroniclesCount">0</span>)</div>
         <div class="filter-pill user-pill" id="pillDrafts" data-cat="drafts" style="display:none;">📝 Drafts (<span id="badgeDraftsCount">0</span>)</div>
         <div class="filter-pill user-pill" id="pillSaved" data-cat="saved" style="display:none;">🔖 Saved (<span id="badgeSavedCount">0</span>)</div>
         <div class="filter-pill user-pill" id="pillMyStories" data-cat="my_stories" style="display:none;">✍️ My Stories (<span id="badgeMyCount">0</span>)</div>
@@ -1817,8 +1818,8 @@
           <div class="tier-card-icon">🖼️</div>
           <div class="tier-card-content">
             <div class="tier-card-title">Share Poster 1 (Teaser)</div>
-            <div class="tier-card-desc" id="shareTeaserCaptionPreview">"know my detailed opinion on..."</div>
-            <div class="tier-card-badge">Hooks readers • Links to full post</div>
+            <div class="tier-card-desc" id="shareTeaserCaptionPreview">"Read my brief opinion (1-min read) on..."</div>
+            <div class="tier-card-badge">Quick 1-min read • Links to full post</div>
           </div>
           <span class="tier-arrow">➔</span>
         </button>
@@ -1828,7 +1829,7 @@
           <div class="tier-card-icon">📚</div>
           <div class="tier-card-content">
             <div class="tier-card-title">Share All Posters (Album)</div>
-            <div class="tier-card-desc" id="shareCarouselCaptionPreview">"know more of such my opinions on topics at..."</div>
+            <div class="tier-card-desc" id="shareCarouselCaptionPreview">"Explore more of my brief 1-min opinions at..."</div>
             <div class="tier-card-badge">📋 Bundles as album • Caption auto-copied to paste</div>
           </div>
           <span class="tier-arrow">➔</span>
@@ -2097,16 +2098,23 @@
         </div>
       </div>
 
-      <!-- Dedicated Diary Section (Calendar of Daily Chronicle Moments) -->
+      <!-- Dedicated Diary Section (Calendar & Private Feed of Daily Chronicle Moments) -->
       <div class="drawer-section" id="drawerDiarySection">
-        <div class="drawer-section-title">Diary</div>
-        <div class="drawer-card drawer-diary-card">
-          <button type="button" class="drawer-diary-open-btn" onclick="closeDrawer(); openDiaryCalendarModal();">
+        <div class="drawer-section-title">Private Diary • Only Visible to You</div>
+        <div class="drawer-card drawer-diary-card" style="display:flex; flex-direction:column; gap:6px;">
+          <button type="button" class="drawer-diary-open-btn" onclick="closeDrawer(); selectCategory('daily_chronicles');">
             <div class="drawer-diary-left">
               <span class="drawer-diary-icon">📔</span>
-              <span class="drawer-diary-title">Daily Chronicles</span>
+              <span class="drawer-diary-title">Daily Chronicles Feed</span>
             </div>
             <span class="drawer-diary-count-pill" id="drawerDiaryCount">0 days</span>
+          </button>
+          <button type="button" class="drawer-diary-open-btn" style="padding-top:6px; border-top:1px solid rgba(255,255,255,0.06);" onclick="closeDrawer(); openDiaryCalendarModal();">
+            <div class="drawer-diary-left">
+              <span class="drawer-diary-icon">📅</span>
+              <span class="drawer-diary-title" style="font-size:12.5px; opacity:0.9;">Open Diary Calendar View</span>
+            </div>
+            <span style="font-size:11px; color:#F59E0B; font-weight:700;">Calendar ➔</span>
           </button>
         </div>
       </div>
@@ -2467,6 +2475,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261030_0045"></script>
+  <script src="app.js?v=20261030_0835"></script>
 </body>
 </html>
