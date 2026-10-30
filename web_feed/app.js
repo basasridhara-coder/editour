@@ -2474,8 +2474,42 @@ function openStudioCreditBadgeAction() {
   }
 }
 
+let _cachedInviteMp4File = null;
+let _cachedInviteGifFile = null;
+let _preloadInviteAssetsPromise = null;
+
+function preloadAnimatedInviteLogoFiles() {
+  if (_preloadInviteAssetsPromise) return _preloadInviteAssetsPromise;
+  _preloadInviteAssetsPromise = (async () => {
+    try {
+      const [mp4Res, gifRes] = await Promise.all([
+        fetch('/slant_invite_logo.mp4', { cache: 'force-cache' }).catch(() => null),
+        fetch('/slant_logo_animated.gif', { cache: 'force-cache' }).catch(() => null)
+      ]);
+      if (mp4Res && mp4Res.ok) {
+        const mp4Blob = await mp4Res.blob();
+        if (mp4Blob && mp4Blob.size > 0) {
+          _cachedInviteMp4File = new File([mp4Blob], 'slant-logo.mp4', { type: 'video/mp4' });
+        }
+      }
+      if (gifRes && gifRes.ok) {
+        const gifBlob = await gifRes.blob();
+        if (gifBlob && gifBlob.size > 0) {
+          _cachedInviteGifFile = new File([gifBlob], 'slant-logo.gif', { type: 'image/gif' });
+        }
+      }
+    } catch (_) {}
+  })();
+  return _preloadInviteAssetsPromise;
+}
+
+if (typeof window !== 'undefined') {
+  setTimeout(() => { preloadAnimatedInviteLogoFiles(); }, 2500);
+}
+
 function openUserCreditsAndInviteModal(section = 'credits') {
   if (typeof closeDrawer === 'function') closeDrawer();
+  preloadAnimatedInviteLogoFiles();
   const modal = document.getElementById('userCreditsModal');
   if (!modal) return;
   if (currentUser?.email) {
@@ -2492,7 +2526,7 @@ function openUserCreditsAndInviteModal(section = 'credits') {
 
   if (section === 'invite') {
     setTimeout(() => {
-      const inviteSec = document.getElementById('userModalInviteSection');
+      const inviteSec = document.getElementById('userInviteCommunitySection') || document.getElementById('userModalInviteSection');
       if (inviteSec) inviteSec.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, 100);
   } else {
@@ -2572,7 +2606,43 @@ async function shareSlantCommunityInvite() {
   const shareUrl = 'https://www.slant.today';
   const shareTitle = 'Slant — Share Your Perspective & Chronicle Your Days';
   const shareText = `Hey! Check out Slant (https://www.slant.today) — share your perspective on what you read or observe as illustrated posters, and chronicle your daily moments in an encrypted private diary.`;
+
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(shareText).catch(() => {});
+    }
+  } catch (_) {}
+
+  if (!_cachedInviteMp4File && !_cachedInviteGifFile) {
+    await preloadAnimatedInviteLogoFiles();
+  }
+
   if (navigator.share) {
+    const candidateFiles = [_cachedInviteMp4File, _cachedInviteGifFile].filter(Boolean);
+    for (const logoFile of candidateFiles) {
+      try {
+        const payloadWithText = {
+          files: [logoFile],
+          title: shareTitle,
+          text: shareText
+        };
+        if (!navigator.canShare || navigator.canShare(payloadWithText)) {
+          await navigator.share(payloadWithText);
+          return;
+        }
+        if (navigator.canShare && navigator.canShare({ files: [logoFile] })) {
+          await navigator.share({
+            files: [logoFile],
+            title: shareTitle,
+            text: shareText
+          });
+          return;
+        }
+      } catch (err) {
+        if (err && err.name === 'AbortError') return;
+      }
+    }
+
     try {
       await navigator.share({
         title: shareTitle,
@@ -2580,13 +2650,16 @@ async function shareSlantCommunityInvite() {
         url: shareUrl
       });
       return;
-    } catch (_) {}
+    } catch (err) {
+      if (err && err.name === 'AbortError') return;
+    }
   }
   copyPersonalInviteMessage();
 }
 
 function openAdminBetaModal() {
   if (typeof closeDrawer === 'function') closeDrawer();
+  preloadAnimatedInviteLogoFiles();
   const modal = document.getElementById('adminBetaModal');
   if (!modal) {
     console.error('adminBetaModal element not found in DOM');

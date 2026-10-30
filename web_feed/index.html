@@ -45,11 +45,20 @@
   <meta property="og:title" content="Slant • Every Thought Deserves a Frame (slant.today)">
   <meta property="og:description" content="For people who think and reflect. Frame web links with your personal take, speak your inner voice, and preserve your daily chronicles as timeless illustrated editorial postcards.">
   <meta property="og:url" content="https://www.slant.today">
-  <meta property="og:image" content="https://www.slant.today/logo.png">
+  <meta property="og:image" content="https://www.slant.today/slant_logo_animated.gif">
+  <meta property="og:image:secure_url" content="https://www.slant.today/slant_logo_animated.gif">
+  <meta property="og:image:type" content="image/gif">
+  <meta property="og:image:width" content="320">
+  <meta property="og:image:height" content="320">
+  <meta property="og:video" content="https://www.slant.today/slant_invite_logo.mp4">
+  <meta property="og:video:secure_url" content="https://www.slant.today/slant_invite_logo.mp4">
+  <meta property="og:video:type" content="video/mp4">
+  <meta property="og:video:width" content="640">
+  <meta property="og:video:height" content="360">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="Slant • Every Thought Deserves a Frame (slant.today)">
   <meta name="twitter:description" content="For people who think and reflect. Frame web links with your personal take, speak your inner voice, and preserve your daily chronicles as timeless illustrated editorial postcards.">
-  <meta name="twitter:image" content="https://www.slant.today/logo.png">
+  <meta name="twitter:image" content="https://www.slant.today/slant_logo_animated.gif">
   <!-- Supabase JS Client for Authentication & Real-time -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <!-- Google Identity Services for Fast First-Party Sign-In on slant.today -->
@@ -2004,15 +2013,23 @@
 
         <!-- 4. Ready-to-Send WhatsApp / Email Invite Message -->
         <div style="background: rgba(99,102,241,0.06); border: 1px solid rgba(99,102,241,0.18); border-radius: 12px; padding: 12px;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-            <span style="font-size: 12px; font-weight: 700; color: var(--text-primary);">Community Invite Message</span>
-            <button type="button" onclick="copyPersonalInviteMessage()" style="background:#4F46E5; color:#fff; border:none; padding:4px 10px; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer;">
-              📋 Copy Invite
-            </button>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; gap: 8px; flex-wrap: wrap;">
+            <span style="font-size: 12px; font-weight: 700; color: var(--text-primary);">Community Invite (Includes Animated Logo)</span>
+            <div style="display: flex; gap: 6px;">
+              <button type="button" onclick="shareSlantCommunityInvite()" style="background:#0F172A; color:#fff; border:none; padding:5px 10px; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:4px;">
+                📤 Share Invite
+              </button>
+              <button type="button" onclick="copyPersonalInviteMessage()" style="background:#4F46E5; color:#fff; border:none; padding:5px 10px; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer;">
+                📋 Copy Invite
+              </button>
+            </div>
           </div>
-          <p style="font-size: 12px; color: var(--text-secondary); margin: 0; line-height: 1.45; font-style: italic;">
-            "Hey! Check out Slant (slant.today) — a place to share your perspective on what you read or observe as illustrated posters, and chronicle your daily moments in an encrypted private diary."
-          </p>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <video src="/slant_invite_logo.mp4" autoplay loop muted playsinline style="width: 48px; height: 48px; object-fit: cover; border-radius: 10px; border: 1px solid rgba(15,23,42,0.15); flex-shrink: 0; background: #F1EBDD;"></video>
+            <p style="font-size: 11.8px; color: var(--text-secondary); margin: 0; line-height: 1.42; font-style: italic;">
+              "Hey! Check out Slant (https://www.slant.today) — share your perspective on what you read or observe as illustrated posters, and chronicle your daily moments in an encrypted private diary."
+            </p>
+          </div>
         </div>
       </div>
     </div>
@@ -2386,8 +2403,13 @@
 
       <!-- Invite Others to Slant Community Section -->
       <div id="userInviteCommunitySection" style="padding: 12px; border-radius: 14px; background: linear-gradient(135deg, rgba(245,158,11,0.10), rgba(99,102,241,0.08)); border: 1px solid rgba(217,119,6,0.3); display: flex; flex-direction: column; gap: 8px;">
-        <div style="font-size: 12.5px; font-weight: 800; color: var(--text-primary);">💌 Invite Friends to the Slant Community</div>
-        <div style="font-size: 11.5px; color: var(--text-secondary); line-height: 1.38;">Invite thinkers, writers, and friends to share their perspectives and chronicle their days on <strong>slant.today</strong>.</div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <video src="/slant_invite_logo.mp4" autoplay loop muted playsinline style="width: 48px; height: 48px; object-fit: cover; border-radius: 10px; border: 1px solid rgba(15,23,42,0.14); flex-shrink: 0; background: #F1EBDD;"></video>
+          <div>
+            <div style="font-size: 12.5px; font-weight: 800; color: var(--text-primary);">💌 Invite Friends to the Slant Community</div>
+            <div style="font-size: 11.5px; color: var(--text-secondary); line-height: 1.38;">Sends the animated Slant logo along with your invite link to <strong>slant.today</strong>.</div>
+          </div>
+        </div>
         <div style="display: flex; gap: 8px;">
           <button type="button" onclick="shareSlantCommunityInvite()" style="flex: 1; padding: 10px 12px; border-radius: 10px; border: none; background: linear-gradient(135deg, #0F172A, #1E293B); color: #FFFFFF; font-size: 12px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
             <span>📤</span>

@@ -27,15 +27,24 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Merriweather:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,400;1,600;1,700;1,900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261014_0135">
+  <link rel="stylesheet" href="style.css?v=20261020_0945">
   <!-- Favicon & Brand Icons -->
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
   <link rel="shortcut icon" href="/favicon.ico">
   <link rel="manifest" href="/site.webmanifest">
-  <meta property="og:image" content="https://www.slant.today/logo.png">
-  <meta name="twitter:image" content="https://www.slant.today/logo.png">
+  <meta property="og:image" content="https://www.slant.today/slant_logo_animated.gif">
+  <meta property="og:image:secure_url" content="https://www.slant.today/slant_logo_animated.gif">
+  <meta property="og:image:type" content="image/gif">
+  <meta property="og:image:width" content="320">
+  <meta property="og:image:height" content="320">
+  <meta property="og:video" content="https://www.slant.today/slant_invite_logo.mp4">
+  <meta property="og:video:secure_url" content="https://www.slant.today/slant_invite_logo.mp4">
+  <meta property="og:video:type" content="video/mp4">
+  <meta property="og:video:width" content="640">
+  <meta property="og:video:height" content="360">
+  <meta name="twitter:image" content="https://www.slant.today/slant_logo_animated.gif">
   <!-- Supabase JS Client for Authentication & Real-time -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
@@ -43,6 +52,9 @@
     body.login-page-body {
       margin: 0;
       padding: 0;
+      width: 100%;
+      max-width: 100vw;
+      box-sizing: border-box;
       min-height: 100vh;
       background: var(--bg-base, #F8F5EE);
       color: var(--text-primary, #0F172A);
@@ -64,12 +76,14 @@
     .login-main-wrap {
       flex: 1;
       width: 100%;
+      max-width: 100vw;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       padding: 24px 16px 40px 16px;
       box-sizing: border-box;
+      overflow-x: hidden;
     }
 
     .login-page-card-standalone {
@@ -122,29 +136,50 @@
       body.login-page-body {
         justify-content: flex-start;
         align-items: stretch;
+        width: 100%;
+        max-width: 100vw;
+        overflow-x: hidden;
       }
       .login-main-wrap {
         padding: 12px 10px 32px 10px;
         justify-content: flex-start;
+        width: 100%;
+        max-width: 100vw;
+        overflow-x: hidden;
       }
       .login-page-card-standalone {
         border-radius: 20px;
-        overflow: visible;
+        overflow: hidden;
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
       }
       .login-footer-trust {
         margin-top: 20px;
         padding: 0 12px;
         font-size: 11px;
         gap: 8px 12px;
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
       }
     }
 
     @media (max-width: 480px) {
       .login-main-wrap {
         padding: 8px 6px 24px 6px;
+        width: 100%;
+        max-width: 100vw;
+        box-sizing: border-box;
+        overflow-x: hidden;
       }
       .login-page-card-standalone {
         border-radius: 16px;
+        overflow: hidden;
+        width: 100%;
+        max-width: 100vw;
+        box-sizing: border-box;
       }
     }
   </style>
@@ -271,14 +306,6 @@
 
           <div class="auth-status-msg" id="authStatusMsg" style="display:none;"></div>
 
-          <!-- Guest Explore Bypass -->
-          <div class="auth-guest-bypass">
-            <a href="/" class="auth-guest-btn" onclick="sessionStorage.setItem('slant_guest_explored', 'true')">
-              <span>Explore as Guest without signing in</span>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-            </a>
-          </div>
-
           <div class="auth-terms-note">
             🔒 100% Ad-Free • Zero Data Selling • Saved Bookmarks Sync Across Devices
           </div>
@@ -294,8 +321,6 @@
       <span>🎨 High-Fidelity Editorial Visuals</span>
       <span>•</span>
       <span>⚡ Signal Over Consensus</span>
-      <span>•</span>
-      <span><a href="/" style="color:#818CF8; text-decoration:none;" onclick="sessionStorage.setItem('slant_guest_explored', 'true')">Back to Live Feed &rarr;</a></span>
     </div>
 
   <!-- Private Preview Access Gate Modal (Shown when an uninvited user tries to sign in) -->
@@ -319,14 +344,14 @@
       </div>
 
       <button class="creator-publish-btn" style="width: 100%; padding: 13px; font-size: 14.5px; display: flex; align-items: center; justify-content: center; gap: 8px;" onclick="window.location.href='/'">
-        <span>Explore Public Feed as Guest</span> <span>&rarr;</span>
+        <span>Back to Slant Showcase</span> <span>&rarr;</span>
       </button>
     </div>
   </div>
 
   </main>
 
-  <script src="app.js?v=20261014_0135"></script>
+  <script src="app.js?v=20261020_0945"></script>
   <script>
     // Ensure the post preview is rendered immediately upon loading login.html
     window.addEventListener('DOMContentLoaded', () => {
