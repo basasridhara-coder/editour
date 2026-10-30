@@ -3718,62 +3718,84 @@ function isAnyModalOpen() {
   return !!modal;
 }
 
+function _onDeepLinkGateScroll() {
+  if (!isDeepLinkScrollGated || currentUser) return;
+  if (isAnyModalOpen()) return;
+  const currentY = window.pageYOffset || document.documentElement.scrollTop || 0;
+  if (currentY > 30) {
+    triggerDeepLinkScrollGate('scroll');
+  }
+}
+
+function _onDeepLinkGateWheel(e) {
+  if (!isDeepLinkScrollGated || currentUser) {
+    teardownDeepLinkScrollGateListeners();
+    return;
+  }
+  if (isAnyModalOpen()) return;
+  if (Math.abs(e.deltaY) > 8) {
+    e.preventDefault();
+    triggerDeepLinkScrollGate('wheel');
+  }
+}
+
+function _onDeepLinkGateTouchStart(e) {
+  if (!isDeepLinkScrollGated || currentUser) return;
+  if (e.touches && e.touches.length > 0) {
+    gateTouchStartY = e.touches[0].clientY;
+    gateTouchStartX = e.touches[0].clientX;
+  }
+}
+
+function _onDeepLinkGateTouchMove(e) {
+  if (!isDeepLinkScrollGated || currentUser) {
+    teardownDeepLinkScrollGateListeners();
+    return;
+  }
+  if (isAnyModalOpen()) return;
+  if (e.touches && e.touches.length > 0) {
+    const diffY = Math.abs(e.touches[0].clientY - gateTouchStartY);
+    const diffX = Math.abs(e.touches[0].clientX - gateTouchStartX);
+    if (diffY > 18 && diffY > diffX) {
+      e.preventDefault();
+      triggerDeepLinkScrollGate('touch');
+    }
+  }
+}
+
+function _onDeepLinkGateKeydown(e) {
+  if (!isDeepLinkScrollGated || currentUser) return;
+  if (isAnyModalOpen()) return;
+  const scrollKeys = ['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp', 'Space', 'Home', 'End'];
+  if (scrollKeys.includes(e.code) || scrollKeys.includes(e.key)) {
+    e.preventDefault();
+    triggerDeepLinkScrollGate('key');
+  }
+}
+
+function teardownDeepLinkScrollGateListeners() {
+  if (!deepLinkScrollGateListenersAttached) return;
+  deepLinkScrollGateListenersAttached = false;
+  window.removeEventListener('scroll', _onDeepLinkGateScroll);
+  window.removeEventListener('wheel', _onDeepLinkGateWheel);
+  window.removeEventListener('touchstart', _onDeepLinkGateTouchStart);
+  window.removeEventListener('touchmove', _onDeepLinkGateTouchMove);
+  window.removeEventListener('keydown', _onDeepLinkGateKeydown);
+}
+
 function setupDeepLinkScrollGate() {
+  if (!isDeepLinkScrollGated || currentUser) {
+    teardownDeepLinkScrollGateListeners();
+    return;
+  }
   if (deepLinkScrollGateListenersAttached) return;
   deepLinkScrollGateListenersAttached = true;
 
-  // Vertical scroll detection
-  window.addEventListener('scroll', () => {
-    if (!isDeepLinkScrollGated || currentUser) return;
-    if (isAnyModalOpen()) return;
-    const currentY = window.pageYOffset || document.documentElement.scrollTop || 0;
-    if (currentY > 30) {
-      triggerDeepLinkScrollGate('scroll');
-    }
-  }, { passive: true });
-
-  // Mouse wheel / trackpad scroll detection
-  window.addEventListener('wheel', (e) => {
-    if (!isDeepLinkScrollGated || currentUser) return;
-    if (isAnyModalOpen()) return;
-    if (Math.abs(e.deltaY) > 8) {
-      e.preventDefault();
-      triggerDeepLinkScrollGate('wheel');
-    }
-  }, { passive: false });
-
-  // Touch gesture detection (allow horizontal carousel swipes, intercept vertical scrolls)
-  window.addEventListener('touchstart', (e) => {
-    if (!isDeepLinkScrollGated || currentUser) return;
-    if (e.touches && e.touches.length > 0) {
-      gateTouchStartY = e.touches[0].clientY;
-      gateTouchStartX = e.touches[0].clientX;
-    }
-  }, { passive: true });
-
-  window.addEventListener('touchmove', (e) => {
-    if (!isDeepLinkScrollGated || currentUser) return;
-    if (isAnyModalOpen()) return;
-    if (e.touches && e.touches.length > 0) {
-      const diffY = Math.abs(e.touches[0].clientY - gateTouchStartY);
-      const diffX = Math.abs(e.touches[0].clientX - gateTouchStartX);
-      if (diffY > 18 && diffY > diffX) {
-        e.preventDefault();
-        triggerDeepLinkScrollGate('touch');
-      }
-    }
-  }, { passive: false });
-
-  // Keyboard navigation keys
-  window.addEventListener('keydown', (e) => {
-    if (!isDeepLinkScrollGated || currentUser) return;
-    if (isAnyModalOpen()) return;
-    const scrollKeys = ['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp', 'Space', 'Home', 'End'];
-    if (scrollKeys.includes(e.code) || scrollKeys.includes(e.key)) {
-      e.preventDefault();
-      triggerDeepLinkScrollGate('key');
-    }
-  }, { passive: false });
+  window.addEventListener('scroll', _onDeepLinkGateScroll, { passive: true });
+  window.addEventListener('wheel', _onDeepLinkGateWheel, { passive: false });
+  window.addEventListener('touchstart', _onDeepLinkGateTouchStart, { passive: true });
+  window.addEventListener('touchmove', _onDeepLinkGateTouchMove, { passive: false });
+  window.addEventListener('keydown', _onDeepLinkGateKeydown, { passive: false });
 }
 
 function triggerDeepLinkScrollGate(reason = 'scroll') {
@@ -6008,8 +6030,10 @@ function handleReceiptPhotoLoad(img) {
         if (slideReceipt) {
           slideReceipt.innerHTML = buildUnifiedEssayPosterHtml(postObj, postIdx, 0);
           const vp = slideReceipt.querySelector('.slant-minute-scroll-viewport');
-          if (vp) {
-            requestAnimationFrame(() => calibrateEssayViewportPagination(vp));
+          const parentCarousel = slideReceipt.closest('.carousel-view');
+          const isSlideActive = !parentCarousel || parentCarousel.getAttribute('data-current-slide') !== '0';
+          if (vp && isSlideActive) {
+            requestAnimationFrame(() => calibrateEssayViewportPagination(vp, true));
           }
           return;
         }
@@ -6019,7 +6043,9 @@ function handleReceiptPhotoLoad(img) {
 
   if (!img.closest('.poster-export-sandbox')) {
     const vp = img.closest('.slant-minute-scroll-viewport');
-    if (vp) {
+    const parentCarousel = img.closest('.carousel-view');
+    const isSlideActive = !parentCarousel || parentCarousel.getAttribute('data-current-slide') !== '0';
+    if (vp && isSlideActive) {
       requestAnimationFrame(() => calibrateEssayViewportPagination(vp));
     }
   }
@@ -6178,7 +6204,7 @@ function createBroadsheetParaElement(text, isLead = false, isContinuation = fals
   return p;
 }
 
-function calibrateEssayViewportPagination(viewportEl) {
+function calibrateEssayViewportPagination(viewportEl, forceRecalibrate = false) {
   if (!viewportEl || viewportEl.closest('.poster-export-sandbox')) return;
   if (viewportEl.getAttribute('data-bifurcated') !== 'true') return;
   if (viewportEl.querySelector('.chronicle-moments-only-list')) return;
@@ -6195,6 +6221,10 @@ function calibrateEssayViewportPagination(viewportEl) {
   const vpHeight = viewportEl.clientHeight;
   const vpWidth = viewportEl.clientWidth;
   if (!vpHeight || vpHeight < 180 || !vpWidth || vpWidth < 150) return;
+
+  const sizeKey = `${vpWidth}x${vpHeight}`;
+  if (!forceRecalibrate && viewportEl._lastCalibratedSize === sizeKey) return;
+  viewportEl._lastCalibratedSize = sizeKey;
 
   // Extract and cache complete logical paragraphs on first calibration pass
   if (!Array.isArray(viewportEl._fullLogicalParas) || viewportEl._fullLogicalParas.length === 0) {
@@ -7939,7 +7969,7 @@ function createPostCardElement(post, index) {
     </div>
   `;
 
-  if (typeof requestAnimationFrame === 'function') {
+  if (index === 'preview' && typeof requestAnimationFrame === 'function') {
     requestAnimationFrame(() => {
       calibrateAllLiveEssayPaginations(card);
     });
@@ -8031,9 +8061,6 @@ function goToSlide(event, postIndex, slideIndex) {
     requestAnimationFrame(() => {
       calibrateAllLiveEssayPaginations(carousel);
     });
-    if (postIndex !== 'preview' && postIndex !== 'diary_preview' && typeof triggerPostPreRender === 'function') {
-      triggerPostPreRender(postIndex);
-    }
   }
 }
 
@@ -8047,84 +8074,6 @@ function setupCarouselGestures(postIndex) {
   let startX = 0;
   let startY = 0;
   let isSwiping = false;
-
-  // Seamless Essay-to-Feed Scroll Handoff when essay page reaches top or bottom end
-  const essayViewports = carousel.querySelectorAll('.slant-minute-scroll-viewport');
-  essayViewports.forEach((essayVp) => {
-    if (typeof requestAnimationFrame === 'function') {
-      requestAnimationFrame(() => calibrateEssayViewportPagination(essayVp));
-    }
-    if (essayVp.dataset.scrollHandoffAttached) return;
-    essayVp.dataset.scrollHandoffAttached = 'true';
-
-    let lastY = 0;
-    let lastTime = 0;
-    let velocityY = 0;
-    let isHandingOffToFeed = false;
-
-    essayVp.addEventListener('touchstart', (e) => {
-      if (activeEssayMomentumRaf) {
-        cancelAnimationFrame(activeEssayMomentumRaf);
-        activeEssayMomentumRaf = null;
-      }
-      if (e.touches.length === 1) {
-        lastY = e.touches[0].clientY;
-        lastTime = performance.now();
-        velocityY = 0;
-        isHandingOffToFeed = false;
-      }
-    }, { passive: true });
-
-    essayVp.addEventListener('touchmove', (e) => {
-      if (e.touches.length !== 1) return;
-      const curX = e.touches[0].clientX;
-      const curY = e.touches[0].clientY;
-      const totalDx = Math.abs(curX - startX);
-      const totalDy = Math.abs(curY - startY);
-
-      // Allow horizontal carousel swipes to pass through untouched
-      if (totalDx > totalDy && totalDx > 10) return;
-
-      const dy = lastY - curY; // positive = finger swiping up (scrolling down)
-      const now = performance.now();
-      const dt = Math.max(1, now - lastTime);
-      velocityY = 0.75 * (dy / dt) + 0.25 * velocityY;
-      lastY = curY;
-      lastTime = now;
-
-      if (Math.abs(dy) < 0.5) return;
-
-      const maxScroll = Math.max(0, essayVp.scrollHeight - essayVp.clientHeight);
-      const atTop = essayVp.scrollTop <= 2;
-      const atBottom = maxScroll <= 4 || (essayVp.scrollTop >= maxScroll - 3);
-
-      // If essay page is at its end (bottom or top), seamlessly continue the swipe into the scroll container
-      const scrollHost = essayVp.closest('.diary-calendar-modal-body') || window;
-      if ((atBottom && dy > 0) || (atTop && dy < 0)) {
-        if (e.cancelable) {
-          e.preventDefault();
-        }
-        isHandingOffToFeed = true;
-        scrollHost.scrollBy(0, dy);
-      }
-    }, { passive: false });
-
-    essayVp.addEventListener('touchend', () => {
-      if (!isHandingOffToFeed || Math.abs(velocityY) < 0.16) return;
-      const scrollHost = essayVp.closest('.diary-calendar-modal-body') || window;
-      let stepVel = Math.max(-42, Math.min(42, velocityY * 16));
-      const coast = () => {
-        stepVel *= 0.93;
-        if (Math.abs(stepVel) < 0.6) {
-          activeEssayMomentumRaf = null;
-          return;
-        }
-        scrollHost.scrollBy(0, stepVel);
-        activeEssayMomentumRaf = requestAnimationFrame(coast);
-      };
-      activeEssayMomentumRaf = requestAnimationFrame(coast);
-    }, { passive: true });
-  });
 
   // Touch Swipe for Mobile
   carousel.addEventListener('touchstart', (e) => {
