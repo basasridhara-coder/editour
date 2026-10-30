@@ -19347,6 +19347,13 @@ async function startAiSynthesis() {
             activeCast: getSanitizedActiveCastPayload(),
             castStaging: { mode: activeCastStagingMode },
             chronicleMode: isChronicleActive,
+            chronicleMoments: activeChronicleMoments.map(m => ({
+              index: m.index,
+              title: m.title,
+              text: m.text,
+              isStarred: Boolean(m.isStarred),
+              hasPhoto: Boolean(m.imageBase64)
+            })),
             chronicleMomentImages: chronicleMomentImages,
             imageBase64: (creatorSelectedSource === 'inner_voice' && innerVoicePhotoBase64 && shouldSendImage)
               ? innerVoicePhotoBase64
@@ -19702,6 +19709,13 @@ async function startAiSynthesis() {
             familyCast: getSanitizedCastPayload(familyCastProfileCache),
             activeCast: getSanitizedActiveCastPayload(),
             chronicleMode: isChronicleActive,
+            chronicleMoments: activeChronicleMoments.map(m => ({
+              index: m.index,
+              title: m.title,
+              text: m.text,
+              isStarred: Boolean(m.isStarred),
+              hasPhoto: Boolean(m.imageBase64)
+            })),
             chronicleMomentImages: chronicleMomentImages,
             imageBase64: ((creatorPerspectiveMode === 'source' && creatorCharacterRepresentation !== 'silhouette') || creatorCharacterRepresentation === 'exact')
               ? (creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || currentSynthesizedPost?.sourceImageBase64 || null)
@@ -19846,6 +19860,13 @@ async function retryStep3ArtworkGeneration(event, options = {}) {
         familyCast: getSanitizedCastPayload(familyCastProfileCache),
         activeCast: getSanitizedActiveCastPayload(),
         chronicleMode: Boolean(currentSynthesizedPost.chronicleMode || (creatorSelectedSource === 'inner_voice' && isDailyChronicleMode)),
+        chronicleMoments: (currentSynthesizedPost.chronicleMoments || getActiveChronicleMomentsPayload() || []).map(m => ({
+          index: m.index,
+          title: m.title,
+          text: m.text,
+          isStarred: Boolean(m.isStarred),
+          hasPhoto: Boolean(m.imageBase64)
+        })),
         chronicleMomentImages: (currentSynthesizedPost.chronicleMoments || getActiveChronicleMomentsPayload() || []).filter(m => m && m.imageBase64),
         imageBase64: ((creatorPerspectiveMode === 'source' && creatorCharacterRepresentation !== 'silhouette') || creatorCharacterRepresentation === 'exact' || creatorCharacterRepresentation === 'watercolor' || creatorCharacterRepresentation === 'painting' || creatorCharacterRepresentation === 'cinematic')
           ? (creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || currentSynthesizedPost?.sourceImageBase64 || null)
@@ -20065,9 +20086,14 @@ function syncStep3SaveButtonLabel(post = currentSynthesizedPost) {
   }
   const prevTab1 = document.getElementById('prevTab1');
   const prevTab2 = document.getElementById('prevTab2');
+  const momentCount = (Array.isArray(post?.chronicleMoments) && post.chronicleMoments.length > 0)
+    ? post.chronicleMoments.length
+    : ((Array.isArray(post?.generationInputs?.chronicleMoments) && post.generationInputs.chronicleMoments.length > 0)
+      ? post.generationInputs.chronicleMoments.length
+      : 3);
   if (prevTab1) {
     prevTab1.innerHTML = isChronicle
-      ? '<span>📓</span> Poster 2: 3 Moments'
+      ? `<span>📓</span> Poster 2: ${momentCount} Moment${momentCount === 1 ? '' : 's'}`
       : '<span>📜</span> Poster 2: The Essay';
   }
   if (prevTab2) {
