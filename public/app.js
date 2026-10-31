@@ -6105,7 +6105,9 @@ function buildSlide1Html(post, index, totalSlides = 2) {
     }
   }
 
-  const fallbackCoverHtml = `
+  const fallbackCoverHtml = isChronicle ? `
+    <div class="slide-hook-fallback-bg chronicle-fallback-bg" style="background: #FBF2DA;"></div>
+  ` : `
     <div class="slide-hook-fallback-bg" style="background: radial-gradient(circle at 50% 28%, #1e1b4b 0%, #0f172a 60%, #030712 100%);">
       <div style="position:absolute; inset:0; opacity:0.18; background-image: radial-gradient(#818cf8 1px, transparent 1px); background-size: 20px 20px;"></div>
     </div>
@@ -6136,9 +6138,10 @@ function buildSlide1Html(post, index, totalSlides = 2) {
     bgImgSrc = `/posters/${post.id}.png`;
   }
 
+  const hookBgClass = isChronicle ? 'slide-hook-bg chronicle-hook-bg' : 'slide-hook-bg';
   const imgHtml = bgImgSrc
-    ? `<img class="slide-hook-bg" src="${escapeHtml(bgImgSrc)}" alt="" loading="eager" referrerpolicy="no-referrer" data-post-id="${escapeHtml(post.id || '')}" data-source-url="${escapeHtml(post.sourceImageUrl || post.referencePhotoUrl || '')}" onerror="handlePosterImageError(this, '${escapeHtml(post.categoryBadge || '')}')">`
-    : `<img class="slide-hook-bg" src="" alt="" style="display:none;" loading="eager" referrerpolicy="no-referrer" data-post-id="${escapeHtml(post.id || '')}" data-source-url="${escapeHtml(post.sourceImageUrl || post.referencePhotoUrl || '')}" onerror="handlePosterImageError(this, '${escapeHtml(post.categoryBadge || '')}')">`;
+    ? `<img class="${hookBgClass}" src="${escapeHtml(bgImgSrc)}" alt="" loading="eager" referrerpolicy="no-referrer" data-post-id="${escapeHtml(post.id || '')}" data-source-url="${escapeHtml(post.sourceImageUrl || post.referencePhotoUrl || '')}" onerror="handlePosterImageError(this, '${escapeHtml(post.categoryBadge || '')}')">`
+    : `<img class="${hookBgClass}" src="" alt="" style="display:none;" loading="eager" referrerpolicy="no-referrer" data-post-id="${escapeHtml(post.id || '')}" data-source-url="${escapeHtml(post.sourceImageUrl || post.referencePhotoUrl || '')}" onerror="handlePosterImageError(this, '${escapeHtml(post.categoryBadge || '')}')">`;
 
   let inDeckStatusHtml = '';
   if (index === 'preview') {

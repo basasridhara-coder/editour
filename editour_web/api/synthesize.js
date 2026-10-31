@@ -199,21 +199,38 @@ async function getAvatarBase64(url) {
   return null;
 }
 
+function isShridharOwnerAccount(userIdentifier) {
+  const raw = String(userIdentifier || '').trim().toLowerCase();
+  return raw === 'shridharoct16@gmail.com' || raw === 'basasridhara@gmail.com';
+}
+
 function resolveFamilyCastProfileId(userIdentifier) {
   const raw = String(userIdentifier || '').trim().toLowerCase();
-  if (
-    !raw ||
-    raw === 'default' ||
-    raw === '@shridhar reddy' ||
-    raw === 'shridhar reddy' ||
-    raw === '@shridhar' ||
-    raw === 'shridhar' ||
-    raw.includes('shridhar') ||
-    raw.includes('shridharoct16')
-  ) {
+  if (!raw || raw === 'default' || raw === 'anonymous' || !raw.includes('@')) {
+    return null;
+  }
+  if (isShridharOwnerAccount(raw)) {
     return 'family_cast_shridharoct16_gmail_com';
   }
   return 'family_cast_' + raw.replace(/[^a-z0-9_-]/g, '_');
+}
+
+function sanitizeForeignVaultLeakOnServer(cast, userIdentifier) {
+  if (!cast || typeof cast !== 'object') return getDefaultFamilyCast(userIdentifier);
+  if (isShridharOwnerAccount(userIdentifier)) return cast;
+  const members = Array.isArray(cast.members) ? cast.members : [];
+  const shridharAvatarPattern = /avatar_member_(?:father|mother|elder_son|younger_son)\.(?:jpg|png|webp)/i;
+  const memberNames = members.map(m => String(m?.name || '').trim().toLowerCase());
+  const isLeakedShridharSet = (
+    memberNames.includes('shridhar') ||
+    memberNames.includes('father (shridhar)') ||
+    (memberNames.includes('aruna') && memberNames.includes('gahan')) ||
+    members.some(m => shridharAvatarPattern.test(String(m?.stylizedAvatarUrl || '')))
+  );
+  if (isLeakedShridharSet) {
+    return getDefaultFamilyCast(userIdentifier);
+  }
+  return cast;
 }
 
 module.exports = async function handler(req, res) {
@@ -370,7 +387,8 @@ Respond strictly with valid JSON:
         customDirection = '',
         chronicleMode = false,
         chronicleMoments = [],
-        chronicleMomentImages = []
+        chronicleMomentImages = [],
+        preferredVisualSubject = null
       } = body;
       const validBodyMoments = Array.isArray(chronicleMoments)
         ? chronicleMoments.filter(m => m && String(m.text || '').trim().length >= 2)
@@ -388,7 +406,7 @@ Respond strictly with valid JSON:
       }
       let userEmail = (creatorEmail || '').toLowerCase().trim();
       if (!userEmail) {
-        userEmail = 'shridharoct16@gmail.com';
+        return res.status(401).json({ error: 'Please sign in with your account to regenerate artwork.' });
       }
       const creditCheck = await verifyAndConsumeUserCredit(userEmail, Boolean(body.isManualRegenerate), Boolean(chronicleMode));
       if (!creditCheck.allowed) {
@@ -407,14 +425,16 @@ Respond strictly with valid JSON:
 
       if (!familyCast || !Array.isArray(familyCast.members) || familyCast.members.length === 0) {
         try {
-          const castProfileId = resolveFamilyCastProfileId(creatorEmail || userEmail);
-          const cResp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.${encodeURIComponent(castProfileId)}&select=data`, {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-          });
-          if (cResp.ok) {
-            const cRows = await cResp.json();
-            if (cRows && cRows[0] && cRows[0].data) {
-              familyCast = cRows[0].data;
+          const castProfileId = resolveFamilyCastProfileId(userEmail);
+          if (castProfileId) {
+            const cResp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.${encodeURIComponent(castProfileId)}&select=data`, {
+              headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+            });
+            if (cResp.ok) {
+              const cRows = await cResp.json();
+              if (cRows && cRows[0] && cRows[0].data) {
+                familyCast = sanitizeForeignVaultLeakOnServer(cRows[0].data, userEmail);
+              }
             }
           }
         } catch (_) {}
@@ -434,7 +454,8 @@ Respond strictly with valid JSON:
           countryContext,
           sourceType,
           perspectiveMode,
-          chronicleMode: Boolean(chronicleMode)
+          chronicleMode: Boolean(chronicleMode),
+          preferredVisualSubject
         });
 
         const stylePrefix = chronicleMode
@@ -489,6 +510,8 @@ ${scrapedTitle ? `- Source Title: "${scrapedTitle}"` : ''}
 ${scrapedContent ? `- Source Context: "${String(scrapedContent).slice(0, 600)}"` : ''}
 ${previousPrompt ? `\nPREVIOUS VISUAL PROMPT (DO NOT REPEAT THIS COMPOSITION OR POSE):\n"${previousPrompt.slice(0, 500)}"\n\nCRITICAL VISUAL REGENERATION & VARIATION DIRECTIVE:\nThe curator explicitly requested a fresh visual regeneration. You MUST create a SIGNIFICANTLY DIFFERENT visual scene from the previous prompt above: choose a fresh visual metaphor or focal action, a noticeably different camera angle/perspective (e.g., wide atmospheric establishing shot vs. dramatic over-the-shoulder angle vs. symbolic close-up focal object), a distinct lighting palette, and strictly apply the selected Medium & Portrayal Style (${stylePrefix}).` : ''}
 ${familyCastDirectives ? `\nMANDATORY CASTING VAULT & PROTAGONIST ANCHORS:\n${familyCastDirectives.systemPromptSection}` : ''}
+${preferredVisualSubject && preferredVisualSubject.title ? `\nCRITICAL CORE VISUAL SUBJECT SELECTED BY CURATOR (HIGHEST PRIORITY):\n- Selected Visual Subject: "${preferredVisualSubject.title}" — ${preferredVisualSubject.description || ''}\n- Build "illustrationPrompt" and "cues" directly around this exact visual subject!${!preferredVisualSubject.isPersonalFamily ? ' Strictly DO NOT depict the author\'s personal family (Shridhar, Aruna, Gahan, Rishu) on a home veranda!' : ''}` : ''}
+${chronicleMode && validBodyMoments.some(m => m && m.preferredVisualProjection && m.preferredVisualProjection.title) ? `\nCRITICAL CURATOR-SELECTED PER-MOMENT VISUAL PROJECTIONS (MANDATORY FOR EACH VIGNETTE):\n${validBodyMoments.map((m, idx) => m.preferredVisualProjection && m.preferredVisualProjection.title ? `- Moment 0${idx + 1} (${m.title || 'Moment ' + (idx + 1)}): Depict "${m.preferredVisualProjection.title}" — ${m.preferredVisualProjection.description || ''}` : '').filter(Boolean).join('\n')}` : ''}
 ${validRebuildMomentImgs.length > 0 ? `\nCRITICAL ATTACHED MOMENT PHOTO / LOGO INTEGRATION DIRECTIVE:\n- The curator attached ${validRebuildMomentImgs.length} reference image(s) for specific moment(s) of their Daily Chronicle.\n- Inspect each attached image above and explicitly describe its exact visual graphic, emblem, or scene in "illustrationPrompt" so it is prominently featured inside its corresponding moment vignette (for example, if an attached image is a black fountain-pen nib emblem containing a contemplative upward-tilted portrait face on a cream background for an app-launch moment, explicitly instruct "illustrationPrompt" to display that exact black fountain-pen nib portrait emblem large and crisp on the glowing smartphone screen in that vignette rather than a generic blank screen).` : ''}
 ${customDirection ? `\nCURATOR'S SPECIFIC VISUAL DIRECTION: "${customDirection}"` : ''}
 
@@ -496,9 +519,9 @@ STRICT RULES:
 1. If Father (Shridhar) is in the scene, you MUST describe him as a "mid-age 40-year-old Indian man in his early 40s with a soft fuller round-oval face, full cheeks, full head of thick short dark hair brushed up, neat short dark trimmed stubble beard, and a natural medium-full adult build with a straight-cut everyday waist where his shirt hangs flush with his chest line (strictly neither a skinny V-taper gym body nor a protruding pot-belly, and strictly NOT an elderly or old man)". NEVER call him "fit" or "lean" and NEVER give him an exaggerated protruding belly unless explicitly requested.
 2. ${chronicleMode
   ? (chronicleVignetteCount === 2
-      ? 'DAILY CHRONICLE 2-SPOT-VIGNETTE LAYOUT (EXACTLY 2 MOMENTS = EXACTLY 2 VIGNETTES, STRICTLY NEVER 3 VIGNETTES!): Present EXACTLY 2 separate, self-contained soft-edged oval watercolor-and-gouache spot-illustration vignettes stacked vertically on open unpainted textured warm cream archival paper: (1) Upper Centered Vignette (~40% of canvas) depicting Moment 01 in full with all mentioned people (e.g. BOTH Shridhar and his male college friend—give the friend a distinct clean-shaven face with glasses, full wavy black hair, and a contrasting shirt so he does not look like a twin of bearded Shridhar!), and (2) Lower Centered Larger Highlight Vignette (~55% of canvas) depicting Moment 02 (the starred highlight moment). STRICT BAN ON 3 VIGNETTES: NEVER split Moment 01 into two upper vignettes! When the family (Father, Mother, and 2 sons) appears together in a vignette, draw EXACTLY 4 PEOPLE TOTAL SHOWN FULL-BODY FROM HEAD TO TOE WITH ALL FEET AND SHOES PLANTED ON THE SAME LEVEL GROUND LINE from left to right: (1st on far left) Father Shridhar (1.0x height, in trousers and shoes) -> (2nd from left) Mother Aruna (0.92x height, in kurta and sandals) -> (3rd from left) tall 11yo slim pre-teen elder son Gahan in dark navy-blue t-shirt, knee-length denim shorts, and sneakers (0.85x Father height, nearly as tall as Mother Aruna, top of Gahan\'s head reaching Mother\'s ear/eye level and Father\'s shoulder) -> (4th on far right) 7yo younger son Rishu in mustard-yellow t-shirt, dark shorts, and sneakers (0.78x Father height, tall enough that the top of Rishu\'s head rises ABOVE Gahan\'s shoulders to reach right up to Gahan\'s NECK / UNDER-CHIN level and Mother\'s chin/neck level — only half-a-head / 4 inches shorter than Gahan; strictly NEVER draw Rishu\'s head below Gahan\'s shoulders or at equal height!).'
-      : 'DAILY CHRONICLE 3-SPOT-VIGNETTE LAYOUT: Present 3 separate, self-contained soft-edged oval watercolor-and-gouache spot-illustration vignettes floating on open unpainted textured warm cream archival paper (Top-Left spot vignette ~25%, Top-Right spot vignette ~25%, Bottom-Center larger spot vignette ~45-50% for the starred highlight moment), with wide unpainted cream paper margins separating them. Depict family members or companions ONLY inside the specific moment vignette where they are mentioned (strictly NEVER merge all 3 moments into a single full-bleed background scene!). Whenever both brothers Gahan and Rishu appear, show them full-body from head to toe with shoes on the ground: tall 11yo slim pre-teen Gahan in navy t-shirt and denim shorts (0.85x Father height, top of head reaching Mother\'s ear/eye level and Father\'s shoulder) and 7yo younger boy Rishu in mustard-yellow t-shirt and dark shorts (0.78x Father height, top of Rishu\'s head rising ABOVE Gahan\'s shoulders to reach right up to Gahan\'s NECK / UNDER-CHIN level and Mother\'s chin/neck level — only half-a-head shorter than Gahan, strictly NEVER below Gahan\'s shoulders and NEVER equal height!).')
-  : `If multiple family members are in MANDATORY CASTING VAULT & PROTAGONIST ANCHORS, you MUST include ALL ${familyCastDirectives ? familyCastDirectives.totalCount : ''} family members visibly side by side full-body from head to toe on the same ground line (including both sons in t-shirts and shorts with 11yo Gahan at 0.85x reaching Mother's ear/eye level and 7yo Rishu at 0.78x whose head rises above Gahan's shoulders to reach Gahan's neck/under-chin level).`}
+      ? 'DAILY CHRONICLE 2-SPOT-VIGNETTE LAYOUT (EXACTLY 2 MOMENTS = EXACTLY 2 VIGNETTES, STRICTLY NEVER 3 VIGNETTES!): Present EXACTLY 2 separate, self-contained soft-edged oval watercolor-and-gouache spot-illustration vignettes stacked vertically on open unpainted textured warm cream archival paper: (1) Upper Centered Vignette (~40% of canvas) depicting Moment 01 in full with all mentioned people (e.g. BOTH Shridhar and his male college friend—give the friend a distinct clean-shaven face with glasses, full wavy black hair, and a contrasting shirt so he does not look like a twin of bearded Shridhar!), and (2) Lower Centered Larger Highlight Vignette (~55% of canvas) depicting Moment 02 (the starred highlight moment). STRICT BAN ON 3 VIGNETTES: NEVER split Moment 01 into two upper vignettes! When the family (Father, Mother, and 2 sons) appears together in a vignette, draw EXACTLY 4 PEOPLE TOTAL SHOWN FULL-BODY FROM HEAD TO TOE WITH ALL FEET AND SHOES PLANTED ON THE SAME LEVEL GROUND LINE from left to right: (1st on far left) Father Shridhar (5ft 10in / 178cm, 100% baseline height, in trousers and shoes) -> (2nd from left) Mother Aruna (5ft 4in / 162cm, 91% of Father\'s height, in kurta and sandals) -> (3rd from left) 11yo pre-teen elder son Gahan in dark navy-blue t-shirt, knee-length denim shorts, and sneakers (4ft 8in / 142cm, 88% of Mother Aruna\'s height and 80% of Father\'s height — clearly 8 inches / 20cm SHORTER than Mother Aruna so the top of Gahan\'s head is strictly BELOW Mother\'s chin at her collarbone / upper-shoulder level; strictly NEVER draw Gahan as tall as or taller than Mother!) -> (4th on far right) 7yo younger son Rishu in mustard-yellow t-shirt, dark shorts, and sneakers (4ft 2in / 127cm, 89% of Elder Brother Gahan\'s height and 78% of Mother\'s height — 6 inches / 15cm shorter than Gahan so the top of Rishu\'s head rises above Gahan\'s shoulders to reach Gahan\'s chin/neck level; strictly NEVER draw Rishu equal height with Gahan!).'
+      : 'DAILY CHRONICLE 3-SPOT-VIGNETTE LAYOUT (WITH WIDE LEFT/RIGHT SAFE MARGINS IN 3:4 PORTRAIT): Present 3 separate, self-contained soft-edged oval watercolor-and-gouache spot-illustration vignettes floating inside the central 82% horizontal safe zone of an open unpainted textured warm cream archival paper page (Top-Left spot vignette ~25%, Top-Right spot vignette ~25%, Bottom-Center larger spot vignette ~45-50% for the starred highlight moment), maintaining a generous 9%–10% clear unpainted warm cream paper margin along the left edge, right edge, top edge, and bottom edge so ZERO subjects or vignette halos are ever clipped at the left or right borders. Depict family members or companions ONLY inside the specific moment vignette where they are mentioned (strictly NEVER merge all 3 moments into a single full-bleed background scene!). Whenever both brothers Gahan and Rishu appear, show them full-body from head to toe with shoes on the ground: 11yo pre-teen Gahan in navy t-shirt and denim shorts (4ft 8in / 142cm, 88% of Mother Aruna\'s height and 80% of Father\'s height — clearly 8 inches shorter than Mother so the top of Gahan\'s head is strictly BELOW Mother\'s chin at her collarbone/shoulder level, strictly NEVER as tall as or taller than Mother!) and 7yo younger boy Rishu in mustard-yellow t-shirt and dark shorts (4ft 2in / 127cm, 89% of Gahan\'s height — 6 inches shorter than Gahan so the top of Rishu\'s head rises above Gahan\'s shoulders to reach Gahan\'s chin/neck level).')
+  : `If multiple family members are in MANDATORY CASTING VAULT & PROTAGONIST ANCHORS, you MUST include ALL ${familyCastDirectives ? familyCastDirectives.totalCount : ''} family members visibly side by side full-body from head to toe on the same ground line, strictly obeying their pairwise relative stature percentages (11yo Elder Son Gahan at 142cm is 88% of Mother Aruna's 162cm height — 8 inches shorter than Mother with his head strictly below Mother's chin at her collarbone/shoulder level, NEVER taller than Mother; 7yo Younger Son Rishu at 127cm is 89% of Gahan's height with his head reaching Gahan's chin/neck level).`}
 3. Output strictly valid JSON:
 {
   "illustrationPrompt": "Detailed 80-130 word visual prompt beginning with the exact Medium & Portrayal Style, describing a fresh scene composition, exact protagonists, setting, and lighting. No random text or letters.",
@@ -609,7 +632,10 @@ STRICT RULES:
         creatorEmail = ''
       } = body;
 
-      const userEmail = (creatorEmail || 'shridharoct16@gmail.com').toLowerCase().trim();
+      const userEmail = (creatorEmail || '').toLowerCase().trim();
+      if (!userEmail) {
+        return res.status(401).json({ error: 'Please sign in with your account to generate a stylized avatar.' });
+      }
       const creditCheck = await verifyAndConsumeUserCredit(userEmail, Boolean(body.isManualRegenerate), Boolean(chronicleMode));
       if (!creditCheck.allowed) {
         return res.status(403).json({ error: 'Private Preview: Your account is not yet on the invited curator whitelist.' });
@@ -626,12 +652,12 @@ STRICT RULES:
         return res.status(400).json({ error: 'Missing memberId' });
       }
 
+      const castProfileId = resolveFamilyCastProfileId(userEmail);
       let sourcePhotoB64 = imageBase64;
       let sourcePhotoMime = imageMimeType;
 
-      if (!sourcePhotoB64) {
+      if (!sourcePhotoB64 && castProfileId) {
         try {
-          const castProfileId = resolveFamilyCastProfileId(userEmail);
           const cResp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.${encodeURIComponent(castProfileId)}&select=data`, {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
           });
@@ -671,7 +697,8 @@ STRICT RULES:
 
       const cleanAvatarB64 = avatarB64.replace(/^data:image\/[^;]+;base64,/, '');
       const buf = Buffer.from(cleanAvatarB64, 'base64');
-      const fileName = `avatar_${memberId}.png`;
+      const safeUserSlug = String(castProfileId || userEmail).replace(/[^a-z0-9_-]/g, '_');
+      const fileName = `avatar_${safeUserSlug}_${memberId}.png`;
 
       try {
         await fetch(`${SUPABASE_URL}/storage/v1/object/posters/${fileName}`, {
@@ -690,40 +717,41 @@ STRICT RULES:
 
       const avatarUrl = `${SUPABASE_URL}/storage/v1/object/public/posters/${fileName}`;
 
-      try {
-        const castProfileId = resolveFamilyCastProfileId(userEmail);
-        const cResp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.${encodeURIComponent(castProfileId)}&select=*`, {
-          headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-        });
-        if (cResp.ok) {
-          const rows = await cResp.json();
-          if (rows && rows[0] && rows[0].data) {
-            const castData = rows[0].data;
-            castData.members = (castData.members || []).map(m => {
-              if (m.id === memberId) {
-                m.stylizedAvatarUrl = avatarUrl;
-              }
-              return m;
-            });
-            castData.updatedAt = new Date().toISOString();
+      if (castProfileId) {
+        try {
+          const cResp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.${encodeURIComponent(castProfileId)}&select=*`, {
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+          });
+          if (cResp.ok) {
+            const rows = await cResp.json();
+            if (rows && rows[0] && rows[0].data) {
+              const castData = rows[0].data;
+              castData.members = (castData.members || []).map(m => {
+                if (m.id === memberId) {
+                  m.stylizedAvatarUrl = avatarUrl;
+                }
+                return m;
+              });
+              castData.updatedAt = new Date().toISOString();
 
-            await fetch(`${SUPABASE_URL}/rest/v1/posts`, {
-              method: 'POST',
-              headers: {
-                'apikey': SUPABASE_KEY,
-                'Authorization': `Bearer ${SUPABASE_KEY}`,
-                'Content-Type': 'application/json',
-                'Prefer': 'resolution=merge-duplicates'
-              },
-              body: JSON.stringify({
-                id: castProfileId,
-                data: castData
-              })
-            });
+              await fetch(`${SUPABASE_URL}/rest/v1/posts`, {
+                method: 'POST',
+                headers: {
+                  'apikey': SUPABASE_KEY,
+                  'Authorization': `Bearer ${SUPABASE_KEY}`,
+                  'Content-Type': 'application/json',
+                  'Prefer': 'resolution=merge-duplicates'
+                },
+                body: JSON.stringify({
+                  id: castProfileId,
+                  data: castData
+                })
+              });
+            }
           }
+        } catch (profErr) {
+          console.warn('Profile avatar update warning:', profErr);
         }
-      } catch (profErr) {
-        console.warn('Profile avatar update warning:', profErr);
       }
 
       return res.status(200).json({
@@ -735,8 +763,15 @@ STRICT RULES:
 
     // Endpoint: Get or Save Curator Style Profile & Longitudinal Observations
     if (body && body.action === 'get_curator_style') {
-      const { userIdentifier = 'default' } = body;
-      const profileId = 'curator_style_' + String(userIdentifier).toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+      const { userIdentifier = '' } = body;
+      const cleanId = String(userIdentifier || '').trim().toLowerCase();
+      if (!cleanId || cleanId === 'default' || !cleanId.includes('@')) {
+        return res.status(200).json({
+          success: true,
+          profile: getDefaultCuratorStyle(userIdentifier)
+        });
+      }
+      const profileId = 'curator_style_' + cleanId.replace(/[^a-z0-9_-]/g, '_');
       try {
         const resp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.${encodeURIComponent(profileId)}&select=data`, {
           headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
@@ -757,8 +792,12 @@ STRICT RULES:
     }
 
     if (body && body.action === 'save_curator_style') {
-      const { userIdentifier = 'default', profile } = body;
-      const profileId = 'curator_style_' + String(userIdentifier).toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+      const { userIdentifier = '', profile } = body;
+      const cleanId = String(userIdentifier || '').trim().toLowerCase();
+      if (!cleanId || cleanId === 'default' || !cleanId.includes('@')) {
+        return res.status(401).json({ success: false, error: 'Sign in required to save style profile' });
+      }
+      const profileId = 'curator_style_' + cleanId.replace(/[^a-z0-9_-]/g, '_');
       try {
         await fetch(`${SUPABASE_URL}/rest/v1/posts`, {
           method: 'POST',
@@ -776,10 +815,16 @@ STRICT RULES:
       }
     }
 
-    // Endpoint: Get Family Cast Vault Profile
+    // Endpoint: Get Family Cast Vault Profile (strictly isolated per signed-in user email — zero cross-user fallback!)
     if (body && body.action === 'get_family_cast') {
-      const { userIdentifier = 'default' } = body;
+      const { userIdentifier = '' } = body;
       const profileId = resolveFamilyCastProfileId(userIdentifier);
+      if (!profileId) {
+        return res.status(200).json({
+          success: true,
+          cast: getDefaultFamilyCast(userIdentifier)
+        });
+      }
       try {
         const resp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.${encodeURIComponent(profileId)}&select=data`, {
           headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
@@ -787,26 +832,12 @@ STRICT RULES:
         if (resp.ok) {
           const rows = await resp.json();
           if (rows && rows[0] && rows[0].data) {
-            return res.status(200).json({ success: true, cast: rows[0].data });
+            const cleanCast = sanitizeForeignVaultLeakOnServer(rows[0].data, userIdentifier);
+            return res.status(200).json({ success: true, cast: cleanCast });
           }
         }
       } catch (err) {
         console.warn('Get family cast error:', err.message);
-      }
-
-      // Secondary fallback: check primary profile if custom ID missed
-      if (profileId !== 'family_cast_shridharoct16_gmail_com') {
-        try {
-          const fbResp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.family_cast_shridharoct16_gmail_com&select=data`, {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-          });
-          if (fbResp.ok) {
-            const fbRows = await fbResp.json();
-            if (fbRows && fbRows[0] && fbRows[0].data) {
-              return res.status(200).json({ success: true, cast: fbRows[0].data });
-            }
-          }
-        } catch (_) {}
       }
 
       return res.status(200).json({
@@ -815,10 +846,14 @@ STRICT RULES:
       });
     }
 
-    // Endpoint: Save Family Cast Vault Profile
+    // Endpoint: Save Family Cast Vault Profile (strictly isolated per signed-in user email)
     if (body && body.action === 'save_family_cast') {
-      const { userIdentifier = 'default', cast } = body;
+      const { userIdentifier = '', cast } = body;
       const profileId = resolveFamilyCastProfileId(userIdentifier);
+      if (!profileId) {
+        return res.status(401).json({ success: false, error: 'Sign in required to save Family Cast Vault' });
+      }
+      const cleanCast = sanitizeForeignVaultLeakOnServer(cast, userIdentifier);
       try {
         await fetch(`${SUPABASE_URL}/rest/v1/posts`, {
           method: 'POST',
@@ -828,9 +863,9 @@ STRICT RULES:
             'Content-Type': 'application/json',
             'Prefer': 'resolution=merge-duplicates'
           },
-          body: JSON.stringify({ id: profileId, data: cast })
+          body: JSON.stringify({ id: profileId, data: cleanCast })
         });
-        return res.status(200).json({ success: true, cast });
+        return res.status(200).json({ success: true, cast: cleanCast });
       } catch (err) {
         return res.status(500).json({ success: false, error: err.message });
       }
@@ -1208,22 +1243,52 @@ Respond strictly with valid JSON:
       }
     }
 
-    // Direct Single-Purpose Endpoint: Polish & Review Take with Pedagogical Highlighters
+    // Direct Single-Purpose Endpoint: Polish & Review Take with Pedagogical Highlighters + Core Visual Subject / Per-Moment Projection Identification
     if (body && (body.action === 'polish_take' || body.action === 'review_take')) {
-      const { text = '', slantTake = '' } = body;
+      const {
+        text = '',
+        slantTake = '',
+        spark = '',
+        scrapedTitle = '',
+        countryContext = 'India',
+        chronicleMode = false,
+        chronicleMoments = [],
+        familyCast = null,
+        visualConfidenceHistory = null
+      } = body;
       const rawText = String(text || slantTake || '').trim();
       if (!rawText || rawText.length < 5) {
         return res.status(400).json({ error: 'Please enter a take to polish.' });
       }
 
+      const validPolishMoments = Array.isArray(chronicleMoments)
+        ? chronicleMoments.filter(m => m && String(m.text || '').trim().length >= 2)
+        : [];
+      const isPolishChronicle = Boolean(chronicleMode && validPolishMoments.length >= 2);
+
       // Fast baseline polish using rule-based formatter
       const baselinePolished = formatCuratorTakeApt(rawText);
+      const fallbackSubjects = buildFallbackVisualSubjects(rawText, spark, scrapedTitle, countryContext);
+      const fallbackMomentProjections = isPolishChronicle
+        ? buildFallbackMomentVisualProjections(validPolishMoments, countryContext)
+        : [];
 
-      // Call Gemini for high-precision, categorized copy-editing and inline highlighting
+      const castMembersSummary = (familyCast && Array.isArray(familyCast.members) && familyCast.members.length > 0)
+        ? familyCast.members.map(m => `${m.name || m.roleLabel} (${m.relationship}, age ${m.age || 'adult'}, height ${cmToFeetInches(resolveMemberHeightCm(m)).label})`).join('; ')
+        : 'Father Shridhar (40yo, 5ft 10in / 178cm); Wife/Mother Aruna (36yo, 5ft 4in / 162cm); Elder Son Gahan (11yo BOY, 4ft 8in / 142cm, navy tee & denim shorts); Younger Son Rishu (7yo BOY, 4ft 2in / 127cm, mustard tee & dark shorts — BOTH SONS ARE BOYS, zero girls)';
+
+      const learnedPrefNote = (visualConfidenceHistory && typeof visualConfidenceHistory === 'object' && Object.keys(visualConfidenceHistory).length > 0)
+        ? `\n- LEARNED CURATOR VISUAL PREFERENCE WEIGHTS (from past repeated approvals): ${JSON.stringify(visualConfidenceHistory)}. Boost the confidence % of visual options matching the curator's most-approved archetypes!`
+        : '';
+
+      // Call Gemini for high-precision, categorized copy-editing, inline highlighting, and Core Visual Subject / Per-Moment Visual Projections
       try {
-        const copyEditPrompt = `You are a world-class literary copy-editor and writing coach.
-The author has written their personal conviction / take on a topic.
-Your job is to polish their text into grammatically correct, natural, and apt English while detailing every correction made:
+        const copyEditPrompt = `You are a world-class literary copy-editor, writing coach, and editorial visual director.
+The author has written their personal conviction / take ${isPolishChronicle ? `as a Daily Chronicle with ${validPolishMoments.length} moments` : 'on a topic'}.
+Your job has TWO parts:
+
+PART 1 — COPY-EDIT & POLISH:
+Polish their text into grammatically correct, natural, and apt English while detailing every correction made:
 - STRICT RULE 1 (ZERO OPINION FABRICATION): DO NOT change, enhance, add to, or modify the author's opinion, stance, or logic. Do NOT introduce new arguments, buzzwords, or unsolicited ideas.
 - STRICT RULE 2 (ZERO CUTTING SHORT): DO NOT cut short, truncate, compress, or omit the author's opinion. Every single point, argument, nuance, and example must be retained in the exact same sequence.
 - STRICT RULE 3 (APT ENGLISH & PHRASING): Fix comma splices, run-on sentences, awkward phrasing, word choices, subject-verb agreements, casing, and punctuation so it flows naturally and authoritatively.
@@ -1238,8 +1303,30 @@ Your job is to polish their text into grammatically correct, natural, and apt En
   * "grammar": Verb tense, subject-verb agreement, singular/plural, missing articles or prepositions, pronoun cases (e.g. "it's" -> "its", "is kept" -> "are kept", "Govt" -> "The government").
   * "punctuation": Commas, periods, colons, quotation marks, fixing comma splices or run-ons.
 
+PART 2 — ${isPolishChronicle
+  ? `IDENTIFY 3 VISUAL PROJECTION OPTIONS PER MOMENT (WITH CONFIDENCE SCORE 1-99%) FOR EACH OF THE ${validPolishMoments.length} DAILY CHRONICLE MOMENTS:
+Each moment in a Daily Chronicle can be visually projected in multiple ways.
+- AUTHOR'S FAMILY CAST VAULT: ${castMembersSummary}.
+- CRITICAL FAMILY RULE FOR "KIDS" / "BOYS" / "CHILDREN" / "KIDS FIGHTING": Whenever the author writes "kids", "kids fighting", "boys", "sons", or "children" in any personal moment, they are ALWAYS his TWO SONS: 11yo Elder Son Gahan (BOY, 4ft 8in / 142cm, navy t-shirt & denim shorts) and 7yo Younger Son Rishu (BOY, 4ft 2in / 127cm, 6 inches shorter than Gahan with his head at Gahan's chin/neck level, mustard-yellow t-shirt & dark shorts) — STRICTLY 2 BOYS, NEVER a boy and a girl!${learnedPrefNote}
+- For EACH of the ${validPolishMoments.length} moments (${validPolishMoments.map((m, i) => `Moment 0${i + 1}: "${m.text}"`).join(' | ')}), output an entry in "momentVisualProjections" containing 3 distinct ways to project that moment's vignette, sorted in descending order of your confidence score ("confidence": integer 65-98) so Option 1 is the highest-confidence default:
+  1. Option 1 ("archetype": "direct_action", highest confidence e.g. 90-96%): The most direct, concrete, unmistakable human interaction representing the heart of that moment (explicitly naming exact Vault cast members like Shridhar, 11yo son Gahan & 7yo son Rishu when kids/family are mentioned).
+  2. Option 2 ("archetype": "expressive_midshot" or "warm_resolution", medium-high confidence e.g. 80-88%): An alternative candid angle (e.g., warm resolution, expressive waist-up conversational reaction, or side-by-side collaboration).
+  3. Option 3 ("archetype": "symbolic_focus", medium confidence e.g. 70-78%): A focused detail/object-led or atmospheric angle capturing the mood of that moment.`
+  : `IDENTIFY 3 CORE VISUAL SUBJECT OPTIONS (WITH CONFIDENCE SCORE 1-99%) FOR POSTER 1 ARTWORK:
+Understand the true CORE SUBJECT in the given context (Setting: ${countryContext || 'India'}).
+- AUTHOR'S FAMILY CAST VAULT: ${castMembersSummary}.
+- CRITICAL DISTINCTION (SOCIETAL OBSERVATION vs. PERSONAL FAMILY STORY):
+  * If the author is observing society, schools, parents in general, workplaces, politics, or culture (even if they use words like "I see", "the whole family comes", "parents", "the kids", "in our school days"), the core visual subject is the REAL-WORLD SCENE BEING DISCUSSED (e.g. a packed school corridor on parent-teacher meeting day with parents debating marks with a 2nd-grade teacher), and "isPersonalFamily" MUST be false!
+  * Set "isPersonalFamily": true ONLY if the author is explicitly telling an intimate personal story about their OWN family members ("my family", "my wife", "my kids", "kids fighting", "my son", "Gahan", "Rishu", "Aruna"). And whenever the author mentions their kids/boys/children, explicitly specify their two sons Gahan (11yo boy) and Rishu (7yo boy) — strictly 2 boys, never a girl!${learnedPrefNote}
+- Provide 3 distinct, tap-to-choose visual subject angles in "visualSubjects", sorted by your confidence score ("confidence": integer 65-98) so Option 1 is the highest-confidence default:
+  1. Option 1 ("archetype": "core_scene", "badge": "★ Best Fit • Core Scene", highest confidence e.g. 90-96%): The direct, concrete real-world scene and protagonists at the heart of the author's context.
+  2. Option 2 ("archetype": "core_contrast", "badge": "⚡ Core Contrast", confidence e.g. 80-88%): A visual composition highlighting the central irony, contrast, or tension in the author's argument.
+  3. Option 3 ("archetype": "editorial_metaphor", "badge": "🎨 Editorial Metaphor", confidence e.g. 70-78%): A poignant symbolic or nostalgic visual framing the author's core takeaway.`}
+
 Author's Raw Take:
 """${rawText}"""
+${spark ? `Author's Spark / Catalyst: """${spark}"""` : ''}
+${scrapedTitle ? `Source Headline: """${scrapedTitle}"""` : ''}
 
 Respond strictly with valid JSON with this exact structure:
 {
@@ -1251,7 +1338,43 @@ Respond strictly with valid JSON with this exact structure:
       "type": "spelling | grammar | punctuation | phrasing",
       "reason": "concise explanation of why this specific correction was made"
     }
-  ]
+  ],
+  "visualSubjects": [
+    {
+      "id": "subject_1",
+      "archetype": "core_scene | core_contrast | editorial_metaphor",
+      "badge": "★ Best Fit • Core Scene",
+      "confidence": 94,
+      "title": "Short 4-8 word visual subject title",
+      "description": "Clear 1-sentence visual description of what Poster 1 will depict",
+      "cues": [
+        "Hero Subject (concise 4-7 words)",
+        "Core Motif / Object (concise 4-7 words)",
+        "Central Tension (concise 4-7 words)",
+        "Physical Setting / Atmosphere (concise 4-7 words)",
+        "Lighting & Mood (concise 4-7 words)"
+      ],
+      "isPersonalFamily": false
+    }
+  ]${isPolishChronicle ? `,
+  "momentVisualProjections": [
+    {
+      "momentIndex": 1,
+      "momentTitle": "Moment 01",
+      "options": [
+        {
+          "id": "m1_opt_1",
+          "archetype": "direct_action | warm_resolution | expressive_midshot | symbolic_focus",
+          "badge": "★ Best Fit • Direct Scene",
+          "confidence": 94,
+          "title": "Short 5-9 word scene projection title for this moment",
+          "description": "Specific 1-sentence visual description for this moment's watercolor vignette (naming exact Vault cast members e.g. Shridhar, 11yo son Gahan & 7yo son Rishu when kids are mentioned)",
+          "castIds": ["member_father"],
+          "isPersonalFamily": false
+        }
+      ]
+    }
+  ]` : ''}
 }`;
 
         const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
@@ -1264,7 +1387,7 @@ Respond strictly with valid JSON with this exact structure:
           body: JSON.stringify({
             contents: [{ parts: [{ text: copyEditPrompt }] }],
             generationConfig: {
-              temperature: 0.1,
+              temperature: 0.15,
               thinkingConfig: { thinkingBudget: 0 },
               responseMimeType: 'application/json'
             }
@@ -1331,13 +1454,68 @@ Respond strictly with valid JSON with this exact structure:
               total: corrections.length
             };
 
+            const visualSubjects = (Array.isArray(parsed.visualSubjects) && parsed.visualSubjects.length > 0)
+              ? parsed.visualSubjects.slice(0, 3).map((vs, idx) => ({
+                  id: String(vs.id || `subject_${idx + 1}`),
+                  archetype: String(vs.archetype || (idx === 0 ? 'core_scene' : (idx === 1 ? 'core_contrast' : 'editorial_metaphor'))),
+                  badge: String(vs.badge || (idx === 0 ? '★ Best Fit • Core Scene' : (idx === 1 ? '⚡ Core Contrast' : '🎨 Editorial Metaphor'))),
+                  confidence: Math.max(60, Math.min(99, Number(vs.confidence) || (idx === 0 ? 94 : (idx === 1 ? 84 : 75)))),
+                  title: String(vs.title || fallbackSubjects[idx]?.title || 'Core Editorial Scene').trim(),
+                  description: String(vs.description || fallbackSubjects[idx]?.description || '').trim(),
+                  cues: Array.isArray(vs.cues) && vs.cues.length >= 3 ? vs.cues.slice(0, 5).map(String) : (fallbackSubjects[idx]?.cues || []),
+                  isPersonalFamily: Boolean(vs.isPersonalFamily)
+                }))
+              : fallbackSubjects;
+
+            const momentVisualProjections = isPolishChronicle
+              ? ((Array.isArray(parsed.momentVisualProjections) && parsed.momentVisualProjections.length > 0)
+                  ? validPolishMoments.map((m, mIdx) => {
+                      const found = parsed.momentVisualProjections.find(mp => Number(mp.momentIndex) === mIdx + 1)
+                        || parsed.momentVisualProjections[mIdx]
+                        || fallbackMomentProjections[mIdx];
+                      const fbProj = fallbackMomentProjections[mIdx];
+                      const rawOpts = (found && Array.isArray(found.options) && found.options.length > 0)
+                        ? found.options.slice(0, 3)
+                        : (fbProj ? fbProj.options : []);
+                      return {
+                        momentIndex: mIdx + 1,
+                        momentTitle: String(found?.momentTitle || m.title || `Moment 0${mIdx + 1}`),
+                        momentText: String(m.text || ''),
+                        selectedOptionIdx: 0,
+                        options: rawOpts.map((opt, oIdx) => {
+                          const rawTitle = String(opt.title || fbProj?.options?.[oIdx]?.title || 'Candid Moment Visual')
+                            .replace(/Father\s*\(\s*Father\s*\(([^)]+)\)\s*\)/gi, 'Father ($1)')
+                            .replace(/Mother\s*\(\s*Mother\s*\(([^)]+)\)\s*\)/gi, 'Mother ($1)')
+                            .trim();
+                          const rawDesc = String(opt.description || fbProj?.options?.[oIdx]?.description || '')
+                            .replace(/Father\s*\(\s*Father\s*\(([^)]+)\)\s*\)/gi, 'Father ($1)')
+                            .replace(/Mother\s*\(\s*Mother\s*\(([^)]+)\)\s*\)/gi, 'Mother ($1)')
+                            .trim();
+                          return {
+                            id: String(opt.id || `m${mIdx + 1}_opt_${oIdx + 1}`),
+                            archetype: String(opt.archetype || (oIdx === 0 ? 'direct_action' : (oIdx === 1 ? 'expressive_midshot' : 'symbolic_focus'))),
+                            badge: String(opt.badge || (oIdx === 0 ? '★ Best Fit • Direct Scene' : (oIdx === 1 ? '🎯 Expressive Mid-Shot' : '🎨 Symbolic Angle'))),
+                            confidence: Math.max(60, Math.min(99, Number(opt.confidence) || (oIdx === 0 ? 93 : (oIdx === 1 ? 83 : 74)))),
+                            title: rawTitle,
+                            description: rawDesc,
+                            castIds: Array.isArray(opt.castIds) && opt.castIds.length > 0 ? opt.castIds.map(String) : (fbProj?.options?.[oIdx]?.castIds || ['member_father']),
+                            isPersonalFamily: Boolean(opt.isPersonalFamily !== undefined ? opt.isPersonalFamily : fbProj?.options?.[oIdx]?.isPersonalFamily)
+                          };
+                        })
+                      };
+                    })
+                  : fallbackMomentProjections)
+              : [];
+
             return res.status(200).json({
               success: true,
               original: rawText,
               polished: cleanPolished,
               highlightedHtml: highlightedHtml,
               corrections,
-              counts
+              counts,
+              visualSubjects,
+              momentVisualProjections
             });
           }
         } else {
@@ -1352,7 +1530,9 @@ Respond strictly with valid JSON with this exact structure:
             polished: baselinePolished,
             highlightedHtml: baselinePolished,
             corrections: [],
-            counts: { spelling: 0, grammar: 0, punctuation: 0, phrasing: 0, total: 0 }
+            counts: { spelling: 0, grammar: 0, punctuation: 0, phrasing: 0, total: 0 },
+            visualSubjects: fallbackSubjects,
+            momentVisualProjections: fallbackMomentProjections
           });
         }
       } catch (err) {
@@ -1364,7 +1544,9 @@ Respond strictly with valid JSON with this exact structure:
           polished: baselinePolished,
           highlightedHtml: baselinePolished,
           corrections: [],
-          counts: { spelling: 0, grammar: 0, punctuation: 0, phrasing: 0, total: 0 }
+          counts: { spelling: 0, grammar: 0, punctuation: 0, phrasing: 0, total: 0 },
+          visualSubjects: fallbackSubjects,
+          momentVisualProjections: fallbackMomentProjections
         });
       }
 
@@ -1376,7 +1558,9 @@ Respond strictly with valid JSON with this exact structure:
         polished: baselinePolished,
         highlightedHtml: baselinePolished,
         corrections: [],
-        counts: { spelling: 0, grammar: 0, punctuation: 0, phrasing: 0, total: 0 }
+        counts: { spelling: 0, grammar: 0, punctuation: 0, phrasing: 0, total: 0 },
+        visualSubjects: fallbackSubjects,
+        momentVisualProjections: fallbackMomentProjections
       });
     }
 
@@ -1412,7 +1596,8 @@ Respond strictly with valid JSON with this exact structure:
       castStaging = null,
       chronicleMode = false,
       chronicleMoments = [],
-      reflectionFeedbackHistory = null
+      reflectionFeedbackHistory = null,
+      preferredVisualSubject = null
     } = body || {};
 
     const validChronicleMoments = Array.isArray(chronicleMoments)
@@ -1654,17 +1839,19 @@ Respond strictly with valid JSON with this exact structure:
 - Visual Focus is set to HYBRID BLEND. This controls the VISUAL ARTWORK only, NOT the text narrative.
 - The illustrationPrompt for Poster 1 should blend the concrete real-world news subject with the curator's symbolic tension and visual metaphor.`;
 
-    let effectiveFamilyCast = familyCast;
+    let effectiveFamilyCast = familyCast ? sanitizeForeignVaultLeakOnServer(familyCast, creatorEmail || userEmail) : null;
     if (!effectiveFamilyCast || !Array.isArray(effectiveFamilyCast.members) || effectiveFamilyCast.members.length === 0) {
       try {
         const castProfileId = resolveFamilyCastProfileId(creatorEmail || userEmail);
-        const cResp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.${encodeURIComponent(castProfileId)}&select=data`, {
-          headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-        });
-        if (cResp.ok) {
-          const cRows = await cResp.json();
-          if (cRows && cRows[0] && cRows[0].data) {
-            effectiveFamilyCast = cRows[0].data;
+        if (castProfileId) {
+          const cResp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.${encodeURIComponent(castProfileId)}&select=data`, {
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+          });
+          if (cResp.ok) {
+            const cRows = await cResp.json();
+            if (cRows && cRows[0] && cRows[0].data) {
+              effectiveFamilyCast = sanitizeForeignVaultLeakOnServer(cRows[0].data, creatorEmail || userEmail);
+            }
           }
         }
       } catch (_) {}
@@ -1676,11 +1863,13 @@ Respond strictly with valid JSON with this exact structure:
       activeCast,
       castStaging,
       userSlant,
+      userEmail: creatorEmail || userEmail,
       spark,
       countryContext,
       sourceType,
       perspectiveMode,
-      chronicleMode: Boolean(isChronicle)
+      chronicleMode: Boolean(isChronicle),
+      preferredVisualSubject
     });
 
     const isCinematicPhoto = (characterRepresentation === 'cinematic' || characterRepresentation === 'cinematic_photo' || characterRepresentation === 'likeness' || (Boolean(effectiveCatalystImage || sourceImageBase64) && characterRepresentation !== 'painting' && characterRepresentation !== 'watercolor' && characterRepresentation !== 'exact' && characterRepresentation !== 'silhouette' && characterRepresentation !== 'realistic'));
@@ -1699,6 +1888,14 @@ ${userSlant ? `- Curator's Slant / Take (Primary Stance & Angle): "${userSlant}"
 ${spark ? `- The Spark (Personal Context / Catalyst): "${spark}"` : ''}
 ${url ? `- Source Link: ${url}` : ''}
 ${pubName ? `- Publication / Domain: ${pubName}` : ''}
+${preferredVisualSubject && preferredVisualSubject.title ? `CRITICAL CORE VISUAL SUBJECT SELECTED BY CURATOR (HIGHEST VISUAL PRIORITY FOR POSTER 1):
+- Selected Visual Subject Title: "${preferredVisualSubject.title}"
+- Selected Visual Scene Description: "${preferredVisualSubject.description || preferredVisualSubject.title}"
+- You MUST build Poster 1's "illustrationPrompt", "heroCue", and "cues" directly around this exact selected visual subject!
+${!preferredVisualSubject.isPersonalFamily ? '- STRICT BAN ON UNRELATED FAMILY PORTRAITS: Because this selected visual subject is a topical/societal/contextual scene and NOT a personal family portrait, strictly DO NOT insert the author\'s personal family members (Shridhar, Aruna, Gahan, Rishu) on a home veranda!' : ''}` : `CRITICAL CORE SUBJECT & CONTEXTUAL SCENE GROUNDING DIRECTIVE (POSTER 1 VISUALS):
+- Identify the true CORE SUBJECT in the author's context before composing "illustrationPrompt" and "cues".
+- Distinguish sharply between a SOCIETAL / TOPICAL OBSERVATION (e.g. crowded school corridors on Parent-Teacher Meeting days, parents debating 2nd-grade marks with teachers in the age of AI, civic street life, workplace culture) vs. an intimate PERSONAL FAMILY STORY about the author's own household ("my family", "my wife", "my sons Gahan & Rishu").
+- When the post is a societal or topical observation (even if it mentions generic words like "the whole family comes", "parents", "the kids", or "I see"), "illustrationPrompt" MUST depict the actual real-world scene of that topic (e.g. the packed school corridor and classroom doorway on PTM day) and MUST NEVER default to a generic home veranda or personal family photo!`}
 ${familyCastDirectives ? `- Family Protagonists & Physical Staging:
 ${familyCastDirectives.systemPromptSection}` : (demographicInfo ? `- Featured Protagonist Age & Demographics: ${demographicInfo.promptDesc}` : '')}
 ${cues && cues.length > 0 ? `- Ranked Visual Cues: ${cues.map((c, i) => `#${i+1} ${c}`).join(' • ')}` : ''}
@@ -1791,7 +1988,7 @@ ${refineCoreTake ? `- Poster 2 ("THE CRITICAL PERSPECTIVE" / curatorTake) is an 
 - In "curatorTake", you MUST output the curator's authentic take: "${userSlant}" verbatim without rephrasing or altering their sentence structure.`}` : ''}
 ${sourceType === 'inner_voice' && isChronicle ? `CRITICAL DAILY CHRONICLE & MULTI-MOMENT NON-OVERLAPPING VIGNETTE POSTER DIRECTIVE:
 - The curator is recording a DAILY CHRONICLE (Diary / Multi-Moment Day in Review) consisting of ${validChronicleMoments.length} distinct moments from their day:
-${validChronicleMoments.map((m, i) => `  * Moment 0${i + 1} (${m.title || 'Moment ' + (i + 1)}${i === starredChronicleIdx ? ' [★ STARRED IMPORTANT HIGHLIGHT OF THE DAY - GIVE EXTRA SHOWCASE SPACE IN POSTER]' : ''}${m.hasPhoto ? ' [Photo Attached]' : ''}): "${m.text}"`).join('\n')}
+${validChronicleMoments.map((m, i) => `  * Moment 0${i + 1} (${m.title || 'Moment ' + (i + 1)}${i === starredChronicleIdx ? ' [★ STARRED IMPORTANT HIGHLIGHT OF THE DAY - GIVE EXTRA SHOWCASE SPACE IN POSTER]' : ''}${m.hasPhoto ? ' [Photo Attached]' : ''}): "${m.text}"${m.preferredVisualProjection && m.preferredVisualProjection.title ? `\n    -> CURATOR-SELECTED VISUAL PROJECTION FOR MOMENT 0${i + 1} (CONFIDENCE ${m.preferredVisualProjection.confidence || 92}% — MANDATORY SCENE TO DEPICT IN THIS VIGNETTE): "${m.preferredVisualProjection.title}" — ${m.preferredVisualProjection.description || ''}` : ''}`).join('\n')}
 - 1. SLIDE 1 HEADLINE ("adaptedHeadline"), DATE ("originalHeadline") & BADGE ("categoryBadge"):
   * Set "categoryBadge" to "DAILY CHRONICLE" and "publicationName" to "Daily Chronicle".
   * Set "adaptedHeadline" to a warm, natural 6 to 10 word headline formed directly from the moments of the day.
@@ -1826,12 +2023,13 @@ ${validChronicleMoments.map((m, i) => `  * Moment 0${i + 1} (${m.title || 'Momen
       2) LOWER CENTERED LARGER HIGHLIGHT VIGNETTE (~55% of canvas centered across the lower half): Depict the ★ STARRED IMPORTANT MOMENT (Moment 0${starredChronicleIdx + 1}: "${starredChronicleMoment?.text || ''}")!`
       : `- Place the two secondary moments (${secondaryChronicleMoments.map(m => `Moment 0${m.origIdx + 1}: "${m.text}"`).join(' AND ')}) as TWO SEPARATE CLOUDY-SHADED VIGNETTES in the upper half ("In the top-left isolated moment visual (~25% of canvas)...; in the top-right isolated moment visual (~25% of canvas)...").
     - Give the ★ STARRED IMPORTANT MOMENT (Moment 0${starredChronicleIdx + 1}: "${starredChronicleMoment?.text || ''}") MORE SPACE IN THE POSTER by placing it in the LARGER BOTTOM-CENTER CLOUDY-SHADED VIGNETTE (~45-50% of the canvas centered across the lower half)!`}
-  * FAMILY WALK / GROUP VIGNETTE HEADCOUNT & NECK-HEIGHT ALIGNMENT RULE:
-    - Whenever the whole family (Father Shridhar, Mother Aruna, Elder Son Gahan, and Younger Son Rishu) appears together in a vignette, you MUST specify FULL-BODY HEAD-TO-TOE FRAMING with all shoes/feet planted on the same ground line from left to right:
-      1) EXACTLY 4 PEOPLE TOTAL SHOWN FULL-BODY FROM HEAD TO TOE: (1st on far left) Adult Father Shridhar (1.0x height, in casual polo shirt with no lanyard, trousers, and shoes), (2nd from left) Adult Mother Aruna (0.92x height, in kurta and sandals), (3rd from left) Tall 11yo Slim Pre-Teen Elder Son Gahan (0.85x Father height, long oval face, in a dark navy-blue t-shirt, knee-length denim shorts, and sneakers), and (4th on far right) 7yo Younger Son Rishu (0.78x Father height, round cheerful face, in a bright mustard-yellow t-shirt, dark shorts, and sneakers) — STRICTLY NEVER 3 CHILDREN!
+  * FAMILY WALK / GROUP VIGNETTE HEADCOUNT & PAIRWISE STATURE ALIGNMENT RULE:
+    - Whenever the whole family (Father Shridhar, Mother Aruna, Elder Son Gahan, and Younger Son Rishu) appears together in a vignette, you MUST specify FULL-BODY HEAD-TO-TOE FRAMING with all shoes/feet planted on the same ground line from left to right in strict descending height order:
+      1) EXACTLY 4 PEOPLE TOTAL SHOWN FULL-BODY FROM HEAD TO TOE: (1st on far left) Adult Father Shridhar (5ft 10in / 178cm, 100% baseline height, in casual polo shirt with no lanyard, trousers, and shoes), (2nd from left) Adult Mother Aruna (5ft 4in / 162cm, 91% of Father's height — 6 inches shorter than Father, top of head at Father's eye/brow level, in kurta and sandals), (3rd from left) 11yo Pre-Teen Elder Son Gahan (4ft 8in / 142cm, 88% of Mother Aruna's height and 80% of Father's height — clearly 8 inches / 20cm SHORTER than Mother Aruna so the top of Gahan's head is strictly BELOW Mother's chin at her collarbone / upper-shoulder level, in a dark navy-blue t-shirt, knee-length denim shorts, and sneakers), and (4th on far right) 7yo Younger Son Rishu (4ft 2in / 127cm, 89% of Elder Brother Gahan's height and 78% of Mother's height — 6 inches / 15cm shorter than Gahan, in a bright mustard-yellow t-shirt, dark shorts, and sneakers) — STRICTLY NEVER 3 CHILDREN!
       2) FULL-BODY WALKING / STANDING SIDE BY SIDE ON THE SAME LEVEL GROUND LINE: All 4 family members must be drawn FULL-BODY FROM HEAD TO TOE with all 8 feet/shoes visibly planted on the same horizontal ground line (STRICTLY NEVER crop them at the thighs/waist and NEVER write "walking ahead" in front of the parents' legs!).
-      3) EXACT NECK-HEIGHT ALIGNMENT FOR RISHU & EAR/CHIN ALIGNMENT FOR GAHAN (NEVER Say "full head shorter" or "0.68x" or "collarbone"): Always specify that 11yo Elder Son Gahan is a tall pre-teen boy nearly as tall as his mother whose head reaches right up to Mother Aruna's ear/eye level and Father's shoulder (0.85x Father height), and ALWAYS specify that 7yo Younger Son Rishu is tall enough that the TOP OF RISHU'S HEAD RISES ABOVE GAHAN'S SHOULDERS to reach right up to Gahan's NECK / UNDER-CHIN level and Mother Aruna's chin/neck level (0.78x Father height — only half-a-head / 4 inches shorter than Gahan; strictly NEVER draw Rishu's head below Gahan's shoulders, NEVER down at Gahan's chest/armpit, and NEVER equal height with Gahan!).
-      4) DISTINCT COMPANION APPEARANCE IN NON-FAMILY VIGNETTES: When Shridhar meets a male friend or colleague in another vignette, give the friend a distinctly contrasting look (e.g., 38yo man with a full head of wavy black hair, clean-shaven face, eyeglasses, and a light olive or sky-blue button-down shirt) so the image model never clones two identical bearded Shridhars!
+      3) STRICT PAIRWISE STATURE & HEAD-LEVEL LANDMARKS (ELDER SON IS SHORTER THAN MOTHER!): Always specify that 11yo Elder Son Gahan (142cm / 4ft 8in) is 88% of Mother Aruna's height (162cm / 5ft 4in) — clearly 8 inches / 20cm shorter than Mother so the top of Gahan's head reaches Mother's collarbone / upper-shoulder level, strictly BELOW Mother's chin (STRICTLY NEVER draw Gahan as tall as or taller than Mother Aruna!). And always specify that 7yo Younger Son Rishu (127cm / 4ft 2in) is 89% of Elder Brother Gahan's height (6 inches / 15cm shorter than Gahan) so the TOP OF RISHU'S HEAD RISES ABOVE GAHAN'S SHOULDERS to reach Gahan's CHIN / NECK level (strictly NEVER draw Rishu equal height with Gahan!).
+      4) "KIDS" / "CHILDREN" / "KIDS FIGHTING" IN ANY MOMENT = STRICTLY THE 2 SONS (GAHAN 11YO BOY & RISHU 7YO BOY — BOTH BOYS, ZERO GIRLS): Whenever the narrator mentions "kids", "kids fighting", "boys", "children", or "siblings" in a moment, they are ALWAYS his two sons: 11-year-old Elder Son Gahan (4ft 8in / 142cm, pre-teen BOY in dark navy-blue t-shirt and knee-length denim shorts) and 7-year-old Younger Son Rishu (4ft 2in / 127cm, 6 inches shorter than Gahan with his head reaching Gahan's chin/neck level, younger BOY in mustard-yellow t-shirt and dark shorts). STRICTLY NEVER write gender-neutral "two young siblings" or "two children" and STRICTLY NEVER draw a girl or daughter!
+      5) DISTINCT COMPANION APPEARANCE IN NON-FAMILY VIGNETTES: When Shridhar meets a male friend or colleague in another vignette, give the friend a distinctly contrasting look (e.g., 38yo man with a full head of wavy black hair, clean-shaven face, eyeglasses, and a light olive or sky-blue button-down shirt) so the image model never clones two identical bearded Shridhars!
   * MANDATORY SITUATION-APPROPRIATE ATTIRE PER MOMENT (NEVER COPY ATTIRE BLINDLY ACROSS VIGNETTES):
     - Whenever the self/protagonist (Shridhar) or any recurring character appears across multiple vignettes, you MUST dress him/them specifically according to the situation, activity, and setting of THAT individual moment!
     - NEVER blindly copy or clone the outfit from one moment's vignette into another moment's vignette! For example: if one moment is a uniformed march/parade (such as RSS Pathasanchalan), dress him in the exact march uniform (crisp white full-sleeve shirt, khaki trousers, black RSS cap, bamboo danda); if another moment is working at a desk/laptop/cafe, dress him in smart casual workwear (such as a rolled-sleeve button-down shirt); if another moment is sports/exercise, dress him in athletic wear; if another moment is at home or a festive family moment, dress him in comfortable home or festive attire (such as a kurta or casual home shirt). Explicitly specify his distinct, context-appropriate outfit inside each vignette description!
@@ -1841,7 +2039,7 @@ ${validChronicleMoments.map((m, i) => `  * Moment 0${i + 1} (${m.title || 'Momen
     - Do NOT force full-body head-to-toe framing on every scene! Choose the shot framing that best captures the emotional heart and candidness of each moment:
       1) INTIMATE / CONVERSATIONAL / SEATED / SOLO MOMENTS (1-2 people meeting a friend over chai, talking at a table/breezeway, reading a book, working at a desk, or sharing a quiet conversation): Use an expressive CANDID MEDIUM SHOT / MID-SHOT (waist-up or chest-up, 35mm-50mm lens) that foregrounds warm facial expressions, eye contact, hand gestures (holding chai cups, a book, etc.), and upper-body/midsection build.
       2) ACTIVE MOVEMENT OR 3-4+ PERSON GROUP SCENES (e.g. 4-person family evening walk, march, outdoor activity): Use a pulled-back three-quarter or wide shot (with generous left/right margins inside the vignette) ONLY when the action itself is about walking/movement or when fitting 3-4+ people side-by-side requires zooming out so no character is clipped or dropped at the edge—while still keeping their faces and interactions natural and candid.
-  * DYNAMIC POSTURE-ADJUSTED RELATIVE HEIGHT RULE: Always adjust visual head-height comparisons based on each character's action/posture in that scene (Standing = 1.00x of base height, Leaning = 0.88x, Sitting on chair/sofa/bench = 0.72x, Kneeling/Crouching = 0.64x, Sitting on floor = 0.52x). For example, if Father (1.00x base) is sitting in a chair (0.72x effective height) while 11yo Elder Son Gahan (0.86x base) is standing beside him (0.86x effective height), explicitly state that standing Gahan's head rises ~19% ABOVE seated Father's head!
+  * DYNAMIC POSTURE-ADJUSTED RELATIVE HEIGHT RULE: Always adjust visual head-height comparisons based on each character's action/posture in that scene (Standing = 1.00x of base height, Leaning = 0.88x, Sitting on chair/sofa/bench = 0.72x, Kneeling/Crouching = 0.64x, Sitting on floor = 0.52x). For example, if Father (178cm / 1.00x base) is sitting in a chair (0.72x effective height = ~128cm) while 11yo Elder Son Gahan (142cm / 0.80x base) is standing beside him (0.80x effective height = 142cm), explicitly state that standing Gahan's head rises ~11% ABOVE seated Father's head!
   * CRITICAL ATTACHED MOMENT PHOTO / LOGO INTEGRATION RULE:
     Whenever a Moment has [Photo Attached], inspect the attached image for that moment and weave it MEANINGFULLY and PROMINENTLY into that specific moment's isolated vignette:
     - If the attached image is an app logo, brand emblem, or icon (for example, a black fountain-pen nib emblem containing a contemplative upward-tilted portrait face on a cream background) and the moment describes building or soft-launching an app, explicitly instruct "illustrationPrompt" to show Shridhar at his desk inside that moment's vignette holding a smartphone or laptop displaying that EXACT attached emblem/logo crisp and unmistakable on the screen.
@@ -3117,32 +3315,31 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
   // 1) All 4 family members (Father Shridhar, Mother Aruna, Elder Son Gahan, Younger Son Rishu) are ALWAYS present (Father is NEVER dropped!)
   // 2) Parents (Father Shridhar & Mother Aruna) stand together on the left half, and BOTH BROTHERS (Gahan & Rishu) stand DIRECTLY BESIDE EACH OTHER on the right half (never separated by Mother!)
   // 3) Both boys walk hands-free with arms relaxed at their sides (never holding hands like toddlers, which causes image models to shrink the younger boy!)
-  // 4) Gahan is 0.86x Father height (reaching Mother's ear/eye level) and Rishu is 0.80x Father height (nearly Gahan's height—only 3 inches shorter—so the top of Rishu's head rises ABOVE Gahan's shoulders to sit directly level with Gahan's NECK / CHIN!)
-  const canonicalFourFamilyWalkBlock = `ZOOMED-OUT 24MM WIDE-ANGLE ESTABLISHING SHOT (camera pulled back 18-20 feet so all 4 full-body people fit comfortably inside the center 65% of the vignette width with generous open walkway/foliage margins on the left, right, top, and bottom so NO person is ever clipped or dropped at the edge): Strictly 4 people total shown FULL-BODY FROM HEAD TO TOE with all 8 feet/shoes planted on the exact same level ground line, walking SIDE BY SIDE in a single horizontal row facing forward, with the 2 Parents together on the left side and the 2 Brothers standing directly beside each other on the right side: - 1st on far left: Father Shridhar (40yo mid-age bearded Indian man with a soft fuller round-oval face, full cheeks and natural under-chin fullness, ${fatherBuildPhrase}, wearing a casual polo shirt with no lanyard, chinos, and shoes, 1.0x reference height). - 2nd from left (walking beside Father): Mother Aruna (36yo Indian woman with a soft fuller round-oval maternal face, warm golden-brown skin, small black circular forehead bindi, subtle red kumkum at her hairline, and thick side-parted wavy black hair swept over her left shoulder, wearing a teal/sage cotton kurta and sandals, standing at Father chin/eye level, 0.92x Father height). - 3rd from left (walking beside Mother on the right half, hands-free with arms relaxed at his sides): Elder son Gahan (tall 11yo slim Indian pre-teen boy with a long oval face, wearing a solid dark navy-blue t-shirt, knee-length denim shorts, and sneakers; Gahan is nearly as tall as his mother—the top of Gahan head reaches right up to Mother Aruna ear/eye level and Father shoulder level, 0.86x Father height). - 4th on far right (walking DIRECTLY BESIDE GAHAN shoulder-to-shoulder on the far right, hands-free with arms relaxed at his sides, NEVER separated from Gahan and NEVER holding hands): Younger son Rishu (tall 7yo Indian schoolboy with a round cheerful face, wearing a solid mustard-yellow t-shirt, dark shorts, and sneakers; Rishu is nearly Gahan height—0.80x Father height, only 3 inches shorter than Gahan—so the TOP OF RISHU HEAD RISES WELL ABOVE GAHAN SHOULDERS to sit directly level with Gahan NECK / CHIN and Mother Aruna chin/neck level; strictly NEVER draw Rishu head below Gahan shoulders!).`;
+  // 4) Pairwise Heights from Actual Stature: Father (178cm / 5'10", 100%) -> Mother Aruna (162cm / 5'4", 91% of Father) -> Elder Son Gahan (142cm / 4'8", 88% of Mother's height & 80% of Father's height — clearly 8 inches / 20cm SHORTER than Mother so the top of Gahan's head is strictly BELOW Mother's chin at her collarbone/shoulder level, NEVER taller than Mother!) -> Younger Son Rishu (127cm / 4'2", 89% of Gahan's height — 6 inches shorter than Gahan so the top of Rishu's head rises above Gahan's shoulders to reach Gahan's chin/neck level!)
+  const canonicalFourFamilyWalkBlock = `ZOOMED-OUT 24MM WIDE-ANGLE ESTABLISHING SHOT (camera pulled back 18-20 feet so all 4 full-body people fit comfortably inside the center 65% of the vignette width with generous open walkway/foliage margins on the left, right, top, and bottom so NO person is ever clipped or dropped at the edge): Strictly 4 people total shown FULL-BODY FROM HEAD TO TOE with all 8 feet/shoes planted on the exact same level ground line, walking SIDE BY SIDE in a single horizontal row facing forward in strict descending height order, with the 2 Parents together on the left side and the 2 Brothers standing directly beside each other on the right side: - 1st on far left: Father Shridhar (40yo mid-age bearded Indian man with a soft fuller round-oval face, full cheeks and natural under-chin fullness, ${fatherBuildPhrase}, wearing a casual polo shirt with no lanyard, chinos, and shoes, 5ft 10in / 178cm, 100% reference height). - 2nd from left (walking beside Father): Mother Aruna (36yo Indian woman with a soft fuller round-oval maternal face, warm golden-brown skin, small black circular forehead bindi, subtle red kumkum at her hairline, and thick side-parted wavy black hair swept over her left shoulder, wearing a teal/sage cotton kurta and sandals, 5ft 4in / 162cm, 91% of Father's height — top of her head reaching Father's eye/brow level, and clearly 8 inches / 20cm TALLER than Elder Son Gahan). - 3rd from left (walking beside Mother on the right half, hands-free with arms relaxed at his sides): Elder son Gahan (11yo Indian pre-teen boy with a gentle oval face, wearing a solid dark navy-blue t-shirt, knee-length denim shorts, and sneakers; 4ft 8in / 142cm, 88% of Mother Aruna's height and 80% of Father's height — Gahan is clearly 8 inches / 20cm SHORTER than his Mother Aruna so the top of Gahan's head is strictly BELOW Mother's chin at her collarbone / upper-shoulder level; strictly NEVER draw Gahan as tall as or taller than Mother Aruna!). - 4th on far right (walking DIRECTLY BESIDE GAHAN shoulder-to-shoulder on the far right, hands-free with arms relaxed at his sides, NEVER separated from Gahan and NEVER holding hands): Younger son Rishu (7yo Indian schoolboy with a round cheerful face, wearing a solid mustard-yellow t-shirt, dark shorts, and sneakers; 4ft 2in / 127cm, 89% of Elder Brother Gahan's height and 78% of Mother's height — 6 inches / 15cm shorter than Gahan so the TOP OF RISHU'S HEAD RISES ABOVE GAHAN'S SHOULDERS to reach Gahan's CHIN / NECK level; strictly NEVER draw Rishu's head below Gahan's shoulders or equal height with Gahan!).`;
 
   enhancedPrompt = enhancedPrompt
     .replace(/Exactly 4 family members walk side-by-side[^.]*\./i, canonicalFourFamilyWalkBlock)
     .replace(/from left to right in a clear 4-step descending height staircase,[\s\S]*?dark shorts,\s*and\s*sneakers\)\./i, canonicalFourFamilyWalkBlock)
     .replace(/(?:Full-body\s+)?(?:twilight|evening|night|post-dinner)?\s*(?:stroll|walk)[^.]*?\b(?:Aruna|wife)\b[^.]*?\bGahan\b[^.]*?\bRishu\b[^.]*\./i, `Full-body evening stroll along a tree-lined neighborhood lane under warm streetlamps: ${canonicalFourFamilyWalkBlock}`)
-    .replace(/\b0\.68x(?:\s+(?:Father\s+)?height)?\b/gi, '0.80x Father height')
-    .replace(/\b0\.72x(?:\s+(?:Father\s+)?height)?\b/gi, '0.80x Father height')
-    .replace(/\b0\.78x(?:\s+(?:Father\s+)?height)?\b/gi, '0.80x Father height')
-    .replace(/\b0\.80x\s+height,\s*head\s+reaching\s+Mother(?:'s)?\s+chin\s+level/gi, '0.86x Father height, head reaching Mother\'s ear/eye level')
-    .replace(/\bvisibly\s+shorter\s+/gi, 'tall ')
-    .replace(/standing\s+a\s+full\s+head\s+shorter\s+than\s+(?:his\s+older\s+brother\s+|elder\s+brother\s+|tall\s+elder\s+brother\s+)?(?:Gahan\s*)?(?:so\s+(?:the\s+top\s+of\s+)?his\s+head\s+reaches\s+(?:only\s+)?(?:to\s+)?)?/gi, 'standing directly beside Gahan and nearly Gahan\'s height (only 3 inches shorter) so the top of his head rises ABOVE Gahan\'s shoulders to reach right up to ')
-    .replace(/reaches\s+only\s+(?:to\s+)?Gahan(?:'s)?\s+(?:collarbone|neck\/collarbone|shoulder)/gi, 'rises ABOVE Gahan\'s shoulders to sit directly level with Gahan\'s neck/chin and Mother\'s chin/neck level')
-    .replace(/Gahan(?:'s)?\s+(?:collarbone|neck\/collarbone)(?:\s+and\s+Mother(?:'s)?\s+mid-chest(?:\s+level)?)?/gi, 'Gahan\'s neck/chin level (above Gahan\'s shoulders) and Mother\'s chin/neck level');
+    .replace(/nearly as tall as (?:his )?Mother(?: Aruna)?[—,\s-]*(?:so )?(?:the )?(?:top of Gahan(?:'s)? head |head )?reach(?:ing|es)(?: right up to)? (?:his )?Mother(?: Aruna)?(?:'s)? ear\s*\/\s*eye level(?: and Father(?:'s)? shoulder(?: level)?)?/gi, '88% of Mother Aruna\'s height (8 inches / 20cm shorter than Mother so the top of Gahan\'s head is strictly BELOW Mother\'s chin at her collarbone/upper-shoulder level, strictly NEVER as tall as or taller than Mother)')
+    .replace(/top of (?:Gahan(?:'s)? )?head reach(?:ing|es)(?: right up to)? (?:his )?Mother(?: Aruna)?(?:'s)? ear\s*\/\s*eye level(?: and Father(?:'s)? shoulder(?: level)?)?/gi, 'top of Gahan\'s head is strictly BELOW Mother Aruna\'s chin at her collarbone/upper-shoulder level (88% of Mother\'s height, 8 inches shorter than Mother)')
+    .replace(/\b0\.8[56]x\s+Father\s+height/gi, '4ft 8in / 142cm (88% of Mother\'s height, 80% of Father\'s height)');
 
   // If Gahan and Rishu were written with shorthand (without canonical block), expand ONLY their first subject occurrence (non-global /i so "Gahan's neck" is never corrupted!)
   if (!enhancedPrompt.includes('walking DIRECTLY BESIDE GAHAN shoulder-to-shoulder')) {
     enhancedPrompt = enhancedPrompt
       .replace(
+        /\btwo\s+(?:young\s+)?(?:Indian\s+)?(?:siblings|children|kids)(?:\s+aged\s+\d+\s+and\s+\d+)?/gi,
+        'his two sons (BOTH MALE BOYS, strictly NO girl or sister): 11-year-old elder son Gahan (4ft 8in / 142cm, sturdy Indian pre-teen boy with a gentle oval face and short black hair, wearing a dark navy-blue t-shirt, knee-length denim shorts, and sneakers) and 7-year-old younger son Rishu (4ft 2in / 127cm, 89% of Elder Brother Gahan\'s height — 6 inches / 15cm shorter than Gahan so the top of Rishu\'s head rises above Gahan\'s shoulders to reach Gahan\'s chin/neck level, strictly NEVER equal height with Gahan; younger Indian schoolboy with a round cheerful face and short black hair, wearing a mustard-yellow t-shirt, dark shorts, and sneakers)'
+      )
+      .replace(
         /\b(?:tall\s+)?(?:11(?:\s*-?\s*year\s*-?\s*old|yo)\s+)?(?:pre-teen\s+)?(?:elder\s+|older\s+)?(?:son\s+|brother\s+|boy\s+)?Gahan(?:\s*\([^)]*\))?(?:\s+in\s+navy(?:-blue)?\s+t-shirt)?(?:\s+reaching\s+Mother(?:'s)?\s+(?:ear|chin)(?:\/chin|\/ear)?)?/i,
-        'Elder son Gahan (tall 11yo slim Indian pre-teen boy with a long oval face, wearing a solid dark navy-blue t-shirt, knee-length denim shorts, and sneakers; top of Gahan head reaches right up to Mother Aruna ear/eye level and Father shoulder level, 0.86x Father height)'
+        'Elder son Gahan (11yo Indian pre-teen boy with a gentle oval face, wearing a solid dark navy-blue t-shirt, knee-length denim shorts, and sneakers; 4ft 8in / 142cm, 88% of Mother Aruna\'s height and 80% of Father\'s height — clearly 8 inches / 20cm shorter than Mother Aruna so the top of Gahan\'s head is strictly BELOW Mother\'s chin at her collarbone / upper-shoulder level, strictly NEVER as tall as or taller than Mother!)'
       )
       .replace(
         /\b(?:tall\s+)?(?:7(?:\s*-?\s*year\s*-?\s*old|yo)\s+)?(?:younger\s+|little\s+)?(?:son\s+|brother\s+|schoolboy\s+|boy\s+)?Rishu(?:\s*\([^)]*\))?(?:\s+in\s+(?:mustard(?:-yellow)?|green)\s+t-shirt)?(?:\s+reaching\s+Gahan(?:'s)?\s+neck(?:\/chin)?)?/i,
-        'Younger son Rishu (standing directly beside Gahan shoulder-to-shoulder on the far right, hands-free; tall 7yo Indian schoolboy with a round cheerful face, wearing a solid mustard-yellow t-shirt, dark shorts, and sneakers; nearly Gahan height at 0.80x Father height—only 3 inches shorter than Gahan—so the TOP OF RISHU HEAD RISES WELL ABOVE GAHAN SHOULDERS to sit directly level with elder brother Gahan NECK / CHIN and Mother Aruna chin/neck level; strictly NEVER draw Rishu head below Gahan shoulders!)'
+        'Younger son Rishu (standing directly beside Gahan shoulder-to-shoulder on the far right, hands-free; 7yo Indian schoolboy with a round cheerful face, wearing a solid mustard-yellow t-shirt, dark shorts, and sneakers; 4ft 2in / 127cm, 89% of Elder Brother Gahan\'s height—6 inches / 15cm shorter than Gahan—so the TOP OF RISHU\'S HEAD RISES ABOVE GAHAN\'S SHOULDERS to sit directly level with elder brother Gahan\'s CHIN / NECK level; strictly NEVER draw Rishu\'s head below Gahan\'s shoulders or equal height with Gahan!)'
       );
   }
 
@@ -3154,19 +3351,10 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
   const isIndianFamilyCast = (!countryContext || /india/i.test(countryContext));
 
   if (hasFamilyContext && isIndianFamilyCast && !chronicleMode) {
-    const headcountAnchor = `GROUP PORTRAIT OF EXACTLY FOUR (4) DISTINCT INDIVIDUAL PEOPLE SHOWN FULL-BODY FROM HEAD TO TOE WITH ALL FEET AND SHOES PLANTED ON THE SAME LEVEL GROUND LINE, STANDING SIDE BY SIDE FROM LEFT TO RIGHT (3 MALES, 1 FEMALE — STRICTLY 4 PEOPLE TOTAL: 1 FATHER, 1 MOTHER, AND EXACTLY 2 SONS, NEVER 3 KIDS!): 1) On Far Left: Adult Father Shridhar (1.00x tallest adult, mid 40s) with soft fuller round-oval face, full cheeks and natural under-chin fullness, and ${fatherBuildPhrase} in trousers and shoes, 2) Second from Left: Adult Mother Aruna (0.92x second tallest adult, mid 30s) with warm golden-brown skin, soft fuller round-to-oval maternal face with warm full cheeks, small black circular bindi centered on forehead and subtle red kumkum at upper forehead hairline, side-parted thick voluminous wavy black hair swept forward over her left shoulder past her collarbone, and healthy medium-to-full South Indian adult build in kurta and sandals, 3) Third from Left: Tall 11yo Slim Pre-Teen Elder Son Gahan (0.86x Father height — nearly as tall as his Mother Aruna so the top of Gahan's head reaches Mother's ear/eye level and Father's shoulder) with a long oval face wearing a DARK NAVY-BLUE casual t-shirt, knee-length denim shorts, and sneakers, 4) On Far Right: 7yo Younger Son Rishu (0.80x Father height — tall enough that the TOP OF RISHU'S HEAD RISES ABOVE GAHAN'S SHOULDERS to reach right up to Gahan's NECK / CHIN level and Mother's chin/neck level — only 3 inches shorter than Gahan; strictly NEVER draw Rishu's head below Gahan's shoulders and strictly NEVER equal height with Gahan!) with round cheerful cheeks wearing a CONTRASTING MUSTARD-YELLOW OR BRIGHT EMERALD-GREEN t-shirt, dark shorts, and sneakers. `;
+    const headcountAnchor = `GROUP PORTRAIT OF EXACTLY FOUR (4) DISTINCT INDIVIDUAL PEOPLE SHOWN FULL-BODY FROM HEAD TO TOE WITH ALL FEET AND SHOES PLANTED ON THE SAME LEVEL GROUND LINE, STANDING SIDE BY SIDE FROM LEFT TO RIGHT IN STRICT DESCENDING HEIGHT ORDER (3 MALES, 1 FEMALE — STRICTLY 4 PEOPLE TOTAL: 1 FATHER, 1 MOTHER, AND EXACTLY 2 SONS, NEVER 3 KIDS!): 1) On Far Left: Adult Father Shridhar (5ft 10in / 178cm, 100% tallest adult, mid 40s) with soft fuller round-oval face, full cheeks and natural under-chin fullness, and ${fatherBuildPhrase} in trousers and shoes, 2) Second from Left: Adult Mother Aruna (5ft 4in / 162cm, 91% of Father's height — second tallest, mid 30s, clearly 8 inches / 20cm TALLER than Elder Son Gahan) with warm golden-brown skin, soft fuller round-to-oval maternal face with warm full cheeks, small black circular bindi centered on forehead and subtle red kumkum at upper forehead hairline, side-parted thick voluminous wavy black hair swept forward over her left shoulder past her collarbone, and healthy medium-to-full South Indian adult build in kurta and sandals, 3) Third from Left: 11yo Pre-Teen Elder Son Gahan (4ft 8in / 142cm, 88% of Mother Aruna's height and 80% of Father's height — clearly 8 inches / 20cm SHORTER than his Mother Aruna so the top of Gahan's head is strictly BELOW Mother's chin at her collarbone / upper-shoulder level; strictly NEVER draw Gahan as tall as or taller than Mother!) with a gentle oval face wearing a DARK NAVY-BLUE casual t-shirt, knee-length denim shorts, and sneakers, 4) On Far Right: 7yo Younger Son Rishu (4ft 2in / 127cm, 89% of Elder Brother Gahan's height and 78% of Mother's height — 6 inches / 15cm shorter than Gahan so the TOP OF RISHU'S HEAD RISES ABOVE GAHAN'S SHOULDERS to reach Gahan's CHIN / NECK level; strictly NEVER draw Rishu's head below Gahan's shoulders and strictly NEVER equal height with Gahan!) with round cheerful cheeks wearing a CONTRASTING MUSTARD-YELLOW OR BRIGHT EMERALD-GREEN t-shirt, dark shorts, and sneakers. `;
     if (!enhancedPrompt.includes('EXACTLY FOUR') && !enhancedPrompt.includes('STRICT COUNT = 4')) {
       enhancedPrompt = headcountAnchor + enhancedPrompt;
     }
-
-    // Rewrite confusing numeric foot/inch strings and chest-level compression so Gemini creates the accurate neck-level height difference between the 11yo and 7yo sons
-    enhancedPrompt = enhancedPrompt
-      .replace(/standing at 4ft 10in,\s*reaching to father chest level/gi, 'tall 11yo pre-teen elder son nearly as tall as his mother whose head reaches his mother\'s ear/eye level and father\'s shoulder (0.85x Father height), wearing a dark navy-blue t-shirt and denim shorts')
-      .replace(/reaching (?:only )?to father(?:'s)? chest level/gi, 'tall 11yo pre-teen elder son nearly as tall as his mother whose head reaches his mother\'s ear/eye level and father\'s shoulder (0.85x Father height), wearing a dark navy-blue t-shirt and denim shorts')
-      .replace(/standing at (?:4ft 2in|3ft 11in),\s*reaching only to his older brother(?:'s)? shoulder/gi, '7yo younger schoolboy whose head rises above Gahan\'s shoulders to reach right up to Gahan\'s neck/under-chin level and mother\'s chin/neck level (0.78x Father height, only half-a-head shorter than Gahan), wearing a mustard-yellow t-shirt and shorts')
-      .replace(/reaching only to (?:his )?older brother(?:'s)? (?:shoulder(?:\/upper chest)?|nec\b)/gi, 'whose head rises above Gahan\'s shoulders to reach right up to Gahan\'s neck/under-chin level and mother\'s chin/neck level (0.78x Father height, only half-a-head shorter than Gahan), wearing a mustard-yellow t-shirt and shorts')
-      .replace(/\b4ft\s*10in\b|\b147\s*cm\b/gi, 'tall 11yo pre-teen stature reaching mother\'s ear/eye level (0.85x Father height)')
-      .replace(/\b4ft\s*2in\b|\b3ft\s*11in\b|\b120\s*cm\b/gi, '7yo schoolboy stature whose head rises above elder brother\'s shoulders to reach elder brother\'s neck/under-chin level (0.78x Father height)');
 
     // Sanitize detached foreground hands, salon blowout hair, and remove skinny runway-model biases
     enhancedPrompt = enhancedPrompt
@@ -3187,12 +3375,24 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
 
   // Enforce Mother (Aruna) authentic physical anchor whenever she is present (including in Chronicle Mode vignettes!)
   if (isIndianFamilyCast && /\b(mother|wife|mom|aruna)\b/i.test(enhancedPrompt) && !enhancedPrompt.includes('small black circular bindi')) {
-    enhancedPrompt += '. Mother (Aruna) Identity Anchor: authentic South Indian woman in her mid-30s with warm golden-brown wheatish skin, soft fuller round-to-oval maternal face with warm full cheeks and soft rounded chin (strictly NOT a narrow or sharp-chinned face), small black circular bindi centered on her forehead and subtle red kumkum at the upper forehead hairline, gentle dark eyes without heavy makeup, side-parted thick voluminous wavy black hair swept forward over her left shoulder past her collarbone, and a healthy natural medium-to-full adult build with soft shoulders.';
+    enhancedPrompt += '. Mother (Aruna) Identity Anchor: authentic South Indian woman in her mid-30s (5ft 4in / 162cm, 91% of Father\'s height, clearly 8 inches / 20cm taller than 11yo Elder Son Gahan) with warm golden-brown wheatish skin, soft fuller round-to-oval maternal face with warm full cheeks and soft rounded chin (strictly NOT a narrow or sharp-chinned face), small black circular bindi centered on her forehead and subtle red kumkum at the upper forehead hairline, gentle dark eyes without heavy makeup, side-parted thick voluminous wavy black hair swept forward over her left shoulder past her collarbone, and a healthy natural medium-to-full adult build with soft shoulders.';
   }
 
-  // Enforce Elder & Younger Brother (Gahan & Rishu) strict 2-boy count & unmistakable neck-level height alignment across ALL situations!
-  if (isIndianFamilyCast && hasTwoSons && !enhancedPrompt.includes('STRICT 2-BOY HEADCOUNT & NECK-HEIGHT LOCK')) {
-    enhancedPrompt += '. STRICT 2-BOY HEADCOUNT, ZOOMED-OUT WIDE-ANGLE FRAMING & NECK-HEIGHT LOCK: For the family group scene, pull the camera back into a ZOOMED-OUT 24MM WIDE-ANGLE ESTABLISHING SHOT (18-20 feet away) with generous open walkway/park margins on the left, right, top, and bottom so all 4 full-body people fit effortlessly inside the center 65% of the vignette without anyone being clipped or dropped at the edge. Draw EXACTLY 4 FAMILY MEMBERS TOTAL (1 Adult Father Shridhar, 1 Adult Mother Aruna, and EXACTLY 2 SONS — 1 boy in dark navy-blue t-shirt and denim shorts, and 1 boy in mustard-yellow t-shirt and dark shorts; STRICTLY NEVER DRAW 3 CHILDREN OR DROP FATHER!). Arrange all 4 family members walking/standing SIDE BY SIDE in a single horizontal row on the same level ground line from left to right, with the 2 Parents together on the left side and the 2 Brothers standing DIRECTLY BESIDE EACH OTHER shoulder-to-shoulder on the right side (never place Mother between the two boys, and never have the boys holding hands!): (1st on far left - 1.0x reference height) Father Shridhar; (2nd from left beside Father - 0.92x Father height) Mother Aruna standing at Father\'s chin/eye level; (3rd from left beside Mother - 0.86x Father height) Elder Son Gahan (tall 11yo slim Indian pre-teen boy with a long oval face in a dark navy-blue t-shirt and denim shorts, hands-free) whose head reaches right up to Mother Aruna\'s ear/eye level and Father\'s shoulder; (4th on far right standing DIRECTLY BESIDE GAHAN shoulder-to-shoulder - 0.80x Father height) Younger Son Rishu (tall 7yo Indian schoolboy with a round cheerful face in a bright mustard-yellow t-shirt and dark shorts, hands-free) who is nearly Gahan\'s height (only 3 inches shorter than Gahan) so the TOP OF RISHU\'S HEAD RISES WELL ABOVE GAHAN\'S SHOULDERS to sit directly level with GAHAN\'S NECK / CHIN and Mother Aruna\'s chin/neck level (strictly NEVER draw Rishu\'s head below Gahan\'s shoulders!).';
+  // Enforce Elder & Younger Brother (Gahan & Rishu) strict 2-boy count & pairwise height alignment across ALL situations!
+  if (isIndianFamilyCast && hasTwoSons && !enhancedPrompt.includes('STRICT 2-BOY HEADCOUNT')) {
+    if (hasExplicitFamilyGroup || /\b(mother|wife|aruna)\b/i.test(enhancedPrompt)) {
+      enhancedPrompt += '. STRICT 2-BOY HEADCOUNT, ZOOMED-OUT WIDE-ANGLE FRAMING & PAIRWISE HEIGHT LOCK: For the family group scene, pull the camera back into a ZOOMED-OUT 24MM WIDE-ANGLE ESTABLISHING SHOT (18-20 feet away) with generous open walkway/park margins on the left, right, top, and bottom so all 4 full-body people fit effortlessly inside the center 65% of the vignette without anyone being clipped or dropped at the edge. Draw EXACTLY 4 FAMILY MEMBERS TOTAL (1 Adult Father Shridhar, 1 Adult Mother Aruna, and EXACTLY 2 SONS — 1 boy in dark navy-blue t-shirt and denim shorts, and 1 boy in mustard-yellow t-shirt and dark shorts; STRICTLY NEVER DRAW 3 CHILDREN OR DROP FATHER!). Arrange all 4 family members walking/standing SIDE BY SIDE in a single horizontal row on the same level ground line from left to right in strict descending height order, with the 2 Parents together on the left side and the 2 Brothers standing DIRECTLY BESIDE EACH OTHER shoulder-to-shoulder on the right side (never place Mother between the two boys, and never have the boys holding hands!): (1st on far left - 5ft 10in / 178cm, 100% reference height) Father Shridhar; (2nd from left beside Father - 5ft 4in / 162cm, 91% of Father\'s height) Mother Aruna standing at Father\'s eye/brow level; (3rd from left beside Mother - 4ft 8in / 142cm, 88% of Mother\'s height and 80% of Father\'s height) Elder Son Gahan (11yo Indian pre-teen boy with a gentle oval face in a dark navy-blue t-shirt and denim shorts, hands-free) who is clearly 8 inches / 20cm SHORTER than Mother Aruna so the top of Gahan\'s head is strictly BELOW Mother\'s chin at her collarbone / upper-shoulder level (STRICTLY NEVER draw Gahan as tall as or taller than Mother Aruna!); (4th on far right standing DIRECTLY BESIDE GAHAN shoulder-to-shoulder - 4ft 2in / 127cm, 89% of Gahan\'s height) Younger Son Rishu (7yo Indian schoolboy with a round cheerful face in a bright mustard-yellow t-shirt and dark shorts, hands-free) who is 6 inches / 15cm shorter than Gahan so the TOP OF RISHU\'S HEAD RISES ABOVE GAHAN\'S SHOULDERS to sit directly level with GAHAN\'S CHIN / NECK level (strictly NEVER draw Rishu\'s head below Gahan\'s shoulders or equal height with Gahan!).';
+    } else {
+      enhancedPrompt += '. STRICT 2-BOY HEADCOUNT, GENDER LOCK (BOTH BOYS, ZERO GIRLS) & PAIRWISE HEIGHT LOCK: The two children in the scene are STRICTLY 2 MALE BROTHERS (11-year-old Elder Son Gahan and 7-year-old Younger Son Rishu — STRICTLY BOTH BOYS, ZERO GIRLS, NO SISTER, NO FEMALE CHILD!): (1) Elder Son Gahan is an 11yo Indian pre-teen BOY (4ft 8in / 142cm tall, gentle oval face, thick short black hair, sturdy pre-teen build, wearing a solid dark navy-blue casual t-shirt and knee-length denim shorts), and (2) Younger Son Rishu is a 7yo Indian schoolboy (4ft 2in / 127cm tall — 89% of Elder Brother Gahan\'s height, noticeably 6 inches / 15cm shorter than Gahan so the TOP OF RISHU\'S HEAD RISES ABOVE GAHAN\'S SHOULDERS to reach GAHAN\'S CHIN / NECK level, strictly NEVER equal height with Gahan!, round cheerful face, neat short black hair, wearing a bright mustard-yellow t-shirt and dark shorts).';
+    }
+  }
+
+  // If 2+ activeCast members are present (even when Father is NOT in the picture, e.g. Mother + Elder Son, or Elder Son + Younger Son), enforce exact pairwise stature relative to the tallest member in the scene!
+  if (activeCastList.length >= 2) {
+    const pairwiseSceneLock = buildDynamicPairwiseStatureDirective(activeCastList, activeCastList);
+    if (pairwiseSceneLock && !enhancedPrompt.includes('SCENE-RELATIVE & PAIRWISE ACTUAL HEIGHT CALCULATOR')) {
+      enhancedPrompt += `. ${pairwiseSceneLock.blockText.replace(/\n+/g, ' ')}`;
+    }
   }
 
   // Enforce Solo / Active Cast Father (Shridhar, Age 40 Mid-Age) & Prevent Elderly Hallucinations
@@ -3214,7 +3414,7 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
     }
   }
 
-  // DYNAMIC POSTURE-ADJUSTED RELATIVE STATURE MATRIX (Action Multiplier x Base Height Ratio):
+  // DYNAMIC POSTURE-ADJUSTED RELATIVE STATURE MATRIX (Action Multiplier x Actual Height):
   // Standing = 1.00x | Leaning = 0.88x | Sitting on chair/sofa/bench = 0.72x (-28% height) | Kneeling/Crouching = 0.64x (-36%) | Sitting on floor = 0.52x (-48%)
   const postureAdjustments = [];
   const fatherIsSitting = /\b(?:father|dad|shridhar)\b[^.;]{0,55}\b(?:sit|sits|sitting|seated|armchair|chair|sofa|couch|bench|desk)\b|\b(?:sit|sits|sitting|seated)\b[^.;]{0,55}\b(?:father|dad|shridhar)\b/i.test(enhancedPrompt);
@@ -3227,20 +3427,25 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
   const fatherIsStanding = /\b(?:father|dad|shridhar)\b[^.;]{0,55}\b(?:stand|stands|standing|walking)\b/i.test(enhancedPrompt) && !fatherIsSitting;
 
   if (fatherIsSitting && gahanIsStanding) {
-    // Father (1.00 * 0.72 = 0.72 effective height) vs Standing Gahan (0.86 * 1.00 = 0.86 effective height) -> Gahan is +19% taller than seated Father!
-    postureAdjustments.push('POSTURE-ADJUSTED HEIGHT OVERRIDE (SEATED FATHER vs STANDING ELDER SON): Because Father Shridhar is SEATED in a chair/sofa (effective vertical height drops 28% to 0.72x) while 11yo Elder Son Gahan is STANDING upright beside him (0.86x effective height), standing Gahan\'s head MUST rise ~19% (about one full head) ABOVE seated Father\'s head!');
+    // Father (178cm * 0.72 = 128cm effective height) vs Standing Gahan (142cm * 1.00 = 142cm effective height) -> Gahan is +11% taller than seated Father!
+    postureAdjustments.push('POSTURE-ADJUSTED HEIGHT OVERRIDE (SEATED FATHER vs STANDING ELDER SON): Because Father Shridhar is SEATED in a chair/sofa (effective vertical height drops 28% from 178cm to ~128cm) while 11yo Elder Son Gahan is STANDING upright beside him (142cm effective height), standing Gahan\'s head rises ~11% (half-a-head) ABOVE seated Father\'s head!');
   }
   if (fatherIsSitting && rishuIsStanding) {
-    // Father (1.00 * 0.72 = 0.72 effective height) vs Standing Rishu (0.80 * 1.00 = 0.80 effective height) -> Rishu is +11% taller than seated Father!
-    postureAdjustments.push('POSTURE-ADJUSTED HEIGHT OVERRIDE (SEATED FATHER vs STANDING YOUNGER SON): Because Father Shridhar is SEATED (0.72x effective height) while 7yo Younger Son Rishu is STANDING upright beside him (0.80x effective height), standing Rishu\'s head rises ~11% (slightly) ABOVE seated Father\'s head!');
+    // Father (178cm * 0.72 = 128cm effective height) vs Standing Rishu (127cm * 1.00 = 127cm effective height) -> Rishu's head is right at seated Father's head level!
+    postureAdjustments.push('POSTURE-ADJUSTED HEIGHT OVERRIDE (SEATED FATHER vs STANDING YOUNGER SON): Because Father Shridhar is SEATED (~128cm effective height) while 7yo Younger Son Rishu is STANDING upright beside him (127cm effective height), standing Rishu\'s head is right at seated Father\'s eye/head level!');
+  }
+  const fatherIsKneeling = /\b(?:father|dad|shridhar)\b[^.;]{0,55}\b(?:kneel|kneels|kneeling|crouch|crouches|crouching|squat|squatting)\b|\b(?:kneel|kneels|kneeling|crouch|crouches|crouching)\b[^.;]{0,55}\b(?:father|dad|shridhar)\b/i.test(enhancedPrompt);
+  if (fatherIsKneeling && (gahanIsStanding || hasTwoSons)) {
+    // Kneeling Father (178cm * 0.64 = 114cm effective height) vs Standing Gahan (142cm) & Standing Rishu (127cm)
+    postureAdjustments.push('POSTURE-ADJUSTED HEIGHT OVERRIDE (KNEELING FATHER vs STANDING TWO SONS): While Father Shridhar kneels/crouches down (~114cm effective kneeling height) between his standing sons, keep the 6-inch / 15cm height gap between the two standing boys unmistakable: 11yo Elder Son Gahan (4ft 8in / 142cm, in dark navy-blue t-shirt & denim shorts) stands clearly taller than 7yo Younger Son Rishu (4ft 2in / 127cm, in mustard-yellow t-shirt & dark shorts, whose head reaches Gahan\'s chin/neck level).');
   }
   if (motherIsSitting && gahanIsStanding) {
-    // Mother (0.92 * 0.72 = 0.66 effective height) vs Standing Gahan (0.86 * 1.00 = 0.86 effective height) -> Gahan is +30% taller than seated Mother!
-    postureAdjustments.push('POSTURE-ADJUSTED HEIGHT OVERRIDE (SEATED MOTHER vs STANDING ELDER SON): Because Mother Aruna is SEATED (0.66x effective height) while 11yo Elder Son Gahan is STANDING beside her (0.86x effective height), standing Gahan\'s head rises ~30% (well over a full head) ABOVE seated Mother\'s head!');
+    // Mother (162cm * 0.72 = 117cm effective height) vs Standing Gahan (142cm * 1.00 = 142cm effective height) -> Gahan is +21% taller than seated Mother!
+    postureAdjustments.push('POSTURE-ADJUSTED HEIGHT OVERRIDE (SEATED MOTHER vs STANDING ELDER SON): Because Mother Aruna is SEATED (~117cm effective height) while 11yo Elder Son Gahan is STANDING beside her (142cm effective height), standing Gahan\'s head rises ~21% (about one head) ABOVE seated Mother\'s head!');
   }
   if (gahanIsSitting && fatherIsStanding) {
-    // Seated Gahan (0.86 * 0.72 = 0.62 effective height) vs Standing Father (1.00x)
-    postureAdjustments.push('POSTURE-ADJUSTED HEIGHT OVERRIDE (STANDING FATHER vs SEATED SON): Because Elder Son Gahan is SEATED (0.62x effective height) while Father Shridhar is STANDING upright (1.00x height), seated Gahan\'s head reaches standing Father\'s mid-chest/elbow level.');
+    // Seated Gahan (142cm * 0.72 = 102cm effective height) vs Standing Father (178cm)
+    postureAdjustments.push('POSTURE-ADJUSTED HEIGHT OVERRIDE (STANDING FATHER vs SEATED SON): Because Elder Son Gahan is SEATED (~102cm effective height) while Father Shridhar is STANDING upright (178cm height), seated Gahan\'s head reaches standing Father\'s lower-chest/elbow level.');
   }
   if (postureAdjustments.length > 0) {
     enhancedPrompt += '. ' + postureAdjustments.join(' ');
@@ -3299,7 +3504,7 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
     const vigCountLabel = effectiveChronicleVignetteCount === 2
       ? 'EXACTLY 2 separate, self-contained vertically stacked moment visuals (1 Upper Centered Vignette + 1 Lower Centered Larger Highlight Vignette — STRICTLY ONLY 2 VIGNETTES ON THE PAGE, NEVER DRAW 3 VIGNETTES!)'
       : `EXACTLY ${effectiveChronicleVignetteCount} separate, self-contained moment visuals`;
-    enhancedPrompt += `. MANDATORY CLOUDY-SHADED WATERCOLOR VIGNETTE STYLE WITH DYNAMIC MOMENT-MATCHED HALOS & SITUATIONAL ATTIRE: Render in warm editorial watercolor and gouache on warm textured vintage cream-buff parchment paper (#EDE3D0) with visible organic paper grain. Present ${vigCountLabel} where each moment is surrounded by a soft, blurry, feathered dry-brush cloud gradient halo in a subtle, muted watercolor tint tailored to that moment's mood and setting (such as warm ochre/amber, muted sage/olive, gentle dusty slate-blue, soft rose-sienna, or sandalwood, kept understated so it never overpowers the moment's subjects) whose outer edges smoothly fade to zero opacity into the warm parchment paper. Dress the self/protagonist in distinct, situation-appropriate attire for each individual moment (never blindly copying one moment's outfit to another moment). STRICT BAN on crisp vignette borders, hard water-stain puddle perimeter rings, straight vertical/rectangular frame edges, stark white paper, or merged full-bleed scenes.`;
+    enhancedPrompt += `. MANDATORY CLOUDY-SHADED WATERCOLOR VIGNETTE STYLE WITH WIDE SAFE PARCHMENT MARGINS & DYNAMIC MOMENT-MATCHED HALOS: Render in 3:4 vertical portrait format in warm editorial watercolor and gouache on warm textured vintage cream-buff parchment paper (#EDE3D0) with visible organic paper grain. Keep all vignettes inside the central 82% horizontal safe zone with a generous 9%–10% clear unpainted warm cream-buff parchment paper margin along the left edge, right edge, top edge, and bottom edge so NO subject, arm, shoulder, furniture, or watercolor halo is ever clipped at the left or right borders. Present ${vigCountLabel} where each moment is surrounded by a soft, blurry, feathered dry-brush cloud gradient halo in a subtle, muted watercolor tint tailored to that moment's mood and setting (such as warm ochre/amber, muted sage/olive, gentle dusty slate-blue, soft rose-sienna, or sandalwood, kept understated so it never overpowers the moment's subjects) whose outer edges smoothly fade to zero opacity into the warm parchment paper. Dress the self/protagonist in distinct, situation-appropriate attire for each individual moment (never blindly copying one moment's outfit to another moment). STRICT BAN on crisp vignette borders, hard water-stain puddle perimeter rings, straight vertical/rectangular frame edges, stark white paper, or merged full-bleed scenes.`;
   } else if (/\b(watercolor|water colour|ink-wash|ink wash)\b/i.test(enhancedPrompt)) {
     enhancedPrompt += '. MANDATORY HAND-PAINTED WATERCOLOR & INK-WASH STYLE: Render as a luminous hand-painted loose watercolor and fine fountain-pen ink-wash editorial illustration on textured warm cream cold-press watercolor paper (#F5EFE2) with soft feathered unpainted cream paper vignette margins, translucent wet-on-wet watercolor pigment blooms, and delicate ink contour linework.';
   }
@@ -3578,6 +3783,33 @@ async function scrapeYouTubeUrl(targetUrl, videoId) {
 }
 
 function getDefaultCuratorStyle(userIdentifier) {
+  if (!isShridharOwnerAccount(userIdentifier)) {
+    const cleanId = String(userIdentifier || '').trim();
+    const displayName = cleanId.includes('@') ? cleanId.split('@')[0] : (cleanId || 'Curator');
+    return {
+      handle: `@${displayName}`,
+      name: displayName,
+      updatedAt: new Date().toISOString(),
+      style_dna: {
+        structure: {
+          name: 'Observational Contrast & Grounded Resolution',
+          description: 'Opens with an honest, real-world observation from daily life or building experience, contrasts it with human reality or institutional friction, and concludes with a pragmatic, solution-first takeaway.',
+          pattern: 'Real-World Observation -> Human Reality Contrast -> Pragmatic Takeaway'
+        },
+        vocabulary: {
+          level: 'Everyday Plainspoken English (5th to 8th Grade)',
+          description: 'Crisp, accessible conversational words. Zero academic, think-tank, or corporate buzzwords. Concrete real-world nouns and grounded phrasing.',
+          favorite_idioms: []
+        },
+        tone: {
+          stance: 'Pragmatic, Observant & Solution-Oriented',
+          description: 'Calm, constructive, and grounded. Balances healthy skepticism of hype with optimistic, hands-on building.',
+          voice_adjectives: ['Thoughtful', 'Constructive', 'Unpretentious', 'Grounded', 'Human-Centered']
+        }
+      },
+      weekly_observations: []
+    };
+  }
   return {
     handle: '@Shridhar Reddy',
     name: 'Shridhar Reddy',
@@ -3625,7 +3857,137 @@ function getDefaultCuratorStyle(userIdentifier) {
   };
 }
 
+function getDefaultHeightCmForMember(m) {
+  if (!m) return 165;
+  if (m.id === 'member_father' || m.relationship === 'self') return 178; // 5'10"
+  if (m.id === 'member_mother' || m.relationship === 'spouse') return 162; // 5'4"
+  if (m.id === 'member_elder_son' || m.relationship === 'elder_son') return 142; // 4'8" (clearly shorter than Mother 5'4")
+  if (m.id === 'member_younger_son' || m.relationship === 'younger_son') return 127; // 4'2"
+  const age = Number(m.age);
+  if (Number.isFinite(age) && age > 0) {
+    if (age <= 8) return 127;
+    if (age <= 12) return 142;
+    if (age <= 15) return 155;
+  }
+  return 165;
+}
+
+function resolveMemberHeightCm(m) {
+  if (!m) return 165;
+  const directCm = Number(m.heightCm || (m.structuredTraits && m.structuredTraits.heightCm));
+  if (Number.isFinite(directCm) && directCm >= 60 && directCm <= 230) {
+    return Math.round(directCm);
+  }
+  const desc = String(m.heightDesc || '');
+  const cmMatch = desc.match(/(\d{2,3})\s*cm\b/i);
+  if (cmMatch) {
+    const parsedCm = parseInt(cmMatch[1], 10);
+    if (parsedCm >= 60 && parsedCm <= 230) return parsedCm;
+  }
+  const ftInMatch = desc.match(/(\d)\s*(?:ft|')\s*(\d{1,2})\s*(?:in|")?/i);
+  if (ftInMatch) {
+    const ft = parseInt(ftInMatch[1], 10);
+    const inch = parseInt(ftInMatch[2], 10);
+    const computed = Math.round(((ft * 12) + inch) * 2.54);
+    if (computed >= 60 && computed <= 230) return computed;
+  }
+  return getDefaultHeightCmForMember(m);
+}
+
+function cmToFeetInches(cm) {
+  const safeCm = Math.max(60, Math.min(230, Math.round(Number(cm) || 165)));
+  const totalInches = Math.round(safeCm / 2.54);
+  const feet = Math.floor(totalInches / 12);
+  const inches = totalInches % 12;
+  return {
+    cm: safeCm,
+    feet,
+    inches,
+    label: `${feet}ft ${inches}in (${safeCm}cm)`,
+    shortLabel: `${feet}'${inches}" (${safeCm}cm)`
+  };
+}
+
+function describeAnatomicalHeadLandmarkAgainstTaller(shorterCm, tallerCm, tallerLabel) {
+  const ratio = shorterCm / Math.max(1, tallerCm);
+  const pct = Math.round(ratio * 100);
+  const diffCm = Math.max(0, Math.round(tallerCm - shorterCm));
+  const diffIn = Math.max(0, Math.round(diffCm / 2.54));
+  if (diffCm <= 3 || ratio >= 0.98) {
+    return `${pct}% of ${tallerLabel}'s height (nearly equal height, within ${diffIn}in / ${diffCm}cm)`;
+  }
+  if (ratio >= 0.90) {
+    return `${pct}% of ${tallerLabel}'s height (-${diffIn}in / -${diffCm}cm shorter; top of head reaches ${tallerLabel}'s eye / brow level)`;
+  }
+  if (ratio >= 0.885 && tallerCm <= 150) {
+    return `${pct}% of ${tallerLabel}'s height (-${diffIn}in / -${diffCm}cm shorter; top of head rises above ${tallerLabel}'s shoulders to reach ${tallerLabel}'s chin / neck level)`;
+  }
+  if (ratio >= 0.84) {
+    return `${pct}% of ${tallerLabel}'s height (-${diffIn}in / -${diffCm}cm shorter; top of head is strictly BELOW ${tallerLabel}'s chin at ${tallerLabel}'s collarbone / upper-shoulder level — a full head shorter than ${tallerLabel}, strictly NEVER reaching ${tallerLabel}'s ear/eye level and NEVER taller than ${tallerLabel}!)`;
+  }
+  if (ratio >= 0.76) {
+    return `${pct}% of ${tallerLabel}'s height (-${diffIn}in / -${diffCm}cm shorter; top of head reaches ${tallerLabel}'s upper-chest / sternum level, below ${tallerLabel}'s shoulders)`;
+  }
+  return `${pct}% of ${tallerLabel}'s height (-${diffIn}in / -${diffCm}cm shorter; top of head reaches ${tallerLabel}'s mid-chest / ribcage level)`;
+}
+
+function buildDynamicPairwiseStatureDirective(activeMembers = [], allVaultMembers = []) {
+  if (!Array.isArray(activeMembers) || activeMembers.length < 2) return null;
+  const sorted = activeMembers
+    .slice()
+    .sort((a, b) => resolveMemberHeightCm(b) - resolveMemberHeightCm(a));
+  const tallest = sorted[0];
+  const tallestCm = resolveMemberHeightCm(tallest);
+  const tallestInfo = cmToFeetInches(tallestCm);
+  const tallestName = tallest.name || tallest.roleLabel || 'Tallest Member';
+
+  const ladderLines = [];
+  const snippetParts = [];
+
+  sorted.forEach((m, idx) => {
+    const mCm = resolveMemberHeightCm(m);
+    const mInfo = cmToFeetInches(mCm);
+    const mName = m.name || m.roleLabel || `Person #${idx + 1}`;
+    if (idx === 0) {
+      ladderLines.push(`  1. TALLEST IN SCENE (100% Scene Height Baseline / 1.00x): ${mName} (${m.roleLabel || m.relationship}, age ${m.age || 'N/A'}) — actual height ${mInfo.label}. Must be drawn visibly tallest among all present family members.`);
+      snippetParts.push(`${mName} (${mInfo.shortLabel}, 100% tallest in scene)`);
+    } else {
+      const prevTaller = sorted[idx - 1];
+      const prevCm = resolveMemberHeightCm(prevTaller);
+      const prevName = prevTaller.name || prevTaller.roleLabel || 'taller member';
+      const vsImmediateTaller = describeAnatomicalHeadLandmarkAgainstTaller(mCm, prevCm, prevName);
+      const vsSceneTallest = (prevTaller.id !== tallest.id)
+        ? ` | against scene tallest ${tallestName}: ${describeAnatomicalHeadLandmarkAgainstTaller(mCm, tallestCm, tallestName)}`
+        : '';
+      ladderLines.push(`  ${idx + 1}. ${mName} (${m.roleLabel || m.relationship}, age ${m.age || 'N/A'}) — actual height ${mInfo.label}: ${vsImmediateTaller}${vsSceneTallest}. STRICTLY NEVER draw ${mName} as tall as or taller than ${prevName}!`);
+      snippetParts.push(`${mName} (${mInfo.shortLabel}, ${vsImmediateTaller})`);
+    }
+  });
+
+  const blockText = `SCENE-RELATIVE & PAIRWISE ACTUAL HEIGHT CALCULATOR (WORKS EVEN WHEN TALLEST FAMILY MEMBER IS NOT IN SCENE):
+- The present cast members are ordered from tallest to shortest by their actual heights. Use ${tallestName} (${tallestInfo.label}) as the 100% Scene Height Reference (1.00x of scene) and lock each shorter member's head height to the exact pairwise percentage and anatomical landmark below:
+${ladderLines.join('\n')}`;
+
+  return {
+    blockText,
+    snippetText: `strict pairwise height hierarchy from tallest to shortest: ${snippetParts.join(' -> ')}`
+  };
+}
+
 function getDefaultFamilyCast(userIdentifier) {
+  if (!isShridharOwnerAccount(userIdentifier)) {
+    return {
+      userIdentifier: userIdentifier || '',
+      updatedAt: new Date().toISOString(),
+      members: [],
+      collectiveAliases: ['family', 'my family', 'kids', 'my kids', 'children'],
+      preferences: {
+        strictAgeGapEnforcement: true,
+        indiaRightHandDrive: true,
+        preferScenicOverlookWhenCrowded: true
+      }
+    };
+  }
   return {
     userIdentifier: userIdentifier || '@Shridhar Reddy',
     updatedAt: new Date().toISOString(),
@@ -3638,11 +4000,13 @@ function getDefaultFamilyCast(userIdentifier) {
         aliases: ['dad', 'father', 'shridhar', 'myself', 'me', 'i', 'husband'],
         age: 40,
         ageBracket: 'Mid-Age Adult (Age 40, Early 40s)',
-        heightDesc: '5ft 10in (178cm), 1.00x baseline adult stature, natural medium-full build with subtle 10% waist softness flush with chest',
+        heightCm: 178,
+        heightDesc: '5ft 10in (178cm) • 100% family baseline (110% of Mother Aruna, +6in taller), natural medium-full build with subtle 10% waist softness flush with chest',
         structuredTraits: {
           bodyVolume: 'broad_full',
           tummyProfile: 'subtle_10',
           faceFullness: 'round_full_submental',
+          heightCm: 178,
           baseHeightRatio: 1.00,
           hairStyle: 'short_brushed_up',
           facialHair: 'light_stubble',
@@ -3662,18 +4026,20 @@ function getDefaultFamilyCast(userIdentifier) {
         aliases: ['wife', 'mother', 'mom', 'aru', 'aruna'],
         age: 36,
         ageBracket: 'Adult (Mid 30s)',
-        heightDesc: '5ft 4in (162cm), 0.92x Father height (reaching Father\'s forehead/brow)',
+        heightCm: 162,
+        heightDesc: '5ft 4in (162cm) • 91% of Father Shridhar (-6in / -16cm, reaching Father\'s eye/brow level) • +8in (20cm) taller than Elder Son Gahan',
         structuredTraits: {
           bodyVolume: 'medium',
           tummyProfile: 'slight_tummy',
           faceFullness: 'soft_full_cheeks',
-          baseHeightRatio: 0.92,
+          heightCm: 162,
+          baseHeightRatio: 0.91,
           hairStyle: 'long_shoulder_swept',
           facialHair: 'none',
           landmarks: ['forehead_bindi', 'hairline_kumkum', 'stud_earrings']
         },
-        uncompromisableAnchors: 'Warm golden-brown wheatish skin, soft fuller round-to-oval maternal face with warm full cheeks and soft rounded chin, gentle dark almond eyes without heavy makeup, small black circular bindi centered on forehead and subtle red kumkum at the upper forehead hairline, side-parted thick voluminous wavy black hair swept forward over her left shoulder past her collarbone, small gold stud earrings, and an authentic, healthy medium-to-full South Indian adult build with natural soft shoulders.',
-        visualTraits: 'Warm golden-brown skin, soft fuller round-to-oval maternal face with full cheeks, small black forehead bindi and subtle red kumkum at hairline, gentle dark eyes, side-parted long voluminous wavy black hair cascading over one shoulder, and an authentic, healthy medium adult build.',
+        uncompromisableAnchors: 'Warm golden-brown wheatish skin, soft fuller round-to-oval maternal face with warm full cheeks and soft rounded chin, gentle dark almond eyes without heavy makeup, small black circular bindi centered on forehead and subtle red kumkum at the upper forehead hairline, side-parted thick voluminous wavy black hair swept forward over her left shoulder past her collarbone, small gold stud earrings, and an authentic, healthy medium-to-full South Indian adult build with natural soft shoulders (5ft 4in / 162cm, 91% of Father\'s height, clearly 8 inches / 20cm taller than 11yo Elder Son Gahan).',
+        visualTraits: 'Warm golden-brown skin, soft fuller round-to-oval maternal face with full cheeks, small black forehead bindi and subtle red kumkum at hairline, gentle dark eyes, side-parted long voluminous wavy black hair cascading over one shoulder, and an authentic, healthy medium adult build (5ft 4in / 162cm, 8 inches taller than Elder Son Gahan).',
         vehicleRole: 'passenger_front_left',
         defaultClothing: 'Vibrant comfortable travel attire',
         stylizedAvatarUrl: 'https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/avatar_member_mother.jpg'
@@ -3686,18 +4052,20 @@ function getDefaultFamilyCast(userIdentifier) {
         aliases: ['gahan', 'elder son', 'older son', 'older boy', 'elder brother', 'big brother', 'first son', '11-year-old', '11yo'],
         age: 11,
         ageBracket: 'Pre-teen / Adolescent (11 Years Old)',
-        heightDesc: 'Tall 11yo pre-teen stature (0.86x Father height): Head reaches up to Mother\'s ear/eye and Father\'s shoulder, slightly taller than younger brother whose head reaches Gahan\'s neck',
+        heightCm: 142,
+        heightDesc: '4ft 8in (142cm) • 88% of Mother Aruna (-8in / -20cm shorter; head strictly below Mother\'s chin at her collarbone/shoulder level) • 80% of Father Shridhar (-14in) • +6in taller than Rishu',
         structuredTraits: {
           bodyVolume: 'medium',
           tummyProfile: 'flat',
           faceFullness: 'oval_balanced',
-          baseHeightRatio: 0.86,
+          heightCm: 142,
+          baseHeightRatio: 0.80,
           hairStyle: 'short_side_part',
           facialHair: 'none',
           landmarks: []
         },
-        uncompromisableAnchors: 'Warm brown-skinned 11-year-old tall pre-teen Indian boy with a gentle round-oval face, full cheeks, dark expressive eyes, thick short textured black hair with a slight side part, square shoulders, and a sturdy solid pre-teen frame (strictly not skinny or frail), whose head reaches up to his mother\'s ear/eye level (0.86x Father height).',
-        visualTraits: 'Healthy 11-year-old pre-teen boy with a gentle round-oval face, dark expressive eyes, thick short textured black hair, and a sturdy, solid frame with natural square shoulders, reaching up to his mother\'s ear/eye level.',
+        uncompromisableAnchors: 'Warm brown-skinned 11-year-old pre-teen Indian boy with a gentle round-oval face, full cheeks, dark expressive eyes, thick short textured black hair with a slight side part, square shoulders, and a sturdy solid pre-teen frame (strictly not skinny or frail), standing at 4ft 8in (142cm — 88% of Mother Aruna\'s 162cm height and 80% of Father\'s 178cm height; clearly 8 inches / 20cm shorter than his Mother so the top of Gahan\'s head is strictly BELOW Mother\'s chin at her collarbone/upper-shoulder level, strictly NEVER as tall as or taller than Mother!).',
+        visualTraits: 'Healthy 11-year-old pre-teen boy with a gentle round-oval face, dark expressive eyes, thick short textured black hair, and a sturdy, solid frame with natural square shoulders, standing at 4ft 8in (142cm — 88% of Mother\'s height, top of head strictly below Mother\'s chin at her collarbone/shoulder level).',
         vehicleRole: 'passenger_rear_right',
         defaultClothing: 'Navy blue or dark graphic tee / hoodie',
         stylizedAvatarUrl: 'https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/avatar_member_elder_son.jpg'
@@ -3710,18 +4078,20 @@ function getDefaultFamilyCast(userIdentifier) {
         aliases: ['rishu', 'younger son', 'little son', 'younger boy', 'younger brother', 'little brother', 'second son', '7-year-old', '7yo'],
         age: 7,
         ageBracket: 'Young Child / Primary School (7 Years Old)',
-        heightDesc: '7yo schoolboy stature (0.80x Father height): Top of his head rises above Gahan\'s shoulders to reach Gahan\'s neck/chin level',
+        heightCm: 127,
+        heightDesc: '4ft 2in (127cm) • 89% of Elder Brother Gahan (-6in / -15cm shorter; top of head rises above Gahan\'s shoulders to reach Gahan\'s chin/neck level) • 78% of Mother Aruna • 71% of Father Shridhar',
         structuredTraits: {
           bodyVolume: 'medium',
           tummyProfile: 'flat',
           faceFullness: 'soft_full_cheeks',
-          baseHeightRatio: 0.80,
+          heightCm: 127,
+          baseHeightRatio: 0.71,
           hairStyle: 'short_fringe',
           facialHair: 'none',
           landmarks: []
         },
-        uncompromisableAnchors: 'Warm wheatish-skinned 7-year-old schoolboy with round youthful cheeks, large expressive dark eyes, neat short straight black hair with a front fringe, and a healthy compact child frame, standing right up to his older brother Gahan\'s neck level (0.80x Father height, top of Rishu\'s head rises above Gahan\'s shoulders to meet Gahan\'s neck/chin level, strictly NOT tiny or waist-high).',
-        visualTraits: 'Young 7-year-old boy with warm wheatish skin, round cheeks, dark expressive eyes, neat short black hair, and a healthy compact frame whose head rises above Gahan\'s shoulders to reach Gahan\'s neck/chin level.',
+        uncompromisableAnchors: 'Warm wheatish-skinned 7-year-old schoolboy with round youthful cheeks, large expressive dark eyes, neat short straight black hair with a front fringe, and a healthy compact child frame, standing at 4ft 2in (127cm — 89% of his older brother Gahan\'s 142cm height, 6 inches / 15cm shorter than Gahan so the top of Rishu\'s head rises above Gahan\'s shoulders to reach Gahan\'s chin/neck level; 78% of Mother\'s height; 71% of Father\'s height).',
+        visualTraits: 'Young 7-year-old boy with warm wheatish skin, round cheeks, dark expressive eyes, neat short black hair, and a healthy compact frame standing at 4ft 2in (127cm — 89% of Gahan\'s height, top of head rising above Gahan\'s shoulders to reach Gahan\'s chin/neck level).',
         vehicleRole: 'passenger_rear_left',
         defaultClothing: 'Mustard yellow or bright green graphic t-shirt',
         stylizedAvatarUrl: 'https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/avatar_member_younger_son.jpg'
@@ -3736,8 +4106,284 @@ function getDefaultFamilyCast(userIdentifier) {
   };
 }
 
-function detectRelevantCastMembers(combined = '', cast = null) {
+function buildFallbackMomentVisualProjections(chronicleMoments = [], countryContext = 'India') {
+  const valid = Array.isArray(chronicleMoments) ? chronicleMoments.filter(m => m && String(m.text || '').trim().length >= 2) : [];
+  return valid.map((m, idx) => {
+    const text = String(m.text || '').trim();
+    const lower = text.toLowerCase();
+    const numStr = String(idx + 1).padStart(2, '0');
+    const shortSnippet = text.length > 56 ? text.slice(0, 53) + '...' : text;
+
+    let options = [];
+    if (/\b(kids fighting|boys fighting|kids arguing|squabble|fighting over|silly reasons|my kids|my sons|my boys|gahan|rishu)\b/i.test(lower)) {
+      options = [
+        {
+          id: `m${idx + 1}_opt_1`,
+          archetype: 'direct_action',
+          badge: '★ Best Fit • My 2 Sons Action',
+          confidence: 94,
+          title: 'Shridhar Mediating Between Sons Gahan (11) & Rishu (7)',
+          description: 'Shridhar kneeling calmly in the home living room between his two sons: taller 11yo Gahan (navy tee & denim shorts) and shorter 7yo Rishu (mustard tee & dark shorts, head at Gahan\'s chin/neck level), resolving their playful squabble.',
+          castIds: ['member_father', 'member_elder_son', 'member_younger_son'],
+          isPersonalFamily: true
+        },
+        {
+          id: `m${idx + 1}_opt_2`,
+          archetype: 'warm_resolution',
+          badge: '🤝 Warm Resolution • Brotherly Peace',
+          confidence: 84,
+          title: 'Two Brothers Gahan & Rishu Making Up After Dad\'s Advice',
+          description: '11yo elder son Gahan (4\'8") and 7yo younger son Rishu (4\'2") sharing a laugh and peace handshake as Father Shridhar smiles beside them.',
+          castIds: ['member_father', 'member_elder_son', 'member_younger_son'],
+          isPersonalFamily: true
+        },
+        {
+          id: `m${idx + 1}_opt_3`,
+          archetype: 'symbolic_focus',
+          badge: '🎨 Symbolic Detail • Disputed Toy & Calm Hands',
+          confidence: 74,
+          title: 'Father\'s Calm Hands Holding the Disputed Toy Between Both Boys',
+          description: 'Expressive close-medium composition focusing on Shridhar\'s patient gesture holding the toy between 11yo Gahan and 7yo Rishu.',
+          castIds: ['member_father', 'member_elder_son', 'member_younger_son'],
+          isPersonalFamily: true
+        }
+      ];
+    } else if (/\b(mother-in-law|hospital|clinic|doctor|checkup|health|aging|elderly)\b/i.test(lower)) {
+      options = [
+        {
+          id: `m${idx + 1}_opt_1`,
+          archetype: 'direct_action',
+          badge: '★ Best Fit • Caring Walk',
+          confidence: 93,
+          title: 'Shridhar Gently Supporting His 55yo Mother-in-Law at Hospital',
+          description: 'Caring mid-shot of Shridhar walking alongside and supporting his 55-year-old mother-in-law (in an elegant pastel cotton saree) down a sunlit Indian hospital corridor.',
+          castIds: ['member_father'],
+          isPersonalFamily: true
+        },
+        {
+          id: `m${idx + 1}_opt_2`,
+          archetype: 'quiet_consultation',
+          badge: '🩺 Doctor Consultation • Reassurance',
+          confidence: 83,
+          title: 'Seated Together by the Clinic Desk Reviewing Medical Reports',
+          description: 'Shridhar sitting attentively beside his 55-year-old mother-in-law in a calm consultation room with a medical folder in hand.',
+          castIds: ['member_father'],
+          isPersonalFamily: true
+        },
+        {
+          id: `m${idx + 1}_opt_3`,
+          archetype: 'symbolic_focus',
+          badge: '🎨 Symbolic Detail • Steadying Hand & Care',
+          confidence: 73,
+          title: 'Quiet Moment in the Sunlit Waiting Lounge',
+          description: 'Reflective medium portrait of Shridhar offering a reassuring cup of water and steady presence to his mother-in-law.',
+          castIds: ['member_father'],
+          isPersonalFamily: true
+        }
+      ];
+    } else if (/\b(friend|colleague|dosa|chai|coffee|cafe|diner|ai|laptop|discussion)\b/i.test(lower)) {
+      options = [
+        {
+          id: `m${idx + 1}_opt_1`,
+          archetype: 'direct_action',
+          badge: '★ Best Fit • Candid Diner Chat',
+          confidence: 95,
+          title: 'Animated AI Discussion with Friend Over Masala Dosa & Filter Coffee',
+          description: 'Expressive waist-up medium shot of Shridhar and his clean-shaven friend with glasses across a South Indian cafe table with crisp masala dosa, chutneys, and an open laptop.',
+          castIds: ['member_father'],
+          isPersonalFamily: false
+        },
+        {
+          id: `m${idx + 1}_opt_2`,
+          archetype: 'collaborative_screen',
+          badge: '💻 Side-by-Side • Live AI Demo',
+          confidence: 85,
+          title: 'Comparing Personal AI Workflows on Laptop & Smartphone',
+          description: 'Shridhar and his friend leaning in together over glowing AI workflow diagrams on a laptop beside steaming filter coffee.',
+          castIds: ['member_father'],
+          isPersonalFamily: false
+        },
+        {
+          id: `m${idx + 1}_opt_3`,
+          archetype: 'symbolic_focus',
+          badge: '🎨 Symbolic Contrast • Tradition Meets Future Tech',
+          confidence: 76,
+          title: 'Golden Masala Dosa & Steel Coffee Davara Beside Modern AI Screen',
+          description: 'Warm tabletop framing highlighting the contrast of classic South Indian tiffin and cutting-edge AI tools as both friends converse.',
+          castIds: ['member_father'],
+          isPersonalFamily: false
+        }
+      ];
+    } else {
+      const hasBothSons = /\b(kids|boys|sons|children|gahan.*rishu|rishu.*gahan)\b/i.test(lower);
+      const hasWife = /\b(wife|aruna|aru)\b/i.test(lower);
+      const castIds = ['member_father'];
+      if (hasWife) castIds.push('member_mother');
+      if (hasBothSons) castIds.push('member_elder_son', 'member_younger_son');
+      options = [
+        {
+          id: `m${idx + 1}_opt_1`,
+          archetype: 'direct_action',
+          badge: '★ Best Fit • Direct Scene',
+          confidence: 91,
+          title: `Candid Moment ${numStr}: ${shortSnippet}`,
+          description: `Direct real-world watercolor vignette of Shridhar ${hasBothSons ? 'with his two sons Gahan (11yo boy) and Rishu (7yo boy) ' : ''}in: "${shortSnippet}"`,
+          castIds,
+          isPersonalFamily: castIds.length > 1
+        },
+        {
+          id: `m${idx + 1}_opt_2`,
+          archetype: 'expressive_midshot',
+          badge: '🎯 Expressive Close Mid-Shot',
+          confidence: 81,
+          title: `Close Human Expression & Interaction (Moment ${numStr})`,
+          description: `Waist-up candid focus on facial expressions, gestures, and emotional warmth during: "${shortSnippet}"`,
+          castIds,
+          isPersonalFamily: castIds.length > 1
+        },
+        {
+          id: `m${idx + 1}_opt_3`,
+          archetype: 'symbolic_focus',
+          badge: '🎨 Atmospheric & Symbolic Angle',
+          confidence: 72,
+          title: `Atmospheric Setting & Key Motif (Moment ${numStr})`,
+          description: `Poignant environmental framing highlighting the setting and central object of: "${shortSnippet}"`,
+          castIds,
+          isPersonalFamily: false
+        }
+      ];
+    }
+
+    return {
+      momentIndex: idx + 1,
+      momentTitle: m.title || `Moment ${numStr}`,
+      selectedOptionIdx: 0,
+      options
+    };
+  });
+}
+
+function buildFallbackVisualSubjects(rawText = '', spark = '', scrapedTitle = '', countryContext = 'India') {
+  const combined = `${rawText} ${spark} ${scrapedTitle}`.toLowerCase();
+  const isPersonalFamily = /\b(my family|our family|my whole family|our whole family|my kids|our kids|my sons|our sons|my boys|our boys|my children|our children|my wife|my elder son|my younger son|gahan|rishu|aruna|shridhar)\b/i.test(combined);
+
+  if (/\b(parent-teacher|ptm|report card|marks|second-grade|school days|teachers' meeting|school|classroom)\b/i.test(combined)) {
+    return [
+      {
+        id: 'subject_1',
+        archetype: 'core_scene',
+        badge: '★ Best Fit • Core Scene',
+        confidence: 94,
+        title: 'Packed School Corridor on Parent-Teacher Meeting Day',
+        description: 'Bustling Indian school veranda overflowing with anxious parents, grandparents, and children queuing outside a classroom door.',
+        cues: [
+          'Packed School Corridor Outside Classroom on PTM Day',
+          'Elementary Report Card & Red Ink Marks',
+          '20-Minute Grade Negotiation vs Childhood Joy',
+          'Sunlit Indian School Veranda Crowded with Families',
+          'Warm Morning Daylight Through Classroom Windows'
+        ],
+        isPersonalFamily: false
+      },
+      {
+        id: 'subject_2',
+        archetype: 'core_contrast',
+        badge: '⚡ Core Contrast',
+        confidence: 85,
+        title: 'Debating 2nd-Grade Marks in the Age of AI',
+        description: 'Parents intensely debating single-digit elementary marks with a teacher while modern AI quietly transforms the world outside.',
+        cues: [
+          'Parent & Teacher Debating 2nd-Grade Report Card',
+          'Paper Mark Sheet vs Glowing AI Horizon',
+          'Obsession with Minor Marks vs Future Competence',
+          'Elementary Classroom Desk with Report Cards',
+          'Warm Classroom Lamp and Crisp Daylight Contrast'
+        ],
+        isPersonalFamily: false
+      },
+      {
+        id: 'subject_3',
+        archetype: 'editorial_metaphor',
+        badge: '🎨 Editorial Metaphor',
+        confidence: 76,
+        title: 'Carefree Schoolkids Walking Home Unburdened',
+        description: 'Smiling school children walking home freely with satchels, contrasting nostalgic trust in education against modern parental anxiety.',
+        cues: [
+          'Smiling Schoolchildren Walking Home Together',
+          'Vintage School Bell & Unhurried Satchels',
+          'Trusting Childhood Growth vs Anxious Micro-Management',
+          'Tree-Lined Indian School Courtyard at Dismissal',
+          'Golden Afternoon Sunlight and Long Peaceful Shadows'
+        ],
+        isPersonalFamily: false
+      }
+    ];
+  }
+
+  const firstSentence = String(rawText || scrapedTitle || 'Core Editorial Scene').split(/[.!?\n]/)[0].trim();
+  const shortTopic = firstSentence.length > 52 ? firstSentence.slice(0, 49) + '...' : firstSentence;
+
+  return [
+    {
+      id: 'subject_1',
+      archetype: 'core_scene',
+      badge: '★ Best Fit • Core Scene',
+      confidence: 92,
+      title: isPersonalFamily ? `Personal Family Scene: ${shortTopic}` : `Real-World Scene: ${shortTopic}`,
+      description: isPersonalFamily
+        ? `Authentic family moment grounded directly in: "${shortTopic}"`
+        : `Concrete real-world scene depicting the core subject of: "${shortTopic}"`,
+      cues: [
+        shortTopic,
+        'Authentic Real-World Contextual Details',
+        'Central Narrative Tension in Scene',
+        `${countryContext || 'Indian'} Real-World Setting & Architecture`,
+        'Natural Editorial Daylight and Chiaroscuro Depth'
+      ],
+      isPersonalFamily
+    },
+    {
+      id: 'subject_2',
+      archetype: 'core_contrast',
+      badge: '⚡ Core Contrast',
+      confidence: 82,
+      title: 'The Central Tension & Contrast',
+      description: `Visualizing the two opposing forces or irony highlighted in your perspective.`,
+      cues: [
+        `Opposing Forces in ${shortTopic}`,
+        'Symbolic Contrast of Old vs New Reality',
+        'Friction Between Convention and Reality',
+        `Editorial Split-Perspective Scene in ${countryContext || 'India'}`,
+        'High-Contrast Dramatic Editorial Lighting'
+      ],
+      isPersonalFamily: false
+    },
+    {
+      id: 'subject_3',
+      archetype: 'editorial_metaphor',
+      badge: '🎨 Editorial Metaphor',
+      confidence: 74,
+      title: 'Symbolic Editorial Illustration',
+      description: `An evocative broadsheet metaphor capturing the lasting takeaway of your slant.`,
+      cues: [
+        `Symbolic Metaphor for ${shortTopic}`,
+        'Focused Editorial Object & Human Gesture',
+        'Quiet Conviction Against Everyday Noise',
+        'Minimalist Broadsheet Composition',
+        'Warm Golden-Hour Rim Lighting'
+      ],
+      isPersonalFamily: false
+    }
+  ];
+}
+
+function detectRelevantCastMembers(combined = '', cast = null, options = {}) {
   const c = String(combined || '').toLowerCase();
+  const isPersonalChronicle = Boolean(options && options.chronicleMode);
+  const isFirstPersonHouseholdKids = !(/\b(parent-teacher|ptm|second-grade|school days|teachers' meeting)\b/i.test(c)) && (
+    isPersonalChronicle
+    || /\b(my day|started my day|started with|at home|in our home|in the morning|this morning|witnessing kids|kids fighting|boys fighting|both kids|both boys|two kids|two boys)\b/i.test(c)
+  );
   const rawMembers = (cast && Array.isArray(cast.members)) ? cast.members : [];
   const members = rawMembers.filter(m => m && (
     (m.name && String(m.name).trim())
@@ -3746,20 +4392,22 @@ function detectRelevantCastMembers(combined = '', cast = null) {
   ));
 
   // 0. First-Person Separation / Solitude Scene:
-  // When the narrator (Father / Self) writes that he is alone, stuck in one city while wife/kids are away,
-  // or missing/waiting for them to return, the present-tense visual HERO is exclusively Father / Self (Shridhar)!
   const isNarratorAloneMissingFamily = /\b(i am alone|being alone|stuck in [a-z]+ while|miss them|missing them|how much i miss|waiting for them|when my wife is out|feeling of separation|feeling of separateness)\b/i.test(c);
   if (isNarratorAloneMissingFamily) {
     const selfMember = members.find(m => m.relationship === 'self') || { id: 'member_father' };
     return new Set([selfMember.id]);
   }
 
-  const mentionsCollective = /\b(my family|our family|whole family|entire family|the four of us|all four of us|my kids|our kids|the kids|kids returned|kids are|kids and|and the kids|with the kids|both kids|my sons|our sons|the sons|both sons|both my boys|both our boys|both boys|the boys|my boys|my children|our children|the children|11 and 7|11yo and 7yo|road trip with my family|vacation with my family)\b/i.test(c);
+  // Strictly require first-person possessives ("my/our") so general societal observations ("the whole family comes", "the kids") NEVER trigger personal family photos
+  const mentionsCollective = /\b(my family|our family|my whole family|our whole family|my entire family|our entire family|the four of us|all four of us|road trip with my family|vacation with my family|walk.*with my family)\b/i.test(c);
   if (mentionsCollective) {
     return new Set(members.map(m => m.id));
   }
 
   const detected = new Set();
+  const mentionsBothSons = /\b(my kids|our kids|both my kids|both our kids|both kids|my sons|our sons|both my sons|both our sons|both sons|two sons|both my boys|both our boys|both boys|my boys|our boys|my children|our children|kids fighting|boys fighting|children fighting|siblings fighting)\b/i.test(c)
+    || (isFirstPersonHouseholdKids && /\b(kids|boys|sons|children|brothers)\b/i.test(c));
+
   members.forEach(m => {
     // 1. Vault Name Tokens (e.g. "shridhar")
     const nameStr = String(m.name || '').toLowerCase();
@@ -3784,39 +4432,35 @@ function detectRelevantCastMembers(combined = '', cast = null) {
       }
     }
 
-    // 3. Role-specific semantic keywords (must be first-person personal possessives or family terms)
+    // 3. Role-specific semantic keywords
     if (m.relationship === 'elder_son') {
-      if (/\b(my elder son|my older son|my older boy|my first son|11-year-old|11yo|gahan|the kids|my kids|our kids|kids returned|with kids|the boys|my boys|my sons|our sons|my children|the children)\b/i.test(c)) {
+      if (mentionsBothSons || /\b(my elder son|my older son|my older boy|my first son|my 11-year-old|my 11yo|elder son|older son|gahan)\b/i.test(c)) {
         detected.add(m.id);
       }
     } else if (m.relationship === 'younger_son') {
-      if (/\b(my younger son|my little son|my younger boy|my second son|7-year-old|7yo|rishu|the kids|my kids|our kids|kids returned|with kids|the boys|my boys|my sons|our sons|my children|the children)\b/i.test(c)) {
+      if (mentionsBothSons || /\b(my younger son|my little son|my younger boy|my second son|my 7-year-old|my 7yo|younger son|little son|rishu)\b/i.test(c)) {
         detected.add(m.id);
       }
     } else if (m.relationship === 'spouse') {
-      if (/\b(my wife|my spouse|with my wife|aru|aruna)\b/i.test(c)) {
+      if (/\b(my wife|my spouse|with my wife|aru|aruna)\b/i.test(c) || (isPersonalChronicle && /\b(wife|spouse)\b/i.test(c))) {
         detected.add(m.id);
       }
     } else if (m.relationship === 'self') {
-      if (/\b(my dad|my father|shridhar)\b/i.test(c)) {
+      if (/\b(shridhar)\b/i.test(c)) {
         detected.add(m.id);
       }
     }
   });
 
-  // 4. First-Person Narrator Participation & Solo Self-Reference:
-  // If the narrator ("I / me / my / myself") is actively participating alongside spouse or children,
-  // OR if the narrator is writing a first-person reflection about themselves (with no other family member as exclusive solo subject),
-  // include Father / Self (Shridhar, age 40)!
+  // 4. First-Person Narrator Participation alongside detected spouse or children, OR Diary Chronicle mode
   const hasChild = detected.has('member_elder_son') || detected.has('member_younger_son');
   const hasSpouse = detected.has('member_mother');
-  const hasFirstPersonCoPresence = /\b(and me|with me|between .* and me|i remain|by my side|by his side|beside him|beside her|holding my hand|teaching him|walked with him|support him|i stood|standing beside|my home|my life|attended|launched)\b/i.test(c);
+  const hasFirstPersonCoPresence = /\b(and me|with me|between .* and me|i remain|by my side|by his side|beside him|beside her|holding my hand|teaching him|walked with him|support him|i stood|standing beside|my home|my life|my day|witnessing|helping|resolved|resolve|attended|launched)\b/i.test(c);
   if ((hasChild || hasSpouse) && hasFirstPersonCoPresence) {
     detected.add('member_father');
   }
 
-  const hasFirstPersonSelf = /\b(i|me|my|myself|mine|i'm|i’m|i've|i’ve|i'd|i’d)\b/i.test(c);
-  if (detected.size === 0 && hasFirstPersonSelf) {
+  if (options && options.chronicleMode) {
     const selfMember = members.find(m => m.relationship === 'self') || { id: 'member_father' };
     detected.add(selfMember.id);
   }
@@ -3824,14 +4468,21 @@ function detectRelevantCastMembers(combined = '', cast = null) {
   return detected;
 }
 
-function buildFamilyCastDirectives({ familyCast, activeCast, castStaging, userSlant = '', spark = '', countryContext = '', sourceType = 'digital_link', perspectiveMode = 'source', chronicleMode = false }) {
+function buildFamilyCastDirectives({ familyCast, activeCast, castStaging, userSlant = '', spark = '', countryContext = '', sourceType = 'digital_link', perspectiveMode = 'source', chronicleMode = false, preferredVisualSubject = null, userEmail = '' }) {
+  // If user selected a topical/non-family Visual Subject from Polish (and did not manually force Family Cast), do NOT inject personal family cast
+  if (preferredVisualSubject && preferredVisualSubject.isPersonalFamily === false && !(activeCast && activeCast.manuallySelected)) {
+    return null;
+  }
   const hasExplicitCast = activeCast && Array.isArray(activeCast.members) && activeCast.members.length > 0;
   if (sourceType !== 'inner_voice' && !hasExplicitCast && perspectiveMode !== 'curator') {
     return null;
   }
   const combined = `${userSlant} ${spark}`.toLowerCase();
-  const cast = familyCast || getDefaultFamilyCast();
-  const detectedIds = detectRelevantCastMembers(combined, cast);
+  const cast = familyCast || getDefaultFamilyCast(userEmail || (familyCast && familyCast.userIdentifier) || '');
+  if ((!cast || !Array.isArray(cast.members) || cast.members.length === 0) && !hasExplicitCast) {
+    return null;
+  }
+  const detectedIds = detectRelevantCastMembers(combined, cast, { chronicleMode });
 
   const isFamilyContext = (detectedIds.size > 0);
 
@@ -3878,14 +4529,17 @@ function buildFamilyCastDirectives({ familyCast, activeCast, castStaging, userSl
   const maleCount = activeMembers.filter(m => m.relationship === 'self' || m.relationship === 'elder_son' || m.relationship === 'younger_son' || /father|dad|son|boy|brother|male/i.test(`${m.roleLabel} ${m.relationship}`)).length;
   const femaleCount = totalCount - maleCount;
 
+  const pairwiseStature = buildDynamicPairwiseStatureDirective(activeMembers, (cast && cast.members) || []);
+
   if (chronicleMode) {
     directives.push(`DAILY CHRONICLE PROTAGONIST, SITUATIONAL ATTIRE, POSTURE-ADJUSTED HEIGHTS & VIGNETTE-SPECIFIC CAST DIRECTIVE:
 - Narrator Identity & Body Volume Anchor: Whenever the narrator (Father Shridhar) appears in a vignette, portray him as a mid-age 40-year-old Indian man in his early 40s with warm medium-brown skin, a soft fuller round-oval face with full cheeks and natural under-chin/submental fullness, full head of thick short dark hair styled up at the crown, short light neat trimmed stubble beard, and ${fatherMidsectionPhrase} (strictly NOT old or elderly).
-- Mother / Wife (Aruna) Identity Anchor (WHEN PRESENT IN A VIGNETTE): Whenever Wife / Mother (Aruna) appears in a vignette, you MUST explicitly describe her exact authentic facial and hair traits in "illustrationPrompt": warm golden-brown wheatish skin, soft fuller round-to-oval maternal face with warm full cheeks and soft rounded chin (strictly NOT a narrow/sharp-chinned face), small black circular bindi centered on her forehead and subtle red kumkum at the upper forehead hairline, gentle dark eyes, side-parted thick voluminous wavy black hair swept forward over her left shoulder past her collarbone, and a healthy natural medium-to-full South Indian adult build (0.92x Father height).
-- Framing Balance (Candid Mid-Shot vs. Group Scale) & Brothers Neck-Height Alignment: Balance the shot framing between capturing the candid human moment and showing scale: for 1-2 person conversational, seated, or indoor moments (e.g. meeting a friend over chai, reading a book, working at a desk), use an expressive CANDID WAIST-UP / CHEST-UP MEDIUM SHOT (MID-SHOT) that highlights facial expressions, gestures, and upper-body/midsection build rather than forcing a distant full-body shot. Use a pulled-back full-body / wide shot (with generous left/right margins so nobody is clipped at the edge) ONLY when the moment involves active movement (like a family walk or march) or fitting 3-4+ standing people together. Whenever Elder Son Gahan and Younger Son Rishu appear, preserve their exact relative stature: Elder Son Gahan as a "tall 11yo slim pre-teen boy with a long oval face (0.86x Father height, nearly as tall as his Mother Aruna, top of Gahan's head reaching Mother's ear/eye level and Father's shoulder, wearing a dark navy-blue t-shirt, knee-length denim shorts, and sneakers)", and Younger Son Rishu as a "7yo younger schoolboy with a round cheerful face (0.80x Father height, tall enough that the TOP OF RISHU'S HEAD RISES ABOVE GAHAN'S SHOULDERS to reach right up to Gahan's NECK / CHIN level and Mother's chin/neck level — only 3 inches shorter than Gahan; strictly NEVER draw Rishu's head below Gahan's shoulders or down at Gahan's arm/chest, and strictly NEVER equal height with Gahan!, wearing a mustard-yellow t-shirt, dark shorts, and sneakers)".
-- POSTURE-ADJUSTED RELATIVE STATURE MATRIX (Action Multiplier x Base Height):
+- Mother / Wife (Aruna) Identity Anchor (WHEN PRESENT IN A VIGNETTE): Whenever Wife / Mother (Aruna) appears in a vignette, you MUST explicitly describe her exact authentic facial and hair traits in "illustrationPrompt": warm golden-brown wheatish skin, soft fuller round-to-oval maternal face with warm full cheeks and soft rounded chin (strictly NOT a narrow/sharp-chinned face), small black circular bindi centered on her forehead and subtle red kumkum at the upper forehead hairline, gentle dark eyes, side-parted thick voluminous wavy black hair swept forward over her left shoulder past her collarbone, and a healthy natural medium-to-full South Indian adult build (5ft 4in / 162cm, 91% of Father's 178cm height, clearly 8 inches / 20cm TALLER than 11yo Elder Son Gahan).
+- STRICT RULE FOR "KIDS", "CHILDREN", "BOYS", OR "KIDS FIGHTING" (BOTH ARE SONS — 2 MALE BROTHERS, ZERO GIRLS, 6-INCH HEIGHT GAP): Whenever any moment mentions "kids", "my kids", "kids fighting", "boys", "sons", or "children", those kids are STRICTLY the narrator's TWO SONS from the Family Vault — NEVER invent generic "two young siblings" and STRICTLY NEVER draw a girl or sister! You MUST explicitly name and describe BOTH BOYS in "illustrationPrompt" as: (1) 11-year-old Elder Son Gahan (BOY, 4ft 8in / 142cm, gentle oval face, thick short black hair, sturdy pre-teen build, wearing a dark navy-blue t-shirt and knee-length denim shorts) and (2) 7-year-old Younger Son Rishu (BOY, 4ft 2in / 127cm, 89% of Elder Brother Gahan's height — 6 inches / 15cm shorter than Gahan so the top of Rishu's head rises above Gahan's shoulders to reach Gahan's chin/neck level, round cheerful face, neat short black hair, wearing a mustard-yellow t-shirt and dark shorts) — BOTH BOYS (2 MALE BROTHERS, STRICTLY ZERO GIRLS!).
+- Framing Balance (Candid Mid-Shot vs. Group Scale) & Pairwise Relative Stature: Balance the shot framing between capturing the candid human moment and showing scale: for 1-2 person conversational, seated, or indoor moments (e.g. meeting a friend over chai, reading a book, working at a desk), use an expressive CANDID WAIST-UP / CHEST-UP MEDIUM SHOT (MID-SHOT) that highlights facial expressions, gestures, and upper-body/midsection build rather than forcing a distant full-body shot. Use a pulled-back full-body / wide shot (with generous left/right margins so nobody is clipped at the edge) ONLY when the moment involves active movement (like a family walk or march) or fitting 3-4+ standing people together. Whenever Elder Son Gahan and Younger Son Rishu appear, preserve their exact pairwise relative stature: Elder Son Gahan as a "11yo pre-teen boy with a gentle oval face (4ft 8in / 142cm — 88% of Mother Aruna's 162cm height and 80% of Father's 178cm height; clearly 8 inches / 20cm shorter than Mother Aruna so the top of Gahan's head is strictly BELOW Mother's chin at her collarbone / upper-shoulder level, strictly NEVER as tall as or taller than Mother!, wearing a dark navy-blue t-shirt, knee-length denim shorts, and sneakers)", and Younger Son Rishu as a "7yo younger schoolboy with a round cheerful face (4ft 2in / 127cm — 89% of Elder Brother Gahan's 142cm height, 6 inches / 15cm shorter than Gahan so the TOP OF RISHU'S HEAD RISES ABOVE GAHAN'S SHOULDERS to reach Gahan's CHIN / NECK level; strictly NEVER equal height with Gahan!, wearing a mustard-yellow t-shirt, dark shorts, and sneakers)".
+- POSTURE-ADJUSTED RELATIVE STATURE MATRIX (Action Multiplier x Actual Height):
   * Standing / Walking = 1.00x of base height | Leaning = 0.88x | Sitting on chair/sofa/bench = 0.72x (-28% height) | Kneeling/Crouching = 0.64x (-36%) | Sitting on floor = 0.52x (-48%).
-  * Whenever two characters have different postures in a vignette (e.g., Father is sitting in a chair at 1.00 * 0.72 = 0.72 effective height while 11yo Elder Son Gahan is standing beside him at 0.86 * 1.00 = 0.86 effective height), explicitly state their effective height relationship ("standing Gahan's head rises ~19% / one full head ABOVE seated Father's head").
+  * Whenever two characters have different postures in a vignette (e.g., Father at 178cm is sitting in a chair at 178 * 0.72 = 128cm effective height while 11yo Elder Son Gahan at 142cm is standing beside him at 142 * 1.00 = 142cm effective height), explicitly state their effective height relationship ("standing Gahan's head rises ~11% / half-a-head ABOVE seated Father's head").
 - SITUATION-SPECIFIC ATTIRE PER MOMENT (DO NOT COPY OUTFITS BLINDLY): Dress Shridhar and family members in attire that matches the exact situation and activity of each individual moment (e.g. uniform for a uniformed march, smart casual shirt at a work desk, athletic wear for sports/walk, kurta or home wear at home). Never blindly copy attire from one vignette into another!
 - VIGNETTE-SCOPED CHARACTER PLACEMENT & SUPPORTING CAST (DO NOT MERGE ALL CHARACTERS INTO ONE SCENE): Each Daily Chronicle vignette is a separate, isolated cloudy-shaded watercolor-and-gouache moment visual on warm parchment paper. Depict family members (${activeMembers.map(m => m.name || m.roleLabel).join(', ')}), colleagues, friends, or hosts ONLY inside the specific moment vignette where they are mentioned, and specify the exact foreground headcount (Main Cast + Supporting Characters) for each vignette! Never combine all moments into a single full-bleed family portrait.`);
     promptSnippets.push(`Daily Chronicle isolated cloudy-shaded watercolor-and-gouache moment vignettes on warm parchment paper with situation-specific attire per moment`);
@@ -3901,7 +4555,7 @@ function buildFamilyCastDirectives({ familyCast, activeCast, castStaging, userSl
     directives.push(`MANDATORY EXACT HEADCOUNT & ANTI-MERGING DIRECTIVE:
 - TOTAL VISIBLE INDIVIDUALS: EXACTLY ${totalCount} DISTINCT PEOPLE (${maleCount} MALES, ${femaleCount} FEMALES).
 - ALL ${totalCount} FAMILY MEMBERS MUST BE SIMULTANEOUSLY VISIBLE AND FULLY DRAWN SIDE BY SIDE:
-${activeMembers.map((m, i) => `  * Person #${i + 1}: ${m.name || m.roleLabel} (${m.roleLabel || m.relationship}, age ${m.age || 'N/A'})`).join('\n')}
+${activeMembers.map((m, i) => `  * Person #${i + 1}: ${m.name || m.roleLabel} (${m.roleLabel || m.relationship}, age ${m.age || 'N/A'}, actual height ${cmToFeetInches(resolveMemberHeightCm(m)).label})`).join('\n')}
 - STRICT BAN ON MERGING / COMPRESSION: Image generation models frequently suffer from "two sons" semantic collapse, mistakenly merging the two boys into a single child and drawing only 3 family members. YOU MUST NEVER MERGE THE TWO SONS! Both sons must be drawn as two separate individual boys. All ${maleCount} male family members (Father, Elder Son, Younger Son) and the Mother must be fully and clearly depicted. Never drop any male member.
 - ZERO UNATTACHED FOREGROUND PEOPLE/HANDS: If a ritual action is described (like receiving sacred water or praying), that action MUST be performed by one of the ${totalCount} family members themselves (e.g. the father and boys cupping their hands). Never draw cropped arms/hands of an external 5th person that consumes character slots.`);
 
@@ -3915,29 +4569,37 @@ ${activeMembers.map((m, i) => `  * Person #${i + 1}: ${m.name || m.roleLabel} ($
     promptSnippets.push(`group portrait of exactly ${totalCount} distinct people (${maleCount} males, ${femaleCount} female: ${activeMembers.map(m => m.name || m.roleLabel).join(', ')})${femaleCount === 0 && hasFather ? ', adult father with son, strictly no mother in scene' : ''}`);
   }
 
-  // 1. Strict Age & Height Differentiation
+  // 0b. Dynamic Scene-Relative & Pairwise Actual Height Calculator (works even when Father / tallest member is NOT in the scene!)
+  if (pairwiseStature) {
+    directives.push(pairwiseStature.blockText);
+    promptSnippets.push(pairwiseStature.snippetText);
+  }
+
+  // 1. Strict Age & Pairwise Height Differentiation for Both Sons
   if (hasElderBoy && hasYoungerBoy) {
-    directives.push(`BIOLOGICAL AGE, FULL-BODY NECK-HEIGHT ALIGNMENT & SHORTS/T-SHIRT YOUTH ATTIRE:
-- Always show the family FULL-BODY FROM HEAD TO TOE with all feet and shoes planted on the same level floor (NEVER crop at thighs/waist, NEVER use feet/inches numbers like 4ft 10in or 4ft 2in, and NEVER say "full head shorter" or "0.68x" or "collarbone"):
-  * ELDER BROTHER (Gahan, Age 11 - TALL PRE-TEEN NEARLY AS TALL AS MOTHER, 0.85x Father height): Tall 11-year-old slim pre-teen boy nearly as tall as his Mother Aruna—the top of Gahan's head reaches HIS MOTHER'S EAR / EYE LEVEL and HIS FATHER'S SHOULDER LEVEL. Long oval face, thick short black hair, sturdy square-shouldered pre-teen build, wearing a DARK NAVY-BLUE casual t-shirt, knee-length denim shorts, and sneakers.
-  * YOUNGER BROTHER (Rishu, Age 7 - HEAD RISING ABOVE GAHAN'S SHOULDERS TO MEET GAHAN'S NECK, 0.78x Father height): 7-year-old younger schoolboy standing right beside Gahan whose head RISES ABOVE GAHAN'S SHOULDERS so the top of Rishu's head reaches RIGHT UP TO GAHAN'S NECK / UNDER-CHIN LEVEL and HIS MOTHER'S CHIN / NECK LEVEL (only half-a-head / 4 inches shorter than Gahan; STRICTLY NEVER draw Rishu's head below Gahan's shoulders or down at Gahan's chest/armpit, and STRICTLY NEVER equal height with Gahan!). Round cheerful face, neat short straight black hair, compact healthy child frame, wearing a contrasting MUSTARD-YELLOW or BRIGHT EMERALD-GREEN graphic t-shirt, dark shorts, and sneakers.
-- STRICT BAN ON DRAWING RISHU BELOW GAHAN'S SHOULDERS OR AT EQUAL HEIGHT: Always show all 4 family members full-body with their shoes on the ground from left to right: Father (1.0x) -> Mother (0.92x) -> 11yo Gahan in navy t-shirt & denim shorts (0.85x, at Mother's ear/eye level) -> 7yo Rishu in mustard-yellow t-shirt & dark shorts (0.78x, top of Rishu's head rising ABOVE Gahan's shoulders to meet Gahan's neck/under-chin level).`);
-    promptSnippets.push('two brothers shown full-body from head to toe with shoes on the same ground line: tall 11-year-old pre-teen Elder Son Gahan (0.85x Father height, nearly as tall as Mother Aruna, head reaching Mother\'s ear/eye level and Father\'s shoulder, wearing dark navy-blue t-shirt and knee-length denim shorts) and 7-year-old Younger Son Rishu (0.78x Father height, top of Rishu\'s head rising ABOVE Gahan\'s shoulders to reach right up to Gahan\'s neck/under-chin level and Mother\'s chin/neck level — only half-a-head shorter than Gahan, wearing mustard-yellow t-shirt and dark shorts; strictly NEVER below Gahan\'s shoulders and strictly NEVER equal height)');
+    directives.push(`BIOLOGICAL AGE, PAIRWISE HEIGHT HIERARCHY & SHORTS/T-SHIRT YOUTH ATTIRE:
+- Always show the family FULL-BODY FROM HEAD TO TOE with all feet and shoes planted on the same level floor:
+  * ELDER BROTHER (Gahan, Age 11 - 4ft 8in / 142cm, 88% of Mother Aruna's 162cm height & 80% of Father's 178cm height): 11-year-old pre-teen boy who is CLEARLY SHORTER THAN HIS MOTHER ARUNA by 8 inches / 20cm—the top of Gahan's head is strictly BELOW Mother Aruna's chin at her collarbone / upper-shoulder level (STRICTLY NEVER draw Gahan as tall as or taller than Mother Aruna!). Gentle oval face, thick short black hair, sturdy square-shouldered pre-teen build, wearing a DARK NAVY-BLUE casual t-shirt, knee-length denim shorts, and sneakers.
+  * YOUNGER BROTHER (Rishu, Age 7 - 4ft 2in / 127cm, 89% of Elder Brother Gahan's 142cm height & 78% of Mother's height): 7-year-old younger schoolboy standing right beside Gahan who is 6 inches / 15cm shorter than Gahan so the top of Rishu's head RISES ABOVE GAHAN'S SHOULDERS to reach GAHAN'S CHIN / NECK LEVEL (STRICTLY NEVER draw Rishu's head below Gahan's shoulders and STRICTLY NEVER equal height with Gahan!). Round cheerful face, neat short straight black hair, compact healthy child frame, wearing a contrasting MUSTARD-YELLOW or BRIGHT EMERALD-GREEN graphic t-shirt, dark shorts, and sneakers.
+- STRICT BAN ON INVERTING MOTHER vs. ELDER SON OR ELDER SON vs. YOUNGER SON HEIGHTS: Always show all present family members full-body with their shoes on the ground in strict descending height order: Father (5'10" / 178cm, 100%) -> Mother Aruna (5'4" / 162cm, 91% of Father) -> 11yo Gahan in navy t-shirt & denim shorts (4'8" / 142cm, 88% of Mother's height, head strictly below Mother's chin at her collarbone/shoulder level) -> 7yo Rishu in mustard-yellow t-shirt & dark shorts (4'2" / 127cm, 89% of Gahan's height, top of Rishu's head reaching Gahan's chin/neck level).`);
+    promptSnippets.push('two brothers shown full-body from head to toe with shoes on the same ground line: 11-year-old pre-teen Elder Son Gahan (4ft 8in / 142cm, 88% of Mother Aruna\'s height — clearly 8 inches shorter than Mother with the top of Gahan\'s head strictly below Mother\'s chin at her collarbone/shoulder level, NEVER taller than Mother, wearing dark navy-blue t-shirt and knee-length denim shorts) and 7-year-old Younger Son Rishu (4ft 2in / 127cm, 89% of Gahan\'s height — 6 inches shorter than Gahan with the top of Rishu\'s head rising above Gahan\'s shoulders to reach Gahan\'s chin/neck level, wearing mustard-yellow t-shirt and dark shorts)');
   }
 
   // 1b. Realistic Authentic Body Statures (Strict Ban on Skinny / Runway Model Bias)
   const statureGuidelines = [];
   activeMembers.forEach(m => {
+    const mCm = resolveMemberHeightCm(m);
+    const mInfo = cmToFeetInches(mCm);
     if (m.relationship === 'spouse') {
-      statureGuidelines.push('- Mother (Aruna): Draw with an authentic, healthy medium-to-full South Indian adult build, soft fuller round-to-oval maternal face with warm full cheeks, small black forehead bindi and subtle red kumkum at the hairline, and side-parted long voluminous wavy black hair swept forward over her left shoulder. STRICTLY NEVER draw an ultra-slim, skinny, or sharp-chinned runway model.');
+      statureGuidelines.push(`- Mother (Aruna, ${mInfo.label}): Draw with an authentic, healthy medium-to-full South Indian adult build, soft fuller round-to-oval maternal face with warm full cheeks, small black forehead bindi and subtle red kumkum at the hairline, and side-parted long voluminous wavy black hair swept forward over her left shoulder. She stands clearly 8 inches (20cm) TALLER than 11yo Elder Son Gahan. STRICTLY NEVER draw an ultra-slim, skinny, or sharp-chinned runway model.`);
     } else if (m.relationship === 'elder_son') {
-      statureGuidelines.push('- Elder Son (Gahan, Age 11): Draw full-body in a dark navy-blue t-shirt and knee-length denim shorts with a tall 11yo pre-teen build (0.85x Father height, nearly as tall as Mother Aruna, head reaching Mother\'s ear/eye level and Father\'s shoulder).');
+      statureGuidelines.push(`- Elder Son (Gahan, Age 11, ${mInfo.label}): Draw full-body in a dark navy-blue t-shirt and knee-length denim shorts with a sturdy 11yo pre-teen build (88% of Mother Aruna's 162cm height and 80% of Father's 178cm height — clearly 8 inches / 20cm shorter than Mother Aruna so the top of Gahan's head is strictly BELOW Mother's chin at her collarbone/upper-shoulder level; strictly NEVER as tall as or taller than Mother!).`);
     } else if (m.relationship === 'younger_son') {
-      statureGuidelines.push('- Younger Son (Rishu, Age 7): Draw full-body in a mustard-yellow t-shirt and dark shorts (0.78x Father height) whose head rises ABOVE Gahan\'s shoulders to reach right up to Gahan\'s neck/under-chin level and Mother\'s chin/neck level (only half-a-head shorter than Gahan; never below Gahan\'s shoulders).');
+      statureGuidelines.push(`- Younger Son (Rishu, Age 7, ${mInfo.label}): Draw full-body in a mustard-yellow t-shirt and dark shorts (89% of Elder Brother Gahan's 142cm height — 6 inches / 15cm shorter than Gahan so the top of Rishu's head rises above Gahan's shoulders to reach Gahan's chin/neck level; 78% of Mother's height).`);
     } else if (m.relationship === 'self') {
       const mTummy = (m.structuredTraits && m.structuredTraits.tummyProfile) || fatherTummyProfile || 'subtle_10';
       const mVol = (m.structuredTraits && m.structuredTraits.bodyVolume) || fatherBodyVolume || 'broad_full';
-      statureGuidelines.push(`- Father (Shridhar): Draw with ${getFatherMidsectionDescription(mTummy, mVol)}, soft fuller round-oval face, short light neat trimmed stubble beard, and natural everyday posture.`);
+      statureGuidelines.push(`- Father (Shridhar, ${mInfo.label}): Draw with ${getFatherMidsectionDescription(mTummy, mVol)}, soft fuller round-oval face, short light neat trimmed stubble beard, and natural everyday posture.`);
     }
   });
   if (statureGuidelines.length > 0) {
