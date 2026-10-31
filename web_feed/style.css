@@ -25106,6 +25106,113 @@ mark.polish-mark:hover, mark.polish-mark.active {
   border-color: rgba(148, 184, 173, 0.55);
 }
 
+/* Actual Height Selector & Auto-Calculated Pairwise Stature Matrix */
+.vault-height-inputs-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.vault-height-unit-box {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #FFFFFF;
+  border: 1px solid #C5D5D0;
+  border-radius: 8px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #253833;
+}
+
+[data-theme="obsidian"] .vault-height-unit-box {
+  background: rgba(30, 41, 59, 0.9);
+  border-color: rgba(255, 255, 255, 0.16);
+  color: #E2E8F0;
+}
+
+.vault-height-unit-box select,
+.vault-height-unit-box input {
+  border: none !important;
+  background: transparent !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  color: inherit !important;
+  padding: 2px 2px !important;
+  width: auto !important;
+  min-width: 38px;
+  text-align: center;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.vault-height-unit-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: #5C6E68;
+}
+
+[data-theme="obsidian"] .vault-height-unit-label {
+  color: #94A3B8;
+}
+
+.vault-pairwise-stature-matrix {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: rgba(40, 70, 62, 0.06);
+  border: 1px dashed rgba(40, 70, 62, 0.24);
+  border-radius: 8px;
+  padding: 7px 9px;
+  margin-top: 4px;
+}
+
+[data-theme="obsidian"] .vault-pairwise-stature-matrix {
+  background: rgba(15, 23, 42, 0.55);
+  border-color: rgba(148, 184, 173, 0.25);
+}
+
+.vault-pairwise-matrix-title {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #28463E;
+}
+
+[data-theme="obsidian"] .vault-pairwise-matrix-title {
+  color: #94B8AD;
+}
+
+.vault-pairwise-pills {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.vault-pairwise-pill {
+  font-size: 11px;
+  line-height: 1.35;
+  color: #253833;
+  font-weight: 600;
+}
+
+[data-theme="obsidian"] .vault-pairwise-pill {
+  color: #E2E8F0;
+}
+
+.vault-pairwise-pill strong {
+  color: #1B3B33;
+  font-weight: 800;
+}
+
+[data-theme="obsidian"] .vault-pairwise-pill strong {
+  color: #A7F3D0;
+}
+
 .vault-field-group label {
   color: var(--text-secondary, #4A5A55) !important;
 }

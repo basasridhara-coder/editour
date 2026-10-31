@@ -12827,14 +12827,138 @@ let familyCastProfileCache = null;
 let activeCastMemberIds = new Set();
 let activeCastStagingMode = 'general';
 
+function getDefaultHeightCmForMember(m) {
+  if (!m) return 165;
+  if (m.id === 'member_father' || m.relationship === 'self') return 178; // 5'10"
+  if (m.id === 'member_mother' || m.relationship === 'spouse') return 162; // 5'4"
+  if (m.id === 'member_elder_son' || m.relationship === 'elder_son') return 142; // 4'8" (clearly shorter than Mother 5'4")
+  if (m.id === 'member_younger_son' || m.relationship === 'younger_son') return 127; // 4'2"
+  const age = Number(m.age);
+  if (Number.isFinite(age) && age > 0) {
+    if (age <= 8) return 127;
+    if (age <= 12) return 142;
+    if (age <= 15) return 155;
+  }
+  return 165;
+}
+
+function resolveMemberHeightCm(m) {
+  if (!m) return 165;
+  const directCm = Number(m.heightCm || (m.structuredTraits && m.structuredTraits.heightCm));
+  if (Number.isFinite(directCm) && directCm >= 60 && directCm <= 230) {
+    return Math.round(directCm);
+  }
+  const desc = String(m.heightDesc || '');
+  const cmMatch = desc.match(/(\d{2,3})\s*cm\b/i);
+  if (cmMatch) {
+    const parsedCm = parseInt(cmMatch[1], 10);
+    if (parsedCm >= 60 && parsedCm <= 230) return parsedCm;
+  }
+  const ftInMatch = desc.match(/(\d)\s*(?:ft|')\s*(\d{1,2})\s*(?:in|")?/i);
+  if (ftInMatch) {
+    const ft = parseInt(ftInMatch[1], 10);
+    const inch = parseInt(ftInMatch[2], 10);
+    const computed = Math.round(((ft * 12) + inch) * 2.54);
+    if (computed >= 60 && computed <= 230) return computed;
+  }
+  return getDefaultHeightCmForMember(m);
+}
+
+function cmToFeetInches(cm) {
+  const safeCm = Math.max(60, Math.min(230, Math.round(Number(cm) || 165)));
+  const totalInches = Math.round(safeCm / 2.54);
+  const feet = Math.floor(totalInches / 12);
+  const inches = totalInches % 12;
+  return {
+    cm: safeCm,
+    feet,
+    inches,
+    label: `${feet}ft ${inches}in (${safeCm}cm)`,
+    shortLabel: `${feet}'${inches}" (${safeCm}cm)`
+  };
+}
+
+function feetInchesToCm(feet, inches) {
+  const ft = Math.max(2, Math.min(7, parseInt(feet, 10) || 5));
+  const inch = Math.max(0, Math.min(11, parseInt(inches, 10) || 0));
+  return Math.round(((ft * 12) + inch) * 2.54);
+}
+
+function describeAnatomicalHeadLandmarkAgainstTaller(shorterCm, tallerCm, tallerLabel) {
+  const ratio = shorterCm / Math.max(1, tallerCm);
+  const pct = Math.round(ratio * 100);
+  const diffCm = Math.max(0, Math.round(tallerCm - shorterCm));
+  const diffIn = Math.max(0, Math.round(diffCm / 2.54));
+  if (diffCm <= 3 || ratio >= 0.98) {
+    return `${pct}% of ${tallerLabel}'s height (nearly equal height, within ${diffIn}in / ${diffCm}cm)`;
+  }
+  if (ratio >= 0.90) {
+    return `${pct}% of ${tallerLabel}'s height (-${diffIn}in / -${diffCm}cm shorter; top of head reaches ${tallerLabel}'s eye / brow level)`;
+  }
+  if (ratio >= 0.885 && tallerCm <= 150) {
+    // Younger sibling vs Elder sibling (e.g. 127cm vs 142cm = 89.4%)
+    return `${pct}% of ${tallerLabel}'s height (-${diffIn}in / -${diffCm}cm shorter; top of head rises above ${tallerLabel}'s shoulders to reach ${tallerLabel}'s chin / neck level)`;
+  }
+  if (ratio >= 0.84) {
+    // e.g. Elder Son Gahan (142cm) vs Mother Aruna (162cm) = 87.6% (~88%, 8in / 20cm shorter)
+    return `${pct}% of ${tallerLabel}'s height (-${diffIn}in / -${diffCm}cm shorter; top of head is strictly BELOW ${tallerLabel}'s chin at ${tallerLabel}'s collarbone / upper-shoulder level — never as tall as ${tallerLabel})`;
+  }
+  if (ratio >= 0.76) {
+    return `${pct}% of ${tallerLabel}'s height (-${diffIn}in / -${diffCm}cm shorter; top of head reaches ${tallerLabel}'s upper-chest / sternum level, below ${tallerLabel}'s shoulders)`;
+  }
+  return `${pct}% of ${tallerLabel}'s height (-${diffIn}in / -${diffCm}cm shorter; top of head reaches ${tallerLabel}'s mid-chest / ribcage level)`;
+}
+
+function computePairwiseStatureMatrixForMember(member, allMembers) {
+  if (!member) return [];
+  const list = Array.isArray(allMembers) && allMembers.length > 0
+    ? allMembers
+    : ((familyCastProfileCache && familyCastProfileCache.members) || []);
+  const mCm = resolveMemberHeightCm(member);
+  const mName = member.name || member.roleLabel || 'Member';
+  const others = list
+    .filter(o => o && o.id !== member.id)
+    .slice()
+    .sort((a, b) => resolveMemberHeightCm(b) - resolveMemberHeightCm(a));
+
+  return others.map(other => {
+    const oCm = resolveMemberHeightCm(other);
+    const oInfo = cmToFeetInches(oCm);
+    const oName = other.name || other.roleLabel || 'Member';
+    const pctVsOther = Math.round((mCm / Math.max(1, oCm)) * 100);
+    const diffCm = mCm - oCm;
+    const diffIn = Math.round(Math.abs(diffCm) / 2.54);
+    let landmarkText = '';
+    if (mCm < oCm) {
+      landmarkText = describeAnatomicalHeadLandmarkAgainstTaller(mCm, oCm, oName);
+    } else if (mCm > oCm) {
+      const shorterLandmark = describeAnatomicalHeadLandmarkAgainstTaller(oCm, mCm, mName);
+      landmarkText = `${pctVsOther}% of ${oName}'s height (+${diffIn}in / +${Math.abs(diffCm)}cm taller than ${oName}; ${oName} is ${shorterLandmark.split(';')[0]})`;
+    } else {
+      landmarkText = `100% of ${oName}'s height (same height)`;
+    }
+    return {
+      otherId: other.id,
+      otherName: oName,
+      otherShortHeight: oInfo.shortLabel,
+      pctVsOther,
+      diffCm,
+      diffIn,
+      summary: landmarkText
+    };
+  });
+}
+
 function ensureMemberStructuredTraits(m) {
   if (!m) return null;
+  const defaultCm = getDefaultHeightCmForMember(m);
   if (!m.structuredTraits || typeof m.structuredTraits !== 'object') {
     if (m.id === 'member_father' || m.relationship === 'self') {
       m.structuredTraits = {
         bodyVolume: 'broad_full',
         tummyProfile: 'subtle_10',
         faceFullness: 'round_full_submental',
+        heightCm: 178,
         baseHeightRatio: 1.00,
         hairStyle: 'short_brushed_up',
         facialHair: 'light_stubble',
@@ -12845,7 +12969,8 @@ function ensureMemberStructuredTraits(m) {
         bodyVolume: 'medium',
         tummyProfile: 'subtle_10',
         faceFullness: 'soft_full_cheeks',
-        baseHeightRatio: 0.92,
+        heightCm: 162,
+        baseHeightRatio: 0.91,
         hairStyle: 'long_shoulder_swept',
         facialHair: 'none',
         landmarks: ['forehead_bindi', 'hairline_kumkum', 'stud_earrings']
@@ -12855,7 +12980,8 @@ function ensureMemberStructuredTraits(m) {
         bodyVolume: 'medium',
         tummyProfile: 'flat',
         faceFullness: 'oval_balanced',
-        baseHeightRatio: 0.86,
+        heightCm: 142,
+        baseHeightRatio: 0.80,
         hairStyle: 'short_side_part',
         facialHair: 'none',
         landmarks: []
@@ -12865,7 +12991,8 @@ function ensureMemberStructuredTraits(m) {
         bodyVolume: 'medium',
         tummyProfile: 'flat',
         faceFullness: 'soft_full_cheeks',
-        baseHeightRatio: 0.80,
+        heightCm: 127,
+        baseHeightRatio: 0.71,
         hairStyle: 'short_fringe',
         facialHair: 'none',
         landmarks: []
@@ -12875,13 +13002,18 @@ function ensureMemberStructuredTraits(m) {
         bodyVolume: 'medium',
         tummyProfile: 'flat',
         faceFullness: 'oval_balanced',
-        baseHeightRatio: 0.85,
+        heightCm: defaultCm,
+        baseHeightRatio: Number((defaultCm / 178).toFixed(2)),
         hairStyle: 'short_side_part',
         facialHair: 'none',
         landmarks: []
       };
     }
   }
+  const resolvedCm = resolveMemberHeightCm(m);
+  m.heightCm = resolvedCm;
+  m.structuredTraits.heightCm = resolvedCm;
+  m.structuredTraits.baseHeightRatio = Number((resolvedCm / 178).toFixed(2));
   if (!Array.isArray(m.structuredTraits.landmarks)) {
     m.structuredTraits.landmarks = [];
   }
@@ -12891,8 +13023,16 @@ function ensureMemberStructuredTraits(m) {
 function sanitizeLoadedFamilyCast(cast) {
   if (!cast || !Array.isArray(cast.members)) return cast;
   cast.members = cast.members.filter(m => m && (m.name || m.roleLabel !== 'New Member'));
+  const fatherMember = cast.members.find(m => m.id === 'member_father' || m.relationship === 'self');
+  const fatherCm = fatherMember ? resolveMemberHeightCm(fatherMember) : 178;
+
   cast.members.forEach(m => {
     ensureMemberStructuredTraits(m);
+    const mCm = resolveMemberHeightCm(m);
+    m.heightCm = mCm;
+    m.structuredTraits.heightCm = mCm;
+    m.structuredTraits.baseHeightRatio = Number((mCm / Math.max(1, fatherCm)).toFixed(2));
+
     if (m.id === 'member_father' || m.relationship === 'self') {
       if (m.uncompromisableAnchors) {
         m.uncompromisableAnchors = m.uncompromisableAnchors
@@ -12905,12 +13045,31 @@ function sanitizeLoadedFamilyCast(cast) {
           .replace(/\bsalt-and-pepper\s+(?:trimmed\s+)?beard\b/gi, 'neat short dark trimmed beard')
           .replace(/\bsturdy,?\s*broad-shouldered solid(?: adult)? (?:frame|build)\b/gi, 'natural medium-full adult build with a straight-cut everyday waist and subtle 10% lower-waist softness flush with his chest line');
       }
-      // If tummyProfile is one of the non-protruding profiles (flat, straight_5, subtle_10, slight_tummy), ensure legacy "visible rounded dad-bod tummy / soft belly paunch" strings in anchors/traits are updated
       const tp = m.structuredTraits && m.structuredTraits.tummyProfile;
       if (tp && tp !== 'visible_tummy' && tp !== 'prominent_belly') {
         if (m.uncompromisableAnchors && /visible rounded dad-bod tummy|soft belly paunch/i.test(m.uncompromisableAnchors)) {
-          syncStructuredTraitsIntoTextFields(m);
+          syncStructuredTraitsIntoTextFields(m, cast.members);
         }
+      }
+    }
+
+    // Automatically repair legacy Elder Son strings that claimed he reached Mother's ear/eye level (0.86x)
+    if (m.id === 'member_elder_son' || m.relationship === 'elder_son') {
+      if (m.structuredTraits.tummyProfile === 'visible_tummy') {
+        m.structuredTraits.tummyProfile = 'flat';
+      }
+      if (/mother's ear|0\.86x|0\.85x/i.test(`${m.heightDesc || ''} ${m.uncompromisableAnchors || ''} ${m.visualTraits || ''}`)) {
+        m.uncompromisableAnchors = String(m.uncompromisableAnchors || '')
+          .replace(/,?\s*whose head reaches up to his mother's ear\/eye level\s*\(0\.86x Father height\)/gi, ', standing at 4ft 8in (142cm — 88% of Mother Aruna\'s 162cm height, 8 inches shorter than Mother, top of his head strictly below Mother\'s chin at her collarbone/shoulder level)')
+          .replace(/reaching Mother's ear\/eye level and Father's shoulder/gi, 'strictly below Mother\'s chin at her collarbone/shoulder level (88% of Mother\'s height, 80% of Father\'s height)');
+        m.visualTraits = String(m.visualTraits || '')
+          .replace(/,?\s*reaching up to his mother's ear\/eye level/gi, ', standing at 4ft 8in (142cm — 88% of Mother\'s height, top of head below Mother\'s chin at collarbone/shoulder level)');
+        syncStructuredTraitsIntoTextFields(m, cast.members);
+      }
+    }
+    if (m.id === 'member_younger_son' || m.relationship === 'younger_son') {
+      if (/0\.80x Father height/i.test(`${m.heightDesc || ''} ${m.uncompromisableAnchors || ''}`)) {
+        syncStructuredTraitsIntoTextFields(m, cast.members);
       }
     }
   });
@@ -12930,11 +13089,13 @@ function getDefaultClientFamilyCast() {
         name: 'Shridhar',
         aliases: ['dad', 'father', 'shridhar', 'myself', 'me', 'i', 'husband'],
         age: 40,
-        heightDesc: '5ft 10in (178cm), 1.00x baseline adult stature, natural medium-full build with subtle 10% waist softness flush with chest',
+        heightCm: 178,
+        heightDesc: '5ft 10in (178cm) • 100% family baseline (110% of Mother Aruna, +6in taller), natural medium-full build with subtle 10% waist softness flush with chest',
         structuredTraits: {
           bodyVolume: 'broad_full',
           tummyProfile: 'subtle_10',
           faceFullness: 'round_full_submental',
+          heightCm: 178,
           baseHeightRatio: 1.00,
           hairStyle: 'short_brushed_up',
           facialHair: 'light_stubble',
@@ -12952,18 +13113,20 @@ function getDefaultClientFamilyCast() {
         name: 'Aruna',
         aliases: ['wife', 'mother', 'mom', 'aru', 'aruna'],
         age: 36,
-        heightDesc: '5ft 4in (162cm), 0.92x Father height (reaching Father\'s forehead/brow)',
+        heightCm: 162,
+        heightDesc: '5ft 4in (162cm) • 91% of Father Shridhar (-6in / -16cm, reaching Father\'s eye/brow level) • +8in (20cm) taller than Elder Son Gahan',
         structuredTraits: {
           bodyVolume: 'medium',
           tummyProfile: 'slight_tummy',
           faceFullness: 'soft_full_cheeks',
-          baseHeightRatio: 0.92,
+          heightCm: 162,
+          baseHeightRatio: 0.91,
           hairStyle: 'long_shoulder_swept',
           facialHair: 'none',
           landmarks: ['forehead_bindi', 'hairline_kumkum', 'stud_earrings']
         },
-        uncompromisableAnchors: 'Warm golden-brown wheatish skin, soft fuller round-to-oval maternal face with warm full cheeks and soft rounded chin, gentle dark almond eyes without heavy makeup, small black circular bindi centered on forehead and subtle red kumkum at the upper forehead hairline, side-parted thick voluminous wavy black hair swept forward over her left shoulder past her collarbone, small gold stud earrings, and an authentic, healthy medium-to-full South Indian adult build with natural soft shoulders.',
-        visualTraits: 'Warm golden-brown skin, soft fuller round-to-oval maternal face with full cheeks, small black forehead bindi and subtle red kumkum at hairline, gentle dark eyes, side-parted long voluminous wavy black hair cascading over one shoulder, and an authentic, healthy medium adult build.',
+        uncompromisableAnchors: 'Warm golden-brown wheatish skin, soft fuller round-to-oval maternal face with warm full cheeks and soft rounded chin, gentle dark almond eyes without heavy makeup, small black circular bindi centered on forehead and subtle red kumkum at the upper forehead hairline, side-parted thick voluminous wavy black hair swept forward over her left shoulder past her collarbone, small gold stud earrings, and an authentic, healthy medium-to-full South Indian adult build with natural soft shoulders (5ft 4in / 162cm, 91% of Father\'s height, clearly 8 inches / 20cm taller than 11yo Elder Son Gahan).',
+        visualTraits: 'Warm golden-brown skin, soft fuller round-to-oval maternal face with full cheeks, small black forehead bindi and subtle red kumkum at hairline, gentle dark eyes, side-parted long voluminous wavy black hair cascading over one shoulder, and an authentic, healthy medium adult build (5ft 4in / 162cm, 8 inches taller than Elder Son Gahan).',
         vehicleRole: 'passenger_front_left',
         stylizedAvatarUrl: 'https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/avatar_member_mother.jpg'
       },
@@ -12974,18 +13137,20 @@ function getDefaultClientFamilyCast() {
         name: 'Gahan',
         aliases: ['gahan', 'elder son', 'older son', 'older boy', 'elder brother', 'big brother', 'first son', '11-year-old', '11yo'],
         age: 11,
-        heightDesc: 'Tall 11yo pre-teen stature (0.86x Father height): Head reaches up to Mother\'s ear/eye and Father\'s shoulder, slightly taller than younger brother whose head reaches Gahan\'s neck',
+        heightCm: 142,
+        heightDesc: '4ft 8in (142cm) • 88% of Mother Aruna (-8in / -20cm shorter; head strictly below Mother\'s chin at her collarbone/shoulder level) • 80% of Father Shridhar (-14in) • +6in taller than Rishu',
         structuredTraits: {
           bodyVolume: 'medium',
           tummyProfile: 'flat',
           faceFullness: 'oval_balanced',
-          baseHeightRatio: 0.86,
+          heightCm: 142,
+          baseHeightRatio: 0.80,
           hairStyle: 'short_side_part',
           facialHair: 'none',
           landmarks: []
         },
-        uncompromisableAnchors: 'Warm brown-skinned 11-year-old tall pre-teen Indian boy with a gentle round-oval face, full cheeks, dark expressive eyes, thick short textured black hair with a slight side part, square shoulders, and a sturdy solid pre-teen frame (strictly not skinny or frail), whose head reaches up to his mother\'s ear/eye level (0.86x Father height).',
-        visualTraits: 'Healthy 11-year-old pre-teen boy with a gentle round-oval face, dark expressive eyes, thick short textured black hair, and a sturdy, solid frame with natural square shoulders, reaching up to his mother\'s ear/eye level.',
+        uncompromisableAnchors: 'Warm brown-skinned 11-year-old pre-teen Indian boy with a gentle round-oval face, full cheeks, dark expressive eyes, thick short textured black hair with a slight side part, square shoulders, and a sturdy solid pre-teen frame (strictly not skinny or frail), standing at 4ft 8in (142cm — 88% of Mother Aruna\'s 162cm height and 80% of Father\'s 178cm height; clearly 8 inches / 20cm shorter than his Mother so the top of Gahan\'s head is strictly BELOW Mother\'s chin at her collarbone/upper-shoulder level, strictly NEVER as tall as or taller than Mother!).',
+        visualTraits: 'Healthy 11-year-old pre-teen boy with a gentle round-oval face, dark expressive eyes, thick short textured black hair, and a sturdy, solid frame with natural square shoulders, standing at 4ft 8in (142cm — 88% of Mother\'s height, top of head strictly below Mother\'s chin at her collarbone/shoulder level).',
         vehicleRole: 'passenger_rear_right',
         stylizedAvatarUrl: 'https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/avatar_member_elder_son.jpg'
       },
@@ -12996,18 +13161,20 @@ function getDefaultClientFamilyCast() {
         name: 'Rishu',
         aliases: ['rishu', 'younger son', 'little son', 'younger boy', 'younger brother', 'little brother', 'second son', '7-year-old', '7yo'],
         age: 7,
-        heightDesc: '7yo schoolboy stature (0.80x Father height): Top of his head rises above Gahan\'s shoulders to reach Gahan\'s neck/chin level',
+        heightCm: 127,
+        heightDesc: '4ft 2in (127cm) • 89% of Elder Brother Gahan (-6in / -15cm shorter; top of head rises above Gahan\'s shoulders to reach Gahan\'s chin/neck level) • 78% of Mother Aruna • 71% of Father Shridhar',
         structuredTraits: {
           bodyVolume: 'medium',
           tummyProfile: 'flat',
           faceFullness: 'soft_full_cheeks',
-          baseHeightRatio: 0.80,
+          heightCm: 127,
+          baseHeightRatio: 0.71,
           hairStyle: 'short_fringe',
           facialHair: 'none',
           landmarks: []
         },
-        uncompromisableAnchors: 'Warm wheatish-skinned 7-year-old schoolboy with round youthful cheeks, large expressive dark eyes, neat short straight black hair with a front fringe, and a healthy compact child frame, standing right up to his older brother Gahan\'s neck level (0.80x Father height, top of Rishu\'s head rises above Gahan\'s shoulders to meet Gahan\'s neck/chin level, strictly NOT tiny or waist-high).',
-        visualTraits: 'Young 7-year-old boy with warm wheatish skin, round cheeks, dark expressive eyes, neat short black hair, and a healthy compact frame whose head rises above Gahan\'s shoulders to reach Gahan\'s neck/chin level.',
+        uncompromisableAnchors: 'Warm wheatish-skinned 7-year-old schoolboy with round youthful cheeks, large expressive dark eyes, neat short straight black hair with a front fringe, and a healthy compact child frame, standing at 4ft 2in (127cm — 89% of his older brother Gahan\'s 142cm height, 6 inches / 15cm shorter than Gahan so the top of Rishu\'s head rises above Gahan\'s shoulders to reach Gahan\'s chin/neck level; 78% of Mother\'s height; 71% of Father\'s height).',
+        visualTraits: 'Young 7-year-old boy with warm wheatish skin, round cheeks, dark expressive eyes, neat short black hair, and a healthy compact frame standing at 4ft 2in (127cm — 89% of Gahan\'s height, top of head rising above Gahan\'s shoulders to reach Gahan\'s chin/neck level).',
         vehicleRole: 'passenger_rear_left',
         stylizedAvatarUrl: 'https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/avatar_member_younger_son.jpg'
       }
@@ -13559,13 +13726,42 @@ function renderActiveMemberScreen() {
                 </div>
 
                 <div class="vault-trait-row">
-                  <span class="vault-trait-row-label">Standing Stature Ratio (Auto-Adjusts for Sitting: 0.72x / Floor: 0.52x)</span>
-                  <div class="vault-trait-chips">
-                    <button type="button" class="vault-trait-chip ${Number(st.baseHeightRatio) === 1.00 ? 'active' : ''}" onclick="selectVaultStructuredTrait('baseHeightRatio', 1.00)">1.00x (Father Baseline)</button>
-                    <button type="button" class="vault-trait-chip ${Number(st.baseHeightRatio) === 0.92 ? 'active' : ''}" onclick="selectVaultStructuredTrait('baseHeightRatio', 0.92)">0.92x (Mother • Brow Level)</button>
-                    <button type="button" class="vault-trait-chip ${Number(st.baseHeightRatio) === 0.86 ? 'active' : ''}" onclick="selectVaultStructuredTrait('baseHeightRatio', 0.86)">0.86x (Elder Son • Mother's Ear)</button>
-                    <button type="button" class="vault-trait-chip ${Number(st.baseHeightRatio) === 0.80 ? 'active' : ''}" onclick="selectVaultStructuredTrait('baseHeightRatio', 0.80)">0.80x (Younger • Gahan's Neck)</button>
-                  </div>
+                  <span class="vault-trait-row-label">Actual Standing Height (Auto-Calculates Pairwise % Against Every Member)</span>
+                  ${(() => {
+                    const currentCm = resolveMemberHeightCm(member);
+                    const hInfo = cmToFeetInches(currentCm);
+                    const pairwiseRows = computePairwiseStatureMatrixForMember(member, members);
+                    const ftOptions = [3, 4, 5, 6].map(ft => `<option value="${ft}" ${hInfo.feet === ft ? 'selected' : ''}>${ft} ft</option>`).join('');
+                    const inOptions = Array.from({ length: 12 }, (_, i) => `<option value="${i}" ${hInfo.inches === i ? 'selected' : ''}>${i} in</option>`).join('');
+                    return `
+                      <div class="vault-height-inputs-bar">
+                        <div class="vault-height-unit-box" title="Height in Feet & Inches">
+                          <select id="vField_heightFt" onchange="handleVaultMemberFeetInchesChange()">${ftOptions}</select>
+                          <select id="vField_heightIn" onchange="handleVaultMemberFeetInchesChange()">${inOptions}</select>
+                        </div>
+                        <div class="vault-height-unit-box" title="Height in Centimeters (cm)">
+                          <input type="number" id="vField_heightCm" value="${hInfo.cm}" min="75" max="220" onchange="handleVaultMemberHeightCmChange(this.value)">
+                          <span class="vault-height-unit-label">cm</span>
+                        </div>
+                        <div class="vault-trait-chips" style="margin-left:2px;">
+                          <button type="button" class="vault-trait-chip ${Math.abs(currentCm - 178) <= 1 ? 'active' : ''}" onclick="handleVaultMemberHeightCmChange(178)">5'10" (178cm • Dad)</button>
+                          <button type="button" class="vault-trait-chip ${Math.abs(currentCm - 162) <= 1 ? 'active' : ''}" onclick="handleVaultMemberHeightCmChange(162)">5'4" (162cm • Mom)</button>
+                          <button type="button" class="vault-trait-chip ${Math.abs(currentCm - 142) <= 1 ? 'active' : ''}" onclick="handleVaultMemberHeightCmChange(142)">4'8" (142cm • Elder 11y)</button>
+                          <button type="button" class="vault-trait-chip ${Math.abs(currentCm - 127) <= 1 ? 'active' : ''}" onclick="handleVaultMemberHeightCmChange(127)">4'2" (127cm • Younger 7y)</button>
+                        </div>
+                      </div>
+                      ${pairwiseRows.length > 0 ? `
+                        <div class="vault-pairwise-stature-matrix">
+                          <span class="vault-pairwise-matrix-title">📐 Auto-Calculated Pairwise Relative Stature (${escapeHtml(hInfo.shortLabel)} — Works Even When Tallest Member Is Not in Scene)</span>
+                          <div class="vault-pairwise-pills">
+                            ${pairwiseRows.map(r => `
+                              <div class="vault-pairwise-pill">• vs. <strong>${escapeHtml(r.otherName)} (${escapeHtml(r.otherShortHeight)})</strong>: ${escapeHtml(r.summary)}</div>
+                            `).join('')}
+                          </div>
+                        </div>
+                      ` : ''}
+                    `;
+                  })()}
                 </div>
 
                 <div class="vault-trait-row">
@@ -13911,9 +14107,20 @@ async function generateActiveMemberStylizedAvatar() {
   }
 }
 
-function syncStructuredTraitsIntoTextFields(member) {
+function syncStructuredTraitsIntoTextFields(member, allMembersOverride = null) {
   if (!member) return;
   const st = ensureMemberStructuredTraits(member);
+  const allMembers = Array.isArray(allMembersOverride)
+    ? allMembersOverride
+    : ((familyCastProfileCache && familyCastProfileCache.members) || []);
+  const fatherObj = allMembers.find(m => m && (m.id === 'member_father' || m.relationship === 'self'));
+  const fatherCm = fatherObj ? resolveMemberHeightCm(fatherObj) : 178;
+  const memberCm = resolveMemberHeightCm(member);
+  member.heightCm = memberCm;
+  st.heightCm = memberCm;
+  st.baseHeightRatio = Number((memberCm / Math.max(1, fatherCm)).toFixed(2));
+  const hInfo = cmToFeetInches(memberCm);
+  const pairwiseRows = computePairwiseStatureMatrixForMember(member, allMembers);
 
   const volumePhraseMap = {
     lean: 'lean slim frame',
@@ -13956,12 +14163,6 @@ function syncStructuredTraitsIntoTextFields(member) {
     hairline_kumkum: 'subtle red kumkum at upper forehead hairline',
     stud_earrings: 'small gold stud earrings'
   };
-  const ratioDescMap = {
-    '1': '1.00x Father baseline stature (5ft 10in / 178cm)',
-    '0.92': '0.92x Father height (reaching Father\'s forehead/brow level)',
-    '0.86': '0.86x Father height (reaching Mother\'s ear/eye level and Father\'s shoulder)',
-    '0.8': '0.80x Father height (top of head rising above Gahan\'s shoulders to reach Gahan\'s neck/chin level)'
-  };
 
   const volPhrase = volumePhraseMap[st.bodyVolume] || volumePhraseMap.medium;
   const tummyPhrase = tummyPhraseMap[st.tummyProfile] || tummyPhraseMap.subtle_10;
@@ -13969,11 +14170,14 @@ function syncStructuredTraitsIntoTextFields(member) {
   const facePhrase = facePhraseMap[st.faceFullness] || facePhraseMap.oval_balanced;
   const beardPhrase = (member.relationship === 'self') ? (facialHairMap[st.facialHair] || facialHairMap.light_stubble) : '';
   const activeLms = (st.landmarks || []).map(k => landmarkLabels[k]).filter(Boolean);
-  const ratioStr = ratioDescMap[String(Number(st.baseHeightRatio))] || `${st.baseHeightRatio}x Father height`;
+
+  const pairwiseShort = pairwiseRows.slice(0, 2).map(r => `${r.pctVsOther}% of ${r.otherName} (${r.diffCm < 0 ? `-${r.diffIn}in` : `+${r.diffIn}in`})`).join(' • ');
+  const pairwiseFull = pairwiseRows.map(r => r.summary).join('; ');
+  const ratioStr = `${hInfo.label}${pairwiseShort ? ` [${pairwiseShort}]` : ` (${st.baseHeightRatio}x Father height)`}`;
 
   member.heightDesc = `${ratioStr}, ${volPhrase} with ${tummyShort}`;
 
-  const quantifiedSummary = `Quantified Volume & Stature: ${facePhrase}${beardPhrase ? ', ' + beardPhrase : ''}${activeLms.length ? ', ' + activeLms.join(', ') : ''}, ${volPhrase} with ${tummyPhrase}, standing at ${ratioStr}.`;
+  const quantifiedSummary = `Quantified Volume & Stature: ${facePhrase}${beardPhrase ? ', ' + beardPhrase : ''}${activeLms.length ? ', ' + activeLms.join(', ') : ''}, ${volPhrase} with ${tummyPhrase}, actual height ${hInfo.label}${pairwiseFull ? ` (${pairwiseFull})` : ''}.`;
 
   const cleanExisting = (str) => String(str || '')
     .replace(/\s*Quantified Volume & Stature:[\s\S]*$/i, '')
@@ -13989,6 +14193,29 @@ function syncStructuredTraitsIntoTextFields(member) {
   member.visualTraits = (baseTraits ? `${baseTraits.replace(/\.$/, '')}. ` : '') + quantifiedSummary;
 }
 
+function handleVaultMemberHeightCmChange(rawCm) {
+  const cast = familyCastProfileCache || getDefaultClientFamilyCast();
+  const member = (cast.members || []).find(m => m.id === activeVaultMemberId);
+  if (!member) return;
+  const safeCm = Math.max(75, Math.min(220, Math.round(Number(rawCm) || resolveMemberHeightCm(member))));
+  const st = ensureMemberStructuredTraits(member);
+  member.heightCm = safeCm;
+  st.heightCm = safeCm;
+  // Re-sync all members so pairwise percentages against this member update across the whole family
+  (cast.members || []).forEach(m => syncStructuredTraitsIntoTextFields(m, cast.members));
+  saveFamilyCastProfile(cast);
+  renderActiveMemberScreen();
+  renderFamilyCastStagingUI();
+}
+
+function handleVaultMemberFeetInchesChange() {
+  const ftEl = document.getElementById('vField_heightFt');
+  const inEl = document.getElementById('vField_heightIn');
+  if (!ftEl || !inEl) return;
+  const newCm = feetInchesToCm(ftEl.value, inEl.value);
+  handleVaultMemberHeightCmChange(newCm);
+}
+
 function selectVaultStructuredTrait(category, value) {
   const cast = familyCastProfileCache || getDefaultClientFamilyCast();
   const member = (cast.members || []).find(m => m.id === activeVaultMemberId);
@@ -13996,7 +14223,7 @@ function selectVaultStructuredTrait(category, value) {
 
   const st = ensureMemberStructuredTraits(member);
   st[category] = value;
-  syncStructuredTraitsIntoTextFields(member);
+  syncStructuredTraitsIntoTextFields(member, cast.members);
   saveFamilyCastProfile(cast);
   renderActiveMemberScreen();
   renderFamilyCastStagingUI();
@@ -14585,6 +14812,7 @@ function getSanitizedCastMember(m) {
     roleLabel: m.roleLabel,
     aliases: m.aliases,
     age: m.age,
+    heightCm: resolveMemberHeightCm(m),
     heightDesc: m.heightDesc,
     structuredTraits: m.structuredTraits || null,
     uncompromisableAnchors: m.uncompromisableAnchors,
