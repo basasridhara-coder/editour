@@ -499,6 +499,48 @@
         </div>
       </div>
 
+      <!-- Interactive Section-by-Section Credits Bar on Top of Form (Tap to Expand Details & Request More) -->
+      <div class="creator-credits-top-section" id="creatorCreditsTopSection" style="margin: 0 0 10px 0; border-radius: 12px; border: 1px solid rgba(16,185,129,0.28); background: linear-gradient(135deg, rgba(16,185,129,0.07), rgba(15,23,42,0.03)); overflow: hidden; transition: all 0.2s ease;">
+        <button type="button" onclick="toggleCreatorCreditsSectionDrawer()" style="width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px; background: transparent; border: none; cursor: pointer; text-align: left;">
+          <div style="display: flex; align-items: center; gap: 7px; flex-wrap: wrap; min-width: 0;">
+            <span id="creatorCreditsActiveModeIcon" style="font-size: 13px;">🎨</span>
+            <span id="creatorCreditsActiveModeSummary" style="font-size: 11.8px; font-weight: 800; color: var(--text-primary);">Perspective Visuals: 5 Free Starter Left</span>
+            <span id="creatorCreditsSecondarySummary" style="font-size: 10.8px; font-weight: 700; color: var(--text-secondary); padding: 1px 7px; border-radius: 99px; background: rgba(148,163,184,0.14);">📔 Chronicle: 1/1 Free Today</span>
+          </div>
+          <span style="display: inline-flex; align-items: center; gap: 4px; font-size: 10.8px; font-weight: 800; color: #059669; white-space: nowrap; flex-shrink: 0;">
+            <span id="creatorCreditsExpandLabel">Section Credits</span>
+            <span id="creatorCreditsExpandChevron" style="transition: transform 0.2s ease; display: inline-block;">▾</span>
+          </span>
+        </button>
+
+        <!-- Expandable Section Breakdown Drawer -->
+        <div id="creatorCreditsTopDrawer" style="display: none; padding: 10px 12px 12px; border-top: 1px dashed rgba(16,185,129,0.25); background: rgba(255,255,255,0.65);">
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px;">
+            <div id="creatorDrawerCardPerspective" style="padding: 8px 10px; border-radius: 10px; background: rgba(16,185,129,0.09); border: 1.5px solid rgba(16,185,129,0.4);">
+              <div style="font-size: 9.5px; font-weight: 800; color: #059669; text-transform: uppercase; letter-spacing: 0.4px;">🌐💭 Perspective</div>
+              <div id="creatorDrawerPerspCount" style="font-size: 13.5px; font-weight: 900; color: var(--text-primary); margin-top: 2px;">5 / 5 Starter</div>
+              <div id="creatorDrawerPerspSub" style="font-size: 10px; color: var(--text-secondary); margin-top: 1px; line-height: 1.25;">5 starter free &bull; then 1/day</div>
+            </div>
+            <div id="creatorDrawerCardChronicle" style="padding: 8px 10px; border-radius: 10px; background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.3);">
+              <div style="font-size: 9.5px; font-weight: 800; color: #B45309; text-transform: uppercase; letter-spacing: 0.4px;">📔 Diary Chronicle</div>
+              <div id="creatorDrawerChronCount" style="font-size: 13.5px; font-weight: 900; color: var(--text-primary); margin-top: 2px;">1 / 1 Today</div>
+              <div id="creatorDrawerChronSub" style="font-size: 10px; color: var(--text-secondary); margin-top: 1px; line-height: 1.25;">1 montage/day always free</div>
+            </div>
+            <div style="padding: 8px 10px; border-radius: 10px; background: rgba(99,102,241,0.07); border: 1px solid rgba(99,102,241,0.22);">
+              <div style="font-size: 9.5px; font-weight: 800; color: #4F46E5; text-transform: uppercase; letter-spacing: 0.4px;">📝📷 Text &amp; Exact Photo</div>
+              <div style="font-size: 13.5px; font-weight: 900; color: var(--text-primary); margin-top: 2px;">∞ Always Free</div>
+              <div style="font-size: 10px; color: var(--text-secondary); margin-top: 1px; line-height: 1.25;">Text edits &amp; Rethink = 0⚡</div>
+            </div>
+          </div>
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
+            <span style="font-size: 11px; color: var(--text-secondary);">Need more visual illustrations today? Request a bonus top-up anytime.</span>
+            <button type="button" onclick="openUserCreditsAndInviteModal('credits')" style="padding: 5px 11px; border-radius: 8px; border: none; background: #253833; color: #FFFFFF; font-size: 11px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
+              <span>⚡ Request More Credits</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
       <!-- 3-Way Regeneration Scope Toggle (Icon-Only Pills: 📝 Text Only | ✨ Both | 🎨 Visuals Only) -->
       <div class="creator-regen-scope-bar is-locked-fresh" id="creatorRegenScopeBar">
         <div class="regen-scope-info-col">
@@ -2371,8 +2413,13 @@
         <button class="modal-close" onclick="closeUserCreditsAndInviteModal()" style="color:var(--text-primary); background:rgba(128,128,128,0.15); font-size:22px; cursor:pointer;" aria-label="Close">&times;</button>
       </div>
 
+      <!-- Welcome Intro Banner (Shown automatically the first time a user starts Slanting) -->
+      <div id="userCreditsFirstTimeWelcomeBanner" style="display: none; padding: 10px 12px; border-radius: 12px; background: linear-gradient(135deg, rgba(16,185,129,0.12), rgba(99,102,241,0.08)); border: 1px solid rgba(16,185,129,0.35); font-size: 12px; color: var(--text-primary); line-height: 1.42;">
+        👋 <strong>Welcome to Slant Studio!</strong> Here is a quick guide to how your free visual illustration credits work and how to request a top-up anytime:
+      </div>
+
       <!-- Credit Breakdown Cards -->
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+      <div id="userModalCreditsSection" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
         <div style="padding: 12px; border-radius: 14px; background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.28);">
           <div style="font-size: 10px; font-weight: 800; color: #059669; text-transform: uppercase; letter-spacing: 0.5px;">🌐💭 Perspective Art</div>
           <div id="userModalPerspectiveCreditsText" style="font-size: 17px; font-weight: 900; color: var(--text-primary); margin-top: 4px;">5 Free Left</div>
@@ -2386,20 +2433,26 @@
       </div>
 
       <div style="padding: 9px 12px; border-radius: 11px; background: rgba(99,102,241,0.07); border: 1px solid rgba(99,102,241,0.2); font-size: 11.8px; color: var(--text-secondary); line-height: 1.4;">
-        ✨ <strong style="color: var(--text-primary);">Text &amp; Reflection Rethinking are Always Free:</strong> Only generating or regenerating illustrated poster artwork uses a visual credit.
+        ✨ <strong style="color: var(--text-primary);">Text, Exact Photos &amp; Reflection Rethinking are Always Free:</strong> Only generating or regenerating AI-illustrated poster artwork uses a visual credit.
       </div>
 
       <!-- Request More Credits Section -->
       <div style="padding: 12px; border-radius: 14px; background: var(--bg-card, rgba(15,23,42,0.03)); border: 1px solid var(--border-subtle, rgba(15,23,42,0.1)); display: flex; flex-direction: column; gap: 8px;">
-        <div style="font-size: 12.5px; font-weight: 800; color: var(--text-primary);">⚡ Need More Perspective Visual Credits?</div>
-        <div style="font-size: 11.5px; color: var(--text-secondary); line-height: 1.38;">Request additional credits below — our curator admin reviews active perspectives and grants bonus credits.</div>
+        <div style="font-size: 12.5px; font-weight: 800; color: var(--text-primary);">⚡ How to Request More Visual Credits</div>
+        <div style="font-size: 11.5px; color: var(--text-secondary); line-height: 1.38;">Need extra visual illustrations today? Tap <strong>Request +Credits</strong> below — our curator admin gets notified immediately and grants bonus credits (+5 / +15) to your account.</div>
         <div style="display: flex; gap: 8px;">
-          <input type="text" id="userCreditRequestReasonInput" placeholder="Optional note (e.g. Sharing tech &amp; book perspectives)" style="flex: 1; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--border-subtle, #CBD5E1); background: #FFFFFF; color: #0F172A; font-size: 12.5px;">
+          <input type="text" id="userCreditRequestReasonInput" placeholder="Optional note (e.g. Working on a series of perspectives)" style="flex: 1; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--border-subtle, #CBD5E1); background: #FFFFFF; color: #0F172A; font-size: 12.5px;">
           <button type="button" id="userCreditRequestSubmitBtn" onclick="submitUserCreditRequest()" style="padding: 9px 14px; border-radius: 10px; border: none; background: #253833; color: #FFFFFF; font-size: 12px; font-weight: 800; cursor: pointer; white-space: nowrap;">
             Request +Credits
           </button>
         </div>
+        <div id="userCreditRequestStatusMsg" style="display: none; font-size: 11.5px; font-weight: 700; margin-top: 2px;"></div>
       </div>
+
+      <!-- First-Time Start Slanting CTA Button -->
+      <button type="button" id="userCreditsFirstTimeGotItBtn" onclick="closeUserCreditsAndInviteModal()" style="display: none; width: 100%; padding: 11px 16px; border-radius: 12px; border: none; background: linear-gradient(135deg, #059669, #10B981); color: #FFFFFF; font-size: 13px; font-weight: 800; cursor: pointer; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 4px 12px rgba(16,185,129,0.25);">
+        <span>Got It — Start Slanting ✨</span>
+      </button>
 
       <!-- Invite Others to Slant Community Section -->
       <div id="userInviteCommunitySection" style="padding: 12px; border-radius: 14px; background: linear-gradient(135deg, rgba(245,158,11,0.10), rgba(99,102,241,0.08)); border: 1px solid rgba(217,119,6,0.3); display: flex; flex-direction: column; gap: 8px;">

@@ -390,6 +390,17 @@ async function fetchGlobalDeletedPostsRegistry() {
   return false;
 }
 
+function toggleCreatorCreditsSectionDrawer() {
+  const drawer = document.getElementById('creatorCreditsTopDrawer');
+  const chevron = document.getElementById('creatorCreditsExpandChevron');
+  if (!drawer) return;
+  const isOpen = drawer.style.display !== 'none';
+  drawer.style.display = isOpen ? 'none' : 'block';
+  if (chevron) {
+    chevron.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(180deg)';
+  }
+}
+
 function updateCreatorStudioCreditBadge(creditsObj) {
   if (creditsObj && typeof creditsObj === 'object') {
     currentUserCredits = creditsObj;
@@ -400,14 +411,31 @@ function updateCreatorStudioCreditBadge(creditsObj) {
   const perspSubEl = document.getElementById('userModalPerspectiveSubText');
   const chronTextEl = document.getElementById('userModalChronicleCreditsText');
 
+  // Top-of-form section credit bar elements
+  const topSection = document.getElementById('creatorCreditsTopSection');
+  const activeModeIcon = document.getElementById('creatorCreditsActiveModeIcon');
+  const activeModeSummary = document.getElementById('creatorCreditsActiveModeSummary');
+  const secondarySummary = document.getElementById('creatorCreditsSecondarySummary');
+  const drawerCardPersp = document.getElementById('creatorDrawerCardPerspective');
+  const drawerCardChron = document.getElementById('creatorDrawerCardChronicle');
+  const drawerPerspCount = document.getElementById('creatorDrawerPerspCount');
+  const drawerPerspSub = document.getElementById('creatorDrawerPerspSub');
+  const drawerChronCount = document.getElementById('creatorDrawerChronCount');
+  const drawerChronSub = document.getElementById('creatorDrawerChronSub');
+
   if (!currentUser) {
     if (badge) badge.style.display = 'none';
+    if (topSection) topSection.style.display = 'none';
     return;
   }
+  if (topSection) topSection.style.display = 'block';
 
   const email = (currentUser.email || '').toLowerCase().trim();
   const isMaster = email === 'shridharoct16@gmail.com' || email === 'basasridhara@gmail.com';
   const isChronicleActive = typeof isDailyChronicleMode !== 'undefined' && Boolean(isDailyChronicleMode);
+  const isInnerVoiceActive = !isChronicleActive && (typeof creatorSelectedSource !== 'undefined' && creatorSelectedSource === 'inner_voice');
+  const activePerspectiveLabel = isInnerVoiceActive ? 'Inner Voice Visuals' : 'Web Link Visuals';
+  const activePerspectiveEmoji = isInnerVoiceActive ? '💭' : '🌐';
 
   const starterRemaining = currentUserCredits ? Number(currentUserCredits.starterRemaining ?? 5) : 5;
   const starterTotal = currentUserCredits ? Number(currentUserCredits.starterTotal ?? 5) : 5;
@@ -422,6 +450,64 @@ function updateCreatorStudioCreditBadge(creditsObj) {
     : 1;
   const bonus = currentUserCredits ? Number(currentUserCredits.bonusCredits || 0) : 0;
   const dailyLimit = currentUserCredits ? Number(currentUserCredits.dailyLimit || 1) : 1;
+
+  // 1. Update Top-of-Form Section Credits Bar & Expandable Drawer
+  if (drawerCardPersp && drawerCardChron) {
+    drawerCardPersp.style.borderWidth = isChronicleActive ? '1px' : '1.5px';
+    drawerCardPersp.style.borderColor = isChronicleActive ? 'rgba(16,185,129,0.25)' : 'rgba(16,185,129,0.55)';
+    drawerCardChron.style.borderWidth = isChronicleActive ? '1.5px' : '1px';
+    drawerCardChron.style.borderColor = isChronicleActive ? 'rgba(245,158,11,0.65)' : 'rgba(245,158,11,0.28)';
+  }
+  if (drawerPerspCount) {
+    if (isMaster || currentUserCredits?.isUnlimited) {
+      drawerPerspCount.textContent = '⚡ ∞ Unlimited';
+    } else if (starterRemaining > 0) {
+      drawerPerspCount.textContent = `${perspLeft} Left (${starterRemaining}/${starterTotal} Starter)`;
+    } else {
+      drawerPerspCount.textContent = `${perspLeft} Left Today`;
+    }
+  }
+  if (drawerPerspSub) {
+    drawerPerspSub.textContent = starterRemaining > 0
+      ? `${starterRemaining} starter free • then ${dailyLimit}/day${bonus > 0 ? ` (+${bonus} bonus)` : ''}`
+      : `${dailyLimit}/day allowance${bonus > 0 ? ` + ${bonus} bonus` : ''}`;
+  }
+  if (drawerChronCount) {
+    if (isMaster || currentUserCredits?.isUnlimited) {
+      drawerChronCount.textContent = '⚡ ∞ Always Free';
+    } else {
+      drawerChronCount.textContent = chronFreeLeft > 0 ? `${chronFreeLeft} / 1 Free Today` : (chronTotalLeft > 0 ? `${chronTotalLeft} Bonus Left` : '0 Left Today');
+    }
+  }
+  if (drawerChronSub) {
+    drawerChronSub.textContent = chronFreeLeft > 0
+      ? '1 montage/day always free'
+      : 'Used today • resets tomorrow';
+  }
+
+  if (activeModeIcon && activeModeSummary && secondarySummary) {
+    if (isMaster || currentUserCredits?.isUnlimited) {
+      activeModeIcon.textContent = isChronicleActive ? '📔' : activePerspectiveEmoji;
+      activeModeSummary.textContent = isChronicleActive
+        ? 'Diary Chronicle Visuals: ⚡ ∞ Unlimited'
+        : `${activePerspectiveLabel}: ⚡ ∞ Unlimited`;
+      secondarySummary.textContent = isChronicleActive
+        ? '🌐💭 Perspective: ∞'
+        : '📔 Chronicle: ∞';
+    } else if (isChronicleActive) {
+      activeModeIcon.textContent = '📔';
+      activeModeSummary.textContent = chronFreeLeft > 0
+        ? `Diary Chronicle Visuals: ${chronFreeLeft}/1 Free Left Today`
+        : (chronTotalLeft > 0 ? `Diary Chronicle Visuals: ${chronTotalLeft} Bonus Left` : 'Diary Chronicle Visuals: 0 Left Today (Text Free)');
+      secondarySummary.textContent = `🌐💭 Perspective: ${perspLeft} Left`;
+    } else {
+      activeModeIcon.textContent = activePerspectiveEmoji;
+      activeModeSummary.textContent = starterRemaining > 0
+        ? `${activePerspectiveLabel}: ${perspLeft} Free Left (${starterRemaining}/${starterTotal} Starter)`
+        : (perspLeft > 0 ? `${activePerspectiveLabel}: ${perspLeft} Left Today` : `${activePerspectiveLabel}: 0 Left Today (Text Free)`);
+      secondarySummary.textContent = `📔 Chronicle: ${chronFreeLeft}/1 Free Today`;
+    }
+  }
 
   // Update User Credits Modal cards if present
   if (perspTextEl) {
@@ -460,7 +546,7 @@ function updateCreatorStudioCreditBadge(creditsObj) {
   badge.style.display = 'inline-flex';
 
   if (isMaster || currentUserCredits?.isUnlimited) {
-    badge.textContent = '⚡ ∞';
+    badge.textContent = isChronicleActive ? '📔 ⚡ ∞' : `${activePerspectiveEmoji} ⚡ ∞`;
     badge.style.background = 'rgba(99,102,241,0.15)';
     badge.style.color = '#818CF8';
     badge.style.borderColor = 'rgba(99,102,241,0.38)';
@@ -486,19 +572,19 @@ function updateCreatorStudioCreditBadge(creditsObj) {
   }
 
   if (perspLeft <= 0) {
-    badge.textContent = '🎨 0 left · Request +';
+    badge.textContent = `${activePerspectiveEmoji} 0 left · Request +`;
     badge.style.background = 'rgba(239,68,68,0.16)';
     badge.style.color = '#F87171';
     badge.style.borderColor = 'rgba(239,68,68,0.45)';
     badge.title = 'Perspective visual credits used for today (Text-Only mode & Daily Chronicle remain free). Tap to request more credits from Admin!';
   } else if (starterRemaining > 0) {
-    badge.textContent = `🎨 ${perspLeft} free`;
+    badge.textContent = `${activePerspectiveEmoji} ${perspLeft} free left`;
     badge.style.background = 'rgba(16,185,129,0.14)';
     badge.style.color = '#34D399';
     badge.style.borderColor = 'rgba(16,185,129,0.35)';
     badge.title = `${starterRemaining}/${starterTotal} free starter Perspective visual credits remaining (Text-Only & Daily Chronicle are always free). Tap for details or to request more.`;
   } else {
-    badge.textContent = `🎨 ${perspLeft} left`;
+    badge.textContent = `${activePerspectiveEmoji} ${perspLeft} left`;
     badge.style.background = 'rgba(16,185,129,0.14)';
     badge.style.color = '#34D399';
     badge.style.borderColor = 'rgba(16,185,129,0.35)';
@@ -2666,7 +2752,7 @@ if (typeof window !== 'undefined') {
   setTimeout(() => { preloadAnimatedInviteLogoFiles(); }, 2500);
 }
 
-function openUserCreditsAndInviteModal(section = 'credits') {
+function openUserCreditsAndInviteModal(section = 'credits', isFirstTimeWelcome = false) {
   if (typeof closeDrawer === 'function') closeDrawer();
   preloadAnimatedInviteLogoFiles();
   const modal = document.getElementById('userCreditsModal');
@@ -2675,6 +2761,12 @@ function openUserCreditsAndInviteModal(section = 'credits') {
     fetchWhitelistFromNetwork(currentUser.email.toLowerCase().trim()).catch(() => {});
   }
   updateCreatorStudioCreditBadge(currentUserCredits);
+
+  const welcomeBanner = document.getElementById('userCreditsFirstTimeWelcomeBanner');
+  const gotItBtn = document.getElementById('userCreditsFirstTimeGotItBtn');
+  if (welcomeBanner) welcomeBanner.style.display = isFirstTimeWelcome ? 'block' : 'none';
+  if (gotItBtn) gotItBtn.style.display = isFirstTimeWelcome ? 'inline-flex' : 'none';
+
   modal.style.display = 'flex';
   modal.style.opacity = '1';
   modal.style.visibility = 'visible';
@@ -2705,7 +2797,10 @@ function closeUserCreditsAndInviteModal() {
   modal.style.opacity = '';
   modal.style.visibility = '';
   modal.style.pointerEvents = '';
-  document.body.style.overflow = '';
+  const creatorModal = document.getElementById('creatorModal');
+  if (!creatorModal || !creatorModal.classList.contains('open')) {
+    document.body.style.overflow = '';
+  }
 }
 
 async function submitUserCreditRequest() {
@@ -2713,8 +2808,8 @@ async function submitUserCreditRequest() {
     openAuthModal('Please sign in first to request more visual credits.');
     return;
   }
-  const btn = document.getElementById('userRequestCreditsSubmitBtn');
-  const noteInput = document.getElementById('userCreditRequestNoteInput');
+  const btn = document.getElementById('userCreditRequestSubmitBtn') || document.getElementById('userRequestCreditsSubmitBtn');
+  const noteInput = document.getElementById('userCreditRequestReasonInput') || document.getElementById('userCreditRequestNoteInput');
   const statusMsg = document.getElementById('userCreditRequestStatusMsg');
   const reason = (noteInput?.value || '').trim();
   const origHtml = btn ? btn.innerHTML : 'Request +Credits';
@@ -16133,6 +16228,20 @@ function openCreatorModal(resumeDraftId = null, forcedAnchorMode = null) {
   modal.classList.add('open');
   modal.classList.add('active');
   document.body.style.overflow = 'hidden';
+
+  // First time a user opens Creator Studio ("starts slanting"), automatically pop up the brief credits usage & request guide
+  try {
+    const emailKey = (currentUser?.email || 'guest').toLowerCase().trim();
+    const introSeenKey = `slant_credits_intro_seen_v1_${emailKey}`;
+    if (!localStorage.getItem(introSeenKey)) {
+      localStorage.setItem(introSeenKey, 'true');
+      setTimeout(() => {
+        if (typeof openUserCreditsAndInviteModal === 'function') {
+          openUserCreditsAndInviteModal('credits', true);
+        }
+      }, 220);
+    }
+  } catch (_) {}
 
   if (forcedAnchorMode) {
     setTimeout(() => {
