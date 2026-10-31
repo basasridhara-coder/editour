@@ -2878,8 +2878,8 @@ async function submitUserCreditRequest() {
 
 async function shareSlantCommunityInvite() {
   const shareUrl = 'https://www.slant.today';
-  const shareTitle = 'Slant — Share Your Perspective & Chronicle Your Days';
-  const shareText = `Hey! Check out Slant (https://www.slant.today) — share your perspective on what you read or observe as illustrated posters, and chronicle your daily moments in an encrypted private diary.`;
+  const shareTitle = 'Slant — Every Thought Deserves a Frame';
+  const shareText = `Hey! Came across Slant (https://www.slant.today) — it’s a quiet space that turns reading notes and everyday thoughts into illustrated, print-style editorial cards. Thought you'd appreciate it, check it out.`;
 
   try {
     if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -3357,7 +3357,7 @@ async function handleAdminSetDefaultDailyLimit(dailyLimit = 1) {
 }
 
 function copyPersonalInviteMessage() {
-  const text = `Hey! Check out Slant (https://www.slant.today) — share your perspective on what you read or observe as illustrated posters, and chronicle your daily moments in an encrypted private diary.`;
+  const text = `Hey! Came across Slant (https://www.slant.today) — it’s a quiet space that turns reading notes and everyday thoughts into illustrated, print-style editorial cards. Thought you'd appreciate it, check it out.`;
   navigator.clipboard.writeText(text).then(() => {
     showTemporaryToast('📋 Slant community invite copied to clipboard!');
   }).catch(() => {
