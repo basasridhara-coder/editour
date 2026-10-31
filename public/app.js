@@ -11041,14 +11041,22 @@ function buildClientFallbackMomentProjections(moments = []) {
 
     let rawOptions = [];
     if (mentionsKids && mentionsFighting) {
+      const disputedMatch = mText.match(/\b(?:fighting|arguing|squabbling|bickering)\s+(?:over|about|for)\s+([^.,;!?]+)/i);
+      const disputedPhrase = disputedMatch && disputedMatch[1]
+        ? disputedMatch[1].replace(/\s+and\s+i\s+helped.*$/i, '').trim()
+        : (/\b(shorts|short pant|pants|shirt|clothes)\b/i.test(lower) ? 'sharing a pair of shorts' : 'their shared item');
+      const shortDisputedTitle = /\b(shorts|short pant)\b/i.test(disputedPhrase)
+        ? 'Over a Pair of Shorts'
+        : (disputedPhrase.length <= 26 ? `Over ${disputedPhrase}` : '');
+
       rawOptions = [
         {
           id: `m${mNum}_opt1`,
           archetype: 'direct_action',
           badge: '★ Default • My 2 Sons Action',
           baseConfidence: 95,
-          title: `${fatherName} Mediating Between Sons ${elderName} (11yo) & ${youngerName} (7yo)`,
-          description: `Father (${fatherName}) kneeling warmly between his two sons — 11yo elder boy ${elderName} (4'8" / 142cm, navy tee & denim shorts) and shorter 7yo younger boy ${youngerName} (4'2" / 127cm, mustard tee & dark shorts) — calmly resolving their sibling squabble at home (strictly two boys with a 6-inch height gap).`,
+          title: `${fatherName} Mediating Between Sons ${elderName} (11yo) & ${youngerName} (7yo)${shortDisputedTitle ? ' ' + shortDisputedTitle : ''}`,
+          description: `Father (${fatherName}) kneeling warmly between his two sons — 11yo elder boy ${elderName} (4'8" / 142cm, navy tee & denim shorts) and shorter 7yo younger boy ${youngerName} (4'2" / 127cm, mustard tee & dark shorts) — calmly resolving their fight over ${disputedPhrase} (strictly two boys with a 6-inch height gap).`,
           castIds: ['member_father', 'member_elder_son', 'member_younger_son'],
           isPersonalFamily: true
         },
@@ -11057,18 +11065,18 @@ function buildClientFallbackMomentProjections(moments = []) {
           archetype: 'warm_resolution',
           badge: '🤝 Warm Resolution • Brotherly Peace',
           baseConfidence: 84,
-          title: `Brothers ${elderName} (11) & ${youngerName} (7) Making Up After Dad's Advice`,
-          description: `Both brothers (11yo boy ${elderName} and shorter 7yo boy ${youngerName}) sharing a reconciled smile and handshake as Father (${fatherName}) guides them to make peace.`,
+          title: `Brothers ${elderName} (11) & ${youngerName} (7) Making Up After Fighting ${shortDisputedTitle || 'Together'}`,
+          description: `Both brothers (11yo boy ${elderName} and shorter 7yo boy ${youngerName}) sharing a reconciled smile as Father (${fatherName}) helps them resolve the dispute over ${disputedPhrase}.`,
           castIds: ['member_father', 'member_elder_son', 'member_younger_son'],
           isPersonalFamily: true
         },
         {
           id: `m${mNum}_opt3`,
           archetype: 'symbolic_focus',
-          badge: '🎨 Symbolic Detail • Calm Hands & Toy',
+          badge: '🎨 Symbolic Detail • Disputed Item & Calm Hands',
           baseConfidence: 73,
-          title: `Father's Calming Hand Between Both Boys (${elderName} & ${youngerName})`,
-          description: `Expressive close-medium angle focusing on scattered toys and Father (${fatherName}) placing a reassuring hand on his two sons (${elderName} 11yo boy & ${youngerName} 7yo boy) in warm morning light.`,
+          title: `Focus on ${disputedPhrase.charAt(0).toUpperCase() + disputedPhrase.slice(1)} & Father's Calming Hand`,
+          description: `Expressive close-medium angle focusing on ${disputedPhrase} held between 11yo boy ${elderName} and 7yo boy ${youngerName} as Father (${fatherName}) steps in calmly.`,
           castIds: ['member_father', 'member_elder_son', 'member_younger_son'],
           isPersonalFamily: true
         }
@@ -18519,7 +18527,10 @@ function getCreatorRegenInputsSnapshot() {
     ? dailyChronicleMoments.map(m => `${(m.title || '').trim()}::${(m.text || '').trim()}`).join('||')
     : '';
   const momentsVisualSig = (typeof dailyChronicleMoments !== 'undefined' && Array.isArray(dailyChronicleMoments))
-    ? dailyChronicleMoments.map(m => `${Boolean(m.isStarred)}::${(m.imageBase64 || '').slice(0, 64)}`).join('||')
+    ? dailyChronicleMoments.map(m => `${Boolean(m.isStarred)}::${(m.imageBase64 || '').slice(0, 64)}::${m.preferredVisualProjection?.id || ''}::${m.preferredVisualProjection?.title || ''}::${m.preferredVisualProjection?.description || ''}`).join('||')
+    : '';
+  const visualSubjectSig = (typeof selectedPolishVisualSubject !== 'undefined' && selectedPolishVisualSubject)
+    ? `${selectedPolishVisualSubject.id || ''}::${selectedPolishVisualSubject.title || ''}::${selectedPolishVisualSubject.description || ''}`
     : '';
   const activeCastSig = (typeof activeCastMemberIds !== 'undefined' && activeCastMemberIds instanceof Set)
     ? Array.from(activeCastMemberIds).sort().join(',')
@@ -18540,7 +18551,8 @@ function getCreatorRegenInputsSnapshot() {
     refPhotoSig: ((typeof creatorReferenceImageBase64 !== 'undefined' && creatorReferenceImageBase64) || (typeof innerVoicePhotoBase64 !== 'undefined' && innerVoicePhotoBase64) || '').slice(0, 80),
     activeCastSig,
     castStagingMode: typeof activeCastStagingMode !== 'undefined' ? activeCastStagingMode : 'vehicle_rhd',
-    momentsVisualSig
+    momentsVisualSig,
+    visualSubjectSig
   };
 }
 
@@ -18693,17 +18705,19 @@ function evaluateSmartRegenScopeAutoSwitch() {
     curr.refPhotoSig !== base.refPhotoSig ||
     curr.activeCastSig !== base.activeCastSig ||
     curr.castStagingMode !== base.castStagingMode ||
-    curr.momentsVisualSig !== base.momentsVisualSig
+    curr.momentsVisualSig !== base.momentsVisualSig ||
+    curr.visualSubjectSig !== base.visualSubjectSig ||
+    (curr.isChronicle && curr.momentsTextSig !== base.momentsTextSig)
   );
 
   if (textChanged && !visualChanged) {
-    window._regenAutoSwitchReason = 'Auto-selected Text Only (keeps your current poster artwork)';
-    setCreatorRegenScope('text_only', false);
+    window._regenAutoSwitchReason = 'Auto-selected Both (keeps text & visual scene in sync — tap 📝 for Text Only)';
+    setCreatorRegenScope('both', false);
   } else if (visualChanged && !textChanged) {
     window._regenAutoSwitchReason = 'Auto-selected Visuals Only (keeps your current poster text)';
     setCreatorRegenScope('visuals_only', false);
   } else if (textChanged && visualChanged) {
-    window._regenAutoSwitchReason = 'Auto-selected Both (text & visual settings modified)';
+    window._regenAutoSwitchReason = 'Auto-selected Both (text & visual scene updated)';
     setCreatorRegenScope('both', false);
   } else {
     window._regenAutoSwitchReason = 'Slide left for Text Only or right for Visuals Only';
