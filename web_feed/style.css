@@ -6924,6 +6924,156 @@ header {
   flex-shrink: 0;
 }
 
+/* Auto-Identified Core Visual Subject Picker (Shown on Polish) */
+.polish-visual-subject-picker {
+  margin-top: 10px;
+  padding: 12px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(16, 185, 129, 0.06) 0%, var(--bg-surface) 100%);
+  border: 1.5px solid rgba(16, 185, 129, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: fadeInPrompt 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.polish-vs-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.polish-vs-title-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.polish-vs-icon {
+  font-size: 16px;
+  line-height: 1.2;
+}
+
+.polish-vs-title-col {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.polish-vs-title {
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.6px;
+  color: #059669;
+  text-transform: uppercase;
+}
+
+[data-theme="obsidian"] .polish-vs-title {
+  color: #34D399;
+}
+
+.polish-vs-subtitle {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  line-height: 1.35;
+}
+
+.polish-vs-status-pill {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(16, 185, 129, 0.15);
+  color: #059669;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+[data-theme="obsidian"] .polish-vs-status-pill {
+  color: #6EE7B7;
+}
+
+.polish-vs-cards-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.polish-vs-card {
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 11px;
+  background: var(--bg-card);
+  border: 1.5px solid var(--border-subtle);
+  cursor: pointer;
+  transition: all 0.18s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.polish-vs-card:hover {
+  border-color: rgba(16, 185, 129, 0.55);
+  transform: translateY(-1px);
+}
+
+.polish-vs-card.active {
+  border-color: #10B981;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.10) 0%, var(--bg-card) 100%);
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.22), 0 6px 18px -4px rgba(16, 185, 129, 0.18);
+}
+
+.polish-vs-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.polish-vs-badge {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: rgba(148, 163, 184, 0.15);
+  color: var(--text-secondary);
+}
+
+.polish-vs-card.active .polish-vs-badge {
+  background: #10B981;
+  color: #FFFFFF;
+}
+
+.polish-vs-check {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--text-muted);
+}
+
+.polish-vs-card.active .polish-vs-check {
+  color: #059669;
+}
+
+[data-theme="obsidian"] .polish-vs-card.active .polish-vs-check {
+  color: #34D399;
+}
+
+.polish-vs-card-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+
+.polish-vs-card-desc {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  line-height: 1.38;
+}
+
 /* Mandatory Field Validation Prompts & Highlights */
 @keyframes fieldMandatoryShake {
   0%, 100% { transform: translateX(0); }

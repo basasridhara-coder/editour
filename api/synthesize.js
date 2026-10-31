@@ -370,7 +370,8 @@ Respond strictly with valid JSON:
         customDirection = '',
         chronicleMode = false,
         chronicleMoments = [],
-        chronicleMomentImages = []
+        chronicleMomentImages = [],
+        preferredVisualSubject = null
       } = body;
       const validBodyMoments = Array.isArray(chronicleMoments)
         ? chronicleMoments.filter(m => m && String(m.text || '').trim().length >= 2)
@@ -434,7 +435,8 @@ Respond strictly with valid JSON:
           countryContext,
           sourceType,
           perspectiveMode,
-          chronicleMode: Boolean(chronicleMode)
+          chronicleMode: Boolean(chronicleMode),
+          preferredVisualSubject
         });
 
         const stylePrefix = chronicleMode
@@ -489,6 +491,7 @@ ${scrapedTitle ? `- Source Title: "${scrapedTitle}"` : ''}
 ${scrapedContent ? `- Source Context: "${String(scrapedContent).slice(0, 600)}"` : ''}
 ${previousPrompt ? `\nPREVIOUS VISUAL PROMPT (DO NOT REPEAT THIS COMPOSITION OR POSE):\n"${previousPrompt.slice(0, 500)}"\n\nCRITICAL VISUAL REGENERATION & VARIATION DIRECTIVE:\nThe curator explicitly requested a fresh visual regeneration. You MUST create a SIGNIFICANTLY DIFFERENT visual scene from the previous prompt above: choose a fresh visual metaphor or focal action, a noticeably different camera angle/perspective (e.g., wide atmospheric establishing shot vs. dramatic over-the-shoulder angle vs. symbolic close-up focal object), a distinct lighting palette, and strictly apply the selected Medium & Portrayal Style (${stylePrefix}).` : ''}
 ${familyCastDirectives ? `\nMANDATORY CASTING VAULT & PROTAGONIST ANCHORS:\n${familyCastDirectives.systemPromptSection}` : ''}
+${preferredVisualSubject && preferredVisualSubject.title ? `\nCRITICAL CORE VISUAL SUBJECT SELECTED BY CURATOR (HIGHEST PRIORITY):\n- Selected Visual Subject: "${preferredVisualSubject.title}" — ${preferredVisualSubject.description || ''}\n- Build "illustrationPrompt" and "cues" directly around this exact visual subject!${!preferredVisualSubject.isPersonalFamily ? ' Strictly DO NOT depict the author\'s personal family (Shridhar, Aruna, Gahan, Rishu) on a home veranda!' : ''}` : ''}
 ${validRebuildMomentImgs.length > 0 ? `\nCRITICAL ATTACHED MOMENT PHOTO / LOGO INTEGRATION DIRECTIVE:\n- The curator attached ${validRebuildMomentImgs.length} reference image(s) for specific moment(s) of their Daily Chronicle.\n- Inspect each attached image above and explicitly describe its exact visual graphic, emblem, or scene in "illustrationPrompt" so it is prominently featured inside its corresponding moment vignette (for example, if an attached image is a black fountain-pen nib emblem containing a contemplative upward-tilted portrait face on a cream background for an app-launch moment, explicitly instruct "illustrationPrompt" to display that exact black fountain-pen nib portrait emblem large and crisp on the glowing smartphone screen in that vignette rather than a generic blank screen).` : ''}
 ${customDirection ? `\nCURATOR'S SPECIFIC VISUAL DIRECTION: "${customDirection}"` : ''}
 
@@ -1208,9 +1211,9 @@ Respond strictly with valid JSON:
       }
     }
 
-    // Direct Single-Purpose Endpoint: Polish & Review Take with Pedagogical Highlighters
+    // Direct Single-Purpose Endpoint: Polish & Review Take with Pedagogical Highlighters + Core Visual Subject Identification
     if (body && (body.action === 'polish_take' || body.action === 'review_take')) {
-      const { text = '', slantTake = '' } = body;
+      const { text = '', slantTake = '', spark = '', scrapedTitle = '', countryContext = 'India' } = body;
       const rawText = String(text || slantTake || '').trim();
       if (!rawText || rawText.length < 5) {
         return res.status(400).json({ error: 'Please enter a take to polish.' });
@@ -1218,12 +1221,16 @@ Respond strictly with valid JSON:
 
       // Fast baseline polish using rule-based formatter
       const baselinePolished = formatCuratorTakeApt(rawText);
+      const fallbackSubjects = buildFallbackVisualSubjects(rawText, spark, scrapedTitle, countryContext);
 
-      // Call Gemini for high-precision, categorized copy-editing and inline highlighting
+      // Call Gemini for high-precision, categorized copy-editing, inline highlighting, and 3 Core Visual Subject options
       try {
-        const copyEditPrompt = `You are a world-class literary copy-editor and writing coach.
+        const copyEditPrompt = `You are a world-class literary copy-editor, writing coach, and editorial visual director.
 The author has written their personal conviction / take on a topic.
-Your job is to polish their text into grammatically correct, natural, and apt English while detailing every correction made:
+Your job has TWO parts:
+
+PART 1 — COPY-EDIT & POLISH:
+Polish their text into grammatically correct, natural, and apt English while detailing every correction made:
 - STRICT RULE 1 (ZERO OPINION FABRICATION): DO NOT change, enhance, add to, or modify the author's opinion, stance, or logic. Do NOT introduce new arguments, buzzwords, or unsolicited ideas.
 - STRICT RULE 2 (ZERO CUTTING SHORT): DO NOT cut short, truncate, compress, or omit the author's opinion. Every single point, argument, nuance, and example must be retained in the exact same sequence.
 - STRICT RULE 3 (APT ENGLISH & PHRASING): Fix comma splices, run-on sentences, awkward phrasing, word choices, subject-verb agreements, casing, and punctuation so it flows naturally and authoritatively.
@@ -1238,8 +1245,20 @@ Your job is to polish their text into grammatically correct, natural, and apt En
   * "grammar": Verb tense, subject-verb agreement, singular/plural, missing articles or prepositions, pronoun cases (e.g. "it's" -> "its", "is kept" -> "are kept", "Govt" -> "The government").
   * "punctuation": Commas, periods, colons, quotation marks, fixing comma splices or run-ons.
 
+PART 2 — IDENTIFY 3 CORE VISUAL SUBJECT OPTIONS FOR POSTER 1 ARTWORK:
+Understand the true CORE SUBJECT in the given context (Setting: ${countryContext || 'India'}).
+- CRITICAL DISTINCTION (SOCIETAL OBSERVATION vs. PERSONAL FAMILY STORY):
+  * If the author is observing society, schools, parents in general, workplaces, politics, or culture (even if they use words like "I see", "the whole family comes", "parents", "the kids", "in our school days"), the core visual subject is the REAL-WORLD SCENE BEING DISCUSSED (e.g. a packed school corridor on parent-teacher meeting day with parents debating marks with a 2nd-grade teacher), and "isPersonalFamily" MUST be false!
+  * Set "isPersonalFamily": true ONLY if the author is explicitly telling an intimate personal story about their OWN family members ("my family", "my wife", "my kids", "my son", "Gahan", "Rishu", "Aruna").
+- Provide 3 distinct, tap-to-choose visual subject angles in "visualSubjects":
+  1. Option 1 ("badge": "★ Best Fit • Core Scene"): The direct, concrete real-world scene and protagonists at the heart of the author's context.
+  2. Option 2 ("badge": "⚡ Core Contrast"): A visual composition highlighting the central irony, contrast, or tension in the author's argument (e.g. 20-minute debate over 2nd-grade marks vs. the modern AI era).
+  3. Option 3 ("badge": "🎨 Editorial Metaphor"): A poignant symbolic or nostalgic visual framing the author's core takeaway.
+
 Author's Raw Take:
 """${rawText}"""
+${spark ? `Author's Spark / Catalyst: """${spark}"""` : ''}
+${scrapedTitle ? `Source Headline: """${scrapedTitle}"""` : ''}
 
 Respond strictly with valid JSON with this exact structure:
 {
@@ -1250,6 +1269,22 @@ Respond strictly with valid JSON with this exact structure:
       "replacement": "exact replacement in the polished text",
       "type": "spelling | grammar | punctuation | phrasing",
       "reason": "concise explanation of why this specific correction was made"
+    }
+  ],
+  "visualSubjects": [
+    {
+      "id": "subject_1",
+      "badge": "★ Best Fit • Core Scene",
+      "title": "Short 4-7 word visual subject title",
+      "description": "Clear 1-sentence visual description of what Poster 1 will depict",
+      "cues": [
+        "Hero Subject (concise 4-7 words)",
+        "Core Motif / Object (concise 4-7 words)",
+        "Central Tension (concise 4-7 words)",
+        "Physical Setting / Atmosphere (concise 4-7 words)",
+        "Lighting & Mood (concise 4-7 words)"
+      ],
+      "isPersonalFamily": false
     }
   ]
 }`;
@@ -1264,7 +1299,7 @@ Respond strictly with valid JSON with this exact structure:
           body: JSON.stringify({
             contents: [{ parts: [{ text: copyEditPrompt }] }],
             generationConfig: {
-              temperature: 0.1,
+              temperature: 0.15,
               thinkingConfig: { thinkingBudget: 0 },
               responseMimeType: 'application/json'
             }
@@ -1331,13 +1366,25 @@ Respond strictly with valid JSON with this exact structure:
               total: corrections.length
             };
 
+            const visualSubjects = (Array.isArray(parsed.visualSubjects) && parsed.visualSubjects.length > 0)
+              ? parsed.visualSubjects.slice(0, 3).map((vs, idx) => ({
+                  id: String(vs.id || `subject_${idx + 1}`),
+                  badge: String(vs.badge || (idx === 0 ? '★ Best Fit • Core Scene' : (idx === 1 ? '⚡ Core Contrast' : '🎨 Editorial Metaphor'))),
+                  title: String(vs.title || fallbackSubjects[idx]?.title || 'Core Editorial Scene').trim(),
+                  description: String(vs.description || fallbackSubjects[idx]?.description || '').trim(),
+                  cues: Array.isArray(vs.cues) && vs.cues.length >= 3 ? vs.cues.slice(0, 5).map(String) : (fallbackSubjects[idx]?.cues || []),
+                  isPersonalFamily: Boolean(vs.isPersonalFamily)
+                }))
+              : fallbackSubjects;
+
             return res.status(200).json({
               success: true,
               original: rawText,
               polished: cleanPolished,
               highlightedHtml: highlightedHtml,
               corrections,
-              counts
+              counts,
+              visualSubjects
             });
           }
         } else {
@@ -1352,7 +1399,8 @@ Respond strictly with valid JSON with this exact structure:
             polished: baselinePolished,
             highlightedHtml: baselinePolished,
             corrections: [],
-            counts: { spelling: 0, grammar: 0, punctuation: 0, phrasing: 0, total: 0 }
+            counts: { spelling: 0, grammar: 0, punctuation: 0, phrasing: 0, total: 0 },
+            visualSubjects: fallbackSubjects
           });
         }
       } catch (err) {
@@ -1364,7 +1412,8 @@ Respond strictly with valid JSON with this exact structure:
           polished: baselinePolished,
           highlightedHtml: baselinePolished,
           corrections: [],
-          counts: { spelling: 0, grammar: 0, punctuation: 0, phrasing: 0, total: 0 }
+          counts: { spelling: 0, grammar: 0, punctuation: 0, phrasing: 0, total: 0 },
+          visualSubjects: fallbackSubjects
         });
       }
 
@@ -1376,7 +1425,8 @@ Respond strictly with valid JSON with this exact structure:
         polished: baselinePolished,
         highlightedHtml: baselinePolished,
         corrections: [],
-        counts: { spelling: 0, grammar: 0, punctuation: 0, phrasing: 0, total: 0 }
+        counts: { spelling: 0, grammar: 0, punctuation: 0, phrasing: 0, total: 0 },
+        visualSubjects: fallbackSubjects
       });
     }
 
@@ -1412,7 +1462,8 @@ Respond strictly with valid JSON with this exact structure:
       castStaging = null,
       chronicleMode = false,
       chronicleMoments = [],
-      reflectionFeedbackHistory = null
+      reflectionFeedbackHistory = null,
+      preferredVisualSubject = null
     } = body || {};
 
     const validChronicleMoments = Array.isArray(chronicleMoments)
@@ -1680,7 +1731,8 @@ Respond strictly with valid JSON with this exact structure:
       countryContext,
       sourceType,
       perspectiveMode,
-      chronicleMode: Boolean(isChronicle)
+      chronicleMode: Boolean(isChronicle),
+      preferredVisualSubject
     });
 
     const isCinematicPhoto = (characterRepresentation === 'cinematic' || characterRepresentation === 'cinematic_photo' || characterRepresentation === 'likeness' || (Boolean(effectiveCatalystImage || sourceImageBase64) && characterRepresentation !== 'painting' && characterRepresentation !== 'watercolor' && characterRepresentation !== 'exact' && characterRepresentation !== 'silhouette' && characterRepresentation !== 'realistic'));
@@ -1699,6 +1751,14 @@ ${userSlant ? `- Curator's Slant / Take (Primary Stance & Angle): "${userSlant}"
 ${spark ? `- The Spark (Personal Context / Catalyst): "${spark}"` : ''}
 ${url ? `- Source Link: ${url}` : ''}
 ${pubName ? `- Publication / Domain: ${pubName}` : ''}
+${preferredVisualSubject && preferredVisualSubject.title ? `CRITICAL CORE VISUAL SUBJECT SELECTED BY CURATOR (HIGHEST VISUAL PRIORITY FOR POSTER 1):
+- Selected Visual Subject Title: "${preferredVisualSubject.title}"
+- Selected Visual Scene Description: "${preferredVisualSubject.description || preferredVisualSubject.title}"
+- You MUST build Poster 1's "illustrationPrompt", "heroCue", and "cues" directly around this exact selected visual subject!
+${!preferredVisualSubject.isPersonalFamily ? '- STRICT BAN ON UNRELATED FAMILY PORTRAITS: Because this selected visual subject is a topical/societal/contextual scene and NOT a personal family portrait, strictly DO NOT insert the author\'s personal family members (Shridhar, Aruna, Gahan, Rishu) on a home veranda!' : ''}` : `CRITICAL CORE SUBJECT & CONTEXTUAL SCENE GROUNDING DIRECTIVE (POSTER 1 VISUALS):
+- Identify the true CORE SUBJECT in the author's context before composing "illustrationPrompt" and "cues".
+- Distinguish sharply between a SOCIETAL / TOPICAL OBSERVATION (e.g. crowded school corridors on Parent-Teacher Meeting days, parents debating 2nd-grade marks with teachers in the age of AI, civic street life, workplace culture) vs. an intimate PERSONAL FAMILY STORY about the author's own household ("my family", "my wife", "my sons Gahan & Rishu").
+- When the post is a societal or topical observation (even if it mentions generic words like "the whole family comes", "parents", "the kids", or "I see"), "illustrationPrompt" MUST depict the actual real-world scene of that topic (e.g. the packed school corridor and classroom doorway on PTM day) and MUST NEVER default to a generic home veranda or personal family photo!`}
 ${familyCastDirectives ? `- Family Protagonists & Physical Staging:
 ${familyCastDirectives.systemPromptSection}` : (demographicInfo ? `- Featured Protagonist Age & Demographics: ${demographicInfo.promptDesc}` : '')}
 ${cues && cues.length > 0 ? `- Ranked Visual Cues: ${cues.map((c, i) => `#${i+1} ${c}`).join(' • ')}` : ''}
@@ -3736,7 +3796,109 @@ function getDefaultFamilyCast(userIdentifier) {
   };
 }
 
-function detectRelevantCastMembers(combined = '', cast = null) {
+function buildFallbackVisualSubjects(rawText = '', spark = '', scrapedTitle = '', countryContext = 'India') {
+  const combined = `${rawText} ${spark} ${scrapedTitle}`.toLowerCase();
+  const isPersonalFamily = /\b(my family|our family|my whole family|our whole family|my kids|our kids|my sons|our sons|my boys|our boys|my children|our children|my wife|my elder son|my younger son|gahan|rishu|aruna|shridhar)\b/i.test(combined);
+
+  if (/\b(parent-teacher|ptm|report card|marks|second-grade|school days|teachers' meeting|school|classroom)\b/i.test(combined)) {
+    return [
+      {
+        id: 'subject_1',
+        badge: '★ Best Fit • Core Scene',
+        title: 'Packed School Corridor on Parent-Teacher Meeting Day',
+        description: 'Bustling Indian school veranda overflowing with anxious parents, grandparents, and children queuing outside a classroom door.',
+        cues: [
+          'Packed School Corridor Outside Classroom on PTM Day',
+          'Elementary Report Card & Red Ink Marks',
+          '20-Minute Grade Negotiation vs Childhood Joy',
+          'Sunlit Indian School Veranda Crowded with Families',
+          'Warm Morning Daylight Through Classroom Windows'
+        ],
+        isPersonalFamily: false
+      },
+      {
+        id: 'subject_2',
+        badge: '⚡ Core Contrast',
+        title: 'Debating 2nd-Grade Marks in the Age of AI',
+        description: 'Parents intensely debating single-digit elementary marks with a teacher while modern AI quietly transforms the world outside.',
+        cues: [
+          'Parent & Teacher Debating 2nd-Grade Report Card',
+          'Paper Mark Sheet vs Glowing AI Horizon',
+          'Obsession with Minor Marks vs Future Competence',
+          'Elementary Classroom Desk with Report Cards',
+          'Warm Classroom Lamp and Crisp Daylight Contrast'
+        ],
+        isPersonalFamily: false
+      },
+      {
+        id: 'subject_3',
+        badge: '🎨 Editorial Metaphor',
+        title: 'Carefree Schoolkids Walking Home Unburdened',
+        description: 'Smiling school children walking home freely with satchels, contrasting nostalgic trust in education against modern parental anxiety.',
+        cues: [
+          'Smiling Schoolchildren Walking Home Together',
+          'Vintage School Bell & Unhurried Satchels',
+          'Trusting Childhood Growth vs Anxious Micro-Management',
+          'Tree-Lined Indian School Courtyard at Dismissal',
+          'Golden Afternoon Sunlight and Long Peaceful Shadows'
+        ],
+        isPersonalFamily: false
+      }
+    ];
+  }
+
+  const firstSentence = String(rawText || scrapedTitle || 'Core Editorial Scene').split(/[.!?\n]/)[0].trim();
+  const shortTopic = firstSentence.length > 52 ? firstSentence.slice(0, 49) + '...' : firstSentence;
+
+  return [
+    {
+      id: 'subject_1',
+      badge: '★ Best Fit • Core Scene',
+      title: isPersonalFamily ? `Personal Family Scene: ${shortTopic}` : `Real-World Scene: ${shortTopic}`,
+      description: isPersonalFamily
+        ? `Authentic family moment grounded directly in: "${shortTopic}"`
+        : `Concrete real-world scene depicting the core subject of: "${shortTopic}"`,
+      cues: [
+        shortTopic,
+        'Authentic Real-World Contextual Details',
+        'Central Narrative Tension in Scene',
+        `${countryContext || 'Indian'} Real-World Setting & Architecture`,
+        'Natural Editorial Daylight and Chiaroscuro Depth'
+      ],
+      isPersonalFamily
+    },
+    {
+      id: 'subject_2',
+      badge: '⚡ Core Contrast',
+      title: 'The Central Tension & Contrast',
+      description: `Visualizing the two opposing forces or irony highlighted in your perspective.`,
+      cues: [
+        `Opposing Forces in ${shortTopic}`,
+        'Symbolic Contrast of Old vs New Reality',
+        'Friction Between Convention and Reality',
+        `Editorial Split-Perspective Scene in ${countryContext || 'India'}`,
+        'High-Contrast Dramatic Editorial Lighting'
+      ],
+      isPersonalFamily: false
+    },
+    {
+      id: 'subject_3',
+      badge: '🎨 Editorial Metaphor',
+      title: 'Symbolic Editorial Illustration',
+      description: `An evocative broadsheet metaphor capturing the lasting takeaway of your slant.`,
+      cues: [
+        `Symbolic Metaphor for ${shortTopic}`,
+        'Focused Editorial Object & Human Gesture',
+        'Quiet Conviction Against Everyday Noise',
+        'Minimalist Broadsheet Composition',
+        'Warm Golden-Hour Rim Lighting'
+      ],
+      isPersonalFamily: false
+    }
+  ];
+}
+
+function detectRelevantCastMembers(combined = '', cast = null, options = {}) {
   const c = String(combined || '').toLowerCase();
   const rawMembers = (cast && Array.isArray(cast.members)) ? cast.members : [];
   const members = rawMembers.filter(m => m && (
@@ -3746,15 +3908,14 @@ function detectRelevantCastMembers(combined = '', cast = null) {
   ));
 
   // 0. First-Person Separation / Solitude Scene:
-  // When the narrator (Father / Self) writes that he is alone, stuck in one city while wife/kids are away,
-  // or missing/waiting for them to return, the present-tense visual HERO is exclusively Father / Self (Shridhar)!
   const isNarratorAloneMissingFamily = /\b(i am alone|being alone|stuck in [a-z]+ while|miss them|missing them|how much i miss|waiting for them|when my wife is out|feeling of separation|feeling of separateness)\b/i.test(c);
   if (isNarratorAloneMissingFamily) {
     const selfMember = members.find(m => m.relationship === 'self') || { id: 'member_father' };
     return new Set([selfMember.id]);
   }
 
-  const mentionsCollective = /\b(my family|our family|whole family|entire family|the four of us|all four of us|my kids|our kids|the kids|kids returned|kids are|kids and|and the kids|with the kids|both kids|my sons|our sons|the sons|both sons|both my boys|both our boys|both boys|the boys|my boys|my children|our children|the children|11 and 7|11yo and 7yo|road trip with my family|vacation with my family)\b/i.test(c);
+  // Strictly require first-person possessives ("my/our") so general societal observations ("the whole family comes", "the kids") NEVER trigger personal family photos
+  const mentionsCollective = /\b(my family|our family|my whole family|our whole family|my entire family|our entire family|the four of us|all four of us|my kids|our kids|both my kids|both our kids|my sons|our sons|both my sons|both our sons|both my boys|both our boys|my boys|our boys|my children|our children|road trip with my family|vacation with my family|walk.*with my family)\b/i.test(c);
   if (mentionsCollective) {
     return new Set(members.map(m => m.id));
   }
@@ -3784,13 +3945,13 @@ function detectRelevantCastMembers(combined = '', cast = null) {
       }
     }
 
-    // 3. Role-specific semantic keywords (must be first-person personal possessives or family terms)
+    // 3. Role-specific semantic keywords (STRICTLY first-person personal possessives or explicit family names)
     if (m.relationship === 'elder_son') {
-      if (/\b(my elder son|my older son|my older boy|my first son|11-year-old|11yo|gahan|the kids|my kids|our kids|kids returned|with kids|the boys|my boys|my sons|our sons|my children|the children)\b/i.test(c)) {
+      if (/\b(my elder son|my older son|my older boy|my first son|my 11-year-old|my 11yo|gahan|my kids|our kids|my boys|our boys|my sons|our sons|my children|our children)\b/i.test(c)) {
         detected.add(m.id);
       }
     } else if (m.relationship === 'younger_son') {
-      if (/\b(my younger son|my little son|my younger boy|my second son|7-year-old|7yo|rishu|the kids|my kids|our kids|kids returned|with kids|the boys|my boys|my sons|our sons|my children|the children)\b/i.test(c)) {
+      if (/\b(my younger son|my little son|my younger boy|my second son|my 7-year-old|my 7yo|rishu|my kids|our kids|my boys|our boys|my sons|our sons|my children|our children)\b/i.test(c)) {
         detected.add(m.id);
       }
     } else if (m.relationship === 'spouse') {
@@ -3798,16 +3959,13 @@ function detectRelevantCastMembers(combined = '', cast = null) {
         detected.add(m.id);
       }
     } else if (m.relationship === 'self') {
-      if (/\b(my dad|my father|shridhar)\b/i.test(c)) {
+      if (/\b(shridhar)\b/i.test(c)) {
         detected.add(m.id);
       }
     }
   });
 
-  // 4. First-Person Narrator Participation & Solo Self-Reference:
-  // If the narrator ("I / me / my / myself") is actively participating alongside spouse or children,
-  // OR if the narrator is writing a first-person reflection about themselves (with no other family member as exclusive solo subject),
-  // include Father / Self (Shridhar, age 40)!
+  // 4. First-Person Narrator Participation alongside detected spouse or children, OR Diary Chronicle mode
   const hasChild = detected.has('member_elder_son') || detected.has('member_younger_son');
   const hasSpouse = detected.has('member_mother');
   const hasFirstPersonCoPresence = /\b(and me|with me|between .* and me|i remain|by my side|by his side|beside him|beside her|holding my hand|teaching him|walked with him|support him|i stood|standing beside|my home|my life|attended|launched)\b/i.test(c);
@@ -3815,8 +3973,7 @@ function detectRelevantCastMembers(combined = '', cast = null) {
     detected.add('member_father');
   }
 
-  const hasFirstPersonSelf = /\b(i|me|my|myself|mine|i'm|i’m|i've|i’ve|i'd|i’d)\b/i.test(c);
-  if (detected.size === 0 && hasFirstPersonSelf) {
+  if (options && options.chronicleMode && detected.size === 0) {
     const selfMember = members.find(m => m.relationship === 'self') || { id: 'member_father' };
     detected.add(selfMember.id);
   }
@@ -3824,14 +3981,18 @@ function detectRelevantCastMembers(combined = '', cast = null) {
   return detected;
 }
 
-function buildFamilyCastDirectives({ familyCast, activeCast, castStaging, userSlant = '', spark = '', countryContext = '', sourceType = 'digital_link', perspectiveMode = 'source', chronicleMode = false }) {
+function buildFamilyCastDirectives({ familyCast, activeCast, castStaging, userSlant = '', spark = '', countryContext = '', sourceType = 'digital_link', perspectiveMode = 'source', chronicleMode = false, preferredVisualSubject = null }) {
+  // If user selected a topical/non-family Visual Subject from Polish (and did not manually force Family Cast), do NOT inject personal family cast
+  if (preferredVisualSubject && preferredVisualSubject.isPersonalFamily === false && !(activeCast && activeCast.manuallySelected)) {
+    return null;
+  }
   const hasExplicitCast = activeCast && Array.isArray(activeCast.members) && activeCast.members.length > 0;
   if (sourceType !== 'inner_voice' && !hasExplicitCast && perspectiveMode !== 'curator') {
     return null;
   }
   const combined = `${userSlant} ${spark}`.toLowerCase();
   const cast = familyCast || getDefaultFamilyCast();
-  const detectedIds = detectRelevantCastMembers(combined, cast);
+  const detectedIds = detectRelevantCastMembers(combined, cast, { chronicleMode });
 
   const isFamilyContext = (detectedIds.size > 0);
 

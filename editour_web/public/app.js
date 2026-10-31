@@ -10827,14 +10827,194 @@ function recordPolishSessionToLocalHistory(rawText, polishedText, counts, correc
   } catch (_) {}
 }
 
+let currentPolishVisualSubjects = [];
+let selectedPolishVisualSubjectIdx = 0;
+let selectedPolishVisualSubject = null;
+
+function buildClientFallbackVisualSubjects(rawText = '', spark = '', scrapedTitle = '') {
+  const combined = `${rawText} ${spark} ${scrapedTitle}`.toLowerCase();
+  const isPersonalFamily = /\b(my family|our family|my whole family|our whole family|my kids|our kids|my sons|our sons|my boys|our boys|my children|our children|my wife|my elder son|my younger son|gahan|rishu|aruna|shridhar)\b/i.test(combined);
+
+  if (/\b(parent-teacher|ptm|report card|marks|second-grade|school days|teachers' meeting|school|classroom)\b/i.test(combined)) {
+    return [
+      {
+        id: 'subject_1',
+        badge: '★ Best Fit • Core Scene',
+        title: 'Packed School Corridor on Parent-Teacher Meeting Day',
+        description: 'Bustling Indian school veranda overflowing with anxious parents, grandparents, and children queuing outside a classroom door.',
+        cues: [
+          'Packed School Corridor Outside Classroom on PTM Day',
+          'Elementary Report Card & Red Ink Marks',
+          '20-Minute Grade Negotiation vs Childhood Joy',
+          'Sunlit Indian School Veranda Crowded with Families',
+          'Warm Morning Daylight Through Classroom Windows'
+        ],
+        isPersonalFamily: false
+      },
+      {
+        id: 'subject_2',
+        badge: '⚡ Core Contrast',
+        title: 'Debating 2nd-Grade Marks in the Age of AI',
+        description: 'Parents intensely debating single-digit elementary marks with a teacher while modern AI quietly transforms the world outside.',
+        cues: [
+          'Parent & Teacher Debating 2nd-Grade Report Card',
+          'Paper Mark Sheet vs Glowing AI Horizon',
+          'Obsession with Minor Marks vs Future Competence',
+          'Elementary Classroom Desk with Report Cards',
+          'Warm Classroom Lamp and Crisp Daylight Contrast'
+        ],
+        isPersonalFamily: false
+      },
+      {
+        id: 'subject_3',
+        badge: '🎨 Editorial Metaphor',
+        title: 'Carefree Schoolkids Walking Home Unburdened',
+        description: 'Smiling school children walking home freely with satchels, contrasting nostalgic trust in education against modern parental anxiety.',
+        cues: [
+          'Smiling Schoolchildren Walking Home Together',
+          'Vintage School Bell & Unhurried Satchels',
+          'Trusting Childhood Growth vs Anxious Micro-Management',
+          'Tree-Lined Indian School Courtyard at Dismissal',
+          'Golden Afternoon Sunlight and Long Peaceful Shadows'
+        ],
+        isPersonalFamily: false
+      }
+    ];
+  }
+
+  const firstSentence = String(rawText || scrapedTitle || 'Core Editorial Scene').split(/[.!?\n]/)[0].trim();
+  const shortTopic = firstSentence.length > 52 ? firstSentence.slice(0, 49) + '...' : firstSentence;
+
+  return [
+    {
+      id: 'subject_1',
+      badge: '★ Best Fit • Core Scene',
+      title: isPersonalFamily ? `Personal Family Scene: ${shortTopic}` : `Real-World Scene: ${shortTopic}`,
+      description: isPersonalFamily
+        ? `Authentic family moment grounded directly in: "${shortTopic}"`
+        : `Concrete real-world scene depicting the core subject of: "${shortTopic}"`,
+      cues: [
+        shortTopic,
+        'Authentic Real-World Contextual Details',
+        'Central Narrative Tension in Scene',
+        `${creatorCountryContext?.name || 'Indian'} Real-World Setting & Architecture`,
+        'Natural Editorial Daylight and Chiaroscuro Depth'
+      ],
+      isPersonalFamily
+    },
+    {
+      id: 'subject_2',
+      badge: '⚡ Core Contrast',
+      title: 'The Central Tension & Contrast',
+      description: 'Visualizing the two opposing forces or irony highlighted in your perspective.',
+      cues: [
+        `Opposing Forces in ${shortTopic}`,
+        'Symbolic Contrast of Old vs New Reality',
+        'Friction Between Convention and Reality',
+        `Editorial Split-Perspective Scene in ${creatorCountryContext?.name || 'India'}`,
+        'High-Contrast Dramatic Editorial Lighting'
+      ],
+      isPersonalFamily: false
+    },
+    {
+      id: 'subject_3',
+      badge: '🎨 Editorial Metaphor',
+      title: 'Symbolic Editorial Illustration',
+      description: 'An evocative broadsheet metaphor capturing the lasting takeaway of your slant.',
+      cues: [
+        `Symbolic Metaphor for ${shortTopic}`,
+        'Focused Editorial Object & Human Gesture',
+        'Quiet Conviction Against Everyday Noise',
+        'Minimalist Broadsheet Composition',
+        'Warm Golden-Hour Rim Lighting'
+      ],
+      isPersonalFamily: false
+    }
+  ];
+}
+
+function renderPolishVisualSubjects() {
+  const picker = document.getElementById('polishVisualSubjectPicker');
+  const listEl = document.getElementById('polishVisualSubjectCardsList');
+  const statusPill = document.getElementById('polishVisualSubjectStatusPill');
+  if (!picker || !listEl) return;
+
+  if (!Array.isArray(currentPolishVisualSubjects) || currentPolishVisualSubjects.length === 0) {
+    picker.style.display = 'none';
+    return;
+  }
+
+  picker.style.display = 'flex';
+  if (statusPill) {
+    statusPill.textContent = `✓ Option ${selectedPolishVisualSubjectIdx + 1} Active`;
+  }
+
+  listEl.innerHTML = currentPolishVisualSubjects.map((vs, idx) => {
+    const isSelected = (idx === selectedPolishVisualSubjectIdx);
+    return `
+      <button type="button" class="polish-vs-card ${isSelected ? 'active' : ''}" onclick="selectPolishVisualSubject(${idx})">
+        <div class="polish-vs-card-top">
+          <span class="polish-vs-badge">${escapeHtml(vs.badge || `Option ${idx + 1}`)}</span>
+          <span class="polish-vs-check">${isSelected ? '✓ Selected for Poster Visual' : 'Tap to use'}</span>
+        </div>
+        <div class="polish-vs-card-title">${escapeHtml(vs.title || '')}</div>
+        <div class="polish-vs-card-desc">${escapeHtml(vs.description || '')}</div>
+      </button>
+    `;
+  }).join('');
+}
+
+function selectPolishVisualSubject(idx, silent = false) {
+  if (!Array.isArray(currentPolishVisualSubjects) || !currentPolishVisualSubjects[idx]) return;
+  selectedPolishVisualSubjectIdx = idx;
+  selectedPolishVisualSubject = currentPolishVisualSubjects[idx];
+
+  const styleCue = creatorCharacterRepresentation === 'exact'
+    ? 'Direct Unedited Source Photo'
+    : (creatorCharacterRepresentation === 'cinematic'
+      ? 'Cinematic Editorial Photo (Picture-Like 35mm Film Still)'
+      : (creatorCharacterRepresentation === 'painting'
+        ? 'Artistic Broadsheet Painting (Artwork)'
+        : (creatorCharacterRepresentation === 'watercolor'
+          ? 'Watercolor Illustration (Hand-Painted Wash)'
+          : 'AI Illustration (Vivid Editorial Realism)')));
+
+  if (Array.isArray(selectedPolishVisualSubject.cues) && selectedPolishVisualSubject.cues.length >= 3) {
+    const fiveCues = selectedPolishVisualSubject.cues.slice(0, 5);
+    while (fiveCues.length < 5) fiveCues.push(selectedPolishVisualSubject.title || 'Editorial Scene');
+    creatorCuePills = [...fiveCues, styleCue];
+    if (typeof renderCuesDeck === 'function') {
+      renderCuesDeck();
+    }
+  }
+
+  // If the selected visual subject is NOT a personal family story (and user hasn't manually forced family cast), ensure family cast is cleared
+  if (!selectedPolishVisualSubject.isPersonalFamily && !window._userManuallyToggledCast) {
+    if (activeCastMemberIds && activeCastMemberIds.clear) {
+      activeCastMemberIds.clear();
+    }
+    if (typeof renderFamilyCastStagingUI === 'function') {
+      renderFamilyCastStagingUI();
+    }
+  }
+
+  renderPolishVisualSubjects();
+  if (!silent && typeof showTemporaryToast === 'function') {
+    showTemporaryToast(`🎨 Visual Subject set: "${selectedPolishVisualSubject.title}"`);
+  }
+}
+
 async function polishUserTake() {
   const input = document.getElementById('creatorSlantTakeInput');
+  const sparkInput = document.getElementById('creatorSparkInput');
   const btn = document.getElementById('slantPolishActionBtn');
   const reviewCard = document.getElementById('slantPolishReviewCard');
   const display = document.getElementById('slantPolishedTextDisplay');
 
   if (!input) return;
   const rawText = input.value.trim();
+  const sparkText = sparkInput ? sparkInput.value.trim() : '';
+  const scrapedTitle = currentScrapedArticle?.title || '';
   if (!rawText || rawText.length < 10) {
     showTemporaryToast('⚠️ Please write your take first before reviewing.');
     input.focus();
@@ -10854,7 +11034,10 @@ async function polishUserTake() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         action: 'polish_take',
-        text: rawText
+        text: rawText,
+        spark: sparkText,
+        scrapedTitle: scrapedTitle,
+        countryContext: creatorCountryContext?.name || 'India'
       })
     });
 
@@ -10862,11 +11045,15 @@ async function polishUserTake() {
     let highlightedHtml = '';
     let corrections = [];
     let counts = { spelling: 0, grammar: 0, punctuation: 0, phrasing: 0, total: 0 };
+    let visualSubjects = null;
     let reviewSuccessful = false;
     let serverError = '';
 
     if (resp.ok) {
       const data = await resp.json();
+      if (data && Array.isArray(data.visualSubjects) && data.visualSubjects.length > 0) {
+        visualSubjects = data.visualSubjects;
+      }
       if (data && data.success !== false && (data.polished || data.highlightedHtml)) {
         reviewSuccessful = true;
         polished = data.polished || '';
@@ -10882,6 +11069,12 @@ async function polishUserTake() {
       polished = formatCuratorTakeApt(rawText);
       highlightedHtml = escapeHtml(polished);
     }
+
+    if (!visualSubjects || visualSubjects.length === 0) {
+      visualSubjects = buildClientFallbackVisualSubjects(rawText, sparkText, scrapedTitle);
+    }
+    currentPolishVisualSubjects = visualSubjects;
+    selectPolishVisualSubject(0, true);
 
     lastPolishedTake = polished;
     lastHighlightedHtml = highlightedHtml || escapeHtml(polished);
@@ -10954,6 +11147,8 @@ async function polishUserTake() {
     lastPolishedTake = polished;
     lastHighlightedHtml = escapeHtml(polished);
     lastCorrectionsList = [];
+    currentPolishVisualSubjects = buildClientFallbackVisualSubjects(rawText, sparkText, scrapedTitle);
+    selectPolishVisualSubject(0, true);
     if (display) display.textContent = polished;
     if (reviewCard) {
       reviewCard.style.display = 'flex';
@@ -14190,7 +14385,8 @@ function detectRelevantCastMembers(text = '', cast = null) {
     return new Set([selfMember.id]);
   }
 
-  const mentionsCollective = /\b(my family|our family|whole family|entire family|the four of us|all four of us|my kids|our kids|the kids|kids returned|kids are|kids and|and the kids|with the kids|both kids|my sons|our sons|the sons|both sons|both my boys|both our boys|both boys|the boys|my boys|my children|our children|the children|11 and 7|11yo and 7yo|road trip with my family|vacation with my family)\b/i.test(combined);
+  // Strictly require first-person possessives ("my/our") so general societal observations ("the whole family comes", "the kids") NEVER trigger personal family photos
+  const mentionsCollective = /\b(my family|our family|my whole family|our whole family|my entire family|our entire family|the four of us|all four of us|my kids|our kids|both my kids|both our kids|my sons|our sons|both my sons|both our sons|both my boys|both our boys|my boys|our boys|my children|our children|road trip with my family|vacation with my family|walk.*with my family)\b/i.test(combined);
   if (mentionsCollective) {
     return new Set(members.map(m => m.id));
   }
@@ -14220,13 +14416,13 @@ function detectRelevantCastMembers(text = '', cast = null) {
       }
     }
 
-    // 3. Role-specific semantic keywords (must be first-person personal possessives or family terms)
+    // 3. Role-specific semantic keywords (STRICTLY first-person personal possessives or explicit family names)
     if (m.relationship === 'elder_son') {
-      if (/\b(my elder son|my older son|my older boy|my first son|11-year-old|11yo|gahan|the kids|my kids|our kids|kids returned|with kids|the boys|my boys|my sons|our sons|my children|the children)\b/i.test(combined)) {
+      if (/\b(my elder son|my older son|my older boy|my first son|my 11-year-old|my 11yo|gahan|my kids|our kids|my boys|our boys|my sons|our sons|my children|our children)\b/i.test(combined)) {
         detected.add(m.id);
       }
     } else if (m.relationship === 'younger_son') {
-      if (/\b(my younger son|my little son|my younger boy|my second son|7-year-old|7yo|rishu|the kids|my kids|our kids|kids returned|with kids|the boys|my boys|my sons|our sons|my children|the children)\b/i.test(combined)) {
+      if (/\b(my younger son|my little son|my younger boy|my second son|my 7-year-old|my 7yo|rishu|my kids|our kids|my boys|our boys|my sons|our sons|my children|our children)\b/i.test(combined)) {
         detected.add(m.id);
       }
     } else if (m.relationship === 'spouse') {
@@ -14234,16 +14430,13 @@ function detectRelevantCastMembers(text = '', cast = null) {
         detected.add(m.id);
       }
     } else if (m.relationship === 'self') {
-      if (/\b(my dad|my father|shridhar)\b/i.test(combined)) {
+      if (/\b(shridhar)\b/i.test(combined)) {
         detected.add(m.id);
       }
     }
   });
 
-  // 4. First-Person Narrator Participation & Solo Self-Reference:
-  // If the narrator ("I / me / my / myself") is actively participating alongside spouse or children,
-  // OR if the narrator is writing a first-person reflection about themselves (with no other family member as exclusive solo subject),
-  // include Father / Self (Shridhar, age 40)!
+  // 4. First-Person Narrator Participation alongside detected spouse or children, OR Diary Chronicle mode
   const hasChild = detected.has('member_elder_son') || detected.has('member_younger_son');
   const hasSpouse = detected.has('member_mother');
   const hasFirstPersonCoPresence = /\b(and me|with me|between .* and me|i remain|by my side|by his side|beside him|beside her|holding my hand|teaching him|walked with him|support him|i stood|standing beside|my home|my life|attended|launched)\b/i.test(combined);
@@ -14251,8 +14444,7 @@ function detectRelevantCastMembers(text = '', cast = null) {
     detected.add('member_father');
   }
 
-  const hasFirstPersonSelf = /\b(i|me|my|myself|mine|i'm|i’m|i've|i’ve|i'd|i’d)\b/i.test(combined);
-  if (detected.size === 0 && hasFirstPersonSelf && (creatorSelectedSource === 'inner_voice' || creatorPerspectiveMode === 'curator')) {
+  if (detected.size === 0 && isDailyChronicleMode) {
     const selfMember = members.find(m => m.relationship === 'self') || { id: 'member_father' };
     detected.add(selfMember.id);
   }
@@ -17462,6 +17654,11 @@ function resetCreatorState() {
   window._regeneratingExistingPostId = null;
   window._regeneratingExistingCreatedAt = null;
   creatorCuePills = [];
+  currentPolishVisualSubjects = [];
+  selectedPolishVisualSubjectIdx = 0;
+  selectedPolishVisualSubject = null;
+  const polishVsPicker = document.getElementById('polishVisualSubjectPicker');
+  if (polishVsPicker) polishVsPicker.style.display = 'none';
   if (creatorSelectedCueIndices && creatorSelectedCueIndices.clear) {
     creatorSelectedCueIndices.clear();
   }
@@ -18435,12 +18632,19 @@ function extract6RankedCueDimensions(curatorAngle, newsHeadline, newsBody) {
   const isUK = (creatorCountryContext?.code === 'GB') || combined.includes('london') || combined.includes('westminster');
   const isJapan = (creatorCountryContext?.code === 'JP') || combined.includes('japan') || combined.includes('tokyo');
 
+  const isExplicitMyFamily = /\b(my family|our family|my whole family|our whole family|my kids|our kids|my sons|our sons|my boys|our boys|my children|our children|my wife|my elder son|my younger son|gahan|rishu|aruna|shridhar)\b/i.test(combined);
+  const isSchoolPtmTopic = /\b(parent-teacher|ptm|report card|marks|second-grade|school days|teachers' meeting|classroom)\b/i.test(combined);
+
   // 1. HERO (Subject from headline or angle - never a URL!)
   let hero = '';
   const detectedPerson = detectPersonNameInContext(cleanHeadline, curatorAngle, newsBody);
   const demographic = detectAgeAndDemographics(curatorAngle, cleanHeadline, newsBody);
 
-  if (detectedPerson) {
+  if (selectedPolishVisualSubject && Array.isArray(selectedPolishVisualSubject.cues) && selectedPolishVisualSubject.cues[0]) {
+    hero = selectedPolishVisualSubject.cues[0];
+  } else if (isSchoolPtmTopic) {
+    hero = 'Packed School Corridor Outside Classroom on PTM Day';
+  } else if (detectedPerson) {
     hero = demographic ? `${detectedPerson} (${demographic.label}, Editorial Portrait)` : `${detectedPerson} (Editorial Portrait)`;
   } else if (demographic) {
     hero = `${demographic.shortDesc} (Editorial Portrait)`;
@@ -18448,8 +18652,8 @@ function extract6RankedCueDimensions(curatorAngle, newsHeadline, newsBody) {
     hero = isIndia ? 'Elderly Farmer Beside Sprouting Sapling' : 'Farmer Tending Young Sapling';
   } else if (combined.includes('garbage') || combined.includes('trash') || combined.includes('waste') || combined.includes('clean')) {
     hero = isIndia ? 'Municipal Sweeper with Traditional Reed Broom' : 'Lone Sweeper with Traditional Broom';
-  } else if (combined.includes('family') || combined.includes('child') || combined.includes('trip') || combined.includes('parent') || combined.includes('memoir') || combined.includes('home') || combined.includes('miss')) {
-    hero = 'Father (Shridhar) in Quiet Home Contemplation';
+  } else if (isExplicitMyFamily) {
+    hero = 'Authentic Family Moment in Everyday Life';
   } else if (/\b(ai|artificial intelligence|tech|silicon|data center|compute|apple|iphone|ipad)\b/i.test(combined)) {
     hero = 'Monolithic Obsidian Server Tower';
   } else if (combined.includes('market') || combined.includes('invest') || combined.includes('wealth') || combined.includes('billion') || combined.includes('stock')) {
@@ -18465,13 +18669,17 @@ function extract6RankedCueDimensions(curatorAngle, newsHeadline, newsBody) {
     hero = curatorAngle.trim().split(/[.\n!?]/)[0].trim();
     if (hero.length > 38) hero = hero.substring(0, 35) + '...';
   } else {
-    hero = 'Solitary Focal Figure';
+    hero = 'Authentic Real-World Scene Protagonists';
   }
 
   // 2. MOTIF (Core Metaphor from Curator Angle)
   let motif = '';
-  if (/\b(family|kids|children|sons|wife|mother|father|love|heart|home|memoir|mysore)\b/i.test(combined)) {
-    motif = 'Warm Brass Coffee Tumbler & Family Keepsakes';
+  if (selectedPolishVisualSubject && Array.isArray(selectedPolishVisualSubject.cues) && selectedPolishVisualSubject.cues[1]) {
+    motif = selectedPolishVisualSubject.cues[1];
+  } else if (isSchoolPtmTopic) {
+    motif = 'Elementary Report Card Marks vs Modern AI Era';
+  } else if (isExplicitMyFamily) {
+    motif = 'Shared Everyday Moments & Warm Household Details';
   } else if (/\b(farmer|tree|mango|plant|seed|root)\b/i.test(combined)) {
     motif = 'Ancient Roots Entwined in Fertile Soil';
   } else if (/\b(court|judge|law|crime|scale|justice|balance|fair)\b/i.test(combined)) {
@@ -18489,12 +18697,16 @@ function extract6RankedCueDimensions(curatorAngle, newsHeadline, newsBody) {
     motif = (parts[1] || parts[0]).trim();
     if (motif.length > 38) motif = motif.substring(0, 35) + '...';
   } else {
-    motif = 'Warm Brass Lamp & Open Notebook';
+    motif = 'Contextual Real-World Objects & Details';
   }
 
   // 3. TENSION (Conflict / Friction / Obstacle)
   let tension = '';
-  if (combined.includes('farmer') || combined.includes('tree') || combined.includes('labor') || combined.includes('plant') || combined.includes('effort') || combined.includes('work')) {
+  if (selectedPolishVisualSubject && Array.isArray(selectedPolishVisualSubject.cues) && selectedPolishVisualSubject.cues[2]) {
+    tension = selectedPolishVisualSubject.cues[2];
+  } else if (isSchoolPtmTopic) {
+    tension = '20-Minute Grade Anxiety vs Unhurried Childhood Curiosity';
+  } else if (combined.includes('farmer') || combined.includes('tree') || combined.includes('labor') || combined.includes('plant') || combined.includes('effort') || combined.includes('work')) {
     tension = 'Years of Quiet Unseen Labor';
   } else if (combined.includes('court') || combined.includes('crime')) {
     tension = 'Swarm of Shadows around Court Gates';
@@ -18508,15 +18720,17 @@ function extract6RankedCueDimensions(curatorAngle, newsHeadline, newsBody) {
     tension = 'Relentless Tidal Wave of Noise';
   } else if (combined.includes('greed') || combined.includes('inequal') || combined.includes('shadow')) {
     tension = 'Looming Corporate Glass Shadow';
-  } else if (combined.includes('family') || combined.includes('time') || combined.includes('age') || combined.includes('old')) {
-    tension = 'Relentless March of Passing Seasons';
   } else {
-    tension = 'Friction & Opposing Cast Shadows';
+    tension = 'Friction Between Convention and Modern Reality';
   }
 
   // 4. ATMOSPHERE (Setting / Environment)
   let atmosphere = '';
-  if (combined.includes('farmer') || combined.includes('tree') || combined.includes('mango') || combined.includes('village') || combined.includes('field') || combined.includes('rural') || combined.includes('orchard')) {
+  if (selectedPolishVisualSubject && Array.isArray(selectedPolishVisualSubject.cues) && selectedPolishVisualSubject.cues[3]) {
+    atmosphere = selectedPolishVisualSubject.cues[3];
+  } else if (isSchoolPtmTopic) {
+    atmosphere = 'Sunlit Indian School Veranda Crowded Outside Classroom';
+  } else if (combined.includes('farmer') || combined.includes('tree') || combined.includes('mango') || combined.includes('village') || combined.includes('field') || combined.includes('rural') || combined.includes('orchard')) {
     atmosphere = isIndia ? 'Sunlit Village Orchard Canopy at Dawn' : 'Sun-Drenched Country Orchard at Dawn';
   } else if (combined.includes('street') || combined.includes('city') || combined.includes('road') || combined.includes('urban')) {
     atmosphere = isIndia ? 'Dusk over New Delhi Red Sandstone Corridor' : 'Damp Rain-Slicked City Boulevard';
@@ -18528,10 +18742,10 @@ function extract6RankedCueDimensions(curatorAngle, newsHeadline, newsBody) {
     atmosphere = isIndia ? 'Dalal Street Trading Floor at Dusk' : 'Empty Trading Floor at Dusk';
   } else if (combined.includes('court') || combined.includes('law') || combined.includes('judge')) {
     atmosphere = isIndia ? 'Monsoon-Drenched New Delhi Court Corridor' : 'Rain-Mist Westminster Stone Embankment';
-  } else if (combined.includes('family') || combined.includes('home') || combined.includes('personal') || combined.includes('quiet')) {
-    atmosphere = 'Quiet Sunlit Veranda with Distant Hills';
+  } else if (isExplicitMyFamily) {
+    atmosphere = 'Warm Authentic Indian Neighbourhood & Household Setting';
   } else {
-    atmosphere = isIndia ? 'Timeless Weathered Stone Courtyard' : (isUK ? 'Rain-Mist Westminster Stone Embankment' : (isJapan ? 'Shinjuku Neon Alleyway in Dusk Rain' : 'Atmospheric Minimalist Crossroads'));
+    atmosphere = isIndia ? 'Authentic Indian Real-World Architectural Setting' : (isUK ? 'Rain-Mist Westminster Stone Embankment' : (isJapan ? 'Shinjuku Neon Alleyway in Dusk Rain' : 'Atmospheric Real-World Environment'));
   }
 
   // 5. LIGHTING (Chiaroscuro & Mood)
@@ -19955,6 +20169,7 @@ async function startAiSynthesis() {
             scrapedTitle: (isLink && url) ? (currentScrapedArticle?.title || '') : (currentSynthesizedPost.generationInputs?.scrapedTitle || ''),
             scrapedContent: (isLink && url) ? (currentScrapedArticle?.content || '').slice(0, 1500) : (currentSynthesizedPost.generationInputs?.scrapedContent || ''),
             cues: creatorCuePills,
+            preferredVisualSubject: selectedPolishVisualSubject || null,
             countryContext: creatorCountryContext?.name || 'India',
             familyCast: getSanitizedCastPayload(familyCastProfileCache),
             activeCast: getSanitizedActiveCastPayload(),
@@ -20091,6 +20306,7 @@ async function startAiSynthesis() {
     creatorEmail: getResolvedCreatorEmail(),
     cues: creatorCuePills,
     heroCue: creatorCuePills[0] || '',
+    preferredVisualSubject: selectedPolishVisualSubject || null,
     characterRepresentation: creatorCharacterRepresentation,
     refineCoreTake: creatorRefineCoreTake,
     vocabularyStyle: creatorVocabularyStyle || 'casual',
