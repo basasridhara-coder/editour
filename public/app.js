@@ -604,7 +604,8 @@ let _inflightWhitelistPromises = new Map();
 
 function getCachedWhitelistEntry(email) {
   try {
-    const raw = localStorage.getItem('slant_whitelist_cache_v2');
+    localStorage.removeItem('slant_whitelist_cache_v2');
+    const raw = localStorage.getItem('slant_whitelist_cache_v3');
     if (!raw) return null;
     const map = JSON.parse(raw);
     const entry = map && map[email];
@@ -618,16 +619,21 @@ function getCachedWhitelistEntry(email) {
 
 function setCachedWhitelistEntry(email, result) {
   try {
-    if (!email || !result || !result.allowed) return;
-    const raw = localStorage.getItem('slant_whitelist_cache_v2');
+    if (!email || !result) return;
+    const raw = localStorage.getItem('slant_whitelist_cache_v3');
     const map = raw ? JSON.parse(raw) : {};
+    if (!result.allowed) {
+      delete map[email];
+      localStorage.setItem('slant_whitelist_cache_v3', JSON.stringify(map));
+      return;
+    }
     map[email] = {
       allowed: Boolean(result.allowed),
       isAdmin: Boolean(result.isAdmin),
       credits: result.credits || null,
       ts: Date.now()
     };
-    localStorage.setItem('slant_whitelist_cache_v2', JSON.stringify(map));
+    localStorage.setItem('slant_whitelist_cache_v3', JSON.stringify(map));
   } catch (_) {}
 }
 
@@ -649,7 +655,10 @@ async function fetchWhitelistFromNetwork(email) {
           updateCreatorStudioCreditBadge(data.credits);
         }
         const res = { allowed: Boolean(data.allowed), isAdmin: Boolean(data.isAdmin), credits: data.credits || null };
-        if (res.allowed) setCachedWhitelistEntry(email, res);
+        setCachedWhitelistEntry(email, res);
+        if (!res.allowed && currentUser && (currentUser.email || '').toLowerCase().trim() === email) {
+          handleUninvitedUser(currentUser);
+        }
         return res;
       }
     } catch (err) {
@@ -664,11 +673,14 @@ async function fetchWhitelistFromNetwork(email) {
       if (supaResp.ok) {
         const rows = await supaResp.json();
         const list = rows?.[0]?.data?.allowed_emails || [];
-        const admins = rows?.[0]?.data?.admin_emails || [];
-        const isAllowed = list.map(e => String(e).toLowerCase().trim()).includes(email) || admins.map(e => String(e).toLowerCase().trim()).includes(email);
-        const isAdmin = admins.map(e => String(e).toLowerCase().trim()).includes(email);
+        const admins = ['shridharoct16@gmail.com'];
+        const isAllowed = list.map(e => String(e).toLowerCase().trim()).includes(email) || admins.includes(email);
+        const isAdmin = admins.includes(email);
         const res = { allowed: isAllowed, isAdmin };
-        if (res.allowed) setCachedWhitelistEntry(email, res);
+        setCachedWhitelistEntry(email, res);
+        if (!res.allowed && currentUser && (currentUser.email || '').toLowerCase().trim() === email) {
+          handleUninvitedUser(currentUser);
+        }
         return res;
       }
     } catch (_) {}

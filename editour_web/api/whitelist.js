@@ -89,7 +89,7 @@ async function getWhitelistData() {
       if (Array.isArray(rows) && rows.length > 0 && rows[0].data) {
         const d = rows[0].data;
         return {
-          admin_emails: Array.isArray(d.admin_emails) ? d.admin_emails : MASTER_ADMINS,
+          admin_emails: MASTER_ADMINS,
           allowed_emails: Array.isArray(d.allowed_emails) ? d.allowed_emails : MASTER_ADMINS,
           pending_requests: Array.isArray(d.pending_requests) ? d.pending_requests : [],
           access_logs: Array.isArray(d.access_logs) ? d.access_logs : [],
