@@ -898,15 +898,16 @@
             <div class="polish-vs-header">
               <div class="polish-vs-title-row">
                 <span class="polish-vs-icon">🎨</span>
-                <div class="polish-vs-title-col">
-                  <span class="polish-vs-title" id="polishVsHeaderTitle">CORE SCENE VISUAL TO PROJECT</span>
-                  <span class="polish-vs-subtitle" id="polishVsHeaderSubtitle">Default selected by confidence score — tap any visual option to switch, and your approvals improve future confidence:</span>
-                </div>
+                <span class="polish-vs-title" id="polishVsHeaderTitle">CORE SCENE VISUAL</span>
+                <button type="button" class="ui-info-dot-btn" onclick="toggleInfoTip(event, 'polishVisualSubjectInfoTip')" title="About Core Scene Visual">i</button>
               </div>
               <div class="polish-vs-header-actions">
                 <button type="button" class="polish-vs-ai-refresh-btn" id="polishVsAiRefreshBtn" onclick="refreshVisualProjectionsWithAI()" title="Ask AI to suggest fresh visual projection options">✨ AI Options</button>
-                <span class="polish-vs-status-pill" id="polishVisualSubjectStatusPill">★ Default Selected</span>
+                <span class="polish-vs-status-pill" id="polishVisualSubjectStatusPill" style="display: none;"></span>
               </div>
+            </div>
+            <div class="ui-info-popover-box" id="polishVisualSubjectInfoTip" style="display: none;">
+              <span id="polishVsHeaderSubtitle">Default scene is auto-selected by confidence score — tap the dropdown below to switch visual options, and your approvals adapt future confidence.</span>
             </div>
             <div class="polish-vs-cards-list" id="polishVisualSubjectCardsList">
               <!-- Populated dynamically by renderPolishVisualSubjects() -->

@@ -11638,15 +11638,15 @@ function renderPolishVisualSubjects() {
   const activeLearned = Number(activeVs?.learnedApprovals) || 0;
 
   if (headerTitle) {
-    headerTitle.textContent = 'CORE SCENE VISUAL TO PROJECT';
+    headerTitle.textContent = 'CORE SCENE VISUAL';
   }
   if (headerSubtitle) {
     headerSubtitle.textContent = totalLearned > 0
-      ? `Default auto-selected by confidence (🧠 adapted from ${totalLearned} approval${totalLearned > 1 ? 's' : ''}):`
-      : 'Default auto-selected by confidence score — tap dropdown below to switch:';
+      ? `Default scene is auto-selected by confidence score (🧠 adapted from ${totalLearned} approval${totalLearned > 1 ? 's' : ''}) — tap the dropdown below to switch visual options.`
+      : 'Default scene is auto-selected by confidence score — tap the dropdown below to switch visual options, and your approvals adapt future confidence.';
   }
   if (statusPill) {
-    statusPill.textContent = `✓ ${activeConf}% Conf.`;
+    statusPill.style.display = 'none';
   }
 
   const expandedCardsHtml = isRegularVisualDropdownOpen

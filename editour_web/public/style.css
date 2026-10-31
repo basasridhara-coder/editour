@@ -6932,33 +6932,35 @@ header {
 
 /* Auto-Identified Core Visual Subject Picker (Shown on Polish) */
 .polish-visual-subject-picker {
-  margin-top: 10px;
-  padding: 12px;
-  border-radius: 14px;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 12px;
   background: linear-gradient(180deg, rgba(16, 185, 129, 0.06) 0%, var(--bg-surface) 100%);
   border: 1.5px solid rgba(16, 185, 129, 0.35);
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 6px;
   animation: fadeInPrompt 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .polish-vs-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 8px;
 }
 
 .polish-vs-title-row {
   display: flex;
-  align-items: flex-start;
-  gap: 8px;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
 }
 
 .polish-vs-icon {
-  font-size: 16px;
-  line-height: 1.2;
+  font-size: 14px;
+  line-height: 1;
+  flex-shrink: 0;
 }
 
 .polish-vs-title-col {
@@ -6970,9 +6972,10 @@ header {
 .polish-vs-title {
   font-size: 11px;
   font-weight: 900;
-  letter-spacing: 0.6px;
+  letter-spacing: 0.5px;
   color: #059669;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
 [data-theme="obsidian"] .polish-vs-title {
