@@ -3031,20 +3031,45 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
     .replace(/\bwalking ahead,\s*/gi, 'Walking side by side on the same level ground line alongside their parents, ')
     .replace(/\bstanding in front of their parents,\s*/gi, 'Standing side by side on the same level ground line alongside their parents, ');
 
-  // Prevent companion/friend twin-cloning (when Shridhar meets a college pal/friend without contrasting traits, image models clone Shridhar's beard & shirt onto the friend!)
+  // Prevent companion/friend twin-cloning & feature bleeding:
+  // For any unknown supporting person (college friend/buddy/pal/colleague) whose visual traits are not in the Vault,
+  // keep them at a standard MEDIUM BUILD with a flat/neutral midsection and clean-shaven contrasting face so they NEVER inherit Shridhar's fuller build, tummy, or beard!
+  const unknownCompanionDesc = 'a college friend (38yo Indian man with a standard balanced MEDIUM BUILD and flat neutral midsection — strictly NOT sharing Shridhar\'s fuller build or rounded tummy — a completely CLEAN-SHAVEN face with zero beard or stubble, neat side-parted wavy black hair, modern eyeglasses, and an olive-green collared shirt, visually distinct from bearded fuller-built Shridhar)';
   enhancedPrompt = enhancedPrompt
-    .replace(/\ban?\s+old\s+college\s+(?:pal|friend|buddy|mate)(?!\s*\()/gi, 'an old college friend (38yo Indian man with a full head of neat wavy black hair, clean-shaven face, modern eyeglasses, and an olive-green casual collared shirt, visually distinct from bearded Shridhar)')
-    .replace(/\ba\s+(?:male\s+)?college\s+(?:pal|friend|buddy|mate)(?!\s*\()/gi, 'a college friend (38yo Indian man with a full head of neat wavy black hair, clean-shaven face, modern eyeglasses, and an olive-green casual collared shirt, visually distinct from bearded Shridhar)');
+    .replace(/\ban?\s+(?:old\s+|male\s+)?college\s+(?:pal|friend|buddy|mate)(?!\s*\()/gi, unknownCompanionDesc)
+    .replace(/\ba\s+(?:male\s+)?(?:office\s+|work\s+)?(?:colleague|coworker|friend|buddy|pal)(?!\s*\()/gi, unknownCompanionDesc);
+
+  if (/\b(college friend|college buddy|college pal|colleague|coworker)\b/i.test(enhancedPrompt) && !enhancedPrompt.includes('UNKNOWN SUPPORTING PERSON MEDIUM-BUILD RULE')) {
+    enhancedPrompt += '. UNKNOWN SUPPORTING PERSON MEDIUM-BUILD & ANTI-CLONE RULE: Any companion, friend, or colleague whose traits are not from the Family Vault MUST be drawn with a standard balanced MEDIUM BUILD (flat neutral midsection) and a completely CLEAN-SHAVEN face—strictly NEVER copy or bleed Shridhar\'s fuller build, rounded tummy, hairstyle, or stubble beard onto the friend!';
+  }
+
+  // If the LLM placed the 4-person family walk inside a narrow Top-Left or Top-Right 25% vignette while putting a solo scene in Bottom-Center,
+  // deterministically swap them so the 4-person family walk ALWAYS gets the wide Bottom-Center Highlight Vignette (~50% width) where all 4 people (including Father Shridhar!) fit side by side!
+  const topRightBottomSwapMatch = enhancedPrompt.match(/(Top-Right(?:\s+Spot)?\s+Vignette:\s*)([\s\S]*?)(\s*Bottom-Center(?:\s+(?:Larger\s+|Highlight\s+|Showcase\s+)*)?Vignette:\s*)([\s\S]*?)(?=\.\s*(?:Ensure|PROTAGONIST|Mother|STRICT|MANDATORY|$))/i);
+  if (topRightBottomSwapMatch) {
+    const topRightBody = topRightBottomSwapMatch[2];
+    const bottomCenterBody = topRightBottomSwapMatch[4];
+    const topRightIsFamilyWalk = /\b(aruna|wife|mother)\b/i.test(topRightBody) && /\b(gahan|rishu|sons|kids|family)\b/i.test(topRightBody);
+    const bottomCenterIsFamilyWalk = /\b(aruna|wife|mother)\b/i.test(bottomCenterBody) && /\b(gahan|rishu|sons|kids|family)\b/i.test(bottomCenterBody);
+    if (topRightIsFamilyWalk && !bottomCenterIsFamilyWalk) {
+      enhancedPrompt = enhancedPrompt.replace(
+        topRightBottomSwapMatch[0],
+        `${topRightBottomSwapMatch[1]}${bottomCenterBody.trim().replace(/\.$/, '')}.${topRightBottomSwapMatch[3]}${topRightBody.trim()}`
+      );
+    }
+  }
 
   // Deterministically normalize any full-family walk/group description so that:
-  // 1) Parents (Father Shridhar & Mother Aruna) stand together on the left half, and BOTH BROTHERS (Gahan & Rishu) stand DIRECTLY BESIDE EACH OTHER on the right half (never separated by Mother!)
-  // 2) Both boys walk hands-free with arms relaxed at their sides (never holding hands like toddlers, which causes image models to shrink the younger boy!)
-  // 3) Gahan is 0.86x Father height (reaching Mother's ear/eye level) and Rishu is 0.80x Father height (nearly Gahan's height—only 3 inches shorter—so the top of Rishu's head rises ABOVE Gahan's shoulders to sit directly level with Gahan's NECK / CHIN!)
+  // 1) All 4 family members (Father Shridhar, Mother Aruna, Elder Son Gahan, Younger Son Rishu) are ALWAYS present (Father is NEVER dropped!)
+  // 2) Parents (Father Shridhar & Mother Aruna) stand together on the left half, and BOTH BROTHERS (Gahan & Rishu) stand DIRECTLY BESIDE EACH OTHER on the right half (never separated by Mother!)
+  // 3) Both boys walk hands-free with arms relaxed at their sides (never holding hands like toddlers, which causes image models to shrink the younger boy!)
+  // 4) Gahan is 0.86x Father height (reaching Mother's ear/eye level) and Rishu is 0.80x Father height (nearly Gahan's height—only 3 inches shorter—so the top of Rishu's head rises ABOVE Gahan's shoulders to sit directly level with Gahan's NECK / CHIN!)
   const canonicalFourFamilyWalkBlock = 'Strictly 4 people total shown FULL-BODY FROM HEAD TO TOE with all 8 feet/shoes planted on the exact same level ground line, walking SIDE BY SIDE in a single horizontal row facing forward, with the 2 Parents together on the left side and the 2 Brothers standing directly beside each other on the right side: - 1st on far left: Father Shridhar (40yo mid-age bearded Indian man with a soft fuller round-oval face, full cheeks and natural under-chin fullness, fuller medium-heavy adult build, and a visible rounded dad-bod tummy / soft belly paunch under his casual polo shirt with no lanyard, chinos, and shoes, 1.0x reference height; strictly NOT lean or flat-stomached). - 2nd from left (walking beside Father): Mother Aruna (36yo Indian woman with a soft fuller round-oval maternal face, warm golden-brown skin, small black circular forehead bindi, subtle red kumkum at her hairline, and thick side-parted wavy black hair swept over her left shoulder, wearing a teal/sage cotton kurta and sandals, standing at Father chin/eye level, 0.92x Father height). - 3rd from left (walking beside Mother on the right half, hands-free with arms relaxed at his sides): Elder son Gahan (tall 11yo slim Indian pre-teen boy with a long oval face, wearing a solid dark navy-blue t-shirt, knee-length denim shorts, and sneakers; Gahan is nearly as tall as his mother—the top of Gahan head reaches right up to Mother Aruna ear/eye level and Father shoulder level, 0.86x Father height). - 4th on far right (walking DIRECTLY BESIDE GAHAN shoulder-to-shoulder on the far right, hands-free with arms relaxed at his sides, NEVER separated from Gahan and NEVER holding hands): Younger son Rishu (tall 7yo Indian schoolboy with a round cheerful face, wearing a solid mustard-yellow t-shirt, dark shorts, and sneakers; Rishu is nearly Gahan height—0.80x Father height, only 3 inches shorter than Gahan—so the TOP OF RISHU HEAD RISES WELL ABOVE GAHAN SHOULDERS to sit directly level with Gahan NECK / CHIN and Mother Aruna chin/neck level; strictly NEVER draw Rishu head below Gahan shoulders!).';
 
   enhancedPrompt = enhancedPrompt
     .replace(/Exactly 4 family members walk side-by-side[^.]*\./i, canonicalFourFamilyWalkBlock)
     .replace(/from left to right in a clear 4-step descending height staircase,[\s\S]*?dark shorts,\s*and\s*sneakers\)\./i, canonicalFourFamilyWalkBlock)
+    .replace(/(?:Full-body\s+)?(?:twilight|evening|night|post-dinner)?\s*(?:stroll|walk)[^.]*?\b(?:Aruna|wife)\b[^.]*?\bGahan\b[^.]*?\bRishu\b[^.]*\./i, `Full-body evening stroll along a tree-lined neighborhood lane under warm streetlamps: ${canonicalFourFamilyWalkBlock}`)
     .replace(/\b0\.68x(?:\s+(?:Father\s+)?height)?\b/gi, '0.80x Father height')
     .replace(/\b0\.72x(?:\s+(?:Father\s+)?height)?\b/gi, '0.80x Father height')
     .replace(/\b0\.78x(?:\s+(?:Father\s+)?height)?\b/gi, '0.80x Father height')
