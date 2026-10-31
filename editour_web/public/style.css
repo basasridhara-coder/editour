@@ -24729,10 +24729,40 @@ mark.polish-mark:hover, mark.polish-mark.active {
   background: rgba(55, 83, 76, 0.28);
 }
 
+.vault-summary-chevron {
+  display: inline-block;
+  margin-left: 4px;
+  font-size: 11px;
+  transition: transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.vault-compact-details[open] .vault-summary-chevron {
+  transform: rotate(180deg);
+}
+
+.vault-compact-details {
+  scroll-margin-top: 8px;
+}
+
 .vault-compact-details[open] .vault-compact-summary {
   margin-bottom: 12px;
   padding-bottom: 8px;
   border-bottom: 1px solid #DEE5E2;
+}
+
+.vault-compact-details[open] .vault-form-grid {
+  animation: vaultEditSectionSlideUp 0.28s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes vaultEditSectionSlideUp {
+  0% {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .vault-field-group label {

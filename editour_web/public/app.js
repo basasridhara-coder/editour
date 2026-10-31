@@ -12810,6 +12810,8 @@ function renderVaultMemberTabs() {
 function selectVaultMember(memberId) {
   activeVaultMemberId = memberId;
   activeVaultPoseSlotIdx = 0;
+  const prevDetails = document.getElementById('vaultMemberDetailsAccordion');
+  if (prevDetails) prevDetails.open = false;
   renderVaultMemberTabs();
   renderActiveMemberScreen();
   const body = document.getElementById('vaultActiveMemberScreen');
@@ -12927,15 +12929,36 @@ function addNewVaultMember() {
 
   setTimeout(() => {
     const detailsEl = document.getElementById('vaultMemberDetailsAccordion');
-    if (detailsEl) detailsEl.open = true;
+    if (detailsEl) {
+      detailsEl.open = true;
+      slideUpVaultMemberDetailsSection();
+    }
     const nameInput = document.getElementById('vField_name');
-    if (nameInput) nameInput.focus();
+    if (nameInput) nameInput.focus({ preventScroll: true });
   }, 100);
+}
+
+function slideUpVaultMemberDetailsSection() {
+  const container = document.getElementById('vaultActiveMemberScreen');
+  const detailsEl = document.getElementById('vaultMemberDetailsAccordion');
+  if (!container || !detailsEl) return;
+
+  requestAnimationFrame(() => {
+    const containerRect = container.getBoundingClientRect();
+    const detailsRect = detailsEl.getBoundingClientRect();
+    const scrollTarget = container.scrollTop + (detailsRect.top - containerRect.top) - 8;
+    container.scrollTo({
+      top: Math.max(0, scrollTarget),
+      behavior: 'smooth'
+    });
+  });
 }
 
 function renderActiveMemberScreen() {
   const container = document.getElementById('vaultActiveMemberScreen');
   if (!container) return;
+
+  const wasDetailsOpen = Boolean(document.getElementById('vaultMemberDetailsAccordion')?.open);
 
   const cast = familyCastProfileCache || getDefaultClientFamilyCast();
   const members = cast.members || [];
@@ -13044,10 +13067,10 @@ function renderActiveMemberScreen() {
       </div>
 
       <!-- Collapsible Member Details (Tucked Away to Keep UI Clean) -->
-      <details class="vault-compact-details" id="vaultMemberDetailsAccordion">
+      <details class="vault-compact-details" id="vaultMemberDetailsAccordion" ${wasDetailsOpen ? 'open' : ''}>
         <summary class="vault-compact-summary">
           <span>✏️ Edit Name, Age &amp; Character Details</span>
-          <span class="vault-summary-meta">${escapeHtml(member.name || member.roleLabel)}${member.age ? ` • ${member.age}y` : ''}</span>
+          <span class="vault-summary-meta">${escapeHtml(member.name || member.roleLabel)}${member.age ? ` • ${member.age}y` : ''} <span class="vault-summary-chevron">▴</span></span>
         </summary>
         <div class="vault-form-grid" style="margin-top: 10px;">
           <div class="vault-field-group">
@@ -13111,6 +13134,18 @@ function renderActiveMemberScreen() {
   const removeBtn = document.getElementById('vaultPoseRemoveBtn');
   if (removeBtn) {
     removeBtn.onclick = () => removeSlotPhoto(VAULT_POSE_CONFIGS[activeVaultPoseSlotIdx].key);
+  }
+
+  // Whenever the user clicks "Edit Name, Age & Character Details", automatically slide the lower edit section up into full view
+  const detailsEl = document.getElementById('vaultMemberDetailsAccordion');
+  if (detailsEl) {
+    detailsEl.addEventListener('toggle', () => {
+      if (detailsEl.open) {
+        slideUpVaultMemberDetailsSection();
+      } else {
+        container.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    });
   }
 
   // Bind steady horizontal swipe (touch & pointer) on the viewport frame without moving the photo element
@@ -13438,6 +13473,8 @@ function saveActiveMemberAndNext() {
   if (currentIdx !== -1 && currentIdx < members.length - 1) {
     const nextMember = members[currentIdx + 1];
     activeVaultMemberId = nextMember.id;
+    const prevDetails = document.getElementById('vaultMemberDetailsAccordion');
+    if (prevDetails) prevDetails.open = false;
     renderVaultMemberTabs();
     renderActiveMemberScreen();
     const body = document.getElementById('vaultActiveMemberScreen');
