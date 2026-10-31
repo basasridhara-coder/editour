@@ -45,7 +45,7 @@ async function verifyAndConsumeUserCredit(email, consume = false, isChronicleMod
         d.user_credits = {};
       }
       const existing = d.user_credits[clean] || {};
-      const isMaster = MASTER_ADMINS.includes(clean) || Boolean(existing.isUnlimited);
+      const isMaster = MASTER_ADMINS.includes(clean);
       const isAllowed = isMaster || adminList.includes(clean) || allowedList.includes(clean);
       if (!isAllowed) {
         return { allowed: false, hasCredits: false, credits: null };

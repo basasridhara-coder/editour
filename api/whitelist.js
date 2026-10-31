@@ -28,7 +28,7 @@ function computeUserCreditSummary(whitelist, rawEmail) {
   const todayKey = getTodayDateKeyIST();
   const defaultLimit = Number(whitelist?.default_daily_limit) > 0 ? Number(whitelist.default_daily_limit) : DEFAULT_DAILY_CREDIT_LIMIT;
   const rawEntry = (whitelist?.user_credits && whitelist.user_credits[email]) ? whitelist.user_credits[email] : {};
-  const isMaster = MASTER_ADMINS.includes(email) || Boolean(rawEntry.isUnlimited);
+  const isMaster = MASTER_ADMINS.includes(email);
 
   const starterTotal = STARTER_PERSPECTIVE_CREDITS;
   const starterUsed = Math.min(starterTotal, Math.max(0, Number(rawEntry.starterUsed ?? 0)));

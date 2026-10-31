@@ -434,6 +434,9 @@ function updateCreatorStudioCreditBadge(creditsObj) {
 
   const email = (currentUser.email || '').toLowerCase().trim();
   const isMaster = email === 'shridharoct16@gmail.com';
+  if (!isMaster && currentUserCredits && currentUserCredits.isUnlimited) {
+    currentUserCredits = null;
+  }
   const isChronicleActive = typeof isDailyChronicleMode !== 'undefined' && Boolean(isDailyChronicleMode);
   const isInnerVoiceActive = !isChronicleActive && (typeof creatorSelectedSource !== 'undefined' && creatorSelectedSource === 'inner_voice');
   const activePerspectiveLabel = isInnerVoiceActive ? 'Inner Voice Visuals' : 'Web Link Visuals';
@@ -461,7 +464,7 @@ function updateCreatorStudioCreditBadge(creditsObj) {
     drawerCardChron.style.borderColor = isChronicleActive ? 'rgba(245,158,11,0.65)' : 'rgba(245,158,11,0.28)';
   }
   if (drawerPerspCount) {
-    if (isMaster || currentUserCredits?.isUnlimited) {
+    if (isMaster) {
       drawerPerspCount.textContent = '⚡ ∞ Unlimited';
     } else if (starterRemaining > 0) {
       drawerPerspCount.textContent = `${perspLeft} Left (${starterRemaining}/${starterTotal} Starter)`;
@@ -475,7 +478,7 @@ function updateCreatorStudioCreditBadge(creditsObj) {
       : `${dailyLimit}/day allowance${bonus > 0 ? ` + ${bonus} bonus` : ''}`;
   }
   if (drawerChronCount) {
-    if (isMaster || currentUserCredits?.isUnlimited) {
+    if (isMaster) {
       drawerChronCount.textContent = '⚡ ∞ Always Free';
     } else {
       drawerChronCount.textContent = chronFreeLeft > 0 ? `${chronFreeLeft} / 1 Free Today` : (chronTotalLeft > 0 ? `${chronTotalLeft} Bonus Left` : '0 Left Today');
@@ -488,7 +491,7 @@ function updateCreatorStudioCreditBadge(creditsObj) {
   }
 
   if (activeModeIcon && activeModeSummary && secondarySummary) {
-    if (isMaster || currentUserCredits?.isUnlimited) {
+    if (isMaster) {
       activeModeIcon.textContent = isChronicleActive ? '📔' : activePerspectiveEmoji;
       activeModeSummary.textContent = isChronicleActive
         ? 'Diary Chronicle Visuals: ⚡ ∞ Unlimited'
@@ -513,7 +516,7 @@ function updateCreatorStudioCreditBadge(creditsObj) {
 
   // Update User Credits Modal cards if present
   if (perspTextEl) {
-    if (isMaster || currentUserCredits?.isUnlimited) {
+    if (isMaster) {
       perspTextEl.textContent = '⚡ ∞ Unlimited';
     } else if (starterRemaining > 0) {
       perspTextEl.textContent = `🎨 ${starterRemaining}/${starterTotal} Starter Free${bonus > 0 ? ` (+${bonus} Bonus)` : ''}`;
@@ -529,7 +532,7 @@ function updateCreatorStudioCreditBadge(creditsObj) {
     }
   }
   if (chronTextEl) {
-    if (isMaster || currentUserCredits?.isUnlimited) {
+    if (isMaster) {
       chronTextEl.textContent = '⚡ ∞ Always Free';
     } else {
       chronTextEl.textContent = chronFreeLeft > 0 ? `📔 ${chronFreeLeft}/1 Free Today` : (chronTotalLeft > 0 ? `📔 ${chronTotalLeft} Bonus Left` : '📔 Used Today (Resets Tomorrow)');
@@ -537,7 +540,7 @@ function updateCreatorStudioCreditBadge(creditsObj) {
   }
 
   if (drawerPill) {
-    if (isMaster || currentUserCredits?.isUnlimited) {
+    if (isMaster) {
       drawerPill.textContent = '⚡ ∞';
     } else {
       drawerPill.textContent = `${perspLeft} 🎨 · ${chronFreeLeft}/1 📔`;
@@ -547,7 +550,7 @@ function updateCreatorStudioCreditBadge(creditsObj) {
   if (!badge) return;
   badge.style.display = 'inline-flex';
 
-  if (isMaster || currentUserCredits?.isUnlimited) {
+  if (isMaster) {
     badge.textContent = isChronicleActive ? '📔 ⚡ ∞' : `${activePerspectiveEmoji} ⚡ ∞`;
     badge.style.background = 'rgba(99,102,241,0.15)';
     badge.style.color = '#818CF8';
@@ -9081,21 +9084,8 @@ function fallbackCopyText(text) {
 }
 
 function canDeletePost(post) {
-  if (!post || !post.id) return false;
-  // 1. Authored in this browser session or saved in local myCreatedPostIds
-  if (myCreatedPostIds && myCreatedPostIds.has(post.id)) return true;
-  // 2. User account match
-  if (currentUser) {
-    if (post.user_id && post.user_id === currentUser.id) return true;
-    if (post.userId && post.userId === currentUser.id) return true;
-    if (post.userEmail && currentUser.email && post.userEmail.toLowerCase() === currentUser.email.toLowerCase()) return true;
-    const userHandle = (currentUser.user_metadata?.user_name || currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || '').toLowerCase().replace('@', '').trim();
-    const postAuthor = (post.creatorHandle || '').toLowerCase().replace('@', '').trim();
-    if (userHandle && postAuthor && userHandle === postAuthor) return true;
-  }
-  // 3. In "My Stories" tab, all listed items belong to this creator
-  if (currentFilter === 'my_stories') return true;
-  return false;
+  if (!post || !post.id || !currentUser) return false;
+  return isPostOwnedByCurrentUser(post);
 }
 
 // ============================================================
