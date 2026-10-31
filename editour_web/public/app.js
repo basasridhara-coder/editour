@@ -3833,10 +3833,18 @@ function mergeAndSortPosts(newPosts) {
         existingMap.set(postId, merged);
       } else {
         const merged = { ...existing, ...p };
-        merged.illustrationUrl = p.illustrationUrl || existing.illustrationUrl || '';
-        merged.aiIllustrationUrl = p.aiIllustrationUrl || existing.aiIllustrationUrl || '';
-        if (!merged.illustrationBase64 && existing.illustrationBase64) {
-          merged.illustrationBase64 = existing.illustrationBase64;
+        if (p.encryptedDiaryPayload && !p._diaryDecrypted && existing.encryptedDiaryPayload !== p.encryptedDiaryPayload) {
+          delete merged._diaryDecrypted;
+          delete merged.illustrationBase64;
+          delete merged.posterBase64;
+          hasPendingEncryptedChronicles = true;
+          addedCount++;
+        } else {
+          merged.illustrationUrl = p.illustrationUrl || existing.illustrationUrl || '';
+          merged.aiIllustrationUrl = p.aiIllustrationUrl || existing.aiIllustrationUrl || '';
+          if (!merged.illustrationBase64 && existing.illustrationBase64) {
+            merged.illustrationBase64 = existing.illustrationBase64;
+          }
         }
         existingMap.set(postId, merged);
       }
