@@ -54,11 +54,8 @@ function isDiaryAuthorizedForEmail(p, emailFilter) {
   const cleanReqEmail = String(emailFilter).trim().toLowerCase();
   if (!cleanReqEmail || !cleanReqEmail.includes('@')) return false;
   const postEmail = String(p.userEmail || p.creatorEmail || '').trim().toLowerCase();
-  const isShridharReq = (cleanReqEmail === 'shridharoct16@gmail.com' || cleanReqEmail === 'basasridhara@gmail.com');
+  const isShridharReq = (cleanReqEmail === 'shridharoct16@gmail.com');
   if (postEmail) {
-    if (isShridharReq && (postEmail === 'shridharoct16@gmail.com' || postEmail === 'basasridhara@gmail.com')) {
-      return true;
-    }
     return postEmail === cleanReqEmail;
   }
   const handle = String(p.creatorHandle || '').toLowerCase();

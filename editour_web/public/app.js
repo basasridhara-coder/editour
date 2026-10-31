@@ -433,7 +433,7 @@ function updateCreatorStudioCreditBadge(creditsObj) {
   if (topSection) topSection.style.display = 'block';
 
   const email = (currentUser.email || '').toLowerCase().trim();
-  const isMaster = email === 'shridharoct16@gmail.com' || email === 'basasridhara@gmail.com';
+  const isMaster = email === 'shridharoct16@gmail.com';
   const isChronicleActive = typeof isDailyChronicleMode !== 'undefined' && Boolean(isDailyChronicleMode);
   const isInnerVoiceActive = !isChronicleActive && (typeof creatorSelectedSource !== 'undefined' && creatorSelectedSource === 'inner_voice');
   const activePerspectiveLabel = isInnerVoiceActive ? 'Inner Voice Visuals' : 'Web Link Visuals';
@@ -673,7 +673,7 @@ async function fetchWhitelistFromNetwork(email) {
       }
     } catch (_) {}
 
-    const isMaster = email === 'shridharoct16@gmail.com' || email === 'basasridhara@gmail.com';
+    const isMaster = email === 'shridharoct16@gmail.com';
     return { allowed: isMaster, isAdmin: isMaster };
   })();
 
@@ -690,7 +690,7 @@ async function verifyUserWhitelist(user) {
   const email = user.email.toLowerCase().trim();
 
   // 1. Instant 0ms fast-track for Master Admin
-  if (email === 'shridharoct16@gmail.com' || email === 'basasridhara@gmail.com') {
+  if (email === 'shridharoct16@gmail.com') {
     updateCreatorStudioCreditBadge({ isUnlimited: true, usedToday: 0, remainingToday: 9999, perspectiveRemainingToday: 9999, chronicleRemainingToday: 9999 });
     fetchWhitelistFromNetwork(email).catch(() => {});
     return { allowed: true, isAdmin: true };
@@ -1052,21 +1052,17 @@ function isPostOwnedByCurrentUser(post) {
   const userEmail = (currentUser?.email || '').trim().toLowerCase();
   if (!currentUser || !userEmail) return false;
 
-  const isShridharUser = (userEmail === 'shridharoct16@gmail.com' || userEmail === 'basasridhara@gmail.com');
+  const isShridharUser = (userEmail === 'shridharoct16@gmail.com');
   const postEmail = (post.userEmail || post.creatorEmail || '').trim().toLowerCase();
   const postAuthor = (post.creatorHandle || '').trim().toLowerCase().replace(/^@/, '');
   const isPostShridhar = (
     postEmail === 'shridharoct16@gmail.com'
-    || postEmail === 'basasridhara@gmail.com'
     || (!postEmail && (postAuthor === 'shridhar reddy' || postAuthor.includes('shridhar')))
   );
 
   // 1. If the post has an explicit author email stamped on it, enforce strict email equality
   // (never allow polluted myCreatedPostIds or display name collisions to override userEmail!)
   if (postEmail) {
-    if (isShridharUser && (postEmail === 'shridharoct16@gmail.com' || postEmail === 'basasridhara@gmail.com')) {
-      return true;
-    }
     return postEmail === userEmail;
   }
 
@@ -1102,7 +1098,7 @@ const SHRIDHAR_PRIVATE_DIARY_IDS = new Set([
 
 function sanitizeUserOwnershipAndCache() {
   const userEmail = (currentUser?.email || '').trim().toLowerCase();
-  const isShridharUser = (userEmail === 'shridharoct16@gmail.com' || userEmail === 'basasridhara@gmail.com');
+  const isShridharUser = (userEmail === 'shridharoct16@gmail.com');
 
   // Always purge legacy un-scoped family cast key so no user ever inherits another user's cached vault
   try {
@@ -3044,7 +3040,7 @@ async function loadAdminBetaData(forceRefresh = false) {
     if (!resp.ok) throw new Error('Could not load whitelist roster');
     const data = await resp.json();
 
-    const allowedEmails = Array.isArray(data.allowedEmails) ? data.allowedEmails : ['shridharoct16@gmail.com', 'basasridhara@gmail.com'];
+    const allowedEmails = Array.isArray(data.allowedEmails) ? data.allowedEmails : ['shridharoct16@gmail.com'];
     const pending = Array.isArray(data.pendingRequests) ? data.pendingRequests : [];
     const accessLogs = Array.isArray(data.accessLogs) ? data.accessLogs : [];
     const userStats = (data.userStats && typeof data.userStats === 'object') ? data.userStats : {};
@@ -3102,7 +3098,7 @@ async function loadAdminBetaData(forceRefresh = false) {
       allowedList.innerHTML = '';
       memberRoster.forEach(email => {
         const cleanEmail = email.toLowerCase().trim();
-        const isMaster = cleanEmail === 'shridharoct16@gmail.com' || cleanEmail === 'basasridhara@gmail.com';
+        const isMaster = cleanEmail === 'shridharoct16@gmail.com';
         const log = logsMap.get(cleanEmail);
         const stats = userStats[cleanEmail];
         const postCount = stats?.postCount || 0;
@@ -3506,7 +3502,7 @@ const _upgradedChronicleIds = new Set();
 function resolveChronicleKeySeed() {
   const curEmail = (currentUser?.email || '').trim().toLowerCase();
   if (!curEmail) return null;
-  if (curEmail === 'shridharoct16@gmail.com' || curEmail === 'basasridhara@gmail.com') {
+  if (curEmail === 'shridharoct16@gmail.com') {
     return 'slant_curator_shridhar_vault';
   }
   return curEmail;
@@ -14107,7 +14103,7 @@ function ensureMemberStructuredTraits(m) {
 
 function isCurrentClientUserShridhar() {
   const email = (currentUser && currentUser.email ? currentUser.email : '').trim().toLowerCase();
-  return email === 'shridharoct16@gmail.com' || email === 'basasridhara@gmail.com';
+  return email === 'shridharoct16@gmail.com';
 }
 
 function getFamilyCastLocalStorageKey() {
