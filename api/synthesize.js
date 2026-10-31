@@ -199,21 +199,38 @@ async function getAvatarBase64(url) {
   return null;
 }
 
+function isShridharOwnerAccount(userIdentifier) {
+  const raw = String(userIdentifier || '').trim().toLowerCase();
+  return raw === 'shridharoct16@gmail.com' || raw === 'basasridhara@gmail.com';
+}
+
 function resolveFamilyCastProfileId(userIdentifier) {
   const raw = String(userIdentifier || '').trim().toLowerCase();
-  if (
-    !raw ||
-    raw === 'default' ||
-    raw === '@shridhar reddy' ||
-    raw === 'shridhar reddy' ||
-    raw === '@shridhar' ||
-    raw === 'shridhar' ||
-    raw.includes('shridhar') ||
-    raw.includes('shridharoct16')
-  ) {
+  if (!raw || raw === 'default' || raw === 'anonymous' || !raw.includes('@')) {
+    return null;
+  }
+  if (isShridharOwnerAccount(raw)) {
     return 'family_cast_shridharoct16_gmail_com';
   }
   return 'family_cast_' + raw.replace(/[^a-z0-9_-]/g, '_');
+}
+
+function sanitizeForeignVaultLeakOnServer(cast, userIdentifier) {
+  if (!cast || typeof cast !== 'object') return getDefaultFamilyCast(userIdentifier);
+  if (isShridharOwnerAccount(userIdentifier)) return cast;
+  const members = Array.isArray(cast.members) ? cast.members : [];
+  const shridharAvatarPattern = /avatar_member_(?:father|mother|elder_son|younger_son)\.(?:jpg|png|webp)/i;
+  const memberNames = members.map(m => String(m?.name || '').trim().toLowerCase());
+  const isLeakedShridharSet = (
+    memberNames.includes('shridhar') ||
+    memberNames.includes('father (shridhar)') ||
+    (memberNames.includes('aruna') && memberNames.includes('gahan')) ||
+    members.some(m => shridharAvatarPattern.test(String(m?.stylizedAvatarUrl || '')))
+  );
+  if (isLeakedShridharSet) {
+    return getDefaultFamilyCast(userIdentifier);
+  }
+  return cast;
 }
 
 module.exports = async function handler(req, res) {
@@ -389,7 +406,7 @@ Respond strictly with valid JSON:
       }
       let userEmail = (creatorEmail || '').toLowerCase().trim();
       if (!userEmail) {
-        userEmail = 'shridharoct16@gmail.com';
+        return res.status(401).json({ error: 'Please sign in with your account to regenerate artwork.' });
       }
       const creditCheck = await verifyAndConsumeUserCredit(userEmail, Boolean(body.isManualRegenerate), Boolean(chronicleMode));
       if (!creditCheck.allowed) {
@@ -408,14 +425,16 @@ Respond strictly with valid JSON:
 
       if (!familyCast || !Array.isArray(familyCast.members) || familyCast.members.length === 0) {
         try {
-          const castProfileId = resolveFamilyCastProfileId(creatorEmail || userEmail);
-          const cResp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.${encodeURIComponent(castProfileId)}&select=data`, {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-          });
-          if (cResp.ok) {
-            const cRows = await cResp.json();
-            if (cRows && cRows[0] && cRows[0].data) {
-              familyCast = cRows[0].data;
+          const castProfileId = resolveFamilyCastProfileId(userEmail);
+          if (castProfileId) {
+            const cResp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.${encodeURIComponent(castProfileId)}&select=data`, {
+              headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+            });
+            if (cResp.ok) {
+              const cRows = await cResp.json();
+              if (cRows && cRows[0] && cRows[0].data) {
+                familyCast = sanitizeForeignVaultLeakOnServer(cRows[0].data, userEmail);
+              }
             }
           }
         } catch (_) {}
@@ -612,7 +631,10 @@ STRICT RULES:
         creatorEmail = ''
       } = body;
 
-      const userEmail = (creatorEmail || 'shridharoct16@gmail.com').toLowerCase().trim();
+      const userEmail = (creatorEmail || '').toLowerCase().trim();
+      if (!userEmail) {
+        return res.status(401).json({ error: 'Please sign in with your account to generate a stylized avatar.' });
+      }
       const creditCheck = await verifyAndConsumeUserCredit(userEmail, Boolean(body.isManualRegenerate), Boolean(chronicleMode));
       if (!creditCheck.allowed) {
         return res.status(403).json({ error: 'Private Preview: Your account is not yet on the invited curator whitelist.' });
@@ -629,12 +651,12 @@ STRICT RULES:
         return res.status(400).json({ error: 'Missing memberId' });
       }
 
+      const castProfileId = resolveFamilyCastProfileId(userEmail);
       let sourcePhotoB64 = imageBase64;
       let sourcePhotoMime = imageMimeType;
 
-      if (!sourcePhotoB64) {
+      if (!sourcePhotoB64 && castProfileId) {
         try {
-          const castProfileId = resolveFamilyCastProfileId(userEmail);
           const cResp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.${encodeURIComponent(castProfileId)}&select=data`, {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
           });
@@ -674,7 +696,8 @@ STRICT RULES:
 
       const cleanAvatarB64 = avatarB64.replace(/^data:image\/[^;]+;base64,/, '');
       const buf = Buffer.from(cleanAvatarB64, 'base64');
-      const fileName = `avatar_${memberId}.png`;
+      const safeUserSlug = String(castProfileId || userEmail).replace(/[^a-z0-9_-]/g, '_');
+      const fileName = `avatar_${safeUserSlug}_${memberId}.png`;
 
       try {
         await fetch(`${SUPABASE_URL}/storage/v1/object/posters/${fileName}`, {
@@ -693,40 +716,41 @@ STRICT RULES:
 
       const avatarUrl = `${SUPABASE_URL}/storage/v1/object/public/posters/${fileName}`;
 
-      try {
-        const castProfileId = resolveFamilyCastProfileId(userEmail);
-        const cResp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.${encodeURIComponent(castProfileId)}&select=*`, {
-          headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-        });
-        if (cResp.ok) {
-          const rows = await cResp.json();
-          if (rows && rows[0] && rows[0].data) {
-            const castData = rows[0].data;
-            castData.members = (castData.members || []).map(m => {
-              if (m.id === memberId) {
-                m.stylizedAvatarUrl = avatarUrl;
-              }
-              return m;
-            });
-            castData.updatedAt = new Date().toISOString();
+      if (castProfileId) {
+        try {
+          const cResp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.${encodeURIComponent(castProfileId)}&select=*`, {
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+          });
+          if (cResp.ok) {
+            const rows = await cResp.json();
+            if (rows && rows[0] && rows[0].data) {
+              const castData = rows[0].data;
+              castData.members = (castData.members || []).map(m => {
+                if (m.id === memberId) {
+                  m.stylizedAvatarUrl = avatarUrl;
+                }
+                return m;
+              });
+              castData.updatedAt = new Date().toISOString();
 
-            await fetch(`${SUPABASE_URL}/rest/v1/posts`, {
-              method: 'POST',
-              headers: {
-                'apikey': SUPABASE_KEY,
-                'Authorization': `Bearer ${SUPABASE_KEY}`,
-                'Content-Type': 'application/json',
-                'Prefer': 'resolution=merge-duplicates'
-              },
-              body: JSON.stringify({
-                id: castProfileId,
-                data: castData
-              })
-            });
+              await fetch(`${SUPABASE_URL}/rest/v1/posts`, {
+                method: 'POST',
+                headers: {
+                  'apikey': SUPABASE_KEY,
+                  'Authorization': `Bearer ${SUPABASE_KEY}`,
+                  'Content-Type': 'application/json',
+                  'Prefer': 'resolution=merge-duplicates'
+                },
+                body: JSON.stringify({
+                  id: castProfileId,
+                  data: castData
+                })
+              });
+            }
           }
+        } catch (profErr) {
+          console.warn('Profile avatar update warning:', profErr);
         }
-      } catch (profErr) {
-        console.warn('Profile avatar update warning:', profErr);
       }
 
       return res.status(200).json({
@@ -738,8 +762,15 @@ STRICT RULES:
 
     // Endpoint: Get or Save Curator Style Profile & Longitudinal Observations
     if (body && body.action === 'get_curator_style') {
-      const { userIdentifier = 'default' } = body;
-      const profileId = 'curator_style_' + String(userIdentifier).toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+      const { userIdentifier = '' } = body;
+      const cleanId = String(userIdentifier || '').trim().toLowerCase();
+      if (!cleanId || cleanId === 'default' || !cleanId.includes('@')) {
+        return res.status(200).json({
+          success: true,
+          profile: getDefaultCuratorStyle(userIdentifier)
+        });
+      }
+      const profileId = 'curator_style_' + cleanId.replace(/[^a-z0-9_-]/g, '_');
       try {
         const resp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.${encodeURIComponent(profileId)}&select=data`, {
           headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
@@ -760,8 +791,12 @@ STRICT RULES:
     }
 
     if (body && body.action === 'save_curator_style') {
-      const { userIdentifier = 'default', profile } = body;
-      const profileId = 'curator_style_' + String(userIdentifier).toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+      const { userIdentifier = '', profile } = body;
+      const cleanId = String(userIdentifier || '').trim().toLowerCase();
+      if (!cleanId || cleanId === 'default' || !cleanId.includes('@')) {
+        return res.status(401).json({ success: false, error: 'Sign in required to save style profile' });
+      }
+      const profileId = 'curator_style_' + cleanId.replace(/[^a-z0-9_-]/g, '_');
       try {
         await fetch(`${SUPABASE_URL}/rest/v1/posts`, {
           method: 'POST',
@@ -779,10 +814,16 @@ STRICT RULES:
       }
     }
 
-    // Endpoint: Get Family Cast Vault Profile
+    // Endpoint: Get Family Cast Vault Profile (strictly isolated per signed-in user email — zero cross-user fallback!)
     if (body && body.action === 'get_family_cast') {
-      const { userIdentifier = 'default' } = body;
+      const { userIdentifier = '' } = body;
       const profileId = resolveFamilyCastProfileId(userIdentifier);
+      if (!profileId) {
+        return res.status(200).json({
+          success: true,
+          cast: getDefaultFamilyCast(userIdentifier)
+        });
+      }
       try {
         const resp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.${encodeURIComponent(profileId)}&select=data`, {
           headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
@@ -790,26 +831,12 @@ STRICT RULES:
         if (resp.ok) {
           const rows = await resp.json();
           if (rows && rows[0] && rows[0].data) {
-            return res.status(200).json({ success: true, cast: rows[0].data });
+            const cleanCast = sanitizeForeignVaultLeakOnServer(rows[0].data, userIdentifier);
+            return res.status(200).json({ success: true, cast: cleanCast });
           }
         }
       } catch (err) {
         console.warn('Get family cast error:', err.message);
-      }
-
-      // Secondary fallback: check primary profile if custom ID missed
-      if (profileId !== 'family_cast_shridharoct16_gmail_com') {
-        try {
-          const fbResp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.family_cast_shridharoct16_gmail_com&select=data`, {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-          });
-          if (fbResp.ok) {
-            const fbRows = await fbResp.json();
-            if (fbRows && fbRows[0] && fbRows[0].data) {
-              return res.status(200).json({ success: true, cast: fbRows[0].data });
-            }
-          }
-        } catch (_) {}
       }
 
       return res.status(200).json({
@@ -818,10 +845,14 @@ STRICT RULES:
       });
     }
 
-    // Endpoint: Save Family Cast Vault Profile
+    // Endpoint: Save Family Cast Vault Profile (strictly isolated per signed-in user email)
     if (body && body.action === 'save_family_cast') {
-      const { userIdentifier = 'default', cast } = body;
+      const { userIdentifier = '', cast } = body;
       const profileId = resolveFamilyCastProfileId(userIdentifier);
+      if (!profileId) {
+        return res.status(401).json({ success: false, error: 'Sign in required to save Family Cast Vault' });
+      }
+      const cleanCast = sanitizeForeignVaultLeakOnServer(cast, userIdentifier);
       try {
         await fetch(`${SUPABASE_URL}/rest/v1/posts`, {
           method: 'POST',
@@ -831,9 +862,9 @@ STRICT RULES:
             'Content-Type': 'application/json',
             'Prefer': 'resolution=merge-duplicates'
           },
-          body: JSON.stringify({ id: profileId, data: cast })
+          body: JSON.stringify({ id: profileId, data: cleanCast })
         });
-        return res.status(200).json({ success: true, cast });
+        return res.status(200).json({ success: true, cast: cleanCast });
       } catch (err) {
         return res.status(500).json({ success: false, error: err.message });
       }
@@ -1705,17 +1736,19 @@ Respond strictly with valid JSON with this exact structure:
 - Visual Focus is set to HYBRID BLEND. This controls the VISUAL ARTWORK only, NOT the text narrative.
 - The illustrationPrompt for Poster 1 should blend the concrete real-world news subject with the curator's symbolic tension and visual metaphor.`;
 
-    let effectiveFamilyCast = familyCast;
+    let effectiveFamilyCast = familyCast ? sanitizeForeignVaultLeakOnServer(familyCast, creatorEmail || userEmail) : null;
     if (!effectiveFamilyCast || !Array.isArray(effectiveFamilyCast.members) || effectiveFamilyCast.members.length === 0) {
       try {
         const castProfileId = resolveFamilyCastProfileId(creatorEmail || userEmail);
-        const cResp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.${encodeURIComponent(castProfileId)}&select=data`, {
-          headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-        });
-        if (cResp.ok) {
-          const cRows = await cResp.json();
-          if (cRows && cRows[0] && cRows[0].data) {
-            effectiveFamilyCast = cRows[0].data;
+        if (castProfileId) {
+          const cResp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.${encodeURIComponent(castProfileId)}&select=data`, {
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+          });
+          if (cResp.ok) {
+            const cRows = await cResp.json();
+            if (cRows && cRows[0] && cRows[0].data) {
+              effectiveFamilyCast = sanitizeForeignVaultLeakOnServer(cRows[0].data, creatorEmail || userEmail);
+            }
           }
         }
       } catch (_) {}
@@ -1727,6 +1760,7 @@ Respond strictly with valid JSON with this exact structure:
       activeCast,
       castStaging,
       userSlant,
+      userEmail: creatorEmail || userEmail,
       spark,
       countryContext,
       sourceType,
@@ -3632,6 +3666,33 @@ async function scrapeYouTubeUrl(targetUrl, videoId) {
 }
 
 function getDefaultCuratorStyle(userIdentifier) {
+  if (!isShridharOwnerAccount(userIdentifier)) {
+    const cleanId = String(userIdentifier || '').trim();
+    const displayName = cleanId.includes('@') ? cleanId.split('@')[0] : (cleanId || 'Curator');
+    return {
+      handle: `@${displayName}`,
+      name: displayName,
+      updatedAt: new Date().toISOString(),
+      style_dna: {
+        structure: {
+          name: 'Observational Contrast & Grounded Resolution',
+          description: 'Opens with an honest, real-world observation from daily life or building experience, contrasts it with human reality or institutional friction, and concludes with a pragmatic, solution-first takeaway.',
+          pattern: 'Real-World Observation -> Human Reality Contrast -> Pragmatic Takeaway'
+        },
+        vocabulary: {
+          level: 'Everyday Plainspoken English (5th to 8th Grade)',
+          description: 'Crisp, accessible conversational words. Zero academic, think-tank, or corporate buzzwords. Concrete real-world nouns and grounded phrasing.',
+          favorite_idioms: []
+        },
+        tone: {
+          stance: 'Pragmatic, Observant & Solution-Oriented',
+          description: 'Calm, constructive, and grounded. Balances healthy skepticism of hype with optimistic, hands-on building.',
+          voice_adjectives: ['Thoughtful', 'Constructive', 'Unpretentious', 'Grounded', 'Human-Centered']
+        }
+      },
+      weekly_observations: []
+    };
+  }
   return {
     handle: '@Shridhar Reddy',
     name: 'Shridhar Reddy',
@@ -3797,6 +3858,19 @@ ${ladderLines.join('\n')}`;
 }
 
 function getDefaultFamilyCast(userIdentifier) {
+  if (!isShridharOwnerAccount(userIdentifier)) {
+    return {
+      userIdentifier: userIdentifier || '',
+      updatedAt: new Date().toISOString(),
+      members: [],
+      collectiveAliases: ['family', 'my family', 'kids', 'my kids', 'children'],
+      preferences: {
+        strictAgeGapEnforcement: true,
+        indiaRightHandDrive: true,
+        preferScenicOverlookWhenCrowded: true
+      }
+    };
+  }
   return {
     userIdentifier: userIdentifier || '@Shridhar Reddy',
     updatedAt: new Date().toISOString(),
@@ -4100,7 +4174,7 @@ function detectRelevantCastMembers(combined = '', cast = null, options = {}) {
   return detected;
 }
 
-function buildFamilyCastDirectives({ familyCast, activeCast, castStaging, userSlant = '', spark = '', countryContext = '', sourceType = 'digital_link', perspectiveMode = 'source', chronicleMode = false, preferredVisualSubject = null }) {
+function buildFamilyCastDirectives({ familyCast, activeCast, castStaging, userSlant = '', spark = '', countryContext = '', sourceType = 'digital_link', perspectiveMode = 'source', chronicleMode = false, preferredVisualSubject = null, userEmail = '' }) {
   // If user selected a topical/non-family Visual Subject from Polish (and did not manually force Family Cast), do NOT inject personal family cast
   if (preferredVisualSubject && preferredVisualSubject.isPersonalFamily === false && !(activeCast && activeCast.manuallySelected)) {
     return null;
@@ -4110,7 +4184,10 @@ function buildFamilyCastDirectives({ familyCast, activeCast, castStaging, userSl
     return null;
   }
   const combined = `${userSlant} ${spark}`.toLowerCase();
-  const cast = familyCast || getDefaultFamilyCast();
+  const cast = familyCast || getDefaultFamilyCast(userEmail || (familyCast && familyCast.userIdentifier) || '');
+  if ((!cast || !Array.isArray(cast.members) || cast.members.length === 0) && !hasExplicitCast) {
+    return null;
+  }
   const detectedIds = detectRelevantCastMembers(combined, cast, { chronicleMode });
 
   const isFamilyContext = (detectedIds.size > 0);

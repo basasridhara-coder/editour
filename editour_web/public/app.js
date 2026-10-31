@@ -309,7 +309,9 @@ async function init() {
   await checkDeepLink();
   setupRealtimeSubscription();
   checkIncomingShareTarget();
-  loadFamilyCastProfile(true);
+  if (currentUser && currentUser.email) {
+    loadFamilyCastProfile(true);
+  }
 }
 
 const SUPABASE_URL = 'https://fxfklefnkpmhofncqhfh.supabase.co';
@@ -935,10 +937,20 @@ async function initAuth() {
       currentUser = null;
       isCurrentUserAdmin = false;
       isUserWhitelistAllowed = false;
+      familyCastProfileCache = null;
+      activeVaultMemberId = null;
+      if (typeof activeCastMemberIds !== 'undefined' && activeCastMemberIds instanceof Set) {
+        activeCastMemberIds.clear();
+      }
       try {
         localStorage.removeItem('slant_user_email');
         localStorage.removeItem('slant_my_posts');
         localStorage.removeItem('slant_user_posts_cache');
+        localStorage.removeItem('slant_family_cast');
+        localStorage.removeItem('slant_form_drafts');
+        localStorage.removeItem('slant_last_active_form_draft_id');
+        localStorage.removeItem('slant_polish_history_v1');
+        localStorage.removeItem('slant_reflection_feedback_history');
       } catch (_) {}
       myCreatedPostIds.clear();
       sanitizeUserOwnershipAndCache();
@@ -1092,13 +1104,27 @@ function sanitizeUserOwnershipAndCache() {
   const userEmail = (currentUser?.email || '').trim().toLowerCase();
   const isShridharUser = (userEmail === 'shridharoct16@gmail.com' || userEmail === 'basasridhara@gmail.com');
 
-  // If the signed-in user changed since last session, reset local my_posts cache
+  // Always purge legacy un-scoped family cast key so no user ever inherits another user's cached vault
+  try {
+    localStorage.removeItem('slant_family_cast');
+  } catch (_) {}
+
+  // If the signed-in user changed since last session, reset local my_posts, family vault cache, and form drafts
   try {
     const prevEmail = (localStorage.getItem('slant_last_auth_owner_email') || '').trim().toLowerCase();
     if (userEmail && prevEmail && prevEmail !== userEmail) {
       myCreatedPostIds.clear();
+      familyCastProfileCache = null;
+      activeVaultMemberId = null;
+      if (typeof activeCastMemberIds !== 'undefined' && activeCastMemberIds instanceof Set) {
+        activeCastMemberIds.clear();
+      }
       localStorage.removeItem('slant_my_posts');
       localStorage.removeItem('slant_user_posts_cache');
+      localStorage.removeItem('slant_form_drafts');
+      localStorage.removeItem('slant_last_active_form_draft_id');
+      localStorage.removeItem('slant_polish_history_v1');
+      localStorage.removeItem('slant_reflection_feedback_history');
     }
     if (userEmail) {
       localStorage.setItem('slant_last_auth_owner_email', userEmail);
@@ -1122,38 +1148,38 @@ function sanitizeUserOwnershipAndCache() {
       const parsedCache = JSON.parse(rawCache);
       if (Array.isArray(parsedCache)) {
         const cleanCache = parsedCache.filter(p => {
-          if (!p || !p.id) return false;
-          if (!currentUser) return !isPostChronicleDiary(p);
-          const owned = isPostOwnedByCurrentUser(p);
-          if (!owned && myCreatedPostIds.has(p.id)) {
-            myCreatedPostIds.delete(p.id);
-            myIdsModified = true;
-          }
-          if (isPostChronicleDiary(p) && !owned) return false;
-          return owned;
-        });
-        if (cleanCache.length !== parsedCache.length) {
-          localStorage.setItem('slant_user_posts_cache', JSON.stringify(cleanCache));
-        }
-      }
-    }
-  } catch (_) {}
-
-  // Purge any foreign diary posts from in-memory allPosts and purge non-owned IDs from myCreatedPostIds
-  if (Array.isArray(allPosts) && allPosts.length > 0) {
-    allPosts = allPosts.filter(p => {
-      if (!p) return false;
+      if (!p || !p.id) return false;
+      if (!currentUser) return !isPostPrivateOrDraft(p);
       const owned = isPostOwnedByCurrentUser(p);
-      if (!owned && p.id && myCreatedPostIds.has(p.id)) {
+      if (!owned && myCreatedPostIds.has(p.id)) {
         myCreatedPostIds.delete(p.id);
         myIdsModified = true;
       }
-      if (isPostChronicleDiary(p) && !owned) {
-        return false;
-      }
-      return true;
+      if (isPostPrivateOrDraft(p) && !owned) return false;
+      return owned;
     });
+    if (cleanCache.length !== parsedCache.length) {
+      localStorage.setItem('slant_user_posts_cache', JSON.stringify(cleanCache));
+    }
   }
+}
+} catch (_) {}
+
+// Purge any foreign diary or draft posts from in-memory allPosts and purge non-owned IDs from myCreatedPostIds
+if (Array.isArray(allPosts) && allPosts.length > 0) {
+allPosts = allPosts.filter(p => {
+  if (!p) return false;
+  const owned = isPostOwnedByCurrentUser(p);
+  if (!owned && p.id && myCreatedPostIds.has(p.id)) {
+    myCreatedPostIds.delete(p.id);
+    myIdsModified = true;
+  }
+  if (isPostPrivateOrDraft(p) && !owned) {
+    return false;
+  }
+  return true;
+});
+}
 
   if (myIdsModified) {
     try {
@@ -3837,7 +3863,7 @@ async function fetchDirectSupabasePosts(limit = 12) {
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 6000);
-    const idResp = await fetch(`${SUPABASE_URL}/rest/v1/posts?select=id,created_at&id=like.slant*&or=(data->>isDiary.is.null,data->>isDiary.neq.true)&or=(data->>chronicleMode.is.null,data->>chronicleMode.neq.true)&or=(data->>isEncryptedDiary.is.null,data->>isEncryptedDiary.neq.true)&order=created_at.desc&limit=${limit}`, {
+    const idResp = await fetch(`${SUPABASE_URL}/rest/v1/posts?select=id,created_at&id=like.slant*&or=(data->>isDiary.is.null,data->>isDiary.neq.true)&or=(data->>chronicleMode.is.null,data->>chronicleMode.neq.true)&or=(data->>isEncryptedDiary.is.null,data->>isEncryptedDiary.neq.true)&or=(data->>isDraft.is.null,data->>isDraft.neq.true)&or=(data->>isPrivate.is.null,data->>isPrivate.neq.true)&or=(data->>status.is.null,data->>status.neq.draft)&order=created_at.desc&limit=${limit}`, {
       signal: controller.signal,
       headers: {
         'apikey': SUPABASE_KEY,
@@ -3848,7 +3874,7 @@ async function fetchDirectSupabasePosts(limit = 12) {
     if (!idResp.ok) return [];
     const idRows = await idResp.json();
     if (!Array.isArray(idRows) || idRows.length === 0) return [];
-    const orderedIds = idRows.map(r => r.id).filter(id => id && !id.startsWith('system_') && !id.startsWith('family_cast_'));
+    const orderedIds = idRows.map(r => r.id).filter(id => id && !id.startsWith('system_') && !id.startsWith('family_cast_') && !id.startsWith('curator_style_'));
 
     // Fetch posts via single indexed primary-key query (fast & resilient)
     const inFilter = orderedIds.map(id => '%22' + encodeURIComponent(id) + '%22').join(',');
@@ -3871,7 +3897,7 @@ async function fetchDirectSupabasePosts(limit = 12) {
       const p = r.data || r;
       p.id = p.id || r.id;
       p.createdAt = p.createdAt || r.created_at || new Date().toISOString();
-      if (isPostChronicleDiary(p)) return null;
+      if (isPostPrivateOrDraft(p)) return null;
       if (p.illustrationUrl && (p.illustrationUrl.includes('unsplash.com') || p.illustrationUrl.includes('pollinations.ai'))) {
         p.illustrationUrl = '';
       }
@@ -4249,7 +4275,7 @@ async function loadPosts() {
             const p = rows[0].data || rows[0];
             p.id = p.id || rows[0].id;
             p.createdAt = p.createdAt || rows[0].created_at || new Date().toISOString();
-            if (!isPostChronicleDiary(p) || isPostOwnedByCurrentUser(p)) {
+            if (!isPostPrivateOrDraft(p) || isPostOwnedByCurrentUser(p)) {
               if (!p.illustrationUrl && !p.illustrationBase64 && !isPostChronicleDiary(p)) {
                 p.illustrationUrl = `/posters/${p.id}.png`;
                 p.aiIllustrationUrl = p.illustrationUrl;
@@ -5164,8 +5190,8 @@ function getFilteredPostsForFilter(posts, filter, query) {
       return false;
     }
 
-    // Unpublished perspective drafts must never be visible to anyone other than their creator (unless directly deep-linked)
-    if (isPrivateDraft && !isChronicleDiary && !isOwnedByMe && post.id !== deepPostId) {
+    // Unpublished perspective drafts must NEVER be visible to anyone other than their creator (not even via deep link)
+    if (isPrivateDraft && !isOwnedByMe) {
       return false;
     }
 
@@ -5197,8 +5223,8 @@ function getFilteredPostsForFilter(posts, filter, query) {
       return isOwnedByMe && !isPrivateDraft && matchesQuery(post);
     }
 
-    // Hide unpublished drafts from regular feed and topic categories (unless directly deep-linked)
-    if (isPrivateDraft && post.id !== deepPostId) {
+    // Hide unpublished drafts from regular feed and topic categories (unless directly deep-linked by the owner)
+    if (isPrivateDraft && (post.id !== deepPostId || !isOwnedByMe)) {
       return false;
     }
 
@@ -10723,7 +10749,7 @@ function setupRealtimeSubscription() {
               }
               return;
             }
-            if (isPostChronicleDiary(p) && !isPostOwnedByCurrentUser(p)) {
+            if (isPostPrivateOrDraft(p) && !isPostOwnedByCurrentUser(p)) {
               return;
             }
             p.createdAt = p.createdAt || payload.new.created_at || new Date().toISOString();
@@ -11490,7 +11516,9 @@ function deriveCorrectionsForPost(post, localHistoryList) {
 }
 
 function buildCuratorAnalyticsDataset() {
-  const rawPosts = Array.isArray(allPosts) ? allPosts.filter(p => p && !p.deleted && !p.isDeleted && (p.adaptedHeadline || p.originalHeadline || p.summary)) : [];
+  const rawPosts = Array.isArray(allPosts)
+    ? allPosts.filter(p => p && !p.deleted && !p.isDeleted && isPostOwnedByCurrentUser(p) && (p.adaptedHeadline || p.originalHeadline || p.summary))
+    : [];
   let localHistory = [];
   try {
     localHistory = JSON.parse(localStorage.getItem('slant_polish_history_v1') || '[]') || [];
@@ -13020,8 +13048,39 @@ function ensureMemberStructuredTraits(m) {
   return m.structuredTraits;
 }
 
+function isCurrentClientUserShridhar() {
+  const email = (currentUser && currentUser.email ? currentUser.email : '').trim().toLowerCase();
+  return email === 'shridharoct16@gmail.com' || email === 'basasridhara@gmail.com';
+}
+
+function getFamilyCastLocalStorageKey() {
+  const email = (currentUser && currentUser.email ? currentUser.email : '').trim().toLowerCase();
+  if (!email) return null;
+  return 'slant_family_cast_' + email;
+}
+
 function sanitizeLoadedFamilyCast(cast) {
   if (!cast || !Array.isArray(cast.members)) return cast;
+
+  // STRICT MULTI-TENANT VAULT ISOLATION:
+  // If the signed-in user is NOT Shridhar, immediately purge any leaked Shridhar family members or Shridhar avatar URLs!
+  if (!isCurrentClientUserShridhar()) {
+    const names = cast.members.map(m => String(m?.name || '').trim().toLowerCase());
+    const hasShridharCastSignature = (
+      names.includes('shridhar') &&
+      (names.includes('aruna') || names.includes('gahan') || names.includes('rishu'))
+    );
+    const hasShridharAvatarLeak = cast.members.some(m => {
+      const av = String(m?.stylizedAvatarUrl || '');
+      return /\/avatar_member_(father|mother|elder_son|younger_son)\.(jpg|png|webp)/i.test(av);
+    });
+    if (hasShridharCastSignature || hasShridharAvatarLeak) {
+      cast.members = [];
+      cast.userIdentifier = (currentUser && currentUser.email) ? currentUser.email.trim().toLowerCase() : '';
+      return cast;
+    }
+  }
+
   cast.members = cast.members.filter(m => m && (m.name || m.roleLabel !== 'New Member'));
   const fatherMember = cast.members.find(m => m.id === 'member_father' || m.relationship === 'self');
   const fatherCm = fatherMember ? resolveMemberHeightCm(fatherMember) : 178;
@@ -13077,7 +13136,16 @@ function sanitizeLoadedFamilyCast(cast) {
 }
 
 function getDefaultClientFamilyCast() {
-  const userHandle = (currentUser && currentUser.email) || '@Shridhar Reddy';
+  const userEmail = (currentUser && currentUser.email ? currentUser.email : '').trim().toLowerCase();
+  if (!isCurrentClientUserShridhar()) {
+    return {
+      userIdentifier: userEmail || '',
+      updatedAt: new Date().toISOString(),
+      members: [],
+      collectiveAliases: ['family', 'my family', 'kids', 'my kids', 'children']
+    };
+  }
+  const userHandle = userEmail || 'shridharoct16@gmail.com';
   return {
     userIdentifier: userHandle,
     updatedAt: new Date().toISOString(),
@@ -13186,7 +13254,17 @@ function getDefaultClientFamilyCast() {
 let isFamilyCastFetching = false;
 
 async function loadFamilyCastProfile(forceRefresh = false) {
-  const local = localStorage.getItem('slant_family_cast');
+  try {
+    localStorage.removeItem('slant_family_cast');
+  } catch (_) {}
+
+  if (!currentUser || !currentUser.email) {
+    familyCastProfileCache = getDefaultClientFamilyCast();
+    return familyCastProfileCache;
+  }
+
+  const storageKey = getFamilyCastLocalStorageKey();
+  const local = storageKey ? localStorage.getItem(storageKey) : null;
   if (local && !familyCastProfileCache) {
     try {
       familyCastProfileCache = sanitizeLoadedFamilyCast(JSON.parse(local));
@@ -13209,7 +13287,7 @@ async function loadFamilyCastProfile(forceRefresh = false) {
   }
 
   isFamilyCastFetching = true;
-  const userIdentifier = (currentUser && currentUser.email) || '@Shridhar Reddy';
+  const userIdentifier = currentUser.email.trim().toLowerCase();
   try {
     const resp = await fetch('/api/synthesize', {
       method: 'POST',
@@ -13224,7 +13302,9 @@ async function loadFamilyCastProfile(forceRefresh = false) {
       if (data && data.cast && Array.isArray(data.cast.members)) {
         familyCastProfileCache = sanitizeLoadedFamilyCast(data.cast);
         try {
-          localStorage.setItem('slant_family_cast', JSON.stringify(familyCastProfileCache));
+          if (storageKey) {
+            localStorage.setItem(storageKey, JSON.stringify(familyCastProfileCache));
+          }
         } catch (_) {}
 
         const currentSlant = (document.getElementById('creatorSlantTakeInput')?.value || '') + ' ' + (document.getElementById('creatorSparkInput')?.value || '');
@@ -13232,8 +13312,8 @@ async function loadFamilyCastProfile(forceRefresh = false) {
           checkAndTriggerFamilyCast(currentSlant);
         }
 
-        if (!activeVaultMemberId && data.cast.members.length > 0) {
-          activeVaultMemberId = data.cast.members[0].id;
+        if (!activeVaultMemberId && familyCastProfileCache.members.length > 0) {
+          activeVaultMemberId = familyCastProfileCache.members[0].id;
         }
 
         const modal = document.getElementById('familyCastModal');
@@ -13247,7 +13327,7 @@ async function loadFamilyCastProfile(forceRefresh = false) {
         }
         renderFamilyCastStagingUI();
         isFamilyCastFetching = false;
-        return data.cast;
+        return familyCastProfileCache;
       }
     }
   } catch (err) {
@@ -13259,7 +13339,9 @@ async function loadFamilyCastProfile(forceRefresh = false) {
   if (!familyCastProfileCache) {
     familyCastProfileCache = getDefaultClientFamilyCast();
     try {
-      localStorage.setItem('slant_family_cast', JSON.stringify(familyCastProfileCache));
+      if (storageKey) {
+        localStorage.setItem(storageKey, JSON.stringify(familyCastProfileCache));
+      }
     } catch (_) {}
   }
   return familyCastProfileCache;
@@ -13267,12 +13349,21 @@ async function loadFamilyCastProfile(forceRefresh = false) {
 
 async function saveFamilyCastProfile(updatedCast) {
   if (!updatedCast || !Array.isArray(updatedCast.members)) return;
-  familyCastProfileCache = updatedCast;
   try {
-    localStorage.setItem('slant_family_cast', JSON.stringify(updatedCast));
+    localStorage.removeItem('slant_family_cast');
+  } catch (_) {}
+  if (!currentUser || !currentUser.email) return;
+
+  const cleanCast = sanitizeLoadedFamilyCast(updatedCast);
+  familyCastProfileCache = cleanCast;
+  const storageKey = getFamilyCastLocalStorageKey();
+  try {
+    if (storageKey) {
+      localStorage.setItem(storageKey, JSON.stringify(cleanCast));
+    }
   } catch (_) {}
 
-  const userIdentifier = (currentUser && currentUser.email) || '@Shridhar Reddy';
+  const userIdentifier = currentUser.email.trim().toLowerCase();
   try {
     fetch('/api/synthesize', {
       method: 'POST',
@@ -13280,7 +13371,7 @@ async function saveFamilyCastProfile(updatedCast) {
       body: JSON.stringify({
         action: 'save_family_cast',
         userIdentifier,
-        cast: updatedCast
+        cast: cleanCast
       })
     }).catch(() => {});
   } catch (_) {}
@@ -14546,13 +14637,18 @@ function renderFamilyCastModalList() {
 
 function resetFamilyCastToDefault() {
   familyCastProfileCache = getDefaultClientFamilyCast();
-  activeCastMemberIds = new Set(['member_father', 'member_mother', 'member_elder_son', 'member_younger_son']);
-  activeVaultMemberId = 'member_father';
+  const memberIds = (familyCastProfileCache.members || []).map(m => m.id);
+  activeCastMemberIds = new Set(memberIds);
+  activeVaultMemberId = memberIds[0] || null;
   saveFamilyCastProfile(familyCastProfileCache);
   renderVaultMemberTabs();
   renderActiveMemberScreen();
   renderFamilyCastStagingUI();
-  showTemporaryToast('✓ Reset to standard family blueprint (Dad, Mom, 11yo Elder Son, 7yo Younger Son)');
+  showTemporaryToast(
+    memberIds.length > 0
+      ? '✓ Reset to standard family blueprint'
+      : '✓ Cleared personal family vault'
+  );
 }
 
 function setFamilyCastStagingMode(mode) {

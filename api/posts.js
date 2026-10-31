@@ -39,6 +39,16 @@ function isChronicleDiaryPost(p) {
   );
 }
 
+function isPrivateOrDraftPost(p) {
+  if (!p) return false;
+  return Boolean(
+    isChronicleDiaryPost(p)
+    || p.isDraft === true
+    || p.isPrivate === true
+    || p.status === 'draft'
+  );
+}
+
 function isDiaryAuthorizedForEmail(p, emailFilter) {
   if (!p || !emailFilter) return false;
   const cleanReqEmail = String(emailFilter).trim().toLowerCase();
@@ -184,8 +194,8 @@ module.exports = async function handler(req, res) {
           const sRows = await sResp.json();
           if (Array.isArray(sRows) && sRows.length > 0) {
             const formatted = formatPostRow(sRows[0]);
-            if (formatted && isChronicleDiaryPost(formatted) && !isDiaryAuthorizedForEmail(formatted, emailFilter)) {
-              return res.status(403).json({ status: 'error', error: 'Private diary entry' });
+            if (formatted && isPrivateOrDraftPost(formatted) && !isDiaryAuthorizedForEmail(formatted, emailFilter)) {
+              return res.status(403).json({ status: 'error', error: 'Private entry or draft' });
             }
             return res.status(200).json({ status: 'ok', count: 1, post: formatted, posts: [formatted] });
           }
@@ -213,7 +223,7 @@ module.exports = async function handler(req, res) {
             const mRows = await mResp.json();
             const posts = (mRows || []).map(formatPostRow).filter(p => {
               if (!p) return false;
-              if (isChronicleDiaryPost(p)) {
+              if (isPrivateOrDraftPost(p)) {
                 return isDiaryAuthorizedForEmail(p, emailFilter);
               }
               return true;
@@ -237,10 +247,10 @@ module.exports = async function handler(req, res) {
       } else if (cleanEmail) {
         filterQuery += `&data->>userEmail=ilike.${encodeURIComponent(cleanEmail)}`;
       } else if (cleanAuthor) {
-        filterQuery += `&data->>creatorHandle=ilike.*${encodeURIComponent(cleanAuthor)}*`;
+        filterQuery += `&data->>creatorHandle=ilike.*${encodeURIComponent(cleanAuthor)}*&or=(data->>isDiary.is.null,data->>isDiary.neq.true)&or=(data->>chronicleMode.is.null,data->>chronicleMode.neq.true)&or=(data->>isEncryptedDiary.is.null,data->>isEncryptedDiary.neq.true)&or=(data->>isDraft.is.null,data->>isDraft.neq.true)&or=(data->>isPrivate.is.null,data->>isPrivate.neq.true)&or=(data->>status.is.null,data->>status.neq.draft)`;
       } else {
-        // Public feed query: strictly exclude private Daily Chronicle diary rows at the SQL query level
-        filterQuery += '&or=(data->>isDiary.is.null,data->>isDiary.neq.true)&or=(data->>chronicleMode.is.null,data->>chronicleMode.neq.true)&or=(data->>isEncryptedDiary.is.null,data->>isEncryptedDiary.neq.true)';
+        // Public feed query: strictly exclude private Daily Chronicle diary rows and unpublished drafts at the SQL query level
+        filterQuery += '&or=(data->>isDiary.is.null,data->>isDiary.neq.true)&or=(data->>chronicleMode.is.null,data->>chronicleMode.neq.true)&or=(data->>isEncryptedDiary.is.null,data->>isEncryptedDiary.neq.true)&or=(data->>isDraft.is.null,data->>isDraft.neq.true)&or=(data->>isPrivate.is.null,data->>isPrivate.neq.true)&or=(data->>status.is.null,data->>status.neq.draft)';
       }
 
       const [idResp, tombResp] = await Promise.all([
@@ -282,7 +292,7 @@ module.exports = async function handler(req, res) {
 
         const idRows = await idResp.json();
         if (Array.isArray(idRows) && idRows.length > 0) {
-          const orderedIds = idRows.map(r => r.id).filter(id => id && !id.startsWith('system_') && !id.startsWith('family_cast_') && !deletedSet.has(id));
+          const orderedIds = idRows.map(r => r.id).filter(id => id && !id.startsWith('system_') && !id.startsWith('family_cast_') && !id.startsWith('curator_style_') && !deletedSet.has(id));
 
           // Single indexed primary-key query for all ordered IDs (fast & zero dropped rows)
           const inFilter = orderedIds.map(id => '%22' + encodeURIComponent(id) + '%22').join(',');
@@ -302,15 +312,12 @@ module.exports = async function handler(req, res) {
           }
 
           if (Array.isArray(rows) && rows.length > 0) {
-            const isAuthorQuery = Boolean(authorFilter || emailFilter);
             const posts = rows.map(formatPostRow).filter(p => {
               if (!p || p.deleted || p.isDeleted || deletedSet.has(p.id)) return false;
-              const isChronicleDiary = isChronicleDiaryPost(p);
-              // STRICT PRIVACY: Daily Chronicles / Diary entries are NEVER returned unless emailFilter strictly matches the diary owner
-              if (isChronicleDiary) {
+              // STRICT PRIVACY: Daily Chronicles, unpublished drafts, and private posts are NEVER returned unless emailFilter strictly matches the owner
+              if (isPrivateOrDraftPost(p)) {
                 return isDiaryAuthorizedForEmail(p, emailFilter);
               }
-              if (!isAuthorQuery && (p.isDraft || p.isPrivate || p.status === 'draft')) return false;
               return (p.adaptedHeadline || p.originalHeadline || p.summary || p.encryptedDiaryPayload);
             });
 
