@@ -7213,6 +7213,149 @@ header {
   background: rgba(245, 158, 11, 0.18);
 }
 
+/* Compact Per-Moment & Regular Visual Scene Dropdown */
+.chronicle-moment-visual-slot {
+  margin-top: 6px;
+}
+
+.moment-visual-dropdown-wrap {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.moment-visual-dropdown-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 9px;
+  background: linear-gradient(90deg, rgba(16, 185, 129, 0.08) 0%, rgba(15, 23, 42, 0.03) 100%);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.16s ease;
+}
+
+.moment-visual-dropdown-trigger:hover {
+  border-color: #10B981;
+  background: linear-gradient(90deg, rgba(16, 185, 129, 0.14) 0%, rgba(16, 185, 129, 0.04) 100%);
+}
+
+[data-theme="obsidian"] .moment-visual-dropdown-trigger {
+  background: linear-gradient(90deg, rgba(16, 185, 129, 0.14) 0%, rgba(15, 23, 42, 0.45) 100%);
+  border-color: rgba(52, 211, 153, 0.35);
+}
+
+.mv-trigger-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
+
+.mv-trigger-tag {
+  font-size: 9.5px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 5px;
+  background: #10B981;
+  color: #FFFFFF;
+  white-space: nowrap;
+  flex-shrink: 0;
+  letter-spacing: 0.2px;
+}
+
+.mv-trigger-title {
+  font-size: 11.8px;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.mv-trigger-conf {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 1.5px 6px;
+  border-radius: 999px;
+  background: rgba(16, 185, 129, 0.15);
+  color: #047857;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+[data-theme="obsidian"] .mv-trigger-conf {
+  color: #6EE7B7;
+  background: rgba(16, 185, 129, 0.2);
+}
+
+.mv-trigger-learned {
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.mv-trigger-right {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+.mv-trigger-count {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.mv-trigger-chevron {
+  font-size: 11px;
+  font-weight: 900;
+  color: #059669;
+  line-height: 1;
+}
+
+[data-theme="obsidian"] .mv-trigger-chevron {
+  color: #34D399;
+}
+
+.moment-visual-dropdown-menu {
+  margin-top: 6px;
+  padding: 8px;
+  border-radius: 10px;
+  background: var(--bg-surface);
+  border: 1px solid rgba(16, 185, 129, 0.32);
+  box-shadow: 0 8px 20px -6px rgba(15, 23, 42, 0.16);
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  animation: fadeInPrompt 0.18s ease-out both;
+}
+
+.moment-visual-dropdown-menu-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px dashed var(--border-subtle);
+}
+
+.mv-menu-head-label {
+  font-size: 10.5px;
+  font-weight: 800;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
 /* Mandatory Field Validation Prompts & Highlights */
 @keyframes fieldMandatoryShake {
   0%, 100% { transform: translateX(0); }

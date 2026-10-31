@@ -10988,9 +10988,21 @@ function buildClientFallbackMomentProjections(moments = []) {
 
   return (moments || []).map((m, idx) => {
     const mNum = idx + 1;
-    const mTitle = String(m.title || `Moment 0${mNum}`).trim();
-    const mText = String(m.text || '').trim();
+    const mTitle = String(m?.title || `Moment 0${mNum}`).trim();
+    const mText = String(m?.text || '').trim();
     const lower = `${mTitle} ${mText}`.toLowerCase();
+
+    if (mText.length < 4) {
+      return {
+        momentIndex: mNum,
+        momentTitle: mTitle,
+        momentText: '',
+        _sourceText: '',
+        _isAiGenerated: false,
+        selectedOptionIdx: 0,
+        options: []
+      };
+    }
 
     // If we already have AI-generated projections for this exact moment text, preserve them!
     const existingGroup = Array.isArray(currentChronicleMomentProjections)
@@ -11481,138 +11493,210 @@ function buildClientFallbackVisualSubjects(rawText = '', spark = '', scrapedTitl
   return applyLearnedConfidenceToOptions(rawList);
 }
 
+let openChronicleMomentDropdownIdx = -1;
+let isRegularVisualDropdownOpen = false;
+
+function toggleChronicleMomentVisualDropdown(momentIdx, event) {
+  if (event) event.stopPropagation();
+  openChronicleMomentDropdownIdx = (openChronicleMomentDropdownIdx === momentIdx) ? -1 : momentIdx;
+  renderChronicleMomentVisualDropdowns();
+}
+
+function toggleRegularVisualSubjectDropdown(event) {
+  if (event) event.stopPropagation();
+  isRegularVisualDropdownOpen = !isRegularVisualDropdownOpen;
+  renderPolishVisualSubjects();
+}
+
+function renderChronicleMomentVisualDropdowns() {
+  if (!Array.isArray(dailyChronicleMoments)) return;
+  const learningProfile = getVisualConfidenceLearningProfile();
+  const totalLearned = Number(learningProfile.totalApprovals) || 0;
+
+  dailyChronicleMoments.forEach((m, mIdx) => {
+    const slot = document.getElementById(`chronicleMomentVisualSlot_${mIdx}`);
+    if (!slot) return;
+
+    const mText = String(m?.text || '').trim();
+    if (mText.length < 4) {
+      slot.style.display = 'none';
+      slot.innerHTML = '';
+      return;
+    }
+
+    // Find matching projection group for this moment index
+    const mp = (Array.isArray(currentChronicleMomentProjections) && (
+      currentChronicleMomentProjections.find(g => g && Number(g.momentIndex) === mIdx + 1) ||
+      currentChronicleMomentProjections[mIdx]
+    )) || null;
+
+    const options = (mp && Array.isArray(mp.options)) ? mp.options : [];
+    if (options.length === 0) {
+      slot.style.display = 'none';
+      slot.innerHTML = '';
+      return;
+    }
+
+    const selIdx = (mp && Number.isFinite(mp.selectedOptionIdx) && options[mp.selectedOptionIdx]) ? mp.selectedOptionIdx : 0;
+    const activeOpt = options[selIdx] || options[0];
+    const activeConf = Number(activeOpt?.confidence) || 94;
+    const activeLearned = Number(activeOpt?.learnedApprovals) || 0;
+    const isExpanded = (openChronicleMomentDropdownIdx === mIdx);
+    const mNumStr = String(mIdx + 1).padStart(2, '0');
+
+    const optionsMenuHtml = isExpanded
+      ? `<div class="moment-visual-dropdown-menu">
+           <div class="moment-visual-dropdown-menu-head">
+             <span class="mv-menu-head-label">🎨 Scene Options for Moment ${mNumStr}${totalLearned > 0 ? ` • 🧠 Adapted (${totalLearned})` : ''}</span>
+             <button type="button" class="polish-vs-ai-refresh-btn" onclick="event.stopPropagation(); refreshVisualProjectionsWithAI()" title="Refresh visual options with AI">✨ AI Refresh</button>
+           </div>
+           <div class="polish-vs-cards-list">
+             ${options.map((opt, oIdx) => {
+               const isSelected = (oIdx === selIdx);
+               const isDefaultTop = (oIdx === 0);
+               const confVal = Number(opt.confidence) || (oIdx === 0 ? 94 : (oIdx === 1 ? 83 : 72));
+               const learnedCount = Number(opt.learnedApprovals) || 0;
+               const badgeText = isDefaultTop
+                 ? (opt.badge && opt.badge.includes('Default') ? opt.badge : `★ Default • ${opt.badge || 'Best Fit'}`)
+                 : (opt.badge || `Option ${oIdx + 1}`).replace(/^★\s*Default\s*•\s*/i, '');
+               return `
+                 <button type="button" class="polish-vs-card ${isSelected ? 'active' : ''}" onclick="selectChronicleMomentVisualOption(${mIdx}, ${oIdx})">
+                   <div class="polish-vs-card-top">
+                     <div class="polish-vs-badges-wrap">
+                       <span class="polish-vs-badge">${escapeHtml(badgeText)}</span>
+                       <span class="polish-vs-confidence-pill">${confVal}% Conf.</span>
+                       ${learnedCount > 0 ? `<span class="polish-vs-learned-tag">🧠 +${learnedCount}</span>` : ''}
+                     </div>
+                     <span class="polish-vs-check">${isSelected ? '✓ Selected' : 'Select'}</span>
+                   </div>
+                   <div class="polish-vs-card-title">${escapeHtml(opt.title || '')}</div>
+                   <div class="polish-vs-card-desc">${escapeHtml(opt.description || '')}</div>
+                 </button>
+               `;
+             }).join('')}
+           </div>
+         </div>`
+      : '';
+
+    slot.style.display = 'block';
+    slot.innerHTML = `
+      <div class="moment-visual-dropdown-wrap ${isExpanded ? 'is-open' : ''}">
+        <button type="button" class="moment-visual-dropdown-trigger" onclick="toggleChronicleMomentVisualDropdown(${mIdx}, event)" title="Tap to view or switch visual projection options for Moment ${mNumStr}">
+          <div class="mv-trigger-left">
+            <span class="mv-trigger-tag">🎨 Visual</span>
+            <span class="mv-trigger-title">${escapeHtml(activeOpt.title || 'Scene Projection')}</span>
+            <span class="mv-trigger-conf">${activeConf}%</span>
+            ${activeLearned > 0 ? `<span class="mv-trigger-learned" title="Boosted from ${activeLearned} past approval(s)">🧠</span>` : ''}
+          </div>
+          <div class="mv-trigger-right">
+            <span class="mv-trigger-count">${options.length} options</span>
+            <span class="mv-trigger-chevron">${isExpanded ? '▴' : '▾'}</span>
+          </div>
+        </button>
+        ${optionsMenuHtml}
+      </div>
+    `;
+  });
+}
+
 function renderPolishVisualSubjects() {
   const picker = document.getElementById('polishVisualSubjectPicker');
   const listEl = document.getElementById('polishVisualSubjectCardsList');
   const statusPill = document.getElementById('polishVisualSubjectStatusPill');
   const headerTitle = document.getElementById('polishVsHeaderTitle');
   const headerSubtitle = document.getElementById('polishVsHeaderSubtitle');
-  if (!picker || !listEl) return;
 
   const isChronicle = (creatorSelectedSource === 'inner_voice' && typeof isDailyChronicleMode !== 'undefined' && isDailyChronicleMode);
   const learningProfile = getVisualConfidenceLearningProfile();
   const totalLearned = Number(learningProfile.totalApprovals) || 0;
 
   if (isChronicle) {
-    if (!Array.isArray(currentChronicleMomentProjections) || currentChronicleMomentProjections.length === 0) {
-      picker.style.display = 'none';
-      return;
-    }
-
-    picker.style.display = 'flex';
-    if (headerTitle) {
-      headerTitle.textContent = 'PER-MOMENT VISUAL SCENE PROJECTIONS (2–3 OPTIONS EACH)';
-    }
-    if (headerSubtitle) {
-      headerSubtitle.textContent = totalLearned > 0
-        ? `Default auto-selected by confidence score (🧠 adapted from ${totalLearned} approval${totalLearned > 1 ? 's' : ''}) — tap any option per moment to switch:`
-        : 'Default auto-selected by confidence score — tap any visual option per moment if you want a different scene projection:';
-    }
-    if (statusPill) {
-      statusPill.textContent = `★ ${currentChronicleMomentProjections.length} Moment${currentChronicleMomentProjections.length > 1 ? 's' : ''} Tuned`;
-    }
-
-    listEl.innerHTML = currentChronicleMomentProjections.map((mp, mIdx) => {
-      const mNumStr = String(mp.momentIndex || (mIdx + 1)).padStart(2, '0');
-      const snippet = mp.momentText
-        ? (mp.momentText.length > 68 ? mp.momentText.slice(0, 65) + '...' : mp.momentText)
-        : (mp.momentTitle || `Moment ${mNumStr}`);
-      const selIdx = Number.isFinite(mp.selectedOptionIdx) ? mp.selectedOptionIdx : 0;
-      const options = Array.isArray(mp.options) ? mp.options : [];
-
-      const cardsHtml = options.map((opt, oIdx) => {
-        const isSelected = (oIdx === selIdx);
-        const isDefaultTop = (oIdx === 0);
-        const confVal = Number(opt.confidence) || (oIdx === 0 ? 94 : (oIdx === 1 ? 83 : 72));
-        const learnedCount = Number(opt.learnedApprovals) || 0;
-        const badgeText = isDefaultTop
-          ? (opt.badge && opt.badge.includes('Default') ? opt.badge : `★ Default • ${opt.badge || 'Best Fit'}`)
-          : (opt.badge || `Option ${oIdx + 1}`).replace(/^★\s*Default\s*•\s*/i, '');
-
-        return `
-          <button type="button" class="polish-vs-card ${isSelected ? 'active' : ''}" onclick="selectChronicleMomentVisualOption(${mIdx}, ${oIdx})">
-            <div class="polish-vs-card-top">
-              <div class="polish-vs-badges-wrap">
-                <span class="polish-vs-badge">${escapeHtml(badgeText)}</span>
-                <span class="polish-vs-confidence-pill">${confVal}% Confidence</span>
-                ${learnedCount > 0 ? `<span class="polish-vs-learned-tag" title="Confidence boosted from ${learnedCount} past approval(s)">🧠 +Learned (${learnedCount})</span>` : ''}
-              </div>
-              <span class="polish-vs-check">${isSelected ? '✓ Active for Vignette ' + mNumStr : 'Tap to select'}</span>
-            </div>
-            <div class="polish-vs-card-title">${escapeHtml(opt.title || '')}</div>
-            <div class="polish-vs-card-desc">${escapeHtml(opt.description || '')}</div>
-          </button>
-        `;
-      }).join('');
-
-      return `
-        <div class="polish-moment-group">
-          <div class="polish-moment-group-header">
-            <div class="polish-moment-group-left">
-              <span class="polish-moment-badge">MOMENT ${mNumStr}</span>
-              <span class="polish-moment-snippet" title="${escapeHtml(mp.momentText || '')}">${escapeHtml(snippet)}</span>
-            </div>
-          </div>
-          <div class="polish-vs-cards-list">
-            ${cardsHtml}
-          </div>
-        </div>
-      `;
-    }).join('');
+    // In Daily Chronicle mode, options render as compact dropdowns directly below each Moment card!
+    if (picker) picker.style.display = 'none';
+    renderChronicleMomentVisualDropdowns();
     return;
   }
 
-  // Regular Post mode (Web Link / Video / Inner Voice Single Reflection)
+  if (!picker || !listEl) return;
+
+  // Regular Post mode (Web Link / Video / Inner Voice Single Reflection) — Compact Dropdown Format
   if (!Array.isArray(currentPolishVisualSubjects) || currentPolishVisualSubjects.length === 0) {
     picker.style.display = 'none';
     return;
   }
 
   picker.style.display = 'flex';
+  const activeVs = currentPolishVisualSubjects[selectedPolishVisualSubjectIdx] || currentPolishVisualSubjects[0];
+  const activeConf = Number(activeVs?.confidence) || 93;
+  const activeLearned = Number(activeVs?.learnedApprovals) || 0;
+
   if (headerTitle) {
     headerTitle.textContent = 'CORE SCENE VISUAL TO PROJECT';
   }
   if (headerSubtitle) {
     headerSubtitle.textContent = totalLearned > 0
-      ? `Default selected by confidence score (🧠 adapted from ${totalLearned} approval${totalLearned > 1 ? 's' : ''}) — tap any visual option to change:`
-      : 'Default selected by confidence score — tap any visual option if you want a different scene representation:';
+      ? `Default auto-selected by confidence (🧠 adapted from ${totalLearned} approval${totalLearned > 1 ? 's' : ''}):`
+      : 'Default auto-selected by confidence score — tap dropdown below to switch:';
   }
-  const activeVs = currentPolishVisualSubjects[selectedPolishVisualSubjectIdx] || currentPolishVisualSubjects[0];
   if (statusPill) {
-    const activeConf = Number(activeVs?.confidence) || 93;
-    statusPill.textContent = `✓ Option ${selectedPolishVisualSubjectIdx + 1} (${activeConf}% Conf.)`;
+    statusPill.textContent = `✓ ${activeConf}% Conf.`;
   }
 
-  listEl.innerHTML = currentPolishVisualSubjects.map((vs, idx) => {
-    const isSelected = (idx === selectedPolishVisualSubjectIdx);
-    const isDefaultTop = (idx === 0);
-    const confVal = Number(vs.confidence) || (idx === 0 ? 94 : (idx === 1 ? 83 : 72));
-    const learnedCount = Number(vs.learnedApprovals) || 0;
-    const badgeText = isDefaultTop
-      ? (vs.badge && vs.badge.includes('Default') ? vs.badge : `★ Default • ${(vs.badge || 'Core Scene').replace(/^★\s*/, '')}`)
-      : (vs.badge || `Option ${idx + 1}`).replace(/^★\s*Best Fit\s*•\s*/i, '');
+  const expandedCardsHtml = isRegularVisualDropdownOpen
+    ? `<div class="moment-visual-dropdown-menu" style="margin-top:6px;">
+         <div class="polish-vs-cards-list">
+           ${currentPolishVisualSubjects.map((vs, idx) => {
+             const isSelected = (idx === selectedPolishVisualSubjectIdx);
+             const isDefaultTop = (idx === 0);
+             const confVal = Number(vs.confidence) || (idx === 0 ? 94 : (idx === 1 ? 83 : 72));
+             const learnedCount = Number(vs.learnedApprovals) || 0;
+             const badgeText = isDefaultTop
+               ? (vs.badge && vs.badge.includes('Default') ? vs.badge : `★ Default • ${(vs.badge || 'Core Scene').replace(/^★\s*/, '')}`)
+               : (vs.badge || `Option ${idx + 1}`).replace(/^★\s*Best Fit\s*•\s*/i, '');
 
-    return `
-      <button type="button" class="polish-vs-card ${isSelected ? 'active' : ''}" onclick="selectPolishVisualSubject(${idx})">
-        <div class="polish-vs-card-top">
-          <div class="polish-vs-badges-wrap">
-            <span class="polish-vs-badge">${escapeHtml(badgeText)}</span>
-            <span class="polish-vs-confidence-pill">${confVal}% Confidence</span>
-            ${learnedCount > 0 ? `<span class="polish-vs-learned-tag" title="Confidence boosted from ${learnedCount} past approval(s)">🧠 +Learned (${learnedCount})</span>` : ''}
-          </div>
-          <span class="polish-vs-check">${isSelected ? '✓ Selected for Poster Visual' : 'Tap to use'}</span>
+             return `
+               <button type="button" class="polish-vs-card ${isSelected ? 'active' : ''}" onclick="selectPolishVisualSubject(${idx})">
+                 <div class="polish-vs-card-top">
+                   <div class="polish-vs-badges-wrap">
+                     <span class="polish-vs-badge">${escapeHtml(badgeText)}</span>
+                     <span class="polish-vs-confidence-pill">${confVal}% Confidence</span>
+                     ${learnedCount > 0 ? `<span class="polish-vs-learned-tag" title="Confidence boosted from ${learnedCount} past approval(s)">🧠 +Learned (${learnedCount})</span>` : ''}
+                   </div>
+                   <span class="polish-vs-check">${isSelected ? '✓ Selected' : 'Select'}</span>
+                 </div>
+                 <div class="polish-vs-card-title">${escapeHtml(vs.title || '')}</div>
+                 <div class="polish-vs-card-desc">${escapeHtml(vs.description || '')}</div>
+               </button>
+             `;
+           }).join('')}
+         </div>
+       </div>`
+    : '';
+
+  listEl.innerHTML = `
+    <div class="moment-visual-dropdown-wrap ${isRegularVisualDropdownOpen ? 'is-open' : ''}">
+      <button type="button" class="moment-visual-dropdown-trigger" onclick="toggleRegularVisualSubjectDropdown(event)">
+        <div class="mv-trigger-left">
+          <span class="mv-trigger-tag">★ Active Scene</span>
+          <span class="mv-trigger-title">${escapeHtml(activeVs?.title || 'Core Scene Visual')}</span>
+          <span class="mv-trigger-conf">${activeConf}%</span>
+          ${activeLearned > 0 ? `<span class="mv-trigger-learned" title="Boosted from ${activeLearned} past approval(s)">🧠</span>` : ''}
         </div>
-        <div class="polish-vs-card-title">${escapeHtml(vs.title || '')}</div>
-        <div class="polish-vs-card-desc">${escapeHtml(vs.description || '')}</div>
+        <div class="mv-trigger-right">
+          <span class="mv-trigger-count">${currentPolishVisualSubjects.length} options</span>
+          <span class="mv-trigger-chevron">${isRegularVisualDropdownOpen ? '▴' : '▾'}</span>
+        </div>
       </button>
-    `;
-  }).join('');
+      ${expandedCardsHtml}
+    </div>
+  `;
 }
 
 function selectChronicleMomentVisualOption(momentIdx, optIdx, silent = false) {
-  if (!Array.isArray(currentChronicleMomentProjections) || !currentChronicleMomentProjections[momentIdx]) return;
-  const group = currentChronicleMomentProjections[momentIdx];
-  if (!Array.isArray(group.options) || !group.options[optIdx]) return;
+  const group = Array.isArray(currentChronicleMomentProjections)
+    ? (currentChronicleMomentProjections.find(g => g && Number(g.momentIndex) === momentIdx + 1) || currentChronicleMomentProjections[momentIdx])
+    : null;
+  if (!group || !Array.isArray(group.options) || !group.options[optIdx]) return;
 
   group.selectedOptionIdx = optIdx;
   const chosen = {
@@ -11622,6 +11706,10 @@ function selectChronicleMomentVisualOption(momentIdx, optIdx, silent = false) {
 
   if (Array.isArray(dailyChronicleMoments) && dailyChronicleMoments[momentIdx]) {
     dailyChronicleMoments[momentIdx].preferredVisualProjection = chosen;
+  }
+
+  if (!silent) {
+    openChronicleMomentDropdownIdx = -1;
   }
 
   // Sync active Family Cast members across all chronicle moments' selected projections
@@ -11656,6 +11744,9 @@ function selectPolishVisualSubject(idx, silent = false) {
     ...currentPolishVisualSubjects[idx],
     _userExplicitlyTapped: !silent
   };
+  if (!silent) {
+    isRegularVisualDropdownOpen = false;
+  }
 
   const styleCue = creatorCharacterRepresentation === 'exact'
     ? 'Direct Unedited Source Photo'
@@ -11751,7 +11842,7 @@ function autoIdentifyVisualProjectionsFromInput(immediate = false) {
         renderPolishVisualSubjects();
         return;
       }
-      const projections = buildClientFallbackMomentProjections(dailyChronicleMoments.filter(m => m && String(m.text || '').trim().length > 0));
+      const projections = buildClientFallbackMomentProjections(dailyChronicleMoments);
       currentChronicleMomentProjections = projections;
       projections.forEach((mp, idx) => {
         const chosen = mp.options && mp.options[mp.selectedOptionIdx || 0];
@@ -11946,10 +12037,10 @@ async function polishUserTake() {
   }
 
   // Set loading state on button
-  const originalBtnHtml = btn ? btn.innerHTML : '';
+  const originalBtnHtml = btn ? btn.innerHTML : `<span class="btn-spark-icon">✨</span><span class="btn-text">Review &amp; Polish</span>`;
   if (btn) {
     btn.disabled = true;
-    btn.innerHTML = `<span class="btn-spark-icon spinning">⏳</span> Polishing...`;
+    btn.innerHTML = `<span class="btn-spark-icon spinning">⏳</span> Reviewing &amp; Polishing...`;
   }
 
   const isChronicle = (creatorSelectedSource === 'inner_voice' && typeof isDailyChronicleMode !== 'undefined' && isDailyChronicleMode);
@@ -12033,7 +12124,7 @@ async function polishUserTake() {
         });
         lastAiVisualsSourceFingerprint = computeVisualsSourceFingerprint();
       } else {
-        currentChronicleMomentProjections = buildClientFallbackMomentProjections(dailyChronicleMoments.filter(m => m && String(m.text || '').trim().length > 0));
+        currentChronicleMomentProjections = buildClientFallbackMomentProjections(dailyChronicleMoments);
         currentChronicleMomentProjections.forEach((mp, idx) => {
           if (dailyChronicleMoments[idx] && mp.options && mp.options[0]) {
             dailyChronicleMoments[idx].preferredVisualProjection = mp.options[0];
@@ -12126,7 +12217,7 @@ async function polishUserTake() {
     lastHighlightedHtml = escapeHtml(polished);
     lastCorrectionsList = [];
     if (isChronicle) {
-      currentChronicleMomentProjections = buildClientFallbackMomentProjections(dailyChronicleMoments.filter(m => m && String(m.text || '').trim().length > 0));
+      currentChronicleMomentProjections = buildClientFallbackMomentProjections(dailyChronicleMoments);
       renderPolishVisualSubjects();
     } else {
       currentPolishVisualSubjects = buildClientFallbackVisualSubjects(rawText, sparkText, scrapedTitle);
@@ -16063,9 +16154,14 @@ function renderDailyChronicleCards() {
           placeholder="${escapeHtml(ph.text)}"
           oninput="onChronicleMomentInput(${idx}, 'text', this.value)"
         >${escapeHtml(m.text || '')}</textarea>
+        <div class="chronicle-moment-visual-slot" id="chronicleMomentVisualSlot_${idx}" style="display: none;"></div>
       </div>
     `;
   }).join('');
+
+  if (typeof renderChronicleMomentVisualDropdowns === 'function') {
+    renderChronicleMomentVisualDropdowns();
+  }
 
   const addBtn = document.getElementById('chronicleAddMomentBtn');
   const addTxt = document.getElementById('chronicleAddMomentBtnText');
