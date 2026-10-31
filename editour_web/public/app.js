@@ -516,7 +516,7 @@ let _inflightWhitelistPromises = new Map();
 
 function getCachedWhitelistEntry(email) {
   try {
-    const raw = localStorage.getItem('slant_whitelist_cache_v1');
+    const raw = localStorage.getItem('slant_whitelist_cache_v2');
     if (!raw) return null;
     const map = JSON.parse(raw);
     const entry = map && map[email];
@@ -530,16 +530,16 @@ function getCachedWhitelistEntry(email) {
 
 function setCachedWhitelistEntry(email, result) {
   try {
-    if (!email || !result) return;
-    const raw = localStorage.getItem('slant_whitelist_cache_v1');
+    if (!email || !result || !result.allowed) return;
+    const raw = localStorage.getItem('slant_whitelist_cache_v2');
     const map = raw ? JSON.parse(raw) : {};
     map[email] = {
-      allowed: true,
+      allowed: Boolean(result.allowed),
       isAdmin: Boolean(result.isAdmin),
       credits: result.credits || null,
       ts: Date.now()
     };
-    localStorage.setItem('slant_whitelist_cache_v1', JSON.stringify(map));
+    localStorage.setItem('slant_whitelist_cache_v2', JSON.stringify(map));
   } catch (_) {}
 }
 
@@ -560,18 +560,33 @@ async function fetchWhitelistFromNetwork(email) {
         if (data.credits) {
           updateCreatorStudioCreditBadge(data.credits);
         }
-        const res = { allowed: true, isAdmin: Boolean(data.isAdmin), credits: data.credits || null };
-        setCachedWhitelistEntry(email, res);
+        const res = { allowed: Boolean(data.allowed), isAdmin: Boolean(data.isAdmin), credits: data.credits || null };
+        if (res.allowed) setCachedWhitelistEntry(email, res);
         return res;
       }
     } catch (err) {
-      console.warn('Credit & profile check notice:', err);
+      console.warn('Whitelist API check notice, falling back to direct Supabase:', err);
     }
 
-    const isAdmin = email === 'shridharoct16@gmail.com' || email === 'basasridhara@gmail.com';
-    const fallbackRes = { allowed: true, isAdmin, credits: null };
-    setCachedWhitelistEntry(email, fallbackRes);
-    return fallbackRes;
+    // Resilient fallback: direct Supabase point lookup
+    try {
+      const supaResp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.system_beta_whitelist&select=data`, {
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+      });
+      if (supaResp.ok) {
+        const rows = await supaResp.json();
+        const list = rows?.[0]?.data?.allowed_emails || [];
+        const admins = rows?.[0]?.data?.admin_emails || [];
+        const isAllowed = list.map(e => String(e).toLowerCase().trim()).includes(email) || admins.map(e => String(e).toLowerCase().trim()).includes(email);
+        const isAdmin = admins.map(e => String(e).toLowerCase().trim()).includes(email);
+        const res = { allowed: isAllowed, isAdmin };
+        if (res.allowed) setCachedWhitelistEntry(email, res);
+        return res;
+      }
+    } catch (_) {}
+
+    const isMaster = email === 'shridharoct16@gmail.com' || email === 'basasridhara@gmail.com';
+    return { allowed: isMaster, isAdmin: isMaster };
   })();
 
   _inflightWhitelistPromises.set(email, promise);
@@ -583,7 +598,7 @@ async function fetchWhitelistFromNetwork(email) {
 }
 
 async function verifyUserWhitelist(user) {
-  if (!user || !user.email) return { allowed: true, isAdmin: false };
+  if (!user || !user.email) return { allowed: false, isAdmin: false };
   const email = user.email.toLowerCase().trim();
 
   // 1. Instant 0ms fast-track for Master Admin
@@ -593,17 +608,16 @@ async function verifyUserWhitelist(user) {
     return { allowed: true, isAdmin: true };
   }
 
-  // 2. Instant 0ms fast-track for cached users (refreshing credits in background)
+  // 2. Instant 0ms fast-track for previously verified whitelisted curators (refreshing credits in background)
   const cached = getCachedWhitelistEntry(email);
-  if (cached) {
+  if (cached && cached.allowed) {
     if (cached.credits) updateCreatorStudioCreditBadge(cached.credits);
     fetchWhitelistFromNetwork(email).catch(() => {});
     return { allowed: true, isAdmin: Boolean(cached.isAdmin), credits: cached.credits || null };
   }
 
-  // 3. Open access for all users — fetch initial starter credit state in background
-  fetchWhitelistFromNetwork(email).catch(() => {});
-  return { allowed: true, isAdmin: false };
+  // 3. First-time sign-in check with deduplicated network lookup
+  return fetchWhitelistFromNetwork(email);
 }
 
 let suppressSignOutNotice = false;
@@ -2455,6 +2469,14 @@ async function handleEmailAuth(e) {
   const email = emailInput?.value?.trim();
   if (!email) return;
 
+  // Intercept uninvited email logins before requesting OTP or password
+  const check = await verifyUserWhitelist({ email });
+  if (!check.allowed) {
+    closeAuthModal();
+    await handleUninvitedUser({ email });
+    return;
+  }
+
   const submitBtn = document.getElementById('emailAuthBtn');
   const origBtnHtml = submitBtn ? submitBtn.innerHTML : '';
 
@@ -2864,13 +2886,15 @@ async function loadAdminBetaPendingCount() {
         }
       }
 
-      // 3. If pending credit requests exist, alert the admin with an interactive banner toast
+      // 3. If pending access or credit requests exist, alert the admin with an interactive banner toast
       if (pendingCount > 0 && !sessionStorage.getItem('admin_notified_' + pendingCount)) {
         sessionStorage.setItem('admin_notified_' + pendingCount, 'true');
-        const latestRequester = pending[0]?.email || 'A member';
+        const latestRequester = pending[0]?.email || 'A user';
+        const isAccessReq = pending[0]?.type === 'access_request';
+        const reqTypeLabel = isAccessReq ? 'access request' : 'access/credit request';
         const alertMsg = pendingCount === 1
-          ? `🔔 <strong>1 credit request pending</strong> from <span style="color:#818CF8;">${escapeHtml(latestRequester)}</span>. Tap to review.`
-          : `🔔 <strong>${pendingCount} credit requests pending</strong> (including <span style="color:#818CF8;">${escapeHtml(latestRequester)}</span>). Tap to review.`;
+          ? `🔔 <strong>1 ${reqTypeLabel} pending</strong> from <span style="color:#818CF8;">${escapeHtml(latestRequester)}</span>. Tap to review.`
+          : `🔔 <strong>${pendingCount} requests pending</strong> (including <span style="color:#818CF8;">${escapeHtml(latestRequester)}</span>). Tap to review.`;
         showTemporaryToast(alertMsg, 8000, true, () => {
           openAdminBetaModal();
         });
@@ -2930,12 +2954,8 @@ async function loadAdminBetaData(forceRefresh = false) {
     const logsMap = new Map();
     accessLogs.forEach(l => logsMap.set(l.email?.toLowerCase(), l));
 
-    // Merge any active users who signed in or posted even if not manually added
-    const allMemberEmailsSet = new Set(allowedEmails.map(e => e.toLowerCase().trim()));
-    accessLogs.forEach(l => { if (l.email) allMemberEmailsSet.add(l.email.toLowerCase().trim()); });
-    Object.keys(userStats).forEach(e => { if (e && e.includes('@')) allMemberEmailsSet.add(e.toLowerCase().trim()); });
-    Object.keys(userCreditsMap).forEach(e => { if (e && e.includes('@')) allMemberEmailsSet.add(e.toLowerCase().trim()); });
-    const memberRoster = Array.from(allMemberEmailsSet);
+    // Use strictly the invited allowedEmails list so revoking an email removes it from the active whitelist
+    const memberRoster = Array.from(new Set(allowedEmails.map(e => e.toLowerCase().trim()).filter(Boolean)));
 
     // Calculate live summary metrics
     let totalSlants = 0;
@@ -3029,7 +3049,7 @@ async function loadAdminBetaData(forceRefresh = false) {
             </div>
             <div style="display:flex; align-items:center; gap:5px; flex-shrink:0;">
               ${postCount > 0 ? `<button type="button" onclick="closeAdminBetaModal(); filterFeedByCurator('${escapeHtml(stats?.handle || email)}');" style="background:rgba(99,102,241,0.12); color:#818CF8; border:1px solid rgba(99,102,241,0.25); border-radius:6px; font-size:10.5px; font-weight:700; padding:3px 7px; cursor:pointer;" title="View this curator posts in feed">Feed ➔</button>` : ''}
-              ${isMaster ? '<span style="font-size:10.5px; font-weight:700; color:#818CF8; background:rgba(99,102,241,0.1); padding:2px 6px; border-radius:4px;">Owner</span>' : ''}
+              ${isMaster ? '<span style="font-size:10.5px; font-weight:700; color:#818CF8; background:rgba(99,102,241,0.1); padding:2px 6px; border-radius:4px;">Owner</span>' : `<button type="button" onclick="handleAdminRemoveEmail('${escapeHtml(email)}')" style="background:rgba(239,68,68,0.12); color:#F87171; border:1px solid rgba(239,68,68,0.28); border-radius:6px; font-size:10.5px; font-weight:700; padding:3px 7px; cursor:pointer;" title="Revoke whitelist access for ${escapeHtml(email)}">Revoke</button>`}
             </div>
           </div>
           <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding-top:6px; border-top:1px dashed rgba(148,163,184,0.18); flex-wrap:wrap;">
@@ -3047,23 +3067,27 @@ async function loadAdminBetaData(forceRefresh = false) {
       });
     }
 
-    // Pending Credit Requests Section
+    // Pending Access & Credit Requests Section
     if (pendingSection && pendingList && pendingCount) {
       if (pending.length > 0) {
         pendingCount.textContent = pending.length;
         pendingSection.style.display = 'block';
         pendingList.innerHTML = '';
         pending.forEach(item => {
+          const isAccessReq = item.type === 'access_request' || !memberRoster.includes(String(item.email || '').toLowerCase().trim());
           const pRow = document.createElement('div');
           pRow.style.cssText = 'display:flex; justify-content:space-between; align-items:center; gap:8px; padding:10px 12px; background:var(--bg-card, #fff); border:1px solid rgba(239,68,68,0.28); border-radius:10px; font-size:12.5px;';
           pRow.innerHTML = `
             <div style="min-width:0; flex:1;">
-              <strong style="color:var(--text-primary); display:block;">${escapeHtml(item.name || item.email)}</strong>
+              <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                <strong style="color:var(--text-primary);">${escapeHtml(item.name || item.email)}</strong>
+                <span style="font-size:9.5px; font-weight:800; padding:1px 6px; border-radius:6px; background:${isAccessReq ? 'rgba(245,158,11,0.18)' : 'rgba(99,102,241,0.16)'}; color:${isAccessReq ? '#FBBF24' : '#818CF8'}; text-transform:uppercase;">${isAccessReq ? '🔒 Access Request' : '⚡ Credit Request'}</span>
+              </div>
               <span style="font-size:11px; color:#818CF8; display:block;">${escapeHtml(item.email)}</span>
               ${item.reason ? `<span style="font-size:11px; color:var(--text-secondary); display:block; margin-top:3px; font-style:italic;">"${escapeHtml(item.reason)}"</span>` : ''}
             </div>
             <div style="display:flex; gap:5px; flex-shrink:0;">
-              <button type="button" onclick="handleAdminApproveRequest('${escapeHtml(item.email)}', 5)" style="background:#10B981; color:#fff; border:none; padding:5px 9px; border-radius:6px; font-size:11px; font-weight:800; cursor:pointer;">Grant +5 ⚡</button>
+              <button type="button" onclick="handleAdminApproveRequest('${escapeHtml(item.email)}', 5)" style="background:#10B981; color:#fff; border:none; padding:5px 9px; border-radius:6px; font-size:11px; font-weight:800; cursor:pointer;">${isAccessReq ? 'Approve Access ✓' : 'Grant +5 ⚡'}</button>
               <button type="button" onclick="handleAdminApproveRequest('${escapeHtml(item.email)}', 15)" style="background:#6366F1; color:#fff; border:none; padding:5px 9px; border-radius:6px; font-size:11px; font-weight:800; cursor:pointer;">+15 ⚡</button>
               <button type="button" onclick="handleAdminDenyRequest('${escapeHtml(item.email)}')" style="background:rgba(239,68,68,0.1); color:#EF4444; border:none; padding:5px 8px; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer;">✕</button>
             </div>

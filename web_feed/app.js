@@ -516,7 +516,7 @@ let _inflightWhitelistPromises = new Map();
 
 function getCachedWhitelistEntry(email) {
   try {
-    const raw = localStorage.getItem('slant_whitelist_cache_v1');
+    const raw = localStorage.getItem('slant_whitelist_cache_v2');
     if (!raw) return null;
     const map = JSON.parse(raw);
     const entry = map && map[email];
@@ -530,16 +530,16 @@ function getCachedWhitelistEntry(email) {
 
 function setCachedWhitelistEntry(email, result) {
   try {
-    if (!email || !result) return;
-    const raw = localStorage.getItem('slant_whitelist_cache_v1');
+    if (!email || !result || !result.allowed) return;
+    const raw = localStorage.getItem('slant_whitelist_cache_v2');
     const map = raw ? JSON.parse(raw) : {};
     map[email] = {
-      allowed: true,
+      allowed: Boolean(result.allowed),
       isAdmin: Boolean(result.isAdmin),
       credits: result.credits || null,
       ts: Date.now()
     };
-    localStorage.setItem('slant_whitelist_cache_v1', JSON.stringify(map));
+    localStorage.setItem('slant_whitelist_cache_v2', JSON.stringify(map));
   } catch (_) {}
 }
 
@@ -560,18 +560,33 @@ async function fetchWhitelistFromNetwork(email) {
         if (data.credits) {
           updateCreatorStudioCreditBadge(data.credits);
         }
-        const res = { allowed: true, isAdmin: Boolean(data.isAdmin), credits: data.credits || null };
-        setCachedWhitelistEntry(email, res);
+        const res = { allowed: Boolean(data.allowed), isAdmin: Boolean(data.isAdmin), credits: data.credits || null };
+        if (res.allowed) setCachedWhitelistEntry(email, res);
         return res;
       }
     } catch (err) {
-      console.warn('Credit & profile check notice:', err);
+      console.warn('Whitelist API check notice, falling back to direct Supabase:', err);
     }
 
-    const isAdmin = email === 'shridharoct16@gmail.com' || email === 'basasridhara@gmail.com';
-    const fallbackRes = { allowed: true, isAdmin, credits: null };
-    setCachedWhitelistEntry(email, fallbackRes);
-    return fallbackRes;
+    // Resilient fallback: direct Supabase point lookup
+    try {
+      const supaResp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.system_beta_whitelist&select=data`, {
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+      });
+      if (supaResp.ok) {
+        const rows = await supaResp.json();
+        const list = rows?.[0]?.data?.allowed_emails || [];
+        const admins = rows?.[0]?.data?.admin_emails || [];
+        const isAllowed = list.map(e => String(e).toLowerCase().trim()).includes(email) || admins.map(e => String(e).toLowerCase().trim()).includes(email);
+        const isAdmin = admins.map(e => String(e).toLowerCase().trim()).includes(email);
+        const res = { allowed: isAllowed, isAdmin };
+        if (res.allowed) setCachedWhitelistEntry(email, res);
+        return res;
+      }
+    } catch (_) {}
+
+    const isMaster = email === 'shridharoct16@gmail.com' || email === 'basasridhara@gmail.com';
+    return { allowed: isMaster, isAdmin: isMaster };
   })();
 
   _inflightWhitelistPromises.set(email, promise);
@@ -583,7 +598,7 @@ async function fetchWhitelistFromNetwork(email) {
 }
 
 async function verifyUserWhitelist(user) {
-  if (!user || !user.email) return { allowed: true, isAdmin: false };
+  if (!user || !user.email) return { allowed: false, isAdmin: false };
   const email = user.email.toLowerCase().trim();
 
   // 1. Instant 0ms fast-track for Master Admin
@@ -593,17 +608,16 @@ async function verifyUserWhitelist(user) {
     return { allowed: true, isAdmin: true };
   }
 
-  // 2. Instant 0ms fast-track for cached users (refreshing credits in background)
+  // 2. Instant 0ms fast-track for previously verified whitelisted curators (refreshing credits in background)
   const cached = getCachedWhitelistEntry(email);
-  if (cached) {
+  if (cached && cached.allowed) {
     if (cached.credits) updateCreatorStudioCreditBadge(cached.credits);
     fetchWhitelistFromNetwork(email).catch(() => {});
     return { allowed: true, isAdmin: Boolean(cached.isAdmin), credits: cached.credits || null };
   }
 
-  // 3. Open access for all users — fetch initial starter credit state in background
-  fetchWhitelistFromNetwork(email).catch(() => {});
-  return { allowed: true, isAdmin: false };
+  // 3. First-time sign-in check with deduplicated network lookup
+  return fetchWhitelistFromNetwork(email);
 }
 
 let suppressSignOutNotice = false;
@@ -2455,6 +2469,14 @@ async function handleEmailAuth(e) {
   const email = emailInput?.value?.trim();
   if (!email) return;
 
+  // Intercept uninvited email logins before requesting OTP or password
+  const check = await verifyUserWhitelist({ email });
+  if (!check.allowed) {
+    closeAuthModal();
+    await handleUninvitedUser({ email });
+    return;
+  }
+
   const submitBtn = document.getElementById('emailAuthBtn');
   const origBtnHtml = submitBtn ? submitBtn.innerHTML : '';
 
@@ -2864,13 +2886,15 @@ async function loadAdminBetaPendingCount() {
         }
       }
 
-      // 3. If pending credit requests exist, alert the admin with an interactive banner toast
+      // 3. If pending access or credit requests exist, alert the admin with an interactive banner toast
       if (pendingCount > 0 && !sessionStorage.getItem('admin_notified_' + pendingCount)) {
         sessionStorage.setItem('admin_notified_' + pendingCount, 'true');
-        const latestRequester = pending[0]?.email || 'A member';
+        const latestRequester = pending[0]?.email || 'A user';
+        const isAccessReq = pending[0]?.type === 'access_request';
+        const reqTypeLabel = isAccessReq ? 'access request' : 'access/credit request';
         const alertMsg = pendingCount === 1
-          ? `🔔 <strong>1 credit request pending</strong> from <span style="color:#818CF8;">${escapeHtml(latestRequester)}</span>. Tap to review.`
-          : `🔔 <strong>${pendingCount} credit requests pending</strong> (including <span style="color:#818CF8;">${escapeHtml(latestRequester)}</span>). Tap to review.`;
+          ? `🔔 <strong>1 ${reqTypeLabel} pending</strong> from <span style="color:#818CF8;">${escapeHtml(latestRequester)}</span>. Tap to review.`
+          : `🔔 <strong>${pendingCount} requests pending</strong> (including <span style="color:#818CF8;">${escapeHtml(latestRequester)}</span>). Tap to review.`;
         showTemporaryToast(alertMsg, 8000, true, () => {
           openAdminBetaModal();
         });
@@ -2930,12 +2954,8 @@ async function loadAdminBetaData(forceRefresh = false) {
     const logsMap = new Map();
     accessLogs.forEach(l => logsMap.set(l.email?.toLowerCase(), l));
 
-    // Merge any active users who signed in or posted even if not manually added
-    const allMemberEmailsSet = new Set(allowedEmails.map(e => e.toLowerCase().trim()));
-    accessLogs.forEach(l => { if (l.email) allMemberEmailsSet.add(l.email.toLowerCase().trim()); });
-    Object.keys(userStats).forEach(e => { if (e && e.includes('@')) allMemberEmailsSet.add(e.toLowerCase().trim()); });
-    Object.keys(userCreditsMap).forEach(e => { if (e && e.includes('@')) allMemberEmailsSet.add(e.toLowerCase().trim()); });
-    const memberRoster = Array.from(allMemberEmailsSet);
+    // Use strictly the invited allowedEmails list so revoking an email removes it from the active whitelist
+    const memberRoster = Array.from(new Set(allowedEmails.map(e => e.toLowerCase().trim()).filter(Boolean)));
 
     // Calculate live summary metrics
     let totalSlants = 0;
@@ -3029,7 +3049,7 @@ async function loadAdminBetaData(forceRefresh = false) {
             </div>
             <div style="display:flex; align-items:center; gap:5px; flex-shrink:0;">
               ${postCount > 0 ? `<button type="button" onclick="closeAdminBetaModal(); filterFeedByCurator('${escapeHtml(stats?.handle || email)}');" style="background:rgba(99,102,241,0.12); color:#818CF8; border:1px solid rgba(99,102,241,0.25); border-radius:6px; font-size:10.5px; font-weight:700; padding:3px 7px; cursor:pointer;" title="View this curator posts in feed">Feed ➔</button>` : ''}
-              ${isMaster ? '<span style="font-size:10.5px; font-weight:700; color:#818CF8; background:rgba(99,102,241,0.1); padding:2px 6px; border-radius:4px;">Owner</span>' : ''}
+              ${isMaster ? '<span style="font-size:10.5px; font-weight:700; color:#818CF8; background:rgba(99,102,241,0.1); padding:2px 6px; border-radius:4px;">Owner</span>' : `<button type="button" onclick="handleAdminRemoveEmail('${escapeHtml(email)}')" style="background:rgba(239,68,68,0.12); color:#F87171; border:1px solid rgba(239,68,68,0.28); border-radius:6px; font-size:10.5px; font-weight:700; padding:3px 7px; cursor:pointer;" title="Revoke whitelist access for ${escapeHtml(email)}">Revoke</button>`}
             </div>
           </div>
           <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding-top:6px; border-top:1px dashed rgba(148,163,184,0.18); flex-wrap:wrap;">
@@ -3047,23 +3067,27 @@ async function loadAdminBetaData(forceRefresh = false) {
       });
     }
 
-    // Pending Credit Requests Section
+    // Pending Access & Credit Requests Section
     if (pendingSection && pendingList && pendingCount) {
       if (pending.length > 0) {
         pendingCount.textContent = pending.length;
         pendingSection.style.display = 'block';
         pendingList.innerHTML = '';
         pending.forEach(item => {
+          const isAccessReq = item.type === 'access_request' || !memberRoster.includes(String(item.email || '').toLowerCase().trim());
           const pRow = document.createElement('div');
           pRow.style.cssText = 'display:flex; justify-content:space-between; align-items:center; gap:8px; padding:10px 12px; background:var(--bg-card, #fff); border:1px solid rgba(239,68,68,0.28); border-radius:10px; font-size:12.5px;';
           pRow.innerHTML = `
             <div style="min-width:0; flex:1;">
-              <strong style="color:var(--text-primary); display:block;">${escapeHtml(item.name || item.email)}</strong>
+              <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                <strong style="color:var(--text-primary);">${escapeHtml(item.name || item.email)}</strong>
+                <span style="font-size:9.5px; font-weight:800; padding:1px 6px; border-radius:6px; background:${isAccessReq ? 'rgba(245,158,11,0.18)' : 'rgba(99,102,241,0.16)'}; color:${isAccessReq ? '#FBBF24' : '#818CF8'}; text-transform:uppercase;">${isAccessReq ? '🔒 Access Request' : '⚡ Credit Request'}</span>
+              </div>
               <span style="font-size:11px; color:#818CF8; display:block;">${escapeHtml(item.email)}</span>
               ${item.reason ? `<span style="font-size:11px; color:var(--text-secondary); display:block; margin-top:3px; font-style:italic;">"${escapeHtml(item.reason)}"</span>` : ''}
             </div>
             <div style="display:flex; gap:5px; flex-shrink:0;">
-              <button type="button" onclick="handleAdminApproveRequest('${escapeHtml(item.email)}', 5)" style="background:#10B981; color:#fff; border:none; padding:5px 9px; border-radius:6px; font-size:11px; font-weight:800; cursor:pointer;">Grant +5 ⚡</button>
+              <button type="button" onclick="handleAdminApproveRequest('${escapeHtml(item.email)}', 5)" style="background:#10B981; color:#fff; border:none; padding:5px 9px; border-radius:6px; font-size:11px; font-weight:800; cursor:pointer;">${isAccessReq ? 'Approve Access ✓' : 'Grant +5 ⚡'}</button>
               <button type="button" onclick="handleAdminApproveRequest('${escapeHtml(item.email)}', 15)" style="background:#6366F1; color:#fff; border:none; padding:5px 9px; border-radius:6px; font-size:11px; font-weight:800; cursor:pointer;">+15 ⚡</button>
               <button type="button" onclick="handleAdminDenyRequest('${escapeHtml(item.email)}')" style="background:rgba(239,68,68,0.1); color:#EF4444; border:none; padding:5px 8px; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer;">✕</button>
             </div>
@@ -12509,18 +12533,90 @@ let familyCastProfileCache = null;
 let activeCastMemberIds = new Set();
 let activeCastStagingMode = 'general';
 
+function ensureMemberStructuredTraits(m) {
+  if (!m) return null;
+  if (!m.structuredTraits || typeof m.structuredTraits !== 'object') {
+    if (m.id === 'member_father' || m.relationship === 'self') {
+      m.structuredTraits = {
+        bodyVolume: 'broad_full',
+        tummyProfile: 'subtle_10',
+        faceFullness: 'round_full_submental',
+        baseHeightRatio: 1.00,
+        hairStyle: 'short_brushed_up',
+        facialHair: 'light_stubble',
+        landmarks: []
+      };
+    } else if (m.id === 'member_mother' || m.relationship === 'spouse') {
+      m.structuredTraits = {
+        bodyVolume: 'medium',
+        tummyProfile: 'subtle_10',
+        faceFullness: 'soft_full_cheeks',
+        baseHeightRatio: 0.92,
+        hairStyle: 'long_shoulder_swept',
+        facialHair: 'none',
+        landmarks: ['forehead_bindi', 'hairline_kumkum', 'stud_earrings']
+      };
+    } else if (m.id === 'member_elder_son' || m.relationship === 'elder_son') {
+      m.structuredTraits = {
+        bodyVolume: 'medium',
+        tummyProfile: 'flat',
+        faceFullness: 'oval_balanced',
+        baseHeightRatio: 0.86,
+        hairStyle: 'short_side_part',
+        facialHair: 'none',
+        landmarks: []
+      };
+    } else if (m.id === 'member_younger_son' || m.relationship === 'younger_son') {
+      m.structuredTraits = {
+        bodyVolume: 'medium',
+        tummyProfile: 'flat',
+        faceFullness: 'soft_full_cheeks',
+        baseHeightRatio: 0.80,
+        hairStyle: 'short_fringe',
+        facialHair: 'none',
+        landmarks: []
+      };
+    } else {
+      m.structuredTraits = {
+        bodyVolume: 'medium',
+        tummyProfile: 'flat',
+        faceFullness: 'oval_balanced',
+        baseHeightRatio: 0.85,
+        hairStyle: 'short_side_part',
+        facialHair: 'none',
+        landmarks: []
+      };
+    }
+  }
+  if (!Array.isArray(m.structuredTraits.landmarks)) {
+    m.structuredTraits.landmarks = [];
+  }
+  return m.structuredTraits;
+}
+
 function sanitizeLoadedFamilyCast(cast) {
   if (!cast || !Array.isArray(cast.members)) return cast;
   cast.members = cast.members.filter(m => m && (m.name || m.roleLabel !== 'New Member'));
   cast.members.forEach(m => {
+    ensureMemberStructuredTraits(m);
     if (m.id === 'member_father' || m.relationship === 'self') {
       if (m.uncompromisableAnchors) {
         m.uncompromisableAnchors = m.uncompromisableAnchors
-          .replace(/\bsalt-and-pepper\s+(?:trimmed\s+)?beard\b/gi, 'neat short dark trimmed beard, full head of thick short jet-black hair (strictly NOT old or elderly)');
+          .replace(/\bsalt-and-pepper\s+(?:trimmed\s+)?beard\b/gi, 'neat short dark trimmed beard, full head of thick short jet-black hair (strictly NOT old or elderly)')
+          .replace(/\bFit mid-age 40-year-old\b/g, 'Mid-age 40-year-old')
+          .replace(/\bsturdy,?\s*broad-shouldered solid(?: adult)? (?:frame|build)\b/gi, 'natural medium-full adult build with a straight-cut everyday waist and subtle 10% lower-waist softness flush with his chest line');
       }
       if (m.visualTraits) {
         m.visualTraits = m.visualTraits
-          .replace(/\bsalt-and-pepper\s+(?:trimmed\s+)?beard\b/gi, 'neat short dark trimmed beard');
+          .replace(/\bsalt-and-pepper\s+(?:trimmed\s+)?beard\b/gi, 'neat short dark trimmed beard')
+          .replace(/\bsturdy,?\s*broad-shouldered solid(?: adult)? (?:frame|build)\b/gi, 'natural medium-full adult build with a straight-cut everyday waist and subtle 10% lower-waist softness flush with his chest line');
+      }
+      // If tummyProfile is one of the non-protruding profiles (flat, straight_5, subtle_10, slight_tummy), ensure legacy "visible rounded dad-bod tummy / soft belly paunch" strings in anchors/traits are updated
+      const tp = m.structuredTraits && m.structuredTraits.tummyProfile;
+      if (tp && tp !== 'visible_tummy' && tp !== 'prominent_belly') {
+        if (m.uncompromisableAnchors && /visible rounded dad-bod tummy|soft belly paunch/i.test(m.uncompromisableAnchors)) {
+          syncStructuredTraitsIntoTextFields(m);
+        }
       }
     }
   });
@@ -12540,9 +12636,18 @@ function getDefaultClientFamilyCast() {
         name: 'Shridhar',
         aliases: ['dad', 'father', 'shridhar', 'myself', 'me', 'i', 'husband'],
         age: 40,
-        heightDesc: '5ft 10in (178cm), adult stature',
-        uncompromisableAnchors: 'Fit mid-age 40-year-old Indian man in his prime early 40s (strictly age 38-40, STRICTLY NOT old or elderly, STRICTLY NO gray or white hair on head, STRICTLY NO senior facial wrinkles), warm brown skin, soft oval face, calm dark eyes, full head of thick short dark hair styled up at the crown, smooth unwrinkled forehead, short light neat trimmed stubble beard, sturdy broad-shouldered solid adult frame.',
-        visualTraits: 'Warm brown skin, soft oval face, calm dark eyes, full head of thick short dark hair styled up, neat short trimmed stubble beard, and a sturdy, broad-shouldered solid adult frame.',
+        heightDesc: '5ft 10in (178cm), 1.00x baseline adult stature, natural medium-full build with subtle 10% waist softness flush with chest',
+        structuredTraits: {
+          bodyVolume: 'broad_full',
+          tummyProfile: 'subtle_10',
+          faceFullness: 'round_full_submental',
+          baseHeightRatio: 1.00,
+          hairStyle: 'short_brushed_up',
+          facialHair: 'light_stubble',
+          landmarks: []
+        },
+        uncompromisableAnchors: 'Mid-age 40-year-old Indian man in his early 40s (strictly age 38-40, STRICTLY NOT old or elderly, STRICTLY NO senior facial wrinkles), warm medium-brown skin, soft fuller round-oval face with full cheeks and natural under-chin/submental fullness, calm dark brown eyes, full head of thick short dark hair styled up at the crown, short light neat trimmed stubble beard along the jaw, and a natural medium-full adult build with a straight-cut everyday waist and subtle 10% lower-waist softness that stays completely flush with his chest line under a straight-draping shirt (strictly neither a skinny V-taper gym body nor a protruding pot-belly or round paunch).',
+        visualTraits: 'Warm medium-brown skin, soft fuller round-oval face with full cheeks and natural under-chin fullness, calm dark eyes, full head of thick short dark hair styled up, neat short trimmed stubble beard, and a natural medium-full adult build with a straight-cut everyday waist and subtle 10% lower-waist softness flush with his chest line (strictly neither a skinny V-taper gym waist nor a protruding pot-belly).',
         vehicleRole: 'driver_right',
         stylizedAvatarUrl: 'https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/avatar_member_father.jpg'
       },
@@ -12553,7 +12658,16 @@ function getDefaultClientFamilyCast() {
         name: 'Aruna',
         aliases: ['wife', 'mother', 'mom', 'aru', 'aruna'],
         age: 36,
-        heightDesc: '5ft 4in (162cm), adult female stature',
+        heightDesc: '5ft 4in (162cm), 0.92x Father height (reaching Father\'s forehead/brow)',
+        structuredTraits: {
+          bodyVolume: 'medium',
+          tummyProfile: 'slight_tummy',
+          faceFullness: 'soft_full_cheeks',
+          baseHeightRatio: 0.92,
+          hairStyle: 'long_shoulder_swept',
+          facialHair: 'none',
+          landmarks: ['forehead_bindi', 'hairline_kumkum', 'stud_earrings']
+        },
         uncompromisableAnchors: 'Warm golden-brown wheatish skin, soft fuller round-to-oval maternal face with warm full cheeks and soft rounded chin, gentle dark almond eyes without heavy makeup, small black circular bindi centered on forehead and subtle red kumkum at the upper forehead hairline, side-parted thick voluminous wavy black hair swept forward over her left shoulder past her collarbone, small gold stud earrings, and an authentic, healthy medium-to-full South Indian adult build with natural soft shoulders.',
         visualTraits: 'Warm golden-brown skin, soft fuller round-to-oval maternal face with full cheeks, small black forehead bindi and subtle red kumkum at hairline, gentle dark eyes, side-parted long voluminous wavy black hair cascading over one shoulder, and an authentic, healthy medium adult build.',
         vehicleRole: 'passenger_front_left',
@@ -12566,9 +12680,18 @@ function getDefaultClientFamilyCast() {
         name: 'Gahan',
         aliases: ['gahan', 'elder son', 'older son', 'older boy', 'elder brother', 'big brother', 'first son', '11-year-old', '11yo'],
         age: 11,
-        heightDesc: 'Tall 11yo pre-teen stature: Head reaches up to Mother\'s ear/chin and Father\'s shoulder/collarbone, slightly taller than younger brother whose head reaches Gahan\'s neck',
-        uncompromisableAnchors: 'Warm brown-skinned 11-year-old tall pre-teen Indian boy with a gentle round-oval face, full cheeks, dark expressive eyes, thick short textured black hair with a slight side part, square shoulders, and a sturdy solid pre-teen frame (strictly not skinny or frail), whose head reaches up to his mother\'s ear/chin level.',
-        visualTraits: 'Healthy 11-year-old pre-teen boy with a gentle round-oval face, dark expressive eyes, thick short textured black hair, and a sturdy, solid frame with natural square shoulders, reaching up to his mother\'s ear/chin level.',
+        heightDesc: 'Tall 11yo pre-teen stature (0.86x Father height): Head reaches up to Mother\'s ear/eye and Father\'s shoulder, slightly taller than younger brother whose head reaches Gahan\'s neck',
+        structuredTraits: {
+          bodyVolume: 'medium',
+          tummyProfile: 'flat',
+          faceFullness: 'oval_balanced',
+          baseHeightRatio: 0.86,
+          hairStyle: 'short_side_part',
+          facialHair: 'none',
+          landmarks: []
+        },
+        uncompromisableAnchors: 'Warm brown-skinned 11-year-old tall pre-teen Indian boy with a gentle round-oval face, full cheeks, dark expressive eyes, thick short textured black hair with a slight side part, square shoulders, and a sturdy solid pre-teen frame (strictly not skinny or frail), whose head reaches up to his mother\'s ear/eye level (0.86x Father height).',
+        visualTraits: 'Healthy 11-year-old pre-teen boy with a gentle round-oval face, dark expressive eyes, thick short textured black hair, and a sturdy, solid frame with natural square shoulders, reaching up to his mother\'s ear/eye level.',
         vehicleRole: 'passenger_rear_right',
         stylizedAvatarUrl: 'https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/avatar_member_elder_son.jpg'
       },
@@ -12579,9 +12702,18 @@ function getDefaultClientFamilyCast() {
         name: 'Rishu',
         aliases: ['rishu', 'younger son', 'little son', 'younger boy', 'younger brother', 'little brother', 'second son', '7-year-old', '7yo'],
         age: 7,
-        heightDesc: '7yo schoolboy stature: Top of his head reaches right up to his older brother Gahan\'s neck level and Mother\'s chest/shoulder level',
-        uncompromisableAnchors: 'Warm wheatish-skinned 7-year-old schoolboy with round youthful cheeks, large expressive dark eyes, neat short straight black hair with a front fringe, and a healthy compact child frame, standing right up to his older brother Gahan\'s neck level (top of Rishu\'s head meets Gahan\'s neck/chin-neck level, strictly NOT tiny or waist-high).',
-        visualTraits: 'Young 7-year-old boy with warm wheatish skin, round cheeks, dark expressive eyes, neat short black hair, and a healthy compact frame whose head reaches right up to his older brother Gahan\'s neck level.',
+        heightDesc: '7yo schoolboy stature (0.80x Father height): Top of his head rises above Gahan\'s shoulders to reach Gahan\'s neck/chin level',
+        structuredTraits: {
+          bodyVolume: 'medium',
+          tummyProfile: 'flat',
+          faceFullness: 'soft_full_cheeks',
+          baseHeightRatio: 0.80,
+          hairStyle: 'short_fringe',
+          facialHair: 'none',
+          landmarks: []
+        },
+        uncompromisableAnchors: 'Warm wheatish-skinned 7-year-old schoolboy with round youthful cheeks, large expressive dark eyes, neat short straight black hair with a front fringe, and a healthy compact child frame, standing right up to his older brother Gahan\'s neck level (0.80x Father height, top of Rishu\'s head rises above Gahan\'s shoulders to meet Gahan\'s neck/chin level, strictly NOT tiny or waist-high).',
+        visualTraits: 'Young 7-year-old boy with warm wheatish skin, round cheeks, dark expressive eyes, neat short black hair, and a healthy compact frame whose head rises above Gahan\'s shoulders to reach Gahan\'s neck/chin level.',
         vehicleRole: 'passenger_rear_left',
         stylizedAvatarUrl: 'https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/avatar_member_younger_son.jpg'
       }
@@ -12810,6 +12942,8 @@ function renderVaultMemberTabs() {
 function selectVaultMember(memberId) {
   activeVaultMemberId = memberId;
   activeVaultPoseSlotIdx = 0;
+  const prevDetails = document.getElementById('vaultMemberDetailsAccordion');
+  if (prevDetails) prevDetails.open = false;
   renderVaultMemberTabs();
   renderActiveMemberScreen();
   const body = document.getElementById('vaultActiveMemberScreen');
@@ -12927,15 +13061,36 @@ function addNewVaultMember() {
 
   setTimeout(() => {
     const detailsEl = document.getElementById('vaultMemberDetailsAccordion');
-    if (detailsEl) detailsEl.open = true;
+    if (detailsEl) {
+      detailsEl.open = true;
+      slideUpVaultMemberDetailsSection();
+    }
     const nameInput = document.getElementById('vField_name');
-    if (nameInput) nameInput.focus();
+    if (nameInput) nameInput.focus({ preventScroll: true });
   }, 100);
+}
+
+function slideUpVaultMemberDetailsSection() {
+  const container = document.getElementById('vaultActiveMemberScreen');
+  const detailsEl = document.getElementById('vaultMemberDetailsAccordion');
+  if (!container || !detailsEl) return;
+
+  requestAnimationFrame(() => {
+    const containerRect = container.getBoundingClientRect();
+    const detailsRect = detailsEl.getBoundingClientRect();
+    const scrollTarget = container.scrollTop + (detailsRect.top - containerRect.top) - 8;
+    container.scrollTo({
+      top: Math.max(0, scrollTarget),
+      behavior: 'smooth'
+    });
+  });
 }
 
 function renderActiveMemberScreen() {
   const container = document.getElementById('vaultActiveMemberScreen');
   if (!container) return;
+
+  const wasDetailsOpen = Boolean(document.getElementById('vaultMemberDetailsAccordion')?.open);
 
   const cast = familyCastProfileCache || getDefaultClientFamilyCast();
   const members = cast.members || [];
@@ -13044,10 +13199,10 @@ function renderActiveMemberScreen() {
       </div>
 
       <!-- Collapsible Member Details (Tucked Away to Keep UI Clean) -->
-      <details class="vault-compact-details" id="vaultMemberDetailsAccordion">
+      <details class="vault-compact-details" id="vaultMemberDetailsAccordion" ${wasDetailsOpen ? 'open' : ''}>
         <summary class="vault-compact-summary">
           <span>✏️ Edit Name, Age &amp; Character Details</span>
-          <span class="vault-summary-meta">${escapeHtml(member.name || member.roleLabel)}${member.age ? ` • ${member.age}y` : ''}</span>
+          <span class="vault-summary-meta">${escapeHtml(member.name || member.roleLabel)}${member.age ? ` • ${member.age}y` : ''} <span class="vault-summary-chevron">▴</span></span>
         </summary>
         <div class="vault-form-grid" style="margin-top: 10px;">
           <div class="vault-field-group">
@@ -13075,6 +13230,76 @@ function renderActiveMemberScreen() {
             <label>Stature</label>
             <input type="text" id="vField_height" value="${escapeHtml(member.heightDesc || '')}" placeholder="e.g. 5ft 10in" oninput="handleActiveMemberFieldChange('heightDesc', this.value)">
           </div>
+
+          <!-- Interactive Quantified Body Volume, Tummy & Visual Trait Selector -->
+          ${(() => {
+            const st = ensureMemberStructuredTraits(member);
+            const lms = new Set(st.landmarks || []);
+            return `
+              <div class="vault-field-group full-width vault-structured-traits-box">
+                <div class="vault-structured-header">
+                  <span>🎯 Quantified Body Volume, Tummy &amp; Trait Selector</span>
+                  <span class="vault-structured-sub">Tap to select &amp; auto-update traits below</span>
+                </div>
+
+                <div class="vault-trait-row">
+                  <span class="vault-trait-row-label">Body Frame / Volume</span>
+                  <div class="vault-trait-chips">
+                    <button type="button" class="vault-trait-chip ${st.bodyVolume === 'lean' ? 'active' : ''}" onclick="selectVaultStructuredTrait('bodyVolume', 'lean')">Lean / Slim</button>
+                    <button type="button" class="vault-trait-chip ${st.bodyVolume === 'medium' ? 'active' : ''}" onclick="selectVaultStructuredTrait('bodyVolume', 'medium')">Medium Balanced</button>
+                    <button type="button" class="vault-trait-chip ${st.bodyVolume === 'broad_full' ? 'active' : ''}" onclick="selectVaultStructuredTrait('bodyVolume', 'broad_full')">Broad / Full-Bodied</button>
+                    <button type="button" class="vault-trait-chip ${st.bodyVolume === 'heavy_plus' ? 'active' : ''}" onclick="selectVaultStructuredTrait('bodyVolume', 'heavy_plus')">Heavy / Plus</button>
+                  </div>
+                </div>
+
+                <div class="vault-trait-row">
+                  <span class="vault-trait-row-label">Midsection / Waist Profile (6-Step Granular Scale)</span>
+                  <div class="vault-trait-chips">
+                    <button type="button" class="vault-trait-chip ${st.tummyProfile === 'flat' ? 'active' : ''}" onclick="selectVaultStructuredTrait('tummyProfile', 'flat')">0% • Flat / Toned</button>
+                    <button type="button" class="vault-trait-chip ${st.tummyProfile === 'straight_5' ? 'active' : ''}" onclick="selectVaultStructuredTrait('tummyProfile', 'straight_5')">5% • Straight-Cut (No Bulge)</button>
+                    <button type="button" class="vault-trait-chip ${st.tummyProfile === 'subtle_10' ? 'active' : ''}" onclick="selectVaultStructuredTrait('tummyProfile', 'subtle_10')">10% • Subtle Softness (Flush w/ Chest)</button>
+                    <button type="button" class="vault-trait-chip ${st.tummyProfile === 'slight_tummy' ? 'active' : ''}" onclick="selectVaultStructuredTrait('tummyProfile', 'slight_tummy')">15% • Mild Relaxed Waist</button>
+                    <button type="button" class="vault-trait-chip ${st.tummyProfile === 'visible_tummy' ? 'active' : ''}" onclick="selectVaultStructuredTrait('tummyProfile', 'visible_tummy')">25% • Rounded Tummy</button>
+                    <button type="button" class="vault-trait-chip ${st.tummyProfile === 'prominent_belly' ? 'active' : ''}" onclick="selectVaultStructuredTrait('tummyProfile', 'prominent_belly')">35%+ • Prominent Belly</button>
+                  </div>
+                </div>
+
+                <div class="vault-trait-row">
+                  <span class="vault-trait-row-label">Standing Stature Ratio (Auto-Adjusts for Sitting: 0.72x / Floor: 0.52x)</span>
+                  <div class="vault-trait-chips">
+                    <button type="button" class="vault-trait-chip ${Number(st.baseHeightRatio) === 1.00 ? 'active' : ''}" onclick="selectVaultStructuredTrait('baseHeightRatio', 1.00)">1.00x (Father Baseline)</button>
+                    <button type="button" class="vault-trait-chip ${Number(st.baseHeightRatio) === 0.92 ? 'active' : ''}" onclick="selectVaultStructuredTrait('baseHeightRatio', 0.92)">0.92x (Mother • Brow Level)</button>
+                    <button type="button" class="vault-trait-chip ${Number(st.baseHeightRatio) === 0.86 ? 'active' : ''}" onclick="selectVaultStructuredTrait('baseHeightRatio', 0.86)">0.86x (Elder Son • Mother's Ear)</button>
+                    <button type="button" class="vault-trait-chip ${Number(st.baseHeightRatio) === 0.80 ? 'active' : ''}" onclick="selectVaultStructuredTrait('baseHeightRatio', 0.80)">0.80x (Younger • Gahan's Neck)</button>
+                  </div>
+                </div>
+
+                <div class="vault-trait-row">
+                  <span class="vault-trait-row-label">Face &amp; Cheek Volume</span>
+                  <div class="vault-trait-chips">
+                    <button type="button" class="vault-trait-chip ${st.faceFullness === 'slim_angular' ? 'active' : ''}" onclick="selectVaultStructuredTrait('faceFullness', 'slim_angular')">Slim / Angular</button>
+                    <button type="button" class="vault-trait-chip ${st.faceFullness === 'oval_balanced' ? 'active' : ''}" onclick="selectVaultStructuredTrait('faceFullness', 'oval_balanced')">Balanced Oval</button>
+                    <button type="button" class="vault-trait-chip ${st.faceFullness === 'soft_full_cheeks' ? 'active' : ''}" onclick="selectVaultStructuredTrait('faceFullness', 'soft_full_cheeks')">Soft Fuller Cheeks</button>
+                    <button type="button" class="vault-trait-chip ${st.faceFullness === 'round_full_submental' ? 'active' : ''}" onclick="selectVaultStructuredTrait('round_full_submental' === st.faceFullness ? 'faceFullness' : 'faceFullness', 'round_full_submental')">Full Round &amp; Under-Chin</button>
+                  </div>
+                </div>
+
+                <div class="vault-trait-row">
+                  <span class="vault-trait-row-label">Facial Hair &amp; Landmarks (Tap to Toggle)</span>
+                  <div class="vault-trait-chips">
+                    <button type="button" class="vault-trait-chip ${st.facialHair === 'light_stubble' ? 'active' : ''}" onclick="selectVaultStructuredTrait('facialHair', 'light_stubble')">Light Stubble</button>
+                    <button type="button" class="vault-trait-chip ${st.facialHair === 'trimmed_beard' ? 'active' : ''}" onclick="selectVaultStructuredTrait('facialHair', 'trimmed_beard')">Trimmed Beard</button>
+                    <button type="button" class="vault-trait-chip ${st.facialHair === 'none' ? 'active' : ''}" onclick="selectVaultStructuredTrait('facialHair', 'none')">Clean-Shaven</button>
+                    <button type="button" class="vault-trait-chip ${lms.has('round_glasses') ? 'active' : ''}" onclick="toggleVaultStructuredLandmark('round_glasses')">Round Glasses</button>
+                    <button type="button" class="vault-trait-chip ${lms.has('rect_glasses') ? 'active' : ''}" onclick="toggleVaultStructuredLandmark('rect_glasses')">Rect Glasses</button>
+                    <button type="button" class="vault-trait-chip ${lms.has('forehead_bindi') ? 'active' : ''}" onclick="toggleVaultStructuredLandmark('forehead_bindi')">Forehead Bindi</button>
+                    <button type="button" class="vault-trait-chip ${lms.has('hairline_kumkum') ? 'active' : ''}" onclick="toggleVaultStructuredLandmark('hairline_kumkum')">Hairline Kumkum</button>
+                    <button type="button" class="vault-trait-chip ${lms.has('stud_earrings') ? 'active' : ''}" onclick="toggleVaultStructuredLandmark('stud_earrings')">Stud Earrings</button>
+                  </div>
+                </div>
+              </div>
+            `;
+          })()}
 
           <div class="vault-field-group full-width">
             <div class="vault-label-with-hint" style="flex-direction:row; align-items:center; justify-content:space-between; gap:6px; width:100%;">
@@ -13111,6 +13336,18 @@ function renderActiveMemberScreen() {
   const removeBtn = document.getElementById('vaultPoseRemoveBtn');
   if (removeBtn) {
     removeBtn.onclick = () => removeSlotPhoto(VAULT_POSE_CONFIGS[activeVaultPoseSlotIdx].key);
+  }
+
+  // Whenever the user clicks "Edit Name, Age & Character Details", automatically slide the lower edit section up into full view
+  const detailsEl = document.getElementById('vaultMemberDetailsAccordion');
+  if (detailsEl) {
+    detailsEl.addEventListener('toggle', () => {
+      if (detailsEl.open) {
+        slideUpVaultMemberDetailsSection();
+      } else {
+        container.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    });
   }
 
   // Bind steady horizontal swipe (touch & pointer) on the viewport frame without moving the photo element
@@ -13298,6 +13535,9 @@ async function analyzeActiveMemberAllPhotos() {
       if (data.uncompromisableAnchors) {
         member.uncompromisableAnchors = data.uncompromisableAnchors;
       }
+      if (data.structuredTraits && typeof data.structuredTraits === 'object') {
+        member.structuredTraits = Object.assign(ensureMemberStructuredTraits(member), data.structuredTraits);
+      }
 
       saveFamilyCastProfile(cast);
       renderActiveMemberScreen();
@@ -13377,6 +13617,118 @@ async function generateActiveMemberStylizedAvatar() {
   }
 }
 
+function syncStructuredTraitsIntoTextFields(member) {
+  if (!member) return;
+  const st = ensureMemberStructuredTraits(member);
+
+  const volumePhraseMap = {
+    lean: 'lean slim frame',
+    medium: 'balanced medium frame',
+    broad_full: 'fuller medium-heavy build with broad shoulders',
+    heavy_plus: 'heavy full-bodied plus frame'
+  };
+  const tummyPhraseMap = {
+    flat: 'flat toned waist (0% belly projection, waist narrower than chest)',
+    straight_5: 'straight-cut torso (5% waist profile where the shirt hangs straight down flush with the ribcage, zero belly bulge, strictly NOT a skinny V-taper and strictly NO protruding belly)',
+    subtle_10: 'straight-cut everyday waist with subtle 10% lower-waist softness that stays completely flush with the chest line under a straight-draping shirt (strictly neither a skinny V-taper gym waist nor a protruding pot-belly or round paunch)',
+    slight_tummy: 'mild 15% relaxed waist contour under a loosely draped shirt that never sticks out past the chest line (strictly NOT a skinny V-taper gym body and strictly NO large protruding pot-belly)',
+    visible_tummy: 'noticeable 25% rounded tummy contour under shirt (strictly NOT lean or flat-stomached)',
+    prominent_belly: 'prominent full rounded belly (~35%+ round stomach silhouette)'
+  };
+  const tummyShortLabelMap = {
+    flat: 'flat waist (0%)',
+    straight_5: 'straight-cut waist (5% • no bulge)',
+    subtle_10: 'subtle waist softness (10% • flush w/ chest)',
+    slight_tummy: 'mild relaxed waist (15%)',
+    visible_tummy: 'rounded tummy (25%)',
+    prominent_belly: 'prominent round belly (35%+)'
+  };
+  const facePhraseMap = {
+    slim_angular: 'slim angular face',
+    oval_balanced: 'balanced oval face',
+    soft_full_cheeks: 'soft fuller round-oval face with warm full cheeks',
+    round_full_submental: 'soft fuller round-oval face with full cheeks and natural under-chin/submental fullness'
+  };
+  const facialHairMap = {
+    none: 'clean-shaven face',
+    light_stubble: 'short light neat trimmed stubble beard',
+    trimmed_beard: 'neat trimmed dark beard',
+    full_beard: 'full dark beard'
+  };
+  const landmarkLabels = {
+    round_glasses: 'thin-rimmed round eyeglasses',
+    rect_glasses: 'rectangular eyeglasses',
+    forehead_bindi: 'small black circular forehead bindi',
+    hairline_kumkum: 'subtle red kumkum at upper forehead hairline',
+    stud_earrings: 'small gold stud earrings'
+  };
+  const ratioDescMap = {
+    '1': '1.00x Father baseline stature (5ft 10in / 178cm)',
+    '0.92': '0.92x Father height (reaching Father\'s forehead/brow level)',
+    '0.86': '0.86x Father height (reaching Mother\'s ear/eye level and Father\'s shoulder)',
+    '0.8': '0.80x Father height (top of head rising above Gahan\'s shoulders to reach Gahan\'s neck/chin level)'
+  };
+
+  const volPhrase = volumePhraseMap[st.bodyVolume] || volumePhraseMap.medium;
+  const tummyPhrase = tummyPhraseMap[st.tummyProfile] || tummyPhraseMap.subtle_10;
+  const tummyShort = tummyShortLabelMap[st.tummyProfile] || tummyShortLabelMap.subtle_10;
+  const facePhrase = facePhraseMap[st.faceFullness] || facePhraseMap.oval_balanced;
+  const beardPhrase = (member.relationship === 'self') ? (facialHairMap[st.facialHair] || facialHairMap.light_stubble) : '';
+  const activeLms = (st.landmarks || []).map(k => landmarkLabels[k]).filter(Boolean);
+  const ratioStr = ratioDescMap[String(Number(st.baseHeightRatio))] || `${st.baseHeightRatio}x Father height`;
+
+  member.heightDesc = `${ratioStr}, ${volPhrase} with ${tummyShort}`;
+
+  const quantifiedSummary = `Quantified Volume & Stature: ${facePhrase}${beardPhrase ? ', ' + beardPhrase : ''}${activeLms.length ? ', ' + activeLms.join(', ') : ''}, ${volPhrase} with ${tummyPhrase}, standing at ${ratioStr}.`;
+
+  const cleanExisting = (str) => String(str || '')
+    .replace(/\s*Quantified Volume & Stature:[\s\S]*$/i, '')
+    .replace(/\bsturdy,?\s*broad-shouldered solid(?: adult)? (?:frame|build)\b/gi, `${volPhrase} with ${tummyPhrase}`)
+    .replace(/\band\s+a\s+fuller\s+medium-heavy\s+adult\s+build\s+with\s+broad\s+shoulders\s+and\s+a\s+visible\s+rounded\s+dad-bod\s+tummy[^.]*/gi, `and a ${volPhrase} with ${tummyPhrase}`)
+    .replace(/\band\s+a\s+fuller\s+medium-heavy\s+adult\s+build\s+with\s+a\s+visible\s+rounded\s+dad-bod\s+tummy[^.]*/gi, `and a ${volPhrase} with ${tummyPhrase}`)
+    .trim();
+
+  const baseAnchors = cleanExisting(member.uncompromisableAnchors);
+  const baseTraits = cleanExisting(member.visualTraits);
+
+  member.uncompromisableAnchors = (baseAnchors ? `${baseAnchors.replace(/\.$/, '')}. ` : '') + quantifiedSummary;
+  member.visualTraits = (baseTraits ? `${baseTraits.replace(/\.$/, '')}. ` : '') + quantifiedSummary;
+}
+
+function selectVaultStructuredTrait(category, value) {
+  const cast = familyCastProfileCache || getDefaultClientFamilyCast();
+  const member = (cast.members || []).find(m => m.id === activeVaultMemberId);
+  if (!member) return;
+
+  const st = ensureMemberStructuredTraits(member);
+  st[category] = value;
+  syncStructuredTraitsIntoTextFields(member);
+  saveFamilyCastProfile(cast);
+  renderActiveMemberScreen();
+  renderFamilyCastStagingUI();
+}
+
+function toggleVaultStructuredLandmark(tag) {
+  const cast = familyCastProfileCache || getDefaultClientFamilyCast();
+  const member = (cast.members || []).find(m => m.id === activeVaultMemberId);
+  if (!member) return;
+
+  const st = ensureMemberStructuredTraits(member);
+  const set = new Set(st.landmarks || []);
+  if (set.has(tag)) {
+    set.delete(tag);
+  } else {
+    if (tag === 'round_glasses') set.delete('rect_glasses');
+    if (tag === 'rect_glasses') set.delete('round_glasses');
+    set.add(tag);
+  }
+  st.landmarks = Array.from(set);
+  syncStructuredTraitsIntoTextFields(member);
+  saveFamilyCastProfile(cast);
+  renderActiveMemberScreen();
+  renderFamilyCastStagingUI();
+}
+
 function handleActiveMemberFieldChange(field, val) {
   const cast = familyCastProfileCache || getDefaultClientFamilyCast();
   const member = (cast.members || []).find(m => m.id === activeVaultMemberId);
@@ -13438,6 +13790,8 @@ function saveActiveMemberAndNext() {
   if (currentIdx !== -1 && currentIdx < members.length - 1) {
     const nextMember = members[currentIdx + 1];
     activeVaultMemberId = nextMember.id;
+    const prevDetails = document.getElementById('vaultMemberDetailsAccordion');
+    if (prevDetails) prevDetails.open = false;
     renderVaultMemberTabs();
     renderActiveMemberScreen();
     const body = document.getElementById('vaultActiveMemberScreen');
@@ -13941,6 +14295,7 @@ function getSanitizedCastMember(m) {
     aliases: m.aliases,
     age: m.age,
     heightDesc: m.heightDesc,
+    structuredTraits: m.structuredTraits || null,
     uncompromisableAnchors: m.uncompromisableAnchors,
     visualTraits: m.visualTraits,
     vehicleRole: m.vehicleRole,

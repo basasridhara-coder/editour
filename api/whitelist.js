@@ -212,13 +212,15 @@ module.exports = async function handler(req, res) {
         if (em) userCreditsMap[em] = computeUserCreditSummary(whitelist, em);
       });
 
-      const mergedAllowedEmails = Array.from(allTrackedEmails).filter(Boolean);
+      const explicitAllowedEmails = (whitelist.allowed_emails || [])
+        .map(e => String(e).toLowerCase().trim())
+        .filter(Boolean);
       const requesterEmail = email || adminCheck;
       const responsePayload = {
         allowed: true,
         isAdmin: true,
         adminEmails: whitelist.admin_emails,
-        allowedEmails: mergedAllowedEmails,
+        allowedEmails: explicitAllowedEmails,
         pendingRequests: whitelist.pending_requests,
         accessLogs: whitelist.access_logs,
         userStats: userStats,
@@ -231,11 +233,11 @@ module.exports = async function handler(req, res) {
       return res.end(JSON.stringify(responsePayload));
     }
 
-    // Open access to all signed-in users without gatekeeping
+    // Enforce Private Preview Whitelist: Only Master Admins, Admin Emails, and Whitelisted Emails are allowed
     const responsePayload = {
-      allowed: true,
-      isAdmin: false,
-      credits: email ? computeUserCreditSummary(whitelist, email) : null
+      allowed: Boolean(isAllowed),
+      isAdmin: Boolean(isAdmin),
+      credits: (isAllowed && email) ? computeUserCreditSummary(whitelist, email) : null
     };
     if (res.status) return res.status(200).json ? res.status(200).json(responsePayload) : res.status(200).end(JSON.stringify(responsePayload));
     res.setHeader('Content-Type', 'application/json');
@@ -266,7 +268,7 @@ module.exports = async function handler(req, res) {
     const isMasterAdmin = MASTER_ADMINS.includes(cleanAdmin);
     const isAdmin = isMasterAdmin || (whitelist.admin_emails && whitelist.admin_emails.includes(cleanAdmin));
 
-    // ACTION: User requests more visual credits (or legacy request_access)
+    // ACTION: User requests access or more visual credits
     if (action === 'request_access' || action === 'request_credits') {
       if (!cleanEmail) {
         const err = { error: 'Missing email' };
@@ -275,13 +277,16 @@ module.exports = async function handler(req, res) {
       }
 
       const reason = String(body.reason || body.note || '').trim().slice(0, 240);
+      const isAlreadyWhitelisted = whitelist.allowed_emails.map(e => e.toLowerCase()).includes(cleanEmail);
       const existingIdx = whitelist.pending_requests.findIndex(p => p.email?.toLowerCase() === cleanEmail);
       const reqEntry = {
         email: cleanEmail,
         name: name || cleanEmail.split('@')[0],
         avatar: avatar || null,
-        reason: reason || 'Requested additional Perspective visual credits',
-        type: 'credit_request',
+        reason: reason || (action === 'request_access' && !isAlreadyWhitelisted
+          ? 'Requested Private Preview curator access'
+          : 'Requested additional Perspective visual credits'),
+        type: (action === 'request_access' && !isAlreadyWhitelisted) ? 'access_request' : 'credit_request',
         requestedAt: new Date().toISOString()
       };
       if (existingIdx >= 0) {
@@ -291,17 +296,22 @@ module.exports = async function handler(req, res) {
       }
       await saveWhitelistData(whitelist);
 
-      const out = { success: true, message: 'Credit request sent to admin for review' };
+      const out = {
+        success: true,
+        message: reqEntry.type === 'access_request'
+          ? 'Access request queued for curator approval'
+          : 'Credit request sent to admin for review'
+      };
       if (res.status) return res.status(200).json ? res.status(200).json(out) : res.status(200).end(JSON.stringify(out));
       return res.end(JSON.stringify(out));
     }
 
-    // ACTION: Log successful user access
+    // ACTION: Log successful user access (only for whitelisted curators)
     if (action === 'log_access') {
-      if (cleanEmail) {
-        if (!whitelist.allowed_emails.map(e => e.toLowerCase()).includes(cleanEmail)) {
-          whitelist.allowed_emails.push(cleanEmail);
-        }
+      const isAllowedEmail = MASTER_ADMINS.includes(cleanEmail)
+        || (whitelist.admin_emails && whitelist.admin_emails.map(e => e.toLowerCase()).includes(cleanEmail))
+        || (whitelist.allowed_emails && whitelist.allowed_emails.map(e => e.toLowerCase()).includes(cleanEmail));
+      if (cleanEmail && isAllowedEmail) {
         const logIdx = whitelist.access_logs.findIndex(l => l.email?.toLowerCase() === cleanEmail);
         const logEntry = {
           email: cleanEmail,
@@ -316,7 +326,7 @@ module.exports = async function handler(req, res) {
         }
         await saveWhitelistData(whitelist);
       }
-      const out = { success: true, credits: cleanEmail ? computeUserCreditSummary(whitelist, cleanEmail) : null };
+      const out = { success: true, allowed: isAllowedEmail, credits: (cleanEmail && isAllowedEmail) ? computeUserCreditSummary(whitelist, cleanEmail) : null };
       if (res.status) return res.status(200).json ? res.status(200).json(out) : res.status(200).end(JSON.stringify(out));
       return res.end(JSON.stringify(out));
     }
@@ -423,13 +433,17 @@ module.exports = async function handler(req, res) {
       return res.end(JSON.stringify(out));
     }
 
-    // ACTION: Add bonus / top-up credits for a user (e.g. when their daily credits are exhausted)
+    // ACTION: Add bonus / top-up credits for a user (and ensure they are on the allowed whitelist)
     if (action === 'add_credits') {
       if (!cleanEmail) {
         const err = { error: 'Missing target email' };
         if (res.status) return res.status(400).json ? res.status(400).json(err) : res.status(400).end(JSON.stringify(err));
         return res.end(JSON.stringify(err));
       }
+      if (!whitelist.allowed_emails.map(e => e.toLowerCase()).includes(cleanEmail)) {
+        whitelist.allowed_emails.push(cleanEmail);
+      }
+      whitelist.pending_requests = whitelist.pending_requests.filter(p => p.email?.toLowerCase() !== cleanEmail);
       const addAmount = Math.max(1, Math.min(100, Number(body.amount) || 5));
       if (!whitelist.user_credits || typeof whitelist.user_credits !== 'object') {
         whitelist.user_credits = {};

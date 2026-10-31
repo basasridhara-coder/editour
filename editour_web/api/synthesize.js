@@ -38,12 +38,18 @@ async function verifyAndConsumeUserCredit(email, consume = false, isChronicleMod
     if (resp.ok) {
       const rows = await resp.json();
       const d = rows?.[0]?.data || {};
+      const allowedList = Array.isArray(d.allowed_emails) ? d.allowed_emails.map(e => String(e).toLowerCase().trim()) : [];
+      const adminList = Array.isArray(d.admin_emails) ? d.admin_emails.map(e => String(e).toLowerCase().trim()) : [];
       const defaultLimit = Number(d.default_daily_limit) > 0 ? Number(d.default_daily_limit) : DEFAULT_DAILY_CREDIT_LIMIT;
       if (!d.user_credits || typeof d.user_credits !== 'object') {
         d.user_credits = {};
       }
       const existing = d.user_credits[clean] || {};
       const isMaster = MASTER_ADMINS.includes(clean) || Boolean(existing.isUnlimited);
+      const isAllowed = isMaster || adminList.includes(clean) || allowedList.includes(clean);
+      if (!isAllowed) {
+        return { allowed: false, hasCredits: false, credits: null };
+      }
 
       const starterTotal = STARTER_PERSPECTIVE_CREDITS;
       let starterUsed = Math.min(starterTotal, Math.max(0, Number(existing.starterUsed ?? 0)));
@@ -86,10 +92,6 @@ async function verifyAndConsumeUserCredit(email, consume = false, isChronicleMod
           }
         }
         totalUsed += 1;
-
-        if (Array.isArray(d.allowed_emails) && !d.allowed_emails.map(e => String(e).toLowerCase()).includes(clean)) {
-          d.allowed_emails.push(clean);
-        }
 
         d.user_credits[clean] = {
           ...existing,
@@ -153,24 +155,25 @@ async function verifyAndConsumeUserCredit(email, consume = false, isChronicleMod
     console.warn('Synthesize credit & whitelist check notice:', err);
   }
 
+  const isMasterFallback = MASTER_ADMINS.includes(clean);
   return {
-    allowed: true,
-    hasCredits: true,
-    credits: {
+    allowed: isMasterFallback,
+    hasCredits: isMasterFallback,
+    credits: isMasterFallback ? {
       email: clean,
-      isUnlimited: MASTER_ADMINS.includes(clean),
+      isUnlimited: true,
       starterTotal: STARTER_PERSPECTIVE_CREDITS,
       starterUsed: 0,
       starterRemaining: STARTER_PERSPECTIVE_CREDITS,
       dailyLimit: DEFAULT_DAILY_CREDIT_LIMIT,
-      perspectiveRemainingToday: STARTER_PERSPECTIVE_CREDITS,
-      chronicleRemainingToday: 1,
+      perspectiveRemainingToday: 9999,
+      chronicleRemainingToday: 9999,
       usedToday: 0,
-      dailyRemaining: STARTER_PERSPECTIVE_CREDITS,
+      dailyRemaining: 9999,
       bonusCredits: 0,
-      remainingToday: STARTER_PERSPECTIVE_CREDITS,
+      remainingToday: 9999,
       totalUsed: 0
-    }
+    } : null
   };
 }
 
@@ -388,6 +391,9 @@ Respond strictly with valid JSON:
         userEmail = 'shridharoct16@gmail.com';
       }
       const creditCheck = await verifyAndConsumeUserCredit(userEmail, Boolean(body.isManualRegenerate), Boolean(chronicleMode));
+      if (!creditCheck.allowed) {
+        return res.status(403).json({ error: 'Private Preview: Your account is not yet on the invited curator whitelist.' });
+      }
       if (!creditCheck.hasCredits && Boolean(body.isManualRegenerate)) {
         return res.status(429).json({
           error: '⚡ Your visual art generation credits are used up for today. Tap "Request More Credits" in Studio (text-only polish is always free)!',
@@ -605,6 +611,9 @@ STRICT RULES:
 
       const userEmail = (creatorEmail || 'shridharoct16@gmail.com').toLowerCase().trim();
       const creditCheck = await verifyAndConsumeUserCredit(userEmail, Boolean(body.isManualRegenerate), Boolean(chronicleMode));
+      if (!creditCheck.allowed) {
+        return res.status(403).json({ error: 'Private Preview: Your account is not yet on the invited curator whitelist.' });
+      }
       if (!creditCheck.hasCredits && Boolean(body.isManualRegenerate)) {
         return res.status(429).json({
           error: '⚡ Your visual art generation credits are used up for today. Tap "Request More Credits" in Studio (text-only polish is always free)!',
@@ -1437,6 +1446,11 @@ Respond strictly with valid JSON with this exact structure:
     const isExactPhotoOnly = characterRepresentation === 'exact';
     const shouldConsumeVisualCredit = !isTextOnlyRegen && !isExactPhotoOnly;
     const creditCheck = await verifyAndConsumeUserCredit(userEmail, shouldConsumeVisualCredit, Boolean(isChronicle));
+    if (!creditCheck.allowed) {
+      return res.status(403).json({
+        error: '🔒 Private Preview: Your email is not yet on the invited curator whitelist. An access request has been sent to the administrator.'
+      });
+    }
     if (shouldConsumeVisualCredit && !creditCheck.hasCredits) {
       return res.status(429).json({
         error: isChronicle
