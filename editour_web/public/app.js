@@ -12509,18 +12509,83 @@ let familyCastProfileCache = null;
 let activeCastMemberIds = new Set();
 let activeCastStagingMode = 'general';
 
+function ensureMemberStructuredTraits(m) {
+  if (!m) return null;
+  if (!m.structuredTraits || typeof m.structuredTraits !== 'object') {
+    if (m.id === 'member_father' || m.relationship === 'self') {
+      m.structuredTraits = {
+        bodyVolume: 'broad_full',
+        tummyProfile: 'visible_tummy',
+        faceFullness: 'round_full_submental',
+        baseHeightRatio: 1.00,
+        hairStyle: 'short_brushed_up',
+        facialHair: 'light_stubble',
+        landmarks: []
+      };
+    } else if (m.id === 'member_mother' || m.relationship === 'spouse') {
+      m.structuredTraits = {
+        bodyVolume: 'medium',
+        tummyProfile: 'slight_tummy',
+        faceFullness: 'soft_full_cheeks',
+        baseHeightRatio: 0.92,
+        hairStyle: 'long_shoulder_swept',
+        facialHair: 'none',
+        landmarks: ['forehead_bindi', 'hairline_kumkum', 'stud_earrings']
+      };
+    } else if (m.id === 'member_elder_son' || m.relationship === 'elder_son') {
+      m.structuredTraits = {
+        bodyVolume: 'medium',
+        tummyProfile: 'flat',
+        faceFullness: 'oval_balanced',
+        baseHeightRatio: 0.86,
+        hairStyle: 'short_side_part',
+        facialHair: 'none',
+        landmarks: []
+      };
+    } else if (m.id === 'member_younger_son' || m.relationship === 'younger_son') {
+      m.structuredTraits = {
+        bodyVolume: 'medium',
+        tummyProfile: 'flat',
+        faceFullness: 'soft_full_cheeks',
+        baseHeightRatio: 0.80,
+        hairStyle: 'short_fringe',
+        facialHair: 'none',
+        landmarks: []
+      };
+    } else {
+      m.structuredTraits = {
+        bodyVolume: 'medium',
+        tummyProfile: 'flat',
+        faceFullness: 'oval_balanced',
+        baseHeightRatio: 0.85,
+        hairStyle: 'short_side_part',
+        facialHair: 'none',
+        landmarks: []
+      };
+    }
+  }
+  if (!Array.isArray(m.structuredTraits.landmarks)) {
+    m.structuredTraits.landmarks = [];
+  }
+  return m.structuredTraits;
+}
+
 function sanitizeLoadedFamilyCast(cast) {
   if (!cast || !Array.isArray(cast.members)) return cast;
   cast.members = cast.members.filter(m => m && (m.name || m.roleLabel !== 'New Member'));
   cast.members.forEach(m => {
+    ensureMemberStructuredTraits(m);
     if (m.id === 'member_father' || m.relationship === 'self') {
       if (m.uncompromisableAnchors) {
         m.uncompromisableAnchors = m.uncompromisableAnchors
-          .replace(/\bsalt-and-pepper\s+(?:trimmed\s+)?beard\b/gi, 'neat short dark trimmed beard, full head of thick short jet-black hair (strictly NOT old or elderly)');
+          .replace(/\bsalt-and-pepper\s+(?:trimmed\s+)?beard\b/gi, 'neat short dark trimmed beard, full head of thick short jet-black hair (strictly NOT old or elderly)')
+          .replace(/\bFit mid-age 40-year-old\b/g, 'Mid-age 40-year-old')
+          .replace(/\bsturdy,?\s*broad-shouldered solid(?: adult)? (?:frame|build)\b/gi, 'fuller medium-heavy adult build with broad shoulders and a visible rounded dad-bod tummy / soft belly paunch (~30% midsection projection) under his shirt (strictly NOT lean or flat-stomached)');
       }
       if (m.visualTraits) {
         m.visualTraits = m.visualTraits
-          .replace(/\bsalt-and-pepper\s+(?:trimmed\s+)?beard\b/gi, 'neat short dark trimmed beard');
+          .replace(/\bsalt-and-pepper\s+(?:trimmed\s+)?beard\b/gi, 'neat short dark trimmed beard')
+          .replace(/\bsturdy,?\s*broad-shouldered solid(?: adult)? (?:frame|build)\b/gi, 'fuller medium-heavy adult build with a visible rounded dad-bod tummy at the midsection (strictly not lean or flat-stomached)');
       }
     }
   });
@@ -12540,9 +12605,18 @@ function getDefaultClientFamilyCast() {
         name: 'Shridhar',
         aliases: ['dad', 'father', 'shridhar', 'myself', 'me', 'i', 'husband'],
         age: 40,
-        heightDesc: '5ft 10in (178cm), adult stature',
-        uncompromisableAnchors: 'Fit mid-age 40-year-old Indian man in his prime early 40s (strictly age 38-40, STRICTLY NOT old or elderly, STRICTLY NO gray or white hair on head, STRICTLY NO senior facial wrinkles), warm brown skin, soft oval face, calm dark eyes, full head of thick short dark hair styled up at the crown, smooth unwrinkled forehead, short light neat trimmed stubble beard, sturdy broad-shouldered solid adult frame.',
-        visualTraits: 'Warm brown skin, soft oval face, calm dark eyes, full head of thick short dark hair styled up, neat short trimmed stubble beard, and a sturdy, broad-shouldered solid adult frame.',
+        heightDesc: '5ft 10in (178cm), 1.00x baseline adult stature, fuller medium-heavy build with visible rounded tummy',
+        structuredTraits: {
+          bodyVolume: 'broad_full',
+          tummyProfile: 'visible_tummy',
+          faceFullness: 'round_full_submental',
+          baseHeightRatio: 1.00,
+          hairStyle: 'short_brushed_up',
+          facialHair: 'light_stubble',
+          landmarks: []
+        },
+        uncompromisableAnchors: 'Mid-age 40-year-old Indian man in his early 40s (strictly age 38-40, STRICTLY NOT old or elderly, STRICTLY NO senior facial wrinkles), warm medium-brown skin, soft fuller round-oval face with full cheeks and natural under-chin/submental fullness, calm dark brown eyes, full head of thick short dark hair styled up at the crown, short light neat trimmed stubble beard along the jaw, and a fuller medium-heavy adult build with broad shoulders and a visible rounded dad-bod tummy / soft belly paunch (~30% midsection projection) under his shirt (STRICTLY NOT lean, NOT gym-fit, NOT V-tapered, and NOT flat-stomached).',
+        visualTraits: 'Warm medium-brown skin, soft fuller round-oval face with full cheeks and natural under-chin fullness, calm dark eyes, full head of thick short dark hair styled up, neat short trimmed stubble beard, and a fuller medium-heavy adult build with a visible rounded dad-bod tummy at the midsection (strictly not lean or flat-stomached).',
         vehicleRole: 'driver_right',
         stylizedAvatarUrl: 'https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/avatar_member_father.jpg'
       },
@@ -12553,7 +12627,16 @@ function getDefaultClientFamilyCast() {
         name: 'Aruna',
         aliases: ['wife', 'mother', 'mom', 'aru', 'aruna'],
         age: 36,
-        heightDesc: '5ft 4in (162cm), adult female stature',
+        heightDesc: '5ft 4in (162cm), 0.92x Father height (reaching Father\'s forehead/brow)',
+        structuredTraits: {
+          bodyVolume: 'medium',
+          tummyProfile: 'slight_tummy',
+          faceFullness: 'soft_full_cheeks',
+          baseHeightRatio: 0.92,
+          hairStyle: 'long_shoulder_swept',
+          facialHair: 'none',
+          landmarks: ['forehead_bindi', 'hairline_kumkum', 'stud_earrings']
+        },
         uncompromisableAnchors: 'Warm golden-brown wheatish skin, soft fuller round-to-oval maternal face with warm full cheeks and soft rounded chin, gentle dark almond eyes without heavy makeup, small black circular bindi centered on forehead and subtle red kumkum at the upper forehead hairline, side-parted thick voluminous wavy black hair swept forward over her left shoulder past her collarbone, small gold stud earrings, and an authentic, healthy medium-to-full South Indian adult build with natural soft shoulders.',
         visualTraits: 'Warm golden-brown skin, soft fuller round-to-oval maternal face with full cheeks, small black forehead bindi and subtle red kumkum at hairline, gentle dark eyes, side-parted long voluminous wavy black hair cascading over one shoulder, and an authentic, healthy medium adult build.',
         vehicleRole: 'passenger_front_left',
@@ -12566,9 +12649,18 @@ function getDefaultClientFamilyCast() {
         name: 'Gahan',
         aliases: ['gahan', 'elder son', 'older son', 'older boy', 'elder brother', 'big brother', 'first son', '11-year-old', '11yo'],
         age: 11,
-        heightDesc: 'Tall 11yo pre-teen stature: Head reaches up to Mother\'s ear/chin and Father\'s shoulder/collarbone, slightly taller than younger brother whose head reaches Gahan\'s neck',
-        uncompromisableAnchors: 'Warm brown-skinned 11-year-old tall pre-teen Indian boy with a gentle round-oval face, full cheeks, dark expressive eyes, thick short textured black hair with a slight side part, square shoulders, and a sturdy solid pre-teen frame (strictly not skinny or frail), whose head reaches up to his mother\'s ear/chin level.',
-        visualTraits: 'Healthy 11-year-old pre-teen boy with a gentle round-oval face, dark expressive eyes, thick short textured black hair, and a sturdy, solid frame with natural square shoulders, reaching up to his mother\'s ear/chin level.',
+        heightDesc: 'Tall 11yo pre-teen stature (0.86x Father height): Head reaches up to Mother\'s ear/eye and Father\'s shoulder, slightly taller than younger brother whose head reaches Gahan\'s neck',
+        structuredTraits: {
+          bodyVolume: 'medium',
+          tummyProfile: 'flat',
+          faceFullness: 'oval_balanced',
+          baseHeightRatio: 0.86,
+          hairStyle: 'short_side_part',
+          facialHair: 'none',
+          landmarks: []
+        },
+        uncompromisableAnchors: 'Warm brown-skinned 11-year-old tall pre-teen Indian boy with a gentle round-oval face, full cheeks, dark expressive eyes, thick short textured black hair with a slight side part, square shoulders, and a sturdy solid pre-teen frame (strictly not skinny or frail), whose head reaches up to his mother\'s ear/eye level (0.86x Father height).',
+        visualTraits: 'Healthy 11-year-old pre-teen boy with a gentle round-oval face, dark expressive eyes, thick short textured black hair, and a sturdy, solid frame with natural square shoulders, reaching up to his mother\'s ear/eye level.',
         vehicleRole: 'passenger_rear_right',
         stylizedAvatarUrl: 'https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/avatar_member_elder_son.jpg'
       },
@@ -12579,9 +12671,18 @@ function getDefaultClientFamilyCast() {
         name: 'Rishu',
         aliases: ['rishu', 'younger son', 'little son', 'younger boy', 'younger brother', 'little brother', 'second son', '7-year-old', '7yo'],
         age: 7,
-        heightDesc: '7yo schoolboy stature: Top of his head reaches right up to his older brother Gahan\'s neck level and Mother\'s chest/shoulder level',
-        uncompromisableAnchors: 'Warm wheatish-skinned 7-year-old schoolboy with round youthful cheeks, large expressive dark eyes, neat short straight black hair with a front fringe, and a healthy compact child frame, standing right up to his older brother Gahan\'s neck level (top of Rishu\'s head meets Gahan\'s neck/chin-neck level, strictly NOT tiny or waist-high).',
-        visualTraits: 'Young 7-year-old boy with warm wheatish skin, round cheeks, dark expressive eyes, neat short black hair, and a healthy compact frame whose head reaches right up to his older brother Gahan\'s neck level.',
+        heightDesc: '7yo schoolboy stature (0.80x Father height): Top of his head rises above Gahan\'s shoulders to reach Gahan\'s neck/chin level',
+        structuredTraits: {
+          bodyVolume: 'medium',
+          tummyProfile: 'flat',
+          faceFullness: 'soft_full_cheeks',
+          baseHeightRatio: 0.80,
+          hairStyle: 'short_fringe',
+          facialHair: 'none',
+          landmarks: []
+        },
+        uncompromisableAnchors: 'Warm wheatish-skinned 7-year-old schoolboy with round youthful cheeks, large expressive dark eyes, neat short straight black hair with a front fringe, and a healthy compact child frame, standing right up to his older brother Gahan\'s neck level (0.80x Father height, top of Rishu\'s head rises above Gahan\'s shoulders to meet Gahan\'s neck/chin level, strictly NOT tiny or waist-high).',
+        visualTraits: 'Young 7-year-old boy with warm wheatish skin, round cheeks, dark expressive eyes, neat short black hair, and a healthy compact frame whose head rises above Gahan\'s shoulders to reach Gahan\'s neck/chin level.',
         vehicleRole: 'passenger_rear_left',
         stylizedAvatarUrl: 'https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/avatar_member_younger_son.jpg'
       }
@@ -13099,6 +13200,74 @@ function renderActiveMemberScreen() {
             <input type="text" id="vField_height" value="${escapeHtml(member.heightDesc || '')}" placeholder="e.g. 5ft 10in" oninput="handleActiveMemberFieldChange('heightDesc', this.value)">
           </div>
 
+          <!-- Interactive Quantified Body Volume, Tummy & Visual Trait Selector -->
+          ${(() => {
+            const st = ensureMemberStructuredTraits(member);
+            const lms = new Set(st.landmarks || []);
+            return `
+              <div class="vault-field-group full-width vault-structured-traits-box">
+                <div class="vault-structured-header">
+                  <span>🎯 Quantified Body Volume, Tummy &amp; Trait Selector</span>
+                  <span class="vault-structured-sub">Tap to select &amp; auto-update traits below</span>
+                </div>
+
+                <div class="vault-trait-row">
+                  <span class="vault-trait-row-label">Body Frame / Volume</span>
+                  <div class="vault-trait-chips">
+                    <button type="button" class="vault-trait-chip ${st.bodyVolume === 'lean' ? 'active' : ''}" onclick="selectVaultStructuredTrait('bodyVolume', 'lean')">Lean / Slim</button>
+                    <button type="button" class="vault-trait-chip ${st.bodyVolume === 'medium' ? 'active' : ''}" onclick="selectVaultStructuredTrait('bodyVolume', 'medium')">Medium Balanced</button>
+                    <button type="button" class="vault-trait-chip ${st.bodyVolume === 'broad_full' ? 'active' : ''}" onclick="selectVaultStructuredTrait('bodyVolume', 'broad_full')">Broad / Full-Bodied</button>
+                    <button type="button" class="vault-trait-chip ${st.bodyVolume === 'heavy_plus' ? 'active' : ''}" onclick="selectVaultStructuredTrait('bodyVolume', 'heavy_plus')">Heavy / Plus</button>
+                  </div>
+                </div>
+
+                <div class="vault-trait-row">
+                  <span class="vault-trait-row-label">Midsection / Tummy Profile (Quantified)</span>
+                  <div class="vault-trait-chips">
+                    <button type="button" class="vault-trait-chip ${st.tummyProfile === 'flat' ? 'active' : ''}" onclick="selectVaultStructuredTrait('tummyProfile', 'flat')">Flat (0%)</button>
+                    <button type="button" class="vault-trait-chip ${st.tummyProfile === 'slight_tummy' ? 'active' : ''}" onclick="selectVaultStructuredTrait('tummyProfile', 'slight_tummy')">Soft Tummy (~15%)</button>
+                    <button type="button" class="vault-trait-chip ${st.tummyProfile === 'visible_tummy' ? 'active' : ''}" onclick="selectVaultStructuredTrait('tummyProfile', 'visible_tummy')">Visible Rounded Tummy (~30%)</button>
+                    <button type="button" class="vault-trait-chip ${st.tummyProfile === 'prominent_belly' ? 'active' : ''}" onclick="selectVaultStructuredTrait('tummyProfile', 'prominent_belly')">Prominent Belly (~45%)</button>
+                  </div>
+                </div>
+
+                <div class="vault-trait-row">
+                  <span class="vault-trait-row-label">Standing Stature Ratio (Auto-Adjusts for Sitting: 0.72x / Floor: 0.52x)</span>
+                  <div class="vault-trait-chips">
+                    <button type="button" class="vault-trait-chip ${Number(st.baseHeightRatio) === 1.00 ? 'active' : ''}" onclick="selectVaultStructuredTrait('baseHeightRatio', 1.00)">1.00x (Father Baseline)</button>
+                    <button type="button" class="vault-trait-chip ${Number(st.baseHeightRatio) === 0.92 ? 'active' : ''}" onclick="selectVaultStructuredTrait('baseHeightRatio', 0.92)">0.92x (Mother • Brow Level)</button>
+                    <button type="button" class="vault-trait-chip ${Number(st.baseHeightRatio) === 0.86 ? 'active' : ''}" onclick="selectVaultStructuredTrait('baseHeightRatio', 0.86)">0.86x (Elder Son • Mother's Ear)</button>
+                    <button type="button" class="vault-trait-chip ${Number(st.baseHeightRatio) === 0.80 ? 'active' : ''}" onclick="selectVaultStructuredTrait('baseHeightRatio', 0.80)">0.80x (Younger • Gahan's Neck)</button>
+                  </div>
+                </div>
+
+                <div class="vault-trait-row">
+                  <span class="vault-trait-row-label">Face &amp; Cheek Volume</span>
+                  <div class="vault-trait-chips">
+                    <button type="button" class="vault-trait-chip ${st.faceFullness === 'slim_angular' ? 'active' : ''}" onclick="selectVaultStructuredTrait('faceFullness', 'slim_angular')">Slim / Angular</button>
+                    <button type="button" class="vault-trait-chip ${st.faceFullness === 'oval_balanced' ? 'active' : ''}" onclick="selectVaultStructuredTrait('faceFullness', 'oval_balanced')">Balanced Oval</button>
+                    <button type="button" class="vault-trait-chip ${st.faceFullness === 'soft_full_cheeks' ? 'active' : ''}" onclick="selectVaultStructuredTrait('faceFullness', 'soft_full_cheeks')">Soft Fuller Cheeks</button>
+                    <button type="button" class="vault-trait-chip ${st.faceFullness === 'round_full_submental' ? 'active' : ''}" onclick="selectVaultStructuredTrait('round_full_submental' === st.faceFullness ? 'faceFullness' : 'faceFullness', 'round_full_submental')">Full Round &amp; Under-Chin</button>
+                  </div>
+                </div>
+
+                <div class="vault-trait-row">
+                  <span class="vault-trait-row-label">Facial Hair &amp; Landmarks (Tap to Toggle)</span>
+                  <div class="vault-trait-chips">
+                    <button type="button" class="vault-trait-chip ${st.facialHair === 'light_stubble' ? 'active' : ''}" onclick="selectVaultStructuredTrait('facialHair', 'light_stubble')">Light Stubble</button>
+                    <button type="button" class="vault-trait-chip ${st.facialHair === 'trimmed_beard' ? 'active' : ''}" onclick="selectVaultStructuredTrait('facialHair', 'trimmed_beard')">Trimmed Beard</button>
+                    <button type="button" class="vault-trait-chip ${st.facialHair === 'none' ? 'active' : ''}" onclick="selectVaultStructuredTrait('facialHair', 'none')">Clean-Shaven</button>
+                    <button type="button" class="vault-trait-chip ${lms.has('round_glasses') ? 'active' : ''}" onclick="toggleVaultStructuredLandmark('round_glasses')">Round Glasses</button>
+                    <button type="button" class="vault-trait-chip ${lms.has('rect_glasses') ? 'active' : ''}" onclick="toggleVaultStructuredLandmark('rect_glasses')">Rect Glasses</button>
+                    <button type="button" class="vault-trait-chip ${lms.has('forehead_bindi') ? 'active' : ''}" onclick="toggleVaultStructuredLandmark('forehead_bindi')">Forehead Bindi</button>
+                    <button type="button" class="vault-trait-chip ${lms.has('hairline_kumkum') ? 'active' : ''}" onclick="toggleVaultStructuredLandmark('hairline_kumkum')">Hairline Kumkum</button>
+                    <button type="button" class="vault-trait-chip ${lms.has('stud_earrings') ? 'active' : ''}" onclick="toggleVaultStructuredLandmark('stud_earrings')">Stud Earrings</button>
+                  </div>
+                </div>
+              </div>
+            `;
+          })()}
+
           <div class="vault-field-group full-width">
             <div class="vault-label-with-hint" style="flex-direction:row; align-items:center; justify-content:space-between; gap:6px; width:100%;">
               <div style="display:flex; align-items:center; gap:6px;">
@@ -13333,6 +13502,9 @@ async function analyzeActiveMemberAllPhotos() {
       if (data.uncompromisableAnchors) {
         member.uncompromisableAnchors = data.uncompromisableAnchors;
       }
+      if (data.structuredTraits && typeof data.structuredTraits === 'object') {
+        member.structuredTraits = Object.assign(ensureMemberStructuredTraits(member), data.structuredTraits);
+      }
 
       saveFamilyCastProfile(cast);
       renderActiveMemberScreen();
@@ -13410,6 +13582,105 @@ async function generateActiveMemberStylizedAvatar() {
     if (prog) prog.style.display = 'none';
     if (btn) btn.disabled = false;
   }
+}
+
+function syncStructuredTraitsIntoTextFields(member) {
+  if (!member) return;
+  const st = ensureMemberStructuredTraits(member);
+
+  const volumePhraseMap = {
+    lean: 'lean slim frame',
+    medium: 'balanced medium frame',
+    broad_full: 'fuller medium-heavy build with broad shoulders',
+    heavy_plus: 'heavy full-bodied plus frame'
+  };
+  const tummyPhraseMap = {
+    flat: 'flat midsection (0% belly bulge)',
+    slight_tummy: 'soft dad-bod tummy (~15% gentle belly curve at the waist)',
+    visible_tummy: 'visible rounded dad-bod tummy / soft belly paunch (~30% midsection projection under shirt, strictly NOT lean or flat-stomached)',
+    prominent_belly: 'prominent full rounded belly (~45% round stomach silhouette)'
+  };
+  const facePhraseMap = {
+    slim_angular: 'slim angular face',
+    oval_balanced: 'balanced oval face',
+    soft_full_cheeks: 'soft fuller round-oval face with warm full cheeks',
+    round_full_submental: 'soft fuller round-oval face with full cheeks and natural under-chin/submental fullness'
+  };
+  const facialHairMap = {
+    none: 'clean-shaven face',
+    light_stubble: 'short light neat trimmed stubble beard',
+    trimmed_beard: 'neat trimmed dark beard',
+    full_beard: 'full dark beard'
+  };
+  const landmarkLabels = {
+    round_glasses: 'thin-rimmed round eyeglasses',
+    rect_glasses: 'rectangular eyeglasses',
+    forehead_bindi: 'small black circular forehead bindi',
+    hairline_kumkum: 'subtle red kumkum at upper forehead hairline',
+    stud_earrings: 'small gold stud earrings'
+  };
+  const ratioDescMap = {
+    '1': '1.00x Father baseline stature (5ft 10in / 178cm)',
+    '0.92': '0.92x Father height (reaching Father\'s forehead/brow level)',
+    '0.86': '0.86x Father height (reaching Mother\'s ear/eye level and Father\'s shoulder)',
+    '0.8': '0.80x Father height (top of head rising above Gahan\'s shoulders to reach Gahan\'s neck/chin level)'
+  };
+
+  const volPhrase = volumePhraseMap[st.bodyVolume] || volumePhraseMap.medium;
+  const tummyPhrase = tummyPhraseMap[st.tummyProfile] || tummyPhraseMap.flat;
+  const facePhrase = facePhraseMap[st.faceFullness] || facePhraseMap.oval_balanced;
+  const beardPhrase = (member.relationship === 'self') ? (facialHairMap[st.facialHair] || facialHairMap.light_stubble) : '';
+  const activeLms = (st.landmarks || []).map(k => landmarkLabels[k]).filter(Boolean);
+  const ratioStr = ratioDescMap[String(Number(st.baseHeightRatio))] || `${st.baseHeightRatio}x Father height`;
+
+  member.heightDesc = `${ratioStr}, ${volPhrase} with ${st.tummyProfile === 'flat' ? 'flat midsection' : (st.tummyProfile === 'slight_tummy' ? 'soft tummy (~15%)' : (st.tummyProfile === 'prominent_belly' ? 'prominent round belly (~45%)' : 'visible rounded tummy (~30%)'))}`;
+
+  const quantifiedSummary = `Quantified Volume & Stature: ${facePhrase}${beardPhrase ? ', ' + beardPhrase : ''}${activeLms.length ? ', ' + activeLms.join(', ') : ''}, ${volPhrase} with ${tummyPhrase}, standing at ${ratioStr}.`;
+
+  const cleanExisting = (str) => String(str || '')
+    .replace(/\s*Quantified Volume & Stature:[\s\S]*$/i, '')
+    .replace(/\bsturdy,?\s*broad-shouldered solid(?: adult)? (?:frame|build)\b/gi, `${volPhrase} with ${tummyPhrase}`)
+    .trim();
+
+  const baseAnchors = cleanExisting(member.uncompromisableAnchors);
+  const baseTraits = cleanExisting(member.visualTraits);
+
+  member.uncompromisableAnchors = (baseAnchors ? `${baseAnchors.replace(/\.$/, '')}. ` : '') + quantifiedSummary;
+  member.visualTraits = (baseTraits ? `${baseTraits.replace(/\.$/, '')}. ` : '') + quantifiedSummary;
+}
+
+function selectVaultStructuredTrait(category, value) {
+  const cast = familyCastProfileCache || getDefaultClientFamilyCast();
+  const member = (cast.members || []).find(m => m.id === activeVaultMemberId);
+  if (!member) return;
+
+  const st = ensureMemberStructuredTraits(member);
+  st[category] = value;
+  syncStructuredTraitsIntoTextFields(member);
+  saveFamilyCastProfile(cast);
+  renderActiveMemberScreen();
+  renderFamilyCastStagingUI();
+}
+
+function toggleVaultStructuredLandmark(tag) {
+  const cast = familyCastProfileCache || getDefaultClientFamilyCast();
+  const member = (cast.members || []).find(m => m.id === activeVaultMemberId);
+  if (!member) return;
+
+  const st = ensureMemberStructuredTraits(member);
+  const set = new Set(st.landmarks || []);
+  if (set.has(tag)) {
+    set.delete(tag);
+  } else {
+    if (tag === 'round_glasses') set.delete('rect_glasses');
+    if (tag === 'rect_glasses') set.delete('round_glasses');
+    set.add(tag);
+  }
+  st.landmarks = Array.from(set);
+  syncStructuredTraitsIntoTextFields(member);
+  saveFamilyCastProfile(cast);
+  renderActiveMemberScreen();
+  renderFamilyCastStagingUI();
 }
 
 function handleActiveMemberFieldChange(field, val) {
@@ -13978,6 +14249,7 @@ function getSanitizedCastMember(m) {
     aliases: m.aliases,
     age: m.age,
     heightDesc: m.heightDesc,
+    structuredTraits: m.structuredTraits || null,
     uncompromisableAnchors: m.uncompromisableAnchors,
     visualTraits: m.visualTraits,
     vehicleRole: m.vehicleRole,

@@ -64,17 +64,28 @@ Synthesize all visual likeness anchors across the provided photos, analyzing BOT
 3. Distinct Cultural & Facial Landmarks: carefully observe and explicitly include any visible forehead bindi (e.g. small black circular bindi on forehead), red kumkum/sindoor at the upper forehead hairline/parting, stud earrings, or eyeglasses/spectacles if present.
 4. Apparent biological age and life stage.
 5. Skin tone and complexion (e.g. warm golden-wheatish complexion, warm medium-brown skin).
-6. Body structure, physique & stature: accurately observe visible body build (e.g. healthy medium-to-full adult build with soft natural shoulders, sturdy broad-shouldered solid frame, or compact child build) and natural posture. STRICT BAN ON CALLING THEM SLENDER, SLIM, OR LEAN unless they are visibly very thin. Faithfully capture their authentic, healthy, real-world physique.
+6. Body Volume, Midsection / Tummy Contour & Stature (CRITICAL — DO NOT DEFAULT TO FIT / LEAN):
+   - Observe BOTH shoulder/torso width AND midsection/tummy contour honestly. If a close-up portrait shows fuller cheeks, soft submental/under-chin fullness, or a broad thick neck/chest in a polo/shirt, infer an authentic middle-aged dad-bod / fuller midsection ("slight_tummy" or "visible_tummy") rather than a flat stomach.
+   - STRICT BAN ON CALLING ADULTS "FIT", "ATHLETIC", "SLENDER", "SLIM", OR "LEAN" unless they are visibly very thin. Do NOT describe body appearance solely by "broad shoulders" (which causes image generators to draw a lean V-tapered gym body); always explicitly quantify the midsection/tummy contour (e.g. "fuller medium-heavy build with a visible soft rounded tummy/paunch at the midsection" vs. "flat stomach").
 
 Return strictly valid JSON with this exact schema:
 {
-  "uncompromisableAnchors": "The core immutable physical anatomy and looks that must never mutate across scenes, clothing, or moods: exact face shape & cheek fullness, forehead landmarks (bindi, hairline kumkum/sindoor if visible), exact hair parting/length/cascading direction, facial hair style, skin tone, and real-world body build (35-55 words). Describe ONLY what is authentically visible in the photo.",
-  "visualTraits": "A single coherent, vivid character description combining exact facial features, forehead landmarks (bindi/kumkum if visible), hair length & parting, AND authentic body build / stature (35-50 words).",
-  "detectedAge": 38,
+  "uncompromisableAnchors": "The core immutable physical anatomy and looks that must never mutate across scenes, clothing, or moods: exact face shape & cheek/under-chin fullness, forehead landmarks (bindi, hairline kumkum/sindoor if visible), exact hair parting/length/cascading direction, facial hair style, skin tone, AND quantified body volume + midsection/tummy profile (40-65 words).",
+  "visualTraits": "A single coherent, vivid character description combining exact facial features, forehead landmarks, hair length & parting, AND authentic body volume + midsection/tummy contour (40-55 words).",
+  "detectedAge": 40,
   "hair": "Exact hair length, texture, parting, and styling observed in photo",
-  "facialFeatures": "Exact face shape, cheek fullness, eyes, smile, forehead bindi/kumkum or facial hair observed in photo",
-  "bodyBuild": "Authentic body build and shoulder proportions observed in photo",
-  "statureDesc": "Height/stature note appropriate to their role and build"
+  "facialFeatures": "Exact face shape, cheek/chin fullness, eyes, smile, forehead bindi/kumkum or facial hair observed in photo",
+  "bodyBuild": "Authentic body volume and midsection/tummy profile (e.g. fuller medium-heavy adult build with soft rounded midsection/tummy paunch)",
+  "statureDesc": "Height/stature note appropriate to their role and build",
+  "structuredTraits": {
+    "bodyVolume": "lean | medium | broad_full | heavy_plus",
+    "tummyProfile": "flat | slight_tummy | visible_tummy | prominent_belly",
+    "faceFullness": "slim_angular | oval_balanced | soft_full_cheeks | round_full_submental",
+    "baseHeightRatio": 1.00,
+    "hairStyle": "short_brushed_up | short_side_part | short_fringe | medium_wavy | long_shoulder_swept",
+    "facialHair": "none | light_stubble | trimmed_beard | full_beard",
+    "landmarks": ["round_glasses", "rect_glasses", "forehead_bindi", "hairline_kumkum", "stud_earrings"]
+  }
 }
 
 Do not include markdown code fences, do not include any em-dashes. Output pure JSON only.`;
@@ -137,6 +148,7 @@ Do not include markdown code fences, do not include any em-dashes. Output pure J
               facialFeatures: parsed.facialFeatures || '',
               bodyBuild: parsed.bodyBuild || parsed.statureDesc || '',
               statureDesc: parsed.statureDesc || parsed.bodyBuild || '',
+              structuredTraits: parsed.structuredTraits || null,
               photoCount: photoList.length
             });
           }
