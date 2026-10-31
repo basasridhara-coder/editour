@@ -2745,7 +2745,6 @@ function openStudioCreditBadgeAction() {
   }
 }
 
-let _cachedInviteMp4File = null;
 let _cachedInviteGifFile = null;
 let _preloadInviteAssetsPromise = null;
 
@@ -2753,16 +2752,7 @@ function preloadAnimatedInviteLogoFiles() {
   if (_preloadInviteAssetsPromise) return _preloadInviteAssetsPromise;
   _preloadInviteAssetsPromise = (async () => {
     try {
-      const [mp4Res, gifRes] = await Promise.all([
-        fetch('/slant_invite_logo.mp4', { cache: 'force-cache' }).catch(() => null),
-        fetch('/slant_logo_animated.gif', { cache: 'force-cache' }).catch(() => null)
-      ]);
-      if (mp4Res && mp4Res.ok) {
-        const mp4Blob = await mp4Res.blob();
-        if (mp4Blob && mp4Blob.size > 0) {
-          _cachedInviteMp4File = new File([mp4Blob], 'slant-logo.mp4', { type: 'video/mp4' });
-        }
-      }
+      const gifRes = await fetch('/slant_logo_animated.gif', { cache: 'force-cache' }).catch(() => null);
       if (gifRes && gifRes.ok) {
         const gifBlob = await gifRes.blob();
         if (gifBlob && gifBlob.size > 0) {
@@ -2897,12 +2887,12 @@ async function shareSlantCommunityInvite() {
     }
   } catch (_) {}
 
-  if (!_cachedInviteMp4File && !_cachedInviteGifFile) {
+  if (!_cachedInviteGifFile) {
     await preloadAnimatedInviteLogoFiles();
   }
 
   if (navigator.share) {
-    const candidateFiles = [_cachedInviteMp4File, _cachedInviteGifFile].filter(Boolean);
+    const candidateFiles = [_cachedInviteGifFile].filter(Boolean);
     for (const logoFile of candidateFiles) {
       try {
         const payloadWithText = {
