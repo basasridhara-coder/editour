@@ -11872,9 +11872,6 @@ function autoIdentifyVisualProjectionsFromInput(immediate = false) {
         }
       }
       renderPolishVisualSubjects();
-      if (currentFp !== lastAiVisualsSourceFingerprint) {
-        scheduleSilentAiVisualRefresh();
-      }
       return;
     }
 
@@ -11909,9 +11906,6 @@ function autoIdentifyVisualProjectionsFromInput(immediate = false) {
       if (found >= 0) targetIdx = found;
     }
     selectPolishVisualSubject(targetIdx, true);
-    if (currentFp !== lastAiVisualsSourceFingerprint) {
-      scheduleSilentAiVisualRefresh();
-    }
   };
 
   if (immediate) {
