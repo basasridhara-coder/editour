@@ -1925,7 +1925,8 @@ ${validChronicleMoments.map((m, i) => `  * Moment 0${i + 1} (${m.title || 'Momen
       1) EXACTLY 4 PEOPLE TOTAL SHOWN FULL-BODY FROM HEAD TO TOE: (1st on far left) Adult Father Shridhar (5ft 10in / 178cm, 100% baseline height, in casual polo shirt with no lanyard, trousers, and shoes), (2nd from left) Adult Mother Aruna (5ft 4in / 162cm, 91% of Father's height — 6 inches shorter than Father, top of head at Father's eye/brow level, in kurta and sandals), (3rd from left) 11yo Pre-Teen Elder Son Gahan (4ft 8in / 142cm, 88% of Mother Aruna's height and 80% of Father's height — clearly 8 inches / 20cm SHORTER than Mother Aruna so the top of Gahan's head is strictly BELOW Mother's chin at her collarbone / upper-shoulder level, in a dark navy-blue t-shirt, knee-length denim shorts, and sneakers), and (4th on far right) 7yo Younger Son Rishu (4ft 2in / 127cm, 89% of Elder Brother Gahan's height and 78% of Mother's height — 6 inches / 15cm shorter than Gahan, in a bright mustard-yellow t-shirt, dark shorts, and sneakers) — STRICTLY NEVER 3 CHILDREN!
       2) FULL-BODY WALKING / STANDING SIDE BY SIDE ON THE SAME LEVEL GROUND LINE: All 4 family members must be drawn FULL-BODY FROM HEAD TO TOE with all 8 feet/shoes visibly planted on the same horizontal ground line (STRICTLY NEVER crop them at the thighs/waist and NEVER write "walking ahead" in front of the parents' legs!).
       3) STRICT PAIRWISE STATURE & HEAD-LEVEL LANDMARKS (ELDER SON IS SHORTER THAN MOTHER!): Always specify that 11yo Elder Son Gahan (142cm / 4ft 8in) is 88% of Mother Aruna's height (162cm / 5ft 4in) — clearly 8 inches / 20cm shorter than Mother so the top of Gahan's head reaches Mother's collarbone / upper-shoulder level, strictly BELOW Mother's chin (STRICTLY NEVER draw Gahan as tall as or taller than Mother Aruna!). And always specify that 7yo Younger Son Rishu (127cm / 4ft 2in) is 89% of Elder Brother Gahan's height (6 inches / 15cm shorter than Gahan) so the TOP OF RISHU'S HEAD RISES ABOVE GAHAN'S SHOULDERS to reach Gahan's CHIN / NECK level (strictly NEVER draw Rishu equal height with Gahan!).
-      4) DISTINCT COMPANION APPEARANCE IN NON-FAMILY VIGNETTES: When Shridhar meets a male friend or colleague in another vignette, give the friend a distinctly contrasting look (e.g., 38yo man with a full head of wavy black hair, clean-shaven face, eyeglasses, and a light olive or sky-blue button-down shirt) so the image model never clones two identical bearded Shridhars!
+      4) "KIDS" / "CHILDREN" / "KIDS FIGHTING" IN ANY MOMENT = STRICTLY THE 2 SONS (GAHAN 11YO BOY & RISHU 7YO BOY — BOTH BOYS, ZERO GIRLS): Whenever the narrator mentions "kids", "kids fighting", "boys", "children", or "siblings" in a moment, they are ALWAYS his two sons: 11-year-old Elder Son Gahan (4ft 8in / 142cm, pre-teen BOY in dark navy-blue t-shirt and knee-length denim shorts) and 7-year-old Younger Son Rishu (4ft 2in / 127cm, 6 inches shorter than Gahan with his head reaching Gahan's chin/neck level, younger BOY in mustard-yellow t-shirt and dark shorts). STRICTLY NEVER write gender-neutral "two young siblings" or "two children" and STRICTLY NEVER draw a girl or daughter!
+      5) DISTINCT COMPANION APPEARANCE IN NON-FAMILY VIGNETTES: When Shridhar meets a male friend or colleague in another vignette, give the friend a distinctly contrasting look (e.g., 38yo man with a full head of wavy black hair, clean-shaven face, eyeglasses, and a light olive or sky-blue button-down shirt) so the image model never clones two identical bearded Shridhars!
   * MANDATORY SITUATION-APPROPRIATE ATTIRE PER MOMENT (NEVER COPY ATTIRE BLINDLY ACROSS VIGNETTES):
     - Whenever the self/protagonist (Shridhar) or any recurring character appears across multiple vignettes, you MUST dress him/them specifically according to the situation, activity, and setting of THAT individual moment!
     - NEVER blindly copy or clone the outfit from one moment's vignette into another moment's vignette! For example: if one moment is a uniformed march/parade (such as RSS Pathasanchalan), dress him in the exact march uniform (crisp white full-sleeve shirt, khaki trousers, black RSS cap, bamboo danda); if another moment is working at a desk/laptop/cafe, dress him in smart casual workwear (such as a rolled-sleeve button-down shirt); if another moment is sports/exercise, dress him in athletic wear; if another moment is at home or a festive family moment, dress him in comfortable home or festive attire (such as a kurta or casual home shirt). Explicitly specify his distinct, context-appropriate outfit inside each vignette description!
@@ -3226,6 +3227,10 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
   if (!enhancedPrompt.includes('walking DIRECTLY BESIDE GAHAN shoulder-to-shoulder')) {
     enhancedPrompt = enhancedPrompt
       .replace(
+        /\btwo\s+(?:young\s+)?(?:Indian\s+)?(?:siblings|children|kids)(?:\s+aged\s+\d+\s+and\s+\d+)?/gi,
+        'his two sons (BOTH MALE BOYS, strictly NO girl or sister): 11-year-old elder son Gahan (4ft 8in / 142cm, sturdy Indian pre-teen boy with a gentle oval face and short black hair, wearing a dark navy-blue t-shirt, knee-length denim shorts, and sneakers) and 7-year-old younger son Rishu (4ft 2in / 127cm, 89% of Elder Brother Gahan\'s height — 6 inches / 15cm shorter than Gahan so the top of Rishu\'s head rises above Gahan\'s shoulders to reach Gahan\'s chin/neck level, strictly NEVER equal height with Gahan; younger Indian schoolboy with a round cheerful face and short black hair, wearing a mustard-yellow t-shirt, dark shorts, and sneakers)'
+      )
+      .replace(
         /\b(?:tall\s+)?(?:11(?:\s*-?\s*year\s*-?\s*old|yo)\s+)?(?:pre-teen\s+)?(?:elder\s+|older\s+)?(?:son\s+|brother\s+|boy\s+)?Gahan(?:\s*\([^)]*\))?(?:\s+in\s+navy(?:-blue)?\s+t-shirt)?(?:\s+reaching\s+Mother(?:'s)?\s+(?:ear|chin)(?:\/chin|\/ear)?)?/i,
         'Elder son Gahan (11yo Indian pre-teen boy with a gentle oval face, wearing a solid dark navy-blue t-shirt, knee-length denim shorts, and sneakers; 4ft 8in / 142cm, 88% of Mother Aruna\'s height and 80% of Father\'s height — clearly 8 inches / 20cm shorter than Mother Aruna so the top of Gahan\'s head is strictly BELOW Mother\'s chin at her collarbone / upper-shoulder level, strictly NEVER as tall as or taller than Mother!)'
       )
@@ -3271,8 +3276,12 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
   }
 
   // Enforce Elder & Younger Brother (Gahan & Rishu) strict 2-boy count & pairwise height alignment across ALL situations!
-  if (isIndianFamilyCast && hasTwoSons && !enhancedPrompt.includes('STRICT 2-BOY HEADCOUNT & NECK-HEIGHT LOCK')) {
-    enhancedPrompt += '. STRICT 2-BOY HEADCOUNT, ZOOMED-OUT WIDE-ANGLE FRAMING & PAIRWISE HEIGHT LOCK: For the family group scene, pull the camera back into a ZOOMED-OUT 24MM WIDE-ANGLE ESTABLISHING SHOT (18-20 feet away) with generous open walkway/park margins on the left, right, top, and bottom so all 4 full-body people fit effortlessly inside the center 65% of the vignette without anyone being clipped or dropped at the edge. Draw EXACTLY 4 FAMILY MEMBERS TOTAL (1 Adult Father Shridhar, 1 Adult Mother Aruna, and EXACTLY 2 SONS — 1 boy in dark navy-blue t-shirt and denim shorts, and 1 boy in mustard-yellow t-shirt and dark shorts; STRICTLY NEVER DRAW 3 CHILDREN OR DROP FATHER!). Arrange all 4 family members walking/standing SIDE BY SIDE in a single horizontal row on the same level ground line from left to right in strict descending height order, with the 2 Parents together on the left side and the 2 Brothers standing DIRECTLY BESIDE EACH OTHER shoulder-to-shoulder on the right side (never place Mother between the two boys, and never have the boys holding hands!): (1st on far left - 5ft 10in / 178cm, 100% reference height) Father Shridhar; (2nd from left beside Father - 5ft 4in / 162cm, 91% of Father\'s height) Mother Aruna standing at Father\'s eye/brow level; (3rd from left beside Mother - 4ft 8in / 142cm, 88% of Mother\'s height and 80% of Father\'s height) Elder Son Gahan (11yo Indian pre-teen boy with a gentle oval face in a dark navy-blue t-shirt and denim shorts, hands-free) who is clearly 8 inches / 20cm SHORTER than Mother Aruna so the top of Gahan\'s head is strictly BELOW Mother\'s chin at her collarbone / upper-shoulder level (STRICTLY NEVER draw Gahan as tall as or taller than Mother Aruna!); (4th on far right standing DIRECTLY BESIDE GAHAN shoulder-to-shoulder - 4ft 2in / 127cm, 89% of Gahan\'s height) Younger Son Rishu (7yo Indian schoolboy with a round cheerful face in a bright mustard-yellow t-shirt and dark shorts, hands-free) who is 6 inches / 15cm shorter than Gahan so the TOP OF RISHU\'S HEAD RISES ABOVE GAHAN\'S SHOULDERS to sit directly level with GAHAN\'S CHIN / NECK level (strictly NEVER draw Rishu\'s head below Gahan\'s shoulders or equal height with Gahan!).';
+  if (isIndianFamilyCast && hasTwoSons && !enhancedPrompt.includes('STRICT 2-BOY HEADCOUNT')) {
+    if (hasExplicitFamilyGroup || /\b(mother|wife|aruna)\b/i.test(enhancedPrompt)) {
+      enhancedPrompt += '. STRICT 2-BOY HEADCOUNT, ZOOMED-OUT WIDE-ANGLE FRAMING & PAIRWISE HEIGHT LOCK: For the family group scene, pull the camera back into a ZOOMED-OUT 24MM WIDE-ANGLE ESTABLISHING SHOT (18-20 feet away) with generous open walkway/park margins on the left, right, top, and bottom so all 4 full-body people fit effortlessly inside the center 65% of the vignette without anyone being clipped or dropped at the edge. Draw EXACTLY 4 FAMILY MEMBERS TOTAL (1 Adult Father Shridhar, 1 Adult Mother Aruna, and EXACTLY 2 SONS — 1 boy in dark navy-blue t-shirt and denim shorts, and 1 boy in mustard-yellow t-shirt and dark shorts; STRICTLY NEVER DRAW 3 CHILDREN OR DROP FATHER!). Arrange all 4 family members walking/standing SIDE BY SIDE in a single horizontal row on the same level ground line from left to right in strict descending height order, with the 2 Parents together on the left side and the 2 Brothers standing DIRECTLY BESIDE EACH OTHER shoulder-to-shoulder on the right side (never place Mother between the two boys, and never have the boys holding hands!): (1st on far left - 5ft 10in / 178cm, 100% reference height) Father Shridhar; (2nd from left beside Father - 5ft 4in / 162cm, 91% of Father\'s height) Mother Aruna standing at Father\'s eye/brow level; (3rd from left beside Mother - 4ft 8in / 142cm, 88% of Mother\'s height and 80% of Father\'s height) Elder Son Gahan (11yo Indian pre-teen boy with a gentle oval face in a dark navy-blue t-shirt and denim shorts, hands-free) who is clearly 8 inches / 20cm SHORTER than Mother Aruna so the top of Gahan\'s head is strictly BELOW Mother\'s chin at her collarbone / upper-shoulder level (STRICTLY NEVER draw Gahan as tall as or taller than Mother Aruna!); (4th on far right standing DIRECTLY BESIDE GAHAN shoulder-to-shoulder - 4ft 2in / 127cm, 89% of Gahan\'s height) Younger Son Rishu (7yo Indian schoolboy with a round cheerful face in a bright mustard-yellow t-shirt and dark shorts, hands-free) who is 6 inches / 15cm shorter than Gahan so the TOP OF RISHU\'S HEAD RISES ABOVE GAHAN\'S SHOULDERS to sit directly level with GAHAN\'S CHIN / NECK level (strictly NEVER draw Rishu\'s head below Gahan\'s shoulders or equal height with Gahan!).';
+    } else {
+      enhancedPrompt += '. STRICT 2-BOY HEADCOUNT, GENDER LOCK (BOTH BOYS, ZERO GIRLS) & PAIRWISE HEIGHT LOCK: The two children in the scene are STRICTLY 2 MALE BROTHERS (11-year-old Elder Son Gahan and 7-year-old Younger Son Rishu — STRICTLY BOTH BOYS, ZERO GIRLS, NO SISTER, NO FEMALE CHILD!): (1) Elder Son Gahan is an 11yo Indian pre-teen BOY (4ft 8in / 142cm tall, gentle oval face, thick short black hair, sturdy pre-teen build, wearing a solid dark navy-blue casual t-shirt and knee-length denim shorts), and (2) Younger Son Rishu is a 7yo Indian schoolboy (4ft 2in / 127cm tall — 89% of Elder Brother Gahan\'s height, noticeably 6 inches / 15cm shorter than Gahan so the TOP OF RISHU\'S HEAD RISES ABOVE GAHAN\'S SHOULDERS to reach GAHAN\'S CHIN / NECK level, strictly NEVER equal height with Gahan!, round cheerful face, neat short black hair, wearing a bright mustard-yellow t-shirt and dark shorts).';
+    }
   }
 
   // If 2+ activeCast members are present (even when Father is NOT in the picture, e.g. Mother + Elder Son, or Elder Son + Younger Son), enforce exact pairwise stature relative to the tallest member in the scene!
@@ -3321,6 +3330,11 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
   if (fatherIsSitting && rishuIsStanding) {
     // Father (178cm * 0.72 = 128cm effective height) vs Standing Rishu (127cm * 1.00 = 127cm effective height) -> Rishu's head is right at seated Father's head level!
     postureAdjustments.push('POSTURE-ADJUSTED HEIGHT OVERRIDE (SEATED FATHER vs STANDING YOUNGER SON): Because Father Shridhar is SEATED (~128cm effective height) while 7yo Younger Son Rishu is STANDING upright beside him (127cm effective height), standing Rishu\'s head is right at seated Father\'s eye/head level!');
+  }
+  const fatherIsKneeling = /\b(?:father|dad|shridhar)\b[^.;]{0,55}\b(?:kneel|kneels|kneeling|crouch|crouches|crouching|squat|squatting)\b|\b(?:kneel|kneels|kneeling|crouch|crouches|crouching)\b[^.;]{0,55}\b(?:father|dad|shridhar)\b/i.test(enhancedPrompt);
+  if (fatherIsKneeling && (gahanIsStanding || hasTwoSons)) {
+    // Kneeling Father (178cm * 0.64 = 114cm effective height) vs Standing Gahan (142cm) & Standing Rishu (127cm)
+    postureAdjustments.push('POSTURE-ADJUSTED HEIGHT OVERRIDE (KNEELING FATHER vs STANDING TWO SONS): While Father Shridhar kneels/crouches down (~114cm effective kneeling height) between his standing sons, keep the 6-inch / 15cm height gap between the two standing boys unmistakable: 11yo Elder Son Gahan (4ft 8in / 142cm, in dark navy-blue t-shirt & denim shorts) stands clearly taller than 7yo Younger Son Rishu (4ft 2in / 127cm, in mustard-yellow t-shirt & dark shorts, whose head reaches Gahan\'s chin/neck level).');
   }
   if (motherIsSitting && gahanIsStanding) {
     // Mother (162cm * 0.72 = 117cm effective height) vs Standing Gahan (142cm * 1.00 = 142cm effective height) -> Gahan is +21% taller than seated Mother!
@@ -4093,6 +4107,11 @@ function buildFallbackVisualSubjects(rawText = '', spark = '', scrapedTitle = ''
 
 function detectRelevantCastMembers(combined = '', cast = null, options = {}) {
   const c = String(combined || '').toLowerCase();
+  const isPersonalChronicle = Boolean(options && options.chronicleMode);
+  const isFirstPersonHouseholdKids = !(/\b(parent-teacher|ptm|second-grade|school days|teachers' meeting)\b/i.test(c)) && (
+    isPersonalChronicle
+    || /\b(my day|started my day|started with|at home|in our home|in the morning|this morning|witnessing kids|kids fighting|boys fighting|both kids|both boys|two kids|two boys)\b/i.test(c)
+  );
   const rawMembers = (cast && Array.isArray(cast.members)) ? cast.members : [];
   const members = rawMembers.filter(m => m && (
     (m.name && String(m.name).trim())
@@ -4108,12 +4127,15 @@ function detectRelevantCastMembers(combined = '', cast = null, options = {}) {
   }
 
   // Strictly require first-person possessives ("my/our") so general societal observations ("the whole family comes", "the kids") NEVER trigger personal family photos
-  const mentionsCollective = /\b(my family|our family|my whole family|our whole family|my entire family|our entire family|the four of us|all four of us|my kids|our kids|both my kids|both our kids|my sons|our sons|both my sons|both our sons|both my boys|both our boys|my boys|our boys|my children|our children|road trip with my family|vacation with my family|walk.*with my family)\b/i.test(c);
+  const mentionsCollective = /\b(my family|our family|my whole family|our whole family|my entire family|our entire family|the four of us|all four of us|road trip with my family|vacation with my family|walk.*with my family)\b/i.test(c);
   if (mentionsCollective) {
     return new Set(members.map(m => m.id));
   }
 
   const detected = new Set();
+  const mentionsBothSons = /\b(my kids|our kids|both my kids|both our kids|both kids|my sons|our sons|both my sons|both our sons|both sons|two sons|both my boys|both our boys|both boys|my boys|our boys|my children|our children|kids fighting|boys fighting|children fighting|siblings fighting)\b/i.test(c)
+    || (isFirstPersonHouseholdKids && /\b(kids|boys|sons|children|brothers)\b/i.test(c));
+
   members.forEach(m => {
     // 1. Vault Name Tokens (e.g. "shridhar")
     const nameStr = String(m.name || '').toLowerCase();
@@ -4138,17 +4160,17 @@ function detectRelevantCastMembers(combined = '', cast = null, options = {}) {
       }
     }
 
-    // 3. Role-specific semantic keywords (STRICTLY first-person personal possessives or explicit family names)
+    // 3. Role-specific semantic keywords
     if (m.relationship === 'elder_son') {
-      if (/\b(my elder son|my older son|my older boy|my first son|my 11-year-old|my 11yo|gahan|my kids|our kids|my boys|our boys|my sons|our sons|my children|our children)\b/i.test(c)) {
+      if (mentionsBothSons || /\b(my elder son|my older son|my older boy|my first son|my 11-year-old|my 11yo|elder son|older son|gahan)\b/i.test(c)) {
         detected.add(m.id);
       }
     } else if (m.relationship === 'younger_son') {
-      if (/\b(my younger son|my little son|my younger boy|my second son|my 7-year-old|my 7yo|rishu|my kids|our kids|my boys|our boys|my sons|our sons|my children|our children)\b/i.test(c)) {
+      if (mentionsBothSons || /\b(my younger son|my little son|my younger boy|my second son|my 7-year-old|my 7yo|younger son|little son|rishu)\b/i.test(c)) {
         detected.add(m.id);
       }
     } else if (m.relationship === 'spouse') {
-      if (/\b(my wife|my spouse|with my wife|aru|aruna)\b/i.test(c)) {
+      if (/\b(my wife|my spouse|with my wife|aru|aruna)\b/i.test(c) || (isPersonalChronicle && /\b(wife|spouse)\b/i.test(c))) {
         detected.add(m.id);
       }
     } else if (m.relationship === 'self') {
@@ -4161,12 +4183,12 @@ function detectRelevantCastMembers(combined = '', cast = null, options = {}) {
   // 4. First-Person Narrator Participation alongside detected spouse or children, OR Diary Chronicle mode
   const hasChild = detected.has('member_elder_son') || detected.has('member_younger_son');
   const hasSpouse = detected.has('member_mother');
-  const hasFirstPersonCoPresence = /\b(and me|with me|between .* and me|i remain|by my side|by his side|beside him|beside her|holding my hand|teaching him|walked with him|support him|i stood|standing beside|my home|my life|attended|launched)\b/i.test(c);
+  const hasFirstPersonCoPresence = /\b(and me|with me|between .* and me|i remain|by my side|by his side|beside him|beside her|holding my hand|teaching him|walked with him|support him|i stood|standing beside|my home|my life|my day|witnessing|helping|resolved|resolve|attended|launched)\b/i.test(c);
   if ((hasChild || hasSpouse) && hasFirstPersonCoPresence) {
     detected.add('member_father');
   }
 
-  if (options && options.chronicleMode && detected.size === 0) {
+  if (options && options.chronicleMode) {
     const selfMember = members.find(m => m.relationship === 'self') || { id: 'member_father' };
     detected.add(selfMember.id);
   }
@@ -4241,6 +4263,7 @@ function buildFamilyCastDirectives({ familyCast, activeCast, castStaging, userSl
     directives.push(`DAILY CHRONICLE PROTAGONIST, SITUATIONAL ATTIRE, POSTURE-ADJUSTED HEIGHTS & VIGNETTE-SPECIFIC CAST DIRECTIVE:
 - Narrator Identity & Body Volume Anchor: Whenever the narrator (Father Shridhar) appears in a vignette, portray him as a mid-age 40-year-old Indian man in his early 40s with warm medium-brown skin, a soft fuller round-oval face with full cheeks and natural under-chin/submental fullness, full head of thick short dark hair styled up at the crown, short light neat trimmed stubble beard, and ${fatherMidsectionPhrase} (strictly NOT old or elderly).
 - Mother / Wife (Aruna) Identity Anchor (WHEN PRESENT IN A VIGNETTE): Whenever Wife / Mother (Aruna) appears in a vignette, you MUST explicitly describe her exact authentic facial and hair traits in "illustrationPrompt": warm golden-brown wheatish skin, soft fuller round-to-oval maternal face with warm full cheeks and soft rounded chin (strictly NOT a narrow/sharp-chinned face), small black circular bindi centered on her forehead and subtle red kumkum at the upper forehead hairline, gentle dark eyes, side-parted thick voluminous wavy black hair swept forward over her left shoulder past her collarbone, and a healthy natural medium-to-full South Indian adult build (5ft 4in / 162cm, 91% of Father's 178cm height, clearly 8 inches / 20cm TALLER than 11yo Elder Son Gahan).
+- STRICT RULE FOR "KIDS", "CHILDREN", "BOYS", OR "KIDS FIGHTING" (BOTH ARE SONS — 2 MALE BROTHERS, ZERO GIRLS, 6-INCH HEIGHT GAP): Whenever any moment mentions "kids", "my kids", "kids fighting", "boys", "sons", or "children", those kids are STRICTLY the narrator's TWO SONS from the Family Vault — NEVER invent generic "two young siblings" and STRICTLY NEVER draw a girl or sister! You MUST explicitly name and describe BOTH BOYS in "illustrationPrompt" as: (1) 11-year-old Elder Son Gahan (BOY, 4ft 8in / 142cm, gentle oval face, thick short black hair, sturdy pre-teen build, wearing a dark navy-blue t-shirt and knee-length denim shorts) and (2) 7-year-old Younger Son Rishu (BOY, 4ft 2in / 127cm, 89% of Elder Brother Gahan's height — 6 inches / 15cm shorter than Gahan so the top of Rishu's head rises above Gahan's shoulders to reach Gahan's chin/neck level, round cheerful face, neat short black hair, wearing a mustard-yellow t-shirt and dark shorts) — BOTH BOYS (2 MALE BROTHERS, STRICTLY ZERO GIRLS!).
 - Framing Balance (Candid Mid-Shot vs. Group Scale) & Pairwise Relative Stature: Balance the shot framing between capturing the candid human moment and showing scale: for 1-2 person conversational, seated, or indoor moments (e.g. meeting a friend over chai, reading a book, working at a desk), use an expressive CANDID WAIST-UP / CHEST-UP MEDIUM SHOT (MID-SHOT) that highlights facial expressions, gestures, and upper-body/midsection build rather than forcing a distant full-body shot. Use a pulled-back full-body / wide shot (with generous left/right margins so nobody is clipped at the edge) ONLY when the moment involves active movement (like a family walk or march) or fitting 3-4+ standing people together. Whenever Elder Son Gahan and Younger Son Rishu appear, preserve their exact pairwise relative stature: Elder Son Gahan as a "11yo pre-teen boy with a gentle oval face (4ft 8in / 142cm — 88% of Mother Aruna's 162cm height and 80% of Father's 178cm height; clearly 8 inches / 20cm shorter than Mother Aruna so the top of Gahan's head is strictly BELOW Mother's chin at her collarbone / upper-shoulder level, strictly NEVER as tall as or taller than Mother!, wearing a dark navy-blue t-shirt, knee-length denim shorts, and sneakers)", and Younger Son Rishu as a "7yo younger schoolboy with a round cheerful face (4ft 2in / 127cm — 89% of Elder Brother Gahan's 142cm height, 6 inches / 15cm shorter than Gahan so the TOP OF RISHU'S HEAD RISES ABOVE GAHAN'S SHOULDERS to reach Gahan's CHIN / NECK level; strictly NEVER equal height with Gahan!, wearing a mustard-yellow t-shirt, dark shorts, and sneakers)".
 - POSTURE-ADJUSTED RELATIVE STATURE MATRIX (Action Multiplier x Actual Height):
   * Standing / Walking = 1.00x of base height | Leaning = 0.88x | Sitting on chair/sofa/bench = 0.72x (-28% height) | Kneeling/Crouching = 0.64x (-36%) | Sitting on floor = 0.52x (-48%).

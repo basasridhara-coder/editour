@@ -14709,12 +14709,27 @@ function detectRelevantCastMembers(text = '', cast = null) {
   }
 
   // Strictly require first-person possessives ("my/our") so general societal observations ("the whole family comes", "the kids") NEVER trigger personal family photos
-  const mentionsCollective = /\b(my family|our family|my whole family|our whole family|my entire family|our entire family|the four of us|all four of us|my kids|our kids|both my kids|both our kids|my sons|our sons|both my sons|both our sons|both my boys|both our boys|my boys|our boys|my children|our children|road trip with my family|vacation with my family|walk.*with my family)\b/i.test(combined);
+  const mentionsCollective = /\b(my family|our family|my whole family|our whole family|my entire family|our entire family|the four of us|all four of us|road trip with my family|vacation with my family|walk.*with my family)\b/i.test(combined);
   if (mentionsCollective) {
     return new Set(members.map(m => m.id));
   }
 
+  // Detect when the author refers to their own two sons ("my kids", "my boys", "my sons", or in a personal Chronicle / household context "kids fighting", "boys fighting", etc.)
+  const isSchoolOrSocietalObservation = /\b(parent-teacher|ptm|second-grade|school days|teachers' meeting|classroom|students in)\b/i.test(combined);
+  const isFirstPersonHouseholdKids = !isSchoolOrSocietalObservation && (
+    /\b(my kids|our kids|both my kids|both our kids|my sons|our sons|both my sons|both our sons|both my boys|both our boys|my boys|our boys|my children|our children|both boys|both sons|two sons|two boys)\b/i.test(combined) ||
+    (isDailyChronicleMode && /\b(kids|boys|sons|children|brothers)\b/i.test(combined)) ||
+    (/\b(my day|started with|at home|in the morning|helping resolve|witnessing)\b/i.test(combined) && /\b(kids fighting|boys fighting|kids arguing|kids playing|kids at home)\b/i.test(combined))
+  );
+
   const detected = new Set();
+  if (isFirstPersonHouseholdKids) {
+    const elder = members.find(m => m.relationship === 'elder_son');
+    const younger = members.find(m => m.relationship === 'younger_son');
+    if (elder) detected.add(elder.id);
+    if (younger) detected.add(younger.id);
+  }
+
   members.forEach(m => {
     // 1. Vault Name Tokens (e.g. "shridhar")
     const nameStr = String(m.name || '').toLowerCase();
@@ -14741,11 +14756,11 @@ function detectRelevantCastMembers(text = '', cast = null) {
 
     // 3. Role-specific semantic keywords (STRICTLY first-person personal possessives or explicit family names)
     if (m.relationship === 'elder_son') {
-      if (/\b(my elder son|my older son|my older boy|my first son|my 11-year-old|my 11yo|gahan|my kids|our kids|my boys|our boys|my sons|our sons|my children|our children)\b/i.test(combined)) {
+      if (isFirstPersonHouseholdKids || /\b(my elder son|my older son|my older boy|my first son|my 11-year-old|my 11yo|gahan|my kids|our kids|my boys|our boys|my sons|our sons|my children|our children)\b/i.test(combined)) {
         detected.add(m.id);
       }
     } else if (m.relationship === 'younger_son') {
-      if (/\b(my younger son|my little son|my younger boy|my second son|my 7-year-old|my 7yo|rishu|my kids|our kids|my boys|our boys|my sons|our sons|my children|our children)\b/i.test(combined)) {
+      if (isFirstPersonHouseholdKids || /\b(my younger son|my little son|my younger boy|my second son|my 7-year-old|my 7yo|rishu|my kids|our kids|my boys|our boys|my sons|our sons|my children|our children)\b/i.test(combined)) {
         detected.add(m.id);
       }
     } else if (m.relationship === 'spouse') {
@@ -14762,12 +14777,12 @@ function detectRelevantCastMembers(text = '', cast = null) {
   // 4. First-Person Narrator Participation alongside detected spouse or children, OR Diary Chronicle mode
   const hasChild = detected.has('member_elder_son') || detected.has('member_younger_son');
   const hasSpouse = detected.has('member_mother');
-  const hasFirstPersonCoPresence = /\b(and me|with me|between .* and me|i remain|by my side|by his side|beside him|beside her|holding my hand|teaching him|walked with him|support him|i stood|standing beside|my home|my life|attended|launched)\b/i.test(combined);
-  if ((hasChild || hasSpouse) && hasFirstPersonCoPresence) {
+  const hasFirstPersonCoPresence = /\b(and me|with me|between .* and me|i remain|by my side|by his side|beside him|beside her|holding my hand|teaching him|walked with him|support him|i stood|standing beside|my home|my life|my day|helping resolve|witnessing|attended|launched)\b/i.test(combined);
+  if ((hasChild || hasSpouse) && (hasFirstPersonCoPresence || isDailyChronicleMode)) {
     detected.add('member_father');
   }
 
-  if (detected.size === 0 && isDailyChronicleMode) {
+  if (isDailyChronicleMode) {
     const selfMember = members.find(m => m.relationship === 'self') || { id: 'member_father' };
     detected.add(selfMember.id);
   }
