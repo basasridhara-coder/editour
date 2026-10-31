@@ -10856,16 +10856,380 @@ function recordPolishSessionToLocalHistory(rawText, polishedText, counts, correc
 let currentPolishVisualSubjects = [];
 let selectedPolishVisualSubjectIdx = 0;
 let selectedPolishVisualSubject = null;
+let currentChronicleMomentProjections = [];
+let visualAutoIdentifyDebounceTimer = null;
+
+function getVisualConfidenceStorageKey() {
+  const email = (typeof getResolvedCreatorEmail === 'function' ? getResolvedCreatorEmail() : '') || (currentUser?.email || 'guest');
+  const cleanEmail = String(email || 'guest').trim().toLowerCase();
+  return `slant_visual_confidence_learning_v1_${cleanEmail}`;
+}
+
+function getVisualConfidenceLearningProfile() {
+  try {
+    const raw = localStorage.getItem(getVisualConfidenceStorageKey());
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object' && parsed.counts && typeof parsed.counts === 'object') {
+        return parsed;
+      }
+    }
+  } catch (_) {}
+  return {
+    counts: {
+      direct_action: 0,
+      warm_resolution: 0,
+      expressive_midshot: 0,
+      symbolic_focus: 0,
+      core_scene: 0,
+      core_contrast: 0,
+      editorial_metaphor: 0,
+      personal_family_cast: 0
+    },
+    totalApprovals: 0,
+    updatedAt: null
+  };
+}
+
+function applyLearnedConfidenceToOptions(options = []) {
+  if (!Array.isArray(options) || options.length === 0) return [];
+  const profile = getVisualConfidenceLearningProfile();
+  const counts = profile.counts || {};
+  let topArchetype = null;
+  let topCount = 0;
+  Object.entries(counts).forEach(([k, v]) => {
+    if (k !== 'personal_family_cast' && Number(v) > topCount) {
+      topCount = Number(v);
+      topArchetype = k;
+    }
+  });
+
+  const enriched = options.map((opt, idx) => {
+    const arch = String(opt.archetype || (idx === 0 ? 'core_scene' : (idx === 1 ? 'core_contrast' : 'editorial_metaphor')));
+    const baseConf = Number(opt.baseConfidence || opt.confidence) || (idx === 0 ? 91 : (idx === 1 ? 82 : 73));
+    const approvals = Math.max(0, Number(counts[arch]) || 0);
+    const familyApprovals = opt.isPersonalFamily ? Math.max(0, Number(counts.personal_family_cast) || 0) : 0;
+    const learnedBoost = Math.min(8, approvals * 2) + (topArchetype === arch && approvals >= 2 ? 2 : 0) + Math.min(3, familyApprovals);
+    const finalConf = Math.max(60, Math.min(99, Math.round(baseConf + learnedBoost)));
+    return {
+      ...opt,
+      archetype: arch,
+      baseConfidence: baseConf,
+      confidence: finalConf,
+      learnedApprovals: approvals
+    };
+  });
+
+  enriched.sort((a, b) => (b.confidence || 0) - (a.confidence || 0));
+  return enriched;
+}
+
+function recordVisualConfidenceApproval(sourceLabel = 'synthesis') {
+  try {
+    const profile = getVisualConfidenceLearningProfile();
+    profile.counts = profile.counts || {};
+    let recordedAny = false;
+
+    if (typeof isDailyChronicleMode !== 'undefined' && isDailyChronicleMode && Array.isArray(dailyChronicleMoments)) {
+      dailyChronicleMoments.forEach((m) => {
+        if (!m || !String(m.text || '').trim()) return;
+        const proj = m.preferredVisualProjection;
+        if (proj && proj.archetype) {
+          const arch = String(proj.archetype);
+          profile.counts[arch] = (Number(profile.counts[arch]) || 0) + 1;
+          recordedAny = true;
+          if (proj.isPersonalFamily || (Array.isArray(proj.castIds) && proj.castIds.some(id => id !== 'member_father'))) {
+            profile.counts.personal_family_cast = (Number(profile.counts.personal_family_cast) || 0) + 1;
+          }
+        }
+      });
+    } else if (selectedPolishVisualSubject) {
+      const arch = String(selectedPolishVisualSubject.archetype || 'core_scene');
+      profile.counts[arch] = (Number(profile.counts[arch]) || 0) + 1;
+      recordedAny = true;
+      if (selectedPolishVisualSubject.isPersonalFamily) {
+        profile.counts.personal_family_cast = (Number(profile.counts.personal_family_cast) || 0) + 1;
+      }
+    }
+
+    if (recordedAny) {
+      profile.totalApprovals = (Number(profile.totalApprovals) || 0) + 1;
+      profile.lastSource = sourceLabel;
+      profile.updatedAt = new Date().toISOString();
+      localStorage.setItem(getVisualConfidenceStorageKey(), JSON.stringify(profile));
+    }
+  } catch (_) {}
+}
+
+function buildClientFallbackMomentProjections(moments = []) {
+  const cast = (typeof familyCastProfileCache !== 'undefined' && familyCastProfileCache)
+    ? familyCastProfileCache
+    : (typeof getDefaultClientFamilyCast === 'function' ? getDefaultClientFamilyCast() : { members: [] });
+  const castMembers = Array.isArray(cast?.members) ? cast.members : [];
+  const fatherMember = castMembers.find(m => m.relationship === 'self' || m.id === 'member_father');
+  const motherMember = castMembers.find(m => m.relationship === 'spouse' || m.id === 'member_mother');
+  const elderSonMember = castMembers.find(m => m.relationship === 'elder_son' || m.id === 'member_elder_son');
+  const youngerSonMember = castMembers.find(m => m.relationship === 'younger_son' || m.id === 'member_younger_son');
+
+  const fatherName = fatherMember?.name || 'Shridhar';
+  const motherName = motherMember?.name || 'Aruna';
+  const elderName = elderSonMember?.name || 'Gahan';
+  const youngerName = youngerSonMember?.name || 'Rishu';
+
+  return (moments || []).map((m, idx) => {
+    const mNum = idx + 1;
+    const mTitle = String(m.title || `Moment 0${mNum}`).trim();
+    const mText = String(m.text || '').trim();
+    const lower = `${mTitle} ${mText}`.toLowerCase();
+
+    const mentionsKids = /\b(kids|boys|sons|children|brothers|siblings|gahan|rishu)\b/i.test(lower);
+    const mentionsFighting = /\b(fight|fighting|arguing|argument|resolve|resolving|quarrel|dispute|bickering)\b/i.test(lower);
+    const mentionsWife = /\b(wife|spouse|aruna|aru)\b/i.test(lower);
+    const mentionsProductLaunch = /\b(launch|launched|product|release|shipped|deploy|milestone|witnessing)\b/i.test(lower);
+    const mentionsMeeting = /\b(meeting|meetings|call|discussion|office|team|work|desk|laptop|presentation|attended)\b/i.test(lower);
+    const mentionsDriveOrWalk = /\b(walk|walking|morning walk|drive|driving|car|road|park|coffee|tea)\b/i.test(lower);
+
+    const castIds = ['member_father'];
+    if (mentionsKids) {
+      castIds.push('member_elder_son', 'member_younger_son');
+    }
+    if (mentionsWife) {
+      castIds.push('member_mother');
+    }
+
+    let rawOptions = [];
+    if (mentionsKids && mentionsFighting) {
+      rawOptions = [
+        {
+          id: `m${mNum}_opt1`,
+          archetype: 'direct_action',
+          badge: '★ Default • Direct Action',
+          baseConfidence: 95,
+          title: `Father Mediating Between Both Sons (${elderName} 11yo & ${youngerName} 7yo)`,
+          description: `Father (${fatherName}) kneeling warmly between his two sons — 11yo elder boy ${elderName} (4'8" / 142cm) and shorter 7yo younger boy ${youngerName} (4'2" / 127cm) — in the sunlit living room, calmly resolving their sibling dispute (strictly two boys with a 6-inch height gap).`,
+          castIds: ['member_father', 'member_elder_son', 'member_younger_son'],
+          isPersonalFamily: true
+        },
+        {
+          id: `m${mNum}_opt2`,
+          archetype: 'warm_resolution',
+          badge: '🤝 Warm Resolution',
+          baseConfidence: 84,
+          title: `Peace Restored — Brothers Reconciling (${elderName} & ${youngerName})`,
+          description: `Both brothers (11yo boy ${elderName} and shorter 7yo boy ${youngerName}) shaking hands or sharing a calm reconciled smile as Father (${fatherName}) guides them to make peace at home.`,
+          castIds: ['member_father', 'member_elder_son', 'member_younger_son'],
+          isPersonalFamily: true
+        },
+        {
+          id: `m${mNum}_opt3`,
+          archetype: 'symbolic_focus',
+          badge: '🎨 Symbolic Focus',
+          baseConfidence: 72,
+          title: `Scattered Toys & Father's Calming Hand on Both Boys`,
+          description: `Close-up narrative angle focusing on two boys' shared toys on the rug and Father (${fatherName}) placing a reassuring hand on his two sons (${elderName} 11yo boy & ${youngerName} 7yo boy) in warm morning light.`,
+          castIds: ['member_father', 'member_elder_son', 'member_younger_son'],
+          isPersonalFamily: true
+        }
+      ];
+    } else if (mentionsKids) {
+      rawOptions = [
+        {
+          id: `m${mNum}_opt1`,
+          archetype: 'direct_action',
+          badge: '★ Default • Family Scene',
+          baseConfidence: 94,
+          title: `Father with Both Sons (${elderName} 11yo & ${youngerName} 7yo)`,
+          description: `Father (${fatherName}) sharing the moment with his two sons — 11yo boy ${elderName} (4'8") and shorter 7yo boy ${youngerName} (4'2") — in an authentic Indian home setting: "${mText.slice(0, 80)}".`,
+          castIds,
+          isPersonalFamily: true
+        },
+        {
+          id: `m${mNum}_opt2`,
+          archetype: 'expressive_midshot',
+          badge: '✨ Expressive Mid-Shot',
+          baseConfidence: 83,
+          title: `Candid Interaction Between ${elderName}, ${youngerName} & Father`,
+          description: `Warm candid mid-shot focusing on facial expressions and natural camaraderie between Father (${fatherName}) and both boys (${elderName} 11yo & ${youngerName} 7yo).`,
+          castIds,
+          isPersonalFamily: true
+        },
+        {
+          id: `m${mNum}_opt3`,
+          archetype: 'symbolic_focus',
+          badge: '🎨 Atmospheric Detail',
+          baseConfidence: 71,
+          title: `Warm Household Atmosphere & Shared Activity`,
+          description: `Wide atmospheric vignette of the room and everyday objects framing Father and his two sons (${elderName} & ${youngerName}).`,
+          castIds,
+          isPersonalFamily: true
+        }
+      ];
+    } else if (mentionsProductLaunch) {
+      rawOptions = [
+        {
+          id: `m${mNum}_opt1`,
+          archetype: 'direct_action',
+          badge: '★ Default • Milestone Scene',
+          baseConfidence: 94,
+          title: `Witnessing the Product Launch Go Live`,
+          description: `Father (${fatherName}) at his modern workspace with a glowing live product launch dashboard on screen, smiling with quiet pride and fulfillment.`,
+          castIds: ['member_father'],
+          isPersonalFamily: true
+        },
+        {
+          id: `m${mNum}_opt2`,
+          archetype: 'expressive_midshot',
+          badge: '🚀 Team & Launch Momentum',
+          baseConfidence: 83,
+          title: `Collaborative Launch Celebration Moment`,
+          description: `Father (${fatherName}) observing the live rollout metrics alongside colleagues/screens in a sunlit office studio.`,
+          castIds: ['member_father'],
+          isPersonalFamily: true
+        },
+        {
+          id: `m${mNum}_opt3`,
+          archetype: 'symbolic_focus',
+          badge: '🎨 Symbolic Focus',
+          baseConfidence: 73,
+          title: `Close-Up on Live Release Screen & Coffee Mug`,
+          description: `Focused editorial detail of the live product release interface reflecting in ${fatherName}'s glasses with warm daylight.`,
+          castIds: ['member_father'],
+          isPersonalFamily: true
+        }
+      ];
+    } else if (mentionsMeeting) {
+      rawOptions = [
+        {
+          id: `m${mNum}_opt1`,
+          archetype: 'direct_action',
+          badge: '★ Default • Core Scene',
+          baseConfidence: 93,
+          title: `Engaged in Focused Work Meeting`,
+          description: `Father (${fatherName}) actively participating in a thoughtful meeting at a contemporary desk with notebook, laptop, and warm architectural lighting.`,
+          castIds: ['member_father'],
+          isPersonalFamily: true
+        },
+        {
+          id: `m${mNum}_opt2`,
+          archetype: 'expressive_midshot',
+          badge: '💬 Candid Dialogue Angle',
+          baseConfidence: 82,
+          title: `Candid Mid-Shot Articulating a Key Point`,
+          description: `Expressive mid-shot of ${fatherName} gesturing naturally while listening and contributing during the session.`,
+          castIds: ['member_father'],
+          isPersonalFamily: true
+        },
+        {
+          id: `m${mNum}_opt3`,
+          archetype: 'symbolic_focus',
+          badge: '🎨 Symbolic Focus',
+          baseConfidence: 71,
+          title: `Open Notebook, Pen & Meeting Screen`,
+          description: `Quiet editorial composition emphasizing handwritten notes, laptop call view, and ${fatherName}'s composed presence.`,
+          castIds: ['member_father'],
+          isPersonalFamily: true
+        }
+      ];
+    } else if (mentionsDriveOrWalk) {
+      rawOptions = [
+        {
+          id: `m${mNum}_opt1`,
+          archetype: 'direct_action',
+          badge: '★ Default • Core Scene',
+          baseConfidence: 93,
+          title: `Outdoors Moment: ${mTitle}`,
+          description: `Father (${fatherName})${mentionsWife ? ` and Mother (${motherName})` : ''} in a natural outdoor setting capturing: "${mText.slice(0, 85)}".`,
+          castIds,
+          isPersonalFamily: true
+        },
+        {
+          id: `m${mNum}_opt2`,
+          archetype: 'expressive_midshot',
+          badge: '🌤️ Candid Stride & Expression',
+          baseConfidence: 82,
+          title: `Warm Golden-Hour Mid-Shot`,
+          description: `Close expressive framing of ${fatherName} taking in the calm surroundings and fresh air.`,
+          castIds,
+          isPersonalFamily: true
+        },
+        {
+          id: `m${mNum}_opt3`,
+          archetype: 'symbolic_focus',
+          badge: '🎨 Symbolic Focus',
+          baseConfidence: 72,
+          title: `Pathway, Sunlight & Quiet Reflection`,
+          description: `Poetic wide angle emphasizing tree-lined light, long shadows, and unhurried pace.`,
+          castIds,
+          isPersonalFamily: true
+        }
+      ];
+    } else {
+      const shortSnippet = mText.length > 70 ? mText.slice(0, 67) + '...' : (mText || mTitle);
+      rawOptions = [
+        {
+          id: `m${mNum}_opt1`,
+          archetype: 'direct_action',
+          badge: '★ Default • Direct Scene',
+          baseConfidence: 92,
+          title: `Literal Moment Scene: ${mTitle}`,
+          description: `Authentic vignette directly illustrating: "${shortSnippet}" with ${fatherName}${mentionsWife ? ` & ${motherName}` : ''}.`,
+          castIds,
+          isPersonalFamily: true
+        },
+        {
+          id: `m${mNum}_opt2`,
+          archetype: 'expressive_midshot',
+          badge: '✨ Expressive Mid-Shot',
+          baseConfidence: 81,
+          title: `Character & Emotion Focus`,
+          description: `Warm close-up on ${fatherName}'s expression and human connection during "${shortSnippet}".`,
+          castIds,
+          isPersonalFamily: true
+        },
+        {
+          id: `m${mNum}_opt3`,
+          archetype: 'symbolic_focus',
+          badge: '🎨 Symbolic Focus',
+          baseConfidence: 71,
+          title: `Atmospheric Objects & Setting`,
+          description: `Editorial still-life and environmental mood representing "${shortSnippet}".`,
+          castIds,
+          isPersonalFamily: true
+        }
+      ];
+    }
+
+    const rankedOptions = applyLearnedConfidenceToOptions(rawOptions);
+    // Preserve user's explicit selection if they already chose an option for this moment
+    const existingPref = dailyChronicleMoments[idx]?.preferredVisualProjection;
+    let selectedOptIdx = 0;
+    if (existingPref && existingPref._userExplicitlyTapped) {
+      const matchIdx = rankedOptions.findIndex(o => o.archetype === existingPref.archetype || o.id === existingPref.id);
+      if (matchIdx >= 0) selectedOptIdx = matchIdx;
+    }
+
+    return {
+      momentIndex: mNum,
+      momentTitle: mTitle,
+      momentText: mText,
+      selectedOptionIdx: selectedOptIdx,
+      options: rankedOptions
+    };
+  });
+}
 
 function buildClientFallbackVisualSubjects(rawText = '', spark = '', scrapedTitle = '') {
   const combined = `${rawText} ${spark} ${scrapedTitle}`.toLowerCase();
   const isPersonalFamily = /\b(my family|our family|my whole family|our whole family|my kids|our kids|my sons|our sons|my boys|our boys|my children|our children|my wife|my elder son|my younger son|gahan|rishu|aruna|shridhar)\b/i.test(combined);
 
+  let rawList = [];
   if (/\b(parent-teacher|ptm|report card|marks|second-grade|school days|teachers' meeting|school|classroom)\b/i.test(combined)) {
-    return [
+    rawList = [
       {
         id: 'subject_1',
+        archetype: 'core_scene',
         badge: '★ Best Fit • Core Scene',
+        baseConfidence: 95,
         title: 'Packed School Corridor on Parent-Teacher Meeting Day',
         description: 'Bustling Indian school veranda overflowing with anxious parents, grandparents, and children queuing outside a classroom door.',
         cues: [
@@ -10879,7 +11243,9 @@ function buildClientFallbackVisualSubjects(rawText = '', spark = '', scrapedTitl
       },
       {
         id: 'subject_2',
+        archetype: 'core_contrast',
         badge: '⚡ Core Contrast',
+        baseConfidence: 84,
         title: 'Debating 2nd-Grade Marks in the Age of AI',
         description: 'Parents intensely debating single-digit elementary marks with a teacher while modern AI quietly transforms the world outside.',
         cues: [
@@ -10893,7 +11259,9 @@ function buildClientFallbackVisualSubjects(rawText = '', spark = '', scrapedTitl
       },
       {
         id: 'subject_3',
+        archetype: 'editorial_metaphor',
         badge: '🎨 Editorial Metaphor',
+        baseConfidence: 73,
         title: 'Carefree Schoolkids Walking Home Unburdened',
         description: 'Smiling school children walking home freely with satchels, contrasting nostalgic trust in education against modern parental anxiety.',
         cues: [
@@ -10906,81 +11274,186 @@ function buildClientFallbackVisualSubjects(rawText = '', spark = '', scrapedTitl
         isPersonalFamily: false
       }
     ];
+  } else {
+    const firstSentence = String(rawText || scrapedTitle || 'Core Editorial Scene').split(/[.!?\n]/)[0].trim();
+    const shortTopic = firstSentence.length > 52 ? firstSentence.slice(0, 49) + '...' : firstSentence;
+
+    rawList = [
+      {
+        id: 'subject_1',
+        archetype: 'core_scene',
+        badge: '★ Best Fit • Core Scene',
+        baseConfidence: 93,
+        title: isPersonalFamily ? `Personal Family Scene: ${shortTopic}` : `Real-World Scene: ${shortTopic}`,
+        description: isPersonalFamily
+          ? `Authentic family moment grounded directly in: "${shortTopic}"`
+          : `Concrete real-world scene depicting the core subject of: "${shortTopic}"`,
+        cues: [
+          shortTopic,
+          'Authentic Real-World Contextual Details',
+          'Central Narrative Tension in Scene',
+          `${creatorCountryContext?.name || 'Indian'} Real-World Setting & Architecture`,
+          'Natural Editorial Daylight and Chiaroscuro Depth'
+        ],
+        isPersonalFamily
+      },
+      {
+        id: 'subject_2',
+        archetype: 'core_contrast',
+        badge: '⚡ Core Contrast',
+        baseConfidence: 82,
+        title: 'The Central Tension & Contrast',
+        description: 'Visualizing the two opposing forces or irony highlighted in your perspective.',
+        cues: [
+          `Opposing Forces in ${shortTopic}`,
+          'Symbolic Contrast of Old vs New Reality',
+          'Friction Between Convention and Reality',
+          `Editorial Split-Perspective Scene in ${creatorCountryContext?.name || 'India'}`,
+          'High-Contrast Dramatic Editorial Lighting'
+        ],
+        isPersonalFamily: false
+      },
+      {
+        id: 'subject_3',
+        archetype: 'editorial_metaphor',
+        badge: '🎨 Editorial Metaphor',
+        baseConfidence: 72,
+        title: 'Symbolic Editorial Illustration',
+        description: 'An evocative broadsheet metaphor capturing the lasting takeaway of your slant.',
+        cues: [
+          `Symbolic Metaphor for ${shortTopic}`,
+          'Focused Editorial Object & Human Gesture',
+          'Quiet Conviction Against Everyday Noise',
+          'Minimalist Broadsheet Composition',
+          'Warm Golden-Hour Rim Lighting'
+        ],
+        isPersonalFamily: false
+      }
+    ];
   }
 
-  const firstSentence = String(rawText || scrapedTitle || 'Core Editorial Scene').split(/[.!?\n]/)[0].trim();
-  const shortTopic = firstSentence.length > 52 ? firstSentence.slice(0, 49) + '...' : firstSentence;
-
-  return [
-    {
-      id: 'subject_1',
-      badge: '★ Best Fit • Core Scene',
-      title: isPersonalFamily ? `Personal Family Scene: ${shortTopic}` : `Real-World Scene: ${shortTopic}`,
-      description: isPersonalFamily
-        ? `Authentic family moment grounded directly in: "${shortTopic}"`
-        : `Concrete real-world scene depicting the core subject of: "${shortTopic}"`,
-      cues: [
-        shortTopic,
-        'Authentic Real-World Contextual Details',
-        'Central Narrative Tension in Scene',
-        `${creatorCountryContext?.name || 'Indian'} Real-World Setting & Architecture`,
-        'Natural Editorial Daylight and Chiaroscuro Depth'
-      ],
-      isPersonalFamily
-    },
-    {
-      id: 'subject_2',
-      badge: '⚡ Core Contrast',
-      title: 'The Central Tension & Contrast',
-      description: 'Visualizing the two opposing forces or irony highlighted in your perspective.',
-      cues: [
-        `Opposing Forces in ${shortTopic}`,
-        'Symbolic Contrast of Old vs New Reality',
-        'Friction Between Convention and Reality',
-        `Editorial Split-Perspective Scene in ${creatorCountryContext?.name || 'India'}`,
-        'High-Contrast Dramatic Editorial Lighting'
-      ],
-      isPersonalFamily: false
-    },
-    {
-      id: 'subject_3',
-      badge: '🎨 Editorial Metaphor',
-      title: 'Symbolic Editorial Illustration',
-      description: 'An evocative broadsheet metaphor capturing the lasting takeaway of your slant.',
-      cues: [
-        `Symbolic Metaphor for ${shortTopic}`,
-        'Focused Editorial Object & Human Gesture',
-        'Quiet Conviction Against Everyday Noise',
-        'Minimalist Broadsheet Composition',
-        'Warm Golden-Hour Rim Lighting'
-      ],
-      isPersonalFamily: false
-    }
-  ];
+  return applyLearnedConfidenceToOptions(rawList);
 }
 
 function renderPolishVisualSubjects() {
   const picker = document.getElementById('polishVisualSubjectPicker');
   const listEl = document.getElementById('polishVisualSubjectCardsList');
   const statusPill = document.getElementById('polishVisualSubjectStatusPill');
+  const headerTitle = document.getElementById('polishVsHeaderTitle');
+  const headerSubtitle = document.getElementById('polishVsHeaderSubtitle');
   if (!picker || !listEl) return;
 
+  const isChronicle = (creatorSelectedSource === 'inner_voice' && typeof isDailyChronicleMode !== 'undefined' && isDailyChronicleMode);
+  const learningProfile = getVisualConfidenceLearningProfile();
+  const totalLearned = Number(learningProfile.totalApprovals) || 0;
+
+  if (isChronicle) {
+    if (!Array.isArray(currentChronicleMomentProjections) || currentChronicleMomentProjections.length === 0) {
+      picker.style.display = 'none';
+      return;
+    }
+
+    picker.style.display = 'flex';
+    if (headerTitle) {
+      headerTitle.textContent = 'PER-MOMENT VISUAL SCENE PROJECTIONS (2–3 OPTIONS EACH)';
+    }
+    if (headerSubtitle) {
+      headerSubtitle.textContent = totalLearned > 0
+        ? `Default auto-selected by confidence score (🧠 adapted from ${totalLearned} approval${totalLearned > 1 ? 's' : ''}) — tap any option per moment to switch:`
+        : 'Default auto-selected by confidence score — tap any visual option per moment if you want a different scene projection:';
+    }
+    if (statusPill) {
+      statusPill.textContent = `★ ${currentChronicleMomentProjections.length} Moment${currentChronicleMomentProjections.length > 1 ? 's' : ''} Tuned`;
+    }
+
+    listEl.innerHTML = currentChronicleMomentProjections.map((mp, mIdx) => {
+      const mNumStr = String(mp.momentIndex || (mIdx + 1)).padStart(2, '0');
+      const snippet = mp.momentText
+        ? (mp.momentText.length > 68 ? mp.momentText.slice(0, 65) + '...' : mp.momentText)
+        : (mp.momentTitle || `Moment ${mNumStr}`);
+      const selIdx = Number.isFinite(mp.selectedOptionIdx) ? mp.selectedOptionIdx : 0;
+      const options = Array.isArray(mp.options) ? mp.options : [];
+
+      const cardsHtml = options.map((opt, oIdx) => {
+        const isSelected = (oIdx === selIdx);
+        const isDefaultTop = (oIdx === 0);
+        const confVal = Number(opt.confidence) || (oIdx === 0 ? 94 : (oIdx === 1 ? 83 : 72));
+        const learnedCount = Number(opt.learnedApprovals) || 0;
+        const badgeText = isDefaultTop
+          ? (opt.badge && opt.badge.includes('Default') ? opt.badge : `★ Default • ${opt.badge || 'Best Fit'}`)
+          : (opt.badge || `Option ${oIdx + 1}`).replace(/^★\s*Default\s*•\s*/i, '');
+
+        return `
+          <button type="button" class="polish-vs-card ${isSelected ? 'active' : ''}" onclick="selectChronicleMomentVisualOption(${mIdx}, ${oIdx})">
+            <div class="polish-vs-card-top">
+              <div class="polish-vs-badges-wrap">
+                <span class="polish-vs-badge">${escapeHtml(badgeText)}</span>
+                <span class="polish-vs-confidence-pill">${confVal}% Confidence</span>
+                ${learnedCount > 0 ? `<span class="polish-vs-learned-tag" title="Confidence boosted from ${learnedCount} past approval(s)">🧠 +Learned (${learnedCount})</span>` : ''}
+              </div>
+              <span class="polish-vs-check">${isSelected ? '✓ Active for Vignette ' + mNumStr : 'Tap to select'}</span>
+            </div>
+            <div class="polish-vs-card-title">${escapeHtml(opt.title || '')}</div>
+            <div class="polish-vs-card-desc">${escapeHtml(opt.description || '')}</div>
+          </button>
+        `;
+      }).join('');
+
+      return `
+        <div class="polish-moment-group">
+          <div class="polish-moment-group-header">
+            <div class="polish-moment-group-left">
+              <span class="polish-moment-badge">MOMENT ${mNumStr}</span>
+              <span class="polish-moment-snippet" title="${escapeHtml(mp.momentText || '')}">${escapeHtml(snippet)}</span>
+            </div>
+          </div>
+          <div class="polish-vs-cards-list">
+            ${cardsHtml}
+          </div>
+        </div>
+      `;
+    }).join('');
+    return;
+  }
+
+  // Regular Post mode (Web Link / Video / Inner Voice Single Reflection)
   if (!Array.isArray(currentPolishVisualSubjects) || currentPolishVisualSubjects.length === 0) {
     picker.style.display = 'none';
     return;
   }
 
   picker.style.display = 'flex';
+  if (headerTitle) {
+    headerTitle.textContent = 'CORE SCENE VISUAL TO PROJECT';
+  }
+  if (headerSubtitle) {
+    headerSubtitle.textContent = totalLearned > 0
+      ? `Default selected by confidence score (🧠 adapted from ${totalLearned} approval${totalLearned > 1 ? 's' : ''}) — tap any visual option to change:`
+      : 'Default selected by confidence score — tap any visual option if you want a different scene representation:';
+  }
+  const activeVs = currentPolishVisualSubjects[selectedPolishVisualSubjectIdx] || currentPolishVisualSubjects[0];
   if (statusPill) {
-    statusPill.textContent = `✓ Option ${selectedPolishVisualSubjectIdx + 1} Active`;
+    const activeConf = Number(activeVs?.confidence) || 93;
+    statusPill.textContent = `✓ Option ${selectedPolishVisualSubjectIdx + 1} (${activeConf}% Conf.)`;
   }
 
   listEl.innerHTML = currentPolishVisualSubjects.map((vs, idx) => {
     const isSelected = (idx === selectedPolishVisualSubjectIdx);
+    const isDefaultTop = (idx === 0);
+    const confVal = Number(vs.confidence) || (idx === 0 ? 94 : (idx === 1 ? 83 : 72));
+    const learnedCount = Number(vs.learnedApprovals) || 0;
+    const badgeText = isDefaultTop
+      ? (vs.badge && vs.badge.includes('Default') ? vs.badge : `★ Default • ${(vs.badge || 'Core Scene').replace(/^★\s*/, '')}`)
+      : (vs.badge || `Option ${idx + 1}`).replace(/^★\s*Best Fit\s*•\s*/i, '');
+
     return `
       <button type="button" class="polish-vs-card ${isSelected ? 'active' : ''}" onclick="selectPolishVisualSubject(${idx})">
         <div class="polish-vs-card-top">
-          <span class="polish-vs-badge">${escapeHtml(vs.badge || `Option ${idx + 1}`)}</span>
+          <div class="polish-vs-badges-wrap">
+            <span class="polish-vs-badge">${escapeHtml(badgeText)}</span>
+            <span class="polish-vs-confidence-pill">${confVal}% Confidence</span>
+            ${learnedCount > 0 ? `<span class="polish-vs-learned-tag" title="Confidence boosted from ${learnedCount} past approval(s)">🧠 +Learned (${learnedCount})</span>` : ''}
+          </div>
           <span class="polish-vs-check">${isSelected ? '✓ Selected for Poster Visual' : 'Tap to use'}</span>
         </div>
         <div class="polish-vs-card-title">${escapeHtml(vs.title || '')}</div>
@@ -10990,10 +11463,53 @@ function renderPolishVisualSubjects() {
   }).join('');
 }
 
+function selectChronicleMomentVisualOption(momentIdx, optIdx, silent = false) {
+  if (!Array.isArray(currentChronicleMomentProjections) || !currentChronicleMomentProjections[momentIdx]) return;
+  const group = currentChronicleMomentProjections[momentIdx];
+  if (!Array.isArray(group.options) || !group.options[optIdx]) return;
+
+  group.selectedOptionIdx = optIdx;
+  const chosen = {
+    ...group.options[optIdx],
+    _userExplicitlyTapped: !silent
+  };
+
+  if (Array.isArray(dailyChronicleMoments) && dailyChronicleMoments[momentIdx]) {
+    dailyChronicleMoments[momentIdx].preferredVisualProjection = chosen;
+  }
+
+  // Sync active Family Cast members across all chronicle moments' selected projections
+  if (!window._userManuallyToggledCast && typeof activeCastMemberIds !== 'undefined' && activeCastMemberIds instanceof Set) {
+    activeCastMemberIds.clear();
+    activeCastMemberIds.add('member_father');
+    currentChronicleMomentProjections.forEach((mp) => {
+      const sel = mp.options && mp.options[mp.selectedOptionIdx || 0];
+      if (sel && Array.isArray(sel.castIds)) {
+        sel.castIds.forEach(id => activeCastMemberIds.add(id));
+      }
+    });
+    if (typeof renderFamilyCastStagingUI === 'function') {
+      renderFamilyCastStagingUI();
+    }
+  }
+
+  renderPolishVisualSubjects();
+  if (!silent && typeof showTemporaryToast === 'function') {
+    const mNumStr = String(group.momentIndex || (momentIdx + 1)).padStart(2, '0');
+    showTemporaryToast(`🎨 Moment ${mNumStr} visual set: "${chosen.title}" (${chosen.confidence || 90}% confidence)`);
+  }
+  if (typeof evaluateSmartRegenScopeAutoSwitch === 'function') {
+    evaluateSmartRegenScopeAutoSwitch();
+  }
+}
+
 function selectPolishVisualSubject(idx, silent = false) {
   if (!Array.isArray(currentPolishVisualSubjects) || !currentPolishVisualSubjects[idx]) return;
   selectedPolishVisualSubjectIdx = idx;
-  selectedPolishVisualSubject = currentPolishVisualSubjects[idx];
+  selectedPolishVisualSubject = {
+    ...currentPolishVisualSubjects[idx],
+    _userExplicitlyTapped: !silent
+  };
 
   const styleCue = creatorCharacterRepresentation === 'exact'
     ? 'Direct Unedited Source Photo'
@@ -11026,7 +11542,159 @@ function selectPolishVisualSubject(idx, silent = false) {
 
   renderPolishVisualSubjects();
   if (!silent && typeof showTemporaryToast === 'function') {
-    showTemporaryToast(`🎨 Visual Subject set: "${selectedPolishVisualSubject.title}"`);
+    showTemporaryToast(`🎨 Core Visual set: "${selectedPolishVisualSubject.title}" (${selectedPolishVisualSubject.confidence || 92}% confidence)`);
+  }
+  if (typeof evaluateSmartRegenScopeAutoSwitch === 'function') {
+    evaluateSmartRegenScopeAutoSwitch();
+  }
+}
+
+function autoIdentifyVisualProjectionsFromInput(immediate = false) {
+  if (visualAutoIdentifyDebounceTimer) {
+    clearTimeout(visualAutoIdentifyDebounceTimer);
+    visualAutoIdentifyDebounceTimer = null;
+  }
+
+  const runIdentify = () => {
+    const isChronicle = (creatorSelectedSource === 'inner_voice' && typeof isDailyChronicleMode !== 'undefined' && isDailyChronicleMode);
+    if (isChronicle) {
+      const filledMoments = (dailyChronicleMoments || []).filter(m => m && String(m.text || '').trim().length >= 4);
+      if (filledMoments.length === 0) {
+        currentChronicleMomentProjections = [];
+        renderPolishVisualSubjects();
+        return;
+      }
+      const projections = buildClientFallbackMomentProjections(dailyChronicleMoments.filter(m => m && String(m.text || '').trim().length > 0));
+      currentChronicleMomentProjections = projections;
+      projections.forEach((mp, idx) => {
+        const chosen = mp.options && mp.options[mp.selectedOptionIdx || 0];
+        if (chosen && dailyChronicleMoments[idx]) {
+          dailyChronicleMoments[idx].preferredVisualProjection = chosen;
+        }
+      });
+      // Sync cast members from default projections
+      if (!window._userManuallyToggledCast && typeof activeCastMemberIds !== 'undefined' && activeCastMemberIds instanceof Set) {
+        activeCastMemberIds.clear();
+        activeCastMemberIds.add('member_father');
+        projections.forEach((mp) => {
+          const sel = mp.options && mp.options[mp.selectedOptionIdx || 0];
+          if (sel && Array.isArray(sel.castIds)) {
+            sel.castIds.forEach(id => activeCastMemberIds.add(id));
+          }
+        });
+        if (typeof renderFamilyCastStagingUI === 'function') {
+          renderFamilyCastStagingUI();
+        }
+      }
+      renderPolishVisualSubjects();
+      return;
+    }
+
+    // Regular post mode
+    const slantInput = document.getElementById('creatorSlantTakeInput');
+    const sparkInput = document.getElementById('creatorSparkInput');
+    const rawText = slantInput ? slantInput.value.trim() : '';
+    const sparkText = sparkInput ? sparkInput.value.trim() : '';
+    const scrapedTitle = currentScrapedArticle?.title || '';
+
+    if (rawText.length < 12 && !scrapedTitle) {
+      currentPolishVisualSubjects = [];
+      renderPolishVisualSubjects();
+      return;
+    }
+
+    const prevSelectedArch = (selectedPolishVisualSubject && selectedPolishVisualSubject._userExplicitlyTapped)
+      ? selectedPolishVisualSubject.archetype
+      : null;
+
+    const subjects = buildClientFallbackVisualSubjects(rawText, sparkText, scrapedTitle);
+    currentPolishVisualSubjects = subjects;
+    let targetIdx = 0;
+    if (prevSelectedArch) {
+      const found = subjects.findIndex(s => s.archetype === prevSelectedArch);
+      if (found >= 0) targetIdx = found;
+    }
+    selectPolishVisualSubject(targetIdx, true);
+  };
+
+  if (immediate) {
+    runIdentify();
+  } else {
+    visualAutoIdentifyDebounceTimer = setTimeout(runIdentify, 420);
+  }
+}
+
+async function refreshVisualProjectionsWithAI() {
+  const aiBtn = document.getElementById('polishVsAiRefreshBtn');
+  const input = document.getElementById('creatorSlantTakeInput');
+  const sparkInput = document.getElementById('creatorSparkInput');
+  if (typeof isDailyChronicleMode !== 'undefined' && isDailyChronicleMode) {
+    syncChronicleMomentsToSlantInput();
+  }
+  const rawText = input ? input.value.trim() : '';
+  const sparkText = sparkInput ? sparkInput.value.trim() : '';
+  const scrapedTitle = currentScrapedArticle?.title || '';
+  if (!rawText || rawText.length < 8) {
+    showTemporaryToast('✏️ Write a sentence or moment first so AI can suggest visual projections.');
+    return;
+  }
+
+  const origText = aiBtn ? aiBtn.innerHTML : '';
+  if (aiBtn) {
+    aiBtn.disabled = true;
+    aiBtn.innerHTML = '⏳ Analyzing...';
+  }
+
+  try {
+    const isChronicle = (creatorSelectedSource === 'inner_voice' && typeof isDailyChronicleMode !== 'undefined' && isDailyChronicleMode);
+    const resp = await fetch('/api/synthesize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'polish_take',
+        text: rawText,
+        spark: sparkText,
+        scrapedTitle: scrapedTitle,
+        countryContext: creatorCountryContext?.name || 'India',
+        chronicleMode: isChronicle,
+        chronicleMoments: isChronicle ? getActiveChronicleMomentsPayload() : [],
+        familyCast: typeof getSanitizedCastPayload === 'function' ? getSanitizedCastPayload(familyCastProfileCache) : null,
+        visualConfidenceHistory: getVisualConfidenceLearningProfile().counts
+      })
+    });
+
+    if (resp.ok) {
+      const data = await resp.json();
+      if (isChronicle && Array.isArray(data.momentVisualProjections) && data.momentVisualProjections.length > 0) {
+        currentChronicleMomentProjections = data.momentVisualProjections.map((mp, idx) => {
+          const ranked = applyLearnedConfidenceToOptions(mp.options || []);
+          if (dailyChronicleMoments[idx] && ranked[0]) {
+            dailyChronicleMoments[idx].preferredVisualProjection = ranked[0];
+          }
+          return {
+            momentIndex: mp.momentIndex || (idx + 1),
+            momentTitle: mp.momentTitle || `Moment 0${idx + 1}`,
+            momentText: mp.momentText || (dailyChronicleMoments[idx]?.text || ''),
+            selectedOptionIdx: 0,
+            options: ranked
+          };
+        });
+        renderPolishVisualSubjects();
+        showTemporaryToast('✨ AI identified confidence-ranked visual options for each moment!');
+      } else if (!isChronicle && Array.isArray(data.visualSubjects) && data.visualSubjects.length > 0) {
+        currentPolishVisualSubjects = applyLearnedConfidenceToOptions(data.visualSubjects);
+        selectPolishVisualSubject(0, true);
+        showTemporaryToast('✨ AI identified 3 confidence-ranked core scene visual options!');
+      }
+    }
+  } catch (err) {
+    console.warn('AI visual projection refresh fallback:', err);
+    autoIdentifyVisualProjectionsFromInput(true);
+  } finally {
+    if (aiBtn) {
+      aiBtn.disabled = false;
+      aiBtn.innerHTML = origText || '✨ AI Options';
+    }
   }
 }
 
@@ -11036,6 +11704,10 @@ async function polishUserTake() {
   const btn = document.getElementById('slantPolishActionBtn');
   const reviewCard = document.getElementById('slantPolishReviewCard');
   const display = document.getElementById('slantPolishedTextDisplay');
+
+  if (typeof isDailyChronicleMode !== 'undefined' && isDailyChronicleMode) {
+    syncChronicleMomentsToSlantInput();
+  }
 
   if (!input) return;
   const rawText = input.value.trim();
@@ -11054,6 +11726,8 @@ async function polishUserTake() {
     btn.innerHTML = `<span class="btn-spark-icon spinning">⏳</span> Polishing...`;
   }
 
+  const isChronicle = (creatorSelectedSource === 'inner_voice' && typeof isDailyChronicleMode !== 'undefined' && isDailyChronicleMode);
+
   try {
     const resp = await fetch('/api/synthesize', {
       method: 'POST',
@@ -11063,7 +11737,11 @@ async function polishUserTake() {
         text: rawText,
         spark: sparkText,
         scrapedTitle: scrapedTitle,
-        countryContext: creatorCountryContext?.name || 'India'
+        countryContext: creatorCountryContext?.name || 'India',
+        chronicleMode: isChronicle,
+        chronicleMoments: isChronicle ? getActiveChronicleMomentsPayload() : [],
+        familyCast: typeof getSanitizedCastPayload === 'function' ? getSanitizedCastPayload(familyCastProfileCache) : null,
+        visualConfidenceHistory: getVisualConfidenceLearningProfile().counts
       })
     });
 
@@ -11072,6 +11750,7 @@ async function polishUserTake() {
     let corrections = [];
     let counts = { spelling: 0, grammar: 0, punctuation: 0, phrasing: 0, total: 0 };
     let visualSubjects = null;
+    let momentVisualProjections = null;
     let reviewSuccessful = false;
     let serverError = '';
 
@@ -11079,6 +11758,9 @@ async function polishUserTake() {
       const data = await resp.json();
       if (data && Array.isArray(data.visualSubjects) && data.visualSubjects.length > 0) {
         visualSubjects = data.visualSubjects;
+      }
+      if (data && Array.isArray(data.momentVisualProjections) && data.momentVisualProjections.length > 0) {
+        momentVisualProjections = data.momentVisualProjections;
       }
       if (data && data.success !== false && (data.polished || data.highlightedHtml)) {
         reviewSuccessful = true;
@@ -11096,11 +11778,39 @@ async function polishUserTake() {
       highlightedHtml = escapeHtml(polished);
     }
 
-    if (!visualSubjects || visualSubjects.length === 0) {
-      visualSubjects = buildClientFallbackVisualSubjects(rawText, sparkText, scrapedTitle);
+    if (isChronicle) {
+      if (Array.isArray(momentVisualProjections) && momentVisualProjections.length > 0) {
+        currentChronicleMomentProjections = momentVisualProjections.map((mp, idx) => {
+          const ranked = applyLearnedConfidenceToOptions(mp.options || []);
+          if (dailyChronicleMoments[idx] && ranked[0]) {
+            dailyChronicleMoments[idx].preferredVisualProjection = ranked[0];
+          }
+          return {
+            momentIndex: mp.momentIndex || (idx + 1),
+            momentTitle: mp.momentTitle || `Moment 0${idx + 1}`,
+            momentText: mp.momentText || (dailyChronicleMoments[idx]?.text || ''),
+            selectedOptionIdx: 0,
+            options: ranked
+          };
+        });
+      } else {
+        currentChronicleMomentProjections = buildClientFallbackMomentProjections(dailyChronicleMoments.filter(m => m && String(m.text || '').trim().length > 0));
+        currentChronicleMomentProjections.forEach((mp, idx) => {
+          if (dailyChronicleMoments[idx] && mp.options && mp.options[0]) {
+            dailyChronicleMoments[idx].preferredVisualProjection = mp.options[0];
+          }
+        });
+      }
+      renderPolishVisualSubjects();
+    } else {
+      if (!visualSubjects || visualSubjects.length === 0) {
+        visualSubjects = buildClientFallbackVisualSubjects(rawText, sparkText, scrapedTitle);
+      } else {
+        visualSubjects = applyLearnedConfidenceToOptions(visualSubjects);
+      }
+      currentPolishVisualSubjects = visualSubjects;
+      selectPolishVisualSubject(0, true);
     }
-    currentPolishVisualSubjects = visualSubjects;
-    selectPolishVisualSubject(0, true);
 
     lastPolishedTake = polished;
     lastHighlightedHtml = highlightedHtml || escapeHtml(polished);
@@ -11160,9 +11870,9 @@ async function polishUserTake() {
 
     if (reviewSuccessful) {
       if (counts.total > 0) {
-        showTemporaryToast(`✨ Review ready with ${counts.total} coaching notes. Tap any highlighted word!`);
+        showTemporaryToast(`✨ Review ready with ${counts.total} coaching notes & visual options!`);
       } else {
-        showTemporaryToast('✨ Great job! Your text reads naturally and is free of errors.');
+        showTemporaryToast('✨ Text reads naturally! Check the auto-selected visual projection options below.');
       }
     } else if (serverError) {
       showTemporaryToast(`⚠️ ${serverError}`);
@@ -11173,14 +11883,19 @@ async function polishUserTake() {
     lastPolishedTake = polished;
     lastHighlightedHtml = escapeHtml(polished);
     lastCorrectionsList = [];
-    currentPolishVisualSubjects = buildClientFallbackVisualSubjects(rawText, sparkText, scrapedTitle);
-    selectPolishVisualSubject(0, true);
+    if (isChronicle) {
+      currentChronicleMomentProjections = buildClientFallbackMomentProjections(dailyChronicleMoments.filter(m => m && String(m.text || '').trim().length > 0));
+      renderPolishVisualSubjects();
+    } else {
+      currentPolishVisualSubjects = buildClientFallbackVisualSubjects(rawText, sparkText, scrapedTitle);
+      selectPolishVisualSubject(0, true);
+    }
     if (display) display.textContent = polished;
     if (reviewCard) {
       reviewCard.style.display = 'flex';
       reviewCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
-    showTemporaryToast('⚠️ Review service connection issue. Please tap Review again.');
+    showTemporaryToast('⚠️ Review service connection issue. Loaded local visual options.');
   } finally {
     if (btn) {
       btn.disabled = false;
@@ -15042,6 +15757,9 @@ function syncInnerVoiceSubmodeUI() {
   if (typeof syncStep3SaveButtonLabel === 'function') {
     syncStep3SaveButtonLabel();
   }
+  if (typeof autoIdentifyVisualProjectionsFromInput === 'function') {
+    autoIdentifyVisualProjectionsFromInput(true);
+  }
 }
 
 function renderDailyChronicleCards() {
@@ -15148,6 +15866,9 @@ function onChronicleMomentInput(idx, field, val) {
     clearCreatorPromptReadyGlow();
   }
   syncChronicleMomentsToSlantInput();
+  if (typeof autoIdentifyVisualProjectionsFromInput === 'function') {
+    autoIdentifyVisualProjectionsFromInput(false);
+  }
   if (typeof evaluateSmartRegenScopeAutoSwitch === 'function') {
     evaluateSmartRegenScopeAutoSwitch();
   }
@@ -15240,7 +15961,8 @@ function getActiveChronicleMomentsPayload() {
       text: String(m.text || '').trim(),
       isStarred: Boolean(m.isStarred),
       imageBase64: m.imageBase64 || null,
-      imageMimeType: m.imageMimeType || 'image/jpeg'
+      imageMimeType: m.imageMimeType || 'image/jpeg',
+      preferredVisualProjection: m.preferredVisualProjection || null
     }))
     .filter(m => m.text.length >= 2);
 }
@@ -15358,7 +16080,10 @@ function acceptPolishedTake() {
   if (reviewCard) {
     reviewCard.style.display = 'none';
   }
-  showTemporaryToast('✓ Polished take applied to your slant!');
+  if (typeof recordVisualConfidenceApproval === 'function') {
+    recordVisualConfidenceApproval('polish_accept');
+  }
+  showTemporaryToast('✓ Polished take & visual selection applied to your slant!');
 }
 
 function rejectPolishedTake() {
@@ -16525,11 +17250,15 @@ function openDraftInStudio(postId) {
       text: m.text || '',
       isStarred: hasExplicitStar ? Boolean(m.isStarred) : (idx === cappedSaved.length - 1),
       imageBase64: m.imageBase64 || null,
-      imageMimeType: m.imageMimeType || 'image/jpeg'
+      imageMimeType: m.imageMimeType || 'image/jpeg',
+      preferredVisualProjection: m.preferredVisualProjection || null
     }));
     setInnerVoiceSubmode('chronicle');
   } else {
     checkAndTriggerFamilyCast(`${slantInput ? slantInput.value : ''} ${sparkInput ? sparkInput.value : ''}`);
+    if (typeof autoIdentifyVisualProjectionsFromInput === 'function') {
+      autoIdentifyVisualProjectionsFromInput(true);
+    }
   }
 
   currentSynthesizedPost = JSON.parse(JSON.stringify(post));
@@ -16805,6 +17534,7 @@ function openCreatorModal(resumeDraftId = null, forcedAnchorMode = null) {
       checkAndTriggerFamilyCast(combined);
       onCreatorStage1InputChange();
       autoSaveCreatorFormState(false);
+      if (typeof autoIdentifyVisualProjectionsFromInput === 'function') autoIdentifyVisualProjectionsFromInput(false);
       if (typeof evaluateSmartRegenScopeAutoSwitch === 'function') evaluateSmartRegenScopeAutoSwitch();
     });
   }
@@ -16816,6 +17546,7 @@ function openCreatorModal(resumeDraftId = null, forcedAnchorMode = null) {
       const combined = (sltInput ? sltInput.value : '') + ' ' + (sparkInput.value || '');
       checkAndTriggerFamilyCast(combined);
       autoSaveCreatorFormState(false);
+      if (typeof autoIdentifyVisualProjectionsFromInput === 'function') autoIdentifyVisualProjectionsFromInput(false);
       if (typeof evaluateSmartRegenScopeAutoSwitch === 'function') evaluateSmartRegenScopeAutoSwitch();
     });
   }
@@ -17996,6 +18727,7 @@ function resetCreatorState() {
   currentPolishVisualSubjects = [];
   selectedPolishVisualSubjectIdx = 0;
   selectedPolishVisualSubject = null;
+  currentChronicleMomentProjections = [];
   const polishVsPicker = document.getElementById('polishVisualSubjectPicker');
   if (polishVsPicker) polishVsPicker.style.display = 'none';
   if (creatorSelectedCueIndices && creatorSelectedCueIndices.clear) {
@@ -18310,6 +19042,9 @@ async function handleUrlInput(val) {
         } else {
           renderUrlScrapeSuccessIndicator(data.siteName || 'Web', data.title || clean, false, isFull);
           triggerSourceLedgerGeneration(data);
+        }
+        if (typeof autoIdentifyVisualProjectionsFromInput === 'function') {
+          autoIdentifyVisualProjectionsFromInput(false);
         }
       }
     } catch (err) {
@@ -20425,6 +21160,14 @@ async function startAiSynthesis() {
   const cleanSourceImgUrl = (rawSourceImgUrl && typeof rawSourceImgUrl === 'string') ? rawSourceImgUrl.replace(/&amp;/g, '&') : null;
 
   const isChronicleActive = (creatorSelectedSource === 'inner_voice' && isDailyChronicleMode);
+  if (isChronicleActive && (!Array.isArray(currentChronicleMomentProjections) || currentChronicleMomentProjections.length === 0)) {
+    autoIdentifyVisualProjectionsFromInput(true);
+  } else if (!isChronicleActive && (!Array.isArray(currentPolishVisualSubjects) || currentPolishVisualSubjects.length === 0)) {
+    autoIdentifyVisualProjectionsFromInput(true);
+  }
+  if (typeof recordVisualConfidenceApproval === 'function') {
+    recordVisualConfidenceApproval('synthesis');
+  }
   const activeChronicleMoments = isChronicleActive ? getActiveChronicleMomentsPayload() : [];
   const chronicleMomentImages = activeChronicleMoments.filter(m => Boolean(m.imageBase64));
 
@@ -20519,7 +21262,8 @@ async function startAiSynthesis() {
               title: m.title,
               text: m.text,
               isStarred: Boolean(m.isStarred),
-              hasPhoto: Boolean(m.imageBase64)
+              hasPhoto: Boolean(m.imageBase64),
+              preferredVisualProjection: m.preferredVisualProjection || null
             })),
             chronicleMomentImages: chronicleMomentImages,
             imageBase64: (creatorSelectedSource === 'inner_voice' && innerVoicePhotoBase64 && shouldSendImage)
@@ -20625,7 +21369,8 @@ async function startAiSynthesis() {
       isStarred: Boolean(m.isStarred),
       hasPhoto: Boolean(m.imageBase64),
       imageBase64: m.imageBase64 || null,
-      imageMimeType: m.imageMimeType || 'image/jpeg'
+      imageMimeType: m.imageMimeType || 'image/jpeg',
+      preferredVisualProjection: m.preferredVisualProjection || null
     })),
     url: isLink ? url : '',
     text: slantTake,
@@ -20882,7 +21627,8 @@ async function startAiSynthesis() {
               title: m.title,
               text: m.text,
               isStarred: Boolean(m.isStarred),
-              hasPhoto: Boolean(m.imageBase64)
+              hasPhoto: Boolean(m.imageBase64),
+              preferredVisualProjection: m.preferredVisualProjection || null
             })),
             chronicleMomentImages: chronicleMomentImages,
             imageBase64: ((creatorPerspectiveMode === 'source' && creatorCharacterRepresentation !== 'silhouette') || creatorCharacterRepresentation === 'exact')

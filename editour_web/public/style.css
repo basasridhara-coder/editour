@@ -7074,6 +7074,145 @@ header {
   line-height: 1.38;
 }
 
+.polish-vs-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.polish-vs-ai-refresh-btn {
+  font-size: 10.5px;
+  font-weight: 800;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(99, 102, 241, 0.12);
+  color: #4F46E5;
+  border: 1px solid rgba(99, 102, 241, 0.35);
+  cursor: pointer;
+  transition: all 0.16s ease;
+  white-space: nowrap;
+}
+
+.polish-vs-ai-refresh-btn:hover:not(:disabled) {
+  background: rgba(99, 102, 241, 0.22);
+  transform: translateY(-1px);
+}
+
+.polish-vs-ai-refresh-btn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+[data-theme="obsidian"] .polish-vs-ai-refresh-btn {
+  color: #A5B4FC;
+  background: rgba(99, 102, 241, 0.18);
+  border-color: rgba(129, 140, 248, 0.4);
+}
+
+.polish-moment-group {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 10px;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.03);
+  border: 1px solid var(--border-subtle);
+}
+
+[data-theme="obsidian"] .polish-moment-group {
+  background: rgba(15, 23, 42, 0.42);
+}
+
+.polish-moment-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.polish-moment-group-left {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  flex: 1;
+}
+
+.polish-moment-badge {
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.5px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: #0F172A;
+  color: #F8FAFC;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+[data-theme="obsidian"] .polish-moment-badge {
+  background: rgba(52, 211, 153, 0.18);
+  color: #6EE7B7;
+  border: 1px solid rgba(52, 211, 153, 0.35);
+}
+
+.polish-moment-snippet {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.polish-vs-badges-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.polish-vs-confidence-pill {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(16, 185, 129, 0.12);
+  color: #047857;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.polish-vs-card.active .polish-vs-confidence-pill {
+  background: rgba(16, 185, 129, 0.2);
+  color: #065F46;
+  border-color: #10B981;
+}
+
+[data-theme="obsidian"] .polish-vs-confidence-pill {
+  background: rgba(16, 185, 129, 0.16);
+  color: #6EE7B7;
+  border-color: rgba(52, 211, 153, 0.35);
+}
+
+.polish-vs-learned-tag {
+  font-size: 9.5px;
+  font-weight: 800;
+  padding: 1.5px 6px;
+  border-radius: 999px;
+  background: rgba(245, 158, 11, 0.15);
+  color: #B45309;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+[data-theme="obsidian"] .polish-vs-learned-tag {
+  color: #FCD34D;
+  background: rgba(245, 158, 11, 0.18);
+}
+
 /* Mandatory Field Validation Prompts & Highlights */
 @keyframes fieldMandatoryShake {
   0%, 100% { transform: translateX(0); }

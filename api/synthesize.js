@@ -511,6 +511,7 @@ ${scrapedContent ? `- Source Context: "${String(scrapedContent).slice(0, 600)}"`
 ${previousPrompt ? `\nPREVIOUS VISUAL PROMPT (DO NOT REPEAT THIS COMPOSITION OR POSE):\n"${previousPrompt.slice(0, 500)}"\n\nCRITICAL VISUAL REGENERATION & VARIATION DIRECTIVE:\nThe curator explicitly requested a fresh visual regeneration. You MUST create a SIGNIFICANTLY DIFFERENT visual scene from the previous prompt above: choose a fresh visual metaphor or focal action, a noticeably different camera angle/perspective (e.g., wide atmospheric establishing shot vs. dramatic over-the-shoulder angle vs. symbolic close-up focal object), a distinct lighting palette, and strictly apply the selected Medium & Portrayal Style (${stylePrefix}).` : ''}
 ${familyCastDirectives ? `\nMANDATORY CASTING VAULT & PROTAGONIST ANCHORS:\n${familyCastDirectives.systemPromptSection}` : ''}
 ${preferredVisualSubject && preferredVisualSubject.title ? `\nCRITICAL CORE VISUAL SUBJECT SELECTED BY CURATOR (HIGHEST PRIORITY):\n- Selected Visual Subject: "${preferredVisualSubject.title}" — ${preferredVisualSubject.description || ''}\n- Build "illustrationPrompt" and "cues" directly around this exact visual subject!${!preferredVisualSubject.isPersonalFamily ? ' Strictly DO NOT depict the author\'s personal family (Shridhar, Aruna, Gahan, Rishu) on a home veranda!' : ''}` : ''}
+${chronicleMode && validBodyMoments.some(m => m && m.preferredVisualProjection && m.preferredVisualProjection.title) ? `\nCRITICAL CURATOR-SELECTED PER-MOMENT VISUAL PROJECTIONS (MANDATORY FOR EACH VIGNETTE):\n${validBodyMoments.map((m, idx) => m.preferredVisualProjection && m.preferredVisualProjection.title ? `- Moment 0${idx + 1} (${m.title || 'Moment ' + (idx + 1)}): Depict "${m.preferredVisualProjection.title}" — ${m.preferredVisualProjection.description || ''}` : '').filter(Boolean).join('\n')}` : ''}
 ${validRebuildMomentImgs.length > 0 ? `\nCRITICAL ATTACHED MOMENT PHOTO / LOGO INTEGRATION DIRECTIVE:\n- The curator attached ${validRebuildMomentImgs.length} reference image(s) for specific moment(s) of their Daily Chronicle.\n- Inspect each attached image above and explicitly describe its exact visual graphic, emblem, or scene in "illustrationPrompt" so it is prominently featured inside its corresponding moment vignette (for example, if an attached image is a black fountain-pen nib emblem containing a contemplative upward-tilted portrait face on a cream background for an app-launch moment, explicitly instruct "illustrationPrompt" to display that exact black fountain-pen nib portrait emblem large and crisp on the glowing smartphone screen in that vignette rather than a generic blank screen).` : ''}
 ${customDirection ? `\nCURATOR'S SPECIFIC VISUAL DIRECTION: "${customDirection}"` : ''}
 
@@ -1242,22 +1243,48 @@ Respond strictly with valid JSON:
       }
     }
 
-    // Direct Single-Purpose Endpoint: Polish & Review Take with Pedagogical Highlighters + Core Visual Subject Identification
+    // Direct Single-Purpose Endpoint: Polish & Review Take with Pedagogical Highlighters + Core Visual Subject / Per-Moment Projection Identification
     if (body && (body.action === 'polish_take' || body.action === 'review_take')) {
-      const { text = '', slantTake = '', spark = '', scrapedTitle = '', countryContext = 'India' } = body;
+      const {
+        text = '',
+        slantTake = '',
+        spark = '',
+        scrapedTitle = '',
+        countryContext = 'India',
+        chronicleMode = false,
+        chronicleMoments = [],
+        familyCast = null,
+        visualConfidenceHistory = null
+      } = body;
       const rawText = String(text || slantTake || '').trim();
       if (!rawText || rawText.length < 5) {
         return res.status(400).json({ error: 'Please enter a take to polish.' });
       }
 
+      const validPolishMoments = Array.isArray(chronicleMoments)
+        ? chronicleMoments.filter(m => m && String(m.text || '').trim().length >= 2)
+        : [];
+      const isPolishChronicle = Boolean(chronicleMode && validPolishMoments.length >= 2);
+
       // Fast baseline polish using rule-based formatter
       const baselinePolished = formatCuratorTakeApt(rawText);
       const fallbackSubjects = buildFallbackVisualSubjects(rawText, spark, scrapedTitle, countryContext);
+      const fallbackMomentProjections = isPolishChronicle
+        ? buildFallbackMomentVisualProjections(validPolishMoments, countryContext)
+        : [];
 
-      // Call Gemini for high-precision, categorized copy-editing, inline highlighting, and 3 Core Visual Subject options
+      const castMembersSummary = (familyCast && Array.isArray(familyCast.members) && familyCast.members.length > 0)
+        ? familyCast.members.map(m => `${m.name || m.roleLabel} (${m.relationship}, age ${m.age || 'adult'}, height ${cmToFeetInches(resolveMemberHeightCm(m)).label})`).join('; ')
+        : 'Father Shridhar (40yo, 5ft 10in / 178cm); Wife/Mother Aruna (36yo, 5ft 4in / 162cm); Elder Son Gahan (11yo BOY, 4ft 8in / 142cm, navy tee & denim shorts); Younger Son Rishu (7yo BOY, 4ft 2in / 127cm, mustard tee & dark shorts — BOTH SONS ARE BOYS, zero girls)';
+
+      const learnedPrefNote = (visualConfidenceHistory && typeof visualConfidenceHistory === 'object' && Object.keys(visualConfidenceHistory).length > 0)
+        ? `\n- LEARNED CURATOR VISUAL PREFERENCE WEIGHTS (from past repeated approvals): ${JSON.stringify(visualConfidenceHistory)}. Boost the confidence % of visual options matching the curator's most-approved archetypes!`
+        : '';
+
+      // Call Gemini for high-precision, categorized copy-editing, inline highlighting, and Core Visual Subject / Per-Moment Visual Projections
       try {
         const copyEditPrompt = `You are a world-class literary copy-editor, writing coach, and editorial visual director.
-The author has written their personal conviction / take on a topic.
+The author has written their personal conviction / take ${isPolishChronicle ? `as a Daily Chronicle with ${validPolishMoments.length} moments` : 'on a topic'}.
 Your job has TWO parts:
 
 PART 1 — COPY-EDIT & POLISH:
@@ -1276,15 +1303,25 @@ Polish their text into grammatically correct, natural, and apt English while det
   * "grammar": Verb tense, subject-verb agreement, singular/plural, missing articles or prepositions, pronoun cases (e.g. "it's" -> "its", "is kept" -> "are kept", "Govt" -> "The government").
   * "punctuation": Commas, periods, colons, quotation marks, fixing comma splices or run-ons.
 
-PART 2 — IDENTIFY 3 CORE VISUAL SUBJECT OPTIONS FOR POSTER 1 ARTWORK:
+PART 2 — ${isPolishChronicle
+  ? `IDENTIFY 3 VISUAL PROJECTION OPTIONS PER MOMENT (WITH CONFIDENCE SCORE 1-99%) FOR EACH OF THE ${validPolishMoments.length} DAILY CHRONICLE MOMENTS:
+Each moment in a Daily Chronicle can be visually projected in multiple ways.
+- AUTHOR'S FAMILY CAST VAULT: ${castMembersSummary}.
+- CRITICAL FAMILY RULE FOR "KIDS" / "BOYS" / "CHILDREN" / "KIDS FIGHTING": Whenever the author writes "kids", "kids fighting", "boys", "sons", or "children" in any personal moment, they are ALWAYS his TWO SONS: 11yo Elder Son Gahan (BOY, 4ft 8in / 142cm, navy t-shirt & denim shorts) and 7yo Younger Son Rishu (BOY, 4ft 2in / 127cm, 6 inches shorter than Gahan with his head at Gahan's chin/neck level, mustard-yellow t-shirt & dark shorts) — STRICTLY 2 BOYS, NEVER a boy and a girl!${learnedPrefNote}
+- For EACH of the ${validPolishMoments.length} moments (${validPolishMoments.map((m, i) => `Moment 0${i + 1}: "${m.text}"`).join(' | ')}), output an entry in "momentVisualProjections" containing 3 distinct ways to project that moment's vignette, sorted in descending order of your confidence score ("confidence": integer 65-98) so Option 1 is the highest-confidence default:
+  1. Option 1 ("archetype": "direct_action", highest confidence e.g. 90-96%): The most direct, concrete, unmistakable human interaction representing the heart of that moment (explicitly naming exact Vault cast members like Shridhar, 11yo son Gahan & 7yo son Rishu when kids/family are mentioned).
+  2. Option 2 ("archetype": "expressive_midshot" or "warm_resolution", medium-high confidence e.g. 80-88%): An alternative candid angle (e.g., warm resolution, expressive waist-up conversational reaction, or side-by-side collaboration).
+  3. Option 3 ("archetype": "symbolic_focus", medium confidence e.g. 70-78%): A focused detail/object-led or atmospheric angle capturing the mood of that moment.`
+  : `IDENTIFY 3 CORE VISUAL SUBJECT OPTIONS (WITH CONFIDENCE SCORE 1-99%) FOR POSTER 1 ARTWORK:
 Understand the true CORE SUBJECT in the given context (Setting: ${countryContext || 'India'}).
+- AUTHOR'S FAMILY CAST VAULT: ${castMembersSummary}.
 - CRITICAL DISTINCTION (SOCIETAL OBSERVATION vs. PERSONAL FAMILY STORY):
   * If the author is observing society, schools, parents in general, workplaces, politics, or culture (even if they use words like "I see", "the whole family comes", "parents", "the kids", "in our school days"), the core visual subject is the REAL-WORLD SCENE BEING DISCUSSED (e.g. a packed school corridor on parent-teacher meeting day with parents debating marks with a 2nd-grade teacher), and "isPersonalFamily" MUST be false!
-  * Set "isPersonalFamily": true ONLY if the author is explicitly telling an intimate personal story about their OWN family members ("my family", "my wife", "my kids", "my son", "Gahan", "Rishu", "Aruna").
-- Provide 3 distinct, tap-to-choose visual subject angles in "visualSubjects":
-  1. Option 1 ("badge": "★ Best Fit • Core Scene"): The direct, concrete real-world scene and protagonists at the heart of the author's context.
-  2. Option 2 ("badge": "⚡ Core Contrast"): A visual composition highlighting the central irony, contrast, or tension in the author's argument (e.g. 20-minute debate over 2nd-grade marks vs. the modern AI era).
-  3. Option 3 ("badge": "🎨 Editorial Metaphor"): A poignant symbolic or nostalgic visual framing the author's core takeaway.
+  * Set "isPersonalFamily": true ONLY if the author is explicitly telling an intimate personal story about their OWN family members ("my family", "my wife", "my kids", "kids fighting", "my son", "Gahan", "Rishu", "Aruna"). And whenever the author mentions their kids/boys/children, explicitly specify their two sons Gahan (11yo boy) and Rishu (7yo boy) — strictly 2 boys, never a girl!${learnedPrefNote}
+- Provide 3 distinct, tap-to-choose visual subject angles in "visualSubjects", sorted by your confidence score ("confidence": integer 65-98) so Option 1 is the highest-confidence default:
+  1. Option 1 ("archetype": "core_scene", "badge": "★ Best Fit • Core Scene", highest confidence e.g. 90-96%): The direct, concrete real-world scene and protagonists at the heart of the author's context.
+  2. Option 2 ("archetype": "core_contrast", "badge": "⚡ Core Contrast", confidence e.g. 80-88%): A visual composition highlighting the central irony, contrast, or tension in the author's argument.
+  3. Option 3 ("archetype": "editorial_metaphor", "badge": "🎨 Editorial Metaphor", confidence e.g. 70-78%): A poignant symbolic or nostalgic visual framing the author's core takeaway.`}
 
 Author's Raw Take:
 """${rawText}"""
@@ -1305,8 +1342,10 @@ Respond strictly with valid JSON with this exact structure:
   "visualSubjects": [
     {
       "id": "subject_1",
+      "archetype": "core_scene | core_contrast | editorial_metaphor",
       "badge": "★ Best Fit • Core Scene",
-      "title": "Short 4-7 word visual subject title",
+      "confidence": 94,
+      "title": "Short 4-8 word visual subject title",
       "description": "Clear 1-sentence visual description of what Poster 1 will depict",
       "cues": [
         "Hero Subject (concise 4-7 words)",
@@ -1317,7 +1356,25 @@ Respond strictly with valid JSON with this exact structure:
       ],
       "isPersonalFamily": false
     }
-  ]
+  ]${isPolishChronicle ? `,
+  "momentVisualProjections": [
+    {
+      "momentIndex": 1,
+      "momentTitle": "Moment 01",
+      "options": [
+        {
+          "id": "m1_opt_1",
+          "archetype": "direct_action | warm_resolution | expressive_midshot | symbolic_focus",
+          "badge": "★ Best Fit • Direct Scene",
+          "confidence": 94,
+          "title": "Short 5-9 word scene projection title for this moment",
+          "description": "Specific 1-sentence visual description for this moment's watercolor vignette (naming exact Vault cast members e.g. Shridhar, 11yo son Gahan & 7yo son Rishu when kids are mentioned)",
+          "castIds": ["member_father"],
+          "isPersonalFamily": false
+        }
+      ]
+    }
+  ]` : ''}
 }`;
 
         const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
@@ -1400,13 +1457,44 @@ Respond strictly with valid JSON with this exact structure:
             const visualSubjects = (Array.isArray(parsed.visualSubjects) && parsed.visualSubjects.length > 0)
               ? parsed.visualSubjects.slice(0, 3).map((vs, idx) => ({
                   id: String(vs.id || `subject_${idx + 1}`),
+                  archetype: String(vs.archetype || (idx === 0 ? 'core_scene' : (idx === 1 ? 'core_contrast' : 'editorial_metaphor'))),
                   badge: String(vs.badge || (idx === 0 ? '★ Best Fit • Core Scene' : (idx === 1 ? '⚡ Core Contrast' : '🎨 Editorial Metaphor'))),
+                  confidence: Math.max(60, Math.min(99, Number(vs.confidence) || (idx === 0 ? 94 : (idx === 1 ? 84 : 75)))),
                   title: String(vs.title || fallbackSubjects[idx]?.title || 'Core Editorial Scene').trim(),
                   description: String(vs.description || fallbackSubjects[idx]?.description || '').trim(),
                   cues: Array.isArray(vs.cues) && vs.cues.length >= 3 ? vs.cues.slice(0, 5).map(String) : (fallbackSubjects[idx]?.cues || []),
                   isPersonalFamily: Boolean(vs.isPersonalFamily)
                 }))
               : fallbackSubjects;
+
+            const momentVisualProjections = isPolishChronicle
+              ? ((Array.isArray(parsed.momentVisualProjections) && parsed.momentVisualProjections.length > 0)
+                  ? validPolishMoments.map((m, mIdx) => {
+                      const found = parsed.momentVisualProjections.find(mp => Number(mp.momentIndex) === mIdx + 1)
+                        || parsed.momentVisualProjections[mIdx]
+                        || fallbackMomentProjections[mIdx];
+                      const fbProj = fallbackMomentProjections[mIdx];
+                      const rawOpts = (found && Array.isArray(found.options) && found.options.length > 0)
+                        ? found.options.slice(0, 3)
+                        : (fbProj ? fbProj.options : []);
+                      return {
+                        momentIndex: mIdx + 1,
+                        momentTitle: String(found?.momentTitle || m.title || `Moment 0${mIdx + 1}`),
+                        selectedOptionIdx: 0,
+                        options: rawOpts.map((opt, oIdx) => ({
+                          id: String(opt.id || `m${mIdx + 1}_opt_${oIdx + 1}`),
+                          archetype: String(opt.archetype || (oIdx === 0 ? 'direct_action' : (oIdx === 1 ? 'expressive_midshot' : 'symbolic_focus'))),
+                          badge: String(opt.badge || (oIdx === 0 ? '★ Best Fit • Direct Scene' : (oIdx === 1 ? '🎯 Expressive Mid-Shot' : '🎨 Symbolic Angle'))),
+                          confidence: Math.max(60, Math.min(99, Number(opt.confidence) || (oIdx === 0 ? 93 : (oIdx === 1 ? 83 : 74)))),
+                          title: String(opt.title || fbProj?.options?.[oIdx]?.title || 'Candid Moment Visual').trim(),
+                          description: String(opt.description || fbProj?.options?.[oIdx]?.description || '').trim(),
+                          castIds: Array.isArray(opt.castIds) && opt.castIds.length > 0 ? opt.castIds.map(String) : (fbProj?.options?.[oIdx]?.castIds || ['member_father']),
+                          isPersonalFamily: Boolean(opt.isPersonalFamily !== undefined ? opt.isPersonalFamily : fbProj?.options?.[oIdx]?.isPersonalFamily)
+                        }))
+                      };
+                    })
+                  : fallbackMomentProjections)
+              : [];
 
             return res.status(200).json({
               success: true,
@@ -1415,7 +1503,8 @@ Respond strictly with valid JSON with this exact structure:
               highlightedHtml: highlightedHtml,
               corrections,
               counts,
-              visualSubjects
+              visualSubjects,
+              momentVisualProjections
             });
           }
         } else {
@@ -1431,7 +1520,8 @@ Respond strictly with valid JSON with this exact structure:
             highlightedHtml: baselinePolished,
             corrections: [],
             counts: { spelling: 0, grammar: 0, punctuation: 0, phrasing: 0, total: 0 },
-            visualSubjects: fallbackSubjects
+            visualSubjects: fallbackSubjects,
+            momentVisualProjections: fallbackMomentProjections
           });
         }
       } catch (err) {
@@ -1444,7 +1534,8 @@ Respond strictly with valid JSON with this exact structure:
           highlightedHtml: baselinePolished,
           corrections: [],
           counts: { spelling: 0, grammar: 0, punctuation: 0, phrasing: 0, total: 0 },
-          visualSubjects: fallbackSubjects
+          visualSubjects: fallbackSubjects,
+          momentVisualProjections: fallbackMomentProjections
         });
       }
 
@@ -1457,7 +1548,8 @@ Respond strictly with valid JSON with this exact structure:
         highlightedHtml: baselinePolished,
         corrections: [],
         counts: { spelling: 0, grammar: 0, punctuation: 0, phrasing: 0, total: 0 },
-        visualSubjects: fallbackSubjects
+        visualSubjects: fallbackSubjects,
+        momentVisualProjections: fallbackMomentProjections
       });
     }
 
@@ -1885,7 +1977,7 @@ ${refineCoreTake ? `- Poster 2 ("THE CRITICAL PERSPECTIVE" / curatorTake) is an 
 - In "curatorTake", you MUST output the curator's authentic take: "${userSlant}" verbatim without rephrasing or altering their sentence structure.`}` : ''}
 ${sourceType === 'inner_voice' && isChronicle ? `CRITICAL DAILY CHRONICLE & MULTI-MOMENT NON-OVERLAPPING VIGNETTE POSTER DIRECTIVE:
 - The curator is recording a DAILY CHRONICLE (Diary / Multi-Moment Day in Review) consisting of ${validChronicleMoments.length} distinct moments from their day:
-${validChronicleMoments.map((m, i) => `  * Moment 0${i + 1} (${m.title || 'Moment ' + (i + 1)}${i === starredChronicleIdx ? ' [★ STARRED IMPORTANT HIGHLIGHT OF THE DAY - GIVE EXTRA SHOWCASE SPACE IN POSTER]' : ''}${m.hasPhoto ? ' [Photo Attached]' : ''}): "${m.text}"`).join('\n')}
+${validChronicleMoments.map((m, i) => `  * Moment 0${i + 1} (${m.title || 'Moment ' + (i + 1)}${i === starredChronicleIdx ? ' [★ STARRED IMPORTANT HIGHLIGHT OF THE DAY - GIVE EXTRA SHOWCASE SPACE IN POSTER]' : ''}${m.hasPhoto ? ' [Photo Attached]' : ''}): "${m.text}"${m.preferredVisualProjection && m.preferredVisualProjection.title ? `\n    -> CURATOR-SELECTED VISUAL PROJECTION FOR MOMENT 0${i + 1} (CONFIDENCE ${m.preferredVisualProjection.confidence || 92}% — MANDATORY SCENE TO DEPICT IN THIS VIGNETTE): "${m.preferredVisualProjection.title}" — ${m.preferredVisualProjection.description || ''}` : ''}`).join('\n')}
 - 1. SLIDE 1 HEADLINE ("adaptedHeadline"), DATE ("originalHeadline") & BADGE ("categoryBadge"):
   * Set "categoryBadge" to "DAILY CHRONICLE" and "publicationName" to "Daily Chronicle".
   * Set "adaptedHeadline" to a warm, natural 6 to 10 word headline formed directly from the moments of the day.
@@ -4003,6 +4095,163 @@ function getDefaultFamilyCast(userIdentifier) {
   };
 }
 
+function buildFallbackMomentVisualProjections(chronicleMoments = [], countryContext = 'India') {
+  const valid = Array.isArray(chronicleMoments) ? chronicleMoments.filter(m => m && String(m.text || '').trim().length >= 2) : [];
+  return valid.map((m, idx) => {
+    const text = String(m.text || '').trim();
+    const lower = text.toLowerCase();
+    const numStr = String(idx + 1).padStart(2, '0');
+    const shortSnippet = text.length > 56 ? text.slice(0, 53) + '...' : text;
+
+    let options = [];
+    if (/\b(kids fighting|boys fighting|kids arguing|squabble|fighting over|silly reasons|my kids|my sons|my boys|gahan|rishu)\b/i.test(lower)) {
+      options = [
+        {
+          id: `m${idx + 1}_opt_1`,
+          archetype: 'direct_action',
+          badge: '★ Best Fit • My 2 Sons Action',
+          confidence: 94,
+          title: 'Shridhar Mediating Between Sons Gahan (11) & Rishu (7)',
+          description: 'Shridhar kneeling calmly in the home living room between his two sons: taller 11yo Gahan (navy tee & denim shorts) and shorter 7yo Rishu (mustard tee & dark shorts, head at Gahan\'s chin/neck level), resolving their playful squabble.',
+          castIds: ['member_father', 'member_elder_son', 'member_younger_son'],
+          isPersonalFamily: true
+        },
+        {
+          id: `m${idx + 1}_opt_2`,
+          archetype: 'warm_resolution',
+          badge: '🤝 Warm Resolution • Brotherly Peace',
+          confidence: 84,
+          title: 'Two Brothers Gahan & Rishu Making Up After Dad\'s Advice',
+          description: '11yo elder son Gahan (4\'8") and 7yo younger son Rishu (4\'2") sharing a laugh and peace handshake as Father Shridhar smiles beside them.',
+          castIds: ['member_father', 'member_elder_son', 'member_younger_son'],
+          isPersonalFamily: true
+        },
+        {
+          id: `m${idx + 1}_opt_3`,
+          archetype: 'symbolic_focus',
+          badge: '🎨 Symbolic Detail • Disputed Toy & Calm Hands',
+          confidence: 74,
+          title: 'Father\'s Calm Hands Holding the Disputed Toy Between Both Boys',
+          description: 'Expressive close-medium composition focusing on Shridhar\'s patient gesture holding the toy between 11yo Gahan and 7yo Rishu.',
+          castIds: ['member_father', 'member_elder_son', 'member_younger_son'],
+          isPersonalFamily: true
+        }
+      ];
+    } else if (/\b(mother-in-law|hospital|clinic|doctor|checkup|health|aging|elderly)\b/i.test(lower)) {
+      options = [
+        {
+          id: `m${idx + 1}_opt_1`,
+          archetype: 'direct_action',
+          badge: '★ Best Fit • Caring Walk',
+          confidence: 93,
+          title: 'Shridhar Gently Supporting His 55yo Mother-in-Law at Hospital',
+          description: 'Caring mid-shot of Shridhar walking alongside and supporting his 55-year-old mother-in-law (in an elegant pastel cotton saree) down a sunlit Indian hospital corridor.',
+          castIds: ['member_father'],
+          isPersonalFamily: true
+        },
+        {
+          id: `m${idx + 1}_opt_2`,
+          archetype: 'quiet_consultation',
+          badge: '🩺 Doctor Consultation • Reassurance',
+          confidence: 83,
+          title: 'Seated Together by the Clinic Desk Reviewing Medical Reports',
+          description: 'Shridhar sitting attentively beside his 55-year-old mother-in-law in a calm consultation room with a medical folder in hand.',
+          castIds: ['member_father'],
+          isPersonalFamily: true
+        },
+        {
+          id: `m${idx + 1}_opt_3`,
+          archetype: 'symbolic_focus',
+          badge: '🎨 Symbolic Detail • Steadying Hand & Care',
+          confidence: 73,
+          title: 'Quiet Moment in the Sunlit Waiting Lounge',
+          description: 'Reflective medium portrait of Shridhar offering a reassuring cup of water and steady presence to his mother-in-law.',
+          castIds: ['member_father'],
+          isPersonalFamily: true
+        }
+      ];
+    } else if (/\b(friend|colleague|dosa|chai|coffee|cafe|diner|ai|laptop|discussion)\b/i.test(lower)) {
+      options = [
+        {
+          id: `m${idx + 1}_opt_1`,
+          archetype: 'direct_action',
+          badge: '★ Best Fit • Candid Diner Chat',
+          confidence: 95,
+          title: 'Animated AI Discussion with Friend Over Masala Dosa & Filter Coffee',
+          description: 'Expressive waist-up medium shot of Shridhar and his clean-shaven friend with glasses across a South Indian cafe table with crisp masala dosa, chutneys, and an open laptop.',
+          castIds: ['member_father'],
+          isPersonalFamily: false
+        },
+        {
+          id: `m${idx + 1}_opt_2`,
+          archetype: 'collaborative_screen',
+          badge: '💻 Side-by-Side • Live AI Demo',
+          confidence: 85,
+          title: 'Comparing Personal AI Workflows on Laptop & Smartphone',
+          description: 'Shridhar and his friend leaning in together over glowing AI workflow diagrams on a laptop beside steaming filter coffee.',
+          castIds: ['member_father'],
+          isPersonalFamily: false
+        },
+        {
+          id: `m${idx + 1}_opt_3`,
+          archetype: 'symbolic_focus',
+          badge: '🎨 Symbolic Contrast • Tradition Meets Future Tech',
+          confidence: 76,
+          title: 'Golden Masala Dosa & Steel Coffee Davara Beside Modern AI Screen',
+          description: 'Warm tabletop framing highlighting the contrast of classic South Indian tiffin and cutting-edge AI tools as both friends converse.',
+          castIds: ['member_father'],
+          isPersonalFamily: false
+        }
+      ];
+    } else {
+      const hasBothSons = /\b(kids|boys|sons|children|gahan.*rishu|rishu.*gahan)\b/i.test(lower);
+      const hasWife = /\b(wife|aruna|aru)\b/i.test(lower);
+      const castIds = ['member_father'];
+      if (hasWife) castIds.push('member_mother');
+      if (hasBothSons) castIds.push('member_elder_son', 'member_younger_son');
+      options = [
+        {
+          id: `m${idx + 1}_opt_1`,
+          archetype: 'direct_action',
+          badge: '★ Best Fit • Direct Scene',
+          confidence: 91,
+          title: `Candid Moment ${numStr}: ${shortSnippet}`,
+          description: `Direct real-world watercolor vignette of Shridhar ${hasBothSons ? 'with his two sons Gahan (11yo boy) and Rishu (7yo boy) ' : ''}in: "${shortSnippet}"`,
+          castIds,
+          isPersonalFamily: castIds.length > 1
+        },
+        {
+          id: `m${idx + 1}_opt_2`,
+          archetype: 'expressive_midshot',
+          badge: '🎯 Expressive Close Mid-Shot',
+          confidence: 81,
+          title: `Close Human Expression & Interaction (Moment ${numStr})`,
+          description: `Waist-up candid focus on facial expressions, gestures, and emotional warmth during: "${shortSnippet}"`,
+          castIds,
+          isPersonalFamily: castIds.length > 1
+        },
+        {
+          id: `m${idx + 1}_opt_3`,
+          archetype: 'symbolic_focus',
+          badge: '🎨 Atmospheric & Symbolic Angle',
+          confidence: 72,
+          title: `Atmospheric Setting & Key Motif (Moment ${numStr})`,
+          description: `Poignant environmental framing highlighting the setting and central object of: "${shortSnippet}"`,
+          castIds,
+          isPersonalFamily: false
+        }
+      ];
+    }
+
+    return {
+      momentIndex: idx + 1,
+      momentTitle: m.title || `Moment ${numStr}`,
+      selectedOptionIdx: 0,
+      options
+    };
+  });
+}
+
 function buildFallbackVisualSubjects(rawText = '', spark = '', scrapedTitle = '', countryContext = 'India') {
   const combined = `${rawText} ${spark} ${scrapedTitle}`.toLowerCase();
   const isPersonalFamily = /\b(my family|our family|my whole family|our whole family|my kids|our kids|my sons|our sons|my boys|our boys|my children|our children|my wife|my elder son|my younger son|gahan|rishu|aruna|shridhar)\b/i.test(combined);
@@ -4011,7 +4260,9 @@ function buildFallbackVisualSubjects(rawText = '', spark = '', scrapedTitle = ''
     return [
       {
         id: 'subject_1',
+        archetype: 'core_scene',
         badge: '★ Best Fit • Core Scene',
+        confidence: 94,
         title: 'Packed School Corridor on Parent-Teacher Meeting Day',
         description: 'Bustling Indian school veranda overflowing with anxious parents, grandparents, and children queuing outside a classroom door.',
         cues: [
@@ -4025,7 +4276,9 @@ function buildFallbackVisualSubjects(rawText = '', spark = '', scrapedTitle = ''
       },
       {
         id: 'subject_2',
+        archetype: 'core_contrast',
         badge: '⚡ Core Contrast',
+        confidence: 85,
         title: 'Debating 2nd-Grade Marks in the Age of AI',
         description: 'Parents intensely debating single-digit elementary marks with a teacher while modern AI quietly transforms the world outside.',
         cues: [
@@ -4039,7 +4292,9 @@ function buildFallbackVisualSubjects(rawText = '', spark = '', scrapedTitle = ''
       },
       {
         id: 'subject_3',
+        archetype: 'editorial_metaphor',
         badge: '🎨 Editorial Metaphor',
+        confidence: 76,
         title: 'Carefree Schoolkids Walking Home Unburdened',
         description: 'Smiling school children walking home freely with satchels, contrasting nostalgic trust in education against modern parental anxiety.',
         cues: [
@@ -4060,7 +4315,9 @@ function buildFallbackVisualSubjects(rawText = '', spark = '', scrapedTitle = ''
   return [
     {
       id: 'subject_1',
+      archetype: 'core_scene',
       badge: '★ Best Fit • Core Scene',
+      confidence: 92,
       title: isPersonalFamily ? `Personal Family Scene: ${shortTopic}` : `Real-World Scene: ${shortTopic}`,
       description: isPersonalFamily
         ? `Authentic family moment grounded directly in: "${shortTopic}"`
@@ -4076,7 +4333,9 @@ function buildFallbackVisualSubjects(rawText = '', spark = '', scrapedTitle = ''
     },
     {
       id: 'subject_2',
+      archetype: 'core_contrast',
       badge: '⚡ Core Contrast',
+      confidence: 82,
       title: 'The Central Tension & Contrast',
       description: `Visualizing the two opposing forces or irony highlighted in your perspective.`,
       cues: [
@@ -4090,7 +4349,9 @@ function buildFallbackVisualSubjects(rawText = '', spark = '', scrapedTitle = ''
     },
     {
       id: 'subject_3',
+      archetype: 'editorial_metaphor',
       badge: '🎨 Editorial Metaphor',
+      confidence: 74,
       title: 'Symbolic Editorial Illustration',
       description: `An evocative broadsheet metaphor capturing the lasting takeaway of your slant.`,
       cues: [

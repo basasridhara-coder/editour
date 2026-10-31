@@ -898,17 +898,20 @@
             </div>
           </div>
 
-          <!-- Auto-Identified Core Visual Subject Picker (Appears on Polish — Tap the visual you feel fits best) -->
+          <!-- Auto-Identified Core Visual Subject / Per-Moment Scene Projection Picker -->
           <div class="polish-visual-subject-picker" id="polishVisualSubjectPicker" style="display: none;">
             <div class="polish-vs-header">
               <div class="polish-vs-title-row">
                 <span class="polish-vs-icon">🎨</span>
                 <div class="polish-vs-title-col">
-                  <span class="polish-vs-title">CORE VISUAL SUBJECT TO PROJECT</span>
-                  <span class="polish-vs-subtitle">Auto-identified from your context — tap the visual angle you feel fits best:</span>
+                  <span class="polish-vs-title" id="polishVsHeaderTitle">CORE SCENE VISUAL TO PROJECT</span>
+                  <span class="polish-vs-subtitle" id="polishVsHeaderSubtitle">Default selected by confidence score — tap any visual option to switch, and your approvals improve future confidence:</span>
                 </div>
               </div>
-              <span class="polish-vs-status-pill" id="polishVisualSubjectStatusPill">✓ Option 1 Selected</span>
+              <div class="polish-vs-header-actions">
+                <button type="button" class="polish-vs-ai-refresh-btn" id="polishVsAiRefreshBtn" onclick="refreshVisualProjectionsWithAI()" title="Ask AI to suggest fresh visual projection options">✨ AI Options</button>
+                <span class="polish-vs-status-pill" id="polishVisualSubjectStatusPill">★ Default Selected</span>
+              </div>
             </div>
             <div class="polish-vs-cards-list" id="polishVisualSubjectCardsList">
               <!-- Populated dynamically by renderPolishVisualSubjects() -->
