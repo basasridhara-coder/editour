@@ -12515,7 +12515,7 @@ function ensureMemberStructuredTraits(m) {
     if (m.id === 'member_father' || m.relationship === 'self') {
       m.structuredTraits = {
         bodyVolume: 'broad_full',
-        tummyProfile: 'visible_tummy',
+        tummyProfile: 'subtle_10',
         faceFullness: 'round_full_submental',
         baseHeightRatio: 1.00,
         hairStyle: 'short_brushed_up',
@@ -12525,7 +12525,7 @@ function ensureMemberStructuredTraits(m) {
     } else if (m.id === 'member_mother' || m.relationship === 'spouse') {
       m.structuredTraits = {
         bodyVolume: 'medium',
-        tummyProfile: 'slight_tummy',
+        tummyProfile: 'subtle_10',
         faceFullness: 'soft_full_cheeks',
         baseHeightRatio: 0.92,
         hairStyle: 'long_shoulder_swept',
@@ -12580,12 +12580,19 @@ function sanitizeLoadedFamilyCast(cast) {
         m.uncompromisableAnchors = m.uncompromisableAnchors
           .replace(/\bsalt-and-pepper\s+(?:trimmed\s+)?beard\b/gi, 'neat short dark trimmed beard, full head of thick short jet-black hair (strictly NOT old or elderly)')
           .replace(/\bFit mid-age 40-year-old\b/g, 'Mid-age 40-year-old')
-          .replace(/\bsturdy,?\s*broad-shouldered solid(?: adult)? (?:frame|build)\b/gi, 'fuller medium-heavy adult build with broad shoulders and a visible rounded dad-bod tummy / soft belly paunch (~30% midsection projection) under his shirt (strictly NOT lean or flat-stomached)');
+          .replace(/\bsturdy,?\s*broad-shouldered solid(?: adult)? (?:frame|build)\b/gi, 'natural medium-full adult build with a straight-cut everyday waist and subtle 10% lower-waist softness flush with his chest line');
       }
       if (m.visualTraits) {
         m.visualTraits = m.visualTraits
           .replace(/\bsalt-and-pepper\s+(?:trimmed\s+)?beard\b/gi, 'neat short dark trimmed beard')
-          .replace(/\bsturdy,?\s*broad-shouldered solid(?: adult)? (?:frame|build)\b/gi, 'fuller medium-heavy adult build with a visible rounded dad-bod tummy at the midsection (strictly not lean or flat-stomached)');
+          .replace(/\bsturdy,?\s*broad-shouldered solid(?: adult)? (?:frame|build)\b/gi, 'natural medium-full adult build with a straight-cut everyday waist and subtle 10% lower-waist softness flush with his chest line');
+      }
+      // If tummyProfile is one of the non-protruding profiles (flat, straight_5, subtle_10, slight_tummy), ensure legacy "visible rounded dad-bod tummy / soft belly paunch" strings in anchors/traits are updated
+      const tp = m.structuredTraits && m.structuredTraits.tummyProfile;
+      if (tp && tp !== 'visible_tummy' && tp !== 'prominent_belly') {
+        if (m.uncompromisableAnchors && /visible rounded dad-bod tummy|soft belly paunch/i.test(m.uncompromisableAnchors)) {
+          syncStructuredTraitsIntoTextFields(m);
+        }
       }
     }
   });
@@ -12605,18 +12612,18 @@ function getDefaultClientFamilyCast() {
         name: 'Shridhar',
         aliases: ['dad', 'father', 'shridhar', 'myself', 'me', 'i', 'husband'],
         age: 40,
-        heightDesc: '5ft 10in (178cm), 1.00x baseline adult stature, fuller medium-heavy build with visible rounded tummy',
+        heightDesc: '5ft 10in (178cm), 1.00x baseline adult stature, natural medium-full build with subtle 10% waist softness flush with chest',
         structuredTraits: {
           bodyVolume: 'broad_full',
-          tummyProfile: 'visible_tummy',
+          tummyProfile: 'subtle_10',
           faceFullness: 'round_full_submental',
           baseHeightRatio: 1.00,
           hairStyle: 'short_brushed_up',
           facialHair: 'light_stubble',
           landmarks: []
         },
-        uncompromisableAnchors: 'Mid-age 40-year-old Indian man in his early 40s (strictly age 38-40, STRICTLY NOT old or elderly, STRICTLY NO senior facial wrinkles), warm medium-brown skin, soft fuller round-oval face with full cheeks and natural under-chin/submental fullness, calm dark brown eyes, full head of thick short dark hair styled up at the crown, short light neat trimmed stubble beard along the jaw, and a fuller medium-heavy adult build with broad shoulders and a visible rounded dad-bod tummy / soft belly paunch (~30% midsection projection) under his shirt (STRICTLY NOT lean, NOT gym-fit, NOT V-tapered, and NOT flat-stomached).',
-        visualTraits: 'Warm medium-brown skin, soft fuller round-oval face with full cheeks and natural under-chin fullness, calm dark eyes, full head of thick short dark hair styled up, neat short trimmed stubble beard, and a fuller medium-heavy adult build with a visible rounded dad-bod tummy at the midsection (strictly not lean or flat-stomached).',
+        uncompromisableAnchors: 'Mid-age 40-year-old Indian man in his early 40s (strictly age 38-40, STRICTLY NOT old or elderly, STRICTLY NO senior facial wrinkles), warm medium-brown skin, soft fuller round-oval face with full cheeks and natural under-chin/submental fullness, calm dark brown eyes, full head of thick short dark hair styled up at the crown, short light neat trimmed stubble beard along the jaw, and a natural medium-full adult build with a straight-cut everyday waist and subtle 10% lower-waist softness that stays completely flush with his chest line under a straight-draping shirt (strictly neither a skinny V-taper gym body nor a protruding pot-belly or round paunch).',
+        visualTraits: 'Warm medium-brown skin, soft fuller round-oval face with full cheeks and natural under-chin fullness, calm dark eyes, full head of thick short dark hair styled up, neat short trimmed stubble beard, and a natural medium-full adult build with a straight-cut everyday waist and subtle 10% lower-waist softness flush with his chest line (strictly neither a skinny V-taper gym waist nor a protruding pot-belly).',
         vehicleRole: 'driver_right',
         stylizedAvatarUrl: 'https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/avatar_member_father.jpg'
       },
@@ -13222,12 +13229,14 @@ function renderActiveMemberScreen() {
                 </div>
 
                 <div class="vault-trait-row">
-                  <span class="vault-trait-row-label">Midsection / Tummy Profile (Quantified)</span>
+                  <span class="vault-trait-row-label">Midsection / Waist Profile (6-Step Granular Scale)</span>
                   <div class="vault-trait-chips">
-                    <button type="button" class="vault-trait-chip ${st.tummyProfile === 'flat' ? 'active' : ''}" onclick="selectVaultStructuredTrait('tummyProfile', 'flat')">Flat (0%)</button>
-                    <button type="button" class="vault-trait-chip ${st.tummyProfile === 'slight_tummy' ? 'active' : ''}" onclick="selectVaultStructuredTrait('tummyProfile', 'slight_tummy')">Soft Tummy (~15%)</button>
-                    <button type="button" class="vault-trait-chip ${st.tummyProfile === 'visible_tummy' ? 'active' : ''}" onclick="selectVaultStructuredTrait('tummyProfile', 'visible_tummy')">Visible Rounded Tummy (~30%)</button>
-                    <button type="button" class="vault-trait-chip ${st.tummyProfile === 'prominent_belly' ? 'active' : ''}" onclick="selectVaultStructuredTrait('tummyProfile', 'prominent_belly')">Prominent Belly (~45%)</button>
+                    <button type="button" class="vault-trait-chip ${st.tummyProfile === 'flat' ? 'active' : ''}" onclick="selectVaultStructuredTrait('tummyProfile', 'flat')">0% • Flat / Toned</button>
+                    <button type="button" class="vault-trait-chip ${st.tummyProfile === 'straight_5' ? 'active' : ''}" onclick="selectVaultStructuredTrait('tummyProfile', 'straight_5')">5% • Straight-Cut (No Bulge)</button>
+                    <button type="button" class="vault-trait-chip ${st.tummyProfile === 'subtle_10' ? 'active' : ''}" onclick="selectVaultStructuredTrait('tummyProfile', 'subtle_10')">10% • Subtle Softness (Flush w/ Chest)</button>
+                    <button type="button" class="vault-trait-chip ${st.tummyProfile === 'slight_tummy' ? 'active' : ''}" onclick="selectVaultStructuredTrait('tummyProfile', 'slight_tummy')">15% • Mild Relaxed Waist</button>
+                    <button type="button" class="vault-trait-chip ${st.tummyProfile === 'visible_tummy' ? 'active' : ''}" onclick="selectVaultStructuredTrait('tummyProfile', 'visible_tummy')">25% • Rounded Tummy</button>
+                    <button type="button" class="vault-trait-chip ${st.tummyProfile === 'prominent_belly' ? 'active' : ''}" onclick="selectVaultStructuredTrait('tummyProfile', 'prominent_belly')">35%+ • Prominent Belly</button>
                   </div>
                 </div>
 
@@ -13595,10 +13604,20 @@ function syncStructuredTraitsIntoTextFields(member) {
     heavy_plus: 'heavy full-bodied plus frame'
   };
   const tummyPhraseMap = {
-    flat: 'flat midsection (0% belly bulge)',
-    slight_tummy: 'soft dad-bod tummy (~15% gentle belly curve at the waist)',
-    visible_tummy: 'visible rounded dad-bod tummy / soft belly paunch (~30% midsection projection under shirt, strictly NOT lean or flat-stomached)',
-    prominent_belly: 'prominent full rounded belly (~45% round stomach silhouette)'
+    flat: 'flat toned waist (0% belly projection, waist narrower than chest)',
+    straight_5: 'straight-cut torso (5% waist profile where the shirt hangs straight down flush with the ribcage, zero belly bulge, strictly NOT a skinny V-taper and strictly NO protruding belly)',
+    subtle_10: 'straight-cut everyday waist with subtle 10% lower-waist softness that stays completely flush with the chest line under a straight-draping shirt (strictly neither a skinny V-taper gym waist nor a protruding pot-belly or round paunch)',
+    slight_tummy: 'mild 15% relaxed waist contour under a loosely draped shirt that never sticks out past the chest line (strictly NOT a skinny V-taper gym body and strictly NO large protruding pot-belly)',
+    visible_tummy: 'noticeable 25% rounded tummy contour under shirt (strictly NOT lean or flat-stomached)',
+    prominent_belly: 'prominent full rounded belly (~35%+ round stomach silhouette)'
+  };
+  const tummyShortLabelMap = {
+    flat: 'flat waist (0%)',
+    straight_5: 'straight-cut waist (5% • no bulge)',
+    subtle_10: 'subtle waist softness (10% • flush w/ chest)',
+    slight_tummy: 'mild relaxed waist (15%)',
+    visible_tummy: 'rounded tummy (25%)',
+    prominent_belly: 'prominent round belly (35%+)'
   };
   const facePhraseMap = {
     slim_angular: 'slim angular face',
@@ -13627,19 +13646,22 @@ function syncStructuredTraitsIntoTextFields(member) {
   };
 
   const volPhrase = volumePhraseMap[st.bodyVolume] || volumePhraseMap.medium;
-  const tummyPhrase = tummyPhraseMap[st.tummyProfile] || tummyPhraseMap.flat;
+  const tummyPhrase = tummyPhraseMap[st.tummyProfile] || tummyPhraseMap.subtle_10;
+  const tummyShort = tummyShortLabelMap[st.tummyProfile] || tummyShortLabelMap.subtle_10;
   const facePhrase = facePhraseMap[st.faceFullness] || facePhraseMap.oval_balanced;
   const beardPhrase = (member.relationship === 'self') ? (facialHairMap[st.facialHair] || facialHairMap.light_stubble) : '';
   const activeLms = (st.landmarks || []).map(k => landmarkLabels[k]).filter(Boolean);
   const ratioStr = ratioDescMap[String(Number(st.baseHeightRatio))] || `${st.baseHeightRatio}x Father height`;
 
-  member.heightDesc = `${ratioStr}, ${volPhrase} with ${st.tummyProfile === 'flat' ? 'flat midsection' : (st.tummyProfile === 'slight_tummy' ? 'soft tummy (~15%)' : (st.tummyProfile === 'prominent_belly' ? 'prominent round belly (~45%)' : 'visible rounded tummy (~30%)'))}`;
+  member.heightDesc = `${ratioStr}, ${volPhrase} with ${tummyShort}`;
 
   const quantifiedSummary = `Quantified Volume & Stature: ${facePhrase}${beardPhrase ? ', ' + beardPhrase : ''}${activeLms.length ? ', ' + activeLms.join(', ') : ''}, ${volPhrase} with ${tummyPhrase}, standing at ${ratioStr}.`;
 
   const cleanExisting = (str) => String(str || '')
     .replace(/\s*Quantified Volume & Stature:[\s\S]*$/i, '')
     .replace(/\bsturdy,?\s*broad-shouldered solid(?: adult)? (?:frame|build)\b/gi, `${volPhrase} with ${tummyPhrase}`)
+    .replace(/\band\s+a\s+fuller\s+medium-heavy\s+adult\s+build\s+with\s+broad\s+shoulders\s+and\s+a\s+visible\s+rounded\s+dad-bod\s+tummy[^.]*/gi, `and a ${volPhrase} with ${tummyPhrase}`)
+    .replace(/\band\s+a\s+fuller\s+medium-heavy\s+adult\s+build\s+with\s+a\s+visible\s+rounded\s+dad-bod\s+tummy[^.]*/gi, `and a ${volPhrase} with ${tummyPhrase}`)
     .trim();
 
   const baseAnchors = cleanExisting(member.uncompromisableAnchors);

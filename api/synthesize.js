@@ -487,7 +487,7 @@ ${validRebuildMomentImgs.length > 0 ? `\nCRITICAL ATTACHED MOMENT PHOTO / LOGO I
 ${customDirection ? `\nCURATOR'S SPECIFIC VISUAL DIRECTION: "${customDirection}"` : ''}
 
 STRICT RULES:
-1. If Father (Shridhar) is in the scene, you MUST describe him as a "mid-age 40-year-old Indian man in his early 40s with a soft fuller round-oval face, full cheeks and natural under-chin fullness, full head of thick short dark hair brushed up, neat short dark trimmed stubble beard, and a fuller medium-heavy adult build with broad shoulders and a visible rounded dad-bod tummy at the midsection (strictly NOT lean, NOT gym-fit or flat-stomached, and strictly NOT an elderly or old man)". NEVER call him "fit" or "lean" and NEVER call him "an Indian father figure" without specifying his age-40 fuller build with a soft rounded tummy.
+1. If Father (Shridhar) is in the scene, you MUST describe him as a "mid-age 40-year-old Indian man in his early 40s with a soft fuller round-oval face, full cheeks, full head of thick short dark hair brushed up, neat short dark trimmed stubble beard, and a natural medium-full adult build with a straight-cut everyday waist where his shirt hangs flush with his chest line (strictly neither a skinny V-taper gym body nor a protruding pot-belly, and strictly NOT an elderly or old man)". NEVER call him "fit" or "lean" and NEVER give him an exaggerated protruding belly unless explicitly requested.
 2. ${chronicleMode
   ? (chronicleVignetteCount === 2
       ? 'DAILY CHRONICLE 2-SPOT-VIGNETTE LAYOUT (EXACTLY 2 MOMENTS = EXACTLY 2 VIGNETTES, STRICTLY NEVER 3 VIGNETTES!): Present EXACTLY 2 separate, self-contained soft-edged oval watercolor-and-gouache spot-illustration vignettes stacked vertically on open unpainted textured warm cream archival paper: (1) Upper Centered Vignette (~40% of canvas) depicting Moment 01 in full with all mentioned people (e.g. BOTH Shridhar and his male college friend—give the friend a distinct clean-shaven face with glasses, full wavy black hair, and a contrasting shirt so he does not look like a twin of bearded Shridhar!), and (2) Lower Centered Larger Highlight Vignette (~55% of canvas) depicting Moment 02 (the starred highlight moment). STRICT BAN ON 3 VIGNETTES: NEVER split Moment 01 into two upper vignettes! When the family (Father, Mother, and 2 sons) appears together in a vignette, draw EXACTLY 4 PEOPLE TOTAL SHOWN FULL-BODY FROM HEAD TO TOE WITH ALL FEET AND SHOES PLANTED ON THE SAME LEVEL GROUND LINE from left to right: (1st on far left) Father Shridhar (1.0x height, in trousers and shoes) -> (2nd from left) Mother Aruna (0.92x height, in kurta and sandals) -> (3rd from left) tall 11yo slim pre-teen elder son Gahan in dark navy-blue t-shirt, knee-length denim shorts, and sneakers (0.85x Father height, nearly as tall as Mother Aruna, top of Gahan\'s head reaching Mother\'s ear/eye level and Father\'s shoulder) -> (4th on far right) 7yo younger son Rishu in mustard-yellow t-shirt, dark shorts, and sneakers (0.78x Father height, tall enough that the top of Rishu\'s head rises ABOVE Gahan\'s shoulders to reach right up to Gahan\'s NECK / UNDER-CHIN level and Mother\'s chin/neck level — only half-a-head / 4 inches shorter than Gahan; strictly NEVER draw Rishu\'s head below Gahan\'s shoulders or at equal height!).'
@@ -1822,7 +1822,7 @@ ${validChronicleMoments.map((m, i) => `  * Moment 0${i + 1} (${m.title || 'Momen
     - Whenever the self/protagonist (Shridhar) or any recurring character appears across multiple vignettes, you MUST dress him/them specifically according to the situation, activity, and setting of THAT individual moment!
     - NEVER blindly copy or clone the outfit from one moment's vignette into another moment's vignette! For example: if one moment is a uniformed march/parade (such as RSS Pathasanchalan), dress him in the exact march uniform (crisp white full-sleeve shirt, khaki trousers, black RSS cap, bamboo danda); if another moment is working at a desk/laptop/cafe, dress him in smart casual workwear (such as a rolled-sleeve button-down shirt); if another moment is sports/exercise, dress him in athletic wear; if another moment is at home or a festive family moment, dress him in comfortable home or festive attire (such as a kurta or casual home shirt). Explicitly specify his distinct, context-appropriate outfit inside each vignette description!
   * STRICT BAN ON CRISP BORDERS, WATER-STAIN PUDDLE RINGS, OR STRAIGHT VERTICAL EDGES: Never draw sharp cutout outlines, hard wet-on-dry watercolor puddle perimeter lines, or straight vertical building/frame borders around any moment visual! Every vignette's outer shading must be a soft, diffuse, dry-brush cloud gradient that fades smoothly into the warm textured parchment paper. Never merge the moments into a single full-bleed scene.
-  * STRICT BAN ON PRINTED LABELS OR CAPTIONS: Do NOT write numbered titles like "Moment 01:" or "Scene 1:" inside "illustrationPrompt" (as image models will print those words as text captions onto the painting!). Whenever the narrator (Shridhar) appears in a vignette, portray him as a mid-age 40-year-old Indian man in his early 40s with a soft fuller round-oval face, full cheeks and natural under-chin fullness, full head of thick short dark hair brushed up, neat short dark trimmed stubble beard, and a fuller medium-heavy adult build with broad shoulders and a visible rounded dad-bod tummy at the midsection (strictly NOT lean, NOT gym-fit or flat-stomached, and strictly NOT old or elderly), and depict any family members, colleagues, friends, or companions ONLY inside the specific vignette where they are mentioned!
+  * STRICT BAN ON PRINTED LABELS OR CAPTIONS: Do NOT write numbered titles like "Moment 01:" or "Scene 1:" inside "illustrationPrompt" (as image models will print those words as text captions onto the painting!). Whenever the narrator (Shridhar) appears in a vignette, portray him as a mid-age 40-year-old Indian man in his early 40s with a soft fuller round-oval face, full cheeks, full head of thick short dark hair brushed up, neat short dark trimmed stubble beard, and a natural medium-full adult build with a straight-cut everyday waist where his shirt hangs flush with his chest line (strictly neither a skinny V-taper gym body nor an exaggerated protruding pot-belly, and strictly NOT old or elderly), and depict any family members, colleagues, friends, or companions ONLY inside the specific vignette where they are mentioned!
   * BALANCING CANDID MOMENT (MID-SHOT) vs. GROUP SCALE (WIDER FRAMING):
     - Do NOT force full-body head-to-toe framing on every scene! Choose the shot framing that best captures the emotional heart and candidness of each moment:
       1) INTIMATE / CONVERSATIONAL / SEATED / SOLO MOMENTS (1-2 people meeting a friend over chai, talking at a table/breezeway, reading a book, working at a desk, or sharing a quiet conversation): Use an expressive CANDID MEDIUM SHOT / MID-SHOT (waist-up or chest-up, 35mm-50mm lens) that foregrounds warm facial expressions, eye contact, hand gestures (holding chai cups, a book, etc.), and upper-body/midsection build.
@@ -2643,7 +2643,7 @@ function generateSmartFallbackSynthesis({
       atmosphereCue: 'Warm Indian Broadsheet Montage on Cream Archival Paper',
       lightingCue: 'Golden Hour and Warm Daylight Vignettes',
       styleCue: style,
-      illustrationPrompt: `Masterpiece ${validChronicleMoments.length}-scene editorial broadsheet painted story montage in rich gouache and warm India ink tones, presenting ${validChronicleMoments.length} distinct, clearly separated lived-in scenes on textured warm cream archival paper with clean unpaved cream paper margins separating each vignette (strictly zero overlapping figures between scenes and strictly zero printed captions or labels): ${upperLeftScene}${upperRightScene}${lowerShowcaseScene}. Whenever the narrator appears, portray him as a mid-age 40-year-old Indian man in his early 40s (soft fuller round-oval face with full cheeks and natural under-chin fullness, full head of thick short dark hair brushed up, neat short dark trimmed stubble beard, and a fuller medium-heavy adult build with broad shoulders and a visible rounded dad-bod tummy at the midsection; strictly NOT lean or flat-stomached, and strictly NOT old or elderly). Warm natural lighting, zero text or letters.`
+      illustrationPrompt: `Masterpiece ${validChronicleMoments.length}-scene editorial broadsheet painted story montage in rich gouache and warm India ink tones, presenting ${validChronicleMoments.length} distinct, clearly separated lived-in scenes on textured warm cream archival paper with clean unpaved cream paper margins separating each vignette (strictly zero overlapping figures between scenes and strictly zero printed captions or labels): ${upperLeftScene}${upperRightScene}${lowerShowcaseScene}. Whenever the narrator appears, portray him as a mid-age 40-year-old Indian man in his early 40s (soft fuller round-oval face with full cheeks and natural under-chin fullness, full head of thick short dark hair brushed up, neat short dark trimmed stubble beard, and a natural medium-full adult build with a straight-cut everyday waist and subtle 10% lower-waist softness that stays flush with his chest line under a straight-draping shirt; strictly neither a skinny V-taper gym body nor a protruding pot-belly, and strictly NOT old or elderly). Warm natural lighting, zero text or letters.`
     };
   }
 
@@ -2985,6 +2985,30 @@ function isLikelyPersonSubject(name) {
   return personKeywords.some(w => lower.includes(w));
 }
 
+function getFatherMidsectionDescription(tummyProfile = 'subtle_10', bodyVolume = 'broad_full') {
+  const volLabel = bodyVolume === 'lean'
+    ? 'lean slim'
+    : (bodyVolume === 'medium'
+        ? 'balanced medium'
+        : (bodyVolume === 'heavy_plus' ? 'heavy full-bodied' : 'natural medium-full'));
+  switch (tummyProfile) {
+    case 'flat':
+      return `a ${volLabel} adult build with a flat toned waist (0% midsection projection, waist narrower than chest)`;
+    case 'straight_5':
+      return `a ${volLabel} adult build with a straight-cut torso (5% waist profile where the shirt hangs straight down flush with the ribcage, zero belly bulge, strictly NOT a skinny V-taper and strictly NO protruding belly)`;
+    case 'subtle_10':
+      return `a ${volLabel} adult build with a straight-cut everyday waist and subtle 10% lower-waist softness that stays completely flush with his chest line under a straight-draping shirt (strictly neither a skinny V-taper gym waist nor a protruding pot-belly or round paunch)`;
+    case 'slight_tummy':
+      return `a ${volLabel} adult build with a mild 15% relaxed waist contour under a loosely draped shirt that never sticks out past his chest line (strictly NOT a skinny V-taper gym body and strictly NO large protruding pot-belly)`;
+    case 'visible_tummy':
+      return `a fuller medium-heavy adult build with broad shoulders and a noticeable 25% rounded tummy contour under his shirt (strictly NOT lean or flat-stomached)`;
+    case 'prominent_belly':
+      return `a heavy full-bodied adult build (~35%+ prominent rounded belly projection) with soft full cheeks, natural under-chin fullness, and a pronounced round stomach silhouette under his shirt`;
+    default:
+      return `a ${volLabel} adult build with a straight-cut everyday waist and subtle 10% lower-waist softness that stays completely flush with his chest line under a straight-draping shirt (strictly neither a skinny V-taper gym waist nor a protruding pot-belly or round paunch)`;
+  }
+}
+
 async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeType = 'image/jpeg', timeoutMs = 35000, familyCast = null, activeCast = null, stylizedAvatars = null, countryContext = '', chronicleMode = false, chronicleMomentCount = 0, chronicleMomentImages = [] }) {
   if (!GEMINI_API_KEY) return null;
 
@@ -3063,12 +3087,24 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
     }
   }
 
+  // Resolve Father (Shridhar) structured midsection/tummy profile up front so all group, solo, and chronicle blocks use the exact Vault selection
+  const activeCastList = (activeCast && Array.isArray(activeCast.members) && activeCast.members.length > 0)
+    ? activeCast.members
+    : ((familyCast && Array.isArray(familyCast.members))
+        ? familyCast.members.filter(m => m && detectRelevantCastMembers(enhancedPrompt, familyCast).has(m.id))
+        : []);
+  const selfMemberObj = activeCastList.find(m => m && (m.id === 'member_father' || m.relationship === 'self'))
+    || (familyCast && Array.isArray(familyCast.members) ? familyCast.members.find(m => m && (m.id === 'member_father' || m.relationship === 'self')) : null);
+  const selfTummy = (selfMemberObj && selfMemberObj.structuredTraits && selfMemberObj.structuredTraits.tummyProfile) || 'subtle_10';
+  const selfVolume = (selfMemberObj && selfMemberObj.structuredTraits && selfMemberObj.structuredTraits.bodyVolume) || 'broad_full';
+  const fatherBuildPhrase = getFatherMidsectionDescription(selfTummy, selfVolume);
+
   // Deterministically normalize any full-family walk/group description so that:
   // 1) All 4 family members (Father Shridhar, Mother Aruna, Elder Son Gahan, Younger Son Rishu) are ALWAYS present (Father is NEVER dropped!)
   // 2) Parents (Father Shridhar & Mother Aruna) stand together on the left half, and BOTH BROTHERS (Gahan & Rishu) stand DIRECTLY BESIDE EACH OTHER on the right half (never separated by Mother!)
   // 3) Both boys walk hands-free with arms relaxed at their sides (never holding hands like toddlers, which causes image models to shrink the younger boy!)
   // 4) Gahan is 0.86x Father height (reaching Mother's ear/eye level) and Rishu is 0.80x Father height (nearly Gahan's height—only 3 inches shorter—so the top of Rishu's head rises ABOVE Gahan's shoulders to sit directly level with Gahan's NECK / CHIN!)
-  const canonicalFourFamilyWalkBlock = 'ZOOMED-OUT 24MM WIDE-ANGLE ESTABLISHING SHOT (camera pulled back 18-20 feet so all 4 full-body people fit comfortably inside the center 65% of the vignette width with generous open walkway/foliage margins on the left, right, top, and bottom so NO person is ever clipped or dropped at the edge): Strictly 4 people total shown FULL-BODY FROM HEAD TO TOE with all 8 feet/shoes planted on the exact same level ground line, walking SIDE BY SIDE in a single horizontal row facing forward, with the 2 Parents together on the left side and the 2 Brothers standing directly beside each other on the right side: - 1st on far left: Father Shridhar (40yo mid-age bearded Indian man with a soft fuller round-oval face, full cheeks and natural under-chin fullness, fuller medium-heavy adult build, and a visible rounded dad-bod tummy / soft belly paunch under his casual polo shirt with no lanyard, chinos, and shoes, 1.0x reference height; strictly NOT lean or flat-stomached). - 2nd from left (walking beside Father): Mother Aruna (36yo Indian woman with a soft fuller round-oval maternal face, warm golden-brown skin, small black circular forehead bindi, subtle red kumkum at her hairline, and thick side-parted wavy black hair swept over her left shoulder, wearing a teal/sage cotton kurta and sandals, standing at Father chin/eye level, 0.92x Father height). - 3rd from left (walking beside Mother on the right half, hands-free with arms relaxed at his sides): Elder son Gahan (tall 11yo slim Indian pre-teen boy with a long oval face, wearing a solid dark navy-blue t-shirt, knee-length denim shorts, and sneakers; Gahan is nearly as tall as his mother—the top of Gahan head reaches right up to Mother Aruna ear/eye level and Father shoulder level, 0.86x Father height). - 4th on far right (walking DIRECTLY BESIDE GAHAN shoulder-to-shoulder on the far right, hands-free with arms relaxed at his sides, NEVER separated from Gahan and NEVER holding hands): Younger son Rishu (tall 7yo Indian schoolboy with a round cheerful face, wearing a solid mustard-yellow t-shirt, dark shorts, and sneakers; Rishu is nearly Gahan height—0.80x Father height, only 3 inches shorter than Gahan—so the TOP OF RISHU HEAD RISES WELL ABOVE GAHAN SHOULDERS to sit directly level with Gahan NECK / CHIN and Mother Aruna chin/neck level; strictly NEVER draw Rishu head below Gahan shoulders!).';
+  const canonicalFourFamilyWalkBlock = `ZOOMED-OUT 24MM WIDE-ANGLE ESTABLISHING SHOT (camera pulled back 18-20 feet so all 4 full-body people fit comfortably inside the center 65% of the vignette width with generous open walkway/foliage margins on the left, right, top, and bottom so NO person is ever clipped or dropped at the edge): Strictly 4 people total shown FULL-BODY FROM HEAD TO TOE with all 8 feet/shoes planted on the exact same level ground line, walking SIDE BY SIDE in a single horizontal row facing forward, with the 2 Parents together on the left side and the 2 Brothers standing directly beside each other on the right side: - 1st on far left: Father Shridhar (40yo mid-age bearded Indian man with a soft fuller round-oval face, full cheeks and natural under-chin fullness, ${fatherBuildPhrase}, wearing a casual polo shirt with no lanyard, chinos, and shoes, 1.0x reference height). - 2nd from left (walking beside Father): Mother Aruna (36yo Indian woman with a soft fuller round-oval maternal face, warm golden-brown skin, small black circular forehead bindi, subtle red kumkum at her hairline, and thick side-parted wavy black hair swept over her left shoulder, wearing a teal/sage cotton kurta and sandals, standing at Father chin/eye level, 0.92x Father height). - 3rd from left (walking beside Mother on the right half, hands-free with arms relaxed at his sides): Elder son Gahan (tall 11yo slim Indian pre-teen boy with a long oval face, wearing a solid dark navy-blue t-shirt, knee-length denim shorts, and sneakers; Gahan is nearly as tall as his mother—the top of Gahan head reaches right up to Mother Aruna ear/eye level and Father shoulder level, 0.86x Father height). - 4th on far right (walking DIRECTLY BESIDE GAHAN shoulder-to-shoulder on the far right, hands-free with arms relaxed at his sides, NEVER separated from Gahan and NEVER holding hands): Younger son Rishu (tall 7yo Indian schoolboy with a round cheerful face, wearing a solid mustard-yellow t-shirt, dark shorts, and sneakers; Rishu is nearly Gahan height—0.80x Father height, only 3 inches shorter than Gahan—so the TOP OF RISHU HEAD RISES WELL ABOVE GAHAN SHOULDERS to sit directly level with Gahan NECK / CHIN and Mother Aruna chin/neck level; strictly NEVER draw Rishu head below Gahan shoulders!).`;
 
   enhancedPrompt = enhancedPrompt
     .replace(/Exactly 4 family members walk side-by-side[^.]*\./i, canonicalFourFamilyWalkBlock)
@@ -3104,7 +3140,7 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
   const isIndianFamilyCast = (!countryContext || /india/i.test(countryContext));
 
   if (hasFamilyContext && isIndianFamilyCast && !chronicleMode) {
-    const headcountAnchor = 'GROUP PORTRAIT OF EXACTLY FOUR (4) DISTINCT INDIVIDUAL PEOPLE SHOWN FULL-BODY FROM HEAD TO TOE WITH ALL FEET AND SHOES PLANTED ON THE SAME LEVEL GROUND LINE, STANDING SIDE BY SIDE FROM LEFT TO RIGHT (3 MALES, 1 FEMALE — STRICTLY 4 PEOPLE TOTAL: 1 FATHER, 1 MOTHER, AND EXACTLY 2 SONS, NEVER 3 KIDS!): 1) On Far Left: Adult Father Shridhar (1.00x tallest adult, mid 40s) with soft fuller round-oval face, full cheeks and natural under-chin fullness, fuller medium-heavy build, and a visible rounded dad-bod tummy / soft belly paunch under his shirt in trousers and shoes (strictly NOT lean or flat-stomached), 2) Second from Left: Adult Mother Aruna (0.92x second tallest adult, mid 30s) with warm golden-brown skin, soft fuller round-to-oval maternal face with warm full cheeks, small black circular bindi centered on forehead and subtle red kumkum at upper forehead hairline, side-parted thick voluminous wavy black hair swept forward over her left shoulder past her collarbone, and healthy medium-to-full South Indian adult build in kurta and sandals, 3) Third from Left: Tall 11yo Slim Pre-Teen Elder Son Gahan (0.86x Father height — nearly as tall as his Mother Aruna so the top of Gahan\'s head reaches Mother\'s ear/eye level and Father\'s shoulder) with a long oval face wearing a DARK NAVY-BLUE casual t-shirt, knee-length denim shorts, and sneakers, 4) On Far Right: 7yo Younger Son Rishu (0.80x Father height — tall enough that the TOP OF RISHU\'S HEAD RISES ABOVE GAHAN\'S SHOULDERS to reach right up to Gahan\'s NECK / CHIN level and Mother\'s chin/neck level — only 3 inches shorter than Gahan; strictly NEVER draw Rishu\'s head below Gahan\'s shoulders and strictly NEVER equal height with Gahan!) with round cheerful cheeks wearing a CONTRASTING MUSTARD-YELLOW OR BRIGHT EMERALD-GREEN t-shirt, dark shorts, and sneakers. ';
+    const headcountAnchor = `GROUP PORTRAIT OF EXACTLY FOUR (4) DISTINCT INDIVIDUAL PEOPLE SHOWN FULL-BODY FROM HEAD TO TOE WITH ALL FEET AND SHOES PLANTED ON THE SAME LEVEL GROUND LINE, STANDING SIDE BY SIDE FROM LEFT TO RIGHT (3 MALES, 1 FEMALE — STRICTLY 4 PEOPLE TOTAL: 1 FATHER, 1 MOTHER, AND EXACTLY 2 SONS, NEVER 3 KIDS!): 1) On Far Left: Adult Father Shridhar (1.00x tallest adult, mid 40s) with soft fuller round-oval face, full cheeks and natural under-chin fullness, and ${fatherBuildPhrase} in trousers and shoes, 2) Second from Left: Adult Mother Aruna (0.92x second tallest adult, mid 30s) with warm golden-brown skin, soft fuller round-to-oval maternal face with warm full cheeks, small black circular bindi centered on forehead and subtle red kumkum at upper forehead hairline, side-parted thick voluminous wavy black hair swept forward over her left shoulder past her collarbone, and healthy medium-to-full South Indian adult build in kurta and sandals, 3) Third from Left: Tall 11yo Slim Pre-Teen Elder Son Gahan (0.86x Father height — nearly as tall as his Mother Aruna so the top of Gahan's head reaches Mother's ear/eye level and Father's shoulder) with a long oval face wearing a DARK NAVY-BLUE casual t-shirt, knee-length denim shorts, and sneakers, 4) On Far Right: 7yo Younger Son Rishu (0.80x Father height — tall enough that the TOP OF RISHU'S HEAD RISES ABOVE GAHAN'S SHOULDERS to reach right up to Gahan's NECK / CHIN level and Mother's chin/neck level — only 3 inches shorter than Gahan; strictly NEVER draw Rishu's head below Gahan's shoulders and strictly NEVER equal height with Gahan!) with round cheerful cheeks wearing a CONTRASTING MUSTARD-YELLOW OR BRIGHT EMERALD-GREEN t-shirt, dark shorts, and sneakers. `;
     if (!enhancedPrompt.includes('EXACTLY FOUR') && !enhancedPrompt.includes('STRICT COUNT = 4')) {
       enhancedPrompt = headcountAnchor + enhancedPrompt;
     }
@@ -3146,27 +3182,10 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
   }
 
   // Enforce Solo / Active Cast Father (Shridhar, Age 40 Mid-Age) & Prevent Elderly Hallucinations
-  const activeCastList = (activeCast && Array.isArray(activeCast.members) && activeCast.members.length > 0)
-    ? activeCast.members
-    : ((familyCast && Array.isArray(familyCast.members))
-        ? familyCast.members.filter(m => m && detectRelevantCastMembers(enhancedPrompt, familyCast).has(m.id))
-        : []);
   const hasSelfInActiveCast = activeCastList.some(m => m && (m.id === 'member_father' || m.relationship === 'self'));
   const mentionsFatherOrSelf = hasSelfInActiveCast || /\b(shridhar|father\s*\(shridhar\)|indian father figure|member_father)\b/i.test(enhancedPrompt);
 
   if (mentionsFatherOrSelf) {
-    const selfMemberObj = activeCastList.find(m => m && (m.id === 'member_father' || m.relationship === 'self'))
-      || (familyCast && Array.isArray(familyCast.members) ? familyCast.members.find(m => m && (m.id === 'member_father' || m.relationship === 'self')) : null);
-    const selfTummy = (selfMemberObj && selfMemberObj.structuredTraits && selfMemberObj.structuredTraits.tummyProfile) || 'visible_tummy';
-    const selfVolume = (selfMemberObj && selfMemberObj.structuredTraits && selfMemberObj.structuredTraits.bodyVolume) || 'broad_full';
-    const fatherBuildPhrase = selfTummy === 'flat'
-      ? `a ${selfVolume === 'lean' ? 'lean' : 'balanced medium'} adult build with a flat midsection`
-      : (selfTummy === 'prominent_belly'
-          ? 'a heavy full-bodied adult build (~45% prominent rounded belly projection) with soft full cheeks, natural under-chin fullness, and a pronounced round stomach silhouette under his shirt (STRICTLY NOT lean, NOT gym-fit, and NOT flat-stomached)'
-          : (selfTummy === 'slight_tummy'
-              ? 'a medium-full adult build (~15% soft dad-bod tummy contour) with soft cheeks and a gentle natural belly curve at the waist (strictly NOT lean or gym-fit)'
-              : 'a fuller medium-heavy adult build (~30% rounded midsection projection) with broad shoulders, soft fuller cheeks, natural under-chin fullness, and a visible rounded dad-bod tummy / soft belly paunch that gently pushes the front of his shirt outward (STRICTLY NOT lean, NOT gym-fit, NOT V-tapered, and NOT flat-stomached)'));
-
     enhancedPrompt = enhancedPrompt
       .replace(/\bfit,?\s*(?:prime\s+)?mid-age\s+40-year-old\b/gi, 'mid-age 40-year-old')
       .replace(/\btall\s+40yo\s+fit\s+bearded\b/gi, '40yo mid-age bearded')
@@ -3177,7 +3196,7 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
       .replace(/\b(elderly|old\s+man|aged\s+man|aging|senior\s+citizen|white-haired|gray-haired|grey-haired|silver-haired|weathered\s+old)\b/gi, 'mid-age 40-year-old');
 
     if (!/PROTAGONIST AGE & APPEARANCE LOCK/i.test(enhancedPrompt)) {
-      enhancedPrompt += `. PROTAGONIST AGE, VOLUME & TUMMY PROFILE LOCK (SHRIDHAR, AGE 40 MID-AGE ADULT): Portray the male protagonist Shridhar as a mid-age 40-year-old Indian man (strictly age 38-40) with warm medium-brown skin, a soft fuller round-oval face with full cheeks and natural under-chin fullness, a full head of thick short dark hair brushed up at the crown, a short light neat trimmed stubble beard, and ${fatherBuildPhrase}. STRICT BAN ON AGING OR ARTIFICIAL FITNESS: Strictly NOT an old/elderly man, and strictly DO NOT draw him with a lean, skinny, flat-stomached, or gym-fit V-tapered physique.`;
+      enhancedPrompt += `. PROTAGONIST AGE, VOLUME & TUMMY PROFILE LOCK (SHRIDHAR, AGE 40 MID-AGE ADULT): Portray the male protagonist Shridhar as a mid-age 40-year-old Indian man (strictly age 38-40) with warm medium-brown skin, a soft fuller round-oval face with full cheeks and natural under-chin fullness, a full head of thick short dark hair brushed up at the crown, a short light neat trimmed stubble beard, and ${fatherBuildPhrase}. STRICT BAN ON AGING: Strictly NOT an old/elderly man.`;
     }
   }
 
@@ -3302,7 +3321,7 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
       });
     });
     parts.push({
-      text: `Create a masterpiece ${effectiveChronicleVignetteCount}-vignette editorial watercolor and gouache illustration page on warm textured vintage cream-buff parchment paper (#EDE3D0) with visible organic paper grain, featuring EXACTLY ${effectiveChronicleVignetteCount} separate, self-contained moment visuals (${effectiveChronicleVignetteCount === 2 ? '1 Upper Vignette + 1 Lower Vignette stacked vertically — STRICTLY ONLY 2 VIGNETTES TOTAL, NEVER 3 VIGNETTES!' : '3 separate vignettes'}) where each moment is surrounded by a soft, blurry, feathered dry-brush cloud gradient halo in a subtle, muted watercolor tint suited to that moment's mood (always understated so it never takes attention away from the moment) whose outer edges smoothly fade to zero opacity into the warm parchment paper (STRICTLY NO crisp vignette borders, NO hard water-stain puddle perimeter rings, NO straight vertical or rectangular frame edges, NOT a single merged full-bleed background scene, and strictly zero printed captions or labels): ${enhancedPrompt}. Ensure the self/protagonist (Father Shridhar, mid-age 40-year-old Indian man with a soft fuller round-oval face, full cheeks, thick short dark hair, neat dark stubble beard, and a fuller medium-heavy adult build with a visible rounded dad-bod tummy under his shirt — strictly NOT lean or flat-stomached) is dressed in situation-appropriate attire specific to each individual moment rather than copying the same outfit across moments, and keep all family members and companions strictly inside their respective moment's cloudy-shaded vignette. Faithfully display the attached Reference Photo/Logo inside its corresponding vignette. ${textureStyle}, masterwork, strictly no printed captions, no numbers, and no random background words.`
+      text: `Create a masterpiece ${effectiveChronicleVignetteCount}-vignette editorial watercolor and gouache illustration page on warm textured vintage cream-buff parchment paper (#EDE3D0) with visible organic paper grain, featuring EXACTLY ${effectiveChronicleVignetteCount} separate, self-contained moment visuals (${effectiveChronicleVignetteCount === 2 ? '1 Upper Vignette + 1 Lower Vignette stacked vertically — STRICTLY ONLY 2 VIGNETTES TOTAL, NEVER 3 VIGNETTES!' : '3 separate vignettes'}) where each moment is surrounded by a soft, blurry, feathered dry-brush cloud gradient halo in a subtle, muted watercolor tint suited to that moment's mood (always understated so it never takes attention away from the moment) whose outer edges smoothly fade to zero opacity into the warm parchment paper (STRICTLY NO crisp vignette borders, NO hard water-stain puddle perimeter rings, NO straight vertical or rectangular frame edges, NOT a single merged full-bleed background scene, and strictly zero printed captions or labels): ${enhancedPrompt}. Ensure the self/protagonist (Father Shridhar, mid-age 40-year-old Indian man with a soft fuller round-oval face, full cheeks, thick short dark hair, neat dark stubble beard, and ${fatherBuildPhrase}) is dressed in situation-appropriate attire specific to each individual moment rather than copying the same outfit across moments, and keep all family members and companions strictly inside their respective moment's cloudy-shaded vignette. Faithfully display the attached Reference Photo/Logo inside its corresponding vignette. ${textureStyle}, masterwork, strictly no printed captions, no numbers, and no random background words.`
     });
   } else if (Array.isArray(stylizedAvatars) && stylizedAvatars.length > 0) {
     stylizedAvatars.forEach((av, i) => {
@@ -3605,18 +3624,18 @@ function getDefaultFamilyCast(userIdentifier) {
         aliases: ['dad', 'father', 'shridhar', 'myself', 'me', 'i', 'husband'],
         age: 40,
         ageBracket: 'Mid-Age Adult (Age 40, Early 40s)',
-        heightDesc: '5ft 10in (178cm), 1.00x baseline adult stature, fuller medium-heavy build with visible rounded tummy',
+        heightDesc: '5ft 10in (178cm), 1.00x baseline adult stature, natural medium-full build with subtle 10% waist softness flush with chest',
         structuredTraits: {
           bodyVolume: 'broad_full',
-          tummyProfile: 'visible_tummy',
+          tummyProfile: 'subtle_10',
           faceFullness: 'round_full_submental',
           baseHeightRatio: 1.00,
           hairStyle: 'short_brushed_up',
           facialHair: 'light_stubble',
           landmarks: []
         },
-        uncompromisableAnchors: 'Mid-age 40-year-old Indian man in his early 40s (strictly age 38-40, STRICTLY NOT old or elderly, STRICTLY NO senior facial wrinkles), warm medium-brown skin, soft fuller round-oval face with full cheeks and natural under-chin/submental fullness, calm dark brown eyes, full head of thick short dark hair styled up at the crown, short light neat trimmed stubble beard along the jaw, and a fuller medium-heavy adult build with broad shoulders and a visible rounded dad-bod tummy / soft belly paunch (~30% midsection projection) under his shirt (STRICTLY NOT lean, NOT gym-fit, NOT V-tapered, and NOT flat-stomached).',
-        visualTraits: 'Warm medium-brown skin, soft fuller round-oval face with full cheeks and natural under-chin fullness, calm dark eyes, full head of thick short dark hair styled up, neat short trimmed stubble beard, and a fuller medium-heavy adult build with a visible rounded dad-bod tummy at the midsection (strictly not lean or flat-stomached).',
+        uncompromisableAnchors: 'Mid-age 40-year-old Indian man in his early 40s (strictly age 38-40, STRICTLY NOT old or elderly, STRICTLY NO senior facial wrinkles), warm medium-brown skin, soft fuller round-oval face with full cheeks and natural under-chin/submental fullness, calm dark brown eyes, full head of thick short dark hair styled up at the crown, short light neat trimmed stubble beard along the jaw, and a natural medium-full adult build with a straight-cut everyday waist and subtle 10% lower-waist softness that stays completely flush with his chest line under a straight-draping shirt (strictly neither a skinny V-taper gym body nor a protruding pot-belly or round paunch).',
+        visualTraits: 'Warm medium-brown skin, soft fuller round-oval face with full cheeks and natural under-chin fullness, calm dark eyes, full head of thick short dark hair styled up, neat short trimmed stubble beard, and a natural medium-full adult build with a straight-cut everyday waist and subtle 10% lower-waist softness flush with his chest line (strictly neither a skinny V-taper gym waist nor a protruding pot-belly).',
         vehicleRole: 'driver_right',
         defaultClothing: 'Casual dark polo or linen shirt and trousers',
         stylizedAvatarUrl: 'https://fxfklefnkpmhofncqhfh.supabase.co/storage/v1/object/public/posters/avatar_member_father.jpg'
@@ -3830,6 +3849,11 @@ function buildFamilyCastDirectives({ familyCast, activeCast, castStaging, userSl
   const hasYoungerBoy = activeMembers.some(m => m.relationship === 'younger_son' || m.age === 7);
   const hasFather = activeMembers.some(m => m.relationship === 'self');
   const hasMother = activeMembers.some(m => m.relationship === 'spouse');
+  const fatherMemberObj = activeMembers.find(m => m.relationship === 'self')
+    || (cast && Array.isArray(cast.members) ? cast.members.find(m => m.relationship === 'self') : null);
+  const fatherTummyProfile = (fatherMemberObj && fatherMemberObj.structuredTraits && fatherMemberObj.structuredTraits.tummyProfile) || 'subtle_10';
+  const fatherBodyVolume = (fatherMemberObj && fatherMemberObj.structuredTraits && fatherMemberObj.structuredTraits.bodyVolume) || 'broad_full';
+  const fatherMidsectionPhrase = getFatherMidsectionDescription(fatherTummyProfile, fatherBodyVolume);
 
   const directives = [];
   const promptSnippets = [];
@@ -3842,7 +3866,7 @@ function buildFamilyCastDirectives({ familyCast, activeCast, castStaging, userSl
 
   if (chronicleMode) {
     directives.push(`DAILY CHRONICLE PROTAGONIST, SITUATIONAL ATTIRE, POSTURE-ADJUSTED HEIGHTS & VIGNETTE-SPECIFIC CAST DIRECTIVE:
-- Narrator Identity & Body Volume Anchor: Whenever the narrator (Father Shridhar) appears in a vignette, portray him as a mid-age 40-year-old Indian man in his early 40s with warm medium-brown skin, a soft fuller round-oval face with full cheeks and natural under-chin/submental fullness, full head of thick short dark hair styled up at the crown, short light neat trimmed stubble beard, and a fuller medium-heavy adult build with broad shoulders and a visible rounded dad-bod tummy / soft belly paunch (~30% midsection projection) under his shirt (STRICTLY NOT lean, NOT gym-fit, NOT V-tapered, NOT flat-stomached, and strictly NOT old or elderly).
+- Narrator Identity & Body Volume Anchor: Whenever the narrator (Father Shridhar) appears in a vignette, portray him as a mid-age 40-year-old Indian man in his early 40s with warm medium-brown skin, a soft fuller round-oval face with full cheeks and natural under-chin/submental fullness, full head of thick short dark hair styled up at the crown, short light neat trimmed stubble beard, and ${fatherMidsectionPhrase} (strictly NOT old or elderly).
 - Mother / Wife (Aruna) Identity Anchor (WHEN PRESENT IN A VIGNETTE): Whenever Wife / Mother (Aruna) appears in a vignette, you MUST explicitly describe her exact authentic facial and hair traits in "illustrationPrompt": warm golden-brown wheatish skin, soft fuller round-to-oval maternal face with warm full cheeks and soft rounded chin (strictly NOT a narrow/sharp-chinned face), small black circular bindi centered on her forehead and subtle red kumkum at the upper forehead hairline, gentle dark eyes, side-parted thick voluminous wavy black hair swept forward over her left shoulder past her collarbone, and a healthy natural medium-to-full South Indian adult build (0.92x Father height).
 - Framing Balance (Candid Mid-Shot vs. Group Scale) & Brothers Neck-Height Alignment: Balance the shot framing between capturing the candid human moment and showing scale: for 1-2 person conversational, seated, or indoor moments (e.g. meeting a friend over chai, reading a book, working at a desk), use an expressive CANDID WAIST-UP / CHEST-UP MEDIUM SHOT (MID-SHOT) that highlights facial expressions, gestures, and upper-body/midsection build rather than forcing a distant full-body shot. Use a pulled-back full-body / wide shot (with generous left/right margins so nobody is clipped at the edge) ONLY when the moment involves active movement (like a family walk or march) or fitting 3-4+ standing people together. Whenever Elder Son Gahan and Younger Son Rishu appear, preserve their exact relative stature: Elder Son Gahan as a "tall 11yo slim pre-teen boy with a long oval face (0.86x Father height, nearly as tall as his Mother Aruna, top of Gahan's head reaching Mother's ear/eye level and Father's shoulder, wearing a dark navy-blue t-shirt, knee-length denim shorts, and sneakers)", and Younger Son Rishu as a "7yo younger schoolboy with a round cheerful face (0.80x Father height, tall enough that the TOP OF RISHU'S HEAD RISES ABOVE GAHAN'S SHOULDERS to reach right up to Gahan's NECK / CHIN level and Mother's chin/neck level — only 3 inches shorter than Gahan; strictly NEVER draw Rishu's head below Gahan's shoulders or down at Gahan's arm/chest, and strictly NEVER equal height with Gahan!, wearing a mustard-yellow t-shirt, dark shorts, and sneakers)".
 - POSTURE-ADJUSTED RELATIVE STATURE MATRIX (Action Multiplier x Base Height):
@@ -3897,20 +3921,14 @@ ${activeMembers.map((m, i) => `  * Person #${i + 1}: ${m.name || m.roleLabel} ($
     } else if (m.relationship === 'younger_son') {
       statureGuidelines.push('- Younger Son (Rishu, Age 7): Draw full-body in a mustard-yellow t-shirt and dark shorts (0.78x Father height) whose head rises ABOVE Gahan\'s shoulders to reach right up to Gahan\'s neck/under-chin level and Mother\'s chin/neck level (only half-a-head shorter than Gahan; never below Gahan\'s shoulders).');
     } else if (m.relationship === 'self') {
-      const fatherTummy = (m.structuredTraits && m.structuredTraits.tummyProfile) || 'visible_tummy';
-      const fatherTummyText = fatherTummy === 'flat'
-        ? 'balanced adult build with a flat midsection'
-        : (fatherTummy === 'prominent_belly'
-            ? 'heavy full-bodied adult build (~45% prominent round belly projection) with soft full cheeks, natural under-chin fullness, and a pronounced round stomach silhouette under his shirt'
-            : (fatherTummy === 'slight_tummy'
-                ? 'medium-full adult build (~15% soft dad-bod tummy curve) with soft cheeks and a gentle natural belly contour at the waist'
-                : 'fuller medium-heavy adult build (~30% rounded midsection projection) with broad shoulders, soft fuller cheeks, natural under-chin fullness, and a visible rounded dad-bod tummy / soft belly paunch under his shirt (STRICTLY NOT lean, NOT gym-fit, and NOT flat-stomached)'));
-      statureGuidelines.push(`- Father (Shridhar): Draw with a ${fatherTummyText}, soft fuller round-oval face, short light neat trimmed stubble beard, and natural everyday posture.`);
+      const mTummy = (m.structuredTraits && m.structuredTraits.tummyProfile) || fatherTummyProfile || 'subtle_10';
+      const mVol = (m.structuredTraits && m.structuredTraits.bodyVolume) || fatherBodyVolume || 'broad_full';
+      statureGuidelines.push(`- Father (Shridhar): Draw with ${getFatherMidsectionDescription(mTummy, mVol)}, soft fuller round-oval face, short light neat trimmed stubble beard, and natural everyday posture.`);
     }
   });
   if (statureGuidelines.length > 0) {
     directives.push(`AUTHENTIC REAL-WORLD BODY BUILDS, VOLUME & MIDSECTION PROFILES (STRICT BAN ON SKINNY / GYM-FIT BIAS):\n${statureGuidelines.join('\n')}\n- ALL PROTAGONISTS MUST REFLECT AUTHENTIC, REAL-WORLD BODY VOLUME AND MIDSECTION CONTOURS.`);
-    promptSnippets.push('authentic natural human proportions and midsection volume: strictly avoid ultra-slim runway models or artificial gym-fit flat-stomached bodies');
+    promptSnippets.push('authentic natural human proportions and midsection volume: strictly avoid ultra-slim runway models');
   }
 
   // 2. Vehicle / Driving / Road Trip Context
@@ -3941,9 +3959,9 @@ ${activeMembers.map((m, i) => `  * Person #${i + 1}: ${m.name || m.roleLabel} ($
 
   if (hasFather) {
     directives.push(`FATHER (SHRIDHAR) STRICT MID-AGE (40 YEARS OLD), BODY VOLUME & TUMMY PROFILE LOCK:
-- Shridhar is a mid-age 40-year-old Indian man in his early 40s with a soft fuller round-oval face, full cheeks and natural under-chin/submental fullness, full head of thick short dark hair styled up, neat short dark trimmed stubble beard, and a fuller medium-heavy adult build with broad shoulders and a visible rounded dad-bod tummy / soft belly paunch (~30% midsection projection) under his shirt.
-- STRICT BAN ON AGING OR ARTIFICIAL LEAN/FITNESS BIAS: NEVER describe him as "fit" or "lean" or flat-stomached, NEVER use "salt-and-pepper", and STRICTLY NEVER portray him as an old man, elderly figure, grandfather, or senior citizen with facial wrinkles!`);
-    promptSnippets.push('mid-age 40-year-old Indian man in his early 40s with a soft fuller round-oval face, full cheeks, thick short dark hair, neat short dark trimmed stubble beard, and a fuller medium-heavy adult build with a visible rounded dad-bod tummy under his shirt (strictly NOT lean, NOT gym-fit, and NOT old or elderly)');
+- Shridhar is a mid-age 40-year-old Indian man in his early 40s with a soft fuller round-oval face, full cheeks and natural under-chin/submental fullness, full head of thick short dark hair styled up, neat short dark trimmed stubble beard, and ${fatherMidsectionPhrase}.
+- STRICT BAN ON AGING: NEVER use "salt-and-pepper", and STRICTLY NEVER portray him as an old man, elderly figure, grandfather, or senior citizen with facial wrinkles!`);
+    promptSnippets.push(`mid-age 40-year-old Indian man in his early 40s with a soft fuller round-oval face, full cheeks, thick short dark hair, neat short dark trimmed stubble beard, and ${fatherMidsectionPhrase} (strictly NOT old or elderly)`);
   }
 
   // 3. Member-Specific Facial Traits & Visual Likeness Anchors (Face, Hair & Body Stature)
