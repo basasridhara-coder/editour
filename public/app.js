@@ -2800,6 +2800,10 @@ function closeUserCreditsAndInviteModal() {
   const creatorModal = document.getElementById('creatorModal');
   if (!creatorModal || !creatorModal.classList.contains('open')) {
     document.body.style.overflow = '';
+  } else if (typeof slideAndGlowCreatorPromptField === 'function') {
+    setTimeout(() => {
+      slideAndGlowCreatorPromptField();
+    }, 60);
   }
 }
 
@@ -14609,6 +14613,9 @@ function toggleChronicleMomentStar(idx, event) {
 function onChronicleMomentInput(idx, field, val) {
   if (!dailyChronicleMoments[idx]) return;
   dailyChronicleMoments[idx][field] = val;
+  if (typeof clearCreatorPromptReadyGlow === 'function' && String(val || '').trim().length > 0) {
+    clearCreatorPromptReadyGlow();
+  }
   syncChronicleMomentsToSlantInput();
   if (typeof evaluateSmartRegenScopeAutoSwitch === 'function') {
     evaluateSmartRegenScopeAutoSwitch();
@@ -16230,11 +16237,13 @@ function openCreatorModal(resumeDraftId = null, forcedAnchorMode = null) {
   document.body.style.overflow = 'hidden';
 
   // First time a user opens Creator Studio ("starts slanting"), automatically pop up the brief credits usage & request guide
+  let openedFirstTimeCreditsGuide = false;
   try {
     const emailKey = (currentUser?.email || 'guest').toLowerCase().trim();
     const introSeenKey = `slant_credits_intro_seen_v1_${emailKey}`;
     if (!localStorage.getItem(introSeenKey)) {
       localStorage.setItem(introSeenKey, 'true');
+      openedFirstTimeCreditsGuide = true;
       setTimeout(() => {
         if (typeof openUserCreditsAndInviteModal === 'function') {
           openUserCreditsAndInviteModal('credits', true);
@@ -16243,16 +16252,10 @@ function openCreatorModal(resumeDraftId = null, forcedAnchorMode = null) {
     }
   } catch (_) {}
 
-  if (forcedAnchorMode) {
-    setTimeout(() => {
-      const targetInput = (forcedAnchorMode === 'digital_link')
-        ? document.getElementById('creatorUrlInput')
-        : document.getElementById('creatorSlantTakeInput');
-      if (targetInput && typeof targetInput.focus === 'function') {
-        targetInput.focus({ preventScroll: true });
-      }
-    }, 90);
-  }
+  // Always slide the Create Slant form directly down to the active prompt field(s) with glowing prompt aura to start writing immediately
+  setTimeout(() => {
+    slideAndGlowCreatorPromptField(forcedAnchorMode, { skipFocus: openedFirstTimeCreditsGuide });
+  }, 85);
 
   // Attach drag-drop & url scrape listeners
   setupCreatorDropzone();
@@ -16263,6 +16266,9 @@ function openCreatorModal(resumeDraftId = null, forcedAnchorMode = null) {
     slantInput.dataset.errorCleanAttached = 'true';
     slantInput.addEventListener('input', () => {
       if (typeof clearMandatoryError === 'function') clearMandatoryError(slantInput);
+      if ((slantInput.value || '').trim().length > 0 && typeof clearCreatorPromptReadyGlow === 'function') {
+        clearCreatorPromptReadyGlow();
+      }
       const spkInput = document.getElementById('creatorSparkInput');
       const combined = (slantInput.value || '') + ' ' + (spkInput ? spkInput.value : '');
       checkAndTriggerFamilyCast(combined);
@@ -16286,15 +16292,151 @@ function openCreatorModal(resumeDraftId = null, forcedAnchorMode = null) {
   if (urlInput && !urlInput.dataset.draftAutosaveAttached) {
     urlInput.dataset.draftAutosaveAttached = 'true';
     urlInput.addEventListener('input', () => {
+      const val = (urlInput.value || '').trim();
+      if (val.length > 8 && typeof transitionPromptGlowFromUrlToTake === 'function') {
+        transitionPromptGlowFromUrlToTake();
+      }
       autoSaveCreatorFormState(false);
       if (typeof evaluateSmartRegenScopeAutoSwitch === 'function') evaluateSmartRegenScopeAutoSwitch();
     });
   }
 }
 
+function clearCreatorPromptReadyGlow() {
+  const step1 = document.getElementById('creatorStep1');
+  if (!step1) return;
+  step1.querySelectorAll('.creator-prompt-ready-glow, .creator-prompt-secondary-glow').forEach(el => {
+    el.classList.remove('creator-prompt-ready-glow', 'creator-prompt-secondary-glow');
+  });
+  step1.querySelectorAll('.creator-card-prompt-glow').forEach(el => {
+    el.classList.remove('creator-card-prompt-glow');
+  });
+  step1.querySelectorAll('.creator-writing-prompt-cue').forEach(el => {
+    el.remove();
+  });
+}
+
+function attachWritingPromptCue(inputEl, messageText) {
+  if (!inputEl || !inputEl.parentElement) return;
+  inputEl.parentElement.querySelectorAll('.creator-writing-prompt-cue').forEach(el => el.remove());
+  const cue = document.createElement('div');
+  cue.className = 'creator-writing-prompt-cue';
+  cue.innerHTML = `<span class="cue-pulse-dot"></span><span>${messageText}</span>`;
+  inputEl.parentElement.insertBefore(cue, inputEl);
+}
+
+function transitionPromptGlowFromUrlToTake() {
+  const slantInput = document.getElementById('creatorSlantTakeInput');
+  if (!slantInput || (slantInput.value || '').trim().length > 0) {
+    clearCreatorPromptReadyGlow();
+    return;
+  }
+  clearCreatorPromptReadyGlow();
+  const heroCard = slantInput.closest('.creator-hero-slant-card');
+  if (heroCard) heroCard.classList.add('creator-card-prompt-glow');
+  slantInput.classList.add('creator-prompt-ready-glow');
+  attachWritingPromptCue(slantInput, '✍️ Now write your perspective or reaction here ↓');
+}
+
+function slideAndGlowCreatorPromptField(explicitMode = null, options = {}) {
+  const modal = document.getElementById('creatorModal');
+  const modalCard = document.querySelector('#creatorModal .creator-modal-card');
+  const step1 = document.getElementById('creatorStep1');
+  if (!modal || !modalCard || !step1 || step1.style.display === 'none') return;
+
+  clearCreatorPromptReadyGlow();
+
+  const effectiveMode = isDailyChronicleMode
+    ? 'diary_chronicle'
+    : (creatorSelectedSource === 'inner_voice' ? 'inner_voice' : (explicitMode || 'digital_link'));
+
+  let scrollTargetCard = null;
+  let primaryInput = null;
+  let glowCard = null;
+  let cueText = '';
+
+  if (effectiveMode === 'diary_chronicle') {
+    scrollTargetCard = step1.querySelector('.creator-hero-slant-card');
+    const momentTextareas = Array.from(step1.querySelectorAll('#dailyChronicleCardsList .chronicle-moment-textarea'));
+    primaryInput = momentTextareas.find(ta => !(ta.value || '').trim()) || momentTextareas[0] || null;
+    glowCard = (primaryInput && primaryInput.closest('.chronicle-moment-card')) || scrollTargetCard;
+    cueText = '✍️ Start writing your first moment of the day here ↓';
+  } else if (effectiveMode === 'inner_voice') {
+    scrollTargetCard = step1.querySelector('.creator-hero-slant-card');
+    primaryInput = document.getElementById('creatorSlantTakeInput');
+    glowCard = scrollTargetCard;
+    cueText = '✍️ Start writing your observation or reflection here ↓';
+  } else {
+    const urlInput = document.getElementById('creatorUrlInput');
+    const slantInput = document.getElementById('creatorSlantTakeInput');
+    const hasUrl = Boolean(urlInput && (urlInput.value || '').trim().length > 5);
+    if (!hasUrl && urlInput) {
+      scrollTargetCard = document.getElementById('triggerWebSection') || step1.querySelector('.creator-hero-slant-card');
+      primaryInput = urlInput;
+      glowCard = scrollTargetCard;
+      cueText = '✨ Paste your link here — then write your perspective below ↓';
+      if (slantInput && !(slantInput.value || '').trim()) {
+        slantInput.classList.add('creator-prompt-secondary-glow');
+        const heroCard = slantInput.closest('.creator-hero-slant-card');
+        if (heroCard) heroCard.classList.add('creator-card-prompt-glow');
+      }
+    } else {
+      scrollTargetCard = step1.querySelector('.creator-hero-slant-card');
+      primaryInput = slantInput;
+      glowCard = scrollTargetCard;
+      cueText = '✍️ Write your perspective or take on this link here ↓';
+    }
+  }
+
+  if (glowCard) {
+    glowCard.classList.add('creator-card-prompt-glow');
+  }
+  if (primaryInput) {
+    primaryInput.classList.add('creator-prompt-ready-glow');
+    if (cueText) {
+      attachWritingPromptCue(primaryInput, cueText);
+    }
+  }
+
+  if (scrollTargetCard) {
+    const modalRect = modalCard.getBoundingClientRect();
+    const targetRect = scrollTargetCard.getBoundingClientRect();
+    const desiredScrollTop = Math.max(0, Math.round(modalCard.scrollTop + (targetRect.top - modalRect.top) - 10));
+
+    // Guarantee sufficient bottom scroll cushion so the prompt section can always slide to the top of the modal
+    const spacer = step1.querySelector('.creator-scroll-spacer');
+    if (spacer) {
+      spacer.style.height = '24px';
+      const maxScrollNow = Math.max(0, modalCard.scrollHeight - modalCard.clientHeight);
+      if (desiredScrollTop > maxScrollNow) {
+        const extraRunway = (desiredScrollTop - maxScrollNow) + 32;
+        spacer.style.height = `${24 + extraRunway}px`;
+      }
+    }
+
+    modalCard.scrollTo({
+      top: desiredScrollTop,
+      behavior: 'smooth'
+    });
+  }
+
+  const creditsModal = document.getElementById('userCreditsModal');
+  const isCreditsOpen = creditsModal && creditsModal.classList.contains('open');
+  if (!options.skipFocus && !isCreditsOpen && primaryInput && typeof primaryInput.focus === 'function') {
+    setTimeout(() => {
+      try {
+        primaryInput.focus({ preventScroll: true });
+      } catch (_) {}
+    }, 220);
+  }
+}
+
 function closeCreatorModal(skipAutoSaveToast = false) {
   if (typeof clearMandatoryFieldPrompts === 'function') {
     clearMandatoryFieldPrompts();
+  }
+  if (typeof clearCreatorPromptReadyGlow === 'function') {
+    clearCreatorPromptReadyGlow();
   }
   // If user is closing while in Step 1 with half-written thought, auto-save it immediately!
   const s1 = document.getElementById('creatorStep1');
@@ -16563,6 +16705,13 @@ function setAnchorMode(mode) {
     const currentVal = urlInput ? urlInput.value.trim() : '';
     const isVideo = (effectiveMode === 'video_audio') || isVideoAudioUrl(currentVal) || (currentScrapedArticle && currentScrapedArticle.isVideo);
     updateWebLinkSubmode(isVideo);
+  }
+
+  const creatorModal = document.getElementById('creatorModal');
+  if (creatorModal && creatorModal.classList.contains('open') && typeof slideAndGlowCreatorPromptField === 'function') {
+    setTimeout(() => {
+      slideAndGlowCreatorPromptField(effectiveMode);
+    }, 40);
   }
 }
 
