@@ -10858,6 +10858,8 @@ let selectedPolishVisualSubjectIdx = 0;
 let selectedPolishVisualSubject = null;
 let currentChronicleMomentProjections = [];
 let visualAutoIdentifyDebounceTimer = null;
+let visualAiSilentRefreshTimer = null;
+let lastAiVisualsSourceFingerprint = '';
 
 function getVisualConfidenceStorageKey() {
   const email = (typeof getResolvedCreatorEmail === 'function' ? getResolvedCreatorEmail() : '') || (currentUser?.email || 'guest');
@@ -10961,6 +10963,14 @@ function recordVisualConfidenceApproval(sourceLabel = 'synthesis') {
   } catch (_) {}
 }
 
+function cleanVaultShortName(rawName, fallback) {
+  const s = String(rawName || '').trim();
+  if (!s) return fallback;
+  const parenMatch = s.match(/\(([^)]+)\)/);
+  if (parenMatch && parenMatch[1]) return parenMatch[1].trim();
+  return s.replace(/^(Father|Mother|Wife|Elder\s+Son|Younger\s+Son)\s*[-:•]?\s*/i, '').trim() || fallback;
+}
+
 function buildClientFallbackMomentProjections(moments = []) {
   const cast = (typeof familyCastProfileCache !== 'undefined' && familyCastProfileCache)
     ? familyCastProfileCache
@@ -10971,10 +10981,10 @@ function buildClientFallbackMomentProjections(moments = []) {
   const elderSonMember = castMembers.find(m => m.relationship === 'elder_son' || m.id === 'member_elder_son');
   const youngerSonMember = castMembers.find(m => m.relationship === 'younger_son' || m.id === 'member_younger_son');
 
-  const fatherName = fatherMember?.name || 'Shridhar';
-  const motherName = motherMember?.name || 'Aruna';
-  const elderName = elderSonMember?.name || 'Gahan';
-  const youngerName = youngerSonMember?.name || 'Rishu';
+  const fatherName = cleanVaultShortName(fatherMember?.name, 'Shridhar');
+  const motherName = cleanVaultShortName(motherMember?.name, 'Aruna');
+  const elderName = cleanVaultShortName(elderSonMember?.name, 'Gahan');
+  const youngerName = cleanVaultShortName(youngerSonMember?.name, 'Rishu');
 
   return (moments || []).map((m, idx) => {
     const mNum = idx + 1;
@@ -10982,12 +10992,23 @@ function buildClientFallbackMomentProjections(moments = []) {
     const mText = String(m.text || '').trim();
     const lower = `${mTitle} ${mText}`.toLowerCase();
 
+    // If we already have AI-generated projections for this exact moment text, preserve them!
+    const existingGroup = Array.isArray(currentChronicleMomentProjections)
+      ? currentChronicleMomentProjections.find(g => g && g.momentIndex === mNum)
+      : null;
+    if (existingGroup && existingGroup._isAiGenerated && String(existingGroup._sourceText || '').trim() === mText && Array.isArray(existingGroup.options) && existingGroup.options.length > 0) {
+      return existingGroup;
+    }
+
     const mentionsKids = /\b(kids|boys|sons|children|brothers|siblings|gahan|rishu)\b/i.test(lower);
-    const mentionsFighting = /\b(fight|fighting|arguing|argument|resolve|resolving|quarrel|dispute|bickering)\b/i.test(lower);
-    const mentionsWife = /\b(wife|spouse|aruna|aru)\b/i.test(lower);
-    const mentionsProductLaunch = /\b(launch|launched|product|release|shipped|deploy|milestone|witnessing)\b/i.test(lower);
-    const mentionsMeeting = /\b(meeting|meetings|call|discussion|office|team|work|desk|laptop|presentation|attended)\b/i.test(lower);
-    const mentionsDriveOrWalk = /\b(walk|walking|morning walk|drive|driving|car|road|park|coffee|tea)\b/i.test(lower);
+    const mentionsFighting = /\b(fight|fighting|arguing|argument|resolve|resolving|quarrel|dispute|bickering|silly reasons|squabble)\b/i.test(lower);
+    const mentionsWife = /\b(wife|spouse|aruna|aru)\b/i.test(lower) && !/\b(mother-in-law|mother in law|father-in-law|father in law)\b/i.test(lower);
+    const mentionsHospitalOrCare = /\b(mother-in-law|mother in law|father-in-law|father in law|hospital|clinic|doctor|checkup|medical|health|patient|treatment|ward|nursing|appointment|scan|pharmacy)\b/i.test(lower);
+    const mentionsFriendOrCafe = /\b(dosa|masala dosa|idli|vada|tiffin|filter coffee|coffee|chai|cafe|diner|restaurant|breakfast|lunch|dinner|friend|colleague|buddy|caught up)\b/i.test(lower);
+    const mentionsAiOrTech = /\b(ai|workflow|workflows|agent|agents|coding|tech|laptop|model|models|llm|prompt)\b/i.test(lower);
+    const mentionsExplicitLaunch = /\b(product launch|launched our|launch day|went live|app launch)\b/i.test(lower) && !mentionsHospitalOrCare && !mentionsFriendOrCafe;
+    const mentionsWorkMeeting = /\b(office meeting|team meeting|client call|boardroom|standup|presentation|work desk)\b/i.test(lower) && !mentionsHospitalOrCare && !mentionsFriendOrCafe;
+    const mentionsDriveOrWalk = /\b(morning walk|evening walk|walked in the park|stroll|jog|road trip|highway drive)\b/i.test(lower) && !mentionsHospitalOrCare && !mentionsFriendOrCafe;
 
     const castIds = ['member_father'];
     if (mentionsKids) {
@@ -10997,40 +11018,164 @@ function buildClientFallbackMomentProjections(moments = []) {
       castIds.push('member_mother');
     }
 
+    const shortSnippet = mText.length > 74 ? mText.slice(0, 71) + '...' : (mText || mTitle);
+    const cleanSummaryClause = mText
+      .replace(/^(today\s+)?(in\s+the\s+(morning|afternoon|evening),?\s*)?(i\s+|we\s+)/i, '')
+      .replace(/[.!?]+$/, '')
+      .trim();
+    const shortActionHeadline = cleanSummaryClause
+      ? (cleanSummaryClause.charAt(0).toUpperCase() + cleanSummaryClause.slice(1)).slice(0, 58) + (cleanSummaryClause.length > 58 ? '...' : '')
+      : mTitle;
+
     let rawOptions = [];
     if (mentionsKids && mentionsFighting) {
       rawOptions = [
         {
           id: `m${mNum}_opt1`,
           archetype: 'direct_action',
-          badge: '★ Default • Direct Action',
+          badge: '★ Default • My 2 Sons Action',
           baseConfidence: 95,
-          title: `Father Mediating Between Both Sons (${elderName} 11yo & ${youngerName} 7yo)`,
-          description: `Father (${fatherName}) kneeling warmly between his two sons — 11yo elder boy ${elderName} (4'8" / 142cm) and shorter 7yo younger boy ${youngerName} (4'2" / 127cm) — in the sunlit living room, calmly resolving their sibling dispute (strictly two boys with a 6-inch height gap).`,
+          title: `${fatherName} Mediating Between Sons ${elderName} (11yo) & ${youngerName} (7yo)`,
+          description: `Father (${fatherName}) kneeling warmly between his two sons — 11yo elder boy ${elderName} (4'8" / 142cm, navy tee & denim shorts) and shorter 7yo younger boy ${youngerName} (4'2" / 127cm, mustard tee & dark shorts) — calmly resolving their sibling squabble at home (strictly two boys with a 6-inch height gap).`,
           castIds: ['member_father', 'member_elder_son', 'member_younger_son'],
           isPersonalFamily: true
         },
         {
           id: `m${mNum}_opt2`,
           archetype: 'warm_resolution',
-          badge: '🤝 Warm Resolution',
+          badge: '🤝 Warm Resolution • Brotherly Peace',
           baseConfidence: 84,
-          title: `Peace Restored — Brothers Reconciling (${elderName} & ${youngerName})`,
-          description: `Both brothers (11yo boy ${elderName} and shorter 7yo boy ${youngerName}) shaking hands or sharing a calm reconciled smile as Father (${fatherName}) guides them to make peace at home.`,
+          title: `Brothers ${elderName} (11) & ${youngerName} (7) Making Up After Dad's Advice`,
+          description: `Both brothers (11yo boy ${elderName} and shorter 7yo boy ${youngerName}) sharing a reconciled smile and handshake as Father (${fatherName}) guides them to make peace.`,
           castIds: ['member_father', 'member_elder_son', 'member_younger_son'],
           isPersonalFamily: true
         },
         {
           id: `m${mNum}_opt3`,
           archetype: 'symbolic_focus',
-          badge: '🎨 Symbolic Focus',
-          baseConfidence: 72,
-          title: `Scattered Toys & Father's Calming Hand on Both Boys`,
-          description: `Close-up narrative angle focusing on two boys' shared toys on the rug and Father (${fatherName}) placing a reassuring hand on his two sons (${elderName} 11yo boy & ${youngerName} 7yo boy) in warm morning light.`,
+          badge: '🎨 Symbolic Detail • Calm Hands & Toy',
+          baseConfidence: 73,
+          title: `Father's Calming Hand Between Both Boys (${elderName} & ${youngerName})`,
+          description: `Expressive close-medium angle focusing on scattered toys and Father (${fatherName}) placing a reassuring hand on his two sons (${elderName} 11yo boy & ${youngerName} 7yo boy) in warm morning light.`,
           castIds: ['member_father', 'member_elder_son', 'member_younger_son'],
           isPersonalFamily: true
         }
       ];
+    } else if (mentionsHospitalOrCare) {
+      const mentionsMil = /\b(mother-in-law|mother in law)\b/i.test(lower);
+      const mentionsFil = /\b(father-in-law|father in law)\b/i.test(lower);
+      const ageMatch = mText.match(/\b(aged?\s*(\d{2})|(\d{2})\s*(?:yo|years?\s*old))\b/i);
+      const ageNum = ageMatch ? (ageMatch[2] || ageMatch[3]) : '55';
+      const personTitle = mentionsMil
+        ? `His ${ageNum}yo Mother-in-Law`
+        : (mentionsFil ? `His Father-in-Law` : 'Family Member');
+      const personDesc = mentionsMil
+        ? `his ${ageNum}-year-old mother-in-law (in an elegant pastel cotton saree)`
+        : (mentionsFil ? 'his elderly father-in-law' : 'his family member');
+
+      rawOptions = [
+        {
+          id: `m${mNum}_opt1`,
+          archetype: 'direct_action',
+          badge: '★ Default • Caring Walk',
+          baseConfidence: 95,
+          title: `${fatherName} Gently Supporting ${personTitle} at the Hospital`,
+          description: `Caring mid-shot of ${fatherName} walking alongside and supporting ${personDesc} down a sunlit Indian hospital corridor during the visit.`,
+          castIds: ['member_father'],
+          isPersonalFamily: true
+        },
+        {
+          id: `m${mNum}_opt2`,
+          archetype: 'expressive_midshot',
+          badge: '🩺 Doctor Consultation • Reassurance',
+          baseConfidence: 85,
+          title: `Seated Together at the Clinic Reviewing Medical Reports`,
+          description: `${fatherName} sitting attentively beside ${personDesc} in a calm hospital consultation room with a medical folder in hand, listening to the doctor.`,
+          castIds: ['member_father'],
+          isPersonalFamily: true
+        },
+        {
+          id: `m${mNum}_opt3`,
+          archetype: 'symbolic_focus',
+          badge: '🎨 Symbolic Detail • Steadying Care',
+          baseConfidence: 74,
+          title: `Reassuring Presence in the Sunlit Hospital Waiting Lounge`,
+          description: `Reflective medium portrait of ${fatherName} offering steady care and quiet reassurance to ${personDesc} at the hospital clinic.`,
+          castIds: ['member_father'],
+          isPersonalFamily: true
+        }
+      ];
+    } else if (mentionsFriendOrCafe) {
+      const foodLabel = /\b(dosa|masala dosa)\b/i.test(lower)
+        ? 'Masala Dosa & Filter Coffee'
+        : (/\b(chai|tea)\b/i.test(lower) ? 'Steaming Chai' : 'Coffee & Tiffin');
+      if (mentionsAiOrTech) {
+        rawOptions = [
+          {
+            id: `m${mNum}_opt1`,
+            archetype: 'direct_action',
+            badge: '★ Default • Candid Diner Chat',
+            baseConfidence: 95,
+            title: `Animated AI Discussion with Friend Over ${foodLabel}`,
+            description: `Expressive waist-up medium shot of ${fatherName} and his friend across a South Indian cafe table with crisp golden masala dosa, filter coffee, and an open laptop/phone comparing everyday AI workflows.`,
+            castIds: ['member_father'],
+            isPersonalFamily: false
+          },
+          {
+            id: `m${mNum}_opt2`,
+            archetype: 'expressive_midshot',
+            badge: '💻 Side-by-Side • Live AI Demo',
+            baseConfidence: 85,
+            title: `Comparing Personal AI Workflows on Screen at the Cafe Table`,
+            description: `${fatherName} and his friend leaning in together over glowing AI workflow screens beside steaming filter coffee and South Indian tiffin.`,
+            castIds: ['member_father'],
+            isPersonalFamily: false
+          },
+          {
+            id: `m${mNum}_opt3`,
+            archetype: 'symbolic_focus',
+            badge: '🎨 Symbolic Contrast • Tradition Meets Tech',
+            baseConfidence: 76,
+            title: `Golden Masala Dosa & Steel Coffee Davara Beside Modern AI Screen`,
+            description: `Warm tabletop framing highlighting the contrast of classic South Indian tiffin and modern AI tools as ${fatherName} and his friend converse.`,
+            castIds: ['member_father'],
+            isPersonalFamily: false
+          }
+        ];
+      } else {
+        rawOptions = [
+          {
+            id: `m${mNum}_opt1`,
+            archetype: 'direct_action',
+            badge: '★ Default • Warm Catch-Up',
+            baseConfidence: 94,
+            title: `Candid Conversation with Friend Over ${foodLabel}`,
+            description: `Expressive waist-up medium shot of ${fatherName} and his friend conversing warmly across an Indian cafe table: "${shortSnippet}".`,
+            castIds: ['member_father'],
+            isPersonalFamily: false
+          },
+          {
+            id: `m${mNum}_opt2`,
+            archetype: 'expressive_midshot',
+            badge: '✨ Expressive Mid-Shot',
+            baseConfidence: 84,
+            title: `Shared Laughter & Dialogue Across the Table`,
+            description: `Close candid framing on ${fatherName} and his friend exchanging stories over ${foodLabel.toLowerCase()}.`,
+            castIds: ['member_father'],
+            isPersonalFamily: false
+          },
+          {
+            id: `m${mNum}_opt3`,
+            archetype: 'symbolic_focus',
+            badge: '🎨 Tabletop Atmosphere',
+            baseConfidence: 74,
+            title: `${foodLabel} & Unhurried Camaraderie`,
+            description: `Warm editorial tabletop composition capturing ${foodLabel.toLowerCase()} and the relaxed rhythm of the catch-up.`,
+            castIds: ['member_father'],
+            isPersonalFamily: false
+          }
+        ];
+      }
     } else if (mentionsKids) {
       rawOptions = [
         {
@@ -11038,8 +11183,8 @@ function buildClientFallbackMomentProjections(moments = []) {
           archetype: 'direct_action',
           badge: '★ Default • Family Scene',
           baseConfidence: 94,
-          title: `Father with Both Sons (${elderName} 11yo & ${youngerName} 7yo)`,
-          description: `Father (${fatherName}) sharing the moment with his two sons — 11yo boy ${elderName} (4'8") and shorter 7yo boy ${youngerName} (4'2") — in an authentic Indian home setting: "${mText.slice(0, 80)}".`,
+          title: `${fatherName} with Sons ${elderName} (11yo) & ${youngerName} (7yo)`,
+          description: `Father (${fatherName}) sharing the moment with his two sons — 11yo boy ${elderName} (4'8") and shorter 7yo boy ${youngerName} (4'2") — in an authentic Indian setting: "${shortSnippet}".`,
           castIds,
           isPersonalFamily: true
         },
@@ -11048,7 +11193,7 @@ function buildClientFallbackMomentProjections(moments = []) {
           archetype: 'expressive_midshot',
           badge: '✨ Expressive Mid-Shot',
           baseConfidence: 83,
-          title: `Candid Interaction Between ${elderName}, ${youngerName} & Father`,
+          title: `Candid Interaction Between ${elderName}, ${youngerName} & ${fatherName}`,
           description: `Warm candid mid-shot focusing on facial expressions and natural camaraderie between Father (${fatherName}) and both boys (${elderName} 11yo & ${youngerName} 7yo).`,
           castIds,
           isPersonalFamily: true
@@ -11057,24 +11202,24 @@ function buildClientFallbackMomentProjections(moments = []) {
           id: `m${mNum}_opt3`,
           archetype: 'symbolic_focus',
           badge: '🎨 Atmospheric Detail',
-          baseConfidence: 71,
+          baseConfidence: 72,
           title: `Warm Household Atmosphere & Shared Activity`,
-          description: `Wide atmospheric vignette of the room and everyday objects framing Father and his two sons (${elderName} & ${youngerName}).`,
+          description: `Wide atmospheric vignette of the room and everyday objects framing ${fatherName} and his two sons (${elderName} & ${youngerName}).`,
           castIds,
           isPersonalFamily: true
         }
       ];
-    } else if (mentionsProductLaunch) {
+    } else if (mentionsExplicitLaunch) {
       rawOptions = [
         {
           id: `m${mNum}_opt1`,
           archetype: 'direct_action',
           badge: '★ Default • Milestone Scene',
           baseConfidence: 94,
-          title: `Witnessing the Product Launch Go Live`,
-          description: `Father (${fatherName}) at his modern workspace with a glowing live product launch dashboard on screen, smiling with quiet pride and fulfillment.`,
+          title: `${fatherName} Witnessing the Product Launch Go Live`,
+          description: `${fatherName} at his modern workspace with a glowing live product launch dashboard on screen, smiling with quiet pride and fulfillment.`,
           castIds: ['member_father'],
-          isPersonalFamily: true
+          isPersonalFamily: false
         },
         {
           id: `m${mNum}_opt2`,
@@ -11082,9 +11227,9 @@ function buildClientFallbackMomentProjections(moments = []) {
           badge: '🚀 Team & Launch Momentum',
           baseConfidence: 83,
           title: `Collaborative Launch Celebration Moment`,
-          description: `Father (${fatherName}) observing the live rollout metrics alongside colleagues/screens in a sunlit office studio.`,
+          description: `${fatherName} observing the live rollout metrics alongside colleagues in a sunlit studio.`,
           castIds: ['member_father'],
-          isPersonalFamily: true
+          isPersonalFamily: false
         },
         {
           id: `m${mNum}_opt3`,
@@ -11094,20 +11239,20 @@ function buildClientFallbackMomentProjections(moments = []) {
           title: `Close-Up on Live Release Screen & Coffee Mug`,
           description: `Focused editorial detail of the live product release interface reflecting in ${fatherName}'s glasses with warm daylight.`,
           castIds: ['member_father'],
-          isPersonalFamily: true
+          isPersonalFamily: false
         }
       ];
-    } else if (mentionsMeeting) {
+    } else if (mentionsWorkMeeting) {
       rawOptions = [
         {
           id: `m${mNum}_opt1`,
           archetype: 'direct_action',
           badge: '★ Default • Core Scene',
           baseConfidence: 93,
-          title: `Engaged in Focused Work Meeting`,
-          description: `Father (${fatherName}) actively participating in a thoughtful meeting at a contemporary desk with notebook, laptop, and warm architectural lighting.`,
+          title: `${fatherName} in Focused Work Session: ${shortActionHeadline}`,
+          description: `${fatherName} actively participating in "${shortSnippet}" at a contemporary desk with notebook, laptop, and warm architectural lighting.`,
           castIds: ['member_father'],
-          isPersonalFamily: true
+          isPersonalFamily: false
         },
         {
           id: `m${mNum}_opt2`,
@@ -11117,17 +11262,17 @@ function buildClientFallbackMomentProjections(moments = []) {
           title: `Candid Mid-Shot Articulating a Key Point`,
           description: `Expressive mid-shot of ${fatherName} gesturing naturally while listening and contributing during the session.`,
           castIds: ['member_father'],
-          isPersonalFamily: true
+          isPersonalFamily: false
         },
         {
           id: `m${mNum}_opt3`,
           archetype: 'symbolic_focus',
           badge: '🎨 Symbolic Focus',
-          baseConfidence: 71,
-          title: `Open Notebook, Pen & Meeting Screen`,
-          description: `Quiet editorial composition emphasizing handwritten notes, laptop call view, and ${fatherName}'s composed presence.`,
+          baseConfidence: 72,
+          title: `Open Notebook, Pen & Workspace Detail`,
+          description: `Quiet editorial composition emphasizing handwritten notes, laptop view, and ${fatherName}'s composed presence.`,
           castIds: ['member_father'],
-          isPersonalFamily: true
+          isPersonalFamily: false
         }
       ];
     } else if (mentionsDriveOrWalk) {
@@ -11135,12 +11280,12 @@ function buildClientFallbackMomentProjections(moments = []) {
         {
           id: `m${mNum}_opt1`,
           archetype: 'direct_action',
-          badge: '★ Default • Core Scene',
+          badge: '★ Default • Outdoor Scene',
           baseConfidence: 93,
-          title: `Outdoors Moment: ${mTitle}`,
-          description: `Father (${fatherName})${mentionsWife ? ` and Mother (${motherName})` : ''} in a natural outdoor setting capturing: "${mText.slice(0, 85)}".`,
+          title: `Outdoors Moment: ${shortActionHeadline}`,
+          description: `${fatherName}${mentionsWife ? ` and ${motherName}` : ''} in a natural outdoor setting capturing: "${shortSnippet}".`,
           castIds,
-          isPersonalFamily: true
+          isPersonalFamily: mentionsWife
         },
         {
           id: `m${mNum}_opt2`,
@@ -11148,9 +11293,9 @@ function buildClientFallbackMomentProjections(moments = []) {
           badge: '🌤️ Candid Stride & Expression',
           baseConfidence: 82,
           title: `Warm Golden-Hour Mid-Shot`,
-          description: `Close expressive framing of ${fatherName} taking in the calm surroundings and fresh air.`,
+          description: `Close expressive framing of ${fatherName} taking in the calm surroundings during "${shortSnippet}".`,
           castIds,
-          isPersonalFamily: true
+          isPersonalFamily: mentionsWife
         },
         {
           id: `m${mNum}_opt3`,
@@ -11160,41 +11305,40 @@ function buildClientFallbackMomentProjections(moments = []) {
           title: `Pathway, Sunlight & Quiet Reflection`,
           description: `Poetic wide angle emphasizing tree-lined light, long shadows, and unhurried pace.`,
           castIds,
-          isPersonalFamily: true
+          isPersonalFamily: false
         }
       ];
     } else {
-      const shortSnippet = mText.length > 70 ? mText.slice(0, 67) + '...' : (mText || mTitle);
       rawOptions = [
         {
           id: `m${mNum}_opt1`,
           archetype: 'direct_action',
-          badge: '★ Default • Direct Scene',
-          baseConfidence: 92,
-          title: `Literal Moment Scene: ${mTitle}`,
-          description: `Authentic vignette directly illustrating: "${shortSnippet}" with ${fatherName}${mentionsWife ? ` & ${motherName}` : ''}.`,
+          badge: '★ Default • Direct Action',
+          baseConfidence: 93,
+          title: `${fatherName} in Scene: ${shortActionHeadline}`,
+          description: `Candid real-world vignette directly illustrating ${fatherName}${mentionsWife ? ` and ${motherName}` : ''} in: "${shortSnippet}".`,
           castIds,
-          isPersonalFamily: true
+          isPersonalFamily: mentionsWife || mentionsKids
         },
         {
           id: `m${mNum}_opt2`,
           archetype: 'expressive_midshot',
           badge: '✨ Expressive Mid-Shot',
-          baseConfidence: 81,
-          title: `Character & Emotion Focus`,
-          description: `Warm close-up on ${fatherName}'s expression and human connection during "${shortSnippet}".`,
+          baseConfidence: 83,
+          title: `Close Human Expression & Reaction (${mTitle})`,
+          description: `Waist-up candid framing on ${fatherName}'s expression, gestures, and emotional warmth during: "${shortSnippet}".`,
           castIds,
-          isPersonalFamily: true
+          isPersonalFamily: mentionsWife || mentionsKids
         },
         {
           id: `m${mNum}_opt3`,
           archetype: 'symbolic_focus',
-          badge: '🎨 Symbolic Focus',
-          baseConfidence: 71,
-          title: `Atmospheric Objects & Setting`,
-          description: `Editorial still-life and environmental mood representing "${shortSnippet}".`,
+          badge: '🎨 Atmospheric & Symbolic Detail',
+          baseConfidence: 73,
+          title: `Setting & Key Motif of ${mTitle}`,
+          description: `Editorial environmental composition emphasizing the real-world setting and central objects of: "${shortSnippet}".`,
           castIds,
-          isPersonalFamily: true
+          isPersonalFamily: false
         }
       ];
     }
@@ -11212,6 +11356,8 @@ function buildClientFallbackMomentProjections(moments = []) {
       momentIndex: mNum,
       momentTitle: mTitle,
       momentText: mText,
+      _sourceText: mText,
+      _isAiGenerated: false,
       selectedOptionIdx: selectedOptIdx,
       options: rankedOptions
     };
@@ -11549,6 +11695,42 @@ function selectPolishVisualSubject(idx, silent = false) {
   }
 }
 
+function computeVisualsSourceFingerprint() {
+  const isChronicle = (creatorSelectedSource === 'inner_voice' && typeof isDailyChronicleMode !== 'undefined' && isDailyChronicleMode);
+  if (isChronicle) {
+    return 'chronicle::' + (dailyChronicleMoments || [])
+      .map((m, i) => `${i + 1}:${String(m?.text || '').trim()}`)
+      .join('||');
+  }
+  const slantInput = document.getElementById('creatorSlantTakeInput');
+  const sparkInput = document.getElementById('creatorSparkInput');
+  const rawText = slantInput ? slantInput.value.trim() : '';
+  const sparkText = sparkInput ? sparkInput.value.trim() : '';
+  const scrapedTitle = currentScrapedArticle?.title || '';
+  return `regular::${rawText}||${sparkText}||${scrapedTitle}`;
+}
+
+function scheduleSilentAiVisualRefresh() {
+  if (visualAiSilentRefreshTimer) {
+    clearTimeout(visualAiSilentRefreshTimer);
+    visualAiSilentRefreshTimer = null;
+  }
+  visualAiSilentRefreshTimer = setTimeout(() => {
+    const fp = computeVisualsSourceFingerprint();
+    if (fp && fp === lastAiVisualsSourceFingerprint) return;
+    const isChronicle = (creatorSelectedSource === 'inner_voice' && typeof isDailyChronicleMode !== 'undefined' && isDailyChronicleMode);
+    if (isChronicle) {
+      const filled = (dailyChronicleMoments || []).filter(m => m && String(m.text || '').trim().length >= 8);
+      if (filled.length === 0) return;
+    } else {
+      const slantInput = document.getElementById('creatorSlantTakeInput');
+      const rawText = slantInput ? slantInput.value.trim() : '';
+      if (rawText.length < 18) return;
+    }
+    refreshVisualProjectionsWithAI({ silent: true });
+  }, 1150);
+}
+
 function autoIdentifyVisualProjectionsFromInput(immediate = false) {
   if (visualAutoIdentifyDebounceTimer) {
     clearTimeout(visualAutoIdentifyDebounceTimer);
@@ -11556,6 +11738,11 @@ function autoIdentifyVisualProjectionsFromInput(immediate = false) {
   }
 
   const runIdentify = () => {
+    if (window._suppressVisualFallbackOverwriteUntil && Date.now() < window._suppressVisualFallbackOverwriteUntil) {
+      renderPolishVisualSubjects();
+      return;
+    }
+    const currentFp = computeVisualsSourceFingerprint();
     const isChronicle = (creatorSelectedSource === 'inner_voice' && typeof isDailyChronicleMode !== 'undefined' && isDailyChronicleMode);
     if (isChronicle) {
       const filledMoments = (dailyChronicleMoments || []).filter(m => m && String(m.text || '').trim().length >= 4);
@@ -11587,6 +11774,9 @@ function autoIdentifyVisualProjectionsFromInput(immediate = false) {
         }
       }
       renderPolishVisualSubjects();
+      if (currentFp !== lastAiVisualsSourceFingerprint) {
+        scheduleSilentAiVisualRefresh();
+      }
       return;
     }
 
@@ -11603,6 +11793,12 @@ function autoIdentifyVisualProjectionsFromInput(immediate = false) {
       return;
     }
 
+    // If we already have AI-generated visual subjects for this exact text, do not overwrite them with fallback
+    if (currentFp === lastAiVisualsSourceFingerprint && Array.isArray(currentPolishVisualSubjects) && currentPolishVisualSubjects.length > 0 && currentPolishVisualSubjects._isAiGenerated) {
+      renderPolishVisualSubjects();
+      return;
+    }
+
     const prevSelectedArch = (selectedPolishVisualSubject && selectedPolishVisualSubject._userExplicitlyTapped)
       ? selectedPolishVisualSubject.archetype
       : null;
@@ -11615,6 +11811,9 @@ function autoIdentifyVisualProjectionsFromInput(immediate = false) {
       if (found >= 0) targetIdx = found;
     }
     selectPolishVisualSubject(targetIdx, true);
+    if (currentFp !== lastAiVisualsSourceFingerprint) {
+      scheduleSilentAiVisualRefresh();
+    }
   };
 
   if (immediate) {
@@ -11624,7 +11823,8 @@ function autoIdentifyVisualProjectionsFromInput(immediate = false) {
   }
 }
 
-async function refreshVisualProjectionsWithAI() {
+async function refreshVisualProjectionsWithAI(opts = {}) {
+  const silent = Boolean(opts && opts.silent);
   const aiBtn = document.getElementById('polishVsAiRefreshBtn');
   const input = document.getElementById('creatorSlantTakeInput');
   const sparkInput = document.getElementById('creatorSparkInput');
@@ -11635,7 +11835,9 @@ async function refreshVisualProjectionsWithAI() {
   const sparkText = sparkInput ? sparkInput.value.trim() : '';
   const scrapedTitle = currentScrapedArticle?.title || '';
   if (!rawText || rawText.length < 8) {
-    showTemporaryToast('✏️ Write a sentence or moment first so AI can suggest visual projections.');
+    if (!silent) {
+      showTemporaryToast('✏️ Write a sentence or moment first so AI can suggest visual projections.');
+    }
     return;
   }
 
@@ -11647,6 +11849,7 @@ async function refreshVisualProjectionsWithAI() {
 
   try {
     const isChronicle = (creatorSelectedSource === 'inner_voice' && typeof isDailyChronicleMode !== 'undefined' && isDailyChronicleMode);
+    const requestFp = computeVisualsSourceFingerprint();
     const resp = await fetch('/api/synthesize', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -11668,28 +11871,51 @@ async function refreshVisualProjectionsWithAI() {
       if (isChronicle && Array.isArray(data.momentVisualProjections) && data.momentVisualProjections.length > 0) {
         currentChronicleMomentProjections = data.momentVisualProjections.map((mp, idx) => {
           const ranked = applyLearnedConfidenceToOptions(mp.options || []);
-          if (dailyChronicleMoments[idx] && ranked[0]) {
-            dailyChronicleMoments[idx].preferredVisualProjection = ranked[0];
+          const existingPref = dailyChronicleMoments[idx]?.preferredVisualProjection;
+          let selIdx = 0;
+          if (existingPref && existingPref._userExplicitlyTapped) {
+            const matchIdx = ranked.findIndex(o => o.archetype === existingPref.archetype || o.id === existingPref.id);
+            if (matchIdx >= 0) selIdx = matchIdx;
           }
+          if (dailyChronicleMoments[idx] && ranked[selIdx]) {
+            dailyChronicleMoments[idx].preferredVisualProjection = {
+              ...ranked[selIdx],
+              _userExplicitlyTapped: Boolean(existingPref && existingPref._userExplicitlyTapped)
+            };
+          }
+          const srcTxt = String(dailyChronicleMoments[idx]?.text || mp.momentText || '').trim();
           return {
             momentIndex: mp.momentIndex || (idx + 1),
             momentTitle: mp.momentTitle || `Moment 0${idx + 1}`,
-            momentText: mp.momentText || (dailyChronicleMoments[idx]?.text || ''),
-            selectedOptionIdx: 0,
+            momentText: srcTxt,
+            _sourceText: srcTxt,
+            _isAiGenerated: true,
+            selectedOptionIdx: selIdx,
             options: ranked
           };
         });
+        lastAiVisualsSourceFingerprint = computeVisualsSourceFingerprint() || requestFp;
         renderPolishVisualSubjects();
-        showTemporaryToast('✨ AI identified confidence-ranked visual options for each moment!');
+        if (!silent) {
+          showTemporaryToast('✨ AI identified confidence-ranked visual options for each moment!');
+        }
       } else if (!isChronicle && Array.isArray(data.visualSubjects) && data.visualSubjects.length > 0) {
-        currentPolishVisualSubjects = applyLearnedConfidenceToOptions(data.visualSubjects);
+        const rankedSubjects = applyLearnedConfidenceToOptions(data.visualSubjects);
+        rankedSubjects._isAiGenerated = true;
+        rankedSubjects._sourceText = rawText;
+        currentPolishVisualSubjects = rankedSubjects;
+        lastAiVisualsSourceFingerprint = computeVisualsSourceFingerprint() || requestFp;
         selectPolishVisualSubject(0, true);
-        showTemporaryToast('✨ AI identified 3 confidence-ranked core scene visual options!');
+        if (!silent) {
+          showTemporaryToast('✨ AI identified 3 confidence-ranked core scene visual options!');
+        }
       }
     }
   } catch (err) {
     console.warn('AI visual projection refresh fallback:', err);
-    autoIdentifyVisualProjectionsFromInput(true);
+    if (!silent) {
+      autoIdentifyVisualProjectionsFromInput(true);
+    }
   } finally {
     if (aiBtn) {
       aiBtn.disabled = false;
@@ -11782,17 +12008,30 @@ async function polishUserTake() {
       if (Array.isArray(momentVisualProjections) && momentVisualProjections.length > 0) {
         currentChronicleMomentProjections = momentVisualProjections.map((mp, idx) => {
           const ranked = applyLearnedConfidenceToOptions(mp.options || []);
-          if (dailyChronicleMoments[idx] && ranked[0]) {
-            dailyChronicleMoments[idx].preferredVisualProjection = ranked[0];
+          const existingPref = dailyChronicleMoments[idx]?.preferredVisualProjection;
+          let selIdx = 0;
+          if (existingPref && existingPref._userExplicitlyTapped) {
+            const matchIdx = ranked.findIndex(o => o.archetype === existingPref.archetype || o.id === existingPref.id);
+            if (matchIdx >= 0) selIdx = matchIdx;
           }
+          if (dailyChronicleMoments[idx] && ranked[selIdx]) {
+            dailyChronicleMoments[idx].preferredVisualProjection = {
+              ...ranked[selIdx],
+              _userExplicitlyTapped: Boolean(existingPref && existingPref._userExplicitlyTapped)
+            };
+          }
+          const srcTxt = String(dailyChronicleMoments[idx]?.text || mp.momentText || '').trim();
           return {
             momentIndex: mp.momentIndex || (idx + 1),
             momentTitle: mp.momentTitle || `Moment 0${idx + 1}`,
-            momentText: mp.momentText || (dailyChronicleMoments[idx]?.text || ''),
-            selectedOptionIdx: 0,
+            momentText: srcTxt,
+            _sourceText: srcTxt,
+            _isAiGenerated: true,
+            selectedOptionIdx: selIdx,
             options: ranked
           };
         });
+        lastAiVisualsSourceFingerprint = computeVisualsSourceFingerprint();
       } else {
         currentChronicleMomentProjections = buildClientFallbackMomentProjections(dailyChronicleMoments.filter(m => m && String(m.text || '').trim().length > 0));
         currentChronicleMomentProjections.forEach((mp, idx) => {
@@ -11807,6 +12046,9 @@ async function polishUserTake() {
         visualSubjects = buildClientFallbackVisualSubjects(rawText, sparkText, scrapedTitle);
       } else {
         visualSubjects = applyLearnedConfidenceToOptions(visualSubjects);
+        visualSubjects._isAiGenerated = true;
+        visualSubjects._sourceText = rawText;
+        lastAiVisualsSourceFingerprint = computeVisualsSourceFingerprint();
       }
       currentPolishVisualSubjects = visualSubjects;
       selectPolishVisualSubject(0, true);
@@ -16052,6 +16294,7 @@ async function buildClientExactChronicleCollage(momentsWithPhotos) {
 function acceptPolishedTake() {
   const input = document.getElementById('creatorSlantTakeInput');
   const reviewCard = document.getElementById('slantPolishReviewCard');
+  window._suppressVisualFallbackOverwriteUntil = Date.now() + 2000;
   if (input && lastPolishedTake) {
     input.value = lastPolishedTake;
     if (creatorSelectedSource === 'inner_voice' && isDailyChronicleMode) {
@@ -16070,12 +16313,23 @@ function acceptPolishedTake() {
           } else {
             dailyChronicleMoments[idx].text = blk.replace(/^(?:0?[1-9]\s*[·•.-]\s*)?(?:Moment\s+\d+\s*:?\s*)?/i, '').trim();
           }
+          if (Array.isArray(currentChronicleMomentProjections) && currentChronicleMomentProjections[idx]) {
+            currentChronicleMomentProjections[idx].momentText = dailyChronicleMoments[idx].text;
+            currentChronicleMomentProjections[idx]._sourceText = dailyChronicleMoments[idx].text;
+          }
         });
         renderDailyChronicleCards();
         syncChronicleMomentsToSlantInput();
       }
     }
+    if (Array.isArray(currentPolishVisualSubjects) && currentPolishVisualSubjects.length > 0) {
+      currentPolishVisualSubjects._sourceText = input.value.trim();
+    }
+    if (typeof computeVisualsSourceFingerprint === 'function') {
+      lastAiVisualsSourceFingerprint = computeVisualsSourceFingerprint();
+    }
     input.dispatchEvent(new Event('input', { bubbles: true }));
+    renderPolishVisualSubjects();
   }
   if (reviewCard) {
     reviewCard.style.display = 'none';

@@ -1480,17 +1480,28 @@ Respond strictly with valid JSON with this exact structure:
                       return {
                         momentIndex: mIdx + 1,
                         momentTitle: String(found?.momentTitle || m.title || `Moment 0${mIdx + 1}`),
+                        momentText: String(m.text || ''),
                         selectedOptionIdx: 0,
-                        options: rawOpts.map((opt, oIdx) => ({
-                          id: String(opt.id || `m${mIdx + 1}_opt_${oIdx + 1}`),
-                          archetype: String(opt.archetype || (oIdx === 0 ? 'direct_action' : (oIdx === 1 ? 'expressive_midshot' : 'symbolic_focus'))),
-                          badge: String(opt.badge || (oIdx === 0 ? '★ Best Fit • Direct Scene' : (oIdx === 1 ? '🎯 Expressive Mid-Shot' : '🎨 Symbolic Angle'))),
-                          confidence: Math.max(60, Math.min(99, Number(opt.confidence) || (oIdx === 0 ? 93 : (oIdx === 1 ? 83 : 74)))),
-                          title: String(opt.title || fbProj?.options?.[oIdx]?.title || 'Candid Moment Visual').trim(),
-                          description: String(opt.description || fbProj?.options?.[oIdx]?.description || '').trim(),
-                          castIds: Array.isArray(opt.castIds) && opt.castIds.length > 0 ? opt.castIds.map(String) : (fbProj?.options?.[oIdx]?.castIds || ['member_father']),
-                          isPersonalFamily: Boolean(opt.isPersonalFamily !== undefined ? opt.isPersonalFamily : fbProj?.options?.[oIdx]?.isPersonalFamily)
-                        }))
+                        options: rawOpts.map((opt, oIdx) => {
+                          const rawTitle = String(opt.title || fbProj?.options?.[oIdx]?.title || 'Candid Moment Visual')
+                            .replace(/Father\s*\(\s*Father\s*\(([^)]+)\)\s*\)/gi, 'Father ($1)')
+                            .replace(/Mother\s*\(\s*Mother\s*\(([^)]+)\)\s*\)/gi, 'Mother ($1)')
+                            .trim();
+                          const rawDesc = String(opt.description || fbProj?.options?.[oIdx]?.description || '')
+                            .replace(/Father\s*\(\s*Father\s*\(([^)]+)\)\s*\)/gi, 'Father ($1)')
+                            .replace(/Mother\s*\(\s*Mother\s*\(([^)]+)\)\s*\)/gi, 'Mother ($1)')
+                            .trim();
+                          return {
+                            id: String(opt.id || `m${mIdx + 1}_opt_${oIdx + 1}`),
+                            archetype: String(opt.archetype || (oIdx === 0 ? 'direct_action' : (oIdx === 1 ? 'expressive_midshot' : 'symbolic_focus'))),
+                            badge: String(opt.badge || (oIdx === 0 ? '★ Best Fit • Direct Scene' : (oIdx === 1 ? '🎯 Expressive Mid-Shot' : '🎨 Symbolic Angle'))),
+                            confidence: Math.max(60, Math.min(99, Number(opt.confidence) || (oIdx === 0 ? 93 : (oIdx === 1 ? 83 : 74)))),
+                            title: rawTitle,
+                            description: rawDesc,
+                            castIds: Array.isArray(opt.castIds) && opt.castIds.length > 0 ? opt.castIds.map(String) : (fbProj?.options?.[oIdx]?.castIds || ['member_father']),
+                            isPersonalFamily: Boolean(opt.isPersonalFamily !== undefined ? opt.isPersonalFamily : fbProj?.options?.[oIdx]?.isPersonalFamily)
+                          };
+                        })
                       };
                     })
                   : fallbackMomentProjections)
