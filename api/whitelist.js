@@ -381,7 +381,7 @@ module.exports = async function handler(req, res) {
       return res.end(JSON.stringify(out));
     }
 
-    // ACTION: Approve pending credit request (grants +5 bonus credits by default)
+    // ACTION: Approve pending access or credit request
     if (action === 'approve_request') {
       if (!cleanEmail) {
         const err = { error: 'Missing email' };
@@ -389,10 +389,14 @@ module.exports = async function handler(req, res) {
         return res.end(JSON.stringify(err));
       }
 
-      if (!whitelist.allowed_emails.map(e => e.toLowerCase()).includes(cleanEmail)) {
+      const pendingItem = (whitelist.pending_requests || []).find(p => p.email?.toLowerCase() === cleanEmail);
+      const wasAlreadyWhitelisted = whitelist.allowed_emails.map(e => e.toLowerCase()).includes(cleanEmail);
+      const isAccessOnlyApproval = (pendingItem && pendingItem.type === 'access_request') || !wasAlreadyWhitelisted || Number(body.amount) === 0;
+
+      if (!wasAlreadyWhitelisted) {
         whitelist.allowed_emails.push(cleanEmail);
       }
-      const grantAmount = Math.max(1, Math.min(100, Number(body.amount) || 5));
+      const grantAmount = isAccessOnlyApproval ? 0 : Math.max(1, Math.min(100, Number(body.amount) || 5));
       if (!whitelist.user_credits || typeof whitelist.user_credits !== 'object') {
         whitelist.user_credits = {};
       }

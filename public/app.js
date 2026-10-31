@@ -3213,8 +3213,8 @@ async function loadAdminBetaData(forceRefresh = false) {
               ${item.reason ? `<span style="font-size:11px; color:var(--text-secondary); display:block; margin-top:3px; font-style:italic;">"${escapeHtml(item.reason)}"</span>` : ''}
             </div>
             <div style="display:flex; gap:5px; flex-shrink:0;">
-              <button type="button" onclick="handleAdminApproveRequest('${escapeHtml(item.email)}', 5)" style="background:#10B981; color:#fff; border:none; padding:5px 9px; border-radius:6px; font-size:11px; font-weight:800; cursor:pointer;">${isAccessReq ? 'Approve Access ✓' : 'Grant +5 ⚡'}</button>
-              <button type="button" onclick="handleAdminApproveRequest('${escapeHtml(item.email)}', 15)" style="background:#6366F1; color:#fff; border:none; padding:5px 9px; border-radius:6px; font-size:11px; font-weight:800; cursor:pointer;">+15 ⚡</button>
+              <button type="button" onclick="handleAdminApproveRequest('${escapeHtml(item.email)}', ${isAccessReq ? 0 : 5})" style="background:#10B981; color:#fff; border:none; padding:5px 9px; border-radius:6px; font-size:11px; font-weight:800; cursor:pointer;">${isAccessReq ? 'Approve Access ✓' : 'Grant +5 ⚡'}</button>
+              ${!isAccessReq ? `<button type="button" onclick="handleAdminApproveRequest('${escapeHtml(item.email)}', 15)" style="background:#6366F1; color:#fff; border:none; padding:5px 9px; border-radius:6px; font-size:11px; font-weight:800; cursor:pointer;">+15 ⚡</button>` : ''}
               <button type="button" onclick="handleAdminDenyRequest('${escapeHtml(item.email)}')" style="background:rgba(239,68,68,0.1); color:#EF4444; border:none; padding:5px 8px; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer;">✕</button>
             </div>
           `;
@@ -3244,18 +3244,18 @@ async function handleAdminAddEmail() {
     const resp = await fetch('/api/whitelist', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'add_credits', adminEmail, email, amount: 5 })
+      body: JSON.stringify({ action: 'add_email', adminEmail, email })
     });
     if (resp.ok) {
       if (input) input.value = '';
-      showTemporaryToast(`⚡ Granted +5 bonus visual credits to ${email}!`);
+      showTemporaryToast(`✓ Invited ${email} with 5 starter credits!`);
       loadAdminBetaData(false);
     } else {
       const err = await resp.json().catch(() => ({}));
-      alert(err.error || 'Failed to grant credits');
+      alert(err.error || 'Failed to invite user');
     }
   } catch (e) {
-    alert('Network error while granting credits');
+    alert('Network error while inviting user');
   }
 }
 
@@ -3277,7 +3277,7 @@ async function handleAdminRemoveEmail(email) {
   }
 }
 
-async function handleAdminApproveRequest(email, amount = 5) {
+async function handleAdminApproveRequest(email, amount = 0) {
   const adminEmail = currentUser?.email || 'shridharoct16@gmail.com';
   try {
     const resp = await fetch('/api/whitelist', {
@@ -3286,7 +3286,7 @@ async function handleAdminApproveRequest(email, amount = 5) {
       body: JSON.stringify({ action: 'approve_request', adminEmail, email, amount })
     });
     if (resp.ok) {
-      showTemporaryToast(`⚡ Approved & granted +${amount} visual credits to ${email}!`);
+      showTemporaryToast(amount > 0 ? `⚡ Approved & granted +${amount} visual credits to ${email}!` : `✓ Approved access for ${email} (5 starter credits)!`);
       loadAdminBetaData(false);
     }
   } catch (e) {
