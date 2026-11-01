@@ -8046,6 +8046,100 @@ function handleSourceLogoImgError(imgEl) {
 }
 window.handleSourceLogoImgError = handleSourceLogoImgError;
 
+function getPlatformMiniBadgeInfo(rawLink = '', pubName = '') {
+  const combined = `${rawLink} ${pubName}`.toLowerCase();
+
+  // 1. YouTube
+  if (/(?:youtube\.com|youtu\.be|\byoutube\b)/i.test(combined)) {
+    return {
+      platformClass: 'is-platform-youtube',
+      svgHtml: `
+        <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor">
+          <polygon points="8,5 20,12 8,19"></polygon>
+        </svg>
+      `
+    };
+  }
+
+  // 2. Substack
+  if (/substack\.com|\bsubstack\b/i.test(combined)) {
+    return {
+      platformClass: 'is-platform-substack',
+      svgHtml: `
+        <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor">
+          <rect x="4" y="3" width="16" height="2.6" rx="0.8"></rect>
+          <rect x="4" y="7.5" width="16" height="2.6" rx="0.8"></rect>
+          <path d="M4 12h16v9l-8-4.5L4 21v-9z"></path>
+        </svg>
+      `
+    };
+  }
+
+  // 3. Instagram
+  if (/(?:instagram\.com|instagr\.am|\binstagram\b)/i.test(combined)) {
+    return {
+      platformClass: 'is-platform-instagram',
+      svgHtml: `
+        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="18" height="18" rx="5"></rect>
+          <circle cx="12" cy="12" r="4"></circle>
+          <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"></circle>
+        </svg>
+      `
+    };
+  }
+
+  // 4. X / Twitter
+  if (/(?:twitter\.com|(?:\b|\/)x\.com)/i.test(rawLink)) {
+    return {
+      platformClass: 'is-platform-x',
+      svgHtml: `
+        <svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"></path>
+        </svg>
+      `
+    };
+  }
+
+  // 5. LinkedIn
+  if (/linkedin\.com|\blinkedin\b/i.test(combined)) {
+    return {
+      platformClass: 'is-platform-linkedin',
+      svgHtml: `
+        <svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M6.94 5a2 2 0 1 1-4-.002 2 2 0 0 1 4 .002zM7 8.48H3V21h4V8.48zm6.32 0H9.34V21h3.94v-6.57c0-3.66 4.77-4 4.77 0V21H22v-7.93c0-6.17-7.06-5.94-8.72-2.91l.04-1.68z"></path>
+        </svg>
+      `
+    };
+  }
+
+  // 6. Spotify / Podcasts
+  if (/(?:spotify\.com|podcasts\.apple\.com|soundcloud\.com)/i.test(rawLink)) {
+    return {
+      platformClass: 'is-platform-spotify',
+      svgHtml: `
+        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round">
+          <path d="M4 9.5c4.8-1.6 11.2-1.2 16 1.2"></path>
+          <path d="M5.5 13.5c3.8-1.2 8.8-.9 12.5 1"></path>
+          <path d="M7 17.5c2.8-.8 6.4-.6 9 .8"></path>
+        </svg>
+      `
+    };
+  }
+
+  // Default: Web / Press Source
+  return {
+    platformClass: 'is-platform-web',
+    svgHtml: `
+      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9"></circle>
+        <line x1="3" y1="12" x2="21" y2="12"></line>
+        <path d="M12 3a14.5 14.5 0 0 0 0 18 14.5 14.5 0 0 0 0-18"></path>
+      </svg>
+    `
+  };
+}
+
 function buildPostSourceActionButtonHtml(post, index, pubName, cleanHost) {
   const rawLink = String(
     post?.digitalLink ||
@@ -8059,6 +8153,7 @@ function buildPostSourceActionButtonHtml(post, index, pubName, cleanHost) {
   const host = cleanHost || getCleanDomain(rawLink);
   const sourceLabel = pubName || host || 'Source';
   const isYt = Boolean(rawLink && /(?:youtube\.com|youtu\.be)/i.test(rawLink));
+  const platformBadge = getPlatformMiniBadgeInfo(rawLink, pubName);
 
   let logoUrl = String(post?.sourceLogoUrl || post?.generationInputs?.sourceLogoUrl || '').trim();
   const fallbackFavicon = host
@@ -8079,7 +8174,7 @@ function buildPostSourceActionButtonHtml(post, index, pubName, cleanHost) {
 
   if (logoUrl) {
     return `
-      <button type="button" class="icon-action-btn source-summary-action-btn has-source-logo" onclick="openDetailModal('${index}')" title="View Source (${escapeHtml(sourceLabel)})" aria-label="View Source (${escapeHtml(sourceLabel)})">
+      <button type="button" class="icon-action-btn source-summary-action-btn has-source-logo" id="source-btn-${index}" onclick="toggleInlineSourceDrawer(event, '${index}')" title="View Source (${escapeHtml(sourceLabel)})" aria-label="View Source (${escapeHtml(sourceLabel)})">
         <span class="source-logo-medallion">
           <img src="${escapeHtml(logoUrl)}"
                class="source-logo-medallion-img"
@@ -8090,27 +8185,23 @@ function buildPostSourceActionButtonHtml(post, index, pubName, cleanHost) {
                loading="lazy"
                referrerpolicy="no-referrer"
                onerror="window.handleSourceLogoImgError && window.handleSourceLogoImgError(this)">
-          <svg class="source-logo-fallback-svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#0284C7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;">
+          <svg class="source-logo-fallback-svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#0284C7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
             <polyline points="14 2 14 8 20 8"></polyline>
             <line x1="16" y1="13" x2="8" y2="13"></line>
             <line x1="16" y1="17" x2="8" y2="17"></line>
           </svg>
         </span>
-        <span class="source-logo-corner-badge" aria-hidden="true">
-          <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-            <line x1="16" y1="13" x2="8" y2="13"></line>
-            <line x1="16" y1="17" x2="8" y2="17"></line>
-          </svg>
+        <span class="source-logo-corner-badge ${platformBadge.platformClass}" aria-hidden="true">
+          ${platformBadge.svgHtml}
         </span>
       </button>
     `;
   }
 
   return `
-    <button type="button" class="icon-action-btn source-summary-action-btn" onclick="openDetailModal('${index}')" title="View Source (${escapeHtml(sourceLabel)})" aria-label="View Source (${escapeHtml(sourceLabel)})">
-      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#0284C7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <button type="button" class="icon-action-btn source-summary-action-btn" id="source-btn-${index}" onclick="toggleInlineSourceDrawer(event, '${index}')" title="View Source (${escapeHtml(sourceLabel)})" aria-label="View Source (${escapeHtml(sourceLabel)})">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0284C7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
         <polyline points="14 2 14 8 20 8"></polyline>
         <line x1="16" y1="13" x2="8" y2="13"></line>
@@ -8120,6 +8211,149 @@ function buildPostSourceActionButtonHtml(post, index, pubName, cleanHost) {
     </button>
   `;
 }
+
+function toggleInlineSourceDrawer(event, index) {
+  if (event) {
+    event.stopPropagation();
+    event.preventDefault();
+  }
+  if (index === 'preview') return;
+  const isSampleCard = index === 'sample' || (typeof index === 'string' && index.startsWith('sample_'));
+  if (!currentUser && (isDeepLinkScrollGated || isSampleCard)) {
+    openAuthModal('Sign in to view verified source context, video, and source summary.');
+    return;
+  }
+
+  const drawer = document.getElementById(`inline-source-drawer-${index}`);
+  const btn = document.getElementById(`source-btn-${index}`);
+  if (!drawer) {
+    openDetailModal(index);
+    return;
+  }
+
+  const isOpen = drawer.style.display !== 'none' && drawer.classList.contains('is-open');
+  if (isOpen) {
+    drawer.classList.remove('is-open');
+    drawer.style.display = 'none';
+    // Clear iframe to stop video playback when collapsed
+    drawer.innerHTML = '';
+    if (btn) btn.classList.remove('is-open');
+    return;
+  }
+
+  const post = getPostFromIndexOrId(index) || (typeof allPosts !== 'undefined' && allPosts.find(p => p && p.id === index));
+  if (!post || isInnerVoicePost(post)) return;
+
+  const rawLink = String(post.digitalLink || post.videoUrl || post.sourceUrl || post.webUrl || post.generationInputs?.sourceUrl || '').trim();
+  const cleanHost = getCleanDomain(rawLink);
+  let pubName = post.publicationName || cleanHost || 'Primary Source';
+  if (pubName.includes('•')) {
+    pubName = pubName.split('•')[0].trim() || pubName;
+  }
+  pubName = pubName.replace(/^(NEWSPAPER|ARTICLE|BOOK|MAGAZINE|PRESS):\s*/i, '').trim();
+
+  const sourceTitle = post.originalHeadline || post.sourceHeadline || post.spark || post.adaptedHeadline || 'Original Source';
+  const ytEmbed = getYouTubeEmbedUrl(rawLink);
+  const vimeoEmbed = getVimeoEmbedUrl(rawLink);
+  const isVideo = Boolean(ytEmbed || vimeoEmbed || post.sourceType === 'youtube' || post.sourceType === 'video' || post.sourceType === 'video_audio' || (rawLink && /\.(mp4|webm|mov)(\?.*)?$/i.test(rawLink)));
+
+  let mediaBlockHtml = '';
+  if (isVideo) {
+    if (ytEmbed) {
+      mediaBlockHtml = `
+        <div class="inline-source-video-box">
+          <iframe
+            src="${ytEmbed}?autoplay=0&rel=0&modestbranding=1&playsinline=1"
+            title="Source Video"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowfullscreen>
+          </iframe>
+        </div>
+      `;
+    } else if (vimeoEmbed) {
+      mediaBlockHtml = `
+        <div class="inline-source-video-box">
+          <iframe
+            src="${vimeoEmbed}"
+            title="Source Video"
+            allow="autoplay; fullscreen; picture-in-picture"
+            allowfullscreen>
+          </iframe>
+        </div>
+      `;
+    } else if (rawLink && /\.(mp4|webm|mov)(\?.*)?$/i.test(rawLink)) {
+      mediaBlockHtml = `
+        <div class="inline-source-video-box">
+          <video src="${escapeHtml(rawLink)}" controls playsinline></video>
+        </div>
+      `;
+    }
+  }
+
+  let ledger = post.sourceLedger || post.generationInputs?.sourceLedger;
+  const summaryHtml = renderProofSummarySections(post, ledger);
+
+  drawer.innerHTML = `
+    <div class="inline-source-drawer-inner">
+      <div class="inline-source-drawer-header">
+        <div class="inline-source-drawer-meta">
+          <span class="inline-source-kicker">${escapeHtml((cleanHost && cleanHost.includes('youtube') ? `${pubName} • YouTube` : (cleanHost || pubName)).toUpperCase())}</span>
+          <div class="inline-source-headline">${escapeHtml(sourceTitle)}</div>
+        </div>
+        <div class="inline-source-drawer-actions">
+          ${rawLink && /^https?:\/\//i.test(rawLink) ? `
+            <a href="${escapeHtml(rawLink)}" target="_blank" rel="noopener noreferrer" class="inline-source-ext-link" onclick="event.stopPropagation()" title="Open original source link">
+              <span>Source</span>
+              <span>&nearr;</span>
+            </a>
+          ` : ''}
+          <button type="button" class="inline-source-collapse-btn" onclick="toggleInlineSourceDrawer(event, '${index}')" title="Collapse Source">
+            <span>&#x25B4; Hide</span>
+          </button>
+        </div>
+      </div>
+      ${mediaBlockHtml}
+      <div class="inline-source-scroll-summary" id="inline-source-summary-${index}">
+        ${summaryHtml}
+      </div>
+    </div>
+  `;
+
+  drawer.style.display = 'block';
+  drawer.classList.add('is-open');
+  if (btn) btn.classList.add('is-open');
+
+  // Asynchronous on-demand ledger fetch if missing
+  if (!ledger && rawLink && !post._isFetchingLedger) {
+    post._isFetchingLedger = true;
+    fetch('/api/ledger', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        url: rawLink,
+        title: post.originalHeadline || post.adaptedHeadline || '',
+        content: post.sourceContext || post.generationInputs?.scrapedContent || '',
+        siteName: cleanHost || pubName
+      })
+    })
+      .then(r => r.json())
+      .then(data => {
+        post._isFetchingLedger = false;
+        if (data && data.ledger) {
+          post.sourceLedger = data.ledger;
+          if (post.generationInputs) post.generationInputs.sourceLedger = data.ledger;
+          const summaryBox = document.getElementById(`inline-source-summary-${index}`);
+          if (summaryBox) {
+            summaryBox.innerHTML = renderProofSummarySections(post, data.ledger);
+          }
+        }
+      })
+      .catch(() => {
+        post._isFetchingLedger = false;
+      });
+  }
+}
+window.toggleInlineSourceDrawer = toggleInlineSourceDrawer;
 
 function createPostCardElement(post, index) {
   const card = document.createElement('article');
@@ -8443,6 +8677,9 @@ function createPostCardElement(post, index) {
         </button>
       </div>
     </div>
+
+    <!-- Inline Collapsible Source Video + Scrolling Source Summary Drawer -->
+    <div class="inline-source-drawer" id="inline-source-drawer-${index}" style="display: none;"></div>
 
     <!-- Instagram-style Caption Area: Creator Handle + Curator Take + Native Inline Expand -->
     <div class="post-content">
