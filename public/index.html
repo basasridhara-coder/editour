@@ -2162,8 +2162,9 @@
             </button>
             <button class="drawer-menu-row" id="drawerFamilyCastRow" onclick="closeDrawer(); openFamilyCastModal();">
               <span class="row-icon">👥</span>
-              <span class="row-label">Family Cast Vault</span>
-              <span class="row-pill" style="background:rgba(56,189,248,0.2); color:#38BDF8; font-size:10px; font-weight:700; padding:2px 8px; border-radius:10px;">Cast</span>
+              <span class="row-label">Reference &amp; Family Vault</span>
+              <span class="row-pill" id="drawerFamilyPendingBadge" style="background:#EF4444; color:#fff; display:none; padding:1px 7px; border-radius:10px; font-size:10.5px; font-weight:800; margin-right:4px;">0</span>
+              <span class="row-pill" style="background:rgba(56,189,248,0.2); color:#38BDF8; font-size:10px; font-weight:700; padding:2px 8px; border-radius:10px;">Vault</span>
             </button>
             <button class="drawer-menu-row drawer-sign-out" onclick="closeDrawer(); handleSignOut();">
               <span class="row-icon">🚪</span>
@@ -2303,6 +2304,9 @@
     </div>
   </div>
 
+  <!-- Global Floating Family Vault Approval Notification Banner -->
+  <div id="familyApprovalNotificationBanner" class="family-approval-notif-banner" style="display:none;" role="region" aria-label="Family Vault Request Notification"></div>
+
   <!-- Family Cast Vault Modal (Dedicated Member Screen Window Experience) -->
   <div class="modal-overlay family-cast-modal-overlay" id="familyCastModal" style="display:none;" onclick="if(event.target===this) closeFamilyCastModal()">
     <div class="vault-screen-window" id="familyCastModalWindow">
@@ -2310,16 +2314,57 @@
       <!-- 1. Header Bar: Brand, Info & Close -->
       <div class="vault-window-header">
         <div class="vault-window-brand">
-          <div class="vault-badge-pill">👥 Family Cast Vault</div>
+          <div class="vault-badge-pill">👥 Reference &amp; Family Vault</div>
           <button type="button" class="ui-info-dot-btn" onclick="toggleInfoTip(event, 'vaultHeaderInfoTip')" title="About Family Cast Vault">i</button>
         </div>
         <div class="vault-header-actions">
+          <button type="button" class="vault-link-slant-btn" id="vaultToggleSlantSearchBtn" onclick="toggleVaultSlantSearchPanel()" title="Search &amp; add family from Slant database">
+            <span>🔗 Find Family on Slant</span>
+          </button>
           <button type="button" class="vault-header-reset-btn" onclick="resetFamilyCastToDefault()" title="Reset to standard blueprint">Reset</button>
           <button type="button" class="vault-window-close-btn" onclick="closeFamilyCastModal()" title="Close Vault">✕</button>
         </div>
       </div>
       <div class="ui-info-popover-box" id="vaultHeaderInfoTip" style="display:none; margin: 0 18px 8px;">
-        🔒 <strong>Zero Digital Footprint:</strong> Reference poses stay private and are used only to preserve consistent character likeness across your illustrated posters.
+        🔒 <strong>Zero Digital Footprint &amp; Mutual Family Consent:</strong> Your Self reference and approved Family Vault members ground your personal and Daily Chronicle illustrations. Linked Slant family members must approve your request before their reference likeness is used, and once approved you both share access to the Family Vault.
+      </div>
+
+      <!-- First-Login Onboarding Welcome Banner -->
+      <div id="vaultOnboardingBanner" class="vault-onboarding-banner" style="display:none;">
+        <div class="vault-onboarding-icon">✨</div>
+        <div class="vault-onboarding-text">
+          <div class="vault-onboarding-title">Welcome! Set Up Your Reference &amp; Family Vault</div>
+          <div class="vault-onboarding-sub">Add your <strong>Self</strong> details &amp; reference photo so your Daily Chronicles and personal Slants portray <em>you</em> accurately. You can also search and link family members on Slant below!</div>
+        </div>
+        <button type="button" class="vault-onboarding-dismiss" onclick="dismissVaultOnboardingBanner()" title="Dismiss">✕</button>
+      </div>
+
+      <!-- Incoming Family Approval Requests Bar (Inside Vault) -->
+      <div id="vaultIncomingRequestsBar" class="vault-incoming-requests-bar" style="display:none;"></div>
+
+      <!-- Search & Link Family Member from Slant Database Panel -->
+      <div id="vaultLinkSlantUserPanel" class="vault-link-slant-panel" style="display:none;">
+        <div class="vault-link-panel-header">
+          <div>
+            <div class="vault-link-panel-title">🔗 Add Family from Slant Database</div>
+            <div class="vault-link-panel-sub">Search by name, @handle, or email. They will receive an approval request to share the Family Vault &amp; allow reference photo generation.</div>
+          </div>
+          <button type="button" class="vault-link-panel-close" onclick="toggleVaultSlantSearchPanel(false)">✕</button>
+        </div>
+        <div class="vault-link-controls-row">
+          <input type="text" id="vaultSlantUserSearchInput" class="vault-link-search-input" placeholder="Search Slant user by name, @handle, or email..." oninput="onVaultSlantSearchInput(this.value)">
+          <select id="vaultSlantUserRelationSelect" class="vault-link-relation-select" title="Select their relationship to you">
+            <option value="spouse|Spouse / Wife">Spouse / Wife</option>
+            <option value="spouse|Spouse / Husband">Spouse / Husband</option>
+            <option value="elder_son|Elder Son">Elder Son</option>
+            <option value="younger_son|Younger Son">Younger Son</option>
+            <option value="child|Child / Daughter">Child / Daughter</option>
+            <option value="father|Father">Father</option>
+            <option value="mother|Mother">Mother</option>
+            <option value="sibling|Sibling">Sibling</option>
+          </select>
+        </div>
+        <div id="vaultSlantUserSearchResults" class="vault-link-results-list"></div>
       </div>
 
       <!-- 2. Member Switcher Carousel Tabs (Easily jump between Dad, Mom, Elder Son, Younger Son, or Add New) -->
