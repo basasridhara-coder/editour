@@ -11,15 +11,18 @@ module.exports = async function handler(req, res) {
   }
 
   let targetUrl = '';
+  let logoOnly = false;
   if (req.method === 'POST') {
     let body = req.body;
     if (typeof body === 'string') {
       try { body = JSON.parse(body); } catch (_) {}
     }
     targetUrl = (body && body.url) ? body.url.trim() : '';
+    logoOnly = Boolean(body && body.logoOnly);
   } else {
     const parsed = new URL(req.url, 'http://localhost');
     targetUrl = parsed.searchParams.get('url') || '';
+    logoOnly = parsed.searchParams.get('logoOnly') === '1' || parsed.searchParams.get('logoOnly') === 'true';
   }
 
   if (!targetUrl) {
@@ -31,13 +34,39 @@ module.exports = async function handler(req, res) {
   }
 
   let domain = 'Web Source';
+  let hostname = '';
   try {
     const parsedUri = new URL(targetUrl);
-    domain = parsedUri.hostname.replace(/^www\./, '');
+    hostname = parsedUri.hostname.replace(/^www\./, '');
+    domain = hostname;
   } catch (_) {}
 
-  // 1. Specialized YouTube Video Extractor: extracts full interview description, chapters, and high-res thumbnail
   const ytVideoId = extractYouTubeVideoId(targetUrl);
+
+  // Fast Logo-Only Mode (for hydrating YouTube channel avatars or site logos on existing feed posts)
+  if (logoOnly) {
+    if (ytVideoId) {
+      const ytLogoInfo = await fetchYouTubeChannelLogoFast(targetUrl);
+      return res.status(200).json({
+        success: true,
+        url: targetUrl,
+        sourceLogoUrl: ytLogoInfo.sourceLogoUrl || null,
+        author: ytLogoInfo.author || 'YouTube',
+        isVideo: true
+      });
+    }
+    const fallbackFavicon = hostname
+      ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(hostname)}&sz=64`
+      : null;
+    return res.status(200).json({
+      success: true,
+      url: targetUrl,
+      sourceLogoUrl: fallbackFavicon,
+      isVideo: isVideoAudioUrl(targetUrl)
+    });
+  }
+
+  // 1. Specialized YouTube Video Extractor: extracts full interview description, chapters, and high-res thumbnail
   if (ytVideoId) {
     try {
       const ytResult = await scrapeYouTubeUrl(targetUrl, ytVideoId);
@@ -75,6 +104,9 @@ module.exports = async function handler(req, res) {
   let imageUrl = null;
   let imageBase64 = null;
   let imageMimeType = 'image/jpeg';
+  let sourceLogoUrl = hostname
+    ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(hostname)}&sz=64`
+    : null;
 
   try {
     const controller = new AbortController();
@@ -114,6 +146,12 @@ module.exports = async function handler(req, res) {
 
       // Lead Image Extraction
       imageUrl = extractMetaImage(html, targetUrl);
+
+      // Site Logo / Favicon Extraction (with automatic Google 64px Favicon fallback)
+      const extractedIcon = extractSiteLogoFromHtml(html, targetUrl);
+      if (extractedIcon) {
+        sourceLogoUrl = extractedIcon;
+      }
 
       // Fallback cleanText if Jina was empty or blocked
       if (!cleanText || cleanText.length < 200) {
@@ -192,6 +230,7 @@ module.exports = async function handler(req, res) {
       imageUrl: imageUrl && imageUrl.startsWith('http') ? imageUrl : null,
       imageBase64,
       imageMimeType,
+      sourceLogoUrl,
       ledger,
       isVideo: isVideoAudioUrl(targetUrl)
     });
@@ -206,6 +245,7 @@ module.exports = async function handler(req, res) {
     description: '',
     content: '',
     imageUrl: null,
+    sourceLogoUrl,
     fallback: true,
     notice: 'Lightweight slug extraction used',
     isVideo: isVideoAudioUrl(targetUrl)
@@ -460,6 +500,98 @@ async function fetchPrimaryYouTubeTranscript(videoId) {
   }
 }
 
+function extractSiteLogoFromHtml(html, baseUrl) {
+  if (!html) return '';
+  const iconRegexes = [
+    /<link\b[^>]*?\brel=["'](?:apple-touch-icon|apple-touch-icon-precomposed)["'][^>]*?\bhref=["']([^"']+)["']/i,
+    /<link\b[^>]*?\bhref=["']([^"']+)["'][^>]*?\brel=["'](?:apple-touch-icon|apple-touch-icon-precomposed)["']/i,
+    /<link\b[^>]*?\brel=["'](?:icon|shortcut icon)["'][^>]*?\bhref=["']([^"']+)["']/i,
+    /<link\b[^>]*?\bhref=["']([^"']+)["'][^>]*?\brel=["'](?:icon|shortcut icon)["']/i
+  ];
+  for (const r of iconRegexes) {
+    const m = html.match(r);
+    if (m && m[1]) {
+      let href = decodeHtmlEntities(m[1].trim());
+      if (href && !href.startsWith('data:')) {
+        try {
+          return new URL(href, baseUrl).href;
+        } catch (_) {}
+      }
+    }
+  }
+  return '';
+}
+
+function normalizeYouTubeAvatarUrl(rawUrl) {
+  if (!rawUrl || typeof rawUrl !== 'string') return '';
+  let clean = rawUrl.replace(/\\u0026/g, '&').replace(/&amp;/g, '&').trim();
+  if (clean.startsWith('//')) clean = 'https:' + clean;
+  clean = clean.replace(/=s\d+-c/, '=s176-c');
+  return clean;
+}
+
+async function fetchYouTubeChannelLogoFast(targetUrl, existingOembed = null, existingPageHtml = '') {
+  let oembed = existingOembed || {};
+  if (!oembed.author_url && !oembed.author_name) {
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 2500);
+      const oembedResp = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(targetUrl)}&format=json`, {
+        signal: ctrl.signal,
+        headers: { 'User-Agent': 'Mozilla/5.0' }
+      });
+      clearTimeout(timer);
+      if (oembedResp.ok) {
+        oembed = await oembedResp.json();
+      }
+    } catch (_) {}
+  }
+
+  // 1. Check watch page HTML if already fetched
+  if (existingPageHtml) {
+    const avatarMatch = existingPageHtml.match(/"(?:videoOwnerRenderer|channelMetadataRenderer)"[\s\S]{1,1200}?"(?:thumbnail|avatar)"\s*:\s*\{\s*"thumbnails"\s*:\s*\[\s*\{\s*"url"\s*:\s*"(https?:\/\/yt3\.(?:ggpht|googleusercontent)\.com\/[^"]+)"/i)
+      || existingPageHtml.match(/"(https?:\/\/yt3\.(?:ggpht|googleusercontent)\.com\/(?:ytc\/)?[A-Za-z0-9_-]{16,}[^"]*)"/i);
+    if (avatarMatch && avatarMatch[1]) {
+      return {
+        sourceLogoUrl: normalizeYouTubeAvatarUrl(avatarMatch[1]),
+        author: decodeHtmlEntities(oembed.author_name || 'YouTube').trim()
+      };
+    }
+  }
+
+  // 2. Fetch channel page og:image from oembed.author_url
+  if (oembed && oembed.author_url) {
+    try {
+      const chCtrl = new AbortController();
+      const chTimer = setTimeout(() => chCtrl.abort(), 2800);
+      const chResp = await fetch(oembed.author_url, {
+        signal: chCtrl.signal,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Cookie': 'CONSENT=YES+cb.20210328-17-p0.en+FX+478;'
+        }
+      });
+      clearTimeout(chTimer);
+      if (chResp.ok) {
+        const chHtml = await chResp.text();
+        const ogImg = getMetaTagContent(chHtml, 'og:image') || getMetaTagContent(chHtml, 'twitter:image');
+        if (ogImg && ogImg.startsWith('http')) {
+          return {
+            sourceLogoUrl: normalizeYouTubeAvatarUrl(ogImg),
+            author: decodeHtmlEntities(oembed.author_name || 'YouTube').trim()
+          };
+        }
+      }
+    } catch (_) {}
+  }
+
+  return {
+    sourceLogoUrl: 'https://www.google.com/s2/favicons?domain=youtube.com&sz=64',
+    author: decodeHtmlEntities(oembed.author_name || 'YouTube').trim()
+  };
+}
+
 async function scrapeYouTubeUrl(targetUrl, videoId) {
   let oembed = {};
   try {
@@ -472,6 +604,7 @@ async function scrapeYouTubeUrl(targetUrl, videoId) {
   } catch (_) {}
 
   let playerObj = null;
+  let watchPageHtml = '';
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 4000);
@@ -486,13 +619,20 @@ async function scrapeYouTubeUrl(targetUrl, videoId) {
     });
     clearTimeout(timeout);
     if (pageResp.ok) {
-      const pageHtml = await pageResp.text();
-      const match = pageHtml.match(/var ytInitialPlayerResponse\s*=\s*(\{.+?\});(?:var|<\/script>)/s) ||
-                    pageHtml.match(/ytInitialPlayerResponse\s*=\s*(\{.+?\});/);
+      watchPageHtml = await pageResp.text();
+      const match = watchPageHtml.match(/var ytInitialPlayerResponse\s*=\s*(\{.+?\});(?:var|<\/script>)/s) ||
+                    watchPageHtml.match(/ytInitialPlayerResponse\s*=\s*(\{.+?\});/);
       if (match) {
         try { playerObj = JSON.parse(match[1]); } catch (_) {}
       }
     }
+  } catch (_) {}
+
+  // Extract YouTube Channel Avatar Logo
+  let sourceLogoUrl = null;
+  try {
+    const ytLogoInfo = await fetchYouTubeChannelLogoFast(targetUrl, oembed, watchPageHtml);
+    sourceLogoUrl = ytLogoInfo.sourceLogoUrl || null;
   } catch (_) {}
 
   let title = decodeHtmlEntities(playerObj?.videoDetails?.title || oembed.title || '').trim();
@@ -572,6 +712,7 @@ async function scrapeYouTubeUrl(targetUrl, videoId) {
     imageUrl,
     imageBase64,
     imageMimeType,
+    sourceLogoUrl,
     isVideo: true
   };
 }

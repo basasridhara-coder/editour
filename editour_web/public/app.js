@@ -7973,8 +7973,153 @@ function buildSlide3Html(post, index) {
 }
 
 /* ============================================================
-   POST CARD GENERATOR
+   POST CARD GENERATOR & SOURCE LOGO MEDALLION (OPTION A)
    ============================================================ */
+
+const _ytChannelLogoPendingUrls = new Set();
+
+function getCachedYouTubeChannelLogo(rawUrl) {
+  if (!rawUrl) return '';
+  try {
+    const mapRaw = localStorage.getItem('slant_yt_channel_logos_v1');
+    if (!mapRaw) return '';
+    const map = JSON.parse(mapRaw);
+    return (map && typeof map[rawUrl] === 'string') ? map[rawUrl] : '';
+  } catch (_) {
+    return '';
+  }
+}
+
+function setCachedYouTubeChannelLogo(rawUrl, logoUrl) {
+  if (!rawUrl || !logoUrl) return;
+  try {
+    const mapRaw = localStorage.getItem('slant_yt_channel_logos_v1');
+    const map = mapRaw ? JSON.parse(mapRaw) : {};
+    map[rawUrl] = logoUrl;
+    localStorage.setItem('slant_yt_channel_logos_v1', JSON.stringify(map));
+  } catch (_) {}
+}
+
+async function hydrateYouTubeChannelLogoForPost(rawUrl, postId) {
+  if (!rawUrl || _ytChannelLogoPendingUrls.has(rawUrl)) return;
+  _ytChannelLogoPendingUrls.add(rawUrl);
+  try {
+    const resp = await fetch(`/api/scrape?logoOnly=1&url=${encodeURIComponent(rawUrl)}`);
+    if (!resp.ok) return;
+    const data = await resp.json();
+    const logoUrl = data && data.sourceLogoUrl ? String(data.sourceLogoUrl).trim() : '';
+    if (!logoUrl || logoUrl.includes('google.com/s2/favicons')) return;
+
+    setCachedYouTubeChannelLogo(rawUrl, logoUrl);
+    if (postId && Array.isArray(allPosts)) {
+      const targetPost = allPosts.find(p => p && String(p.id) === String(postId));
+      if (targetPost) {
+        targetPost.sourceLogoUrl = logoUrl;
+        if (targetPost.generationInputs) {
+          targetPost.generationInputs.sourceLogoUrl = logoUrl;
+        }
+      }
+    }
+    document.querySelectorAll(`img.source-logo-medallion-img[data-source-url="${CSS.escape(rawUrl)}"]`).forEach(img => {
+      img.src = logoUrl;
+    });
+  } catch (_) {
+  } finally {
+    _ytChannelLogoPendingUrls.delete(rawUrl);
+  }
+}
+
+function handleSourceLogoImgError(imgEl) {
+  if (!imgEl) return;
+  const fallbackFavicon = imgEl.getAttribute('data-fallback-favicon') || '';
+  if (fallbackFavicon && imgEl.src !== fallbackFavicon && !imgEl.dataset.triedFallbackFavicon) {
+    imgEl.dataset.triedFallbackFavicon = '1';
+    imgEl.src = fallbackFavicon;
+    return;
+  }
+  imgEl.style.display = 'none';
+  const parent = imgEl.closest('.source-logo-medallion');
+  if (parent) {
+    const fallbackSvg = parent.querySelector('.source-logo-fallback-svg');
+    if (fallbackSvg) fallbackSvg.style.display = 'block';
+  }
+}
+window.handleSourceLogoImgError = handleSourceLogoImgError;
+
+function buildPostSourceActionButtonHtml(post, index, pubName, cleanHost) {
+  const rawLink = String(
+    post?.digitalLink ||
+    post?.videoUrl ||
+    post?.sourceUrl ||
+    post?.webUrl ||
+    post?.generationInputs?.sourceUrl ||
+    ''
+  ).trim();
+
+  const host = cleanHost || getCleanDomain(rawLink);
+  const sourceLabel = pubName || host || 'Source';
+  const isYt = Boolean(rawLink && /(?:youtube\.com|youtu\.be)/i.test(rawLink));
+
+  let logoUrl = String(post?.sourceLogoUrl || post?.generationInputs?.sourceLogoUrl || '').trim();
+  const fallbackFavicon = host
+    ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=64`
+    : '';
+
+  if (!logoUrl && isYt) {
+    const cachedYtLogo = getCachedYouTubeChannelLogo(rawLink);
+    if (cachedYtLogo) {
+      logoUrl = cachedYtLogo;
+    } else {
+      logoUrl = 'https://www.google.com/s2/favicons?domain=youtube.com&sz=64';
+      setTimeout(() => hydrateYouTubeChannelLogoForPost(rawLink, post?.id), 60);
+    }
+  } else if (!logoUrl && fallbackFavicon && /^https?:\/\//i.test(rawLink)) {
+    logoUrl = fallbackFavicon;
+  }
+
+  if (logoUrl) {
+    return `
+      <button type="button" class="icon-action-btn source-summary-action-btn has-source-logo" onclick="openDetailModal('${index}')" title="View Source (${escapeHtml(sourceLabel)})" aria-label="View Source (${escapeHtml(sourceLabel)})">
+        <span class="source-logo-medallion">
+          <img src="${escapeHtml(logoUrl)}"
+               class="source-logo-medallion-img"
+               data-source-post-id="${escapeHtml(String(post?.id || ''))}"
+               data-source-url="${escapeHtml(rawLink)}"
+               data-fallback-favicon="${escapeHtml(fallbackFavicon)}"
+               alt="${escapeHtml(sourceLabel)}"
+               loading="lazy"
+               referrerpolicy="no-referrer"
+               onerror="window.handleSourceLogoImgError && window.handleSourceLogoImgError(this)">
+          <svg class="source-logo-fallback-svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#0284C7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="16" y1="13" x2="8" y2="13"></line>
+            <line x1="16" y1="17" x2="8" y2="17"></line>
+          </svg>
+        </span>
+        <span class="source-logo-corner-badge" aria-hidden="true">
+          <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <line x1="16" y1="13" x2="8" y2="13"></line>
+            <line x1="16" y1="17" x2="8" y2="17"></line>
+          </svg>
+        </span>
+      </button>
+    `;
+  }
+
+  return `
+    <button type="button" class="icon-action-btn source-summary-action-btn" onclick="openDetailModal('${index}')" title="View Source (${escapeHtml(sourceLabel)})" aria-label="View Source (${escapeHtml(sourceLabel)})">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#0284C7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+        <polyline points="14 2 14 8 20 8"></polyline>
+        <line x1="16" y1="13" x2="8" y2="13"></line>
+        <line x1="16" y1="17" x2="8" y2="17"></line>
+        <polyline points="10 9 9 9 8 9"></polyline>
+      </svg>
+    </button>
+  `;
+}
 
 function createPostCardElement(post, index) {
   const card = document.createElement('article');
@@ -8277,17 +8422,7 @@ function createPostCardElement(post, index) {
           </button>
         ` : ''}
 
-        ${(!isInnerVoice && !isBook) ? `
-          <button type="button" class="icon-action-btn source-summary-action-btn" onclick="openDetailModal('${index}')" title="View Source Summary & Facts" aria-label="View Source Summary & Facts">
-            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#0284C7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-              <polyline points="14 2 14 8 20 8"></polyline>
-              <line x1="16" y1="13" x2="8" y2="13"></line>
-              <line x1="16" y1="17" x2="8" y2="17"></line>
-              <polyline points="10 9 9 9 8 9"></polyline>
-            </svg>
-          </button>
-        ` : ''}
+        ${(!isInnerVoice && !isBook) ? buildPostSourceActionButtonHtml(post, index, pubName, cleanHost) : ''}
 
         ${hasPaperCut ? `
           <button class="icon-action-btn papercut-action-btn" onclick="openPaperCutModal('${index}')" title="View Paper Cut (${escapeHtml(pubName)})">
@@ -21828,6 +21963,10 @@ async function startAiSynthesis() {
       currentSynthesizedPost.sourceImageUrl = (candidateUrl && typeof candidateUrl === 'string') ? candidateUrl.replace(/&amp;/g, '&') : null;
       currentSynthesizedPost.sourceImageBase64 = currentSynthesizedPost.sourceImageBase64 || currentScrapedArticle?.imageBase64 || (creatorReferenceImageBase64?.startsWith('data:') ? creatorReferenceImageBase64 : null) || null;
       currentSynthesizedPost.sourceImageMimeType = currentSynthesizedPost.sourceImageMimeType || currentScrapedArticle?.imageMimeType || creatorReferenceImageMimeType || 'image/jpeg';
+      currentSynthesizedPost.sourceLogoUrl = currentSynthesizedPost.sourceLogoUrl || currentScrapedArticle?.sourceLogoUrl || null;
+      if (url && currentSynthesizedPost.sourceLogoUrl && /(?:youtube\.com|youtu\.be)/i.test(url)) {
+        setCachedYouTubeChannelLogo(url, currentSynthesizedPost.sourceLogoUrl);
+      }
     }
     if (creatorSelectedSource === 'inner_voice' && innerVoicePhotoBase64) {
       currentSynthesizedPost.catalystPhoto = innerVoicePhotoBase64;
@@ -21858,6 +21997,7 @@ async function startAiSynthesis() {
         perspectiveMode: creatorPerspectiveMode || 'hybrid',
         sourceImageUrl: currentSynthesizedPost.sourceImageUrl || null,
         sourceImageBase64: currentSynthesizedPost.sourceImageBase64 || null,
+        sourceLogoUrl: currentSynthesizedPost.sourceLogoUrl || null,
         referencePhotoUrl: currentSynthesizedPost.referencePhotoUrl || null,
         spark: spark || '',
         cues: [...creatorCuePills],
