@@ -8216,6 +8216,7 @@ const openInlineSourceDrawerIndices = new Set();
 let inlineSourceDrawerObserver = null;
 let inlineSourceFeedScrollListenerAttached = false;
 let lastFeedScrollActivityTs = 0;
+let _feedScrollIdleCollapseTimer = null;
 
 function findVisibleViewportAnchorCard(excludeDrawer) {
   const cards = document.querySelectorAll('.post-card');
@@ -8275,6 +8276,42 @@ function closeInlineSourceDrawer(index, options = {}) {
   }
 }
 
+function isInlineSourceDrawerOffscreen(drawer) {
+  if (!drawer) return false;
+  const vh = window.innerHeight || document.documentElement.clientHeight || 800;
+  const rect = drawer.getBoundingClientRect();
+  if (rect.height === 0 && rect.width === 0) return false;
+  // Offscreen if bottom is at/above top viewport edge OR top is at/below bottom viewport edge
+  return (rect.bottom <= 4) || (rect.top >= vh - 4);
+}
+
+function sweepAndCollapseOffscreenSourceDrawers() {
+  const vh = window.innerHeight || document.documentElement.clientHeight || 800;
+  const openDrawers = document.querySelectorAll('.inline-source-drawer.is-open');
+  if (openDrawers.length === 0) {
+    openInlineSourceDrawerIndices.clear();
+    teardownInlineSourceFeedScrollListener();
+    return;
+  }
+
+  openDrawers.forEach(drawer => {
+    const idx = drawer.id ? drawer.id.replace('inline-source-drawer-', '') : '';
+    if (!idx) return;
+    const rect = drawer.getBoundingClientRect();
+    const isVisibleNow = rect.bottom > 12 && rect.top < vh - 12;
+    if (isVisibleNow) {
+      drawer._hasEnteredViewport = true;
+      return;
+    }
+    const scrolledDistance = Math.abs((window.scrollY || window.pageYOffset || 0) - (drawer._openedAtScrollY || 0));
+    if (drawer._hasEnteredViewport || scrolledDistance > 70) {
+      if (isInlineSourceDrawerOffscreen(drawer)) {
+        closeInlineSourceDrawer(idx, { compensateScroll: rect.bottom <= 4 });
+      }
+    }
+  });
+}
+
 function scheduleSilentOffscreenDrawerCollapse(index, drawer) {
   if (!drawer || !openInlineSourceDrawerIndices.has(String(index))) return;
   if (drawer._offscreenTimer) clearTimeout(drawer._offscreenTimer);
@@ -8283,25 +8320,23 @@ function scheduleSilentOffscreenDrawerCollapse(index, drawer) {
     drawer._offscreenTimer = null;
     if (!drawer || !drawer.classList.contains('is-open')) return;
 
-    const vh = window.innerHeight || document.documentElement.clientHeight || 800;
     const rect = drawer.getBoundingClientRect();
-    const isOffscreen = (rect.bottom < -8) || (rect.top > vh + 8);
-    if (!isOffscreen) {
+    if (!isInlineSourceDrawerOffscreen(drawer)) {
       // Returned to viewport before collapsing
       return;
     }
 
     // If user's scroll momentum is still actively ticking and drawer is above viewport, wait until scroll pauses
     const msSinceScroll = performance.now() - lastFeedScrollActivityTs;
-    if (rect.bottom < 0 && msSinceScroll < 140) {
+    if (rect.bottom <= 4 && msSinceScroll < 140) {
       drawer._offscreenTimer = setTimeout(attemptCollapse, 120);
       return;
     }
 
-    closeInlineSourceDrawer(index, { compensateScroll: rect.bottom < 0 });
+    closeInlineSourceDrawer(index, { compensateScroll: rect.bottom <= 4 });
   };
 
-  drawer._offscreenTimer = setTimeout(attemptCollapse, 150);
+  drawer._offscreenTimer = setTimeout(attemptCollapse, 140);
 }
 
 function getOrCreateInlineSourceDrawerObserver() {
@@ -8321,13 +8356,16 @@ function getOrCreateInlineSourceDrawerObserver() {
           clearTimeout(drawer._offscreenTimer);
           drawer._offscreenTimer = null;
         }
-      } else if (drawer._hasEnteredViewport) {
-        scheduleSilentOffscreenDrawerCollapse(idx, drawer);
+      } else {
+        const scrolledDistance = Math.abs((window.scrollY || window.pageYOffset || 0) - (drawer._openedAtScrollY || 0));
+        if (drawer._hasEnteredViewport || scrolledDistance > 70) {
+          scheduleSilentOffscreenDrawerCollapse(idx, drawer);
+        }
       }
     });
   }, {
     root: null,
-    rootMargin: '20px 0px 20px 0px',
+    rootMargin: '0px',
     threshold: 0
   });
   return inlineSourceDrawerObserver;
@@ -8335,6 +8373,13 @@ function getOrCreateInlineSourceDrawerObserver() {
 
 function _onPassiveFeedScrollTrackTs() {
   lastFeedScrollActivityTs = performance.now();
+  if (_feedScrollIdleCollapseTimer) {
+    clearTimeout(_feedScrollIdleCollapseTimer);
+  }
+  _feedScrollIdleCollapseTimer = setTimeout(() => {
+    _feedScrollIdleCollapseTimer = null;
+    sweepAndCollapseOffscreenSourceDrawers();
+  }, 160);
 }
 
 function ensureInlineSourceFeedScrollListener() {
@@ -8344,6 +8389,10 @@ function ensureInlineSourceFeedScrollListener() {
 }
 
 function teardownInlineSourceFeedScrollListener() {
+  if (_feedScrollIdleCollapseTimer) {
+    clearTimeout(_feedScrollIdleCollapseTimer);
+    _feedScrollIdleCollapseTimer = null;
+  }
   if (!inlineSourceFeedScrollListenerAttached) return;
   inlineSourceFeedScrollListenerAttached = false;
   window.removeEventListener('scroll', _onPassiveFeedScrollTrackTs);
@@ -8461,7 +8510,10 @@ function toggleInlineSourceDrawer(event, index) {
   drawer.classList.add('is-open');
   if (btn) btn.classList.add('is-open');
 
-  drawer._hasEnteredViewport = true;
+  const vh = window.innerHeight || document.documentElement.clientHeight || 800;
+  const initRect = drawer.getBoundingClientRect();
+  drawer._hasEnteredViewport = (initRect.bottom > 12 && initRect.top < vh - 12);
+  drawer._openedAtScrollY = window.scrollY || window.pageYOffset || 0;
   openInlineSourceDrawerIndices.add(String(index));
   ensureInlineSourceFeedScrollListener();
   const observer = getOrCreateInlineSourceDrawerObserver();
@@ -8926,8 +8978,86 @@ function goToSlide(event, postIndex, slideIndex) {
   if (slideIndex >= 1 && typeof requestAnimationFrame === 'function') {
     requestAnimationFrame(() => {
       calibrateAllLiveEssayPaginations(carousel);
+      triggerSlantMinutesPagePeek(carousel, slideIndex);
     });
   }
+}
+
+function triggerSlantMinutesPagePeek(carousel, slideIndex) {
+  if (!carousel || slideIndex < 1) return;
+  const slides = carousel.querySelectorAll('.carousel-slide');
+  const targetSlide = slides[slideIndex];
+  if (!targetSlide) return;
+  const vp = targetSlide.querySelector('.slant-minute-scroll-viewport');
+  if (!vp) return;
+
+  if (vp._peekCleanup) {
+    vp._peekCleanup();
+  }
+
+  const startTimer = setTimeout(() => {
+    const maxScroll = vp.scrollHeight - vp.clientHeight;
+    // Only peek if there is genuinely a second page / scrollable content below and user is still at the top
+    if (maxScroll < 32 || vp.scrollTop > 12) return;
+
+    const peekDistance = Math.min(86, Math.max(52, Math.round(maxScroll * 0.22)));
+    const downDuration = 340;
+    const holdDuration = 220;
+    const upDuration = 360;
+    let rafId = null;
+    let holdTimer = null;
+    let aborted = false;
+
+    const abortPeek = () => {
+      aborted = true;
+      if (rafId) cancelAnimationFrame(rafId);
+      if (holdTimer) clearTimeout(holdTimer);
+      vp.removeEventListener('touchstart', abortPeek);
+      vp.removeEventListener('wheel', abortPeek);
+      vp.removeEventListener('pointerdown', abortPeek);
+      vp._peekCleanup = null;
+    };
+
+    vp.addEventListener('touchstart', abortPeek, { passive: true });
+    vp.addEventListener('wheel', abortPeek, { passive: true });
+    vp.addEventListener('pointerdown', abortPeek, { passive: true });
+    vp._peekCleanup = abortPeek;
+
+    const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
+    const easeInOutCubic = (t) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+    const t0 = performance.now();
+    const stepDown = (now) => {
+      if (aborted) return;
+      const elapsed = now - t0;
+      const progress = Math.min(1, elapsed / downDuration);
+      vp.scrollTop = Math.round(peekDistance * easeOutCubic(progress));
+      if (progress < 1) {
+        rafId = requestAnimationFrame(stepDown);
+      } else {
+        holdTimer = setTimeout(() => {
+          if (aborted) return;
+          const t1 = performance.now();
+          const startTop = vp.scrollTop;
+          const stepUp = (nowUp) => {
+            if (aborted) return;
+            const elapsedUp = nowUp - t1;
+            const progressUp = Math.min(1, elapsedUp / upDuration);
+            vp.scrollTop = Math.round(startTop * (1 - easeInOutCubic(progressUp)));
+            if (progressUp < 1) {
+              rafId = requestAnimationFrame(stepUp);
+            } else {
+              abortPeek();
+            }
+          };
+          rafId = requestAnimationFrame(stepUp);
+        }, holdDuration);
+      }
+    };
+    rafId = requestAnimationFrame(stepDown);
+  }, 260);
+
+  vp._peekCleanup = () => clearTimeout(startTimer);
 }
 
 let activeEssayMomentumRaf = null;
