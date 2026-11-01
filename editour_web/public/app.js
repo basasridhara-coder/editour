@@ -11492,16 +11492,18 @@ function buildClientFallbackMomentProjections(moments = []) {
   const cast = (typeof familyCastProfileCache !== 'undefined' && familyCastProfileCache)
     ? familyCastProfileCache
     : (typeof getDefaultClientFamilyCast === 'function' ? getDefaultClientFamilyCast() : { members: [] });
-  const castMembers = Array.isArray(cast?.members) ? cast.members : [];
+  const castMembers = Array.isArray(cast?.members) ? cast.members.filter(m => m && m.approvalStatus !== 'pending') : [];
   const fatherMember = castMembers.find(m => m.relationship === 'self' || m.id === 'member_father');
   const motherMember = castMembers.find(m => m.relationship === 'spouse' || m.id === 'member_mother');
   const elderSonMember = castMembers.find(m => m.relationship === 'elder_son' || m.id === 'member_elder_son');
   const youngerSonMember = castMembers.find(m => m.relationship === 'younger_son' || m.id === 'member_younger_son');
 
-  const fatherName = cleanVaultShortName(fatherMember?.name, 'Shridhar');
-  const motherName = cleanVaultShortName(motherMember?.name, 'Aruna');
-  const elderName = cleanVaultShortName(elderSonMember?.name, 'Gahan');
-  const youngerName = cleanVaultShortName(youngerSonMember?.name, 'Rishu');
+  const isShridharUser = isCurrentClientUserShridhar();
+  const defaultSelfName = isShridharUser ? 'Shridhar' : cleanVaultShortName(currentUser?.displayName || currentUser?.name, 'Me');
+  const fatherName = cleanVaultShortName(fatherMember?.name, defaultSelfName);
+  const motherName = cleanVaultShortName(motherMember?.name, isShridharUser ? 'Aruna' : 'Spouse');
+  const elderName = cleanVaultShortName(elderSonMember?.name, isShridharUser ? 'Gahan' : 'Elder Child');
+  const youngerName = cleanVaultShortName(youngerSonMember?.name, isShridharUser ? 'Rishu' : 'Younger Child');
 
   return (moments || []).map((m, idx) => {
     const mNum = idx + 1;
@@ -14895,6 +14897,11 @@ function getDefaultClientFamilyCast() {
 }
 
 let isFamilyCastFetching = false;
+window._familyVaultPendingIncoming = [];
+window._familyVaultPendingOutgoing = [];
+window._familyVaultApprovedLinks = [];
+window._familyVaultNeedsOnboarding = false;
+window._vaultOnboardingPromptedThisSession = false;
 
 async function loadFamilyCastProfile(forceRefresh = false) {
   try {
@@ -14942,8 +14949,49 @@ async function loadFamilyCastProfile(forceRefresh = false) {
     });
     if (resp.ok) {
       const data = await resp.json();
+      window._familyVaultPendingIncoming = Array.isArray(data?.pendingIncoming) ? data.pendingIncoming : [];
+      window._familyVaultPendingOutgoing = Array.isArray(data?.pendingOutgoing) ? data.pendingOutgoing : [];
+      window._familyVaultApprovedLinks = Array.isArray(data?.approvedLinks) ? data.approvedLinks : [];
+      window._familyVaultNeedsOnboarding = Boolean(data?.needsOnboarding);
+
+      renderFamilyApprovalNotificationsUI();
+
       if (data && data.cast && Array.isArray(data.cast.members)) {
         familyCastProfileCache = sanitizeLoadedFamilyCast(data.cast);
+
+        // If this user has no Self profile yet (first login), pre-seed a Self card with their display name
+        const hasSelfMember = familyCastProfileCache.members.some(m => m && (m.relationship === 'self' || m.id === 'member_father'));
+        if (!hasSelfMember && !isCurrentClientUserShridhar()) {
+          const initialName = cleanVaultShortName(currentUser.displayName || currentUser.name || userIdentifier.split('@')[0], '');
+          const selfSeed = {
+            id: 'member_father',
+            relationship: 'self',
+            roleLabel: 'Self',
+            name: initialName,
+            aliases: initialName ? [initialName.toLowerCase(), 'myself', 'me', 'i'] : ['myself', 'me', 'i'],
+            age: null,
+            heightCm: 170,
+            heightDesc: '5ft 7in (170cm) • 100% baseline',
+            structuredTraits: {
+              bodyVolume: 'medium',
+              tummyProfile: 'subtle_10',
+              faceFullness: 'oval_balanced',
+              heightCm: 170,
+              baseHeightRatio: 1.00,
+              hairStyle: 'short_side_part',
+              facialHair: 'none',
+              landmarks: []
+            },
+            uncompromisableAnchors: '',
+            visualTraits: '',
+            vehicleRole: 'driver_right',
+            photoBase64: null,
+            photos: {}
+          };
+          familyCastProfileCache.members.unshift(selfSeed);
+          window._familyVaultNeedsOnboarding = true;
+        }
+
         try {
           if (storageKey) {
             localStorage.setItem(storageKey, JSON.stringify(familyCastProfileCache));
@@ -14969,6 +15017,17 @@ async function loadFamilyCastProfile(forceRefresh = false) {
           }
         }
         renderFamilyCastStagingUI();
+
+        // Automatically prompt First-Login Reference & Family Vault setup if user has not configured their Self reference yet
+        const onboardingDismissedKey = 'slant_vault_onboard_prompted_' + userIdentifier;
+        if (window._familyVaultNeedsOnboarding && !window._vaultOnboardingPromptedThisSession && !sessionStorage.getItem(onboardingDismissedKey)) {
+          window._vaultOnboardingPromptedThisSession = true;
+          try { sessionStorage.setItem(onboardingDismissedKey, '1'); } catch (_) {}
+          setTimeout(() => {
+            openFamilyCastModal({ isOnboarding: true });
+          }, 900);
+        }
+
         isFamilyCastFetching = false;
         return familyCastProfileCache;
       }
@@ -15020,12 +15079,20 @@ async function saveFamilyCastProfile(updatedCast) {
   } catch (_) {}
 }
 
-function openFamilyCastModal() {
+function openFamilyCastModal(options = {}) {
   const modal = document.getElementById('familyCastModal');
   if (!modal) {
     console.warn('familyCastModal not found');
     return;
   }
+
+  const onboardBanner = document.getElementById('vaultOnboardingBanner');
+  if (onboardBanner) {
+    const showOnboard = Boolean((options && options.isOnboarding) || window._familyVaultNeedsOnboarding);
+    onboardBanner.style.display = showOnboard ? 'flex' : 'none';
+  }
+
+  renderFamilyApprovalNotificationsUI();
 
   // Pre-render with cached data or defaults
   const cast = familyCastProfileCache || getDefaultClientFamilyCast();
@@ -15038,6 +15105,14 @@ function openFamilyCastModal() {
     renderActiveMemberScreen();
   } catch (err) {
     console.error('Error rendering cast modal:', err);
+  }
+
+  // If opening for first-login onboarding, automatically expand the Name/Age/Height details accordion
+  if ((options && options.isOnboarding) || window._familyVaultNeedsOnboarding) {
+    setTimeout(() => {
+      const detailsEl = document.getElementById('vaultMemberDetailsAccordion');
+      if (detailsEl) detailsEl.open = true;
+    }, 150);
   }
 
   // Always force cloud revalidation when modal is opened so updates from mobile sync immediately
@@ -15062,6 +15137,225 @@ function openFamilyCastModal() {
   modal.style.visibility = 'visible';
   modal.style.pointerEvents = 'auto';
   document.body.style.overflow = 'hidden';
+}
+
+function dismissVaultOnboardingBanner() {
+  window._familyVaultNeedsOnboarding = false;
+  const el = document.getElementById('vaultOnboardingBanner');
+  if (el) el.style.display = 'none';
+}
+
+function renderFamilyApprovalNotificationsUI() {
+  const pending = Array.isArray(window._familyVaultPendingIncoming) ? window._familyVaultPendingIncoming : [];
+  const globalBanner = document.getElementById('familyApprovalNotificationBanner');
+  const vaultBar = document.getElementById('vaultIncomingRequestsBar');
+  const drawerBadge = document.getElementById('drawerFamilyPendingBadge');
+
+  if (drawerBadge) {
+    if (pending.length > 0) {
+      drawerBadge.textContent = String(pending.length);
+      drawerBadge.style.display = 'inline-block';
+    } else {
+      drawerBadge.style.display = 'none';
+    }
+  }
+
+  const buildItemsHtml = () => pending.map(req => {
+    const reqName = escapeHtml(req.requesterName || req.requesterHandle || req.requesterEmail || 'A Slant member');
+    const reqHandle = req.requesterHandle ? ` (${escapeHtml(req.requesterHandle)})` : '';
+    const relLabel = escapeHtml(req.targetRoleLabel || req.relationshipToRequester || 'Family Member');
+    const safeId = escapeHtml(req.id || '');
+    return `
+      <div class="family-notif-item">
+        <div class="family-notif-info">
+          <div class="family-notif-title">👥 Family Vault &amp; Photo Reference Request</div>
+          <div class="family-notif-desc">
+            <strong>${reqName}</strong>${reqHandle} added you as <strong>${relLabel}</strong> and requested permission to use your reference likeness when generating family illustrations &amp; share the Family Vault.
+          </div>
+        </div>
+        <div class="family-notif-actions">
+          <button type="button" class="family-notif-approve-btn" onclick="respondToFamilyVaultRequest('${safeId}', 'approve')">✓ Approve &amp; Share Vault</button>
+          <button type="button" class="family-notif-decline-btn" onclick="respondToFamilyVaultRequest('${safeId}', 'decline')">✕ Decline</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  if (globalBanner) {
+    if (pending.length > 0 && currentUser && currentUser.email) {
+      globalBanner.innerHTML = buildItemsHtml();
+      globalBanner.style.display = 'block';
+    } else {
+      globalBanner.innerHTML = '';
+      globalBanner.style.display = 'none';
+    }
+  }
+
+  if (vaultBar) {
+    if (pending.length > 0) {
+      vaultBar.innerHTML = buildItemsHtml();
+      vaultBar.style.display = 'block';
+    } else {
+      vaultBar.innerHTML = '';
+      vaultBar.style.display = 'none';
+    }
+  }
+}
+
+let _vaultSlantSearchTimer = null;
+
+function toggleVaultSlantSearchPanel(forceState) {
+  const panel = document.getElementById('vaultLinkSlantUserPanel');
+  if (!panel) return;
+  const shouldOpen = typeof forceState === 'boolean'
+    ? forceState
+    : (panel.style.display === 'none' || !panel.style.display);
+  panel.style.display = shouldOpen ? 'block' : 'none';
+  if (shouldOpen) {
+    const input = document.getElementById('vaultSlantUserSearchInput');
+    if (input) {
+      input.focus();
+      searchSlantUsersForFamilyVault(input.value || '');
+    }
+  }
+}
+
+function onVaultSlantSearchInput(val) {
+  if (_vaultSlantSearchTimer) clearTimeout(_vaultSlantSearchTimer);
+  _vaultSlantSearchTimer = setTimeout(() => {
+    searchSlantUsersForFamilyVault(val);
+  }, 220);
+}
+
+async function searchSlantUsersForFamilyVault(query = '') {
+  const resultsEl = document.getElementById('vaultSlantUserSearchResults');
+  if (!resultsEl || !currentUser || !currentUser.email) return;
+
+  resultsEl.innerHTML = '<div style="font-size:11.5px; color:#94A3B8; padding:6px 4px;">Searching Slant directory...</div>';
+  try {
+    const resp = await fetch('/api/synthesize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'search_slant_users',
+        query: String(query || '').trim(),
+        viewerEmail: currentUser.email.trim().toLowerCase()
+      })
+    });
+    if (!resp.ok) throw new Error('Search request failed');
+    const data = await resp.json();
+    const users = Array.isArray(data?.users) ? data.users : [];
+    if (users.length === 0) {
+      resultsEl.innerHTML = '<div style="font-size:11.5px; color:#94A3B8; padding:6px 4px;">No matching Slant users found. Try typing their name, @handle, or email.</div>';
+      return;
+    }
+
+    const outgoingSet = new Set((window._familyVaultPendingOutgoing || []).map(r => String(r.targetEmail || '').toLowerCase()));
+    const approvedSet = new Set((window._familyVaultApprovedLinks || []).flatMap(r => [String(r.requesterEmail || '').toLowerCase(), String(r.targetEmail || '').toLowerCase()]));
+
+    resultsEl.innerHTML = users.map(u => {
+      const email = String(u.email || '').trim().toLowerCase();
+      const name = u.name || email.split('@')[0];
+      const handle = u.handle || ('@' + name.replace(/\s+/g, ''));
+      const isApproved = approvedSet.has(email);
+      const isPending = outgoingSet.has(email);
+      const initials = String(name || 'U').trim().charAt(0).toUpperCase();
+      const safeEmail = escapeHtml(email);
+      const safeName = escapeHtml(name).replace(/'/g, '&#39;');
+      const safeHandle = escapeHtml(handle).replace(/'/g, '&#39;');
+
+      return `
+        <div class="vault-link-user-row">
+          <div class="vault-link-user-meta">
+            ${u.avatarUrl ? `<img src="${escapeHtml(u.avatarUrl)}" class="vault-link-user-avatar" alt="">` : `<span class="vault-link-user-avatar">${escapeHtml(initials)}</span>`}
+            <div style="min-width:0;">
+              <div class="vault-link-user-name">${escapeHtml(name)} <span style="font-weight:500; color:#38BDF8;">${escapeHtml(handle)}</span></div>
+              <div class="vault-link-user-sub">${escapeHtml(email)}${u.hasVaultSelf ? ' • ✓ Reference Vault Ready' : ''}</div>
+            </div>
+          </div>
+          ${isApproved
+            ? `<span class="vault-tab-status-pill is-shared">✓ Linked in Family Vault</span>`
+            : (isPending
+                ? `<span class="vault-tab-status-pill is-pending">⏳ Approval Sent</span>`
+                : `<button type="button" class="vault-link-send-btn" onclick="sendFamilyVaultLinkRequest('${safeEmail}', '${safeName}', '${safeHandle}')">+ Send Request</button>`
+              )}
+        </div>
+      `;
+    }).join('');
+  } catch (err) {
+    resultsEl.innerHTML = '<div style="font-size:11.5px; color:#FCA5A5; padding:6px 4px;">Could not search Slant directory right now.</div>';
+  }
+}
+
+async function sendFamilyVaultLinkRequest(targetEmail, targetName, targetHandle) {
+  if (!currentUser || !currentUser.email || !targetEmail) return;
+  const relSelect = document.getElementById('vaultSlantUserRelationSelect');
+  const rawRel = (relSelect && relSelect.value) ? relSelect.value : 'spouse|Spouse';
+  const [relationship, roleLabel] = rawRel.split('|');
+
+  const selfMember = (familyCastProfileCache && Array.isArray(familyCastProfileCache.members))
+    ? familyCastProfileCache.members.find(m => m && (m.relationship === 'self' || m.id === 'member_father'))
+    : null;
+  const requesterName = (selfMember && selfMember.name) || currentUser.displayName || currentUser.name || currentUser.email.split('@')[0];
+  const requesterHandle = currentUser.handle || ('@' + String(requesterName).replace(/\s+/g, ''));
+
+  try {
+    const resp = await fetch('/api/synthesize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'send_family_vault_request',
+        requesterEmail: currentUser.email.trim().toLowerCase(),
+        requesterName,
+        requesterHandle,
+        targetEmail,
+        targetName,
+        targetHandle,
+        relationship: relationship || 'family',
+        roleLabel: roleLabel || relationship || 'Family Member'
+      })
+    });
+    const data = await resp.json();
+    if (data && data.success) {
+      showTemporaryToast(`✓ Sent Family Vault request to ${targetName || targetEmail} (${roleLabel})!`);
+      await loadFamilyCastProfile(true);
+      const q = document.getElementById('vaultSlantUserSearchInput')?.value || '';
+      searchSlantUsersForFamilyVault(q);
+    } else {
+      showTemporaryToast(data?.error || 'Could not send family request.');
+    }
+  } catch (err) {
+    showTemporaryToast('Network error sending family request.');
+  }
+}
+
+async function respondToFamilyVaultRequest(requestId, decision) {
+  if (!currentUser || !currentUser.email || !requestId) return;
+  try {
+    const resp = await fetch('/api/synthesize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'respond_family_vault_request',
+        requestId,
+        responderEmail: currentUser.email.trim().toLowerCase(),
+        decision
+      })
+    });
+    const data = await resp.json();
+    if (data && data.success) {
+      showTemporaryToast(
+        decision === 'approve'
+          ? '✓ Approved! Shared Family Vault & reference likeness access is now active for all linked family members.'
+          : 'Family Vault request declined.'
+      );
+      await loadFamilyCastProfile(true);
+    } else {
+      showTemporaryToast(data?.error || 'Could not process family request response.');
+    }
+  } catch (err) {
+    showTemporaryToast('Network error responding to family request.');
+  }
 }
 
 function closeFamilyCastModal() {
@@ -15115,12 +15409,18 @@ function renderVaultMemberTabs() {
   const tabsHtml = members.map(m => {
     const isActive = (m.id === activeVaultMemberId);
     const photosObj = m.photos || {};
-    const primaryAvatar = m.photoBase64 || photosObj.frontal;
+    const primaryAvatar = m.photoBase64 || photosObj.frontal || m.stylizedAvatarUrl;
+    const isPending = m.approvalStatus === 'pending';
+    const isShared = Boolean(m.isSharedFromSlantUser && m.approvalStatus === 'approved');
+    const statusBadge = isPending
+      ? `<span class="vault-tab-status-pill is-pending" title="Waiting for ${escapeHtml(m.linkedUserEmail || m.name)} to approve">⏳ Pending</span>`
+      : (isShared ? `<span class="vault-tab-status-pill is-shared" title="Linked &amp; approved Shared Family Vault member">🤝 Shared</span>` : '');
 
     return `
       <button type="button" class="vault-member-tab-item ${isActive ? 'active' : ''}" onclick="selectVaultMember('${m.id}')" title="${escapeHtml(m.name || m.roleLabel)}">
         ${primaryAvatar ? `<img src="${primaryAvatar}" class="tab-avatar-mini" alt="">` : `<span class="tab-avatar-emoji">${icons[m.relationship] || '👤'}</span>`}
         <span>${escapeHtml(m.name || m.roleLabel)}</span>
+        ${statusBadge}
       </button>
     `;
   }).join('');
@@ -15325,6 +15625,17 @@ function renderActiveMemberScreen() {
 
   container.innerHTML = `
     <div class="vault-active-member-container">
+      ${member.approvalStatus === 'pending' ? `
+        <div style="margin-bottom:10px; padding:10px 12px; border-radius:11px; background:rgba(245,158,11,0.13); border:1px solid rgba(245,158,11,0.4); color:#FDE68A; font-size:11.5px; line-height:1.4;">
+          <strong>⏳ Waiting for Approval from ${escapeHtml(member.name || member.linkedUserEmail || 'Slant User')} (${escapeHtml(member.roleLabel || member.relationship)}):</strong>
+          An approval notification has been sent to their Slant account. For privacy, their reference likeness will only be used in photo generation once they approve, which will also unlock shared Family Vault access for everyone involved.
+        </div>
+      ` : (member.isSharedFromSlantUser ? `
+        <div style="margin-bottom:10px; padding:9px 12px; border-radius:11px; background:rgba(16,185,129,0.12); border:1px solid rgba(16,185,129,0.35); color:#6EE7B7; font-size:11.5px; line-height:1.4;">
+          <strong>🤝 Approved Shared Family Vault Member (${escapeHtml(member.roleLabel || member.relationship)}):</strong>
+          Synced with <strong>${escapeHtml(member.linkedUserEmail || member.name)}</strong>. Both accounts share access to this Family Vault and can use each other's approved reference likeness in family illustrations.
+        </div>
+      ` : '')}
       <!-- Single-Card Steady Sliding Pose Carousel -->
       <div class="vault-pose-slider-card" id="vaultPoseSliderCard">
         <div class="vault-pose-slider-top">
@@ -16340,15 +16651,16 @@ function clearActiveCastSelection() {
 function detectRelevantCastMembers(text = '', cast = null) {
   const combined = String(text || '').toLowerCase();
   const profile = cast || familyCastProfileCache || getDefaultClientFamilyCast();
-  const members = (profile && Array.isArray(profile.members)) ? profile.members : [];
+  const members = ((profile && Array.isArray(profile.members)) ? profile.members : [])
+    .filter(m => m && m.approvalStatus !== 'pending' && m.approvalStatus !== 'declined');
 
   // 0. First-Person Separation / Solitude Scene:
   // When the narrator (Father / Self) writes that he is alone, stuck in one city while wife/kids are away,
-  // or missing/waiting for them to return, the present-tense visual HERO is exclusively Father / Self (Shridhar)!
+  // or missing/waiting for them to return, the present-tense visual HERO is exclusively Self!
   const isNarratorAloneMissingFamily = /\b(i am alone|being alone|stuck in [a-z]+ while|miss them|missing them|how much i miss|waiting for them|when my wife is out|feeling of separation|feeling of separateness)\b/i.test(combined);
   if (isNarratorAloneMissingFamily) {
-    const selfMember = members.find(m => m.relationship === 'self') || { id: 'member_father' };
-    return new Set([selfMember.id]);
+    const selfMember = members.find(m => m.relationship === 'self') || members[0];
+    return selfMember ? new Set([selfMember.id]) : new Set();
   }
 
   // Strictly require first-person possessives ("my/our") so general societal observations ("the whole family comes", "the kids") NEVER trigger personal family photos
@@ -16369,8 +16681,10 @@ function detectRelevantCastMembers(text = '', cast = null) {
   if (isFirstPersonHouseholdKids) {
     const elder = members.find(m => m.relationship === 'elder_son');
     const younger = members.find(m => m.relationship === 'younger_son');
+    const child = members.find(m => m.relationship === 'child');
     if (elder) detected.add(elder.id);
     if (younger) detected.add(younger.id);
+    if (child) detected.add(child.id);
   }
 
   members.forEach(m => {
@@ -16397,37 +16711,38 @@ function detectRelevantCastMembers(text = '', cast = null) {
       }
     }
 
-    // 3. Role-specific semantic keywords (STRICTLY first-person personal possessives or explicit family names)
+    // 3. Role-specific semantic keywords (STRICTLY first-person personal possessives)
     if (m.relationship === 'elder_son') {
-      if (isFirstPersonHouseholdKids || /\b(my elder son|my older son|my older boy|my first son|my 11-year-old|my 11yo|gahan|my kids|our kids|my boys|our boys|my sons|our sons|my children|our children)\b/i.test(combined)) {
+      if (isFirstPersonHouseholdKids || /\b(my elder son|my older son|my older boy|my first son|my 11-year-old|my 11yo|my kids|our kids|my boys|our boys|my sons|our sons|my children|our children)\b/i.test(combined)) {
         detected.add(m.id);
       }
     } else if (m.relationship === 'younger_son') {
-      if (isFirstPersonHouseholdKids || /\b(my younger son|my little son|my younger boy|my second son|my 7-year-old|my 7yo|rishu|my kids|our kids|my boys|our boys|my sons|our sons|my children|our children)\b/i.test(combined)) {
+      if (isFirstPersonHouseholdKids || /\b(my younger son|my little son|my younger boy|my second son|my 7-year-old|my 7yo|my kids|our kids|my boys|our boys|my sons|our sons|my children|our children)\b/i.test(combined)) {
+        detected.add(m.id);
+      }
+    } else if (m.relationship === 'child') {
+      if (isFirstPersonHouseholdKids || /\b(my daughter|my child|my kid|our daughter|our child)\b/i.test(combined)) {
         detected.add(m.id);
       }
     } else if (m.relationship === 'spouse') {
-      if (/\b(my wife|my spouse|with my wife|aru|aruna)\b/i.test(combined)) {
-        detected.add(m.id);
-      }
-    } else if (m.relationship === 'self') {
-      if (/\b(shridhar)\b/i.test(combined)) {
+      if (/\b(my wife|my husband|my spouse|my partner|with my wife|with my husband)\b/i.test(combined)) {
         detected.add(m.id);
       }
     }
   });
 
   // 4. First-Person Narrator Participation alongside detected spouse or children, OR Diary Chronicle mode
-  const hasChild = detected.has('member_elder_son') || detected.has('member_younger_son');
-  const hasSpouse = detected.has('member_mother');
+  const hasChild = members.some(m => ['elder_son', 'younger_son', 'child'].includes(m.relationship) && detected.has(m.id));
+  const hasSpouse = members.some(m => m.relationship === 'spouse' && detected.has(m.id));
   const hasFirstPersonCoPresence = /\b(and me|with me|between .* and me|i remain|by my side|by his side|beside him|beside her|holding my hand|teaching him|walked with him|support him|i stood|standing beside|my home|my life|my day|helping resolve|witnessing|attended|launched)\b/i.test(combined);
   if ((hasChild || hasSpouse) && (hasFirstPersonCoPresence || isDailyChronicleMode)) {
-    detected.add('member_father');
+    const selfMember = members.find(m => m.relationship === 'self');
+    if (selfMember) detected.add(selfMember.id);
   }
 
   if (isDailyChronicleMode) {
-    const selfMember = members.find(m => m.relationship === 'self') || { id: 'member_father' };
-    detected.add(selfMember.id);
+    const selfMember = members.find(m => m.relationship === 'self');
+    if (selfMember) detected.add(selfMember.id);
   }
 
   return detected;
@@ -16506,7 +16821,7 @@ function checkAndTriggerFamilyCast(text = '') {
 
 function renderFamilyCastStagingUI() {
   const cast = familyCastProfileCache || getDefaultClientFamilyCast();
-  const members = (cast.members || []).filter(m => m && (m.name || m.roleLabel !== 'New Member'));
+  const members = (cast.members || []).filter(m => m && (m.name || m.roleLabel !== 'New Member') && m.approvalStatus !== 'pending' && m.approvalStatus !== 'declined');
 
   const chipsHtml = members.map(m => {
     const isActive = activeCastMemberIds.has(m.id);
@@ -16546,7 +16861,7 @@ function renderFamilyCastStagingUI() {
 
 function getActiveCastPayload() {
   const cast = familyCastProfileCache || getDefaultClientFamilyCast();
-  const activeList = (cast.members || []).filter(m => activeCastMemberIds.has(m.id));
+  const activeList = (cast.members || []).filter(m => activeCastMemberIds.has(m.id) && m.approvalStatus !== 'pending' && m.approvalStatus !== 'declined');
   if (activeList.length === 0) {
     return null;
   }
@@ -16572,7 +16887,10 @@ function getSanitizedCastMember(m) {
     uncompromisableAnchors: m.uncompromisableAnchors,
     visualTraits: m.visualTraits,
     vehicleRole: m.vehicleRole,
-    stylizedAvatarUrl: m.stylizedAvatarUrl
+    stylizedAvatarUrl: m.stylizedAvatarUrl,
+    approvalStatus: m.approvalStatus || 'approved',
+    linkedUserEmail: m.linkedUserEmail || '',
+    linkedUserHandle: m.linkedUserHandle || ''
   };
 }
 
@@ -16582,7 +16900,9 @@ function getSanitizedCastPayload(cast) {
     userIdentifier: cast.userIdentifier || '',
     updatedAt: cast.updatedAt || '',
     collectiveAliases: cast.collectiveAliases || [],
-    members: (cast.members || []).map(getSanitizedCastMember)
+    members: (cast.members || [])
+      .filter(m => m && m.approvalStatus !== 'pending' && m.approvalStatus !== 'declined')
+      .map(getSanitizedCastMember)
   };
 }
 
