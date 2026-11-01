@@ -1272,6 +1272,7 @@ Respond strictly with valid JSON:
       const fallbackMomentProjections = isPolishChronicle
         ? buildFallbackMomentVisualProjections(validPolishMoments, countryContext)
         : [];
+      const fallbackStructureBeats = evaluateFallbackStructureBeats(rawText, spark);
 
       const castMembersSummary = (familyCast && Array.isArray(familyCast.members) && familyCast.members.length > 0)
         ? familyCast.members.map(m => `${m.name || m.roleLabel} (${m.relationship}, age ${m.age || 'adult'}, height ${cmToFeetInches(resolveMemberHeightCm(m)).label})`).join('; ')
@@ -1328,6 +1329,13 @@ Author's Raw Take:
 ${spark ? `Author's Spark / Catalyst: """${spark}"""` : ''}
 ${scrapedTitle ? `Source Headline: """${scrapedTitle}"""` : ''}
 
+EVALUATE 3-BEAT EDITORIAL STRUCTURE ("structureBeats"):
+Check which of the 3 editorial beats are present in the Author's Raw Take (and Spark):
+1. "hasMoment" (Beat 1 — Moment / Trigger, powers Paragraph 1): True if the author establishes a concrete observation, event, scene, or subject (who/what/where).
+2. "hasWhyItMatters" (Beat 2 — Why It Matters / Mechanism, powers Paragraph 2): True if the author gives deeper context, cause-and-effect, sensory detail, or contrast explaining why it stands out.
+3. "hasConviction" (Beat 3 — Core Conviction / Takeaway, powers Paragraph 3 & Pull-Quote): True ONLY if the author explicitly states a broader takeaway, lasting principle, normative belief, or recommendation (beyond just describing the scene or ending with a brief emotional reaction like "it feels like heaven").
+4. "nudge": A single concise coaching sentence (NEVER suggest specific opinions to write; just state what beat can be added if any is false, e.g. "Optional: Add 1 sentence on your lasting takeaway so Paragraph 3 is 100% your words (otherwise AI will bridge it)." or if all 3 are true: "All 3 beats present — Paragraphs 1, 2 & 3 will be 100% grounded in your words.").
+
 Respond strictly with valid JSON with this exact structure:
 {
   "polished": "full polished text string without any tags",
@@ -1339,6 +1347,12 @@ Respond strictly with valid JSON with this exact structure:
       "reason": "concise explanation of why this specific correction was made"
     }
   ],
+  "structureBeats": {
+    "hasMoment": true,
+    "hasWhyItMatters": true,
+    "hasConviction": false,
+    "nudge": "Optional: Add 1 sentence on your lasting takeaway so Paragraph 3 is 100% your words (otherwise AI will bridge it)."
+  },
   "visualSubjects": [
     {
       "id": "subject_1",
@@ -1507,6 +1521,15 @@ Respond strictly with valid JSON with this exact structure:
                   : fallbackMomentProjections)
               : [];
 
+            const structureBeats = (parsed.structureBeats && typeof parsed.structureBeats === 'object')
+              ? {
+                  hasMoment: parsed.structureBeats.hasMoment !== undefined ? Boolean(parsed.structureBeats.hasMoment) : fallbackStructureBeats.hasMoment,
+                  hasWhyItMatters: parsed.structureBeats.hasWhyItMatters !== undefined ? Boolean(parsed.structureBeats.hasWhyItMatters) : fallbackStructureBeats.hasWhyItMatters,
+                  hasConviction: parsed.structureBeats.hasConviction !== undefined ? Boolean(parsed.structureBeats.hasConviction) : fallbackStructureBeats.hasConviction,
+                  nudge: String(parsed.structureBeats.nudge || fallbackStructureBeats.nudge).trim()
+                }
+              : fallbackStructureBeats;
+
             return res.status(200).json({
               success: true,
               original: rawText,
@@ -1514,6 +1537,7 @@ Respond strictly with valid JSON with this exact structure:
               highlightedHtml: highlightedHtml,
               corrections,
               counts,
+              structureBeats,
               visualSubjects,
               momentVisualProjections
             });
@@ -1531,6 +1555,7 @@ Respond strictly with valid JSON with this exact structure:
             highlightedHtml: baselinePolished,
             corrections: [],
             counts: { spelling: 0, grammar: 0, punctuation: 0, phrasing: 0, total: 0 },
+            structureBeats: fallbackStructureBeats,
             visualSubjects: fallbackSubjects,
             momentVisualProjections: fallbackMomentProjections
           });
@@ -1545,6 +1570,7 @@ Respond strictly with valid JSON with this exact structure:
           highlightedHtml: baselinePolished,
           corrections: [],
           counts: { spelling: 0, grammar: 0, punctuation: 0, phrasing: 0, total: 0 },
+          structureBeats: fallbackStructureBeats,
           visualSubjects: fallbackSubjects,
           momentVisualProjections: fallbackMomentProjections
         });
@@ -1559,6 +1585,7 @@ Respond strictly with valid JSON with this exact structure:
         highlightedHtml: baselinePolished,
         corrections: [],
         counts: { spelling: 0, grammar: 0, punctuation: 0, phrasing: 0, total: 0 },
+        structureBeats: fallbackStructureBeats,
         visualSubjects: fallbackSubjects,
         momentVisualProjections: fallbackMomentProjections
       });
@@ -4261,6 +4288,38 @@ function buildFallbackMomentVisualProjections(chronicleMoments = [], countryCont
       options
     };
   });
+}
+
+function evaluateFallbackStructureBeats(rawText = '', spark = '') {
+  const clean = String(rawText || '').trim();
+  const combined = `${clean} ${spark || ''}`.trim();
+  const sentences = clean.split(/[.!?]+/).map(s => s.trim()).filter(s => s.length >= 6);
+  const wordCount = combined.split(/\s+/).filter(Boolean).length;
+
+  const hasMoment = wordCount >= 8;
+  const hasWhyItMatters = Boolean(
+    sentences.length >= 2 ||
+    wordCount >= 22 ||
+    /\b(because|since|while|when|however|although|considering|every detail|process|impact|reason|shows|reveals|turning|causing)\b/i.test(clean)
+  );
+  const hasConviction = Boolean(
+    sentences.length >= 3 &&
+    /\b(therefore|should|must|need to|advisable|lesson|reminds|believe|matter|future|principle|important|essential|real risk|real value|what this means|ultimately|never|always)\b/i.test(clean)
+  );
+
+  let nudge = 'All 3 beats present — Paragraphs 1, 2 & 3 will be 100% grounded in your words.';
+  if (!hasWhyItMatters) {
+    nudge = 'Optional: Add 1 detail on why this stands out or matters so Paragraph 2 is 100% your words.';
+  } else if (!hasConviction) {
+    nudge = 'Optional: Add 1 sentence on your lasting takeaway so Paragraph 3 is 100% your words (otherwise AI will bridge it).';
+  }
+
+  return {
+    hasMoment,
+    hasWhyItMatters,
+    hasConviction,
+    nudge
+  };
 }
 
 function buildFallbackVisualSubjects(rawText = '', spark = '', scrapedTitle = '', countryContext = 'India') {

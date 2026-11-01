@@ -12441,6 +12441,7 @@ async function polishUserTake() {
     let counts = { spelling: 0, grammar: 0, punctuation: 0, phrasing: 0, total: 0 };
     let visualSubjects = null;
     let momentVisualProjections = null;
+    let structureBeats = null;
     let reviewSuccessful = false;
     let serverError = '';
 
@@ -12452,6 +12453,9 @@ async function polishUserTake() {
       if (data && Array.isArray(data.momentVisualProjections) && data.momentVisualProjections.length > 0) {
         momentVisualProjections = data.momentVisualProjections;
       }
+      if (data && data.structureBeats && typeof data.structureBeats === 'object') {
+        structureBeats = data.structureBeats;
+      }
       if (data && data.success !== false && (data.polished || data.highlightedHtml)) {
         reviewSuccessful = true;
         polished = data.polished || '';
@@ -12462,6 +12466,11 @@ async function polishUserTake() {
         serverError = data.error;
       }
     }
+
+    if (!structureBeats) {
+      structureBeats = evaluateClientFallbackStructureBeats(rawText, sparkText);
+    }
+    renderPolishStructureBeatsUI(structureBeats, isChronicle);
 
     if (!polished) {
       polished = formatCuratorTakeApt(rawText);
@@ -12596,6 +12605,7 @@ async function polishUserTake() {
       currentPolishVisualSubjects = buildClientFallbackVisualSubjects(rawText, sparkText, scrapedTitle);
       selectPolishVisualSubject(0, true);
     }
+    renderPolishStructureBeatsUI(evaluateClientFallbackStructureBeats(rawText, sparkText), isChronicle);
     if (display) display.textContent = polished;
     if (reviewCard) {
       reviewCard.style.display = 'flex';
@@ -12606,6 +12616,72 @@ async function polishUserTake() {
     if (btn) {
       btn.disabled = false;
       btn.innerHTML = originalBtnHtml;
+    }
+  }
+}
+
+function evaluateClientFallbackStructureBeats(rawText, spark) {
+  const combined = `${spark || ''} ${rawText || ''}`.trim();
+  const sentences = String(rawText || '')
+    .split(/(?<=[.!?])\s+|\n+/)
+    .map(s => s.trim())
+    .filter(s => s.length > 6);
+
+  const hasMoment = sentences.length >= 1 || combined.length > 25;
+  const hasWhyItMatters =
+    sentences.length >= 2 ||
+    /\b(because|instead|however|while|when|why|problem|reality|truth|feels|realize|notice|shift|difference|matters|actually|often|system|society)\b/i.test(rawText);
+  const hasConviction =
+    sentences.length >= 3 ||
+    /\b(should|must|need to|ultimately|lesson|remind|reminder|future|true|real|matter|hope|believe|takeaway|always|never|worth|choice|balance|responsibility)\b/i.test(rawText);
+
+  let nudge = '';
+  if (!hasConviction && !hasWhyItMatters) {
+    nudge = 'Optional: Add 1–2 lines on why this matters & your lasting takeaway so Paragraphs 2 & 3 stay 100% your words.';
+  } else if (!hasWhyItMatters) {
+    nudge = 'Optional: Add 1 sentence on why this observation matters so Paragraph 2 stays 100% your words.';
+  } else if (!hasConviction) {
+    nudge = 'Optional: Add 1 sentence on your lasting takeaway so Paragraph 3 is 100% your words (otherwise AI will bridge it).';
+  }
+  return { hasMoment, hasWhyItMatters, hasConviction, nudge };
+}
+
+function renderPolishStructureBeatsUI(structureBeats, isChronicle = false) {
+  const bar = document.getElementById('polishStructureBeatsBar');
+  if (!bar) return;
+
+  if (isChronicle) {
+    bar.style.display = 'none';
+    return;
+  }
+  bar.style.display = 'flex';
+
+  const beats = structureBeats || { hasMoment: true, hasWhyItMatters: true, hasConviction: false, nudge: '' };
+  const pillMoment = document.getElementById('beatPillMoment');
+  const pillWhy = document.getElementById('beatPillWhy');
+  const pillConviction = document.getElementById('beatPillConviction');
+  const nudgeEl = document.getElementById('polishStructureNudgeLine');
+
+  const updatePill = (el, isPresent, label) => {
+    if (!el) return;
+    el.classList.toggle('is-present', Boolean(isPresent));
+    el.classList.toggle('is-missing', !isPresent);
+    el.textContent = `${isPresent ? '✓' : '○'} ${label}`;
+  };
+
+  updatePill(pillMoment, beats.hasMoment !== false, 'Moment');
+  updatePill(pillWhy, Boolean(beats.hasWhyItMatters), 'Why It Matters');
+  updatePill(pillConviction, Boolean(beats.hasConviction), 'Core Conviction');
+
+  if (nudgeEl) {
+    const allPresent = beats.hasMoment !== false && Boolean(beats.hasWhyItMatters) && Boolean(beats.hasConviction);
+    const nudgeText = String(beats.nudge || '').trim();
+    if (!allPresent && nudgeText) {
+      nudgeEl.textContent = `💡 ${nudgeText}`;
+      nudgeEl.style.display = 'block';
+    } else {
+      nudgeEl.textContent = '';
+      nudgeEl.style.display = 'none';
     }
   }
 }

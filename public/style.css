@@ -26266,4 +26266,104 @@ mark.polish-mark:hover, mark.polish-mark.active {
   transform: translateY(-0.5px);
 }
 
+/* ============================================================
+   3-BEAT EDITORIAL STRUCTURE CHECK IN REVIEW & POLISH CARD
+   ============================================================ */
+.polish-structure-beats-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 8px 11px;
+  border-radius: 10px;
+  background: rgba(16, 185, 129, 0.06);
+  border: 1px solid rgba(16, 185, 129, 0.22);
+}
+
+.polish-structure-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.polish-structure-left {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.polish-structure-label {
+  font-size: 10.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+  margin-right: 2px;
+}
+
+.polish-structure-pills {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.structure-beat-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 2.5px 8px;
+  border-radius: 999px;
+  letter-spacing: 0.15px;
+  transition: all 0.2s ease;
+}
+
+.structure-beat-pill.is-present {
+  background: rgba(16, 185, 129, 0.16);
+  color: #34D399;
+  border: 1px solid rgba(52, 211, 153, 0.38);
+}
+
+.structure-beat-pill.is-missing {
+  background: rgba(245, 158, 11, 0.13);
+  color: #FBBF24;
+  border: 1px dashed rgba(251, 191, 36, 0.48);
+}
+
+.polish-structure-nudge-line {
+  font-size: 11px;
+  line-height: 1.38;
+  color: #FCD34D;
+  padding-top: 2px;
+}
+
+[data-theme="daylight"] .polish-structure-beats-bar {
+  background: #F4FBF8;
+  border-color: #BCE3D4;
+}
+
+[data-theme="daylight"] .polish-structure-label {
+  color: #265947;
+}
+
+[data-theme="daylight"] .structure-beat-pill.is-present {
+  background: #DCFCE7;
+  color: #065F46;
+  border-color: #86EFAC;
+}
+
+[data-theme="daylight"] .structure-beat-pill.is-missing {
+  background: #FEF3C7;
+  color: #92400E;
+  border-color: #F59E0B;
+}
+
+[data-theme="daylight"] .polish-structure-nudge-line {
+  color: #92400E;
+}
+
+
 
