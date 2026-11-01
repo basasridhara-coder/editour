@@ -372,14 +372,15 @@ async function loadSharedFamilyCastAndNotifications(viewerEmail) {
 
   // Compute connected component of approved family links containing cleanViewer
   const approvedGroupEmails = new Set([cleanViewer]);
-  const directRelationsFromViewer = {}; // email -> { relationship, roleLabel }
+  const directRelationsFromViewer = {}; // email -> { relationship, roleLabel, viewerRoleInOtherVault }
   let added = true;
   while (added) {
     added = false;
     for (const req of allRequests) {
       if (!req || req.status !== 'approved') continue;
-      const fromE = String(req.fromEmail || '').toLowerCase();
-      const toE = String(req.toEmail || '').toLowerCase();
+      const fromE = String(req.fromEmail || req.requesterEmail || '').toLowerCase();
+      const toE = String(req.toEmail || req.targetEmail || '').toLowerCase();
+      if (!fromE || !toE) continue;
       if (approvedGroupEmails.has(fromE) && !approvedGroupEmails.has(toE)) {
         approvedGroupEmails.add(toE);
         added = true;
@@ -388,15 +389,21 @@ async function loadSharedFamilyCastAndNotifications(viewerEmail) {
         added = true;
       }
       if (fromE === cleanViewer) {
+        const rel = req.relationship || 'spouse';
         directRelationsFromViewer[toE] = {
-          relationship: req.relationship || 'spouse',
-          roleLabel: req.relationLabel || getRelationDisplayLabel(req.relationship || 'spouse')
+          relationship: rel,
+          roleLabel: req.relationLabel || req.targetRoleLabel || getRelationDisplayLabel(rel),
+          viewerRoleInOtherVault: req.inverseRelationship || getInverseFamilyRelation(rel),
+          expectedTargetName: req.toName || req.targetName || ''
         };
       } else if (toE === cleanViewer) {
-        const inv = req.inverseRelationship || getInverseFamilyRelation(req.relationship || 'spouse');
+        const rel = req.relationship || 'spouse';
+        const inv = req.inverseRelationship || getInverseFamilyRelation(rel);
         directRelationsFromViewer[fromE] = {
           relationship: inv,
-          roleLabel: getRelationDisplayLabel(inv)
+          roleLabel: inv === 'spouse' ? 'Husband / Spouse' : getRelationDisplayLabel(inv),
+          viewerRoleInOtherVault: rel,
+          expectedTargetName: req.fromName || req.requesterName || ''
         };
       }
     }
@@ -408,13 +415,13 @@ async function loadSharedFamilyCastAndNotifications(viewerEmail) {
   if (!Array.isArray(viewerCast.members)) viewerCast.members = [];
 
   // Tag viewer's own self member with linkedUserEmail = cleanViewer
-  const viewerSelf = viewerCast.members.find(m => m && m.relationship === 'self');
+  let viewerSelf = viewerCast.members.find(m => m && m.relationship === 'self');
   if (viewerSelf) {
     viewerSelf.linkedUserEmail = cleanViewer;
     viewerSelf.approvalStatus = 'approved';
   }
 
-  // If there are approved linked family members in the group, merge their vaults & self profiles!
+  // If there are approved linked family members in the group, merge their vaults & self profiles two-way!
   if (groupEmailsList.length > 1) {
     const otherEmails = groupEmailsList.filter(e => e !== cleanViewer);
     const otherCasts = await Promise.all(otherEmails.map(e => loadRawUserFamilyCast(e)));
@@ -422,42 +429,118 @@ async function loadSharedFamilyCastAndNotifications(viewerEmail) {
     otherEmails.forEach((otherEmail, idx) => {
       const otherCast = sanitizeForeignVaultLeakOnServer(otherCasts[idx], otherEmail, hasShridharInGroup);
       const otherMembers = Array.isArray(otherCast?.members) ? otherCast.members : [];
-      const relInfo = directRelationsFromViewer[otherEmail] || { relationship: 'spouse', roleLabel: 'Family Member' };
+      const relInfo = directRelationsFromViewer[otherEmail] || {
+        relationship: 'spouse',
+        roleLabel: 'Family Member',
+        viewerRoleInOtherVault: 'spouse'
+      };
 
-      // 1. Find otherEmail's 'self' profile (or match by name/email in otherCast)
+      // 0. Check if otherCast already has a rich profile card representing cleanViewer (e.g., 'Mother / Wife Aruna' in Shridhar's vault)
+      const viewerCardInOther = otherMembers.find(om => {
+        if (!om || om.relationship === 'self') return false;
+        if (String(om.linkedUserEmail || '').toLowerCase() === cleanViewer) return true;
+        if (relInfo.viewerRoleInOtherVault === 'spouse' && om.relationship === 'spouse') return true;
+        if (viewerSelf && viewerSelf.name && om.name && String(om.name).trim().toLowerCase() === String(viewerSelf.name).trim().toLowerCase()) return true;
+        return false;
+      });
+
+      if (viewerCardInOther) {
+        if (!viewerSelf) {
+          viewerSelf = {
+            ...viewerCardInOther,
+            id: 'member_self',
+            relationship: 'self',
+            roleLabel: viewerCardInOther.roleLabel
+              ? viewerCardInOther.roleLabel.replace(/\bWife\b/i, 'Self').replace(/\bSpouse\b/i, 'Self')
+              : 'Self',
+            linkedUserEmail: cleanViewer,
+            approvalStatus: 'approved',
+            aliases: Array.from(new Set([...(viewerCardInOther.aliases || []), 'myself', 'me', 'i']))
+          };
+          viewerCast.members.unshift(viewerSelf);
+        } else {
+          // Enrich viewerSelf with any missing traits/avatar/height from viewerCardInOther
+          if (!viewerSelf.uncompromisableAnchors && viewerCardInOther.uncompromisableAnchors) {
+            viewerSelf.uncompromisableAnchors = viewerCardInOther.uncompromisableAnchors;
+          }
+          if (!viewerSelf.visualTraits && viewerCardInOther.visualTraits) {
+            viewerSelf.visualTraits = viewerCardInOther.visualTraits;
+          }
+          if (!viewerSelf.stylizedAvatarUrl && viewerCardInOther.stylizedAvatarUrl) {
+            viewerSelf.stylizedAvatarUrl = viewerCardInOther.stylizedAvatarUrl;
+          }
+          if (!viewerSelf.age && viewerCardInOther.age) {
+            viewerSelf.age = viewerCardInOther.age;
+          }
+          if ((!viewerSelf.heightCm || viewerSelf.heightCm === 170) && viewerCardInOther.heightCm) {
+            viewerSelf.heightCm = viewerCardInOther.heightCm;
+            viewerSelf.heightDesc = viewerCardInOther.heightDesc || viewerSelf.heightDesc;
+          }
+          if (viewerCardInOther.structuredTraits && (!viewerSelf.structuredTraits || !viewerSelf.uncompromisableAnchors)) {
+            viewerSelf.structuredTraits = { ...viewerCardInOther.structuredTraits, ...(viewerSelf.structuredTraits || {}) };
+          }
+          // If viewerSelf still had an email-handle placeholder name, adopt the real name from viewerCardInOther
+          if (viewerCardInOther.name && (!viewerSelf.name || viewerSelf.name.includes('@') || viewerSelf.name.length < 3)) {
+            viewerSelf.name = viewerCardInOther.name;
+          }
+        }
+      }
+
+      // 1. Find otherEmail's 'self' profile in otherCast and add/merge it into viewerCast with relInfo.relationship (e.g. Husband / Spouse)
       const otherSelf = otherMembers.find(m => m && (String(m.linkedUserEmail || '').toLowerCase() === otherEmail || m.relationship === 'self'));
       if (otherSelf && otherSelf.name) {
         const existingIdx = viewerCast.members.findIndex(m =>
-          m && (
+          m && m.relationship !== 'self' && (
             String(m.linkedUserEmail || '').toLowerCase() === otherEmail ||
-            (m.name && String(m.name).trim().toLowerCase() === String(otherSelf.name).trim().toLowerCase() && m.relationship !== 'self')
+            (m.name && String(m.name).trim().toLowerCase() === String(otherSelf.name).trim().toLowerCase()) ||
+            (relInfo.relationship === 'spouse' && m.relationship === 'spouse')
           )
         );
+        const existingMember = existingIdx >= 0 ? viewerCast.members[existingIdx] : null;
         const mergedOtherSelf = {
+          ...(existingMember || {}),
           ...otherSelf,
+          // Keep richer traits if existingMember already had them and otherSelf was an unconfigured stub
+          name: (otherSelf.uncompromisableAnchors || !existingMember?.name) ? otherSelf.name : existingMember.name,
+          age: otherSelf.age || existingMember?.age || null,
+          heightCm: (otherSelf.uncompromisableAnchors ? otherSelf.heightCm : (existingMember?.heightCm || otherSelf.heightCm)) || 170,
+          heightDesc: otherSelf.uncompromisableAnchors ? otherSelf.heightDesc : (existingMember?.heightDesc || otherSelf.heightDesc || ''),
+          uncompromisableAnchors: otherSelf.uncompromisableAnchors || existingMember?.uncompromisableAnchors || '',
+          visualTraits: otherSelf.visualTraits || existingMember?.visualTraits || '',
+          stylizedAvatarUrl: otherSelf.stylizedAvatarUrl || existingMember?.stylizedAvatarUrl || '',
+          structuredTraits: otherSelf.uncompromisableAnchors
+            ? (otherSelf.structuredTraits || existingMember?.structuredTraits)
+            : (existingMember?.structuredTraits || otherSelf.structuredTraits),
           id: existingIdx >= 0 ? viewerCast.members[existingIdx].id : (`member_linked_${otherEmail.replace(/[^a-z0-9]/g, '_')}`),
           relationship: relInfo.relationship,
-          roleLabel: relInfo.roleLabel,
+          roleLabel: existingMember?.roleLabel && !existingMember.roleLabel.includes('Pending')
+            ? existingMember.roleLabel
+            : relInfo.roleLabel,
           linkedUserEmail: otherEmail,
           approvalStatus: 'approved',
-          aliases: Array.from(new Set([...(otherSelf.aliases || []).filter(a => !['me', 'myself', 'i'].includes(String(a).toLowerCase())), String(otherSelf.name).toLowerCase()]))
+          sharedFromFamilyVault: true,
+          aliases: Array.from(new Set([
+            ...((otherSelf.aliases || []).filter(a => !['me', 'myself', 'i'].includes(String(a).toLowerCase()))),
+            ...((existingMember?.aliases || []).filter(a => !['me', 'myself', 'i'].includes(String(a).toLowerCase()))),
+            String(otherSelf.name).toLowerCase()
+          ]))
         };
         if (existingIdx >= 0) {
-          viewerCast.members[existingIdx] = {
-            ...viewerCast.members[existingIdx],
-            ...mergedOtherSelf,
-            id: viewerCast.members[existingIdx].id
-          };
+          viewerCast.members[existingIdx] = mergedOtherSelf;
         } else {
           viewerCast.members.push(mergedOtherSelf);
         }
       }
 
-      // 2. Also merge any shared non-self family members (e.g., kids added in the shared family vault)
+      // 2. Also merge any shared non-self family members (e.g., Elder Son Gahan & Younger Son Rishu)
       otherMembers.forEach(om => {
         if (!om || !om.name) return;
         const omLinked = String(om.linkedUserEmail || '').toLowerCase();
         if (om.relationship === 'self' || omLinked === cleanViewer || omLinked === otherEmail) return;
+        // Skip if this card in otherCast is actually cleanViewer's own card (e.g. Aruna in Shridhar's vault when viewer is Aruna)
+        if (viewerCardInOther && om.id === viewerCardInOther.id) return;
+        if (viewerSelf && viewerSelf.name && String(om.name).trim().toLowerCase() === String(viewerSelf.name).trim().toLowerCase()) return;
+
         // Check if viewer already has this member by name or id
         const matchIdx = viewerCast.members.findIndex(vm =>
           vm && (
@@ -471,6 +554,15 @@ async function loadSharedFamilyCastAndNotifications(viewerEmail) {
             approvalStatus: om.approvalStatus || 'approved',
             sharedFromFamilyVault: true
           });
+        } else if (!viewerCast.members[matchIdx].uncompromisableAnchors && om.uncompromisableAnchors) {
+          viewerCast.members[matchIdx] = {
+            ...om,
+            ...viewerCast.members[matchIdx],
+            uncompromisableAnchors: om.uncompromisableAnchors,
+            visualTraits: om.visualTraits || viewerCast.members[matchIdx].visualTraits,
+            stylizedAvatarUrl: om.stylizedAvatarUrl || viewerCast.members[matchIdx].stylizedAvatarUrl,
+            sharedFromFamilyVault: true
+          };
         }
       });
     });
@@ -1443,8 +1535,21 @@ STRICT RULES:
         reqObj.respondedAt = new Date().toISOString();
         await saveSystemDoc('system_family_vault_links', linksDoc);
 
-        // Load merged family vault now that the link is approved/declined
+        // Load merged family vault now that the link is approved/declined, and persist two-way synced vaults to Supabase
         const refreshed = await loadSharedFamilyCastAndNotifications(cleanUser);
+        if (decision === 'approve') {
+          if (refreshed && refreshed.cast) {
+            await saveRawUserFamilyCast(cleanUser, refreshed.cast);
+            await syncUserSelfToDirectory(cleanUser, refreshed.cast);
+          }
+          const senderEmail = String(reqObj.fromEmail || reqObj.requesterEmail || '').trim().toLowerCase();
+          if (senderEmail && senderEmail !== cleanUser) {
+            const senderRefreshed = await loadSharedFamilyCastAndNotifications(senderEmail);
+            if (senderRefreshed && senderRefreshed.cast) {
+              await saveRawUserFamilyCast(senderEmail, senderRefreshed.cast);
+            }
+          }
+        }
         return res.status(200).json({
           success: true,
           request: reqObj,

@@ -14099,9 +14099,20 @@ function ensureMemberStructuredTraits(m) {
   return m.structuredTraits;
 }
 
-function isCurrentClientUserShridhar() {
+function isCurrentClientUserShridhar(cast = null) {
   const email = (currentUser && currentUser.email ? currentUser.email : '').trim().toLowerCase();
-  return email === 'shridharoct16@gmail.com';
+  if (email === 'shridharoct16@gmail.com') return true;
+  const activeCast = cast || familyCastProfileCache;
+  if (activeCast && Array.isArray(activeCast.sharedGroupEmails) && activeCast.sharedGroupEmails.some(e => String(e || '').trim().toLowerCase() === 'shridharoct16@gmail.com')) {
+    return true;
+  }
+  if (Array.isArray(window._familyVaultApprovedLinks) && window._familyVaultApprovedLinks.some(r =>
+    String(r?.fromEmail || r?.requesterEmail || '').trim().toLowerCase() === 'shridharoct16@gmail.com' ||
+    String(r?.toEmail || r?.targetEmail || '').trim().toLowerCase() === 'shridharoct16@gmail.com'
+  )) {
+    return true;
+  }
+  return false;
 }
 
 function getFamilyCastLocalStorageKey() {
@@ -14114,8 +14125,8 @@ function sanitizeLoadedFamilyCast(cast) {
   if (!cast || !Array.isArray(cast.members)) return cast;
 
   // STRICT MULTI-TENANT VAULT ISOLATION:
-  // If the signed-in user is NOT Shridhar, immediately purge any leaked Shridhar family members or Shridhar avatar URLs!
-  if (!isCurrentClientUserShridhar()) {
+  // If the signed-in user is NOT Shridhar and NOT an approved member of Shridhar's shared Family Vault group, purge any leaked Shridhar family members!
+  if (!isCurrentClientUserShridhar(cast)) {
     const names = cast.members.map(m => String(m?.name || '').trim().toLowerCase());
     const hasShridharCastSignature = (
       names.includes('shridhar') &&
@@ -14770,6 +14781,23 @@ async function respondToFamilyVaultRequest(requestId, decision) {
     });
     const data = await resp.json();
     if (data && data.success) {
+      window._familyVaultPendingIncoming = Array.isArray(data.pendingIncoming) ? data.pendingIncoming : [];
+      window._familyVaultPendingOutgoing = Array.isArray(data.pendingOutgoing) ? data.pendingOutgoing : [];
+      window._familyVaultApprovedLinks = Array.isArray(data.approvedLinks) ? data.approvedLinks : [];
+      window._familyVaultNeedsOnboarding = Boolean(data.needsOnboarding);
+      renderFamilyApprovalNotificationsUI();
+
+      if (data.cast && Array.isArray(data.cast.members)) {
+        familyCastProfileCache = sanitizeLoadedFamilyCast(data.cast);
+        const storageKey = getFamilyCastLocalStorageKey();
+        try {
+          if (storageKey) localStorage.setItem(storageKey, JSON.stringify(familyCastProfileCache));
+        } catch (_) {}
+        if (familyCastProfileCache.members.length > 0 && (!activeVaultMemberId || !familyCastProfileCache.members.some(m => m.id === activeVaultMemberId))) {
+          activeVaultMemberId = familyCastProfileCache.members[0].id;
+        }
+      }
+
       showTemporaryToast(
         decision === 'approve'
           ? '✓ Approved! Shared Family Vault & reference likeness access is now active for all linked family members.'
@@ -14779,6 +14807,7 @@ async function respondToFamilyVaultRequest(requestId, decision) {
       try {
         renderVaultMemberTabs();
         renderActiveMemberScreen();
+        renderFamilyCastStagingUI();
       } catch (_) {}
     } else {
       showTemporaryToast(data?.error || 'Could not process family request response.');
@@ -16320,7 +16349,8 @@ function getSanitizedCastMember(m) {
     stylizedAvatarUrl: m.stylizedAvatarUrl,
     approvalStatus: m.approvalStatus || 'approved',
     linkedUserEmail: m.linkedUserEmail || '',
-    linkedUserHandle: m.linkedUserHandle || ''
+    linkedUserHandle: m.linkedUserHandle || '',
+    sharedFromFamilyVault: Boolean(m.sharedFromFamilyVault)
   };
 }
 
@@ -16330,6 +16360,7 @@ function getSanitizedCastPayload(cast) {
     userIdentifier: cast.userIdentifier || '',
     updatedAt: cast.updatedAt || '',
     collectiveAliases: cast.collectiveAliases || [],
+    sharedGroupEmails: Array.isArray(cast.sharedGroupEmails) ? cast.sharedGroupEmails : [],
     members: (cast.members || [])
       .filter(m => m && m.approvalStatus !== 'pending' && m.approvalStatus !== 'declined')
       .map(getSanitizedCastMember)
