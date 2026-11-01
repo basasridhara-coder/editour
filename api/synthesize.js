@@ -2349,22 +2349,49 @@ Respond strictly with valid JSON with this exact structure:
       return res.status(401).json({ error: 'Please sign in with your Google or email account to create a Slant.' });
     }
     const isTextOnlyRegen = body.regenScope === 'text_only';
-    const isExactPhotoOnly = characterRepresentation === 'exact';
-    const shouldConsumeVisualCredit = !isTextOnlyRegen && !isExactPhotoOnly;
-    const creditCheck = await verifyAndConsumeUserCredit(userEmail, shouldConsumeVisualCredit, Boolean(isChronicle));
+    const hasChronicleAttachedPhotos = Boolean(isChronicle && Array.isArray(chronicleMoments) && chronicleMoments.some(m => m && m.imageBase64));
+    const hasOriginalOrAttachedPhoto = Boolean(
+      imageBase64 ||
+      sourceImageBase64 ||
+      innerVoiceImageBase64 ||
+      (sourceImageUrl && /^https?:\/\//i.test(sourceImageUrl)) ||
+      hasChronicleAttachedPhotos
+    );
+
+    let isExactPhotoOnly = characterRepresentation === 'exact';
+    const wantsVisualCredit = !isTextOnlyRegen && !isExactPhotoOnly;
+
+    // First check credit availability without consuming so we can seamlessly fall back to free Original/Attached Photo mode if credits are 0
+    let creditCheck = await verifyAndConsumeUserCredit(userEmail, false, Boolean(isChronicle));
     if (!creditCheck.allowed) {
       return res.status(403).json({
         error: '🔒 Private Preview: Your email is not yet on the invited curator whitelist. An access request has been sent to the administrator.'
       });
     }
-    if (shouldConsumeVisualCredit && !creditCheck.hasCredits) {
-      return res.status(429).json({
-        error: isChronicle
-          ? '⚡ You have used your 1 free Daily Chronicle visual illustration for today. Tap "Request More Credits" in Studio or switch to Exact Photo!'
-          : '⚡ Your Perspective visual illustration credits are used up for today. Tap "Request More Credits" in Studio (text-only generation is always free)!',
-        creditsExhausted: true,
-        credits: creditCheck.credits
-      });
+
+    let usedFreeExactPhotoFallback = false;
+    if (wantsVisualCredit) {
+      if (creditCheck.hasCredits) {
+        creditCheck = await verifyAndConsumeUserCredit(userEmail, true, Boolean(isChronicle));
+      } else if (hasOriginalOrAttachedPhoto) {
+        // User has 0 AI art credits left, but has an original source photo or attached photo -> synthesize text for FREE and use exact photo!
+        characterRepresentation = 'exact';
+        isExactPhotoOnly = true;
+        usedFreeExactPhotoFallback = true;
+        if (sourceType === 'digital_link' || sourceType === 'video_audio') {
+          perspectiveMode = 'source';
+        }
+      } else {
+        return res.status(429).json({
+          error: isChronicle
+            ? '⚡ 0 Daily Chronicle AI art credits left today — but Text Generation is FREE! Attach a photo to your moment(s) to post for free, or tap "Request More Credits".'
+            : (sourceType === 'inner_voice'
+                ? '⚡ 0 AI art credits left today — but Text Generation is FREE! For Inner Voice, attach a photo (Snap Scene / Upload Photo) to post for free, or switch to a Web Link with its original source photo!'
+                : '⚡ 0 AI art credits left today — but Text Generation is FREE! You can still post using Source Grounded with the original source photo, or attach your own photo in Inner Voice!'),
+          creditsExhausted: true,
+          credits: creditCheck.credits
+        });
+      }
     }
 
     const userSlant = (slantTake || text || '').trim();
@@ -3045,7 +3072,9 @@ Respond strictly with valid JSON with this exact structure:
     }
 
     const concisePrompt = partsList.filter(Boolean).join(', ').slice(0, 420);
-    const hasExactPhoto = isExactPhoto && !!(imageBase64);
+    const resolvedExactPhotoB64 = imageBase64 || sourceImageBase64 || innerVoiceImageBase64 || null;
+    const resolvedExactPhotoUrl = (sourceImageUrl && /^https?:\/\//i.test(sourceImageUrl)) ? sourceImageUrl : null;
+    const hasExactPhoto = isExactPhoto && Boolean(resolvedExactPhotoB64 || resolvedExactPhotoUrl || hasChronicleAttachedPhotos);
 
     // 4. Ultra-Fast Editorial Text Synthesis (Phase 1)
     // Runs with thinkingBudget: 0 to complete in 4-6s comfortably within Vercel 10s serverless limit.
@@ -3128,10 +3157,20 @@ Respond strictly with valid JSON with this exact structure:
     let finalIllustrationBase64 = null;
 
     if (hasExactPhoto) {
-      finalIllustrationUrl = imageBase64;
-      finalIllustrationBase64 = imageBase64.startsWith('data:')
-        ? imageBase64.split(',')[1]
-        : imageBase64;
+      if (resolvedExactPhotoB64) {
+        if (typeof resolvedExactPhotoB64 === 'string' && /^https?:\/\//i.test(resolvedExactPhotoB64)) {
+          finalIllustrationUrl = resolvedExactPhotoB64;
+          finalIllustrationBase64 = null;
+        } else {
+          finalIllustrationUrl = resolvedExactPhotoB64;
+          finalIllustrationBase64 = resolvedExactPhotoB64.startsWith('data:')
+            ? resolvedExactPhotoB64.split(',')[1]
+            : resolvedExactPhotoB64;
+        }
+      } else if (resolvedExactPhotoUrl) {
+        finalIllustrationUrl = resolvedExactPhotoUrl;
+        finalIllustrationBase64 = null;
+      }
     } else if (geminiArt) {
       finalIllustrationBase64 = geminiArt.replace(/^data:image\/[^;]+;base64,/, '');
     } else {
@@ -3322,7 +3361,8 @@ Respond strictly with valid JSON with this exact structure:
     return res.status(200).json({
       success: true,
       post: postItem,
-      credits: creditCheck.credits
+      credits: creditCheck.credits,
+      usedFreeExactPhotoFallback: Boolean(usedFreeExactPhotoFallback)
     });
   } catch (error) {
     console.error('Server error in /api/synthesize:', error);

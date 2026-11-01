@@ -503,14 +503,36 @@ function updateCreatorStudioCreditBadge(creditsObj) {
       activeModeIcon.textContent = '📔';
       activeModeSummary.textContent = chronFreeLeft > 0
         ? `Diary Chronicle Visuals: ${chronFreeLeft}/1 Free Left Today`
-        : (chronTotalLeft > 0 ? `Diary Chronicle Visuals: ${chronTotalLeft} Bonus Left` : 'Diary Chronicle Visuals: 0 Left Today (Text Free)');
+        : (chronTotalLeft > 0 ? `Diary Chronicle Visuals: ${chronTotalLeft} Bonus Left` : '0 AI Art Credits • Attach Photos to Post Free (Text Free)');
       secondarySummary.textContent = `🌐💭 Perspective: ${perspLeft} Left`;
     } else {
       activeModeIcon.textContent = activePerspectiveEmoji;
       activeModeSummary.textContent = starterRemaining > 0
         ? `${activePerspectiveLabel}: ${perspLeft} Free Left (${starterRemaining}/${starterTotal} Starter)`
-        : (perspLeft > 0 ? `${activePerspectiveLabel}: ${perspLeft} Left Today` : `${activePerspectiveLabel}: 0 Left Today (Text Free)`);
+        : (perspLeft > 0
+            ? `${activePerspectiveLabel}: ${perspLeft} Left Today`
+            : (isInnerVoiceActive
+                ? '0 AI Art Credits • Attach Photo to Post Free (Text Free)'
+                : '0 AI Art Credits • Post Free w/ Original Photo (Text Free)'));
       secondarySummary.textContent = `📔 Chronicle: ${chronFreeLeft}/1 Free Today`;
+    }
+  }
+
+  // Show/hide the prominent Zero-Credit Free Posting Guidance Banner in Studio
+  const zeroCreditsBanner = document.getElementById('creatorZeroCreditsFreeBanner');
+  const activePillarZeroCredits = !isMaster && (isChronicleActive ? (chronTotalLeft <= 0) : (perspLeft <= 0));
+  if (zeroCreditsBanner) {
+    zeroCreditsBanner.style.display = activePillarZeroCredits ? 'block' : 'none';
+  }
+  if (activePillarZeroCredits) {
+    if (typeof creatorPerspectiveMode !== 'undefined' && creatorPerspectiveMode !== 'source') {
+      creatorPerspectiveMode = 'source';
+    }
+    if (typeof creatorCharacterRepresentation !== 'undefined' && creatorCharacterRepresentation !== 'exact') {
+      creatorCharacterRepresentation = 'exact';
+      if (typeof updateEqualizerSummary === 'function') {
+        try { updateEqualizerSummary(); } catch (_) {}
+      }
     }
   }
 
@@ -598,6 +620,41 @@ function updateCreatorStudioCreditBadge(creditsObj) {
       : `${perspLeft} daily Perspective visual credit available today. Tap to request more.`;
   }
 }
+
+function isZeroVisualCreditsForActivePillar() {
+  if (!currentUser || !currentUserCredits) return false;
+  const email = (currentUser.email || '').toLowerCase().trim();
+  if (email === 'shridharoct16@gmail.com' || currentUserCredits.isUnlimited) return false;
+  const isChronicleActive = typeof isDailyChronicleMode !== 'undefined' && Boolean(isDailyChronicleMode);
+  if (isChronicleActive) {
+    const chronTotalLeft = Number(currentUserCredits.chronicleRemainingToday ?? 1);
+    return chronTotalLeft <= 0;
+  }
+  const perspLeft = Number(currentUserCredits.perspectiveRemainingToday ?? currentUserCredits.remainingToday ?? 5);
+  return perspLeft <= 0;
+}
+
+function applyFreeOriginalPhotoModeFromBanner() {
+  setPerspectiveMode('source', true);
+  selectCharacterRepresentation('exact');
+  if (typeof updateEqualizerSummary === 'function') {
+    updateEqualizerSummary();
+  }
+  const isChronicleActive = typeof isDailyChronicleMode !== 'undefined' && Boolean(isDailyChronicleMode);
+  const isInnerVoiceActive = !isChronicleActive && (typeof creatorSelectedSource !== 'undefined' && creatorSelectedSource === 'inner_voice');
+  if (isInnerVoiceActive && !innerVoicePhotoBase64) {
+    const photoWrap = document.getElementById('innerVoicePhotoWrap');
+    if (photoWrap && typeof photoWrap.scrollIntoView === 'function') {
+      photoWrap.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    showTemporaryToast('📷 Attach a photo (Snap Scene / Upload Photo) — your Inner Voice post & full AI text generation will be 100% FREE!');
+  } else if (isChronicleActive) {
+    showTemporaryToast('📷 Attach a photo to your moment(s) — your Chronicle post & full AI text generation will be 100% FREE!');
+  } else {
+    showTemporaryToast('✓ Set to Source Grounded + Original Photo (Free • 0 visual credits)! Paste your link & tap Synthesize.');
+  }
+}
+window.applyFreeOriginalPhotoModeFromBanner = applyFreeOriginalPhotoModeFromBanner;
 
 // ============================================================
 // AUTHENTICATION & USER PROFILE CONTROLLER (OPEN ACCESS)
@@ -18136,7 +18193,16 @@ function selectEqualizerPortrayal(style) {
 }
 
 function updateEqualizerPortrayalUI() {
-  const hasPhoto = Boolean(creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || currentScrapedArticle?.imageUrl);
+  const hasChroniclePhotos = typeof isDailyChronicleMode !== 'undefined' && isDailyChronicleMode && Array.isArray(dailyChronicleMoments) && dailyChronicleMoments.some(m => Boolean(m && m.imageBase64));
+  const zeroCredits = typeof isZeroVisualCreditsForActivePillar === 'function' && isZeroVisualCreditsForActivePillar();
+  const hasPhoto = Boolean(
+    creatorReferenceImageBase64 ||
+    (typeof innerVoicePhotoBase64 !== 'undefined' && innerVoicePhotoBase64) ||
+    hasChroniclePhotos ||
+    currentScrapedArticle?.imageBase64 ||
+    currentScrapedArticle?.imageUrl ||
+    zeroCredits
+  );
 
   if (!hasPhoto && creatorCharacterRepresentation === 'exact') {
     creatorCharacterRepresentation = 'realistic';
@@ -22491,6 +22557,43 @@ async function startAiSynthesis() {
     }
   }
 
+  // If user has 0 AI visual credits for the active mode, enforce free Original / Attached Photo mode
+  // or prompt them to attach a photo for Inner Voice / Chronicle before leaving Step 1
+  const isRegenWithBaselineCheck = Boolean(window._isCreatorRegenMode && (currentSynthesizedPost || window._regenBaselinePost));
+  const activeRegenScopeCheck = isRegenWithBaselineCheck ? (creatorRegenScope || 'both') : 'both';
+  if (activeRegenScopeCheck !== 'text_only' && typeof isZeroVisualCreditsForActivePillar === 'function' && isZeroVisualCreditsForActivePillar()) {
+    const isChronicleCheck = (creatorSelectedSource === 'inner_voice' && isDailyChronicleMode);
+    if (isChronicleCheck) {
+      const hasAnyMomentPhoto = Array.isArray(dailyChronicleMoments) && dailyChronicleMoments.some(m => Boolean(m && m.imageBase64));
+      if (!hasAnyMomentPhoto) {
+        const banner = document.getElementById('creatorZeroCreditsFreeBanner');
+        if (banner) banner.style.display = 'block';
+        showTemporaryToast('📷 0 AI art credits left today — attach a photo to your moment(s) to generate & post for FREE (Text generation is free), or request bonus credits!');
+        return;
+      }
+      creatorCharacterRepresentation = 'exact';
+    } else if (creatorSelectedSource === 'inner_voice') {
+      if (!innerVoicePhotoBase64 && !creatorReferenceImageBase64) {
+        const banner = document.getElementById('creatorZeroCreditsFreeBanner');
+        if (banner) banner.style.display = 'block';
+        const photoWrap = document.getElementById('innerVoicePhotoWrap');
+        if (photoWrap && typeof photoWrap.scrollIntoView === 'function') {
+          photoWrap.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        showTemporaryToast('📷 0 AI art credits left — attach a photo (Snap Scene / Upload Photo) to publish your Inner Voice post for FREE (Text generation is free), or use a Web Link with its original photo!');
+        return;
+      }
+      creatorCharacterRepresentation = 'exact';
+    } else {
+      // Web Link: automatically switch to Source Grounded + Original Photo (Free)
+      creatorPerspectiveMode = 'source';
+      creatorCharacterRepresentation = 'exact';
+    }
+    if (typeof updateEqualizerSummary === 'function') {
+      try { updateEqualizerSummary(); } catch (_) {}
+    }
+  }
+
   // Ensure country context is detected if missing
   const articleTitle = isLink ? (currentScrapedArticle?.title || extractHeadlineFromUrl(url)) : '';
   const articleBody = isLink ? (currentScrapedArticle?.content || '') : '';
@@ -22917,6 +23020,11 @@ async function startAiSynthesis() {
     }
 
     currentSynthesizedPost = data.post;
+    if (data.usedFreeExactPhotoFallback) {
+      creatorCharacterRepresentation = 'exact';
+      currentSynthesizedPost.characterRepresentation = 'exact';
+      showTemporaryToast('✨ Generated your 3-poster Slant for FREE using your Original / Attached Photo (Text generation is always free)!');
+    }
     currentSynthesizedPost.perspectiveMode = creatorPerspectiveMode || 'hybrid';
     if (Array.isArray(currentSynthesizedPost.cues) && currentSynthesizedPost.cues.length > 0) {
       creatorCuePills = currentSynthesizedPost.cues;
@@ -22941,6 +23049,7 @@ async function startAiSynthesis() {
     let refPhotoCandidate = currentSynthesizedPost.referencePhotoUrl
       || currentSynthesizedPost.sourceImageUrl
       || (currentSynthesizedPost.sourceImageBase64 ? (currentSynthesizedPost.sourceImageBase64.startsWith('data:') ? currentSynthesizedPost.sourceImageBase64 : `data:${currentSynthesizedPost.sourceImageMimeType || 'image/jpeg'};base64,${currentSynthesizedPost.sourceImageBase64}`) : null)
+      || (creatorSelectedSource === 'inner_voice' && innerVoicePhotoBase64 ? (innerVoicePhotoBase64.startsWith('data:') ? innerVoicePhotoBase64 : `data:${innerVoicePhotoMimeType || 'image/jpeg'};base64,${innerVoicePhotoBase64}`) : null)
       || null;
     if (refPhotoCandidate && typeof refPhotoCandidate === 'string' && refPhotoCandidate.startsWith('http')) {
       refPhotoCandidate = refPhotoCandidate.replace(/&amp;/g, '&');
@@ -22949,6 +23058,11 @@ async function startAiSynthesis() {
 
     if (creatorCharacterRepresentation === 'exact' && currentSynthesizedPost.referencePhotoUrl) {
       currentSynthesizedPost.illustrationUrl = currentSynthesizedPost.referencePhotoUrl;
+      if (creatorSelectedSource === 'inner_voice' && innerVoicePhotoBase64 && !currentSynthesizedPost.illustrationBase64) {
+        currentSynthesizedPost.illustrationBase64 = innerVoicePhotoBase64.startsWith('data:')
+          ? innerVoicePhotoBase64.split(',')[1]
+          : innerVoicePhotoBase64;
+      }
       currentSynthesizedPost.artworkPending = false;
     }
     const effectiveSlantTake = currentSynthesizedPost.polishedCuratorTake || slantTake || '';

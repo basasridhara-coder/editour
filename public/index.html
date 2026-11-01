@@ -522,17 +522,41 @@
               <div id="creatorDrawerChronSub" style="font-size: 10px; color: var(--text-secondary); margin-top: 1px; line-height: 1.25;">1 montage/day always free</div>
             </div>
             <div style="padding: 8px 10px; border-radius: 10px; background: rgba(99,102,241,0.07); border: 1px solid rgba(99,102,241,0.22);">
-              <div style="font-size: 9.5px; font-weight: 800; color: #4F46E5; text-transform: uppercase; letter-spacing: 0.4px;">📝📷 Text &amp; Exact Photo</div>
+              <div style="font-size: 9.5px; font-weight: 800; color: #4F46E5; text-transform: uppercase; letter-spacing: 0.4px;">📝📷 Text &amp; Real Photos</div>
               <div style="font-size: 13.5px; font-weight: 900; color: var(--text-primary); margin-top: 2px;">∞ Always Free</div>
-              <div style="font-size: 10px; color: var(--text-secondary); margin-top: 1px; line-height: 1.25;">Text edits &amp; Rethink = 0⚡</div>
+              <div style="font-size: 10px; color: var(--text-secondary); margin-top: 1px; line-height: 1.25;">Original / Attached photo = 0⚡</div>
             </div>
           </div>
+          <div style="padding: 7px 9px; margin-bottom: 8px; border-radius: 9px; background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.25); font-size: 10.8px; color: var(--text-primary); line-height: 1.38;">
+            <strong>💡 Even with 0 AI visual credits, you can always post for FREE:</strong><br>
+            1. <strong>Web Link:</strong> Use <strong>Source Grounded + Original Photo</strong> &bull; 2. <strong>Inner Voice:</strong> Attach your own photo &bull; <em>Text generation is free!</em>
+          </div>
           <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
-            <span style="font-size: 11px; color: var(--text-secondary);">Need more visual illustrations today? Request a bonus top-up anytime.</span>
+            <span style="font-size: 11px; color: var(--text-secondary);">Need more AI illustrations today? Request a bonus top-up anytime.</span>
             <button type="button" onclick="openUserCreditsAndInviteModal('credits')" style="padding: 5px 11px; border-radius: 8px; border: none; background: #253833; color: #FFFFFF; font-size: 11px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
               <span>⚡ Request More Credits</span>
             </button>
           </div>
+        </div>
+      </div>
+
+      <!-- Shown automatically when active pillar has 0 AI illustration credits left so user knows they can still post for FREE -->
+      <div id="creatorZeroCreditsFreeBanner" style="display: none; margin: 0 0 10px 0; padding: 10px 12px; border-radius: 12px; background: linear-gradient(135deg, rgba(16,185,129,0.12), rgba(59,130,246,0.08)); border: 1.5px solid rgba(16,185,129,0.45); color: var(--text-primary); font-size: 11.8px; line-height: 1.42;">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 5px; flex-wrap: wrap;">
+          <span style="font-weight: 800; color: #059669; font-size: 12.2px;">✨ 0 AI Art Credits Left — You Can Still Post for FREE!</span>
+          <span style="font-size: 10.5px; font-weight: 800; padding: 2px 8px; border-radius: 99px; background: rgba(16,185,129,0.18); color: #047857;">📝 Text Generation is Free</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 3px; color: var(--text-secondary); font-size: 11.4px;">
+          <div><strong>1. 🌐 Web Link:</strong> Post with <strong>Source Grounded + Original Photo</strong> from the source link (0 credits).</div>
+          <div><strong>2. 💭 Inner Voice:</strong> Post by <strong>attaching your own photo(s)</strong> via <em>Snap Scene / Upload Photo</em> (0 credits).</div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; margin-top: 8px; flex-wrap: wrap;">
+          <button type="button" onclick="applyFreeOriginalPhotoModeFromBanner()" style="padding: 5px 10px; border-radius: 8px; border: 1px solid rgba(16,185,129,0.5); background: #059669; color: #FFFFFF; font-size: 11px; font-weight: 800; cursor: pointer;">
+            📷 Use Original / Attached Photo (Free)
+          </button>
+          <button type="button" onclick="openUserCreditsAndInviteModal('credits')" style="padding: 5px 10px; border-radius: 8px; border: 1px solid rgba(148,163,184,0.35); background: transparent; color: var(--text-primary); font-size: 11px; font-weight: 700; cursor: pointer;">
+            ⚡ Request Bonus AI Credits
+          </button>
         </div>
       </div>
 
@@ -2512,8 +2536,11 @@
         </div>
       </div>
 
-      <div style="padding: 9px 12px; border-radius: 11px; background: rgba(99,102,241,0.07); border: 1px solid rgba(99,102,241,0.2); font-size: 11.8px; color: var(--text-secondary); line-height: 1.4;">
-        ✨ <strong style="color: var(--text-primary);">Text, Exact Photos &amp; Reflection Rethinking are Always Free:</strong> Only generating or regenerating AI-illustrated poster artwork uses a visual credit.
+      <div style="padding: 10px 12px; border-radius: 12px; background: rgba(16,185,129,0.09); border: 1px solid rgba(16,185,129,0.32); font-size: 11.8px; color: var(--text-secondary); line-height: 1.45;">
+        <div style="font-weight: 800; color: var(--text-primary); margin-bottom: 4px;">✨ Text Generation is Free — You Can Always Post Even at 0 Credits:</div>
+        <div><strong>1. 🌐 Web Link:</strong> Post with <strong>Source Grounded + Original Photo</strong> from the source link (0 credits).</div>
+        <div style="margin-top: 2px;"><strong>2. 💭 Inner Voice / 📔 Chronicle:</strong> Post by <strong>attaching your own photo(s)</strong> (0 credits).</div>
+        <div style="margin-top: 3px; font-size: 11px; opacity: 0.9;">Only generating AI-illustrated poster artwork uses a visual credit.</div>
       </div>
 
       <!-- Request More Credits Section -->
