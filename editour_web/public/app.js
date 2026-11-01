@@ -8212,6 +8212,159 @@ function buildPostSourceActionButtonHtml(post, index, pubName, cleanHost) {
   `;
 }
 
+const openInlineSourceDrawerIndices = new Set();
+let inlineSourceFeedScrollListenerAttached = false;
+let inlineSourceScrollRafPending = false;
+let lastInlineSummaryScrollTs = 0;
+let isTouchInsideInlineSummary = false;
+let inlineSummaryTouchEndTimer = null;
+
+function closeInlineSourceDrawer(index, options = {}) {
+  const drawer = document.getElementById(`inline-source-drawer-${index}`);
+  const btn = document.getElementById(`source-btn-${index}`);
+  openInlineSourceDrawerIndices.delete(String(index));
+  if (openInlineSourceDrawerIndices.size === 0) {
+    teardownInlineSourceFeedScrollListener();
+  }
+  if (btn) btn.classList.remove('is-open');
+  if (!drawer) return;
+
+  if (drawer._collapseTimer) {
+    clearTimeout(drawer._collapseTimer);
+    drawer._collapseTimer = null;
+  }
+
+  if (options.smooth) {
+    drawer.classList.add('is-collapsing');
+    drawer.classList.remove('is-open');
+    drawer._collapseTimer = setTimeout(() => {
+      drawer._collapseTimer = null;
+      drawer.classList.remove('is-collapsing');
+      drawer.style.display = 'none';
+      drawer.innerHTML = '';
+    }, 220);
+  } else {
+    drawer.classList.remove('is-open', 'is-collapsing');
+    drawer.style.display = 'none';
+    drawer.innerHTML = '';
+  }
+}
+
+function _onFeedScrollForInlineSourceDrawers() {
+  if (inlineSourceScrollRafPending || openInlineSourceDrawerIndices.size === 0) return;
+  inlineSourceScrollRafPending = true;
+  requestAnimationFrame(() => {
+    inlineSourceScrollRafPending = false;
+    if (openInlineSourceDrawerIndices.size === 0) return;
+
+    const now = performance.now();
+    const currentY = window.scrollY || window.pageYOffset || 0;
+
+    // If user is actively scrolling or touching inside the summary scroll container, update anchors and do not hide
+    if (isTouchInsideInlineSummary || (now - lastInlineSummaryScrollTs < 280)) {
+      openInlineSourceDrawerIndices.forEach(idx => {
+        const d = document.getElementById(`inline-source-drawer-${idx}`);
+        if (d) {
+          d._anchorScrollY = currentY;
+          d._maxScrollY = currentY;
+        }
+      });
+      return;
+    }
+
+    const toClose = [];
+    openInlineSourceDrawerIndices.forEach(idx => {
+      const drawer = document.getElementById(`inline-source-drawer-${idx}`);
+      if (!drawer || !drawer.classList.contains('is-open')) {
+        toClose.push(idx);
+        return;
+      }
+      if (drawer._ignoreScrollUntil && now < drawer._ignoreScrollUntil) {
+        drawer._anchorScrollY = currentY;
+        drawer._maxScrollY = currentY;
+        return;
+      }
+
+      if (typeof drawer._anchorScrollY !== 'number') drawer._anchorScrollY = currentY;
+      if (typeof drawer._maxScrollY !== 'number') drawer._maxScrollY = currentY;
+
+      // Track highest scrollY reached while drawer is visible
+      if (currentY > drawer._maxScrollY) {
+        // Check if user is just scrolling down slightly to bring a bottom-clipped drawer onto screen
+        if (!drawer._fullyRevealedOnce) {
+          const rect = drawer.getBoundingClientRect();
+          if (rect.bottom > window.innerHeight - 16) {
+            drawer._anchorScrollY = currentY;
+            drawer._maxScrollY = currentY;
+            return;
+          }
+          drawer._fullyRevealedOnce = true;
+          drawer._anchorScrollY = currentY;
+        }
+        drawer._maxScrollY = currentY;
+      }
+
+      const scrolledUpPageDelta = drawer._maxScrollY - currentY; // > 0 when scrolling up toward top of feed
+      const swipedUpFeedDelta = currentY - drawer._anchorScrollY; // > 0 when swiping up on feed (scrolling down to next post)
+
+      if (scrolledUpPageDelta > 28 || swipedUpFeedDelta > 42) {
+        toClose.push(idx);
+      }
+    });
+
+    for (let i = 0; i < toClose.length; i++) {
+      closeInlineSourceDrawer(toClose[i], { smooth: true });
+    }
+  });
+}
+
+function ensureInlineSourceFeedScrollListener() {
+  if (inlineSourceFeedScrollListenerAttached) return;
+  inlineSourceFeedScrollListenerAttached = true;
+  window.addEventListener('scroll', _onFeedScrollForInlineSourceDrawers, { passive: true });
+}
+
+function teardownInlineSourceFeedScrollListener() {
+  if (!inlineSourceFeedScrollListenerAttached) return;
+  inlineSourceFeedScrollListenerAttached = false;
+  window.removeEventListener('scroll', _onFeedScrollForInlineSourceDrawers);
+}
+
+function attachInlineSummaryScrollGuard(drawerEl, summaryEl) {
+  if (summaryEl) {
+    summaryEl.addEventListener('scroll', () => {
+      lastInlineSummaryScrollTs = performance.now();
+    }, { passive: true });
+    summaryEl.addEventListener('wheel', () => {
+      lastInlineSummaryScrollTs = performance.now();
+    }, { passive: true });
+  }
+  const guardTarget = drawerEl || summaryEl;
+  if (guardTarget) {
+    guardTarget.addEventListener('touchstart', () => {
+      if (inlineSummaryTouchEndTimer) {
+        clearTimeout(inlineSummaryTouchEndTimer);
+        inlineSummaryTouchEndTimer = null;
+      }
+      isTouchInsideInlineSummary = true;
+      lastInlineSummaryScrollTs = performance.now();
+    }, { passive: true });
+    guardTarget.addEventListener('touchmove', () => {
+      isTouchInsideInlineSummary = true;
+      lastInlineSummaryScrollTs = performance.now();
+    }, { passive: true });
+    const onTouchEnd = () => {
+      lastInlineSummaryScrollTs = performance.now();
+      if (inlineSummaryTouchEndTimer) clearTimeout(inlineSummaryTouchEndTimer);
+      inlineSummaryTouchEndTimer = setTimeout(() => {
+        isTouchInsideInlineSummary = false;
+      }, 180);
+    };
+    guardTarget.addEventListener('touchend', onTouchEnd, { passive: true });
+    guardTarget.addEventListener('touchcancel', onTouchEnd, { passive: true });
+  }
+}
+
 function toggleInlineSourceDrawer(event, index) {
   if (event) {
     event.stopPropagation();
@@ -8231,13 +8384,14 @@ function toggleInlineSourceDrawer(event, index) {
     return;
   }
 
+  if (drawer._collapseTimer) {
+    clearTimeout(drawer._collapseTimer);
+    drawer._collapseTimer = null;
+  }
+
   const isOpen = drawer.style.display !== 'none' && drawer.classList.contains('is-open');
   if (isOpen) {
-    drawer.classList.remove('is-open');
-    drawer.style.display = 'none';
-    // Clear iframe to stop video playback when collapsed
-    drawer.innerHTML = '';
-    if (btn) btn.classList.remove('is-open');
+    closeInlineSourceDrawer(index, { smooth: false });
     return;
   }
 
@@ -8319,9 +8473,23 @@ function toggleInlineSourceDrawer(event, index) {
     </div>
   `;
 
+  drawer.classList.remove('is-collapsing');
   drawer.style.display = 'block';
   drawer.classList.add('is-open');
   if (btn) btn.classList.add('is-open');
+
+  const summaryBoxEl = document.getElementById(`inline-source-summary-${index}`);
+  attachInlineSummaryScrollGuard(drawer, summaryBoxEl);
+
+  const curY = window.scrollY || window.pageYOffset || 0;
+  drawer._anchorScrollY = curY;
+  drawer._maxScrollY = curY;
+  drawer._ignoreScrollUntil = performance.now() + 260;
+  const rect = drawer.getBoundingClientRect();
+  drawer._fullyRevealedOnce = rect.bottom <= (window.innerHeight - 16);
+
+  openInlineSourceDrawerIndices.add(String(index));
+  ensureInlineSourceFeedScrollListener();
 
   // Asynchronous on-demand ledger fetch if missing
   if (!ledger && rawLink && !post._isFetchingLedger) {

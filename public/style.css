@@ -848,7 +848,18 @@ header {
 /* Inline Collapsible Source Drawer inside Feed Card */
 .inline-source-drawer {
   padding: 0 14px 10px 14px;
+  max-height: 520px;
+  opacity: 1;
+  overflow: hidden;
+  transition: max-height 0.22s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.18s ease, padding 0.22s ease;
   animation: fadeInPrompt 0.2s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.inline-source-drawer.is-collapsing {
+  max-height: 0 !important;
+  opacity: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  pointer-events: none !important;
 }
 .inline-source-drawer-inner {
   border-radius: 12px;
@@ -956,6 +967,8 @@ header {
 .inline-source-scroll-summary {
   max-height: 185px;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
   padding-right: 4px;
   display: flex;
   flex-direction: column;
