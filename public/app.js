@@ -15161,9 +15161,10 @@ function renderFamilyApprovalNotificationsUI() {
   }
 
   const buildItemsHtml = () => pending.map(req => {
-    const reqName = escapeHtml(req.requesterName || req.requesterHandle || req.requesterEmail || 'A Slant member');
-    const reqHandle = req.requesterHandle ? ` (${escapeHtml(req.requesterHandle)})` : '';
-    const relLabel = escapeHtml(req.targetRoleLabel || req.relationshipToRequester || 'Family Member');
+    const reqName = escapeHtml(req.requesterName || req.fromName || req.requesterHandle || req.fromHandle || req.requesterEmail || req.fromEmail || 'A Slant member');
+    const rawHandle = req.requesterHandle || req.fromHandle || '';
+    const reqHandle = rawHandle ? ` (${escapeHtml(rawHandle)})` : '';
+    const relLabel = escapeHtml(req.targetRoleLabel || req.relationLabel || req.relationshipToRequester || req.relationship || 'Family Member');
     const safeId = escapeHtml(req.id || '');
     return `
       <div class="family-notif-item">
@@ -15233,25 +15234,30 @@ async function searchSlantUsersForFamilyVault(query = '') {
 
   resultsEl.innerHTML = '<div style="font-size:11.5px; color:#94A3B8; padding:6px 4px;">Searching Slant directory...</div>';
   try {
+    const viewerEmail = currentUser.email.trim().toLowerCase();
     const resp = await fetch('/api/synthesize', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         action: 'search_slant_users',
         query: String(query || '').trim(),
-        viewerEmail: currentUser.email.trim().toLowerCase()
+        viewerEmail,
+        requesterEmail: viewerEmail
       })
     });
     if (!resp.ok) throw new Error('Search request failed');
     const data = await resp.json();
     const users = Array.isArray(data?.users) ? data.users : [];
     if (users.length === 0) {
-      resultsEl.innerHTML = '<div style="font-size:11.5px; color:#94A3B8; padding:6px 4px;">No matching Slant users found. Try typing their name, @handle, or email.</div>';
+      resultsEl.innerHTML = '<div style="font-size:11.5px; color:#94A3B8; padding:6px 4px;">No matching Slant users found. Try typing their name, @handle, or full Gmail address.</div>';
       return;
     }
 
-    const outgoingSet = new Set((window._familyVaultPendingOutgoing || []).map(r => String(r.targetEmail || '').toLowerCase()));
-    const approvedSet = new Set((window._familyVaultApprovedLinks || []).flatMap(r => [String(r.requesterEmail || '').toLowerCase(), String(r.targetEmail || '').toLowerCase()]));
+    const outgoingSet = new Set((window._familyVaultPendingOutgoing || []).map(r => String(r.targetEmail || r.toEmail || '').toLowerCase()));
+    const approvedSet = new Set((window._familyVaultApprovedLinks || []).flatMap(r => [
+      String(r.requesterEmail || r.fromEmail || '').toLowerCase(),
+      String(r.targetEmail || r.toEmail || '').toLowerCase()
+    ]));
 
     resultsEl.innerHTML = users.map(u => {
       const email = String(u.email || '').trim().toLowerCase();
@@ -15296,7 +15302,8 @@ async function sendFamilyVaultLinkRequest(targetEmail, targetName, targetHandle)
   const selfMember = (familyCastProfileCache && Array.isArray(familyCastProfileCache.members))
     ? familyCastProfileCache.members.find(m => m && (m.relationship === 'self' || m.id === 'member_father'))
     : null;
-  const requesterName = (selfMember && selfMember.name) || currentUser.displayName || currentUser.name || currentUser.email.split('@')[0];
+  const requesterEmail = currentUser.email.trim().toLowerCase();
+  const requesterName = (selfMember && selfMember.name) || currentUser.displayName || currentUser.name || requesterEmail.split('@')[0];
   const requesterHandle = currentUser.handle || ('@' + String(requesterName).replace(/\s+/g, ''));
 
   try {
@@ -15305,13 +15312,20 @@ async function sendFamilyVaultLinkRequest(targetEmail, targetName, targetHandle)
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         action: 'send_family_vault_request',
-        requesterEmail: currentUser.email.trim().toLowerCase(),
+        fromEmail: requesterEmail,
+        requesterEmail,
+        fromName: requesterName,
         requesterName,
+        fromHandle: requesterHandle,
         requesterHandle,
+        toEmail: targetEmail,
         targetEmail,
+        toName: targetName,
         targetName,
+        toHandle: targetHandle,
         targetHandle,
         relationship: relationship || 'family',
+        relationLabel: roleLabel || relationship || 'Family Member',
         roleLabel: roleLabel || relationship || 'Family Member'
       })
     });
@@ -15319,6 +15333,10 @@ async function sendFamilyVaultLinkRequest(targetEmail, targetName, targetHandle)
     if (data && data.success) {
       showTemporaryToast(`✓ Sent Family Vault request to ${targetName || targetEmail} (${roleLabel})!`);
       await loadFamilyCastProfile(true);
+      try {
+        renderVaultMemberTabs();
+        renderActiveMemberScreen();
+      } catch (_) {}
       const q = document.getElementById('vaultSlantUserSearchInput')?.value || '';
       searchSlantUsersForFamilyVault(q);
     } else {
@@ -15331,6 +15349,7 @@ async function sendFamilyVaultLinkRequest(targetEmail, targetName, targetHandle)
 
 async function respondToFamilyVaultRequest(requestId, decision) {
   if (!currentUser || !currentUser.email || !requestId) return;
+  const responderEmail = currentUser.email.trim().toLowerCase();
   try {
     const resp = await fetch('/api/synthesize', {
       method: 'POST',
@@ -15338,7 +15357,8 @@ async function respondToFamilyVaultRequest(requestId, decision) {
       body: JSON.stringify({
         action: 'respond_family_vault_request',
         requestId,
-        responderEmail: currentUser.email.trim().toLowerCase(),
+        userIdentifier: responderEmail,
+        responderEmail,
         decision
       })
     });
@@ -15350,6 +15370,10 @@ async function respondToFamilyVaultRequest(requestId, decision) {
           : 'Family Vault request declined.'
       );
       await loadFamilyCastProfile(true);
+      try {
+        renderVaultMemberTabs();
+        renderActiveMemberScreen();
+      } catch (_) {}
     } else {
       showTemporaryToast(data?.error || 'Could not process family request response.');
     }

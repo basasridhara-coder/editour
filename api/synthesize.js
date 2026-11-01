@@ -1218,37 +1218,59 @@ STRICT RULES:
 
     // Endpoint: Search Slant Users Database to Add as Family Member
     if (body && body.action === 'search_slant_users') {
-      const { query = '', requesterEmail = '' } = body;
-      const cleanReq = String(requesterEmail || '').trim().toLowerCase();
+      const { query = '', requesterEmail = '', viewerEmail = '' } = body;
+      const cleanReq = String(requesterEmail || viewerEmail || '').trim().toLowerCase();
       const q = String(query || '').trim().toLowerCase();
 
       try {
-        const [dirDoc, wlDoc, recentPostsResp] = await Promise.all([
+        const [dirDoc, wlDoc, recentPostsResp, castDocsResp] = await Promise.all([
           getSystemDoc('system_user_directory', { users: {} }),
           getSystemDoc('system_beta_whitelist', { allowed_emails: [], access_logs: [] }),
           fetch(`${SUPABASE_URL}/rest/v1/posts?select=data->userEmail,data->creatorHandle,data->authorName&id=like.slant*&order=created_at.desc&limit=150`, {
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+          }).catch(() => null),
+          fetch(`${SUPABASE_URL}/rest/v1/posts?select=id,data&id=like.family_cast_*&limit=100`, {
             headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
           }).catch(() => null)
         ]);
 
         const usersMap = new Map();
-        const upsertCandidate = (email, name, handle, avatarUrl) => {
+        const upsertCandidate = (email, name, handle, avatarUrl, hasVaultSelf = false) => {
           const em = String(email || '').trim().toLowerCase();
           if (!em || !em.includes('@') || em === cleanReq) return;
-          const prev = usersMap.get(em) || { email: em, name: '', handle: '', avatarUrl: '' };
+          const prev = usersMap.get(em) || { email: em, name: '', handle: '', avatarUrl: '', hasVaultSelf: false };
           const fallbackName = em.split('@')[0].replace(/[._-]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
           usersMap.set(em, {
             email: em,
             name: String(name || prev.name || fallbackName).trim(),
             handle: String(handle || prev.handle || ('@' + em.split('@')[0])).trim(),
-            avatarUrl: String(avatarUrl || prev.avatarUrl || '').trim()
+            avatarUrl: String(avatarUrl || prev.avatarUrl || '').trim(),
+            hasVaultSelf: Boolean(hasVaultSelf || prev.hasVaultSelf)
           });
         };
 
         if (dirDoc && dirDoc.users && typeof dirDoc.users === 'object') {
           Object.values(dirDoc.users).forEach(u => {
-            if (u && u.email) upsertCandidate(u.email, u.name, u.handle, u.avatarUrl);
+            if (u && u.email) upsertCandidate(u.email, u.name, u.handle, u.avatarUrl, true);
           });
+        }
+        if (castDocsResp && castDocsResp.ok) {
+          const castRows = await castDocsResp.json();
+          if (Array.isArray(castRows)) {
+            castRows.forEach(row => {
+              const d = row && row.data;
+              if (d && d.userIdentifier && String(d.userIdentifier).includes('@')) {
+                const selfM = Array.isArray(d.members) ? d.members.find(m => m && m.relationship === 'self') : null;
+                upsertCandidate(
+                  d.userIdentifier,
+                  (selfM && selfM.name) || '',
+                  '',
+                  (selfM && selfM.stylizedAvatarUrl) || '',
+                  Boolean(selfM && selfM.name)
+                );
+              }
+            });
+          }
         }
         if (wlDoc) {
           if (Array.isArray(wlDoc.allowed_emails)) {
@@ -1280,6 +1302,17 @@ STRICT RULES:
             u.name.toLowerCase().includes(q) ||
             u.handle.toLowerCase().includes(q)
           );
+          // If the user typed a full email address (e.g. their spouse's Gmail) that isn't in results yet, offer it directly
+          if (q.includes('@') && q.includes('.') && q !== cleanReq && !results.some(u => u.email.toLowerCase() === q)) {
+            const guessedName = q.split('@')[0].replace(/[._-]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+            results.unshift({
+              email: q,
+              name: guessedName,
+              handle: '@' + q.split('@')[0],
+              avatarUrl: '',
+              hasVaultSelf: false
+            });
+          }
         }
         return res.status(200).json({
           success: true,
@@ -1292,21 +1325,19 @@ STRICT RULES:
 
     // Endpoint: Send Family Vault Link & Reference Approval Notification to Another Slant User
     if (body && body.action === 'send_family_vault_request') {
-      const {
-        fromEmail = '',
-        fromName = '',
-        fromHandle = '',
-        toEmail = '',
-        toName = '',
-        toHandle = '',
-        relationship = 'spouse',
-        relationLabel = ''
-      } = body;
+      const fromEmail = body.fromEmail || body.requesterEmail || '';
+      const fromName = body.fromName || body.requesterName || '';
+      const fromHandle = body.fromHandle || body.requesterHandle || '';
+      const toEmail = body.toEmail || body.targetEmail || '';
+      const toName = body.toName || body.targetName || '';
+      const toHandle = body.toHandle || body.targetHandle || '';
+      const relationship = body.relationship || 'spouse';
+      const relationLabel = body.relationLabel || body.roleLabel || '';
 
       const cleanFrom = String(fromEmail || '').trim().toLowerCase();
       const cleanTo = String(toEmail || '').trim().toLowerCase();
       if (!cleanFrom || !cleanFrom.includes('@') || !cleanTo || !cleanTo.includes('@')) {
-        return res.status(400).json({ success: false, error: 'Valid sender and recipient Slant emails are required.' });
+        return res.status(400).json({ success: false, error: 'Valid sender and recipient Gmail/Slant emails are required.' });
       }
       if (cleanFrom === cleanTo) {
         return res.status(400).json({ success: false, error: 'You cannot send a family link request to your own email.' });
@@ -1319,23 +1350,34 @@ STRICT RULES:
         // Check if an active or pending request already exists between these two users
         let existingReq = linksDoc.requests.find(r =>
           r && (
-            (String(r.fromEmail || '').toLowerCase() === cleanFrom && String(r.toEmail || '').toLowerCase() === cleanTo) ||
-            (String(r.fromEmail || '').toLowerCase() === cleanTo && String(r.toEmail || '').toLowerCase() === cleanFrom)
+            (String(r.fromEmail || r.requesterEmail || '').toLowerCase() === cleanFrom && String(r.toEmail || r.targetEmail || '').toLowerCase() === cleanTo) ||
+            (String(r.fromEmail || r.requesterEmail || '').toLowerCase() === cleanTo && String(r.toEmail || r.targetEmail || '').toLowerCase() === cleanFrom)
           )
         );
 
         const resolvedLabel = relationLabel || getRelationDisplayLabel(relationship);
         const invRel = getInverseFamilyRelation(relationship);
+        const senderName = fromName || cleanFrom.split('@')[0];
+        const senderHandle = fromHandle || ('@' + cleanFrom.split('@')[0]);
+        const recipientName = toName || cleanTo.split('@')[0];
+        const recipientHandle = toHandle || ('@' + cleanTo.split('@')[0]);
 
         if (existingReq) {
           existingReq.fromEmail = cleanFrom;
-          existingReq.fromName = fromName || cleanFrom.split('@')[0];
-          existingReq.fromHandle = fromHandle || ('@' + cleanFrom.split('@')[0]);
+          existingReq.requesterEmail = cleanFrom;
+          existingReq.fromName = senderName;
+          existingReq.requesterName = senderName;
+          existingReq.fromHandle = senderHandle;
+          existingReq.requesterHandle = senderHandle;
           existingReq.toEmail = cleanTo;
-          existingReq.toName = toName || cleanTo.split('@')[0];
-          existingReq.toHandle = toHandle || ('@' + cleanTo.split('@')[0]);
+          existingReq.targetEmail = cleanTo;
+          existingReq.toName = recipientName;
+          existingReq.targetName = recipientName;
+          existingReq.toHandle = recipientHandle;
+          existingReq.targetHandle = recipientHandle;
           existingReq.relationship = relationship;
           existingReq.relationLabel = resolvedLabel;
+          existingReq.targetRoleLabel = resolvedLabel;
           existingReq.inverseRelationship = invRel;
           if (existingReq.status === 'declined') {
             existingReq.status = 'pending';
@@ -1345,13 +1387,20 @@ STRICT RULES:
           existingReq = {
             id: 'famreq_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
             fromEmail: cleanFrom,
-            fromName: fromName || cleanFrom.split('@')[0],
-            fromHandle: fromHandle || ('@' + cleanFrom.split('@')[0]),
+            requesterEmail: cleanFrom,
+            fromName: senderName,
+            requesterName: senderName,
+            fromHandle: senderHandle,
+            requesterHandle: senderHandle,
             toEmail: cleanTo,
-            toName: toName || cleanTo.split('@')[0],
-            toHandle: toHandle || ('@' + cleanTo.split('@')[0]),
+            targetEmail: cleanTo,
+            toName: recipientName,
+            targetName: recipientName,
+            toHandle: recipientHandle,
+            targetHandle: recipientHandle,
             relationship,
             relationLabel: resolvedLabel,
+            targetRoleLabel: resolvedLabel,
             inverseRelationship: invRel,
             status: 'pending',
             createdAt: new Date().toISOString(),
@@ -1374,7 +1423,8 @@ STRICT RULES:
 
     // Endpoint: Approve or Decline an Incoming Family Vault Link & Reference Usage Request
     if (body && body.action === 'respond_family_vault_request') {
-      const { userIdentifier = '', requestId = '', decision = 'approve' } = body;
+      const userIdentifier = body.userIdentifier || body.responderEmail || '';
+      const { requestId = '', decision = 'approve' } = body;
       const cleanUser = String(userIdentifier || '').trim().toLowerCase();
       if (!cleanUser || !cleanUser.includes('@') || !requestId) {
         return res.status(400).json({ success: false, error: 'Valid user and request ID required.' });
@@ -1384,7 +1434,7 @@ STRICT RULES:
         const linksDoc = await getSystemDoc('system_family_vault_links', { requests: [] });
         if (!Array.isArray(linksDoc.requests)) linksDoc.requests = [];
 
-        const reqObj = linksDoc.requests.find(r => r && r.id === requestId && String(r.toEmail || '').toLowerCase() === cleanUser);
+        const reqObj = linksDoc.requests.find(r => r && r.id === requestId && String(r.toEmail || r.targetEmail || '').toLowerCase() === cleanUser);
         if (!reqObj) {
           return res.status(404).json({ success: false, error: 'Family request not found.' });
         }
