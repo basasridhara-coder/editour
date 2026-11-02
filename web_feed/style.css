@@ -7167,6 +7167,7 @@ header {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .polish-vs-title-row {
@@ -7174,6 +7175,7 @@ header {
   align-items: center;
   gap: 6px;
   min-width: 0;
+  flex-shrink: 0;
 }
 
 .polish-vs-icon {
