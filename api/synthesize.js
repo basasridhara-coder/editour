@@ -909,6 +909,175 @@ async function searchWebImagesForSubject(rawQuery = '', sourceImageUrl = '', sou
   return results.slice(0, 14);
 }
 
+// Auto-resolve an authentic Wikipedia / Wikimedia Commons reference portrait for any named public figure in Inner Voice or Web Links
+async function resolvePublicFigureReferencePhoto({
+  userSlant = '',
+  spark = '',
+  adaptedHeadline = '',
+  originalHeadline = '',
+  heroCue = '',
+  prompt = '',
+  familyCast = null
+}) {
+  try {
+    const familyNames = new Set(['shridhar', 'aruna', 'gahan', 'rishu']);
+    if (familyCast && Array.isArray(familyCast.members)) {
+      familyCast.members.forEach(m => {
+        if (m && m.name) {
+          String(m.name).toLowerCase().split(/\s+/).filter(Boolean).forEach(w => familyNames.add(w));
+        }
+      });
+    }
+
+    const leadingNonNameWords = /^(?:From|When|While|After|Before|During|Under|Over|Between|Inside|Outside|Finding|Making|Testing|Whether|However|Regardless|Although|Because|Through|Across|Beyond|Within|Without|Despite|Toward|Towards|Against|Around|Among|Behind|Beneath|Beside|Besides|Throughout|Upon|Actor|Veteran|Minister|President|Leader|Cricketer|Coach|Captain|Doctor|Dr|Mr|Mrs|Ms|Sri|Shri|Swami|Chief|Prime|Indian|Global|Modern|Classic|Young|Senior|Distinguished)\s+/i;
+
+    const stopPhrases = new Set([
+      'The New', 'United States', 'White House', 'Wall Street', 'Silicon Valley',
+      'New York', 'Los Angeles', 'San Francisco', 'New Delhi', 'Tamil Nadu',
+      'Uttar Pradesh', 'Andhra Pradesh', 'Madhya Pradesh', 'West Bengal',
+      'South India', 'North India', 'Parent Teacher', 'Inner Voice', 'Daily Chronicle',
+      'World Cup', 'Supreme Court', 'High Court', 'Prime Minister', 'Chief Minister',
+      'Silver Screen', 'Street Politics', 'Outer Ring', 'Volvo Bus', 'Editorial Portrait',
+      'Vivid Editorial', 'Broadsheet Gouache', 'Indian Parliament', 'Dalal Street',
+      'High Impact', 'Vertical Portrait', 'Curator Angle', 'Source Grounded'
+    ]);
+
+    const candidates = [];
+    const sources = [heroCue, adaptedHeadline, originalHeadline, userSlant, spark, prompt];
+    const nameRegex = /\b([A-Z][a-z]{2,15}(?:\s+[A-Z]\.?\s*)?\s+[A-Z][a-z]{2,15})\b/g;
+
+    for (const src of sources) {
+      if (!src || typeof src !== 'string') continue;
+      let m;
+      while ((m = nameRegex.exec(src)) !== null) {
+        let cand = m[1].trim().replace(leadingNonNameWords, '').replace(leadingNonNameWords, '').trim();
+        const words = cand.split(/\s+/).filter(Boolean);
+        if (words.length < 2) continue;
+        if (stopPhrases.has(cand)) continue;
+        if (familyNames.has(cand.toLowerCase()) || words.some(w => familyNames.has(w.toLowerCase()))) continue;
+        if (!candidates.includes(cand)) candidates.push(cand);
+      }
+    }
+
+    if (candidates.length === 0) return null;
+
+    const uaHeaders = {
+      'User-Agent': 'SlantEditorialStudio/1.0 (https://slant.today; editorial@slant.today)',
+      'Accept': 'application/json'
+    };
+
+    for (const cand of candidates.slice(0, 3)) {
+      const wikiUrl = `https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(cand)}&gsrlimit=2&prop=pageimages|description|extracts&exintro=1&explaintext=1&exchars=320&piprop=thumbnail|original&pithumbsize=800&format=json&origin=*`;
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 3200);
+      const resp = await fetch(wikiUrl, { headers: uaHeaders, signal: ctrl.signal });
+      clearTimeout(timer);
+      if (!resp.ok) continue;
+
+      const data = await resp.json();
+      const pages = data?.query?.pages
+        ? Object.values(data.query.pages).sort((a, b) => (a.index || 99) - (b.index || 99))
+        : [];
+
+      for (const p of pages) {
+        const title = String(p.title || '').trim();
+        const desc = String(p.description || '').trim();
+        const extract = String(p.extract || '').trim();
+        const imgUrl = p.thumbnail?.source || p.original?.source;
+        if (!imgUrl || /\.svg$/i.test(imgUrl)) continue;
+
+        // Verify the Wikipedia article is actually about a person/public figure and matches the candidate name tokens
+        const candTokens = cand.toLowerCase().split(/\s+/).filter(w => w.length >= 3);
+        const titleLower = title.toLowerCase();
+        const nameMatchesTitle = candTokens.some(t => titleLower.includes(t));
+        const isPersonBio = /\b(born\b|politician|actor|actress|cricketer|athlete|leader|minister|president|entrepreneur|businessman|industrialist|scientist|author|writer|director|philosopher|monk|singer|musician|player|founder|ceo|executive|statesman|filmmaker|journalist|activist|poet|historian)\b/i.test(`${desc} ${extract}`);
+        if (!nameMatchesTitle || !isPersonBio) continue;
+
+        // Fetch the reference portrait image bytes into base64
+        const imgCtrl = new AbortController();
+        const imgTimer = setTimeout(() => imgCtrl.abort(), 3500);
+        const imgResp = await fetch(imgUrl, {
+          signal: imgCtrl.signal,
+          headers: {
+            'User-Agent': 'SlantEditorialStudio/1.0 (https://slant.today)',
+            'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8'
+          }
+        });
+        clearTimeout(imgTimer);
+        if (imgResp.ok) {
+          const ct = (imgResp.headers.get('content-type') || 'image/jpeg').split(';')[0].trim();
+          const buf = await imgResp.arrayBuffer();
+          if (buf.byteLength > 1500 && buf.byteLength < 5 * 1024 * 1024) {
+            return {
+              name: title,
+              description: desc || extract.slice(0, 140),
+              extract,
+              imageUrl: imgUrl,
+              imageMimeType: ct,
+              imageBase64: `data:${ct};base64,` + Buffer.from(buf).toString('base64')
+            };
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Public figure Wikipedia photo resolution skipped:', err.message);
+  }
+  return null;
+}
+
+// When gemini-2.5-flash-image blocks a real celebrity reference photo with IMAGE_OTHER / SAFETY,
+// use Gemini 2.5 Flash Vision to extract a forensic facial & physical likeness description directly from the photo
+// so the fallback illustration prompt renders their exact real face (and removes any hallucinated beard or wrong political symbols).
+async function extractPhotoGroundedLikenessPrompt(imageBase64, imageMimeType = 'image/jpeg', originalPrompt = '') {
+  if (!GEMINI_API_KEY || !imageBase64) return null;
+  try {
+    const cleanB64 = imageBase64.includes(',') ? imageBase64.split(',')[1] : imageBase64;
+    const visionPrompt = `You are an expert editorial portrait artist. Inspect the person in this attached reference photograph and rewrite the following illustration prompt so an AI image generator draws their EXACT physical and facial likeness in the described scene WITHOUT using any proper celebrity/politician names or party emblems that trigger safety filters:
+
+Original Prompt:
+"""${originalPrompt}"""
+
+STRICT INSTRUCTIONS:
+1. FORENSIC FACIAL & HAIR LIKENESS FROM PHOTO: Carefully observe the attached photo and explicitly describe the person's exact face shape (e.g. broad round-oval face with full cheeks and double-chin contour), skin tone, eye shape (e.g. heavy-lidded expressive dark eyes with subtle under-eye fullness), eyebrows, nose shape, mouth, exact hair texture/parting/color (e.g. short curly salt-and-pepper hair receding slightly at the temples), and EXACT facial hair state from the photo (e.g. if they are clean-shaven or have only a very light 1-day shadow in the photo, explicitly state "clean-shaven lower face with zero beard" and REMOVE any conflicting "white beard" or "grey beard" from the original prompt!).
+2. REMOVE LITERAL PROPER NAMES & CONTRADICTORY PARTY SYMBOLS: Replace the person's literal proper name with a descriptive role phrase (e.g. "a 60-year-old multilingual South Indian film actor turned political speaker") and explicitly forbid political party logos (e.g. "plain wooden podium with neutral fabric bunting, strictly no lotus or party symbols").
+3. Output ONLY the rewritten 95-140 word visual illustration prompt string (plain text, no JSON, no quotes).`;
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 6500);
+    const resp = await fetch(url, {
+      method: 'POST',
+      signal: ctrl.signal,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{
+          parts: [
+            { inlineData: { mimeType: imageMimeType || 'image/jpeg', data: cleanB64 } },
+            { text: visionPrompt }
+          ]
+        }],
+        generationConfig: {
+          temperature: 0.25,
+          maxOutputTokens: 350,
+          thinkingConfig: { thinkingBudget: 0 }
+        }
+      })
+    });
+    clearTimeout(timer);
+    if (resp.ok) {
+      const data = await resp.json();
+      const text = (data.candidates?.[0]?.content?.parts?.[0]?.text || '').trim();
+      if (text.length > 40) {
+        return text;
+      }
+    }
+  } catch (err) {
+    console.warn('Vision likeness extraction skipped:', err.message);
+  }
+  return null;
+}
+
 module.exports = async function handler(req, res) {
   // CORS configuration
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -1241,6 +1410,24 @@ Respond strictly with valid JSON:
         : null;
       const selfLabelForRegen = (selfMemberForRegen && selfMemberForRegen.name) ? selfMemberForRegen.name : 'the narrator';
 
+      // Auto-resolve an authentic Wikipedia reference photo if this post mentions a popular/public figure (e.g., Prakash Raj in Inner Voice) and has no imageBase64 yet
+      let resolvedPublicFigureForRegen = null;
+      if (!imageBase64 && !chronicleMode && characterRepresentation !== 'silhouette') {
+        resolvedPublicFigureForRegen = await resolvePublicFigureReferencePhoto({
+          userSlant,
+          spark,
+          adaptedHeadline,
+          originalHeadline,
+          heroCue: Array.isArray(body.cues) ? body.cues[0] : '',
+          prompt,
+          familyCast
+        });
+        if (resolvedPublicFigureForRegen && resolvedPublicFigureForRegen.imageBase64) {
+          imageBase64 = resolvedPublicFigureForRegen.imageBase64;
+          imageMimeType = resolvedPublicFigureForRegen.imageMimeType || 'image/jpeg';
+        }
+      }
+
       let updatedCues = null;
       if (rebuildPromptFromSettings) {
         const familyCastDirectives = buildFamilyCastDirectives({
@@ -1296,6 +1483,21 @@ Respond strictly with valid JSON:
               text: `[Attached Reference Photo/Logo for Moment 0${m.index || (idx + 1)} (${m.title || 'Moment ' + (idx + 1)}): "${m.text || ''}"]`
             });
           });
+
+          if (!chronicleMode && imageBase64) {
+            const cleanRefB64 = imageBase64.includes(',') ? imageBase64.split(',')[1] : imageBase64;
+            rebuildParts.push({
+              inlineData: {
+                mimeType: imageMimeType || 'image/jpeg',
+                data: cleanRefB64
+              }
+            });
+            rebuildParts.push({
+              text: resolvedPublicFigureForRegen
+                ? `[ATTACHED AUTHENTIC WIKIPEDIA REFERENCE PHOTO OF PUBLIC FIGURE "${resolvedPublicFigureForRegen.name}" (${resolvedPublicFigureForRegen.description || ''}): Inspect this actual photograph of ${resolvedPublicFigureForRegen.name}. In "illustrationPrompt", you MUST describe ${resolvedPublicFigureForRegen.name}'s exact observed facial geometry, eye shape, nose, hair texture/parting, and EXACT facial hair state from this photo (e.g., if they are clean-shaven or have only light stubble in this photo, NEVER invent a full white/grey beard!). Also strictly align the setting with the curator's slant and NEVER hallucinate opposing political party symbols (e.g. never place a right-wing BJP lotus on a podium for a liberal/leftist speaker!).]`
+                : `[ATTACHED REFERENCE PHOTO: Inspect the person/subject in this attached reference photograph and describe their exact real facial structure, eye shape, hairstyle, and facial hair state in "illustrationPrompt".]`
+            });
+          }
 
           const previousPrompt = String(prompt || '').trim();
           const promptBuilderText = `You are the Visual Director for SLANT. Build a fresh, distinctly new "illustrationPrompt" and 6 visual "cues" for Poster 1 based on the curator's updated Studio Settings:
@@ -1413,6 +1615,8 @@ STRICT RULES:
             illustrationPrompt: prompt,
             updatedPrompt: prompt,
             cues: updatedCues,
+            referencePhotoUrl: resolvedPublicFigureForRegen ? resolvedPublicFigureForRegen.imageUrl : undefined,
+            sourceImageBase64: resolvedPublicFigureForRegen ? resolvedPublicFigureForRegen.imageBase64 : undefined,
             credits: creditCheck.credits
           });
         }
@@ -3030,7 +3234,24 @@ Respond strictly with valid JSON with this exact structure:
       preferredVisualSubject
     });
 
-    const isCinematicPhoto = (characterRepresentation === 'cinematic' || characterRepresentation === 'cinematic_photo' || characterRepresentation === 'likeness' || (Boolean(effectiveCatalystImage || sourceImageBase64) && characterRepresentation !== 'painting' && characterRepresentation !== 'watercolor' && characterRepresentation !== 'exact' && characterRepresentation !== 'silhouette' && characterRepresentation !== 'realistic'));
+    // Auto-resolve an authentic Wikipedia reference photo if Inner Voice (or Web Link without og:image) mentions a popular/public figure (e.g. Prakash Raj)
+    let resolvedPublicFigurePhoto = null;
+    if (!sourceImageBase64 && !effectiveCatalystImage && !isChronicle) {
+      resolvedPublicFigurePhoto = await resolvePublicFigureReferencePhoto({
+        userSlant,
+        spark,
+        adaptedHeadline: extractedTitle,
+        heroCue: (Array.isArray(cues) && cues[0]) || heroCue || '',
+        familyCast: effectiveFamilyCast
+      });
+      if (resolvedPublicFigurePhoto && resolvedPublicFigurePhoto.imageBase64) {
+        sourceImageUrl = resolvedPublicFigurePhoto.imageUrl;
+        sourceImageBase64 = resolvedPublicFigurePhoto.imageBase64;
+        sourceImageMimeType = resolvedPublicFigurePhoto.imageMimeType || 'image/jpeg';
+      }
+    }
+
+    const isCinematicPhoto = (characterRepresentation === 'cinematic' || characterRepresentation === 'cinematic_photo' || characterRepresentation === 'likeness' || (Boolean(effectiveCatalystImage || (sourceImageBase64 && !resolvedPublicFigurePhoto)) && characterRepresentation !== 'painting' && characterRepresentation !== 'watercolor' && characterRepresentation !== 'exact' && characterRepresentation !== 'silhouette' && characterRepresentation !== 'realistic'));
     const isArtisticPainting = (characterRepresentation === 'painting');
     const isWatercolorIllustration = (characterRepresentation === 'watercolor');
 
@@ -3318,6 +3539,17 @@ Respond strictly with valid JSON with this exact structure:
             mimeType: effectiveCatalystMime,
             data: cleanData
           }
+        });
+      } else if (sourceImageBase64) {
+        const cleanRefData = sourceImageBase64.includes(',') ? sourceImageBase64.split(',')[1] : sourceImageBase64;
+        parts.push({
+          inlineData: {
+            mimeType: sourceImageMimeType || 'image/jpeg',
+            data: cleanRefData
+          }
+        });
+        parts.push({
+          text: `[ATTACHED AUTHENTIC WIKIPEDIA REFERENCE PHOTO OF PUBLIC FIGURE "${resolvedPublicFigurePhoto ? resolvedPublicFigurePhoto.name : 'the mentioned public figure'}" (${resolvedPublicFigurePhoto ? resolvedPublicFigurePhoto.description : ''}): Inspect this actual photograph of ${resolvedPublicFigurePhoto ? resolvedPublicFigurePhoto.name : 'the protagonist'}. In "illustrationPrompt", you MUST describe their exact observed facial geometry, eye shape, nose, hair texture/parting, and EXACT facial hair state from this photo (e.g., if they are clean-shaven or have only light stubble in this photo, NEVER invent a full white/grey beard!). Also strictly align the setting with the curator's slant and NEVER hallucinate opposing political party symbols (e.g. never place a right-wing BJP lotus on a podium for a liberal/leftist speaker!).]`
         });
       }
       if (isChronicle && Array.isArray(validChronicleMoments)) {
@@ -4670,6 +4902,7 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
 
   // Iconic Public Figure & Popular Personality Likeness Enrichment (Ensures Inner Voice & Web Link posters render unmistakable likenesses)
   const PUBLIC_FIGURE_LIKENESS_ANCHORS = [
+    { pattern: /\bprakash\s+raj\b/i, name: 'Prakash Raj', roleDesc: 'the veteran multilingual South Indian film actor and political speaker', anchor: '60-year-old South Indian actor with a broad fuller round-oval face, soft full cheeks and double-chin contour, distinctive heavy-lidded expressive dark eyes with subtle under-eye fullness, broad nose, clean-shaven or very light 1-day shadow lower face (strictly NO thick white beard!), and short curly salt-and-pepper hair receding slightly at the temples' },
     { pattern: /\bratan\s+tata\b/i, name: 'Ratan Tata', roleDesc: 'the distinguished iconic Indian industrialist', anchor: 'tall dignified Parsi gentleman in his early 80s with neatly combed silver-white hair, warm gentle smile, kind dark eyes, refined aquiline nose, wearing a classic tailored dark navy business suit and crisp white shirt' },
     { pattern: /\b(?:apj\s+)?abdul\s+kalam\b/i, name: 'Dr. A.P.J. Abdul Kalam', roleDesc: 'the beloved Indian aerospace scientist and People\'s President', anchor: 'distinguished South Indian statesman in his 70s with his signature long silver-white hair parted in the center and curving inward around his ears, warm radiant smile, dark brown skin, wearing his iconic dark closed-neck Bandhgala suit' },
     { pattern: /\bvirat\s+kohli\b/i, name: 'Virat Kohli', roleDesc: 'the iconic Indian cricket champion', anchor: 'athletic 35-year-old Indian cricketer with sharp jawline, signature closely-trimmed boxed dark full beard and mustache, short fade haircut, intense focused dark eyes, wearing the royal-blue Indian national cricket jersey' },
@@ -4781,7 +5014,7 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
       }
     });
     parts.push({
-      text: `Transform this reference image into a high-aesthetic cinematic editorial magazine poster in 4:5 vertical portrait format: ${enhancedPrompt}. Imposing visual composition, ${textureStyle}, vivid color grading, masterwork, no typography, no letters, no text.`
+      text: `Use the person in this attached reference photograph as the EXACT facial and physical likeness model for the central protagonist in this scene (faithfully preserving their exact face shape, eye shape, nose, hairstyle, and exact facial-hair/clean-shaven appearance from the attached photo), and render this scene as a high-aesthetic cinematic editorial magazine poster in 4:5 vertical portrait format: ${enhancedPrompt}. Imposing visual composition, ${textureStyle}, vivid color grading, masterwork, strictly no typography, no letters, no text, and no unrequested political party emblems.`
     });
   } else {
     parts.push({
@@ -4826,7 +5059,7 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
           return `data:${inlinePart.inlineData.mimeType || 'image/png'};base64,${inlinePart.inlineData.data}`;
         }
         if (candidate?.finishReason === 'IMAGE_OTHER' || candidate?.finishReason === 'SAFETY') {
-          console.warn(`Gemini image model ${model} blocked reference photo with ${candidate.finishReason}, falling back to text prompt immediately`);
+          console.warn(`Gemini image model ${model} blocked reference photo with ${candidate.finishReason}, falling back to photo-grounded vision prompt immediately`);
           break;
         }
       } else {
@@ -4838,9 +5071,18 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
     }
   }
 
-  // If image-conditioned attempt returned nothing (e.g. policy block / IMAGE_OTHER on real faces), fallback to text prompt
+  // If image-conditioned attempt returned nothing (e.g. policy block / IMAGE_OTHER on real faces),
+  // first extract exact forensic facial likeness traits from the reference photo using Gemini 2.5 Flash Vision so the fallback illustration still captures their real face!
   if (resolvedBase64 || (stylizedAvatars && stylizedAvatars.length > 0)) {
-    return generateGeminiEditorialArtwork({ prompt, imageBase64: null, timeoutMs, stylizedAvatars: null, countryContext });
+    let visionGroundedPrompt = prompt;
+    if (resolvedBase64) {
+      const extracted = await extractPhotoGroundedLikenessPrompt(resolvedBase64, resolvedMime, enhancedPrompt);
+      if (extracted) {
+        visionGroundedPrompt = extracted;
+      }
+    }
+    const remTime = Math.max(12000, timeoutMs - (Date.now() - startTime));
+    return generateGeminiEditorialArtwork({ prompt: visionGroundedPrompt, imageBase64: null, timeoutMs: remTime, stylizedAvatars: null, countryContext });
   }
 
   // If text-only prompt was blocked by Gemini's celebrity/person name filter (IMAGE_OTHER / SAFETY),

@@ -23572,8 +23572,10 @@ async function startAiSynthesis() {
               preferredVisualProjection: m.preferredVisualProjection || null
             })),
             chronicleMomentImages: chronicleMomentImages,
-            imageBase64: (creatorSelectedSource === 'inner_voice' && innerVoicePhotoBase64 && shouldSendImage)
-              ? innerVoicePhotoBase64
+            imageBase64: (creatorCharacterRepresentation !== 'silhouette')
+              ? ((creatorSelectedSource === 'inner_voice' && innerVoicePhotoBase64 && shouldSendImage)
+                  ? innerVoicePhotoBase64
+                  : (creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || currentSynthesizedPost?.sourceImageBase64 || currentSynthesizedPost?.referencePhotoUrl || null))
               : null,
             imageMimeType: innerVoicePhotoMimeType || effectiveImageMime || 'image/jpeg'
           }),
@@ -23585,6 +23587,13 @@ async function startAiSynthesis() {
           const artData = await artResp.json();
           if (artData && artData.credits) {
             updateCreatorStudioCreditBadge(artData.credits);
+          }
+          if (artData && artData.referencePhotoUrl && !currentSynthesizedPost.referencePhotoUrl) {
+            currentSynthesizedPost.referencePhotoUrl = artData.referencePhotoUrl;
+            currentSynthesizedPost.sourceImageUrl = artData.referencePhotoUrl;
+          }
+          if (artData && artData.sourceImageBase64 && !currentSynthesizedPost.sourceImageBase64) {
+            currentSynthesizedPost.sourceImageBase64 = artData.sourceImageBase64;
           }
           if (artData && artData.success && artData.illustrationBase64) {
             const isDataUri = artData.illustrationBase64.startsWith('data:');
@@ -23958,8 +23967,8 @@ async function startAiSynthesis() {
               preferredVisualProjection: m.preferredVisualProjection || null
             })),
             chronicleMomentImages: chronicleMomentImages,
-            imageBase64: ((creatorPerspectiveMode === 'source' && creatorCharacterRepresentation !== 'silhouette') || creatorCharacterRepresentation === 'exact')
-              ? (creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || currentSynthesizedPost?.sourceImageBase64 || null)
+            imageBase64: (creatorCharacterRepresentation !== 'silhouette')
+              ? (creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || currentSynthesizedPost?.sourceImageBase64 || currentSynthesizedPost?.referencePhotoUrl || null)
               : null,
             imageMimeType: creatorReferenceImageMimeType || currentScrapedArticle?.imageMimeType || currentSynthesizedPost?.sourceImageMimeType || 'image/jpeg'
           }),
@@ -23969,6 +23978,13 @@ async function startAiSynthesis() {
 
         if (artResp.ok) {
           const artData = await artResp.json();
+          if (artData && artData.referencePhotoUrl && !currentSynthesizedPost.referencePhotoUrl) {
+            currentSynthesizedPost.referencePhotoUrl = artData.referencePhotoUrl;
+            currentSynthesizedPost.sourceImageUrl = artData.referencePhotoUrl;
+          }
+          if (artData && artData.sourceImageBase64 && !currentSynthesizedPost.sourceImageBase64) {
+            currentSynthesizedPost.sourceImageBase64 = artData.sourceImageBase64;
+          }
           if (artData && artData.success && artData.illustrationBase64) {
             const isDataUri = artData.illustrationBase64.startsWith('data:');
             const formatted = isDataUri ? artData.illustrationBase64 : `data:image/png;base64,${artData.illustrationBase64}`;
@@ -24109,8 +24125,8 @@ async function retryStep3ArtworkGeneration(event, options = {}) {
           hasPhoto: Boolean(m.imageBase64)
         })),
         chronicleMomentImages: (currentSynthesizedPost.chronicleMoments || getActiveChronicleMomentsPayload() || []).filter(m => m && m.imageBase64),
-        imageBase64: ((creatorPerspectiveMode === 'source' && creatorCharacterRepresentation !== 'silhouette') || creatorCharacterRepresentation === 'exact' || creatorCharacterRepresentation === 'watercolor' || creatorCharacterRepresentation === 'painting' || creatorCharacterRepresentation === 'cinematic')
-          ? (creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || currentSynthesizedPost?.sourceImageBase64 || null)
+        imageBase64: (creatorCharacterRepresentation !== 'silhouette')
+          ? (creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || currentSynthesizedPost?.sourceImageBase64 || currentSynthesizedPost?.referencePhotoUrl || null)
           : null,
         imageMimeType: creatorReferenceImageMimeType || currentScrapedArticle?.imageMimeType || currentSynthesizedPost?.sourceImageMimeType || 'image/jpeg'
       }),
@@ -24122,6 +24138,13 @@ async function retryStep3ArtworkGeneration(event, options = {}) {
       const artData = await artResp.json();
       if (artData && artData.credits) {
         updateCreatorStudioCreditBadge(artData.credits);
+      }
+      if (artData && artData.referencePhotoUrl && !currentSynthesizedPost.referencePhotoUrl) {
+        currentSynthesizedPost.referencePhotoUrl = artData.referencePhotoUrl;
+        currentSynthesizedPost.sourceImageUrl = artData.referencePhotoUrl;
+      }
+      if (artData && artData.sourceImageBase64 && !currentSynthesizedPost.sourceImageBase64) {
+        currentSynthesizedPost.sourceImageBase64 = artData.sourceImageBase64;
       }
       if (artData && artData.illustrationPrompt) {
         currentSynthesizedPost.illustrationPrompt = artData.illustrationPrompt;
@@ -24187,8 +24210,8 @@ async function enhancePosterArtworkInBackground(post) {
         countryContext: post.countryContext || creatorCountryContext?.name || 'India',
         familyCast: getSanitizedCastPayload(familyCastProfileCache),
         activeCast: getSanitizedActiveCastPayload(),
-        imageBase64: (creatorPerspectiveMode === 'source' || creatorCharacterRepresentation === 'exact')
-          ? (creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || post?.sourceImageBase64 || null)
+        imageBase64: (creatorCharacterRepresentation !== 'silhouette')
+          ? (creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || post?.sourceImageBase64 || post?.referencePhotoUrl || null)
           : null,
         imageMimeType: creatorReferenceImageMimeType || currentScrapedArticle?.imageMimeType || post?.sourceImageMimeType || 'image/jpeg'
       })
