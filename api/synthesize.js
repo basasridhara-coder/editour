@@ -674,15 +674,29 @@ const COLLAGE_SUBJECT_STOPWORDS = new Set([
   'many', 'much', 'little', 'less', 'least', 'high', 'long', 'short', 'small', 'large', 'next', 'last', 'first', 'second',
   'third', 'new', 'old', 'young', 'right', 'left', 'back', 'down', 'away', 'around', 'however', 'therefore', 'instead',
   'although', 'though', 'whether', 'either', 'neither', 'actually', 'really', 'simply', 'merely', 'truly', 'deeply',
-  'slant', 'post', 'article', 'story', 'news', 'video', 'youtube', 'link', 'source', 'moment', 'moments', 'reflection'
+  'slant', 'post', 'article', 'story', 'news', 'video', 'youtube', 'link', 'source', 'moment', 'moments', 'reflection',
+  'crore', 'lakh', 'million', 'billion', 'trillion', 'blueprint', 'leading', 'building', 'funding', 'scaling', 'brands',
+  'brand', 'business', 'businesses', 'company', 'companies', 'startup', 'startups', 'founder', 'founders', 'market',
+  'markets', 'growth', 'rapid', 'urge', 'masterclass', 'channel', 'speaker', 'platform', 'title', 'interview', 'episode',
+  'podcast', 'guide', 'lessons', 'secret', 'secrets', 'rules', 'strategy', 'strategies', 'system', 'systems', 'model'
 ]);
 
 function extractKeyVisualSubjectsZeroCost(contextText = '', scrapedTitle = '') {
-  const combined = `${scrapedTitle || ''}. ${contextText || ''}`
+  // Clean metadata boilerplate lines from scrapedContent (e.g. "Title: ...", "Channel / Speaker: ...", "Platform: YouTube Video")
+  const cleanedContext = String(contextText || '')
+    .replace(/^(?:Title|Channel\s*\/\s*Speaker|Platform|Video Duration)\s*:.*$/gim, ' ')
     .replace(/https?:\/\/\S+/gi, ' ')
     .replace(/[\u2018\u2019]/g, "'")
     .replace(/[\u201C\u201D]/g, '"')
     .trim();
+
+  const cleanedTitle = String(scrapedTitle || '')
+    .replace(/https?:\/\/\S+/gi, ' ')
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201C\u201D]/g, '"')
+    .trim();
+
+  const combined = `${cleanedContext}. ${cleanedTitle}`.trim();
 
   const subjects = [];
   const seenLower = new Set();
@@ -712,18 +726,19 @@ function extractKeyVisualSubjectsZeroCost(contextText = '', scrapedTitle = '') {
     });
   };
 
-  // 1. Multi-word capitalized Proper Nouns (e.g. "Narayana Murthy", "Supreme Court", "Silicon Valley", "Ratan Tata")
+  // 1. Multi-word capitalized Proper Nouns from author context first (sentence case, high signal), then title
   const multiProperRegex = /\b([A-Z][a-z]{2,}(?:\s+(?:of|and|for|in|on)\s+[A-Z][a-z]{2,}|\s+[A-Z][a-z0-9]{1,}){1,2})\b/g;
-  let match;
-  while ((match = multiProperRegex.exec(combined)) !== null && subjects.length < 3) {
-    const phrase = match[1].trim();
-    const parts = phrase.split(/\s+/);
-    // Skip if first word is a common sentence-starter stopword like "When India" -> keep "India" instead
-    if (COLLAGE_SUBJECT_STOPWORDS.has(parts[0].toLowerCase())) {
-      const rest = parts.slice(1).join(' ');
-      if (rest.length >= 3) addCandidate(rest);
-    } else {
-      addCandidate(phrase);
+  for (const sourceBlock of [cleanedContext, cleanedTitle]) {
+    let match;
+    multiProperRegex.lastIndex = 0;
+    while ((match = multiProperRegex.exec(sourceBlock)) !== null && subjects.length < 3) {
+      const phrase = match[1].trim();
+      const parts = phrase.split(/\s+/).filter(w => !COLLAGE_SUBJECT_STOPWORDS.has(w.toLowerCase()));
+      if (parts.length === 0) continue;
+      const filteredPhrase = parts.join(' ').trim();
+      if (filteredPhrase.length >= 3) {
+        addCandidate(filteredPhrase);
+      }
     }
   }
 
@@ -830,18 +845,24 @@ async function searchWebImagesForSubject(rawQuery = '', sourceImageUrl = '', sou
         const data = await resp.json();
         const pages = data?.query?.pages ? Object.values(data.query.pages) : [];
         pages.sort((a, b) => (a.index || 99) - (b.index || 99));
+        const qTokens = q.toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length >= 3);
         for (const p of pages) {
           const thumb = p?.thumbnail?.source;
           const orig = p?.original?.source;
           const bestUrl = thumb || orig;
-          if (bestUrl) {
-            pushImage({
-              url: bestUrl,
-              thumbUrl: thumb || bestUrl,
-              title: p.title + (p.description ? ` — ${p.description}` : ''),
-              source: 'Wikipedia'
-            });
-          }
+          if (!bestUrl) continue;
+          const titleLower = String(p.title || '').toLowerCase();
+          const descLower = String(p.description || '').toLowerCase();
+          const isPersonBio = /\b(born\b|entrepreneur|politician|actor|actress|player|singer|writer|businessman|educator|cricketer|minister|founder|ceo|executive|author|director|athlete)\b/i.test(descLower);
+          const titleMatchesQuery = qTokens.some(t => titleLower.includes(t));
+          // Prevent unrelated human biographies (whose article text merely mentions a query word) from polluting topic searches
+          if (isPersonBio && !titleMatchesQuery) continue;
+          pushImage({
+            url: bestUrl,
+            thumbUrl: thumb || bestUrl,
+            title: p.title + (p.description ? ` — ${p.description}` : ''),
+            source: 'Wikipedia'
+          });
         }
       }
     } catch (_) {}
@@ -1127,10 +1148,10 @@ module.exports = async function handler(req, res) {
 
         const tabResults = {};
         await Promise.all(
-          targetQueries.map(async (qStr, idx) => {
+          targetQueries.map(async (qStr) => {
             const imgs = await searchWebImagesForSubject(
               qStr,
-              idx === 0 ? sourceImageUrl : '',
+              sourceImageUrl,
               scrapedTitle
             );
             tabResults[qStr] = imgs;

@@ -709,7 +709,44 @@ try {
   }
 } catch (_) {}
 
+function extractInstantYouTubeThumbnailUrl(rawUrl) {
+  if (!rawUrl || typeof rawUrl !== 'string') return '';
+  try {
+    const clean = rawUrl.trim();
+    const m = clean.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/|live\/|embed\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/i);
+    if (m && m[1]) {
+      return `https://i.ytimg.com/vi/${m[1]}/maxresdefault.jpg`;
+    }
+  } catch (_) {}
+  return '';
+}
+window.extractInstantYouTubeThumbnailUrl = extractInstantYouTubeThumbnailUrl;
+
+function restoreOriginalScrapedSourcePhoto() {
+  window._isWebCollageAttached = false;
+  const urlInput = document.getElementById('creatorUrlInput');
+  const rawUrl = urlInput ? urlInput.value.trim() : '';
+  const ytThumb = extractInstantYouTubeThumbnailUrl(rawUrl);
+  const origImg = (typeof currentScrapedArticle !== 'undefined' && (currentScrapedArticle?.imageBase64 || currentScrapedArticle?.imageUrl))
+    || ytThumb
+    || null;
+  if (origImg) {
+    creatorReferenceImageBase64 = origImg;
+    creatorReferenceImageMimeType = (typeof currentScrapedArticle !== 'undefined' && currentScrapedArticle?.imageMimeType) || 'image/jpeg';
+    const isVid = Boolean((typeof currentScrapedArticle !== 'undefined' && currentScrapedArticle?.isVideo) || ytThumb || (typeof isVideoAudioUrl === 'function' && isVideoAudioUrl(rawUrl)));
+    const siteName = (typeof currentScrapedArticle !== 'undefined' && currentScrapedArticle?.siteName) || (ytThumb ? 'YouTube' : 'Web');
+    creatorReferenceImageSourceLabel = (isVid ? 'Video Thumbnail' : 'Article Lead Photo') + ` (${siteName})`;
+  } else if (typeof creatorSelectedSource !== 'undefined' && creatorSelectedSource !== 'inner_voice') {
+    creatorReferenceImageBase64 = null;
+  }
+  if (typeof updateReferencePhotoUI === 'function') {
+    try { updateReferencePhotoUI(); } catch (_) {}
+  }
+}
+window.restoreOriginalScrapedSourcePhoto = restoreOriginalScrapedSourcePhoto;
+
 function applyFreeOriginalPhotoModeFromBanner() {
+  restoreOriginalScrapedSourcePhoto();
   setPerspectiveMode('source', true);
   selectCharacterRepresentation('exact');
   if (typeof updateEqualizerSummary === 'function') {
@@ -757,6 +794,8 @@ window._isWebCollageAttached = false;
 function getCreatorWrittenContextForCollage() {
   const slantEl = document.getElementById('creatorSlantTakeInput');
   const sparkEl = document.getElementById('creatorSparkInput');
+  const urlEl = document.getElementById('creatorUrlInput');
+  const rawUrl = urlEl ? urlEl.value.trim() : '';
   const isChron = typeof isDailyChronicleMode !== 'undefined' && Boolean(isDailyChronicleMode);
   let textParts = [];
   if (isChron && typeof dailyChronicleMoments !== 'undefined' && Array.isArray(dailyChronicleMoments)) {
@@ -768,10 +807,14 @@ function getCreatorWrittenContextForCollage() {
   if (sparkEl && sparkEl.value) textParts.push(sparkEl.value.trim());
   const scrapedTitle = (typeof currentScrapedArticle !== 'undefined' && currentScrapedArticle?.title) ? currentScrapedArticle.title : '';
   const scrapedContent = (typeof currentScrapedArticle !== 'undefined' && currentScrapedArticle?.content) ? currentScrapedArticle.content.slice(0, 600) : '';
+  const ytThumb = extractInstantYouTubeThumbnailUrl(rawUrl);
+  const resolvedSourceImageUrl = (typeof currentScrapedArticle !== 'undefined' && currentScrapedArticle?.imageUrl)
+    ? currentScrapedArticle.imageUrl
+    : (ytThumb || (!window._isWebCollageAttached && typeof creatorReferenceImageBase64 === 'string' && creatorReferenceImageBase64.startsWith('http') ? creatorReferenceImageBase64 : ''));
   return {
     contextText: [textParts.join('. '), scrapedContent].filter(Boolean).join('. ').trim(),
     scrapedTitle,
-    sourceImageUrl: (typeof currentScrapedArticle !== 'undefined' && currentScrapedArticle?.imageUrl) ? currentScrapedArticle.imageUrl : ''
+    sourceImageUrl: resolvedSourceImageUrl
   };
 }
 
@@ -954,7 +997,7 @@ async function fetchWebImagesForQuery(queryStr) {
         action: 'search_collage_images',
         query: q,
         scrapedTitle,
-        sourceImageUrl: state.activeTabIndex === 0 ? sourceImageUrl : ''
+        sourceImageUrl
       })
     });
     if (resp.ok) {
@@ -1050,6 +1093,14 @@ function removeWebCollageSelectedSlot(slotIndex) {
   const state = window._webCollageState;
   if (slotIndex >= 0 && slotIndex < state.selectedItems.length) {
     state.selectedItems.splice(slotIndex, 1);
+    if (state.selectedItems.length === 0) {
+      state.compositedDataUrl = null;
+      restoreOriginalScrapedSourcePhoto();
+      const btnLabel = document.getElementById('slantWebCollageBtnLabel');
+      if (btnLabel) btnLabel.textContent = 'Web Collage (0⚡)';
+      const appliedStatus = document.getElementById('webCollageAppliedStatus');
+      if (appliedStatus) appliedStatus.style.display = 'none';
+    }
     renderWebCollageSubjectTabs();
     renderWebCollageTabGrid();
     renderWebCollageSelectedSlotsUI();
@@ -1062,7 +1113,7 @@ function clearWebCollageSelection() {
   const state = window._webCollageState;
   state.selectedItems = [];
   state.compositedDataUrl = null;
-  window._isWebCollageAttached = false;
+  restoreOriginalScrapedSourcePhoto();
   const btnLabel = document.getElementById('slantWebCollageBtnLabel');
   if (btnLabel) btnLabel.textContent = 'Web Collage (0⚡)';
   const appliedStatus = document.getElementById('webCollageAppliedStatus');
@@ -19343,8 +19394,13 @@ function resumeCreatorFormDraft(draftId) {
   if (sparkInput) sparkInput.value = target.spark || '';
   if (urlInput) {
     urlInput.value = target.url || '';
-    if (target.url && typeof triggerUrlScrape === 'function') {
-      triggerUrlScrape(target.url);
+    if (target.url) {
+      if (typeof isVideoAudioUrl === 'function' && typeof updateWebLinkSubmode === 'function' && target.sourceType !== 'inner_voice') {
+        updateWebLinkSubmode(isVideoAudioUrl(target.url));
+      }
+      if (typeof handleUrlInput === 'function') {
+        handleUrlInput(target.url);
+      }
     }
   }
   if (target.perspectiveMode && typeof setPerspectiveMode === 'function') {
@@ -21257,6 +21313,23 @@ async function handleUrlInput(val) {
     return;
   }
 
+  // Immediately attach YouTube thumbnail in 0ms before network scrape completes
+  const instantYtThumb = extractInstantYouTubeThumbnailUrl(clean);
+  if (instantYtThumb && !window._isWebCollageAttached) {
+    creatorReferenceImageBase64 = instantYtThumb;
+    creatorReferenceImageMimeType = 'image/jpeg';
+    creatorReferenceImageSourceLabel = 'Video Thumbnail (YouTube)';
+    if (!currentScrapedArticle) {
+      currentScrapedArticle = { url: clean, title: '', siteName: 'YouTube', content: '', imageUrl: instantYtThumb, isVideo: true };
+    } else if (!currentScrapedArticle.imageUrl) {
+      currentScrapedArticle.imageUrl = instantYtThumb;
+    }
+    if (creatorSelectedSource !== 'inner_voice') {
+      updateWebLinkSubmode(true);
+    }
+    updateReferencePhotoUI();
+  }
+
   isScrapingUrl = true;
   if (indicator) {
     indicator.className = 'url-scrape-indicator loading';
@@ -21280,6 +21353,8 @@ async function handleUrlInput(val) {
       if (data && data.success) {
         if (typeof data.imageUrl === 'string') {
           data.imageUrl = data.imageUrl.replace(/&amp;/g, '&');
+        } else if (instantYtThumb && !data.imageUrl) {
+          data.imageUrl = instantYtThumb;
         }
         currentScrapedArticle = data;
         const isVid = Boolean(data.isVideo || isVideoAudioUrl(clean));
@@ -21287,7 +21362,7 @@ async function handleUrlInput(val) {
           updateWebLinkSubmode(isVid);
         }
         let scrapedImg = data.imageBase64 || data.imageUrl;
-        if (scrapedImg) {
+        if (scrapedImg && !window._isWebCollageAttached) {
           if (typeof scrapedImg === 'string' && scrapedImg.startsWith('http')) {
             scrapedImg = scrapedImg.replace(/&amp;/g, '&');
           }
@@ -21314,7 +21389,14 @@ async function handleUrlInput(val) {
     } catch (err) {
       console.warn('URL scrape error:', err.message);
       const slugTitle = extractHeadlineFromUrl(clean);
-      currentScrapedArticle = { url: clean, title: slugTitle, siteName: getCleanDomain(clean), content: '' };
+      currentScrapedArticle = {
+        url: clean,
+        title: slugTitle,
+        siteName: getCleanDomain(clean),
+        content: '',
+        imageUrl: instantYtThumb || null,
+        isVideo: Boolean(instantYtThumb || isVideoAudioUrl(clean))
+      };
       if (indicator) {
         indicator.className = 'url-scrape-indicator info';
         indicator.onclick = null;
@@ -24414,19 +24496,39 @@ function setPreviewArtworkSource(source) {
   const pillExact = document.getElementById('editArtPillExact');
   const pillLik = document.getElementById('editArtPillLikeness');
   const pillMet = document.getElementById('editArtPillMetaphor');
+  const exactPhotoUrl = currentSynthesizedPost.referencePhotoUrl || currentSynthesizedPost.sourceImageUrl || '';
 
-  if (source === 'exact' && currentSynthesizedPost.referencePhotoUrl) {
-    currentSynthesizedPost.illustrationUrl = currentSynthesizedPost.referencePhotoUrl;
+  if (source === 'exact' && exactPhotoUrl) {
+    if (currentSynthesizedPost.illustrationBase64) {
+      currentSynthesizedPost._aiIllustrationBase64Backup = currentSynthesizedPost.illustrationBase64;
+    }
+    currentSynthesizedPost.illustrationBase64 = null;
+    currentSynthesizedPost.posterBase64 = null;
+    currentSynthesizedPost.illustrationUrl = exactPhotoUrl;
+    currentSynthesizedPost.characterRepresentation = 'exact';
+    if (currentSynthesizedPost.generationInputs) {
+      currentSynthesizedPost.generationInputs.characterRepresentation = 'exact';
+    }
     if (pillExact) pillExact.classList.add('active');
     if (pillLik) pillLik.classList.remove('active');
     if (pillMet) pillMet.classList.remove('active');
   } else if (source === 'likeness') {
+    if (currentSynthesizedPost._aiIllustrationBase64Backup) {
+      currentSynthesizedPost.illustrationBase64 = currentSynthesizedPost._aiIllustrationBase64Backup;
+      currentSynthesizedPost.posterBase64 = currentSynthesizedPost._aiIllustrationBase64Backup;
+    }
     currentSynthesizedPost.illustrationUrl = currentSynthesizedPost.aiIllustrationUrl || currentSynthesizedPost.illustrationUrl;
+    currentSynthesizedPost.characterRepresentation = 'likeness';
     if (pillExact) pillExact.classList.remove('active');
     if (pillLik) pillLik.classList.add('active');
     if (pillMet) pillMet.classList.remove('active');
-  } else if (source === 'metaphor' && currentSynthesizedPost.aiIllustrationUrl) {
-    currentSynthesizedPost.illustrationUrl = currentSynthesizedPost.aiIllustrationUrl;
+  } else if (source === 'metaphor' && (currentSynthesizedPost.aiIllustrationUrl || currentSynthesizedPost._aiIllustrationBase64Backup)) {
+    if (currentSynthesizedPost._aiIllustrationBase64Backup) {
+      currentSynthesizedPost.illustrationBase64 = currentSynthesizedPost._aiIllustrationBase64Backup;
+      currentSynthesizedPost.posterBase64 = currentSynthesizedPost._aiIllustrationBase64Backup;
+    }
+    currentSynthesizedPost.illustrationUrl = currentSynthesizedPost.aiIllustrationUrl || currentSynthesizedPost.illustrationUrl;
+    currentSynthesizedPost.characterRepresentation = 'realistic';
     if (pillExact) pillExact.classList.remove('active');
     if (pillLik) pillLik.classList.remove('active');
     if (pillMet) pillMet.classList.add('active');
@@ -24435,10 +24537,11 @@ function setPreviewArtworkSource(source) {
   // Update image in preview card DOM
   const bgImgs = document.querySelectorAll('#carousel-preview img.slide-hook-bg');
   bgImgs.forEach(bgImg => {
-    if (currentSynthesizedPost.illustrationUrl) {
+    const targetSrc = currentSynthesizedPost.illustrationBase64 || currentSynthesizedPost.illustrationUrl;
+    if (targetSrc) {
       bgImg.style.display = 'block';
       bgImg.style.opacity = '1';
-      bgImg.src = currentSynthesizedPost.illustrationUrl;
+      bgImg.src = targetSrc;
     }
   });
 }
