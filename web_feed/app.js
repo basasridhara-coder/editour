@@ -13375,6 +13375,7 @@ async function refreshVisualProjectionsWithAI(opts = {}) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         action: 'polish_take',
+        includeVisualOptions: true,
         text: rawText,
         spark: sparkText,
         scrapedTitle: scrapedTitle,
@@ -13473,23 +13474,35 @@ async function polishUserTake() {
   }
 
   const isChronicle = (creatorSelectedSource === 'inner_voice' && typeof isDailyChronicleMode !== 'undefined' && isDailyChronicleMode);
+  const cacheKey = `${rawText}||${sparkText}||${scrapedTitle}`;
 
   try {
-    const resp = await fetch('/api/synthesize', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'polish_take',
-        text: rawText,
-        spark: sparkText,
-        scrapedTitle: scrapedTitle,
-        countryContext: creatorCountryContext?.name || 'India',
-        chronicleMode: isChronicle,
-        chronicleMoments: isChronicle ? getActiveChronicleMomentsPayload() : [],
-        familyCast: typeof getSanitizedCastPayload === 'function' ? getSanitizedCastPayload(familyCastProfileCache) : null,
-        visualConfidenceHistory: getVisualConfidenceLearningProfile().counts
-      })
-    });
+    let data = null;
+    if (window._lastPolishResponseCache && (window._lastPolishResponseCache.key === cacheKey || window._lastPolishResponseCache.polishedKey === cacheKey)) {
+      data = window._lastPolishResponseCache.data;
+    } else {
+      const resp = await fetch('/api/synthesize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'polish_take',
+          includeVisualOptions: false,
+          text: rawText,
+          spark: sparkText,
+          scrapedTitle: scrapedTitle
+        })
+      });
+      if (resp.ok) {
+        data = await resp.json();
+        if (data && data.success !== false && (data.polished || data.highlightedHtml)) {
+          window._lastPolishResponseCache = {
+            key: cacheKey,
+            polishedKey: `${String(data.polished || '').trim()}||${sparkText}||${scrapedTitle}`,
+            data
+          };
+        }
+      }
+    }
 
     let polished = '';
     let highlightedHtml = '';
@@ -13501,24 +13514,23 @@ async function polishUserTake() {
     let reviewSuccessful = false;
     let serverError = '';
 
-    if (resp.ok) {
-      const data = await resp.json();
-      if (data && Array.isArray(data.visualSubjects) && data.visualSubjects.length > 0) {
+    if (data) {
+      if (Array.isArray(data.visualSubjects) && data.visualSubjects.length > 0) {
         visualSubjects = data.visualSubjects;
       }
-      if (data && Array.isArray(data.momentVisualProjections) && data.momentVisualProjections.length > 0) {
+      if (Array.isArray(data.momentVisualProjections) && data.momentVisualProjections.length > 0) {
         momentVisualProjections = data.momentVisualProjections;
       }
-      if (data && data.structureBeats && typeof data.structureBeats === 'object') {
+      if (data.structureBeats && typeof data.structureBeats === 'object') {
         structureBeats = data.structureBeats;
       }
-      if (data && data.success !== false && (data.polished || data.highlightedHtml)) {
+      if (data.success !== false && (data.polished || data.highlightedHtml)) {
         reviewSuccessful = true;
         polished = data.polished || '';
         highlightedHtml = data.highlightedHtml || '';
         corrections = Array.isArray(data.corrections) ? data.corrections : [];
         if (data.counts) counts = data.counts;
-      } else if (data && data.error) {
+      } else if (data.error) {
         serverError = data.error;
       }
     }
@@ -24913,6 +24925,8 @@ async function runEditModalReview(fieldsToReview, fromTab = null) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             action: 'polish_take',
+            includeVisualOptions: false,
+            skipStructureBeats: true,
             text: field.newVal
           })
         });

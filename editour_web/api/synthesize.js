@@ -2537,7 +2537,7 @@ Respond strictly with valid JSON:
       }
     }
 
-    // Direct Single-Purpose Endpoint: Polish & Review Take with Pedagogical Highlighters + Core Visual Subject / Per-Moment Projection Identification
+    // Direct Single-Purpose Endpoint: Polish & Review Take with Pedagogical Highlighters (+ Optional On-Demand Core Visual Subject / Per-Moment Projection Identification)
     if (body && (body.action === 'polish_take' || body.action === 'review_take')) {
       const {
         text = '',
@@ -2548,7 +2548,9 @@ Respond strictly with valid JSON:
         chronicleMode = false,
         chronicleMoments = [],
         familyCast = null,
-        visualConfidenceHistory = null
+        visualConfidenceHistory = null,
+        includeVisualOptions = false,
+        skipStructureBeats = false
       } = body;
       const rawText = String(text || slantTake || '').trim();
       if (!rawText || rawText.length < 5) {
@@ -2559,37 +2561,37 @@ Respond strictly with valid JSON:
         ? chronicleMoments.filter(m => m && String(m.text || '').trim().length >= 2)
         : [];
       const isPolishChronicle = Boolean(chronicleMode && validPolishMoments.length >= 2);
+      const wantVisuals = Boolean(includeVisualOptions);
+      const wantBeats = !Boolean(skipStructureBeats);
 
       // Fast baseline polish using rule-based formatter
       const baselinePolished = formatCuratorTakeApt(rawText);
-      const isPolishShridharContext = isShridharCastContext(familyCast, body.userEmail || body.userIdentifier || '');
-      const approvedPolishCastMembers = (familyCast && Array.isArray(familyCast.members))
+      const isPolishShridharContext = wantVisuals ? isShridharCastContext(familyCast, body.userEmail || body.userIdentifier || '') : false;
+      const approvedPolishCastMembers = (wantVisuals && familyCast && Array.isArray(familyCast.members))
         ? familyCast.members.filter(m => m && m.approvalStatus !== 'pending' && m.approvalStatus !== 'declined')
         : [];
-      const fallbackSubjects = buildFallbackVisualSubjects(rawText, spark, scrapedTitle, countryContext);
-      const fallbackMomentProjections = isPolishChronicle
+      const fallbackSubjects = wantVisuals ? buildFallbackVisualSubjects(rawText, spark, scrapedTitle, countryContext) : [];
+      const fallbackMomentProjections = (wantVisuals && isPolishChronicle)
         ? buildFallbackMomentVisualProjections(validPolishMoments, countryContext, familyCast)
         : [];
       const fallbackStructureBeats = evaluateFallbackStructureBeats(rawText, spark);
 
-      const castMembersSummary = approvedPolishCastMembers.length > 0
-        ? approvedPolishCastMembers.map(m => `${m.name || m.roleLabel} (${m.relationship}, age ${m.age || 'adult'}, height ${cmToFeetInches(resolveMemberHeightCm(m)).label})`).join('; ')
-        : (isPolishShridharContext
-            ? 'Father Shridhar (40yo, 5ft 10in / 178cm); Wife/Mother Aruna (36yo, 5ft 4in / 162cm); Elder Son Gahan (11yo BOY, 4ft 8in / 142cm, navy tee & denim shorts); Younger Son Rishu (7yo BOY, 4ft 2in / 127cm, mustard tee & dark shorts — BOTH SONS ARE BOYS, zero girls)'
-            : 'Use the author\'s configured Self & Family Vault members (if any are provided above)');
+      const castMembersSummary = wantVisuals
+        ? (approvedPolishCastMembers.length > 0
+            ? approvedPolishCastMembers.map(m => `${m.name || m.roleLabel} (${m.relationship}, age ${m.age || 'adult'}, height ${cmToFeetInches(resolveMemberHeightCm(m)).label})`).join('; ')
+            : (isPolishShridharContext
+                ? 'Father Shridhar (40yo, 5ft 10in / 178cm); Wife/Mother Aruna (36yo, 5ft 4in / 162cm); Elder Son Gahan (11yo BOY, 4ft 8in / 142cm, navy tee & denim shorts); Younger Son Rishu (7yo BOY, 4ft 2in / 127cm, mustard tee & dark shorts — BOTH SONS ARE BOYS, zero girls)'
+                : 'Use the author\'s configured Self & Family Vault members (if any are provided above)'))
+        : '';
 
-      const learnedPrefNote = (visualConfidenceHistory && typeof visualConfidenceHistory === 'object' && Object.keys(visualConfidenceHistory).length > 0)
+      const learnedPrefNote = (wantVisuals && visualConfidenceHistory && typeof visualConfidenceHistory === 'object' && Object.keys(visualConfidenceHistory).length > 0)
         ? `\n- LEARNED CURATOR VISUAL PREFERENCE WEIGHTS (from past repeated approvals): ${JSON.stringify(visualConfidenceHistory)}. Boost the confidence % of visual options matching the curator's most-approved archetypes!`
         : '';
 
-      // Call Gemini for high-precision, categorized copy-editing, inline highlighting, and Core Visual Subject / Per-Moment Visual Projections
+      // Call Gemini for high-precision, categorized copy-editing, inline highlighting (+ optional On-Demand Visual Projections)
       try {
-        const copyEditPrompt = `You are a world-class literary copy-editor, writing coach, and editorial visual director.
-The author has written their personal conviction / take ${isPolishChronicle ? `as a Daily Chronicle with ${validPolishMoments.length} moments` : 'on a topic'}.
-Your job has TWO parts:
-
-PART 1 — COPY-EDIT & POLISH:
-Polish their text into grammatically correct, natural, and apt English while detailing every correction made:
+        const copyEditPrompt = `You are a world-class literary copy-editor and writing coach.
+Polish the author's text into grammatically correct, natural, and apt English while detailing every correction made:
 - STRICT RULE 1 (ZERO OPINION FABRICATION): DO NOT change, enhance, add to, or modify the author's opinion, stance, or logic. Do NOT introduce new arguments, buzzwords, or unsolicited ideas.
 - STRICT RULE 2 (ZERO CUTTING SHORT): DO NOT cut short, truncate, compress, or omit the author's opinion. Every single point, argument, nuance, and example must be retained in the exact same sequence.
 - STRICT RULE 3 (APT ENGLISH & PHRASING): Fix comma splices, run-on sentences, awkward phrasing, word choices, subject-verb agreements, casing, and punctuation so it flows naturally and authoritatively.
@@ -2600,11 +2602,10 @@ Polish their text into grammatically correct, natural, and apt English while det
   * If a sentence has both a typo and phrasing improvements, separate them: isolate the typo (e.g. "torubled" -> "troubled") as its own distinct "spelling" note, and isolate the phrasing rewrite (e.g. "these people and will have" -> "these individuals and will face") as a "phrasing" note.
 - STRICT RULE 6 (STRICT CATEGORY DEFINITIONS):
   * "spelling": STRICTLY for typographical errors, misspelled words, or capitalization (e.g. "controll" -> "control", "torubled" -> "troubled", "raj" -> "Raj"). NEVER categorize vocabulary changes or multi-word rewrites as spelling!
-  * "phrasing": Word choice, vocabulary improvements, smoother idioms, natural collocations, and eliminating awkward repetition (e.g. "these people" -> "these individuals", "will have" -> "will face", "supporting influentials" -> "supporting influencers", "washed away in" -> "swept away by").
-  * "grammar": Verb tense, subject-verb agreement, singular/plural, missing articles or prepositions, pronoun cases (e.g. "it's" -> "its", "is kept" -> "are kept", "Govt" -> "The government").
+  * "phrasing": Word choice, vocabulary improvements, smoother idioms, natural collocations, and eliminating awkward repetition.
+  * "grammar": Verb tense, subject-verb agreement, singular/plural, missing articles or prepositions, pronoun cases.
   * "punctuation": Commas, periods, colons, quotation marks, fixing comma splices or run-ons.
-
-PART 2 — ${isPolishChronicle
+${wantVisuals ? `\nPART 2 — ${isPolishChronicle
   ? `IDENTIFY 3 VISUAL PROJECTION OPTIONS PER MOMENT (WITH CONFIDENCE SCORE 1-99%) FOR EACH OF THE ${validPolishMoments.length} DAILY CHRONICLE MOMENTS:
 Each moment in a Daily Chronicle can be visually projected in multiple ways.
 - AUTHOR'S FAMILY CAST VAULT: ${castMembersSummary}.${isPolishShridharContext ? `\n- CRITICAL FAMILY RULE FOR "KIDS" / "BOYS" / "CHILDREN" / "KIDS FIGHTING": Whenever the author writes "kids", "kids fighting", "boys", "sons", or "children" in any personal moment, they are ALWAYS his TWO SONS: 11yo Elder Son Gahan (BOY, 4ft 8in / 142cm, navy t-shirt & denim shorts) and 7yo Younger Son Rishu (BOY, 4ft 2in / 127cm, 6 inches shorter than Gahan with his head at Gahan's chin/neck level, mustard-yellow t-shirt & dark shorts) — STRICTLY 2 BOYS, NEVER a boy and a girl!` : ''}${learnedPrefNote}
@@ -2616,25 +2617,23 @@ Each moment in a Daily Chronicle can be visually projected in multiple ways.
 Understand the true CORE SUBJECT in the given context (Setting: ${countryContext || 'India'}).
 - AUTHOR'S FAMILY CAST VAULT: ${castMembersSummary}.
 - CRITICAL DISTINCTION (SOCIETAL OBSERVATION vs. POPULAR / PUBLIC FIGURE vs. PERSONAL FAMILY STORY):
-  * POPULAR / PUBLIC FIGURES IN INNER VOICE OR LINKS: If the author mentions any recognizable public figure, historical leader, sports legend, industrialist, scientist, artist, or cultural icon (e.g. Ratan Tata, Dr. A.P.J. Abdul Kalam, Virat Kohli, MS Dhoni, Narayana Murthy, Sundar Pichai, Narendra Modi, Swami Vivekananda, Elon Musk, etc.), Option 1 ("core_scene") and its "#1 HERO" cue MUST directly feature and name that popular figure (along with their iconic visual likeness traits and setting) in the scene, with "isPersonalFamily": false! Never omit or replace named popular figures with abstract objects.
+  * POPULAR / PUBLIC FIGURES IN INNER VOICE OR LINKS: If the author mentions any recognizable public figure, historical leader, sports legend, industrialist, scientist, artist, or cultural icon (e.g. Ratan Tata, Dr. A.P.J. Abdul Kalam, Virat Kohli, MS Dhoni, Narayana Murthy, Sundar Pichai, Narendra Modi, Swami Vivekananda, Elon Musk, Prakash Raj, etc.), Option 1 ("core_scene") and its "#1 HERO" cue MUST directly feature and name that popular figure (along with their iconic visual likeness traits and setting) in the scene, with "isPersonalFamily": false! Never omit or replace named popular figures with abstract objects.
   * If the author is observing society, schools, parents in general, workplaces, politics, or culture (even if they use words like "I see", "the whole family comes", "parents", "the kids", "in our school days"), the core visual subject is the REAL-WORLD SCENE BEING DISCUSSED (e.g. a packed school corridor on parent-teacher meeting day with parents debating marks with a 2nd-grade teacher), and "isPersonalFamily" MUST be false!
   * Set "isPersonalFamily": true ONLY if the author is explicitly telling an intimate personal story about their OWN family members ("my family", "my wife", "my husband", "my kids", "kids fighting", "my son", "my daughter" or names in AUTHOR'S FAMILY CAST VAULT).${learnedPrefNote}
 - Provide 3 distinct, tap-to-choose visual subject angles in "visualSubjects", sorted by your confidence score ("confidence": integer 65-98) so Option 1 is the highest-confidence default:
   1. Option 1 ("archetype": "core_scene", "badge": "★ Best Fit • Core Scene", highest confidence e.g. 90-96%): The direct, concrete real-world scene and protagonists at the heart of the author's context.
   2. Option 2 ("archetype": "core_contrast", "badge": "⚡ Core Contrast", confidence e.g. 80-88%): A visual composition highlighting the central irony, contrast, or tension in the author's argument.
-  3. Option 3 ("archetype": "editorial_metaphor", "badge": "🎨 Editorial Metaphor", confidence e.g. 70-78%): A poignant symbolic or nostalgic visual framing the author's core takeaway.`}
+  3. Option 3 ("archetype": "editorial_metaphor", "badge": "🎨 Editorial Metaphor", confidence e.g. 70-78%): A poignant symbolic or nostalgic visual framing the author's core takeaway.`}` : ''}
 
 Author's Raw Take:
 """${rawText}"""
 ${spark ? `Author's Spark / Catalyst: """${spark}"""` : ''}
 ${scrapedTitle ? `Source Headline: """${scrapedTitle}"""` : ''}
-
-EVALUATE 3-BEAT EDITORIAL STRUCTURE ("structureBeats"):
-Check which of the 3 editorial beats are present in the Author's Raw Take (and Spark):
-1. "hasMoment" (Beat 1 — Moment / Trigger, powers Paragraph 1): True if the author establishes a concrete observation, event, scene, or subject (who/what/where).
-2. "hasWhyItMatters" (Beat 2 — Why It Matters / Mechanism, powers Paragraph 2): True if the author gives deeper context, cause-and-effect, sensory detail, or contrast explaining why it stands out.
-3. "hasConviction" (Beat 3 — Core Conviction / Takeaway, powers Paragraph 3 & Pull-Quote): True ONLY if the author explicitly states a broader takeaway, lasting principle, normative belief, or recommendation (beyond just describing the scene or ending with a brief emotional reaction like "it feels like heaven").
-4. "nudge": A single concise coaching sentence (NEVER suggest specific opinions to write; just state what beat can be added if any is false, e.g. "Optional: Add 1 sentence on your lasting takeaway so Paragraph 3 is 100% your words (otherwise AI will bridge it)." or if all 3 are true: "All 3 beats present — Paragraphs 1, 2 & 3 will be 100% grounded in your words.").
+${wantBeats ? `\nEVALUATE 3-BEAT EDITORIAL STRUCTURE ("structureBeats"):
+1. "hasMoment" (Beat 1 — Moment / Trigger): True if the author establishes a concrete observation, event, scene, or subject.
+2. "hasWhyItMatters" (Beat 2 — Why It Matters): True if the author gives deeper context, cause-and-effect, or contrast explaining why it stands out.
+3. "hasConviction" (Beat 3 — Core Conviction): True ONLY if the author explicitly states a broader takeaway, lasting principle, or recommendation.
+4. "nudge": A single concise coaching sentence (e.g. "Optional: Add 1 sentence on your lasting takeaway so Paragraph 3 is 100% your words." or "All 3 beats present — Paragraphs 1, 2 & 3 will be 100% grounded in your words.").` : ''}
 
 Respond strictly with valid JSON with this exact structure:
 {
@@ -2644,15 +2643,15 @@ Respond strictly with valid JSON with this exact structure:
       "original": "exact minimal word or short phrase from author raw text that was changed",
       "replacement": "exact replacement in the polished text",
       "type": "spelling | grammar | punctuation | phrasing",
-      "reason": "concise explanation of why this specific correction was made"
+      "reason": "short 3-6 word reason"
     }
-  ],
+  ]${wantBeats ? `,
   "structureBeats": {
     "hasMoment": true,
     "hasWhyItMatters": true,
     "hasConviction": false,
-    "nudge": "Optional: Add 1 sentence on your lasting takeaway so Paragraph 3 is 100% your words (otherwise AI will bridge it)."
-  },
+    "nudge": "Optional: Add 1 sentence on your lasting takeaway so Paragraph 3 is 100% your words."
+  }` : ''}${wantVisuals ? `,
   "visualSubjects": [
     {
       "id": "subject_1",
@@ -2682,13 +2681,13 @@ Respond strictly with valid JSON with this exact structure:
           "badge": "★ Best Fit • Direct Scene",
           "confidence": 94,
           "title": "Short 5-9 word scene projection title for this moment",
-          "description": "Specific 1-sentence visual description for this moment's watercolor vignette (naming exact Vault cast members e.g. Shridhar, 11yo son Gahan & 7yo son Rishu when kids are mentioned)",
+          "description": "Specific 1-sentence visual description for this moment's watercolor vignette",
           "castIds": ["member_father"],
           "isPersonalFamily": false
         }
       ]
     }
-  ]` : ''}
+  ]` : ''}` : ''}
 }`;
 
         const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
