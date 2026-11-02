@@ -433,27 +433,62 @@ function updateCreatorStudioCreditBadge(creditsObj) {
   if (topSection) topSection.style.display = 'block';
 
   const email = (currentUser.email || '').toLowerCase().trim();
-  const isMaster = email === 'shridharoct16@gmail.com';
-  if (!isMaster && currentUserCredits && currentUserCredits.isUnlimited) {
+  const isRealMaster = email === 'shridharoct16@gmail.com';
+  const simZeroActive = isRealMaster && Boolean(window._masterSimulateZeroCredits);
+  const isMaster = isRealMaster && !simZeroActive;
+  if (!isRealMaster && currentUserCredits && currentUserCredits.isUnlimited) {
     currentUserCredits = null;
   }
+
+  // Show/update Master Admin "Test 0 Credits" toggle buttons
+  const masterHeaderToggleBtn = document.getElementById('masterSimulateZeroCreditsBtn');
+  const masterDrawerToggleBtn = document.getElementById('masterDrawerSimulateZeroBtn');
+  if (masterHeaderToggleBtn) {
+    masterHeaderToggleBtn.style.display = isRealMaster ? 'inline-flex' : 'none';
+    if (simZeroActive) {
+      masterHeaderToggleBtn.textContent = '🧪 Test 0⚡: ON';
+      masterHeaderToggleBtn.style.background = 'rgba(245,158,11,0.2)';
+      masterHeaderToggleBtn.style.color = '#D97706';
+      masterHeaderToggleBtn.style.borderColor = 'rgba(245,158,11,0.65)';
+      masterHeaderToggleBtn.style.borderStyle = 'solid';
+    } else {
+      masterHeaderToggleBtn.textContent = '🧪 Test 0⚡: OFF';
+      masterHeaderToggleBtn.style.background = 'rgba(148,163,184,0.16)';
+      masterHeaderToggleBtn.style.color = 'var(--text-secondary)';
+      masterHeaderToggleBtn.style.borderColor = 'rgba(148,163,184,0.45)';
+      masterHeaderToggleBtn.style.borderStyle = 'dashed';
+    }
+  }
+  if (masterDrawerToggleBtn) {
+    masterDrawerToggleBtn.style.display = isRealMaster ? 'inline-flex' : 'none';
+    masterDrawerToggleBtn.textContent = simZeroActive
+      ? '🧪 Simulate 0 Credits: ON (Tap for ∞)'
+      : '🧪 Simulate 0 Credits: OFF (Tap to Test 0⚡)';
+  }
+
   const isChronicleActive = typeof isDailyChronicleMode !== 'undefined' && Boolean(isDailyChronicleMode);
   const isInnerVoiceActive = !isChronicleActive && (typeof creatorSelectedSource !== 'undefined' && creatorSelectedSource === 'inner_voice');
   const activePerspectiveLabel = isInnerVoiceActive ? 'Inner Voice Visuals' : 'Web Link Visuals';
   const activePerspectiveEmoji = isInnerVoiceActive ? '💭' : '🌐';
 
-  const starterRemaining = currentUserCredits ? Number(currentUserCredits.starterRemaining ?? 5) : 5;
+  const starterRemaining = simZeroActive ? 0 : (currentUserCredits ? Number(currentUserCredits.starterRemaining ?? 5) : 5);
   const starterTotal = currentUserCredits ? Number(currentUserCredits.starterTotal ?? 5) : 5;
-  const perspLeft = currentUserCredits
-    ? Number(currentUserCredits.perspectiveRemainingToday ?? currentUserCredits.remainingToday ?? 5)
-    : 5;
-  const chronFreeLeft = currentUserCredits
-    ? Number(currentUserCredits.chronicleFreeRemainingToday ?? 1)
-    : 1;
-  const chronTotalLeft = currentUserCredits
-    ? Number(currentUserCredits.chronicleRemainingToday ?? 1)
-    : 1;
-  const bonus = currentUserCredits ? Number(currentUserCredits.bonusCredits || 0) : 0;
+  const perspLeft = simZeroActive
+    ? 0
+    : (currentUserCredits
+        ? Number(currentUserCredits.perspectiveRemainingToday ?? currentUserCredits.remainingToday ?? 5)
+        : 5);
+  const chronFreeLeft = simZeroActive
+    ? 0
+    : (currentUserCredits
+        ? Number(currentUserCredits.chronicleFreeRemainingToday ?? 1)
+        : 1);
+  const chronTotalLeft = simZeroActive
+    ? 0
+    : (currentUserCredits
+        ? Number(currentUserCredits.chronicleRemainingToday ?? 1)
+        : 1);
+  const bonus = simZeroActive ? 0 : (currentUserCredits ? Number(currentUserCredits.bonusCredits || 0) : 0);
   const dailyLimit = currentUserCredits ? Number(currentUserCredits.dailyLimit || 1) : 1;
 
   // 1. Update Top-of-Form Section Credits Bar & Expandable Drawer
@@ -622,9 +657,14 @@ function updateCreatorStudioCreditBadge(creditsObj) {
 }
 
 function isZeroVisualCreditsForActivePillar() {
-  if (!currentUser || !currentUserCredits) return false;
+  if (!currentUser) return false;
   const email = (currentUser.email || '').toLowerCase().trim();
-  if (email === 'shridharoct16@gmail.com' || currentUserCredits.isUnlimited) return false;
+  const isRealMaster = email === 'shridharoct16@gmail.com';
+  if (isRealMaster && window._masterSimulateZeroCredits) {
+    return true;
+  }
+  if (!currentUserCredits) return false;
+  if (isRealMaster || currentUserCredits.isUnlimited) return false;
   const isChronicleActive = typeof isDailyChronicleMode !== 'undefined' && Boolean(isDailyChronicleMode);
   if (isChronicleActive) {
     const chronTotalLeft = Number(currentUserCredits.chronicleRemainingToday ?? 1);
@@ -633,6 +673,41 @@ function isZeroVisualCreditsForActivePillar() {
   const perspLeft = Number(currentUserCredits.perspectiveRemainingToday ?? currentUserCredits.remainingToday ?? 5);
   return perspLeft <= 0;
 }
+
+function toggleMasterSimulateZeroCredits(event) {
+  if (event && typeof event.stopPropagation === 'function') {
+    event.stopPropagation();
+  }
+  window._masterSimulateZeroCredits = !Boolean(window._masterSimulateZeroCredits);
+  try {
+    sessionStorage.setItem('slant_master_sim_zero_credits', window._masterSimulateZeroCredits ? '1' : '0');
+  } catch (_) {}
+  updateCreatorStudioCreditBadge();
+  if (typeof updateEqualizerPortrayalUI === 'function') {
+    try { updateEqualizerPortrayalUI(); } catch (_) {}
+  }
+  if (typeof updateEqualizerSummary === 'function') {
+    try { updateEqualizerSummary(); } catch (_) {}
+  }
+  if (window._masterSimulateZeroCredits) {
+    showTemporaryToast('🧪 Master Admin Test Mode ON: Simulating 0 Visual Credits! Zero-credit banner & Web Collage Studio are now active.');
+  } else {
+    if (creatorCharacterRepresentation === 'exact' && !window._isWebCollageAttached) {
+      creatorCharacterRepresentation = 'realistic';
+      if (typeof updateEqualizerSummary === 'function') {
+        try { updateEqualizerSummary(); } catch (_) {}
+      }
+    }
+    showTemporaryToast('⚡ Master Admin Restored: Back to ∞ Unlimited Visual Credits.');
+  }
+}
+window.toggleMasterSimulateZeroCredits = toggleMasterSimulateZeroCredits;
+
+try {
+  if (sessionStorage.getItem('slant_master_sim_zero_credits') === '1') {
+    window._masterSimulateZeroCredits = true;
+  }
+} catch (_) {}
 
 function applyFreeOriginalPhotoModeFromBanner() {
   setPerspectiveMode('source', true);
@@ -655,6 +730,652 @@ function applyFreeOriginalPhotoModeFromBanner() {
   }
 }
 window.applyFreeOriginalPhotoModeFromBanner = applyFreeOriginalPhotoModeFromBanner;
+
+// ============================================================
+// ZERO-CREDIT MULTI-SUBJECT WEB SEARCH & EDITORIAL COLLAGE COMPOSER
+// ============================================================
+
+window._webCollageState = {
+  isOpen: false,
+  isLoading: false,
+  activeTabIndex: 0, // 0, 1, 2 = Subject Tabs; 3 = Slant Art Library
+  layoutStyle: 'archival', // 'archival' | 'bleed'
+  subjects: [
+    { id: 'subj_1', label: 'Subject 1', query: '' },
+    { id: 'subj_2', label: 'Subject 2', query: '' },
+    { id: 'subj_3', label: 'Subject 3', query: '' }
+  ],
+  tabImagesMap: {}, // query -> array of image items
+  slantArtImages: [],
+  selectedItems: [], // up to 3 items: { url, thumbUrl, title, source, tabIndex, dataUrl }
+  compositedDataUrl: null
+};
+window._webCollageBase64Cache = new Map();
+window._webCollageImageElementCache = new Map();
+window._isWebCollageAttached = false;
+
+function getCreatorWrittenContextForCollage() {
+  const slantEl = document.getElementById('creatorSlantTakeInput');
+  const sparkEl = document.getElementById('creatorSparkInput');
+  const isChron = typeof isDailyChronicleMode !== 'undefined' && Boolean(isDailyChronicleMode);
+  let textParts = [];
+  if (isChron && typeof dailyChronicleMoments !== 'undefined' && Array.isArray(dailyChronicleMoments)) {
+    dailyChronicleMoments.forEach(m => {
+      if (m && m.text) textParts.push(m.text);
+    });
+  }
+  if (slantEl && slantEl.value) textParts.push(slantEl.value.trim());
+  if (sparkEl && sparkEl.value) textParts.push(sparkEl.value.trim());
+  const scrapedTitle = (typeof currentScrapedArticle !== 'undefined' && currentScrapedArticle?.title) ? currentScrapedArticle.title : '';
+  const scrapedContent = (typeof currentScrapedArticle !== 'undefined' && currentScrapedArticle?.content) ? currentScrapedArticle.content.slice(0, 600) : '';
+  return {
+    contextText: [textParts.join('. '), scrapedContent].filter(Boolean).join('. ').trim(),
+    scrapedTitle,
+    sourceImageUrl: (typeof currentScrapedArticle !== 'undefined' && currentScrapedArticle?.imageUrl) ? currentScrapedArticle.imageUrl : ''
+  };
+}
+
+async function openWebCollageBuilderFromContext() {
+  const card = document.getElementById('creatorWebCollageStudioCard');
+  if (!card) return;
+  card.style.display = 'block';
+  window._webCollageState.isOpen = true;
+  setTimeout(() => {
+    try {
+      card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } catch (_) {}
+  }, 60);
+  await refreshWebCollageSubjectsFromContext();
+}
+window.openWebCollageBuilderFromContext = openWebCollageBuilderFromContext;
+
+function closeWebCollageBuilder() {
+  const card = document.getElementById('creatorWebCollageStudioCard');
+  if (card) card.style.display = 'none';
+  window._webCollageState.isOpen = false;
+}
+window.closeWebCollageBuilder = closeWebCollageBuilder;
+
+async function refreshWebCollageSubjectsFromContext() {
+  const state = window._webCollageState;
+  const statusEl = document.getElementById('webCollageResultsStatus');
+  const gridEl = document.getElementById('webCollageResultsGrid');
+  if (statusEl) {
+    statusEl.style.display = 'block';
+    statusEl.textContent = '🔎 Extracting key characters/objects from your context & searching web photos...';
+  }
+  if (gridEl && Object.keys(state.tabImagesMap).length === 0) {
+    gridEl.innerHTML = '';
+  }
+
+  const { contextText, scrapedTitle, sourceImageUrl } = getCreatorWrittenContextForCollage();
+  state.isLoading = true;
+  try {
+    const resp = await fetch('/api/synthesize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'search_collage_images',
+        extractSubjects: true,
+        includeSlantCommons: state.slantArtImages.length === 0,
+        contextText,
+        scrapedTitle,
+        sourceImageUrl
+      })
+    });
+    if (resp.ok) {
+      const data = await resp.json();
+      if (data && data.success) {
+        if (Array.isArray(data.subjects) && data.subjects.length > 0) {
+          state.subjects = data.subjects.slice(0, 3);
+        }
+        if (data.tabResults && typeof data.tabResults === 'object') {
+          Object.assign(state.tabImagesMap, data.tabResults);
+        }
+        if (Array.isArray(data.slantArtImages) && data.slantArtImages.length > 0) {
+          state.slantArtImages = data.slantArtImages;
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Web collage subject search notice:', err);
+  } finally {
+    state.isLoading = false;
+    if (statusEl) statusEl.style.display = 'none';
+  }
+
+  if (state.activeTabIndex >= state.subjects.length && state.activeTabIndex !== 3) {
+    state.activeTabIndex = 0;
+  }
+  renderWebCollageSubjectTabs();
+  syncWebCollageSearchInputToTab();
+  renderWebCollageTabGrid();
+  renderWebCollageSelectedSlotsUI();
+}
+window.refreshWebCollageSubjectsFromContext = refreshWebCollageSubjectsFromContext;
+
+function renderWebCollageSubjectTabs() {
+  const tabsEl = document.getElementById('webCollageSubjectTabs');
+  if (!tabsEl) return;
+  const state = window._webCollageState;
+  const selectedByTab = new Set(state.selectedItems.map(it => it.tabIndex));
+
+  const subjectBtnsHtml = state.subjects.map((subj, idx) => {
+    const isActive = state.activeTabIndex === idx;
+    const hasPick = selectedByTab.has(idx);
+    const bg = isActive ? '#4F46E5' : (hasPick ? 'rgba(16,185,129,0.12)' : 'rgba(148,163,184,0.14)');
+    const col = isActive ? '#FFFFFF' : (hasPick ? '#047857' : 'var(--text-primary)');
+    const border = isActive ? '#4F46E5' : (hasPick ? 'rgba(16,185,129,0.45)' : 'rgba(148,163,184,0.35)');
+    return `<button type="button" onclick="selectWebCollageTab(${idx})" style="padding: 5px 10px; border-radius: 99px; border: 1.5px solid ${border}; background: ${bg}; color: ${col}; font-size: 11px; font-weight: 800; cursor: pointer; white-space: nowrap; display: inline-flex; align-items: center; gap: 5px;">
+      <span>${idx + 1}. ${escapeHtml(subj.label || subj.query || ('Subject ' + (idx + 1)))}</span>
+      ${hasPick ? '<span style="font-size:10px; background:rgba(16,185,129,0.25); color:' + (isActive ? '#fff' : '#047857') + '; border-radius:50%; width:15px; height:15px; display:inline-flex; align-items:center; justify-content:center;">✓</span>' : ''}
+    </button>`;
+  }).join('');
+
+  const isSlantTab = state.activeTabIndex === 3;
+  const hasSlantPick = selectedByTab.has(3);
+  const slantBtnHtml = `<button type="button" onclick="selectWebCollageTab(3)" style="padding: 5px 10px; border-radius: 99px; border: 1.5px solid ${isSlantTab ? '#253833' : (hasSlantPick ? 'rgba(16,185,129,0.45)' : 'rgba(148,163,184,0.35)')}; background: ${isSlantTab ? '#253833' : (hasSlantPick ? 'rgba(16,185,129,0.12)' : 'rgba(148,163,184,0.14)')}; color: ${isSlantTab ? '#FFFFFF' : (hasSlantPick ? '#047857' : 'var(--text-primary)')}; font-size: 11px; font-weight: 800; cursor: pointer; white-space: nowrap; display: inline-flex; align-items: center; gap: 5px;">
+    <span>🎨 Slant Art Library</span>
+    ${hasSlantPick ? '<span>✓</span>' : ''}
+  </button>`;
+
+  tabsEl.innerHTML = subjectBtnsHtml + slantBtnHtml;
+}
+
+function syncWebCollageSearchInputToTab() {
+  const inputEl = document.getElementById('webCollageTabSearchInput');
+  if (!inputEl) return;
+  const state = window._webCollageState;
+  if (state.activeTabIndex === 3) {
+    inputEl.value = '';
+    inputEl.placeholder = 'Search any new subject or switch to Tabs 1–3 above...';
+  } else {
+    const subj = state.subjects[state.activeTabIndex];
+    inputEl.value = subj ? (subj.query || subj.label || '') : '';
+    inputEl.placeholder = `Search web images for Subject ${state.activeTabIndex + 1} (e.g. person, object, place)...`;
+  }
+}
+
+async function selectWebCollageTab(tabIndex) {
+  const state = window._webCollageState;
+  state.activeTabIndex = tabIndex;
+  renderWebCollageSubjectTabs();
+  syncWebCollageSearchInputToTab();
+
+  if (tabIndex !== 3) {
+    const subj = state.subjects[tabIndex];
+    if (subj && subj.query && !state.tabImagesMap[subj.query]) {
+      await fetchWebImagesForQuery(subj.query);
+    }
+  }
+  renderWebCollageTabGrid();
+}
+window.selectWebCollageTab = selectWebCollageTab;
+
+async function runActiveTabWebImageSearch() {
+  const inputEl = document.getElementById('webCollageTabSearchInput');
+  const q = inputEl ? inputEl.value.trim() : '';
+  if (!q) {
+    showTemporaryToast('Type a character, person, place, or object to search.');
+    return;
+  }
+  const state = window._webCollageState;
+  if (state.activeTabIndex === 3) {
+    state.activeTabIndex = 0;
+  }
+  const idx = state.activeTabIndex;
+  if (!state.subjects[idx]) {
+    state.subjects[idx] = { id: `subj_${idx + 1}`, label: q, query: q };
+  } else {
+    state.subjects[idx].label = q.length > 24 ? (q.slice(0, 22) + '…') : q;
+    state.subjects[idx].query = q;
+  }
+  renderWebCollageSubjectTabs();
+  await fetchWebImagesForQuery(q);
+  renderWebCollageTabGrid();
+}
+window.runActiveTabWebImageSearch = runActiveTabWebImageSearch;
+
+async function fetchWebImagesForQuery(queryStr) {
+  const q = String(queryStr || '').trim();
+  if (!q) return;
+  const state = window._webCollageState;
+  const statusEl = document.getElementById('webCollageResultsStatus');
+  if (statusEl) {
+    statusEl.style.display = 'block';
+    statusEl.textContent = `🔍 Searching Wikipedia, Wikimedia Commons & Openverse for "${q}"...`;
+  }
+  try {
+    const { scrapedTitle, sourceImageUrl } = getCreatorWrittenContextForCollage();
+    const resp = await fetch('/api/synthesize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'search_collage_images',
+        query: q,
+        scrapedTitle,
+        sourceImageUrl: state.activeTabIndex === 0 ? sourceImageUrl : ''
+      })
+    });
+    if (resp.ok) {
+      const data = await resp.json();
+      if (data && data.success) {
+        state.tabImagesMap[q] = Array.isArray(data.images) ? data.images : [];
+      }
+    }
+  } catch (err) {
+    console.warn('fetchWebImagesForQuery error:', err);
+  } finally {
+    if (statusEl) statusEl.style.display = 'none';
+  }
+}
+
+function renderWebCollageTabGrid() {
+  const gridEl = document.getElementById('webCollageResultsGrid');
+  if (!gridEl) return;
+  const state = window._webCollageState;
+
+  let items = [];
+  if (state.activeTabIndex === 3) {
+    items = state.slantArtImages || [];
+  } else {
+    const subj = state.subjects[state.activeTabIndex];
+    const q = subj ? (subj.query || subj.label || '') : '';
+    items = (q && state.tabImagesMap[q]) ? state.tabImagesMap[q] : [];
+  }
+
+  if (!items || items.length === 0) {
+    gridEl.innerHTML = `<div style="grid-column: 1 / -1; padding: 18px 12px; text-align: center; color: var(--text-secondary); font-size: 11.5px; background: rgba(148,163,184,0.08); border-radius: 10px;">
+      ${state.isLoading ? 'Searching web images...' : 'No images found for this phrase. Type a simpler noun or person name above and tap <strong>🔍 Search Web</strong>!'}
+    </div>`;
+    return;
+  }
+
+  gridEl.innerHTML = items.map((item) => {
+    const selIdx = state.selectedItems.findIndex(s => s.url === item.url);
+    const isSelected = selIdx >= 0;
+    const encUrl = encodeURIComponent(item.url);
+    const encThumb = encodeURIComponent(item.thumbUrl || item.url);
+    const encTitle = encodeURIComponent(item.title || 'Web Image');
+    const encSource = encodeURIComponent(item.source || 'Web');
+
+    return `<div onclick="toggleSelectCollageImage('${encUrl}', '${encThumb}', '${encTitle}', '${encSource}')" style="position: relative; border-radius: 9px; overflow: hidden; border: ${isSelected ? '2.5px solid #059669' : '1px solid rgba(148,163,184,0.35)'}; background: #0F172A; cursor: pointer; aspect-ratio: 1 / 1; display: flex; flex-direction: column; justify-content: flex-end; box-shadow: ${isSelected ? '0 0 0 2px rgba(16,185,129,0.28)' : 'none'}; transition: transform 0.15s ease;">
+      <img src="${escapeHtml(item.thumbUrl || item.url)}" alt="${escapeHtml(item.title || '')}" loading="lazy" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;">
+      ${isSelected ? `<div style="position: absolute; top: 5px; right: 5px; width: 22px; height: 22px; border-radius: 50%; background: #059669; color: #FFFFFF; font-size: 11px; font-weight: 900; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,0.35);">✓${selIdx + 1}</div>` : ''}
+      <div style="position: relative; z-index: 1; background: linear-gradient(to top, rgba(15,23,42,0.88), rgba(15,23,42,0.0)); padding: 14px 5px 4px; color: #F8FAFC; font-size: 9.5px; font-weight: 700; line-height: 1.18; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+        ${escapeHtml(item.title || '')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function toggleSelectCollageImage(encUrl, encThumb, encTitle, encSource) {
+  const url = decodeURIComponent(encUrl || '');
+  const thumbUrl = decodeURIComponent(encThumb || encUrl || '');
+  const title = decodeURIComponent(encTitle || '');
+  const source = decodeURIComponent(encSource || 'Web');
+  if (!url) return;
+
+  const state = window._webCollageState;
+  const existingIdx = state.selectedItems.findIndex(s => s.url === url);
+  if (existingIdx >= 0) {
+    state.selectedItems.splice(existingIdx, 1);
+  } else {
+    // If an image is already selected from the same subject tab (and user has >= 1), or if 3 are already selected, replace intelligently
+    const sameTabIdx = state.selectedItems.findIndex(s => s.tabIndex === state.activeTabIndex);
+    const newItem = {
+      url,
+      thumbUrl,
+      title,
+      source,
+      tabIndex: state.activeTabIndex
+    };
+    if (sameTabIdx >= 0) {
+      state.selectedItems[sameTabIdx] = newItem;
+    } else if (state.selectedItems.length >= 3) {
+      state.selectedItems[2] = newItem;
+    } else {
+      state.selectedItems.push(newItem);
+    }
+  }
+
+  renderWebCollageSubjectTabs();
+  renderWebCollageTabGrid();
+  renderWebCollageSelectedSlotsUI();
+  await renderWebCollageCanvas();
+}
+window.toggleSelectCollageImage = toggleSelectCollageImage;
+
+function removeWebCollageSelectedSlot(slotIndex) {
+  const state = window._webCollageState;
+  if (slotIndex >= 0 && slotIndex < state.selectedItems.length) {
+    state.selectedItems.splice(slotIndex, 1);
+    renderWebCollageSubjectTabs();
+    renderWebCollageTabGrid();
+    renderWebCollageSelectedSlotsUI();
+    renderWebCollageCanvas();
+  }
+}
+window.removeWebCollageSelectedSlot = removeWebCollageSelectedSlot;
+
+function clearWebCollageSelection() {
+  const state = window._webCollageState;
+  state.selectedItems = [];
+  state.compositedDataUrl = null;
+  window._isWebCollageAttached = false;
+  const btnLabel = document.getElementById('slantWebCollageBtnLabel');
+  if (btnLabel) btnLabel.textContent = 'Web Collage (0⚡)';
+  const appliedStatus = document.getElementById('webCollageAppliedStatus');
+  if (appliedStatus) appliedStatus.style.display = 'none';
+  renderWebCollageSubjectTabs();
+  renderWebCollageTabGrid();
+  renderWebCollageSelectedSlotsUI();
+  renderWebCollageCanvas();
+}
+window.clearWebCollageSelection = clearWebCollageSelection;
+
+function setWebCollageLayoutStyle(style) {
+  const state = window._webCollageState;
+  state.layoutStyle = style === 'bleed' ? 'bleed' : 'archival';
+  const archBtn = document.getElementById('webCollageStyleArchivalBtn');
+  const bleedBtn = document.getElementById('webCollageStyleBleedBtn');
+  if (archBtn && bleedBtn) {
+    if (state.layoutStyle === 'archival') {
+      archBtn.style.background = '#253833';
+      archBtn.style.color = '#FFFFFF';
+      archBtn.style.borderColor = '#253833';
+      bleedBtn.style.background = 'transparent';
+      bleedBtn.style.color = 'var(--text-secondary)';
+      bleedBtn.style.borderColor = 'rgba(148,163,184,0.45)';
+    } else {
+      bleedBtn.style.background = '#253833';
+      bleedBtn.style.color = '#FFFFFF';
+      bleedBtn.style.borderColor = '#253833';
+      archBtn.style.background = 'transparent';
+      archBtn.style.color = 'var(--text-secondary)';
+      archBtn.style.borderColor = 'rgba(148,163,184,0.45)';
+    }
+  }
+  renderWebCollageCanvas();
+}
+window.setWebCollageLayoutStyle = setWebCollageLayoutStyle;
+
+function renderWebCollageSelectedSlotsUI() {
+  const countEl = document.getElementById('webCollageSelectedCount');
+  const slotsRow = document.getElementById('webCollageSelectedSlotsRow');
+  const previewWrap = document.getElementById('webCollageCanvasPreviewWrap');
+  const state = window._webCollageState;
+
+  if (countEl) countEl.textContent = String(state.selectedItems.length);
+  if (!slotsRow) return;
+
+  if (state.selectedItems.length === 0) {
+    slotsRow.innerHTML = `<div style="font-size: 11px; color: var(--text-secondary); padding: 6px 10px; border-radius: 8px; background: rgba(148,163,184,0.1);">
+      👆 Tap 1, 2, or 3 images from the tabs above to preview &amp; composite your collage.
+    </div>`;
+    if (previewWrap) previewWrap.style.display = 'none';
+    return;
+  }
+
+  if (previewWrap) previewWrap.style.display = 'flex';
+  slotsRow.innerHTML = state.selectedItems.map((it, idx) => `
+    <div style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px 4px 4px; border-radius: 9px; background: #FFFFFF; border: 1px solid rgba(16,185,129,0.4); box-shadow: 0 2px 6px rgba(15,23,42,0.05);">
+      <img src="${escapeHtml(it.thumbUrl || it.url)}" alt="" style="width: 28px; height: 28px; border-radius: 6px; object-fit: cover;">
+      <span style="font-size: 10.8px; font-weight: 800; color: var(--text-primary); max-width: 110px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">#${idx + 1} ${escapeHtml(it.title || 'Image')}</span>
+      <button type="button" onclick="removeWebCollageSelectedSlot(${idx})" style="border: none; background: rgba(239,68,68,0.12); color: #DC2626; width: 18px; height: 18px; border-radius: 50%; font-size: 11px; font-weight: 900; cursor: pointer; line-height: 1;">&times;</button>
+    </div>
+  `).join('');
+}
+
+async function loadCollageImageElementSafe(url) {
+  if (!url) return null;
+  if (window._webCollageImageElementCache.has(url)) {
+    return window._webCollageImageElementCache.get(url);
+  }
+
+  let dataUrl = window._webCollageBase64Cache.get(url);
+  if (!dataUrl) {
+    try {
+      const resp = await fetch('/api/synthesize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'fetch_image_base64',
+          imageUrl: url
+        })
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data && data.success && data.dataUrl) {
+          dataUrl = data.dataUrl;
+          window._webCollageBase64Cache.set(url, dataUrl);
+        }
+      }
+    } catch (_) {}
+  }
+
+  const srcToLoad = dataUrl || url;
+  return new Promise((resolve) => {
+    const img = new Image();
+    if (!srcToLoad.startsWith('data:')) {
+      img.crossOrigin = 'anonymous';
+    }
+    img.onload = () => {
+      window._webCollageImageElementCache.set(url, img);
+      resolve(img);
+    };
+    img.onerror = () => resolve(null);
+    img.src = srcToLoad;
+  });
+}
+
+function drawCoverImageOnCanvas(ctx, img, x, y, w, h, radius = 0) {
+  if (!ctx || !img) return;
+  ctx.save();
+  if (radius > 0) {
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.lineTo(x + w - radius, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
+    ctx.lineTo(x + w, y + h - radius);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
+    ctx.lineTo(x + radius, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
+    ctx.lineTo(x, y + radius);
+    ctx.quadraticCurveTo(x, y, x + radius, y);
+    ctx.closePath();
+    ctx.clip();
+  } else {
+    ctx.beginPath();
+    ctx.rect(x, y, w, h);
+    ctx.clip();
+  }
+
+  const imgRatio = img.width / Math.max(1, img.height);
+  const boxRatio = w / Math.max(1, h);
+  let drawW = w;
+  let drawH = h;
+  let offsetX = x;
+  let offsetY = y;
+
+  if (imgRatio > boxRatio) {
+    drawH = h;
+    drawW = h * imgRatio;
+    offsetX = x - (drawW - w) / 2;
+  } else {
+    drawW = w;
+    drawH = w / imgRatio;
+    // Slight upper-center bias (0.32) so human faces/heads in portraits are never decapitated
+    offsetY = y - (drawH - h) * 0.32;
+  }
+
+  ctx.drawImage(img, offsetX, offsetY, drawW, drawH);
+
+  // Subtle warm editorial film grade overlay so multi-source web images harmonize together
+  ctx.fillStyle = 'rgba(245, 232, 208, 0.08)';
+  ctx.fillRect(x, y, w, h);
+  ctx.restore();
+}
+
+async function renderWebCollageCanvas() {
+  const canvas = document.getElementById('webCollagePreviewCanvas');
+  if (!canvas) return null;
+  const state = window._webCollageState;
+  if (!state.selectedItems || state.selectedItems.length === 0) return null;
+
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width || 800;
+  const H = canvas.height || 1000;
+
+  const loadedImgs = (await Promise.all(
+    state.selectedItems.slice(0, 3).map(it => loadCollageImageElementSafe(it.url))
+  )).filter(Boolean);
+
+  if (loadedImgs.length === 0) return null;
+
+  ctx.clearRect(0, 0, W, H);
+  const isArchival = state.layoutStyle !== 'bleed';
+
+  if (isArchival) {
+    // Warm Archival Broadsheet Cream Paper background (#F5EFE2)
+    ctx.fillStyle = '#F5EFE2';
+    ctx.fillRect(0, 0, W, H);
+
+    // Subtle outer editorial rule
+    ctx.strokeStyle = 'rgba(37, 56, 51, 0.28)';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(18, 18, W - 36, H - 36);
+
+    const pad = 34;
+    const gap = 16;
+    const innerW = W - pad * 2;
+    const innerH = H - pad * 2;
+
+    if (loadedImgs.length === 1) {
+      drawCoverImageOnCanvas(ctx, loadedImgs[0], pad, pad, innerW, innerH, 12);
+      ctx.strokeStyle = 'rgba(37, 56, 51, 0.45)';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(pad, pad, innerW, innerH);
+    } else if (loadedImgs.length === 2) {
+      const topH = Math.round((innerH - gap) * 0.5);
+      const botH = innerH - gap - topH;
+      drawCoverImageOnCanvas(ctx, loadedImgs[0], pad, pad, innerW, topH, 12);
+      drawCoverImageOnCanvas(ctx, loadedImgs[1], pad, pad + topH + gap, innerW, botH, 12);
+      ctx.strokeStyle = 'rgba(37, 56, 51, 0.4)';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(pad, pad, innerW, topH);
+      ctx.strokeRect(pad, pad + topH + gap, innerW, botH);
+    } else {
+      const topH = Math.round((innerH - gap) * 0.46);
+      const botH = innerH - gap - topH;
+      const halfW = Math.round((innerW - gap) * 0.5);
+      const rightW = innerW - gap - halfW;
+      // Top-Left Subject 1
+      drawCoverImageOnCanvas(ctx, loadedImgs[0], pad, pad, halfW, topH, 12);
+      // Top-Right Subject 2
+      drawCoverImageOnCanvas(ctx, loadedImgs[1], pad + halfW + gap, pad, rightW, topH, 12);
+      // Bottom Hero Subject 3
+      drawCoverImageOnCanvas(ctx, loadedImgs[2], pad, pad + topH + gap, innerW, botH, 12);
+
+      ctx.strokeStyle = 'rgba(37, 56, 51, 0.4)';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(pad, pad, halfW, topH);
+      ctx.strokeRect(pad + halfW + gap, pad, rightW, topH);
+      ctx.strokeRect(pad, pad + topH + gap, innerW, botH);
+    }
+  } else {
+    // Full-Bleed Editorial Split
+    ctx.fillStyle = '#18181B';
+    ctx.fillRect(0, 0, W, H);
+    const div = 8;
+
+    if (loadedImgs.length === 1) {
+      drawCoverImageOnCanvas(ctx, loadedImgs[0], 0, 0, W, H, 0);
+    } else if (loadedImgs.length === 2) {
+      const topH = Math.round((H - div) * 0.5);
+      const botH = H - div - topH;
+      drawCoverImageOnCanvas(ctx, loadedImgs[0], 0, 0, W, topH, 0);
+      drawCoverImageOnCanvas(ctx, loadedImgs[1], 0, topH + div, W, botH, 0);
+      ctx.fillStyle = '#F5EFE2';
+      ctx.fillRect(0, topH, W, div);
+    } else {
+      const topH = Math.round((H - div) * 0.47);
+      const botH = H - div - topH;
+      const leftW = Math.round((W - div) * 0.5);
+      const rightW = W - div - leftW;
+      drawCoverImageOnCanvas(ctx, loadedImgs[0], 0, 0, leftW, topH, 0);
+      drawCoverImageOnCanvas(ctx, loadedImgs[1], leftW + div, 0, rightW, topH, 0);
+      drawCoverImageOnCanvas(ctx, loadedImgs[2], 0, topH + div, W, botH, 0);
+      ctx.fillStyle = '#F5EFE2';
+      ctx.fillRect(leftW, 0, div, topH);
+      ctx.fillRect(0, topH, W, div);
+    }
+  }
+
+  try {
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.90);
+    state.compositedDataUrl = dataUrl;
+    // Automatically attach as the post's exact 0-credit visual so the user doesn't even have to click an extra button if they go straight to Synthesize!
+    applyWebCollageToPost(true);
+    return dataUrl;
+  } catch (err) {
+    console.warn('Collage canvas export warning:', err);
+    return null;
+  }
+}
+window.renderWebCollageCanvas = renderWebCollageCanvas;
+
+function applyWebCollageToPost(silentAutoApply = false) {
+  const state = window._webCollageState;
+  const dataUrl = state.compositedDataUrl;
+  if (!dataUrl) {
+    if (!silentAutoApply) {
+      showTemporaryToast('Select 1, 2, or 3 images first to build your collage.');
+    }
+    return;
+  }
+
+  const labelNames = state.selectedItems.map(it => it.title).filter(Boolean).slice(0, 3).join(' + ');
+  creatorReferenceImageBase64 = dataUrl;
+  creatorReferenceImageMimeType = 'image/jpeg';
+  creatorReferenceImageSourceLabel = `Web Collage (${state.selectedItems.length} image${state.selectedItems.length > 1 ? 's' : ''}: ${labelNames.slice(0, 45)})`;
+  window._isWebCollageAttached = true;
+
+  if (typeof creatorSelectedSource !== 'undefined' && creatorSelectedSource === 'inner_voice') {
+    innerVoicePhotoBase64 = dataUrl;
+    innerVoicePhotoMimeType = 'image/jpeg';
+  }
+  if (typeof isDailyChronicleMode !== 'undefined' && isDailyChronicleMode && Array.isArray(dailyChronicleMoments) && dailyChronicleMoments.length > 0) {
+    const starredIdx = dailyChronicleMoments.findIndex(m => Boolean(m && m.isStarred));
+    const targetIdx = starredIdx >= 0 ? starredIdx : 0;
+    if (dailyChronicleMoments[targetIdx]) {
+      dailyChronicleMoments[targetIdx].imageBase64 = dataUrl;
+      dailyChronicleMoments[targetIdx].imageMimeType = 'image/jpeg';
+    }
+  }
+
+  creatorCharacterRepresentation = 'exact';
+  if (typeof updateReferencePhotoUI === 'function') {
+    try { updateReferencePhotoUI(); } catch (_) {}
+  }
+  if (typeof updateEqualizerSummary === 'function') {
+    try { updateEqualizerSummary(); } catch (_) {}
+  }
+
+  const btnLabel = document.getElementById('slantWebCollageBtnLabel');
+  if (btnLabel) {
+    btnLabel.textContent = `✓ Collage (${state.selectedItems.length}) • 0⚡`;
+  }
+  const appliedStatus = document.getElementById('webCollageAppliedStatus');
+  if (appliedStatus) {
+    appliedStatus.style.display = 'block';
+  }
+
+  if (!silentAutoApply) {
+    showTemporaryToast(`✓ ${state.selectedItems.length}-image Web Collage attached for Poster 1 (0 visual credits)! Tap "Synthesize Posters" below.`);
+  }
+}
+window.applyWebCollageToPost = applyWebCollageToPost;
 
 // ============================================================
 // AUTHENTICATION & USER PROFILE CONTROLLER (OPEN ACCESS)
@@ -18006,7 +18727,9 @@ function updateEqualizerSummary() {
           ? 'Watercolor Illustration'
           : (creatorCharacterRepresentation === 'silhouette'
             ? 'Silhouette'
-            : (creatorCharacterRepresentation === 'exact' ? 'Authentic Photo' : 'AI Illustration')))));
+            : (creatorCharacterRepresentation === 'exact'
+              ? (window._isWebCollageAttached ? '🖼️ Web Collage (0⚡)' : 'Authentic Photo (0⚡)')
+              : 'AI Illustration')))));
 
   const countryName = creatorCountryContext ? (creatorCountryContext.flag + ' ' + creatorCountryContext.name) : '🇮🇳 India';
 
@@ -20354,6 +21077,13 @@ function resetCreatorState() {
   });
 
   // Reset to Step 1 UI
+  window._isWebCollageAttached = false;
+  if (typeof clearWebCollageSelection === 'function') {
+    try { clearWebCollageSelection(); } catch (_) {}
+  }
+  if (typeof closeWebCollageBuilder === 'function') {
+    try { closeWebCollageBuilder(); } catch (_) {}
+  }
   backToStep1();
 }
 
@@ -22568,7 +23298,10 @@ async function startAiSynthesis() {
       if (!hasAnyMomentPhoto) {
         const banner = document.getElementById('creatorZeroCreditsFreeBanner');
         if (banner) banner.style.display = 'block';
-        showTemporaryToast('📷 0 AI art credits left today — attach a photo to your moment(s) to generate & post for FREE (Text generation is free), or request bonus credits!');
+        if (typeof openWebCollageBuilderFromContext === 'function') {
+          openWebCollageBuilderFromContext();
+        }
+        showTemporaryToast('🖼️ 0 AI art credits left today — pick 1–3 web images in the Collage Studio above OR attach a photo to your moment(s) to post for FREE (Text generation is free)!');
         return;
       }
       creatorCharacterRepresentation = 'exact';
@@ -22576,16 +23309,15 @@ async function startAiSynthesis() {
       if (!innerVoicePhotoBase64 && !creatorReferenceImageBase64) {
         const banner = document.getElementById('creatorZeroCreditsFreeBanner');
         if (banner) banner.style.display = 'block';
-        const photoWrap = document.getElementById('innerVoicePhotoWrap');
-        if (photoWrap && typeof photoWrap.scrollIntoView === 'function') {
-          photoWrap.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (typeof openWebCollageBuilderFromContext === 'function') {
+          openWebCollageBuilderFromContext();
         }
-        showTemporaryToast('📷 0 AI art credits left — attach a photo (Snap Scene / Upload Photo) to publish your Inner Voice post for FREE (Text generation is free), or use a Web Link with its original photo!');
+        showTemporaryToast('🖼️ 0 AI art credits left — pick 1–3 web images in the Collage Studio above OR attach your own photo to publish for FREE (Text generation is free)!');
         return;
       }
       creatorCharacterRepresentation = 'exact';
     } else {
-      // Web Link: automatically switch to Source Grounded + Original Photo (Free)
+      // Web Link: automatically switch to Source Grounded + Original Photo / Web Collage (Free)
       creatorPerspectiveMode = 'source';
       creatorCharacterRepresentation = 'exact';
     }
@@ -22715,7 +23447,9 @@ async function startAiSynthesis() {
   const effectiveImageBase64 = shouldSendImage ? (creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || null) : null;
   const effectiveImageMime = shouldSendImage ? (creatorReferenceImageMimeType || currentScrapedArticle?.imageMimeType || 'image/jpeg') : 'image/jpeg';
 
-  const rawSourceImgUrl = (isLink && currentScrapedArticle) ? (currentScrapedArticle.imageUrl || null) : (creatorReferenceImageBase64?.startsWith('http') ? creatorReferenceImageBase64 : null);
+  const rawSourceImgUrl = window._isWebCollageAttached
+    ? null
+    : ((isLink && currentScrapedArticle) ? (currentScrapedArticle.imageUrl || null) : (creatorReferenceImageBase64?.startsWith('http') ? creatorReferenceImageBase64 : null));
   const cleanSourceImgUrl = (rawSourceImgUrl && typeof rawSourceImgUrl === 'string') ? rawSourceImgUrl.replace(/&amp;/g, '&') : null;
 
   const isChronicleActive = (creatorSelectedSource === 'inner_voice' && isDailyChronicleMode);
@@ -22796,6 +23530,7 @@ async function startAiSynthesis() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             action: 'artwork_only',
+            simulateZeroCredits: Boolean(window._masterSimulateZeroCredits),
             isManualRegenerate: true,
             rebuildPromptFromSettings: true,
             creatorEmail: userEmail,
@@ -22919,6 +23654,7 @@ async function startAiSynthesis() {
   const payload = {
     sourceType: creatorSelectedSource,
     chronicleMode: isChronicleActive,
+    simulateZeroCredits: Boolean(window._masterSimulateZeroCredits),
     regenScope: activeRegenScope,
     reflectionFeedbackHistory: isChronicleActive ? getReflectionFeedbackHistory() : null,
     chronicleMoments: activeChronicleMoments.map(m => ({
@@ -22936,8 +23672,12 @@ async function startAiSynthesis() {
     slantTake: slantTake,
     perspectiveMode: creatorPerspectiveMode || 'hybrid',
     sourceImageUrl: cleanSourceImgUrl,
-    sourceImageBase64: (isLink && currentScrapedArticle) ? (currentScrapedArticle.imageBase64 || null) : (creatorReferenceImageBase64?.startsWith('data:') ? creatorReferenceImageBase64 : null),
-    sourceImageMimeType: (isLink && currentScrapedArticle) ? (currentScrapedArticle.imageMimeType || 'image/jpeg') : (creatorReferenceImageMimeType || 'image/jpeg'),
+    sourceImageBase64: (window._isWebCollageAttached && creatorReferenceImageBase64?.startsWith('data:'))
+      ? creatorReferenceImageBase64
+      : ((isLink && currentScrapedArticle) ? (currentScrapedArticle.imageBase64 || null) : (creatorReferenceImageBase64?.startsWith('data:') ? creatorReferenceImageBase64 : null)),
+    sourceImageMimeType: (window._isWebCollageAttached && creatorReferenceImageBase64?.startsWith('data:'))
+      ? (creatorReferenceImageMimeType || 'image/jpeg')
+      : ((isLink && currentScrapedArticle) ? (currentScrapedArticle.imageMimeType || 'image/jpeg') : (creatorReferenceImageMimeType || 'image/jpeg')),
     imageBase64: effectiveImageBase64 || (creatorSelectedSource === 'inner_voice' ? innerVoicePhotoBase64 : null),
     imageMimeType: effectiveImageMime || innerVoicePhotoMimeType || 'image/jpeg',
     innerVoiceImageBase64: (creatorSelectedSource === 'inner_voice') ? innerVoicePhotoBase64 : null,

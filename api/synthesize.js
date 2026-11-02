@@ -26,7 +26,7 @@ function getTodayDateKeyIST() {
   }
 }
 
-async function verifyAndConsumeUserCredit(email, consume = false, isChronicleMode = false) {
+async function verifyAndConsumeUserCredit(email, consume = false, isChronicleMode = false, simulateZeroCredits = false) {
   if (!email) return { allowed: false, hasCredits: false, credits: null };
   const clean = String(email).toLowerCase().trim();
   const todayKey = getTodayDateKeyIST();
@@ -46,9 +46,39 @@ async function verifyAndConsumeUserCredit(email, consume = false, isChronicleMod
       }
       const existing = d.user_credits[clean] || {};
       const isMaster = MASTER_ADMINS.includes(clean);
+      const isEffectiveMaster = isMaster && !simulateZeroCredits;
       const isAllowed = isMaster || adminList.includes(clean) || allowedList.includes(clean);
       if (!isAllowed) {
         return { allowed: false, hasCredits: false, credits: null };
+      }
+
+      if (isMaster && simulateZeroCredits) {
+        return {
+          allowed: true,
+          hasCredits: false,
+          credits: {
+            email: clean,
+            isUnlimited: false,
+            simulatedZeroCredits: true,
+            starterTotal: STARTER_PERSPECTIVE_CREDITS,
+            starterUsed: STARTER_PERSPECTIVE_CREDITS,
+            starterRemaining: 0,
+            dailyLimit,
+            perspectiveUsedToday: dailyLimit,
+            perspectiveDailyRemaining: 0,
+            perspectiveRemainingToday: 0,
+            chronicleDailyLimit: DAILY_CHRONICLE_FREE_LIMIT,
+            chronicleUsedToday: DAILY_CHRONICLE_FREE_LIMIT,
+            chronicleFreeRemainingToday: 0,
+            chronicleRemainingToday: 0,
+            usedToday: dailyLimit + DAILY_CHRONICLE_FREE_LIMIT,
+            dailyRemaining: 0,
+            bonusCredits: 0,
+            remainingToday: 0,
+            totalUsed: Number(existing.totalUsed) || 0,
+            lastDateKey: todayKey
+          }
+        };
       }
 
       const starterTotal = STARTER_PERSPECTIVE_CREDITS;
@@ -66,19 +96,19 @@ async function verifyAndConsumeUserCredit(email, consume = false, isChronicleMod
       const perspectiveBaseBefore = starterRemaining > 0 ? starterRemaining : perspectiveDailyRemainingBefore;
       const chronicleFreeRemainingBefore = Math.max(0, DAILY_CHRONICLE_FREE_LIMIT - chronicleUsedToday);
 
-      const hasCredits = isMaster
+      const hasCredits = isEffectiveMaster
         || (isChronicleMode
           ? (chronicleFreeRemainingBefore > 0 || bonusCredits > 0)
           : (perspectiveBaseBefore > 0 || bonusCredits > 0));
 
       if (hasCredits && consume) {
         if (isChronicleMode) {
-          if (!isMaster && chronicleFreeRemainingBefore <= 0 && bonusCredits > 0) {
+          if (!isEffectiveMaster && chronicleFreeRemainingBefore <= 0 && bonusCredits > 0) {
             bonusCredits = Math.max(0, bonusCredits - 1);
           }
           chronicleUsedToday += 1;
         } else {
-          if (!isMaster) {
+          if (!isEffectiveMaster) {
             if (starterRemaining > 0) {
               starterUsed += 1;
             } else if (perspectiveDailyRemainingBefore > 0) {
@@ -121,16 +151,16 @@ async function verifyAndConsumeUserCredit(email, consume = false, isChronicleMod
       starterRemaining = Math.max(0, starterTotal - starterUsed);
       const perspectiveDailyRemainingAfter = Math.max(0, dailyLimit - perspectiveUsedToday);
       const perspectiveBaseAfter = starterRemaining > 0 ? starterRemaining : perspectiveDailyRemainingAfter;
-      const perspectiveRemainingToday = isMaster ? 9999 : (perspectiveBaseAfter + bonusCredits);
+      const perspectiveRemainingToday = isEffectiveMaster ? 9999 : (perspectiveBaseAfter + bonusCredits);
       const chronicleFreeRemainingToday = Math.max(0, DAILY_CHRONICLE_FREE_LIMIT - chronicleUsedToday);
-      const chronicleRemainingToday = isMaster ? 9999 : (chronicleFreeRemainingToday + bonusCredits);
+      const chronicleRemainingToday = isEffectiveMaster ? 9999 : (chronicleFreeRemainingToday + bonusCredits);
 
       return {
         allowed: true,
         hasCredits,
         credits: {
           email: clean,
-          isUnlimited: isMaster,
+          isUnlimited: isEffectiveMaster,
           starterTotal,
           starterUsed,
           starterRemaining,
@@ -156,22 +186,24 @@ async function verifyAndConsumeUserCredit(email, consume = false, isChronicleMod
   }
 
   const isMasterFallback = MASTER_ADMINS.includes(clean);
+  const isEffectiveMasterFallback = isMasterFallback && !simulateZeroCredits;
   return {
     allowed: isMasterFallback,
-    hasCredits: isMasterFallback,
+    hasCredits: isEffectiveMasterFallback,
     credits: isMasterFallback ? {
       email: clean,
-      isUnlimited: true,
+      isUnlimited: isEffectiveMasterFallback,
+      simulatedZeroCredits: Boolean(simulateZeroCredits),
       starterTotal: STARTER_PERSPECTIVE_CREDITS,
-      starterUsed: 0,
-      starterRemaining: STARTER_PERSPECTIVE_CREDITS,
+      starterUsed: simulateZeroCredits ? STARTER_PERSPECTIVE_CREDITS : 0,
+      starterRemaining: simulateZeroCredits ? 0 : STARTER_PERSPECTIVE_CREDITS,
       dailyLimit: DEFAULT_DAILY_CREDIT_LIMIT,
-      perspectiveRemainingToday: 9999,
-      chronicleRemainingToday: 9999,
+      perspectiveRemainingToday: simulateZeroCredits ? 0 : 9999,
+      chronicleRemainingToday: simulateZeroCredits ? 0 : 9999,
       usedToday: 0,
-      dailyRemaining: 9999,
+      dailyRemaining: simulateZeroCredits ? 0 : 9999,
       bonusCredits: 0,
-      remainingToday: 9999,
+      remainingToday: simulateZeroCredits ? 0 : 9999,
       totalUsed: 0
     } : null
   };
@@ -628,6 +660,255 @@ async function loadSharedFamilyCastAndNotifications(viewerEmail) {
   };
 }
 
+const COLLAGE_SUBJECT_STOPWORDS = new Set([
+  'the', 'and', 'for', 'that', 'this', 'with', 'from', 'your', 'have', 'more', 'when', 'what', 'where', 'which', 'while',
+  'will', 'would', 'could', 'should', 'about', 'into', 'over', 'after', 'before', 'between', 'under', 'again', 'further',
+  'then', 'once', 'here', 'there', 'all', 'any', 'both', 'each', 'few', 'most', 'other', 'some', 'such', 'only', 'own',
+  'same', 'than', 'too', 'very', 'just', 'even', 'also', 'still', 'because', 'through', 'during', 'without', 'within',
+  'every', 'always', 'never', 'often', 'sometimes', 'today', 'yesterday', 'tomorrow', 'morning', 'evening', 'night',
+  'their', 'they', 'them', 'these', 'those', 'ours', 'ourselves', 'myself', 'himself', 'herself', 'itself', 'someone',
+  'something', 'nothing', 'everything', 'anything', 'people', 'person', 'world', 'life', 'time', 'year', 'years', 'days',
+  'week', 'month', 'make', 'made', 'making', 'take', 'took', 'taken', 'give', 'gave', 'given', 'keep', 'kept', 'think',
+  'thought', 'know', 'knew', 'known', 'feel', 'felt', 'look', 'looked', 'seem', 'seemed', 'become', 'became', 'mean',
+  'meant', 'need', 'needed', 'want', 'wanted', 'real', 'true', 'good', 'great', 'best', 'better', 'worse', 'worst',
+  'many', 'much', 'little', 'less', 'least', 'high', 'long', 'short', 'small', 'large', 'next', 'last', 'first', 'second',
+  'third', 'new', 'old', 'young', 'right', 'left', 'back', 'down', 'away', 'around', 'however', 'therefore', 'instead',
+  'although', 'though', 'whether', 'either', 'neither', 'actually', 'really', 'simply', 'merely', 'truly', 'deeply',
+  'slant', 'post', 'article', 'story', 'news', 'video', 'youtube', 'link', 'source', 'moment', 'moments', 'reflection'
+]);
+
+function extractKeyVisualSubjectsZeroCost(contextText = '', scrapedTitle = '') {
+  const combined = `${scrapedTitle || ''}. ${contextText || ''}`
+    .replace(/https?:\/\/\S+/gi, ' ')
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201C\u201D]/g, '"')
+    .trim();
+
+  const subjects = [];
+  const seenLower = new Set();
+
+  const addCandidate = (rawLabel, rawQuery = '') => {
+    if (!rawLabel || subjects.length >= 3) return;
+    const cleanLabel = String(rawLabel)
+      .replace(/^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (cleanLabel.length < 3 || cleanLabel.length > 42) return;
+    const words = cleanLabel.split(' ');
+    if (words.length > 4) return;
+    const lower = cleanLabel.toLowerCase();
+    if (COLLAGE_SUBJECT_STOPWORDS.has(lower)) return;
+    if (words.every(w => COLLAGE_SUBJECT_STOPWORDS.has(w.toLowerCase()))) return;
+    for (const existing of seenLower) {
+      if (existing === lower || existing.includes(lower) || lower.includes(existing)) {
+        return;
+      }
+    }
+    seenLower.add(lower);
+    subjects.push({
+      id: `subj_${subjects.length + 1}`,
+      label: cleanLabel,
+      query: String(rawQuery || cleanLabel).trim()
+    });
+  };
+
+  // 1. Multi-word capitalized Proper Nouns (e.g. "Narayana Murthy", "Supreme Court", "Silicon Valley", "Ratan Tata")
+  const multiProperRegex = /\b([A-Z][a-z]{2,}(?:\s+(?:of|and|for|in|on)\s+[A-Z][a-z]{2,}|\s+[A-Z][a-z0-9]{1,}){1,2})\b/g;
+  let match;
+  while ((match = multiProperRegex.exec(combined)) !== null && subjects.length < 3) {
+    const phrase = match[1].trim();
+    const parts = phrase.split(/\s+/);
+    // Skip if first word is a common sentence-starter stopword like "When India" -> keep "India" instead
+    if (COLLAGE_SUBJECT_STOPWORDS.has(parts[0].toLowerCase())) {
+      const rest = parts.slice(1).join(' ');
+      if (rest.length >= 3) addCandidate(rest);
+    } else {
+      addCandidate(phrase);
+    }
+  }
+
+  // 2. Single capitalized proper nouns (not at the very start of a sentence, or known proper entities)
+  const sentences = combined.split(/[.!?;\n]+/);
+  for (const sent of sentences) {
+    if (subjects.length >= 3) break;
+    const tokens = sent.trim().split(/\s+/);
+    for (let i = 0; i < tokens.length; i++) {
+      const tok = tokens[i].replace(/^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$/g, '').replace(/'s$/i, '');
+      if (!tok || tok.length < 3) continue;
+      if (/^[A-Z][a-z]{2,}$/.test(tok) && !COLLAGE_SUBJECT_STOPWORDS.has(tok.toLowerCase())) {
+        // Prefer mid-sentence capitalized words first, or sentence-initial if we still need subjects
+        if (i > 0) {
+          addCandidate(tok);
+        }
+      }
+    }
+  }
+
+  // 3. Concrete nouns / high-signal keywords from context
+  if (subjects.length < 3) {
+    const wordFreq = new Map();
+    const cleanWords = combined
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, ' ')
+      .split(/\s+/)
+      .map(w => w.replace(/^-+|-+$/g, ''))
+      .filter(w => w.length >= 4 && !COLLAGE_SUBJECT_STOPWORDS.has(w) && !/^\d+$/.test(w));
+
+    for (const w of cleanWords) {
+      // Skip common abstract verbs/adverbs ending in -ly, -ing, -tion, -ment unless high visual value
+      if (/(?:ingly|edly|atively|lessly|ness)$/.test(w)) continue;
+      wordFreq.set(w, (wordFreq.get(w) || 0) + 1);
+    }
+    const sortedKeywords = Array.from(wordFreq.entries())
+      .sort((a, b) => b[1] - a[1] || b[0].length - a[0].length)
+      .map(e => e[0]);
+
+    for (const kw of sortedKeywords) {
+      if (subjects.length >= 3) break;
+      const titleCase = kw.charAt(0).toUpperCase() + kw.slice(1);
+      addCandidate(titleCase, kw);
+    }
+  }
+
+  // 4. Fallback default subjects if text was very short
+  const defaults = ['India Culture', 'Architecture', 'Nature'];
+  for (const d of defaults) {
+    if (subjects.length >= 3) break;
+    addCandidate(d, d);
+  }
+
+  return subjects.slice(0, 3);
+}
+
+async function searchWebImagesForSubject(rawQuery = '', sourceImageUrl = '', sourceTitle = '') {
+  const q = String(rawQuery || '').trim();
+  if (!q) return [];
+  const results = [];
+  const seenUrls = new Set();
+
+  const pushImage = (item) => {
+    if (!item || !item.url) return;
+    const cleanUrl = String(item.url).trim();
+    if (!/^https?:\/\//i.test(cleanUrl)) return;
+    if (/\.svg(?:\?|$)/i.test(cleanUrl) || /\.gif(?:\?|$)/i.test(cleanUrl) || /\.tif(?:\?|$)/i.test(cleanUrl) || /\.pdf(?:\?|$)/i.test(cleanUrl)) return;
+    if (seenUrls.has(cleanUrl)) return;
+    seenUrls.add(cleanUrl);
+    results.push({
+      id: item.id || `img_${results.length + 1}_${Math.random().toString(36).slice(2, 6)}`,
+      url: cleanUrl,
+      thumbUrl: String(item.thumbUrl || cleanUrl).trim(),
+      title: String(item.title || q).replace(/^(?:File|Image):/i, '').replace(/\.[a-z]{3,4}$/i, '').replace(/_/g, ' ').slice(0, 75),
+      source: item.source || 'Web Commons',
+      aspectRatio: item.aspectRatio || null
+    });
+  };
+
+  // If a scraped source image exists and matches the first query context, include it at the top as a verified option
+  if (sourceImageUrl && /^https?:\/\//i.test(sourceImageUrl)) {
+    pushImage({
+      id: 'source_hero_img',
+      url: sourceImageUrl,
+      thumbUrl: sourceImageUrl,
+      title: sourceTitle ? `Source: ${sourceTitle}` : 'Original Source Photo',
+      source: 'Source Link'
+    });
+  }
+
+  const uaHeaders = {
+    'User-Agent': 'SlantEditorialApp/1.0 (https://slant.today; shridharoct16@gmail.com) Mozilla/5.0'
+  };
+
+  // Query 1: Wikipedia PageImages API (Best for public figures, places, companies, books, events, concepts)
+  const wikiTask = (async () => {
+    try {
+      const wikiUrl = `https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(q)}&gsrlimit=8&prop=pageimages|description&piprop=thumbnail|original&pithumbsize=720&format=json&origin=*`;
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 4500);
+      const resp = await fetch(wikiUrl, { headers: uaHeaders, signal: ctrl.signal });
+      clearTimeout(timer);
+      if (resp.ok) {
+        const data = await resp.json();
+        const pages = data?.query?.pages ? Object.values(data.query.pages) : [];
+        pages.sort((a, b) => (a.index || 99) - (b.index || 99));
+        for (const p of pages) {
+          const thumb = p?.thumbnail?.source;
+          const orig = p?.original?.source;
+          const bestUrl = thumb || orig;
+          if (bestUrl) {
+            pushImage({
+              url: bestUrl,
+              thumbUrl: thumb || bestUrl,
+              title: p.title + (p.description ? ` — ${p.description}` : ''),
+              source: 'Wikipedia'
+            });
+          }
+        }
+      }
+    } catch (_) {}
+  })();
+
+  // Query 2: Wikimedia Commons Bitmap Search API (Best for real-world scenes, objects, cities, nature, photography)
+  const commonsTask = (async () => {
+    try {
+      const commonsUrl = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(`filetype:bitmap ${q}`)}&gsrnamespace=6&gsrlimit=10&prop=imageinfo&iiprop=url|dimensions|mime&iiurlwidth=720&format=json&origin=*`;
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 4500);
+      const resp = await fetch(commonsUrl, { headers: uaHeaders, signal: ctrl.signal });
+      clearTimeout(timer);
+      if (resp.ok) {
+        const data = await resp.json();
+        const pages = data?.query?.pages ? Object.values(data.query.pages) : [];
+        pages.sort((a, b) => (a.index || 99) - (b.index || 99));
+        for (const p of pages) {
+          const info = Array.isArray(p?.imageinfo) ? p.imageinfo[0] : null;
+          if (!info) continue;
+          const mime = String(info.mime || '').toLowerCase();
+          if (!mime.includes('jpeg') && !mime.includes('jpg') && !mime.includes('png') && !mime.includes('webp')) continue;
+          const bestUrl = info.thumburl || info.url;
+          if (bestUrl) {
+            pushImage({
+              url: bestUrl,
+              thumbUrl: info.thumburl || bestUrl,
+              title: p.title || q,
+              source: 'Wikimedia Commons'
+            });
+          }
+        }
+      }
+    } catch (_) {}
+  })();
+
+  // Query 3: Openverse Creative Commons Photography API
+  const openverseTask = (async () => {
+    try {
+      const ovUrl = `https://api.openverse.org/v1/images/?q=${encodeURIComponent(q)}&page_size=8`;
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 4200);
+      const resp = await fetch(ovUrl, { headers: uaHeaders, signal: ctrl.signal });
+      clearTimeout(timer);
+      if (resp.ok) {
+        const data = await resp.json();
+        const items = Array.isArray(data?.results) ? data.results : [];
+        for (const item of items) {
+          const thumb = item.thumbnail || item.url;
+          const full = item.url || item.thumbnail;
+          if (full) {
+            pushImage({
+              url: full,
+              thumbUrl: thumb || full,
+              title: item.title || q,
+              source: 'Openverse CC'
+            });
+          }
+        }
+      }
+    } catch (_) {}
+  })();
+
+  await Promise.allSettled([wikiTask, commonsTask, openverseTask]);
+  return results.slice(0, 14);
+}
+
 module.exports = async function handler(req, res) {
   // CORS configuration
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -649,6 +930,123 @@ module.exports = async function handler(req, res) {
         body = JSON.parse(body);
       } catch (e) {
         return res.status(400).json({ error: 'Invalid JSON payload' });
+      }
+    }
+
+    // Zero-Cost Endpoint 1: Extract 1–3 Key Visual Subjects & Search Web / Slant Commons Images per Subject Tab
+    if (body && body.action === 'search_collage_images') {
+      const {
+        query = '',
+        queries = null,
+        contextText = '',
+        scrapedTitle = '',
+        sourceImageUrl = '',
+        extractSubjects = false,
+        includeSlantCommons = false
+      } = body;
+
+      try {
+        const subjects = extractSubjects
+          ? extractKeyVisualSubjectsZeroCost(contextText, scrapedTitle)
+          : [];
+
+        const targetQueries = Array.isArray(queries) && queries.length > 0
+          ? queries.slice(0, 3).map(q => String(q || '').trim()).filter(Boolean)
+          : (query
+              ? [String(query).trim()]
+              : subjects.map(s => s.query));
+
+        const tabResults = {};
+        await Promise.all(
+          targetQueries.map(async (qStr, idx) => {
+            const imgs = await searchWebImagesForSubject(
+              qStr,
+              idx === 0 ? sourceImageUrl : '',
+              scrapedTitle
+            );
+            tabResults[qStr] = imgs;
+          })
+        );
+
+        let slantArtImages = [];
+        if (includeSlantCommons) {
+          try {
+            const resp = await fetch(`${SUPABASE_URL}/rest/v1/posts?select=id,data&id=like.slant*&order=created_at.desc&limit=36`, {
+              headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+            });
+            if (resp.ok) {
+              const rows = await resp.json();
+              const seenArt = new Set();
+              for (const r of (rows || [])) {
+                const d = r?.data || {};
+                const imgUrl = d.illustrationUrl || d.posterUrl || d.imageUrl || '';
+                if (!imgUrl || !/^https?:\/\//i.test(imgUrl) || seenArt.has(imgUrl)) continue;
+                seenArt.add(imgUrl);
+                slantArtImages.push({
+                  id: `slant_art_${r.id}`,
+                  url: imgUrl,
+                  thumbUrl: imgUrl,
+                  title: d.adaptedHeadline || d.originalHeadline || 'Slant Editorial Artwork',
+                  source: 'Slant Art Library'
+                });
+                if (slantArtImages.length >= 12) break;
+              }
+            }
+          } catch (_) {}
+        }
+
+        const primaryQuery = query || targetQueries[0] || '';
+        return res.status(200).json({
+          success: true,
+          subjects,
+          query: primaryQuery,
+          images: tabResults[primaryQuery] || [],
+          tabResults,
+          slantArtImages
+        });
+      } catch (err) {
+        return res.status(500).json({
+          success: false,
+          error: err.message || 'Failed to search collage images'
+        });
+      }
+    }
+
+    // Zero-Cost Endpoint 2: Proxy external web image to Base64 Data URL so client <canvas> collage never hits CORS taint
+    if (body && body.action === 'fetch_image_base64') {
+      const { imageUrl = '' } = body;
+      const cleanUrl = String(imageUrl || '').trim();
+      if (!cleanUrl || !/^https?:\/\//i.test(cleanUrl)) {
+        return res.status(400).json({ success: false, error: 'Valid http(s) imageUrl required' });
+      }
+      try {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 8000);
+        const resp = await fetch(cleanUrl, {
+          headers: {
+            'User-Agent': 'SlantEditorialApp/1.0 (https://slant.today; shridharoct16@gmail.com) Mozilla/5.0',
+            'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8'
+          },
+          signal: ctrl.signal
+        });
+        clearTimeout(timer);
+        if (!resp.ok) {
+          return res.status(400).json({ success: false, error: `Image fetch returned ${resp.status}` });
+        }
+        const contentType = resp.headers.get('content-type') || 'image/jpeg';
+        const mimeType = contentType.split(';')[0].trim() || 'image/jpeg';
+        const ab = await resp.arrayBuffer();
+        const b64 = Buffer.from(ab).toString('base64');
+        return res.status(200).json({
+          success: true,
+          mimeType,
+          dataUrl: `data:${mimeType};base64,${b64}`
+        });
+      } catch (err) {
+        return res.status(500).json({
+          success: false,
+          error: err.message || 'Failed to proxy image for collage'
+        });
       }
     }
 
@@ -803,7 +1201,7 @@ Respond strictly with valid JSON:
       if (!userEmail) {
         return res.status(401).json({ error: 'Please sign in with your account to regenerate artwork.' });
       }
-      const creditCheck = await verifyAndConsumeUserCredit(userEmail, Boolean(body.isManualRegenerate), Boolean(chronicleMode));
+      const creditCheck = await verifyAndConsumeUserCredit(userEmail, Boolean(body.isManualRegenerate), Boolean(chronicleMode), Boolean(body.simulateZeroCredits));
       if (!creditCheck.allowed) {
         return res.status(403).json({ error: 'Private Preview: Your account is not yet on the invited curator whitelist.' });
       }
@@ -1045,7 +1443,7 @@ STRICT RULES:
       if (!userEmail) {
         return res.status(401).json({ error: 'Please sign in with your account to generate a stylized avatar.' });
       }
-      const creditCheck = await verifyAndConsumeUserCredit(userEmail, Boolean(body.isManualRegenerate), Boolean(chronicleMode));
+      const creditCheck = await verifyAndConsumeUserCredit(userEmail, Boolean(body.isManualRegenerate), Boolean(chronicleMode), Boolean(body.simulateZeroCredits));
       if (!creditCheck.allowed) {
         return res.status(403).json({ error: 'Private Preview: Your account is not yet on the invited curator whitelist.' });
       }
@@ -2362,7 +2760,7 @@ Respond strictly with valid JSON with this exact structure:
     const wantsVisualCredit = !isTextOnlyRegen && !isExactPhotoOnly;
 
     // First check credit availability without consuming so we can seamlessly fall back to free Original/Attached Photo mode if credits are 0
-    let creditCheck = await verifyAndConsumeUserCredit(userEmail, false, Boolean(isChronicle));
+    let creditCheck = await verifyAndConsumeUserCredit(userEmail, false, Boolean(isChronicle), Boolean(body.simulateZeroCredits));
     if (!creditCheck.allowed) {
       return res.status(403).json({
         error: '🔒 Private Preview: Your email is not yet on the invited curator whitelist. An access request has been sent to the administrator.'
@@ -2372,7 +2770,7 @@ Respond strictly with valid JSON with this exact structure:
     let usedFreeExactPhotoFallback = false;
     if (wantsVisualCredit) {
       if (creditCheck.hasCredits) {
-        creditCheck = await verifyAndConsumeUserCredit(userEmail, true, Boolean(isChronicle));
+        creditCheck = await verifyAndConsumeUserCredit(userEmail, true, Boolean(isChronicle), Boolean(body.simulateZeroCredits));
       } else if (hasOriginalOrAttachedPhoto) {
         // User has 0 AI art credits left, but has an original source photo or attached photo -> synthesize text for FREE and use exact photo!
         characterRepresentation = 'exact';
