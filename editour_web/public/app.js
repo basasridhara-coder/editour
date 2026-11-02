@@ -21833,11 +21833,13 @@ function isLikelyPersonSubject(name) {
   if (nonPersonKeywords.some(w => lower.includes(w))) return false;
   const personKeywords = [
     'trump', 'musk', 'altman', 'biden', 'modi', 'pichai', 'nadella', 'cook',
-    'huang', 'minister', 'president', 'judge', 'justice', 'officer', 'sweeper',
+    'huang', 'tata', 'kalam', 'kohli', 'dhoni', 'tendulkar', 'murthy', 'vivekananda',
+    'ambani', 'adani', 'jobs', 'bezos', 'zuckerberg', 'macron', 'meloni',
+    'minister', 'president', 'judge', 'justice', 'officer', 'sweeper',
     'curator', 'citizen', 'woman', 'man', 'girl', 'boy', 'leader', 'doctor',
     'worker', 'protagonist', 'figure', 'person', 'individual', 'portrait', 'lookalike',
     'founder', 'engineer', 'entrepreneur', 'student', 'youth', 'author', 'critic',
-    'analyst', 'politician', 'actor', 'young'
+    'analyst', 'politician', 'actor', 'cricketer', 'athlete', 'scientist', 'industrialist', 'young'
   ];
   return personKeywords.some(w => lower.includes(w));
 }
@@ -21846,6 +21848,15 @@ function detectPersonNameInContext(title, slant, content) {
   const combined = `${title || ''} ${slant || ''} ${content ? content.slice(0, 500) : ''}`;
   const lower = combined.toLowerCase();
 
+  if (/\bratan\s+tata\b/i.test(combined)) return 'Ratan Tata';
+  if (/\b(?:apj\s+)?abdul\s+kalam\b/i.test(combined)) return 'Dr. A.P.J. Abdul Kalam';
+  if (/\bvirat\s+kohli\b|\bkohli\b/i.test(combined)) return 'Virat Kohli';
+  if (/\b(?:ms\s+|mahendra\s+singh\s+)?dhoni\b/i.test(combined)) return 'MS Dhoni';
+  if (/\bsachin\s+tendulkar\b|\btendulkar\b/i.test(combined)) return 'Sachin Tendulkar';
+  if (/\brohit\s+sharma\b/i.test(combined)) return 'Rohit Sharma';
+  if (/\bnarayana\s+murthy\b/i.test(combined)) return 'Narayana Murthy';
+  if (/\bswami\s+vivekananda\b|\bvivekananda\b/i.test(combined)) return 'Swami Vivekananda';
+  if (/\bsteve\s+jobs\b/i.test(combined)) return 'Steve Jobs';
   if (lower.includes('trump')) return 'Donald Trump';
   if (lower.includes('musk')) return 'Elon Musk';
   if (lower.includes('altman')) return 'Sam Altman';
@@ -21859,10 +21870,11 @@ function detectPersonNameInContext(title, slant, content) {
   if (lower.includes('bezos')) return 'Jeff Bezos';
   if (lower.includes('modi')) return 'Narendra Modi';
 
-  // Capitalized full name in title e.g. "John Smith"
-  if (title) {
-    const match = title.match(/\b([A-Z][a-z]{2,}\s+[A-Z][a-z]{2,})\b/);
-    if (match && !/^(The New|United States|White House|Wall Street|Silicon Valley|New York|Los Angeles|San Francisco)/i.test(match[1])) {
+  // Capitalized full name in title or slant e.g. "John Smith"
+  const scanText = `${title || ''} ${slant || ''}`.trim();
+  if (scanText) {
+    const match = scanText.match(/\b([A-Z][a-z]{2,}\s+[A-Z][a-z]{2,})\b/);
+    if (match && !/^(The New|United States|White House|Wall Street|Silicon Valley|New York|Los Angeles|San Francisco|New Delhi|Tamil Nadu|Uttar Pradesh|Andhra Pradesh|Madhya Pradesh|West Bengal|South India|North India|Parent Teacher|Inner Voice|Daily Chronicle|World Cup|Supreme Court|High Court|Prime Minister|Chief Minister)/i.test(match[1])) {
       return match[1];
     }
   }

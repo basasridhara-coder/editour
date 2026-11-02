@@ -1329,9 +1329,12 @@ STRICT RULES:
           ? 'DAILY CHRONICLE 3-SPOT-VIGNETTE LAYOUT (WITH WIDE LEFT/RIGHT SAFE MARGINS IN 3:4 PORTRAIT): Present 3 separate, self-contained soft-edged oval watercolor-and-gouache spot-illustration vignettes floating inside the central 82% horizontal safe zone of an open unpainted textured warm cream archival paper page (Top-Left spot vignette ~25%, Top-Right spot vignette ~25%, Bottom-Center larger spot vignette ~45-50% for the starred highlight moment), maintaining a generous 9%–10% clear unpainted warm cream paper margin along the left edge, right edge, top edge, and bottom edge so ZERO subjects or vignette halos are ever clipped at the left or right borders. Depict family members or companions ONLY inside the specific moment vignette where they are mentioned (strictly NEVER merge all 3 moments into a single full-bleed background scene!). Whenever both brothers Gahan and Rishu appear, show them full-body from head to toe with shoes on the ground: 11yo pre-teen Gahan in navy t-shirt and denim shorts (4ft 8in / 142cm, 88% of Mother Aruna\'s height and 80% of Father\'s height — clearly 8 inches shorter than Mother so the top of Gahan\'s head is strictly BELOW Mother\'s chin at her collarbone/shoulder level, strictly NEVER as tall as or taller than Mother!) and 7yo younger boy Rishu in mustard-yellow t-shirt and dark shorts (4ft 2in / 127cm, 89% of Gahan\'s height — 6 inches shorter than Gahan so the top of Rishu\'s head rises above Gahan\'s shoulders to reach Gahan\'s chin/neck level).'
           : 'DAILY CHRONICLE 3-SPOT-VIGNETTE LAYOUT (WITH WIDE LEFT/RIGHT SAFE MARGINS IN 3:4 PORTRAIT): Present 3 separate, self-contained soft-edged oval watercolor-and-gouache spot-illustration vignettes floating inside the central 82% horizontal safe zone of an open unpainted textured warm cream archival paper page (Top-Left spot vignette ~25%, Top-Right spot vignette ~25%, Bottom-Center larger spot vignette ~45-50% for the starred highlight moment), maintaining a generous 9%–10% clear unpainted warm cream paper margin along all edges. Depict family members or companions ONLY inside the specific moment vignette where they are mentioned, strictly following MANDATORY CASTING VAULT & PROTAGONIST ANCHORS.'))
   : `If multiple family members are in MANDATORY CASTING VAULT & PROTAGONIST ANCHORS, you MUST include ALL ${familyCastDirectives ? familyCastDirectives.totalCount : ''} family members visibly side by side full-body from head to toe on the same ground line, strictly obeying their pairwise relative stature percentages.`}
-3. Output strictly valid JSON:
+3. POPULAR / PUBLIC FIGURE & ICONIC PERSONALITY PORTRAYAL DIRECTIVE (APPLIES TO BOTH INNER VOICE & WEB LINKS):
+   - Whenever the curator's text ("${userSlant || adaptedHeadline}"${spark ? ` or "${spark}"` : ''}) mentions any recognizable public figure, historical icon, political leader, sports legend, industrialist, scientist, author, or celebrity (e.g., Ratan Tata, Dr. A.P.J. Abdul Kalam, Virat Kohli, MS Dhoni, Narayana Murthy, Sundar Pichai, Narendra Modi, Swami Vivekananda, Elon Musk, Donald Trump, etc.), you MUST feature them prominently as the focal protagonist in "illustrationPrompt" and "#1 HERO" cue!
+   - ALWAYS pair their name with an unmistakable, encyclopedic physical likeness and signature attire description (exact age bracket, signature hairstyle/parting, beard/mustache style, spectacles/glasses, facial structure, skin tone, and iconic clothing/suit/turban/jersey) so the image generator renders their unmistakable visual likeness. Never replace named popular figures with generic objects or anonymous strangers!
+4. Output strictly valid JSON:
 {
-  "illustrationPrompt": "Detailed 80-130 word visual prompt beginning with the exact Medium & Portrayal Style, describing a fresh scene composition, exact protagonists, setting, and lighting. No random text or letters.",
+  "illustrationPrompt": "Detailed 80-130 word visual prompt beginning with the exact Medium & Portrayal Style, describing a fresh scene composition, exact protagonists (including unmistakable physical likeness traits for any named public figure), setting, and lighting. No random text or letters.",
   "cues": ["#1 HERO (3-6 words)", "#2 MOTIF", "#3 TENSION", "#4 ATMOSPHERE", "#5 LIGHTING", "#6 STYLE"]
 }`;
           rebuildParts.push({ text: promptBuilderText });
@@ -2408,7 +2411,8 @@ Each moment in a Daily Chronicle can be visually projected in multiple ways.
   : `IDENTIFY 3 CORE VISUAL SUBJECT OPTIONS (WITH CONFIDENCE SCORE 1-99%) FOR POSTER 1 ARTWORK:
 Understand the true CORE SUBJECT in the given context (Setting: ${countryContext || 'India'}).
 - AUTHOR'S FAMILY CAST VAULT: ${castMembersSummary}.
-- CRITICAL DISTINCTION (SOCIETAL OBSERVATION vs. PERSONAL FAMILY STORY):
+- CRITICAL DISTINCTION (SOCIETAL OBSERVATION vs. POPULAR / PUBLIC FIGURE vs. PERSONAL FAMILY STORY):
+  * POPULAR / PUBLIC FIGURES IN INNER VOICE OR LINKS: If the author mentions any recognizable public figure, historical leader, sports legend, industrialist, scientist, artist, or cultural icon (e.g. Ratan Tata, Dr. A.P.J. Abdul Kalam, Virat Kohli, MS Dhoni, Narayana Murthy, Sundar Pichai, Narendra Modi, Swami Vivekananda, Elon Musk, etc.), Option 1 ("core_scene") and its "#1 HERO" cue MUST directly feature and name that popular figure (along with their iconic visual likeness traits and setting) in the scene, with "isPersonalFamily": false! Never omit or replace named popular figures with abstract objects.
   * If the author is observing society, schools, parents in general, workplaces, politics, or culture (even if they use words like "I see", "the whole family comes", "parents", "the kids", "in our school days"), the core visual subject is the REAL-WORLD SCENE BEING DISCUSSED (e.g. a packed school corridor on parent-teacher meeting day with parents debating marks with a 2nd-grade teacher), and "isPersonalFamily" MUST be false!
   * Set "isPersonalFamily": true ONLY if the author is explicitly telling an intimate personal story about their OWN family members ("my family", "my wife", "my husband", "my kids", "kids fighting", "my son", "my daughter" or names in AUTHOR'S FAMILY CAST VAULT).${learnedPrefNote}
 - Provide 3 distinct, tap-to-choose visual subject angles in "visualSubjects", sorted by your confidence score ("confidence": integer 65-98) so Option 1 is the highest-confidence default:
@@ -2978,9 +2982,10 @@ Respond strictly with valid JSON with this exact structure:
 - The illustrationPrompt for Poster 1 MUST describe a concrete, realistic scene physically anchored in the real-world news event, setting, protagonists, political figures, microphones, flags, or authentic broadcast environment depicted in the source.
 - Do NOT invent fictitious engineering workbenches or unrelated personal allegories for Poster 1 artwork unless that is the actual news topic.`
       : (perspectiveMode === 'curator')
-      ? `CRITICAL VISUAL FOCUS DIRECTIVE (POSTER 1 ARTWORK ONLY - CURATOR ANGLE METAPHOR):
+      ? `CRITICAL VISUAL FOCUS DIRECTIVE (POSTER 1 ARTWORK ONLY - CURATOR ANGLE):
 - Visual Focus is set to CURATOR ANGLE. This controls the VISUAL ARTWORK only, NOT the text narrative.
-- The illustrationPrompt for Poster 1 should translate the curator's conceptual thesis, metaphor, and critique into an evocative, high-aesthetic editorial composition (e.g. symbolic objects, dramatic tension, metaphorical craftsmanship).`
+- The illustrationPrompt for Poster 1 should translate the curator's thesis, real-world protagonists, and critique into an evocative, high-aesthetic editorial composition.
+- IMPORTANT PUBLIC FIGURE RULE: If the curator's text mentions any recognizable public figure, historical icon, leader, athlete, industrialist, scientist, or celebrity, you MUST feature and portray that popular figure directly in the foreground (with their unmistakable iconic physical likeness, hairstyle, glasses/beard, and signature attire) interacting with the symbolic or real-world elements of the curator's thesis—NEVER replace a mentioned popular figure with purely abstract objects!`
       : `CRITICAL VISUAL FOCUS DIRECTIVE (POSTER 1 ARTWORK ONLY - HYBRID BLEND):
 - Visual Focus is set to HYBRID BLEND. This controls the VISUAL ARTWORK only, NOT the text narrative.
 - The illustrationPrompt for Poster 1 should blend the concrete real-world news subject with the curator's symbolic tension and visual metaphor.`;
@@ -3075,7 +3080,7 @@ ${isCinematicPhoto && (effectiveCatalystImage || sourceImageBase64) ? `CRITICAL 
   2. FACIAL STRUCTURE & EXPRESSIONS: Describe the face shape (e.g. oval, soft round cheeks, structured jaw), warm skin tones, dark almond eyes, natural eye gaze, and authentic thoughtful or joyful expressions.
   3. HAIR & POSTURE: Describe haircut, texture, parting, and color (e.g. dark straight fringe, wavy side-parted hair), height difference, age group, and body posture (e.g. brotherly arm over shoulder).
   4. CLOTHING & SETTING: Describe clothing colors and styles (e.g. vibrant blue graphic t-shirt, light shorts, white tank top) set in the authentic physical environment (e.g. bright sunlit domestic veranda, wooden carved door, granite floor, stainless steel railing) with natural ambient midday sunlight.
-  5. PRIVACY & IDENTITY CONSTRAINT: ${sourceType === 'inner_voice' ? 'DO NOT use real private names, do not use words like "clone", "replica", or "deepfake". Describe them as archetypal human subjects so the photo captures their scene and presence with complete privacy.' : 'When the source is an authentic news article or YouTube video depicting a recognizable public figure, leader, or speaker, describe and name them directly to preserve authentic journalistic context.'}` : ''}
+  5. PRIVACY & IDENTITY CONSTRAINT: ${sourceType === 'inner_voice' ? 'Protect PRIVATE family/household names (do not use words like "clone", "replica", or "deepfake"), EXCEPT when the curator mentions a recognizable PUBLIC FIGURE, historical icon, political leader, athlete, industrialist, or celebrity—for any public figure, explicitly name them and describe their unmistakable iconic facial features, hairstyle, and signature attire!' : 'When the source depicts a recognizable public figure, leader, or speaker, describe and name them directly to preserve authentic journalistic context.'}` : ''}
 ${isArtisticPainting && (effectiveCatalystImage || sourceImageBase64) ? `CRITICAL ARTISTIC BROADSHEET PAINTING DIRECTIVE (PAINTED ARTWORK):
 - An authentic real-world photograph is attached. The curator requested Artistic Broadsheet Painting portrayal for Poster 1.
 - In "illustrationPrompt", perform an astute visual analysis of the key people visible in the attached photo to describe their physical facial characteristics, hairstyle, age, stature, and clothing:
@@ -3084,23 +3089,24 @@ ${isArtisticPainting && (effectiveCatalystImage || sourceImageBase64) ? `CRITICA
   3. RELATIVE STATURE & CLOTHING: Describe the age gap, height difference, clothing colors and styles.
   4. ENVIRONMENT & LIGHTING: Describe the setting bathed in natural midday sunlight.
   5. ARTISTIC MEDIUM: Frame the prompt as an expressive masterpiece editorial painting (e.g. "Warm cinematic editorial gouache and oil painting with rich textures, vivid color grading, lifelike human expression").
-  6. PRIVACY & IDENTITY CONSTRAINT: ${sourceType === 'inner_voice' ? 'DO NOT use real private names, do not use words like "clone", "replica", or "deepfake". Describe them as artistic archetypal protagonists so the artwork captures their recognizable essence and warmth while protecting their privacy.' : 'When the source is an authentic news article or YouTube video depicting a recognizable public figure, leader, or speaker, describe and name them directly to preserve authentic journalistic context.'}` : ''}
+  6. PRIVACY & IDENTITY CONSTRAINT: ${sourceType === 'inner_voice' ? 'Protect PRIVATE family/household names (do not use words like "clone", "replica", or "deepfake"), EXCEPT when the curator mentions a recognizable PUBLIC FIGURE, historical icon, political leader, athlete, industrialist, or celebrity—for any public figure, explicitly name them and describe their unmistakable iconic facial features, hairstyle, and signature attire!' : 'When the source depicts a recognizable public figure, leader, or speaker, describe and name them directly to preserve authentic journalistic context.'}` : ''}
 ${isWatercolorIllustration ? `CRITICAL WATERCOLOR ILLUSTRATION DIRECTIVE (HAND-PAINTED WATERCOLOR & INK WASH ON ARCHIVAL PAPER):
 - The curator requested Watercolor Illustration portrayal for Poster 1.
 - In "illustrationPrompt", frame the scene as a "Masterpiece hand-painted loose watercolor and fine fountain-pen ink-wash editorial illustration on textured warm cream cold-press watercolor paper (#F5EFE2) with soft feathered unpainted cream paper vignette edges and visible wet-on-wet watercolor pigment blooms".
 - Expressive pen-and-ink contour sketching filled with airy, translucent watercolor washes where the warm cream watercolor paper shines through the highlights and fades softly into unpainted cream paper around the outer edges.
+- POPULAR / PUBLIC FIGURE LIKENESS IN WATERCOLOR: Whenever the curator's text or source mentions a recognizable public figure, historical leader, athlete, industrialist, scientist, or cultural icon, portray them prominently in the foreground and explicitly describe their unmistakable iconic facial features, hairstyle, spectacles/beard, age, and signature attire alongside their name.
 ${(effectiveCatalystImage || sourceImageBase64) ? `- Incorporate the observed facial structure, hairstyle, expressions, clothing colors, and setting from the attached photo into this luminous hand-painted watercolor and ink-wash composition.` : ''}` : ''}
 ${(!isCinematicPhoto && !isArtisticPainting && !isWatercolorIllustration && characterRepresentation !== 'exact' && characterRepresentation !== 'silhouette') ? `CRITICAL AI ILLUSTRATION (VIVID EDITORIAL REALISM) DIRECTIVE:
 - The curator requested AI Illustration (Vivid Editorial Realism) for Poster 1 (the signature Slant broadsheet style).
 - In "illustrationPrompt", generate a high-impact editorial broadsheet illustration faithfully capturing the key figures, real-world setting, and dramatic journalistic realism.
-${((sourceType === 'digital_link' || sourceType === 'video_audio') && (sourceImageBase64 || sourceImageUrl || scrapedTitle)) ? `- SOURCE GROUNDED PUBLIC FIGURE & NEWS DIRECTIVE:
-  * When the source features a recognizable public figure, political leader, speaker, or subject in the thumbnail, headline, or article (e.g. French President Emmanuel Macron, Italian Prime Minister Giorgia Meloni, Actor Ashish Vidyarthi), NAME AND PORTRAY THEM DIRECTLY in the foreground with vivid realistic faces, natural warm lighting on skin tones, balanced studio spotlights, and dramatic journalistic realism.
-  * Faithfully ground the background and composition in the real-world scene visible in the source thumbnail or news context (e.g. official press podium, microphones, broadcast studio, civic architecture, armed guard, street protest).
-  * STRICT BAN: NEVER replace named public leaders or speakers with anonymous generic strangers! NEVER create pitch-black silhouettes, faceless shadow phantoms, or creepy figures!` : ''}
+- POPULAR / PUBLIC FIGURE & ICONIC PERSONALITY DIRECTIVE (APPLIES TO BOTH INNER VOICE & WEB/VIDEO SOURCES):
+  * Whenever the curator's text ("${userSlant || ''}"${spark ? ` or "${spark}"` : ''}) or the source features a recognizable public figure, historical icon, political leader, sports legend, industrialist, scientist, author, or celebrity (e.g. Ratan Tata, Dr. A.P.J. Abdul Kalam, Virat Kohli, MS Dhoni, Narayana Murthy, Sundar Pichai, Narendra Modi, Swami Vivekananda, Elon Musk, Emmanuel Macron, Giorgia Meloni, Ashish Vidyarthi), NAME AND PORTRAY THEM DIRECTLY in the foreground with vivid realistic faces, natural warm lighting on skin tones, balanced studio spotlights, and dramatic journalistic realism!
+  * MANDATORY ICONIC PHYSICAL LIKENESS ANCHORS: Because AI image models require concrete visual traits to render famous faces accurately, you MUST pair every named public figure in "illustrationPrompt" with a rich, unmistakable physical likeness description (their exact age bracket, signature hairstyle/parting/color, beard or mustache style, spectacles/glasses, facial structure, warm skin tone, and signature attire such as Bandhgala suit, sleeveless khadi Modi jacket, tailored navy suit, cricket jersey, or saffron robe & turban).
+  * STRICT BAN: NEVER omit a mentioned public figure in Inner Voice! NEVER replace named public figures, leaders, athletes, or icons with anonymous generic strangers or abstract object-only metaphors! NEVER create pitch-black silhouettes, faceless shadow phantoms, or creepy figures!
 ${(sourceType === 'inner_voice' && effectiveCatalystImage) ? `- INNER VOICE CATALYST PHOTO DIRECTIVE:
   * Faithfully capture the authentic human presence, facial structure, haircut, and warm natural expressions of the people in the attached photo.
   * Frame as high-impact editorial realism with warm natural lighting and genuine human warmth.
-  * PRIVACY & SAFETY CONSTRAINT: DO NOT use real private family names, do not use words like "clone", "replica", or "deepfake". Describe them with vivid descriptive attributes protecting private identity.` : ''}` : ''}
+  * PRIVACY & SAFETY CONSTRAINT: Protect private household/family names (do not use words like "clone", "replica", or "deepfake"), while still naming and portraying any famous public figures mentioned in the text.` : ''}` : ''}
 ${characterRepresentation === 'exact' ? 'CRITICAL EXACT PHOTO DIRECTIVE: Character Portrayal is set to USE EXACT PHOTO. The heroCue should highlight the central photographic subject of the unedited news photo.' : ''}
 
 ${vocabDirective}
@@ -4355,10 +4361,13 @@ function isLikelyPersonSubject(name) {
   if (nonPersonKeywords.some(w => lower.includes(w))) return false;
   const personKeywords = [
     'trump', 'musk', 'altman', 'biden', 'modi', 'pichai', 'nadella', 'cook',
-    'huang', 'minister', 'president', 'judge', 'justice', 'officer', 'sweeper',
+    'huang', 'tata', 'kalam', 'kohli', 'dhoni', 'tendulkar', 'murthy', 'vivekananda',
+    'ambani', 'adani', 'jobs', 'bezos', 'zuckerberg', 'macron', 'meloni',
+    'minister', 'president', 'judge', 'justice', 'officer', 'sweeper',
     'curator', 'citizen', 'woman', 'man', 'girl', 'boy', 'leader', 'doctor',
     'worker', 'protagonist', 'figure', 'person', 'individual', 'portrait', 'lookalike',
     'founder', 'engineer', 'entrepreneur', 'student', 'youth', 'actor', 'author', 'critic', 'analyst', 'politician',
+    'cricketer', 'athlete', 'scientist', 'industrialist', 'philosopher', 'monk',
     'brother', 'brothers', 'sister', 'sisters', 'child', 'children', 'family', 'son', 'sons', 'daughter', 'daughters',
     'parent', 'parents', 'kid', 'kids', 'toddler', 'baby'
   ];
@@ -4659,6 +4668,29 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
     enhancedPrompt = `${countryContext} regional setting and authentic cultural atmosphere, ${enhancedPrompt}`;
   }
 
+  // Iconic Public Figure & Popular Personality Likeness Enrichment (Ensures Inner Voice & Web Link posters render unmistakable likenesses)
+  const PUBLIC_FIGURE_LIKENESS_ANCHORS = [
+    { pattern: /\bratan\s+tata\b/i, name: 'Ratan Tata', roleDesc: 'the distinguished iconic Indian industrialist', anchor: 'tall dignified Parsi gentleman in his early 80s with neatly combed silver-white hair, warm gentle smile, kind dark eyes, refined aquiline nose, wearing a classic tailored dark navy business suit and crisp white shirt' },
+    { pattern: /\b(?:apj\s+)?abdul\s+kalam\b/i, name: 'Dr. A.P.J. Abdul Kalam', roleDesc: 'the beloved Indian aerospace scientist and People\'s President', anchor: 'distinguished South Indian statesman in his 70s with his signature long silver-white hair parted in the center and curving inward around his ears, warm radiant smile, dark brown skin, wearing his iconic dark closed-neck Bandhgala suit' },
+    { pattern: /\bvirat\s+kohli\b/i, name: 'Virat Kohli', roleDesc: 'the iconic Indian cricket champion', anchor: 'athletic 35-year-old Indian cricketer with sharp jawline, signature closely-trimmed boxed dark full beard and mustache, short fade haircut, intense focused dark eyes, wearing the royal-blue Indian national cricket jersey' },
+    { pattern: /\b(?:ms\s+|mahendra\s+singh\s+)dhoni\b/i, name: 'MS Dhoni', roleDesc: 'the legendary Indian cricket captain', anchor: 'composed athletic Indian cricketer in his early 40s with calm resolute expression, structured jawline, short salt-and-pepper beard, and athletic frame in Indian cricket jersey' },
+    { pattern: /\bsachin\s+tendulkar\b/i, name: 'Sachin Tendulkar', roleDesc: 'the legendary Indian master batsman', anchor: 'iconic Indian cricketer with short curly dark hair, warm humble smile, and classic Indian blue cricket jersey holding a cricket bat' },
+    { pattern: /\bnarayana\s+murthy\b/i, name: 'N. R. Narayana Murthy', roleDesc: 'the pioneering Indian IT industry founder', anchor: 'bespectacled senior Indian tech visionary in his late 70s with receding silver-white hair, rimless rectangular spectacles, thoughtful scholarly expression, wearing a formal dark business suit' },
+    { pattern: /\bsundar\s+pichai\b/i, name: 'Sundar Pichai', roleDesc: 'the Indian-American global tech CEO', anchor: 'composed South Indian tech executive in his early 50s with slim build, dark hair with subtle silver at the temples, neat short dark beard, rectangular eyeglasses, wearing a modern dark minimalist blazer over a crew-neck tee' },
+    { pattern: /\bsatya\s+nadella\b/i, name: 'Satya Nadella', roleDesc: 'the global cloud tech CEO', anchor: 'Indian-American tech executive in his mid-50s with clean-shaven bald head, thin-rimmed modern eyeglasses, warm thoughtful smile, wearing a smart dark tailored blazer and polo shirt' },
+    { pattern: /\b(?:narendra\s+)?modi\b/i, name: 'Narendra Modi', roleDesc: 'the Indian Prime Minister', anchor: 'distinguished Indian statesman in his early 70s with signature neatly trimmed full white beard and mustache, silver-white hair, rimless rectangular spectacles, wearing a crisp white kurta and saffron-ochre sleeveless khadi Modi vest jacket' },
+    { pattern: /\bswami\s+vivekananda\b/i, name: 'Swami Vivekananda', roleDesc: 'the iconic Indian spiritual philosopher', anchor: 'serene dynamic young Indian monk with luminous large dark eyes, noble jawline, wearing his iconic flowing saffron-ochre monastic robe and traditional wound saffron turban with arms folded across his chest' },
+    { pattern: /\belon\s+musk\b/i, name: 'Elon Musk', roleDesc: 'the global space and electric-vehicle tech entrepreneur', anchor: 'tall 50-something tech entrepreneur with structured square jaw, short dark side-parted hair, wearing a dark tailored jacket over a black t-shirt' },
+    { pattern: /\bdonald\s+trump\b/i, name: 'Donald Trump', roleDesc: 'the American political leader', anchor: 'tall senior American political figure in his late 70s with signature swept-back golden-blond hair, dark navy suit, white shirt, and long red silk tie at a press podium' },
+    { pattern: /\bsam\s+altman\b/i, name: 'Sam Altman', roleDesc: 'the AI research CEO', anchor: '39-year-old Silicon Valley tech executive with wavy brown hair, expressive blue eyes, wearing a casual grey crew-neck sweater' },
+    { pattern: /\bjensen\s+huang\b/i, name: 'Jensen Huang', roleDesc: 'the semiconductor and AI chip CEO', anchor: '60-year-old Asian-American tech founder with silver-streaked hair, rimless glasses, wearing his signature black leather biker jacket' }
+  ];
+  for (const fig of PUBLIC_FIGURE_LIKENESS_ANCHORS) {
+    if (fig.pattern.test(enhancedPrompt) && !enhancedPrompt.includes(fig.anchor.slice(0, 28))) {
+      enhancedPrompt += `. ICONIC LIKENESS ANCHOR (${fig.name}): Portray ${fig.name} unmistakably in the foreground as a ${fig.anchor}.`;
+    }
+  }
+
   // Encyclopedic Uniform & Cultural Accuracy Enforcer for RSS / Swayamsevak / Pathasanchalan
   if (/\b(rss|swayamsevak|swayamsevaks|pathasanchalan|ganavesh)\b/i.test(enhancedPrompt)) {
     enhancedPrompt = enhancedPrompt
@@ -4809,6 +4841,54 @@ async function generateGeminiEditorialArtwork({ prompt, imageBase64, imageMimeTy
   // If image-conditioned attempt returned nothing (e.g. policy block / IMAGE_OTHER on real faces), fallback to text prompt
   if (resolvedBase64 || (stylizedAvatars && stylizedAvatars.length > 0)) {
     return generateGeminiEditorialArtwork({ prompt, imageBase64: null, timeoutMs, stylizedAvatars: null, countryContext });
+  }
+
+  // If text-only prompt was blocked by Gemini's celebrity/person name filter (IMAGE_OTHER / SAFETY),
+  // perform an immediate Likeness-Preserving Retry that strips only the raw proper name token while preserving 100% of the iconic physical likeness description!
+  if (!chronicleMode) {
+    let likenessSafePrompt = enhancedPrompt;
+    for (const fig of PUBLIC_FIGURE_LIKENESS_ANCHORS) {
+      if (fig.pattern.test(likenessSafePrompt)) {
+        likenessSafePrompt = likenessSafePrompt
+          .replace(new RegExp(`ICONIC LIKENESS ANCHOR \\(${fig.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\):\\s*Portray\\s+${fig.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'gi'), `ICONIC LIKENESS ANCHOR: Portray ${fig.roleDesc}`)
+          .replace(fig.pattern, `${fig.roleDesc} (${fig.anchor})`);
+      }
+    }
+    // Also sanitize any remaining "President/Prime Minister/CEO [First Last]" proper name triggers while keeping physical descriptions intact
+    likenessSafePrompt = likenessSafePrompt.replace(/\b(?:President|Prime Minister|Minister|Chancellor|CEO|Founder|Chairman|Cricketer|Actor)\s+[A-Z][a-z]+\s+[A-Z][a-z]+\b/g, (m) => {
+      const roleWord = m.split(/\s+/)[0];
+      return `the distinguished ${roleWord}`;
+    });
+    if (likenessSafePrompt !== enhancedPrompt) {
+      try {
+        const retryUrl = `https://generativelanguage.googleapis.com/v1beta/models/${imageModels[0]}:generateContent?key=${GEMINI_API_KEY}`;
+        const retryCtrl = new AbortController();
+        const retryTimer = setTimeout(() => retryCtrl.abort(), Math.max(8000, timeoutMs - (Date.now() - startTime)));
+        const retryPayload = JSON.stringify({
+          contents: [{ parts: [{ text: `${likenessSafePrompt}, 4:5 vertical portrait format, dramatic atmospheric mood, ${textureStyle}, high aesthetic, vivid color grading, masterwork, no typography, no letters, no text.` }] }],
+          generationConfig: {
+            responseModalities: ['IMAGE'],
+            imageConfig: { aspectRatio: '3:4' }
+          }
+        });
+        const retryResp = await fetch(retryUrl, {
+          method: 'POST',
+          signal: retryCtrl.signal,
+          headers: { 'Content-Type': 'application/json' },
+          body: retryPayload
+        });
+        clearTimeout(retryTimer);
+        if (retryResp.ok) {
+          const retryData = await retryResp.json();
+          const retryPart = retryData.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
+          if (retryPart && retryPart.inlineData && retryPart.inlineData.data) {
+            return `data:${retryPart.inlineData.mimeType || 'image/png'};base64,${retryPart.inlineData.data}`;
+          }
+        }
+      } catch (retryErr) {
+        console.warn('Likeness-preserving retry skipped:', retryErr.message);
+      }
+    }
   }
 
   return null;
