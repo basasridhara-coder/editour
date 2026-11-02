@@ -1045,6 +1045,80 @@
             </div>
           </div>
 
+          <!-- Unified Poster 1 Visual Source Selector Strip (Clear 3-Way Choice + Live "What You'll Get" Expectation Bar) -->
+          <div id="creatorPosterVisualSourceStrip" style="margin-top: 12px; padding: 11px 12px; border-radius: 14px; background: rgba(15, 23, 42, 0.035); border: 1.5px solid rgba(148, 163, 184, 0.32);">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; flex-wrap: wrap;">
+              <div style="display: inline-flex; align-items: center; gap: 6px;">
+                <span style="font-size: 13.5px;">🖼️</span>
+                <span style="font-size: 10.8px; font-weight: 900; letter-spacing: 0.45px; text-transform: uppercase; color: var(--text-primary);">Poster 1 Visual Mode</span>
+              </div>
+              <span id="posterVisualCostBadge" style="font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 99px; background: rgba(99, 102, 241, 0.14); color: #4F46E5; border: 1px solid rgba(99, 102, 241, 0.3);">1⚡ AI Visual Credit</span>
+            </div>
+
+            <!-- 3 Clear Options: 1) Original / Attached Photo (0⚡), 2) Web Collage (0⚡), 3) AI Illustration (1⚡) -->
+            <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; margin-bottom: 9px;">
+              <!-- Card 1: Original / Attached Photo (Free 0⚡) -->
+              <button type="button" id="posterModeCardOriginal" onclick="selectUnifiedPosterVisualMode('original_photo')" style="display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; gap: 4px; padding: 8px 9px; border-radius: 11px; border: 1.5px solid rgba(148,163,184,0.35); background: #FFFFFF; color: var(--text-primary); text-align: left; cursor: pointer; transition: all 0.15s ease;">
+                <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 4px;">
+                  <span id="posterModeOrigIcon" style="font-size: 14px;">📸</span>
+                  <span style="font-size: 9.5px; font-weight: 900; padding: 1px 5px; border-radius: 99px; background: rgba(16,185,129,0.14); color: #059669;">0⚡ Free</span>
+                </div>
+                <div id="posterModeOrigTitle" style="font-size: 11px; font-weight: 800; line-height: 1.2; color: var(--text-primary);">Original Photo</div>
+                <div id="posterModeOrigSub" style="font-size: 9.8px; font-weight: 600; color: var(--text-secondary); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%;">From source link</div>
+              </button>
+
+              <!-- Card 2: Web Collage (Free 0⚡) -->
+              <button type="button" id="posterModeCardCollage" onclick="selectUnifiedPosterVisualMode('web_collage')" style="display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; gap: 4px; padding: 8px 9px; border-radius: 11px; border: 1.5px solid rgba(148,163,184,0.35); background: #FFFFFF; color: var(--text-primary); text-align: left; cursor: pointer; transition: all 0.15s ease;">
+                <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 4px;">
+                  <span style="font-size: 14px;">🖼️</span>
+                  <span style="font-size: 9.5px; font-weight: 900; padding: 1px 5px; border-radius: 99px; background: rgba(16,185,129,0.14); color: #059669;">0⚡ Free</span>
+                </div>
+                <div id="posterModeCollageTitle" style="font-size: 11px; font-weight: 800; line-height: 1.2; color: var(--text-primary);">Web Collage</div>
+                <div id="posterModeCollageSub" style="font-size: 9.8px; font-weight: 600; color: var(--text-secondary); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%;">Pick 1–3 web photos</div>
+              </button>
+
+              <!-- Card 3: AI Editorial Illustration (1⚡ Credit) -->
+              <button type="button" id="posterModeCardAiArt" onclick="selectUnifiedPosterVisualMode('ai_art')" style="display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; gap: 4px; padding: 8px 9px; border-radius: 11px; border: 2px solid #4F46E5; background: rgba(79,70,229,0.06); color: var(--text-primary); text-align: left; cursor: pointer; transition: all 0.15s ease;">
+                <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 4px;">
+                  <span style="font-size: 14px;">🎨</span>
+                  <span id="posterModeAiBadge" style="font-size: 9.5px; font-weight: 900; padding: 1px 5px; border-radius: 99px; background: rgba(79,70,229,0.16); color: #4F46E5;">1⚡ Credit</span>
+                </div>
+                <div id="posterModeAiTitle" style="font-size: 11px; font-weight: 800; line-height: 1.2; color: var(--text-primary);">AI Illustration</div>
+                <div id="posterModeAiSub" style="font-size: 9.8px; font-weight: 600; color: var(--text-secondary); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%;">Custom editorial art</div>
+              </button>
+            </div>
+
+            <!-- Inline Quick Controls when AI Illustration is Active (Focus + Art Style) -->
+            <div id="posterModeAiSubControls" style="display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 6px 8px; margin-bottom: 8px; border-radius: 9px; background: rgba(255,255,255,0.75); border: 1px solid rgba(148,163,184,0.28); flex-wrap: wrap;">
+              <div id="posterModeAiFocusWrap" style="display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap;">
+                <span style="font-size: 10px; font-weight: 800; color: var(--text-secondary); margin-right: 2px;">Focus:</span>
+                <button type="button" id="quickFocusBtnSource" onclick="setPerspectiveMode('source', true)" style="padding: 3px 7px; border-radius: 99px; border: 1px solid rgba(79,70,229,0.35); background: #4F46E5; color: #FFFFFF; font-size: 10px; font-weight: 800; cursor: pointer;" title="Ground AI artwork in the real source subject/photo">📰 Source Subject</button>
+                <button type="button" id="quickFocusBtnHybrid" onclick="setPerspectiveMode('hybrid', true)" style="padding: 3px 7px; border-radius: 99px; border: 1px solid rgba(148,163,184,0.4); background: transparent; color: var(--text-secondary); font-size: 10px; font-weight: 700; cursor: pointer;" title="Blend real subject likeness with your perspective metaphor">⚖️ Blend</button>
+                <button type="button" id="quickFocusBtnCurator" onclick="setPerspectiveMode('curator', true)" style="padding: 3px 7px; border-radius: 99px; border: 1px solid rgba(148,163,184,0.4); background: transparent; color: var(--text-secondary); font-size: 10px; font-weight: 700; cursor: pointer;" title="Pure visual metaphor from your written take">⚡ Pure Metaphor</button>
+              </div>
+              <div style="display: inline-flex; align-items: center; gap: 4px; margin-left: auto;">
+                <span style="font-size: 10px; font-weight: 800; color: var(--text-secondary);">Style:</span>
+                <select id="quickAiArtStyleSelect" onchange="selectCharacterRepresentation(this.value)" style="padding: 3px 7px; border-radius: 7px; border: 1px solid rgba(148,163,184,0.45); background: #FFFFFF; color: var(--text-primary); font-size: 10.5px; font-weight: 800; cursor: pointer;">
+                  <option value="realistic">🎨 Editorial Realism</option>
+                  <option value="cinematic">📸 Cinematic Photo</option>
+                  <option value="painting">🖼️ Gouache Painting</option>
+                  <option value="watercolor">🖌️ Watercolor</option>
+                  <option value="silhouette">👥 Silhouette</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Live "What You'll Get" Expectation Bar (Thumbnail + Plain-English Explanation) -->
+            <div id="posterVisualExpectationBar" style="display: flex; align-items: center; gap: 9px; padding: 7px 9px; border-radius: 10px; background: #FFFFFF; border: 1px solid rgba(148,163,184,0.3);">
+              <img id="posterVisualExpectationThumb" src="" alt="" style="display: none; width: 38px; height: 38px; border-radius: 7px; object-fit: cover; border: 1px solid rgba(148,163,184,0.4); flex-shrink: 0;">
+              <div id="posterVisualExpectationIcon" style="width: 34px; height: 34px; border-radius: 7px; background: rgba(79,70,229,0.1); color: #4F46E5; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0;">🎨</div>
+              <div style="flex: 1; min-width: 0;">
+                <div id="posterVisualExpectationTitle" style="font-size: 11px; font-weight: 800; color: var(--text-primary); line-height: 1.25;">Generating AI Editorial Illustration (1⚡ credit)</div>
+                <div id="posterVisualExpectationDesc" style="font-size: 10.2px; color: var(--text-secondary); line-height: 1.3; margin-top: 1px;">Grounded in your source link &amp; written perspective. Text synthesis is always free.</div>
+              </div>
+            </div>
+          </div>
+
         </div>
 
         <!-- 4. Bottom Navigation Bar (Step 1 - Option A: One-Click Direct Synthesis with Optional Equalizer) -->

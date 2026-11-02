@@ -768,6 +768,320 @@ function applyFreeOriginalPhotoModeFromBanner() {
 }
 window.applyFreeOriginalPhotoModeFromBanner = applyFreeOriginalPhotoModeFromBanner;
 
+function selectUnifiedPosterVisualMode(mode) {
+  const isChronicleActive = typeof isDailyChronicleMode !== 'undefined' && Boolean(isDailyChronicleMode);
+  const isInnerVoiceActive = !isChronicleActive && (typeof creatorSelectedSource !== 'undefined' && creatorSelectedSource === 'inner_voice');
+  const isLinkActive = !isChronicleActive && !isInnerVoiceActive;
+
+  if (mode === 'original_photo') {
+    if (typeof closeWebCollageBuilder === 'function') {
+      closeWebCollageBuilder();
+    }
+    restoreOriginalScrapedSourcePhoto();
+    setPerspectiveMode('source', true);
+    selectCharacterRepresentation('exact');
+    if (isInnerVoiceActive && !innerVoicePhotoBase64) {
+      const photoWrap = document.getElementById('innerVoicePhotoWrap');
+      if (photoWrap && typeof photoWrap.scrollIntoView === 'function') {
+        photoWrap.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      showTemporaryToast('📷 Upload or snap a photo above — Poster 1 will use your exact photo at 0 credits!');
+    } else if (isChronicleActive) {
+      const hasAnyMomentPhoto = Array.isArray(dailyChronicleMoments) && dailyChronicleMoments.some(m => Boolean(m && m.imageBase64));
+      if (!hasAnyMomentPhoto) {
+        showTemporaryToast('📷 Attach a photo to any moment above — Poster 1 will use your moment photo(s) at 0 credits!');
+      } else {
+        showTemporaryToast('✓ Poster 1 set to your attached Moment Photo(s) (0⚡ Free)!');
+      }
+    } else if (isLinkActive) {
+      const hasOrig = Boolean(creatorReferenceImageBase64 || currentScrapedArticle?.imageUrl || currentScrapedArticle?.imageBase64);
+      if (hasOrig) {
+        showTemporaryToast('✓ Poster 1 locked to your extracted Original Source / YouTube Photo (0⚡ Free)!');
+      } else {
+        const urlEl = document.getElementById('creatorUrlInput');
+        if (urlEl && typeof urlEl.focus === 'function') urlEl.focus();
+        showTemporaryToast('🔗 Paste your article or YouTube link above to use its original photo at 0 credits!');
+      }
+    }
+  } else if (mode === 'web_collage') {
+    selectCharacterRepresentation('exact');
+    if (typeof openWebCollageBuilderFromContext === 'function') {
+      openWebCollageBuilderFromContext();
+    }
+    if (window._webCollageState && Array.isArray(window._webCollageState.selectedItems) && window._webCollageState.selectedItems.length > 0) {
+      applyWebCollageToPost(true);
+    }
+  } else if (mode === 'ai_art') {
+    if (typeof isZeroVisualCreditsForActivePillar === 'function' && isZeroVisualCreditsForActivePillar()) {
+      showTemporaryToast('⚠️ You have 0 AI visual credits left today. Use Original Photo (0⚡) or Web Collage (0⚡) for free, or tap your credit badge to request more!');
+      updateUnifiedPosterVisualStripUI();
+      return;
+    }
+    if (typeof closeWebCollageBuilder === 'function') {
+      closeWebCollageBuilder();
+    }
+    restoreOriginalScrapedSourcePhoto();
+    const targetStyle = (creatorCharacterRepresentation && creatorCharacterRepresentation !== 'exact')
+      ? creatorCharacterRepresentation
+      : (isChronicleActive ? 'watercolor' : 'realistic');
+    selectCharacterRepresentation(targetStyle);
+  }
+  updateUnifiedPosterVisualStripUI();
+}
+window.selectUnifiedPosterVisualMode = selectUnifiedPosterVisualMode;
+
+function updateUnifiedPosterVisualStripUI() {
+  const stripEl = document.getElementById('creatorPosterVisualSourceStrip');
+  if (!stripEl) return;
+
+  const isChronicleActive = typeof isDailyChronicleMode !== 'undefined' && Boolean(isDailyChronicleMode);
+  const isInnerVoiceActive = !isChronicleActive && (typeof creatorSelectedSource !== 'undefined' && creatorSelectedSource === 'inner_voice');
+  const isLinkActive = !isChronicleActive && !isInnerVoiceActive;
+  const zeroCredits = typeof isZeroVisualCreditsForActivePillar === 'function' && isZeroVisualCreditsForActivePillar();
+
+  const urlEl = document.getElementById('creatorUrlInput');
+  const rawUrl = urlEl ? urlEl.value.trim() : '';
+  const ytThumb = extractInstantYouTubeThumbnailUrl(rawUrl);
+  const isVid = Boolean((typeof currentScrapedArticle !== 'undefined' && currentScrapedArticle?.isVideo) || ytThumb || (typeof isVideoAudioUrl === 'function' && isVideoAudioUrl(rawUrl)));
+
+  const origLinkPhoto = (!window._isWebCollageAttached && creatorReferenceImageBase64)
+    || (typeof currentScrapedArticle !== 'undefined' && (currentScrapedArticle?.imageBase64 || currentScrapedArticle?.imageUrl))
+    || ytThumb
+    || '';
+  const hasChroniclePhotos = isChronicleActive && Array.isArray(dailyChronicleMoments) && dailyChronicleMoments.some(m => Boolean(m && m.imageBase64));
+  const firstChroniclePhoto = hasChroniclePhotos ? (dailyChronicleMoments.find(m => m && m.imageBase64)?.imageBase64 || '') : '';
+  const hasInnerVoicePhoto = isInnerVoiceActive && Boolean(innerVoicePhotoBase64);
+
+  const isWebCollageMode = Boolean(
+    window._isWebCollageAttached ||
+    (window._webCollageState && window._webCollageState.isOpen && creatorCharacterRepresentation === 'exact')
+  );
+  const isOriginalPhotoMode = !isWebCollageMode && (creatorCharacterRepresentation === 'exact' || zeroCredits);
+  const isAiArtMode = !isWebCollageMode && !isOriginalPhotoMode;
+
+  // 1. Update Card 1 (Original / Attached Photo)
+  const cardOrig = document.getElementById('posterModeCardOriginal');
+  const origIcon = document.getElementById('posterModeOrigIcon');
+  const origTitle = document.getElementById('posterModeOrigTitle');
+  const origSub = document.getElementById('posterModeOrigSub');
+  if (origIcon && origTitle && origSub) {
+    if (isLinkActive) {
+      origIcon.textContent = isVid ? '🎬' : '📸';
+      origTitle.textContent = isVid ? 'YouTube Photo' : 'Original Photo';
+      origSub.textContent = origLinkPhoto ? (isVid ? '✓ Thumbnail ready' : '✓ Lead photo ready') : 'From source link';
+    } else if (isInnerVoiceActive) {
+      origIcon.textContent = '📷';
+      origTitle.textContent = 'Attached Photo';
+      origSub.textContent = hasInnerVoicePhoto ? '✓ Photo attached' : 'Upload / snap photo';
+    } else {
+      origIcon.textContent = '📷';
+      origTitle.textContent = 'Moment Photos';
+      origSub.textContent = hasChroniclePhotos ? '✓ Moment photo ready' : 'Attach to moment';
+    }
+  }
+
+  // 2. Update Card 2 (Web Collage)
+  const cardCollage = document.getElementById('posterModeCardCollage');
+  const colTitle = document.getElementById('posterModeCollageTitle');
+  const colSub = document.getElementById('posterModeCollageSub');
+  const selCount = (window._webCollageState && Array.isArray(window._webCollageState.selectedItems))
+    ? window._webCollageState.selectedItems.length
+    : 0;
+  if (colTitle && colSub) {
+    colTitle.textContent = 'Web Collage';
+    colSub.textContent = selCount > 0 ? `✓ ${selCount} photo${selCount > 1 ? 's' : ''} selected` : 'Pick 1–3 web photos';
+  }
+
+  // 3. Update Card 3 (AI Illustration)
+  const cardAi = document.getElementById('posterModeCardAiArt');
+  const aiBadge = document.getElementById('posterModeAiBadge');
+  const aiTitle = document.getElementById('posterModeAiTitle');
+  const aiSub = document.getElementById('posterModeAiSub');
+  const styleNames = {
+    realistic: 'Editorial Realism',
+    cinematic: 'Cinematic Photo',
+    likeness: 'Cinematic Photo',
+    painting: 'Gouache Painting',
+    watercolor: 'Watercolor Art',
+    silhouette: 'Minimalist Silhouette'
+  };
+  const currentStyleLabel = styleNames[creatorCharacterRepresentation] || (isChronicleActive ? 'Watercolor Art' : 'Editorial Realism');
+  if (aiTitle && aiSub && aiBadge) {
+    aiTitle.textContent = isChronicleActive ? 'AI Watercolor' : 'AI Illustration';
+    aiSub.textContent = zeroCredits ? '0 credits left today' : currentStyleLabel;
+    if (zeroCredits) {
+      aiBadge.textContent = '0⚡ Left';
+      aiBadge.style.background = 'rgba(239,68,68,0.14)';
+      aiBadge.style.color = '#DC2626';
+    } else {
+      aiBadge.textContent = '1⚡ Credit';
+      aiBadge.style.background = 'rgba(79,70,229,0.16)';
+      aiBadge.style.color = '#4F46E5';
+    }
+  }
+
+  // Style active vs inactive cards
+  const applyCardActiveStyle = (card, isActive, accentColor, tintBg) => {
+    if (!card) return;
+    card.style.border = isActive ? `2px solid ${accentColor}` : '1.5px solid rgba(148,163,184,0.35)';
+    card.style.background = isActive ? tintBg : '#FFFFFF';
+    card.style.boxShadow = isActive ? `0 4px 12px ${tintBg}` : 'none';
+  };
+  applyCardActiveStyle(cardOrig, isOriginalPhotoMode, '#059669', 'rgba(16,185,129,0.08)');
+  applyCardActiveStyle(cardCollage, isWebCollageMode, '#059669', 'rgba(16,185,129,0.08)');
+  applyCardActiveStyle(cardAi, isAiArtMode, '#4F46E5', 'rgba(79,70,229,0.08)');
+  if (cardAi) {
+    cardAi.style.opacity = zeroCredits ? '0.6' : '1';
+  }
+
+  // 4. Cost badge at top right of strip
+  const costBadge = document.getElementById('posterVisualCostBadge');
+  if (costBadge) {
+    if (isAiArtMode) {
+      costBadge.textContent = '1⚡ AI Visual Credit • Text Free';
+      costBadge.style.background = 'rgba(79, 70, 229, 0.14)';
+      costBadge.style.color = '#4F46E5';
+      costBadge.style.borderColor = 'rgba(79, 70, 241, 0.3)';
+    } else {
+      costBadge.textContent = '0⚡ Free Visual • Text Free';
+      costBadge.style.background = 'rgba(16, 185, 129, 0.15)';
+      costBadge.style.color = '#059669';
+      costBadge.style.borderColor = 'rgba(16, 185, 129, 0.35)';
+    }
+  }
+
+  // 5. Inline AI Sub-Controls (Focus + Art Style)
+  const aiSubControls = document.getElementById('posterModeAiSubControls');
+  const focusWrap = document.getElementById('posterModeAiFocusWrap');
+  const styleSelect = document.getElementById('quickAiArtStyleSelect');
+  if (aiSubControls) {
+    aiSubControls.style.display = isAiArtMode ? 'flex' : 'none';
+  }
+  if (focusWrap) {
+    focusWrap.style.display = isLinkActive ? 'inline-flex' : 'none';
+    const bSrc = document.getElementById('quickFocusBtnSource');
+    const bHyb = document.getElementById('quickFocusBtnHybrid');
+    const bCur = document.getElementById('quickFocusBtnCurator');
+    const activePersp = creatorPerspectiveMode || 'source';
+    [
+      [bSrc, activePersp === 'source'],
+      [bHyb, activePersp === 'hybrid'],
+      [bCur, activePersp === 'curator']
+    ].forEach(([btn, act]) => {
+      if (!btn) return;
+      btn.style.background = act ? '#4F46E5' : 'transparent';
+      btn.style.color = act ? '#FFFFFF' : 'var(--text-secondary)';
+      btn.style.borderColor = act ? '#4F46E5' : 'rgba(148,163,184,0.4)';
+      btn.style.fontWeight = act ? '800' : '700';
+    });
+  }
+  if (styleSelect && isAiArtMode) {
+    const normStyle = (creatorCharacterRepresentation === 'likeness') ? 'cinematic' : (creatorCharacterRepresentation || 'realistic');
+    if (styleSelect.value !== normStyle && normStyle !== 'exact') {
+      styleSelect.value = normStyle;
+    }
+  }
+
+  // 6. Live "What You'll Get" Expectation Bar
+  const expThumb = document.getElementById('posterVisualExpectationThumb');
+  const expIcon = document.getElementById('posterVisualExpectationIcon');
+  const expTitle = document.getElementById('posterVisualExpectationTitle');
+  const expDesc = document.getElementById('posterVisualExpectationDesc');
+
+  let thumbSrc = '';
+  let iconEmoji = '🎨';
+  let titleText = '';
+  let descText = '';
+
+  if (isWebCollageMode) {
+    thumbSrc = (window._webCollageState && window._webCollageState.compositedDataUrl) || origLinkPhoto || '';
+    iconEmoji = '🖼️';
+    if (selCount > 0) {
+      titleText = `Poster 1: Your ${selCount}-Photo Web Collage (0⚡ Free)`;
+      descText = 'Uses the exact web/source images you selected above in your collage frame. Zero AI art cost.';
+    } else {
+      titleText = 'Poster 1: Pick 1–3 Images in the Web Collage Studio Above (0⚡ Free)';
+      descText = 'Tap any photo in the tabs above (including your extracted source photo) to build your free poster.';
+    }
+  } else if (isOriginalPhotoMode) {
+    if (isLinkActive) {
+      thumbSrc = origLinkPhoto;
+      iconEmoji = isVid ? '🎬' : '📸';
+      if (origLinkPhoto) {
+        titleText = `Poster 1: Exact Extracted ${isVid ? 'YouTube Thumbnail' : 'Article Photo'} (0⚡ Free)`;
+        descText = 'Your poster will display this exact source image directly. No AI redraw, 0 visual credits.';
+      } else {
+        titleText = 'Poster 1: Original Source Photo Mode (0⚡ Free)';
+        descText = 'Paste a YouTube or news link above to automatically extract and use its lead photo for free.';
+      }
+    } else if (isInnerVoiceActive) {
+      thumbSrc = hasInnerVoicePhoto ? innerVoicePhotoBase64 : '';
+      iconEmoji = '📷';
+      if (hasInnerVoicePhoto) {
+        titleText = 'Poster 1: Your Attached Photo Directly (0⚡ Free)';
+        descText = 'Your uploaded/snapped photo will be used directly on Poster 1 at 0 visual credits.';
+      } else {
+        titleText = 'Poster 1: Attach a Photo Above (or Switch to Web Collage) for 0⚡ Free';
+        descText = 'Upload/snap a photo in the box above, or tap "Web Collage" to pick free web photos.';
+      }
+    } else {
+      thumbSrc = firstChroniclePhoto;
+      iconEmoji = '📷';
+      if (hasChroniclePhotos) {
+        titleText = 'Poster 1: Your Attached Moment Photo Montage (0⚡ Free)';
+        descText = 'Composites your attached moment photo(s) directly onto Poster 1 at 0 visual credits.';
+      } else {
+        titleText = 'Poster 1: Attach a Photo to Any Moment Above (0⚡ Free)';
+        descText = 'Add a photo to Moment 01–03, or tap "Web Collage" to search free web photos.';
+      }
+    }
+  } else {
+    // AI Art Mode
+    iconEmoji = '🎨';
+    if (isLinkActive) {
+      const activePersp = creatorPerspectiveMode || 'source';
+      thumbSrc = (activePersp !== 'curator') ? origLinkPhoto : '';
+      if (activePersp === 'source') {
+        titleText = `Poster 1: AI ${currentStyleLabel} • Grounded in Source (1⚡ Credit)`;
+        descText = origLinkPhoto
+          ? `AI illustrates the real subject/scene from your ${isVid ? 'YouTube thumbnail' : 'article photo'} & context.`
+          : 'AI illustrates the real-world subject & setting from your source link.';
+      } else if (activePersp === 'hybrid') {
+        titleText = `Poster 1: AI ${currentStyleLabel} • Subject + Your Metaphor (1⚡ Credit)`;
+        descText = 'Blends the real person/subject from the source with the visual metaphor in your take.';
+      } else {
+        titleText = `Poster 1: AI ${currentStyleLabel} • Pure Metaphor (1⚡ Credit)`;
+        descText = 'Illustrates a symbolic visual metaphor from your written take (ignores link photo).';
+      }
+    } else if (isInnerVoiceActive) {
+      thumbSrc = hasInnerVoicePhoto ? innerVoicePhotoBase64 : '';
+      titleText = `Poster 1: AI ${currentStyleLabel} (1⚡ Credit)`;
+      descText = hasInnerVoicePhoto
+        ? 'AI transforms your attached photo & thought into a custom editorial illustration.'
+        : 'AI illustrates your thought (auto-portrays your Family Cast or named Public Figures if mentioned).';
+    } else {
+      thumbSrc = firstChroniclePhoto;
+      titleText = `Poster 1: Multi-Vignette AI ${currentStyleLabel} (1⚡ Chronicle Credit)`;
+      descText = 'Hand-painted vignette page grounded in your Family Cast Vault and recorded moments.';
+    }
+  }
+
+  if (expThumb && expIcon) {
+    if (thumbSrc) {
+      expThumb.src = thumbSrc;
+      expThumb.style.display = 'block';
+      expIcon.style.display = 'none';
+    } else {
+      expThumb.style.display = 'none';
+      expIcon.style.display = 'flex';
+      expIcon.textContent = iconEmoji;
+    }
+  }
+  if (expTitle) expTitle.textContent = titleText;
+  if (expDesc) expDesc.textContent = descText;
+}
+window.updateUnifiedPosterVisualStripUI = updateUnifiedPosterVisualStripUI;
+
 // ============================================================
 // ZERO-CREDIT MULTI-SUBJECT WEB SEARCH & EDITORIAL COLLAGE COMPOSER
 // ============================================================
@@ -823,12 +1137,18 @@ async function openWebCollageBuilderFromContext() {
   if (!card) return;
   card.style.display = 'block';
   window._webCollageState.isOpen = true;
+  if (typeof updateUnifiedPosterVisualStripUI === 'function') {
+    try { updateUnifiedPosterVisualStripUI(); } catch (_) {}
+  }
   setTimeout(() => {
     try {
       card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     } catch (_) {}
   }, 60);
   await refreshWebCollageSubjectsFromContext();
+  if (typeof updateUnifiedPosterVisualStripUI === 'function') {
+    try { updateUnifiedPosterVisualStripUI(); } catch (_) {}
+  }
 }
 window.openWebCollageBuilderFromContext = openWebCollageBuilderFromContext;
 
@@ -836,6 +1156,9 @@ function closeWebCollageBuilder() {
   const card = document.getElementById('creatorWebCollageStudioCard');
   if (card) card.style.display = 'none';
   window._webCollageState.isOpen = false;
+  if (typeof updateUnifiedPosterVisualStripUI === 'function') {
+    try { updateUnifiedPosterVisualStripUI(); } catch (_) {}
+  }
 }
 window.closeWebCollageBuilder = closeWebCollageBuilder;
 
@@ -18797,6 +19120,10 @@ function updateEqualizerSummary() {
   const countryName = creatorCountryContext ? (creatorCountryContext.flag + ' ' + creatorCountryContext.name) : '🇮🇳 India';
 
   summaryEl.textContent = `${focusName} • ${portrayalName} • ${countryName}`;
+
+  if (typeof updateUnifiedPosterVisualStripUI === 'function') {
+    try { updateUnifiedPosterVisualStripUI(); } catch (_) {}
+  }
 }
 
 function resetStage1ActionBtn() {
@@ -20401,6 +20728,9 @@ function handleInnerVoicePhotoSelect(event) {
     if (typeof evaluateSmartRegenScopeAutoSwitch === 'function') {
       evaluateSmartRegenScopeAutoSwitch();
     }
+    if (typeof updateUnifiedPosterVisualStripUI === 'function') {
+      updateUnifiedPosterVisualStripUI();
+    }
   });
 }
 
@@ -20428,6 +20758,9 @@ function removeInnerVoicePhoto(event) {
   }
   if (typeof evaluateSmartRegenScopeAutoSwitch === 'function') {
     evaluateSmartRegenScopeAutoSwitch();
+  }
+  if (typeof updateUnifiedPosterVisualStripUI === 'function') {
+    updateUnifiedPosterVisualStripUI();
   }
 }
 
