@@ -6883,7 +6883,12 @@ header {
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   overflow-y: auto;
+  gap: 0;
   box-shadow: 0 25px 60px -10px rgba(0, 0, 0, 0.80);
+}
+
+.creator-modal-card > * {
+  flex-shrink: 0;
 }
 
 .creator-modal-header {
@@ -14680,18 +14685,25 @@ mark.polish-mark:hover, mark.polish-mark.active {
     box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.45);
     overflow-y: auto;
     overflow-x: hidden;
+    gap: 0;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
   }
 
   .creator-modal-header {
-    margin-bottom: 12px;
+    margin-bottom: 10px;
     padding-bottom: 10px;
+    gap: 8px;
+  }
+
+  .creator-modal-title-wrap {
+    gap: 8px;
   }
 
   .creator-title {
-    font-size: 18px;
+    font-size: 16.5px;
     letter-spacing: -0.3px;
+    white-space: nowrap;
   }
 
   .creator-steps-bar {

@@ -483,31 +483,33 @@
        ========================================== -->
   <div class="modal-overlay creator-modal-overlay" id="creatorModal" onclick="handleCreatorOverlayClick(event)">
     <div class="modal-card creator-modal-card" onclick="event.stopPropagation()">
-      <div class="creator-modal-header">
-        <div class="creator-modal-title-wrap">
-          <div class="creator-badge">STUDIO</div>
-          <h2 class="creator-title" id="creatorModalTitle">Create New Slant</h2>
+      <div class="creator-modal-header" style="flex-shrink: 0;">
+        <div class="creator-modal-title-wrap" style="min-width: 0; flex: 1;">
+          <div class="creator-badge" style="flex-shrink: 0;">STUDIO</div>
+          <h2 class="creator-title" id="creatorModalTitle" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0;">Create New Slant</h2>
         </div>
-        <div class="creator-header-right-actions" style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
-          <button type="button" id="masterSimulateZeroCreditsBtn" onclick="toggleMasterSimulateZeroCredits(event)" style="display:none; align-items:center; gap:4px; font-size:10.5px; font-weight:800; padding:4px 9px; border-radius:99px; background:rgba(148,163,184,0.16); color:var(--text-secondary); border:1px dashed rgba(148,163,184,0.45); cursor:pointer; white-space:nowrap;" title="Master Admin Testing Toggle: Switch between ∞ Unlimited Credits and 0 Credits to test zero-credit flows">🧪 Test 0⚡: OFF</button>
+        <div class="creator-header-right-actions" style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
           <span id="creatorStudioCreditBadge" onclick="openStudioCreditBadgeAction()" style="display:none; align-items:center; gap:4px; font-size:11px; font-weight:800; padding:4px 9px; border-radius:99px; background:rgba(16,185,129,0.14); color:#34D399; border:1px solid rgba(16,185,129,0.35); cursor:pointer; white-space:nowrap;" title="Tap to view your visual illustration credits or request more">⚡ 5 left</span>
           <button class="modal-close" onclick="closeCreatorModal()">&times;</button>
         </div>
       </div>
 
       <!-- Interactive Section-by-Section Credits Bar on Top of Form (Tap to Expand Details & Request More) -->
-      <div class="creator-credits-top-section" id="creatorCreditsTopSection" style="margin: 0 0 10px 0; border-radius: 12px; border: 1px solid rgba(16,185,129,0.28); background: linear-gradient(135deg, rgba(16,185,129,0.07), rgba(15,23,42,0.03)); overflow: hidden; transition: all 0.2s ease;">
-        <button type="button" onclick="toggleCreatorCreditsSectionDrawer()" style="width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px; background: transparent; border: none; cursor: pointer; text-align: left;">
-          <div style="display: flex; align-items: center; gap: 7px; flex-wrap: wrap; min-width: 0;">
+      <div class="creator-credits-top-section" id="creatorCreditsTopSection" style="flex-shrink: 0; margin: 0 0 10px 0; border-radius: 12px; border: 1px solid rgba(16,185,129,0.28); background: linear-gradient(135deg, rgba(16,185,129,0.07), rgba(15,23,42,0.03)); overflow: hidden; transition: all 0.2s ease;">
+        <div onclick="toggleCreatorCreditsSectionDrawer()" style="width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px; background: transparent; cursor: pointer; text-align: left; box-sizing: border-box;">
+          <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-width: 0; flex: 1;">
             <span id="creatorCreditsActiveModeIcon" style="font-size: 13px;">🎨</span>
-            <span id="creatorCreditsActiveModeSummary" style="font-size: 11.8px; font-weight: 800; color: var(--text-primary);">Perspective Visuals: 5 Free Starter Left</span>
-            <span id="creatorCreditsSecondarySummary" style="font-size: 10.8px; font-weight: 700; color: var(--text-secondary); padding: 1px 7px; border-radius: 99px; background: rgba(148,163,184,0.14);">📔 Chronicle: 1/1 Free Today</span>
+            <span id="creatorCreditsActiveModeSummary" style="font-size: 11.5px; font-weight: 800; color: var(--text-primary);">Perspective Visuals: 5 Free Starter Left</span>
+            <span id="creatorCreditsSecondarySummary" style="font-size: 10.5px; font-weight: 700; color: var(--text-secondary); padding: 1px 7px; border-radius: 99px; background: rgba(148,163,184,0.14);">📔 Chronicle: 1/1 Free Today</span>
           </div>
-          <span style="display: inline-flex; align-items: center; gap: 4px; font-size: 10.8px; font-weight: 800; color: #059669; white-space: nowrap; flex-shrink: 0;">
-            <span id="creatorCreditsExpandLabel">Section Credits</span>
-            <span id="creatorCreditsExpandChevron" style="transition: transform 0.2s ease; display: inline-block;">▾</span>
-          </span>
-        </button>
+          <div style="display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0;">
+            <button type="button" id="masterSimulateZeroCreditsBtn" onclick="toggleMasterSimulateZeroCredits(event)" style="display:none; align-items:center; gap:3px; font-size:10px; font-weight:800; padding:3px 8px; border-radius:99px; background:rgba(148,163,184,0.16); color:var(--text-secondary); border:1px dashed rgba(148,163,184,0.45); cursor:pointer; white-space:nowrap;" title="Master Admin Testing Toggle: Switch between ∞ Unlimited Credits and 0 Credits to test zero-credit flows">🧪 Test 0⚡: OFF</button>
+            <span style="display: inline-flex; align-items: center; gap: 3px; font-size: 10.5px; font-weight: 800; color: #059669; white-space: nowrap;">
+              <span id="creatorCreditsExpandLabel">Credits</span>
+              <span id="creatorCreditsExpandChevron" style="transition: transform 0.2s ease; display: inline-block;">▾</span>
+            </span>
+          </div>
+        </div>
 
         <!-- Expandable Section Breakdown Drawer -->
         <div id="creatorCreditsTopDrawer" style="display: none; padding: 10px 12px 12px; border-top: 1px dashed rgba(16,185,129,0.25); background: rgba(255,255,255,0.65);">
