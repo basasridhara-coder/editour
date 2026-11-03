@@ -27982,7 +27982,7 @@ mark.polish-mark:hover, mark.polish-mark.active {
 
 .slant-depth-progress-track {
   width: 100%;
-  height: 3.5px;
+  height: 6px;
   border-radius: 999px;
   background: rgba(148, 163, 184, 0.24);
   overflow: hidden;
@@ -27992,11 +27992,22 @@ mark.polish-mark:hover, mark.polish-mark.active {
   height: 100%;
   border-radius: 999px;
   background: linear-gradient(90deg, #F59E0B 0%, #3B82F6 100%);
-  transition: width 0.22s ease, background 0.22s ease;
+  transition: width 0.35s cubic-bezier(0.22, 1, 0.36, 1), background 0.25s ease;
 }
 
 .slant-depth-progress-fill.is-ready {
   background: linear-gradient(90deg, #10B981 0%, #059669 100%);
+}
+
+#step1DirectSynthBtn.is-depth-locked {
+  opacity: 0.72;
+  filter: saturate(0.65);
+  transition: opacity 0.2s ease, filter 0.2s ease, transform 0.2s ease;
+}
+
+#step1DirectSynthBtn.is-depth-unlocked {
+  opacity: 1;
+  filter: none;
 }
 
 .slant-depth-coach-hint {

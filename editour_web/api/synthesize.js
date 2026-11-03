@@ -2505,23 +2505,23 @@ ${spark ? `- Spark / Personal Context: "${spark}"` : ''}
 ${scrapedContent ? `- Source Excerpt: "${String(scrapedContent).slice(0, 1800)}"` : ''}${ledgerText}
 ${customDirection ? `\nCRITICAL CURATOR DIRECTION FOR THIS REWRITE: "${customDirection}"` : ''}
 
-STRICT ESSAY STRUCTURE (150-180 WORDS TOTAL ACROSS 3 PARAGRAPHS SO PAGE 2 TOP HALF HOLDS THE CONCLUSION AND THE SECOND HALF HOLDS THE SLANT PASSING CLOUDS ARTWORK UNDISTURBED):
+STRICT ESSAY STRUCTURE (180-210 WORDS TOTAL ACROSS 3 PARAGRAPHS):
 1. ${styleInstruction}
-2. Paragraph 1 (55-65 words, 3 sentences): Strong opening observation connecting the curator's angle to the catalyst/source (designed for a broadsheet dropcap).
-3. Paragraph 2 (50-60 words, 3 sentences): Deepen the argument by engaging the concrete facts, friction, or lived reality.
-4. Paragraph 3 (45-55 words, 2-3 sentences): Concise human or civic stakes and lasting resolution (fits cleanly in the top half of Page 2 above the Slant Passing Clouds panel).
-5. "whyItMatters" (15-22 words, 1 sentence): Crisp concluding reflection (must NOT repeat the curatorTake verbatim).
+2. Paragraph 1 (60-70 words, 3-4 sentences): Strong opening observation connecting the curator's angle to the catalyst/source (designed for a broadsheet dropcap).
+3. Paragraph 2 (60-70 words, 3-4 sentences): Deepen the argument by engaging the concrete facts, friction, or lived reality.
+4. Paragraph 3 (55-65 words, 3 sentences): Human or civic stakes and lasting resolution.
+5. "whyItMatters" (18-26 words, 1-2 sentences): Crisp concluding reflection (must NOT repeat the curatorTake verbatim).
 6. STRICT BAN ON EM DASHES: Never use em dashes, en dashes, or "--". Use commas, semicolons, or periods.
 7. Stay 100% faithful to the curator's voice, proper nouns, and perspective without fabricating unstated claims.
 
 Respond strictly with valid JSON:
 {
   "resolvedArticleExcerpts": [
-    "Paragraph 1 (55-65 words, pure prose without labels)",
-    "Paragraph 2 (50-60 words, pure prose without labels)",
-    "Paragraph 3 (45-55 words, pure prose without labels)"
+    "Paragraph 1 (60-70 words, pure prose without labels)",
+    "Paragraph 2 (60-70 words, pure prose without labels)",
+    "Paragraph 3 (55-65 words, pure prose without labels)"
   ],
-  "whyItMatters": "15-22 word concluding reflection sentence"
+  "whyItMatters": "18-26 word concluding reflection sentence"
 }`;
 
       try {
@@ -2659,11 +2659,17 @@ Author's Raw Take:
 """${rawText}"""
 ${spark ? `Author's Spark / Catalyst: """${spark}"""` : ''}
 ${scrapedTitle ? `Source Headline: """${scrapedTitle}"""` : ''}
-${wantBeats ? `\nEVALUATE 3-BEAT EDITORIAL STRUCTURE ("structureBeats"):
-1. "hasMoment" (Beat 1 — Moment / Trigger): True if the author establishes a concrete observation, event, scene, or subject.
-2. "hasWhyItMatters" (Beat 2 — Why It Matters): True if the author gives deeper context, cause-and-effect, or contrast explaining why it stands out.
-3. "hasConviction" (Beat 3 — Core Conviction): True ONLY if the author explicitly states a broader takeaway, lasting principle, or recommendation.
-4. "nudge": A single concise coaching sentence (e.g. "Optional: Add 1 sentence on your lasting takeaway so Paragraph 3 is 100% your words." or "All 3 beats present — Paragraphs 1, 2 & 3 will be 100% grounded in your words.").` : ''}
+${wantBeats ? `\nEVALUATE 3-BEAT PERSPECTIVE & DEPTH SCORE ON THE POLISHED TEXT ("structureBeats"):
+1. "hasMoment" (Beat 1 — Moment / Trigger): True if the author grounds the thought in a concrete experience, personal scene, observation, event, or subject (e.g. sitting through nights building apps, watching a scene, reading an article).
+2. "hasWhyItMatters" (Beat 2 — Why It Matters / The Shift): True if the author explains why this matters beneath the surface — the cause-and-effect, contrast between past and present (e.g. unable to build earlier due to technology gating vs feeling liberated with AI now), tension, or deeper implication.
+3. "hasConviction" (Beat 3 — Conviction / Personal Vision & Takeaway): True if the author expresses either (a) a personal aspiration, life vision, hope, or way of living they are claiming for themselves (e.g. dreaming of working like a madman and roaming like a free man outside a regular 9-to-5), OR (b) a lasting belief, stance, principle, or takeaway. Require at least 3 distinct clauses/thoughts in the text for all 3 beats to be true.
+4. "depthScore" (integer 0 to 100): Score the genuine human depth, honesty, specificity, and completeness of the author's perspective:
+   - 75 to 96: All 3 beats are present with authentic personal voice, real tension/shift, and a clear personal vision or conviction (30+ words).
+   - 50 to 69: 2 beats present or ideas feel slightly surface-level / incomplete.
+   - 15 to 49: Only 1 brief thought or a short 1-liner without deeper reflection.
+5. "nudge": Speak like a warm, perceptive close friend helping the author unlock their deepest, most liberated thought:
+   - If all 3 beats are true and depthScore >= 70: A warm 1-sentence affirmation of their perspective (e.g. "✓ 3/3 signals & deep perspective unlocked — your voice is clear, honest, and ready to synthesize!").
+   - If a beat is missing or depthScore < 70: A warm, specific 1-sentence prompt rooted in their exact topic inviting them to add the missing beat so their thought reaches 3/3 and 70%+ depth.` : ''}
 
 Respond strictly with valid JSON with this exact structure:
 {
@@ -2679,8 +2685,9 @@ Respond strictly with valid JSON with this exact structure:
   "structureBeats": {
     "hasMoment": true,
     "hasWhyItMatters": true,
-    "hasConviction": false,
-    "nudge": "Optional: Add 1 sentence on your lasting takeaway so Paragraph 3 is 100% your words."
+    "hasConviction": true,
+    "depthScore": 86,
+    "nudge": "✓ 3/3 signals & deep perspective unlocked — your voice is clear, honest, and ready to synthesize!"
   }` : ''}${wantVisuals ? `,
   "visualSubjects": [
     {
@@ -2850,14 +2857,32 @@ Respond strictly with valid JSON with this exact structure:
                   : fallbackMomentProjections)
               : [];
 
+            const polishedFallbackBeats = evaluateFallbackStructureBeats(cleanPolished || rawText, spark);
+            const rawHasMoment = parsed.structureBeats?.hasMoment !== undefined
+              ? Boolean(parsed.structureBeats.hasMoment)
+              : polishedFallbackBeats.hasMoment;
+            const rawHasWhy = parsed.structureBeats?.hasWhyItMatters !== undefined
+              ? Boolean(parsed.structureBeats.hasWhyItMatters)
+              : polishedFallbackBeats.hasWhyItMatters;
+            const rawHasConv = (parsed.structureBeats?.hasConviction !== undefined)
+              ? (Boolean(parsed.structureBeats.hasConviction) || polishedFallbackBeats.hasConviction)
+              : polishedFallbackBeats.hasConviction;
+            const parsedScore = Number(parsed.structureBeats?.depthScore);
+            const resolvedDepthScore = Number.isFinite(parsedScore) && parsedScore > 0
+              ? Math.max(parsedScore, polishedFallbackBeats.depthScore)
+              : polishedFallbackBeats.depthScore;
+
             const structureBeats = (parsed.structureBeats && typeof parsed.structureBeats === 'object')
               ? {
-                  hasMoment: parsed.structureBeats.hasMoment !== undefined ? Boolean(parsed.structureBeats.hasMoment) : fallbackStructureBeats.hasMoment,
-                  hasWhyItMatters: parsed.structureBeats.hasWhyItMatters !== undefined ? Boolean(parsed.structureBeats.hasWhyItMatters) : fallbackStructureBeats.hasWhyItMatters,
-                  hasConviction: parsed.structureBeats.hasConviction !== undefined ? Boolean(parsed.structureBeats.hasConviction) : fallbackStructureBeats.hasConviction,
-                  nudge: String(parsed.structureBeats.nudge || fallbackStructureBeats.nudge).trim()
+                  hasMoment: rawHasMoment,
+                  hasWhyItMatters: rawHasWhy,
+                  hasConviction: rawHasConv,
+                  depthScore: Math.min(98, Math.max(10, Math.round(resolvedDepthScore))),
+                  nudge: (rawHasMoment && rawHasWhy && rawHasConv && resolvedDepthScore >= 70)
+                    ? '✓ 3/3 signals & deep perspective unlocked — your voice is clear, honest, and ready to synthesize!'
+                    : String(parsed.structureBeats.nudge || polishedFallbackBeats.nudge).trim()
                 }
-              : fallbackStructureBeats;
+              : polishedFallbackBeats;
 
             return res.status(200).json({
               success: true,
@@ -3463,10 +3488,10 @@ ${validChronicleMoments.map((m, i) => `  * Moment 0${i + 1} (${m.title || 'Momen
   * NEVER produce gloomy or melodramatic headlines when the curator's reflection is warm, proud, or celebratory.
 - ZERO CONCEPT FABRICATION (1:1 STRUCTURAL ELABORATION):
   * You are elaborating the curator's own thoughts, NOT writing your own opinion or inventing unmentioned subplots.
-  * Map the curator's input directly across the 3 broadsheet paragraphs in Poster 3 ("summary" and "resolvedArticleExcerpts", 150-180 words total so the concluding paragraph fits in the top half of Page 2 above the Slant Passing Clouds panel):
-    1. Paragraph 1 (The Moment / Concrete Catalyst, 55-65 words, 3 sentences): Unpack the opening trigger, scene, or concrete observation described by the curator${spark ? ` ("${spark}")` : ''}. Strong opening for the broadsheet dropcap.
-    2. Paragraph 2 (Why It Matters / The Underlying Tension, 50-60 words, 3 sentences): Elaborate the curator's reasoning, contrast, or turning point, explaining why this moment stood out and what deeper dynamics are at play in their own words and logic.
-    3. Paragraph 3 (The Core Conviction / Lasting Truth, 45-55 words, 2-3 sentences): Concisely articulate the curator's closing takeaway, personal truth, or principle for living/working/parenting.
+  * Map the curator's input directly across the 3 broadsheet paragraphs in Poster 3 ("summary" and "resolvedArticleExcerpts", 180-220 words total):
+    1. Paragraph 1 (The Moment / Concrete Catalyst, 60-70 words, 3-4 sentences): Unpack the opening trigger, scene, or concrete observation described by the curator${spark ? ` ("${spark}")` : ''}. Strong opening for the broadsheet dropcap.
+    2. Paragraph 2 (Why It Matters / The Underlying Tension, 60-75 words, 3-4 sentences): Elaborate the curator's reasoning, contrast, or turning point, explaining why this moment stood out and what deeper dynamics are at play in their own words and logic.
+    3. Paragraph 3 (The Core Conviction / Lasting Truth, 55-70 words, 3 sentences): Articulate the curator's closing takeaway, personal truth, or principle for living/working/parenting.
   * STRICT BAN: NEVER prefix paragraphs with labels like "The spark:", "Curator stance:", "Paragraph 1:", or bullet points! Output pure, narrative broadsheet text.
 - IN "originalHeadline":
   * Set to the spark statement or a refined 6 to 12 word hook capturing the catalyst moment. NEVER set to the raw full-length user slant.` : '')}
@@ -3479,21 +3504,21 @@ ${userSlant && sourceType !== 'inner_voice' ? `CRITICAL POSTER 3 DIRECTIVE (ELAB
 - Poster 3 is the curator's broadsheet essay where the curator's stance/take is ELABORATED IN DIRECT CONNECTION WITH THE ATTACHED SOURCE.
 - It must NOT be a dry, third-person summary or detached book report of the source piece (the objective source ledger is already accessible to the reader on tap from Posters 1 & 2).
 - ZERO CONCEPT FABRICATION (1:1 STRUCTURAL ELABORATION):
-  * Do NOT invent opinions or arguments the curator did not express. Unpack and elaborate the curator's own stance across 3 concise broadsheet paragraphs (150-180 words total):
-  * Paragraph 1 (The Moment / Catalyst & Modern Friction, 55-65 words, 3 sentences): The curator's opening observation connecting their personal angle to the core trigger or dilemma in the source (strong opening for broadsheet dropcap).
-  * Paragraph 2 (Why It Matters / Engaging the Source, 50-60 words, 3 sentences): Elaborate the curator's reasoning and tension in direct dialogue with the source's concrete facts, claims, or figures to substantiate their critique.
-  * Paragraph 3 (Core Conviction / Human Stakes & Resolution, 45-55 words, 2-3 sentences): Detail the personal, human, or societal stakes of the curator's conviction and their lasting takeaway (concised to fit in the top half of Page 2 above the Slant Passing Clouds artwork).
+  * Do NOT invent opinions or arguments the curator did not express. Unpack and elaborate the curator's own stance across 3 broadsheet paragraphs (180-220 words total):
+  * Paragraph 1 (The Moment / Catalyst & Modern Friction, 60-70 words, 3-4 sentences): The curator's opening observation connecting their personal angle to the core trigger or dilemma in the source (strong opening for broadsheet dropcap).
+  * Paragraph 2 (Why It Matters / Engaging the Source, 60-75 words, 3-4 sentences): Elaborate the curator's reasoning and tension in direct dialogue with the source's concrete facts, claims, or figures to substantiate their critique.
+  * Paragraph 3 (Core Conviction / Human Stakes & Resolution, 55-70 words, 3 sentences): Detail the personal, human, or societal stakes of the curator's conviction and their lasting takeaway.
 - STRICT BAN: Never echo the user's raw slant verbatim across paragraphs! Elaborate the thought with depth, narrative richness, and intellectual conviction while staying 100% faithful to the user's voice. Output pure broadsheet paragraphs without labels like "Paragraph 1:".
 - "keyTakeaways": Exactly 3 sharp, structured conviction principles formulated from the elaborated take in dialogue with the source (each exactly 10-13 words with bold title prefix, e.g. "Title: Core insight").
 - "receiptHighlightQuote": A poignant, high-impact core conviction sentence (exactly 18-22 words) capturing the heart of the curator's stance in connection with the source.` : ''}
 
 CRITICAL POSTER 3 "1-MINUTE READ" ESSAY DIRECTIVE:
-Poster 3 ("SLANT MINUTE" / 60-SEC BROADSHEET) is a pure, concise broadsheet essay in paragraphs.
-It MUST strictly target 150 to 180 words total for the 3-paragraph essay itself in "summary" (and "resolvedArticleExcerpts") so the essay concludes in the top half of Page 2 while leaving the bottom half of Page 2 undisturbed for the Slant Passing Clouds artwork:
-- Paragraph 1: 55-65 words (strong opening for broadsheet dropcap; fits cleanly on Page 1)
-- Paragraph 2: 50-60 words (core elaboration and conceptual depth; completes Page 1)
-- Paragraph 3: 45-55 words (human stakes, lasting conviction, and forward-looking resolution; anchors the top half of Page 2 above the reflection box and Slant Passing Clouds panel)
-TOTAL ESSAY: 150-180 words for a tight, high-impact 1-minute read.
+Poster 3 ("SLANT MINUTE" / 60-SEC BROADSHEET) is a pure, substantive broadsheet essay in paragraphs.
+It MUST strictly target 180 to 220 words total for the 3-paragraph essay itself in "summary" (and "resolvedArticleExcerpts"):
+- Paragraph 1: 60-70 words (strong opening for broadsheet dropcap; fits cleanly on Page 1)
+- Paragraph 2: 60-75 words (core elaboration and conceptual depth; completes Page 1 without orphan splits)
+- Paragraph 3: 55-70 words (human stakes, lasting conviction, and forward-looking resolution; anchors Page 2 above the reflection box)
+TOTAL ESSAY: 180-220 words for an authentic 1-minute read.
 The curator's intellectual perspective, conviction, and provided context must be deeply carried and elaborated throughout without inventing unrequested concepts.
 If a catalyst photo is attached, subtly ground the atmosphere where natural, but NEVER compromise the curator's perspective or intellectual depth for scene description filler.
 CRITICAL CULTURAL, INSTITUTIONAL & UNIFORM VISUAL AUTHENTICITY DIRECTIVE (FOR "illustrationPrompt" AND CUES):
@@ -3522,8 +3547,8 @@ Respond strictly with valid JSON with this exact structure:
       "momentIndex": 1
     }
   ],` : ''}
-  "summary": "${sourceType === 'inner_voice' ? 'Exactly 3 concise broadsheet paragraphs of lived experience reflection deeply elaborating the curator perspective and context (55-65, 50-60, 45-55 words; 150-180 words total). Never sacrifice curator perspective for scene filler.' : (userSlant ? 'Exactly 3 concise broadsheet paragraphs carrying and deeply elaborating the curator take in direct dialogue with the attached source (55-65, 50-60, 45-55 words; 150-180 words total). Never an objective book report.' : 'Exactly 3 concise broadsheet paragraphs of objective journalistic reporting (55-65, 50-60, 45-55 words; 150-180 words total).')}",
-  "whyItMatters": "1 sharp sentence on the stakes and why this perspective matters right now (15-22 words)",
+  "summary": "${sourceType === 'inner_voice' ? 'Exactly 3 broadsheet paragraphs of lived experience reflection deeply elaborating the curator perspective and context (60-70, 60-75, 55-70 words; 180-220 words total). Never sacrifice curator perspective for scene filler.' : (userSlant ? 'Exactly 3 broadsheet paragraphs carrying and deeply elaborating the curator take in direct dialogue with the attached source (60-70, 60-75, 55-70 words; 180-220 words total). Never an objective book report.' : 'Exactly 3 broadsheet paragraphs of objective journalistic reporting (60-70, 60-75, 55-70 words; 180-220 words total).')}",
+  "whyItMatters": "1-2 sharp sentences on the stakes and why this perspective matters right now (18-28 words)",
   "keyTakeaways": [
     "${sourceType === 'inner_voice' ? 'First personal takeaway (10-13 words, Title: Insight)' : (userSlant ? 'First core conviction principle connecting take and source (10-13 words, Title: Insight)' : 'First key source finding (10-13 words, Title: Finding)')}",
     "${sourceType === 'inner_voice' ? 'Second personal takeaway (10-13 words, Title: Insight)' : (userSlant ? 'Second core conviction principle detailing human/personal stakes (10-13 words, Title: Insight)' : 'Second key source finding or trade-off (10-13 words, Title: Insight)')}",
@@ -3531,9 +3556,9 @@ Respond strictly with valid JSON with this exact structure:
   ],
   "receiptHighlightQuote": "${sourceType === 'inner_voice' ? 'Single poignant core conviction sentence (18-22 words)' : (userSlant ? 'A poignant core conviction sentence capturing the heart of the curator stance in dialogue with the source (18-22 words)' : 'A direct quote, core factual assertion, or official thesis directly from the source author/speaker (18-22 words).')}",
   "resolvedArticleExcerpts": [
-    "${sourceType === 'inner_voice' ? 'Paragraph 1 (Scene & Catalyst): 55-65 words without labels.' : (userSlant ? 'Paragraph 1 (Catalyst & Friction): 55-65 words elaborating opening thesis in dialogue with source topic without labels.' : 'Paragraph 1 (Source Subject & Context): 55-65 words without labels.')}",
-    "${sourceType === 'inner_voice' ? 'Paragraph 2 (The Turning Point): 50-60 words without labels.' : (userSlant ? 'Paragraph 2 (Engaging Source Claims): 50-60 words engaging source concepts to substantiate critique without labels.' : 'Paragraph 2 (Core Evidence & Claims): 50-60 words without labels.')}",
-    "${sourceType === 'inner_voice' ? 'Paragraph 3 (The Lasting Truth): 45-55 words without labels.' : (userSlant ? 'Paragraph 3 (Human Stakes & Resolution): 45-55 words detailing personal/family impact and lasting resolution without labels.' : 'Paragraph 3 (Underlying Conflict or Trade-offs): 45-55 words without labels.')}"
+    "${sourceType === 'inner_voice' ? 'Paragraph 1 (Scene & Catalyst): 60-70 words without labels.' : (userSlant ? 'Paragraph 1 (Catalyst & Friction): 60-70 words elaborating opening thesis in dialogue with source topic without labels.' : 'Paragraph 1 (Source Subject & Context): 60-70 words without labels.')}",
+    "${sourceType === 'inner_voice' ? 'Paragraph 2 (The Turning Point): 60-75 words without labels.' : (userSlant ? 'Paragraph 2 (Engaging Source Claims): 60-75 words engaging source concepts to substantiate critique without labels.' : 'Paragraph 2 (Core Evidence & Claims): 60-75 words without labels.')}",
+    "${sourceType === 'inner_voice' ? 'Paragraph 3 (The Lasting Truth): 55-70 words without labels.' : (userSlant ? 'Paragraph 3 (Human Stakes & Resolution): 55-70 words detailing personal/family impact and lasting resolution without labels.' : 'Paragraph 3 (Underlying Conflict or Trade-offs): 55-70 words without labels.')}"
   ],
   "keyMetric": "Short impactful stat or metric (e.g. +42%, 1,072 Trees, 10x, 99.8% - or leave empty if none)",
   "visualMood": "Short aesthetic phrase (e.g. High-Contrast Editorial Risograph, Velvet Obsidian Chiaroscuro)",
@@ -3900,16 +3925,22 @@ Respond strictly with valid JSON with this exact structure:
     }
 
     const rawExcerpts = Array.isArray(parsed.resolvedArticleExcerpts) ? parsed.resolvedArticleExcerpts : [];
-    const cleanedExcerpts = rawExcerpts.map(e => {
+    let cleanedExcerpts = rawExcerpts.map(e => {
       let s = String(e).replace(/^(the spark|curator stance|paragraph \d+)\s*:\s*["']?/i, '').replace(/["']?$/i, '').trim();
       if (isChronicle) {
         s = s.replace(/^0?\d+\s*[·•.-]\s*(?=Moment\s+\d+)/i, '');
       }
       return s;
-    });
-    const cleanedSummary = isChronicle
-      ? String(parsed.summary || '').replace(/(^|\n\s*)0?\d+\s*[·•.-]\s*(?=Moment\s+\d+)/gi, '$1')
-      : (parsed.summary || '');
+    }).filter(Boolean);
+    let cleanedSummary = isChronicle
+      ? String(parsed.summary || '').replace(/(^|\n\s*)0?\d+\s*[·•.-]\s*(?=Moment\s+\d+)/gi, '$1').trim()
+      : String(parsed.summary || '').trim();
+    const summarySplitParas = cleanedSummary ? cleanedSummary.split(/\n\s*\n/).map(p => p.trim()).filter(Boolean) : [];
+    if (cleanedExcerpts.length > summarySplitParas.length) {
+      cleanedSummary = cleanedExcerpts.join('\n\n');
+    } else if (summarySplitParas.length > cleanedExcerpts.length) {
+      cleanedExcerpts = summarySplitParas;
+    }
 
     let effectiveIllustrationPrompt = parsed.illustrationPrompt || concisePrompt || '';
     if (countryContext && countryContext !== 'Global' && !effectiveIllustrationPrompt.toLowerCase().includes(countryContext.toLowerCase())) {
@@ -5812,32 +5843,75 @@ function buildFallbackMomentVisualProjections(chronicleMoments = [], countryCont
 
 function evaluateFallbackStructureBeats(rawText = '', spark = '') {
   const clean = String(rawText || '').trim();
-  const combined = `${clean} ${spark || ''}`.trim();
-  const sentences = clean.split(/[.!?]+/).map(s => s.trim()).filter(s => s.length >= 6);
-  const wordCount = combined.split(/\s+/).filter(Boolean).length;
+  const combined = `${spark || ''} ${clean}`.trim();
+  const wordCount = combined ? combined.split(/\s+/).filter(Boolean).length : 0;
 
-  const hasMoment = wordCount >= 8;
-  const hasWhyItMatters = Boolean(
-    sentences.length >= 2 ||
-    wordCount >= 22 ||
-    /\b(because|since|while|when|however|although|considering|every detail|process|impact|reason|shows|reveals|turning|causing)\b/i.test(clean)
-  );
-  const hasConviction = Boolean(
-    sentences.length >= 3 &&
-    /\b(therefore|should|must|need to|advisable|lesson|reminds|believe|matter|future|principle|important|essential|real risk|real value|what this means|ultimately|never|always)\b/i.test(clean)
-  );
+  const rawClauses = clean
+    .split(/(?:[.!?;]+|\n+|,\s+(?=(?:as|because|since|so|yet|but|while|whereas|although|though|now|and\s+now|i\s+just|i\s+believe|i\s+feel|i\s+think|i\s+hope|my\s+conviction|my\s+take|for\s+me|to\s+me|what\s+matters|when\s+i|where\s+i)\b)|\s+[\u2014\u2013]\s+)/i)
+    .map(c => c.trim())
+    .filter(c => c.split(/\s+/).filter(Boolean).length >= 4);
 
-  let nudge = 'All 3 beats present — Paragraphs 1, 2 & 3 will be 100% grounded in your words.';
-  if (!hasWhyItMatters) {
-    nudge = 'Optional: Add 1 detail on why this stands out or matters so Paragraph 2 is 100% your words.';
+  const usedIdx = new Set();
+  const convictionRegex = /\b(i believe|i feel that|my take|my conviction|to me|in my view|for me|we must|we need to|we should|ought to|ultimately|the real lesson|reminds us|reminder that|i hope|i just hope|dream of|life i dream|come out of|coming out of|regular 9 to 5|roam like|work like|principle|takeaway|what counts|the point is|let's|let us|matters most|way forward|stand for|worth fighting|live a life|free man|going forward)\b/i;
+  const whyRegex = /\b(because|instead of|however|whereas|although|despite|the problem|the reality|the truth|irony|paradox|tension|consequence|impact|matters|means that|shows that|reveals|proves|signals|reflects|shift|difference|beneath|beyond|unable to|technology gating|feel liberated|liberated|used to keep|rather than|not just|able to build those ideas)\b/i;
+  const momentRegex = /\b(as i sit|sitting|watched|watching|saw|read|reading|heard|noticed|listening|looked|today|yesterday|recently|nights|months|morning|evening|when|while|during|article|video|podcast|talk|interview|story|report|scene|moment|son|daughter|kids|wife|friend|colleague|school|office|city|to build apps)\b/i;
+
+  let convIdx = -1;
+  for (let i = rawClauses.length - 1; i >= 0; i--) {
+    if (rawClauses.length >= 2 && convictionRegex.test(rawClauses[i])) {
+      convIdx = i;
+      usedIdx.add(i);
+      break;
+    }
+  }
+
+  let whyIdx = -1;
+  for (let i = 0; i < rawClauses.length; i++) {
+    if (usedIdx.has(i)) continue;
+    if (rawClauses.length >= 2 && whyRegex.test(rawClauses[i])) {
+      whyIdx = i;
+      usedIdx.add(i);
+      break;
+    }
+  }
+
+  let momentIdx = -1;
+  for (let i = 0; i < rawClauses.length; i++) {
+    if (usedIdx.has(i)) continue;
+    const cWords = rawClauses[i].split(/\s+/).filter(Boolean).length;
+    if (momentRegex.test(rawClauses[i]) || (i === 0 && cWords >= 6)) {
+      momentIdx = i;
+      usedIdx.add(i);
+      break;
+    }
+  }
+
+  const hasMoment = momentIdx !== -1 || (wordCount >= 8 && rawClauses.length >= 1);
+  const hasWhyItMatters = whyIdx !== -1 || (rawClauses.length >= 3 && wordCount >= 32 && whyRegex.test(combined));
+  const hasConviction = convIdx !== -1 || (rawClauses.length >= 3 && wordCount >= 38 && convictionRegex.test(combined));
+
+  const beatsCount = (hasMoment ? 1 : 0) + (hasWhyItMatters ? 1 : 0) + (hasConviction ? 1 : 0);
+  const wordScore = Math.min(45, Math.round((wordCount / 42) * 45));
+  const beatScore = beatsCount === 3 ? 45 : (beatsCount === 2 ? 28 : (beatsCount === 1 ? 14 : 0));
+  const clauseBonus = Math.min(8, rawClauses.length * 2);
+  const depthScore = Math.min(96, Math.max(12, wordScore + beatScore + clauseBonus));
+
+  let nudge = '✓ 3/3 signals & deep perspective unlocked — your voice is clear, honest, and ready to synthesize!';
+  if (!hasWhyItMatters && !hasConviction) {
+    nudge = 'You have a real moment here — now go one layer deeper on why this matters to you and the personal truth or life vision you are claiming.';
+  } else if (!hasWhyItMatters) {
+    nudge = 'Beautiful moment and conviction — add 1 line on the shift or reason why this matters so deeply to you.';
   } else if (!hasConviction) {
-    nudge = 'Optional: Add 1 sentence on your lasting takeaway so Paragraph 3 is 100% your words (otherwise AI will bridge it).';
+    nudge = 'You have the moment and the shift — now add 1 liberating line on the belief, principle, or life you are claiming for yourself going forward.';
+  } else if (depthScore < 70) {
+    nudge = 'All 3 signals are taking shape — expand your thought by 1–2 sentences so your depth crosses 70% to unlock synthesis.';
   }
 
   return {
     hasMoment,
     hasWhyItMatters,
     hasConviction,
+    depthScore,
     nudge
   };
 }

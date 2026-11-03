@@ -2659,11 +2659,17 @@ Author's Raw Take:
 """${rawText}"""
 ${spark ? `Author's Spark / Catalyst: """${spark}"""` : ''}
 ${scrapedTitle ? `Source Headline: """${scrapedTitle}"""` : ''}
-${wantBeats ? `\nEVALUATE 3-BEAT EDITORIAL STRUCTURE ("structureBeats"):
-1. "hasMoment" (Beat 1 — Moment / Trigger): True if the author establishes a concrete observation, event, scene, or subject.
-2. "hasWhyItMatters" (Beat 2 — Why It Matters): True if the author gives deeper context, cause-and-effect, or contrast explaining why it stands out.
-3. "hasConviction" (Beat 3 — Core Conviction): True ONLY if the author explicitly states a broader takeaway, lasting principle, or recommendation.
-4. "nudge": A single concise coaching sentence (e.g. "Optional: Add 1 sentence on your lasting takeaway so Paragraph 3 is 100% your words." or "All 3 beats present — Paragraphs 1, 2 & 3 will be 100% grounded in your words.").` : ''}
+${wantBeats ? `\nEVALUATE 3-BEAT PERSPECTIVE & DEPTH SCORE ON THE POLISHED TEXT ("structureBeats"):
+1. "hasMoment" (Beat 1 — Moment / Trigger): True if the author grounds the thought in a concrete experience, personal scene, observation, event, or subject (e.g. sitting through nights building apps, watching a scene, reading an article).
+2. "hasWhyItMatters" (Beat 2 — Why It Matters / The Shift): True if the author explains why this matters beneath the surface — the cause-and-effect, contrast between past and present (e.g. unable to build earlier due to technology gating vs feeling liberated with AI now), tension, or deeper implication.
+3. "hasConviction" (Beat 3 — Conviction / Personal Vision & Takeaway): True if the author expresses either (a) a personal aspiration, life vision, hope, or way of living they are claiming for themselves (e.g. dreaming of working like a madman and roaming like a free man outside a regular 9-to-5), OR (b) a lasting belief, stance, principle, or takeaway. Require at least 3 distinct clauses/thoughts in the text for all 3 beats to be true.
+4. "depthScore" (integer 0 to 100): Score the genuine human depth, honesty, specificity, and completeness of the author's perspective:
+   - 75 to 96: All 3 beats are present with authentic personal voice, real tension/shift, and a clear personal vision or conviction (30+ words).
+   - 50 to 69: 2 beats present or ideas feel slightly surface-level / incomplete.
+   - 15 to 49: Only 1 brief thought or a short 1-liner without deeper reflection.
+5. "nudge": Speak like a warm, perceptive close friend helping the author unlock their deepest, most liberated thought:
+   - If all 3 beats are true and depthScore >= 70: A warm 1-sentence affirmation of their perspective (e.g. "✓ 3/3 signals & deep perspective unlocked — your voice is clear, honest, and ready to synthesize!").
+   - If a beat is missing or depthScore < 70: A warm, specific 1-sentence prompt rooted in their exact topic inviting them to add the missing beat so their thought reaches 3/3 and 70%+ depth.` : ''}
 
 Respond strictly with valid JSON with this exact structure:
 {
@@ -2679,8 +2685,9 @@ Respond strictly with valid JSON with this exact structure:
   "structureBeats": {
     "hasMoment": true,
     "hasWhyItMatters": true,
-    "hasConviction": false,
-    "nudge": "Optional: Add 1 sentence on your lasting takeaway so Paragraph 3 is 100% your words."
+    "hasConviction": true,
+    "depthScore": 86,
+    "nudge": "✓ 3/3 signals & deep perspective unlocked — your voice is clear, honest, and ready to synthesize!"
   }` : ''}${wantVisuals ? `,
   "visualSubjects": [
     {
@@ -2850,14 +2857,32 @@ Respond strictly with valid JSON with this exact structure:
                   : fallbackMomentProjections)
               : [];
 
+            const polishedFallbackBeats = evaluateFallbackStructureBeats(cleanPolished || rawText, spark);
+            const rawHasMoment = parsed.structureBeats?.hasMoment !== undefined
+              ? Boolean(parsed.structureBeats.hasMoment)
+              : polishedFallbackBeats.hasMoment;
+            const rawHasWhy = parsed.structureBeats?.hasWhyItMatters !== undefined
+              ? Boolean(parsed.structureBeats.hasWhyItMatters)
+              : polishedFallbackBeats.hasWhyItMatters;
+            const rawHasConv = (parsed.structureBeats?.hasConviction !== undefined)
+              ? (Boolean(parsed.structureBeats.hasConviction) || polishedFallbackBeats.hasConviction)
+              : polishedFallbackBeats.hasConviction;
+            const parsedScore = Number(parsed.structureBeats?.depthScore);
+            const resolvedDepthScore = Number.isFinite(parsedScore) && parsedScore > 0
+              ? Math.max(parsedScore, polishedFallbackBeats.depthScore)
+              : polishedFallbackBeats.depthScore;
+
             const structureBeats = (parsed.structureBeats && typeof parsed.structureBeats === 'object')
               ? {
-                  hasMoment: parsed.structureBeats.hasMoment !== undefined ? Boolean(parsed.structureBeats.hasMoment) : fallbackStructureBeats.hasMoment,
-                  hasWhyItMatters: parsed.structureBeats.hasWhyItMatters !== undefined ? Boolean(parsed.structureBeats.hasWhyItMatters) : fallbackStructureBeats.hasWhyItMatters,
-                  hasConviction: parsed.structureBeats.hasConviction !== undefined ? Boolean(parsed.structureBeats.hasConviction) : fallbackStructureBeats.hasConviction,
-                  nudge: String(parsed.structureBeats.nudge || fallbackStructureBeats.nudge).trim()
+                  hasMoment: rawHasMoment,
+                  hasWhyItMatters: rawHasWhy,
+                  hasConviction: rawHasConv,
+                  depthScore: Math.min(98, Math.max(10, Math.round(resolvedDepthScore))),
+                  nudge: (rawHasMoment && rawHasWhy && rawHasConv && resolvedDepthScore >= 70)
+                    ? '✓ 3/3 signals & deep perspective unlocked — your voice is clear, honest, and ready to synthesize!'
+                    : String(parsed.structureBeats.nudge || polishedFallbackBeats.nudge).trim()
                 }
-              : fallbackStructureBeats;
+              : polishedFallbackBeats;
 
             return res.status(200).json({
               success: true,
@@ -5818,32 +5843,75 @@ function buildFallbackMomentVisualProjections(chronicleMoments = [], countryCont
 
 function evaluateFallbackStructureBeats(rawText = '', spark = '') {
   const clean = String(rawText || '').trim();
-  const combined = `${clean} ${spark || ''}`.trim();
-  const sentences = clean.split(/[.!?]+/).map(s => s.trim()).filter(s => s.length >= 6);
-  const wordCount = combined.split(/\s+/).filter(Boolean).length;
+  const combined = `${spark || ''} ${clean}`.trim();
+  const wordCount = combined ? combined.split(/\s+/).filter(Boolean).length : 0;
 
-  const hasMoment = wordCount >= 8;
-  const hasWhyItMatters = Boolean(
-    sentences.length >= 2 ||
-    wordCount >= 22 ||
-    /\b(because|since|while|when|however|although|considering|every detail|process|impact|reason|shows|reveals|turning|causing)\b/i.test(clean)
-  );
-  const hasConviction = Boolean(
-    sentences.length >= 3 &&
-    /\b(therefore|should|must|need to|advisable|lesson|reminds|believe|matter|future|principle|important|essential|real risk|real value|what this means|ultimately|never|always)\b/i.test(clean)
-  );
+  const rawClauses = clean
+    .split(/(?:[.!?;]+|\n+|,\s+(?=(?:as|because|since|so|yet|but|while|whereas|although|though|now|and\s+now|i\s+just|i\s+believe|i\s+feel|i\s+think|i\s+hope|my\s+conviction|my\s+take|for\s+me|to\s+me|what\s+matters|when\s+i|where\s+i)\b)|\s+[\u2014\u2013]\s+)/i)
+    .map(c => c.trim())
+    .filter(c => c.split(/\s+/).filter(Boolean).length >= 4);
 
-  let nudge = 'All 3 beats present — Paragraphs 1, 2 & 3 will be 100% grounded in your words.';
-  if (!hasWhyItMatters) {
-    nudge = 'Optional: Add 1 detail on why this stands out or matters so Paragraph 2 is 100% your words.';
+  const usedIdx = new Set();
+  const convictionRegex = /\b(i believe|i feel that|my take|my conviction|to me|in my view|for me|we must|we need to|we should|ought to|ultimately|the real lesson|reminds us|reminder that|i hope|i just hope|dream of|life i dream|come out of|coming out of|regular 9 to 5|roam like|work like|principle|takeaway|what counts|the point is|let's|let us|matters most|way forward|stand for|worth fighting|live a life|free man|going forward)\b/i;
+  const whyRegex = /\b(because|instead of|however|whereas|although|despite|the problem|the reality|the truth|irony|paradox|tension|consequence|impact|matters|means that|shows that|reveals|proves|signals|reflects|shift|difference|beneath|beyond|unable to|technology gating|feel liberated|liberated|used to keep|rather than|not just|able to build those ideas)\b/i;
+  const momentRegex = /\b(as i sit|sitting|watched|watching|saw|read|reading|heard|noticed|listening|looked|today|yesterday|recently|nights|months|morning|evening|when|while|during|article|video|podcast|talk|interview|story|report|scene|moment|son|daughter|kids|wife|friend|colleague|school|office|city|to build apps)\b/i;
+
+  let convIdx = -1;
+  for (let i = rawClauses.length - 1; i >= 0; i--) {
+    if (rawClauses.length >= 2 && convictionRegex.test(rawClauses[i])) {
+      convIdx = i;
+      usedIdx.add(i);
+      break;
+    }
+  }
+
+  let whyIdx = -1;
+  for (let i = 0; i < rawClauses.length; i++) {
+    if (usedIdx.has(i)) continue;
+    if (rawClauses.length >= 2 && whyRegex.test(rawClauses[i])) {
+      whyIdx = i;
+      usedIdx.add(i);
+      break;
+    }
+  }
+
+  let momentIdx = -1;
+  for (let i = 0; i < rawClauses.length; i++) {
+    if (usedIdx.has(i)) continue;
+    const cWords = rawClauses[i].split(/\s+/).filter(Boolean).length;
+    if (momentRegex.test(rawClauses[i]) || (i === 0 && cWords >= 6)) {
+      momentIdx = i;
+      usedIdx.add(i);
+      break;
+    }
+  }
+
+  const hasMoment = momentIdx !== -1 || (wordCount >= 8 && rawClauses.length >= 1);
+  const hasWhyItMatters = whyIdx !== -1 || (rawClauses.length >= 3 && wordCount >= 32 && whyRegex.test(combined));
+  const hasConviction = convIdx !== -1 || (rawClauses.length >= 3 && wordCount >= 38 && convictionRegex.test(combined));
+
+  const beatsCount = (hasMoment ? 1 : 0) + (hasWhyItMatters ? 1 : 0) + (hasConviction ? 1 : 0);
+  const wordScore = Math.min(45, Math.round((wordCount / 42) * 45));
+  const beatScore = beatsCount === 3 ? 45 : (beatsCount === 2 ? 28 : (beatsCount === 1 ? 14 : 0));
+  const clauseBonus = Math.min(8, rawClauses.length * 2);
+  const depthScore = Math.min(96, Math.max(12, wordScore + beatScore + clauseBonus));
+
+  let nudge = '✓ 3/3 signals & deep perspective unlocked — your voice is clear, honest, and ready to synthesize!';
+  if (!hasWhyItMatters && !hasConviction) {
+    nudge = 'You have a real moment here — now go one layer deeper on why this matters to you and the personal truth or life vision you are claiming.';
+  } else if (!hasWhyItMatters) {
+    nudge = 'Beautiful moment and conviction — add 1 line on the shift or reason why this matters so deeply to you.';
   } else if (!hasConviction) {
-    nudge = 'Optional: Add 1 sentence on your lasting takeaway so Paragraph 3 is 100% your words (otherwise AI will bridge it).';
+    nudge = 'You have the moment and the shift — now add 1 liberating line on the belief, principle, or life you are claiming for yourself going forward.';
+  } else if (depthScore < 70) {
+    nudge = 'All 3 signals are taking shape — expand your thought by 1–2 sentences so your depth crosses 70% to unlock synthesis.';
   }
 
   return {
     hasMoment,
     hasWhyItMatters,
     hasConviction,
+    depthScore,
     nudge
   };
 }

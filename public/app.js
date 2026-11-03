@@ -16232,15 +16232,24 @@ async function polishUserTake() {
       }
     }
 
-    if (!structureBeats) {
-      structureBeats = evaluateClientFallbackStructureBeats(rawText, sparkText);
-    }
-    renderPolishStructureBeatsUI(structureBeats, isChronicle);
-
     if (!polished) {
       polished = formatCuratorTakeApt(rawText);
       highlightedHtml = escapeHtml(polished);
     }
+
+    const clientPolishedBeats = evaluateClientFallbackStructureBeats(polished || rawText, sparkText);
+    if (!structureBeats) {
+      structureBeats = clientPolishedBeats;
+    } else {
+      structureBeats = {
+        hasMoment: Boolean(structureBeats.hasMoment) || clientPolishedBeats.hasMoment,
+        hasWhyItMatters: Boolean(structureBeats.hasWhyItMatters) || clientPolishedBeats.hasWhyItMatters,
+        hasConviction: Boolean(structureBeats.hasConviction) || clientPolishedBeats.hasConviction,
+        depthScore: Math.max(Number(structureBeats.depthScore) || 0, clientPolishedBeats.depthScore || 0),
+        nudge: structureBeats.nudge || clientPolishedBeats.nudge
+      };
+    }
+    renderPolishStructureBeatsUI(structureBeats, isChronicle, rawText, polished);
 
     if (isChronicle) {
       if (Array.isArray(momentVisualProjections) && momentVisualProjections.length > 0) {
@@ -16370,7 +16379,7 @@ async function polishUserTake() {
       currentPolishVisualSubjects = buildClientFallbackVisualSubjects(rawText, sparkText, scrapedTitle);
       selectPolishVisualSubject(0, true);
     }
-    renderPolishStructureBeatsUI(evaluateClientFallbackStructureBeats(rawText, sparkText), isChronicle);
+    renderPolishStructureBeatsUI(evaluateClientFallbackStructureBeats(polished || rawText, sparkText), isChronicle, rawText, polished);
     if (display) display.textContent = polished;
     if (reviewCard) {
       reviewCard.style.display = 'flex';
@@ -16386,7 +16395,18 @@ async function polishUserTake() {
 }
 
 const PERSPECTIVE_MIN_WORDS = 25;
+const PERSPECTIVE_MIN_DEPTH_SCORE = 70;
 let activeDepthCoachBeat = null;
+let verifiedPolishDepthState = {
+  verified: false,
+  rawFingerprint: '',
+  polishedFingerprint: '',
+  hasMoment: false,
+  hasWhyItMatters: false,
+  hasConviction: false,
+  depthScore: 0,
+  nudge: ''
+};
 
 function evaluatePerspectiveDepth(rawText = '', spark = '') {
   const cleanRaw = String(rawText || '').trim();
@@ -16399,32 +16419,82 @@ function evaluatePerspectiveDepth(rawText = '', spark = '') {
   const hasMinWords = wordCount >= minWords;
   const wordsRemaining = Math.max(0, minWords - wordCount);
 
-  const sentences = cleanRaw
-    .split(/(?<=[.!?])\s+|\n+/)
-    .map(s => s.trim())
-    .filter(s => s.split(/\s+/).filter(Boolean).length >= 4);
+  // Split into distinct clauses so a single short sentence cannot trigger multiple signals at once
+  const rawClauses = cleanRaw
+    .split(/(?:[.!?;]+|\n+|,\s+(?=(?:as|because|since|so|yet|but|while|whereas|although|though|now|and\s+now|i\s+just|i\s+believe|i\s+feel|i\s+think|i\s+hope|my\s+conviction|my\s+take|for\s+me|to\s+me|what\s+matters|when\s+i|where\s+i)\b)|\s+[\u2014\u2013]\s+)/i)
+    .map(c => c.trim())
+    .filter(c => c.split(/\s+/).filter(Boolean).length >= 4);
 
-  const hasMoment =
-    wordCount >= 6 && (
-      sentences.length >= 1 ||
-      /\b(watched|saw|read|heard|noticed|listening|looked|today|yesterday|recently|morning|evening|when|while|during|article|video|podcast|talk|interview|story|report|scene|moment|son|daughter|kids|wife|friend|colleague|school|office|city|world|india|people|parents)\b/i.test(combined)
-    );
+  const usedIdx = new Set();
+  const convictionRegex = /\b(i believe|i feel that|my take|my conviction|to me|in my view|for me|we must|we need to|we should|ought to|ultimately|the real lesson|reminds us|reminder that|i hope|i just hope|dream of|life i dream|come out of|coming out of|regular 9 to 5|roam like|work like|principle|takeaway|what counts|the point is|let's|let us|matters most|way forward|stand for|worth fighting|live a life|free man|going forward)\b/i;
+  const whyRegex = /\b(because|instead of|however|whereas|although|despite|the problem|the reality|the truth|irony|paradox|tension|consequence|impact|matters|means that|shows that|reveals|proves|signals|reflects|shift|difference|beneath|beyond|unable to|technology gating|feel liberated|liberated|used to keep|rather than|not just|able to build those ideas)\b/i;
+  const momentRegex = /\b(as i sit|sitting|watched|watching|saw|read|reading|heard|noticed|listening|looked|today|yesterday|recently|nights|months|morning|evening|when|while|during|article|video|podcast|talk|interview|story|report|scene|moment|son|daughter|kids|wife|friend|colleague|school|office|city|to build apps)\b/i;
 
-  const hasWhyItMatters =
-    wordCount >= 10 && (
-      (sentences.length >= 2 && wordCount >= 18) ||
-      /\b(because|instead|however|yet|but|while|whereas|although|though|despite|why|problem|reality|truth|irony|paradox|tension|risk|cost|consequence|impact|matters|matter|means|shows|reveals|proves|signals|reflects|shift|difference|actually|often|system|society|culture|habit|trap|illusion|beneath|beyond|question|wonder|realize|realised|notice|feels|we think|people think|used to|rather than|not just)\b/i.test(combined)
-    );
+  // 1. Check Conviction on a distinct clause (requires at least 2 clauses total so opening moment isn't misread as conviction)
+  let convIdx = -1;
+  for (let i = rawClauses.length - 1; i >= 0; i--) {
+    if (rawClauses.length >= 2 && convictionRegex.test(rawClauses[i])) {
+      convIdx = i;
+      usedIdx.add(i);
+      break;
+    }
+  }
 
-  const hasConviction =
-    wordCount >= 12 && (
-      (sentences.length >= 3 && wordCount >= 26) ||
-      /\b(i believe|i feel|i think|my take|to me|in my view|for me|we must|we need|we should|should|must|need to|have to|ought to|ultimately|lesson|remind|reminder|future|true|real|hope|believe|conviction|takeaway|principle|always|never|worth|choice|balance|responsibility|importantly|at the end|what counts|the point|let's|let us|stop|start|build|protect|remember|teach|learn|deserve|matters most)\b/i.test(combined)
-    );
+  // 2. Check Why It Matters on a distinct remaining clause
+  let whyIdx = -1;
+  for (let i = 0; i < rawClauses.length; i++) {
+    if (usedIdx.has(i)) continue;
+    if (rawClauses.length >= 2 && whyRegex.test(rawClauses[i])) {
+      whyIdx = i;
+      usedIdx.add(i);
+      break;
+    }
+  }
+
+  // 3. Check Moment on a distinct remaining clause (or opening clause >= 6 words)
+  let momentIdx = -1;
+  for (let i = 0; i < rawClauses.length; i++) {
+    if (usedIdx.has(i)) continue;
+    const cWords = rawClauses[i].split(/\s+/).filter(Boolean).length;
+    if (momentRegex.test(rawClauses[i]) || (i === 0 && cWords >= 6)) {
+      momentIdx = i;
+      usedIdx.add(i);
+      break;
+    }
+  }
+
+  let hasMoment = momentIdx !== -1 || (wordCount >= 8 && rawClauses.length >= 1);
+  let hasWhyItMatters = whyIdx !== -1 || (rawClauses.length >= 3 && wordCount >= 32 && whyRegex.test(combined));
+  let hasConviction = convIdx !== -1 || (rawClauses.length >= 3 && wordCount >= 38 && convictionRegex.test(combined));
+
+  // Check if current text matches the most recent Review & Polish verification
+  const isVerifiedByPolish = Boolean(
+    verifiedPolishDepthState.verified &&
+    cleanRaw.length > 0 &&
+    (cleanRaw === verifiedPolishDepthState.rawFingerprint || cleanRaw === verifiedPolishDepthState.polishedFingerprint)
+  );
+
+  if (isVerifiedByPolish) {
+    hasMoment = Boolean(verifiedPolishDepthState.hasMoment);
+    hasWhyItMatters = Boolean(verifiedPolishDepthState.hasWhyItMatters);
+    hasConviction = Boolean(verifiedPolishDepthState.hasConviction);
+  }
 
   const beatsCount = (hasMoment ? 1 : 0) + (hasWhyItMatters ? 1 : 0) + (hasConviction ? 1 : 0);
+  const hasAllThreeBeats = beatsCount === 3;
   const hasTwoOfThreeBeats = beatsCount >= 2;
-  const isReady = hasMinWords && hasTwoOfThreeBeats;
+
+  const wordScore = Math.min(45, Math.round((wordCount / 42) * 45));
+  const beatScore = beatsCount === 3 ? 45 : (beatsCount === 2 ? 28 : (beatsCount === 1 ? 14 : 0));
+  const clauseBonus = Math.min(8, rawClauses.length * 2);
+  const computedDepthScore = wordCount === 0 ? 0 : Math.min(96, Math.max(12, wordScore + beatScore + clauseBonus));
+
+  const depthScore = isVerifiedByPolish
+    ? Math.max(Number(verifiedPolishDepthState.depthScore) || 0, computedDepthScore)
+    : computedDepthScore;
+
+  // Synthesize unlocks ONLY after Review & Polish has measured depth AND 3/3 signals + >= 70% depth are achieved
+  const isReady = isVerifiedByPolish && hasAllThreeBeats && depthScore >= PERSPECTIVE_MIN_DEPTH_SCORE;
 
   const missingLabels = [];
   if (!hasMoment) missingLabels.push('Moment');
@@ -16432,12 +16502,18 @@ function evaluatePerspectiveDepth(rawText = '', spark = '') {
   if (!hasConviction) missingLabels.push('Conviction');
 
   let nudge = '';
-  if (!hasConviction && !hasWhyItMatters) {
-    nudge = 'Add 1–2 lines on why this matters or your lasting conviction (at least 2 of 3 signals required).';
+  if (isVerifiedByPolish && verifiedPolishDepthState.nudge) {
+    nudge = verifiedPolishDepthState.nudge;
+  } else if (!hasWhyItMatters && !hasConviction) {
+    nudge = 'You have a real moment here — now go one layer deeper on why this matters to you and the personal truth or life vision you are claiming.';
   } else if (!hasWhyItMatters) {
-    nudge = 'Optional: Add 1 sentence on why this observation matters so Paragraph 2 stays 100% your words.';
+    nudge = 'Beautiful moment and conviction — add 1 line on the shift or reason why this matters so deeply to you.';
   } else if (!hasConviction) {
-    nudge = 'Optional: Add 1 sentence on your lasting takeaway so Paragraph 3 is 100% your words.';
+    nudge = 'You have the moment and the shift — now add 1 liberating line on the belief, principle, or life you are claiming for yourself going forward.';
+  } else if (depthScore < PERSPECTIVE_MIN_DEPTH_SCORE) {
+    nudge = 'All 3 signals are taking shape — expand your thought by 1–2 sentences so your depth crosses 70%.';
+  } else {
+    nudge = '✓ 3/3 signals & deep perspective unlocked — your voice is clear, honest, and ready to synthesize!';
   }
 
   return {
@@ -16450,6 +16526,9 @@ function evaluatePerspectiveDepth(rawText = '', spark = '') {
     hasConviction,
     beatsCount,
     hasTwoOfThreeBeats,
+    hasAllThreeBeats,
+    depthScore,
+    isVerifiedByPolish,
     isReady,
     missingLabels,
     nudge
@@ -16458,19 +16537,19 @@ function evaluatePerspectiveDepth(rawText = '', spark = '') {
 
 const DEPTH_BEAT_COACH_META = {
   moment: {
-    title: '✦ Moment (The Spark)',
-    prompt: 'What concrete scene, quote, or real-life observation caught your attention?',
-    starter: 'Watching this unfold made me notice how '
+    title: '✦ Moment — Bring me into the scene with you',
+    prompt: 'Start where it felt real. What were you doing, building, watching, or experiencing right when this thought hit you? Don\'t filter it — just paint the real moment.',
+    starter: 'As I was sitting with this recently, I noticed '
   },
   why: {
-    title: '⚖️ Why It Matters (The Tension)',
-    prompt: 'Why does this matter beneath the surface — what is the deeper irony, shift, or consequence?',
-    starter: 'What really matters here is that beneath the surface, '
+    title: '⚖️ Why It Matters — Name what shifted inside you',
+    prompt: 'You\'ve captured the moment. Now go one layer deeper, my friend — why does this feel different from before? What old barrier broke, or what truth is hiding underneath?',
+    starter: 'What really changed for me here is that '
   },
   conviction: {
-    title: '🧭 Conviction (Your Takeaway)',
-    prompt: 'What is your personal stance, belief, or principle going forward?',
-    starter: 'My conviction is simple: we need to '
+    title: '🧭 Conviction — Claim your truth & the life you want',
+    prompt: 'Don\'t hold back at the end. What is the personal truth, freedom, or way of living you are claiming for yourself going forward? Speak it with full conviction.',
+    starter: 'Moving forward, the life and principle I stand by is '
   }
 };
 
@@ -16513,6 +16592,8 @@ function updateLivePerspectiveDepthUI(highlightMissing = false) {
   const isChronicle = (creatorSelectedSource === 'inner_voice' && typeof isDailyChronicleMode !== 'undefined' && isDailyChronicleMode);
   if (isChronicle) {
     bar.style.display = 'none';
+    const synthBtn = document.getElementById('step1DirectSynthBtn');
+    if (synthBtn) synthBtn.classList.remove('is-depth-locked');
     return;
   }
   bar.style.display = 'flex';
@@ -16529,6 +16610,13 @@ function updateLivePerspectiveDepthUI(highlightMissing = false) {
     bar.classList.remove('is-gate-warning');
   } else if (highlightMissing) {
     bar.classList.add('is-gate-warning');
+  }
+
+  // Sync Step 1 Synthesize button visual readiness state
+  const synthBtn = document.getElementById('step1DirectSynthBtn');
+  if (synthBtn) {
+    synthBtn.classList.toggle('is-depth-locked', !depth.isReady);
+    synthBtn.classList.toggle('is-depth-unlocked', depth.isReady);
   }
 
   const setBeatPill = (pillId, checkId, isMet, key) => {
@@ -16550,33 +16638,43 @@ function updateLivePerspectiveDepthUI(highlightMissing = false) {
 
   const signalsPill = document.getElementById('slantDepthSignalsCountPill');
   if (signalsPill) {
-    signalsPill.classList.toggle('is-met', depth.hasTwoOfThreeBeats);
-    signalsPill.classList.toggle('is-pending', !depth.hasTwoOfThreeBeats);
-    if (depth.hasTwoOfThreeBeats) {
-      signalsPill.innerHTML = `✓ ${depth.beatsCount}/3 signals`;
+    signalsPill.classList.toggle('is-met', depth.hasAllThreeBeats);
+    signalsPill.classList.toggle('is-pending', !depth.hasAllThreeBeats);
+    if (depth.hasAllThreeBeats) {
+      signalsPill.innerHTML = `✓ 3/3 signals`;
     } else {
-      signalsPill.innerHTML = `${depth.beatsCount}/3 signals <span class="req-sub">(2+ req)</span>`;
+      signalsPill.innerHTML = `${depth.beatsCount}/3 signals`;
     }
   }
 
   const wordPill = document.getElementById('slantDepthWordPill');
   if (wordPill) {
-    wordPill.classList.toggle('is-met', depth.hasMinWords);
-    wordPill.classList.toggle('is-pending', !depth.hasMinWords);
-    if (depth.hasMinWords) {
-      wordPill.textContent = `✓ ${depth.wordCount}w`;
+    if (!depth.isVerifiedByPolish) {
+      wordPill.classList.remove('is-met');
+      wordPill.classList.add('is-pending');
+      wordPill.textContent = '✨ Review to measure depth';
+      wordPill.title = 'Tap "Review & Polish" below to fix punctuation and measure your perspective depth';
     } else {
-      wordPill.textContent = `${depth.wordCount} / ${depth.minWords}w`;
+      const hasEnoughDepth = depth.depthScore >= PERSPECTIVE_MIN_DEPTH_SCORE;
+      wordPill.classList.toggle('is-met', hasEnoughDepth);
+      wordPill.classList.toggle('is-pending', !hasEnoughDepth);
+      wordPill.textContent = hasEnoughDepth
+        ? `✓ Depth ${depth.depthScore}%`
+        : `Depth ${depth.depthScore}% (70%+ req)`;
+      wordPill.title = 'Perspective depth measured on your punctuated thought (70%+ & 3/3 signals required)';
     }
   }
 
+  // Depth bar MUST NOT grow or highlight while writing — only fills after Review & Polish measures depth!
   const progressFill = document.getElementById('slantDepthProgressFill');
   if (progressFill) {
-    const wordRatio = Math.min(1, depth.wordCount / depth.minWords);
-    const beatRatio = Math.min(1, depth.beatsCount / 2);
-    const pct = depth.wordCount === 0 ? 0 : Math.round((wordRatio * 55) + (beatRatio * 45));
-    progressFill.style.width = `${pct}%`;
-    progressFill.classList.toggle('is-ready', depth.isReady);
+    if (!depth.isVerifiedByPolish) {
+      progressFill.style.width = '0%';
+      progressFill.classList.remove('is-ready');
+    } else {
+      progressFill.style.width = `${depth.depthScore}%`;
+      progressFill.classList.toggle('is-ready', depth.isReady);
+    }
   }
 
   const hintEl = document.getElementById('slantDepthCoachHint');
@@ -16588,16 +16686,23 @@ function updateLivePerspectiveDepthUI(highlightMissing = false) {
         <div class="depth-coach-text"><strong>${escapeHtml(meta.title)}:</strong> ${escapeHtml(meta.prompt)}</div>
         <button type="button" class="depth-coach-insert-btn" onclick="insertDepthBeatStarter('${activeDepthCoachBeat}', event)">+ Add cue</button>
       `;
-    } else if (highlightMissing && !depth.isReady) {
-      const neededParts = [];
-      if (!depth.hasMinWords) {
-        neededParts.push(`${depth.wordsRemaining} more word${depth.wordsRemaining === 1 ? '' : 's'}`);
-      }
-      if (!depth.hasTwoOfThreeBeats) {
-        neededParts.push(`at least ${2 - depth.beatsCount} more signal (${depth.missingLabels.join(' or ')})`);
-      }
+    } else if (depth.isVerifiedByPolish) {
       hintEl.style.display = 'flex';
-      hintEl.innerHTML = `<div class="depth-coach-text">💡 <strong>To synthesize:</strong> Add ${escapeHtml(neededParts.join(' + '))} — tap any ○ pill above for a starter cue.</div>`;
+      if (depth.isReady) {
+        hintEl.innerHTML = `<div class="depth-coach-text">✨ <strong>Depth ${depth.depthScore}% • 3/3 Signals:</strong> ${escapeHtml(depth.nudge)}</div>`;
+      } else {
+        const missingNote = depth.missingLabels.length > 0
+          ? `Missing: ${depth.missingLabels.join(', ')} • `
+          : '';
+        hintEl.innerHTML = `<div class="depth-coach-text">💡 <strong>${escapeHtml(missingNote)}Depth ${depth.depthScore}%:</strong> ${escapeHtml(depth.nudge)} <em>(Tap any ○ pill above for a friendly starter cue)</em></div>`;
+      }
+    } else if (highlightMissing && !depth.isReady) {
+      hintEl.style.display = 'flex';
+      if (depth.beatsCount < 3) {
+        hintEl.innerHTML = `<div class="depth-coach-text">💡 <strong>Almost there, my friend:</strong> Add a line for <strong>${escapeHtml(depth.missingLabels.join(' & '))}</strong> (tap any ○ pill above for a cue), then tap <strong>✨ Review &amp; Polish</strong> to measure your depth and unlock Synthesize!</div>`;
+      } else {
+        hintEl.innerHTML = `<div class="depth-coach-text">✨ <strong>All 3 signals spotted!</strong> Now tap <strong>✨ Review &amp; Polish</strong> right below to punctuate your thought, measure your Depth %, and unlock Synthesize.</div>`;
+      }
     } else {
       hintEl.style.display = 'none';
       hintEl.innerHTML = '';
@@ -16615,48 +16720,37 @@ function evaluateClientFallbackStructureBeats(rawText, spark) {
     hasMoment: depth.hasMoment,
     hasWhyItMatters: depth.hasWhyItMatters,
     hasConviction: depth.hasConviction,
+    depthScore: depth.depthScore,
     nudge: depth.nudge
   };
 }
 
-function renderPolishStructureBeatsUI(structureBeats, isChronicle = false) {
+function renderPolishStructureBeatsUI(structureBeats, isChronicle = false, rawText = '', polishedText = '') {
+  // Hide the duplicate inner STRUCTURE box inside the Review card so the unified Depth Bar is the single source of truth
   const bar = document.getElementById('polishStructureBeatsBar');
-  if (!bar) return;
-
-  if (isChronicle) {
+  if (bar) {
     bar.style.display = 'none';
-    return;
   }
-  bar.style.display = 'flex';
+  if (isChronicle) return;
 
-  const beats = structureBeats || { hasMoment: true, hasWhyItMatters: true, hasConviction: false, nudge: '' };
-  const pillMoment = document.getElementById('beatPillMoment');
-  const pillWhy = document.getElementById('beatPillWhy');
-  const pillConviction = document.getElementById('beatPillConviction');
-  const nudgeEl = document.getElementById('polishStructureNudgeLine');
+  const slantInput = document.getElementById('creatorSlantTakeInput');
+  const currentRaw = String(rawText || (slantInput ? slantInput.value : '') || '').trim();
+  const currentPolished = String(polishedText || currentRaw).trim();
+  const beats = structureBeats || { hasMoment: true, hasWhyItMatters: true, hasConviction: false, depthScore: 60, nudge: '' };
 
-  const updatePill = (el, isPresent, label) => {
-    if (!el) return;
-    el.classList.toggle('is-present', Boolean(isPresent));
-    el.classList.toggle('is-missing', !isPresent);
-    el.textContent = `${isPresent ? '✓' : '○'} ${label}`;
+  verifiedPolishDepthState = {
+    verified: true,
+    rawFingerprint: currentRaw,
+    polishedFingerprint: currentPolished,
+    hasMoment: beats.hasMoment !== false,
+    hasWhyItMatters: Boolean(beats.hasWhyItMatters),
+    hasConviction: Boolean(beats.hasConviction),
+    depthScore: Math.max(15, Math.min(98, Number(beats.depthScore) || 65)),
+    nudge: String(beats.nudge || '').trim()
   };
 
-  updatePill(pillMoment, beats.hasMoment !== false, 'Moment');
-  updatePill(pillWhy, Boolean(beats.hasWhyItMatters), 'Why It Matters');
-  updatePill(pillConviction, Boolean(beats.hasConviction), 'Core Conviction');
-
-  if (nudgeEl) {
-    const allPresent = beats.hasMoment !== false && Boolean(beats.hasWhyItMatters) && Boolean(beats.hasConviction);
-    const nudgeText = String(beats.nudge || '').trim();
-    if (!allPresent && nudgeText) {
-      nudgeEl.textContent = `💡 ${nudgeText}`;
-      nudgeEl.style.display = 'block';
-    } else {
-      nudgeEl.textContent = '';
-      nudgeEl.style.display = 'none';
-    }
-  }
+  activeDepthCoachBeat = null;
+  updateLivePerspectiveDepthUI(false);
 }
 
 function attachPolishMarkListeners(container) {
@@ -24264,6 +24358,16 @@ function resetCreatorState() {
   creatorCuePills = [];
   currentPolishVisualSubjects = [];
   selectedPolishVisualSubjectIdx = 0;
+  verifiedPolishDepthState = {
+    verified: false,
+    rawFingerprint: '',
+    polishedFingerprint: '',
+    hasMoment: false,
+    hasWhyItMatters: false,
+    hasConviction: false,
+    depthScore: 0,
+    nudge: ''
+  };
   selectedPolishVisualSubject = null;
   currentChronicleMomentProjections = [];
   const polishVsPicker = document.getElementById('polishVisualSubjectPicker');
@@ -25695,7 +25799,7 @@ function validateCreatorStage1(showPrompt = true) {
     }
   }
 
-  // Enforce Perspective Depth Gate for all non-Chronicle posts (>= 25 words AND at least 2 of 3 signals)
+  // Enforce Perspective Depth Gate for all non-Chronicle posts (Requires Review & Polish + 3/3 signals + >= 70% Depth)
   if (!(creatorSelectedSource === 'inner_voice' && isDailyChronicleMode)) {
     const depth = evaluatePerspectiveDepth(slantTake, sparkTake);
     if (!depth.isReady) {
@@ -25704,14 +25808,20 @@ function validateCreatorStage1(showPrompt = true) {
           updateLivePerspectiveDepthUI(true);
         }
         let depthMsg = '';
-        if (!depth.hasMinWords && !depth.hasTwoOfThreeBeats) {
-          depthMsg = `Please add ${depth.wordsRemaining} more word${depth.wordsRemaining === 1 ? '' : 's'} (${depth.wordCount}/${depth.minWords}w min) and include ${depth.missingLabels.join(' or ')} (at least 2 of 3 signals required) so your post reflects genuine perspective.`;
-        } else if (!depth.hasMinWords) {
-          depthMsg = `Almost there! Add ${depth.wordsRemaining} more word${depth.wordsRemaining === 1 ? '' : 's'} (${depth.wordCount}/${depth.minWords} words min) so your perspective has enough depth to anchor all 3 posters.`;
+        if (!depth.isVerifiedByPolish) {
+          depthMsg = '✨ Please tap "Review & Polish" first so we can punctuate your thought and measure its depth (requires 3/3 signals & 70%+ depth to synthesize).';
+          const polishBtn = document.getElementById('slantPolishActionBtn');
+          if (polishBtn) {
+            polishBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+          showTemporaryToast(depthMsg, 4500);
+        } else if (!depth.hasAllThreeBeats) {
+          depthMsg = `Almost there, my friend! Add a line for ${depth.missingLabels.join(' & ')} (3/3 signals required) and tap "Review & Polish" to unlock Synthesize.`;
+          promptMandatoryField(slantTakeInput, depthMsg);
         } else {
-          depthMsg = `Please add 1 sentence on ${depth.missingLabels.join(' or ')} (at least 2 of 3 signals: Moment, Why It Matters, Conviction required) to unlock synthesis.`;
+          depthMsg = `Your 3 signals are present (${depth.depthScore}% depth) — expand your thought by 1–2 sentences so your depth reaches 70%+ and tap "Review & Polish".`;
+          promptMandatoryField(slantTakeInput, depthMsg);
         }
-        promptMandatoryField(slantTakeInput, depthMsg);
       }
       return false;
     }
