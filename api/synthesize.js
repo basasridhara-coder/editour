@@ -3900,16 +3900,22 @@ Respond strictly with valid JSON with this exact structure:
     }
 
     const rawExcerpts = Array.isArray(parsed.resolvedArticleExcerpts) ? parsed.resolvedArticleExcerpts : [];
-    const cleanedExcerpts = rawExcerpts.map(e => {
+    let cleanedExcerpts = rawExcerpts.map(e => {
       let s = String(e).replace(/^(the spark|curator stance|paragraph \d+)\s*:\s*["']?/i, '').replace(/["']?$/i, '').trim();
       if (isChronicle) {
         s = s.replace(/^0?\d+\s*[·•.-]\s*(?=Moment\s+\d+)/i, '');
       }
       return s;
-    });
-    const cleanedSummary = isChronicle
-      ? String(parsed.summary || '').replace(/(^|\n\s*)0?\d+\s*[·•.-]\s*(?=Moment\s+\d+)/gi, '$1')
-      : (parsed.summary || '');
+    }).filter(Boolean);
+    let cleanedSummary = isChronicle
+      ? String(parsed.summary || '').replace(/(^|\n\s*)0?\d+\s*[·•.-]\s*(?=Moment\s+\d+)/gi, '$1').trim()
+      : String(parsed.summary || '').trim();
+    const summarySplitParas = cleanedSummary ? cleanedSummary.split(/\n\s*\n/).map(p => p.trim()).filter(Boolean) : [];
+    if (cleanedExcerpts.length > summarySplitParas.length) {
+      cleanedSummary = cleanedExcerpts.join('\n\n');
+    } else if (summarySplitParas.length > cleanedExcerpts.length) {
+      cleanedExcerpts = summarySplitParas;
+    }
 
     let effectiveIllustrationPrompt = parsed.illustrationPrompt || concisePrompt || '';
     if (countryContext && countryContext !== 'Global' && !effectiveIllustrationPrompt.toLowerCase().includes(countryContext.toLowerCase())) {

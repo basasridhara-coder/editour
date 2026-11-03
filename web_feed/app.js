@@ -8540,7 +8540,9 @@ function evaluateEssayBifurcation(post, index) {
   }
 
   let essayParas = [];
-  if (summaryParas.length > 0) {
+  if (excerpts.length > summaryParas.length) {
+    essayParas = [...excerpts];
+  } else if (summaryParas.length > 0) {
     essayParas = [...summaryParas];
   } else if (excerpts.length > 0) {
     essayParas = [...excerpts];
@@ -26786,7 +26788,12 @@ function openEditPosterModal(initialTab = null) {
     s3Quote.value = currentSynthesizedPost.receiptHighlightQuote || currentSynthesizedPost.broadsheetHighlight || currentSynthesizedPost.pullQuote || '';
   }
   if (s3Obs) {
-    s3Obs.value = currentSynthesizedPost.summary || currentSynthesizedPost.broadsheetObservation || (Array.isArray(currentSynthesizedPost.articleExcerpts) ? currentSynthesizedPost.articleExcerpts.join('\n\n') : '') || '';
+    const rawSum = String(currentSynthesizedPost.summary || currentSynthesizedPost.broadsheetObservation || '').trim();
+    const sumParas = rawSum ? rawSum.split(/\n\s*\n/).map(p => p.trim()).filter(Boolean) : [];
+    const exArr = Array.isArray(currentSynthesizedPost.resolvedArticleExcerpts) && currentSynthesizedPost.resolvedArticleExcerpts.length > 0
+      ? currentSynthesizedPost.resolvedArticleExcerpts
+      : (Array.isArray(currentSynthesizedPost.articleExcerpts) ? currentSynthesizedPost.articleExcerpts : []);
+    s3Obs.value = (exArr.length > sumParas.length) ? exArr.join('\n\n') : rawSum;
   }
   if (s3Ref) {
     s3Ref.value = currentSynthesizedPost.broadsheetReflection || currentSynthesizedPost.whyItMatters || '';
