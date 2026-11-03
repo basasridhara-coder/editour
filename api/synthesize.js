@@ -2505,23 +2505,23 @@ ${spark ? `- Spark / Personal Context: "${spark}"` : ''}
 ${scrapedContent ? `- Source Excerpt: "${String(scrapedContent).slice(0, 1800)}"` : ''}${ledgerText}
 ${customDirection ? `\nCRITICAL CURATOR DIRECTION FOR THIS REWRITE: "${customDirection}"` : ''}
 
-STRICT ESSAY STRUCTURE (150-180 WORDS TOTAL ACROSS 3 PARAGRAPHS SO PAGE 2 TOP HALF HOLDS THE CONCLUSION AND THE SECOND HALF HOLDS THE SLANT PASSING CLOUDS ARTWORK UNDISTURBED):
+STRICT ESSAY STRUCTURE (180-210 WORDS TOTAL ACROSS 3 PARAGRAPHS):
 1. ${styleInstruction}
-2. Paragraph 1 (55-65 words, 3 sentences): Strong opening observation connecting the curator's angle to the catalyst/source (designed for a broadsheet dropcap).
-3. Paragraph 2 (50-60 words, 3 sentences): Deepen the argument by engaging the concrete facts, friction, or lived reality.
-4. Paragraph 3 (45-55 words, 2-3 sentences): Concise human or civic stakes and lasting resolution (fits cleanly in the top half of Page 2 above the Slant Passing Clouds panel).
-5. "whyItMatters" (15-22 words, 1 sentence): Crisp concluding reflection (must NOT repeat the curatorTake verbatim).
+2. Paragraph 1 (60-70 words, 3-4 sentences): Strong opening observation connecting the curator's angle to the catalyst/source (designed for a broadsheet dropcap).
+3. Paragraph 2 (60-70 words, 3-4 sentences): Deepen the argument by engaging the concrete facts, friction, or lived reality.
+4. Paragraph 3 (55-65 words, 3 sentences): Human or civic stakes and lasting resolution.
+5. "whyItMatters" (18-26 words, 1-2 sentences): Crisp concluding reflection (must NOT repeat the curatorTake verbatim).
 6. STRICT BAN ON EM DASHES: Never use em dashes, en dashes, or "--". Use commas, semicolons, or periods.
 7. Stay 100% faithful to the curator's voice, proper nouns, and perspective without fabricating unstated claims.
 
 Respond strictly with valid JSON:
 {
   "resolvedArticleExcerpts": [
-    "Paragraph 1 (55-65 words, pure prose without labels)",
-    "Paragraph 2 (50-60 words, pure prose without labels)",
-    "Paragraph 3 (45-55 words, pure prose without labels)"
+    "Paragraph 1 (60-70 words, pure prose without labels)",
+    "Paragraph 2 (60-70 words, pure prose without labels)",
+    "Paragraph 3 (55-65 words, pure prose without labels)"
   ],
-  "whyItMatters": "15-22 word concluding reflection sentence"
+  "whyItMatters": "18-26 word concluding reflection sentence"
 }`;
 
       try {
@@ -3463,10 +3463,10 @@ ${validChronicleMoments.map((m, i) => `  * Moment 0${i + 1} (${m.title || 'Momen
   * NEVER produce gloomy or melodramatic headlines when the curator's reflection is warm, proud, or celebratory.
 - ZERO CONCEPT FABRICATION (1:1 STRUCTURAL ELABORATION):
   * You are elaborating the curator's own thoughts, NOT writing your own opinion or inventing unmentioned subplots.
-  * Map the curator's input directly across the 3 broadsheet paragraphs in Poster 3 ("summary" and "resolvedArticleExcerpts", 150-180 words total so the concluding paragraph fits in the top half of Page 2 above the Slant Passing Clouds panel):
-    1. Paragraph 1 (The Moment / Concrete Catalyst, 55-65 words, 3 sentences): Unpack the opening trigger, scene, or concrete observation described by the curator${spark ? ` ("${spark}")` : ''}. Strong opening for the broadsheet dropcap.
-    2. Paragraph 2 (Why It Matters / The Underlying Tension, 50-60 words, 3 sentences): Elaborate the curator's reasoning, contrast, or turning point, explaining why this moment stood out and what deeper dynamics are at play in their own words and logic.
-    3. Paragraph 3 (The Core Conviction / Lasting Truth, 45-55 words, 2-3 sentences): Concisely articulate the curator's closing takeaway, personal truth, or principle for living/working/parenting.
+  * Map the curator's input directly across the 3 broadsheet paragraphs in Poster 3 ("summary" and "resolvedArticleExcerpts", 180-220 words total):
+    1. Paragraph 1 (The Moment / Concrete Catalyst, 60-70 words, 3-4 sentences): Unpack the opening trigger, scene, or concrete observation described by the curator${spark ? ` ("${spark}")` : ''}. Strong opening for the broadsheet dropcap.
+    2. Paragraph 2 (Why It Matters / The Underlying Tension, 60-75 words, 3-4 sentences): Elaborate the curator's reasoning, contrast, or turning point, explaining why this moment stood out and what deeper dynamics are at play in their own words and logic.
+    3. Paragraph 3 (The Core Conviction / Lasting Truth, 55-70 words, 3 sentences): Articulate the curator's closing takeaway, personal truth, or principle for living/working/parenting.
   * STRICT BAN: NEVER prefix paragraphs with labels like "The spark:", "Curator stance:", "Paragraph 1:", or bullet points! Output pure, narrative broadsheet text.
 - IN "originalHeadline":
   * Set to the spark statement or a refined 6 to 12 word hook capturing the catalyst moment. NEVER set to the raw full-length user slant.` : '')}
@@ -3479,21 +3479,21 @@ ${userSlant && sourceType !== 'inner_voice' ? `CRITICAL POSTER 3 DIRECTIVE (ELAB
 - Poster 3 is the curator's broadsheet essay where the curator's stance/take is ELABORATED IN DIRECT CONNECTION WITH THE ATTACHED SOURCE.
 - It must NOT be a dry, third-person summary or detached book report of the source piece (the objective source ledger is already accessible to the reader on tap from Posters 1 & 2).
 - ZERO CONCEPT FABRICATION (1:1 STRUCTURAL ELABORATION):
-  * Do NOT invent opinions or arguments the curator did not express. Unpack and elaborate the curator's own stance across 3 concise broadsheet paragraphs (150-180 words total):
-  * Paragraph 1 (The Moment / Catalyst & Modern Friction, 55-65 words, 3 sentences): The curator's opening observation connecting their personal angle to the core trigger or dilemma in the source (strong opening for broadsheet dropcap).
-  * Paragraph 2 (Why It Matters / Engaging the Source, 50-60 words, 3 sentences): Elaborate the curator's reasoning and tension in direct dialogue with the source's concrete facts, claims, or figures to substantiate their critique.
-  * Paragraph 3 (Core Conviction / Human Stakes & Resolution, 45-55 words, 2-3 sentences): Detail the personal, human, or societal stakes of the curator's conviction and their lasting takeaway (concised to fit in the top half of Page 2 above the Slant Passing Clouds artwork).
+  * Do NOT invent opinions or arguments the curator did not express. Unpack and elaborate the curator's own stance across 3 broadsheet paragraphs (180-220 words total):
+  * Paragraph 1 (The Moment / Catalyst & Modern Friction, 60-70 words, 3-4 sentences): The curator's opening observation connecting their personal angle to the core trigger or dilemma in the source (strong opening for broadsheet dropcap).
+  * Paragraph 2 (Why It Matters / Engaging the Source, 60-75 words, 3-4 sentences): Elaborate the curator's reasoning and tension in direct dialogue with the source's concrete facts, claims, or figures to substantiate their critique.
+  * Paragraph 3 (Core Conviction / Human Stakes & Resolution, 55-70 words, 3 sentences): Detail the personal, human, or societal stakes of the curator's conviction and their lasting takeaway.
 - STRICT BAN: Never echo the user's raw slant verbatim across paragraphs! Elaborate the thought with depth, narrative richness, and intellectual conviction while staying 100% faithful to the user's voice. Output pure broadsheet paragraphs without labels like "Paragraph 1:".
 - "keyTakeaways": Exactly 3 sharp, structured conviction principles formulated from the elaborated take in dialogue with the source (each exactly 10-13 words with bold title prefix, e.g. "Title: Core insight").
 - "receiptHighlightQuote": A poignant, high-impact core conviction sentence (exactly 18-22 words) capturing the heart of the curator's stance in connection with the source.` : ''}
 
 CRITICAL POSTER 3 "1-MINUTE READ" ESSAY DIRECTIVE:
-Poster 3 ("SLANT MINUTE" / 60-SEC BROADSHEET) is a pure, concise broadsheet essay in paragraphs.
-It MUST strictly target 150 to 180 words total for the 3-paragraph essay itself in "summary" (and "resolvedArticleExcerpts") so the essay concludes in the top half of Page 2 while leaving the bottom half of Page 2 undisturbed for the Slant Passing Clouds artwork:
-- Paragraph 1: 55-65 words (strong opening for broadsheet dropcap; fits cleanly on Page 1)
-- Paragraph 2: 50-60 words (core elaboration and conceptual depth; completes Page 1)
-- Paragraph 3: 45-55 words (human stakes, lasting conviction, and forward-looking resolution; anchors the top half of Page 2 above the reflection box and Slant Passing Clouds panel)
-TOTAL ESSAY: 150-180 words for a tight, high-impact 1-minute read.
+Poster 3 ("SLANT MINUTE" / 60-SEC BROADSHEET) is a pure, substantive broadsheet essay in paragraphs.
+It MUST strictly target 180 to 220 words total for the 3-paragraph essay itself in "summary" (and "resolvedArticleExcerpts"):
+- Paragraph 1: 60-70 words (strong opening for broadsheet dropcap; fits cleanly on Page 1)
+- Paragraph 2: 60-75 words (core elaboration and conceptual depth; completes Page 1 without orphan splits)
+- Paragraph 3: 55-70 words (human stakes, lasting conviction, and forward-looking resolution; anchors Page 2 above the reflection box)
+TOTAL ESSAY: 180-220 words for an authentic 1-minute read.
 The curator's intellectual perspective, conviction, and provided context must be deeply carried and elaborated throughout without inventing unrequested concepts.
 If a catalyst photo is attached, subtly ground the atmosphere where natural, but NEVER compromise the curator's perspective or intellectual depth for scene description filler.
 CRITICAL CULTURAL, INSTITUTIONAL & UNIFORM VISUAL AUTHENTICITY DIRECTIVE (FOR "illustrationPrompt" AND CUES):
@@ -3522,8 +3522,8 @@ Respond strictly with valid JSON with this exact structure:
       "momentIndex": 1
     }
   ],` : ''}
-  "summary": "${sourceType === 'inner_voice' ? 'Exactly 3 concise broadsheet paragraphs of lived experience reflection deeply elaborating the curator perspective and context (55-65, 50-60, 45-55 words; 150-180 words total). Never sacrifice curator perspective for scene filler.' : (userSlant ? 'Exactly 3 concise broadsheet paragraphs carrying and deeply elaborating the curator take in direct dialogue with the attached source (55-65, 50-60, 45-55 words; 150-180 words total). Never an objective book report.' : 'Exactly 3 concise broadsheet paragraphs of objective journalistic reporting (55-65, 50-60, 45-55 words; 150-180 words total).')}",
-  "whyItMatters": "1 sharp sentence on the stakes and why this perspective matters right now (15-22 words)",
+  "summary": "${sourceType === 'inner_voice' ? 'Exactly 3 broadsheet paragraphs of lived experience reflection deeply elaborating the curator perspective and context (60-70, 60-75, 55-70 words; 180-220 words total). Never sacrifice curator perspective for scene filler.' : (userSlant ? 'Exactly 3 broadsheet paragraphs carrying and deeply elaborating the curator take in direct dialogue with the attached source (60-70, 60-75, 55-70 words; 180-220 words total). Never an objective book report.' : 'Exactly 3 broadsheet paragraphs of objective journalistic reporting (60-70, 60-75, 55-70 words; 180-220 words total).')}",
+  "whyItMatters": "1-2 sharp sentences on the stakes and why this perspective matters right now (18-28 words)",
   "keyTakeaways": [
     "${sourceType === 'inner_voice' ? 'First personal takeaway (10-13 words, Title: Insight)' : (userSlant ? 'First core conviction principle connecting take and source (10-13 words, Title: Insight)' : 'First key source finding (10-13 words, Title: Finding)')}",
     "${sourceType === 'inner_voice' ? 'Second personal takeaway (10-13 words, Title: Insight)' : (userSlant ? 'Second core conviction principle detailing human/personal stakes (10-13 words, Title: Insight)' : 'Second key source finding or trade-off (10-13 words, Title: Insight)')}",
@@ -3531,9 +3531,9 @@ Respond strictly with valid JSON with this exact structure:
   ],
   "receiptHighlightQuote": "${sourceType === 'inner_voice' ? 'Single poignant core conviction sentence (18-22 words)' : (userSlant ? 'A poignant core conviction sentence capturing the heart of the curator stance in dialogue with the source (18-22 words)' : 'A direct quote, core factual assertion, or official thesis directly from the source author/speaker (18-22 words).')}",
   "resolvedArticleExcerpts": [
-    "${sourceType === 'inner_voice' ? 'Paragraph 1 (Scene & Catalyst): 55-65 words without labels.' : (userSlant ? 'Paragraph 1 (Catalyst & Friction): 55-65 words elaborating opening thesis in dialogue with source topic without labels.' : 'Paragraph 1 (Source Subject & Context): 55-65 words without labels.')}",
-    "${sourceType === 'inner_voice' ? 'Paragraph 2 (The Turning Point): 50-60 words without labels.' : (userSlant ? 'Paragraph 2 (Engaging Source Claims): 50-60 words engaging source concepts to substantiate critique without labels.' : 'Paragraph 2 (Core Evidence & Claims): 50-60 words without labels.')}",
-    "${sourceType === 'inner_voice' ? 'Paragraph 3 (The Lasting Truth): 45-55 words without labels.' : (userSlant ? 'Paragraph 3 (Human Stakes & Resolution): 45-55 words detailing personal/family impact and lasting resolution without labels.' : 'Paragraph 3 (Underlying Conflict or Trade-offs): 45-55 words without labels.')}"
+    "${sourceType === 'inner_voice' ? 'Paragraph 1 (Scene & Catalyst): 60-70 words without labels.' : (userSlant ? 'Paragraph 1 (Catalyst & Friction): 60-70 words elaborating opening thesis in dialogue with source topic without labels.' : 'Paragraph 1 (Source Subject & Context): 60-70 words without labels.')}",
+    "${sourceType === 'inner_voice' ? 'Paragraph 2 (The Turning Point): 60-75 words without labels.' : (userSlant ? 'Paragraph 2 (Engaging Source Claims): 60-75 words engaging source concepts to substantiate critique without labels.' : 'Paragraph 2 (Core Evidence & Claims): 60-75 words without labels.')}",
+    "${sourceType === 'inner_voice' ? 'Paragraph 3 (The Lasting Truth): 55-70 words without labels.' : (userSlant ? 'Paragraph 3 (Human Stakes & Resolution): 55-70 words detailing personal/family impact and lasting resolution without labels.' : 'Paragraph 3 (Underlying Conflict or Trade-offs): 55-70 words without labels.')}"
   ],
   "keyMetric": "Short impactful stat or metric (e.g. +42%, 1,072 Trees, 10x, 99.8% - or leave empty if none)",
   "visualMood": "Short aesthetic phrase (e.g. High-Contrast Editorial Risograph, Velvet Obsidian Chiaroscuro)",

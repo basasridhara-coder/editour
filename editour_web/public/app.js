@@ -8272,11 +8272,14 @@ function calibrateEssayViewportPagination(viewportEl, forceRecalibrate = false) 
     p1Container.appendChild(pEl);
     const h = getP1ContentHeight();
 
-    // If this is the very last paragraph and it fits on Page 1, always hold back concluding prose for Page 2
-    // so the first half of Page 2 (the 3rd page) carries the concluding thought above the Passing Clouds SVG in the second half.
+    // If this is the very last paragraph and it fits on Page 1, check if we have a reflectionBox that wouldn't fit on Page 1.
+    // We never want Page 2 to have ONLY a reflection box with 0 sentences of essay text.
     let mustHoldBackForReflection = false;
-    if (isLastPara && h <= maxAllowedContentHeight) {
-      mustHoldBackForReflection = true;
+    if (isLastPara && h <= maxAllowedContentHeight && reflectionBox) {
+      const estReflectionHeight = reflectionBox.offsetHeight || 62;
+      if (h + estReflectionHeight + 28 > maxAllowedContentHeight) {
+        mustHoldBackForReflection = true;
+      }
     }
 
     if (h <= maxAllowedContentHeight && !mustHoldBackForReflection) {
@@ -8791,21 +8794,6 @@ function evaluateEssayBifurcation(post, index) {
         page2Paras.push(p);
         hasSplit = true;
       }
-    }
-  }
-
-  // Ensure every post has concluding prose on Page 2 (the 3rd page) so the first half of Page 2 carries the conclusion
-  // and the second half of Page 2 displays the Slant Passing Clouds SVG undisturbed.
-  if (page2Paras.length === 0 && page1Paras.length > 1) {
-    page2Paras.push(page1Paras.pop());
-    splitParaContinuation = false;
-  } else if (page2Paras.length === 0 && page1Paras.length === 1) {
-    const onlyUnits = splitIntoParagraphUnits(page1Paras[0]);
-    if (onlyUnits.length >= 2) {
-      const holdCount = Math.max(1, Math.floor(onlyUnits.length / 3));
-      page1Paras[0] = onlyUnits.slice(0, onlyUnits.length - holdCount).join(" ").trim();
-      page2Paras.push(onlyUnits.slice(onlyUnits.length - holdCount).join(" ").trim());
-      splitParaContinuation = true;
     }
   }
 
