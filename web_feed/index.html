@@ -1012,24 +1012,16 @@
               </button>
             </div>
 
-            <!-- Inline Quick Controls when AI Illustration is Active (Focus + Art Style) -->
-            <div id="posterModeAiSubControls" style="display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 6px 8px; margin-bottom: 8px; border-radius: 9px; background: rgba(255,255,255,0.75); border: 1px solid rgba(148,163,184,0.28); flex-wrap: wrap;">
-              <div id="posterModeAiFocusWrap" style="display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap;">
-                <span style="font-size: 10px; font-weight: 800; color: var(--text-secondary); margin-right: 2px;">Focus:</span>
-                <button type="button" id="quickFocusBtnSource" onclick="setPerspectiveMode('source', true)" style="padding: 3px 7px; border-radius: 99px; border: 1px solid rgba(79,70,229,0.35); background: #4F46E5; color: #FFFFFF; font-size: 10px; font-weight: 800; cursor: pointer;" title="Ground AI artwork in the real source subject/photo">📰 Source Subject</button>
-                <button type="button" id="quickFocusBtnHybrid" onclick="setPerspectiveMode('hybrid', true)" style="padding: 3px 7px; border-radius: 99px; border: 1px solid rgba(148,163,184,0.4); background: transparent; color: var(--text-secondary); font-size: 10px; font-weight: 700; cursor: pointer;" title="Blend real subject likeness with your perspective metaphor">⚖️ Blend</button>
-                <button type="button" id="quickFocusBtnCurator" onclick="setPerspectiveMode('curator', true)" style="padding: 3px 7px; border-radius: 99px; border: 1px solid rgba(148,163,184,0.4); background: transparent; color: var(--text-secondary); font-size: 10px; font-weight: 700; cursor: pointer;" title="Pure visual metaphor from your written take">⚡ Pure Metaphor</button>
-              </div>
-              <div style="display: inline-flex; align-items: center; gap: 4px; margin-left: auto;">
-                <span style="font-size: 10px; font-weight: 800; color: var(--text-secondary);">Style:</span>
-                <select id="quickAiArtStyleSelect" onchange="selectCharacterRepresentation(this.value)" style="padding: 3px 7px; border-radius: 7px; border: 1px solid rgba(148,163,184,0.45); background: #FFFFFF; color: var(--text-primary); font-size: 10.5px; font-weight: 800; cursor: pointer;">
-                  <option value="realistic">🎨 Editorial Realism</option>
-                  <option value="cinematic">📸 Cinematic Photo</option>
-                  <option value="painting">🖼️ Gouache Painting</option>
-                  <option value="watercolor">🖌️ Watercolor</option>
-                  <option value="silhouette">👥 Silhouette</option>
-                </select>
-              </div>
+            <!-- Inline Quick Controls when AI Illustration is Active (Art Style) -->
+            <div id="posterModeAiSubControls" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 10px; margin-bottom: 8px; border-radius: 9px; background: rgba(255,255,255,0.75); border: 1px solid rgba(148,163,184,0.28);">
+              <span style="font-size: 10.5px; font-weight: 800; color: var(--text-secondary);">🎨 AI Art Style:</span>
+              <select id="quickAiArtStyleSelect" onchange="selectCharacterRepresentation(this.value)" style="padding: 4px 8px; border-radius: 7px; border: 1px solid rgba(148,163,184,0.45); background: #FFFFFF; color: var(--text-primary); font-size: 11px; font-weight: 800; cursor: pointer;">
+                <option value="realistic">🎨 Editorial Realism</option>
+                <option value="cinematic">📸 Cinematic Photo</option>
+                <option value="painting">🖼️ Gouache Painting</option>
+                <option value="watercolor">🖌️ Watercolor</option>
+                <option value="silhouette">👥 Silhouette</option>
+              </select>
             </div>
 
             <!-- Live "What You'll Get" Expectation Bar (Thumbnail + Plain-English Explanation) -->
@@ -1123,11 +1115,11 @@
 
         <!-- 4. Bottom Navigation Bar (Step 1 - Option A: One-Click Direct Synthesis with Optional Equalizer) -->
         <div class="creator-bottom-nav creator-step1-nav">
-          <button type="button" class="creator-equalizer-pill-btn" id="creatorEqualizerBtn" onclick="openCreatorEqualizer()" title="Tune Visual Focus, Portrayal & Regional Setting">
+          <button type="button" class="creator-equalizer-pill-btn" id="creatorEqualizerBtn" onclick="openCreatorEqualizer()" title="Tune Art Style, Family Cast & Regional Setting">
             <span class="equalizer-icon">🎚️</span>
             <div class="equalizer-text-wrap">
               <span class="equalizer-label">SETTINGS</span>
-              <span class="equalizer-summary" id="creatorEqualizerSummary">Source Grounded • AI Illustration • 🇮🇳 India</span>
+              <span class="equalizer-summary" id="creatorEqualizerSummary">AI Illustration • 🇮🇳 India</span>
             </div>
             <span class="equalizer-badge" id="creatorEqualizerBadge">Tune ▾</span>
           </button>
@@ -1152,11 +1144,11 @@
             </div>
           </div>
 
-          <!-- Creative Direction Control Matrix (Visual Focus, Voice, Setting, Character Portrayal) -->
+          <!-- Creative Direction Control Matrix (Setting, Character Portrayal, Family Cast) -->
           <div class="creative-direction-panel">
 
-            <!-- 1. Visual Focus (Curator Angle vs Hybrid vs Source Grounded) -->
-            <div class="slant-perspective-card" id="slantPerspectiveCardStage2">
+            <!-- 1. Visual Focus (Hidden: Replaced by Core Scene Visual + Unified Poster 1 Visual Mode) -->
+            <div class="slant-perspective-card" id="slantPerspectiveCardStage2" style="display: none !important;">
               <div class="slant-perspective-header">
                 <div class="slant-perspective-left">
                   <div class="slant-perspective-icon-box">

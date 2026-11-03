@@ -950,30 +950,11 @@ function updateUnifiedPosterVisualStripUI() {
     }
   }
 
-  // 5. Inline AI Sub-Controls (Focus + Art Style)
+  // 5. Inline AI Sub-Controls (Art Style Only — Visual Focus removed to avoid conflict with Core Scene Visual)
   const aiSubControls = document.getElementById('posterModeAiSubControls');
-  const focusWrap = document.getElementById('posterModeAiFocusWrap');
   const styleSelect = document.getElementById('quickAiArtStyleSelect');
   if (aiSubControls) {
     aiSubControls.style.display = isAiArtMode ? 'flex' : 'none';
-  }
-  if (focusWrap) {
-    focusWrap.style.display = isLinkActive ? 'inline-flex' : 'none';
-    const bSrc = document.getElementById('quickFocusBtnSource');
-    const bHyb = document.getElementById('quickFocusBtnHybrid');
-    const bCur = document.getElementById('quickFocusBtnCurator');
-    const activePersp = creatorPerspectiveMode || 'source';
-    [
-      [bSrc, activePersp === 'source'],
-      [bHyb, activePersp === 'hybrid'],
-      [bCur, activePersp === 'curator']
-    ].forEach(([btn, act]) => {
-      if (!btn) return;
-      btn.style.background = act ? '#4F46E5' : 'transparent';
-      btn.style.color = act ? '#FFFFFF' : 'var(--text-secondary)';
-      btn.style.borderColor = act ? '#4F46E5' : 'rgba(148,163,184,0.4)';
-      btn.style.fontWeight = act ? '800' : '700';
-    });
   }
   if (styleSelect && isAiArtMode) {
     const normStyle = (creatorCharacterRepresentation === 'likeness') ? 'cinematic' : (creatorCharacterRepresentation || 'realistic');
@@ -993,6 +974,10 @@ function updateUnifiedPosterVisualStripUI() {
   let titleText = '';
   let descText = '';
 
+  const activeSceneTitle = (typeof selectedPolishVisualSubject !== 'undefined' && selectedPolishVisualSubject && selectedPolishVisualSubject.title)
+    ? String(selectedPolishVisualSubject.title).trim()
+    : '';
+
   if (isWebCollageMode) {
     thumbSrc = (window._webCollageState && window._webCollageState.compositedDataUrl) || origLinkPhoto || '';
     iconEmoji = '🖼️';
@@ -1000,8 +985,8 @@ function updateUnifiedPosterVisualStripUI() {
       titleText = `Poster 1: Your ${selCount}-Photo Web Collage (0⚡ Free)`;
       descText = 'Uses the exact web/source images you selected above in your collage frame. Zero AI art cost.';
     } else {
-      titleText = 'Poster 1: Pick 1–3 Images in the Web Collage Studio Above (0⚡ Free)';
-      descText = 'Tap any photo in the tabs above (including your extracted source photo) to build your free poster.';
+      titleText = 'Poster 1: Pick 1–3 Images in the Web Collage Studio Below (0⚡ Free)';
+      descText = 'Tap any photo in the tabs below (including your extracted source photo) to build your free poster.';
     }
   } else if (isOriginalPhotoMode) {
     if (isLinkActive) {
@@ -1039,26 +1024,25 @@ function updateUnifiedPosterVisualStripUI() {
     // AI Art Mode
     iconEmoji = '🎨';
     if (isLinkActive) {
-      const activePersp = creatorPerspectiveMode || 'source';
-      thumbSrc = (activePersp !== 'curator') ? origLinkPhoto : '';
-      if (activePersp === 'source') {
-        titleText = `Poster 1: AI ${currentStyleLabel} • Grounded in Source (1⚡ Credit)`;
-        descText = origLinkPhoto
-          ? `AI illustrates the real subject/scene from your ${isVid ? 'YouTube thumbnail' : 'article photo'} & context.`
-          : 'AI illustrates the real-world subject & setting from your source link.';
-      } else if (activePersp === 'hybrid') {
-        titleText = `Poster 1: AI ${currentStyleLabel} • Subject + Your Metaphor (1⚡ Credit)`;
-        descText = 'Blends the real person/subject from the source with the visual metaphor in your take.';
+      thumbSrc = origLinkPhoto;
+      titleText = `Poster 1: AI ${currentStyleLabel} (1⚡ Credit)`;
+      if (activeSceneTitle) {
+        descText = `Core Scene: "${activeSceneTitle}" • Grounded in your source & perspective.`;
       } else {
-        titleText = `Poster 1: AI ${currentStyleLabel} • Pure Metaphor (1⚡ Credit)`;
-        descText = 'Illustrates a symbolic visual metaphor from your written take (ignores link photo).';
+        descText = origLinkPhoto
+          ? `AI illustrates the real subject & scene from your ${isVid ? 'YouTube video' : 'article'} and perspective.`
+          : 'AI illustrates the real-world subject & setting from your source link and perspective.';
       }
     } else if (isInnerVoiceActive) {
       thumbSrc = hasInnerVoicePhoto ? innerVoicePhotoBase64 : '';
       titleText = `Poster 1: AI ${currentStyleLabel} (1⚡ Credit)`;
-      descText = hasInnerVoicePhoto
-        ? 'AI transforms your attached photo & thought into a custom editorial illustration.'
-        : 'AI illustrates your thought (auto-portrays your Family Cast or named Public Figures if mentioned).';
+      if (activeSceneTitle) {
+        descText = `Core Scene: "${activeSceneTitle}" • Auto-portrays your Cast or named Public Figures.`;
+      } else {
+        descText = hasInnerVoicePhoto
+          ? 'AI transforms your attached photo & thought into a custom editorial illustration.'
+          : 'AI illustrates your thought (auto-portrays your Family Cast or named Public Figures if mentioned).';
+      }
     } else {
       thumbSrc = firstChroniclePhoto;
       titleText = `Poster 1: Multi-Vignette AI ${currentStyleLabel} (1⚡ Chronicle Credit)`;
@@ -13622,6 +13606,9 @@ function selectPolishVisualSubject(idx, silent = false) {
   }
 
   renderPolishVisualSubjects();
+  if (typeof updateUnifiedPosterVisualStripUI === 'function') {
+    try { updateUnifiedPosterVisualStripUI(); } catch (_) {}
+  }
   if (!silent && typeof showTemporaryToast === 'function') {
     showTemporaryToast(`🎨 Core Visual set: "${selectedPolishVisualSubject.title}" (${selectedPolishVisualSubject.confidence || 92}% confidence)`);
   }
@@ -19134,10 +19121,6 @@ function updateEqualizerSummary() {
   const summaryEl = document.getElementById('creatorEqualizerSummary');
   if (!summaryEl) return;
 
-  const focusName = (creatorPerspectiveMode === 'source')
-    ? 'Source Grounded'
-    : (creatorPerspectiveMode === 'curator' ? 'Curator Angle' : 'Hybrid Blend');
-
   const portrayalName = (creatorCharacterRepresentation === 'realistic')
     ? 'AI Illustration'
     : (creatorCharacterRepresentation === 'cinematic'
@@ -19154,7 +19137,7 @@ function updateEqualizerSummary() {
 
   const countryName = creatorCountryContext ? (creatorCountryContext.flag + ' ' + creatorCountryContext.name) : '🇮🇳 India';
 
-  summaryEl.textContent = `${focusName} • ${portrayalName} • ${countryName}`;
+  summaryEl.textContent = `${portrayalName} • ${countryName}`;
 
   if (typeof updateUnifiedPosterVisualStripUI === 'function') {
     try { updateUnifiedPosterVisualStripUI(); } catch (_) {}
