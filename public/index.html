@@ -532,7 +532,7 @@
           </div>
           <div style="padding: 7px 9px; margin-bottom: 8px; border-radius: 9px; background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.25); font-size: 10.8px; color: var(--text-primary); line-height: 1.38;">
             <strong>💡 Even with 0 AI visual credits, you can always post for FREE:</strong><br>
-            1. <strong>Web Link:</strong> Use <strong>Source Grounded + Original Photo</strong> &bull; 2. <strong>Inner Voice:</strong> Attach your own photo &bull; 3. <strong>Web Collage:</strong> Search &amp; collage 1–3 web images from your context &bull; <em>Text generation is free!</em>
+            1. <strong>Web Link:</strong> Use <strong>Original Photo</strong> &bull; 2. <strong>Inner Voice:</strong> Attach 1–3 photos &bull; 3. <strong>Web Source:</strong> Search &amp; pick 1–3 web images from your context &bull; <em>Text generation is free!</em>
           </div>
           <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
             <span style="font-size: 11px; color: var(--text-secondary);">Need more AI illustrations today? Request a bonus top-up anytime.</span>
@@ -555,13 +555,13 @@
           <span style="font-size: 10.5px; font-weight: 800; padding: 2px 8px; border-radius: 99px; background: rgba(16,185,129,0.18); color: #047857;">📝 Text Generation is Free</span>
         </div>
         <div style="display: flex; flex-direction: column; gap: 3px; color: var(--text-secondary); font-size: 11.4px;">
-          <div><strong>1. 🖼️ Web Subject Collage (NEW):</strong> Auto-extract 1–3 key characters/objects from your context, pick web photos under each tab &amp; collage them (0 credits).</div>
-          <div><strong>2. 🌐 Web Link:</strong> Post with <strong>Source Grounded + Original Photo</strong> from the source link (0 credits).</div>
-          <div><strong>3. 💭 Inner Voice:</strong> Post by <strong>attaching your own photo(s)</strong> via <em>Snap Scene / Upload Photo</em> (0 credits).</div>
+          <div><strong>1. 🖼️ Web Source:</strong> Auto-extract key subjects from your context &amp; pick 1–3 web photos (0 credits).</div>
+          <div><strong>2. 🌐 Web Link:</strong> Post with the <strong>Original Photo</strong> from your source link (0 credits).</div>
+          <div><strong>3. 💭 Inner Voice:</strong> Attach 1–3 of your own photos via <em>Snap Scene / Upload Photos</em> (0 credits).</div>
         </div>
         <div style="display: flex; align-items: center; gap: 8px; margin-top: 8px; flex-wrap: wrap;">
           <button type="button" onclick="openWebCollageBuilderFromContext()" style="padding: 5px 11px; border-radius: 8px; border: 1px solid rgba(79,70,229,0.5); background: #4F46E5; color: #FFFFFF; font-size: 11px; font-weight: 800; cursor: pointer;">
-            🖼️ Build Web Collage (0⚡)
+            🖼️ Use Web Source (0⚡)
           </button>
           <button type="button" onclick="applyFreeOriginalPhotoModeFromBanner()" style="padding: 5px 10px; border-radius: 8px; border: 1px solid rgba(16,185,129,0.5); background: #059669; color: #FFFFFF; font-size: 11px; font-weight: 800; cursor: pointer;">
             📷 Use Original / Attached Photo (Free)
@@ -964,7 +964,7 @@
                 <div id="posterModeOrigSub" style="font-size: 9.8px; font-weight: 600; color: var(--text-secondary); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%;">From source link</div>
               </button>
 
-              <!-- Card 2: Web Collage (Free 0⚡) -->
+              <!-- Card 2: Web Source (Free 0⚡) -->
               <button type="button" id="posterModeCardCollage" onclick="selectUnifiedPosterVisualMode('web_collage')" style="display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; gap: 5px; padding: 8px 9px; border-radius: 11px; border: 1.5px solid rgba(148,163,184,0.35); background: #FFFFFF; color: var(--text-primary); text-align: left; cursor: pointer; transition: all 0.15s ease;">
                 <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 4px;">
                   <div style="display: inline-flex; align-items: center; gap: 5px;">
@@ -973,7 +973,7 @@
                   </div>
                   <span style="font-size: 9px; font-weight: 900; padding: 1px 5px; border-radius: 99px; background: rgba(16,185,129,0.14); color: #059669;">0⚡ Free</span>
                 </div>
-                <div id="posterModeCollageTitle" style="font-size: 11px; font-weight: 800; line-height: 1.2; color: var(--text-primary);">Web Collage</div>
+                <div id="posterModeCollageTitle" style="font-size: 11px; font-weight: 800; line-height: 1.2; color: var(--text-primary);">Web Source</div>
                 <div id="posterModeCollageSub" style="font-size: 9.8px; font-weight: 600; color: var(--text-secondary); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%;">Pick 1–3 web photos</div>
               </button>
 
@@ -1029,6 +1029,61 @@
               </div>
             </div>
 
+            <!-- Web Source Picker directly below Web Source card in Visual Mode (No repeated titles or verbose intro!) -->
+            <div class="web-collage-studio-card" id="creatorWebCollageStudioCard" style="display: none; margin-bottom: 9px; padding: 10px; border-radius: 11px; background: #FFFFFF; border: 1.5px dashed rgba(16, 185, 129, 0.45);">
+              <!-- Subject Tabs Bar + Compact Re-scan Button -->
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 7px;">
+                <div id="webCollageSubjectTabs" style="display: flex; align-items: center; gap: 6px; overflow-x: auto; padding-bottom: 2px; flex: 1;">
+                  <!-- Populated dynamically by renderWebCollageSubjectTabs() -->
+                </div>
+                <button type="button" onclick="refreshWebCollageSubjectsFromContext()" style="padding: 4px 8px; border-radius: 7px; border: 1px solid rgba(79,70,229,0.3); background: rgba(79,70,229,0.08); color: #4F46E5; font-size: 10px; font-weight: 800; cursor: pointer; flex-shrink: 0;" title="Re-extract subjects from your current text">↻ Re-scan</button>
+              </div>
+
+              <!-- Editable Search Input for the Active Tab -->
+              <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
+                <input type="text" id="webCollageTabSearchInput" placeholder="Search any person, place, or object..." style="flex: 1; padding: 6px 9px; border-radius: 8px; border: 1px solid rgba(148,163,184,0.45); background: #FFFFFF; color: var(--text-primary); font-size: 11.5px; font-weight: 600;" onkeydown="if(event.key==='Enter'){event.preventDefault();runActiveTabWebImageSearch();}">
+                <button type="button" onclick="runActiveTabWebImageSearch()" style="padding: 6px 11px; border-radius: 8px; border: none; background: #4F46E5; color: #FFFFFF; font-size: 11px; font-weight: 800; cursor: pointer; white-space: nowrap;">
+                  🔍 Search
+                </button>
+              </div>
+
+              <!-- Image Results Grid for the Active Subject Tab -->
+              <div id="webCollageResultsStatus" style="font-size: 10.5px; color: var(--text-secondary); margin-bottom: 5px; display: none;">Searching web images...</div>
+              <div id="webCollageResultsGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 7px; max-height: 215px; overflow-y: auto; padding: 2px;">
+                <!-- Populated dynamically by renderWebCollageTabGrid() -->
+              </div>
+
+              <!-- Selected Images & Live Collage Preview Strip -->
+              <div id="webCollageComposerStrip" style="margin-top: 9px; padding-top: 8px; border-top: 1px dashed rgba(148,163,184,0.35);">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 7px; flex-wrap: wrap;">
+                  <div style="font-size: 10.8px; font-weight: 800; color: var(--text-primary);">
+                    Selected (<span id="webCollageSelectedCount">0</span>/3) <span style="font-weight: 600; color: var(--text-secondary); font-size: 10px;">• ★ Starred takes prominence</span>
+                  </div>
+                  <div style="display: inline-flex; align-items: center; gap: 4px;">
+                    <button type="button" id="webCollageStyleArchivalBtn" onclick="setWebCollageLayoutStyle('archival')" style="padding: 2px 7px; border-radius: 99px; border: 1px solid #253833; background: #253833; color: #FFFFFF; font-size: 9.8px; font-weight: 800; cursor: pointer;">🗞️ Frame</button>
+                    <button type="button" id="webCollageStyleBleedBtn" onclick="setWebCollageLayoutStyle('bleed')" style="padding: 2px 7px; border-radius: 99px; border: 1px solid rgba(148,163,184,0.45); background: transparent; color: var(--text-secondary); font-size: 9.8px; font-weight: 800; cursor: pointer;">📐 Split</button>
+                    <button type="button" onclick="clearWebCollageSelection()" style="padding: 2px 7px; border-radius: 99px; border: 1px solid rgba(220,38,38,0.3); background: transparent; color: #DC2626; font-size: 9.8px; font-weight: 800; cursor: pointer;">Clear</button>
+                  </div>
+                </div>
+
+                <!-- Selected Slots Row -->
+                <div id="webCollageSelectedSlotsRow" style="display: flex; align-items: center; gap: 7px; margin-bottom: 6px; flex-wrap: wrap;">
+                  <!-- Populated dynamically -->
+                </div>
+
+                <!-- Live Canvas Preview (Auto-applied to Poster 1) -->
+                <div id="webCollageCanvasPreviewWrap" style="display: none; flex-direction: column; align-items: center; gap: 6px; padding: 8px; border-radius: 10px; background: rgba(15,23,42,0.035); border: 1px solid rgba(148,163,184,0.25);">
+                  <canvas id="webCollagePreviewCanvas" width="800" height="1000" style="width: 100%; max-width: 210px; aspect-ratio: 4 / 5; border-radius: 7px; box-shadow: 0 4px 14px rgba(15,23,42,0.14); background: #F5EFE2;"></canvas>
+                  <div id="webCollageAppliedStatus" style="display: none; font-size: 10.5px; font-weight: 800; color: #059669; text-align: center;">
+                    ✓ Ready for Poster 1 (0⚡ Free)
+                  </div>
+                </div>
+                <div style="margin-top: 6px; font-size: 9.5px; color: var(--text-secondary); text-align: center;">
+                  ⚖️ Fair-dealing editorial commentary use • Source attribution stamped automatically.
+                </div>
+              </div>
+            </div>
+
             <!-- Live "What You'll Get" Expectation Bar (Strictly Shows Only the Checked Visual Mode) -->
             <div id="posterVisualExpectationBar" style="display: flex; align-items: center; gap: 9px; padding: 7px 9px; border-radius: 10px; background: #FFFFFF; border: 1px solid rgba(148,163,184,0.3);">
               <img id="posterVisualExpectationThumb" src="" alt="" style="display: none; width: 38px; height: 38px; border-radius: 7px; object-fit: cover; border: 1px solid rgba(148,163,184,0.4); flex-shrink: 0;">
@@ -1036,82 +1091,6 @@
               <div style="flex: 1; min-width: 0;">
                 <div id="posterVisualExpectationTitle" style="font-size: 11px; font-weight: 800; color: var(--text-primary); line-height: 1.25;">✓ AI Illustration Selected • Editorial Realism (1⚡ Credit)</div>
                 <div id="posterVisualExpectationDesc" style="font-size: 10.2px; color: var(--text-secondary); line-height: 1.3; margin-top: 1px;">Grounded in your source link &amp; written perspective. Change portrayal style anytime in Settings.</div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Zero-Credit Multi-Subject Web Image Search & Editorial Collage Composer -->
-          <div class="web-collage-studio-card" id="creatorWebCollageStudioCard" style="display: none; margin-top: 12px; padding: 12px; border-radius: 14px; background: linear-gradient(145deg, rgba(255,255,255,0.96), rgba(245,239,226,0.65)); border: 1.5px solid rgba(79,70,229,0.32); box-shadow: 0 8px 24px rgba(15,23,42,0.06);">
-            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; flex-wrap: wrap;">
-              <div style="display: flex; align-items: center; gap: 7px;">
-                <span style="font-size: 15px;">🖼️</span>
-                <span style="font-size: 11.8px; font-weight: 900; letter-spacing: 0.4px; color: var(--text-primary); text-transform: uppercase;">Context Web Collage Studio</span>
-                <span style="font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 99px; background: rgba(16,185,129,0.16); color: #059669; border: 1px solid rgba(16,185,129,0.35);">0⚡ Free Visual</span>
-              </div>
-              <div style="display: flex; align-items: center; gap: 6px;">
-                <button type="button" onclick="refreshWebCollageSubjectsFromContext()" style="padding: 3px 8px; border-radius: 7px; border: 1px solid rgba(79,70,229,0.3); background: rgba(79,70,229,0.08); color: #4F46E5; font-size: 10.5px; font-weight: 800; cursor: pointer;" title="Re-extract key characters/objects from your current written text">↻ Re-scan Context</button>
-                <button type="button" onclick="closeWebCollageBuilder()" style="width: 24px; height: 24px; border-radius: 50%; border: 1px solid rgba(148,163,184,0.35); background: transparent; color: var(--text-secondary); font-size: 14px; font-weight: 800; cursor: pointer; line-height: 1;">&times;</button>
-              </div>
-            </div>
-
-            <div style="font-size: 11.2px; color: var(--text-secondary); line-height: 1.38; margin-bottom: 10px;">
-              We extracted key subjects from your context below. Tap any tab to browse web photos (or search any character/object), and select <strong>1, 2, or 3 images</strong> to composite into your Poster 1 collage at <strong>0 credits</strong>.
-            </div>
-
-            <!-- Subject Tabs Bar (Subject 1, Subject 2, Subject 3 + Slant Art Library) -->
-            <div id="webCollageSubjectTabs" style="display: flex; align-items: center; gap: 6px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 8px;">
-              <!-- Populated dynamically by renderWebCollageSubjectTabs() -->
-            </div>
-
-            <!-- Editable Search Input for the Active Tab -->
-            <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 10px;">
-              <input type="text" id="webCollageTabSearchInput" placeholder="Refine or type any character, person, place, or object..." style="flex: 1; padding: 7px 10px; border-radius: 9px; border: 1px solid rgba(148,163,184,0.45); background: #FFFFFF; color: var(--text-primary); font-size: 12px; font-weight: 600;" onkeydown="if(event.key==='Enter'){event.preventDefault();runActiveTabWebImageSearch();}">
-              <button type="button" onclick="runActiveTabWebImageSearch()" style="padding: 7px 12px; border-radius: 9px; border: none; background: #4F46E5; color: #FFFFFF; font-size: 11.5px; font-weight: 800; cursor: pointer; white-space: nowrap;">
-                🔍 Search Web
-              </button>
-            </div>
-
-            <!-- Image Results Grid for the Active Subject Tab -->
-            <div id="webCollageResultsStatus" style="font-size: 11px; color: var(--text-secondary); margin-bottom: 6px; display: none;">Searching web images...</div>
-            <div id="webCollageResultsGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; max-height: 235px; overflow-y: auto; padding: 2px;">
-              <!-- Populated dynamically by renderWebCollageTabGrid() -->
-            </div>
-
-            <!-- Selected Images & Live Editorial Collage Preview Strip -->
-            <div id="webCollageComposerStrip" style="margin-top: 12px; padding-top: 10px; border-top: 1px dashed rgba(148,163,184,0.4);">
-              <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; flex-wrap: wrap;">
-                <div style="font-size: 11.2px; font-weight: 800; color: var(--text-primary);">
-                  Selected for Collage (<span id="webCollageSelectedCount">0</span>/3):
-                  <span style="font-weight: 600; color: var(--text-secondary); font-size: 10.5px;">Tap up to 3 images across tabs</span>
-                </div>
-                <div style="display: inline-flex; align-items: center; gap: 4px;">
-                  <button type="button" id="webCollageStyleArchivalBtn" onclick="setWebCollageLayoutStyle('archival')" style="padding: 3px 8px; border-radius: 99px; border: 1px solid #253833; background: #253833; color: #FFFFFF; font-size: 10px; font-weight: 800; cursor: pointer;">🗞️ Archival Frame</button>
-                  <button type="button" id="webCollageStyleBleedBtn" onclick="setWebCollageLayoutStyle('bleed')" style="padding: 3px 8px; border-radius: 99px; border: 1px solid rgba(148,163,184,0.45); background: transparent; color: var(--text-secondary); font-size: 10px; font-weight: 800; cursor: pointer;">📐 Full-Bleed Split</button>
-                </div>
-              </div>
-
-              <!-- Selected Slots Row -->
-              <div id="webCollageSelectedSlotsRow" style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap;">
-                <!-- Populated dynamically -->
-              </div>
-
-              <!-- Live Canvas Preview + Apply Button -->
-              <div id="webCollageCanvasPreviewWrap" style="display: none; flex-direction: column; align-items: center; gap: 8px; padding: 10px; border-radius: 11px; background: rgba(15,23,42,0.04); border: 1px solid rgba(148,163,184,0.28);">
-                <canvas id="webCollagePreviewCanvas" width="800" height="1000" style="width: 100%; max-width: 240px; aspect-ratio: 4 / 5; border-radius: 8px; box-shadow: 0 6px 18px rgba(15,23,42,0.16); background: #F5EFE2;"></canvas>
-                <div style="display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; flex-wrap: wrap;">
-                  <button type="button" id="webCollageApplyBtn" onclick="applyWebCollageToPost()" style="padding: 8px 16px; border-radius: 10px; border: none; background: linear-gradient(135deg, #059669, #047857); color: #FFFFFF; font-size: 12px; font-weight: 800; cursor: pointer; box-shadow: 0 4px 12px rgba(5,150,105,0.28);">
-                    ✓ Use This Collage for Poster 1 (0 Credits)
-                  </button>
-                  <button type="button" onclick="clearWebCollageSelection()" style="padding: 7px 11px; border-radius: 9px; border: 1px solid rgba(148,163,184,0.45); background: transparent; color: var(--text-secondary); font-size: 11px; font-weight: 700; cursor: pointer;">
-                    Clear
-                  </button>
-                </div>
-                <div id="webCollageAppliedStatus" style="display: none; font-size: 11px; font-weight: 800; color: #059669; text-align: center;">
-                  ✓ Collage attached! Click "Synthesize Posters" below to generate your 3-poster deck at 0 credits.
-                </div>
-              </div>
-              <div style="margin-top: 8px; padding-top: 6px; border-top: 1px solid rgba(148,163,184,0.22); font-size: 9.8px; color: var(--text-secondary); line-height: 1.35; text-align: center;">
-                ⚖️ <strong>Editorial Commentary Notice:</strong> Web images are selected by you under fair-dealing / commentary use. Source attribution is stamped automatically on the collage.
               </div>
             </div>
           </div>

@@ -794,7 +794,7 @@ function selectUnifiedPosterVisualMode(mode) {
   const zeroCredits = typeof isZeroVisualCreditsForActivePillar === 'function' && isZeroVisualCreditsForActivePillar();
 
   if (mode === 'ai_art' && zeroCredits) {
-    showTemporaryToast('🔒 AI Illustration is disabled when you have 0 credits today. Use Original/Attached Photo (0⚡) or Web Collage (0⚡), or get credits via request/subscription!');
+    showTemporaryToast('🔒 AI Illustration is disabled when you have 0 credits today. Use Original/Attached Photo (0⚡) or Web Source (0⚡), or get credits via request/subscription!');
     updateUnifiedPosterVisualStripUI();
     return;
   }
@@ -948,7 +948,7 @@ function updateUnifiedPosterVisualStripUI() {
     }
   }
 
-  // 2. Update Card 2 (Web Collage)
+  // 2. Update Card 2 (Web Source)
   const cardCollage = document.getElementById('posterModeCardCollage');
   const colTitle = document.getElementById('posterModeCollageTitle');
   const colSub = document.getElementById('posterModeCollageSub');
@@ -956,8 +956,8 @@ function updateUnifiedPosterVisualStripUI() {
     ? window._webCollageState.selectedItems.length
     : 0;
   if (colTitle && colSub) {
-    colTitle.textContent = 'Web Collage';
-    colSub.textContent = selCount > 0 ? `✓ ${selCount} photo${selCount > 1 ? 's' : ''} selected` : 'Pick 1–3 web photos';
+    colTitle.textContent = 'Web Source';
+    colSub.textContent = selCount > 0 ? `✓ ${selCount}/3 (${selCount > 1 ? '★ Collage' : 'Ready'})` : 'Pick 1–3 web photos';
   }
 
   // 3. Update Card 3 (AI Illustration)
@@ -1057,7 +1057,7 @@ function updateUnifiedPosterVisualStripUI() {
       eqBtn.style.cursor = 'not-allowed';
       eqBtn.setAttribute('aria-disabled', 'true');
       if (eqSummary) {
-        eqSummary.textContent = '🔒 Disabled (0⚡ Credits Today — Only Web Collage / Attached Photo Available)';
+        eqSummary.textContent = '🔒 Disabled (0⚡ Credits Today — Only Web Source / Attached Photo Available)';
       }
     } else if (!isAiArtMode) {
       eqBtn.style.opacity = '0.6';
@@ -1066,7 +1066,7 @@ function updateUnifiedPosterVisualStripUI() {
       eqBtn.setAttribute('aria-disabled', 'false');
       if (eqSummary) {
         eqSummary.textContent = isWebCollageMode
-          ? 'Web Collage (0⚡ Free) • Check AI Illustration to tune Portrayals'
+          ? 'Web Source (0⚡ Free) • Check AI Illustration to tune Portrayals'
           : 'Original/Attached Photo (0⚡ Free) • Check AI Illustration to tune Portrayals';
       }
     } else {
@@ -1080,11 +1080,16 @@ function updateUnifiedPosterVisualStripUI() {
     }
   }
 
-  // 6. Live Single-Mode Preview Bar (Shows ONLY the checked Visual Mode — never mixes modes!)
+  // 6. Live Single-Mode Preview Bar (Hidden when Web Source picker is open so there is zero repeated text!)
+  const expBar = document.getElementById('posterVisualExpectationBar');
   const expThumb = document.getElementById('posterVisualExpectationThumb');
   const expIcon = document.getElementById('posterVisualExpectationIcon');
   const expTitle = document.getElementById('posterVisualExpectationTitle');
   const expDesc = document.getElementById('posterVisualExpectationDesc');
+
+  if (expBar) {
+    expBar.style.display = isWebCollageMode ? 'none' : 'flex';
+  }
 
   let thumbSrc = '';
   let iconEmoji = '🎨';
@@ -1096,18 +1101,7 @@ function updateUnifiedPosterVisualStripUI() {
     : '';
 
   if (isWebCollageMode) {
-    // STRICTLY Web Collage preview only — never fallback to Original Photo!
-    thumbSrc = (window._webCollageState && window._webCollageState.compositedDataUrl && selCount > 0)
-      ? window._webCollageState.compositedDataUrl
-      : '';
-    iconEmoji = '🖼️';
-    if (selCount > 0) {
-      titleText = `✓ Checked: Web Collage (${selCount} Photo${selCount > 1 ? 's' : ''} • 0⚡ Free)`;
-      descText = 'Poster 1 will display your selected web/source collage with source attribution. Zero AI credits.';
-    } else {
-      titleText = '✓ Checked: Web Collage Studio Below (0⚡ Free)';
-      descText = 'Pick 1–3 photos in the Web Collage Studio directly below to build your free poster.';
-    }
+    // Handled directly inside the compact Web Source drawer above!
   } else if (isOriginalPhotoMode) {
     // STRICTLY Original / Attached Photo preview only
     if (attachedSceneCount > 0) {
@@ -1502,20 +1496,26 @@ async function toggleSelectCollageImage(encUrl, encThumb, encTitle, encSource) {
   } else {
     // If an image is already selected from the same subject tab (and user has >= 1), or if 3 are already selected, replace intelligently
     const sameTabIdx = state.selectedItems.findIndex(s => s.tabIndex === state.activeTabIndex);
+    const hasAnyStarred = state.selectedItems.some((s, i) => i !== sameTabIdx && Boolean(s.isStarred));
     const newItem = {
       url,
       thumbUrl,
       title,
       source,
-      tabIndex: state.activeTabIndex
+      tabIndex: state.activeTabIndex,
+      isStarred: !hasAnyStarred
     };
     if (sameTabIdx >= 0) {
       state.selectedItems[sameTabIdx] = newItem;
     } else if (state.selectedItems.length >= 3) {
+      newItem.isStarred = Boolean(state.selectedItems[2]?.isStarred);
       state.selectedItems[2] = newItem;
     } else {
       state.selectedItems.push(newItem);
     }
+  }
+  if (state.selectedItems.length > 0 && !state.selectedItems.some(s => s.isStarred)) {
+    state.selectedItems[0].isStarred = true;
   }
 
   renderWebCollageSubjectTabs();
@@ -1525,15 +1525,29 @@ async function toggleSelectCollageImage(encUrl, encThumb, encTitle, encSource) {
 }
 window.toggleSelectCollageImage = toggleSelectCollageImage;
 
+async function setStarredWebCollageSlot(slotIndex) {
+  const state = window._webCollageState;
+  if (!state.selectedItems || !state.selectedItems[slotIndex]) return;
+  state.selectedItems.forEach((it, idx) => {
+    it.isStarred = (idx === slotIndex);
+  });
+  renderWebCollageSelectedSlotsUI();
+  await renderWebCollageCanvas();
+}
+window.setStarredWebCollageSlot = setStarredWebCollageSlot;
+
 function removeWebCollageSelectedSlot(slotIndex) {
   const state = window._webCollageState;
   if (slotIndex >= 0 && slotIndex < state.selectedItems.length) {
     state.selectedItems.splice(slotIndex, 1);
+    if (state.selectedItems.length > 0 && !state.selectedItems.some(s => s.isStarred)) {
+      state.selectedItems[0].isStarred = true;
+    }
     if (state.selectedItems.length === 0) {
       state.compositedDataUrl = null;
       restoreOriginalScrapedSourcePhoto();
       const btnLabel = document.getElementById('slantWebCollageBtnLabel');
-      if (btnLabel) btnLabel.textContent = 'Web Collage (0⚡)';
+      if (btnLabel) btnLabel.textContent = 'Web Source (0⚡)';
       const appliedStatus = document.getElementById('webCollageAppliedStatus');
       if (appliedStatus) appliedStatus.style.display = 'none';
     }
@@ -1551,7 +1565,7 @@ function clearWebCollageSelection() {
   state.compositedDataUrl = null;
   restoreOriginalScrapedSourcePhoto();
   const btnLabel = document.getElementById('slantWebCollageBtnLabel');
-  if (btnLabel) btnLabel.textContent = 'Web Collage (0⚡)';
+  if (btnLabel) btnLabel.textContent = 'Web Source (0⚡)';
   const appliedStatus = document.getElementById('webCollageAppliedStatus');
   if (appliedStatus) appliedStatus.style.display = 'none';
   renderWebCollageSubjectTabs();
@@ -1597,21 +1611,31 @@ function renderWebCollageSelectedSlotsUI() {
   if (!slotsRow) return;
 
   if (state.selectedItems.length === 0) {
-    slotsRow.innerHTML = `<div style="font-size: 11px; color: var(--text-secondary); padding: 6px 10px; border-radius: 8px; background: rgba(148,163,184,0.1);">
-      👆 Tap 1, 2, or 3 images from the tabs above to preview &amp; composite your collage.
+    slotsRow.innerHTML = `<div style="font-size: 10.5px; color: var(--text-secondary); padding: 4px 8px; border-radius: 7px; background: rgba(148,163,184,0.08);">
+      Tap 1–3 photos above (★ Starred photo gets 60% hero prominence).
     </div>`;
     if (previewWrap) previewWrap.style.display = 'none';
     return;
   }
 
+  if (!state.selectedItems.some(s => s.isStarred)) {
+    state.selectedItems[0].isStarred = true;
+  }
+
   if (previewWrap) previewWrap.style.display = 'flex';
-  slotsRow.innerHTML = state.selectedItems.map((it, idx) => `
-    <div style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px 4px 4px; border-radius: 9px; background: #FFFFFF; border: 1px solid rgba(16,185,129,0.4); box-shadow: 0 2px 6px rgba(15,23,42,0.05);">
-      <img src="${escapeHtml(it.thumbUrl || it.url)}" alt="" style="width: 28px; height: 28px; border-radius: 6px; object-fit: cover;">
-      <span style="font-size: 10.8px; font-weight: 800; color: var(--text-primary); max-width: 110px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">#${idx + 1} ${escapeHtml(it.title || 'Image')}</span>
-      <button type="button" onclick="removeWebCollageSelectedSlot(${idx})" style="border: none; background: rgba(239,68,68,0.12); color: #DC2626; width: 18px; height: 18px; border-radius: 50%; font-size: 11px; font-weight: 900; cursor: pointer; line-height: 1;">&times;</button>
-    </div>
-  `).join('');
+  slotsRow.innerHTML = state.selectedItems.map((it, idx) => {
+    const isStar = Boolean(it.isStarred);
+    return `
+      <div style="display: inline-flex; align-items: center; gap: 5px; padding: 3px 7px 3px 4px; border-radius: 8px; background: ${isStar ? '#FFFBEB' : '#FFFFFF'}; border: ${isStar ? '1.5px solid #D97706' : '1px solid rgba(16,185,129,0.4)'}; box-shadow: 0 2px 5px rgba(15,23,42,0.04);">
+        <img src="${escapeHtml(it.thumbUrl || it.url)}" alt="" onclick="setStarredWebCollageSlot(${idx})" style="width: 26px; height: 26px; border-radius: 5px; object-fit: cover; cursor: pointer;" title="Tap to make ★ Starred Hero">
+        <button type="button" onclick="setStarredWebCollageSlot(${idx})" style="border: none; background: ${isStar ? '#FEF3C7' : 'rgba(15,23,42,0.07)'}; color: ${isStar ? '#B45309' : 'var(--text-secondary)'}; padding: 2px 5px; border-radius: 99px; font-size: 9.5px; font-weight: 800; cursor: pointer;" title="Star for 60% hero prominence">
+          ${isStar ? '★ Hero' : '☆ Star'}
+        </button>
+        <span style="font-size: 10.2px; font-weight: 700; color: var(--text-primary); max-width: 85px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(it.title || 'Photo')}</span>
+        <button type="button" onclick="removeWebCollageSelectedSlot(${idx})" style="border: none; background: rgba(239,68,68,0.12); color: #DC2626; width: 17px; height: 17px; border-radius: 50%; font-size: 10.5px; font-weight: 900; cursor: pointer; line-height: 1;">&times;</button>
+      </div>
+    `;
+  }).join('');
 }
 
 async function loadCollageImageElementSafe(url, fallbackUrl = '') {
@@ -1715,8 +1739,11 @@ async function renderWebCollageCanvas() {
   const W = canvas.width || 800;
   const H = canvas.height || 1000;
 
+  // Sort so ★ Starred item is first (index 0 = 60% Hero Prominence slot)
+  const orderedItems = [...state.selectedItems.slice(0, 3)].sort((a, b) => (b.isStarred ? 1 : 0) - (a.isStarred ? 1 : 0));
+
   const loadedImgs = (await Promise.all(
-    state.selectedItems.slice(0, 3).map(it => loadCollageImageElementSafe(it.url, it.thumbUrl || ''))
+    orderedItems.map(it => loadCollageImageElementSafe(it.url, it.thumbUrl || ''))
   )).filter(Boolean);
 
   if (loadedImgs.length === 0) return null;
@@ -1725,7 +1752,7 @@ async function renderWebCollageCanvas() {
   const isArchival = state.layoutStyle !== 'bleed';
 
   const uniqueSources = [...new Set(
-    state.selectedItems.slice(0, 3)
+    orderedItems
       .map(it => String(it.source || 'Web').trim())
       .filter(Boolean)
   )];
@@ -1753,7 +1780,8 @@ async function renderWebCollageCanvas() {
       ctx.lineWidth = 2;
       ctx.strokeRect(pad, pad, innerW, innerH);
     } else if (loadedImgs.length === 2) {
-      const topH = Math.round((innerH - gap) * 0.5);
+      // ★ Starred (loadedImgs[0]) gets 60% Hero Prominence on top, 2nd image gets 40% on bottom
+      const topH = Math.round((innerH - gap) * 0.60);
       const botH = innerH - gap - topH;
       drawCoverImageOnCanvas(ctx, loadedImgs[0], pad, pad, innerW, topH, 12);
       drawCoverImageOnCanvas(ctx, loadedImgs[1], pad, pad + topH + gap, innerW, botH, 12);
@@ -1762,22 +1790,23 @@ async function renderWebCollageCanvas() {
       ctx.strokeRect(pad, pad, innerW, topH);
       ctx.strokeRect(pad, pad + topH + gap, innerW, botH);
     } else {
-      const topH = Math.round((innerH - gap) * 0.46);
+      // ★ Starred (loadedImgs[0]) gets 60% Hero Prominence on top, 2nd & 3rd share 40% on bottom
+      const topH = Math.round((innerH - gap) * 0.58);
       const botH = innerH - gap - topH;
       const halfW = Math.round((innerW - gap) * 0.5);
       const rightW = innerW - gap - halfW;
-      // Top-Left Subject 1
-      drawCoverImageOnCanvas(ctx, loadedImgs[0], pad, pad, halfW, topH, 12);
-      // Top-Right Subject 2
-      drawCoverImageOnCanvas(ctx, loadedImgs[1], pad + halfW + gap, pad, rightW, topH, 12);
-      // Bottom Hero Subject 3
-      drawCoverImageOnCanvas(ctx, loadedImgs[2], pad, pad + topH + gap, innerW, botH, 12);
+      // Top Hero (★ Starred)
+      drawCoverImageOnCanvas(ctx, loadedImgs[0], pad, pad, innerW, topH, 12);
+      // Bottom-Left Supporting 2
+      drawCoverImageOnCanvas(ctx, loadedImgs[1], pad, pad + topH + gap, halfW, botH, 12);
+      // Bottom-Right Supporting 3
+      drawCoverImageOnCanvas(ctx, loadedImgs[2], pad + halfW + gap, pad + topH + gap, rightW, botH, 12);
 
       ctx.strokeStyle = 'rgba(37, 56, 51, 0.4)';
       ctx.lineWidth = 2;
-      ctx.strokeRect(pad, pad, halfW, topH);
-      ctx.strokeRect(pad + halfW + gap, pad, rightW, topH);
-      ctx.strokeRect(pad, pad + topH + gap, innerW, botH);
+      ctx.strokeRect(pad, pad, innerW, topH);
+      ctx.strokeRect(pad, pad + topH + gap, halfW, botH);
+      ctx.strokeRect(pad + halfW + gap, pad + topH + gap, rightW, botH);
     }
 
     // Stamp archival broadsheet photo attribution caption along the bottom margin
@@ -1789,7 +1818,7 @@ async function renderWebCollageCanvas() {
     ctx.fillText(creditText.slice(0, 88), W - pad, H - 28);
     ctx.restore();
   } else {
-    // Full-Bleed Editorial Split
+    // Full-Bleed Editorial Split (★ Starred loadedImgs[0] gets 60% Hero top slot)
     ctx.fillStyle = '#18181B';
     ctx.fillRect(0, 0, W, H);
     const div = 8;
@@ -1797,23 +1826,23 @@ async function renderWebCollageCanvas() {
     if (loadedImgs.length === 1) {
       drawCoverImageOnCanvas(ctx, loadedImgs[0], 0, 0, W, H, 0);
     } else if (loadedImgs.length === 2) {
-      const topH = Math.round((H - div) * 0.5);
+      const topH = Math.round((H - div) * 0.60);
       const botH = H - div - topH;
       drawCoverImageOnCanvas(ctx, loadedImgs[0], 0, 0, W, topH, 0);
       drawCoverImageOnCanvas(ctx, loadedImgs[1], 0, topH + div, W, botH, 0);
       ctx.fillStyle = '#F5EFE2';
       ctx.fillRect(0, topH, W, div);
     } else {
-      const topH = Math.round((H - div) * 0.47);
+      const topH = Math.round((H - div) * 0.58);
       const botH = H - div - topH;
       const leftW = Math.round((W - div) * 0.5);
       const rightW = W - div - leftW;
-      drawCoverImageOnCanvas(ctx, loadedImgs[0], 0, 0, leftW, topH, 0);
-      drawCoverImageOnCanvas(ctx, loadedImgs[1], leftW + div, 0, rightW, topH, 0);
-      drawCoverImageOnCanvas(ctx, loadedImgs[2], 0, topH + div, W, botH, 0);
+      drawCoverImageOnCanvas(ctx, loadedImgs[0], 0, 0, W, topH, 0);
+      drawCoverImageOnCanvas(ctx, loadedImgs[1], 0, topH + div, leftW, botH, 0);
+      drawCoverImageOnCanvas(ctx, loadedImgs[2], leftW + div, topH + div, rightW, botH, 0);
       ctx.fillStyle = '#F5EFE2';
-      ctx.fillRect(leftW, 0, div, topH);
       ctx.fillRect(0, topH, W, div);
+      ctx.fillRect(leftW, topH + div, div, botH);
     }
 
     // Stamp translucent broadsheet credit pill in bottom-right corner of full-bleed collage
@@ -1852,7 +1881,7 @@ function applyWebCollageToPost(silentAutoApply = false) {
   const dataUrl = state.compositedDataUrl;
   if (!dataUrl) {
     if (!silentAutoApply) {
-      showTemporaryToast('Select 1, 2, or 3 images first to build your collage.');
+      showTemporaryToast('Select 1, 2, or 3 images first.');
     }
     return;
   }
@@ -1860,7 +1889,7 @@ function applyWebCollageToPost(silentAutoApply = false) {
   const labelNames = state.selectedItems.map(it => it.title).filter(Boolean).slice(0, 3).join(' + ');
   creatorReferenceImageBase64 = dataUrl;
   creatorReferenceImageMimeType = 'image/jpeg';
-  creatorReferenceImageSourceLabel = `Web Collage (${state.selectedItems.length} image${state.selectedItems.length > 1 ? 's' : ''}: ${labelNames.slice(0, 45)})`;
+  creatorReferenceImageSourceLabel = `Web Source (${state.selectedItems.length} image${state.selectedItems.length > 1 ? 's' : ''}: ${labelNames.slice(0, 45)})`;
   window._isWebCollageAttached = true;
   window._selectedPosterVisualMode = 'web_collage';
 
@@ -1887,7 +1916,7 @@ function applyWebCollageToPost(silentAutoApply = false) {
 
   const btnLabel = document.getElementById('slantWebCollageBtnLabel');
   if (btnLabel) {
-    btnLabel.textContent = `✓ Collage (${state.selectedItems.length}) • 0⚡`;
+    btnLabel.textContent = `✓ Web Source (${state.selectedItems.length}) • 0⚡`;
   }
   const appliedStatus = document.getElementById('webCollageAppliedStatus');
   if (appliedStatus) {
@@ -1895,7 +1924,7 @@ function applyWebCollageToPost(silentAutoApply = false) {
   }
 
   if (!silentAutoApply) {
-    showTemporaryToast(`✓ ${state.selectedItems.length}-image Web Collage attached for Poster 1 (0 visual credits)! Tap "Synthesize Posters" below.`);
+    showTemporaryToast(`✓ ${state.selectedItems.length}-image Web Source attached for Poster 1 (0 credits)!`);
   }
 }
 window.applyWebCollageToPost = applyWebCollageToPost;
@@ -13628,7 +13657,7 @@ function renderPolishVisualSubjects() {
   }
   if (headerSubtitle) {
     if (zeroCredits) {
-      headerSubtitle.textContent = 'Disabled while you have 0 AI credits today — use Original/Attached Photo or Web Collage above, or get credits via request/subscription.';
+      headerSubtitle.textContent = 'Disabled while you have 0 AI credits today — use Original/Attached Photo or Web Source above, or get credits via request/subscription.';
     } else {
       headerSubtitle.textContent = totalLearned > 0
         ? `Default scene is auto-selected by confidence score (🧠 adapted from ${totalLearned} approval${totalLearned > 1 ? 's' : ''}) — tap the dropdown below to switch visual options.`
@@ -19315,7 +19344,7 @@ function updateEqualizerSummaryUI() {
           : (creatorCharacterRepresentation === 'silhouette'
             ? 'Silhouette'
             : (creatorCharacterRepresentation === 'exact'
-              ? (window._isWebCollageAttached ? '🖼️ Web Collage (0⚡)' : 'Authentic Photo (0⚡)')
+              ? (window._isWebCollageAttached ? '🖼️ Web Source (0⚡)' : 'Authentic Photo (0⚡)')
               : 'Editorial Realism (Default)')))));
 
   const countryName = creatorCountryContext ? (creatorCountryContext.flag + ' ' + creatorCountryContext.name) : '🇮🇳 India';
@@ -19421,7 +19450,7 @@ function openCreatorEqualizer() {
   try {
     const zeroCredits = typeof isZeroVisualCreditsForActivePillar === 'function' && isZeroVisualCreditsForActivePillar();
     if (zeroCredits) {
-      showTemporaryToast('🔒 Settings & AI Image Portrayals are disabled while you have 0 credits today. Use Web Collage or Attached Photo, or get credits via request/subscription!');
+      showTemporaryToast('🔒 Settings & AI Image Portrayals are disabled while you have 0 credits today. Use Web Source or Attached Photo, or get credits via request/subscription!');
       return;
     }
 
