@@ -13111,6 +13111,46 @@ async function capturePostSlidesAsFiles(post, index) {
         </div>
       `;
 
+      // Boost small attribution/source-inspiration/caption font sizes in generated shareable posters for crisp legibility
+      container.querySelectorAll('.tactile-news-inner').forEach(el => {
+        el.style.setProperty('padding', '7px 11px 8px', 'important');
+        el.style.setProperty('gap', '3.5px', 'important');
+      });
+      container.querySelectorAll('.tactile-news-header').forEach(el => {
+        el.style.setProperty('font-size', '10.6px', 'important');
+        el.style.setProperty('line-height', '1.25', 'important');
+        el.style.setProperty('gap', '5.5px', 'important');
+      });
+      container.querySelectorAll('.tactile-news-headline').forEach(el => {
+        el.style.setProperty('font-size', '13.8px', 'important');
+        el.style.setProperty('line-height', '1.28', 'important');
+      });
+      container.querySelectorAll('.slide-hook-curator-kicker-text').forEach(el => {
+        el.style.setProperty('font-size', '9.8px', 'important');
+      });
+      container.querySelectorAll('.receipt-scene-caption').forEach(el => {
+        el.style.setProperty('font-size', '9.6px', 'important');
+        el.style.setProperty('line-height', '1.24', 'important');
+      });
+      container.querySelectorAll('.scene-caption-icon').forEach(el => {
+        el.style.setProperty('font-size', '10.5px', 'important');
+      });
+      container.querySelectorAll('.signed-curator-title').forEach(el => {
+        el.style.setProperty('font-size', '9.6px', 'important');
+      });
+      container.querySelectorAll('.signed-curator-badge-pill').forEach(el => {
+        el.style.setProperty('font-size', '8.8px', 'important');
+      });
+      container.querySelectorAll('.receipt-reflection-label').forEach(el => {
+        el.style.setProperty('font-size', '9.5px', 'important');
+      });
+      container.querySelectorAll('.receipt-reflection-text').forEach(el => {
+        el.style.setProperty('font-size', '11.8px', 'important');
+      });
+      container.querySelectorAll('.receipt-folio-text, .poster-footer-domain, .poster-footer-punchline').forEach(el => {
+        el.style.setProperty('font-size', '10px', 'important');
+      });
+
       // Wait for images inside to load with 3.5s safe timeout
       const imgs = Array.from(container.querySelectorAll('img'));
       await Promise.all(imgs.map(img => {

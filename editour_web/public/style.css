@@ -2395,29 +2395,29 @@ header {
 }
 
 .tactile-news-inner {
-  padding: 5px 9px 6px;
+  padding: 6px 10px 7px;
   display: flex;
   flex-direction: column;
-  gap: 2.5px;
+  gap: 3px;
 }
 
 .tactile-news-header {
   display: inline-flex;
   align-items: center;
-  gap: 4.5px;
-  font-size: 7.8px;
+  gap: 5px;
+  font-size: 9px;
   font-weight: 800;
-  color: #786F5E;
-  letter-spacing: 0.6px;
+  color: #6B6150;
+  letter-spacing: 0.55px;
   text-transform: uppercase;
 }
 
 .tactile-news-headline {
   font-family: 'Playfair Display', Georgia, serif;
-  font-size: 11.2px;
+  font-size: 12.4px;
   font-weight: 900;
   color: #141414;
-  line-height: 1.22;
+  line-height: 1.25;
   letter-spacing: -0.2px;
   margin: 0;
   display: -webkit-box;
@@ -8984,31 +8984,87 @@ header {
   flex-shrink: 0 !important;
 }
 
+.poster-export-sandbox .tactile-news-inner {
+  padding: 7px 11px 8px !important;
+  gap: 3.5px !important;
+}
+
+.poster-export-sandbox .tactile-news-header {
+  font-size: 10.6px !important;
+  font-weight: 800 !important;
+  color: #635847 !important;
+  gap: 5.5px !important;
+  line-height: 1.25 !important;
+}
+
+.poster-export-sandbox .tactile-news-headline {
+  font-size: 13.8px !important;
+  line-height: 1.28 !important;
+  font-weight: 900 !important;
+}
+
+.poster-export-sandbox .slide-hook-curator-kicker {
+  padding: 3.5px 9px !important;
+  gap: 6px !important;
+}
+
+.poster-export-sandbox .slide-hook-curator-kicker-avatar {
+  width: 15px !important;
+  height: 15px !important;
+  font-size: 9px !important;
+}
+
+.poster-export-sandbox .slide-hook-curator-kicker-text {
+  font-size: 9.8px !important;
+}
+
+.poster-export-sandbox .poster-corner-cat,
+.poster-export-sandbox .poster-corner-creator {
+  font-size: 10.6px !important;
+}
+
+.poster-export-sandbox .poster-corner-slide-num {
+  font-size: 9.6px !important;
+}
+
+.poster-export-sandbox .poster-footer-domain,
+.poster-export-sandbox .poster-footer-punchline {
+  font-size: 10px !important;
+}
+
+.poster-export-sandbox .signed-curator-title {
+  font-size: 9.6px !important;
+}
+
+.poster-export-sandbox .signed-curator-badge-pill {
+  font-size: 8.8px !important;
+}
+
 .poster-export-sandbox .receipt-corner-brand {
   gap: 5px !important;
-  font-size: 9.5px !important;
+  font-size: 10.5px !important;
   font-weight: 900 !important;
 }
 
 .poster-export-sandbox .receipt-corner-logo {
-  width: 16px !important;
-  height: 16px !important;
+  width: 17px !important;
+  height: 17px !important;
 }
 
 .poster-export-sandbox .receipt-brand-text {
-  font-size: 9.5px !important;
+  font-size: 10.5px !important;
   letter-spacing: 1px !important;
 }
 
 .poster-export-sandbox .receipt-creator-name {
-  font-size: 8px !important;
+  font-size: 9.5px !important;
   font-weight: 800 !important;
 }
 
 .poster-export-sandbox .receipt-corner-slide-num {
-  font-size: 7.5px !important;
+  font-size: 9px !important;
   font-weight: 800 !important;
-  padding: 1px 5px !important;
+  padding: 1.5px 5.5px !important;
   border-radius: 6px !important;
 }
 
@@ -9035,12 +9091,12 @@ header {
 }
 
 .poster-export-sandbox .highlighter-label {
-  font-size: 8px !important;
+  font-size: 9.2px !important;
   margin-bottom: 2px !important;
 }
 
 .poster-export-sandbox .highlighter-text {
-  font-size: 11.5px !important;
+  font-size: 12px !important;
   line-height: 1.42 !important;
 }
 
@@ -9051,12 +9107,12 @@ header {
 }
 
 .poster-export-sandbox .receipt-reflection-label {
-  font-size: 8px !important;
+  font-size: 9.5px !important;
   margin-bottom: 2px !important;
 }
 
 .poster-export-sandbox .receipt-reflection-text {
-  font-size: 11px !important;
+  font-size: 11.8px !important;
   line-height: 1.45 !important;
   text-indent: 0 !important;
   text-align: left !important;
@@ -9093,15 +9149,15 @@ header {
 }
 
 .poster-export-sandbox .receipt-scene-caption {
-  font-size: 7.8px !important;
+  font-size: 9.6px !important;
   font-weight: 800 !important;
   letter-spacing: 0.5px !important;
-  margin-top: 3px !important;
-  line-height: 1.2 !important;
+  margin-top: 3.5px !important;
+  line-height: 1.24 !important;
 }
 
 .poster-export-sandbox .scene-caption-icon {
-  font-size: 9px !important;
+  font-size: 10.5px !important;
 }
 
 /* Landscape / 16:9 images in Export Sandbox */
@@ -9309,7 +9365,7 @@ header {
   display: flex !important;
   justify-content: space-between !important;
   align-items: center !important;
-  font-size: 8.5px !important;
+  font-size: 9.8px !important;
   font-weight: 800 !important;
   color: #334155 !important;
   letter-spacing: 0.4px !important;
