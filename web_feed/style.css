@@ -12093,23 +12093,22 @@ header {
   background: #F8FAFC;
 }
 
-/* Sleek Result Action Toolbar: Regen, Edit, Clear Text (Eye View), Save, Share */
+/* Sleek Result Action Toolbar: Regen, Edit, Share (Centrally Aligned) */
 .creator-result-action-panel {
   width: 100%;
   max-width: 440px;
   margin: 16px auto 14px auto;
-  padding: 10px 8px;
+  padding: 10px 16px;
   box-sizing: border-box;
   background: rgba(15, 23, 42, 0.92);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 18px;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  align-items: start;
-  justify-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   backdrop-filter: blur(12px);
-  gap: 4px;
+  gap: 36px;
 }
 
 .action-icon-btn {
@@ -12121,13 +12120,13 @@ header {
   align-items: center;
   justify-content: flex-start;
   gap: 6px;
-  padding: 4px 2px;
+  padding: 4px 6px;
   border-radius: 14px;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   user-select: none;
   outline: none;
-  width: 100%;
-  min-width: 0;
+  width: auto;
+  min-width: 60px;
   max-width: none;
 }
 

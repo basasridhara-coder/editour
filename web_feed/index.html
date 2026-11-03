@@ -519,10 +519,9 @@
       <!-- STEP 1 CONTAINER: Slant & Source (Matches Mobile App Exact Sequence) -->
       <div class="creator-step-content" id="creatorStep1">
 
-        <!-- 1. MENTAL MODEL BANNER (Pillar & Spark Source already chosen from the main Slant button) -->
-        <div class="creator-anchor-section">
-          <!-- Dynamic Mental Model Banner -->
-          <div class="anchor-mental-model-card" id="anchorMentalModelCard" style="margin-top: 0;">
+        <!-- 1. MENTAL MODEL BANNER (Hidden: Guiding prompt written directly inside Perspective textarea placeholder) -->
+        <div class="creator-anchor-section" style="display: none !important;">
+          <div class="anchor-mental-model-card" id="anchorMentalModelCard" style="display: none !important;">
             <div class="mental-model-inner">
               <div class="mental-model-badge-row">
                 <span class="mental-model-badge" id="anchorMentalModelBadge">MENTAL MODEL</span>
@@ -560,9 +559,8 @@
             <div id="sourceLedgerCard" class="source-ledger-card" style="display:none;"></div>
           </div>
 
-          <!-- Inner Voice & Diary Chronicle Trigger Panel -->
-          <div class="trigger-section" id="triggerVoiceSection" style="display:none;">
-            <!-- Legacy submode bar hidden because Diary Chronicle is now a dedicated top-level category -->
+          <!-- Inner Voice & Diary Chronicle Trigger Panel (Hidden: Inner Voice goes straight to Perspective) -->
+          <div class="trigger-section" id="triggerVoiceSection" style="display:none !important;">
             <div class="inner-voice-submode-bar" id="innerVoiceSubmodeBar" style="display:none !important;">
               <button type="button" class="inner-voice-submode-pill active" id="innerVoiceSubSingleBtn" onclick="setInnerVoiceSubmode('single')">
                 <span class="submode-icon">💭</span>
@@ -574,30 +572,11 @@
               </button>
             </div>
 
-            <div id="innerVoiceSingleSparkWrap">
-              <div class="trigger-header">
-                <div class="trigger-title-row" style="display:flex; align-items:center; gap:6px;">
-                  <span class="trigger-icon" style="color: #9A5B1A;">⚡</span>
-                  <span class="trigger-title">What Sparked This?</span>
-                  <button type="button" class="ui-info-dot-btn" onclick="toggleInfoTip(event, 'sparkFieldInfoTip')" title="About The Spark">i</button>
-                </div>
-                <span class="trigger-sub">Optional</span>
-              </div>
-              <div class="ui-info-popover-box" id="sparkFieldInfoTip" style="display:none;">
-                Jot down the real-world observation, memory, or moment that triggered your perspective.
-              </div>
-              <input type="text" id="creatorSparkInput" class="creator-input" placeholder="Type what sparked this thought (e.g. A chat with a colleague...)">
+            <div id="innerVoiceSingleSparkWrap" style="display:none !important;">
+              <input type="text" id="creatorSparkInput" class="creator-input" style="display:none !important;">
             </div>
 
-            <!-- Diary Chronicle Banner (Hidden; Mental Model banner above already states privacy once) -->
-            <div class="daily-chronicle-intro-banner" id="dailyChronicleIntroBanner" style="display:none !important;">
-              <div class="chronicle-banner-top">
-                <span class="chronicle-banner-badge">📔 DIARY CHRONICLE</span>
-              </div>
-              <p class="chronicle-banner-desc">
-                Record 2 to 3 distinct moments from your day, and tap <strong>★ Star</strong> on the moment you feel is most important to give it more space in Poster 1.
-              </p>
-            </div>
+            <div class="daily-chronicle-intro-banner" id="dailyChronicleIntroBanner" style="display:none !important;"></div>
           </div>
         </div>
 
@@ -681,9 +660,9 @@
             <span class="slant-take-hint" id="slantAutosaveStatus" style="font-size: 10.5px;">✓ Auto-saves</span>
           </div>
 
-          <div class="slant-take-action-bar" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 0;">
-            <div class="slant-take-action-btns">
-              <button type="button" class="slant-polish-action-btn" id="slantPolishActionBtn" onclick="polishUserTake()">
+          <div class="slant-take-action-bar" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: nowrap; gap: 8px; margin-top: 0;">
+            <div class="slant-take-action-btns" style="flex-shrink: 0;">
+              <button type="button" class="slant-polish-action-btn" id="slantPolishActionBtn" onclick="polishUserTake()" style="white-space: nowrap;">
                 <span class="btn-spark-icon">✨</span>
                 <span class="btn-text">Review &amp; Polish</span>
               </button>
@@ -694,7 +673,7 @@
             </div>
 
             <!-- Compact Scope Toggle beside Review & Polish (Just below Auto-saves line) -->
-            <div class="creator-regen-scope-bar is-locked-fresh" id="creatorRegenScopeBar" style="margin: 0; padding: 3px 6px; border-radius: 999px; display: inline-flex; align-items: center; gap: 5px; width: auto; background: rgba(15, 23, 42, 0.04); border: 1px solid rgba(148, 163, 184, 0.3);">
+            <div class="creator-regen-scope-bar is-locked-fresh" id="creatorRegenScopeBar" style="margin: 0; padding: 3px 6px; border-radius: 999px; display: inline-flex; align-items: center; gap: 5px; width: auto; flex-shrink: 0; background: rgba(15, 23, 42, 0.04); border: 1px solid rgba(148, 163, 184, 0.3);">
               <span id="regenScopeModeLabel" style="display: none;"></span>
               <span id="regenScopeStatusHint" style="display: none;"></span>
               <div class="regen-scope-track" id="regenScopeTrack" data-scope="both" role="radiogroup" aria-label="Generation Scope" style="margin: 0;">
@@ -895,38 +874,38 @@
               </button>
             </div>
 
-            <!-- Snap Scene / Upload Photos (Aligned 2-Tap Bar: Camera Icon + Multi-Photo Carousel Icon, No Repeated Header Text) -->
-            <div class="inner-voice-photo-wrap" id="innerVoicePhotoWrap" style="display: none; margin-bottom: 4px; padding: 8px 10px; border-radius: 11px; background: #FFFFFF; border: 1.5px dashed rgba(16, 185, 129, 0.45);">
+            <!-- Snap Scene / Upload Photos (Aligned 2-Tap Bar: Camera Icon + Multi-Photo Carousel Icon, No Extra Outer Frame) -->
+            <div class="inner-voice-photo-wrap" id="innerVoicePhotoWrap" style="display: none; margin-top: 6px; padding: 8px 0 2px; border-top: 1px solid rgba(148, 163, 184, 0.25); background: transparent; border-left: none; border-right: none; border-bottom: none; border-radius: 0;">
               <input type="file" id="innerVoiceCameraInput" accept="image/*" capture="environment" style="display:none;" onchange="handleInnerVoicePhotoSelect(event)">
               <input type="file" id="innerVoiceFileInput" accept="image/*" multiple style="display:none;" onchange="handleInnerVoicePhotoSelect(event)">
 
-              <!-- Aligned 2-Tap Buttons: 1) Camera (Snap Scene) | 2) Multiple-Photo Carousel Icon (Upload Photos) -->
-              <div class="inner-voice-photo-empty" id="innerVoicePhotoEmpty" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 0;">
-                <button type="button" class="inner-voice-photo-btn" id="attachedSnapSceneBtn" onclick="triggerInnerVoiceCamera()" style="height: 38px; padding: 0 12px; font-size: 11.5px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 7px; border-radius: 9px;">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;">
+              <!-- Aligned 2-Tap Buttons in Same Row: 1) Camera (Snap Scene) | 2) Multiple-Photo Carousel Icon (Upload Photos) -->
+              <div class="inner-voice-photo-empty" id="innerVoicePhotoEmpty" style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; align-items: center; margin-top: 0;">
+                <button type="button" class="inner-voice-photo-btn" id="attachedSnapSceneBtn" onclick="triggerInnerVoiceCamera()" style="height: 36px; min-height: 36px; max-height: 36px; padding: 0 8px; font-size: 11px; font-weight: 700; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; gap: 5px; border-radius: 9px; width: 100%; box-sizing: border-box;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;">
                     <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
                     <circle cx="12" cy="13" r="4"></circle>
                   </svg>
-                  <span class="btn-label" id="attachedSnapBtnLabel">Snap Scene</span>
+                  <span class="btn-label" id="attachedSnapBtnLabel" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Snap Scene</span>
                 </button>
-                <button type="button" class="inner-voice-photo-btn" id="attachedUploadPhotoBtn" onclick="triggerInnerVoiceUpload()" style="height: 38px; padding: 0 12px; font-size: 11.5px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 7px; border-radius: 9px;">
+                <button type="button" class="inner-voice-photo-btn" id="attachedUploadPhotoBtn" onclick="triggerInnerVoiceUpload()" style="height: 36px; min-height: 36px; max-height: 36px; padding: 0 8px; font-size: 11px; font-weight: 700; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; gap: 5px; border-radius: 9px; width: 100%; box-sizing: border-box;">
                   <!-- Multi-Photo Carousel / Stack Icon -->
-                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;">
                     <rect x="2" y="6" width="15" height="15" rx="2.5"></rect>
                     <path d="M7 3h13a2 2 0 0 1 2 2v13"></path>
                     <circle cx="7" cy="11" r="1.5"></circle>
                     <path d="M17 16l-3.5-3.5L6 20"></path>
                   </svg>
-                  <span class="btn-label" id="attachedUploadBtnLabel">Upload Photos</span>
+                  <span class="btn-label" id="attachedUploadBtnLabel" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Upload Photos</span>
                 </button>
               </div>
 
-              <!-- Attached 1–3 Photos Strip with ★ Star Prominence, Slot Reorder & Frame Panning -->
+              <!-- Attached 1–3 Photos Strip with ★ Star Prominence, Slot Reorder & Frame Panning (Clean Flat Layout) -->
               <div id="innerVoicePhotoPreview" style="display: none; flex-direction: column; gap: 6px; margin-top: 8px;">
                 <div id="attachedScenePhotosGrid" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px;">
                   <!-- Populated dynamically by renderAttachedScenePhotosUI() -->
                 </div>
-                <div id="attachedSceneCanvasPreviewWrap" style="display: none; flex-direction: column; align-items: center; gap: 5px; padding: 8px; border-radius: 10px; background: rgba(15,23,42,0.035); border: 1px solid rgba(148,163,184,0.25);">
+                <div id="attachedSceneCanvasPreviewWrap" style="display: none; flex-direction: column; align-items: center; gap: 5px; padding: 4px 0 0; background: transparent; border: none;">
                   <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; max-width: 220px; gap: 4px;">
                     <span style="font-size: 9.8px; font-weight: 700; color: var(--text-secondary);">🖐️ Drag photo in frame</span>
                     <div style="display: inline-flex; align-items: center; gap: 3px;">
@@ -935,7 +914,7 @@
                       <button type="button" onclick="resetCollageFramePan('attached')" style="border: 1px solid rgba(148,163,184,0.4); background: #FFFFFF; color: var(--text-secondary); border-radius: 5px; padding: 1px 5px; font-size: 9.5px; font-weight: 800; cursor: pointer;" title="Reset frame position">↺</button>
                     </div>
                   </div>
-                  <canvas id="attachedScenePreviewCanvas" width="800" height="1000" style="width: 100%; max-width: 220px; aspect-ratio: 4 / 5; border-radius: 7px; box-shadow: 0 4px 14px rgba(15,23,42,0.14); background: #F5EFE2; cursor: grab; touch-action: none;"></canvas>
+                  <canvas id="attachedScenePreviewCanvas" width="800" height="1000" style="width: 100%; max-width: 220px; aspect-ratio: 4 / 5; border-radius: 8px; box-shadow: 0 3px 10px rgba(15,23,42,0.12); background: #18181B; cursor: grab; touch-action: none;"></canvas>
                 </div>
                 <div style="display: flex; align-items: center; justify-content: flex-end; gap: 6px;">
                   <button type="button" class="ui-info-dot-btn" onclick="toggleInfoTip(event, 'attachedPhotoStarInfoTip')" title="About Collage Controls">i</button>
@@ -948,8 +927,8 @@
               </div>
             </div>
 
-            <!-- Web Source Picker directly below Web Source card in Visual Mode -->
-            <div class="web-collage-studio-card" id="creatorWebCollageStudioCard" style="display: none; margin-bottom: 4px; padding: 10px; border-radius: 11px; background: #FFFFFF; border: 1.5px dashed rgba(16, 185, 129, 0.45);">
+            <!-- Web Source Picker directly below Web Source card in Visual Mode (Clean Flat Layout — No Nested Frames) -->
+            <div class="web-collage-studio-card" id="creatorWebCollageStudioCard" style="display: none; margin-top: 6px; padding: 8px 0 2px; border-top: 1px solid rgba(148, 163, 184, 0.25); background: transparent; border-left: none; border-right: none; border-bottom: none; border-radius: 0;">
               <!-- Subject Tabs Bar + Compact Re-scan Button -->
               <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 7px;">
                 <div id="webCollageSubjectTabs" style="display: flex; align-items: center; gap: 6px; overflow-x: auto; padding-bottom: 2px; flex: 1;">
@@ -973,15 +952,13 @@
               </div>
 
               <!-- Selected Images & Live Collage Preview Strip -->
-              <div id="webCollageComposerStrip" style="margin-top: 9px; padding-top: 8px; border-top: 1px dashed rgba(148,163,184,0.35);">
-                <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 7px; flex-wrap: wrap;">
+              <div id="webCollageComposerStrip" style="margin-top: 8px; padding-top: 7px; border-top: 1px solid rgba(148,163,184,0.22);">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 6px; flex-wrap: wrap;">
                   <div style="display: inline-flex; align-items: center; gap: 5px; font-size: 10.8px; font-weight: 800; color: var(--text-primary);">
                     <span>Selected (<span id="webCollageSelectedCount">0</span>/3)</span>
                     <button type="button" class="ui-info-dot-btn" onclick="toggleInfoTip(event, 'webCollageInfoTip')" title="About Web Source">i</button>
                   </div>
                   <div style="display: inline-flex; align-items: center; gap: 4px;">
-                    <button type="button" id="webCollageStyleArchivalBtn" onclick="setWebCollageLayoutStyle('archival')" style="padding: 2px 7px; border-radius: 99px; border: 1px solid #253833; background: #253833; color: #FFFFFF; font-size: 9.8px; font-weight: 800; cursor: pointer;">🗞️ Frame</button>
-                    <button type="button" id="webCollageStyleBleedBtn" onclick="setWebCollageLayoutStyle('bleed')" style="padding: 2px 7px; border-radius: 99px; border: 1px solid rgba(148,163,184,0.45); background: transparent; color: var(--text-secondary); font-size: 9.8px; font-weight: 800; cursor: pointer;">📐 Split</button>
                     <button type="button" onclick="clearWebCollageSelection()" style="padding: 2px 7px; border-radius: 99px; border: 1px solid rgba(220,38,38,0.3); background: transparent; color: #DC2626; font-size: 9.8px; font-weight: 800; cursor: pointer;">Clear</button>
                   </div>
                 </div>
@@ -994,8 +971,8 @@
                   <!-- Populated dynamically -->
                 </div>
 
-                <!-- Live Canvas Preview (Auto-applied to Poster 1) -->
-                <div id="webCollageCanvasPreviewWrap" style="display: none; flex-direction: column; align-items: center; gap: 5px; padding: 8px; border-radius: 10px; background: rgba(15,23,42,0.035); border: 1px solid rgba(148,163,184,0.25);">
+                <!-- Live Canvas Preview (Auto-applied to Poster 1, Clean Edge-to-Edge without Extra Wrapper Box) -->
+                <div id="webCollageCanvasPreviewWrap" style="display: none; flex-direction: column; align-items: center; gap: 5px; padding: 4px 0 0; background: transparent; border: none;">
                   <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; max-width: 220px; gap: 4px;">
                     <span style="font-size: 9.8px; font-weight: 700; color: var(--text-secondary);">🖐️ Drag photo in frame</span>
                     <div style="display: inline-flex; align-items: center; gap: 3px;">
@@ -1004,7 +981,7 @@
                       <button type="button" onclick="resetCollageFramePan('web')" style="border: 1px solid rgba(148,163,184,0.4); background: #FFFFFF; color: var(--text-secondary); border-radius: 5px; padding: 1px 5px; font-size: 9.5px; font-weight: 800; cursor: pointer;" title="Reset frame position">↺</button>
                     </div>
                   </div>
-                  <canvas id="webCollagePreviewCanvas" width="800" height="1000" style="width: 100%; max-width: 220px; aspect-ratio: 4 / 5; border-radius: 7px; box-shadow: 0 4px 14px rgba(15,23,42,0.14); background: #F5EFE2; cursor: grab; touch-action: none;"></canvas>
+                  <canvas id="webCollagePreviewCanvas" width="800" height="1000" style="width: 100%; max-width: 220px; aspect-ratio: 4 / 5; border-radius: 8px; box-shadow: 0 3px 10px rgba(15,23,42,0.12); background: #18181B; cursor: grab; touch-action: none;"></canvas>
                   <div id="webCollageAppliedStatus" style="display: none; font-size: 10.5px; font-weight: 800; color: #059669; text-align: center;">
                     ✓ Ready for Poster 1 (0⚡ Free)
                   </div>
@@ -1299,7 +1276,7 @@
             <!-- Rendered dynamically -->
           </div>
 
-          <!-- Sleek Action Toolbar: Regen, Edit, Clear Text (Eye View), Share -->
+          <!-- Sleek Action Toolbar: Regen, Edit, Share (Centrally Aligned) -->
           <div class="creator-result-action-panel" id="creatorResultActionPanel">
             <!-- 1. Regen -->
             <button type="button" class="action-icon-btn regen" id="step3RegenBtn" onclick="handleStep3Regenerate()" title="Reopen from beginning without changing visual cues">
@@ -1324,13 +1301,8 @@
               <span class="action-icon-label" id="step3EditLabel">Edit</span>
             </button>
 
-            <!-- 3. Save as Private Draft (Visible only to you in Feed & Drafts) -->
-            <button type="button" class="action-icon-btn save save-draft" id="step3SaveBtn" onclick="saveSynthesizedPost({ asDraftOnly: true })" title="Save to your Drafts so you can keep editing later without pushing to your Diary Calendar">
-              <div class="action-icon-circle">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
-                </svg>
-              </div>
+            <!-- 3. Save hidden per user preference (Save Draft button is directly below) -->
+            <button type="button" class="action-icon-btn save save-draft" id="step3SaveBtn" onclick="saveSynthesizedPost({ asDraftOnly: true })" style="display: none !important;">
               <span class="action-icon-label" id="step3SaveLabel">Save</span>
             </button>
 
