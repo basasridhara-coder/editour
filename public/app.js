@@ -8272,14 +8272,11 @@ function calibrateEssayViewportPagination(viewportEl, forceRecalibrate = false) 
     p1Container.appendChild(pEl);
     const h = getP1ContentHeight();
 
-    // If this is the very last paragraph and it fits on Page 1, check if we have a reflectionBox that wouldn't fit on Page 1.
-    // We never want Page 2 to have ONLY a reflection box with 0 sentences of essay text.
+    // If this is the very last paragraph and it fits on Page 1, always hold back concluding prose for Page 2
+    // so the first half of Page 2 (the 3rd page) carries the concluding thought above the Passing Clouds SVG in the second half.
     let mustHoldBackForReflection = false;
-    if (isLastPara && h <= maxAllowedContentHeight && reflectionBox) {
-      const estReflectionHeight = reflectionBox.offsetHeight || 62;
-      if (h + estReflectionHeight + 28 > maxAllowedContentHeight) {
-        mustHoldBackForReflection = true;
-      }
+    if (isLastPara && h <= maxAllowedContentHeight) {
+      mustHoldBackForReflection = true;
     }
 
     if (h <= maxAllowedContentHeight && !mustHoldBackForReflection) {
@@ -8413,6 +8410,66 @@ function calibrateEssayViewportPagination(viewportEl, forceRecalibrate = false) 
       p2Container.appendChild(p2El);
     }
   });
+
+  // Ensure Page 2 (the 3rd page) keeps the Slant Passing Clouds SVG in its second half completely undisturbed
+  // while concising/fitting Page 2's text into the first half.
+  const p2CloudsPanel = page2El.querySelector('.slant-passing-clouds-panel');
+  if (p2CloudsPanel) {
+    page2El.style.setProperty('display', 'flex', 'important');
+    page2El.style.setProperty('flex-direction', 'column', 'important');
+    page2El.style.setProperty('min-height', `${availableP1Height}px`, 'important');
+    p2CloudsPanel.style.setProperty('flex-shrink', '0', 'important');
+    p2CloudsPanel.style.setProperty('margin-top', 'auto', 'important');
+
+    const getP2TotalHeight = () => {
+      const p2Header = page2El.querySelector('.receipt-brand-corner-bar');
+      const p2Footer = page2El.querySelector('.receipt-footer');
+      const hHeader = p2Header ? (p2Header.offsetHeight + 8) : 28;
+      const hContent = p2Container.scrollHeight || p2Container.offsetHeight || 0;
+      const hClouds = p2CloudsPanel.offsetHeight || Math.round((vpWidth - 28) * (3 / 7)) + 10;
+      const hFooter = p2Footer ? (p2Footer.offsetHeight + 8) : 26;
+      return hHeader + hContent + hClouds + hFooter + 12;
+    };
+
+    const p2ParasNow = Array.from(p2Container.querySelectorAll('p.receipt-p1, p.receipt-p3'));
+    p2ParasNow.forEach(p => {
+      p.style.removeProperty('font-size');
+      p.style.removeProperty('line-height');
+      p.style.removeProperty('margin-bottom');
+    });
+
+    if (getP2TotalHeight() > availableP1Height && p2ParasNow.length > 0) {
+      const baseP2Fs = parseFloat(window.getComputedStyle(p2ParasNow[0]).fontSize) || 13.6;
+      const scales = [0.95, 0.91, 0.87];
+      for (const s of scales) {
+        if (getP2TotalHeight() <= availableP1Height) break;
+        p2ParasNow.forEach(p => {
+          p.style.setProperty('font-size', `${Math.max(11.4, baseP2Fs * s).toFixed(2)}px`, 'important');
+          p.style.setProperty('line-height', `${Math.max(1.40, 1.56 * s).toFixed(2)}`, 'important');
+          p.style.setProperty('margin-bottom', `${Math.max(3, Math.round(5 * s))}px`, 'important');
+        });
+      }
+      // If a legacy post still overflows the first half of Page 2 above the Passing Clouds SVG, trim trailing overflow sentences
+      while (getP2TotalHeight() > availableP1Height && page2Items.length > 0) {
+        const lastIdx = page2Items.length - 1;
+        const lastSentences = splitEssayIntoSentences(page2Items[lastIdx].text);
+        if (lastSentences.length > 1) {
+          lastSentences.pop();
+          page2Items[lastIdx].text = lastSentences.join(' ').trim();
+          const domP = p2ParasNow[lastIdx];
+          if (domP) {
+            domP.textContent = hyphenateBroadsheetTextGlobal(page2Items[lastIdx].text);
+          }
+        } else if (page2Items.length > 1) {
+          page2Items.pop();
+          const domP = p2ParasNow.pop();
+          if (domP) domP.remove();
+        } else {
+          break;
+        }
+      }
+    }
+  }
 
   // Micro-Typographic Vertical Justification:
   // Smoothly distribute any sub-sentence remainder so the final line of Page 1 ends ~1 line before the page end.
@@ -8738,14 +8795,42 @@ function evaluateEssayBifurcation(post, index) {
     }
   }
 
+  // Ensure every post has concluding prose on Page 2 (the 3rd page) so the first half of Page 2 carries the conclusion
+  // and the second half of Page 2 displays the Slant Passing Clouds SVG undisturbed.
+  if (page2Paras.length === 0 && page1Paras.length > 1) {
+    page2Paras.push(page1Paras.pop());
+    splitParaContinuation = false;
+  } else if (page2Paras.length === 0 && page1Paras.length === 1) {
+    const onlyUnits = splitIntoParagraphUnits(page1Paras[0]);
+    if (onlyUnits.length >= 2) {
+      const holdCount = Math.max(1, Math.floor(onlyUnits.length / 3));
+      page1Paras[0] = onlyUnits.slice(0, onlyUnits.length - holdCount).join(" ").trim();
+      page2Paras.push(onlyUnits.slice(onlyUnits.length - holdCount).join(" ").trim());
+      splitParaContinuation = true;
+    }
+  }
+
+  // Concise Page 2 paragraphs if needed so they fit cleanly in the first half of the 3rd page above the Passing Clouds SVG
+  const maxPage2FirstHalfWords = (post.whyItMatters && String(post.whyItMatters).trim()) ? 85 : 102;
+  let totalP2Words = page2Paras.join(" ").split(/\s+/).filter(Boolean).length;
+  while (totalP2Words > maxPage2FirstHalfWords && page2Paras.length > 0) {
+    const lastIdx = page2Paras.length - 1;
+    const sents = splitIntoParagraphUnits(page2Paras[lastIdx]);
+    if (sents.length > 1) {
+      sents.pop();
+      page2Paras[lastIdx] = sents.join(" ").trim();
+    } else if (page2Paras.length > 1) {
+      page2Paras.pop();
+    } else {
+      break;
+    }
+    totalP2Words = page2Paras.join(" ").split(/\s+/).filter(Boolean).length;
+  }
+
   const remainingText = page2Paras.join(" ").trim();
   const remainingWords = remainingText.split(/\s+/).filter(Boolean).length;
 
-  const THRESHOLD_WORDS = 20;
-  const THRESHOLD_CHARS = 85;
-  const isOverflowSubstantial = (remainingWords >= THRESHOLD_WORDS || remainingText.length >= THRESHOLD_CHARS);
-
-  if (!isOverflowSubstantial) {
+  if (remainingWords === 0) {
     return {
       isBifurcated: false,
       hasPhoto,
@@ -9503,7 +9588,13 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
         </div>
         `}
 
-        <div class="receipt-footer">
+        <div class="slant-passing-clouds-panel" style="margin-top: auto; padding-top: 6px; padding-bottom: 4px; width: 100%; flex-shrink: 0; box-sizing: border-box;">
+          <div class="slant-passing-clouds-frame" style="width: 100%; aspect-ratio: 7 / 3; border-radius: 6px; overflow: hidden; border: 1px solid rgba(15, 23, 42, 0.12); background: #F5F2E9; display: flex; align-items: center; justify-content: center; box-sizing: border-box;">
+            <img src="/slant-passing-clouds-scalable.svg" class="slant-passing-clouds-svg-img" alt="Slant — Thoughts are passing clouds" style="width: 100%; height: 100%; object-fit: contain; display: block;">
+          </div>
+        </div>
+
+        <div class="receipt-footer" style="margin-top: 0 !important;">
           <div class="receipt-folio-rule"></div>
           <div class="receipt-folio-text">
             <span class="receipt-folio-left"><span class="poster-web-globe-icon" aria-hidden="true">🌐</span>slant.today</span>
@@ -13042,96 +13133,57 @@ async function capturePostSlidesAsFiles(post, index) {
             sceneFrameEl.style.setProperty('max-height', `${Math.max(115, Math.round(155 * s))}px`, 'important');
           }
         }
+
+        // If this is the 3rd page containing the Slant Passing Clouds SVG panel in its second half,
+        // ensure the SVG panel is never disturbed or shrunk and concise any overflowing text in the first half.
+        const cloudsPanelEl = pageBlock.querySelector('.slant-passing-clouds-panel');
+        if (cloudsPanelEl) {
+          cloudsPanelEl.style.setProperty('flex-shrink', '0', 'important');
+          cloudsPanelEl.style.setProperty('margin-top', 'auto', 'important');
+          while (pageBlock.scrollHeight > pageBlock.clientHeight + 4) {
+            const pList = Array.from(pageBlock.querySelectorAll('.receipt-p1, .receipt-p3'));
+            if (pList.length === 0) break;
+            const lastP = pList[pList.length - 1];
+            const sents = splitEssayIntoSentences((lastP.textContent || '').replace(/\u00AD/g, '').trim());
+            if (sents.length > 1) {
+              sents.pop();
+              lastP.textContent = hyphenateBroadsheetTextGlobal(sents.join(' ').trim());
+            } else if (pList.length > 1) {
+              lastP.remove();
+            } else {
+              break;
+            }
+          }
+        }
       }
 
-      // On the final shared poster page, if there is open space before the footer, place a classic broadsheet Slant house ad
-      // featuring just the Slant logo and the Passing Clouds quote scaled to the available space.
-      if (cfg.isLastSlide && pageBlock) {
-        const footerEl = pageBlock.querySelector('.receipt-footer');
-        const contentEl = pageBlock.querySelector('.receipt-paragraphs, .chronicle-reflection-centerpiece');
-        if (footerEl && contentEl) {
-          let lowestContentBottom = contentEl.getBoundingClientRect().bottom;
-          Array.from(contentEl.children).forEach(child => {
-            const b = child.getBoundingClientRect().bottom;
-            if (b > lowestContentBottom) lowestContentBottom = b;
-          });
-          const footerTop = footerEl.getBoundingClientRect().top;
-          const freeHeight = Math.floor(footerTop - lowestContentBottom);
-
-          if (freeHeight >= 54) {
-            const quoteText = '“Thoughts are passing clouds. Left alone, they vanish into thin air. Gathered and condensed, they bring the rain that nourishes the earth.”';
-            const buildAdMarkupForTier = (tier) => {
-              if (tier === 'large') {
-                return `
-                  <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 6px; padding: 12px 16px; border: 1px solid rgba(15, 23, 42, 0.16); border-radius: 8px; background: rgba(15, 23, 42, 0.025); width: 100%; box-sizing: border-box;">
-                    <div style="display: inline-flex; align-items: center; gap: 6px;">
-                      <img src="/logo.png" alt="Slant" style="width: 22px; height: 22px; border-radius: 5px; object-fit: contain;">
-                      <span style="font-family: 'Inter', system-ui, sans-serif; font-size: 10.5px; font-weight: 900; letter-spacing: 1.6px; color: #0F172A; text-transform: uppercase;">SLANT</span>
-                    </div>
-                    <p style="margin: 0; font-family: 'Merriweather', Georgia, serif; font-size: 11.2px; font-style: italic; font-weight: 500; line-height: 1.48; color: #1E293B; max-width: 96%;">
-                      ${quoteText}
-                    </p>
-                  </div>
-                `;
-              }
-              if (tier === 'medium') {
-                return `
-                  <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 4px; padding: 8px 13px; border: 1px solid rgba(15, 23, 42, 0.15); border-radius: 7px; background: rgba(15, 23, 42, 0.025); width: 100%; box-sizing: border-box;">
-                    <div style="display: inline-flex; align-items: center; gap: 5px;">
-                      <img src="/logo.png" alt="Slant" style="width: 17px; height: 17px; border-radius: 4px; object-fit: contain;">
-                      <span style="font-family: 'Inter', system-ui, sans-serif; font-size: 9.5px; font-weight: 900; letter-spacing: 1.4px; color: #0F172A; text-transform: uppercase;">SLANT</span>
-                    </div>
-                    <p style="margin: 0; font-family: 'Merriweather', Georgia, serif; font-size: 10.2px; font-style: italic; font-weight: 500; line-height: 1.38; color: #1E293B;">
-                      ${quoteText}
-                    </p>
-                  </div>
-                `;
-              }
-              return `
-                <div style="display: flex; align-items: center; justify-content: flex-start; gap: 9px; padding: 6px 11px; border: 1px solid rgba(15, 23, 42, 0.14); border-radius: 6px; background: rgba(15, 23, 42, 0.025); width: 100%; box-sizing: border-box;">
-                  <div style="display: flex; flex-direction: column; align-items: center; gap: 2px; flex-shrink: 0;">
-                    <img src="/logo.png" alt="Slant" style="width: 18px; height: 18px; border-radius: 4px; object-fit: contain;">
-                    <span style="font-family: 'Inter', system-ui, sans-serif; font-size: 7.5px; font-weight: 900; letter-spacing: 1px; color: #0F172A; text-transform: uppercase;">SLANT</span>
-                  </div>
-                  <p style="margin: 0; font-family: 'Merriweather', Georgia, serif; font-size: 9.4px; font-style: italic; font-weight: 500; line-height: 1.32; color: #1E293B; text-align: left;">
-                    ${quoteText}
-                  </p>
-                </div>
-              `;
-            };
-
-            const adWrapper = document.createElement('div');
-            adWrapper.className = 'slant-export-passing-clouds-ad';
-            adWrapper.style.cssText = 'margin-top: auto !important; margin-bottom: auto !important; padding-top: 6px !important; padding-bottom: 4px !important; width: 100% !important; flex-shrink: 0 !important; box-sizing: border-box !important;';
-            footerEl.style.setProperty('margin-top', '0px', 'important');
-            pageBlock.insertBefore(adWrapper, footerEl);
-
-            const candidateTiers = freeHeight >= 145
-              ? ['large', 'medium', 'compact']
-              : (freeHeight >= 92 ? ['medium', 'compact'] : ['compact']);
-
-            let fitSuccess = false;
-            for (const tier of candidateTiers) {
-              adWrapper.innerHTML = buildAdMarkupForTier(tier);
-              if (pageBlock.scrollHeight <= pageBlock.clientHeight + 2) {
-                fitSuccess = true;
-                break;
-              }
-            }
-            if (!fitSuccess) {
-              adWrapper.remove();
-              footerEl.style.setProperty('margin-top', 'auto', 'important');
-            } else {
-              const adImg = adWrapper.querySelector('img');
-              if (adImg && !adImg.complete) {
+      // Rasterize the scalable Passing Clouds SVG at 2x Retina into a PNG data URL so html2canvas renders every vector path crisply
+      const cloudsSvgImgs = Array.from(container.querySelectorAll('.slant-passing-clouds-svg-img'));
+      for (const svgImg of cloudsSvgImgs) {
+        if (svgImg.complete && svgImg.naturalWidth > 0) {
+          try {
+            const rect = svgImg.getBoundingClientRect();
+            const tw = Math.max(280, Math.round(rect.width) || 414);
+            const th = Math.max(120, Math.round(rect.height) || 177);
+            const offC = document.createElement('canvas');
+            offC.width = tw * 2;
+            offC.height = th * 2;
+            const ctx = offC.getContext('2d');
+            if (ctx) {
+              ctx.imageSmoothingEnabled = true;
+              ctx.imageSmoothingQuality = 'high';
+              ctx.drawImage(svgImg, 0, 0, offC.width, offC.height);
+              const pngUrl = offC.toDataURL('image/png');
+              if (pngUrl && pngUrl.length > 100) {
                 await new Promise(res => {
-                  adImg.onload = () => res(true);
-                  adImg.onerror = () => res(false);
+                  svgImg.onload = () => res(true);
+                  svgImg.onerror = () => res(false);
                   setTimeout(() => res(false), 800);
+                  svgImg.src = pngUrl;
                 });
               }
             }
-          }
+          } catch (_) {}
         }
       }
 
