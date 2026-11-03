@@ -29,7 +29,7 @@
   <link rel="preconnect" href="https://fxfklefnkpmhofncqhfh.supabase.co" crossorigin>
   <link rel="preconnect" href="https://accounts.google.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Merriweather:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,400;1,600;1,700;1,900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261103_1940">
+  <link rel="stylesheet" href="style.css?v=20261103_2305">
   <!-- Favicon & Brand Icons -->
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
@@ -396,6 +396,7 @@
         <div class="filter-pill user-pill" id="pillDrafts" data-cat="drafts" style="display:none;">📝 Drafts (<span id="badgeDraftsCount">0</span>)</div>
         <div class="filter-pill user-pill" id="pillSaved" data-cat="saved" style="display:none;">🔖 Saved (<span id="badgeSavedCount">0</span>)</div>
         <div class="filter-pill user-pill" id="pillMyStories" data-cat="my_stories" style="display:none;">✍️ My Stories (<span id="badgeMyCount">0</span>)</div>
+        <div class="filter-pill user-pill" id="pillSeries" data-cat="series" style="display:none;">📚 Series (<span id="badgeSeriesCount">0</span>)</div>
         <div class="filter-pill" data-cat="opinion">💭 Opinion • Inner Voice</div>
         <div class="filter-pill" data-cat="tech">Deep Tech</div>
         <div class="filter-pill" data-cat="health">Health & Bio</div>
@@ -995,6 +996,24 @@
             </div>
           </div>
 
+          <!-- Series / Topic Notebook Selector (Step 1 - Synchronized with Step 3) -->
+          <div id="creatorSeriesRow" class="creator-series-row">
+            <div class="creator-series-label-wrap">
+              <span class="creator-series-icon">📚</span>
+              <div class="creator-series-label-copy">
+                <span class="creator-series-label-title">Part of a Series</span>
+                <span class="creator-series-label-sub" id="creatorSeriesSub1">Group related thoughts &amp; choose which go public</span>
+              </div>
+            </div>
+            <div class="creator-series-picker-wrap" id="creatorSeriesWrap1">
+              <button type="button" class="creator-series-select-btn" id="creatorSeriesBtn1" onclick="toggleCreatorSeriesPopover(event, 1)">
+                <span id="creatorSeriesBtnText1">None (Standalone)</span>
+                <span class="creator-series-caret">▾</span>
+              </button>
+              <div class="creator-series-popover" id="creatorSeriesPopover1"></div>
+            </div>
+          </div>
+
           <!-- Post Comment Permission Toggle (Compact single-line) -->
           <div id="creatorAllowCommentsRow" style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 12px; margin-bottom: 10px; border-radius: 11px; background: var(--bg-surface, #F8FAFC); border: 1px solid var(--border-subtle, rgba(148,163,184,0.3));">
             <div style="display: flex; align-items: center; gap: 6px;">
@@ -1316,6 +1335,24 @@
               </div>
               <span class="action-icon-label" id="step3ShareLabel">Share</span>
             </button>
+          </div>
+
+          <!-- Step 3 Series / Topic Notebook Selector (Synchronized with Step 1) -->
+          <div id="step3SeriesRow" class="creator-series-row" style="margin: 6px 0 6px;">
+            <div class="creator-series-label-wrap">
+              <span class="creator-series-icon">📚</span>
+              <div class="creator-series-label-copy">
+                <span class="creator-series-label-title">Series</span>
+                <span class="creator-series-label-sub" id="creatorSeriesSub3">Save privately to series or publish</span>
+              </div>
+            </div>
+            <div class="creator-series-picker-wrap" id="creatorSeriesWrap3">
+              <button type="button" class="creator-series-select-btn" id="creatorSeriesBtn3" onclick="toggleCreatorSeriesPopover(event, 3)">
+                <span id="creatorSeriesBtnText3">None (Standalone)</span>
+                <span class="creator-series-caret">▾</span>
+              </button>
+              <div class="creator-series-popover" id="creatorSeriesPopover3"></div>
+            </div>
           </div>
 
           <!-- Step 3 Comment Permission Toggle (Synchronized with Step 1) -->
@@ -2703,6 +2740,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261103_1940"></script>
+  <script src="app.js?v=20261103_2305"></script>
 </body>
 </html>

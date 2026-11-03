@@ -454,6 +454,127 @@ function mergeCloudSaveBuckets(cloudBuckets, cloudSavedIds) {
   persistSaveBuckets(false);
 }
 
+/* ============================================================
+   CREATOR SERIES (TOPIC NOTEBOOKS) STATE & HELPERS
+   ============================================================ */
+const CREATOR_SERIES_STORAGE_KEY = 'slant_creator_series_v1';
+let activeCreatorSeriesId = null;
+let activeFeedSeriesFilter = 'all';
+
+function loadCreatorSeriesFromStorage() {
+  try {
+    const raw = localStorage.getItem(CREATOR_SERIES_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed
+          .filter(s => s && typeof s.title === 'string' && s.title.trim())
+          .map(s => ({
+            id: String(s.id || ('series_' + s.title.toLowerCase().replace(/[^a-z0-9]+/g, '_'))),
+            title: String(s.title).trim(),
+            icon: String(s.icon || '📚'),
+            createdAt: s.createdAt || new Date().toISOString()
+          }));
+      }
+    }
+  } catch (_) {}
+  return [];
+}
+
+let creatorSeriesList = loadCreatorSeriesFromStorage();
+
+function persistCreatorSeries(syncCloud = true) {
+  try {
+    localStorage.setItem(CREATOR_SERIES_STORAGE_KEY, JSON.stringify(creatorSeriesList));
+  } catch (_) {}
+  if (syncCloud && typeof syncUserMetadataToCloud === 'function') {
+    syncUserMetadataToCloud();
+  }
+}
+
+function mergeCloudCreatorSeries(cloudSeries) {
+  if (!Array.isArray(cloudSeries) || cloudSeries.length === 0) return;
+  let changed = false;
+  cloudSeries.forEach(cs => {
+    if (!cs || typeof cs.title !== 'string' || !cs.title.trim()) return;
+    const cleanTitle = cs.title.trim();
+    const csId = String(cs.id || ('series_' + cleanTitle.toLowerCase().replace(/[^a-z0-9]+/g, '_')));
+    const exists = creatorSeriesList.find(s => s.id === csId || s.title.toLowerCase() === cleanTitle.toLowerCase());
+    if (!exists) {
+      creatorSeriesList.push({
+        id: csId,
+        title: cleanTitle,
+        icon: String(cs.icon || '📚'),
+        createdAt: cs.createdAt || new Date().toISOString()
+      });
+      changed = true;
+    }
+  });
+  if (changed) {
+    persistCreatorSeries(false);
+  }
+}
+
+function getPostSeriesInfo(post) {
+  if (!post) return null;
+  const sId = String(post.seriesId || post.generationInputs?.seriesId || '').trim();
+  const sTitle = String(post.seriesTitle || post.generationInputs?.seriesTitle || '').trim();
+  if (!sId && !sTitle) return null;
+  const matched = Array.isArray(creatorSeriesList)
+    ? creatorSeriesList.find(s => (sId && s.id === sId) || (sTitle && s.title.toLowerCase() === sTitle.toLowerCase()))
+    : null;
+  return {
+    id: matched ? matched.id : (sId || ('series_' + sTitle.toLowerCase().replace(/[^a-z0-9]+/g, '_'))),
+    title: matched ? matched.title : (sTitle || 'Untitled Series'),
+    icon: matched ? (matched.icon || '📚') : '📚'
+  };
+}
+
+function syncSeriesFromLoadedPosts() {
+  if (!Array.isArray(allPosts)) return;
+  let changed = false;
+  allPosts.forEach(p => {
+    if (!p || p.deleted || p.isDeleted || deletedPostIds.has(p.id)) return;
+    if (typeof isPostOwnedByCurrentUser === 'function' && !isPostOwnedByCurrentUser(p)) return;
+    const info = getPostSeriesInfo(p);
+    if (!info || !info.title) return;
+    const exists = creatorSeriesList.find(s => s.id === info.id || s.title.toLowerCase() === info.title.toLowerCase());
+    if (!exists) {
+      creatorSeriesList.push({
+        id: info.id,
+        title: info.title,
+        icon: info.icon || '📚',
+        createdAt: p.createdAt || new Date().toISOString()
+      });
+      changed = true;
+    }
+  });
+  if (changed) {
+    persistCreatorSeries(false);
+  }
+}
+
+function getSeriesStats(seriesId) {
+  let total = 0;
+  let pubCount = 0;
+  let privCount = 0;
+  if (Array.isArray(allPosts)) {
+    allPosts.forEach(p => {
+      if (!p || p.deleted || p.isDeleted || deletedPostIds.has(p.id) || isPostChronicleDiary(p)) return;
+      const isOwned = typeof isPostOwnedByCurrentUser === 'function' ? isPostOwnedByCurrentUser(p) : false;
+      const isPriv = typeof isPostPrivateOrDraft === 'function' ? isPostPrivateOrDraft(p) : false;
+      if (isPriv && !isOwned) return;
+      const info = getPostSeriesInfo(p);
+      if (info && info.id === seriesId) {
+        total++;
+        if (isPriv) privCount++;
+        else pubCount++;
+      }
+    });
+  }
+  return { total, pubCount, privCount };
+}
+
 function applyDeletedPostsTombstone(ids) {
   if (!Array.isArray(ids) || ids.length === 0) return false;
   let changed = false;
@@ -2402,6 +2523,10 @@ async function initAuth() {
             cloudMy.forEach(id => { if (!deletedPostIds.has(id)) myCreatedPostIds.add(id); });
             localStorage.setItem('slant_my_posts', JSON.stringify(Array.from(myCreatedPostIds)));
           }
+          const cloudSeries = currentUser.user_metadata.creator_series;
+          if (typeof mergeCloudCreatorSeries === 'function' && Array.isArray(cloudSeries)) {
+            mergeCloudCreatorSeries(cloudSeries);
+          }
         }
         sanitizeUserOwnershipAndCache();
         closeAuthModal();
@@ -2486,6 +2611,10 @@ async function initAuth() {
             if (Array.isArray(cloudMy) && cloudMy.length > 0) {
               cloudMy.forEach(id => { if (!deletedPostIds.has(id)) myCreatedPostIds.add(id); });
               localStorage.setItem('slant_my_posts', JSON.stringify(Array.from(myCreatedPostIds)));
+            }
+            const cloudSeries = currentUser.user_metadata.creator_series;
+            if (typeof mergeCloudCreatorSeries === 'function' && Array.isArray(cloudSeries)) {
+              mergeCloudCreatorSeries(cloudSeries);
             }
           }
 
@@ -2587,6 +2716,7 @@ function syncUserMetadataToCloud() {
         data: {
           saved_posts: Array.from(savedPostIds),
           save_buckets: Array.isArray(saveBuckets) ? saveBuckets : [],
+          creator_series: Array.isArray(creatorSeriesList) ? creatorSeriesList : [],
           my_posts: Array.from(myCreatedPostIds),
           deleted_posts: Array.from(deletedPostIds)
         }
@@ -2809,10 +2939,18 @@ function updateAuthUI() {
   const badgeMyCount = document.getElementById('badgeMyCount');
   const badgeDraftsCount = document.getElementById('badgeDraftsCount');
   const badgeChroniclesCount = document.getElementById('badgeChroniclesCount');
+  const badgeSeriesCount = document.getElementById('badgeSeriesCount');
   const pillSaved = document.getElementById('pillSaved');
   const pillMyStories = document.getElementById('pillMyStories');
+  const pillSeries = document.getElementById('pillSeries');
   const pillDrafts = document.getElementById('pillDrafts');
   const pillDailyChronicles = document.getElementById('pillDailyChronicles');
+
+  if (typeof syncSeriesFromLoadedPosts === 'function') {
+    syncSeriesFromLoadedPosts();
+  }
+  const seriesCount = Array.isArray(creatorSeriesList) ? creatorSeriesList.length : 0;
+  if (badgeSeriesCount) badgeSeriesCount.textContent = seriesCount;
 
   const savedCount = savedPostIds.size;
   if (userMenuSavedCount) userMenuSavedCount.textContent = savedCount;
@@ -2864,6 +3002,7 @@ function updateAuthUI() {
 
     if (pillSaved) pillSaved.style.display = '';
     if (pillMyStories) pillMyStories.style.display = '';
+    if (pillSeries) pillSeries.style.display = '';
     if (pillDrafts) pillDrafts.style.display = '';
     if (pillDailyChronicles) pillDailyChronicles.style.display = '';
 
@@ -2929,6 +3068,7 @@ function updateAuthUI() {
     // Show saved pill if reader saved cards locally
     if (pillSaved) pillSaved.style.display = savedCount > 0 ? '' : 'none';
     if (pillMyStories) pillMyStories.style.display = myPostsCount > 0 ? '' : 'none';
+    if (pillSeries) pillSeries.style.display = 'none';
     if (pillDrafts) pillDrafts.style.display = totalDraftsCount > 0 ? '' : 'none';
     if (pillDailyChronicles) pillDailyChronicles.style.display = myChroniclesCount > 0 ? '' : 'none';
 
@@ -7061,8 +7201,25 @@ function getFilteredPostsForFilter(posts, filter, query) {
       return matchesQuery(post);
     }
 
+    if (filter === 'series') {
+      const sInfo = getPostSeriesInfo(post);
+      if (!sInfo) return false;
+      // Only owner can see private series posts; other users only see public posts in a series
+      if (isPrivateDraft && !isOwnedByMe) return false;
+      if (activeFeedSeriesFilter && activeFeedSeriesFilter !== 'all') {
+        return sInfo.id === activeFeedSeriesFilter && matchesQuery(post);
+      }
+      return isOwnedByMe && matchesQuery(post);
+    }
+
     if (filter === 'my_stories') {
-      return isOwnedByMe && !isPrivateDraft && matchesQuery(post);
+      if (!isOwnedByMe) return false;
+      const sInfo = getPostSeriesInfo(post);
+      if (activeFeedSeriesFilter && activeFeedSeriesFilter !== 'all') {
+        return Boolean(sInfo && sInfo.id === activeFeedSeriesFilter) && matchesQuery(post);
+      }
+      // Show all published stories plus any private posts that belong to a Series
+      return (!isPrivateDraft || Boolean(sInfo)) && matchesQuery(post);
     }
 
     // Hide unpublished drafts from regular feed and topic categories (unless directly deep-linked by the owner)
@@ -7172,6 +7329,128 @@ function renderSavedBucketsFilterBar(container) {
   container.appendChild(bar);
 }
 
+function selectFeedSeriesFilter(seriesId) {
+  activeFeedSeriesFilter = String(seriesId || 'all');
+  renderFeed();
+}
+window.selectFeedSeriesFilter = selectFeedSeriesFilter;
+
+function openSeriesInFeed(seriesId) {
+  if (!seriesId) return;
+  activeFeedSeriesFilter = String(seriesId);
+  currentFilter = 'series';
+  document.querySelectorAll('.filter-pill').forEach(pill => {
+    pill.classList.toggle('active', pill.getAttribute('data-cat') === 'series');
+  });
+  renderFeed();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+window.openSeriesInFeed = openSeriesInFeed;
+
+function openCreatorForSeries(seriesId) {
+  if (seriesId && typeof setCreatorSeries === 'function') {
+    setCreatorSeries(seriesId);
+  }
+  openCreatorModalForSection('inner_voice', { preserveSeries: true, targetSeriesId: seriesId });
+}
+window.openCreatorForSeries = openCreatorForSeries;
+
+function createNewSeriesFromFeedBar(event) {
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  const inp = document.getElementById('feedNewSeriesInput');
+  const rawTitle = inp ? inp.value.trim() : '';
+  if (!rawTitle) return;
+
+  let existing = creatorSeriesList.find(s => s && s.title.toLowerCase() === rawTitle.toLowerCase());
+  if (!existing) {
+    const slug = rawTitle.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || ('s_' + Date.now());
+    existing = {
+      id: `series_${slug}_${Date.now().toString(36).slice(-3)}`,
+      title: rawTitle,
+      icon: '📚',
+      createdAt: new Date().toISOString()
+    };
+    creatorSeriesList.push(existing);
+    persistCreatorSeries(true);
+    updateAuthUI();
+  }
+  activeFeedSeriesFilter = existing.id;
+  showTemporaryToast(`📚 Series "${existing.title}" ready!`);
+  renderFeed();
+}
+window.createNewSeriesFromFeedBar = createNewSeriesFromFeedBar;
+
+function renderSeriesFilterBar(container) {
+  if (!container) return;
+  syncSeriesFromLoadedPosts();
+
+  const wrap = document.createElement('div');
+  wrap.className = 'series-feed-header-wrap';
+
+  const allSeriesPostsCount = Array.isArray(allPosts)
+    ? allPosts.filter(p => p && !p.deleted && !p.isDeleted && !deletedPostIds.has(p.id) && isPostOwnedByCurrentUser(p) && Boolean(getPostSeriesInfo(p))).length
+    : 0;
+
+  const pillsHtml = [
+    `<button type="button" class="saved-bucket-filter-pill series-filter-pill ${activeFeedSeriesFilter === 'all' ? 'active' : ''}" onclick="selectFeedSeriesFilter('all')">
+      <span>${currentFilter === 'series' ? '📚 All Series' : '✍️ All My Stories'}</span>
+      <span class="saved-bucket-pill-count">${currentFilter === 'series' ? allSeriesPostsCount : (document.getElementById('badgeMyCount')?.textContent || 0)}</span>
+    </button>`,
+    ...creatorSeriesList.map(s => {
+      const stats = getSeriesStats(s.id);
+      const isAct = activeFeedSeriesFilter === s.id;
+      return `
+        <button type="button" class="saved-bucket-filter-pill series-filter-pill ${isAct ? 'active' : ''}" onclick="selectFeedSeriesFilter('${escapeHtml(s.id)}')">
+          <span>${escapeHtml(s.icon || '📚')} ${escapeHtml(s.title)}</span>
+          <span class="saved-bucket-pill-count">${stats.total}</span>
+        </button>
+      `;
+    })
+  ].join('');
+
+  const activeSeriesObj = (activeFeedSeriesFilter && activeFeedSeriesFilter !== 'all')
+    ? creatorSeriesList.find(s => s.id === activeFeedSeriesFilter)
+    : null;
+  const activeStats = activeSeriesObj ? getSeriesStats(activeSeriesObj.id) : null;
+
+  wrap.innerHTML = `
+    <div class="saved-buckets-filter-bar series-filter-pills-row">
+      ${pillsHtml}
+    </div>
+    ${activeSeriesObj ? `
+      <div class="series-active-notebook-banner">
+        <div class="series-notebook-top">
+          <div class="series-notebook-title-wrap">
+            <span class="series-notebook-kicker">📚 SERIES NOTEBOOK</span>
+            <h4 class="series-notebook-title">${escapeHtml(activeSeriesObj.title)}</h4>
+          </div>
+          <div class="series-notebook-stats">
+            <span class="series-stat-pill is-public" title="Published to Public Feed">🌐 ${activeStats.pubCount} Public</span>
+            <span class="series-stat-pill is-private" title="Private in Series (Visible Only to You)">🔒 ${activeStats.privCount} Private</span>
+          </div>
+        </div>
+        <div class="series-notebook-actions">
+          <span class="series-notebook-hint">Explore thoughts in this series privately, and publish only the ones you choose.</span>
+          <button type="button" class="series-add-post-btn" onclick="openCreatorForSeries('${escapeHtml(activeSeriesObj.id)}')">
+            <span>+ New Post in Series</span>
+          </button>
+        </div>
+      </div>
+    ` : (currentFilter === 'series' ? `
+      <form class="series-inline-create-bar" onsubmit="createNewSeriesFromFeedBar(event)">
+        <span class="series-inline-icon">📚</span>
+        <input type="text" id="feedNewSeriesInput" class="series-inline-input" placeholder="+ Start a new Series topic (e.g. Rethinking AI, Urban Life)..." maxlength="48" autocomplete="off">
+        <button type="submit" class="series-inline-btn">Create Series</button>
+      </form>
+    ` : '')}
+  `;
+
+  container.appendChild(wrap);
+}
+
 async function renderFeed(isInitial = false) {
   const container = document.getElementById('feedContainer');
   if (!container) return;
@@ -7189,6 +7468,10 @@ async function renderFeed(isInitial = false) {
 
   if (currentFilter === 'saved') {
     renderSavedBucketsFilterBar(container);
+  }
+
+  if (currentFilter === 'series' || currentFilter === 'my_stories') {
+    renderSeriesFilterBar(container);
   }
 
   if (currentFilter === 'drafts' && typeof renderFeedFormDraftsSection === 'function') {
@@ -7246,16 +7529,38 @@ async function renderFeed(isInitial = false) {
       return;
     }
 
+    if (currentFilter === 'series') {
+      const emptyEl = document.createElement('div');
+      emptyEl.style.cssText = 'text-align:center; padding: 48px 16px; color: var(--text-muted);';
+      emptyEl.innerHTML = `
+        <div style="font-size:42px; margin-bottom:12px;">📚</div>
+        <div style="font-weight:700; font-size:17px; color:var(--text-primary); letter-spacing:-0.3px;">${activeFeedSeriesFilter !== 'all' ? 'No posts in this Series yet' : 'No Series posts yet'}</div>
+        <div style="font-size:13px; margin-top:6px; max-width:360px; margin-left:auto; margin-right:auto; line-height:1.5;">
+          Create a Series to explore a larger topic over multiple posts. Keep posts private inside your Series or publish selected ones to the public feed.
+        </div>
+        ${activeFeedSeriesFilter !== 'all' ? `
+          <button type="button" onclick="openCreatorForSeries('${escapeHtml(activeFeedSeriesFilter)}')" style="margin-top:14px; padding:9px 16px; border-radius:999px; border:none; background:#4F46E5; color:#FFFFFF; font-size:12.5px; font-weight:800; cursor:pointer;">
+            ✨ + Create First Post in This Series
+          </button>
+        ` : ''}
+      `;
+      container.appendChild(emptyEl);
+      initialFeedBatchReady = true;
+      dismissInitialFeedLoader(true);
+      return;
+    }
+
     if (currentFilter === 'my_stories') {
-      container.innerHTML = `
-        <div style="text-align:center; padding: 56px 16px; color: var(--text-muted);">
-          <div style="font-size:42px; margin-bottom:12px;">✍️</div>
-          <div style="font-weight:700; font-size:17px; color:var(--text-primary); letter-spacing:-0.3px;">No published stories yet</div>
-          <div style="font-size:13px; margin-top:6px; max-width:320px; margin-left:auto; margin-right:auto; line-height:1.5;">
-            Visual postcards you publish from the PostCard app or creator tools under this account will appear here.
-          </div>
+      const emptyEl = document.createElement('div');
+      emptyEl.style.cssText = 'text-align:center; padding: 56px 16px; color: var(--text-muted);';
+      emptyEl.innerHTML = `
+        <div style="font-size:42px; margin-bottom:12px;">✍️</div>
+        <div style="font-weight:700; font-size:17px; color:var(--text-primary); letter-spacing:-0.3px;">No stories in this view yet</div>
+        <div style="font-size:13px; margin-top:6px; max-width:320px; margin-left:auto; margin-right:auto; line-height:1.5;">
+          Visual postcards and Series notebooks you create under this account will appear here.
         </div>
       `;
+      container.appendChild(emptyEl);
       initialFeedBatchReady = true;
       dismissInitialFeedLoader(true);
       return;
@@ -10824,6 +11129,7 @@ function createPostCardElement(post, index) {
   const isLiked = Boolean(currentUserKey && likedByList.some(k => String(k || '').toLowerCase() === currentUserKey));
   const allowComments = post.allowComments !== false;
   const isCommentsOpen = Boolean(window.openCommentsDrawers && window.openCommentsDrawers[index]);
+  const postSeries = !isChronicle ? getPostSeriesInfo(post) : null;
 
   card.innerHTML = `
     <div class="post-header">
@@ -10832,6 +11138,12 @@ function createPostCardElement(post, index) {
           <div class="avatar-inner">${initial}</div>
         </div>
         <span class="creator-handle">${escapeHtml(handle)}</span>
+        ${postSeries ? `
+          <button type="button" class="post-header-series-pill" onclick="event.stopPropagation(); openSeriesInFeed('${escapeHtml(postSeries.id)}')" title="Part of Series: ${escapeHtml(postSeries.title)} — Tap to view Series">
+            <span>📚</span>
+            <span class="post-header-series-title">${escapeHtml(postSeries.title)}</span>
+          </button>
+        ` : ''}
         ${index === 'preview' ? `<button type="button" class="preview-card-edit-btn" onclick="event.stopPropagation(); openEditPosterModal(currentPreviewSlide || 0)" title="Edit poster headlines, takes, and receipts">✏️ Edit Content</button>` : ''}
       </div>
       <div class="post-header-right-actions">
@@ -10850,9 +11162,9 @@ function createPostCardElement(post, index) {
             </div>
           </div>
         ` : (isUnpublishedDraft ? `
-          <button type="button" class="draft-rocket-publish-btn" onclick="event.stopPropagation(); publishDraftPostFromFeed('${post.id}', this)" title="${isChronicle ? 'Saved as draft: tap to Save to My Diary Calendar' : 'Not published yet: tap rocket to publish'}">
+          <button type="button" class="draft-rocket-publish-btn" onclick="event.stopPropagation(); publishDraftPostFromFeed('${post.id}', this)" title="${isChronicle ? 'Saved as draft: tap to Save to My Diary Calendar' : (postSeries ? 'Private in Series: tap rocket to publish to public feed' : 'Not published yet: tap rocket to publish')}">
             <span class="draft-rocket-icon">${isChronicle ? '📔' : '🚀'}</span>
-            <span class="draft-rocket-text">${isChronicle ? 'Save to My Diary' : 'Unpublished'}</span>
+            <span class="draft-rocket-text">${isChronicle ? 'Save to My Diary' : (postSeries ? '🔒 In Series • Publish' : 'Unpublished')}</span>
           </button>
         ` : '')}
         <div class="post-menu-container">
@@ -10868,7 +11180,7 @@ function createPostCardElement(post, index) {
             ${!isChronicle ? `
               <button type="button" class="post-menu-item text-primary-action" onclick="event.stopPropagation(); closeAllPostMenus(); publishDraftPostFromFeed('${post.id}')">
                 <span>🚀</span>
-                <span>Publish Draft Now</span>
+                <span>${postSeries ? 'Publish Series Post to Feed' : 'Publish Draft Now'}</span>
               </button>
             ` : (post.isDiaryDraftOnly ? `
               <button type="button" class="post-menu-item text-primary-action" onclick="event.stopPropagation(); closeAllPostMenus(); publishDraftPostFromFeed('${post.id}')">
@@ -10878,10 +11190,23 @@ function createPostCardElement(post, index) {
             ` : '')}
             <button type="button" class="post-menu-item" onclick="event.stopPropagation(); closeAllPostMenus(); openDraftInStudio('${post.id}')">
               <span>✏️</span>
-              <span>${isChronicle ? 'Edit Diary Entry in Studio' : 'Edit Draft in Studio'}</span>
+              <span>${isChronicle ? 'Edit Diary Entry in Studio' : 'Edit in Studio'}</span>
             </button>
           ` : ''}
           ${canDelete ? `
+            ${!isChronicle && !isUnpublishedDraft ? `
+              <button type="button" class="post-menu-item" onclick="event.stopPropagation(); closeAllPostMenus(); unpublishPostToPrivateSeries('${post.id}')">
+                <span>🔒</span>
+                <span>${postSeries ? 'Make Private (Keep in Series Only)' : 'Make Private (Move to Drafts)'}</span>
+              </button>
+            ` : ''}
+            ${!isChronicle ? `
+              <button type="button" class="post-menu-item" onclick="event.stopPropagation(); toggleCardSeriesAssignSubmenu(event, '${post.id}', '${index}')">
+                <span>📚</span>
+                <span>${postSeries ? `Series: ${escapeHtml(postSeries.title)}` : 'Add to a Series...'}</span>
+              </button>
+              <div class="card-series-submenu" id="card-series-submenu-${index}" style="display:none;"></div>
+            ` : ''}
             <button type="button" class="post-menu-item text-primary-action" onclick="event.stopPropagation(); closeAllPostMenus(); openGenerationContextModal('${post.id}')" title="Inspect generation inputs and regenerate">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
@@ -11305,6 +11630,192 @@ function setCreatorAllowComments(allowed) {
     }
   }
 }
+
+/* ============================================================
+   CREATOR SERIES SELECTOR & POPOVER (STEP 1 & STEP 3)
+   ============================================================ */
+
+function closeAllCreatorSeriesPopovers() {
+  document.querySelectorAll('.creator-series-popover.show').forEach(p => p.classList.remove('show'));
+}
+window.closeAllCreatorSeriesPopovers = closeAllCreatorSeriesPopovers;
+
+function setCreatorSeries(seriesId) {
+  const sId = seriesId ? String(seriesId).trim() : null;
+  const matched = sId && Array.isArray(creatorSeriesList)
+    ? creatorSeriesList.find(s => s && s.id === sId)
+    : null;
+
+  activeCreatorSeriesId = matched ? matched.id : null;
+
+  const btn1 = document.getElementById('creatorSeriesBtn1');
+  const btn3 = document.getElementById('creatorSeriesBtn3');
+  const txt1 = document.getElementById('creatorSeriesBtnText1');
+  const txt3 = document.getElementById('creatorSeriesBtnText3');
+  const sub1 = document.getElementById('creatorSeriesSub1');
+  const sub3 = document.getElementById('creatorSeriesSub3');
+
+  const displayLabel = matched ? `${matched.icon || '📚'} ${matched.title}` : 'None (Standalone)';
+  if (txt1) txt1.textContent = displayLabel;
+  if (txt3) txt3.textContent = displayLabel;
+  if (btn1) btn1.classList.toggle('has-series', Boolean(matched));
+  if (btn3) btn3.classList.toggle('has-series', Boolean(matched));
+
+  if (sub1) {
+    sub1.textContent = matched
+      ? `In "${matched.title}" — keep private in series or publish`
+      : 'Group related thoughts & choose which go public';
+  }
+  if (sub3) {
+    sub3.textContent = matched
+      ? `In "${matched.title}" — save privately or publish to feed`
+      : 'Save privately to series or publish';
+  }
+
+  // Update Step 3 bottom Save / Publish buttons to reflect Series mode
+  const isChron = Boolean(currentSynthesizedPost && typeof isChronicleModePost === 'function' && isChronicleModePost(currentSynthesizedPost));
+  if (!isChron) {
+    const bottomSaveBtn = document.getElementById('step3BottomSaveDraftBtn');
+    const publishBtn = document.getElementById('publishBtn');
+    const saveLbl = document.getElementById('step3SaveLabel');
+    if (bottomSaveBtn) {
+      bottomSaveBtn.innerHTML = matched
+        ? '<span>🔒 Save to Series (Private)</span>'
+        : '<span>🔖 Save Draft</span>';
+      bottomSaveBtn.title = matched
+        ? `Save privately inside Series "${matched.title}" without posting to public feed`
+        : 'Save privately to your feed & drafts without publishing';
+    }
+    if (publishBtn) {
+      publishBtn.innerHTML = matched
+        ? '<span>Publish (Series + Public) 🚀</span>'
+        : '<span>Publish 🚀</span>';
+    }
+    if (saveLbl) {
+      saveLbl.textContent = matched ? 'In Series' : 'Save Draft';
+    }
+  }
+
+  if (currentSynthesizedPost) {
+    if (matched) {
+      currentSynthesizedPost.seriesId = matched.id;
+      currentSynthesizedPost.seriesTitle = matched.title;
+      if (!currentSynthesizedPost.generationInputs) currentSynthesizedPost.generationInputs = {};
+      currentSynthesizedPost.generationInputs.seriesId = matched.id;
+      currentSynthesizedPost.generationInputs.seriesTitle = matched.title;
+    } else {
+      delete currentSynthesizedPost.seriesId;
+      delete currentSynthesizedPost.seriesTitle;
+      if (currentSynthesizedPost.generationInputs) {
+        delete currentSynthesizedPost.generationInputs.seriesId;
+        delete currentSynthesizedPost.generationInputs.seriesTitle;
+      }
+    }
+  }
+
+  closeAllCreatorSeriesPopovers();
+}
+window.setCreatorSeries = setCreatorSeries;
+
+function buildCreatorSeriesPopoverHtml(stepNum) {
+  syncSeriesFromLoadedPosts();
+  const isNoneSelected = !activeCreatorSeriesId;
+
+  const listHtml = [
+    `<button type="button" class="save-bucket-item ${isNoneSelected ? 'is-checked' : ''}" onclick="setCreatorSeries(null)">
+      <span class="save-bucket-check" aria-hidden="true">${isNoneSelected ? '✓' : ''}</span>
+      <span class="save-bucket-icon">📄</span>
+      <span class="save-bucket-name">None (Standalone Post)</span>
+    </button>`,
+    ...creatorSeriesList.map(s => {
+      const isChecked = activeCreatorSeriesId === s.id;
+      const stats = getSeriesStats(s.id);
+      return `
+        <button type="button" class="save-bucket-item ${isChecked ? 'is-checked' : ''}" onclick="setCreatorSeries('${escapeHtml(s.id)}')">
+          <span class="save-bucket-check" aria-hidden="true">${isChecked ? '✓' : ''}</span>
+          <span class="save-bucket-icon">${escapeHtml(s.icon || '📚')}</span>
+          <span class="save-bucket-name">${escapeHtml(s.title)}</span>
+          <span class="save-bucket-count" title="${stats.pubCount} public, ${stats.privCount} private">${stats.total}</span>
+        </button>
+      `;
+    })
+  ].join('');
+
+  return `
+    <div class="save-bucket-popover-header" onclick="event.stopPropagation()">
+      <span class="save-bucket-popover-title">📚 Choose or Create Series</span>
+      <button type="button" class="save-bucket-close-btn" onclick="event.stopPropagation(); closeAllCreatorSeriesPopovers()" title="Close">✕</button>
+    </div>
+    <div class="save-bucket-list" onclick="event.stopPropagation()">
+      ${listHtml}
+    </div>
+    <form class="save-bucket-create-form" onsubmit="createCreatorSeriesFromPopover(event, ${stepNum})" onclick="event.stopPropagation()">
+      <input type="text"
+             class="save-bucket-create-input"
+             id="creator-series-input-${stepNum}"
+             placeholder="+ New series topic..."
+             maxlength="46"
+             autocomplete="off"
+             onclick="event.stopPropagation()">
+      <button type="submit" class="save-bucket-create-btn">Create</button>
+    </form>
+  `;
+}
+
+function toggleCreatorSeriesPopover(event, stepNum = 1) {
+  if (event) {
+    event.stopPropagation();
+    event.preventDefault();
+  }
+  const pop = document.getElementById(`creatorSeriesPopover${stepNum}`);
+  if (!pop) return;
+  const isShowing = pop.classList.contains('show');
+  closeAllCreatorSeriesPopovers();
+  if (isShowing) return;
+
+  pop.innerHTML = buildCreatorSeriesPopoverHtml(stepNum);
+  pop.classList.add('show');
+  const inp = document.getElementById(`creator-series-input-${stepNum}`);
+  if (inp && creatorSeriesList.length === 0) {
+    setTimeout(() => inp.focus(), 40);
+  }
+}
+window.toggleCreatorSeriesPopover = toggleCreatorSeriesPopover;
+
+function createCreatorSeriesFromPopover(event, stepNum = 1) {
+  if (event) {
+    event.stopPropagation();
+    event.preventDefault();
+  }
+  const inp = document.getElementById(`creator-series-input-${stepNum}`);
+  const rawTitle = inp ? inp.value.trim() : '';
+  if (!rawTitle) return;
+
+  let series = creatorSeriesList.find(s => s && s.title.toLowerCase() === rawTitle.toLowerCase());
+  const isNew = !series;
+  if (!series) {
+    const slug = rawTitle.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || ('s_' + Date.now());
+    series = {
+      id: `series_${slug}_${Date.now().toString(36).slice(-3)}`,
+      title: rawTitle,
+      icon: '📚',
+      createdAt: new Date().toISOString()
+    };
+    creatorSeriesList.push(series);
+    persistCreatorSeries(true);
+    updateAuthUI();
+  }
+
+  setCreatorSeries(series.id);
+  showTemporaryToast(isNew ? `📚 Created Series "${series.title}"!` : `📚 Selected Series "${series.title}"`);
+}
+window.createCreatorSeriesFromPopover = createCreatorSeriesFromPopover;
+
+document.addEventListener('click', (e) => {
+  if (!e.target || !e.target.closest('.creator-series-picker-wrap')) {
+    closeAllCreatorSeriesPopovers();
+  }
+});
 
 function getCurrentUserEngagementKey() {
   if (currentUser) {
@@ -11857,14 +12368,158 @@ function toggleDiaryCornerMenu(index) {
 }
 
 function closeAllPostMenus() {
-  document.querySelectorAll('.post-menu-dropdown.show, .diary-corner-popover.show, .save-bucket-popover.show').forEach(m => m.classList.remove('show'));
+  document.querySelectorAll('.post-menu-dropdown.show, .diary-corner-popover.show, .save-bucket-popover.show, .creator-series-popover.show').forEach(m => m.classList.remove('show'));
 }
 
 document.addEventListener('click', (e) => {
-  if (!e.target.closest('.post-menu-container') && !e.target.closest('.diary-corner-container') && !e.target.closest('.bookmark-action-wrap')) {
+  if (!e.target.closest('.post-menu-container') && !e.target.closest('.diary-corner-container') && !e.target.closest('.bookmark-action-wrap') && !e.target.closest('.creator-series-picker-wrap')) {
     closeAllPostMenus();
   }
 });
+
+function toggleCardSeriesAssignSubmenu(event, postId, index) {
+  if (event) {
+    event.stopPropagation();
+    event.preventDefault();
+  }
+  const sub = document.getElementById(`card-series-submenu-${index}`);
+  if (!sub) return;
+  if (sub.style.display !== 'none') {
+    sub.style.display = 'none';
+    return;
+  }
+
+  syncSeriesFromLoadedPosts();
+  const post = getPostFromIndexOrId(postId) || getPostFromIndexOrId(index);
+  const currentInfo = getPostSeriesInfo(post);
+  const currentSeriesId = currentInfo ? currentInfo.id : null;
+
+  const itemsHtml = [
+    `<button type="button" class="save-bucket-item ${!currentSeriesId ? 'is-checked' : ''}" onclick="assignPostToSeriesFromCard(event, '${escapeHtml(postId)}', '', '${escapeHtml(index)}')">
+      <span class="save-bucket-check">${!currentSeriesId ? '✓' : ''}</span>
+      <span class="save-bucket-name">None (Standalone)</span>
+    </button>`,
+    ...creatorSeriesList.map(s => {
+      const isChecked = currentSeriesId === s.id;
+      return `
+        <button type="button" class="save-bucket-item ${isChecked ? 'is-checked' : ''}" onclick="assignPostToSeriesFromCard(event, '${escapeHtml(postId)}', '${escapeHtml(s.id)}', '${escapeHtml(index)}')">
+          <span class="save-bucket-check">${isChecked ? '✓' : ''}</span>
+          <span class="save-bucket-icon">${escapeHtml(s.icon || '📚')}</span>
+          <span class="save-bucket-name">${escapeHtml(s.title)}</span>
+        </button>
+      `;
+    })
+  ].join('');
+
+  sub.innerHTML = `
+    <div style="display:flex; flex-direction:column; gap:3px; padding:4px 2px;">
+      ${itemsHtml}
+      <form class="save-bucket-create-form" onsubmit="createAndAssignPostSeriesFromCard(event, '${escapeHtml(postId)}', '${escapeHtml(index)}')" onclick="event.stopPropagation()">
+        <input type="text" class="save-bucket-create-input" id="card-series-input-${escapeHtml(index)}" placeholder="+ New series..." maxlength="44" autocomplete="off" onclick="event.stopPropagation()">
+        <button type="submit" class="save-bucket-create-btn">Add</button>
+      </form>
+    </div>
+  `;
+  sub.style.display = 'block';
+}
+window.toggleCardSeriesAssignSubmenu = toggleCardSeriesAssignSubmenu;
+
+async function assignPostToSeriesFromCard(event, postId, seriesId, index) {
+  if (event) {
+    event.stopPropagation();
+    event.preventDefault();
+  }
+  const post = getPostFromIndexOrId(postId) || getPostFromIndexOrId(index);
+  if (!post) return;
+
+  const matched = seriesId ? creatorSeriesList.find(s => s && s.id === seriesId) : null;
+  if (matched) {
+    post.seriesId = matched.id;
+    post.seriesTitle = matched.title;
+    if (!post.generationInputs) post.generationInputs = {};
+    post.generationInputs.seriesId = matched.id;
+    post.generationInputs.seriesTitle = matched.title;
+  } else {
+    delete post.seriesId;
+    delete post.seriesTitle;
+    if (post.generationInputs) {
+      delete post.generationInputs.seriesId;
+      delete post.generationInputs.seriesTitle;
+    }
+  }
+
+  closeAllPostMenus();
+  updateAuthUI();
+  renderFeed();
+  showTemporaryToast(matched ? `📚 Added to Series "${matched.title}"` : 'Removed from Series');
+
+  if (typeof saveSinglePostToCloud === 'function') {
+    try { await saveSinglePostToCloud(post); } catch (_) {}
+  } else {
+    try {
+      await fetch('/api/posts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(post)
+      });
+    } catch (_) {}
+  }
+}
+window.assignPostToSeriesFromCard = assignPostToSeriesFromCard;
+
+async function createAndAssignPostSeriesFromCard(event, postId, index) {
+  if (event) {
+    event.stopPropagation();
+    event.preventDefault();
+  }
+  const inp = document.getElementById(`card-series-input-${index}`);
+  const rawTitle = inp ? inp.value.trim() : '';
+  if (!rawTitle) return;
+
+  let series = creatorSeriesList.find(s => s && s.title.toLowerCase() === rawTitle.toLowerCase());
+  if (!series) {
+    const slug = rawTitle.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || ('s_' + Date.now());
+    series = {
+      id: `series_${slug}_${Date.now().toString(36).slice(-3)}`,
+      title: rawTitle,
+      icon: '📚',
+      createdAt: new Date().toISOString()
+    };
+    creatorSeriesList.push(series);
+    persistCreatorSeries(true);
+  }
+  await assignPostToSeriesFromCard(event, postId, series.id, index);
+}
+window.createAndAssignPostSeriesFromCard = createAndAssignPostSeriesFromCard;
+
+async function unpublishPostToPrivateSeries(postId) {
+  const post = getPostFromIndexOrId(postId);
+  if (!post) return;
+
+  post.isDraft = true;
+  post.isPrivate = true;
+  post.isPubliclyPublished = false;
+  post.status = 'draft';
+
+  const sInfo = getPostSeriesInfo(post);
+  showTemporaryToast(sInfo
+    ? `🔒 Post is now private inside Series "${sInfo.title}" (removed from public feed)`
+    : '🔒 Post moved to private drafts (removed from public feed)');
+
+  updateAuthUI();
+  renderFeed();
+
+  try {
+    await fetch('/api/posts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(post)
+    });
+  } catch (err) {
+    console.warn('Could not sync private state to cloud:', err);
+  }
+}
+window.unpublishPostToPrivateSeries = unpublishPostToPrivateSeries;
 
 let activeCuratorFilter = null;
 
@@ -20013,6 +20668,10 @@ function syncInnerVoiceSubmodeUI() {
   const allowCommentsRow3 = document.getElementById('step3AllowCommentsRow');
   if (allowCommentsRow1) allowCommentsRow1.style.display = isDailyChronicleMode ? 'none' : 'flex';
   if (allowCommentsRow3) allowCommentsRow3.style.display = isDailyChronicleMode ? 'none' : 'flex';
+  const seriesRow1 = document.getElementById('creatorSeriesRow');
+  const seriesRow3 = document.getElementById('step3SeriesRow');
+  if (seriesRow1) seriesRow1.style.display = isDailyChronicleMode ? 'none' : 'flex';
+  if (seriesRow3) seriesRow3.style.display = isDailyChronicleMode ? 'none' : 'flex';
 
   if (!isVoice) {
     if (triggerPanel) triggerPanel.style.display = '';
@@ -21299,6 +21958,7 @@ function autoSaveCreatorFormState(immediate = false) {
       spark,
       url: url ? url.trim() : '',
       perspectiveMode: typeof creatorPerspectiveMode !== 'undefined' ? creatorPerspectiveMode : 'hybrid',
+      seriesId: activeCreatorSeriesId || null,
       updatedAt: new Date().toISOString()
     };
 
@@ -21478,6 +22138,9 @@ function resumeCreatorFormDraft(draftId) {
   if (target.perspectiveMode && typeof setPerspectiveMode === 'function') {
     setPerspectiveMode(target.perspectiveMode);
   }
+  if (typeof setCreatorSeries === 'function') {
+    setCreatorSeries(target.seriesId || null);
+  }
 
   const statusEl = document.getElementById('slantAutosaveStatus');
   if (statusEl) {
@@ -21644,6 +22307,10 @@ function openDraftInStudio(postId) {
   if (post.sourceLedger) {
     currentSourceLedger = post.sourceLedger;
   }
+  if (typeof setCreatorSeries === 'function') {
+    const draftSeries = getPostSeriesInfo(post);
+    setCreatorSeries(draftSeries ? draftSeries.id : null);
+  }
 
   modal.classList.add('open');
   modal.classList.add('active');
@@ -21794,12 +22461,12 @@ document.addEventListener('click', (e) => {
   }
 });
 
-function openCreatorModalForSection(mode) {
+function openCreatorModalForSection(mode, options = {}) {
   closeSlantSpreadMenu();
-  openCreatorModal(null, mode);
+  openCreatorModal(null, mode, options);
 }
 
-function openCreatorModal(resumeDraftId = null, forcedAnchorMode = null) {
+function openCreatorModal(resumeDraftId = null, forcedAnchorMode = null, options = {}) {
   closeSlantSpreadMenu();
   if (!currentUser || !isUserWhitelistAllowed) {
     if (typeof openAuthModal === 'function') {
@@ -21829,7 +22496,9 @@ function openCreatorModal(resumeDraftId = null, forcedAnchorMode = null) {
   // Restore requested draft OR most recent active draft so accidental close never loses flow
   const drafts = getSavedFormDrafts();
   let draftToRestore = null;
-  if (resumeDraftId && typeof resumeDraftId === 'string') {
+  if (options && options.targetSeriesId) {
+    draftToRestore = null;
+  } else if (resumeDraftId && typeof resumeDraftId === 'string') {
     draftToRestore = drafts.find(d => d.id === resumeDraftId) || null;
   } else if (!forcedAnchorMode) {
     try {
@@ -21868,6 +22537,12 @@ function openCreatorModal(resumeDraftId = null, forcedAnchorMode = null) {
     if (forcedAnchorMode) {
       setAnchorMode(forcedAnchorMode);
     }
+  }
+
+  if (options && options.targetSeriesId && typeof setCreatorSeries === 'function') {
+    setCreatorSeries(options.targetSeriesId);
+  } else if (!draftToRestore && (currentFilter === 'series' || currentFilter === 'my_stories') && activeFeedSeriesFilter && activeFeedSeriesFilter !== 'all' && typeof setCreatorSeries === 'function') {
+    setCreatorSeries(activeFeedSeriesFilter);
   }
 
   // Show modal
@@ -22280,6 +22955,10 @@ function setAnchorMode(mode) {
   const allowCommentsRow3 = document.getElementById('step3AllowCommentsRow');
   if (allowCommentsRow1) allowCommentsRow1.style.display = isDiaryCategory ? 'none' : 'flex';
   if (allowCommentsRow3) allowCommentsRow3.style.display = isDiaryCategory ? 'none' : 'flex';
+  const seriesRow1 = document.getElementById('creatorSeriesRow');
+  const seriesRow3 = document.getElementById('step3SeriesRow');
+  if (seriesRow1) seriesRow1.style.display = isDiaryCategory ? 'none' : 'flex';
+  if (seriesRow3) seriesRow3.style.display = isDiaryCategory ? 'none' : 'flex';
 
   if (normalizedSource === 'inner_voice') {
     renderSourceLedger(null);
@@ -23425,6 +24104,9 @@ function resetCreatorState() {
   creatorSettingsGenerated = false;
   resetCreatorRegenModeToFresh();
   resetStage1ActionBtn();
+  if (typeof setCreatorSeries === 'function') {
+    setCreatorSeries(null);
+  }
   const eqBadge = document.getElementById('creatorEqualizerBadge');
   if (eqBadge) {
     eqBadge.textContent = 'Tune ▾';
@@ -26331,6 +27013,17 @@ async function startAiSynthesis() {
     currentSynthesizedPost.userSlantTake = effectiveSlantTake;
     currentSynthesizedPost.polishedCuratorTake = effectiveSlantTake;
     currentSynthesizedPost.sourceContext = (isLink && url) ? (currentScrapedArticle?.content || '').slice(0, 3000) : '';
+    if (activeCreatorSeriesId && Array.isArray(creatorSeriesList)) {
+      const matchedSeries = creatorSeriesList.find(s => s && s.id === activeCreatorSeriesId);
+      if (matchedSeries) {
+        currentSynthesizedPost.seriesId = matchedSeries.id;
+        currentSynthesizedPost.seriesTitle = matchedSeries.title;
+        if (currentSynthesizedPost.generationInputs) {
+          currentSynthesizedPost.generationInputs.seriesId = matchedSeries.id;
+          currentSynthesizedPost.generationInputs.seriesTitle = matchedSeries.title;
+        }
+      }
+    }
     if (lastPolishCounts && typeof lastPolishCounts === 'object') {
       currentSynthesizedPost.polishCounts = { ...lastPolishCounts };
       currentSynthesizedPost.polishCorrections = Array.isArray(lastCorrectionsList) ? lastCorrectionsList.slice(0, 15) : [];
@@ -26776,16 +27469,21 @@ function isChronicleModePost(post) {
 
 function syncStep3SaveButtonLabel(post = currentSynthesizedPost) {
   const isChronicle = isChronicleModePost(post);
+  const matchedSeries = (!isChronicle && activeCreatorSeriesId && Array.isArray(creatorSeriesList))
+    ? creatorSeriesList.find(s => s && s.id === activeCreatorSeriesId)
+    : (!isChronicle && post ? getPostSeriesInfo(post) : null);
   const bottomSaveBtn = document.getElementById('step3BottomSaveDraftBtn');
   const publishBtn = document.getElementById('publishBtn');
   const saveBtn = document.getElementById('step3SaveBtn');
   if (bottomSaveBtn) {
     bottomSaveBtn.innerHTML = isChronicle
       ? '<span>📔 Save to My Diary</span>'
-      : '<span>🔖 Save Draft</span>';
+      : (matchedSeries ? '<span>🔒 Save to Series (Private)</span>' : '<span>🔖 Save Draft</span>');
     bottomSaveBtn.title = isChronicle
       ? 'Save to your strictly personal Diary Calendar (never goes to people\'s feed)'
-      : 'Save privately to your feed & drafts without publishing';
+      : (matchedSeries
+        ? `Save privately inside Series "${matchedSeries.title}" without posting to public feed`
+        : 'Save privately to your feed & drafts without publishing');
     bottomSaveBtn.classList.toggle('creator-diary-primary-cta', isChronicle);
     bottomSaveBtn.classList.toggle('single-diary-cta', isChronicle);
   }
@@ -26793,18 +27491,24 @@ function syncStep3SaveButtonLabel(post = currentSynthesizedPost) {
     // Diary Chronicles have a single "Save to My Diary" button and can NEVER be published to people's public feed
     publishBtn.style.display = isChronicle ? 'none' : '';
     publishBtn.classList.remove('creator-publish-deemphasized');
-    publishBtn.innerHTML = '<span>Publish 🚀</span>';
-    publishBtn.title = 'Publish to the live public feed';
+    publishBtn.innerHTML = matchedSeries
+      ? '<span>Publish (Series + Public) 🚀</span>'
+      : '<span>Publish 🚀</span>';
+    publishBtn.title = matchedSeries
+      ? `Publish to live public feed and include in Series "${matchedSeries.title}"`
+      : 'Publish to the live public feed';
   }
   if (saveBtn) {
     saveBtn.classList.remove('diary-save-highlight');
     saveBtn.title = isChronicle
       ? 'Save to your Drafts so you can keep editing later without pushing to your Diary Calendar'
-      : 'Save to your Drafts & Feed (Private • Only visible to you)';
+      : (matchedSeries
+        ? `Save privately to Series "${matchedSeries.title}" (Visible only to you)`
+        : 'Save to your Drafts & Feed (Private • Only visible to you)');
   }
   const saveLbl = document.getElementById('step3SaveLabel');
   if (saveLbl && saveLbl.textContent !== 'Saved') {
-    saveLbl.textContent = 'Save';
+    saveLbl.textContent = (!isChronicle && matchedSeries) ? 'In Series' : 'Save';
   }
   const prevTab1 = document.getElementById('prevTab1');
   const prevTab2 = document.getElementById('prevTab2');
@@ -27972,8 +28676,23 @@ async function saveSynthesizedPost(options = {}) {
   }
   currentSynthesizedPost.status = 'draft';
 
+  const savedSeriesObj = (!isChronicle && activeCreatorSeriesId && Array.isArray(creatorSeriesList))
+    ? creatorSeriesList.find(s => s && s.id === activeCreatorSeriesId)
+    : (!isChronicle ? getPostSeriesInfo(currentSynthesizedPost) : null);
+  if (savedSeriesObj) {
+    currentSynthesizedPost.seriesId = savedSeriesObj.id;
+    currentSynthesizedPost.seriesTitle = savedSeriesObj.title;
+    if (!currentSynthesizedPost.generationInputs) currentSynthesizedPost.generationInputs = {};
+    currentSynthesizedPost.generationInputs.seriesId = savedSeriesObj.id;
+    currentSynthesizedPost.generationInputs.seriesTitle = savedSeriesObj.title;
+  }
+
   // 1. Clean & compress payload: store lightweight CDN pointer so Supabase rows never trigger timeout
   const postToSave = { ...currentSynthesizedPost };
+  if (savedSeriesObj) {
+    postToSave.seriesId = savedSeriesObj.id;
+    postToSave.seriesTitle = savedSeriesObj.title;
+  }
   const savedSlantTake = currentSynthesizedPost.polishedCuratorTake || currentSynthesizedPost.generationInputs?.slantTake || currentSynthesizedPost.userSlantTake || '';
   if (savedSlantTake) {
     postToSave.polishedCuratorTake = savedSlantTake;
@@ -28162,7 +28881,9 @@ async function saveSynthesizedPost(options = {}) {
     ? (asDraftOnly
       ? '🔖 Saved to My Drafts! You can keep editing it anytime before saving to your Diary Calendar.'
       : '📔 Saved to My Diary! AES-256 Encrypted & added to your Diary Calendar.')
-    : '🔒 Saved as private draft! Visible only to you in your Feed & Drafts.');
+    : (savedSeriesObj
+      ? `🔒 Saved privately to Series "${savedSeriesObj.title}"! Visible only to you (tap Publish anytime).`
+      : '🔒 Saved as private draft! Visible only to you in your Feed & Drafts.'));
 }
 
 async function publishSynthesizedPost() {
@@ -28193,8 +28914,23 @@ async function publishSynthesizedPost() {
   currentSynthesizedPost.status = 'published';
   currentSynthesizedPost.allowComments = Boolean(creatorAllowComments);
 
+  const publishedSeriesObj = (activeCreatorSeriesId && Array.isArray(creatorSeriesList))
+    ? creatorSeriesList.find(s => s && s.id === activeCreatorSeriesId)
+    : getPostSeriesInfo(currentSynthesizedPost);
+  if (publishedSeriesObj) {
+    currentSynthesizedPost.seriesId = publishedSeriesObj.id;
+    currentSynthesizedPost.seriesTitle = publishedSeriesObj.title;
+    if (!currentSynthesizedPost.generationInputs) currentSynthesizedPost.generationInputs = {};
+    currentSynthesizedPost.generationInputs.seriesId = publishedSeriesObj.id;
+    currentSynthesizedPost.generationInputs.seriesTitle = publishedSeriesObj.title;
+  }
+
   // 1. Clean & compress payload: store crisp ~60KB WebP so Supabase rows never trigger timeout
   const postToSave = { ...currentSynthesizedPost };
+  if (publishedSeriesObj) {
+    postToSave.seriesId = publishedSeriesObj.id;
+    postToSave.seriesTitle = publishedSeriesObj.title;
+  }
   const savedSlantTake = currentSynthesizedPost.polishedCuratorTake || currentSynthesizedPost.generationInputs?.slantTake || currentSynthesizedPost.userSlantTake || '';
   if (savedSlantTake) {
     postToSave.polishedCuratorTake = savedSlantTake;
@@ -28369,7 +29105,9 @@ async function publishSynthesizedPost() {
   // 7. Close modal & reset state & show toast
   closeCreatorModal(true);
   resetCreatorState();
-  showTemporaryToast('✨ Published! Your 3-poster Slant is live on slant.today');
+  showTemporaryToast(publishedSeriesObj
+    ? `🚀 Published to Live Feed & Series "${publishedSeriesObj.title}"!`
+    : '✨ Published! Your 3-poster Slant is live on slant.today');
 
   // Scroll smoothly to top so user sees their new post
   window.scrollTo({ top: 0, behavior: 'smooth' });
