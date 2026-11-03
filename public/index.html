@@ -919,20 +919,26 @@
             </div>
 
             <!-- Web Source Picker directly below Web Source card in Visual Mode (Clean Flat Layout — No Nested Frames) -->
-            <div class="web-collage-studio-card" id="creatorWebCollageStudioCard" style="display: none; margin-top: 6px; padding: 8px 0 2px; border-top: 1px solid rgba(148, 163, 184, 0.25); background: transparent; border-left: none; border-right: none; border-bottom: none; border-radius: 0;">
-              <!-- Subject Tabs Bar + Compact Re-scan Button -->
-              <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 7px;">
-                <div id="webCollageSubjectTabs" style="display: flex; align-items: center; gap: 6px; overflow-x: auto; padding-bottom: 2px; flex: 1;">
-                  <!-- Populated dynamically by renderWebCollageSubjectTabs() -->
-                </div>
-                <button type="button" onclick="refreshWebCollageSubjectsFromContext()" style="padding: 4px 8px; border-radius: 7px; border: 1px solid rgba(79,70,229,0.3); background: rgba(79,70,229,0.08); color: #4F46E5; font-size: 10px; font-weight: 800; cursor: pointer; flex-shrink: 0;" title="Re-extract subjects from your current text">↻ Re-scan</button>
+            <div class="web-collage-studio-card" id="creatorWebCollageStudioCard" style="display: none; margin-top: 6px; padding: 10px 0 2px; border-top: 1px solid rgba(148, 163, 184, 0.25); background: transparent; border-left: none; border-right: none; border-bottom: none; border-radius: 0;">
+              <!-- Subject Tabs Bar -->
+              <div id="webCollageSubjectTabs" style="display: flex; align-items: center; gap: 6px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 8px;">
+                <!-- Populated dynamically by renderWebCollageSubjectTabs() -->
               </div>
 
-              <!-- Editable Search Input for the Active Tab -->
-              <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
-                <input type="text" id="webCollageTabSearchInput" placeholder="Search any person, place, or object..." style="flex: 1; padding: 6px 9px; border-radius: 8px; border: 1px solid rgba(148,163,184,0.45); background: #FFFFFF; color: var(--text-primary); font-size: 11.5px; font-weight: 600;" onkeydown="if(event.key==='Enter'){event.preventDefault();runActiveTabWebImageSearch();}">
-                <button type="button" onclick="runActiveTabWebImageSearch()" style="padding: 6px 11px; border-radius: 8px; border: none; background: #4F46E5; color: #FFFFFF; font-size: 11px; font-weight: 800; cursor: pointer; white-space: nowrap;">
-                  🔍 Search
+              <!-- Full-Width Taller Search Prompt Field -->
+              <div style="margin-bottom: 8px;">
+                <input type="text" id="webCollageTabSearchInput" placeholder="Search any person, place, or object..." style="width: 100%; min-height: 40px; padding: 9px 12px; border-radius: 10px; border: 1.5px solid rgba(148,163,184,0.45); background: #FFFFFF; color: var(--text-primary); font-size: 13px; font-weight: 600; box-sizing: border-box;" onkeydown="if(event.key==='Enter'){event.preventDefault();runActiveTabWebImageSearch();}">
+              </div>
+
+              <!-- Side-by-Side Action Buttons: Search & Re-scan -->
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
+                <button type="button" onclick="runActiveTabWebImageSearch()" style="min-height: 36px; padding: 8px 12px; border-radius: 9px; border: none; background: #4F46E5; color: #FFFFFF; font-size: 12px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
+                  <span>🔍</span>
+                  <span>Search</span>
+                </button>
+                <button type="button" onclick="refreshWebCollageSubjectsFromContext()" style="min-height: 36px; padding: 8px 12px; border-radius: 9px; border: 1.5px solid rgba(79,70,229,0.35); background: rgba(79,70,229,0.08); color: #4F46E5; font-size: 12px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px;" title="Re-extract subjects from your current text">
+                  <span>↻</span>
+                  <span>Re-scan</span>
                 </button>
               </div>
 

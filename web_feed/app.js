@@ -1190,7 +1190,7 @@ window.updateUnifiedPosterVisualStripUI = updateUnifiedPosterVisualStripUI;
 window._webCollageState = {
   isOpen: false,
   isLoading: false,
-  activeTabIndex: 0, // 0, 1, 2 = Subject Tabs; 3 = Slant Art Library
+  activeTabIndex: 0, // 0, 1, 2 = Subject Tabs
   layoutStyle: 'archival', // 'archival' | 'bleed'
   subjects: [
     { id: 'subj_1', label: 'Subject 1', query: '' },
@@ -1198,7 +1198,6 @@ window._webCollageState = {
     { id: 'subj_3', label: 'Subject 3', query: '' }
   ],
   tabImagesMap: {}, // query -> array of image items
-  slantArtImages: [],
   selectedItems: [], // up to 3 items: { url, thumbUrl, title, source, tabIndex, dataUrl }
   compositedDataUrl: null
 };
@@ -1288,7 +1287,7 @@ async function refreshWebCollageSubjectsFromContext() {
       body: JSON.stringify({
         action: 'search_collage_images',
         extractSubjects: true,
-        includeSlantCommons: state.slantArtImages.length === 0,
+        includeSlantCommons: false,
         contextText,
         scrapedTitle,
         sourceImageUrl
@@ -1303,9 +1302,6 @@ async function refreshWebCollageSubjectsFromContext() {
         if (data.tabResults && typeof data.tabResults === 'object') {
           Object.assign(state.tabImagesMap, data.tabResults);
         }
-        if (Array.isArray(data.slantArtImages) && data.slantArtImages.length > 0) {
-          state.slantArtImages = data.slantArtImages;
-        }
       }
     }
   } catch (err) {
@@ -1315,7 +1311,7 @@ async function refreshWebCollageSubjectsFromContext() {
     if (statusEl) statusEl.style.display = 'none';
   }
 
-  if (state.activeTabIndex >= state.subjects.length && state.activeTabIndex !== 3) {
+  if (state.activeTabIndex >= state.subjects.length) {
     state.activeTabIndex = 0;
   }
   renderWebCollageSubjectTabs();
@@ -1337,34 +1333,22 @@ function renderWebCollageSubjectTabs() {
     const bg = isActive ? '#4F46E5' : (hasPick ? 'rgba(16,185,129,0.12)' : 'rgba(148,163,184,0.14)');
     const col = isActive ? '#FFFFFF' : (hasPick ? '#047857' : 'var(--text-primary)');
     const border = isActive ? '#4F46E5' : (hasPick ? 'rgba(16,185,129,0.45)' : 'rgba(148,163,184,0.35)');
-    return `<button type="button" onclick="selectWebCollageTab(${idx})" style="padding: 5px 10px; border-radius: 99px; border: 1.5px solid ${border}; background: ${bg}; color: ${col}; font-size: 11px; font-weight: 800; cursor: pointer; white-space: nowrap; display: inline-flex; align-items: center; gap: 5px;">
+    return `<button type="button" onclick="selectWebCollageTab(${idx})" style="padding: 6px 11px; border-radius: 99px; border: 1.5px solid ${border}; background: ${bg}; color: ${col}; font-size: 11.5px; font-weight: 800; cursor: pointer; white-space: nowrap; display: inline-flex; align-items: center; gap: 5px;">
       <span>${idx + 1}. ${escapeHtml(subj.label || subj.query || ('Subject ' + (idx + 1)))}</span>
       ${hasPick ? '<span style="font-size:10px; background:rgba(16,185,129,0.25); color:' + (isActive ? '#fff' : '#047857') + '; border-radius:50%; width:15px; height:15px; display:inline-flex; align-items:center; justify-content:center;">✓</span>' : ''}
     </button>`;
   }).join('');
 
-  const isSlantTab = state.activeTabIndex === 3;
-  const hasSlantPick = selectedByTab.has(3);
-  const slantBtnHtml = `<button type="button" onclick="selectWebCollageTab(3)" style="padding: 5px 10px; border-radius: 99px; border: 1.5px solid ${isSlantTab ? '#253833' : (hasSlantPick ? 'rgba(16,185,129,0.45)' : 'rgba(148,163,184,0.35)')}; background: ${isSlantTab ? '#253833' : (hasSlantPick ? 'rgba(16,185,129,0.12)' : 'rgba(148,163,184,0.14)')}; color: ${isSlantTab ? '#FFFFFF' : (hasSlantPick ? '#047857' : 'var(--text-primary)')}; font-size: 11px; font-weight: 800; cursor: pointer; white-space: nowrap; display: inline-flex; align-items: center; gap: 5px;">
-    <span>🎨 Slant Art Library</span>
-    ${hasSlantPick ? '<span>✓</span>' : ''}
-  </button>`;
-
-  tabsEl.innerHTML = subjectBtnsHtml + slantBtnHtml;
+  tabsEl.innerHTML = subjectBtnsHtml;
 }
 
 function syncWebCollageSearchInputToTab() {
   const inputEl = document.getElementById('webCollageTabSearchInput');
   if (!inputEl) return;
   const state = window._webCollageState;
-  if (state.activeTabIndex === 3) {
-    inputEl.value = '';
-    inputEl.placeholder = 'Search any new subject or switch to Tabs 1–3 above...';
-  } else {
-    const subj = state.subjects[state.activeTabIndex];
-    inputEl.value = subj ? (subj.query || subj.label || '') : '';
-    inputEl.placeholder = `Search web images for Subject ${state.activeTabIndex + 1} (e.g. person, object, place)...`;
-  }
+  const subj = state.subjects[state.activeTabIndex];
+  inputEl.value = subj ? (subj.query || subj.label || '') : '';
+  inputEl.placeholder = `Search web images for Subject ${state.activeTabIndex + 1} (e.g. person, object, place)...`;
 }
 
 async function selectWebCollageTab(tabIndex) {
@@ -1373,11 +1357,9 @@ async function selectWebCollageTab(tabIndex) {
   renderWebCollageSubjectTabs();
   syncWebCollageSearchInputToTab();
 
-  if (tabIndex !== 3) {
-    const subj = state.subjects[tabIndex];
-    if (subj && subj.query && !state.tabImagesMap[subj.query]) {
-      await fetchWebImagesForQuery(subj.query);
-    }
+  const subj = state.subjects[tabIndex];
+  if (subj && subj.query && !state.tabImagesMap[subj.query]) {
+    await fetchWebImagesForQuery(subj.query);
   }
   renderWebCollageTabGrid();
 }
@@ -1391,7 +1373,7 @@ async function runActiveTabWebImageSearch() {
     return;
   }
   const state = window._webCollageState;
-  if (state.activeTabIndex === 3) {
+  if (state.activeTabIndex >= state.subjects.length) {
     state.activeTabIndex = 0;
   }
   const idx = state.activeTabIndex;
@@ -1446,18 +1428,13 @@ function renderWebCollageTabGrid() {
   if (!gridEl) return;
   const state = window._webCollageState;
 
-  let items = [];
-  if (state.activeTabIndex === 3) {
-    items = state.slantArtImages || [];
-  } else {
-    const subj = state.subjects[state.activeTabIndex];
-    const q = subj ? (subj.query || subj.label || '') : '';
-    items = (q && state.tabImagesMap[q]) ? state.tabImagesMap[q] : [];
-  }
+  const subj = state.subjects[state.activeTabIndex];
+  const q = subj ? (subj.query || subj.label || '') : '';
+  const items = (q && state.tabImagesMap[q]) ? state.tabImagesMap[q] : [];
 
   if (!items || items.length === 0) {
     gridEl.innerHTML = `<div style="grid-column: 1 / -1; padding: 18px 12px; text-align: center; color: var(--text-secondary); font-size: 11.5px; background: rgba(148,163,184,0.08); border-radius: 10px;">
-      ${state.isLoading ? 'Searching web images...' : 'No images found for this phrase. Type a simpler noun or person name above and tap <strong>🔍 Search Web</strong>!'}
+      ${state.isLoading ? 'Searching web images...' : 'No images found for this phrase. Type a simpler noun or person name above and tap <strong>🔍 Search</strong>!'}
     </div>`;
     return;
   }

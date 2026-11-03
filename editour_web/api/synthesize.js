@@ -1188,33 +1188,6 @@ module.exports = async function handler(req, res) {
           })
         );
 
-        let slantArtImages = [];
-        if (includeSlantCommons) {
-          try {
-            const resp = await fetch(`${SUPABASE_URL}/rest/v1/posts?select=id,data&id=like.slant*&order=created_at.desc&limit=36`, {
-              headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-            });
-            if (resp.ok) {
-              const rows = await resp.json();
-              const seenArt = new Set();
-              for (const r of (rows || [])) {
-                const d = r?.data || {};
-                const imgUrl = d.illustrationUrl || d.posterUrl || d.imageUrl || '';
-                if (!imgUrl || !/^https?:\/\//i.test(imgUrl) || seenArt.has(imgUrl)) continue;
-                seenArt.add(imgUrl);
-                slantArtImages.push({
-                  id: `slant_art_${r.id}`,
-                  url: imgUrl,
-                  thumbUrl: imgUrl,
-                  title: d.adaptedHeadline || d.originalHeadline || 'Slant Editorial Artwork',
-                  source: 'Slant Art Library'
-                });
-                if (slantArtImages.length >= 12) break;
-              }
-            }
-          } catch (_) {}
-        }
-
         const primaryQuery = query || targetQueries[0] || '';
         return res.status(200).json({
           success: true,
@@ -1222,7 +1195,7 @@ module.exports = async function handler(req, res) {
           query: primaryQuery,
           images: tabResults[primaryQuery] || [],
           tabResults,
-          slantArtImages
+          slantArtImages: []
         });
       } catch (err) {
         return res.status(500).json({
