@@ -494,103 +494,9 @@
         </div>
       </div>
 
-      <!-- Interactive Section-by-Section Credits Bar on Top of Form (Tap to Expand Details & Request More) -->
-      <div class="creator-credits-top-section" id="creatorCreditsTopSection" style="flex-shrink: 0; margin: 0 0 10px 0; border-radius: 12px; border: 1px solid rgba(16,185,129,0.28); background: linear-gradient(135deg, rgba(16,185,129,0.07), rgba(15,23,42,0.03)); overflow: hidden; transition: all 0.2s ease;">
-        <div onclick="toggleCreatorCreditsSectionDrawer()" style="width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px; background: transparent; cursor: pointer; text-align: left; box-sizing: border-box;">
-          <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-width: 0; flex: 1;">
-            <span id="creatorCreditsActiveModeIcon" style="font-size: 13px;">🎨</span>
-            <span id="creatorCreditsActiveModeSummary" style="font-size: 11.5px; font-weight: 800; color: var(--text-primary);">Perspective Visuals: 5 Free Starter Left</span>
-            <span id="creatorCreditsSecondarySummary" style="font-size: 10.5px; font-weight: 700; color: var(--text-secondary); padding: 1px 7px; border-radius: 99px; background: rgba(148,163,184,0.14);">📔 Chronicle: 1/1 Free Today</span>
-          </div>
-          <div style="display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0;">
-            <button type="button" id="masterSimulateZeroCreditsBtn" onclick="toggleMasterSimulateZeroCredits(event)" style="display:none; align-items:center; gap:3px; font-size:10px; font-weight:800; padding:3px 8px; border-radius:99px; background:rgba(148,163,184,0.16); color:var(--text-secondary); border:1px dashed rgba(148,163,184,0.45); cursor:pointer; white-space:nowrap;" title="Master Admin Testing Toggle: Switch between ∞ Unlimited Credits and 0 Credits to test zero-credit flows">🧪 Test 0⚡: OFF</button>
-            <span style="display: inline-flex; align-items: center; gap: 3px; font-size: 10.5px; font-weight: 800; color: #059669; white-space: nowrap;">
-              <span id="creatorCreditsExpandLabel">Credits</span>
-              <span id="creatorCreditsExpandChevron" style="transition: transform 0.2s ease; display: inline-block;">▾</span>
-            </span>
-          </div>
-        </div>
-
-        <!-- Expandable Section Breakdown Drawer -->
-        <div id="creatorCreditsTopDrawer" style="display: none; padding: 10px 12px 12px; border-top: 1px dashed rgba(16,185,129,0.25); background: rgba(255,255,255,0.65);">
-          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px;">
-            <div id="creatorDrawerCardPerspective" style="padding: 8px 10px; border-radius: 10px; background: rgba(16,185,129,0.09); border: 1.5px solid rgba(16,185,129,0.4);">
-              <div style="font-size: 9.5px; font-weight: 800; color: #059669; text-transform: uppercase; letter-spacing: 0.4px;">🌐💭 Perspective</div>
-              <div id="creatorDrawerPerspCount" style="font-size: 13.5px; font-weight: 900; color: var(--text-primary); margin-top: 2px;">5 / 5 Starter</div>
-              <div id="creatorDrawerPerspSub" style="font-size: 10px; color: var(--text-secondary); margin-top: 1px; line-height: 1.25;">5 starter free &bull; then 1/day</div>
-            </div>
-            <div id="creatorDrawerCardChronicle" style="padding: 8px 10px; border-radius: 10px; background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.3);">
-              <div style="font-size: 9.5px; font-weight: 800; color: #B45309; text-transform: uppercase; letter-spacing: 0.4px;">📔 Diary Chronicle</div>
-              <div id="creatorDrawerChronCount" style="font-size: 13.5px; font-weight: 900; color: var(--text-primary); margin-top: 2px;">1 / 1 Today</div>
-              <div id="creatorDrawerChronSub" style="font-size: 10px; color: var(--text-secondary); margin-top: 1px; line-height: 1.25;">1 montage/day always free</div>
-            </div>
-            <div style="padding: 8px 10px; border-radius: 10px; background: rgba(99,102,241,0.07); border: 1px solid rgba(99,102,241,0.22);">
-              <div style="font-size: 9.5px; font-weight: 800; color: #4F46E5; text-transform: uppercase; letter-spacing: 0.4px;">📝📷 Text &amp; Real Photos</div>
-              <div style="font-size: 13.5px; font-weight: 900; color: var(--text-primary); margin-top: 2px;">∞ Always Free</div>
-              <div style="font-size: 10px; color: var(--text-secondary); margin-top: 1px; line-height: 1.25;">Original / Attached photo = 0⚡</div>
-            </div>
-          </div>
-          <div style="padding: 7px 9px; margin-bottom: 8px; border-radius: 9px; background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.25); font-size: 10.8px; color: var(--text-primary); line-height: 1.38;">
-            <strong>💡 Even with 0 AI visual credits, you can always post for FREE:</strong><br>
-            1. <strong>Web Link:</strong> Use <strong>Original Photo</strong> &bull; 2. <strong>Inner Voice:</strong> Attach 1–3 photos &bull; 3. <strong>Web Source:</strong> Search &amp; pick 1–3 web images from your context &bull; <em>Text generation is free!</em>
-          </div>
-          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
-            <span style="font-size: 11px; color: var(--text-secondary);">Need more AI illustrations today? Request a bonus top-up anytime.</span>
-            <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-              <button type="button" id="masterDrawerSimulateZeroBtn" onclick="toggleMasterSimulateZeroCredits(event)" style="display: none; padding: 5px 10px; border-radius: 8px; border: 1px dashed rgba(245,158,11,0.55); background: rgba(245,158,11,0.12); color: #B45309; font-size: 10.8px; font-weight: 800; cursor: pointer;">
-                🧪 Simulate 0 Credits: OFF
-              </button>
-              <button type="button" onclick="openUserCreditsAndInviteModal('credits')" style="padding: 5px 11px; border-radius: 8px; border: none; background: #253833; color: #FFFFFF; font-size: 11px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
-                <span>⚡ Request More Credits</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Shown automatically when active pillar has 0 AI illustration credits left so user knows they can still post for FREE -->
-      <div id="creatorZeroCreditsFreeBanner" style="display: none; margin: 0 0 10px 0; padding: 10px 12px; border-radius: 12px; background: linear-gradient(135deg, rgba(16,185,129,0.12), rgba(59,130,246,0.08)); border: 1.5px solid rgba(16,185,129,0.45); color: var(--text-primary); font-size: 11.8px; line-height: 1.42;">
-        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 5px; flex-wrap: wrap;">
-          <span style="font-weight: 800; color: #059669; font-size: 12.2px;">✨ 0 AI Art Credits Left — You Can Still Post for FREE!</span>
-          <span style="font-size: 10.5px; font-weight: 800; padding: 2px 8px; border-radius: 99px; background: rgba(16,185,129,0.18); color: #047857;">📝 Text Generation is Free</span>
-        </div>
-        <div style="display: flex; flex-direction: column; gap: 3px; color: var(--text-secondary); font-size: 11.4px;">
-          <div><strong>1. 🖼️ Web Source:</strong> Auto-extract key subjects from your context &amp; pick 1–3 web photos (0 credits).</div>
-          <div><strong>2. 🌐 Web Link:</strong> Post with the <strong>Original Photo</strong> from your source link (0 credits).</div>
-          <div><strong>3. 💭 Inner Voice:</strong> Attach 1–3 of your own photos via <em>Snap Scene / Upload Photos</em> (0 credits).</div>
-        </div>
-        <div style="display: flex; align-items: center; gap: 8px; margin-top: 8px; flex-wrap: wrap;">
-          <button type="button" onclick="openWebCollageBuilderFromContext()" style="padding: 5px 11px; border-radius: 8px; border: 1px solid rgba(79,70,229,0.5); background: #4F46E5; color: #FFFFFF; font-size: 11px; font-weight: 800; cursor: pointer;">
-            🖼️ Use Web Source (0⚡)
-          </button>
-          <button type="button" onclick="applyFreeOriginalPhotoModeFromBanner()" style="padding: 5px 10px; border-radius: 8px; border: 1px solid rgba(16,185,129,0.5); background: #059669; color: #FFFFFF; font-size: 11px; font-weight: 800; cursor: pointer;">
-            📷 Use Original / Attached Photo (Free)
-          </button>
-          <button type="button" onclick="openUserCreditsAndInviteModal('credits')" style="padding: 5px 10px; border-radius: 8px; border: 1px solid rgba(148,163,184,0.35); background: transparent; color: var(--text-primary); font-size: 11px; font-weight: 700; cursor: pointer;">
-            ⚡ Request Bonus AI Credits
-          </button>
-        </div>
-      </div>
-
-      <!-- 3-Way Regeneration Scope Toggle (Icon-Only Pills: 📝 Text Only | ✨ Both | 🎨 Visuals Only) -->
-      <div class="creator-regen-scope-bar is-locked-fresh" id="creatorRegenScopeBar">
-        <div class="regen-scope-info-col">
-          <span class="regen-scope-label" id="regenScopeModeLabel">SCOPE: ✨ BOTH (TEXT &amp; VISUALS)</span>
-          <span class="regen-scope-hint" id="regenScopeStatusHint">🔒 Fresh Slant: Generates both text &amp; visuals</span>
-        </div>
-        <div class="regen-scope-track" id="regenScopeTrack" data-scope="both" role="radiogroup" aria-label="Generation Scope">
-          <div class="regen-scope-thumb" id="regenScopeThumb"></div>
-          <button type="button" class="regen-scope-option" id="regenScopeBtnText" data-scope="text_only" onclick="setCreatorRegenScope('text_only', true)" disabled aria-label="Text Only" title="Text Only — Regenerate text across all 3 slides and keep current poster artwork">
-            <span class="scope-opt-icon">📝</span>
-          </button>
-          <button type="button" class="regen-scope-option active" id="regenScopeBtnBoth" data-scope="both" onclick="setCreatorRegenScope('both', true)" aria-label="Both Text and Visuals" title="Both — Generate editorial text and poster visuals">
-            <span class="scope-opt-icon">✨</span>
-          </button>
-          <button type="button" class="regen-scope-option" id="regenScopeBtnVisuals" data-scope="visuals_only" onclick="setCreatorRegenScope('visuals_only', true)" disabled aria-label="Visuals Only" title="Visuals Only — Regenerate poster artwork and keep current editorial text">
-            <span class="scope-opt-icon">🎨</span>
-          </button>
-        </div>
-      </div>
+      <!-- Hidden legacy top credits & zero-credit banners (Admin 0⚡ toggle moved inside Poster 1 Visual Mode; Mental Model is first in form) -->
+      <div id="creatorCreditsTopSection" style="display: none !important;"></div>
+      <div id="creatorZeroCreditsFreeBanner" style="display: none !important;"></div>
 
       <!-- Step Indicator Bar (Hidden per user preference) -->
       <div class="creator-steps-bar" style="display:none !important;">
@@ -770,7 +676,12 @@
             </div>
           </div>
 
-          <div class="slant-take-action-bar">
+          <!-- Auto-save status line directly above Review & Polish + Scope Toggle -->
+          <div style="display: flex; align-items: center; justify-content: flex-end; margin: 4px 0 6px;">
+            <span class="slant-take-hint" id="slantAutosaveStatus" style="font-size: 10.5px;">✓ Auto-saves</span>
+          </div>
+
+          <div class="slant-take-action-bar" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 0;">
             <div class="slant-take-action-btns">
               <button type="button" class="slant-polish-action-btn" id="slantPolishActionBtn" onclick="polishUserTake()">
                 <span class="btn-spark-icon">✨</span>
@@ -781,7 +692,28 @@
                 <span class="btn-draft-text" id="slantSaveDraftBtnText">Save Draft</span>
               </button>
             </div>
-            <span class="slant-take-hint" id="slantAutosaveStatus">✓ Auto-saves</span>
+
+            <!-- Compact Scope Toggle beside Review & Polish (Just below Auto-saves line) -->
+            <div class="creator-regen-scope-bar is-locked-fresh" id="creatorRegenScopeBar" style="margin: 0; padding: 3px 6px; border-radius: 999px; display: inline-flex; align-items: center; gap: 5px; width: auto; background: rgba(15, 23, 42, 0.04); border: 1px solid rgba(148, 163, 184, 0.3);">
+              <span id="regenScopeModeLabel" style="display: none;"></span>
+              <span id="regenScopeStatusHint" style="display: none;"></span>
+              <div class="regen-scope-track" id="regenScopeTrack" data-scope="both" role="radiogroup" aria-label="Generation Scope" style="margin: 0;">
+                <div class="regen-scope-thumb" id="regenScopeThumb"></div>
+                <button type="button" class="regen-scope-option" id="regenScopeBtnText" data-scope="text_only" onclick="setCreatorRegenScope('text_only', true)" disabled aria-label="Text Only" title="Text Only — Regenerate text across slides and keep current poster artwork">
+                  <span class="scope-opt-icon">📝</span>
+                </button>
+                <button type="button" class="regen-scope-option active" id="regenScopeBtnBoth" data-scope="both" onclick="setCreatorRegenScope('both', true)" aria-label="Both Text and Visuals" title="Both — Generate editorial text and poster visuals">
+                  <span class="scope-opt-icon">✨</span>
+                </button>
+                <button type="button" class="regen-scope-option" id="regenScopeBtnVisuals" data-scope="visuals_only" onclick="setCreatorRegenScope('visuals_only', true)" disabled aria-label="Visuals Only" title="Visuals Only — Regenerate poster artwork and keep current editorial text">
+                  <span class="scope-opt-icon">🎨</span>
+                </button>
+              </div>
+              <button type="button" class="ui-info-dot-btn" onclick="toggleInfoTip(event, 'regenScopeInfoTip')" title="About Scope">i</button>
+            </div>
+          </div>
+          <div class="ui-info-popover-box" id="regenScopeInfoTip" style="display: none; margin-top: 6px;">
+            <strong>Scope:</strong> 📝 Text Only &bull; ✨ Both Text &amp; Visuals &bull; 🎨 Visuals Only (unlocks when regenerating an existing Slant).
           </div>
 
           <!-- Review & Approve Polished Take Card with Pedagogical Coaching Highlighters -->
@@ -908,17 +840,20 @@
             </div>
           </div>
 
-          <!-- Unified Poster 1 Visual Source Selector Strip (Clear 3-Way Choice + Live "What You'll Get" Expectation Bar) -->
+          <!-- Unified Poster 1 Visual Source Selector Strip (Clear 3-Way Choice) -->
           <div id="creatorPosterVisualSourceStrip" style="margin-top: 12px; padding: 11px 12px; border-radius: 14px; background: rgba(15, 23, 42, 0.035); border: 1.5px solid rgba(148, 163, 184, 0.32);">
             <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; flex-wrap: wrap;">
               <div style="display: inline-flex; align-items: center; gap: 6px;">
                 <span style="font-size: 13.5px;">🖼️</span>
                 <span style="font-size: 10.8px; font-weight: 900; letter-spacing: 0.45px; text-transform: uppercase; color: var(--text-primary);">Poster 1 Visual Mode</span>
               </div>
-              <span id="posterVisualCostBadge" style="font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 99px; background: rgba(99, 102, 241, 0.14); color: #4F46E5; border: 1px solid rgba(99, 102, 241, 0.3);">1⚡ AI Visual Credit</span>
+              <div style="display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                <button type="button" id="masterSimulateZeroCreditsBtn" onclick="toggleMasterSimulateZeroCredits(event)" style="display:none; align-items:center; gap:3px; font-size:10px; font-weight:800; padding:3px 8px; border-radius:99px; background:rgba(148,163,184,0.16); color:var(--text-secondary); border:1px dashed rgba(148,163,184,0.45); cursor:pointer; white-space:nowrap;" title="Admin Toggle: Switch between ∞ Credits and 0 Credits">🧪 Test 0⚡: OFF</button>
+                <span id="posterVisualCostBadge" style="font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 99px; background: rgba(99, 102, 241, 0.14); color: #4F46E5; border: 1px solid rgba(99, 102, 241, 0.3);">1⚡ Credit</span>
+              </div>
             </div>
 
-            <!-- 3 Clear Options with Explicit Checkmarks: 1) Original / Attached Photo (0⚡), 2) Web Collage (0⚡), 3) AI Illustration (1⚡) -->
+            <!-- 3 Clear Options with Explicit Checkmarks: 1) Original / Attached Photo (0⚡), 2) Web Source (0⚡), 3) AI Illustration (1⚡) -->
             <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; margin-bottom: 9px;">
               <!-- Card 1: Original / Attached Photo (Free 0⚡) -->
               <button type="button" id="posterModeCardOriginal" onclick="selectUnifiedPosterVisualMode('original_photo')" style="display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; gap: 5px; padding: 8px 9px; border-radius: 11px; border: 1.5px solid rgba(148,163,184,0.35); background: #FFFFFF; color: var(--text-primary); text-align: left; cursor: pointer; transition: all 0.15s ease;">
@@ -960,46 +895,50 @@
               </button>
             </div>
 
-            <!-- Snap Scene / Upload Photo (Max 3 Collage + ★ Starred Prominence) Drawer directly below Attached Photo in Visual Mode -->
-            <div class="inner-voice-photo-wrap" id="innerVoicePhotoWrap" style="display: none; margin-bottom: 9px; padding: 9px 10px; border-radius: 11px; background: #FFFFFF; border: 1.5px dashed rgba(16, 185, 129, 0.45);">
+            <!-- Snap Scene / Upload Photos (Aligned 2-Tap Bar: Camera Icon + Multi-Photo Carousel Icon, No Repeated Header Text) -->
+            <div class="inner-voice-photo-wrap" id="innerVoicePhotoWrap" style="display: none; margin-bottom: 4px; padding: 8px 10px; border-radius: 11px; background: #FFFFFF; border: 1.5px dashed rgba(16, 185, 129, 0.45);">
               <input type="file" id="innerVoiceCameraInput" accept="image/*" capture="environment" style="display:none;" onchange="handleInnerVoicePhotoSelect(event)">
               <input type="file" id="innerVoiceFileInput" accept="image/*" multiple style="display:none;" onchange="handleInnerVoicePhotoSelect(event)">
 
-              <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 7px;">
-                <div style="display: flex; align-items: center; gap: 6px;">
-                  <span style="font-size: 13px;">📷</span>
-                  <span id="attachedSceneDrawerTitle" style="font-size: 10.8px; font-weight: 800; color: var(--text-primary);">Snap Scene or Upload Photos (Max 3 • ★ Starred Takes Prominence)</span>
-                </div>
-                <span id="attachedSceneCountBadge" style="font-size: 9.8px; font-weight: 800; color: #059669; background: rgba(16,185,129,0.12); padding: 2px 7px; border-radius: 99px;">0 / 3 Photos</span>
-              </div>
-
-              <!-- Action buttons: Snap Scene / Upload Photo (up to 3) -->
-              <div class="inner-voice-photo-empty" id="innerVoicePhotoEmpty" style="display: flex; align-items: center; gap: 7px; margin-top: 0;">
-                <button type="button" class="inner-voice-photo-btn" id="attachedSnapSceneBtn" onclick="triggerInnerVoiceCamera()" style="flex: 1; padding: 7px 10px; font-size: 11.5px;">
-                  <span class="btn-icon">📷</span>
+              <!-- Aligned 2-Tap Buttons: 1) Camera (Snap Scene) | 2) Multiple-Photo Carousel Icon (Upload Photos) -->
+              <div class="inner-voice-photo-empty" id="innerVoicePhotoEmpty" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 0;">
+                <button type="button" class="inner-voice-photo-btn" id="attachedSnapSceneBtn" onclick="triggerInnerVoiceCamera()" style="height: 38px; padding: 0 12px; font-size: 11.5px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 7px; border-radius: 9px;">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;">
+                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                    <circle cx="12" cy="13" r="4"></circle>
+                  </svg>
                   <span class="btn-label" id="attachedSnapBtnLabel">Snap Scene</span>
                 </button>
-                <button type="button" class="inner-voice-photo-btn" id="attachedUploadPhotoBtn" onclick="triggerInnerVoiceUpload()" style="flex: 1; padding: 7px 10px; font-size: 11.5px;">
-                  <span class="btn-icon">🖼️</span>
-                  <span class="btn-label" id="attachedUploadBtnLabel">Upload Photos (1–3)</span>
+                <button type="button" class="inner-voice-photo-btn" id="attachedUploadPhotoBtn" onclick="triggerInnerVoiceUpload()" style="height: 38px; padding: 0 12px; font-size: 11.5px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 7px; border-radius: 9px;">
+                  <!-- Multi-Photo Carousel / Stack Icon -->
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;">
+                    <rect x="2" y="6" width="15" height="15" rx="2.5"></rect>
+                    <path d="M7 3h13a2 2 0 0 1 2 2v13"></path>
+                    <circle cx="7" cy="11" r="1.5"></circle>
+                    <path d="M17 16l-3.5-3.5L6 20"></path>
+                  </svg>
+                  <span class="btn-label" id="attachedUploadBtnLabel">Upload Photos</span>
                 </button>
               </div>
 
               <!-- Attached 1–3 Photos Strip with ★ Star Prominence Toggle -->
-              <div id="innerVoicePhotoPreview" style="display: none; flex-direction: column; gap: 7px; margin-top: 8px;">
+              <div id="innerVoicePhotoPreview" style="display: none; flex-direction: column; gap: 6px; margin-top: 8px;">
                 <div id="attachedScenePhotosGrid" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px;">
                   <!-- Populated dynamically by renderAttachedScenePhotosUI() -->
                 </div>
-                <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 10px; color: var(--text-secondary);">
-                  <span>Tap <strong>★ Star</strong> on any photo to give it <strong>hero prominence (60% frame)</strong> in your collage.</span>
-                  <button type="button" onclick="removeInnerVoicePhoto(event)" style="border: none; background: transparent; color: #DC2626; font-size: 10px; font-weight: 800; cursor: pointer; padding: 2px 4px; flex-shrink: 0;">Clear All</button>
+                <div style="display: flex; align-items: center; justify-content: flex-end; gap: 6px;">
+                  <button type="button" class="ui-info-dot-btn" onclick="toggleInfoTip(event, 'attachedPhotoStarInfoTip')" title="About ★ Starred Photo">i</button>
+                  <button type="button" onclick="removeInnerVoicePhoto(event)" style="border: none; background: transparent; color: #DC2626; font-size: 10px; font-weight: 800; cursor: pointer; padding: 2px 4px;">Clear All</button>
+                </div>
+                <div class="ui-info-popover-box" id="attachedPhotoStarInfoTip" style="display: none;">
+                  Tap <strong>★ Star</strong> on any photo to give it 60% hero prominence in your collage (max 3 photos).
                 </div>
                 <img id="innerVoicePhotoThumb" src="" alt="" style="display: none;">
               </div>
             </div>
 
-            <!-- Web Source Picker directly below Web Source card in Visual Mode (No repeated titles or verbose intro!) -->
-            <div class="web-collage-studio-card" id="creatorWebCollageStudioCard" style="display: none; margin-bottom: 9px; padding: 10px; border-radius: 11px; background: #FFFFFF; border: 1.5px dashed rgba(16, 185, 129, 0.45);">
+            <!-- Web Source Picker directly below Web Source card in Visual Mode -->
+            <div class="web-collage-studio-card" id="creatorWebCollageStudioCard" style="display: none; margin-bottom: 4px; padding: 10px; border-radius: 11px; background: #FFFFFF; border: 1.5px dashed rgba(16, 185, 129, 0.45);">
               <!-- Subject Tabs Bar + Compact Re-scan Button -->
               <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 7px;">
                 <div id="webCollageSubjectTabs" style="display: flex; align-items: center; gap: 6px; overflow-x: auto; padding-bottom: 2px; flex: 1;">
@@ -1025,14 +964,18 @@
               <!-- Selected Images & Live Collage Preview Strip -->
               <div id="webCollageComposerStrip" style="margin-top: 9px; padding-top: 8px; border-top: 1px dashed rgba(148,163,184,0.35);">
                 <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 7px; flex-wrap: wrap;">
-                  <div style="font-size: 10.8px; font-weight: 800; color: var(--text-primary);">
-                    Selected (<span id="webCollageSelectedCount">0</span>/3) <span style="font-weight: 600; color: var(--text-secondary); font-size: 10px;">• ★ Starred takes prominence</span>
+                  <div style="display: inline-flex; align-items: center; gap: 5px; font-size: 10.8px; font-weight: 800; color: var(--text-primary);">
+                    <span>Selected (<span id="webCollageSelectedCount">0</span>/3)</span>
+                    <button type="button" class="ui-info-dot-btn" onclick="toggleInfoTip(event, 'webCollageInfoTip')" title="About Web Source">i</button>
                   </div>
                   <div style="display: inline-flex; align-items: center; gap: 4px;">
                     <button type="button" id="webCollageStyleArchivalBtn" onclick="setWebCollageLayoutStyle('archival')" style="padding: 2px 7px; border-radius: 99px; border: 1px solid #253833; background: #253833; color: #FFFFFF; font-size: 9.8px; font-weight: 800; cursor: pointer;">🗞️ Frame</button>
                     <button type="button" id="webCollageStyleBleedBtn" onclick="setWebCollageLayoutStyle('bleed')" style="padding: 2px 7px; border-radius: 99px; border: 1px solid rgba(148,163,184,0.45); background: transparent; color: var(--text-secondary); font-size: 9.8px; font-weight: 800; cursor: pointer;">📐 Split</button>
                     <button type="button" onclick="clearWebCollageSelection()" style="padding: 2px 7px; border-radius: 99px; border: 1px solid rgba(220,38,38,0.3); background: transparent; color: #DC2626; font-size: 9.8px; font-weight: 800; cursor: pointer;">Clear</button>
                   </div>
+                </div>
+                <div class="ui-info-popover-box" id="webCollageInfoTip" style="display: none; margin-bottom: 6px;">
+                  Select up to 3 web photos. Tap <strong>★ Star</strong> on any selected photo for 60% hero prominence. Fair-dealing editorial attribution is stamped automatically.
                 </div>
 
                 <!-- Selected Slots Row -->
@@ -1047,34 +990,26 @@
                     ✓ Ready for Poster 1 (0⚡ Free)
                   </div>
                 </div>
-                <div style="margin-top: 6px; font-size: 9.5px; color: var(--text-secondary); text-align: center;">
-                  ⚖️ Fair-dealing editorial commentary use • Source attribution stamped automatically.
-                </div>
               </div>
             </div>
 
-            <!-- Live "What You'll Get" Expectation Bar (Strictly Shows Only the Checked Visual Mode) -->
-            <div id="posterVisualExpectationBar" style="display: flex; align-items: center; gap: 9px; padding: 7px 9px; border-radius: 10px; background: #FFFFFF; border: 1px solid rgba(148,163,184,0.3);">
-              <img id="posterVisualExpectationThumb" src="" alt="" style="display: none; width: 38px; height: 38px; border-radius: 7px; object-fit: cover; border: 1px solid rgba(148,163,184,0.4); flex-shrink: 0;">
-              <div id="posterVisualExpectationIcon" style="width: 34px; height: 34px; border-radius: 7px; background: rgba(79,70,229,0.1); color: #4F46E5; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0;">🎨</div>
-              <div style="flex: 1; min-width: 0;">
-                <div id="posterVisualExpectationTitle" style="font-size: 11px; font-weight: 800; color: var(--text-primary); line-height: 1.25;">✓ AI Illustration Selected • Editorial Realism (1⚡ Credit)</div>
-                <div id="posterVisualExpectationDesc" style="font-size: 10.2px; color: var(--text-secondary); line-height: 1.3; margin-top: 1px;">Grounded in your source link &amp; written perspective. Change portrayal style anytime in Settings.</div>
-              </div>
+            <!-- Hidden Expectation Bar per user preference (Cards & Checkmarks are self-explanatory) -->
+            <div id="posterVisualExpectationBar" style="display: none !important;">
+              <img id="posterVisualExpectationThumb" src="" alt="" style="display: none;">
+              <div id="posterVisualExpectationIcon"></div>
+              <div id="posterVisualExpectationTitle"></div>
+              <div id="posterVisualExpectationDesc"></div>
             </div>
           </div>
 
-          <!-- Post Comment Permission Toggle (Accept Comments ON/OFF) -->
-          <div id="creatorAllowCommentsRow" style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 12px; margin-bottom: 10px; border-radius: 11px; background: var(--bg-surface, #F8FAFC); border: 1px solid var(--border-subtle, rgba(148,163,184,0.3));">
-            <div style="display: flex; align-items: center; gap: 7px; min-width: 0;">
-              <span style="font-size: 14px;">💬</span>
-              <div style="min-width: 0;">
-                <div style="font-size: 11.2px; font-weight: 800; color: var(--text-primary); line-height: 1.2;">Accept Comments on Post</div>
-                <div id="creatorAllowCommentsSub" style="font-size: 9.8px; color: var(--text-secondary); line-height: 1.25;">Readers can comment and discuss below your post</div>
-              </div>
+          <!-- Post Comment Permission Toggle (Compact single-line) -->
+          <div id="creatorAllowCommentsRow" style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 12px; margin-bottom: 10px; border-radius: 11px; background: var(--bg-surface, #F8FAFC); border: 1px solid var(--border-subtle, rgba(148,163,184,0.3));">
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <span style="font-size: 13.5px;">💬</span>
+              <span style="font-size: 11.2px; font-weight: 800; color: var(--text-primary);">Accept Comments</span>
             </div>
-            <label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; flex-shrink: 0;">
-              <input type="checkbox" id="creatorAllowCommentsToggle" checked onchange="setCreatorAllowComments(this.checked)" style="width: 16px; height: 16px; accent-color: #4F46E5; cursor: pointer;">
+            <label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; user-select: none;">
+              <input type="checkbox" id="creatorAllowCommentsToggle" checked onchange="setCreatorAllowComments(this.checked)" style="width: 15px; height: 15px; accent-color: #4F46E5; cursor: pointer;">
               <span id="creatorAllowCommentsBadge" style="font-size: 10.5px; font-weight: 800; color: #059669;">Allowed</span>
             </label>
           </div>

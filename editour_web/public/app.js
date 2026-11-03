@@ -430,7 +430,7 @@ function updateCreatorStudioCreditBadge(creditsObj) {
     if (topSection) topSection.style.display = 'none';
     return;
   }
-  if (topSection) topSection.style.display = 'block';
+  if (topSection) topSection.style.display = 'none';
 
   const email = (currentUser.email || '').toLowerCase().trim();
   const isRealMaster = email === 'shridharoct16@gmail.com';
@@ -553,11 +553,11 @@ function updateCreatorStudioCreditBadge(creditsObj) {
     }
   }
 
-  // Show/hide the prominent Zero-Credit Free Posting Guidance Banner in Studio
+  // Keep legacy Zero-Credit banner hidden per clean form layout preference
   const zeroCreditsBanner = document.getElementById('creatorZeroCreditsFreeBanner');
   const activePillarZeroCredits = !isMaster && (isChronicleActive ? (chronTotalLeft <= 0) : (perspLeft <= 0));
   if (zeroCreditsBanner) {
-    zeroCreditsBanner.style.display = activePillarZeroCredits ? 'block' : 'none';
+    zeroCreditsBanner.style.display = 'none';
   }
   if (activePillarZeroCredits) {
     window._wasForcedZeroCreditsMode = true;
@@ -1032,12 +1032,12 @@ function updateUnifiedPosterVisualStripUI() {
   const costBadge = document.getElementById('posterVisualCostBadge');
   if (costBadge) {
     if (isAiArtMode) {
-      costBadge.textContent = '1⚡ AI Visual Credit • Text Free';
+      costBadge.textContent = '1⚡ Credit';
       costBadge.style.background = 'rgba(79, 70, 229, 0.14)';
       costBadge.style.color = '#4F46E5';
       costBadge.style.borderColor = 'rgba(79, 70, 241, 0.3)';
     } else {
-      costBadge.textContent = '0⚡ Free Visual • Text Free';
+      costBadge.textContent = '0⚡ Free';
       costBadge.style.background = 'rgba(16, 185, 129, 0.15)';
       costBadge.style.color = '#059669';
       costBadge.style.borderColor = 'rgba(16, 185, 129, 0.35)';
@@ -1057,7 +1057,7 @@ function updateUnifiedPosterVisualStripUI() {
       eqBtn.style.cursor = 'not-allowed';
       eqBtn.setAttribute('aria-disabled', 'true');
       if (eqSummary) {
-        eqSummary.textContent = '🔒 Disabled (0⚡ Credits Today — Only Web Source / Attached Photo Available)';
+        eqSummary.textContent = '🔒 Disabled (0⚡ Credits Today)';
       }
     } else if (!isAiArtMode) {
       eqBtn.style.opacity = '0.6';
@@ -1065,9 +1065,7 @@ function updateUnifiedPosterVisualStripUI() {
       eqBtn.style.cursor = 'pointer';
       eqBtn.setAttribute('aria-disabled', 'false');
       if (eqSummary) {
-        eqSummary.textContent = isWebCollageMode
-          ? 'Web Source (0⚡ Free) • Check AI Illustration to tune Portrayals'
-          : 'Original/Attached Photo (0⚡ Free) • Check AI Illustration to tune Portrayals';
+        eqSummary.textContent = isWebCollageMode ? 'Web Source (0⚡)' : 'Original Photo (0⚡)';
       }
     } else {
       eqBtn.style.opacity = '1';
@@ -1080,7 +1078,7 @@ function updateUnifiedPosterVisualStripUI() {
     }
   }
 
-  // 6. Live Single-Mode Preview Bar (Hidden when Web Source picker is open so there is zero repeated text!)
+  // 6. Keep Expectation Bar hidden (Visual Mode cards & checkmarks are self-explanatory)
   const expBar = document.getElementById('posterVisualExpectationBar');
   const expThumb = document.getElementById('posterVisualExpectationThumb');
   const expIcon = document.getElementById('posterVisualExpectationIcon');
@@ -1088,7 +1086,7 @@ function updateUnifiedPosterVisualStripUI() {
   const expDesc = document.getElementById('posterVisualExpectationDesc');
 
   if (expBar) {
-    expBar.style.display = isWebCollageMode ? 'none' : 'flex';
+    expBar.style.display = 'none';
   }
 
   let thumbSrc = '';
@@ -1494,9 +1492,11 @@ async function toggleSelectCollageImage(encUrl, encThumb, encTitle, encSource) {
   if (existingIdx >= 0) {
     state.selectedItems.splice(existingIdx, 1);
   } else {
-    // If an image is already selected from the same subject tab (and user has >= 1), or if 3 are already selected, replace intelligently
-    const sameTabIdx = state.selectedItems.findIndex(s => s.tabIndex === state.activeTabIndex);
-    const hasAnyStarred = state.selectedItems.some((s, i) => i !== sameTabIdx && Boolean(s.isStarred));
+    if (state.selectedItems.length >= 3) {
+      showTemporaryToast('⚠️ Only maximum 3 photos are allowed.');
+      return;
+    }
+    const hasAnyStarred = state.selectedItems.some(s => Boolean(s.isStarred));
     const newItem = {
       url,
       thumbUrl,
@@ -1505,14 +1505,7 @@ async function toggleSelectCollageImage(encUrl, encThumb, encTitle, encSource) {
       tabIndex: state.activeTabIndex,
       isStarred: !hasAnyStarred
     };
-    if (sameTabIdx >= 0) {
-      state.selectedItems[sameTabIdx] = newItem;
-    } else if (state.selectedItems.length >= 3) {
-      newItem.isStarred = Boolean(state.selectedItems[2]?.isStarred);
-      state.selectedItems[2] = newItem;
-    } else {
-      state.selectedItems.push(newItem);
-    }
+    state.selectedItems.push(newItem);
   }
   if (state.selectedItems.length > 0 && !state.selectedItems.some(s => s.isStarred)) {
     state.selectedItems[0].isStarred = true;
@@ -21470,7 +21463,7 @@ window._attachedScenePhotos = [];
 
 function triggerInnerVoiceCamera() {
   if (Array.isArray(window._attachedScenePhotos) && window._attachedScenePhotos.length >= 3) {
-    showTemporaryToast('⚠️ Maximum 3 photos attached. Remove a photo first to snap a new one.');
+    showTemporaryToast('⚠️ Only maximum 3 photos are allowed.');
     return;
   }
   const cam = document.getElementById('innerVoiceCameraInput');
@@ -21479,7 +21472,7 @@ function triggerInnerVoiceCamera() {
 
 function triggerInnerVoiceUpload() {
   if (Array.isArray(window._attachedScenePhotos) && window._attachedScenePhotos.length >= 3) {
-    showTemporaryToast('⚠️ Maximum 3 photos attached. Remove a photo first to upload another.');
+    showTemporaryToast('⚠️ Only maximum 3 photos are allowed.');
     return;
   }
   const file = document.getElementById('innerVoiceFileInput');
@@ -21583,16 +21576,22 @@ function renderAttachedScenePhotosUI() {
   const gridEl = document.getElementById('attachedScenePhotosGrid');
 
   if (emptyBox) {
-    emptyBox.style.display = count >= 3 ? 'none' : 'flex';
+    emptyBox.style.display = 'grid';
   }
   if (snapLabel) {
-    snapLabel.textContent = count > 0 ? `＋ Snap (${3 - count} left)` : 'Snap Scene';
+    snapLabel.textContent = 'Snap Scene';
   }
   if (uploadLabel) {
-    uploadLabel.textContent = count > 0 ? `＋ Upload (${3 - count} left)` : 'Upload Photos (1–3)';
+    uploadLabel.textContent = count > 0 ? `Upload Photos (${count}/3)` : 'Upload Photos';
   }
-  if (snapBtn) snapBtn.disabled = count >= 3;
-  if (uploadBtn) uploadBtn.disabled = count >= 3;
+  if (snapBtn) {
+    snapBtn.disabled = false;
+    snapBtn.style.opacity = count >= 3 ? '0.55' : '1';
+  }
+  if (uploadBtn) {
+    uploadBtn.disabled = false;
+    uploadBtn.style.opacity = count >= 3 ? '0.55' : '1';
+  }
 
   if (previewBox) {
     previewBox.style.display = count > 0 ? 'flex' : 'none';
@@ -21696,35 +21695,36 @@ function handleInnerVoicePhotoSelect(event) {
   }
   const remainingSlots = Math.max(0, 3 - window._attachedScenePhotos.length);
   if (remainingSlots <= 0) {
-    showTemporaryToast('⚠️ Maximum of 3 photos reached. Remove one to add another.');
+    showTemporaryToast('⚠️ Only maximum 3 photos are allowed.');
     event.target.value = '';
     return;
   }
 
   const filesToProcess = rawFiles.slice(0, remainingSlots);
-  if (rawFiles.length > remainingSlots) {
-    showTemporaryToast(`📷 Added ${remainingSlots} photo${remainingSlots > 1 ? 's' : ''} (maximum of 3 photos reached).`);
+  const attemptedOverLimit = rawFiles.length > remainingSlots;
+  if (attemptedOverLimit) {
+    showTemporaryToast('⚠️ Only maximum 3 photos are allowed.');
   }
 
   let processed = 0;
   filesToProcess.forEach((file) => {
     compressImage(file, 1200, 0.84, async function(base64Data, mimeType) {
-      const hasAnyStarred = window._attachedScenePhotos.some(p => p.isStarred);
-      window._attachedScenePhotos.push({
-        id: 'scene_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-        base64: base64Data,
-        mimeType: mimeType || 'image/jpeg',
-        isStarred: !hasAnyStarred && window._attachedScenePhotos.length === 0
-      });
+      if (window._attachedScenePhotos.length < 3) {
+        const hasAnyStarred = window._attachedScenePhotos.some(p => p.isStarred);
+        window._attachedScenePhotos.push({
+          id: 'scene_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+          base64: base64Data,
+          mimeType: mimeType || 'image/jpeg',
+          isStarred: !hasAnyStarred && window._attachedScenePhotos.length === 0
+        });
+      }
       processed += 1;
       if (processed === filesToProcess.length) {
         event.target.value = '';
         await syncAttachedScenePhotosCollage();
-        const total = window._attachedScenePhotos.length;
-        if (total > 1) {
-          showTemporaryToast(`✓ ${total} photos attached into collage (★ Starred photo takes 60% prominence)!`);
-        } else {
-          showTemporaryToast('✓ Photo attached! Snap or upload up to 2 more to make a collage.');
+        if (!attemptedOverLimit) {
+          const total = window._attachedScenePhotos.length;
+          showTemporaryToast(total > 1 ? `✓ ${total}/3 photos attached` : '✓ Photo attached (1/3)');
         }
       }
     });
@@ -21941,7 +21941,7 @@ function enableCreatorRegenMode(baselinePost, reasonLabel = '') {
   creatorRegenScope = 'both';
   window._regenBaselineInputs = getCreatorRegenInputsSnapshot();
   const bar = document.getElementById('creatorRegenScopeBar');
-  if (bar) bar.style.display = 'flex';
+  if (bar) bar.style.display = 'inline-flex';
   updateCreatorRegenScopeUI();
 }
 
@@ -21953,7 +21953,7 @@ function resetCreatorRegenModeToFresh() {
   window._regenAutoSwitchReason = '';
   creatorRegenScope = 'both';
   const bar = document.getElementById('creatorRegenScopeBar');
-  if (bar) bar.style.display = 'flex';
+  if (bar) bar.style.display = 'inline-flex';
   updateCreatorRegenScopeUI();
 }
 
