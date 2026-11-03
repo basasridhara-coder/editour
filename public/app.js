@@ -1611,6 +1611,13 @@ async function renderWebCollageCanvas() {
   ctx.clearRect(0, 0, W, H);
   const isArchival = state.layoutStyle !== 'bleed';
 
+  const uniqueSources = [...new Set(
+    state.selectedItems.slice(0, 3)
+      .map(it => String(it.source || 'Web').trim())
+      .filter(Boolean)
+  )];
+  const creditText = `IMAGE SOURCE: ${uniqueSources.join(' • ').toUpperCase()}  |  EDITORIAL COMMENTARY (FAIR DEALING)`;
+
   if (isArchival) {
     // Warm Archival Broadsheet Cream Paper background (#F5EFE2)
     ctx.fillStyle = '#F5EFE2';
@@ -1622,9 +1629,10 @@ async function renderWebCollageCanvas() {
     ctx.strokeRect(18, 18, W - 36, H - 36);
 
     const pad = 34;
+    const botPad = 46;
     const gap = 16;
     const innerW = W - pad * 2;
-    const innerH = H - pad * 2;
+    const innerH = H - pad - botPad;
 
     if (loadedImgs.length === 1) {
       drawCoverImageOnCanvas(ctx, loadedImgs[0], pad, pad, innerW, innerH, 12);
@@ -1658,6 +1666,15 @@ async function renderWebCollageCanvas() {
       ctx.strokeRect(pad + halfW + gap, pad, rightW, topH);
       ctx.strokeRect(pad, pad + topH + gap, innerW, botH);
     }
+
+    // Stamp archival broadsheet photo attribution caption along the bottom margin
+    ctx.save();
+    ctx.font = '700 11.5px "Inter", -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.fillStyle = 'rgba(37, 56, 51, 0.68)';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(creditText.slice(0, 88), W - pad, H - 28);
+    ctx.restore();
   } else {
     // Full-Bleed Editorial Split
     ctx.fillStyle = '#18181B';
@@ -1685,6 +1702,23 @@ async function renderWebCollageCanvas() {
       ctx.fillRect(leftW, 0, div, topH);
       ctx.fillRect(0, topH, W, div);
     }
+
+    // Stamp translucent broadsheet credit pill in bottom-right corner of full-bleed collage
+    ctx.save();
+    ctx.font = '700 11px "Inter", -apple-system, BlinkMacSystemFont, sans-serif';
+    const labelStr = creditText.slice(0, 84);
+    const textW = ctx.measureText(labelStr).width;
+    const pillW = textW + 18;
+    const pillH = 22;
+    const pillX = W - pillW - 14;
+    const pillY = H - pillH - 12;
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.72)';
+    ctx.fillRect(pillX, pillY, pillW, pillH);
+    ctx.fillStyle = 'rgba(245, 239, 226, 0.92)';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(labelStr, W - 23, pillY + pillH / 2);
+    ctx.restore();
   }
 
   try {

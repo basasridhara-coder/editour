@@ -806,6 +806,8 @@ async function searchWebImagesForSubject(rawQuery = '', sourceImageUrl = '', sou
     const cleanUrl = String(item.url).trim();
     if (!/^https?:\/\//i.test(cleanUrl)) return;
     if (/\.svg(?:\?|$)/i.test(cleanUrl) || /\.gif(?:\?|$)/i.test(cleanUrl) || /\.tif(?:\?|$)/i.test(cleanUrl) || /\.pdf(?:\?|$)/i.test(cleanUrl)) return;
+    // Exclude commercial stock/wire watermarked trap domains
+    if (/(?:gettyimages\.|shutterstock\.|alamy\.|istockphoto\.|depositphotos\.|123rf\.|dreamstime\.|stock\.adobe\.com)/i.test(cleanUrl)) return;
     if (seenUrls.has(cleanUrl)) return;
     seenUrls.add(cleanUrl);
     targetArr.push({
