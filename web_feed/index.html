@@ -979,58 +979,55 @@
               <span id="posterVisualCostBadge" style="font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 99px; background: rgba(99, 102, 241, 0.14); color: #4F46E5; border: 1px solid rgba(99, 102, 241, 0.3);">1⚡ AI Visual Credit</span>
             </div>
 
-            <!-- 3 Clear Options: 1) Original / Attached Photo (0⚡), 2) Web Collage (0⚡), 3) AI Illustration (1⚡) -->
+            <!-- 3 Clear Options with Explicit Checkmarks: 1) Original / Attached Photo (0⚡), 2) Web Collage (0⚡), 3) AI Illustration (1⚡) -->
             <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; margin-bottom: 9px;">
               <!-- Card 1: Original / Attached Photo (Free 0⚡) -->
-              <button type="button" id="posterModeCardOriginal" onclick="selectUnifiedPosterVisualMode('original_photo')" style="display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; gap: 4px; padding: 8px 9px; border-radius: 11px; border: 1.5px solid rgba(148,163,184,0.35); background: #FFFFFF; color: var(--text-primary); text-align: left; cursor: pointer; transition: all 0.15s ease;">
+              <button type="button" id="posterModeCardOriginal" onclick="selectUnifiedPosterVisualMode('original_photo')" style="display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; gap: 5px; padding: 8px 9px; border-radius: 11px; border: 1.5px solid rgba(148,163,184,0.35); background: #FFFFFF; color: var(--text-primary); text-align: left; cursor: pointer; transition: all 0.15s ease;">
                 <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 4px;">
-                  <span id="posterModeOrigIcon" style="font-size: 14px;">📸</span>
-                  <span style="font-size: 9.5px; font-weight: 900; padding: 1px 5px; border-radius: 99px; background: rgba(16,185,129,0.14); color: #059669;">0⚡ Free</span>
+                  <div style="display: inline-flex; align-items: center; gap: 5px;">
+                    <span id="posterModeCheckOriginal" style="width: 16px; height: 16px; border-radius: 5px; border: 1.5px solid rgba(148,163,184,0.55); background: #FFFFFF; color: #FFFFFF; display: inline-flex; align-items: center; justify-content: center; font-size: 10.5px; font-weight: 900; line-height: 1; flex-shrink: 0;"></span>
+                    <span id="posterModeOrigIcon" style="font-size: 13.5px;">📸</span>
+                  </div>
+                  <span style="font-size: 9px; font-weight: 900; padding: 1px 5px; border-radius: 99px; background: rgba(16,185,129,0.14); color: #059669;">0⚡ Free</span>
                 </div>
                 <div id="posterModeOrigTitle" style="font-size: 11px; font-weight: 800; line-height: 1.2; color: var(--text-primary);">Original Photo</div>
                 <div id="posterModeOrigSub" style="font-size: 9.8px; font-weight: 600; color: var(--text-secondary); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%;">From source link</div>
               </button>
 
               <!-- Card 2: Web Collage (Free 0⚡) -->
-              <button type="button" id="posterModeCardCollage" onclick="selectUnifiedPosterVisualMode('web_collage')" style="display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; gap: 4px; padding: 8px 9px; border-radius: 11px; border: 1.5px solid rgba(148,163,184,0.35); background: #FFFFFF; color: var(--text-primary); text-align: left; cursor: pointer; transition: all 0.15s ease;">
+              <button type="button" id="posterModeCardCollage" onclick="selectUnifiedPosterVisualMode('web_collage')" style="display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; gap: 5px; padding: 8px 9px; border-radius: 11px; border: 1.5px solid rgba(148,163,184,0.35); background: #FFFFFF; color: var(--text-primary); text-align: left; cursor: pointer; transition: all 0.15s ease;">
                 <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 4px;">
-                  <span style="font-size: 14px;">🖼️</span>
-                  <span style="font-size: 9.5px; font-weight: 900; padding: 1px 5px; border-radius: 99px; background: rgba(16,185,129,0.14); color: #059669;">0⚡ Free</span>
+                  <div style="display: inline-flex; align-items: center; gap: 5px;">
+                    <span id="posterModeCheckCollage" style="width: 16px; height: 16px; border-radius: 5px; border: 1.5px solid rgba(148,163,184,0.55); background: #FFFFFF; color: #FFFFFF; display: inline-flex; align-items: center; justify-content: center; font-size: 10.5px; font-weight: 900; line-height: 1; flex-shrink: 0;"></span>
+                    <span style="font-size: 13.5px;">🖼️</span>
+                  </div>
+                  <span style="font-size: 9px; font-weight: 900; padding: 1px 5px; border-radius: 99px; background: rgba(16,185,129,0.14); color: #059669;">0⚡ Free</span>
                 </div>
                 <div id="posterModeCollageTitle" style="font-size: 11px; font-weight: 800; line-height: 1.2; color: var(--text-primary);">Web Collage</div>
                 <div id="posterModeCollageSub" style="font-size: 9.8px; font-weight: 600; color: var(--text-secondary); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%;">Pick 1–3 web photos</div>
               </button>
 
-              <!-- Card 3: AI Editorial Illustration (1⚡ Credit) -->
-              <button type="button" id="posterModeCardAiArt" onclick="selectUnifiedPosterVisualMode('ai_art')" style="display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; gap: 4px; padding: 8px 9px; border-radius: 11px; border: 2px solid #4F46E5; background: rgba(79,70,229,0.06); color: var(--text-primary); text-align: left; cursor: pointer; transition: all 0.15s ease;">
+              <!-- Card 3: AI Editorial Illustration (1⚡ Credit — Disabled when 0 Credits) -->
+              <button type="button" id="posterModeCardAiArt" onclick="selectUnifiedPosterVisualMode('ai_art')" style="display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; gap: 5px; padding: 8px 9px; border-radius: 11px; border: 2px solid #4F46E5; background: rgba(79,70,229,0.06); color: var(--text-primary); text-align: left; cursor: pointer; transition: all 0.15s ease;">
                 <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 4px;">
-                  <span style="font-size: 14px;">🎨</span>
-                  <span id="posterModeAiBadge" style="font-size: 9.5px; font-weight: 900; padding: 1px 5px; border-radius: 99px; background: rgba(79,70,229,0.16); color: #4F46E5;">1⚡ Credit</span>
+                  <div style="display: inline-flex; align-items: center; gap: 5px;">
+                    <span id="posterModeCheckAiArt" style="width: 16px; height: 16px; border-radius: 5px; border: 1.5px solid #4F46E5; background: #4F46E5; color: #FFFFFF; display: inline-flex; align-items: center; justify-content: center; font-size: 10.5px; font-weight: 900; line-height: 1; flex-shrink: 0;">✓</span>
+                    <span style="font-size: 13.5px;">🎨</span>
+                  </div>
+                  <span id="posterModeAiBadge" style="font-size: 9px; font-weight: 900; padding: 1px 5px; border-radius: 99px; background: rgba(79,70,229,0.16); color: #4F46E5;">1⚡ Credit</span>
                 </div>
                 <div id="posterModeAiTitle" style="font-size: 11px; font-weight: 800; line-height: 1.2; color: var(--text-primary);">AI Illustration</div>
-                <div id="posterModeAiSub" style="font-size: 9.8px; font-weight: 600; color: var(--text-secondary); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%;">Custom editorial art</div>
+                <div id="posterModeAiSub" style="font-size: 9.8px; font-weight: 600; color: var(--text-secondary); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%;">Editorial Realism</div>
               </button>
             </div>
 
-            <!-- Inline Quick Controls when AI Illustration is Active (Art Style) -->
-            <div id="posterModeAiSubControls" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 10px; margin-bottom: 8px; border-radius: 9px; background: rgba(255,255,255,0.75); border: 1px solid rgba(148,163,184,0.28);">
-              <span style="font-size: 10.5px; font-weight: 800; color: var(--text-secondary);">🎨 AI Art Style:</span>
-              <select id="quickAiArtStyleSelect" onchange="selectCharacterRepresentation(this.value)" style="padding: 4px 8px; border-radius: 7px; border: 1px solid rgba(148,163,184,0.45); background: #FFFFFF; color: var(--text-primary); font-size: 11px; font-weight: 800; cursor: pointer;">
-                <option value="realistic">🎨 Editorial Realism</option>
-                <option value="cinematic">📸 Cinematic Photo</option>
-                <option value="painting">🖼️ Gouache Painting</option>
-                <option value="watercolor">🖌️ Watercolor</option>
-                <option value="silhouette">👥 Silhouette</option>
-              </select>
-            </div>
-
-            <!-- Live "What You'll Get" Expectation Bar (Thumbnail + Plain-English Explanation) -->
+            <!-- Live "What You'll Get" Expectation Bar (Strictly Shows Only the Checked Visual Mode) -->
             <div id="posterVisualExpectationBar" style="display: flex; align-items: center; gap: 9px; padding: 7px 9px; border-radius: 10px; background: #FFFFFF; border: 1px solid rgba(148,163,184,0.3);">
               <img id="posterVisualExpectationThumb" src="" alt="" style="display: none; width: 38px; height: 38px; border-radius: 7px; object-fit: cover; border: 1px solid rgba(148,163,184,0.4); flex-shrink: 0;">
               <div id="posterVisualExpectationIcon" style="width: 34px; height: 34px; border-radius: 7px; background: rgba(79,70,229,0.1); color: #4F46E5; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0;">🎨</div>
               <div style="flex: 1; min-width: 0;">
-                <div id="posterVisualExpectationTitle" style="font-size: 11px; font-weight: 800; color: var(--text-primary); line-height: 1.25;">Generating AI Editorial Illustration (1⚡ credit)</div>
-                <div id="posterVisualExpectationDesc" style="font-size: 10.2px; color: var(--text-secondary); line-height: 1.3; margin-top: 1px;">Grounded in your source link &amp; written perspective. Text synthesis is always free.</div>
+                <div id="posterVisualExpectationTitle" style="font-size: 11px; font-weight: 800; color: var(--text-primary); line-height: 1.25;">✓ AI Illustration Selected • Editorial Realism (1⚡ Credit)</div>
+                <div id="posterVisualExpectationDesc" style="font-size: 10.2px; color: var(--text-secondary); line-height: 1.3; margin-top: 1px;">Grounded in your source link &amp; written perspective. Change portrayal style anytime in Settings.</div>
               </div>
             </div>
           </div>
@@ -1474,12 +1471,12 @@
         <button type="button" class="equalizer-close-btn" onclick="closeCreatorEqualizer()" aria-label="Close Equalizer">&times;</button>
       </div>
       <div class="ui-info-popover-box" id="eqHeaderTip" style="display:none; margin: 0 18px 10px;">
-        Fine-tune visual focus, image portrayal style, regional setting, and family cast.
+        Fine-tune image portrayal style, regional setting, and family cast.
       </div>
 
       <div class="equalizer-sheet-body">
-        <!-- 1. Visual Focus (Source Grounded vs Hybrid vs Curator) -->
-        <div class="equalizer-section">
+        <!-- 1. Visual Focus (Hidden: Replaced by Core Scene Visual + Unified Poster 1 Visual Mode) -->
+        <div class="equalizer-section" style="display: none !important;">
           <div class="equalizer-section-header">
             <span class="equalizer-section-icon">⚖️</span>
             <div class="equalizer-title-inline-row">
@@ -1529,7 +1526,7 @@
           <!-- Compact Dropdown Selector -->
           <div class="equalizer-portrayal-dropdown-row">
             <select id="equalizerPortrayalSelect" class="equalizer-portrayal-select" onchange="selectEqualizerPortrayal(this.value)">
-              <option value="realistic">🎨 AI Illustration (Default)</option>
+              <option value="realistic">🎨 Editorial Realism (Default)</option>
               <option value="watercolor">🖌️ Watercolor Illustration</option>
               <option value="painting">🖼️ Artistic Broadsheet Painting</option>
               <option value="cinematic">📸 Cinematic Editorial Photo</option>
