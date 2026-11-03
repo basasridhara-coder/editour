@@ -801,19 +801,19 @@ async function searchWebImagesForSubject(rawQuery = '', sourceImageUrl = '', sou
   const results = [];
   const seenUrls = new Set();
 
-  const pushImage = (item) => {
+  const pushImage = (item, targetArr = results) => {
     if (!item || !item.url) return;
     const cleanUrl = String(item.url).trim();
     if (!/^https?:\/\//i.test(cleanUrl)) return;
     if (/\.svg(?:\?|$)/i.test(cleanUrl) || /\.gif(?:\?|$)/i.test(cleanUrl) || /\.tif(?:\?|$)/i.test(cleanUrl) || /\.pdf(?:\?|$)/i.test(cleanUrl)) return;
     if (seenUrls.has(cleanUrl)) return;
     seenUrls.add(cleanUrl);
-    results.push({
-      id: item.id || `img_${results.length + 1}_${Math.random().toString(36).slice(2, 6)}`,
+    targetArr.push({
+      id: item.id || `img_${targetArr.length + 1}_${Math.random().toString(36).slice(2, 6)}`,
       url: cleanUrl,
       thumbUrl: String(item.thumbUrl || cleanUrl).trim(),
       title: String(item.title || q).replace(/^(?:File|Image):/i, '').replace(/\.[a-z]{3,4}$/i, '').replace(/_/g, ' ').slice(0, 75),
-      source: item.source || 'Web Commons',
+      source: item.source || 'Web Images',
       aspectRatio: item.aspectRatio || null
     });
   };
@@ -832,11 +832,62 @@ async function searchWebImagesForSubject(rawQuery = '', sourceImageUrl = '', sou
   const uaHeaders = {
     'User-Agent': 'SlantEditorialApp/1.0 (https://slant.today; shridharoct16@gmail.com) Mozilla/5.0'
   };
+  const browserHeaders = {
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    'Accept-Language': 'en-IN,en-US;q=0.9,en;q=0.8'
+  };
+
+  const webSearchBuckets = [];
+  const wikiBuckets = [];
+  const commonsBuckets = [];
+
+  // Query 0 (Primary): Live Full-Web Image Search (News sites, articles, editorial photography across the web)
+  const webImagesTask = (async () => {
+    try {
+      const webUrl = `https://www.bing.com/images/async?q=${encodeURIComponent(q)}&first=0&count=14&mmasync=1`;
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 4500);
+      const resp = await fetch(webUrl, { headers: browserHeaders, signal: ctrl.signal });
+      clearTimeout(timer);
+      if (resp.ok) {
+        const html = await resp.text();
+        const matches = [...html.matchAll(/m="(\{[^"]+\})"/g)];
+        for (const m of matches) {
+          try {
+            const rawJson = m[1]
+              .replace(/&quot;/g, '"')
+              .replace(/&amp;/g, '&')
+              .replace(/&#39;/g, "'")
+              .replace(/&lt;/g, '<')
+              .replace(/&gt;/g, '>');
+            const obj = JSON.parse(rawJson);
+            const fullUrl = String(obj.murl || '').trim();
+            const cdnThumb = String(obj.turl || '').trim();
+            if (!fullUrl && !cdnThumb) continue;
+            let hostLabel = 'Web Images';
+            try {
+              const host = new URL(fullUrl || cdnThumb).hostname.replace(/^www\./i, '');
+              if (host && !host.includes('bing.net')) {
+                hostLabel = host.split('.').slice(0, -1).join('.') || host;
+                hostLabel = hostLabel.charAt(0).toUpperCase() + hostLabel.slice(1, 18);
+              }
+            } catch (_) {}
+            pushImage({
+              url: fullUrl || cdnThumb,
+              thumbUrl: cdnThumb || fullUrl,
+              title: String(obj.t || obj.desc || q).replace(/[\uE000-\uF8FF]/g, '').trim() || q,
+              source: hostLabel
+            }, webSearchBuckets);
+          } catch (_) {}
+        }
+      }
+    } catch (_) {}
+  })();
 
   // Query 1: Wikipedia PageImages API (Best for public figures, places, companies, books, events, concepts)
   const wikiTask = (async () => {
     try {
-      const wikiUrl = `https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(q)}&gsrlimit=8&prop=pageimages|description&piprop=thumbnail|original&pithumbsize=720&format=json&origin=*`;
+      const wikiUrl = `https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(q)}&gsrlimit=6&prop=pageimages|description&piprop=thumbnail|original&pithumbsize=720&format=json&origin=*`;
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), 4500);
       const resp = await fetch(wikiUrl, { headers: uaHeaders, signal: ctrl.signal });
@@ -855,23 +906,22 @@ async function searchWebImagesForSubject(rawQuery = '', sourceImageUrl = '', sou
           const descLower = String(p.description || '').toLowerCase();
           const isPersonBio = /\b(born\b|entrepreneur|politician|actor|actress|player|singer|writer|businessman|educator|cricketer|minister|founder|ceo|executive|author|director|athlete)\b/i.test(descLower);
           const titleMatchesQuery = qTokens.some(t => titleLower.includes(t));
-          // Prevent unrelated human biographies (whose article text merely mentions a query word) from polluting topic searches
           if (isPersonBio && !titleMatchesQuery) continue;
           pushImage({
             url: bestUrl,
             thumbUrl: thumb || bestUrl,
             title: p.title + (p.description ? ` — ${p.description}` : ''),
             source: 'Wikipedia'
-          });
+          }, wikiBuckets);
         }
       }
     } catch (_) {}
   })();
 
-  // Query 2: Wikimedia Commons Bitmap Search API (Best for real-world scenes, objects, cities, nature, photography)
+  // Query 2: Wikimedia Commons Bitmap Search API (Secondary archival photography)
   const commonsTask = (async () => {
     try {
-      const commonsUrl = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(`filetype:bitmap ${q}`)}&gsrnamespace=6&gsrlimit=10&prop=imageinfo&iiprop=url|dimensions|mime&iiurlwidth=720&format=json&origin=*`;
+      const commonsUrl = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(`filetype:bitmap ${q}`)}&gsrnamespace=6&gsrlimit=6&prop=imageinfo&iiprop=url|dimensions|mime&iiurlwidth=720&format=json&origin=*`;
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), 4500);
       const resp = await fetch(commonsUrl, { headers: uaHeaders, signal: ctrl.signal });
@@ -892,42 +942,20 @@ async function searchWebImagesForSubject(rawQuery = '', sourceImageUrl = '', sou
               thumbUrl: info.thumburl || bestUrl,
               title: p.title || q,
               source: 'Wikimedia Commons'
-            });
+            }, commonsBuckets);
           }
         }
       }
     } catch (_) {}
   })();
 
-  // Query 3: Openverse Creative Commons Photography API
-  const openverseTask = (async () => {
-    try {
-      const ovUrl = `https://api.openverse.org/v1/images/?q=${encodeURIComponent(q)}&page_size=8`;
-      const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), 4200);
-      const resp = await fetch(ovUrl, { headers: uaHeaders, signal: ctrl.signal });
-      clearTimeout(timer);
-      if (resp.ok) {
-        const data = await resp.json();
-        const items = Array.isArray(data?.results) ? data.results : [];
-        for (const item of items) {
-          const thumb = item.thumbnail || item.url;
-          const full = item.url || item.thumbnail;
-          if (full) {
-            pushImage({
-              url: full,
-              thumbUrl: thumb || full,
-              title: item.title || q,
-              source: 'Openverse CC'
-            });
-          }
-        }
-      }
-    } catch (_) {}
-  })();
-
-  await Promise.allSettled([wikiTask, commonsTask, openverseTask]);
-  return results.slice(0, 14);
+  await Promise.allSettled([webImagesTask, wikiTask, commonsTask]);
+  // Prioritize real full-web image results first (right after any pinned Source Link image), followed by Wikipedia & Commons
+  for (const item of [...webSearchBuckets, ...wikiBuckets, ...commonsBuckets]) {
+    results.push(item);
+    if (results.length >= 16) break;
+  }
+  return results.slice(0, 16);
 }
 
 // Auto-resolve an authentic Wikipedia / Wikimedia Commons reference portrait for any named public figure in Inner Voice or Web Links
@@ -1204,40 +1232,46 @@ module.exports = async function handler(req, res) {
 
     // Zero-Cost Endpoint 2: Proxy external web image to Base64 Data URL so client <canvas> collage never hits CORS taint
     if (body && body.action === 'fetch_image_base64') {
-      const { imageUrl = '' } = body;
+      const { imageUrl = '', fallbackUrl = '' } = body;
       const cleanUrl = String(imageUrl || '').trim();
+      const cleanFallback = String(fallbackUrl || '').trim();
       if (!cleanUrl || !/^https?:\/\//i.test(cleanUrl)) {
         return res.status(400).json({ success: false, error: 'Valid http(s) imageUrl required' });
       }
-      try {
-        const ctrl = new AbortController();
-        const timer = setTimeout(() => ctrl.abort(), 8000);
-        const resp = await fetch(cleanUrl, {
-          headers: {
-            'User-Agent': 'SlantEditorialApp/1.0 (https://slant.today; shridharoct16@gmail.com) Mozilla/5.0',
-            'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8'
-          },
-          signal: ctrl.signal
-        });
-        clearTimeout(timer);
-        if (!resp.ok) {
-          return res.status(400).json({ success: false, error: `Image fetch returned ${resp.status}` });
-        }
-        const contentType = resp.headers.get('content-type') || 'image/jpeg';
-        const mimeType = contentType.split(';')[0].trim() || 'image/jpeg';
-        const ab = await resp.arrayBuffer();
-        const b64 = Buffer.from(ab).toString('base64');
-        return res.status(200).json({
-          success: true,
-          mimeType,
-          dataUrl: `data:${mimeType};base64,${b64}`
-        });
-      } catch (err) {
-        return res.status(500).json({
-          success: false,
-          error: err.message || 'Failed to proxy image for collage'
-        });
+      const candidateUrls = [cleanUrl];
+      if (cleanFallback && /^https?:\/\//i.test(cleanFallback) && cleanFallback !== cleanUrl) {
+        candidateUrls.push(cleanFallback);
       }
+      for (const targetUrl of candidateUrls) {
+        try {
+          const ctrl = new AbortController();
+          const timer = setTimeout(() => ctrl.abort(), 5500);
+          const resp = await fetch(targetUrl, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+              'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8'
+            },
+            signal: ctrl.signal
+          });
+          clearTimeout(timer);
+          if (!resp.ok) continue;
+          const contentType = resp.headers.get('content-type') || 'image/jpeg';
+          const mimeType = contentType.split(';')[0].trim() || 'image/jpeg';
+          if (!mimeType.startsWith('image/')) continue;
+          const ab = await resp.arrayBuffer();
+          if (ab.byteLength < 200) continue;
+          const b64 = Buffer.from(ab).toString('base64');
+          return res.status(200).json({
+            success: true,
+            mimeType,
+            dataUrl: `data:${mimeType};base64,${b64}`
+          });
+        } catch (_) {}
+      }
+      return res.status(400).json({
+        success: false,
+        error: 'Failed to proxy image for collage'
+      });
     }
 
     // Fast Single-Purpose Endpoint: Rethink / Regenerate Daily Chronicle Reflection(s) when user taps Thumbs Down / Rethink

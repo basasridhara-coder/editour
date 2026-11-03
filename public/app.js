@@ -1501,7 +1501,7 @@ function renderWebCollageSelectedSlotsUI() {
   `).join('');
 }
 
-async function loadCollageImageElementSafe(url) {
+async function loadCollageImageElementSafe(url, fallbackUrl = '') {
   if (!url) return null;
   if (window._webCollageImageElementCache.has(url)) {
     return window._webCollageImageElementCache.get(url);
@@ -1515,7 +1515,8 @@ async function loadCollageImageElementSafe(url) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'fetch_image_base64',
-          imageUrl: url
+          imageUrl: url,
+          fallbackUrl: fallbackUrl || ''
         })
       });
       if (resp.ok) {
@@ -1528,7 +1529,7 @@ async function loadCollageImageElementSafe(url) {
     } catch (_) {}
   }
 
-  const srcToLoad = dataUrl || url;
+  const srcToLoad = dataUrl || fallbackUrl || url;
   return new Promise((resolve) => {
     const img = new Image();
     if (!srcToLoad.startsWith('data:')) {
@@ -1602,7 +1603,7 @@ async function renderWebCollageCanvas() {
   const H = canvas.height || 1000;
 
   const loadedImgs = (await Promise.all(
-    state.selectedItems.slice(0, 3).map(it => loadCollageImageElementSafe(it.url))
+    state.selectedItems.slice(0, 3).map(it => loadCollageImageElementSafe(it.url, it.thumbUrl || ''))
   )).filter(Boolean);
 
   if (loadedImgs.length === 0) return null;
