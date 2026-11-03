@@ -9506,8 +9506,8 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0, isForShareE
 
         ${showShareAdPanel ? `
         <div class="slant-passing-clouds-panel" style="flex: 1 1 auto; display: flex; align-items: center; justify-content: center; padding: 6px 0; width: 100%; box-sizing: border-box;">
-          <div class="slant-passing-clouds-frame" style="width: 100%; max-width: 100%; aspect-ratio: 7 / 3; border-radius: 6px; overflow: hidden; display: flex; align-items: center; justify-content: center; margin: auto; box-sizing: border-box;">
-            <img src="/slant-passing-clouds-colour-frame.svg" class="slant-passing-clouds-svg-img" alt="Slant — Thoughts are passing clouds" style="width: 100%; height: 100%; object-fit: contain; display: block;">
+          <div class="slant-passing-clouds-frame" style="width: 100%; max-width: 100%; aspect-ratio: 33 / 14; border-radius: 6px; overflow: hidden; display: flex; align-items: center; justify-content: center; margin: auto; box-sizing: border-box;">
+            <img src="/slant-passing-clouds-poster.jpg" class="slant-passing-clouds-svg-img" alt="Slant — Thoughts are passing clouds" style="width: 100%; height: 100%; object-fit: contain; display: block;">
           </div>
         </div>
         ` : ""}
@@ -13083,7 +13083,7 @@ async function capturePostSlidesAsFiles(post, index) {
           cloudsPanelEl.style.setProperty('padding', '6px 0', 'important');
 
           const colW = 414;
-          const maxExportSvgH = Math.round(colW * (3 / 7)); // 177px
+          const maxExportSvgH = Math.round(colW * (14 / 33)); // 176px
           const minExportSvgH = 120;
           const minRequiredExportSpace = minExportSvgH + 16;
 
@@ -13114,7 +13114,7 @@ async function capturePostSlidesAsFiles(post, index) {
           if (cloudsFrameEl) {
             const spaceLeft = Math.max(minRequiredExportSpace, getExportSpaceLeft());
             const fitSvgH = Math.max(minExportSvgH, Math.min(maxExportSvgH, spaceLeft - 16));
-            const fitSvgW = Math.min(colW, Math.round(fitSvgH * (7 / 3)));
+            const fitSvgW = Math.min(colW, Math.round(fitSvgH * (33 / 14)));
             cloudsFrameEl.style.setProperty('width', `${fitSvgW}px`, 'important');
             cloudsFrameEl.style.setProperty('height', `${fitSvgH}px`, 'important');
             cloudsFrameEl.style.setProperty('margin', 'auto', 'important');
