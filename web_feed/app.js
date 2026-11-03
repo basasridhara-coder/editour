@@ -12894,15 +12894,15 @@ async function capturePostSlidesAsFiles(post, index) {
   if (bifurcation.isBifurcated) {
     // 3 Discrete Slides (Max 3): 1 Hook + 2 Essay Pages
     slideConfigs.push(
-      { num: 1, class: 'slide-hook', bg: '#0B0F17', html: buildSlide1Html(exportPost, index, 3) },
-      { num: 2, class: 'slide-receipt', bg: '#F7F5EE', html: buildUnifiedEssayPosterHtml(exportPost, index, 1) },
-      { num: 3, class: 'slide-receipt', bg: '#F7F5EE', html: buildUnifiedEssayPosterHtml(exportPost, index, 2) }
+      { num: 1, class: 'slide-hook', bg: '#0B0F17', isLastSlide: false, html: buildSlide1Html(exportPost, index, 3) },
+      { num: 2, class: 'slide-receipt', bg: '#F7F5EE', isLastSlide: false, html: buildUnifiedEssayPosterHtml(exportPost, index, 1) },
+      { num: 3, class: 'slide-receipt', bg: '#F7F5EE', isLastSlide: true, html: buildUnifiedEssayPosterHtml(exportPost, index, 2) }
     );
   } else {
     // 2 Discrete Slides: 1 Hook + 1 Unified Essay Page
     slideConfigs.push(
-      { num: 1, class: 'slide-hook', bg: '#0B0F17', html: buildSlide1Html(exportPost, index, 2) },
-      { num: 2, class: 'slide-receipt', bg: '#F7F5EE', html: buildUnifiedEssayPosterHtml(exportPost, index, 1) }
+      { num: 1, class: 'slide-hook', bg: '#0B0F17', isLastSlide: false, html: buildSlide1Html(exportPost, index, 2) },
+      { num: 2, class: 'slide-receipt', bg: '#F7F5EE', isLastSlide: true, html: buildUnifiedEssayPosterHtml(exportPost, index, 1) }
     );
   }
 
@@ -13040,6 +13040,97 @@ async function capturePostSlidesAsFiles(post, index) {
           }
           if (sceneFrameEl) {
             sceneFrameEl.style.setProperty('max-height', `${Math.max(115, Math.round(155 * s))}px`, 'important');
+          }
+        }
+      }
+
+      // On the final shared poster page, if there is open space before the footer, place a classic broadsheet Slant house ad
+      // featuring just the Slant logo and the Passing Clouds quote scaled to the available space.
+      if (cfg.isLastSlide && pageBlock) {
+        const footerEl = pageBlock.querySelector('.receipt-footer');
+        const contentEl = pageBlock.querySelector('.receipt-paragraphs, .chronicle-reflection-centerpiece');
+        if (footerEl && contentEl) {
+          let lowestContentBottom = contentEl.getBoundingClientRect().bottom;
+          Array.from(contentEl.children).forEach(child => {
+            const b = child.getBoundingClientRect().bottom;
+            if (b > lowestContentBottom) lowestContentBottom = b;
+          });
+          const footerTop = footerEl.getBoundingClientRect().top;
+          const freeHeight = Math.floor(footerTop - lowestContentBottom);
+
+          if (freeHeight >= 54) {
+            const quoteText = '“Thoughts are passing clouds. Left alone, they vanish into thin air. Gathered and condensed, they bring the rain that nourishes the earth.”';
+            const buildAdMarkupForTier = (tier) => {
+              if (tier === 'large') {
+                return `
+                  <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 6px; padding: 12px 16px; border: 1px solid rgba(15, 23, 42, 0.16); border-radius: 8px; background: rgba(15, 23, 42, 0.025); width: 100%; box-sizing: border-box;">
+                    <div style="display: inline-flex; align-items: center; gap: 6px;">
+                      <img src="/logo.png" alt="Slant" style="width: 22px; height: 22px; border-radius: 5px; object-fit: contain;">
+                      <span style="font-family: 'Inter', system-ui, sans-serif; font-size: 10.5px; font-weight: 900; letter-spacing: 1.6px; color: #0F172A; text-transform: uppercase;">SLANT</span>
+                    </div>
+                    <p style="margin: 0; font-family: 'Merriweather', Georgia, serif; font-size: 11.2px; font-style: italic; font-weight: 500; line-height: 1.48; color: #1E293B; max-width: 96%;">
+                      ${quoteText}
+                    </p>
+                  </div>
+                `;
+              }
+              if (tier === 'medium') {
+                return `
+                  <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 4px; padding: 8px 13px; border: 1px solid rgba(15, 23, 42, 0.15); border-radius: 7px; background: rgba(15, 23, 42, 0.025); width: 100%; box-sizing: border-box;">
+                    <div style="display: inline-flex; align-items: center; gap: 5px;">
+                      <img src="/logo.png" alt="Slant" style="width: 17px; height: 17px; border-radius: 4px; object-fit: contain;">
+                      <span style="font-family: 'Inter', system-ui, sans-serif; font-size: 9.5px; font-weight: 900; letter-spacing: 1.4px; color: #0F172A; text-transform: uppercase;">SLANT</span>
+                    </div>
+                    <p style="margin: 0; font-family: 'Merriweather', Georgia, serif; font-size: 10.2px; font-style: italic; font-weight: 500; line-height: 1.38; color: #1E293B;">
+                      ${quoteText}
+                    </p>
+                  </div>
+                `;
+              }
+              return `
+                <div style="display: flex; align-items: center; justify-content: flex-start; gap: 9px; padding: 6px 11px; border: 1px solid rgba(15, 23, 42, 0.14); border-radius: 6px; background: rgba(15, 23, 42, 0.025); width: 100%; box-sizing: border-box;">
+                  <div style="display: flex; flex-direction: column; align-items: center; gap: 2px; flex-shrink: 0;">
+                    <img src="/logo.png" alt="Slant" style="width: 18px; height: 18px; border-radius: 4px; object-fit: contain;">
+                    <span style="font-family: 'Inter', system-ui, sans-serif; font-size: 7.5px; font-weight: 900; letter-spacing: 1px; color: #0F172A; text-transform: uppercase;">SLANT</span>
+                  </div>
+                  <p style="margin: 0; font-family: 'Merriweather', Georgia, serif; font-size: 9.4px; font-style: italic; font-weight: 500; line-height: 1.32; color: #1E293B; text-align: left;">
+                    ${quoteText}
+                  </p>
+                </div>
+              `;
+            };
+
+            const adWrapper = document.createElement('div');
+            adWrapper.className = 'slant-export-passing-clouds-ad';
+            adWrapper.style.cssText = 'margin-top: auto !important; margin-bottom: auto !important; padding-top: 6px !important; padding-bottom: 4px !important; width: 100% !important; flex-shrink: 0 !important; box-sizing: border-box !important;';
+            footerEl.style.setProperty('margin-top', '0px', 'important');
+            pageBlock.insertBefore(adWrapper, footerEl);
+
+            const candidateTiers = freeHeight >= 145
+              ? ['large', 'medium', 'compact']
+              : (freeHeight >= 92 ? ['medium', 'compact'] : ['compact']);
+
+            let fitSuccess = false;
+            for (const tier of candidateTiers) {
+              adWrapper.innerHTML = buildAdMarkupForTier(tier);
+              if (pageBlock.scrollHeight <= pageBlock.clientHeight + 2) {
+                fitSuccess = true;
+                break;
+              }
+            }
+            if (!fitSuccess) {
+              adWrapper.remove();
+              footerEl.style.setProperty('margin-top', 'auto', 'important');
+            } else {
+              const adImg = adWrapper.querySelector('img');
+              if (adImg && !adImg.complete) {
+                await new Promise(res => {
+                  adImg.onload = () => res(true);
+                  adImg.onerror = () => res(false);
+                  setTimeout(() => res(false), 800);
+                });
+              }
+            }
           }
         }
       }
