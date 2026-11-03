@@ -8411,24 +8411,33 @@ function calibrateEssayViewportPagination(viewportEl, forceRecalibrate = false) 
     }
   });
 
-  // Ensure Page 2 (the 3rd page) keeps the Slant Passing Clouds SVG in its second half completely undisturbed
-  // while concising/fitting Page 2's text into the first half.
+  // Dynamically size and center the Slant Passing Clouds SVG in whatever space is left on Page 2 (the 3rd page)
+  // above the minimum space needed for the poster SVG to fit legibly.
   const p2CloudsPanel = page2El.querySelector('.slant-passing-clouds-panel');
   if (p2CloudsPanel) {
+    const p2CloudsFrame = p2CloudsPanel.querySelector('.slant-passing-clouds-frame');
     page2El.style.setProperty('display', 'flex', 'important');
     page2El.style.setProperty('flex-direction', 'column', 'important');
     page2El.style.setProperty('min-height', `${availableP1Height}px`, 'important');
-    p2CloudsPanel.style.setProperty('flex-shrink', '0', 'important');
-    p2CloudsPanel.style.setProperty('margin-top', 'auto', 'important');
+    p2CloudsPanel.style.setProperty('flex', '1 1 auto', 'important');
+    p2CloudsPanel.style.setProperty('display', 'flex', 'important');
+    p2CloudsPanel.style.setProperty('align-items', 'center', 'important');
+    p2CloudsPanel.style.setProperty('justify-content', 'center', 'important');
+    p2CloudsPanel.style.setProperty('margin', '0', 'important');
+    p2CloudsPanel.style.setProperty('padding', '6px 0', 'important');
 
-    const getP2TotalHeight = () => {
+    const colWidth = Math.max(240, vpWidth - 28);
+    const maxSvgH = Math.round(colWidth * (3 / 7));
+    const minSvgH = Math.min(112, maxSvgH);
+    const minRequiredCloudsSpace = minSvgH + 14;
+
+    const getSpaceLeftForClouds = () => {
       const p2Header = page2El.querySelector('.receipt-brand-corner-bar');
       const p2Footer = page2El.querySelector('.receipt-footer');
       const hHeader = p2Header ? (p2Header.offsetHeight + 8) : 28;
       const hContent = p2Container.scrollHeight || p2Container.offsetHeight || 0;
-      const hClouds = p2CloudsPanel.offsetHeight || Math.round((vpWidth - 28) * (3 / 7)) + 10;
       const hFooter = p2Footer ? (p2Footer.offsetHeight + 8) : 26;
-      return hHeader + hContent + hClouds + hFooter + 12;
+      return availableP1Height - hHeader - hContent - hFooter - 12;
     };
 
     const p2ParasNow = Array.from(p2Container.querySelectorAll('p.receipt-p1, p.receipt-p3'));
@@ -8438,19 +8447,19 @@ function calibrateEssayViewportPagination(viewportEl, forceRecalibrate = false) 
       p.style.removeProperty('margin-bottom');
     });
 
-    if (getP2TotalHeight() > availableP1Height && p2ParasNow.length > 0) {
+    if (getSpaceLeftForClouds() < minRequiredCloudsSpace && p2ParasNow.length > 0) {
       const baseP2Fs = parseFloat(window.getComputedStyle(p2ParasNow[0]).fontSize) || 13.6;
       const scales = [0.95, 0.91, 0.87];
       for (const s of scales) {
-        if (getP2TotalHeight() <= availableP1Height) break;
+        if (getSpaceLeftForClouds() >= minRequiredCloudsSpace) break;
         p2ParasNow.forEach(p => {
           p.style.setProperty('font-size', `${Math.max(11.4, baseP2Fs * s).toFixed(2)}px`, 'important');
           p.style.setProperty('line-height', `${Math.max(1.40, 1.56 * s).toFixed(2)}`, 'important');
           p.style.setProperty('margin-bottom', `${Math.max(3, Math.round(5 * s))}px`, 'important');
         });
       }
-      // If a legacy post still overflows the first half of Page 2 above the Passing Clouds SVG, trim trailing overflow sentences
-      while (getP2TotalHeight() > availableP1Height && page2Items.length > 0) {
+      // If a legacy post still leaves less than the minimum required space for the poster SVG, trim trailing overflow sentences
+      while (getSpaceLeftForClouds() < minRequiredCloudsSpace && page2Items.length > 0) {
         const lastIdx = page2Items.length - 1;
         const lastSentences = splitEssayIntoSentences(page2Items[lastIdx].text);
         if (lastSentences.length > 1) {
@@ -8468,6 +8477,15 @@ function calibrateEssayViewportPagination(viewportEl, forceRecalibrate = false) 
           break;
         }
       }
+    }
+
+    if (p2CloudsFrame) {
+      const spaceLeft = Math.max(minRequiredCloudsSpace, getSpaceLeftForClouds());
+      const fitSvgH = Math.max(minSvgH, Math.min(maxSvgH, spaceLeft - 14));
+      const fitSvgW = Math.min(colWidth, Math.round(fitSvgH * (7 / 3)));
+      p2CloudsFrame.style.setProperty('width', `${fitSvgW}px`, 'important');
+      p2CloudsFrame.style.setProperty('height', `${fitSvgH}px`, 'important');
+      p2CloudsFrame.style.setProperty('margin', 'auto', 'important');
     }
   }
 
@@ -9588,9 +9606,9 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
         </div>
         `}
 
-        <div class="slant-passing-clouds-panel" style="margin-top: auto; padding-top: 6px; padding-bottom: 4px; width: 100%; flex-shrink: 0; box-sizing: border-box;">
-          <div class="slant-passing-clouds-frame" style="width: 100%; aspect-ratio: 7 / 3; border-radius: 6px; overflow: hidden; border: 1px solid rgba(15, 23, 42, 0.12); background: #F5F2E9; display: flex; align-items: center; justify-content: center; box-sizing: border-box;">
-            <img src="/slant-passing-clouds-scalable.svg" class="slant-passing-clouds-svg-img" alt="Slant — Thoughts are passing clouds" style="width: 100%; height: 100%; object-fit: contain; display: block;">
+        <div class="slant-passing-clouds-panel" style="flex: 1 1 auto; display: flex; align-items: center; justify-content: center; padding: 6px 0; width: 100%; box-sizing: border-box;">
+          <div class="slant-passing-clouds-frame" style="width: 100%; max-width: 100%; aspect-ratio: 7 / 3; border-radius: 6px; overflow: hidden; display: flex; align-items: center; justify-content: center; margin: auto; box-sizing: border-box;">
+            <img src="/slant-passing-clouds-colour-frame.svg" class="slant-passing-clouds-svg-img" alt="Slant — Thoughts are passing clouds" style="width: 100%; height: 100%; object-fit: contain; display: block;">
           </div>
         </div>
 
@@ -13110,48 +13128,90 @@ async function capturePostSlidesAsFiles(post, index) {
         handleReceiptPhotoLoad(img);
       });
 
-      // Overflow safety guard for Essay slides: only trigger if real content overflows by >10px
+      // Overflow safety guard for Essay slides & dynamic centered sizing for the 3rd-page Passing Clouds SVG
       const pageBlock = container.querySelector('.essay-page-block');
-      if (pageBlock && pageBlock.scrollHeight > pageBlock.clientHeight + 10) {
-        const pullquoteEl = pageBlock.querySelector('.essay-highlight-pullquote');
-        const sceneFrameEl = pageBlock.querySelector('.photo-aspect-landscape .receipt-scene-frame');
-        const bodyParas = Array.from(pageBlock.querySelectorAll('.receipt-p1, .receipt-p3'));
-        const baseFontSize = bodyParas[0] ? (parseFloat(window.getComputedStyle(bodyParas[0]).fontSize) || 13.6) : 13.6;
-        const scales = [0.97, 0.94, 0.91, 0.88];
-        for (const s of scales) {
-          if (pageBlock.scrollHeight <= pageBlock.clientHeight + 4) break;
-          bodyParas.forEach(p => {
-            p.style.setProperty('font-size', `${Math.max(11.5, baseFontSize * s).toFixed(2)}px`, 'important');
-            p.style.setProperty('line-height', `${Math.max(1.44, 1.58 * s).toFixed(2)}`, 'important');
-            p.style.setProperty('margin-bottom', `${Math.max(4, Math.round(5 * s))}px`, 'important');
-          });
-          if (pullquoteEl) {
-            pullquoteEl.style.setProperty('padding', `${Math.max(5, Math.round(7 * s))}px ${Math.max(9, Math.round(11 * s))}px`, 'important');
-            pullquoteEl.style.setProperty('margin-bottom', `${Math.max(5, Math.round(8 * s))}px`, 'important');
-          }
-          if (sceneFrameEl) {
-            sceneFrameEl.style.setProperty('max-height', `${Math.max(115, Math.round(155 * s))}px`, 'important');
-          }
-        }
-
-        // If this is the 3rd page containing the Slant Passing Clouds SVG panel in its second half,
-        // ensure the SVG panel is never disturbed or shrunk and concise any overflowing text in the first half.
+      if (pageBlock) {
         const cloudsPanelEl = pageBlock.querySelector('.slant-passing-clouds-panel');
         if (cloudsPanelEl) {
-          cloudsPanelEl.style.setProperty('flex-shrink', '0', 'important');
-          cloudsPanelEl.style.setProperty('margin-top', 'auto', 'important');
-          while (pageBlock.scrollHeight > pageBlock.clientHeight + 4) {
-            const pList = Array.from(pageBlock.querySelectorAll('.receipt-p1, .receipt-p3'));
-            if (pList.length === 0) break;
-            const lastP = pList[pList.length - 1];
-            const sents = splitEssayIntoSentences((lastP.textContent || '').replace(/\u00AD/g, '').trim());
-            if (sents.length > 1) {
-              sents.pop();
-              lastP.textContent = hyphenateBroadsheetTextGlobal(sents.join(' ').trim());
-            } else if (pList.length > 1) {
-              lastP.remove();
-            } else {
-              break;
+          const cloudsFrameEl = cloudsPanelEl.querySelector('.slant-passing-clouds-frame');
+          const p2ContentEl = pageBlock.querySelector('.receipt-paragraphs') || pageBlock.querySelector('.chronicle-poster3-reflection');
+          cloudsPanelEl.style.setProperty('flex', '1 1 auto', 'important');
+          cloudsPanelEl.style.setProperty('display', 'flex', 'important');
+          cloudsPanelEl.style.setProperty('align-items', 'center', 'important');
+          cloudsPanelEl.style.setProperty('justify-content', 'center', 'important');
+          cloudsPanelEl.style.setProperty('margin', '0', 'important');
+          cloudsPanelEl.style.setProperty('padding', '6px 0', 'important');
+
+          const colW = 414;
+          const maxExportSvgH = Math.round(colW * (3 / 7)); // 177px
+          const minExportSvgH = 120;
+          const minRequiredExportSpace = minExportSvgH + 16;
+
+          const getExportSpaceLeft = () => {
+            const hdrEl = pageBlock.querySelector('.receipt-brand-corner-bar');
+            const ftrEl = pageBlock.querySelector('.receipt-footer');
+            const hHdr = hdrEl ? (hdrEl.offsetHeight + 8) : 28;
+            const hBody = p2ContentEl ? (p2ContentEl.scrollHeight || p2ContentEl.offsetHeight || 0) : 0;
+            const hFtr = ftrEl ? (ftrEl.offsetHeight + 8) : 26;
+            const innerH = (pageBlock.clientHeight || 600) - 34;
+            return innerH - hHdr - hBody - hFtr;
+          };
+
+          const bodyParas = Array.from(pageBlock.querySelectorAll('.receipt-p1, .receipt-p3'));
+          if (getExportSpaceLeft() < minRequiredExportSpace && bodyParas.length > 0) {
+            const baseFontSize = parseFloat(window.getComputedStyle(bodyParas[0]).fontSize) || 13.6;
+            const scales = [0.96, 0.92, 0.88];
+            for (const s of scales) {
+              if (getExportSpaceLeft() >= minRequiredExportSpace) break;
+              bodyParas.forEach(p => {
+                p.style.setProperty('font-size', `${Math.max(11.4, baseFontSize * s).toFixed(2)}px`, 'important');
+                p.style.setProperty('line-height', `${Math.max(1.42, 1.56 * s).toFixed(2)}`, 'important');
+                p.style.setProperty('margin-bottom', `${Math.max(3, Math.round(5 * s))}px`, 'important');
+              });
+            }
+            while (getExportSpaceLeft() < minRequiredExportSpace) {
+              const pList = Array.from(pageBlock.querySelectorAll('.receipt-p1, .receipt-p3'));
+              if (pList.length === 0) break;
+              const lastP = pList[pList.length - 1];
+              const sents = splitEssayIntoSentences((lastP.textContent || '').replace(/\u00AD/g, '').trim());
+              if (sents.length > 1) {
+                sents.pop();
+                lastP.textContent = hyphenateBroadsheetTextGlobal(sents.join(' ').trim());
+              } else if (pList.length > 1) {
+                lastP.remove();
+              } else {
+                break;
+              }
+            }
+          }
+
+          if (cloudsFrameEl) {
+            const spaceLeft = Math.max(minRequiredExportSpace, getExportSpaceLeft());
+            const fitSvgH = Math.max(minExportSvgH, Math.min(maxExportSvgH, spaceLeft - 16));
+            const fitSvgW = Math.min(colW, Math.round(fitSvgH * (7 / 3)));
+            cloudsFrameEl.style.setProperty('width', `${fitSvgW}px`, 'important');
+            cloudsFrameEl.style.setProperty('height', `${fitSvgH}px`, 'important');
+            cloudsFrameEl.style.setProperty('margin', 'auto', 'important');
+          }
+        } else if (pageBlock.scrollHeight > pageBlock.clientHeight + 10) {
+          const pullquoteEl = pageBlock.querySelector('.essay-highlight-pullquote');
+          const sceneFrameEl = pageBlock.querySelector('.photo-aspect-landscape .receipt-scene-frame');
+          const bodyParas = Array.from(pageBlock.querySelectorAll('.receipt-p1, .receipt-p3'));
+          const baseFontSize = bodyParas[0] ? (parseFloat(window.getComputedStyle(bodyParas[0]).fontSize) || 13.6) : 13.6;
+          const scales = [0.97, 0.94, 0.91, 0.88];
+          for (const s of scales) {
+            if (pageBlock.scrollHeight <= pageBlock.clientHeight + 4) break;
+            bodyParas.forEach(p => {
+              p.style.setProperty('font-size', `${Math.max(11.5, baseFontSize * s).toFixed(2)}px`, 'important');
+              p.style.setProperty('line-height', `${Math.max(1.44, 1.58 * s).toFixed(2)}`, 'important');
+              p.style.setProperty('margin-bottom', `${Math.max(4, Math.round(5 * s))}px`, 'important');
+            });
+            if (pullquoteEl) {
+              pullquoteEl.style.setProperty('padding', `${Math.max(5, Math.round(7 * s))}px ${Math.max(9, Math.round(11 * s))}px`, 'important');
+              pullquoteEl.style.setProperty('margin-bottom', `${Math.max(5, Math.round(8 * s))}px`, 'important');
+            }
+            if (sceneFrameEl) {
+              sceneFrameEl.style.setProperty('max-height', `${Math.max(115, Math.round(155 * s))}px`, 'important');
             }
           }
         }
