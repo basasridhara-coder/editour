@@ -3559,6 +3559,15 @@ function startLoginShowcaseSetsAutoSwap() {
 }
 
 function renderLoginSamplesGrid() {
+  stopAllLoginMinutesAutoScrolls();
+  const lowerSec = document.getElementById("loginLowerSamplesSection");
+  if (lowerSec) lowerSec.style.display = "none";
+  const samplesGrid = document.getElementById("loginSampleCarouselsGrid");
+  if (samplesGrid) samplesGrid.innerHTML = "";
+  return;
+}
+
+function _legacyRenderLoginSamplesGridUnused() {
   const samplesGrid = document.getElementById("loginSampleCarouselsGrid");
   if (!samplesGrid) return;
 

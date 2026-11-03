@@ -24500,46 +24500,24 @@ mark.polish-mark:hover, mark.polish-mark.active {
    3-WAY REGENERATION SCOPE TOGGLE BAR (Icon-Only Pills)
    Left: 📝 Text Only | Center: ✨ Both (Default) | Right: 🎨 Visuals Only
    ============================================================ */
-.creator-regen-scope-bar {
-  display: flex;
+.creator-regen-scope-bar,
+.creator-regen-scope-bar.is-locked-fresh,
+.creator-regen-scope-bar.is-regen-unlocked,
+[data-theme="daylight"] .creator-regen-scope-bar,
+[data-theme="daylight"] .creator-regen-scope-bar.is-locked-fresh,
+[data-theme="daylight"] .creator-regen-scope-bar.is-regen-unlocked {
+  display: inline-flex;
   flex-direction: row;
   align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  padding: 9px 14px;
-  margin: 0 0 12px 0;
-  border-radius: 14px;
-  background: #F4F5FA;
-  border: 1px solid #D5D9EA;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 0 !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
   box-sizing: border-box;
-  transition: all 0.22s ease;
-}
-
-.creator-regen-scope-bar.is-locked-fresh {
-  background: #F4F5FA;
-  border-color: #D5D9EA;
-}
-
-.creator-regen-scope-bar.is-regen-unlocked {
-  background: linear-gradient(135deg, #EEF0F7, #FFFFFF);
-  border-color: #43496B;
-  box-shadow: 0 6px 20px rgba(67, 73, 107, 0.10);
-}
-
-[data-theme="daylight"] .creator-regen-scope-bar {
-  background: #F4F5FA;
-  border-color: #D5D9EA;
-}
-
-[data-theme="daylight"] .creator-regen-scope-bar.is-locked-fresh {
-  background: #F4F5FA;
-  border-color: #D5D9EA;
-}
-
-[data-theme="daylight"] .creator-regen-scope-bar.is-regen-unlocked {
-  background: linear-gradient(135deg, #EEF0F7, #FFFFFF);
-  border-color: #43496B;
-  box-shadow: 0 6px 18px rgba(67, 73, 107, 0.08);
 }
 
 .regen-scope-info-col {
