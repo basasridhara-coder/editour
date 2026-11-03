@@ -8449,33 +8449,14 @@ function calibrateEssayViewportPagination(viewportEl, forceRecalibrate = false) 
 
     if (getSpaceLeftForClouds() < minRequiredCloudsSpace && p2ParasNow.length > 0) {
       const baseP2Fs = parseFloat(window.getComputedStyle(p2ParasNow[0]).fontSize) || 13.6;
-      const scales = [0.95, 0.91, 0.87];
+      const scales = [0.96, 0.92, 0.88, 0.85];
       for (const s of scales) {
         if (getSpaceLeftForClouds() >= minRequiredCloudsSpace) break;
         p2ParasNow.forEach(p => {
-          p.style.setProperty('font-size', `${Math.max(11.4, baseP2Fs * s).toFixed(2)}px`, 'important');
-          p.style.setProperty('line-height', `${Math.max(1.40, 1.56 * s).toFixed(2)}`, 'important');
+          p.style.setProperty('font-size', `${Math.max(11.2, baseP2Fs * s).toFixed(2)}px`, 'important');
+          p.style.setProperty('line-height', `${Math.max(1.38, 1.56 * s).toFixed(2)}`, 'important');
           p.style.setProperty('margin-bottom', `${Math.max(3, Math.round(5 * s))}px`, 'important');
         });
-      }
-      // If a legacy post still leaves less than the minimum required space for the poster SVG, trim trailing overflow sentences
-      while (getSpaceLeftForClouds() < minRequiredCloudsSpace && page2Items.length > 0) {
-        const lastIdx = page2Items.length - 1;
-        const lastSentences = splitEssayIntoSentences(page2Items[lastIdx].text);
-        if (lastSentences.length > 1) {
-          lastSentences.pop();
-          page2Items[lastIdx].text = lastSentences.join(' ').trim();
-          const domP = p2ParasNow[lastIdx];
-          if (domP) {
-            domP.textContent = hyphenateBroadsheetTextGlobal(page2Items[lastIdx].text);
-          }
-        } else if (page2Items.length > 1) {
-          page2Items.pop();
-          const domP = p2ParasNow.pop();
-          if (domP) domP.remove();
-        } else {
-          break;
-        }
       }
     }
 
@@ -8826,23 +8807,6 @@ function evaluateEssayBifurcation(post, index) {
       page2Paras.push(onlyUnits.slice(onlyUnits.length - holdCount).join(" ").trim());
       splitParaContinuation = true;
     }
-  }
-
-  // Concise Page 2 paragraphs if needed so they fit cleanly in the first half of the 3rd page above the Passing Clouds SVG
-  const maxPage2FirstHalfWords = (post.whyItMatters && String(post.whyItMatters).trim()) ? 85 : 102;
-  let totalP2Words = page2Paras.join(" ").split(/\s+/).filter(Boolean).length;
-  while (totalP2Words > maxPage2FirstHalfWords && page2Paras.length > 0) {
-    const lastIdx = page2Paras.length - 1;
-    const sents = splitIntoParagraphUnits(page2Paras[lastIdx]);
-    if (sents.length > 1) {
-      sents.pop();
-      page2Paras[lastIdx] = sents.join(" ").trim();
-    } else if (page2Paras.length > 1) {
-      page2Paras.pop();
-    } else {
-      break;
-    }
-    totalP2Words = page2Paras.join(" ").split(/\s+/).filter(Boolean).length;
   }
 
   const remainingText = page2Paras.join(" ").trim();
@@ -13200,28 +13164,14 @@ async function capturePostSlidesAsFiles(post, index) {
           const bodyParas = Array.from(pageBlock.querySelectorAll('.receipt-p1, .receipt-p3'));
           if (getExportSpaceLeft() < minRequiredExportSpace && bodyParas.length > 0) {
             const baseFontSize = parseFloat(window.getComputedStyle(bodyParas[0]).fontSize) || 13.6;
-            const scales = [0.96, 0.92, 0.88];
+            const scales = [0.96, 0.92, 0.88, 0.84];
             for (const s of scales) {
               if (getExportSpaceLeft() >= minRequiredExportSpace) break;
               bodyParas.forEach(p => {
-                p.style.setProperty('font-size', `${Math.max(11.4, baseFontSize * s).toFixed(2)}px`, 'important');
-                p.style.setProperty('line-height', `${Math.max(1.42, 1.56 * s).toFixed(2)}`, 'important');
+                p.style.setProperty('font-size', `${Math.max(11.0, baseFontSize * s).toFixed(2)}px`, 'important');
+                p.style.setProperty('line-height', `${Math.max(1.38, 1.56 * s).toFixed(2)}`, 'important');
                 p.style.setProperty('margin-bottom', `${Math.max(3, Math.round(5 * s))}px`, 'important');
               });
-            }
-            while (getExportSpaceLeft() < minRequiredExportSpace) {
-              const pList = Array.from(pageBlock.querySelectorAll('.receipt-p1, .receipt-p3'));
-              if (pList.length === 0) break;
-              const lastP = pList[pList.length - 1];
-              const sents = splitEssayIntoSentences((lastP.textContent || '').replace(/\u00AD/g, '').trim());
-              if (sents.length > 1) {
-                sents.pop();
-                lastP.textContent = hyphenateBroadsheetTextGlobal(sents.join(' ').trim());
-              } else if (pList.length > 1) {
-                lastP.remove();
-              } else {
-                break;
-              }
             }
           }
 
