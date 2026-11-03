@@ -1064,6 +1064,21 @@
             </div>
           </div>
 
+          <!-- Post Comment Permission Toggle (Accept Comments ON/OFF) -->
+          <div id="creatorAllowCommentsRow" style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 12px; margin-bottom: 10px; border-radius: 11px; background: var(--bg-surface, #F8FAFC); border: 1px solid var(--border-subtle, rgba(148,163,184,0.3));">
+            <div style="display: flex; align-items: center; gap: 7px; min-width: 0;">
+              <span style="font-size: 14px;">💬</span>
+              <div style="min-width: 0;">
+                <div style="font-size: 11.2px; font-weight: 800; color: var(--text-primary); line-height: 1.2;">Accept Comments on Post</div>
+                <div id="creatorAllowCommentsSub" style="font-size: 9.8px; color: var(--text-secondary); line-height: 1.25;">Readers can comment and discuss below your post</div>
+              </div>
+            </div>
+            <label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; flex-shrink: 0;">
+              <input type="checkbox" id="creatorAllowCommentsToggle" checked onchange="setCreatorAllowComments(this.checked)" style="width: 16px; height: 16px; accent-color: #4F46E5; cursor: pointer;">
+              <span id="creatorAllowCommentsBadge" style="font-size: 10.5px; font-weight: 800; color: #059669;">Allowed</span>
+            </label>
+          </div>
+
         </div>
 
         <!-- 4. Bottom Navigation Bar (Step 1 - Option A: One-Click Direct Synthesis with Optional Equalizer) -->
@@ -1355,18 +1370,7 @@
               <span class="action-icon-label" id="step3EditLabel">Edit</span>
             </button>
 
-            <!-- 3. Eye View (Clear text overlays to inspect pure artwork directly on deck) -->
-            <button type="button" class="action-icon-btn eye-view" id="step3EyeViewBtn" onclick="togglePreviewCleanView(event)" title="Clear text overlays to inspect pure artwork on deck">
-              <div class="action-icon-circle">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                  <circle cx="12" cy="12" r="3"></circle>
-                </svg>
-              </div>
-              <span class="action-icon-label" id="step3EyeViewLabel">Clear Text</span>
-            </button>
-
-            <!-- 4. Save as Private Draft (Visible only to you in Feed & Drafts) -->
+            <!-- 3. Save as Private Draft (Visible only to you in Feed & Drafts) -->
             <button type="button" class="action-icon-btn save save-draft" id="step3SaveBtn" onclick="saveSynthesizedPost({ asDraftOnly: true })" title="Save to your Drafts so you can keep editing later without pushing to your Diary Calendar">
               <div class="action-icon-circle">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -1376,7 +1380,7 @@
               <span class="action-icon-label" id="step3SaveLabel">Save</span>
             </button>
 
-            <!-- 5. Share (With shareable app) -->
+            <!-- 4. Share (With shareable app) -->
             <button type="button" class="action-icon-btn share" id="step3ShareBtn" onclick="handleStep3Share()" title="Share with apps">
               <div class="action-icon-circle">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -1389,6 +1393,18 @@
               </div>
               <span class="action-icon-label" id="step3ShareLabel">Share</span>
             </button>
+          </div>
+
+          <!-- Step 3 Comment Permission Toggle (Synchronized with Step 1) -->
+          <div id="step3AllowCommentsRow" style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 12px; margin: 6px 0 8px; border-radius: 10px; background: var(--bg-surface, #F8FAFC); border: 1px solid var(--border-subtle, rgba(148,163,184,0.3));">
+            <div style="display: flex; align-items: center; gap: 7px;">
+              <span style="font-size: 13.5px;">💬</span>
+              <span style="font-size: 11px; font-weight: 800; color: var(--text-primary);">Accept Comments on Published Post</span>
+            </div>
+            <label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; user-select: none;">
+              <input type="checkbox" id="step3AllowCommentsToggle" checked onchange="setCreatorAllowComments(this.checked)" style="width: 15px; height: 15px; accent-color: #4F46E5; cursor: pointer;">
+              <span id="step3AllowCommentsBadge" style="font-size: 10.5px; font-weight: 800; color: #059669;">Allowed</span>
+            </label>
           </div>
 
           <!-- Bottom Navigation Bar (Step 3: Left Arrow + Save Draft + Publish) -->

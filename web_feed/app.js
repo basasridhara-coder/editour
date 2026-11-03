@@ -6990,33 +6990,138 @@ function escapeHtml(str) {
    ============================================================ */
 
 const cleanViewState = {};
+const activeCleanViewScrollMap = new Map(); // index -> scrollY when opened
+const activeExpandedCaptionScrollMap = new Map(); // index -> scrollY when opened
+let _feedAutoRestoreObserver = null;
+let _feedScrollIdleTimer = null;
+let _feedPassiveScrollListenerBound = false;
 
-function toggleCleanView(event, index) {
-  if (event) {
-    event.stopPropagation();
-    event.preventDefault();
+function ensureFeedAutoRestoreControllers() {
+  if (typeof window === 'undefined') return;
+
+  if (!_feedAutoRestoreObserver && typeof IntersectionObserver !== 'undefined') {
+    _feedAutoRestoreObserver = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.isIntersecting && entry.intersectionRatio >= 0.25) continue;
+        const cardEl = entry.target;
+        const idx = cardEl ? cardEl.getAttribute('data-feed-card-index') : null;
+        if (idx === null || idx === undefined) continue;
+        if (activeCleanViewScrollMap.has(String(idx))) {
+          setCleanView(idx, false);
+        }
+        if (activeExpandedCaptionScrollMap.has(String(idx))) {
+          toggleCaptionExpand(idx, false);
+        }
+        if (!activeCleanViewScrollMap.has(String(idx)) && !activeExpandedCaptionScrollMap.has(String(idx))) {
+          _feedAutoRestoreObserver.unobserve(cardEl);
+        }
+      }
+    }, { threshold: [0, 0.25] });
   }
-  cleanViewState[index] = !cleanViewState[index];
-  const isClean = cleanViewState[index];
+
+  if (!_feedPassiveScrollListenerBound) {
+    _feedPassiveScrollListenerBound = true;
+    window.addEventListener('scroll', () => {
+      if (activeCleanViewScrollMap.size === 0 && activeExpandedCaptionScrollMap.size === 0) return;
+      if (_feedScrollIdleTimer) clearTimeout(_feedScrollIdleTimer);
+      _feedScrollIdleTimer = setTimeout(() => {
+        const curY = window.scrollY || window.pageYOffset || 0;
+        for (const [idx, startY] of Array.from(activeCleanViewScrollMap.entries())) {
+          if (Math.abs(curY - startY) > 130) {
+            setCleanView(idx, false);
+          }
+        }
+        for (const [idx, startY] of Array.from(activeExpandedCaptionScrollMap.entries())) {
+          if (Math.abs(curY - startY) > 150) {
+            toggleCaptionExpand(idx, false);
+          }
+        }
+      }, 150);
+    }, { passive: true });
+  }
+}
+
+function observeFeedCardForAutoRestore(index) {
+  const key = String(index);
+  if (key === 'preview' || key === 'whole' || key === 'diary_preview') return;
+  ensureFeedAutoRestoreControllers();
+  const carousel = document.getElementById(`carousel-${index}`);
+  const snippet = document.getElementById(`caption-snippet-${index}`);
+  const cardEl = (carousel && carousel.closest('.post-card')) || (snippet && snippet.closest('.post-card'));
+  if (cardEl && _feedAutoRestoreObserver) {
+    cardEl.setAttribute('data-feed-card-index', key);
+    _feedAutoRestoreObserver.observe(cardEl);
+  }
+}
+
+function setCleanView(index, shouldClean) {
+  const key = String(index);
+  const isClean = Boolean(shouldClean);
+  cleanViewState[key] = isClean;
 
   const carousel = document.getElementById(`carousel-${index}`);
   if (carousel) {
     carousel.classList.toggle('clean-view', isClean);
   }
 
-  const btn = document.getElementById(`clean-btn-${index}`);
-  if (btn) {
-    btn.classList.toggle('active', isClean);
-    btn.setAttribute('title', isClean ? 'Show text overlays' : 'Clean artwork (hide text)');
-    btn.innerHTML = isClean
-      ? `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#38BDF8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-           <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
-           <line x1="1" y1="1" x2="23" y2="23"></line>
-         </svg>`
-      : `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-           <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-           <circle cx="12" cy="12" r="3"></circle>
-         </svg>`;
+  if (key === 'preview') {
+    const posterEyeBtn = document.querySelector('#carousel-preview .preview-poster-eye-btn');
+    if (posterEyeBtn) {
+      posterEyeBtn.classList.toggle('active', isClean);
+      const span = posterEyeBtn.querySelector('span');
+      if (span) span.textContent = isClean ? 'Show Text' : 'Clear Text';
+    }
+    return;
+  }
+
+  if (isClean) {
+    activeCleanViewScrollMap.set(key, window.scrollY || window.pageYOffset || 0);
+    observeFeedCardForAutoRestore(key);
+  } else {
+    activeCleanViewScrollMap.delete(key);
+  }
+}
+
+function toggleCleanView(event, index) {
+  if (event) {
+    event.stopPropagation();
+    event.preventDefault();
+  }
+  const key = String(index);
+  setCleanView(key, !cleanViewState[key]);
+}
+
+function handleSlide1LowerTextTap(event, index) {
+  if (window._justSwipedCarousel && (Date.now() - window._justSwipedCarousel < 350)) {
+    return;
+  }
+  if (event) {
+    event.stopPropagation();
+  }
+  const key = String(index);
+  if (key === 'whole') {
+    toggleWholePosterCleanView();
+    return;
+  }
+  setCleanView(key, !cleanViewState[key]);
+}
+
+function handleSlide1PosterTap(event, index) {
+  if (window._justSwipedCarousel && (Date.now() - window._justSwipedCarousel < 350)) {
+    return;
+  }
+  const key = String(index);
+  if (key === 'whole') {
+    if (typeof isWholePosterClean !== 'undefined' && isWholePosterClean) {
+      if (event) event.stopPropagation();
+      toggleWholePosterCleanView();
+    }
+    return;
+  }
+  // When poster text is cleared (.clean-view), tapping anywhere on Poster 1 restores the text overlay
+  if (cleanViewState[key]) {
+    if (event) event.stopPropagation();
+    setCleanView(key, false);
   }
 }
 
@@ -7189,10 +7294,18 @@ function getCaptionSnippet(text, maxLen = 140) {
 window.expandedCaptionsState = window.expandedCaptionsState || {};
 
 function toggleCaptionExpand(index, shouldExpand) {
+  const key = String(index);
   if (typeof shouldExpand !== 'boolean') {
-    shouldExpand = !window.expandedCaptionsState[index];
+    shouldExpand = !window.expandedCaptionsState[key];
   }
-  window.expandedCaptionsState[index] = shouldExpand;
+  window.expandedCaptionsState[key] = shouldExpand;
+
+  if (shouldExpand) {
+    activeExpandedCaptionScrollMap.set(key, window.scrollY || window.pageYOffset || 0);
+    observeFeedCardForAutoRestore(key);
+  } else {
+    activeExpandedCaptionScrollMap.delete(key);
+  }
 
   const snippetEl = document.getElementById(`caption-snippet-${index}`);
   if (!snippetEl) return;
@@ -7222,7 +7335,6 @@ function toggleCaptionExpand(index, shouldExpand) {
     snippetEl.innerHTML = `
       <span class="post-creator-handle"><strong>${escapeHtml(handle)}</strong></span>
       <span class="post-caption-text" id="caption-text-${index}">${escapeHtml(fullText)}</span>
-      <button type="button" class="read-more-btn" onclick="event.stopPropagation(); toggleCaptionExpand('${index}', false)">less</button>
     `;
   } else {
     snippetEl.classList.remove('is-expanded');
@@ -7605,7 +7717,7 @@ function buildSlide1Html(post, index, totalSlides = 2) {
           <span class="poster-corner-slide-num">${totalSlides === 3 ? '01 / 03' : '01 / 02'}</span>
         </div>
       </div>
-      <div class="slide-hook-bottom">
+      <div class="slide-hook-bottom" onclick="handleSlide1LowerTextTap(event, '${index}')" title="Tap lower text section to clear poster view">
         ${newsFragmentHtml}${curatorKickerHtml}
         <h3 class="slide-hook-headline">${headline}</h3>
         <!-- Bottom-Left: 🌐 slant.today | Bottom-Right: Every thought deserves a frame -->
@@ -9972,17 +10084,8 @@ function createPostCardElement(post, index) {
   // Carousel Frame in 3:4 Aspect Ratio (3-Slide for Daily Chronicle; 2-Slide for Standard Slants)
   const visualSectionHtml = `
     <div class="carousel-view ${isClean ? 'clean-view' : ''}" id="carousel-${index}" data-post-index="${index}" data-current-slide="0" data-slide-count="${cardSlideCount}">
-      ${index === 'preview' ? `
-        <button type="button" class="preview-poster-eye-btn ${isClean ? 'active' : ''}" onclick="togglePreviewCleanView(event)" title="Clear text overlays to inspect pure artwork on deck">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-            <circle cx="12" cy="12" r="3"></circle>
-          </svg>
-          <span>${isClean ? 'Show Text' : 'Clear Text'}</span>
-        </button>
-      ` : ''}
       <div class="carousel-track" id="track-${index}">
-        <div class="carousel-slide slide-hook" ${index === 'preview' ? `onclick="togglePreviewCleanView(event)" style="cursor: pointer;" title="Click to toggle clear text"` : 'style="cursor: default;"'}>
+        <div class="carousel-slide slide-hook" onclick="handleSlide1PosterTap(event, '${index}')" style="cursor: default;">
           ${buildSlide1Html(post, index, cardSlideCount)}
         </div>
         <div class="carousel-slide slide-receipt" style="cursor: default;">
@@ -10021,11 +10124,10 @@ function createPostCardElement(post, index) {
       <span class="post-caption-text" id="caption-text-${index}">${escapeHtml(curatorTakeClean)}</span>
     `;
   } else if (isCaptionExpanded) {
-    // Expanded inline state: show complete text with subtle 'less' toggle
+    // Expanded inline state: show complete text (auto-shrinks on scroll without 'less' button)
     captionSnippetHtml = `
       <span class="post-creator-handle"><strong>${escapeHtml(handle)}</strong></span>
       <span class="post-caption-text" id="caption-text-${index}">${escapeHtml(curatorTakeClean)}</span>
-      <button type="button" class="read-more-btn" onclick="event.stopPropagation(); toggleCaptionExpand('${index}', false)">less</button>
     `;
   } else {
     // Collapsed state: neat word-aligned snippet with '... more' button
@@ -10036,6 +10138,19 @@ function createPostCardElement(post, index) {
       <button type="button" class="read-more-btn" onclick="event.stopPropagation(); toggleCaptionExpand('${index}', true)">... more</button>
     `;
   }
+
+  // Real cloud-persisted Heart, Like & Comment state
+  const currentUserKey = currentUser ? String(currentUser.email || currentUser.handle || currentUser.id || '').trim().toLowerCase() : '';
+  const heartedByList = Array.isArray(post.heartedBy) ? post.heartedBy : [];
+  const likedByList = Array.isArray(post.likedBy) ? post.likedBy : [];
+  const commentsList = Array.isArray(post.comments) ? post.comments : [];
+  const heartCount = heartedByList.length > 0 ? heartedByList.length : (Number(post.heartCount) || 0);
+  const likeCount = likedByList.length > 0 ? likedByList.length : (Number(post.likeCount) || 0);
+  const commentCount = commentsList.length > 0 ? commentsList.length : (Number(post.commentCount) || 0);
+  const isHearted = Boolean(currentUserKey && heartedByList.some(k => String(k || '').toLowerCase() === currentUserKey));
+  const isLiked = Boolean(currentUserKey && likedByList.some(k => String(k || '').toLowerCase() === currentUserKey));
+  const allowComments = post.allowComments !== false;
+  const isCommentsOpen = Boolean(window.openCommentsDrawers && window.openCommentsDrawers[index]);
 
   card.innerHTML = `
     <div class="post-header">
@@ -10104,6 +10219,12 @@ function createPostCardElement(post, index) {
               </svg>
               <span>Generation Inputs</span>
             </button>
+            ${!isChronicle ? `
+            <button type="button" class="post-menu-item" onclick="event.stopPropagation(); closeAllPostMenus(); togglePostAllowComments('${post.id}', '${index}')">
+              <span>💬</span>
+              <span id="menu-allow-comments-lbl-${index}">${allowComments ? 'Turn Off Comments' : 'Turn On Comments'}</span>
+            </button>
+            ` : ''}
             <button type="button" class="post-menu-item text-danger" onclick="event.stopPropagation(); closeAllPostMenus(); confirmDeletePost('${post.id}')">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="3 6 5 6 21 6"></polyline>
@@ -10140,16 +10261,34 @@ function createPostCardElement(post, index) {
 
     <div class="action-bar">
       <div class="action-group-left">
-        <!-- Heart / Like button -->
-        <button class="action-btn" onclick="toggleLike(this)" title="Like Poster">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <!-- 1. Heart button (Real cloud-persisted count) -->
+        <button class="action-btn heart-btn ${isHearted ? 'hearted' : ''}" id="heart-btn-${index}" onclick="togglePostReaction(event, '${index}', 'heart')" title="Heart Poster">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="${isHearted ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
           </svg>
-          <span class="like-count">64</span>
+          <span class="reaction-count" id="heart-count-${index}">${heartCount}</span>
         </button>
 
-        <!-- Share 3 Slide Posters (Native Web Share API with 3 image files) -->
-        <button class="icon-action-btn" onclick="sharePosters('${index}')" title="Share 3 Slide Posters">
+        <!-- 2. Like / Thumbs Up button (Real cloud-persisted count) -->
+        <button class="action-btn like-btn ${isLiked ? 'liked' : ''}" id="like-btn-${index}" onclick="togglePostReaction(event, '${index}', 'like')" title="Like Post">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="${isLiked ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path>
+          </svg>
+          <span class="reaction-count" id="like-count-${index}">${likeCount}</span>
+        </button>
+
+        <!-- 3. Comment button (Real cloud-persisted comments or Off if disabled by author) -->
+        ${!isChronicle ? `
+        <button class="action-btn comment-btn ${isCommentsOpen ? 'is-open' : ''} ${!allowComments ? 'comments-disabled' : ''}" id="comment-btn-${index}" onclick="togglePostCommentsDrawer(event, '${index}')" title="${allowComments ? 'View & add comments' : 'Comments turned off by author'}">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+          </svg>
+          <span class="reaction-count" id="comment-count-${index}">${allowComments ? commentCount : 'Off'}</span>
+        </button>
+        ` : ''}
+
+        <!-- 4. Share Slide Posters (Native Web Share API with image files) -->
+        <button class="icon-action-btn" onclick="sharePosters('${index}')" title="Share Slide Posters">
           <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="18" cy="5" r="3"></circle>
             <circle cx="6" cy="12" r="3"></circle>
@@ -10157,19 +10296,6 @@ function createPostCardElement(post, index) {
             <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
             <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
           </svg>
-        </button>
-
-        <!-- Clean Art Toggle (Show/Hide text overlays directly on feed) -->
-        <button class="icon-action-btn clean-view-btn ${isClean ? 'active' : ''}" id="clean-btn-${index}" onclick="toggleCleanView(event, '${index}')" title="${isClean ? 'Show text overlays' : 'Clean artwork (hide text)'}">
-          ${isClean
-            ? `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#38BDF8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                 <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
-                 <line x1="1" y1="1" x2="23" y2="23"></line>
-               </svg>`
-            : `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                 <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                 <circle cx="12" cy="12" r="3"></circle>
-               </svg>`}
         </button>
       </div>
 
@@ -10214,6 +10340,11 @@ function createPostCardElement(post, index) {
       <div class="post-summary-snippet ${isCaptionExpanded ? 'is-expanded' : ''}" id="caption-snippet-${index}" ${isLongCaption && !isCaptionExpanded ? `onclick="toggleCaptionExpand('${index}', true)" style="cursor: pointer;"` : ''}>
         ${captionSnippetHtml}
       </div>
+    </div>
+
+    <!-- Inline Cloud-Persisted Comments Drawer -->
+    <div class="post-comments-drawer" id="comments-drawer-${index}" style="display: ${isCommentsOpen ? 'block' : 'none'};">
+      ${isCommentsOpen ? buildPostCommentsDrawerInnerHtml(post, index) : ''}
     </div>
   `;
 
@@ -10457,14 +10588,392 @@ function setupCarouselGestures(postIndex) {
   carousel.addEventListener('mouseleave', () => { isMouseDown = false; });
 }
 
+window.openCommentsDrawers = window.openCommentsDrawers || {};
+let creatorAllowComments = true;
+
+function setCreatorAllowComments(allowed) {
+  creatorAllowComments = Boolean(allowed);
+  const toggle1 = document.getElementById('creatorAllowCommentsToggle');
+  const badge1 = document.getElementById('creatorAllowCommentsBadge');
+  const sub1 = document.getElementById('creatorAllowCommentsSub');
+  const toggle3 = document.getElementById('step3AllowCommentsToggle');
+  const badge3 = document.getElementById('step3AllowCommentsBadge');
+
+  if (toggle1) toggle1.checked = creatorAllowComments;
+  if (toggle3) toggle3.checked = creatorAllowComments;
+
+  if (badge1) {
+    badge1.textContent = creatorAllowComments ? 'Allowed' : 'Turned Off';
+    badge1.style.color = creatorAllowComments ? '#059669' : '#64748B';
+  }
+  if (sub1) {
+    sub1.textContent = creatorAllowComments
+      ? 'Readers can comment and discuss below your post'
+      : 'Comments will be disabled on this post';
+  }
+  if (badge3) {
+    badge3.textContent = creatorAllowComments ? 'Allowed' : 'Turned Off';
+    badge3.style.color = creatorAllowComments ? '#059669' : '#64748B';
+  }
+
+  if (currentSynthesizedPost) {
+    currentSynthesizedPost.allowComments = creatorAllowComments;
+    const previewCommentBtn = document.getElementById('comment-btn-preview');
+    const previewCommentCount = document.getElementById('comment-count-preview');
+    if (previewCommentBtn) {
+      previewCommentBtn.classList.toggle('comments-disabled', !creatorAllowComments);
+      previewCommentBtn.title = creatorAllowComments ? 'View & add comments' : 'Comments turned off by author';
+    }
+    if (previewCommentCount) {
+      const cCount = Array.isArray(currentSynthesizedPost.comments) ? currentSynthesizedPost.comments.length : 0;
+      previewCommentCount.textContent = creatorAllowComments ? String(cCount) : 'Off';
+    }
+  }
+}
+
+function getCurrentUserEngagementKey() {
+  if (!currentUser) return '';
+  return String(currentUser.email || currentUser.handle || currentUser.id || '').trim().toLowerCase();
+}
+
+async function togglePostReaction(event, index, reactionType = 'heart') {
+  if (event) event.stopPropagation();
+  if (!currentUser) {
+    openAuthModal('Sign in to heart, like, and comment on visual slants.');
+    return;
+  }
+
+  const post = getPostFromIndexOrId(index);
+  if (!post) return;
+
+  const userKey = getCurrentUserEngagementKey();
+  if (!userKey) return;
+
+  const isLike = reactionType === 'like';
+  const listKey = isLike ? 'likedBy' : 'heartedBy';
+  const countKey = isLike ? 'likeCount' : 'heartCount';
+
+  if (!Array.isArray(post[listKey])) {
+    post[listKey] = [];
+  }
+
+  const existingIdx = post[listKey].findIndex(k => String(k || '').toLowerCase() === userKey);
+  let isActive = false;
+  if (existingIdx >= 0) {
+    post[listKey].splice(existingIdx, 1);
+    isActive = false;
+  } else {
+    post[listKey].push(userKey);
+    isActive = true;
+  }
+  post[countKey] = post[listKey].length;
+
+  // Immediate optimistic UI update
+  const btn = document.getElementById(`${isLike ? 'like' : 'heart'}-btn-${index}`);
+  const countEl = document.getElementById(`${isLike ? 'like' : 'heart'}-count-${index}`);
+  if (btn) {
+    btn.classList.toggle(isLike ? 'liked' : 'hearted', isActive);
+    const svg = btn.querySelector('svg');
+    if (svg) svg.setAttribute('fill', isActive ? 'currentColor' : 'none');
+  }
+  if (countEl) {
+    countEl.textContent = String(post[countKey]);
+  }
+
+  if (String(index) === 'preview' || !post.id) return;
+
+  // Persist to Supabase via /api/posts
+  try {
+    const resp = await fetch('/api/posts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'toggle_reaction',
+        postId: post.id,
+        reactionType: isLike ? 'like' : 'heart',
+        userKey
+      })
+    });
+    if (resp.ok) {
+      const data = await resp.json();
+      if (data && data.success) {
+        if (Array.isArray(data.heartedBy)) post.heartedBy = data.heartedBy;
+        if (Array.isArray(data.likedBy)) post.likedBy = data.likedBy;
+        if (typeof data.heartCount === 'number') post.heartCount = data.heartCount;
+        if (typeof data.likeCount === 'number') post.likeCount = data.likeCount;
+        const hCountEl = document.getElementById(`heart-count-${index}`);
+        const lCountEl = document.getElementById(`like-count-${index}`);
+        if (hCountEl) hCountEl.textContent = String(post.heartCount || 0);
+        if (lCountEl) lCountEl.textContent = String(post.likeCount || 0);
+      }
+    }
+  } catch (err) {
+    console.warn('Could not sync reaction to cloud:', err);
+  }
+}
+
+function formatCommentRelativeTime(iso) {
+  if (!iso) return '';
+  const diffSec = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 1000));
+  if (diffSec < 60) return 'just now';
+  if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m`;
+  if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h`;
+  return `${Math.floor(diffSec / 86400)}d`;
+}
+
+function buildPostCommentsDrawerInnerHtml(post, index) {
+  if (!post) return '';
+  const allowComments = post.allowComments !== false;
+  const comments = Array.isArray(post.comments) ? post.comments : [];
+  const userEmail = currentUser && currentUser.email ? String(currentUser.email).toLowerCase() : '';
+  const userHandle = currentUser && currentUser.handle ? String(currentUser.handle).toLowerCase() : '';
+  const isMaster = userEmail === 'shridharoct16@gmail.com';
+  const isPostOwner = Boolean(
+    (userEmail && String(post.userEmail || '').toLowerCase() === userEmail) ||
+    (userHandle && String(post.creatorHandle || '').toLowerCase() === userHandle)
+  );
+
+  const itemsHtml = comments.length > 0
+    ? comments.map(c => {
+        const cHandle = escapeHtml(c.handle || '@reader');
+        const cText = escapeHtml(c.text || '');
+        const cTime = formatCommentRelativeTime(c.createdAt);
+        const isCommentOwner = Boolean(
+          (userEmail && String(c.email || '').toLowerCase() === userEmail) ||
+          (userHandle && String(c.handle || '').toLowerCase() === userHandle)
+        );
+        const canRemove = isMaster || isPostOwner || isCommentOwner;
+        return `
+          <div class="post-comment-item" id="cmt-item-${escapeHtml(c.id || '')}">
+            <div class="post-comment-body">
+              <span class="post-comment-handle">${cHandle}</span>
+              <span class="post-comment-text">${cText}</span>
+              ${cTime ? `<span class="post-comment-time">${cTime}</span>` : ''}
+            </div>
+            ${canRemove ? `<button type="button" class="post-comment-del-btn" onclick="deletePostComment(event, '${index}', '${escapeHtml(c.id || '')}')" title="Delete comment">✕</button>` : ''}
+          </div>
+        `;
+      }).join('')
+    : `<div style="font-size: 11.8px; color: var(--text-muted, #94A3B8); padding: 2px 4px;">${allowComments ? 'No comments yet. Start the conversation below.' : 'No comments on this post.'}</div>`;
+
+  const inputHtml = allowComments
+    ? `
+      <form class="post-comment-form" onsubmit="submitPostComment(event, '${index}')">
+        <input type="text" class="post-comment-input" id="comment-input-${index}" maxlength="500" placeholder="${currentUser ? 'Add a comment...' : 'Sign in to add a comment...'}" autocomplete="off">
+        <button type="submit" class="post-comment-submit-btn" id="comment-submit-${index}">Post</button>
+      </form>
+    `
+    : `<div style="font-size: 11.2px; font-weight: 700; color: var(--text-muted, #94A3B8); padding: 4px 4px 0;">🔒 Comments are turned off for this post by the author.</div>`;
+
+  return `
+    <div class="post-comments-box">
+      <div class="post-comments-list" id="comments-list-${index}">
+        ${itemsHtml}
+      </div>
+      ${inputHtml}
+    </div>
+  `;
+}
+
+function togglePostCommentsDrawer(event, index) {
+  if (event) event.stopPropagation();
+  const key = String(index);
+  const post = getPostFromIndexOrId(index);
+  if (!post) return;
+
+  const isOpen = !window.openCommentsDrawers[key];
+  if (!isOpen) {
+    delete window.openCommentsDrawers[key];
+  } else {
+    window.openCommentsDrawers[key] = true;
+  }
+
+  const drawer = document.getElementById(`comments-drawer-${index}`);
+  const btn = document.getElementById(`comment-btn-${index}`);
+  if (btn) {
+    btn.classList.toggle('is-open', isOpen);
+  }
+  if (drawer) {
+    if (isOpen) {
+      drawer.innerHTML = buildPostCommentsDrawerInnerHtml(post, index);
+      drawer.style.display = 'block';
+      const inp = document.getElementById(`comment-input-${index}`);
+      if (inp && currentUser && post.allowComments !== false) {
+        setTimeout(() => inp.focus(), 40);
+      }
+    } else {
+      drawer.style.display = 'none';
+    }
+  }
+}
+
+async function submitPostComment(event, index) {
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  if (!currentUser) {
+    openAuthModal('Sign in to comment on visual slants.');
+    return;
+  }
+  const post = getPostFromIndexOrId(index);
+  if (!post) return;
+  if (post.allowComments === false) {
+    showTemporaryToast('🔒 Comments are turned off for this post.');
+    return;
+  }
+
+  const inp = document.getElementById(`comment-input-${index}`);
+  const submitBtn = document.getElementById(`comment-submit-${index}`);
+  const text = inp ? inp.value.trim() : '';
+  if (!text) return;
+
+  const rawHandle = currentUser.handle || (currentUser.email ? '@' + currentUser.email.split('@')[0] : '@reader');
+  const userHandle = rawHandle.startsWith('@') ? rawHandle : ('@' + rawHandle);
+  const userEmail = currentUser.email || '';
+
+  const optimisticComment = {
+    id: 'cmt-' + Date.now(),
+    handle: userHandle,
+    email: userEmail,
+    text: text.slice(0, 500),
+    createdAt: new Date().toISOString()
+  };
+
+  if (!Array.isArray(post.comments)) post.comments = [];
+  post.comments.push(optimisticComment);
+  post.commentCount = post.comments.length;
+
+  if (inp) inp.value = '';
+  const drawer = document.getElementById(`comments-drawer-${index}`);
+  if (drawer) {
+    drawer.innerHTML = buildPostCommentsDrawerInnerHtml(post, index);
+  }
+  const countEl = document.getElementById(`comment-count-${index}`);
+  if (countEl) countEl.textContent = String(post.commentCount);
+
+  if (String(index) === 'preview' || !post.id) return;
+
+  if (submitBtn) submitBtn.disabled = true;
+  try {
+    const resp = await fetch('/api/posts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'add_comment',
+        postId: post.id,
+        userHandle,
+        userEmail,
+        text: optimisticComment.text
+      })
+    });
+    if (resp.ok) {
+      const data = await resp.json();
+      if (data && data.success && Array.isArray(data.comments)) {
+        post.comments = data.comments;
+        post.commentCount = data.comments.length;
+        if (drawer) drawer.innerHTML = buildPostCommentsDrawerInnerHtml(post, index);
+        if (countEl) countEl.textContent = String(post.commentCount);
+      }
+    }
+  } catch (err) {
+    console.warn('Could not persist comment:', err);
+  }
+}
+
+async function deletePostComment(event, index, commentId) {
+  if (event) event.stopPropagation();
+  const post = getPostFromIndexOrId(index);
+  if (!post || !commentId) return;
+
+  if (Array.isArray(post.comments)) {
+    post.comments = post.comments.filter(c => c && c.id !== commentId);
+    post.commentCount = post.comments.length;
+  }
+
+  const drawer = document.getElementById(`comments-drawer-${index}`);
+  if (drawer) {
+    drawer.innerHTML = buildPostCommentsDrawerInnerHtml(post, index);
+  }
+  const countEl = document.getElementById(`comment-count-${index}`);
+  if (countEl) {
+    countEl.textContent = post.allowComments !== false ? String(post.commentCount || 0) : 'Off';
+  }
+
+  if (String(index) === 'preview' || !post.id) return;
+
+  try {
+    await fetch('/api/posts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'delete_comment',
+        postId: post.id,
+        commentId,
+        userEmail: currentUser ? currentUser.email : '',
+        userHandle: currentUser ? currentUser.handle : ''
+      })
+    });
+  } catch (err) {
+    console.warn('Could not delete comment from cloud:', err);
+  }
+}
+
+async function togglePostAllowComments(postId, index) {
+  const post = getPostFromIndexOrId(index) || (Array.isArray(allPosts) ? allPosts.find(p => p && p.id === postId) : null);
+  if (!post) return;
+
+  const nextAllow = post.allowComments === false ? true : false;
+  post.allowComments = nextAllow;
+
+  const menuLbl = document.getElementById(`menu-allow-comments-lbl-${index}`);
+  if (menuLbl) {
+    menuLbl.textContent = nextAllow ? 'Turn Off Comments' : 'Turn On Comments';
+  }
+  const commentBtn = document.getElementById(`comment-btn-${index}`);
+  const commentCountEl = document.getElementById(`comment-count-${index}`);
+  if (commentBtn) {
+    commentBtn.classList.toggle('comments-disabled', !nextAllow);
+    commentBtn.title = nextAllow ? 'View & add comments' : 'Comments turned off by author';
+  }
+  if (commentCountEl) {
+    const cCount = Array.isArray(post.comments) ? post.comments.length : (Number(post.commentCount) || 0);
+    commentCountEl.textContent = nextAllow ? String(cCount) : 'Off';
+  }
+  const drawer = document.getElementById(`comments-drawer-${index}`);
+  if (drawer && drawer.style.display !== 'none') {
+    drawer.innerHTML = buildPostCommentsDrawerInnerHtml(post, index);
+  }
+
+  showTemporaryToast(nextAllow ? '💬 Comments turned ON for this post' : '🔒 Comments turned OFF for this post');
+
+  if (String(index) === 'preview' || !post.id) return;
+
+  try {
+    await fetch('/api/posts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'set_allow_comments',
+        postId: post.id,
+        allowComments: nextAllow,
+        userEmail: currentUser ? currentUser.email : ''
+      })
+    });
+  } catch (err) {
+    console.warn('Failed to update allowComments on cloud:', err);
+  }
+}
+
 function toggleLike(btn) {
   if (!currentUser) {
     openAuthModal('Sign in to like and react to visual slants.');
     return;
   }
   btn.classList.toggle('liked');
-  const countSpan = btn.querySelector('.like-count');
-  let val = parseInt(countSpan.textContent, 10);
+  const countSpan = btn.querySelector('.like-count') || btn.querySelector('.reaction-count');
+  if (!countSpan) return;
+  let val = parseInt(countSpan.textContent, 10) || 0;
   if (btn.classList.contains('liked')) {
     countSpan.textContent = val + 1;
   } else {
@@ -15111,7 +15620,7 @@ function buildDiarySelectedPosterCarouselHtml(p) {
   return `
     <div class="diary-cal-poster-frame carousel-view" id="carousel-diary_preview" data-post-index="diary_preview" data-current-slide="0" data-slide-count="${cardSlideCount}">
       <div class="carousel-track" id="track-diary_preview">
-        <div class="carousel-slide slide-hook" style="cursor: default;">
+        <div class="carousel-slide slide-hook" onclick="handleSlide1PosterTap(event, 'diary_preview')" style="cursor: default;">
           ${buildSlide1Html(p, 'diary_preview', cardSlideCount)}
         </div>
         <div class="carousel-slide slide-receipt" style="cursor: default;">
@@ -18527,6 +19036,10 @@ function syncInnerVoiceSubmodeUI() {
   const triggerPanel = secVoice ? secVoice.closest('.creator-trigger-panel') : null;
   const guideBtn = document.getElementById('slantGuideToggleBtn');
   const guideCard = document.getElementById('slantStructureGuideCard');
+  const allowCommentsRow1 = document.getElementById('creatorAllowCommentsRow');
+  const allowCommentsRow3 = document.getElementById('step3AllowCommentsRow');
+  if (allowCommentsRow1) allowCommentsRow1.style.display = isDailyChronicleMode ? 'none' : 'flex';
+  if (allowCommentsRow3) allowCommentsRow3.style.display = isDailyChronicleMode ? 'none' : 'flex';
 
   if (!isVoice) {
     if (triggerPanel) triggerPanel.style.display = '';
@@ -20787,6 +21300,10 @@ function setAnchorMode(mode) {
   const secLink = document.getElementById('triggerWebSection');
   const secVoice = document.getElementById('triggerVoiceSection');
   const linkBadge = document.getElementById('triggerLinkBadge');
+  const allowCommentsRow1 = document.getElementById('creatorAllowCommentsRow');
+  const allowCommentsRow3 = document.getElementById('step3AllowCommentsRow');
+  if (allowCommentsRow1) allowCommentsRow1.style.display = isDiaryCategory ? 'none' : 'flex';
+  if (allowCommentsRow3) allowCommentsRow3.style.display = isDiaryCategory ? 'none' : 'flex';
 
   if (normalizedSource === 'inner_voice') {
     renderSourceLedger(null);
@@ -26407,6 +26924,7 @@ async function saveSynthesizedPost(options = {}) {
   currentSynthesizedPost.isDraft = true;
   currentSynthesizedPost.isPrivate = true;
   currentSynthesizedPost.isPubliclyPublished = false;
+  currentSynthesizedPost.allowComments = Boolean(creatorAllowComments);
   if (isChronicle) {
     currentSynthesizedPost.isDiaryDraftOnly = asDraftOnly;
     currentSynthesizedPost.isDiary = !asDraftOnly;
@@ -26632,6 +27150,7 @@ async function publishSynthesizedPost() {
   currentSynthesizedPost.isPrivate = false;
   currentSynthesizedPost.isPubliclyPublished = true;
   currentSynthesizedPost.status = 'published';
+  currentSynthesizedPost.allowComments = Boolean(creatorAllowComments);
 
   // 1. Clean & compress payload: store crisp ~60KB WebP so Supabase rows never trigger timeout
   const postToSave = { ...currentSynthesizedPost };

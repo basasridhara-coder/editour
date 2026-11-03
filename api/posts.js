@@ -358,6 +358,173 @@ module.exports = async function handler(req, res) {
         postData = JSON.parse(postData);
       }
 
+      // Social Engagement Actions (Heart, Like, Comment, Allow Comments Toggle)
+      if (postData && postData.action && ['toggle_reaction', 'add_comment', 'delete_comment', 'set_allow_comments'].includes(postData.action)) {
+        const postId = String(postData.postId || postData.id || '').trim();
+        if (!postId) {
+          return res.status(400).json({ error: 'Missing postId for engagement action' });
+        }
+
+        // Load existing post from Supabase first, falling back to in-memory fallbackPosts
+        let targetPost = null;
+        try {
+          const getResp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.${encodeURIComponent(postId)}&select=*`, {
+            headers: {
+              'apikey': SUPABASE_KEY,
+              'Authorization': `Bearer ${SUPABASE_KEY}`,
+              'Accept': 'application/json'
+            }
+          });
+          if (getResp.ok) {
+            const rows = await getResp.json();
+            if (Array.isArray(rows) && rows.length > 0 && rows[0].data) {
+              targetPost = rows[0].data;
+            }
+          }
+        } catch (fetchErr) {
+          console.warn('Error fetching post for interaction:', fetchErr);
+        }
+
+        if (!targetPost) {
+          const fallbackMatch = fallbackPosts.find(p => p && p.id === postId);
+          if (fallbackMatch) {
+            targetPost = { ...fallbackMatch };
+          }
+        }
+
+        if (!targetPost) {
+          return res.status(404).json({ error: 'Post not found' });
+        }
+
+        // Initialize engagement arrays safely
+        targetPost.heartedBy = Array.isArray(targetPost.heartedBy) ? targetPost.heartedBy : [];
+        targetPost.likedBy = Array.isArray(targetPost.likedBy) ? targetPost.likedBy : [];
+        targetPost.comments = Array.isArray(targetPost.comments) ? targetPost.comments : [];
+        if (typeof targetPost.allowComments !== 'boolean') {
+          targetPost.allowComments = true;
+        }
+
+        const saveUpdatedPost = async (updated) => {
+          try {
+            await fetch(`${SUPABASE_URL}/rest/v1/posts`, {
+              method: 'POST',
+              headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': `Bearer ${SUPABASE_KEY}`,
+                'Content-Type': 'application/json',
+                'Prefer': 'resolution=merge-duplicates'
+              },
+              body: JSON.stringify({ id: updated.id, data: updated })
+            });
+          } catch (saveErr) {
+            console.warn('Supabase social update error:', saveErr);
+          }
+          const memIdx = fallbackPosts.findIndex(p => p && p.id === updated.id);
+          if (memIdx >= 0) {
+            fallbackPosts[memIdx] = updated;
+          }
+        };
+
+        if (postData.action === 'toggle_reaction') {
+          const reactionType = postData.reactionType === 'like' ? 'like' : 'heart';
+          const userKey = String(postData.userKey || postData.userEmail || postData.userHandle || '').trim().toLowerCase();
+          if (!userKey) {
+            return res.status(400).json({ error: 'Missing user identifier for reaction' });
+          }
+          const listKey = reactionType === 'like' ? 'likedBy' : 'heartedBy';
+          const list = Array.isArray(targetPost[listKey]) ? [...targetPost[listKey]] : [];
+          const existingIdx = list.findIndex(k => String(k || '').toLowerCase() === userKey);
+          let active = false;
+          if (existingIdx >= 0) {
+            list.splice(existingIdx, 1);
+            active = false;
+          } else {
+            list.push(userKey);
+            active = true;
+          }
+          targetPost[listKey] = list;
+          targetPost.heartCount = targetPost.heartedBy.length;
+          targetPost.likeCount = targetPost.likedBy.length;
+
+          await saveUpdatedPost(targetPost);
+          return res.status(200).json({
+            success: true,
+            postId,
+            reactionType,
+            active,
+            heartCount: targetPost.heartCount,
+            likeCount: targetPost.likeCount,
+            heartedBy: targetPost.heartedBy,
+            likedBy: targetPost.likedBy
+          });
+        }
+
+        if (postData.action === 'add_comment') {
+          if (targetPost.allowComments === false) {
+            return res.status(403).json({ error: 'Comments are turned off for this post.' });
+          }
+          const rawText = String(postData.text || '').trim().slice(0, 500);
+          if (!rawText) {
+            return res.status(400).json({ error: 'Comment text cannot be empty.' });
+          }
+          const userHandle = String(postData.userHandle || '@reader').trim();
+          const userEmail = String(postData.userEmail || '').trim().toLowerCase();
+          const newComment = {
+            id: 'cmt-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+            handle: userHandle.startsWith('@') ? userHandle : ('@' + userHandle),
+            email: userEmail,
+            text: rawText,
+            createdAt: new Date().toISOString()
+          };
+          targetPost.comments.push(newComment);
+          targetPost.commentCount = targetPost.comments.length;
+
+          await saveUpdatedPost(targetPost);
+          return res.status(200).json({
+            success: true,
+            postId,
+            comment: newComment,
+            comments: targetPost.comments,
+            commentCount: targetPost.commentCount
+          });
+        }
+
+        if (postData.action === 'delete_comment') {
+          const commentId = String(postData.commentId || '').trim();
+          const userEmail = String(postData.userEmail || '').trim().toLowerCase();
+          const userHandle = String(postData.userHandle || '').trim().toLowerCase();
+          const isMaster = userEmail === 'shridharoct16@gmail.com';
+          const isPostOwner = (userEmail && String(targetPost.userEmail || '').toLowerCase() === userEmail)
+            || (userHandle && String(targetPost.creatorHandle || '').toLowerCase() === userHandle);
+
+          targetPost.comments = targetPost.comments.filter(c => {
+            if (!c || c.id !== commentId) return true;
+            const isCommentOwner = (userEmail && String(c.email || '').toLowerCase() === userEmail)
+              || (userHandle && String(c.handle || '').toLowerCase() === userHandle);
+            return !(isMaster || isPostOwner || isCommentOwner);
+          });
+          targetPost.commentCount = targetPost.comments.length;
+
+          await saveUpdatedPost(targetPost);
+          return res.status(200).json({
+            success: true,
+            postId,
+            comments: targetPost.comments,
+            commentCount: targetPost.commentCount
+          });
+        }
+
+        if (postData.action === 'set_allow_comments') {
+          targetPost.allowComments = Boolean(postData.allowComments);
+          await saveUpdatedPost(targetPost);
+          return res.status(200).json({
+            success: true,
+            postId,
+            allowComments: targetPost.allowComments
+          });
+        }
+      }
+
       if (!postData || (!postData.adaptedHeadline && !postData.originalHeadline)) {
         return res.status(400).json({ error: 'Invalid post data: missing headline' });
       }
