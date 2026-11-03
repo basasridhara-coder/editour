@@ -613,41 +613,10 @@
       <!-- STEP 1 CONTAINER: Slant & Source (Matches Mobile App Exact Sequence) -->
       <div class="creator-step-content" id="creatorStep1">
 
-        <!-- 1. PILLAR SELECTOR (Perspective vs Diary Chronicle) -->
+        <!-- 1. MENTAL MODEL BANNER (Pillar & Spark Source already chosen from the main Slant button) -->
         <div class="creator-anchor-section">
-          <div class="creator-anchor-grid is-two-pillar-grid">
-            <!-- 1. Perspective (Merged Web Link & Inner Voice) -->
-            <button type="button" class="anchor-card active" data-mode="perspective" id="anchorPerspectiveBtn" onclick="setAnchorMode(window.lastPerspectiveSparkMode || 'digital_link')">
-              <div class="anchor-icon-circle anchor-web" id="anchorWebIconCircle">🌐</div>
-              <div class="anchor-card-title" id="anchorWebTitle">Perspective</div>
-              <div class="anchor-card-subtitle" id="anchorWebSub">Web Link • Inner Voice</div>
-            </button>
-
-            <!-- 2. Diary Chronicle (Strictly Personal Diary) -->
-            <button type="button" class="anchor-card" data-mode="diary_chronicle" id="anchorDiaryBtn" onclick="setAnchorMode('diary_chronicle')">
-              <div class="anchor-icon-circle anchor-diary">📔</div>
-              <div class="anchor-card-title">Diary Chronicle</div>
-              <div class="anchor-card-subtitle">Your day in moments</div>
-            </button>
-          </div>
-
-          <!-- Perspective Spark Source Switcher (Web Link vs Inner Voice — visible when Perspective is active) -->
-          <div class="perspective-spark-toggle-bar" id="perspectiveSparkToggleBar" role="tablist" aria-label="Perspective Spark Source">
-            <span class="perspective-spark-bar-label">SPARK SOURCE</span>
-            <div class="perspective-spark-pills">
-              <button type="button" class="perspective-spark-pill active" id="perspectiveSparkWebBtn" data-spark="digital_link" onclick="setAnchorMode('digital_link')">
-                <span class="spark-pill-icon">🌐</span>
-                <span class="spark-pill-text">Web Link</span>
-              </button>
-              <button type="button" class="perspective-spark-pill" id="perspectiveSparkVoiceBtn" data-spark="inner_voice" onclick="setAnchorMode('inner_voice')">
-                <span class="spark-pill-icon">💭</span>
-                <span class="spark-pill-text">Inner Voice</span>
-              </button>
-            </div>
-          </div>
-
           <!-- Dynamic Mental Model Banner -->
-          <div class="anchor-mental-model-card" id="anchorMentalModelCard">
+          <div class="anchor-mental-model-card" id="anchorMentalModelCard" style="margin-top: 0;">
             <div class="mental-model-inner">
               <div class="mental-model-badge-row">
                 <span class="mental-model-badge" id="anchorMentalModelBadge">MENTAL MODEL</span>
