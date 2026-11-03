@@ -2290,6 +2290,9 @@ async function initAuth() {
       sanitizeUserOwnershipAndCache();
     }
     updateAuthUI();
+    if (typeof syncAllRenderedPostEngagementDOM === 'function') {
+      syncAllRenderedPostEngagementDOM();
+    }
     if (isCurrentUserAdmin) {
       loadAdminBetaPendingCount();
     }
@@ -5283,6 +5286,9 @@ function mergeAndSortPosts(newPosts) {
     }
 
     if (!existingMap.has(postId)) {
+      if (typeof applyLocalPostEngagementSnapshot === 'function') {
+        applyLocalPostEngagementSnapshot(p);
+      }
       existingMap.set(postId, p);
       addedCount++;
     } else {
@@ -5293,9 +5299,30 @@ function mergeAndSortPosts(newPosts) {
         const merged = { ...p, ...existing };
         merged.illustrationUrl = existing.illustrationUrl || p.illustrationUrl || '';
         merged.aiIllustrationUrl = existing.aiIllustrationUrl || p.aiIllustrationUrl || '';
+        if (typeof applyLocalPostEngagementSnapshot === 'function') {
+          applyLocalPostEngagementSnapshot(merged);
+        }
         existingMap.set(postId, merged);
       } else {
         const merged = { ...existing, ...p };
+        // Never let a stale local cache copy wipe out existing in-memory comments or reactions
+        if (Array.isArray(existing.comments) && existing.comments.length > 0 && (!Array.isArray(p.comments) || p.comments.length < existing.comments.length)) {
+          const byId = new Map();
+          existing.comments.forEach(c => { if (c && c.id) byId.set(c.id, c); });
+          if (Array.isArray(p.comments)) {
+            p.comments.forEach(c => { if (c && c.id) byId.set(c.id, c); });
+          }
+          merged.comments = Array.from(byId.values());
+          merged.commentCount = merged.comments.length;
+        }
+        if (Array.isArray(existing.heartedBy) && existing.heartedBy.length > 0 && (!Array.isArray(p.heartedBy) || p.heartedBy.length === 0)) {
+          merged.heartedBy = existing.heartedBy;
+          merged.heartCount = existing.heartedBy.length;
+        }
+        if (Array.isArray(existing.likedBy) && existing.likedBy.length > 0 && (!Array.isArray(p.likedBy) || p.likedBy.length === 0)) {
+          merged.likedBy = existing.likedBy;
+          merged.likeCount = existing.likedBy.length;
+        }
         if (p.encryptedDiaryPayload && !p._diaryDecrypted && existing.encryptedDiaryPayload !== p.encryptedDiaryPayload) {
           delete merged._diaryDecrypted;
           delete merged.illustrationBase64;
@@ -5308,6 +5335,9 @@ function mergeAndSortPosts(newPosts) {
           if (!merged.illustrationBase64 && existing.illustrationBase64) {
             merged.illustrationBase64 = existing.illustrationBase64;
           }
+        }
+        if (typeof applyLocalPostEngagementSnapshot === 'function') {
+          applyLocalPostEngagementSnapshot(merged);
         }
         existingMap.set(postId, merged);
       }
@@ -5863,6 +5893,9 @@ async function syncLiveCloudPosts(forceRender = false) {
       currentBatchFilteredPosts = getFilteredPostsForFilter(allPosts, currentFilter, searchQuery);
       updateBadge(true, `Live Feed (${allPosts.length} posts)`);
       updateAuthUI();
+      if (typeof syncAllRenderedPostEngagementDOM === 'function') {
+        syncAllRenderedPostEngagementDOM();
+      }
     }
   }
 
@@ -10271,8 +10304,11 @@ function createPostCardElement(post, index) {
     `;
   }
 
-  // Real cloud-persisted Heart, Like & Comment state
-  const currentUserKey = currentUser ? String(currentUser.email || currentUser.handle || currentUser.id || '').trim().toLowerCase() : '';
+  // Real cloud-persisted + locally-synced Heart, Like & Comment state
+  if (typeof applyLocalPostEngagementSnapshot === 'function') {
+    applyLocalPostEngagementSnapshot(post);
+  }
+  const currentUserKey = typeof getCurrentUserEngagementKey === 'function' ? getCurrentUserEngagementKey() : '';
   const heartedByList = Array.isArray(post.heartedBy) ? post.heartedBy : [];
   const likedByList = Array.isArray(post.likedBy) ? post.likedBy : [];
   const commentsList = Array.isArray(post.comments) ? post.comments : [];
@@ -10764,22 +10800,175 @@ function setCreatorAllowComments(allowed) {
 }
 
 function getCurrentUserEngagementKey() {
-  if (!currentUser) return '';
-  return String(currentUser.email || currentUser.handle || currentUser.id || '').trim().toLowerCase();
+  if (currentUser) {
+    const k = String(currentUser.email || currentUser.handle || currentUser.id || '').trim().toLowerCase();
+    if (k) return k;
+  }
+  try {
+    const cachedEmail = String(localStorage.getItem('slant_user_email') || '').trim().toLowerCase();
+    if (cachedEmail) return cachedEmail;
+  } catch (_) {}
+  return '';
+}
+
+function getLocalEngagementCacheMap() {
+  try {
+    const raw = localStorage.getItem('slant_post_engagement_cache_v1');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') return parsed;
+    }
+  } catch (_) {}
+  return {};
+}
+
+function saveLocalPostEngagementSnapshot(post, deletedCommentId = null) {
+  if (!post || !post.id) return;
+  try {
+    const map = getLocalEngagementCacheMap();
+    const prev = map[post.id] || {};
+    const deletedCommentIds = Array.isArray(prev.deletedCommentIds) ? [...prev.deletedCommentIds] : [];
+    if (deletedCommentId && !deletedCommentIds.includes(deletedCommentId)) {
+      deletedCommentIds.push(deletedCommentId);
+    }
+    map[post.id] = {
+      heartedBy: Array.isArray(post.heartedBy) ? [...post.heartedBy] : [],
+      likedBy: Array.isArray(post.likedBy) ? [...post.likedBy] : [],
+      heartCount: Array.isArray(post.heartedBy) ? post.heartedBy.length : (Number(post.heartCount) || 0),
+      likeCount: Array.isArray(post.likedBy) ? post.likedBy.length : (Number(post.likeCount) || 0),
+      comments: Array.isArray(post.comments) ? [...post.comments] : [],
+      commentCount: Array.isArray(post.comments) ? post.comments.length : (Number(post.commentCount) || 0),
+      allowComments: post.allowComments !== false,
+      deletedCommentIds,
+      updatedAt: Date.now()
+    };
+    localStorage.setItem('slant_post_engagement_cache_v1', JSON.stringify(map));
+
+    // Also keep slant_user_posts_cache synchronized if this post is cached there
+    const userPostsRaw = localStorage.getItem('slant_user_posts_cache');
+    if (userPostsRaw) {
+      const userPosts = JSON.parse(userPostsRaw);
+      if (Array.isArray(userPosts)) {
+        let updatedCache = false;
+        userPosts.forEach(up => {
+          if (up && up.id === post.id) {
+            up.heartedBy = map[post.id].heartedBy;
+            up.likedBy = map[post.id].likedBy;
+            up.heartCount = map[post.id].heartCount;
+            up.likeCount = map[post.id].likeCount;
+            up.comments = map[post.id].comments;
+            up.commentCount = map[post.id].commentCount;
+            up.allowComments = map[post.id].allowComments;
+            updatedCache = true;
+          }
+        });
+        if (updatedCache) {
+          localStorage.setItem('slant_user_posts_cache', JSON.stringify(userPosts));
+        }
+      }
+    }
+  } catch (_) {}
+}
+
+function applyLocalPostEngagementSnapshot(post) {
+  if (!post || !post.id) return;
+  try {
+    const map = getLocalEngagementCacheMap();
+    const snap = map[post.id];
+    if (!snap) return;
+
+    const deletedSet = new Set(Array.isArray(snap.deletedCommentIds) ? snap.deletedCommentIds : []);
+
+    // Merge comments from both post and local snapshot (excluding explicitly deleted comment IDs)
+    const cmtMap = new Map();
+    if (Array.isArray(post.comments)) {
+      post.comments.forEach(c => {
+        if (c && c.id && !deletedSet.has(c.id)) cmtMap.set(c.id, c);
+      });
+    }
+    if (Array.isArray(snap.comments)) {
+      snap.comments.forEach(c => {
+        if (c && c.id && !deletedSet.has(c.id) && !cmtMap.has(c.id)) {
+          cmtMap.set(c.id, c);
+        }
+      });
+    }
+    if (cmtMap.size > 0 || Array.isArray(snap.comments)) {
+      post.comments = Array.from(cmtMap.values());
+      post.commentCount = post.comments.length;
+    }
+
+    // Preserve user's exact Heart / Like state from local snapshot if newer or if post lacks it
+    if (Array.isArray(snap.heartedBy)) {
+      post.heartedBy = snap.heartedBy;
+      post.heartCount = snap.heartedBy.length;
+    }
+    if (Array.isArray(snap.likedBy)) {
+      post.likedBy = snap.likedBy;
+      post.likeCount = snap.likedBy.length;
+    }
+    if (typeof snap.allowComments === 'boolean') {
+      post.allowComments = snap.allowComments;
+    }
+  } catch (_) {}
+}
+
+function syncAllRenderedPostEngagementDOM() {
+  const userKey = getCurrentUserEngagementKey();
+  const cards = document.querySelectorAll('.post-card[data-post-id]');
+  cards.forEach(card => {
+    const postId = card.getAttribute('data-post-id');
+    const post = Array.isArray(allPosts) ? allPosts.find(p => p && String(p.id) === String(postId)) : null;
+    if (!post) return;
+    applyLocalPostEngagementSnapshot(post);
+
+    const heartBtn = card.querySelector('.heart-btn');
+    const likeBtn = card.querySelector('.like-btn');
+    const commentBtn = card.querySelector('.comment-btn');
+
+    const heartedByList = Array.isArray(post.heartedBy) ? post.heartedBy : [];
+    const likedByList = Array.isArray(post.likedBy) ? post.likedBy : [];
+    const commentsList = Array.isArray(post.comments) ? post.comments : [];
+
+    const isHearted = Boolean(userKey && heartedByList.some(k => String(k || '').toLowerCase() === userKey));
+    const isLiked = Boolean(userKey && likedByList.some(k => String(k || '').toLowerCase() === userKey));
+    const heartCount = heartedByList.length > 0 ? heartedByList.length : (Number(post.heartCount) || 0);
+    const likeCount = likedByList.length > 0 ? likedByList.length : (Number(post.likeCount) || 0);
+    const commentCount = commentsList.length > 0 ? commentsList.length : (Number(post.commentCount) || 0);
+    const allowComments = post.allowComments !== false;
+
+    if (heartBtn) {
+      heartBtn.classList.toggle('hearted', isHearted);
+      const svg = heartBtn.querySelector('svg');
+      if (svg) svg.setAttribute('fill', isHearted ? 'currentColor' : 'none');
+      const cEl = heartBtn.querySelector('.reaction-count');
+      if (cEl) cEl.textContent = String(heartCount);
+    }
+    if (likeBtn) {
+      likeBtn.classList.toggle('liked', isLiked);
+      const svg = likeBtn.querySelector('svg');
+      if (svg) svg.setAttribute('fill', isLiked ? 'currentColor' : 'none');
+      const cEl = likeBtn.querySelector('.reaction-count');
+      if (cEl) cEl.textContent = String(likeCount);
+    }
+    if (commentBtn) {
+      commentBtn.classList.toggle('comments-disabled', !allowComments);
+      const cEl = commentBtn.querySelector('.reaction-count');
+      if (cEl) cEl.textContent = allowComments ? String(commentCount) : 'Off';
+    }
+  });
 }
 
 async function togglePostReaction(event, index, reactionType = 'heart') {
   if (event) event.stopPropagation();
-  if (!currentUser) {
+  const userKey = getCurrentUserEngagementKey();
+  if (!currentUser && !userKey) {
     openAuthModal('Sign in to heart, like, and comment on visual slants.');
     return;
   }
 
   const post = getPostFromIndexOrId(index);
-  if (!post) return;
-
-  const userKey = getCurrentUserEngagementKey();
-  if (!userKey) return;
+  if (!post || !userKey) return;
 
   const isLike = reactionType === 'like';
   const listKey = isLike ? 'likedBy' : 'heartedBy';
@@ -10799,6 +10988,7 @@ async function togglePostReaction(event, index, reactionType = 'heart') {
     isActive = true;
   }
   post[countKey] = post[listKey].length;
+  saveLocalPostEngagementSnapshot(post);
 
   // Immediate optimistic UI update
   const btn = document.getElementById(`${isLike ? 'like' : 'heart'}-btn-${index}`);
@@ -10833,6 +11023,7 @@ async function togglePostReaction(event, index, reactionType = 'heart') {
         if (Array.isArray(data.likedBy)) post.likedBy = data.likedBy;
         if (typeof data.heartCount === 'number') post.heartCount = data.heartCount;
         if (typeof data.likeCount === 'number') post.likeCount = data.likeCount;
+        saveLocalPostEngagementSnapshot(post);
         const hCountEl = document.getElementById(`heart-count-${index}`);
         const lCountEl = document.getElementById(`like-count-${index}`);
         if (hCountEl) hCountEl.textContent = String(post.heartCount || 0);
@@ -10855,9 +11046,10 @@ function formatCommentRelativeTime(iso) {
 
 function buildPostCommentsDrawerInnerHtml(post, index) {
   if (!post) return '';
+  applyLocalPostEngagementSnapshot(post);
   const allowComments = post.allowComments !== false;
   const comments = Array.isArray(post.comments) ? post.comments : [];
-  const userEmail = currentUser && currentUser.email ? String(currentUser.email).toLowerCase() : '';
+  const userEmail = getCurrentUserEngagementKey();
   const userHandle = currentUser && currentUser.handle ? String(currentUser.handle).toLowerCase() : '';
   const isMaster = userEmail === 'shridharoct16@gmail.com';
   const isPostOwner = Boolean(
@@ -10882,7 +11074,16 @@ function buildPostCommentsDrawerInnerHtml(post, index) {
               <span class="post-comment-text">${cText}</span>
               ${cTime ? `<span class="post-comment-time">${cTime}</span>` : ''}
             </div>
-            ${canRemove ? `<button type="button" class="post-comment-del-btn" onclick="deletePostComment(event, '${index}', '${escapeHtml(c.id || '')}')" title="Delete comment">✕</button>` : ''}
+            ${canRemove ? `
+              <button type="button" class="post-comment-del-btn" onclick="deletePostComment(event, '${index}', '${escapeHtml(c.id || '')}')" title="Delete comment" aria-label="Delete comment">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="3 6 5 6 21 6"></polyline>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                  <line x1="10" y1="11" x2="10" y2="17"></line>
+                  <line x1="14" y1="11" x2="14" y2="17"></line>
+                </svg>
+              </button>
+            ` : ''}
           </div>
         `;
       }).join('')
@@ -10891,14 +11092,21 @@ function buildPostCommentsDrawerInnerHtml(post, index) {
   const inputHtml = allowComments
     ? `
       <form class="post-comment-form" onsubmit="submitPostComment(event, '${index}')">
-        <input type="text" class="post-comment-input" id="comment-input-${index}" maxlength="500" placeholder="${currentUser ? 'Add a comment...' : 'Sign in to add a comment...'}" autocomplete="off">
-        <button type="submit" class="post-comment-submit-btn" id="comment-submit-${index}">Post</button>
+        <textarea class="post-comment-input" id="comment-input-${index}" rows="3" maxlength="500" placeholder="${(currentUser || userEmail) ? 'Write a comment...' : 'Sign in to add a comment...'}" onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault();submitPostComment(event, '${index}');}"></textarea>
+        <div class="post-comment-actions-row">
+          <button type="button" class="post-comment-cancel-btn" onclick="togglePostCommentsDrawer(event, '${index}')">Cancel</button>
+          <button type="submit" class="post-comment-submit-btn" id="comment-submit-${index}">Post</button>
+        </div>
       </form>
     `
     : `<div style="font-size: 11.2px; font-weight: 700; color: var(--text-muted, #94A3B8); padding: 4px 4px 0;">🔒 Comments are turned off for this post by the author.</div>`;
 
   return `
     <div class="post-comments-box">
+      <div class="post-comments-header">
+        <span class="post-comments-header-title">Comments (${comments.length})</span>
+        <button type="button" class="post-comments-close-btn" onclick="togglePostCommentsDrawer(event, '${index}')" title="Close comments">✕</button>
+      </div>
       <div class="post-comments-list" id="comments-list-${index}">
         ${itemsHtml}
       </div>
@@ -10930,7 +11138,7 @@ function togglePostCommentsDrawer(event, index) {
       drawer.innerHTML = buildPostCommentsDrawerInnerHtml(post, index);
       drawer.style.display = 'block';
       const inp = document.getElementById(`comment-input-${index}`);
-      if (inp && currentUser && post.allowComments !== false) {
+      if (inp && (currentUser || getCurrentUserEngagementKey()) && post.allowComments !== false) {
         setTimeout(() => inp.focus(), 40);
       }
     } else {
@@ -10944,7 +11152,8 @@ async function submitPostComment(event, index) {
     event.preventDefault();
     event.stopPropagation();
   }
-  if (!currentUser) {
+  const userEmail = getCurrentUserEngagementKey();
+  if (!currentUser && !userEmail) {
     openAuthModal('Sign in to comment on visual slants.');
     return;
   }
@@ -10960,9 +11169,8 @@ async function submitPostComment(event, index) {
   const text = inp ? inp.value.trim() : '';
   if (!text) return;
 
-  const rawHandle = currentUser.handle || (currentUser.email ? '@' + currentUser.email.split('@')[0] : '@reader');
+  const rawHandle = (currentUser && currentUser.handle) || (userEmail ? '@' + userEmail.split('@')[0] : '@reader');
   const userHandle = rawHandle.startsWith('@') ? rawHandle : ('@' + rawHandle);
-  const userEmail = currentUser.email || '';
 
   const optimisticComment = {
     id: 'cmt-' + Date.now(),
@@ -10975,6 +11183,7 @@ async function submitPostComment(event, index) {
   if (!Array.isArray(post.comments)) post.comments = [];
   post.comments.push(optimisticComment);
   post.commentCount = post.comments.length;
+  saveLocalPostEngagementSnapshot(post);
 
   if (inp) inp.value = '';
   const drawer = document.getElementById(`comments-drawer-${index}`);
@@ -11004,6 +11213,7 @@ async function submitPostComment(event, index) {
       if (data && data.success && Array.isArray(data.comments)) {
         post.comments = data.comments;
         post.commentCount = data.comments.length;
+        saveLocalPostEngagementSnapshot(post);
         if (drawer) drawer.innerHTML = buildPostCommentsDrawerInnerHtml(post, index);
         if (countEl) countEl.textContent = String(post.commentCount);
       }
@@ -11022,6 +11232,7 @@ async function deletePostComment(event, index, commentId) {
     post.comments = post.comments.filter(c => c && c.id !== commentId);
     post.commentCount = post.comments.length;
   }
+  saveLocalPostEngagementSnapshot(post, commentId);
 
   const drawer = document.getElementById(`comments-drawer-${index}`);
   if (drawer) {
@@ -11042,7 +11253,7 @@ async function deletePostComment(event, index, commentId) {
         action: 'delete_comment',
         postId: post.id,
         commentId,
-        userEmail: currentUser ? currentUser.email : '',
+        userEmail: getCurrentUserEngagementKey(),
         userHandle: currentUser ? currentUser.handle : ''
       })
     });
@@ -11057,6 +11268,7 @@ async function togglePostAllowComments(postId, index) {
 
   const nextAllow = post.allowComments === false ? true : false;
   post.allowComments = nextAllow;
+  saveLocalPostEngagementSnapshot(post);
 
   const menuLbl = document.getElementById(`menu-allow-comments-lbl-${index}`);
   if (menuLbl) {
