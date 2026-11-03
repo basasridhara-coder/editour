@@ -6388,6 +6388,9 @@ function renderBatchCards(posts, offset = 0) {
     container.appendChild(card);
     setupCarouselGestures(cardIndex);
   });
+  if (offset === 0 && typeof scheduleFirstTimeCleanPeekDemo === 'function') {
+    scheduleFirstTimeCleanPeekDemo();
+  }
 }
 
 let isNextBatchReady = false;
@@ -7256,6 +7259,121 @@ function toggleCleanView(event, index) {
   setCleanView(key, !cleanViewState[key]);
 }
 
+const CLEAN_PEEK_DISMISSED_KEY = 'slant_clean_peek_dismissed_v1';
+const CLEAN_PEEK_COUNT_KEY = 'slant_clean_peek_count_v1';
+const MAX_CLEAN_PEEK_DEMOS = 3;
+let _cleanPeekRanThisSession = false;
+let _activeCleanPeekTimers = [];
+let _activeCleanPeekIndex = null;
+
+function cancelActiveCleanPeekDemo(restoreCleanView = true) {
+  while (_activeCleanPeekTimers.length > 0) {
+    clearTimeout(_activeCleanPeekTimers.pop());
+  }
+  document.querySelectorAll('.clean-peek-demo-pill').forEach(el => el.remove());
+  if (restoreCleanView && _activeCleanPeekIndex !== null) {
+    const idx = _activeCleanPeekIndex;
+    _activeCleanPeekIndex = null;
+    if (cleanViewState[String(idx)]) {
+      setCleanView(idx, false);
+    }
+  } else {
+    _activeCleanPeekIndex = null;
+  }
+}
+
+function dismissCleanPeekDemoForever(event, showConfirmToast = false) {
+  if (event) {
+    event.stopPropagation();
+    event.preventDefault();
+  }
+  try {
+    localStorage.setItem(CLEAN_PEEK_DISMISSED_KEY, '1');
+  } catch (_) {}
+  cancelActiveCleanPeekDemo(true);
+  if (showConfirmToast && typeof showTemporaryToast === 'function') {
+    showTemporaryToast('✓ Got it — hint won\'t show again');
+  }
+}
+window.dismissCleanPeekDemoForever = dismissCleanPeekDemoForever;
+
+function scheduleFirstTimeCleanPeekDemo() {
+  if (_cleanPeekRanThisSession) return;
+  try {
+    if (localStorage.getItem(CLEAN_PEEK_DISMISSED_KEY) === '1') return;
+    const prevCount = parseInt(localStorage.getItem(CLEAN_PEEK_COUNT_KEY) || '0', 10) || 0;
+    if (prevCount >= MAX_CLEAN_PEEK_DEMOS) return;
+  } catch (_) {
+    return;
+  }
+
+  const startTimer = setTimeout(() => {
+    if (_cleanPeekRanThisSession) return;
+    try {
+      if (localStorage.getItem(CLEAN_PEEK_DISMISSED_KEY) === '1') return;
+    } catch (_) {}
+
+    const container = document.getElementById('feedContainer');
+    if (!container) return;
+    const firstCarousel = container.querySelector('.post-card .carousel-view');
+    if (!firstCarousel) return;
+
+    const index = firstCarousel.getAttribute('data-post-index');
+    const curSlide = firstCarousel.getAttribute('data-current-slide') || '0';
+    if (index === null || curSlide !== '0') return;
+
+    const rect = firstCarousel.getBoundingClientRect();
+    const vh = window.innerHeight || document.documentElement.clientHeight || 800;
+    if (rect.top < 20 || rect.bottom > vh + 80 || rect.height < 180) return;
+
+    const slideHook = firstCarousel.querySelector('.slide-hook');
+    if (!slideHook) return;
+
+    _cleanPeekRanThisSession = true;
+    _activeCleanPeekIndex = String(index);
+    try {
+      const prevCount = parseInt(localStorage.getItem(CLEAN_PEEK_COUNT_KEY) || '0', 10) || 0;
+      localStorage.setItem(CLEAN_PEEK_COUNT_KEY, String(prevCount + 1));
+    } catch (_) {}
+
+    // Inject subtle floating hint pill with "Got it ✕" opt-out
+    const pill = document.createElement('div');
+    pill.className = 'clean-peek-demo-pill';
+    pill.innerHTML = `
+      <span class="clean-peek-demo-label">👁️ Tap text anytime to view full art</span>
+      <span class="clean-peek-demo-sep">·</span>
+      <button type="button" class="clean-peek-dismiss-btn" onclick="dismissCleanPeekDemoForever(event, true)" title="Don't show this demo again">Got it ✕</button>
+    `;
+    slideHook.appendChild(pill);
+    requestAnimationFrame(() => pill.classList.add('is-visible'));
+
+    // Fade out lower text for ~1.7s to reveal full artwork
+    setCleanView(index, true);
+
+    const restoreTextTimer = setTimeout(() => {
+      if (_activeCleanPeekIndex === String(index) && cleanViewState[String(index)]) {
+        setCleanView(index, false);
+      }
+    }, 1750);
+    _activeCleanPeekTimers.push(restoreTextTimer);
+
+    // Keep subtle "Got it ✕" pill lingering briefly after text returns so user can easily tap it
+    const hidePillTimer = setTimeout(() => {
+      pill.classList.remove('is-visible');
+      const removeTimer = setTimeout(() => {
+        if (pill.parentNode) pill.remove();
+        if (_activeCleanPeekIndex === String(index)) {
+          _activeCleanPeekIndex = null;
+        }
+      }, 320);
+      _activeCleanPeekTimers.push(removeTimer);
+    }, 3600);
+    _activeCleanPeekTimers.push(hidePillTimer);
+  }, 1350);
+
+  _activeCleanPeekTimers.push(startTimer);
+}
+
 function handleSlide1LowerTextTap(event, index) {
   if (window._justSwipedCarousel && (Date.now() - window._justSwipedCarousel < 350)) {
     return;
@@ -7263,6 +7381,12 @@ function handleSlide1LowerTextTap(event, index) {
   if (event) {
     event.stopPropagation();
   }
+  // User manually tapped the lower text: mark demo as learned so it doesn't need to show again
+  try {
+    localStorage.setItem(CLEAN_PEEK_DISMISSED_KEY, '1');
+  } catch (_) {}
+  cancelActiveCleanPeekDemo(false);
+
   const key = String(index);
   if (key === 'whole') {
     toggleWholePosterCleanView();
@@ -7275,6 +7399,7 @@ function handleSlide1PosterTap(event, index) {
   if (window._justSwipedCarousel && (Date.now() - window._justSwipedCarousel < 350)) {
     return;
   }
+  cancelActiveCleanPeekDemo(false);
   const key = String(index);
   if (key === 'whole') {
     if (typeof isWholePosterClean !== 'undefined' && isWholePosterClean) {

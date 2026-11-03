@@ -1240,6 +1240,69 @@ header {
   transition: opacity 0.24s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* First-Time Auto-Peek Demo Pill + Subtle "Got it ✕" Dismiss */
+.clean-peek-demo-pill {
+  position: absolute;
+  left: 50%;
+  bottom: 34px;
+  transform: translateX(-50%) translateY(6px);
+  z-index: 35;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.82);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  color: rgba(255, 255, 255, 0.94);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.15px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.26s ease, transform 0.26s ease;
+}
+
+.clean-peek-demo-pill.is-visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+  pointer-events: auto;
+}
+
+.clean-peek-demo-sep {
+  opacity: 0.45;
+  font-weight: 400;
+}
+
+.clean-peek-dismiss-btn {
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  color: #38BDF8;
+  font-family: inherit;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 999px;
+  cursor: pointer;
+  line-height: 1.2;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.clean-peek-dismiss-btn:hover,
+.clean-peek-dismiss-btn:active {
+  background: rgba(56, 189, 248, 0.22);
+  color: #FFFFFF;
+}
+
+.poster-export-sandbox .clean-peek-demo-pill {
+  display: none !important;
+}
+
 .tag-action-btn {
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid var(--border-subtle);
