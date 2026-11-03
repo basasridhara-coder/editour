@@ -335,6 +335,124 @@ let currentUserCredits = null;
 let savedPostIds = new Set(JSON.parse(localStorage.getItem('slant_saved_posts') || localStorage.getItem('editour_saved_posts') || '[]'));
 let myCreatedPostIds = new Set(JSON.parse(localStorage.getItem('slant_my_posts') || '[]'));
 let deletedPostIds = new Set(JSON.parse(localStorage.getItem('slant_deleted_posts') || '[]'));
+const SAVE_BUCKETS_STORAGE_KEY = 'slant_save_buckets_v1';
+let activeSavedBucketFilter = 'all';
+
+function getDefaultSaveBuckets() {
+  return [
+    { id: 'reading_list', name: 'Reading List', icon: '🔖', postIds: [] },
+    { id: 'inspiration', name: 'Inspiration', icon: '💡', postIds: [] },
+    { id: 'worth_sharing', name: 'Worth Sharing', icon: '✨', postIds: [] }
+  ];
+}
+
+function loadSaveBucketsFromStorage() {
+  let buckets = null;
+  try {
+    const raw = localStorage.getItem(SAVE_BUCKETS_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        buckets = parsed
+          .filter(b => b && typeof b.name === 'string' && b.name.trim())
+          .map(b => ({
+            id: String(b.id || ('bucket_' + b.name.toLowerCase().replace(/[^a-z0-9]+/g, '_'))),
+            name: String(b.name).trim(),
+            icon: String(b.icon || '📁'),
+            postIds: Array.isArray(b.postIds)
+              ? Array.from(new Set(b.postIds.map(String).filter(id => id && !deletedPostIds.has(id))))
+              : []
+          }));
+      }
+    }
+  } catch (_) {}
+
+  if (!buckets || buckets.length === 0) {
+    buckets = getDefaultSaveBuckets();
+  }
+
+  // Ensure any legacy savedPostIds that aren't in a bucket yet live in Reading List
+  const assigned = new Set();
+  buckets.forEach(b => b.postIds.forEach(id => assigned.add(id)));
+  let primaryBucket = buckets.find(b => b.id === 'reading_list') || buckets[0];
+  savedPostIds.forEach(id => {
+    if (id && !deletedPostIds.has(id) && !assigned.has(id)) {
+      primaryBucket.postIds.push(id);
+      assigned.add(id);
+    }
+  });
+
+  return buckets;
+}
+
+let saveBuckets = loadSaveBucketsFromStorage();
+
+function rebuildSavedPostIdsFromBuckets() {
+  const nextSet = new Set();
+  if (Array.isArray(saveBuckets)) {
+    saveBuckets.forEach(b => {
+      if (b && Array.isArray(b.postIds)) {
+        b.postIds = b.postIds.filter(id => id && !deletedPostIds.has(id));
+        b.postIds.forEach(id => nextSet.add(id));
+      }
+    });
+  }
+  savedPostIds = nextSet;
+}
+rebuildSavedPostIdsFromBuckets();
+
+function persistSaveBuckets(syncCloud = true) {
+  rebuildSavedPostIdsFromBuckets();
+  try {
+    localStorage.setItem(SAVE_BUCKETS_STORAGE_KEY, JSON.stringify(saveBuckets));
+    localStorage.setItem('slant_saved_posts', JSON.stringify(Array.from(savedPostIds)));
+    localStorage.setItem('editour_saved_posts', JSON.stringify(Array.from(savedPostIds)));
+  } catch (_) {}
+  if (syncCloud && typeof syncUserMetadataToCloud === 'function') {
+    syncUserMetadataToCloud();
+  }
+}
+
+function mergeCloudSaveBuckets(cloudBuckets, cloudSavedIds) {
+  if (Array.isArray(cloudBuckets) && cloudBuckets.length > 0) {
+    cloudBuckets.forEach(cb => {
+      if (!cb || typeof cb.name !== 'string' || !cb.name.trim()) return;
+      const cleanName = cb.name.trim();
+      const cbId = String(cb.id || ('bucket_' + cleanName.toLowerCase().replace(/[^a-z0-9]+/g, '_')));
+      let existing = saveBuckets.find(b => b.id === cbId || b.name.toLowerCase() === cleanName.toLowerCase());
+      if (!existing) {
+        existing = {
+          id: cbId,
+          name: cleanName,
+          icon: String(cb.icon || '📁'),
+          postIds: []
+        };
+        saveBuckets.push(existing);
+      }
+      if (Array.isArray(cb.postIds)) {
+        cb.postIds.forEach(id => {
+          const sId = String(id || '');
+          if (sId && !deletedPostIds.has(sId) && !existing.postIds.includes(sId)) {
+            existing.postIds.push(sId);
+          }
+        });
+      }
+    });
+  }
+  if (Array.isArray(cloudSavedIds) && cloudSavedIds.length > 0) {
+    const assigned = new Set();
+    saveBuckets.forEach(b => b.postIds.forEach(id => assigned.add(id)));
+    const primary = saveBuckets.find(b => b.id === 'reading_list') || saveBuckets[0];
+    cloudSavedIds.forEach(id => {
+      const sId = String(id || '');
+      if (sId && !deletedPostIds.has(sId) && !assigned.has(sId) && primary) {
+        primary.postIds.push(sId);
+        assigned.add(sId);
+      }
+    });
+  }
+  persistSaveBuckets(false);
+}
 
 function applyDeletedPostsTombstone(ids) {
   if (!Array.isArray(ids) || ids.length === 0) return false;
@@ -352,6 +470,14 @@ function applyDeletedPostsTombstone(ids) {
       savedPostIds.delete(id);
       changed = true;
     }
+    if (Array.isArray(saveBuckets)) {
+      saveBuckets.forEach(b => {
+        if (b && Array.isArray(b.postIds) && b.postIds.includes(id)) {
+          b.postIds = b.postIds.filter(pid => pid !== id);
+          changed = true;
+        }
+      });
+    }
   });
   const beforeLen = allPosts.length;
   allPosts = allPosts.filter(p => p && !deletedPostIds.has(p.id) && !p.deleted && !p.isDeleted);
@@ -363,6 +489,7 @@ function applyDeletedPostsTombstone(ids) {
     localStorage.setItem('slant_deleted_posts', JSON.stringify(Array.from(deletedPostIds)));
     localStorage.setItem('slant_my_posts', JSON.stringify(Array.from(myCreatedPostIds)));
     localStorage.setItem('slant_saved_posts', JSON.stringify(Array.from(savedPostIds)));
+    localStorage.setItem(SAVE_BUCKETS_STORAGE_KEY, JSON.stringify(saveBuckets));
     const cached = JSON.parse(localStorage.getItem('slant_user_posts_cache') || '[]');
     const filteredCache = cached.filter(p => p && !deletedPostIds.has(p.id) && !p.deleted && !p.isDeleted);
     if (filteredCache.length !== cached.length) {
@@ -2263,7 +2390,10 @@ async function initAuth() {
             applyDeletedPostsTombstone(cloudDeleted);
           }
           const cloudSaved = currentUser.user_metadata.saved_posts;
-          if (Array.isArray(cloudSaved) && cloudSaved.length > 0) {
+          const cloudBuckets = currentUser.user_metadata.save_buckets;
+          if (typeof mergeCloudSaveBuckets === 'function') {
+            mergeCloudSaveBuckets(cloudBuckets, cloudSaved);
+          } else if (Array.isArray(cloudSaved) && cloudSaved.length > 0) {
             cloudSaved.forEach(id => { if (!deletedPostIds.has(id)) savedPostIds.add(id); });
             localStorage.setItem('slant_saved_posts', JSON.stringify(Array.from(savedPostIds)));
           }
@@ -2345,7 +2475,10 @@ async function initAuth() {
               applyDeletedPostsTombstone(cloudDeleted);
             }
             const cloudSaved = currentUser.user_metadata.saved_posts;
-            if (Array.isArray(cloudSaved) && cloudSaved.length > 0) {
+            const cloudBuckets = currentUser.user_metadata.save_buckets;
+            if (typeof mergeCloudSaveBuckets === 'function') {
+              mergeCloudSaveBuckets(cloudBuckets, cloudSaved);
+            } else if (Array.isArray(cloudSaved) && cloudSaved.length > 0) {
               cloudSaved.forEach(id => { if (!deletedPostIds.has(id)) savedPostIds.add(id); });
               localStorage.setItem('slant_saved_posts', JSON.stringify(Array.from(savedPostIds)));
             }
@@ -2453,6 +2586,7 @@ function syncUserMetadataToCloud() {
       supabaseClient.auth.updateUser({
         data: {
           saved_posts: Array.from(savedPostIds),
+          save_buckets: Array.isArray(saveBuckets) ? saveBuckets : [],
           my_posts: Array.from(myCreatedPostIds),
           deleted_posts: Array.from(deletedPostIds)
         }
@@ -4863,6 +4997,203 @@ function selectCategory(categoryKey) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+function syncBookmarkButtonsForPost(postId) {
+  const sId = String(postId || '');
+  if (!sId) return;
+  const isNowSaved = savedPostIds.has(sId);
+  document.querySelectorAll(`#bookmark-btn-${CSS.escape(sId)}, .bookmark-btn[data-bookmark-post="${CSS.escape(sId)}"]`).forEach(btn => {
+    btn.classList.toggle('is-saved', isNowSaved);
+    btn.setAttribute('title', isNowSaved ? 'Saved — Manage Buckets' : 'Save to Bucket');
+    const svg = btn.querySelector('svg');
+    if (svg) {
+      svg.setAttribute('fill', isNowSaved ? '#F59E0B' : 'none');
+      svg.setAttribute('stroke', isNowSaved ? '#F59E0B' : 'currentColor');
+    }
+  });
+}
+
+function closeAllSaveBucketPopovers() {
+  document.querySelectorAll('.save-bucket-popover.show').forEach(pop => {
+    pop.classList.remove('show');
+  });
+}
+window.closeAllSaveBucketPopovers = closeAllSaveBucketPopovers;
+
+function buildSaveBucketPopoverInnerHtml(postId) {
+  const sId = String(postId || '');
+  if (!Array.isArray(saveBuckets) || saveBuckets.length === 0) {
+    saveBuckets = loadSaveBucketsFromStorage();
+  }
+  const isSavedAnywhere = savedPostIds.has(sId);
+
+  const itemsHtml = saveBuckets.map(bucket => {
+    const bIds = Array.isArray(bucket.postIds) ? bucket.postIds : [];
+    const isChecked = bIds.includes(sId);
+    const count = bIds.length;
+    return `
+      <button type="button"
+              class="save-bucket-item ${isChecked ? 'is-checked' : ''}"
+              onclick="togglePostInSaveBucket(event, '${escapeHtml(sId)}', '${escapeHtml(bucket.id)}')">
+        <span class="save-bucket-check" aria-hidden="true">${isChecked ? '✓' : ''}</span>
+        <span class="save-bucket-icon">${escapeHtml(bucket.icon || '📁')}</span>
+        <span class="save-bucket-name">${escapeHtml(bucket.name)}</span>
+        <span class="save-bucket-count">${count}</span>
+      </button>
+    `;
+  }).join('');
+
+  return `
+    <div class="save-bucket-popover-header" onclick="event.stopPropagation()">
+      <span class="save-bucket-popover-title">🔖 Save to Bucket</span>
+      <div class="save-bucket-popover-actions">
+        ${isSavedAnywhere ? `
+          <button type="button" class="save-bucket-unsave-all-btn" onclick="removePostFromAllSaveBuckets(event, '${escapeHtml(sId)}')" title="Remove from all buckets">Remove</button>
+        ` : ''}
+        <button type="button" class="save-bucket-close-btn" onclick="event.stopPropagation(); closeAllSaveBucketPopovers()" title="Close">✕</button>
+      </div>
+    </div>
+    <div class="save-bucket-list" onclick="event.stopPropagation()">
+      ${itemsHtml}
+    </div>
+    <form class="save-bucket-create-form" onsubmit="createSaveBucketAndAddPost(event, '${escapeHtml(sId)}')" onclick="event.stopPropagation()">
+      <input type="text"
+             class="save-bucket-create-input"
+             id="save-bucket-input-${escapeHtml(sId)}"
+             placeholder="+ Create bucket & save..."
+             maxlength="34"
+             autocomplete="off"
+             onclick="event.stopPropagation()">
+      <button type="submit" class="save-bucket-create-btn">Save</button>
+    </form>
+  `;
+}
+
+function refreshOpenSaveBucketPopover(postId) {
+  const sId = String(postId || '');
+  const pop = document.getElementById(`save-bucket-popover-${sId}`);
+  if (pop && pop.classList.contains('show')) {
+    pop.innerHTML = buildSaveBucketPopoverInnerHtml(sId);
+  }
+}
+
+function togglePostInSaveBucket(event, postId, bucketId) {
+  if (event) {
+    event.stopPropagation();
+    event.preventDefault();
+  }
+  const sId = String(postId || '');
+  const bId = String(bucketId || '');
+  const bucket = Array.isArray(saveBuckets) ? saveBuckets.find(b => String(b.id) === bId) : null;
+  if (!bucket || !sId) return;
+
+  if (!Array.isArray(bucket.postIds)) bucket.postIds = [];
+  const idx = bucket.postIds.indexOf(sId);
+  let added = false;
+  if (idx !== -1) {
+    bucket.postIds.splice(idx, 1);
+  } else {
+    bucket.postIds.push(sId);
+    added = true;
+  }
+
+  persistSaveBuckets(true);
+  syncBookmarkButtonsForPost(sId);
+  refreshOpenSaveBucketPopover(sId);
+  updateAuthUI();
+
+  if (added) {
+    showTemporaryToast(`${bucket.icon || '🔖'} Saved to "${bucket.name}"`);
+  } else {
+    showTemporaryToast(`Removed from "${bucket.name}"`);
+  }
+
+  if (currentFilter === 'saved') {
+    renderFeed();
+  }
+}
+window.togglePostInSaveBucket = togglePostInSaveBucket;
+
+function createSaveBucketAndAddPost(event, postId) {
+  if (event) {
+    event.stopPropagation();
+    event.preventDefault();
+  }
+  const sId = String(postId || '');
+  const inp = document.getElementById(`save-bucket-input-${sId}`);
+  const rawName = inp ? inp.value.trim() : '';
+
+  if (!rawName) {
+    // If input is empty, save directly to default Reading List bucket
+    const defaultBucket = saveBuckets[0];
+    if (defaultBucket) {
+      if (!defaultBucket.postIds.includes(sId)) {
+        defaultBucket.postIds.push(sId);
+        persistSaveBuckets(true);
+        syncBookmarkButtonsForPost(sId);
+        refreshOpenSaveBucketPopover(sId);
+        updateAuthUI();
+      }
+      showTemporaryToast(`${defaultBucket.icon || '🔖'} Saved to "${defaultBucket.name}"`);
+      closeAllSaveBucketPopovers();
+    }
+    return;
+  }
+
+  let bucket = saveBuckets.find(b => b && b.name.toLowerCase() === rawName.toLowerCase());
+  const isNewBucket = !bucket;
+  if (!bucket) {
+    const slug = rawName.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || ('b_' + Date.now());
+    bucket = {
+      id: `bucket_${slug}_${Date.now().toString(36).slice(-3)}`,
+      name: rawName,
+      icon: '📁',
+      postIds: []
+    };
+    saveBuckets.push(bucket);
+  }
+
+  if (!bucket.postIds.includes(sId)) {
+    bucket.postIds.push(sId);
+  }
+
+  persistSaveBuckets(true);
+  syncBookmarkButtonsForPost(sId);
+  refreshOpenSaveBucketPopover(sId);
+  updateAuthUI();
+
+  showTemporaryToast(isNewBucket ? `✨ Created "${bucket.name}" & saved story!` : `📁 Saved to "${bucket.name}"`);
+
+  if (currentFilter === 'saved') {
+    renderFeed();
+  }
+}
+window.createSaveBucketAndAddPost = createSaveBucketAndAddPost;
+
+function removePostFromAllSaveBuckets(event, postId) {
+  if (event) {
+    event.stopPropagation();
+    event.preventDefault();
+  }
+  const sId = String(postId || '');
+  if (Array.isArray(saveBuckets)) {
+    saveBuckets.forEach(b => {
+      if (b && Array.isArray(b.postIds)) {
+        b.postIds = b.postIds.filter(id => id !== sId);
+      }
+    });
+  }
+  persistSaveBuckets(true);
+  syncBookmarkButtonsForPost(sId);
+  closeAllSaveBucketPopovers();
+  updateAuthUI();
+  showTemporaryToast('Removed from Saved Stories');
+
+  if (currentFilter === 'saved') {
+    renderFeed();
+  }
+}
+window.removePostFromAllSaveBuckets = removePostFromAllSaveBuckets;
+
 function toggleBookmark(event, postId) {
   if (event) {
     event.stopPropagation();
@@ -4870,45 +5201,42 @@ function toggleBookmark(event, postId) {
   }
 
   if (!currentUser) {
-    openAuthModal('Sign in to save and bookmark stories on Slant.');
+    openAuthModal('Sign in to save stories to your bucket lists on Slant.');
     return;
   }
 
-  const isCurrentlySaved = savedPostIds.has(postId);
-  if (isCurrentlySaved) {
-    savedPostIds.delete(postId);
-    showTemporaryToast('Removed from Saved Stories');
-  } else {
-    savedPostIds.add(postId);
-    if (!currentUser) {
-      showTemporaryToast('Saved! Sign in to sync your bookmarks across devices 🔖');
-    } else {
-      showTemporaryToast('Saved to your reading library 🔖');
-    }
+  const sId = String(postId || '');
+  if (!sId) return;
+
+  const btn = (event && event.currentTarget) ? event.currentTarget : document.getElementById(`bookmark-btn-${sId}`);
+  if (!btn) return;
+
+  let wrap = btn.closest('.bookmark-action-wrap');
+  if (!wrap) {
+    wrap = btn.parentElement;
+  }
+  if (!wrap) return;
+
+  let pop = document.getElementById(`save-bucket-popover-${sId}`);
+  if (!pop) {
+    pop = document.createElement('div');
+    pop.className = 'save-bucket-popover';
+    pop.id = `save-bucket-popover-${sId}`;
+    wrap.appendChild(pop);
   }
 
-  localStorage.setItem('slant_saved_posts', JSON.stringify(Array.from(savedPostIds)));
-  localStorage.setItem('editour_saved_posts', JSON.stringify(Array.from(savedPostIds)));
-  syncUserMetadataToCloud();
+  const isAlreadyShowing = pop.classList.contains('show');
+  if (typeof closeAllPostMenus === 'function') closeAllPostMenus();
+  closeAllSaveBucketPopovers();
 
-  // Update button in place
-  const btn = document.getElementById(`bookmark-btn-${postId}`);
-  if (btn) {
-    btn.classList.toggle('is-saved', !isCurrentlySaved);
-    btn.setAttribute('title', !isCurrentlySaved ? 'Remove from Saved' : 'Save Story');
-    const svg = btn.querySelector('svg');
-    if (svg) {
-      svg.setAttribute('fill', !isCurrentlySaved ? '#F59E0B' : 'none');
-      svg.setAttribute('stroke', !isCurrentlySaved ? '#F59E0B' : 'currentColor');
-    }
+  if (isAlreadyShowing) {
+    return;
   }
 
-  updateAuthUI();
-
-  // If in saved filter, re-render feed immediately
-  if (currentFilter === 'saved') {
-    renderFeed();
-  }
+  // If this post has never been saved to any bucket yet, pre-save it into "Reading List" OR let user pick/create?
+  // Wait: user asked "When save option is clicked on posts lower right corner, pop up a list of existing save bucket lists.. with small prompt right in that to create one and save to it..."
+  pop.innerHTML = buildSaveBucketPopoverInnerHtml(sId);
+  pop.classList.add('show');
 }
 
 function showTemporaryToast(message, duration = 2800, isHtml = false, onClickHandler = null) {
@@ -6723,7 +7051,14 @@ function getFilteredPostsForFilter(posts, filter, query) {
     }
 
     if (filter === 'saved') {
-      return savedPostIds.has(post.id) && matchesQuery(post);
+      if (!savedPostIds.has(post.id)) return false;
+      if (activeSavedBucketFilter && activeSavedBucketFilter !== 'all' && Array.isArray(saveBuckets)) {
+        const targetBucket = saveBuckets.find(b => b && b.id === activeSavedBucketFilter);
+        if (targetBucket && Array.isArray(targetBucket.postIds) && !targetBucket.postIds.includes(post.id)) {
+          return false;
+        }
+      }
+      return matchesQuery(post);
     }
 
     if (filter === 'my_stories') {
@@ -6804,6 +7139,39 @@ function renderDailyChroniclesPrivateBanner(container, count = 0) {
   container.appendChild(banner);
 }
 
+function selectSavedBucketFilter(bucketId) {
+  activeSavedBucketFilter = String(bucketId || 'all');
+  renderFeed();
+}
+window.selectSavedBucketFilter = selectSavedBucketFilter;
+
+function renderSavedBucketsFilterBar(container) {
+  if (!container || !Array.isArray(saveBuckets) || saveBuckets.length === 0) return;
+  const bar = document.createElement('div');
+  bar.className = 'saved-buckets-filter-bar';
+  const totalSaved = savedPostIds.size;
+
+  const pillsHtml = [
+    `<button type="button" class="saved-bucket-filter-pill ${activeSavedBucketFilter === 'all' ? 'active' : ''}" onclick="selectSavedBucketFilter('all')">
+      <span>🔖 All Saved</span>
+      <span class="saved-bucket-pill-count">${totalSaved}</span>
+    </button>`,
+    ...saveBuckets.map(b => {
+      const cnt = Array.isArray(b.postIds) ? b.postIds.length : 0;
+      const isAct = activeSavedBucketFilter === b.id;
+      return `
+        <button type="button" class="saved-bucket-filter-pill ${isAct ? 'active' : ''}" onclick="selectSavedBucketFilter('${escapeHtml(b.id)}')">
+          <span>${escapeHtml(b.icon || '📁')} ${escapeHtml(b.name)}</span>
+          <span class="saved-bucket-pill-count">${cnt}</span>
+        </button>
+      `;
+    })
+  ].join('');
+
+  bar.innerHTML = pillsHtml;
+  container.appendChild(bar);
+}
+
 async function renderFeed(isInitial = false) {
   const container = document.getElementById('feedContainer');
   if (!container) return;
@@ -6817,6 +7185,10 @@ async function renderFeed(isInitial = false) {
 
   if (currentFilter === 'daily_chronicles' || currentFilter === 'diary') {
     renderDailyChroniclesPrivateBanner(container, filtered.length);
+  }
+
+  if (currentFilter === 'saved') {
+    renderSavedBucketsFilterBar(container);
   }
 
   if (currentFilter === 'drafts' && typeof renderFeedFormDraftsSection === 'function') {
@@ -6859,15 +7231,16 @@ async function renderFeed(isInitial = false) {
     }
 
     if (currentFilter === 'saved') {
-      container.innerHTML = `
-        <div style="text-align:center; padding: 56px 16px; color: var(--text-muted);">
-          <div style="font-size:42px; margin-bottom:12px;">🔖</div>
-          <div style="font-weight:700; font-size:17px; color:var(--text-primary); letter-spacing:-0.3px;">No saved stories yet</div>
-          <div style="font-size:13px; margin-top:6px; max-width:320px; margin-left:auto; margin-right:auto; line-height:1.5;">
-            Tap the bookmark icon on any visual editorial postcard to save it here for later reading.
-          </div>
+      const emptyEl = document.createElement('div');
+      emptyEl.style.cssText = 'text-align:center; padding: 56px 16px; color: var(--text-muted);';
+      emptyEl.innerHTML = `
+        <div style="font-size:42px; margin-bottom:12px;">🔖</div>
+        <div style="font-weight:700; font-size:17px; color:var(--text-primary); letter-spacing:-0.3px;">${activeSavedBucketFilter !== 'all' ? 'No stories in this bucket yet' : 'No saved stories yet'}</div>
+        <div style="font-size:13px; margin-top:6px; max-width:320px; margin-left:auto; margin-right:auto; line-height:1.5;">
+          Tap the bookmark icon on any visual editorial postcard to save it into a bucket list.
         </div>
       `;
+      container.appendChild(emptyEl);
       initialFeedBatchReady = true;
       dismissInitialFeedLoader(true);
       return;
@@ -10623,12 +10996,14 @@ function createPostCardElement(post, index) {
           </button>
         ` : ''}
 
-        <!-- Bookmark / Save Story -->
-        <button class="icon-action-btn bookmark-btn ${isSaved ? 'is-saved' : ''}" id="bookmark-btn-${post.id}" onclick="toggleBookmark(event, '${post.id}')" title="${isSaved ? 'Remove from Saved' : 'Save Story'}">
-          <svg width="19" height="19" viewBox="0 0 24 24" fill="${isSaved ? '#F59E0B' : 'none'}" stroke="${isSaved ? '#F59E0B' : 'currentColor'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
-          </svg>
-        </button>
+        <!-- Bookmark / Save Story to Bucket List -->
+        <div class="bookmark-action-wrap">
+          <button class="icon-action-btn bookmark-btn ${isSaved ? 'is-saved' : ''}" id="bookmark-btn-${post.id}" data-bookmark-post="${post.id}" onclick="toggleBookmark(event, '${post.id}')" title="${isSaved ? 'Saved — Manage Buckets' : 'Save to Bucket'}">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="${isSaved ? '#F59E0B' : 'none'}" stroke="${isSaved ? '#F59E0B' : 'currentColor'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+            </svg>
+          </button>
+        </div>
       </div>
     </div>
 
@@ -11482,11 +11857,11 @@ function toggleDiaryCornerMenu(index) {
 }
 
 function closeAllPostMenus() {
-  document.querySelectorAll('.post-menu-dropdown.show, .diary-corner-popover.show').forEach(m => m.classList.remove('show'));
+  document.querySelectorAll('.post-menu-dropdown.show, .diary-corner-popover.show, .save-bucket-popover.show').forEach(m => m.classList.remove('show'));
 }
 
 document.addEventListener('click', (e) => {
-  if (!e.target.closest('.post-menu-container') && !e.target.closest('.diary-corner-container')) {
+  if (!e.target.closest('.post-menu-container') && !e.target.closest('.diary-corner-container') && !e.target.closest('.bookmark-action-wrap')) {
     closeAllPostMenus();
   }
 });

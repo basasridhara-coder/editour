@@ -4406,6 +4406,343 @@ header {
   filter: drop-shadow(0 0 6px rgba(245, 158, 11, 0.4));
 }
 
+/* Save Bucket Popover (Anchored to Lower-Right Bookmark Button) */
+.bookmark-action-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.save-bucket-popover {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  right: 0;
+  width: 248px;
+  background: #111827;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 14px;
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  padding: 10px;
+  display: none;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 150;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-sizing: border-box;
+}
+
+.save-bucket-popover.show {
+  display: flex;
+  animation: saveBucketPopUp 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes saveBucketPopUp {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.save-bucket-popover-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 4px 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.save-bucket-popover-title {
+  font-size: 11.5px;
+  font-weight: 800;
+  color: #F8FAFC;
+  letter-spacing: 0.2px;
+}
+
+.save-bucket-popover-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.save-bucket-unsave-all-btn {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.28);
+  color: #F87171;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.save-bucket-unsave-all-btn:hover {
+  background: rgba(239, 68, 68, 0.22);
+  color: #FCA5A5;
+}
+
+.save-bucket-close-btn {
+  background: transparent;
+  border: none;
+  color: #94A3B8;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 5px;
+  border-radius: 6px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.save-bucket-close-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #F8FAFC;
+}
+
+.save-bucket-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-height: 175px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.save-bucket-item {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 9px;
+  padding: 7px 9px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  color: #E2E8F0;
+  font-size: 12.2px;
+  font-weight: 600;
+  text-align: left;
+  transition: all 0.15s ease;
+}
+
+.save-bucket-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.save-bucket-item.is-checked {
+  background: rgba(245, 158, 11, 0.14);
+  border-color: rgba(245, 158, 11, 0.42);
+  color: #FDE68A;
+}
+
+.save-bucket-check {
+  width: 16px;
+  height: 16px;
+  border-radius: 5px;
+  border: 1.5px solid rgba(148, 163, 184, 0.45);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10.5px;
+  font-weight: 900;
+  color: #111827;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.save-bucket-item.is-checked .save-bucket-check {
+  background: #F59E0B;
+  border-color: #F59E0B;
+  color: #0F172A;
+}
+
+.save-bucket-icon {
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.save-bucket-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.save-bucket-count {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #94A3B8;
+  background: rgba(255, 255, 255, 0.07);
+  padding: 1px 6px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.save-bucket-item.is-checked .save-bucket-count {
+  color: #FCD34D;
+  background: rgba(245, 158, 11, 0.2);
+}
+
+.save-bucket-create-form {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  margin: 0;
+}
+
+.save-bucket-create-input {
+  flex: 1;
+  min-width: 0;
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-size: 11.5px;
+  color: #F8FAFC;
+  outline: none;
+  font-family: inherit;
+}
+
+.save-bucket-create-input:focus {
+  border-color: #F59E0B;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
+}
+
+.save-bucket-create-input::placeholder {
+  color: #64748B;
+}
+
+.save-bucket-create-btn {
+  background: #F59E0B;
+  border: none;
+  color: #0F172A;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 6px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.save-bucket-create-btn:hover {
+  background: #FBBF24;
+}
+
+/* Daylight Theme Overrides for Save Bucket Popover */
+[data-theme="daylight"] .save-bucket-popover {
+  background: #FFFFFF;
+  border-color: rgba(15, 23, 42, 0.12);
+  box-shadow: 0 16px 38px rgba(15, 23, 42, 0.16), 0 0 0 1px rgba(15, 23, 42, 0.04);
+}
+
+[data-theme="daylight"] .save-bucket-popover-header {
+  border-bottom-color: rgba(15, 23, 42, 0.08);
+}
+
+[data-theme="daylight"] .save-bucket-popover-title {
+  color: #0F172A;
+}
+
+[data-theme="daylight"] .save-bucket-close-btn:hover {
+  background: #F1F5F9;
+  color: #0F172A;
+}
+
+[data-theme="daylight"] .save-bucket-item {
+  background: #F8FAFC;
+  border-color: rgba(15, 23, 42, 0.07);
+  color: #1E293B;
+}
+
+[data-theme="daylight"] .save-bucket-item:hover {
+  background: #F1F5F9;
+  border-color: rgba(15, 23, 42, 0.15);
+}
+
+[data-theme="daylight"] .save-bucket-item.is-checked {
+  background: #FEF3C7;
+  border-color: #F59E0B;
+  color: #92400E;
+}
+
+[data-theme="daylight"] .save-bucket-count {
+  color: #475569;
+  background: rgba(15, 23, 42, 0.06);
+}
+
+[data-theme="daylight"] .save-bucket-item.is-checked .save-bucket-count {
+  color: #92400E;
+  background: rgba(245, 158, 11, 0.22);
+}
+
+[data-theme="daylight"] .save-bucket-create-form {
+  border-top-color: rgba(15, 23, 42, 0.08);
+}
+
+[data-theme="daylight"] .save-bucket-create-input {
+  background: #F8FAFC;
+  border-color: rgba(15, 23, 42, 0.16);
+  color: #0F172A;
+}
+
+/* Saved Buckets Filter Bar inside Saved Stories view */
+.saved-buckets-filter-bar {
+  width: 100%;
+  max-width: 460px;
+  margin: 4px auto 12px auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 2px 2px 6px 2px;
+  box-sizing: border-box;
+  scrollbar-width: none;
+}
+
+.saved-buckets-filter-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.saved-bucket-filter-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  background: var(--bg-surface, rgba(30, 41, 59, 0.7));
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.12));
+  color: var(--text-secondary, #94A3B8);
+  font-size: 11.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.saved-bucket-filter-pill.active {
+  background: rgba(245, 158, 11, 0.18);
+  border-color: #F59E0B;
+  color: #F59E0B;
+}
+
+.saved-bucket-pill-count {
+  font-size: 10px;
+  font-weight: 800;
+  opacity: 0.85;
+  padding: 0 4px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
 /* ============================================================
    SLANT EDITORIAL LOGIN PAGE & SHOWCASE MODAL
    ============================================================ */
