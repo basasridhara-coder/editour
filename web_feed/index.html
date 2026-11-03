@@ -29,7 +29,7 @@
   <link rel="preconnect" href="https://fxfklefnkpmhofncqhfh.supabase.co" crossorigin>
   <link rel="preconnect" href="https://accounts.google.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Merriweather:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,400;1,600;1,700;1,900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261103_2335">
+  <link rel="stylesheet" href="style.css?v=20261103_2350">
   <!-- Favicon & Brand Icons -->
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
@@ -1024,21 +1024,24 @@
             </div>
           </div>
 
-          <!-- Series / Topic Notebook Selector (Step 1 - Synchronized with Step 3) -->
+          <!-- Slant Series Selector (Step 1 - Synchronized with Step 3) -->
           <div id="creatorSeriesRow" class="creator-series-row">
-            <div class="creator-series-label-wrap">
+            <div class="creator-series-title-wrap">
               <span class="creator-series-icon">📚</span>
-              <div class="creator-series-label-copy">
-                <span class="creator-series-label-title">Part of a Series</span>
-                <span class="creator-series-label-sub" id="creatorSeriesSub1">Group related thoughts &amp; choose which go public</span>
-              </div>
+              <span class="creator-series-label-title">Slant Series</span>
             </div>
-            <div class="creator-series-picker-wrap" id="creatorSeriesWrap1">
-              <button type="button" class="creator-series-select-btn" id="creatorSeriesBtn1" onclick="toggleCreatorSeriesPopover(event, 1)">
-                <span id="creatorSeriesBtnText1">None (Standalone)</span>
-                <span class="creator-series-caret">▾</span>
-              </button>
-              <div class="creator-series-popover" id="creatorSeriesPopover1"></div>
+            <div class="creator-series-controls" id="creatorSeriesControls1">
+              <div class="creator-series-select-group" id="creatorSeriesSelectGroup1">
+                <select id="creatorSeriesSelect1" class="creator-series-dropdown" onchange="onCreatorSeriesDropdownChange(this.value)" aria-label="Select Slant Series">
+                  <option value="">None (Standalone)</option>
+                </select>
+                <button type="button" class="creator-series-add-btn" id="creatorSeriesAddBtn1" onclick="toggleCreatorSeriesNewInput(1, true)" title="Create new series">+</button>
+              </div>
+              <div class="creator-series-create-group" id="creatorSeriesCreateGroup1" style="display: none;">
+                <input type="text" id="creatorSeriesNewInput1" class="creator-series-new-input" placeholder="New series name..." maxlength="46" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();createNewCreatorSeriesInline(1);}else if(event.key==='Escape'){toggleCreatorSeriesNewInput(1,false);}">
+                <button type="button" class="creator-series-create-confirm-btn" onclick="createNewCreatorSeriesInline(1)">Add</button>
+                <button type="button" class="creator-series-create-cancel-btn" onclick="toggleCreatorSeriesNewInput(1, false)" title="Cancel">✕</button>
+              </div>
             </div>
           </div>
 
@@ -1365,21 +1368,24 @@
             </button>
           </div>
 
-          <!-- Step 3 Series / Topic Notebook Selector (Synchronized with Step 1) -->
+          <!-- Step 3 Slant Series Selector (Synchronized with Step 1) -->
           <div id="step3SeriesRow" class="creator-series-row" style="margin: 6px 0 6px;">
-            <div class="creator-series-label-wrap">
+            <div class="creator-series-title-wrap">
               <span class="creator-series-icon">📚</span>
-              <div class="creator-series-label-copy">
-                <span class="creator-series-label-title">Series</span>
-                <span class="creator-series-label-sub" id="creatorSeriesSub3">Save privately to series or publish</span>
-              </div>
+              <span class="creator-series-label-title">Slant Series</span>
             </div>
-            <div class="creator-series-picker-wrap" id="creatorSeriesWrap3">
-              <button type="button" class="creator-series-select-btn" id="creatorSeriesBtn3" onclick="toggleCreatorSeriesPopover(event, 3)">
-                <span id="creatorSeriesBtnText3">None (Standalone)</span>
-                <span class="creator-series-caret">▾</span>
-              </button>
-              <div class="creator-series-popover" id="creatorSeriesPopover3"></div>
+            <div class="creator-series-controls" id="creatorSeriesControls3">
+              <div class="creator-series-select-group" id="creatorSeriesSelectGroup3">
+                <select id="creatorSeriesSelect3" class="creator-series-dropdown" onchange="onCreatorSeriesDropdownChange(this.value)" aria-label="Select Slant Series">
+                  <option value="">None (Standalone)</option>
+                </select>
+                <button type="button" class="creator-series-add-btn" id="creatorSeriesAddBtn3" onclick="toggleCreatorSeriesNewInput(3, true)" title="Create new series">+</button>
+              </div>
+              <div class="creator-series-create-group" id="creatorSeriesCreateGroup3" style="display: none;">
+                <input type="text" id="creatorSeriesNewInput3" class="creator-series-new-input" placeholder="New series name..." maxlength="46" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();createNewCreatorSeriesInline(3);}else if(event.key==='Escape'){toggleCreatorSeriesNewInput(3,false);}">
+                <button type="button" class="creator-series-create-confirm-btn" onclick="createNewCreatorSeriesInline(3)">Add</button>
+                <button type="button" class="creator-series-create-cancel-btn" onclick="toggleCreatorSeriesNewInput(3, false)" title="Cancel">✕</button>
+              </div>
             </div>
           </div>
 
@@ -2768,6 +2774,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261103_2335"></script>
+  <script src="app.js?v=20261103_2350"></script>
 </body>
 </html>

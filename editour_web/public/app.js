@@ -11632,45 +11632,49 @@ function setCreatorAllowComments(allowed) {
 }
 
 /* ============================================================
-   CREATOR SERIES SELECTOR & POPOVER (STEP 1 & STEP 3)
+   CREATOR SERIES SELECTOR & INLINE ADD (STEP 1 & STEP 3)
    ============================================================ */
 
 function closeAllCreatorSeriesPopovers() {
   document.querySelectorAll('.creator-series-popover.show').forEach(p => p.classList.remove('show'));
+  toggleCreatorSeriesNewInput(1, false);
+  toggleCreatorSeriesNewInput(3, false);
 }
 window.closeAllCreatorSeriesPopovers = closeAllCreatorSeriesPopovers;
 
+function syncCreatorSeriesDropdowns() {
+  syncSeriesFromLoadedPosts();
+  const optionsHtml = [
+    '<option value="">None (Standalone)</option>',
+    ...(Array.isArray(creatorSeriesList) ? creatorSeriesList : []).map(s => {
+      if (!s || !s.id) return '';
+      const isSelected = activeCreatorSeriesId === s.id;
+      const stats = getSeriesStats(s.id);
+      const countSuffix = stats.total > 0 ? ` (${stats.total})` : '';
+      return `<option value="${escapeHtml(s.id)}" ${isSelected ? 'selected' : ''}>${escapeHtml(s.icon || '📚')} ${escapeHtml(s.title)}${countSuffix}</option>`;
+    })
+  ].join('');
+
+  [1, 3].forEach(stepNum => {
+    const sel = document.getElementById(`creatorSeriesSelect${stepNum}`);
+    if (sel) {
+      sel.innerHTML = optionsHtml;
+      sel.value = activeCreatorSeriesId || '';
+      sel.classList.toggle('has-series', Boolean(activeCreatorSeriesId));
+    }
+  });
+}
+window.syncCreatorSeriesDropdowns = syncCreatorSeriesDropdowns;
+
 function setCreatorSeries(seriesId) {
+  syncSeriesFromLoadedPosts();
   const sId = seriesId ? String(seriesId).trim() : null;
   const matched = sId && Array.isArray(creatorSeriesList)
     ? creatorSeriesList.find(s => s && s.id === sId)
     : null;
 
   activeCreatorSeriesId = matched ? matched.id : null;
-
-  const btn1 = document.getElementById('creatorSeriesBtn1');
-  const btn3 = document.getElementById('creatorSeriesBtn3');
-  const txt1 = document.getElementById('creatorSeriesBtnText1');
-  const txt3 = document.getElementById('creatorSeriesBtnText3');
-  const sub1 = document.getElementById('creatorSeriesSub1');
-  const sub3 = document.getElementById('creatorSeriesSub3');
-
-  const displayLabel = matched ? `${matched.icon || '📚'} ${matched.title}` : 'None (Standalone)';
-  if (txt1) txt1.textContent = displayLabel;
-  if (txt3) txt3.textContent = displayLabel;
-  if (btn1) btn1.classList.toggle('has-series', Boolean(matched));
-  if (btn3) btn3.classList.toggle('has-series', Boolean(matched));
-
-  if (sub1) {
-    sub1.textContent = matched
-      ? `In "${matched.title}" — keep private in series or publish`
-      : 'Group related thoughts & choose which go public';
-  }
-  if (sub3) {
-    sub3.textContent = matched
-      ? `In "${matched.title}" — save privately or publish to feed`
-      : 'Save privately to series or publish';
-  }
+  syncCreatorSeriesDropdowns();
 
   // Update Step 3 bottom Save / Publish buttons to reflect Series mode
   const isChron = Boolean(currentSynthesizedPost && typeof isChronicleModePost === 'function' && isChronicleModePost(currentSynthesizedPost));
@@ -11713,83 +11717,44 @@ function setCreatorSeries(seriesId) {
     }
   }
 
-  closeAllCreatorSeriesPopovers();
+  toggleCreatorSeriesNewInput(1, false);
+  toggleCreatorSeriesNewInput(3, false);
 }
 window.setCreatorSeries = setCreatorSeries;
 
-function buildCreatorSeriesPopoverHtml(stepNum) {
-  syncSeriesFromLoadedPosts();
-  const isNoneSelected = !activeCreatorSeriesId;
-
-  const listHtml = [
-    `<button type="button" class="save-bucket-item ${isNoneSelected ? 'is-checked' : ''}" onclick="setCreatorSeries(null)">
-      <span class="save-bucket-check" aria-hidden="true">${isNoneSelected ? '✓' : ''}</span>
-      <span class="save-bucket-icon">📄</span>
-      <span class="save-bucket-name">None (Standalone Post)</span>
-    </button>`,
-    ...creatorSeriesList.map(s => {
-      const isChecked = activeCreatorSeriesId === s.id;
-      const stats = getSeriesStats(s.id);
-      return `
-        <button type="button" class="save-bucket-item ${isChecked ? 'is-checked' : ''}" onclick="setCreatorSeries('${escapeHtml(s.id)}')">
-          <span class="save-bucket-check" aria-hidden="true">${isChecked ? '✓' : ''}</span>
-          <span class="save-bucket-icon">${escapeHtml(s.icon || '📚')}</span>
-          <span class="save-bucket-name">${escapeHtml(s.title)}</span>
-          <span class="save-bucket-count" title="${stats.pubCount} public, ${stats.privCount} private">${stats.total}</span>
-        </button>
-      `;
-    })
-  ].join('');
-
-  return `
-    <div class="save-bucket-popover-header" onclick="event.stopPropagation()">
-      <span class="save-bucket-popover-title">📚 Choose or Create Series</span>
-      <button type="button" class="save-bucket-close-btn" onclick="event.stopPropagation(); closeAllCreatorSeriesPopovers()" title="Close">✕</button>
-    </div>
-    <div class="save-bucket-list" onclick="event.stopPropagation()">
-      ${listHtml}
-    </div>
-    <form class="save-bucket-create-form" onsubmit="createCreatorSeriesFromPopover(event, ${stepNum})" onclick="event.stopPropagation()">
-      <input type="text"
-             class="save-bucket-create-input"
-             id="creator-series-input-${stepNum}"
-             placeholder="+ New series topic..."
-             maxlength="46"
-             autocomplete="off"
-             onclick="event.stopPropagation()">
-      <button type="submit" class="save-bucket-create-btn">Create</button>
-    </form>
-  `;
+function onCreatorSeriesDropdownChange(value) {
+  setCreatorSeries(value || null);
 }
+window.onCreatorSeriesDropdownChange = onCreatorSeriesDropdownChange;
 
-function toggleCreatorSeriesPopover(event, stepNum = 1) {
-  if (event) {
-    event.stopPropagation();
-    event.preventDefault();
-  }
-  const pop = document.getElementById(`creatorSeriesPopover${stepNum}`);
-  if (!pop) return;
-  const isShowing = pop.classList.contains('show');
-  closeAllCreatorSeriesPopovers();
-  if (isShowing) return;
+function toggleCreatorSeriesNewInput(stepNum = 1, showInput = true) {
+  const selectGroup = document.getElementById(`creatorSeriesSelectGroup${stepNum}`);
+  const createGroup = document.getElementById(`creatorSeriesCreateGroup${stepNum}`);
+  const inp = document.getElementById(`creatorSeriesNewInput${stepNum}`);
+  if (!selectGroup || !createGroup) return;
 
-  pop.innerHTML = buildCreatorSeriesPopoverHtml(stepNum);
-  pop.classList.add('show');
-  const inp = document.getElementById(`creator-series-input-${stepNum}`);
-  if (inp && creatorSeriesList.length === 0) {
-    setTimeout(() => inp.focus(), 40);
+  if (showInput) {
+    selectGroup.style.display = 'none';
+    createGroup.style.display = 'flex';
+    if (inp) {
+      inp.value = '';
+      setTimeout(() => inp.focus(), 30);
+    }
+  } else {
+    createGroup.style.display = 'none';
+    selectGroup.style.display = 'flex';
+    if (inp) inp.value = '';
   }
 }
-window.toggleCreatorSeriesPopover = toggleCreatorSeriesPopover;
+window.toggleCreatorSeriesNewInput = toggleCreatorSeriesNewInput;
 
-function createCreatorSeriesFromPopover(event, stepNum = 1) {
-  if (event) {
-    event.stopPropagation();
-    event.preventDefault();
-  }
-  const inp = document.getElementById(`creator-series-input-${stepNum}`);
+function createNewCreatorSeriesInline(stepNum = 1) {
+  const inp = document.getElementById(`creatorSeriesNewInput${stepNum}`);
   const rawTitle = inp ? inp.value.trim() : '';
-  if (!rawTitle) return;
+  if (!rawTitle) {
+    if (inp) inp.focus();
+    return;
+  }
 
   let series = creatorSeriesList.find(s => s && s.title.toLowerCase() === rawTitle.toLowerCase());
   const isNew = !series;
@@ -11809,13 +11774,9 @@ function createCreatorSeriesFromPopover(event, stepNum = 1) {
   setCreatorSeries(series.id);
   showTemporaryToast(isNew ? `📚 Created Series "${series.title}"!` : `📚 Selected Series "${series.title}"`);
 }
-window.createCreatorSeriesFromPopover = createCreatorSeriesFromPopover;
-
-document.addEventListener('click', (e) => {
-  if (!e.target || !e.target.closest('.creator-series-picker-wrap')) {
-    closeAllCreatorSeriesPopovers();
-  }
-});
+window.createNewCreatorSeriesInline = createNewCreatorSeriesInline;
+window.toggleCreatorSeriesPopover = (event, stepNum = 1) => toggleCreatorSeriesNewInput(stepNum, true);
+window.createCreatorSeriesFromPopover = (event, stepNum = 1) => createNewCreatorSeriesInline(stepNum);
 
 function getCurrentUserEngagementKey() {
   if (currentUser) {
@@ -22760,6 +22721,8 @@ function openCreatorModal(resumeDraftId = null, forcedAnchorMode = null, options
     setCreatorSeries(options.targetSeriesId);
   } else if (!draftToRestore && (currentFilter === 'series' || currentFilter === 'my_stories') && activeFeedSeriesFilter && activeFeedSeriesFilter !== 'all' && typeof setCreatorSeries === 'function') {
     setCreatorSeries(activeFeedSeriesFilter);
+  } else if (typeof syncCreatorSeriesDropdowns === 'function') {
+    syncCreatorSeriesDropdowns();
   }
 
   // Show modal
