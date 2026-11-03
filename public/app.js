@@ -1503,13 +1503,16 @@ async function toggleSelectCollageImage(encUrl, encThumb, encTitle, encSource) {
       title,
       source,
       tabIndex: state.activeTabIndex,
-      isStarred: !hasAnyStarred
+      isStarred: !hasAnyStarred,
+      panX: 0.5,
+      panY: 0.35,
+      zoom: 1.0
     };
     state.selectedItems.push(newItem);
   }
-  if (state.selectedItems.length > 0 && !state.selectedItems.some(s => s.isStarred)) {
-    state.selectedItems[0].isStarred = true;
-  }
+  state.selectedItems.forEach((s, idx) => {
+    s.isStarred = (idx === 0);
+  });
 
   renderWebCollageSubjectTabs();
   renderWebCollageTabGrid();
@@ -1521,21 +1524,45 @@ window.toggleSelectCollageImage = toggleSelectCollageImage;
 async function setStarredWebCollageSlot(slotIndex) {
   const state = window._webCollageState;
   if (!state.selectedItems || !state.selectedItems[slotIndex]) return;
+  if (slotIndex > 0) {
+    const [picked] = state.selectedItems.splice(slotIndex, 1);
+    state.selectedItems.unshift(picked);
+  }
   state.selectedItems.forEach((it, idx) => {
-    it.isStarred = (idx === slotIndex);
+    it.isStarred = (idx === 0);
   });
+  state.activeSlotIndex = 0;
+  renderWebCollageTabGrid();
   renderWebCollageSelectedSlotsUI();
   await renderWebCollageCanvas();
 }
 window.setStarredWebCollageSlot = setStarredWebCollageSlot;
 
+async function moveWebCollageSlot(slotIndex, delta) {
+  const state = window._webCollageState;
+  if (!state.selectedItems) return;
+  const targetIdx = slotIndex + delta;
+  if (targetIdx < 0 || targetIdx >= state.selectedItems.length) return;
+  const temp = state.selectedItems[slotIndex];
+  state.selectedItems[slotIndex] = state.selectedItems[targetIdx];
+  state.selectedItems[targetIdx] = temp;
+  state.selectedItems.forEach((it, idx) => {
+    it.isStarred = (idx === 0);
+  });
+  state.activeSlotIndex = targetIdx;
+  renderWebCollageTabGrid();
+  renderWebCollageSelectedSlotsUI();
+  await renderWebCollageCanvas();
+}
+window.moveWebCollageSlot = moveWebCollageSlot;
+
 function removeWebCollageSelectedSlot(slotIndex) {
   const state = window._webCollageState;
   if (slotIndex >= 0 && slotIndex < state.selectedItems.length) {
     state.selectedItems.splice(slotIndex, 1);
-    if (state.selectedItems.length > 0 && !state.selectedItems.some(s => s.isStarred)) {
-      state.selectedItems[0].isStarred = true;
-    }
+    state.selectedItems.forEach((s, idx) => {
+      s.isStarred = (idx === 0);
+    });
     if (state.selectedItems.length === 0) {
       state.compositedDataUrl = null;
       restoreOriginalScrapedSourcePhoto();
@@ -1605,26 +1632,35 @@ function renderWebCollageSelectedSlotsUI() {
 
   if (state.selectedItems.length === 0) {
     slotsRow.innerHTML = `<div style="font-size: 10.5px; color: var(--text-secondary); padding: 4px 8px; border-radius: 7px; background: rgba(148,163,184,0.08);">
-      Tap 1–3 photos above (★ Starred photo gets 60% hero prominence).
+      Tap 1–3 photos above (★ #1 gets 60% hero slot).
     </div>`;
     if (previewWrap) previewWrap.style.display = 'none';
     return;
   }
 
-  if (!state.selectedItems.some(s => s.isStarred)) {
-    state.selectedItems[0].isStarred = true;
-  }
+  state.selectedItems.forEach((s, idx) => {
+    s.isStarred = (idx === 0);
+  });
 
   if (previewWrap) previewWrap.style.display = 'flex';
+  const total = state.selectedItems.length;
   slotsRow.innerHTML = state.selectedItems.map((it, idx) => {
-    const isStar = Boolean(it.isStarred);
+    const isStar = idx === 0;
+    const canLeft = idx > 0;
+    const canRight = idx < total - 1;
     return `
-      <div style="display: inline-flex; align-items: center; gap: 5px; padding: 3px 7px 3px 4px; border-radius: 8px; background: ${isStar ? '#FFFBEB' : '#FFFFFF'}; border: ${isStar ? '1.5px solid #D97706' : '1px solid rgba(16,185,129,0.4)'}; box-shadow: 0 2px 5px rgba(15,23,42,0.04);">
-        <img src="${escapeHtml(it.thumbUrl || it.url)}" alt="" onclick="setStarredWebCollageSlot(${idx})" style="width: 26px; height: 26px; border-radius: 5px; object-fit: cover; cursor: pointer;" title="Tap to make ★ Starred Hero">
-        <button type="button" onclick="setStarredWebCollageSlot(${idx})" style="border: none; background: ${isStar ? '#FEF3C7' : 'rgba(15,23,42,0.07)'}; color: ${isStar ? '#B45309' : 'var(--text-secondary)'}; padding: 2px 5px; border-radius: 99px; font-size: 9.5px; font-weight: 800; cursor: pointer;" title="Star for 60% hero prominence">
-          ${isStar ? '★ Hero' : '☆ Star'}
+      <div style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 6px 3px 4px; border-radius: 8px; background: ${isStar ? '#FFFBEB' : '#FFFFFF'}; border: ${isStar ? '1.5px solid #D97706' : '1px solid rgba(16,185,129,0.4)'}; box-shadow: 0 2px 5px rgba(15,23,42,0.04);">
+        <img src="${escapeHtml(it.thumbUrl || it.url)}" alt="" onclick="setStarredWebCollageSlot(${idx})" style="width: 26px; height: 26px; border-radius: 5px; object-fit: cover; cursor: pointer;" title="Tap to move to #1 Hero slot">
+        <button type="button" onclick="setStarredWebCollageSlot(${idx})" style="border: none; background: ${isStar ? '#FEF3C7' : 'rgba(15,23,42,0.07)'}; color: ${isStar ? '#B45309' : 'var(--text-secondary)'}; padding: 2px 5px; border-radius: 99px; font-size: 9.5px; font-weight: 800; cursor: pointer;" title="Move to #1 Hero slot (60%)">
+          ${isStar ? '★ #1 Hero' : `☆ #${idx + 1}`}
         </button>
-        <span style="font-size: 10.2px; font-weight: 700; color: var(--text-primary); max-width: 85px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(it.title || 'Photo')}</span>
+        ${total > 1 ? `
+          <div style="display: inline-flex; align-items: center; gap: 2px;">
+            <button type="button" onclick="moveWebCollageSlot(${idx}, -1)" ${!canLeft ? 'disabled' : ''} style="border: 1px solid rgba(148,163,184,0.35); background: #FFFFFF; color: var(--text-primary); width: 17px; height: 17px; border-radius: 4px; font-size: 9px; font-weight: 900; cursor: ${canLeft ? 'pointer' : 'default'}; opacity: ${canLeft ? '1' : '0.3'}; padding: 0; line-height: 1;" title="Move slot earlier">◀</button>
+            <button type="button" onclick="moveWebCollageSlot(${idx}, 1)" ${!canRight ? 'disabled' : ''} style="border: 1px solid rgba(148,163,184,0.35); background: #FFFFFF; color: var(--text-primary); width: 17px; height: 17px; border-radius: 4px; font-size: 9px; font-weight: 900; cursor: ${canRight ? 'pointer' : 'default'}; opacity: ${canRight ? '1' : '0.3'}; padding: 0; line-height: 1;" title="Move slot later">▶</button>
+          </div>
+        ` : ''}
+        <span style="font-size: 10px; font-weight: 700; color: var(--text-primary); max-width: 72px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(it.title || 'Photo')}</span>
         <button type="button" onclick="removeWebCollageSelectedSlot(${idx})" style="border: none; background: rgba(239,68,68,0.12); color: #DC2626; width: 17px; height: 17px; border-radius: 50%; font-size: 10.5px; font-weight: 900; cursor: pointer; line-height: 1;">&times;</button>
       </div>
     `;
@@ -1674,8 +1710,8 @@ async function loadCollageImageElementSafe(url, fallbackUrl = '') {
   });
 }
 
-function drawCoverImageOnCanvas(ctx, img, x, y, w, h, radius = 0) {
-  if (!ctx || !img) return;
+function drawCoverImageOnCanvas(ctx, img, x, y, w, h, radius = 0, itemMeta = null) {
+  if (!ctx || !img) return null;
   ctx.save();
   if (radius > 0) {
     ctx.beginPath();
@@ -1696,23 +1732,32 @@ function drawCoverImageOnCanvas(ctx, img, x, y, w, h, radius = 0) {
     ctx.clip();
   }
 
-  const imgRatio = img.width / Math.max(1, img.height);
+  const imgW = Math.max(1, img.width);
+  const imgH = Math.max(1, img.height);
+  const imgRatio = imgW / imgH;
   const boxRatio = w / Math.max(1, h);
-  let drawW = w;
-  let drawH = h;
-  let offsetX = x;
-  let offsetY = y;
 
-  if (imgRatio > boxRatio) {
-    drawH = h;
-    drawW = h * imgRatio;
-    offsetX = x - (drawW - w) / 2;
-  } else {
-    drawW = w;
-    drawH = w / imgRatio;
-    // Slight upper-center bias (0.32) so human faces/heads in portraits are never decapitated
-    offsetY = y - (drawH - h) * 0.32;
+  const baseScale = Math.max(w / imgW, h / imgH);
+  const userZoom = itemMeta && typeof itemMeta.zoom === 'number' ? Math.max(1.0, Math.min(2.6, itemMeta.zoom)) : 1.0;
+  // Minimum 12% overscan when user pans or zooms so every image has room to move both horizontally and vertically
+  const effectiveScale = baseScale * Math.max(userZoom, 1.10);
+  const drawW = imgW * effectiveScale;
+  const drawH = imgH * effectiveScale;
+
+  const defaultPanY = imgRatio < boxRatio ? 0.32 : 0.5;
+  const panX = itemMeta && typeof itemMeta.panX === 'number' ? Math.max(0, Math.min(1, itemMeta.panX)) : 0.5;
+  const panY = itemMeta && typeof itemMeta.panY === 'number' ? Math.max(0, Math.min(1, itemMeta.panY)) : defaultPanY;
+
+  if (itemMeta) {
+    if (typeof itemMeta.panX !== 'number') itemMeta.panX = panX;
+    if (typeof itemMeta.panY !== 'number') itemMeta.panY = panY;
+    if (typeof itemMeta.zoom !== 'number') itemMeta.zoom = userZoom;
   }
+
+  const slackX = Math.max(0, drawW - w);
+  const slackY = Math.max(0, drawH - h);
+  const offsetX = x - slackX * panX;
+  const offsetY = y - slackY * panY;
 
   ctx.drawImage(img, offsetX, offsetY, drawW, drawH);
 
@@ -1720,29 +1765,194 @@ function drawCoverImageOnCanvas(ctx, img, x, y, w, h, radius = 0) {
   ctx.fillStyle = 'rgba(245, 232, 208, 0.08)';
   ctx.fillRect(x, y, w, h);
   ctx.restore();
+
+  return { x, y, w, h, drawW, drawH, slackX, slackY, item: itemMeta };
 }
 
-async function renderWebCollageCanvas() {
+function ensureInteractiveCollageCanvasBound(canvas, mode) {
+  if (!canvas || canvas._interactivePanBound) return;
+  canvas._interactivePanBound = true;
+
+  const getCanvasPoint = (clientX, clientY) => {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = (canvas.width || 800) / Math.max(1, rect.width);
+    const scaleY = (canvas.height || 1000) / Math.max(1, rect.height);
+    return {
+      cx: (clientX - rect.left) * scaleX,
+      cy: (clientY - rect.top) * scaleY
+    };
+  };
+
+  const findCellAt = (cx, cy) => {
+    const boxes = Array.isArray(canvas._collageCellBoxes) ? canvas._collageCellBoxes : [];
+    for (let i = 0; i < boxes.length; i++) {
+      const b = boxes[i];
+      if (b && cx >= b.x && cx <= b.x + b.w && cy >= b.y && cy <= b.y + b.h) {
+        return { index: i, box: b };
+      }
+    }
+    return boxes.length > 0 ? { index: 0, box: boxes[0] } : null;
+  };
+
+  let dragState = null;
+  let rafPending = false;
+
+  const triggerRedraw = (commitExport = false) => {
+    if (rafPending && !commitExport) return;
+    rafPending = true;
+    requestAnimationFrame(async () => {
+      rafPending = false;
+      if (mode === 'web') {
+        await renderWebCollageCanvas(commitExport);
+      } else if (mode === 'attached') {
+        await syncAttachedScenePhotosCollage(true, commitExport);
+      }
+    });
+  };
+
+  canvas.addEventListener('pointerdown', (e) => {
+    const pt = getCanvasPoint(e.clientX, e.clientY);
+    const hit = findCellAt(pt.cx, pt.cy);
+    if (!hit || !hit.box || !hit.box.item) return;
+    e.preventDefault();
+    try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
+    canvas.style.cursor = 'grabbing';
+    canvas._activeCellIndex = hit.index;
+    if (mode === 'web' && window._webCollageState) {
+      window._webCollageState.activeSlotIndex = hit.index;
+    } else if (mode === 'attached') {
+      window._attachedActiveSlotIndex = hit.index;
+    }
+    dragState = {
+      pointerId: e.pointerId,
+      cellIndex: hit.index,
+      lastCx: pt.cx,
+      lastCy: pt.cy
+    };
+  });
+
+  canvas.addEventListener('pointermove', (e) => {
+    if (!dragState || e.pointerId !== dragState.pointerId) return;
+    const boxes = Array.isArray(canvas._collageCellBoxes) ? canvas._collageCellBoxes : [];
+    const cell = boxes[dragState.cellIndex];
+    if (!cell || !cell.item) return;
+    e.preventDefault();
+
+    const pt = getCanvasPoint(e.clientX, e.clientY);
+    const dx = pt.cx - dragState.lastCx;
+    const dy = pt.cy - dragState.lastCy;
+    dragState.lastCx = pt.cx;
+    dragState.lastCy = pt.cy;
+
+    // If the user drags along an axis that has minimal slack, automatically add a slight zoom (1.18x) so they can freely reposition the subject
+    if (cell.slackX < cell.w * 0.12 && Math.abs(dx) > 1.5) {
+      cell.item.zoom = Math.max(cell.item.zoom || 1.0, 1.18);
+    }
+    if (cell.slackY < cell.h * 0.12 && Math.abs(dy) > 1.5) {
+      cell.item.zoom = Math.max(cell.item.zoom || 1.0, 1.18);
+    }
+
+    const effSlackX = Math.max(90, cell.slackX);
+    const effSlackY = Math.max(90, cell.slackY);
+    const curPanX = typeof cell.item.panX === 'number' ? cell.item.panX : 0.5;
+    const curPanY = typeof cell.item.panY === 'number' ? cell.item.panY : 0.35;
+
+    cell.item.panX = Math.max(0, Math.min(1, curPanX - dx / effSlackX));
+    cell.item.panY = Math.max(0, Math.min(1, curPanY - dy / effSlackY));
+
+    triggerRedraw(false);
+  });
+
+  const finishDrag = (e) => {
+    if (!dragState) return;
+    if (e && e.pointerId !== undefined && e.pointerId !== dragState.pointerId) return;
+    try { canvas.releasePointerCapture(dragState.pointerId); } catch (_) {}
+    dragState = null;
+    canvas.style.cursor = 'grab';
+    triggerRedraw(true);
+  };
+
+  canvas.addEventListener('pointerup', finishDrag);
+  canvas.addEventListener('pointercancel', finishDrag);
+}
+
+async function adjustCollageFrameZoom(mode, deltaZoom) {
+  if (mode === 'web') {
+    const state = window._webCollageState;
+    if (!state || !Array.isArray(state.selectedItems) || state.selectedItems.length === 0) return;
+    const idx = Math.min(state.selectedItems.length - 1, Math.max(0, Number(state.activeSlotIndex) || 0));
+    const item = state.selectedItems[idx];
+    if (!item) return;
+    item.zoom = Math.max(1.0, Math.min(2.5, (Number(item.zoom) || 1.0) + deltaZoom));
+    await renderWebCollageCanvas(true);
+  } else {
+    const photos = window._attachedScenePhotos;
+    if (!Array.isArray(photos) || photos.length === 0) return;
+    const idx = Math.min(photos.length - 1, Math.max(0, Number(window._attachedActiveSlotIndex) || 0));
+    const item = photos[idx];
+    if (!item) return;
+    item.zoom = Math.max(1.0, Math.min(2.5, (Number(item.zoom) || 1.0) + deltaZoom));
+    await syncAttachedScenePhotosCollage(true, true);
+  }
+}
+window.adjustCollageFrameZoom = adjustCollageFrameZoom;
+
+async function resetCollageFramePan(mode) {
+  if (mode === 'web') {
+    const state = window._webCollageState;
+    if (!state || !Array.isArray(state.selectedItems) || state.selectedItems.length === 0) return;
+    state.selectedItems.forEach((it) => {
+      it.panX = 0.5;
+      it.panY = 0.35;
+      it.zoom = 1.0;
+    });
+    await renderWebCollageCanvas(true);
+  } else {
+    const photos = window._attachedScenePhotos;
+    if (!Array.isArray(photos) || photos.length === 0) return;
+    photos.forEach((it) => {
+      it.panX = 0.5;
+      it.panY = 0.35;
+      it.zoom = 1.0;
+    });
+    await syncAttachedScenePhotosCollage(true, true);
+  }
+}
+window.resetCollageFramePan = resetCollageFramePan;
+
+async function renderWebCollageCanvas(commitExport = true) {
   const canvas = document.getElementById('webCollagePreviewCanvas');
   if (!canvas) return null;
+  ensureInteractiveCollageCanvasBound(canvas, 'web');
+
   const state = window._webCollageState;
-  if (!state.selectedItems || state.selectedItems.length === 0) return null;
+  if (!state.selectedItems || state.selectedItems.length === 0) {
+    canvas._collageCellBoxes = [];
+    return null;
+  }
 
   const ctx = canvas.getContext('2d');
   const W = canvas.width || 800;
   const H = canvas.height || 1000;
 
-  // Sort so ★ Starred item is first (index 0 = 60% Hero Prominence slot)
-  const orderedItems = [...state.selectedItems.slice(0, 3)].sort((a, b) => (b.isStarred ? 1 : 0) - (a.isStarred ? 1 : 0));
+  // Keep exact user-selected slot order: index 0 = #1 Hero (60%), index 1 = #2, index 2 = #3
+  state.selectedItems.forEach((s, idx) => {
+    s.isStarred = (idx === 0);
+  });
+  const orderedItems = state.selectedItems.slice(0, 3);
 
-  const loadedImgs = (await Promise.all(
-    orderedItems.map(it => loadCollageImageElementSafe(it.url, it.thumbUrl || ''))
+  const loadedPairs = (await Promise.all(
+    orderedItems.map(async (it) => {
+      const img = await loadCollageImageElementSafe(it.url, it.thumbUrl || '');
+      return img ? { img, item: it } : null;
+    })
   )).filter(Boolean);
 
-  if (loadedImgs.length === 0) return null;
+  if (loadedPairs.length === 0) return null;
 
   ctx.clearRect(0, 0, W, H);
   const isArchival = state.layoutStyle !== 'bleed';
+  const cellBoxes = [];
 
   const uniqueSources = [...new Set(
     orderedItems
@@ -1767,33 +1977,30 @@ async function renderWebCollageCanvas() {
     const innerW = W - pad * 2;
     const innerH = H - pad - botPad;
 
-    if (loadedImgs.length === 1) {
-      drawCoverImageOnCanvas(ctx, loadedImgs[0], pad, pad, innerW, innerH, 12);
+    if (loadedPairs.length === 1) {
+      cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[0].img, pad, pad, innerW, innerH, 12, loadedPairs[0].item));
       ctx.strokeStyle = 'rgba(37, 56, 51, 0.45)';
       ctx.lineWidth = 2;
       ctx.strokeRect(pad, pad, innerW, innerH);
-    } else if (loadedImgs.length === 2) {
-      // ★ Starred (loadedImgs[0]) gets 60% Hero Prominence on top, 2nd image gets 40% on bottom
+    } else if (loadedPairs.length === 2) {
+      // Slot #1 (loadedPairs[0]) gets 60% Hero Prominence on top, Slot #2 gets 40% on bottom
       const topH = Math.round((innerH - gap) * 0.60);
       const botH = innerH - gap - topH;
-      drawCoverImageOnCanvas(ctx, loadedImgs[0], pad, pad, innerW, topH, 12);
-      drawCoverImageOnCanvas(ctx, loadedImgs[1], pad, pad + topH + gap, innerW, botH, 12);
+      cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[0].img, pad, pad, innerW, topH, 12, loadedPairs[0].item));
+      cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[1].img, pad, pad + topH + gap, innerW, botH, 12, loadedPairs[1].item));
       ctx.strokeStyle = 'rgba(37, 56, 51, 0.4)';
       ctx.lineWidth = 2;
       ctx.strokeRect(pad, pad, innerW, topH);
       ctx.strokeRect(pad, pad + topH + gap, innerW, botH);
     } else {
-      // ★ Starred (loadedImgs[0]) gets 60% Hero Prominence on top, 2nd & 3rd share 40% on bottom
+      // Slot #1 gets 60% Hero Prominence on top, Slot #2 & Slot #3 share 40% on bottom
       const topH = Math.round((innerH - gap) * 0.58);
       const botH = innerH - gap - topH;
       const halfW = Math.round((innerW - gap) * 0.5);
       const rightW = innerW - gap - halfW;
-      // Top Hero (★ Starred)
-      drawCoverImageOnCanvas(ctx, loadedImgs[0], pad, pad, innerW, topH, 12);
-      // Bottom-Left Supporting 2
-      drawCoverImageOnCanvas(ctx, loadedImgs[1], pad, pad + topH + gap, halfW, botH, 12);
-      // Bottom-Right Supporting 3
-      drawCoverImageOnCanvas(ctx, loadedImgs[2], pad + halfW + gap, pad + topH + gap, rightW, botH, 12);
+      cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[0].img, pad, pad, innerW, topH, 12, loadedPairs[0].item));
+      cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[1].img, pad, pad + topH + gap, halfW, botH, 12, loadedPairs[1].item));
+      cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[2].img, pad + halfW + gap, pad + topH + gap, rightW, botH, 12, loadedPairs[2].item));
 
       ctx.strokeStyle = 'rgba(37, 56, 51, 0.4)';
       ctx.lineWidth = 2;
@@ -1811,18 +2018,18 @@ async function renderWebCollageCanvas() {
     ctx.fillText(creditText.slice(0, 88), W - pad, H - 28);
     ctx.restore();
   } else {
-    // Full-Bleed Editorial Split (★ Starred loadedImgs[0] gets 60% Hero top slot)
+    // Full-Bleed Editorial Split
     ctx.fillStyle = '#18181B';
     ctx.fillRect(0, 0, W, H);
     const div = 8;
 
-    if (loadedImgs.length === 1) {
-      drawCoverImageOnCanvas(ctx, loadedImgs[0], 0, 0, W, H, 0);
-    } else if (loadedImgs.length === 2) {
+    if (loadedPairs.length === 1) {
+      cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[0].img, 0, 0, W, H, 0, loadedPairs[0].item));
+    } else if (loadedPairs.length === 2) {
       const topH = Math.round((H - div) * 0.60);
       const botH = H - div - topH;
-      drawCoverImageOnCanvas(ctx, loadedImgs[0], 0, 0, W, topH, 0);
-      drawCoverImageOnCanvas(ctx, loadedImgs[1], 0, topH + div, W, botH, 0);
+      cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[0].img, 0, 0, W, topH, 0, loadedPairs[0].item));
+      cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[1].img, 0, topH + div, W, botH, 0, loadedPairs[1].item));
       ctx.fillStyle = '#F5EFE2';
       ctx.fillRect(0, topH, W, div);
     } else {
@@ -1830,9 +2037,9 @@ async function renderWebCollageCanvas() {
       const botH = H - div - topH;
       const leftW = Math.round((W - div) * 0.5);
       const rightW = W - div - leftW;
-      drawCoverImageOnCanvas(ctx, loadedImgs[0], 0, 0, W, topH, 0);
-      drawCoverImageOnCanvas(ctx, loadedImgs[1], 0, topH + div, leftW, botH, 0);
-      drawCoverImageOnCanvas(ctx, loadedImgs[2], leftW + div, topH + div, rightW, botH, 0);
+      cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[0].img, 0, 0, W, topH, 0, loadedPairs[0].item));
+      cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[1].img, 0, topH + div, leftW, botH, 0, loadedPairs[1].item));
+      cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[2].img, leftW + div, topH + div, rightW, botH, 0, loadedPairs[2].item));
       ctx.fillStyle = '#F5EFE2';
       ctx.fillRect(0, topH, W, div);
       ctx.fillRect(leftW, topH + div, div, botH);
@@ -1856,10 +2063,15 @@ async function renderWebCollageCanvas() {
     ctx.restore();
   }
 
+  canvas._collageCellBoxes = cellBoxes.filter(Boolean);
+
+  if (!commitExport) {
+    return state.compositedDataUrl || null;
+  }
+
   try {
     const dataUrl = canvas.toDataURL('image/jpeg', 0.90);
     state.compositedDataUrl = dataUrl;
-    // Automatically attach as the post's exact 0-credit visual so the user doesn't even have to click an extra button if they go straight to Synthesize!
     applyWebCollageToPost(true);
     return dataUrl;
   } catch (err) {
@@ -21479,80 +21691,103 @@ function triggerInnerVoiceUpload() {
   if (file) file.click();
 }
 
-async function compositeStarredScenePhotosToDataUrl(photosList) {
+async function compositeStarredScenePhotosToDataUrl(photosList, commitExport = true) {
   const validPhotos = (photosList || []).filter(p => p && p.base64);
-  if (validPhotos.length === 0) return null;
-  if (validPhotos.length === 1) return validPhotos[0].base64;
+  const previewCanvas = document.getElementById('attachedScenePreviewCanvas');
+  if (previewCanvas) {
+    ensureInteractiveCollageCanvasBound(previewCanvas, 'attached');
+  }
+  if (validPhotos.length === 0) {
+    if (previewCanvas) previewCanvas._collageCellBoxes = [];
+    return null;
+  }
 
-  // Order so ★ Starred photo is at index 0 (60% Hero Prominence slot)
-  const ordered = [...validPhotos].sort((a, b) => (b.isStarred ? 1 : 0) - (a.isStarred ? 1 : 0));
+  // Keep exact user-selected slot order: index 0 = #1 Hero (60%), index 1 = #2, index 2 = #3
+  validPhotos.forEach((p, idx) => {
+    p.isStarred = (idx === 0);
+  });
+  const ordered = validPhotos.slice(0, 3);
 
-  const canvas = document.createElement('canvas');
-  const W = 1200;
-  const H = 960;
-  canvas.width = W;
-  canvas.height = H;
+  const canvas = previewCanvas || document.createElement('canvas');
+  const W = canvas.width || 800;
+  const H = canvas.height || 1000;
+  if (!previewCanvas) {
+    canvas.width = W;
+    canvas.height = H;
+  }
   const ctx = canvas.getContext('2d');
 
-  // Warm archival paper background
-  ctx.fillStyle = '#F7F3EA';
-  ctx.fillRect(0, 0, W, H);
-
   const loadedImgs = await Promise.all(ordered.map(p => new Promise((resolve) => {
+    if (p._cachedImg && p._cachedImg.complete && p._cachedImg.naturalWidth > 0) {
+      resolve({ img: p._cachedImg, meta: p });
+      return;
+    }
     const img = new Image();
     img.crossOrigin = 'anonymous';
-    img.onload = () => resolve({ img, meta: p });
+    img.onload = () => {
+      p._cachedImg = img;
+      resolve({ img, meta: p });
+    };
     img.onerror = () => resolve(null);
     img.src = p.base64;
   })));
   const valid = loadedImgs.filter(Boolean);
   if (valid.length === 0) return null;
-  if (valid.length === 1) return valid[0].meta.base64;
 
-  const drawCoverCell = (imgObj, x, y, w, h, isHeroStarred) => {
-    ctx.save();
-    ctx.beginPath();
-    if (ctx.roundRect) {
-      ctx.roundRect(x, y, w, h, 14);
-    } else {
-      ctx.rect(x, y, w, h);
-    }
-    ctx.clip();
+  ctx.clearRect(0, 0, W, H);
+  // Warm archival paper background
+  ctx.fillStyle = '#F5EFE2';
+  ctx.fillRect(0, 0, W, H);
 
-    const img = imgObj.img;
-    const scale = Math.max(w / img.width, h / img.height);
-    const sw = img.width * scale;
-    const sh = img.height * scale;
-    const sx = x + (w - sw) / 2;
-    const sy = y + (h - sh) / 2;
-    ctx.drawImage(img, sx, sy, sw, sh);
-    ctx.restore();
+  ctx.strokeStyle = 'rgba(37, 56, 51, 0.28)';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(18, 18, W - 36, H - 36);
 
-    ctx.strokeStyle = isHeroStarred ? '#D97706' : '#E2D9C5';
-    ctx.lineWidth = isHeroStarred ? 5 : 4;
-    ctx.strokeRect(x, y, w, h);
-  };
-
-  const pad = 16;
+  const pad = 28;
   const gap = 14;
-  if (valid.length === 2) {
-    // ★ Starred (valid[0]) gets 60% Hero Prominence width on left, 2nd photo gets 40% on right
-    const heroW = Math.round((W - pad * 2 - gap) * 0.60);
-    const subW = (W - pad * 2 - gap) - heroW;
-    const cellH = H - pad * 2;
-    drawCoverCell(valid[0], pad, pad, heroW, cellH, true);
-    drawCoverCell(valid[1], pad + heroW + gap, pad, subW, cellH, false);
+  const innerW = W - pad * 2;
+  const innerH = H - pad * 2;
+  const cellBoxes = [];
+
+  if (valid.length === 1) {
+    cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[0].img, pad, pad, innerW, innerH, 12, valid[0].meta));
+    ctx.strokeStyle = 'rgba(37, 56, 51, 0.45)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(pad, pad, innerW, innerH);
+  } else if (valid.length === 2) {
+    // Slot #1 (valid[0]) gets 60% Hero Prominence on top, Slot #2 gets 40% on bottom
+    const topH = Math.round((innerH - gap) * 0.60);
+    const botH = innerH - gap - topH;
+    cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[0].img, pad, pad, innerW, topH, 12, valid[0].meta));
+    cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[1].img, pad, pad + topH + gap, innerW, botH, 12, valid[1].meta));
+    ctx.strokeStyle = 'rgba(37, 56, 51, 0.4)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(pad, pad, innerW, topH);
+    ctx.strokeRect(pad, pad + topH + gap, innerW, botH);
   } else {
-    // 3 photos: ★ Starred (valid[0]) gets 60% Hero Prominence on left, 2nd & 3rd stack on right (40%)
-    const leftW = Math.round((W - pad * 2 - gap) * 0.60);
-    const rightW = (W - pad * 2 - gap) - leftW;
-    const rightH = (H - pad * 2 - gap) / 2;
-    drawCoverCell(valid[0], pad, pad, leftW, H - pad * 2, true);
-    drawCoverCell(valid[1], pad + leftW + gap, pad, rightW, rightH, false);
-    drawCoverCell(valid[2], pad + leftW + gap, pad + rightH + gap, rightW, rightH, false);
+    // 3 photos: Slot #1 gets 60% Hero Prominence on top, Slot #2 & Slot #3 share 40% on bottom
+    const topH = Math.round((innerH - gap) * 0.58);
+    const botH = innerH - gap - topH;
+    const halfW = Math.round((innerW - gap) * 0.5);
+    const rightW = innerW - gap - halfW;
+    cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[0].img, pad, pad, innerW, topH, 12, valid[0].meta));
+    cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[1].img, pad, pad + topH + gap, halfW, botH, 12, valid[1].meta));
+    cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[2].img, pad + halfW + gap, pad + topH + gap, rightW, botH, 12, valid[2].meta));
+    ctx.strokeStyle = 'rgba(37, 56, 51, 0.4)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(pad, pad, innerW, topH);
+    ctx.strokeRect(pad, pad + topH + gap, halfW, botH);
+    ctx.strokeRect(pad + halfW + gap, pad + topH + gap, rightW, botH);
   }
 
-  return canvas.toDataURL('image/jpeg', 0.90);
+  canvas._collageCellBoxes = cellBoxes.filter(Boolean);
+
+  if (!commitExport && window._lastAttachedCollageDataUrl) {
+    return window._lastAttachedCollageDataUrl;
+  }
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.90);
+  window._lastAttachedCollageDataUrl = dataUrl;
+  return dataUrl;
 }
 
 function renderAttachedScenePhotosUI() {
@@ -21573,6 +21808,7 @@ function renderAttachedScenePhotosUI() {
   const uploadLabel = document.getElementById('attachedUploadBtnLabel');
   const emptyBox = document.getElementById('innerVoicePhotoEmpty');
   const previewBox = document.getElementById('innerVoicePhotoPreview');
+  const canvasWrap = document.getElementById('attachedSceneCanvasPreviewWrap');
   const gridEl = document.getElementById('attachedScenePhotosGrid');
 
   if (emptyBox) {
@@ -21596,20 +21832,31 @@ function renderAttachedScenePhotosUI() {
   if (previewBox) {
     previewBox.style.display = count > 0 ? 'flex' : 'none';
   }
+  if (canvasWrap) {
+    canvasWrap.style.display = count > 0 ? 'flex' : 'none';
+  }
 
   if (gridEl) {
     if (count === 0) {
       gridEl.innerHTML = '';
     } else {
       gridEl.innerHTML = photos.map((p, idx) => {
-        const isStar = Boolean(p.isStarred);
+        const isStar = idx === 0;
+        const canLeft = idx > 0;
+        const canRight = idx < count - 1;
         return `
           <div style="position: relative; border-radius: 9px; overflow: hidden; border: ${isStar ? '2px solid #D97706' : '1.5px solid rgba(148,163,184,0.4)'}; background: #F8FAFC; aspect-ratio: 4 / 3; box-shadow: ${isStar ? '0 3px 10px rgba(217,119,6,0.2)' : 'none'};">
-            <img src="${p.base64}" alt="Photo ${idx + 1}" onclick="setStarredAttachedScenePhoto(${idx}, event)" style="width: 100%; height: 100%; object-fit: cover; display: block; cursor: pointer;" title="Tap to make ★ Starred Hero photo">
-            <button type="button" onclick="setStarredAttachedScenePhoto(${idx}, event)" style="position: absolute; top: 5px; left: 5px; padding: 2px 6px; border-radius: 99px; border: 1px solid ${isStar ? '#F59E0B' : 'rgba(255,255,255,0.65)'}; background: ${isStar ? '#FEF3C7' : 'rgba(15,23,42,0.72)'}; color: ${isStar ? '#B45309' : '#FFFFFF'}; font-size: 9.5px; font-weight: 800; cursor: pointer; line-height: 1.2; box-shadow: 0 2px 5px rgba(0,0,0,0.2);" title="Star this photo for 60% Hero Prominence in collage">
-              ${isStar ? '★ Hero (60%)' : '☆ Star'}
+            <img src="${p.base64}" alt="Photo ${idx + 1}" onclick="setStarredAttachedScenePhoto(${idx}, event)" style="width: 100%; height: 100%; object-fit: cover; display: block; cursor: pointer;" title="Tap to move to #1 Hero slot">
+            <button type="button" onclick="setStarredAttachedScenePhoto(${idx}, event)" style="position: absolute; top: 4px; left: 4px; padding: 2px 6px; border-radius: 99px; border: 1px solid ${isStar ? '#F59E0B' : 'rgba(255,255,255,0.65)'}; background: ${isStar ? '#FEF3C7' : 'rgba(15,23,42,0.72)'}; color: ${isStar ? '#B45309' : '#FFFFFF'}; font-size: 9px; font-weight: 800; cursor: pointer; line-height: 1.2; box-shadow: 0 2px 5px rgba(0,0,0,0.2);" title="Move to #1 Hero slot (60%)">
+              ${isStar ? '★ #1 Hero' : `☆ #${idx + 1}`}
             </button>
-            <button type="button" onclick="removeAttachedScenePhotoAtIndex(${idx}, event)" style="position: absolute; top: 5px; right: 5px; width: 20px; height: 20px; border-radius: 50%; border: none; background: rgba(15,23,42,0.75); color: #FFFFFF; font-size: 11px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1;" title="Remove photo">✕</button>
+            <button type="button" onclick="removeAttachedScenePhotoAtIndex(${idx}, event)" style="position: absolute; top: 4px; right: 4px; width: 19px; height: 19px; border-radius: 50%; border: none; background: rgba(15,23,42,0.75); color: #FFFFFF; font-size: 10.5px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1;" title="Remove photo">✕</button>
+            ${count > 1 ? `
+              <div style="position: absolute; bottom: 4px; left: 4px; right: 4px; display: flex; justify-content: space-between; pointer-events: none;">
+                <button type="button" onclick="moveAttachedScenePhoto(${idx}, -1, event)" ${!canLeft ? 'disabled' : ''} style="pointer-events: auto; border: none; background: rgba(15,23,42,0.75); color: #FFFFFF; width: 20px; height: 18px; border-radius: 5px; font-size: 9.5px; font-weight: 900; cursor: ${canLeft ? 'pointer' : 'default'}; opacity: ${canLeft ? '1' : '0.25'}; line-height: 1;" title="Move slot left">◀</button>
+                <button type="button" onclick="moveAttachedScenePhoto(${idx}, 1, event)" ${!canRight ? 'disabled' : ''} style="pointer-events: auto; border: none; background: rgba(15,23,42,0.75); color: #FFFFFF; width: 20px; height: 18px; border-radius: 5px; font-size: 9.5px; font-weight: 900; cursor: ${canRight ? 'pointer' : 'default'}; opacity: ${canRight ? '1' : '0.25'}; line-height: 1;" title="Move slot right">▶</button>
+              </div>
+            ` : ''}
           </div>
         `;
       }).join('');
@@ -21618,18 +21865,19 @@ function renderAttachedScenePhotosUI() {
 }
 window.renderAttachedScenePhotosUI = renderAttachedScenePhotosUI;
 
-async function syncAttachedScenePhotosCollage(silent = false) {
+async function syncAttachedScenePhotosCollage(silent = false, commitExport = true) {
   if (!Array.isArray(window._attachedScenePhotos)) {
     window._attachedScenePhotos = [];
   }
   const photos = window._attachedScenePhotos;
-  if (photos.length > 0 && !photos.some(p => p.isStarred)) {
-    photos[0].isStarred = true;
-  }
+  photos.forEach((p, idx) => {
+    p.isStarred = (idx === 0);
+  });
 
   if (photos.length === 0) {
     innerVoicePhotoBase64 = null;
     innerVoicePhotoMimeType = 'image/jpeg';
+    window._lastAttachedCollageDataUrl = null;
     const thumb = document.getElementById('innerVoicePhotoThumb');
     if (thumb) thumb.src = '';
     if (creatorReferenceImageSourceLabel === 'Catalyst Scene Photo') {
@@ -21637,9 +21885,13 @@ async function syncAttachedScenePhotosCollage(silent = false) {
       creatorReferenceImageSourceLabel = null;
       updateReferencePhotoUI();
     }
+    renderAttachedScenePhotosUI();
   } else {
-    const compositedDataUrl = await compositeStarredScenePhotosToDataUrl(photos);
-    if (compositedDataUrl) {
+    if (!silent) {
+      renderAttachedScenePhotosUI();
+    }
+    const compositedDataUrl = await compositeStarredScenePhotosToDataUrl(photos, commitExport);
+    if (compositedDataUrl && commitExport) {
       innerVoicePhotoBase64 = compositedDataUrl;
       innerVoicePhotoMimeType = 'image/jpeg';
       window._isWebCollageAttached = false;
@@ -21652,14 +21904,18 @@ async function syncAttachedScenePhotosCollage(silent = false) {
       const thumb = document.getElementById('innerVoicePhotoThumb');
       if (thumb) thumb.src = compositedDataUrl;
     }
+    if (silent && commitExport) {
+      renderAttachedScenePhotosUI();
+    }
   }
 
-  renderAttachedScenePhotosUI();
-  if (typeof evaluateSmartRegenScopeAutoSwitch === 'function') {
-    evaluateSmartRegenScopeAutoSwitch();
-  }
-  if (typeof updateUnifiedPosterVisualStripUI === 'function') {
-    updateUnifiedPosterVisualStripUI();
+  if (commitExport) {
+    if (typeof evaluateSmartRegenScopeAutoSwitch === 'function') {
+      evaluateSmartRegenScopeAutoSwitch();
+    }
+    if (typeof updateUnifiedPosterVisualStripUI === 'function') {
+      updateUnifiedPosterVisualStripUI();
+    }
   }
 }
 window.syncAttachedScenePhotosCollage = syncAttachedScenePhotosCollage;
@@ -21667,22 +21923,42 @@ window.syncAttachedScenePhotosCollage = syncAttachedScenePhotosCollage;
 async function setStarredAttachedScenePhoto(idx, event) {
   if (event) event.stopPropagation();
   if (!Array.isArray(window._attachedScenePhotos) || !window._attachedScenePhotos[idx]) return;
+  if (idx > 0) {
+    const [picked] = window._attachedScenePhotos.splice(idx, 1);
+    window._attachedScenePhotos.unshift(picked);
+  }
   window._attachedScenePhotos.forEach((p, i) => {
-    p.isStarred = (i === idx);
+    p.isStarred = (i === 0);
   });
-  await syncAttachedScenePhotosCollage(true);
-  showTemporaryToast(`★ Photo #${idx + 1} set as Starred Hero (60% prominence in your collage)!`);
+  window._attachedActiveSlotIndex = 0;
+  await syncAttachedScenePhotosCollage(false, true);
 }
 window.setStarredAttachedScenePhoto = setStarredAttachedScenePhoto;
+
+async function moveAttachedScenePhoto(idx, delta, event) {
+  if (event) event.stopPropagation();
+  if (!Array.isArray(window._attachedScenePhotos)) return;
+  const targetIdx = idx + delta;
+  if (targetIdx < 0 || targetIdx >= window._attachedScenePhotos.length) return;
+  const temp = window._attachedScenePhotos[idx];
+  window._attachedScenePhotos[idx] = window._attachedScenePhotos[targetIdx];
+  window._attachedScenePhotos[targetIdx] = temp;
+  window._attachedScenePhotos.forEach((p, i) => {
+    p.isStarred = (i === 0);
+  });
+  window._attachedActiveSlotIndex = targetIdx;
+  await syncAttachedScenePhotosCollage(false, true);
+}
+window.moveAttachedScenePhoto = moveAttachedScenePhoto;
 
 async function removeAttachedScenePhotoAtIndex(idx, event) {
   if (event) event.stopPropagation();
   if (!Array.isArray(window._attachedScenePhotos)) return;
   window._attachedScenePhotos.splice(idx, 1);
-  if (window._attachedScenePhotos.length > 0 && !window._attachedScenePhotos.some(p => p.isStarred)) {
-    window._attachedScenePhotos[0].isStarred = true;
-  }
-  await syncAttachedScenePhotosCollage(true);
+  window._attachedScenePhotos.forEach((p, i) => {
+    p.isStarred = (i === 0);
+  });
+  await syncAttachedScenePhotosCollage(false, true);
 }
 window.removeAttachedScenePhotoAtIndex = removeAttachedScenePhotoAtIndex;
 
@@ -21715,7 +21991,10 @@ function handleInnerVoicePhotoSelect(event) {
           id: 'scene_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
           base64: base64Data,
           mimeType: mimeType || 'image/jpeg',
-          isStarred: !hasAnyStarred && window._attachedScenePhotos.length === 0
+          isStarred: !hasAnyStarred && window._attachedScenePhotos.length === 0,
+          panX: 0.5,
+          panY: 0.35,
+          zoom: 1.0
         });
       }
       processed += 1;
