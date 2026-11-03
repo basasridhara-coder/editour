@@ -806,29 +806,27 @@ function selectUnifiedPosterVisualMode(mode) {
       closeWebCollageBuilder(true);
     }
     restoreOriginalScrapedSourcePhoto();
+    if (Array.isArray(window._attachedScenePhotos) && window._attachedScenePhotos.length > 0 && typeof syncAttachedScenePhotosCollage === 'function') {
+      syncAttachedScenePhotosCollage(true);
+    }
     setPerspectiveMode('source', true);
     selectCharacterRepresentation('exact');
-    if (isInnerVoiceActive && !innerVoicePhotoBase64) {
-      const photoWrap = document.getElementById('innerVoicePhotoWrap');
-      if (photoWrap && typeof photoWrap.scrollIntoView === 'function') {
-        photoWrap.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-      showTemporaryToast('✓ Checked Attached Photo — upload or snap a photo above at 0 credits!');
+    const attachedCount = Array.isArray(window._attachedScenePhotos) ? window._attachedScenePhotos.length : 0;
+    if (isInnerVoiceActive && attachedCount === 0 && !innerVoicePhotoBase64) {
+      showTemporaryToast('✓ Checked Attached Photo — snap or upload 1–3 photos directly below (★ Starred photo takes prominence)!');
     } else if (isChronicleActive) {
       const hasAnyMomentPhoto = Array.isArray(dailyChronicleMoments) && dailyChronicleMoments.some(m => Boolean(m && m.imageBase64));
       if (!hasAnyMomentPhoto) {
-        showTemporaryToast('✓ Checked Moment Photos — attach a photo to any moment above at 0 credits!');
+        showTemporaryToast('✓ Checked Moment Photos — attach a photo to any moment above (★ Starred moment takes prominence)!');
       } else {
-        showTemporaryToast('✓ Checked Moment Photos (0⚡ Free)!');
+        showTemporaryToast('✓ Checked Moment Photos (0⚡ Free • ★ Starred moment takes prominence)!');
       }
     } else if (isLinkActive) {
       const hasOrig = Boolean(creatorReferenceImageBase64 || currentScrapedArticle?.imageUrl || currentScrapedArticle?.imageBase64);
       if (hasOrig) {
-        showTemporaryToast('✓ Checked Original Source / YouTube Photo (0⚡ Free)!');
+        showTemporaryToast('✓ Checked Original / Attached Photo (0⚡ Free) — or snap/upload up to 3 photos below!');
       } else {
-        const urlEl = document.getElementById('creatorUrlInput');
-        if (urlEl && typeof urlEl.focus === 'function') urlEl.focus();
-        showTemporaryToast('✓ Checked Original Photo — paste your link above to use its photo at 0 credits!');
+        showTemporaryToast('✓ Checked Original / Attached Photo — paste a link above or snap/upload 1–3 photos below!');
       }
     }
   } else if (mode === 'web_collage') {
@@ -874,8 +872,12 @@ function updateUnifiedPosterVisualStripUI() {
     || ytThumb
     || '';
   const hasChroniclePhotos = isChronicleActive && Array.isArray(dailyChronicleMoments) && dailyChronicleMoments.some(m => Boolean(m && m.imageBase64));
-  const firstChroniclePhoto = hasChroniclePhotos ? (dailyChronicleMoments.find(m => m && m.imageBase64)?.imageBase64 || '') : '';
-  const hasInnerVoicePhoto = isInnerVoiceActive && Boolean(innerVoicePhotoBase64);
+  const starredChroniclePhoto = hasChroniclePhotos
+    ? (dailyChronicleMoments.find(m => m && m.isStarred && m.imageBase64)?.imageBase64 || dailyChronicleMoments.find(m => m && m.imageBase64)?.imageBase64 || '')
+    : '';
+  const firstChroniclePhoto = starredChroniclePhoto;
+  const attachedSceneCount = Array.isArray(window._attachedScenePhotos) ? window._attachedScenePhotos.length : 0;
+  const hasInnerVoicePhoto = Boolean(innerVoicePhotoBase64) || attachedSceneCount > 0;
 
   // Resolve explicit checked mode (only 1 mode can be checked at a time)
   let checkedMode = window._selectedPosterVisualMode;
@@ -912,6 +914,15 @@ function updateUnifiedPosterVisualStripUI() {
     }
   }
 
+  // Ensure Snap Scene / Upload Photo (Max 3 + ★ Starred Prominence) Drawer right below Attached Photo is shown ONLY when Original/Attached Photo mode is checked!
+  const attachedPhotoDrawer = document.getElementById('innerVoicePhotoWrap');
+  if (attachedPhotoDrawer) {
+    attachedPhotoDrawer.style.display = (isOriginalPhotoMode && !isChronicleActive) ? 'block' : 'none';
+    if (isOriginalPhotoMode && !isChronicleActive && typeof renderAttachedScenePhotosUI === 'function') {
+      try { renderAttachedScenePhotosUI(); } catch (_) {}
+    }
+  }
+
   // 1. Update Card 1 (Original / Attached Photo)
   const cardOrig = document.getElementById('posterModeCardOriginal');
   const origIcon = document.getElementById('posterModeOrigIcon');
@@ -920,16 +931,20 @@ function updateUnifiedPosterVisualStripUI() {
   if (origIcon && origTitle && origSub) {
     if (isLinkActive) {
       origIcon.textContent = isVid ? '🎬' : '📸';
-      origTitle.textContent = isVid ? 'YouTube Photo' : 'Original Photo';
-      origSub.textContent = origLinkPhoto ? (isVid ? '✓ Thumbnail ready' : '✓ Lead photo ready') : 'From source link';
+      origTitle.textContent = attachedSceneCount > 0 ? 'Attached Collage' : (isVid ? 'YouTube Photo' : 'Original Photo');
+      origSub.textContent = attachedSceneCount > 0
+        ? `✓ ${attachedSceneCount} photo${attachedSceneCount > 1 ? 's' : ''} (★ Hero)`
+        : (origLinkPhoto ? (isVid ? '✓ Thumbnail ready' : '✓ Lead photo ready') : 'Link or upload 1–3');
     } else if (isInnerVoiceActive) {
       origIcon.textContent = '📷';
       origTitle.textContent = 'Attached Photo';
-      origSub.textContent = hasInnerVoicePhoto ? '✓ Photo attached' : 'Upload / snap photo';
+      origSub.textContent = attachedSceneCount > 0
+        ? `✓ ${attachedSceneCount}/3 (${attachedSceneCount > 1 ? '★ Collage' : 'Ready'})`
+        : (hasInnerVoicePhoto ? '✓ Photo attached' : 'Snap / upload 1–3');
     } else {
       origIcon.textContent = '📷';
       origTitle.textContent = 'Moment Photos';
-      origSub.textContent = hasChroniclePhotos ? '✓ Moment photo ready' : 'Attach to moment';
+      origSub.textContent = hasChroniclePhotos ? '✓ ★ Starred prominence' : 'Attach to moment';
     }
   }
 
@@ -1095,15 +1110,25 @@ function updateUnifiedPosterVisualStripUI() {
     }
   } else if (isOriginalPhotoMode) {
     // STRICTLY Original / Attached Photo preview only
-    if (isLinkActive) {
+    if (attachedSceneCount > 0) {
+      thumbSrc = innerVoicePhotoBase64 || creatorReferenceImageBase64 || '';
+      iconEmoji = '📷';
+      if (attachedSceneCount === 1) {
+        titleText = '✓ Checked: 1 Attached Photo (0⚡ Free • ★ Hero)';
+        descText = 'Poster 1 will display your attached photo directly. Snap or upload up to 2 more to create a collage!';
+      } else {
+        titleText = `✓ Checked: ${attachedSceneCount}-Photo Attached Collage (0⚡ Free • ★ Starred Hero)`;
+        descText = 'Your ★ Starred photo takes 60% hero prominence in Poster 1, framed with your supporting photo(s).';
+      }
+    } else if (isLinkActive) {
       thumbSrc = origLinkPhoto;
       iconEmoji = isVid ? '🎬' : '📸';
       if (origLinkPhoto) {
         titleText = `✓ Checked: Exact ${isVid ? 'YouTube Thumbnail' : 'Original Source Photo'} (0⚡ Free)`;
-        descText = 'Poster 1 will display this exact extracted source photo directly. Zero AI credits.';
+        descText = 'Poster 1 will display this exact extracted source photo (or snap/upload 1–3 photos above).';
       } else {
-        titleText = '✓ Checked: Original Source Photo (0⚡ Free)';
-        descText = 'Paste a YouTube or article link above to automatically extract and display its photo for free.';
+        titleText = '✓ Checked: Original / Attached Photo (0⚡ Free)';
+        descText = 'Paste a link above to extract its photo, or snap/upload 1–3 photos in the drawer directly above.';
       }
     } else if (isInnerVoiceActive) {
       thumbSrc = hasInnerVoicePhoto ? innerVoicePhotoBase64 : '';
@@ -1113,17 +1138,17 @@ function updateUnifiedPosterVisualStripUI() {
         descText = 'Poster 1 will display your uploaded/snapped photo directly at 0 visual credits.';
       } else {
         titleText = '✓ Checked: Attached Photo Mode (0⚡ Free)';
-        descText = 'Upload or snap a photo in the box above (or check Web Collage to search the web).';
+        descText = 'Tap "Snap Scene" or "Upload Photos (1–3)" directly above — ★ Starred photo takes prominence.';
       }
     } else {
       thumbSrc = firstChroniclePhoto;
       iconEmoji = '📷';
       if (hasChroniclePhotos) {
-        titleText = '✓ Checked: Attached Moment Photo Montage (0⚡ Free)';
-        descText = 'Poster 1 will composite your attached moment photo(s) directly at 0 visual credits.';
+        titleText = '✓ Checked: Attached Moment Photo Montage (0⚡ Free • ★ Starred Hero)';
+        descText = 'Your ★ Starred moment photo takes hero prominence on Poster 1 at 0 visual credits.';
       } else {
         titleText = '✓ Checked: Moment Photos Mode (0⚡ Free)';
-        descText = 'Attach a photo to Moment 01–03 above (or check Web Collage to search web photos).';
+        descText = 'Attach a photo to Moment 01–03 above — ★ Starred moment photo takes prominence.';
       }
     }
   } else {
@@ -11428,12 +11453,17 @@ function loadPostIntoStudioToRegenerate(postId) {
     if (inputs.sourceType === 'inner_voice') {
       innerVoicePhotoBase64 = photoData;
       innerVoicePhotoMimeType = creatorReferenceImageMimeType;
+      window._attachedScenePhotos = [{
+        id: 'scene_restored_' + Date.now(),
+        base64: photoData,
+        mimeType: creatorReferenceImageMimeType,
+        isStarred: true
+      }];
+      if (typeof renderAttachedScenePhotosUI === 'function') {
+        try { renderAttachedScenePhotosUI(); } catch (_) {}
+      }
       const thumb = document.getElementById('innerVoicePhotoThumb');
       if (thumb) thumb.src = photoData;
-      const preview = document.getElementById('innerVoicePhotoPreview');
-      if (preview) preview.style.display = 'flex';
-      const emptyBox = document.getElementById('innerVoicePhotoEmpty');
-      if (emptyBox) emptyBox.style.display = 'none';
     }
 
     if (typeof updateReferencePhotoUI === 'function') {
@@ -18760,6 +18790,9 @@ async function buildClientExactChronicleCollage(momentsWithPhotos) {
   const valid = loadedImgs.filter(Boolean);
   if (valid.length === 0) return null;
 
+  // Sort so the ★ Starred moment photo is always at index 0 (Hero Prominence slot)
+  valid.sort((a, b) => (b.meta?.isStarred ? 1 : 0) - (a.meta?.isStarred ? 1 : 0));
+
   const drawCoverCell = (imgObj, x, y, w, h, badgeLabel) => {
     ctx.save();
     ctx.beginPath();
@@ -18776,11 +18809,12 @@ async function buildClientExactChronicleCollage(momentsWithPhotos) {
 
     // Subtle dark gradient at top-left for moment number badge
     if (badgeLabel) {
+      const badgeW = badgeLabel.includes('★') ? 116 : 96;
       ctx.fillStyle = 'rgba(15, 23, 42, 0.78)';
-      ctx.fillRect(x + 12, y + 12, 96, 30);
+      ctx.fillRect(x + 12, y + 12, badgeW, 30);
       ctx.fillStyle = '#F59E0B';
       ctx.font = '800 14px Inter, sans-serif';
-      ctx.fillText(badgeLabel, x + 22, y + 32);
+      ctx.fillText(badgeLabel, x + 20, y + 32);
     }
     ctx.restore();
 
@@ -18789,29 +18823,34 @@ async function buildClientExactChronicleCollage(momentsWithPhotos) {
     ctx.strokeRect(x, y, w, h);
   };
 
+  const formatMomentBadge = (v) => `${v.meta?.isStarred ? '★ ' : ''}MOMENT 0${v.meta?.index || 1}`;
+
   const pad = 18;
   const gap = 14;
   if (valid.length === 1) {
-    drawCoverCell(valid[0], pad, pad, W - pad * 2, H - pad * 2, `MOMENT 0${valid[0].meta.index}`);
+    drawCoverCell(valid[0], pad, pad, W - pad * 2, H - pad * 2, formatMomentBadge(valid[0]));
   } else if (valid.length === 2) {
-    const cellW = (W - pad * 2 - gap) / 2;
+    // ★ Starred (valid[0]) gets 60% Hero Prominence width, 2nd photo gets 40%
+    const heroW = Math.round((W - pad * 2 - gap) * 0.60);
+    const subW = (W - pad * 2 - gap) - heroW;
     const cellH = H - pad * 2;
-    drawCoverCell(valid[0], pad, pad, cellW, cellH, `MOMENT 0${valid[0].meta.index}`);
-    drawCoverCell(valid[1], pad + cellW + gap, pad, cellW, cellH, `MOMENT 0${valid[1].meta.index}`);
+    drawCoverCell(valid[0], pad, pad, heroW, cellH, formatMomentBadge(valid[0]));
+    drawCoverCell(valid[1], pad + heroW + gap, pad, subW, cellH, formatMomentBadge(valid[1]));
   } else if (valid.length === 3) {
-    const leftW = Math.round((W - pad * 2 - gap) * 0.52);
+    // ★ Starred (valid[0]) gets 60% Hero Prominence on left, 2nd & 3rd stack on right
+    const leftW = Math.round((W - pad * 2 - gap) * 0.60);
     const rightW = (W - pad * 2 - gap) - leftW;
     const rightH = (H - pad * 2 - gap) / 2;
-    drawCoverCell(valid[0], pad, pad, leftW, H - pad * 2, `MOMENT 0${valid[0].meta.index}`);
-    drawCoverCell(valid[1], pad + leftW + gap, pad, rightW, rightH, `MOMENT 0${valid[1].meta.index}`);
-    drawCoverCell(valid[2], pad + leftW + gap, pad + rightH + gap, rightW, rightH, `MOMENT 0${valid[2].meta.index}`);
+    drawCoverCell(valid[0], pad, pad, leftW, H - pad * 2, formatMomentBadge(valid[0]));
+    drawCoverCell(valid[1], pad + leftW + gap, pad, rightW, rightH, formatMomentBadge(valid[1]));
+    drawCoverCell(valid[2], pad + leftW + gap, pad + rightH + gap, rightW, rightH, formatMomentBadge(valid[2]));
   } else {
     const cellW = (W - pad * 2 - gap) / 2;
     const cellH = (H - pad * 2 - gap) / 2;
-    drawCoverCell(valid[0], pad, pad, cellW, cellH, `MOMENT 0${valid[0].meta.index}`);
-    drawCoverCell(valid[1], pad + cellW + gap, pad, cellW, cellH, `MOMENT 0${valid[1].meta.index}`);
-    drawCoverCell(valid[2], pad, pad + cellH + gap, cellW, cellH, `MOMENT 0${valid[2].meta.index}`);
-    drawCoverCell(valid[3], pad + cellW + gap, pad + cellH + gap, cellW, cellH, `MOMENT 0${valid[3].meta.index}`);
+    drawCoverCell(valid[0], pad, pad, cellW, cellH, formatMomentBadge(valid[0]));
+    drawCoverCell(valid[1], pad + cellW + gap, pad, cellW, cellH, formatMomentBadge(valid[1]));
+    drawCoverCell(valid[2], pad, pad + cellH + gap, cellW, cellH, formatMomentBadge(valid[2]));
+    drawCoverCell(valid[3], pad + cellW + gap, pad + cellH + gap, cellW, cellH, formatMomentBadge(valid[3]));
   }
 
   return canvas.toDataURL('image/jpeg', 0.88);
@@ -20881,49 +20920,274 @@ function removeSelectedImage(event) {
   if (previewBox) previewBox.style.display = 'none';
 }
 
+window._attachedScenePhotos = [];
+
 function triggerInnerVoiceCamera() {
+  if (Array.isArray(window._attachedScenePhotos) && window._attachedScenePhotos.length >= 3) {
+    showTemporaryToast('⚠️ Maximum 3 photos attached. Remove a photo first to snap a new one.');
+    return;
+  }
   const cam = document.getElementById('innerVoiceCameraInput');
   if (cam) cam.click();
 }
 
 function triggerInnerVoiceUpload() {
+  if (Array.isArray(window._attachedScenePhotos) && window._attachedScenePhotos.length >= 3) {
+    showTemporaryToast('⚠️ Maximum 3 photos attached. Remove a photo first to upload another.');
+    return;
+  }
   const file = document.getElementById('innerVoiceFileInput');
   if (file) file.click();
 }
 
-function handleInnerVoicePhotoSelect(event) {
-  const file = event.target.files && event.target.files[0];
-  if (!file) return;
+async function compositeStarredScenePhotosToDataUrl(photosList) {
+  const validPhotos = (photosList || []).filter(p => p && p.base64);
+  if (validPhotos.length === 0) return null;
+  if (validPhotos.length === 1) return validPhotos[0].base64;
 
-  compressImage(file, 1200, 0.82, function(base64Data, mimeType) {
-    innerVoicePhotoBase64 = base64Data;
-    innerVoicePhotoMimeType = mimeType || 'image/jpeg';
+  // Order so ★ Starred photo is at index 0 (60% Hero Prominence slot)
+  const ordered = [...validPhotos].sort((a, b) => (b.isStarred ? 1 : 0) - (a.isStarred ? 1 : 0));
 
-    if (!creatorReferenceImageBase64 || creatorReferenceImageSourceLabel === 'Catalyst Scene Photo') {
-      creatorReferenceImageBase64 = base64Data;
-      creatorReferenceImageMimeType = mimeType || 'image/jpeg';
-      creatorReferenceImageSourceLabel = 'Catalyst Scene Photo';
-      creatorCharacterRepresentation = 'cinematic';
+  const canvas = document.createElement('canvas');
+  const W = 1200;
+  const H = 960;
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d');
+
+  // Warm archival paper background
+  ctx.fillStyle = '#F7F3EA';
+  ctx.fillRect(0, 0, W, H);
+
+  const loadedImgs = await Promise.all(ordered.map(p => new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve({ img, meta: p });
+    img.onerror = () => resolve(null);
+    img.src = p.base64;
+  })));
+  const valid = loadedImgs.filter(Boolean);
+  if (valid.length === 0) return null;
+  if (valid.length === 1) return valid[0].meta.base64;
+
+  const drawCoverCell = (imgObj, x, y, w, h, isHeroStarred) => {
+    ctx.save();
+    ctx.beginPath();
+    if (ctx.roundRect) {
+      ctx.roundRect(x, y, w, h, 14);
+    } else {
+      ctx.rect(x, y, w, h);
+    }
+    ctx.clip();
+
+    const img = imgObj.img;
+    const scale = Math.max(w / img.width, h / img.height);
+    const sw = img.width * scale;
+    const sh = img.height * scale;
+    const sx = x + (w - sw) / 2;
+    const sy = y + (h - sh) / 2;
+    ctx.drawImage(img, sx, sy, sw, sh);
+    ctx.restore();
+
+    ctx.strokeStyle = isHeroStarred ? '#D97706' : '#E2D9C5';
+    ctx.lineWidth = isHeroStarred ? 5 : 4;
+    ctx.strokeRect(x, y, w, h);
+  };
+
+  const pad = 16;
+  const gap = 14;
+  if (valid.length === 2) {
+    // ★ Starred (valid[0]) gets 60% Hero Prominence width on left, 2nd photo gets 40% on right
+    const heroW = Math.round((W - pad * 2 - gap) * 0.60);
+    const subW = (W - pad * 2 - gap) - heroW;
+    const cellH = H - pad * 2;
+    drawCoverCell(valid[0], pad, pad, heroW, cellH, true);
+    drawCoverCell(valid[1], pad + heroW + gap, pad, subW, cellH, false);
+  } else {
+    // 3 photos: ★ Starred (valid[0]) gets 60% Hero Prominence on left, 2nd & 3rd stack on right (40%)
+    const leftW = Math.round((W - pad * 2 - gap) * 0.60);
+    const rightW = (W - pad * 2 - gap) - leftW;
+    const rightH = (H - pad * 2 - gap) / 2;
+    drawCoverCell(valid[0], pad, pad, leftW, H - pad * 2, true);
+    drawCoverCell(valid[1], pad + leftW + gap, pad, rightW, rightH, false);
+    drawCoverCell(valid[2], pad + leftW + gap, pad + rightH + gap, rightW, rightH, false);
+  }
+
+  return canvas.toDataURL('image/jpeg', 0.90);
+}
+
+function renderAttachedScenePhotosUI() {
+  if (!Array.isArray(window._attachedScenePhotos)) {
+    window._attachedScenePhotos = [];
+  }
+  const photos = window._attachedScenePhotos;
+  const count = photos.length;
+
+  const countBadge = document.getElementById('attachedSceneCountBadge');
+  if (countBadge) {
+    countBadge.textContent = `${count} / 3 Photos`;
+  }
+
+  const snapBtn = document.getElementById('attachedSnapSceneBtn');
+  const uploadBtn = document.getElementById('attachedUploadPhotoBtn');
+  const snapLabel = document.getElementById('attachedSnapBtnLabel');
+  const uploadLabel = document.getElementById('attachedUploadBtnLabel');
+  const emptyBox = document.getElementById('innerVoicePhotoEmpty');
+  const previewBox = document.getElementById('innerVoicePhotoPreview');
+  const gridEl = document.getElementById('attachedScenePhotosGrid');
+
+  if (emptyBox) {
+    emptyBox.style.display = count >= 3 ? 'none' : 'flex';
+  }
+  if (snapLabel) {
+    snapLabel.textContent = count > 0 ? `＋ Snap (${3 - count} left)` : 'Snap Scene';
+  }
+  if (uploadLabel) {
+    uploadLabel.textContent = count > 0 ? `＋ Upload (${3 - count} left)` : 'Upload Photos (1–3)';
+  }
+  if (snapBtn) snapBtn.disabled = count >= 3;
+  if (uploadBtn) uploadBtn.disabled = count >= 3;
+
+  if (previewBox) {
+    previewBox.style.display = count > 0 ? 'flex' : 'none';
+  }
+
+  if (gridEl) {
+    if (count === 0) {
+      gridEl.innerHTML = '';
+    } else {
+      gridEl.innerHTML = photos.map((p, idx) => {
+        const isStar = Boolean(p.isStarred);
+        return `
+          <div style="position: relative; border-radius: 9px; overflow: hidden; border: ${isStar ? '2px solid #D97706' : '1.5px solid rgba(148,163,184,0.4)'}; background: #F8FAFC; aspect-ratio: 4 / 3; box-shadow: ${isStar ? '0 3px 10px rgba(217,119,6,0.2)' : 'none'};">
+            <img src="${p.base64}" alt="Photo ${idx + 1}" onclick="setStarredAttachedScenePhoto(${idx}, event)" style="width: 100%; height: 100%; object-fit: cover; display: block; cursor: pointer;" title="Tap to make ★ Starred Hero photo">
+            <button type="button" onclick="setStarredAttachedScenePhoto(${idx}, event)" style="position: absolute; top: 5px; left: 5px; padding: 2px 6px; border-radius: 99px; border: 1px solid ${isStar ? '#F59E0B' : 'rgba(255,255,255,0.65)'}; background: ${isStar ? '#FEF3C7' : 'rgba(15,23,42,0.72)'}; color: ${isStar ? '#B45309' : '#FFFFFF'}; font-size: 9.5px; font-weight: 800; cursor: pointer; line-height: 1.2; box-shadow: 0 2px 5px rgba(0,0,0,0.2);" title="Star this photo for 60% Hero Prominence in collage">
+              ${isStar ? '★ Hero (60%)' : '☆ Star'}
+            </button>
+            <button type="button" onclick="removeAttachedScenePhotoAtIndex(${idx}, event)" style="position: absolute; top: 5px; right: 5px; width: 20px; height: 20px; border-radius: 50%; border: none; background: rgba(15,23,42,0.75); color: #FFFFFF; font-size: 11px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1;" title="Remove photo">✕</button>
+          </div>
+        `;
+      }).join('');
+    }
+  }
+}
+window.renderAttachedScenePhotosUI = renderAttachedScenePhotosUI;
+
+async function syncAttachedScenePhotosCollage(silent = false) {
+  if (!Array.isArray(window._attachedScenePhotos)) {
+    window._attachedScenePhotos = [];
+  }
+  const photos = window._attachedScenePhotos;
+  if (photos.length > 0 && !photos.some(p => p.isStarred)) {
+    photos[0].isStarred = true;
+  }
+
+  if (photos.length === 0) {
+    innerVoicePhotoBase64 = null;
+    innerVoicePhotoMimeType = 'image/jpeg';
+    const thumb = document.getElementById('innerVoicePhotoThumb');
+    if (thumb) thumb.src = '';
+    if (creatorReferenceImageSourceLabel === 'Catalyst Scene Photo') {
+      creatorReferenceImageBase64 = null;
+      creatorReferenceImageSourceLabel = null;
       updateReferencePhotoUI();
     }
+  } else {
+    const compositedDataUrl = await compositeStarredScenePhotosToDataUrl(photos);
+    if (compositedDataUrl) {
+      innerVoicePhotoBase64 = compositedDataUrl;
+      innerVoicePhotoMimeType = 'image/jpeg';
+      window._isWebCollageAttached = false;
+      window._selectedPosterVisualMode = 'original_photo';
+      creatorReferenceImageBase64 = compositedDataUrl;
+      creatorReferenceImageMimeType = 'image/jpeg';
+      creatorReferenceImageSourceLabel = 'Catalyst Scene Photo';
+      creatorCharacterRepresentation = 'exact';
+      updateReferencePhotoUI();
+      const thumb = document.getElementById('innerVoicePhotoThumb');
+      if (thumb) thumb.src = compositedDataUrl;
+    }
+  }
 
-    const thumb = document.getElementById('innerVoicePhotoThumb');
-    if (thumb) thumb.src = base64Data;
-    const preview = document.getElementById('innerVoicePhotoPreview');
-    if (preview) preview.style.display = 'flex';
-    const emptyBox = document.getElementById('innerVoicePhotoEmpty');
-    if (emptyBox) emptyBox.style.display = 'none';
-    if (typeof evaluateSmartRegenScopeAutoSwitch === 'function') {
-      evaluateSmartRegenScopeAutoSwitch();
-    }
-    if (typeof updateUnifiedPosterVisualStripUI === 'function') {
-      updateUnifiedPosterVisualStripUI();
-    }
+  renderAttachedScenePhotosUI();
+  if (typeof evaluateSmartRegenScopeAutoSwitch === 'function') {
+    evaluateSmartRegenScopeAutoSwitch();
+  }
+  if (typeof updateUnifiedPosterVisualStripUI === 'function') {
+    updateUnifiedPosterVisualStripUI();
+  }
+}
+window.syncAttachedScenePhotosCollage = syncAttachedScenePhotosCollage;
+
+async function setStarredAttachedScenePhoto(idx, event) {
+  if (event) event.stopPropagation();
+  if (!Array.isArray(window._attachedScenePhotos) || !window._attachedScenePhotos[idx]) return;
+  window._attachedScenePhotos.forEach((p, i) => {
+    p.isStarred = (i === idx);
+  });
+  await syncAttachedScenePhotosCollage(true);
+  showTemporaryToast(`★ Photo #${idx + 1} set as Starred Hero (60% prominence in your collage)!`);
+}
+window.setStarredAttachedScenePhoto = setStarredAttachedScenePhoto;
+
+async function removeAttachedScenePhotoAtIndex(idx, event) {
+  if (event) event.stopPropagation();
+  if (!Array.isArray(window._attachedScenePhotos)) return;
+  window._attachedScenePhotos.splice(idx, 1);
+  if (window._attachedScenePhotos.length > 0 && !window._attachedScenePhotos.some(p => p.isStarred)) {
+    window._attachedScenePhotos[0].isStarred = true;
+  }
+  await syncAttachedScenePhotosCollage(true);
+}
+window.removeAttachedScenePhotoAtIndex = removeAttachedScenePhotoAtIndex;
+
+function handleInnerVoicePhotoSelect(event) {
+  const rawFiles = event.target.files ? Array.from(event.target.files) : [];
+  if (rawFiles.length === 0) return;
+
+  if (!Array.isArray(window._attachedScenePhotos)) {
+    window._attachedScenePhotos = [];
+  }
+  const remainingSlots = Math.max(0, 3 - window._attachedScenePhotos.length);
+  if (remainingSlots <= 0) {
+    showTemporaryToast('⚠️ Maximum of 3 photos reached. Remove one to add another.');
+    event.target.value = '';
+    return;
+  }
+
+  const filesToProcess = rawFiles.slice(0, remainingSlots);
+  if (rawFiles.length > remainingSlots) {
+    showTemporaryToast(`📷 Added ${remainingSlots} photo${remainingSlots > 1 ? 's' : ''} (maximum of 3 photos reached).`);
+  }
+
+  let processed = 0;
+  filesToProcess.forEach((file) => {
+    compressImage(file, 1200, 0.84, async function(base64Data, mimeType) {
+      const hasAnyStarred = window._attachedScenePhotos.some(p => p.isStarred);
+      window._attachedScenePhotos.push({
+        id: 'scene_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+        base64: base64Data,
+        mimeType: mimeType || 'image/jpeg',
+        isStarred: !hasAnyStarred && window._attachedScenePhotos.length === 0
+      });
+      processed += 1;
+      if (processed === filesToProcess.length) {
+        event.target.value = '';
+        await syncAttachedScenePhotosCollage();
+        const total = window._attachedScenePhotos.length;
+        if (total > 1) {
+          showTemporaryToast(`✓ ${total} photos attached into collage (★ Starred photo takes 60% prominence)!`);
+        } else {
+          showTemporaryToast('✓ Photo attached! Snap or upload up to 2 more to make a collage.');
+        }
+      }
+    });
   });
 }
 
 function removeInnerVoicePhoto(event) {
   if (event) event.stopPropagation();
+  window._attachedScenePhotos = [];
   innerVoicePhotoBase64 = null;
   innerVoicePhotoMimeType = 'image/jpeg';
 
@@ -20934,16 +21198,13 @@ function removeInnerVoicePhoto(event) {
 
   const thumb = document.getElementById('innerVoicePhotoThumb');
   if (thumb) thumb.src = '';
-  const preview = document.getElementById('innerVoicePhotoPreview');
-  if (preview) preview.style.display = 'none';
-  const emptyBox = document.getElementById('innerVoicePhotoEmpty');
-  if (emptyBox) emptyBox.style.display = 'flex';
 
   if (creatorReferenceImageSourceLabel === 'Catalyst Scene Photo') {
     creatorReferenceImageBase64 = null;
     creatorReferenceImageSourceLabel = null;
     updateReferencePhotoUI();
   }
+  renderAttachedScenePhotosUI();
   if (typeof evaluateSmartRegenScopeAutoSwitch === 'function') {
     evaluateSmartRegenScopeAutoSwitch();
   }

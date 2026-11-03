@@ -709,39 +709,9 @@
                 <span class="trigger-sub">Optional</span>
               </div>
               <div class="ui-info-popover-box" id="sparkFieldInfoTip" style="display:none;">
-                Jot down the real-world observation, memory, or moment that triggered your perspective—or attach a scene photo below to guide visual cues.
+                Jot down the real-world observation, memory, or moment that triggered your perspective.
               </div>
               <input type="text" id="creatorSparkInput" class="creator-input" placeholder="Type what sparked this thought (e.g. A chat with a colleague...)">
-
-              <!-- Scene Photo / Camera Input for Inner Voice -->
-              <div class="inner-voice-photo-wrap" id="innerVoicePhotoWrap">
-                <input type="file" id="innerVoiceCameraInput" accept="image/*" capture="environment" style="display:none;" onchange="handleInnerVoicePhotoSelect(event)">
-                <input type="file" id="innerVoiceFileInput" accept="image/*" style="display:none;" onchange="handleInnerVoicePhotoSelect(event)">
-                
-                <!-- Empty state: action buttons -->
-                <div class="inner-voice-photo-empty" id="innerVoicePhotoEmpty">
-                  <button type="button" class="inner-voice-photo-btn" onclick="triggerInnerVoiceCamera()">
-                    <span class="btn-icon">📷</span>
-                    <span class="btn-label">Snap Scene</span>
-                  </button>
-                  <button type="button" class="inner-voice-photo-btn" onclick="triggerInnerVoiceUpload()">
-                    <span class="btn-icon">🖼️</span>
-                    <span class="btn-label">Upload Photo</span>
-                  </button>
-                </div>
-
-                <!-- Attached state: preview card -->
-                <div class="inner-voice-photo-preview" id="innerVoicePhotoPreview" style="display:none;">
-                  <div class="photo-preview-left">
-                    <img id="innerVoicePhotoThumb" class="photo-preview-thumb" src="" alt="Catalyst Scene">
-                    <div class="photo-preview-info">
-                      <div class="photo-preview-badge">📸 Catalyst Scene Attached</div>
-                      <div class="photo-preview-sub">AI will fuse this scene with your written perspective</div>
-                    </div>
-                  </div>
-                  <button type="button" class="photo-preview-remove" onclick="removeInnerVoicePhoto(event)" title="Remove photo">✕</button>
-                </div>
-              </div>
             </div>
 
             <!-- Diary Chronicle Banner (Hidden; Mental Model banner above already states privacy once) -->
@@ -1019,6 +989,44 @@
                 <div id="posterModeAiTitle" style="font-size: 11px; font-weight: 800; line-height: 1.2; color: var(--text-primary);">AI Illustration</div>
                 <div id="posterModeAiSub" style="font-size: 9.8px; font-weight: 600; color: var(--text-secondary); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%;">Editorial Realism</div>
               </button>
+            </div>
+
+            <!-- Snap Scene / Upload Photo (Max 3 Collage + ★ Starred Prominence) Drawer directly below Attached Photo in Visual Mode -->
+            <div class="inner-voice-photo-wrap" id="innerVoicePhotoWrap" style="display: none; margin-bottom: 9px; padding: 9px 10px; border-radius: 11px; background: #FFFFFF; border: 1.5px dashed rgba(16, 185, 129, 0.45);">
+              <input type="file" id="innerVoiceCameraInput" accept="image/*" capture="environment" style="display:none;" onchange="handleInnerVoicePhotoSelect(event)">
+              <input type="file" id="innerVoiceFileInput" accept="image/*" multiple style="display:none;" onchange="handleInnerVoicePhotoSelect(event)">
+
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 7px;">
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <span style="font-size: 13px;">📷</span>
+                  <span id="attachedSceneDrawerTitle" style="font-size: 10.8px; font-weight: 800; color: var(--text-primary);">Snap Scene or Upload Photos (Max 3 • ★ Starred Takes Prominence)</span>
+                </div>
+                <span id="attachedSceneCountBadge" style="font-size: 9.8px; font-weight: 800; color: #059669; background: rgba(16,185,129,0.12); padding: 2px 7px; border-radius: 99px;">0 / 3 Photos</span>
+              </div>
+
+              <!-- Action buttons: Snap Scene / Upload Photo (up to 3) -->
+              <div class="inner-voice-photo-empty" id="innerVoicePhotoEmpty" style="display: flex; align-items: center; gap: 7px; margin-top: 0;">
+                <button type="button" class="inner-voice-photo-btn" id="attachedSnapSceneBtn" onclick="triggerInnerVoiceCamera()" style="flex: 1; padding: 7px 10px; font-size: 11.5px;">
+                  <span class="btn-icon">📷</span>
+                  <span class="btn-label" id="attachedSnapBtnLabel">Snap Scene</span>
+                </button>
+                <button type="button" class="inner-voice-photo-btn" id="attachedUploadPhotoBtn" onclick="triggerInnerVoiceUpload()" style="flex: 1; padding: 7px 10px; font-size: 11.5px;">
+                  <span class="btn-icon">🖼️</span>
+                  <span class="btn-label" id="attachedUploadBtnLabel">Upload Photos (1–3)</span>
+                </button>
+              </div>
+
+              <!-- Attached 1–3 Photos Strip with ★ Star Prominence Toggle -->
+              <div id="innerVoicePhotoPreview" style="display: none; flex-direction: column; gap: 7px; margin-top: 8px;">
+                <div id="attachedScenePhotosGrid" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px;">
+                  <!-- Populated dynamically by renderAttachedScenePhotosUI() -->
+                </div>
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 10px; color: var(--text-secondary);">
+                  <span>Tap <strong>★ Star</strong> on any photo to give it <strong>hero prominence (60% frame)</strong> in your collage.</span>
+                  <button type="button" onclick="removeInnerVoicePhoto(event)" style="border: none; background: transparent; color: #DC2626; font-size: 10px; font-weight: 800; cursor: pointer; padding: 2px 4px; flex-shrink: 0;">Clear All</button>
+                </div>
+                <img id="innerVoicePhotoThumb" src="" alt="" style="display: none;">
+              </div>
             </div>
 
             <!-- Live "What You'll Get" Expectation Bar (Strictly Shows Only the Checked Visual Mode) -->
