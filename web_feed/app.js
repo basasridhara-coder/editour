@@ -16424,30 +16424,238 @@ async function polishUserTake() {
   }
 }
 
-function evaluateClientFallbackStructureBeats(rawText, spark) {
-  const combined = `${spark || ''} ${rawText || ''}`.trim();
-  const sentences = String(rawText || '')
+const PERSPECTIVE_MIN_WORDS = 25;
+let activeDepthCoachBeat = null;
+
+function evaluatePerspectiveDepth(rawText = '', spark = '') {
+  const cleanRaw = String(rawText || '').trim();
+  const cleanSpark = String(spark || '').trim();
+  const combined = `${cleanSpark} ${cleanRaw}`.trim();
+
+  const words = combined ? combined.split(/\s+/).filter(Boolean) : [];
+  const wordCount = words.length;
+  const minWords = PERSPECTIVE_MIN_WORDS;
+  const hasMinWords = wordCount >= minWords;
+  const wordsRemaining = Math.max(0, minWords - wordCount);
+
+  const sentences = cleanRaw
     .split(/(?<=[.!?])\s+|\n+/)
     .map(s => s.trim())
-    .filter(s => s.length > 6);
+    .filter(s => s.split(/\s+/).filter(Boolean).length >= 4);
 
-  const hasMoment = sentences.length >= 1 || combined.length > 25;
+  const hasMoment =
+    wordCount >= 6 && (
+      sentences.length >= 1 ||
+      /\b(watched|saw|read|heard|noticed|listening|looked|today|yesterday|recently|morning|evening|when|while|during|article|video|podcast|talk|interview|story|report|scene|moment|son|daughter|kids|wife|friend|colleague|school|office|city|world|india|people|parents)\b/i.test(combined)
+    );
+
   const hasWhyItMatters =
-    sentences.length >= 2 ||
-    /\b(because|instead|however|while|when|why|problem|reality|truth|feels|realize|notice|shift|difference|matters|actually|often|system|society)\b/i.test(rawText);
+    wordCount >= 10 && (
+      (sentences.length >= 2 && wordCount >= 18) ||
+      /\b(because|instead|however|yet|but|while|whereas|although|though|despite|why|problem|reality|truth|irony|paradox|tension|risk|cost|consequence|impact|matters|matter|means|shows|reveals|proves|signals|reflects|shift|difference|actually|often|system|society|culture|habit|trap|illusion|beneath|beyond|question|wonder|realize|realised|notice|feels|we think|people think|used to|rather than|not just)\b/i.test(combined)
+    );
+
   const hasConviction =
-    sentences.length >= 3 ||
-    /\b(should|must|need to|ultimately|lesson|remind|reminder|future|true|real|matter|hope|believe|takeaway|always|never|worth|choice|balance|responsibility)\b/i.test(rawText);
+    wordCount >= 12 && (
+      (sentences.length >= 3 && wordCount >= 26) ||
+      /\b(i believe|i feel|i think|my take|to me|in my view|for me|we must|we need|we should|should|must|need to|have to|ought to|ultimately|lesson|remind|reminder|future|true|real|hope|believe|conviction|takeaway|principle|always|never|worth|choice|balance|responsibility|importantly|at the end|what counts|the point|let's|let us|stop|start|build|protect|remember|teach|learn|deserve|matters most)\b/i.test(combined)
+    );
+
+  const beatsCount = (hasMoment ? 1 : 0) + (hasWhyItMatters ? 1 : 0) + (hasConviction ? 1 : 0);
+  const hasTwoOfThreeBeats = beatsCount >= 2;
+  const isReady = hasMinWords && hasTwoOfThreeBeats;
+
+  const missingLabels = [];
+  if (!hasMoment) missingLabels.push('Moment');
+  if (!hasWhyItMatters) missingLabels.push('Why It Matters');
+  if (!hasConviction) missingLabels.push('Conviction');
 
   let nudge = '';
   if (!hasConviction && !hasWhyItMatters) {
-    nudge = 'Optional: Add 1–2 lines on why this matters & your lasting takeaway so Paragraphs 2 & 3 stay 100% your words.';
+    nudge = 'Add 1–2 lines on why this matters or your lasting conviction (at least 2 of 3 signals required).';
   } else if (!hasWhyItMatters) {
     nudge = 'Optional: Add 1 sentence on why this observation matters so Paragraph 2 stays 100% your words.';
   } else if (!hasConviction) {
-    nudge = 'Optional: Add 1 sentence on your lasting takeaway so Paragraph 3 is 100% your words (otherwise AI will bridge it).';
+    nudge = 'Optional: Add 1 sentence on your lasting takeaway so Paragraph 3 is 100% your words.';
   }
-  return { hasMoment, hasWhyItMatters, hasConviction, nudge };
+
+  return {
+    wordCount,
+    minWords,
+    hasMinWords,
+    wordsRemaining,
+    hasMoment,
+    hasWhyItMatters,
+    hasConviction,
+    beatsCount,
+    hasTwoOfThreeBeats,
+    isReady,
+    missingLabels,
+    nudge
+  };
+}
+
+const DEPTH_BEAT_COACH_META = {
+  moment: {
+    title: '✦ Moment (The Spark)',
+    prompt: 'What concrete scene, quote, or real-life observation caught your attention?',
+    starter: 'Watching this unfold made me notice how '
+  },
+  why: {
+    title: '⚖️ Why It Matters (The Tension)',
+    prompt: 'Why does this matter beneath the surface — what is the deeper irony, shift, or consequence?',
+    starter: 'What really matters here is that beneath the surface, '
+  },
+  conviction: {
+    title: '🧭 Conviction (Your Takeaway)',
+    prompt: 'What is your personal stance, belief, or principle going forward?',
+    starter: 'My conviction is simple: we need to '
+  }
+};
+
+function showLiveDepthBeatHint(beatKey, event) {
+  if (event && typeof event.stopPropagation === 'function') {
+    event.stopPropagation();
+  }
+  if (activeDepthCoachBeat === beatKey) {
+    activeDepthCoachBeat = null;
+  } else {
+    activeDepthCoachBeat = beatKey;
+  }
+  updateLivePerspectiveDepthUI(false);
+}
+
+function insertDepthBeatStarter(beatKey, event) {
+  if (event && typeof event.stopPropagation === 'function') {
+    event.stopPropagation();
+  }
+  const meta = DEPTH_BEAT_COACH_META[beatKey];
+  const input = document.getElementById('creatorSlantTakeInput');
+  if (!meta || !input) return;
+
+  const current = input.value || '';
+  const trimmed = current.trimEnd();
+  const separator = !trimmed ? '' : (/[.!?]$/.test(trimmed) ? ' ' : '. ');
+  input.value = trimmed + separator + meta.starter;
+  activeDepthCoachBeat = null;
+  input.focus();
+  try {
+    input.setSelectionRange(input.value.length, input.value.length);
+  } catch (_) {}
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+function updateLivePerspectiveDepthUI(highlightMissing = false) {
+  const bar = document.getElementById('slantLiveDepthBar');
+  if (!bar) return;
+
+  const isChronicle = (creatorSelectedSource === 'inner_voice' && typeof isDailyChronicleMode !== 'undefined' && isDailyChronicleMode);
+  if (isChronicle) {
+    bar.style.display = 'none';
+    return;
+  }
+  bar.style.display = 'flex';
+
+  const slantInput = document.getElementById('creatorSlantTakeInput');
+  const sparkInput = document.getElementById('creatorSparkInput');
+  const rawText = slantInput ? slantInput.value : '';
+  const sparkText = sparkInput ? sparkInput.value : '';
+
+  const depth = evaluatePerspectiveDepth(rawText, sparkText);
+
+  bar.classList.toggle('is-ready', depth.isReady);
+  if (depth.isReady) {
+    bar.classList.remove('is-gate-warning');
+  } else if (highlightMissing) {
+    bar.classList.add('is-gate-warning');
+  }
+
+  const setBeatPill = (pillId, checkId, isMet, key) => {
+    const pill = document.getElementById(pillId);
+    const check = document.getElementById(checkId);
+    if (pill) {
+      pill.classList.toggle('is-met', Boolean(isMet));
+      pill.classList.toggle('is-pending', !isMet);
+      pill.classList.toggle('is-active-hint', activeDepthCoachBeat === key);
+    }
+    if (check) {
+      check.textContent = isMet ? '✓' : '○';
+    }
+  };
+
+  setBeatPill('liveBeatMoment', 'liveBeatMomentCheck', depth.hasMoment, 'moment');
+  setBeatPill('liveBeatWhy', 'liveBeatWhyCheck', depth.hasWhyItMatters, 'why');
+  setBeatPill('liveBeatConviction', 'liveBeatConvictionCheck', depth.hasConviction, 'conviction');
+
+  const signalsPill = document.getElementById('slantDepthSignalsCountPill');
+  if (signalsPill) {
+    signalsPill.classList.toggle('is-met', depth.hasTwoOfThreeBeats);
+    signalsPill.classList.toggle('is-pending', !depth.hasTwoOfThreeBeats);
+    if (depth.hasTwoOfThreeBeats) {
+      signalsPill.innerHTML = `✓ ${depth.beatsCount}/3 signals`;
+    } else {
+      signalsPill.innerHTML = `${depth.beatsCount}/3 signals <span class="req-sub">(2+ req)</span>`;
+    }
+  }
+
+  const wordPill = document.getElementById('slantDepthWordPill');
+  if (wordPill) {
+    wordPill.classList.toggle('is-met', depth.hasMinWords);
+    wordPill.classList.toggle('is-pending', !depth.hasMinWords);
+    if (depth.hasMinWords) {
+      wordPill.textContent = `✓ ${depth.wordCount}w`;
+    } else {
+      wordPill.textContent = `${depth.wordCount} / ${depth.minWords}w`;
+    }
+  }
+
+  const progressFill = document.getElementById('slantDepthProgressFill');
+  if (progressFill) {
+    const wordRatio = Math.min(1, depth.wordCount / depth.minWords);
+    const beatRatio = Math.min(1, depth.beatsCount / 2);
+    const pct = depth.wordCount === 0 ? 0 : Math.round((wordRatio * 55) + (beatRatio * 45));
+    progressFill.style.width = `${pct}%`;
+    progressFill.classList.toggle('is-ready', depth.isReady);
+  }
+
+  const hintEl = document.getElementById('slantDepthCoachHint');
+  if (hintEl) {
+    if (activeDepthCoachBeat && DEPTH_BEAT_COACH_META[activeDepthCoachBeat]) {
+      const meta = DEPTH_BEAT_COACH_META[activeDepthCoachBeat];
+      hintEl.style.display = 'flex';
+      hintEl.innerHTML = `
+        <div class="depth-coach-text"><strong>${escapeHtml(meta.title)}:</strong> ${escapeHtml(meta.prompt)}</div>
+        <button type="button" class="depth-coach-insert-btn" onclick="insertDepthBeatStarter('${activeDepthCoachBeat}', event)">+ Add cue</button>
+      `;
+    } else if (highlightMissing && !depth.isReady) {
+      const neededParts = [];
+      if (!depth.hasMinWords) {
+        neededParts.push(`${depth.wordsRemaining} more word${depth.wordsRemaining === 1 ? '' : 's'}`);
+      }
+      if (!depth.hasTwoOfThreeBeats) {
+        neededParts.push(`at least ${2 - depth.beatsCount} more signal (${depth.missingLabels.join(' or ')})`);
+      }
+      hintEl.style.display = 'flex';
+      hintEl.innerHTML = `<div class="depth-coach-text">💡 <strong>To synthesize:</strong> Add ${escapeHtml(neededParts.join(' + '))} — tap any ○ pill above for a starter cue.</div>`;
+    } else {
+      hintEl.style.display = 'none';
+      hintEl.innerHTML = '';
+    }
+  }
+}
+
+window.showLiveDepthBeatHint = showLiveDepthBeatHint;
+window.insertDepthBeatStarter = insertDepthBeatStarter;
+window.updateLivePerspectiveDepthUI = updateLivePerspectiveDepthUI;
+
+function evaluateClientFallbackStructureBeats(rawText, spark) {
+  const depth = evaluatePerspectiveDepth(rawText, spark);
+  return {
+    hasMoment: depth.hasMoment,
+    hasWhyItMatters: depth.hasWhyItMatters,
+    hasConviction: depth.hasConviction,
+    nudge: depth.nudge
+  };
 }
 
 function renderPolishStructureBeatsUI(structureBeats, isChronicle = false) {
@@ -20678,6 +20886,9 @@ function syncInnerVoiceSubmodeUI() {
     if (slantTextarea) slantTextarea.style.display = 'block';
     if (chronDeck) chronDeck.style.display = 'none';
     if (guideBtn) guideBtn.style.display = 'inline-flex';
+    if (typeof updateLivePerspectiveDepthUI === 'function') {
+      updateLivePerspectiveDepthUI(false);
+    }
     return;
   }
 
@@ -20726,6 +20937,9 @@ function syncInnerVoiceSubmodeUI() {
   }
   if (typeof syncStep3SaveButtonLabel === 'function') {
     syncStep3SaveButtonLabel();
+  }
+  if (typeof updateLivePerspectiveDepthUI === 'function') {
+    updateLivePerspectiveDepthUI(false);
   }
   if (typeof autoIdentifyVisualProjectionsFromInput === 'function') {
     autoIdentifyVisualProjectionsFromInput(true);
@@ -22150,6 +22364,9 @@ function resumeCreatorFormDraft(draftId) {
 
   isFormDraftsListExpanded = false;
   renderCreatorFormDraftsBar();
+  if (typeof updateLivePerspectiveDepthUI === 'function') {
+    updateLivePerspectiveDepthUI(false);
+  }
   backToStep1();
 }
 
@@ -22588,6 +22805,7 @@ function openCreatorModal(resumeDraftId = null, forcedAnchorMode = null, options
       checkAndTriggerFamilyCast(combined);
       onCreatorStage1InputChange();
       autoSaveCreatorFormState(false);
+      if (typeof updateLivePerspectiveDepthUI === 'function') updateLivePerspectiveDepthUI(false);
       if (typeof autoIdentifyVisualProjectionsFromInput === 'function') autoIdentifyVisualProjectionsFromInput(false);
       if (typeof evaluateSmartRegenScopeAutoSwitch === 'function') evaluateSmartRegenScopeAutoSwitch();
     });
@@ -22600,6 +22818,7 @@ function openCreatorModal(resumeDraftId = null, forcedAnchorMode = null, options
       const combined = (sltInput ? sltInput.value : '') + ' ' + (sparkInput.value || '');
       checkAndTriggerFamilyCast(combined);
       autoSaveCreatorFormState(false);
+      if (typeof updateLivePerspectiveDepthUI === 'function') updateLivePerspectiveDepthUI(false);
       if (typeof autoIdentifyVisualProjectionsFromInput === 'function') autoIdentifyVisualProjectionsFromInput(false);
       if (typeof evaluateSmartRegenScopeAutoSwitch === 'function') evaluateSmartRegenScopeAutoSwitch();
     });
@@ -24158,8 +24377,12 @@ function resetCreatorState() {
   const reviewCard = document.getElementById('slantPolishReviewCard');
   if (reviewCard) reviewCard.style.display = 'none';
   lastPolishedTake = '';
+  activeDepthCoachBeat = null;
   const sparkInput = document.getElementById('creatorSparkInput');
   if (sparkInput) sparkInput.value = '';
+  if (typeof updateLivePerspectiveDepthUI === 'function') {
+    updateLivePerspectiveDepthUI(false);
+  }
   const urlInput = document.getElementById('creatorUrlInput');
   if (urlInput) urlInput.value = '';
   const fileInput = document.getElementById('creatorFileInput');
@@ -25398,8 +25621,11 @@ function promptMandatoryField(el, message) {
   callout.className = 'field-mandatory-prompt-callout';
   callout.innerHTML = `<span class="prompt-icon">⚠️</span><span>${escapeHtml(message)}</span>`;
 
-  if (el.nextSibling) {
-    el.parentNode.insertBefore(callout, el.nextSibling);
+  const depthBar = (el.id === 'creatorSlantTakeInput') ? document.getElementById('slantLiveDepthBar') : null;
+  const anchorEl = (depthBar && depthBar.parentNode === el.parentNode) ? depthBar : el;
+
+  if (anchorEl.nextSibling) {
+    el.parentNode.insertBefore(callout, anchorEl.nextSibling);
   } else {
     el.parentNode.appendChild(callout);
   }
@@ -25459,8 +25685,10 @@ function toggleSlantStructureGuide(e) {
 function validateCreatorStage1(showPrompt = true) {
   const urlInput = document.getElementById('creatorUrlInput');
   const slantTakeInput = document.getElementById('creatorSlantTakeInput');
+  const sparkInput = document.getElementById('creatorSparkInput');
   const url = urlInput ? urlInput.value.trim() : '';
   const slantTake = slantTakeInput ? slantTakeInput.value.trim() : '';
+  const sparkTake = sparkInput ? sparkInput.value.trim() : '';
 
   if (creatorSelectedSource === 'inner_voice') {
     if (isDailyChronicleMode) {
@@ -25476,6 +25704,7 @@ function validateCreatorStage1(showPrompt = true) {
       }
     } else if (!slantTake) {
       if (showPrompt) {
+        if (typeof updateLivePerspectiveDepthUI === 'function') updateLivePerspectiveDepthUI(true);
         promptMandatoryField(slantTakeInput, 'Please share your slant or perspective to continue.');
       }
       return false;
@@ -25496,12 +25725,38 @@ function validateCreatorStage1(showPrompt = true) {
     }
     if (!slantTake) {
       if (showPrompt) {
+        if (typeof updateLivePerspectiveDepthUI === 'function') updateLivePerspectiveDepthUI(true);
         promptMandatoryField(slantTakeInput, 'Please write your slant or take so Slant can represent your authentic voice.');
       }
       return false;
     }
   }
 
+  // Enforce Perspective Depth Gate for all non-Chronicle posts (>= 25 words AND at least 2 of 3 signals)
+  if (!(creatorSelectedSource === 'inner_voice' && isDailyChronicleMode)) {
+    const depth = evaluatePerspectiveDepth(slantTake, sparkTake);
+    if (!depth.isReady) {
+      if (showPrompt) {
+        if (typeof updateLivePerspectiveDepthUI === 'function') {
+          updateLivePerspectiveDepthUI(true);
+        }
+        let depthMsg = '';
+        if (!depth.hasMinWords && !depth.hasTwoOfThreeBeats) {
+          depthMsg = `Please add ${depth.wordsRemaining} more word${depth.wordsRemaining === 1 ? '' : 's'} (${depth.wordCount}/${depth.minWords}w min) and include ${depth.missingLabels.join(' or ')} (at least 2 of 3 signals required) so your post reflects genuine perspective.`;
+        } else if (!depth.hasMinWords) {
+          depthMsg = `Almost there! Add ${depth.wordsRemaining} more word${depth.wordsRemaining === 1 ? '' : 's'} (${depth.wordCount}/${depth.minWords} words min) so your perspective has enough depth to anchor all 3 posters.`;
+        } else {
+          depthMsg = `Please add 1 sentence on ${depth.missingLabels.join(' or ')} (at least 2 of 3 signals: Moment, Why It Matters, Conviction required) to unlock synthesis.`;
+        }
+        promptMandatoryField(slantTakeInput, depthMsg);
+      }
+      return false;
+    }
+  }
+
+  if (typeof updateLivePerspectiveDepthUI === 'function') {
+    updateLivePerspectiveDepthUI(false);
+  }
   clearMandatoryFieldPrompts();
   return true;
 }

@@ -29,7 +29,7 @@
   <link rel="preconnect" href="https://fxfklefnkpmhofncqhfh.supabase.co" crossorigin>
   <link rel="preconnect" href="https://accounts.google.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Merriweather:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,400;1,600;1,700;1,900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261103_2305">
+  <link rel="stylesheet" href="style.css?v=20261103_2335">
   <!-- Favicon & Brand Icons -->
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
@@ -631,6 +631,34 @@
           </div>
 
           <textarea id="creatorSlantTakeInput" class="creator-textarea hero-textarea" rows="4" placeholder="Write your perspective, reaction, or takeaway here..."></textarea>
+
+          <!-- Live Perspective Depth Bar (Requires >= 25 Words + at least 2 of 3 Signals: Moment, Why It Matters, Conviction) -->
+          <div class="slant-live-depth-bar" id="slantLiveDepthBar">
+            <div class="slant-depth-top-row">
+              <div class="slant-depth-signals-group" role="group" aria-label="Perspective depth signals (at least 2 of 3 required)">
+                <button type="button" class="depth-beat-pill is-pending" id="liveBeatMoment" onclick="showLiveDepthBeatHint('moment', event)" title="Signal 1: The concrete observation, trigger, or scene (Tap for tip)">
+                  <span class="beat-check" id="liveBeatMomentCheck">○</span>
+                  <span>Moment</span>
+                </button>
+                <button type="button" class="depth-beat-pill is-pending" id="liveBeatWhy" onclick="showLiveDepthBeatHint('why', event)" title="Signal 2: Why it matters — the tension, implication, or contrast (Tap for tip)">
+                  <span class="beat-check" id="liveBeatWhyCheck">○</span>
+                  <span>Why It Matters</span>
+                </button>
+                <button type="button" class="depth-beat-pill is-pending" id="liveBeatConviction" onclick="showLiveDepthBeatHint('conviction', event)" title="Signal 3: Your personal stance, belief, or takeaway (Tap for tip)">
+                  <span class="beat-check" id="liveBeatConvictionCheck">○</span>
+                  <span>Conviction</span>
+                </button>
+              </div>
+              <div class="slant-depth-meters-right">
+                <span class="depth-signals-count-pill" id="slantDepthSignalsCountPill" title="At least 2 of 3 signals required">0/3 signals <span class="req-sub">(2+ req)</span></span>
+                <span class="depth-word-pill" id="slantDepthWordPill" title="Minimum 25 words required so AI frames your real thinking">0 / 25w</span>
+              </div>
+            </div>
+            <div class="slant-depth-progress-track" aria-hidden="true">
+              <div class="slant-depth-progress-fill" id="slantDepthProgressFill" style="width: 0%;"></div>
+            </div>
+            <div class="slant-depth-coach-hint" id="slantDepthCoachHint" style="display: none;"></div>
+          </div>
 
           <!-- Daily Chronicle Multi-Moment Cards Deck (Option B) -->
           <div class="daily-chronicle-deck-wrap" id="dailyChronicleDeckWrap" style="display: none;">
@@ -2740,6 +2768,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261103_2305"></script>
+  <script src="app.js?v=20261103_2335"></script>
 </body>
 </html>
