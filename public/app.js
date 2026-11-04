@@ -558,6 +558,9 @@ function getSeriesStats(seriesId) {
   let total = 0;
   let pubCount = 0;
   let privCount = 0;
+  let coverImage = '';
+  let latestHeadline = '';
+  let latestTs = -1;
   if (Array.isArray(allPosts)) {
     allPosts.forEach(p => {
       if (!p || p.deleted || p.isDeleted || deletedPostIds.has(p.id) || isPostChronicleDiary(p)) return;
@@ -569,10 +572,20 @@ function getSeriesStats(seriesId) {
         total++;
         if (isPriv) privCount++;
         else pubCount++;
+        const img = p.illustrationBase64 || p.illustrationUrl || p.aiIllustrationUrl || '';
+        const hl = String(p.adaptedHeadline || p.originalHeadline || '').trim();
+        const ts = p.createdAt ? new Date(p.createdAt).getTime() : 0;
+        if ((!coverImage && img) || (img && ts >= latestTs)) {
+          coverImage = img;
+          latestHeadline = hl;
+          latestTs = ts;
+        } else if (!latestHeadline && hl) {
+          latestHeadline = hl;
+        }
       }
     });
   }
-  return { total, pubCount, privCount };
+  return { total, pubCount, privCount, coverImage, latestHeadline };
 }
 
 function applyDeletedPostsTombstone(ids) {
@@ -7393,22 +7406,52 @@ function renderSeriesFilterBar(container) {
   const wrap = document.createElement('div');
   wrap.className = 'series-feed-header-wrap';
 
-  const allSeriesPostsCount = Array.isArray(allPosts)
-    ? allPosts.filter(p => p && !p.deleted && !p.isDeleted && !deletedPostIds.has(p.id) && isPostOwnedByCurrentUser(p) && Boolean(getPostSeriesInfo(p))).length
-    : 0;
+  const allSeriesPosts = Array.isArray(allPosts)
+    ? allPosts.filter(p => p && !p.deleted && !p.isDeleted && !deletedPostIds.has(p.id) && isPostOwnedByCurrentUser(p) && Boolean(getPostSeriesInfo(p)))
+    : [];
+  const allSeriesPostsCount = allSeriesPosts.length;
+  const allSeriesCoverImg = (allSeriesPosts.find(p => p.illustrationBase64 || p.illustrationUrl || p.aiIllustrationUrl) || {});
+  const allCoverUrl = allSeriesCoverImg.illustrationBase64 || allSeriesCoverImg.illustrationUrl || allSeriesCoverImg.aiIllustrationUrl || '';
 
-  const pillsHtml = [
-    `<button type="button" class="saved-bucket-filter-pill series-filter-pill ${activeFeedSeriesFilter === 'all' ? 'active' : ''}" onclick="selectFeedSeriesFilter('all')">
-      <span>${currentFilter === 'series' ? '📚 All Series' : '✍️ All My Stories'}</span>
-      <span class="saved-bucket-pill-count">${currentFilter === 'series' ? allSeriesPostsCount : (document.getElementById('badgeMyCount')?.textContent || 0)}</span>
+  const totalMyCount = document.getElementById('badgeMyCount')?.textContent || 0;
+  const allCardTitle = currentFilter === 'series' ? 'All Series' : 'All My Stories';
+  const allCardCount = currentFilter === 'series' ? `${allSeriesPostsCount} ${allSeriesPostsCount === 1 ? 'post' : 'posts'}` : `${totalMyCount} stories`;
+
+  const thumbsHtml = [
+    `<button type="button" class="series-poster-thumb-card is-all-card ${activeFeedSeriesFilter === 'all' ? 'active' : ''}" onclick="selectFeedSeriesFilter('all')" title="View ${escapeHtml(allCardTitle)}">
+      ${allCoverUrl
+        ? `<img src="${escapeHtml(allCoverUrl)}" class="series-poster-thumb-img" alt="" loading="lazy">`
+        : `<div class="series-poster-thumb-fallback is-all-fallback"></div>`}
+      <div class="series-poster-thumb-scrim-top">
+        <span class="series-poster-thumb-icon">📚</span>
+        <span class="series-poster-thumb-count">${currentFilter === 'series' ? allSeriesPostsCount : totalMyCount}</span>
+      </div>
+      <div class="series-poster-thumb-scrim-bottom">
+        <div class="series-poster-thumb-kicker">${currentFilter === 'series' ? `${creatorSeriesList.length} ${creatorSeriesList.length === 1 ? 'SERIES' : 'SERIES'}` : 'COLLECTION'}</div>
+        <div class="series-poster-thumb-title">${escapeHtml(allCardTitle)}</div>
+        <div class="series-poster-thumb-sub">${escapeHtml(allCardCount)}</div>
+      </div>
     </button>`,
-    ...creatorSeriesList.map(s => {
+    ...creatorSeriesList.map((s, idx) => {
       const stats = getSeriesStats(s.id);
       const isAct = activeFeedSeriesFilter === s.id;
+      const subText = stats.total === 0
+        ? 'Empty • Tap to pen'
+        : (stats.privCount > 0 ? `🌐 ${stats.pubCount} • 🔒 ${stats.privCount}` : `${stats.total} ${stats.total === 1 ? 'story' : 'stories'}`);
       return `
-        <button type="button" class="saved-bucket-filter-pill series-filter-pill ${isAct ? 'active' : ''}" onclick="selectFeedSeriesFilter('${escapeHtml(s.id)}')">
-          <span>${escapeHtml(s.icon || '📚')} ${escapeHtml(s.title)}</span>
-          <span class="saved-bucket-pill-count">${stats.total}</span>
+        <button type="button" class="series-poster-thumb-card ${isAct ? 'active' : ''}" onclick="selectFeedSeriesFilter('${escapeHtml(s.id)}')" title="Series: ${escapeHtml(s.title)} (${stats.total} posts)">
+          ${stats.coverImage
+            ? `<img src="${escapeHtml(stats.coverImage)}" class="series-poster-thumb-img" alt="" loading="lazy">`
+            : `<div class="series-poster-thumb-fallback palette-${idx % 4}"></div>`}
+          <div class="series-poster-thumb-scrim-top">
+            <span class="series-poster-thumb-icon">${escapeHtml(s.icon || '📚')}</span>
+            <span class="series-poster-thumb-count">${stats.total}</span>
+          </div>
+          <div class="series-poster-thumb-scrim-bottom">
+            <div class="series-poster-thumb-kicker">SERIES</div>
+            <div class="series-poster-thumb-title">${escapeHtml(s.title)}</div>
+            <div class="series-poster-thumb-sub">${escapeHtml(subText)}</div>
+          </div>
         </button>
       `;
     })
@@ -7420,8 +7463,8 @@ function renderSeriesFilterBar(container) {
   const activeStats = activeSeriesObj ? getSeriesStats(activeSeriesObj.id) : null;
 
   wrap.innerHTML = `
-    <div class="saved-buckets-filter-bar series-filter-pills-row">
-      ${pillsHtml}
+    <div class="series-poster-thumbnails-strip" role="region" aria-label="Series Poster Thumbnails">
+      ${thumbsHtml}
     </div>
     ${activeSeriesObj ? `
       <div class="series-active-notebook-banner">

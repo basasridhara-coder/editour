@@ -28471,6 +28471,183 @@ mark.polish-mark:hover, mark.polish-mark.active {
   line-height: 1;
 }
 
+/* ============================================================
+   SERIES MINI-POSTER THUMBNAIL STRIP IN FEED PAGE
+   ============================================================ */
+
+.series-poster-thumbnails-strip {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 4px 4px 10px;
+  margin-bottom: 4px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.series-poster-thumbnails-strip::-webkit-scrollbar {
+  display: none;
+}
+
+.series-poster-thumb-card {
+  position: relative;
+  width: 112px;
+  height: 142px;
+  flex: 0 0 112px;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 2px solid rgba(148, 163, 184, 0.28);
+  background: #1E293B;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.14);
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.series-poster-thumb-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(16, 185, 129, 0.65);
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.22);
+}
+
+.series-poster-thumb-card.active {
+  border-color: #10B981;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.32), 0 10px 24px rgba(16, 185, 129, 0.24);
+  transform: translateY(-2px);
+}
+
+.series-poster-thumb-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
+  transition: transform 0.3s ease;
+}
+
+.series-poster-thumb-card:hover .series-poster-thumb-img {
+  transform: scale(1.05);
+}
+
+.series-poster-thumb-fallback {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: linear-gradient(155deg, #1E293B 0%, #253833 55%, #0F172A 100%);
+}
+
+.series-poster-thumb-fallback.is-all-fallback {
+  background: linear-gradient(155deg, #253833 0%, #1E3A8A 55%, #0F172A 100%);
+}
+
+.series-poster-thumb-fallback.palette-1 {
+  background: linear-gradient(155deg, #312E81 0%, #1E293B 60%, #0F172A 100%);
+}
+
+.series-poster-thumb-fallback.palette-2 {
+  background: linear-gradient(155deg, #134E4A 0%, #1E293B 60%, #0F172A 100%);
+}
+
+.series-poster-thumb-fallback.palette-3 {
+  background: linear-gradient(155deg, #4C1D95 0%, #1E293B 60%, #0F172A 100%);
+}
+
+.series-poster-thumb-scrim-top {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 8px 14px;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.72) 0%, rgba(15, 23, 42, 0) 100%);
+}
+
+.series-poster-thumb-icon {
+  font-size: 13px;
+  line-height: 1;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.45));
+}
+
+.series-poster-thumb-count {
+  font-size: 10px;
+  font-weight: 800;
+  color: #FFFFFF;
+  background: rgba(15, 23, 42, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 999px;
+  padding: 1.5px 6.5px;
+  line-height: 1.2;
+  backdrop-filter: blur(4px);
+}
+
+.series-poster-thumb-card.active .series-poster-thumb-count {
+  background: #10B981;
+  border-color: #34D399;
+  color: #052E16;
+}
+
+.series-poster-thumb-scrim-bottom {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 22px 8px 8px;
+  background: linear-gradient(0deg, rgba(10, 15, 28, 0.94) 0%, rgba(10, 15, 28, 0.76) 58%, rgba(10, 15, 28, 0) 100%);
+}
+
+.series-poster-thumb-kicker {
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #6EE7B7;
+  line-height: 1.1;
+}
+
+.series-poster-thumb-title {
+  font-family: 'Space Grotesk', 'Inter', sans-serif;
+  font-size: 11.5px;
+  font-weight: 800;
+  line-height: 1.2;
+  color: #FFFFFF;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: break-word;
+}
+
+.series-poster-thumb-sub {
+  font-size: 9.5px;
+  font-weight: 600;
+  color: rgba(226, 232, 240, 0.82);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 1px;
+}
+
+@media (max-width: 600px) {
+  .series-poster-thumb-card {
+    width: 102px;
+    height: 130px;
+    flex: 0 0 102px;
+    border-radius: 12px;
+  }
+  .series-poster-thumb-title {
+    font-size: 11px;
+  }
+}
+
+
 
 
 
