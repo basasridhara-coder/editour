@@ -28409,6 +28409,69 @@ mark.polish-mark:hover, mark.polish-mark.active {
   height: 32px !important;
 }
 
+/* ============================================================
+   COMPACT ROCKET PUBLISH ICON BUTTON & NON-OVERFLOWING POST HEADER
+   ============================================================ */
+
+.post-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.post-header .creator-info {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.post-header .creator-handle {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.post-header-series-pill {
+  flex-shrink: 1;
+  min-width: 0;
+  max-width: 145px;
+}
+
+.post-header-right-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.draft-rocket-publish-btn {
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  padding: 0 !important;
+  border-radius: 50% !important;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.draft-rocket-publish-btn .draft-rocket-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+
 
 
 

@@ -11165,9 +11165,8 @@ function createPostCardElement(post, index) {
             </div>
           </div>
         ` : (isUnpublishedDraft ? `
-          <button type="button" class="draft-rocket-publish-btn" onclick="event.stopPropagation(); publishDraftPostFromFeed('${post.id}', this)" title="${isChronicle ? 'Saved as draft: tap to Save to My Diary Calendar' : (postSeries ? 'Private in Series: tap rocket to publish to public feed' : 'Not published yet: tap rocket to publish')}">
+          <button type="button" class="draft-rocket-publish-btn" onclick="event.stopPropagation(); publishDraftPostFromFeed('${post.id}', this)" title="${isChronicle ? 'Saved as draft: tap to Save to My Diary Calendar' : (postSeries ? 'Private in Series • Tap rocket to publish to public feed' : 'Unpublished Draft • Tap rocket to publish')}" aria-label="${isChronicle ? 'Save to My Diary' : 'Publish Draft'}">
             <span class="draft-rocket-icon">${isChronicle ? '📔' : '🚀'}</span>
-            <span class="draft-rocket-text">${isChronicle ? 'Save to My Diary' : (postSeries ? '🔒 In Series • Publish' : 'Unpublished')}</span>
           </button>
         ` : '')}
         <div class="post-menu-container">
@@ -11179,7 +11178,7 @@ function createPostCardElement(post, index) {
           </svg>
         </button>
         <div class="post-menu-dropdown" id="post-menu-${index}">
-          ${isUnpublishedDraft && canDelete ? `
+          ${isUnpublishedDraft ? `
             ${!isChronicle ? `
               <button type="button" class="post-menu-item text-primary-action" onclick="event.stopPropagation(); closeAllPostMenus(); publishDraftPostFromFeed('${post.id}')">
                 <span>🚀</span>
@@ -22660,7 +22659,7 @@ async function publishDraftPostFromFeed(postId, btnEl = null) {
 
   if (btnEl && btnEl.classList.contains('draft-rocket-publish-btn')) {
     btnEl.disabled = true;
-    btnEl.innerHTML = '<span class="draft-rocket-icon">⏳</span><span class="draft-rocket-text">Publishing...</span>';
+    btnEl.innerHTML = '<span class="polish-glow-spinner" aria-hidden="true"></span>';
   }
   if (typeof showTemporaryToast === 'function') {
     showTemporaryToast('🚀 Publishing your draft to the live feed...');
