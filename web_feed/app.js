@@ -3068,7 +3068,15 @@ function updateAuthUI() {
     if (userMenuWrap) userMenuWrap.style.display = 'block';
 
     const displayName = getUserDisplayName();
-    if (userDropdownName) userDropdownName.textContent = displayName;
+    const myProfileAura = typeof computeCuratorRollingConvictionProfile === 'function'
+      ? computeCuratorRollingConvictionProfile(null)
+      : null;
+    const compactAuraHtml = (myProfileAura && myProfileAura.unlocked && typeof buildCuratorProfileAuraBadgeHtml === 'function')
+      ? buildCuratorProfileAuraBadgeHtml(myProfileAura, true)
+      : '';
+    if (userDropdownName) {
+      userDropdownName.innerHTML = `${escapeHtml(displayName)}${compactAuraHtml}`;
+    }
     if (userDropdownEmail) userDropdownEmail.textContent = currentUser.email || '';
 
     const avatarUrl = getUserAvatarUrl();
@@ -3100,7 +3108,9 @@ function updateAuthUI() {
 
     if (drawerAuthGuest) drawerAuthGuest.style.display = 'none';
     if (drawerAuthUser) drawerAuthUser.style.display = 'flex';
-    if (drawerUserName) drawerUserName.textContent = displayName;
+    if (drawerUserName) {
+      drawerUserName.innerHTML = `${escapeHtml(displayName)}${compactAuraHtml}`;
+    }
     if (drawerUserEmail) drawerUserEmail.textContent = currentUser.email || '';
     if (drawerUserAvatar) drawerUserAvatar.textContent = (displayName[0] || 'U').toUpperCase();
     if (drawerSavedCount) drawerSavedCount.textContent = savedCount;
@@ -7974,6 +7984,10 @@ async function renderFeed(isInitial = false) {
 
   if (currentFilter === 'series') {
     renderSeriesFilterBar(container);
+  }
+
+  if (currentFilter === 'my_stories' && typeof renderMyStoriesConvictionAuraBanner === 'function') {
+    renderMyStoriesConvictionAuraBanner(container);
   }
 
   if (currentFilter === 'drafts' && typeof renderFeedFormDraftsSection === 'function') {
@@ -13171,6 +13185,13 @@ function filterByCurator(curatorName, selectedSeriesId = 'all') {
           </div>
         ` : '';
 
+        const curatorProfileAura = typeof computeCuratorRollingConvictionProfile === 'function'
+          ? computeCuratorRollingConvictionProfile(matched)
+          : null;
+        const curatorAuraHtml = (curatorProfileAura && curatorProfileAura.unlocked && typeof buildCuratorProfileAuraBadgeHtml === 'function')
+          ? buildCuratorProfileAuraBadgeHtml(curatorProfileAura, false)
+          : '';
+
         profileWrap.innerHTML = `
           <div class="curator-profile-top-bar">
             <div class="curator-profile-identity">
@@ -13178,7 +13199,10 @@ function filterByCurator(curatorName, selectedSeriesId = 'all') {
                 <div class="avatar-inner">${escapeHtml(avatarInitial)}</div>
               </div>
               <div class="curator-profile-titles">
-                <div class="curator-profile-handle">@${escapeHtml(displayHandle)}</div>
+                <div class="curator-profile-handle-row">
+                  <span class="curator-profile-handle">@${escapeHtml(displayHandle)}</span>
+                  ${curatorAuraHtml}
+                </div>
                 <div class="curator-profile-meta">${matched.length} ${matched.length === 1 ? 'Slant' : 'Slants'}${sharedSeriesList.length > 0 ? ` • ${sharedSeriesList.length} Series` : ''}</div>
               </div>
             </div>
@@ -17225,6 +17249,364 @@ function evaluatePerspectiveDepth(rawText = '', spark = '') {
     nudge
   };
 }
+
+/* ============================================================
+   CONVICTION TIER FLASH CELEBRATION & ROLLING 5-POST PROFILE AURA
+   - Individual posts NEVER display a grade badge in the public feed
+   - Synthesis completion triggers a private sparkling celebration overlay
+   - Profile earns a living badge from the rolling last 5 published Slants
+   - Active Glow (<= 7 days since last post) vs Resting Matte (> 7 days, never wiped)
+   ============================================================ */
+const CONVICTION_AURA_REQUIRED_POSTS = 5;
+const CONVICTION_AURA_ACTIVE_GLOW_DAYS = 7;
+
+function getConvictionTierMeta(score = 75) {
+  const num = Math.max(70, Math.min(100, Math.round(Number(score) || 75)));
+  if (num >= 90) {
+    return {
+      tierKey: 'tier3_piercing',
+      rangeLabel: '90–100%',
+      stars: '✦✦✦',
+      flashTitle: 'PIERCING CONVICTION',
+      badgeTitle: 'Piercing Voice',
+      icon: '🔥',
+      score: num,
+      flashMessage: 'Uncommon depth, vulnerability & clarity — the highest tier of Slant synthesis.',
+      color: '#D97706',
+      bgTint: 'rgba(245, 158, 11, 0.14)',
+      borderTint: 'rgba(245, 158, 11, 0.42)'
+    };
+  }
+  if (num >= 80) {
+    return {
+      tierKey: 'tier2_deep',
+      rangeLabel: '80–89%',
+      stars: '✦✦',
+      flashTitle: 'DEEP PERSPECTIVE',
+      badgeTitle: 'Deep Slanter',
+      icon: '✨',
+      score: num,
+      flashMessage: 'Richly reasoned shift and personal conviction — crafted with depth.',
+      color: '#0D9488',
+      bgTint: 'rgba(16, 185, 129, 0.13)',
+      borderTint: 'rgba(16, 185, 129, 0.38)'
+    };
+  }
+  return {
+    tierKey: 'tier1_sharp',
+    rangeLabel: '70–79%',
+    stars: '✦',
+    flashTitle: 'SHARP SPARK',
+    badgeTitle: 'Sharp Voice',
+    icon: '⚡',
+    score: num,
+    flashMessage: 'Clear editorial spark & grounded stance — framed and ready.',
+    color: '#4F46E5',
+    bgTint: 'rgba(99, 102, 241, 0.12)',
+    borderTint: 'rgba(99, 102, 241, 0.35)'
+  };
+}
+
+function resolvePostConvictionScore(post) {
+  if (!post) return 75;
+  const explicit = Number(
+    post.convictionScore
+    || post.generationInputs?.convictionScore
+    || post.depthScore
+    || post.generationInputs?.depthScore
+  );
+  if (Number.isFinite(explicit) && explicit >= 70 && explicit <= 100) {
+    return Math.round(explicit);
+  }
+  const rawTake = String(
+    post.userSlantTake
+    || post.polishedCuratorTake
+    || post.generationInputs?.slantTake
+    || post.curatorTake
+    || post.creatorOpinion
+    || ''
+  ).trim();
+  const rawSpark = String(
+    post.spark
+    || post.generationInputs?.spark
+    || post.whyItMatters
+    || post.broadsheetReflection
+    || ''
+  ).trim();
+  const rawSummary = String(post.summary || post.broadsheetObservation || '').trim();
+  const combinedWords = `${rawTake} ${rawSpark} ${rawSummary}`.trim().split(/\s+/).filter(Boolean).length;
+  const takeWords = `${rawTake} ${rawSpark}`.trim().split(/\s+/).filter(Boolean).length;
+
+  let est = 74;
+  if (takeWords >= 55 || combinedWords >= 145) {
+    est = 92;
+  } else if (takeWords >= 42 || combinedWords >= 115) {
+    est = 86;
+  } else if (takeWords >= 30 || combinedWords >= 85) {
+    est = 81;
+  } else {
+    est = 75;
+  }
+  const idStr = String(post.id || post.adaptedHeadline || '');
+  let hash = 0;
+  for (let i = 0; i < idStr.length; i++) {
+    hash = ((hash << 5) - hash) + idStr.charCodeAt(i);
+    hash |= 0;
+  }
+  const jitter = Math.abs(hash) % 5;
+  return Math.max(72, Math.min(98, est + jitter));
+}
+
+function computeCuratorRollingConvictionProfile(curatorHandleOrPosts, candidateScore = null) {
+  let postsList = [];
+  if (Array.isArray(curatorHandleOrPosts)) {
+    postsList = curatorHandleOrPosts;
+  } else {
+    const sourcePool = (typeof allStories !== 'undefined' && Array.isArray(allStories) && allStories.length > 0)
+      ? allStories
+      : (Array.isArray(allPosts) ? allPosts : []);
+    const cleanHandle = String(curatorHandleOrPosts || '').replace(/^@/, '').toLowerCase().trim();
+    if (cleanHandle) {
+      postsList = sourcePool.filter(p => {
+        if (!p || p.deleted || p.isDeleted || deletedPostIds.has(p.id) || isLoginShowcaseOnlyPost(p)) return false;
+        if (isPostChronicleDiary(p) || isPostPrivateOrDraft(p)) return false;
+        const h = String(p.creatorHandle || '').replace(/^@/, '').toLowerCase().trim();
+        const em = String(p.userEmail || '').toLowerCase().trim();
+        return h === cleanHandle || h.includes(cleanHandle) || (em && (em === cleanHandle || em.split('@')[0] === cleanHandle));
+      });
+    } else if (typeof currentUser !== 'undefined' && currentUser) {
+      postsList = sourcePool.filter(p => {
+        if (!p || p.deleted || p.isDeleted || deletedPostIds.has(p.id) || isLoginShowcaseOnlyPost(p)) return false;
+        if (isPostChronicleDiary(p) || isPostPrivateOrDraft(p)) return false;
+        return isPostOwnedByCurrentUser(p);
+      });
+    }
+  }
+
+  const publishedSorted = postsList
+    .filter(p => p && !isPostChronicleDiary(p) && !isPostPrivateOrDraft(p))
+    .slice()
+    .sort((a, b) => {
+      const tA = new Date(a.createdAt || a.created_at || a.date || 0).getTime() || 0;
+      const tB = new Date(b.createdAt || b.created_at || b.date || 0).getTime() || 0;
+      return tB - tA;
+    });
+
+  const recentScores = publishedSorted.slice(0, CONVICTION_AURA_REQUIRED_POSTS).map(p => ({
+    score: resolvePostConvictionScore(p),
+    meta: getConvictionTierMeta(resolvePostConvictionScore(p)),
+    createdAt: p.createdAt || p.created_at || p.date || null
+  }));
+
+  if (Number.isFinite(Number(candidateScore)) && Number(candidateScore) >= 70) {
+    const cNum = Math.round(Number(candidateScore));
+    recentScores.unshift({
+      score: cNum,
+      meta: getConvictionTierMeta(cNum),
+      createdAt: new Date().toISOString(),
+      isPreviewCandidate: true
+    });
+    if (recentScores.length > CONVICTION_AURA_REQUIRED_POSTS) {
+      recentScores.length = CONVICTION_AURA_REQUIRED_POSTS;
+    }
+  }
+
+  const totalPublished = publishedSorted.length + (Number.isFinite(Number(candidateScore)) ? 1 : 0);
+  const windowCount = recentScores.length;
+  const unlocked = windowCount >= CONVICTION_AURA_REQUIRED_POSTS;
+  const avgScore = windowCount > 0
+    ? Math.round(recentScores.reduce((sum, item) => sum + item.score, 0) / windowCount)
+    : 0;
+
+  const latestTs = recentScores[0]?.createdAt ? new Date(recentScores[0].createdAt).getTime() : 0;
+  const daysSinceLatest = latestTs > 0
+    ? Math.max(0, Math.floor((Date.now() - latestTs) / (1000 * 60 * 60 * 24)))
+    : 0;
+  const isGlowing = unlocked && (latestTs === 0 || daysSinceLatest <= CONVICTION_AURA_ACTIVE_GLOW_DAYS);
+  const isResting = unlocked && !isGlowing;
+
+  // Determine rolling 5-post badge tier
+  const piercingCount = recentScores.filter(it => it.score >= 90).length;
+  const deepOrHigherCount = recentScores.filter(it => it.score >= 80).length;
+  let badgeTierScore = avgScore;
+  if (piercingCount >= 3 && deepOrHigherCount === CONVICTION_AURA_REQUIRED_POSTS) {
+    badgeTierScore = Math.max(90, avgScore);
+  } else if (deepOrHigherCount >= 3) {
+    badgeTierScore = Math.max(82, avgScore);
+  }
+  const tierMeta = getConvictionTierMeta(badgeTierScore || 75);
+
+  return {
+    unlocked,
+    totalPublished,
+    windowCount,
+    remainingToUnlock: Math.max(0, CONVICTION_AURA_REQUIRED_POSTS - windowCount),
+    avgScore,
+    recentScores,
+    daysSinceLatest,
+    isGlowing,
+    isResting,
+    tierMeta
+  };
+}
+
+function buildCuratorProfileAuraBadgeHtml(profileAura, compact = false) {
+  if (!profileAura || !profileAura.unlocked) return '';
+  const { tierMeta, isGlowing, isResting, avgScore, daysSinceLatest } = profileAura;
+  const stateClass = isGlowing ? 'is-glowing' : 'is-resting';
+  const stateHint = isGlowing
+    ? `Active Profile Aura • Rolling last 5 Slants avg ${avgScore}% (${tierMeta.rangeLabel})`
+    : `Resting Profile Aura (${daysSinceLatest}d since last Slant) • Publish your next Slant to reignite glow immediately`;
+
+  const dotsHtml = profileAura.recentScores.map(it => {
+    const dotClass = it.score >= 90 ? 'is-tier3' : (it.score >= 80 ? 'is-tier2' : 'is-tier1');
+    return `<span class="aura-mini-dot ${dotClass}" title="${it.meta.badgeTitle} (${it.score}%)"></span>`;
+  }).join('');
+
+  if (compact) {
+    return `
+      <span class="curator-aura-badge is-compact ${escapeHtml(tierMeta.tierKey)} ${stateClass}" title="${escapeHtml(stateHint)}">
+        <span class="curator-aura-icon">${isResting ? '🌙' : tierMeta.icon}</span>
+        <span class="curator-aura-title">${escapeHtml(tierMeta.badgeTitle)}</span>
+      </span>
+    `;
+  }
+
+  return `
+    <div class="curator-aura-badge ${escapeHtml(tierMeta.tierKey)} ${stateClass}" title="${escapeHtml(stateHint)}">
+      <span class="curator-aura-icon">${isResting ? '🌙' : tierMeta.icon}</span>
+      <span class="curator-aura-title">${escapeHtml(tierMeta.badgeTitle)}</span>
+      <span class="curator-aura-dots" aria-hidden="true">${dotsHtml}</span>
+      <span class="curator-aura-state-tag">${isGlowing ? '✦ Active' : 'Resting'}</span>
+    </div>
+  `;
+}
+
+function renderMyStoriesConvictionAuraBanner(container) {
+  if (!container || !currentUser) return;
+  const profileAura = computeCuratorRollingConvictionProfile(null);
+  const banner = document.createElement('div');
+  banner.className = `my-conviction-aura-banner ${profileAura.unlocked ? (profileAura.isGlowing ? 'is-glowing' : 'is-resting') : 'is-locked'} ${profileAura.tierMeta.tierKey}`;
+
+  const slots = [];
+  for (let i = 0; i < CONVICTION_AURA_REQUIRED_POSTS; i++) {
+    const item = profileAura.recentScores[i];
+    if (item) {
+      const slotClass = item.score >= 90 ? 'is-tier3' : (item.score >= 80 ? 'is-tier2' : 'is-tier1');
+      slots.push(`
+        <div class="aura-5post-pill ${slotClass}" title="Slant #${i + 1}: ${item.meta.flashTitle} (${item.score}%)">
+          <span class="aura-5post-stars">${item.meta.stars}</span>
+          <span class="aura-5post-score">${item.score}%</span>
+        </div>
+      `);
+    } else {
+      slots.push(`
+        <div class="aura-5post-pill is-empty" title="Publish a Slant to fill this rolling slot">
+          <span class="aura-5post-stars">○</span>
+          <span class="aura-5post-score">Slot ${i + 1}</span>
+        </div>
+      `);
+    }
+  }
+
+  banner.innerHTML = `
+    <div class="my-conviction-aura-top">
+      <div class="my-conviction-aura-title-group">
+        <span class="my-conviction-aura-kicker">✨ ROLLING 5-SLANT PROFILE AURA</span>
+        <div class="my-conviction-aura-headline">
+          ${profileAura.unlocked
+            ? `<span class="my-conviction-aura-badge-pill ${profileAura.tierMeta.tierKey} ${profileAura.isGlowing ? 'is-glowing' : 'is-resting'}">
+                 <span>${profileAura.isResting ? '🌙' : profileAura.tierMeta.icon}</span>
+                 <span>${escapeHtml(profileAura.tierMeta.badgeTitle)}</span>
+                 <span class="my-conviction-aura-avg">(${profileAura.avgScore}% avg)</span>
+               </span>
+               <span class="my-conviction-aura-status-chip ${profileAura.isGlowing ? 'is-glowing' : 'is-resting'}">
+                 ${profileAura.isGlowing ? '🔥 Glowing on Profile' : '🌙 Resting • Post 1 Slant to Reignite'}
+               </span>`
+            : `<span class="my-conviction-aura-unlock-title">${profileAura.windowCount} / ${CONVICTION_AURA_REQUIRED_POSTS} Published Slants to Unlock Profile Aura</span>`}
+        </div>
+      </div>
+    </div>
+    <div class="my-conviction-aura-slots-row">
+      ${slots.join('')}
+    </div>
+    <div class="my-conviction-aura-sub">
+      ${profileAura.unlocked
+        ? (profileAura.isGlowing
+            ? 'Your profile badge dynamically evolves with your last 5 published Slants — no grades are ever shown on individual posts.'
+            : 'Your hard-earned badge is resting quietly after a break. Publish your next Slant whenever inspiration strikes to light it right back up.')
+        : `Publish ${profileAura.remainingToUnlock} more ${profileAura.remainingToUnlock === 1 ? 'Slant' : 'Slants'} to earn your dynamic profile badge (Sharp Voice • Deep Slanter • Piercing Voice).`}
+    </div>
+  `;
+  container.appendChild(banner);
+}
+
+function showSynthesisConvictionFlashOverlay(score, post = null) {
+  const tierMeta = getConvictionTierMeta(score);
+  const previewRoll = computeCuratorRollingConvictionProfile(null, tierMeta.score);
+
+  const existing = document.getElementById('synthesisConvictionFlashOverlay');
+  if (existing) existing.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'synthesisConvictionFlashOverlay';
+  overlay.className = `synthesis-conviction-flash-overlay ${tierMeta.tierKey}`;
+  overlay.onclick = () => {
+    overlay.classList.add('is-dismissing');
+    setTimeout(() => overlay.remove(), 260);
+  };
+
+  const dotsRow = [];
+  for (let i = 0; i < CONVICTION_AURA_REQUIRED_POSTS; i++) {
+    const it = previewRoll.recentScores[i];
+    if (it) {
+      const cls = it.score >= 90 ? 'is-tier3' : (it.score >= 80 ? 'is-tier2' : 'is-tier1');
+      dotsRow.push(`<span class="flash-5post-dot ${cls} ${i === 0 ? 'is-current-pop' : ''}">${it.meta.stars}</span>`);
+    } else {
+      dotsRow.push(`<span class="flash-5post-dot is-empty">○</span>`);
+    }
+  }
+
+  const profileNote = previewRoll.unlocked
+    ? `Profile Aura: <strong>${escapeHtml(previewRoll.tierMeta.badgeTitle)}</strong> (${previewRoll.avgScore}% rolling 5-post avg)`
+    : `Rolling Profile Aura: <strong>${previewRoll.windowCount} / ${CONVICTION_AURA_REQUIRED_POSTS}</strong> Slants toward unlocking your profile badge`;
+
+  overlay.innerHTML = `
+    <div class="synthesis-conviction-flash-card ${tierMeta.tierKey}">
+      <div class="flash-sparkle-particles" aria-hidden="true">
+        <span class="sp-1">✦</span>
+        <span class="sp-2">✨</span>
+        <span class="sp-3">✦</span>
+        <span class="sp-4">★</span>
+      </div>
+      <div class="flash-tier-kicker">${tierMeta.stars} SYNTHESIS COMPLETE • ${tierMeta.rangeLabel} DEPTH ${tierMeta.stars}</div>
+      <div class="flash-tier-main-row">
+        <span class="flash-tier-icon">${tierMeta.icon}</span>
+        <span class="flash-tier-title">${escapeHtml(tierMeta.flashTitle)}</span>
+        <span class="flash-tier-score-pill">${tierMeta.score}%</span>
+      </div>
+      <p class="flash-tier-desc">${escapeHtml(tierMeta.flashMessage)}</p>
+      <div class="flash-rolling-progress-box">
+        <div class="flash-rolling-dots">${dotsRow.join('')}</div>
+        <div class="flash-rolling-label">${profileNote}</div>
+      </div>
+    </div>
+  `;
+
+  const step3El = document.getElementById('creatorStep3') || document.querySelector('.creator-modal-card') || document.body;
+  step3El.appendChild(overlay);
+
+  setTimeout(() => {
+    if (overlay && overlay.parentNode) {
+      overlay.classList.add('is-dismissing');
+      setTimeout(() => {
+        if (overlay && overlay.parentNode) overlay.remove();
+      }, 320);
+    }
+  }, 4200);
+}
+window.showSynthesisConvictionFlashOverlay = showSynthesisConvictionFlashOverlay;
+
 
 const DEPTH_BEAT_COACH_META = {
   moment: {
@@ -28071,6 +28453,18 @@ async function startAiSynthesis() {
       currentSynthesizedPost.polishCounts = { ...lastPolishCounts };
       currentSynthesizedPost.polishCorrections = Array.isArray(lastCorrectionsList) ? lastCorrectionsList.slice(0, 15) : [];
     }
+    if (!isChronicleActive) {
+      const evalDepth = typeof evaluatePerspectiveDepth === 'function'
+        ? (evaluatePerspectiveDepth(effectiveSlantTake, spark)?.depthScore || 75)
+        : 75;
+      const verifiedDepth = Number(verifiedPolishDepthState?.depthScore) || 0;
+      const resolvedConviction = Math.max(70, Math.min(99, Math.round(Math.max(verifiedDepth, evalDepth))));
+      currentSynthesizedPost.convictionScore = resolvedConviction;
+      if (currentSynthesizedPost.generationInputs) {
+        currentSynthesizedPost.generationInputs.convictionScore = resolvedConviction;
+      }
+      window._pendingSynthesisConvictionScore = resolvedConviction;
+    }
 
     // Immediately synchronize edit modal fields with this fresh post to ensure zero stale DOM values
     const headInput = document.getElementById('editModalHeadline');
@@ -28489,6 +28883,17 @@ function showStep3Preview() {
 
   // Render preview
   renderCreatorPreview();
+
+  // Trigger sparkling conviction tier flash celebration right as synthesis completes
+  if (window._pendingSynthesisConvictionScore && currentSynthesizedPost && !isChronicleModePost(currentSynthesizedPost)) {
+    const celebScore = window._pendingSynthesisConvictionScore;
+    window._pendingSynthesisConvictionScore = null;
+    setTimeout(() => {
+      if (typeof showSynthesisConvictionFlashOverlay === 'function') {
+        showSynthesisConvictionFlashOverlay(celebScore, currentSynthesizedPost);
+      }
+    }, 120);
+  }
 
   // If AI artwork was not included in first phase, upgrade in background without blocking user
   if (currentSynthesizedPost && !currentSynthesizedPost.illustrationBase64 && !currentSynthesizedPost.illustrationUrl && !currentSynthesizedPost._preserveExistingVisuals && currentSynthesizedPost.illustrationPrompt) {

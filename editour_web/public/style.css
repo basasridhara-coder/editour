@@ -29224,6 +29224,435 @@ mark.polish-mark:hover, mark.polish-mark.active {
   color: var(--text-secondary, #475569);
 }
 
+/* ============================================================
+   CONVICTION TIER FLASH CELEBRATION & ROLLING 5-POST PROFILE AURA
+   ============================================================ */
+.curator-profile-handle-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.curator-aura-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-family: 'Inter', -apple-system, sans-serif;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  line-height: 1.2;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(248, 250, 252, 0.92);
+  color: #334155;
+  transition: all 0.25s ease;
+}
+
+.curator-aura-badge.is-compact {
+  margin-left: 6px;
+  padding: 2px 7px;
+  font-size: 10px;
+  vertical-align: middle;
+}
+
+.curator-aura-badge.tier3_piercing.is-glowing {
+  background: linear-gradient(135deg, rgba(254, 243, 199, 0.95) 0%, rgba(253, 230, 138, 0.92) 100%);
+  border-color: rgba(245, 158, 11, 0.65);
+  color: #92400E;
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.34);
+  animation: auraGlowPulseGold 2.8s ease-in-out infinite;
+}
+
+.curator-aura-badge.tier2_deep.is-glowing {
+  background: linear-gradient(135deg, rgba(209, 250, 229, 0.95) 0%, rgba(167, 243, 208, 0.92) 100%);
+  border-color: rgba(16, 185, 129, 0.6);
+  color: #065F46;
+  box-shadow: 0 0 11px rgba(16, 185, 129, 0.28);
+  animation: auraGlowPulseEmerald 3s ease-in-out infinite;
+}
+
+.curator-aura-badge.tier1_sharp.is-glowing {
+  background: linear-gradient(135deg, rgba(224, 231, 255, 0.95) 0%, rgba(199, 210, 254, 0.9) 100%);
+  border-color: rgba(99, 102, 241, 0.52);
+  color: #3730A3;
+  box-shadow: 0 0 10px rgba(99, 102, 241, 0.22);
+}
+
+/* Resting Matte State: Badge stays intact (never wiped), just calm & matte until next post */
+.curator-aura-badge.is-resting {
+  background: rgba(241, 245, 249, 0.85) !important;
+  border-color: rgba(148, 163, 184, 0.4) !important;
+  color: #64748B !important;
+  box-shadow: none !important;
+  animation: none !important;
+  opacity: 0.82;
+}
+
+.curator-aura-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 2.5px;
+  margin-left: 2px;
+}
+
+.aura-mini-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #94A3B8;
+}
+
+.aura-mini-dot.is-tier3 {
+  background: #D97706;
+}
+.aura-mini-dot.is-tier2 {
+  background: #0D9488;
+}
+.aura-mini-dot.is-tier1 {
+  background: #4F46E5;
+}
+
+.curator-aura-state-tag {
+  font-size: 9.5px;
+  font-weight: 700;
+  opacity: 0.85;
+  padding-left: 3px;
+  border-left: 1px solid rgba(100, 116, 139, 0.25);
+}
+
+@keyframes auraGlowPulseGold {
+  0%, 100% { box-shadow: 0 0 8px rgba(245, 158, 11, 0.24); }
+  50% { box-shadow: 0 0 15px rgba(245, 158, 11, 0.48); }
+}
+
+@keyframes auraGlowPulseEmerald {
+  0%, 100% { box-shadow: 0 0 8px rgba(16, 185, 129, 0.2); }
+  50% { box-shadow: 0 0 14px rgba(16, 185, 129, 0.42); }
+}
+
+/* My Stories Top Rolling 5-Post Profile Aura Banner */
+.my-conviction-aura-banner {
+  width: 100%;
+  max-width: 460px;
+  margin: 4px auto 14px auto;
+  padding: 13px 15px;
+  border-radius: 16px;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.96) 0%, rgba(248, 250, 252, 0.94) 100%);
+  border: 1.5px solid rgba(148, 163, 184, 0.28);
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-sizing: border-box;
+}
+
+.my-conviction-aura-banner.tier3_piercing.is-glowing {
+  border-color: rgba(245, 158, 11, 0.45);
+  background: linear-gradient(145deg, rgba(255, 251, 235, 0.96) 0%, rgba(254, 243, 199, 0.55) 100%);
+}
+
+.my-conviction-aura-banner.tier2_deep.is-glowing {
+  border-color: rgba(16, 185, 129, 0.4);
+  background: linear-gradient(145deg, rgba(240, 253, 244, 0.96) 0%, rgba(209, 250, 229, 0.5) 100%);
+}
+
+[data-theme="obsidian"] .my-conviction-aura-banner {
+  background: rgba(15, 23, 42, 0.88);
+  border-color: rgba(148, 163, 184, 0.24);
+}
+
+.my-conviction-aura-kicker {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #0F766E;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.my-conviction-aura-headline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.my-conviction-aura-badge-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.my-conviction-aura-avg {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--text-secondary, #64748B);
+}
+
+.my-conviction-aura-status-chip {
+  font-size: 10.5px;
+  font-weight: 800;
+  padding: 3px 9px;
+  border-radius: 999px;
+}
+
+.my-conviction-aura-status-chip.is-glowing {
+  background: rgba(16, 185, 129, 0.14);
+  color: #047857;
+}
+
+.my-conviction-aura-status-chip.is-resting {
+  background: rgba(148, 163, 184, 0.18);
+  color: #475569;
+}
+
+.my-conviction-aura-unlock-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.my-conviction-aura-slots-row {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+}
+
+.aura-5post-pill {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 4px;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  background: var(--bg-surface, #FFFFFF);
+  font-size: 10.5px;
+  font-weight: 800;
+}
+
+.aura-5post-pill.is-tier3 {
+  border-color: rgba(245, 158, 11, 0.55);
+  background: rgba(254, 243, 199, 0.65);
+  color: #B45309;
+}
+
+.aura-5post-pill.is-tier2 {
+  border-color: rgba(16, 185, 129, 0.48);
+  background: rgba(209, 250, 229, 0.6);
+  color: #047857;
+}
+
+.aura-5post-pill.is-tier1 {
+  border-color: rgba(99, 102, 241, 0.42);
+  background: rgba(224, 231, 255, 0.6);
+  color: #3730A3;
+}
+
+.aura-5post-pill.is-empty {
+  border-style: dashed;
+  color: #94A3B8;
+  background: rgba(248, 250, 252, 0.5);
+}
+
+.aura-5post-stars {
+  font-size: 10px;
+  letter-spacing: 1px;
+}
+
+.aura-5post-score {
+  font-size: 10.5px;
+}
+
+.my-conviction-aura-sub {
+  font-size: 11.5px;
+  line-height: 1.42;
+  color: var(--text-secondary, #64748B);
+}
+
+/* Sparkling Synthesis Conviction Celebration Flash Overlay */
+.synthesis-conviction-flash-overlay {
+  position: fixed;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10050;
+  width: calc(100% - 28px);
+  max-width: 410px;
+  pointer-events: auto;
+  cursor: pointer;
+  animation: synthFlashSlideIn 0.42s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.synthesis-conviction-flash-overlay.is-dismissing {
+  animation: synthFlashFadeOut 0.28s ease forwards;
+}
+
+.synthesis-conviction-flash-card {
+  position: relative;
+  overflow: hidden;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: rgba(15, 23, 42, 0.95);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1.5px solid rgba(245, 158, 11, 0.6);
+  color: #FFFFFF;
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.42), 0 0 24px rgba(245, 158, 11, 0.28);
+  text-align: center;
+}
+
+.synthesis-conviction-flash-card.tier2_deep {
+  border-color: rgba(16, 185, 129, 0.65);
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.42), 0 0 24px rgba(16, 185, 129, 0.28);
+}
+
+.synthesis-conviction-flash-card.tier1_sharp {
+  border-color: rgba(99, 102, 241, 0.65);
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.42), 0 0 24px rgba(99, 102, 241, 0.26);
+}
+
+.flash-sparkle-particles span {
+  position: absolute;
+  font-size: 14px;
+  color: #FBBF24;
+  pointer-events: none;
+  animation: flashTwinkle 1.6s ease-in-out infinite;
+}
+
+.flash-sparkle-particles .sp-1 { top: 10px; left: 16px; animation-delay: 0s; }
+.flash-sparkle-particles .sp-2 { top: 12px; right: 18px; animation-delay: 0.3s; }
+.flash-sparkle-particles .sp-3 { bottom: 14px; left: 22px; animation-delay: 0.6s; }
+.flash-sparkle-particles .sp-4 { bottom: 12px; right: 20px; animation-delay: 0.9s; }
+
+.flash-tier-kicker {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: #FCD34D;
+  margin-bottom: 4px;
+}
+
+.synthesis-conviction-flash-card.tier2_deep .flash-tier-kicker {
+  color: #6EE7B7;
+}
+
+.synthesis-conviction-flash-card.tier1_sharp .flash-tier-kicker {
+  color: #A5B4FC;
+}
+
+.flash-tier-main-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.flash-tier-icon {
+  font-size: 18px;
+}
+
+.flash-tier-title {
+  font-family: 'Space Grotesk', 'Inter', sans-serif;
+  font-size: 16px;
+  font-weight: 900;
+  letter-spacing: 0.03em;
+  color: #FFFFFF;
+}
+
+.flash-tier-score-pill {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  font-size: 11.5px;
+  font-weight: 800;
+  color: #FDE68A;
+}
+
+.flash-tier-desc {
+  margin: 0 0 9px 0;
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: rgba(241, 245, 249, 0.88);
+}
+
+.flash-rolling-progress-box {
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.14);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.flash-rolling-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.flash-5post-dot {
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  background: rgba(255, 255, 255, 0.1);
+  color: #CBD5E1;
+}
+
+.flash-5post-dot.is-tier3 {
+  background: rgba(245, 158, 11, 0.28);
+  border: 1px solid rgba(251, 191, 36, 0.65);
+  color: #FDE68A;
+}
+
+.flash-5post-dot.is-tier2 {
+  background: rgba(16, 185, 129, 0.26);
+  border: 1px solid rgba(52, 211, 153, 0.6);
+  color: #A7F3D0;
+}
+
+.flash-5post-dot.is-tier1 {
+  background: rgba(99, 102, 241, 0.26);
+  border: 1px solid rgba(129, 140, 248, 0.6);
+  color: #C7D2FE;
+}
+
+.flash-5post-dot.is-current-pop {
+  transform: scale(1.08);
+  box-shadow: 0 0 10px rgba(251, 191, 36, 0.45);
+}
+
+.flash-rolling-label {
+  font-size: 10.5px;
+  color: #CBD5E1;
+}
+
+@keyframes synthFlashSlideIn {
+  0% { opacity: 0; transform: translate(-50%, -18px) scale(0.94); }
+  100% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}
+
+@keyframes synthFlashFadeOut {
+  0% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -12px) scale(0.96); }
+}
+
+@keyframes flashTwinkle {
+  0%, 100% { opacity: 0.35; transform: scale(0.85) rotate(0deg); }
+  50% { opacity: 1; transform: scale(1.2) rotate(15deg); }
+}
+
+
 
 
 
