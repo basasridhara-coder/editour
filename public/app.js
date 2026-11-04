@@ -7440,8 +7440,15 @@ function selectFeedSeriesFilter(seriesId) {
 }
 window.selectFeedSeriesFilter = selectFeedSeriesFilter;
 
-function openSeriesInFeed(seriesId) {
+function openSeriesInFeed(seriesId, authorHandle = '') {
   if (!seriesId) return;
+  syncSeriesFromLoadedPosts();
+  const isOwnedSeries = creatorSeriesList.some(s => s && s.id === seriesId);
+  if (!isOwnedSeries && authorHandle) {
+    filterByCurator(authorHandle, seriesId);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    return;
+  }
   editingSeriesNotebookId = null;
   pendingDeleteSeriesConfirmId = null;
   activeFeedSeriesFilter = String(seriesId);
@@ -11637,7 +11644,7 @@ function createPostCardElement(post, index) {
         </div>
         <span class="creator-handle">${escapeHtml(handle)}</span>
         ${postSeries ? `
-          <button type="button" class="post-header-series-pill" onclick="event.stopPropagation(); openSeriesInFeed('${escapeHtml(postSeries.id)}')" title="Part of Series: ${escapeHtml(postSeries.title)} — Tap to view Series">
+          <button type="button" class="post-header-series-pill" onclick="event.stopPropagation(); openSeriesInFeed('${escapeHtml(postSeries.id)}', '${escapeHtml(handle)}')" title="Part of Series: ${escapeHtml(postSeries.title)} — Tap to view Series">
             <span>📚</span>
             <span class="post-header-series-title">${escapeHtml(postSeries.title)}</span>
           </button>
@@ -12984,6 +12991,7 @@ async function unpublishPostToPrivateSeries(postId) {
 window.unpublishPostToPrivateSeries = unpublishPostToPrivateSeries;
 
 let activeCuratorFilter = null;
+let activeCuratorSeriesFilter = 'all';
 
 function handleCreatorInfoClick(event, handle) {
   if (event) event.stopPropagation();
@@ -12994,35 +13002,194 @@ function handleCreatorInfoClick(event, handle) {
     openAuthModal(`Sign in to explore all opinions and slants by @${clean}.`);
     return;
   }
-  filterByCurator(clean);
+  filterByCurator(clean, 'all');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function filterFeedByCurator(curatorIdentifier) {
   if (!curatorIdentifier) return;
-  filterByCurator(curatorIdentifier);
+  filterByCurator(curatorIdentifier, 'all');
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-function filterByCurator(curatorName) {
+function selectCuratorProfileSeries(curatorName, seriesId) {
+  filterByCurator(curatorName, seriesId || 'all');
+}
+window.selectCuratorProfileSeries = selectCuratorProfileSeries;
+
+function exitCuratorProfileView() {
+  activeCuratorFilter = null;
+  activeCuratorSeriesFilter = 'all';
+  selectCategory('all');
+}
+window.exitCuratorProfileView = exitCuratorProfileView;
+
+function filterByCurator(curatorName, selectedSeriesId = 'all') {
   if (!curatorName) return;
   const clean = String(curatorName).replace(/^@/, '').toLowerCase().trim();
   activeCuratorFilter = clean;
+  activeCuratorSeriesFilter = String(selectedSeriesId || 'all');
 
   const targetPosts = (typeof allStories !== 'undefined' && allStories && allStories.length > 0) ? allStories : (typeof allPosts !== 'undefined' ? allPosts : []);
   if (targetPosts && targetPosts.length > 0) {
     const matched = targetPosts.filter(p => {
+      if (!p || p.deleted || p.isDeleted || deletedPostIds.has(p.id) || isLoginShowcaseOnlyPost(p)) return false;
+      if (isPostChronicleDiary(p)) return false;
+      const isOwnedByMe = isPostOwnedByCurrentUser(p);
+      if (isPostPrivateOrDraft(p) && !isOwnedByMe) return false;
       const author = (p.creatorHandle || '').toLowerCase().replace(/^@/, '').trim();
       const email = (p.userEmail || '').toLowerCase().trim();
       return author === clean || author.includes(clean) || email === clean || email.includes(clean);
     });
 
     if (matched.length > 0) {
-      currentBatchFilteredPosts = matched;
+      // Extract all shared Series belonging to this curator
+      const seriesMap = new Map();
+      matched.forEach(p => {
+        if (isPostPrivateOrDraft(p)) return; // Only show published/shared posts in profile series
+        const sInfo = getPostSeriesInfo(p);
+        if (!sInfo || !sInfo.title) return;
+        const key = sInfo.id || ('series_' + sInfo.title.toLowerCase().replace(/[^a-z0-9]+/g, '_'));
+        const img = p.illustrationBase64 || p.illustrationUrl || p.aiIllustrationUrl || '';
+        const ts = p.createdAt ? new Date(p.createdAt).getTime() : 0;
+        const existing = seriesMap.get(key);
+        if (!existing) {
+          seriesMap.set(key, {
+            id: key,
+            title: sInfo.title,
+            description: sInfo.description || String(p.seriesDescription || p.generationInputs?.seriesDescription || '').trim(),
+            customCoverImage: sInfo.customCoverImage || String(p.seriesCoverImage || p.generationInputs?.seriesCoverImage || '').trim(),
+            coverImage: img,
+            latestTs: ts,
+            icon: sInfo.icon || '📚',
+            count: 1
+          });
+        } else {
+          existing.count += 1;
+          if (!existing.description && (sInfo.description || p.seriesDescription || p.generationInputs?.seriesDescription)) {
+            existing.description = sInfo.description || String(p.seriesDescription || p.generationInputs?.seriesDescription || '').trim();
+          }
+          if (!existing.customCoverImage && (sInfo.customCoverImage || p.seriesCoverImage || p.generationInputs?.seriesCoverImage)) {
+            existing.customCoverImage = sInfo.customCoverImage || String(p.seriesCoverImage || p.generationInputs?.seriesCoverImage || '').trim();
+          }
+          if ((!existing.coverImage && img) || (img && ts >= existing.latestTs)) {
+            existing.coverImage = img;
+            existing.latestTs = ts;
+          }
+        }
+      });
+
+      const sharedSeriesList = Array.from(seriesMap.values());
+      const displayHandle = String(matched[0].creatorHandle || curatorName).replace(/^@/, '').trim();
+      const avatarInitial = (displayHandle.charAt(0) || 'S').toUpperCase();
+      const firstCoverPost = matched.find(p => p.illustrationBase64 || p.illustrationUrl || p.aiIllustrationUrl) || {};
+      const allProfileCover = firstCoverPost.illustrationBase64 || firstCoverPost.illustrationUrl || firstCoverPost.aiIllustrationUrl || '';
+
+      const activeSeriesObj = (activeCuratorSeriesFilter && activeCuratorSeriesFilter !== 'all')
+        ? sharedSeriesList.find(s => s.id === activeCuratorSeriesFilter)
+        : null;
+
+      const visiblePosts = activeSeriesObj
+        ? matched.filter(p => {
+            const sInfo = getPostSeriesInfo(p);
+            return sInfo && sInfo.id === activeSeriesObj.id;
+          })
+        : matched;
+
+      currentBatchFilteredPosts = visiblePosts;
       currentRenderedBatch = 0;
       const container = document.getElementById('feedContainer');
-      if (container) container.innerHTML = '';
-      renderBatchCards(matched.slice(0, FEED_BATCH_SIZE), 0);
-      showTemporaryToast(`✨ Showing opinions by @${clean}`);
+      if (container) {
+        container.innerHTML = '';
+
+        const profileWrap = document.createElement('div');
+        profileWrap.className = 'curator-profile-feed-header';
+
+        const seriesShelfHtml = sharedSeriesList.length > 0 ? `
+          <div class="curator-profile-series-section">
+            <div class="curator-profile-series-label">📚 Series Shared by @${escapeHtml(displayHandle)} (${sharedSeriesList.length})</div>
+            <div class="series-poster-thumbnails-strip" role="region" aria-label="Curator Shared Series">
+              <button type="button" class="series-poster-thumb-card is-all-card ${!activeSeriesObj ? 'active' : ''}" onclick="selectCuratorProfileSeries('${escapeHtml(displayHandle)}', 'all')">
+                ${allProfileCover
+                  ? `<img src="${escapeHtml(allProfileCover)}" class="series-poster-thumb-img" alt="" loading="lazy">`
+                  : `<div class="series-poster-thumb-fallback is-all-fallback"></div>`}
+                <div class="series-poster-thumb-scrim-top">
+                  <span class="series-poster-thumb-icon">✨</span>
+                  <span class="series-poster-thumb-count">${matched.length}</span>
+                </div>
+                <div class="series-poster-thumb-scrim-bottom">
+                  <div class="series-poster-thumb-kicker">PROFILE</div>
+                  <div class="series-poster-thumb-title">All Slants</div>
+                  <div class="series-poster-thumb-sub">${matched.length} ${matched.length === 1 ? 'story' : 'stories'}</div>
+                </div>
+              </button>
+              ${sharedSeriesList.map((s, idx) => {
+                const isAct = activeSeriesObj && activeSeriesObj.id === s.id;
+                const resolvedCover = s.customCoverImage || s.coverImage || '';
+                const subText = s.description ? s.description : `${s.count} ${s.count === 1 ? 'story' : 'stories'}`;
+                return `
+                  <button type="button" class="series-poster-thumb-card ${isAct ? 'active' : ''}" onclick="selectCuratorProfileSeries('${escapeHtml(displayHandle)}', '${escapeHtml(s.id)}')">
+                    ${resolvedCover
+                      ? `<img src="${escapeHtml(resolvedCover)}" class="series-poster-thumb-img" alt="" loading="lazy">`
+                      : `<div class="series-poster-thumb-fallback palette-${idx % 4}"></div>`}
+                    <div class="series-poster-thumb-scrim-top">
+                      <span class="series-poster-thumb-icon">${escapeHtml(s.icon || '📚')}</span>
+                      <span class="series-poster-thumb-count">${s.count}</span>
+                    </div>
+                    <div class="series-poster-thumb-scrim-bottom">
+                      <div class="series-poster-thumb-kicker">SERIES</div>
+                      <div class="series-poster-thumb-title">${escapeHtml(s.title)}</div>
+                      <div class="series-poster-thumb-sub">${escapeHtml(subText)}</div>
+                    </div>
+                  </button>
+                `;
+              }).join('')}
+            </div>
+            ${activeSeriesObj ? `
+              <div class="series-active-notebook-banner" style="margin-top:4px;">
+                <div class="series-studio-top-row">
+                  <div class="series-notebook-cover-box" style="cursor:default;">
+                    ${(activeSeriesObj.customCoverImage || activeSeriesObj.coverImage)
+                      ? `<img src="${escapeHtml(activeSeriesObj.customCoverImage || activeSeriesObj.coverImage)}" class="series-notebook-cover-img" alt="">`
+                      : `<div class="series-notebook-cover-fallback"><span>📚</span></div>`}
+                  </div>
+                  <div class="series-studio-header-and-title-col">
+                    <div class="series-notebook-top">
+                      <span class="series-notebook-kicker">📚 SERIES BY @${escapeHtml(displayHandle.toUpperCase())}</span>
+                      <span class="series-stat-pill is-public">🌐 ${activeSeriesObj.count} ${activeSeriesObj.count === 1 ? 'Post' : 'Posts'}</span>
+                    </div>
+                    <h4 class="series-notebook-title">${escapeHtml(activeSeriesObj.title)}</h4>
+                  </div>
+                </div>
+                ${activeSeriesObj.description ? `
+                  <div class="series-notebook-desc-wrap">
+                    <p class="series-notebook-desc-text" style="cursor:default;">${escapeHtml(activeSeriesObj.description)}</p>
+                  </div>
+                ` : ''}
+              </div>
+            ` : ''}
+          </div>
+        ` : '';
+
+        profileWrap.innerHTML = `
+          <div class="curator-profile-top-bar">
+            <div class="curator-profile-identity">
+              <div class="creator-avatar">
+                <div class="avatar-inner">${escapeHtml(avatarInitial)}</div>
+              </div>
+              <div class="curator-profile-titles">
+                <div class="curator-profile-handle">@${escapeHtml(displayHandle)}</div>
+                <div class="curator-profile-meta">${matched.length} ${matched.length === 1 ? 'Slant' : 'Slants'}${sharedSeriesList.length > 0 ? ` • ${sharedSeriesList.length} Series` : ''}</div>
+              </div>
+            </div>
+            <button type="button" class="curator-profile-close-btn" onclick="exitCuratorProfileView()">✕ All Stories</button>
+          </div>
+          ${seriesShelfHtml}
+        `;
+        container.appendChild(profileWrap);
+      }
+
+      renderBatchCards(visiblePosts.slice(0, FEED_BATCH_SIZE), 0);
       return;
     }
   }
