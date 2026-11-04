@@ -17334,27 +17334,26 @@ function resolvePostConvictionScore(post) {
     || ''
   ).trim();
   const rawSummary = String(post.summary || post.broadsheetObservation || '').trim();
-  const combinedWords = `${rawTake} ${rawSpark} ${rawSummary}`.trim().split(/\s+/).filter(Boolean).length;
-  const takeWords = `${rawTake} ${rawSpark}`.trim().split(/\s+/).filter(Boolean).length;
+  const primaryText = (rawTake.length >= 25 ? `${rawTake} ${rawSpark}` : `${rawTake} ${rawSpark} ${rawSummary}`).trim();
+  const words = primaryText.split(/\s+/).filter(Boolean).length;
+  const clauses = primaryText
+    .split(/(?:[.!?;—\n]+|,\s+(?:and|but|because|while|when|where|so|yet|which|that)\b)/i)
+    .map(s => s.trim())
+    .filter(s => s.length >= 8);
 
-  let est = 74;
-  if (takeWords >= 55 || combinedWords >= 145) {
-    est = 92;
-  } else if (takeWords >= 42 || combinedWords >= 115) {
-    est = 86;
-  } else if (takeWords >= 30 || combinedWords >= 85) {
-    est = 81;
-  } else {
-    est = 75;
-  }
-  const idStr = String(post.id || post.adaptedHeadline || '');
-  let hash = 0;
-  for (let i = 0; i < idStr.length; i++) {
-    hash = ((hash << 5) - hash) + idStr.charCodeAt(i);
-    hash |= 0;
-  }
-  const jitter = Math.abs(hash) % 5;
-  return Math.max(72, Math.min(98, est + jitter));
+  const momentRegex = /\b(when|while|today|yesterday|recently|morning|evening|night|saw|watched|read|reading|heard|listening|noticed|remember|walked|walking|sat|sitting|met|talked|built|building|working|years ago|growing up|once|moment|scene|photo|video|article|book|story|experience|day|week|child|kid|son|daughter|family|friend|home|office|street|market|shop|temple|school)\b/i;
+  const whyRegex = /\b(because|matters|realize|realized|shift|shifted|changed|changes|shows|reveals|reminds|taught|teaches|problem|truth is|reality|underneath|deeper|reason|impact|cost|value|meaning|important|lesson|instead of|rather than|beyond|difference|makes us|makes me|why)\b/i;
+  const convictionRegex = /\b(must|should|need to|believe|stand|claim|choose|choosing|never|always|future|forward|life|principle|conviction|commit|promise|worth|deserve|deserves|let us|we have to|i will|we can|real power|true|freedom|peace|dignity|respect|craft|honest|human)\b/i;
+
+  const hasMoment = momentRegex.test(primaryText);
+  const hasWhy = whyRegex.test(primaryText);
+  const hasConv = convictionRegex.test(primaryText);
+  const beats = (hasMoment ? 1 : 0) + (hasWhy ? 1 : 0) + (hasConv ? 1 : 0);
+
+  const beatPts = beats === 3 ? 44 : (beats === 2 ? 36 : 28);
+  const wordPts = Math.min(44, Math.round((Math.min(words, 75) / 75) * 44));
+  const clausePts = Math.min(10, clauses.length * 2);
+  return Math.max(71, Math.min(98, beatPts + wordPts + clausePts));
 }
 
 function computeCuratorRollingConvictionProfile(curatorHandleOrPosts, candidateScore = null) {
@@ -17370,6 +17369,7 @@ function computeCuratorRollingConvictionProfile(curatorHandleOrPosts, candidateS
       postsList = sourcePool.filter(p => {
         if (!p || p.deleted || p.isDeleted || deletedPostIds.has(p.id) || isLoginShowcaseOnlyPost(p)) return false;
         if (isPostChronicleDiary(p) || isPostPrivateOrDraft(p)) return false;
+        if (!(p.adaptedHeadline || p.originalHeadline || p.sourceHeadline)) return false;
         const h = String(p.creatorHandle || '').replace(/^@/, '').toLowerCase().trim();
         const em = String(p.userEmail || '').toLowerCase().trim();
         return h === cleanHandle || h.includes(cleanHandle) || (em && (em === cleanHandle || em.split('@')[0] === cleanHandle));
@@ -17378,13 +17378,14 @@ function computeCuratorRollingConvictionProfile(curatorHandleOrPosts, candidateS
       postsList = sourcePool.filter(p => {
         if (!p || p.deleted || p.isDeleted || deletedPostIds.has(p.id) || isLoginShowcaseOnlyPost(p)) return false;
         if (isPostChronicleDiary(p) || isPostPrivateOrDraft(p)) return false;
+        if (!(p.adaptedHeadline || p.originalHeadline || p.sourceHeadline)) return false;
         return isPostOwnedByCurrentUser(p);
       });
     }
   }
 
   const publishedSorted = postsList
-    .filter(p => p && !isPostChronicleDiary(p) && !isPostPrivateOrDraft(p))
+    .filter(p => p && !isPostChronicleDiary(p) && !isPostPrivateOrDraft(p) && Boolean(p.adaptedHeadline || p.originalHeadline || p.sourceHeadline))
     .slice()
     .sort((a, b) => {
       const tA = new Date(a.createdAt || a.created_at || a.date || 0).getTime() || 0;
