@@ -7277,7 +7277,10 @@ function renderDailyChroniclesPrivateBanner(container, count = 0) {
         <span style="font-size:15px;">🔒</span>
         <span style="font-size:12px; font-weight:800; color:var(--text-primary); letter-spacing:0.2px;">Only Visible to You &bull; Encrypted Private Diary</span>
       </div>
-      <span style="font-size:10.5px; font-weight:700; color:#059669; background:rgba(16,185,129,0.14); padding:2px 8px; border-radius:99px;">Latest &rarr; Oldest (${count})</span>
+      <div style="display:inline-flex; align-items:center; gap:6px;">
+        <span style="font-size:10.5px; font-weight:700; color:#059669; background:rgba(16,185,129,0.14); padding:2px 8px; border-radius:99px;">Latest &rarr; Oldest (${count})</span>
+        <button type="button" onclick="selectCategory('all')" style="padding:3px 9px; border-radius:99px; border:1px solid rgba(15,23,42,0.18); background:var(--bg-surface, #FFFFFF); color:var(--text-primary); font-size:11px; font-weight:800; cursor:pointer; display:inline-flex; align-items:center; gap:4px;" title="Close Diary View and return to All Stories">✕ Close</button>
+      </div>
     </div>
     <div style="font-size:12px; line-height:1.45; color:var(--text-secondary);">
       Your Daily Chronicles are end-to-end encrypted and strictly private to you &mdash; they never appear in the public feed.
@@ -16163,11 +16166,12 @@ async function polishUserTake() {
     return;
   }
 
-  // Set loading state on button
-  const originalBtnHtml = btn ? btn.innerHTML : `<span class="btn-spark-icon">✨</span><span class="btn-text">Review &amp; Polish</span>`;
+  // Set loading state on button without changing text width so neighboring visual toggle never shifts
   if (btn) {
     btn.disabled = true;
-    btn.innerHTML = `<span class="btn-spark-icon spinning">⏳</span> Reviewing &amp; Polishing...`;
+    btn.classList.remove('needs-review-glow');
+    btn.classList.add('is-polishing');
+    btn.innerHTML = `<span class="polish-glow-spinner" id="slantPolishBtnIcon" aria-hidden="true"></span><span class="btn-text" id="slantPolishBtnText">Review &amp; Polish</span>`;
   }
 
   const isChronicle = (creatorSelectedSource === 'inner_voice' && typeof isDailyChronicleMode !== 'undefined' && isDailyChronicleMode);
@@ -16389,7 +16393,11 @@ async function polishUserTake() {
   } finally {
     if (btn) {
       btn.disabled = false;
-      btn.innerHTML = originalBtnHtml;
+      btn.classList.remove('is-polishing');
+      btn.innerHTML = `<span class="btn-spark-icon" id="slantPolishBtnIcon">✨</span><span class="btn-text" id="slantPolishBtnText">Review &amp; Polish</span>`;
+    }
+    if (typeof updateLivePerspectiveDepthUI === 'function') {
+      updateLivePerspectiveDepthUI(false);
     }
   }
 }
@@ -16617,6 +16625,15 @@ function updateLivePerspectiveDepthUI(highlightMissing = false) {
   if (synthBtn) {
     synthBtn.classList.toggle('is-depth-locked', !depth.isReady);
     synthBtn.classList.toggle('is-depth-unlocked', depth.isReady);
+  }
+
+  // Subtly glow "Review & Polish" once user starts writing their perspective until it is reviewed
+  const polishBtn = document.getElementById('slantPolishActionBtn');
+  if (polishBtn) {
+    const hasPerspectiveText = depth.wordCount >= 4 || rawText.trim().length >= 18;
+    const shouldGlowForReview = hasPerspectiveText && !depth.isVerifiedByPolish && !polishBtn.classList.contains('is-polishing');
+    polishBtn.classList.toggle('needs-review-glow', shouldGlowForReview);
+    polishBtn.classList.toggle('is-review-complete', Boolean(depth.isVerifiedByPolish));
   }
 
   const setBeatPill = (pillId, checkId, isMet, key) => {
@@ -17389,7 +17406,7 @@ function computeDiaryDisciplineStage(dateMap) {
 function openChronicleStudioFromDiary() {
   closeDiaryCalendarModal();
   if (typeof openCreatorModal === 'function') {
-    openCreatorModal();
+    openCreatorModal('diary_chronicle');
     setTimeout(() => {
       if (typeof setAnchorMode === 'function') {
         setAnchorMode('diary_chronicle');
@@ -17399,11 +17416,11 @@ function openChronicleStudioFromDiary() {
       if (typeof setInnerVoiceSubmode === 'function') {
         setInnerVoiceSubmode('chronicle');
       }
-      const deckWrap = document.getElementById('dailyChronicleDeckWrap');
-      if (deckWrap) {
-        deckWrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const modalCard = document.querySelector('#creatorModal .creator-modal-card');
+      if (modalCard) {
+        modalCard.scrollTop = 0;
       }
-      const firstMomentInput = document.querySelector('#chronicleMomentsCardsList .chronicle-moment-textarea');
+      const firstMomentInput = document.querySelector('#dailyChronicleCardsList .chronicle-moment-textarea, #chronicleMomentsCardsList .chronicle-moment-textarea');
       if (firstMomentInput) {
         firstMomentInput.focus({ preventScroll: true });
       }
@@ -17427,11 +17444,18 @@ function syncDrawerDiaryCounts() {
   }
 }
 
+function handleDiaryCalendarKeydown(e) {
+  if (e && e.key === 'Escape') {
+    closeDiaryCalendarModal();
+  }
+}
+
 function openDiaryCalendarModal() {
   const modal = document.getElementById('diaryCalendarModal');
   const overlay = document.getElementById('diaryCalendarModalOverlay');
   if (modal) modal.style.display = 'flex';
   if (overlay) overlay.style.display = 'block';
+  document.addEventListener('keydown', handleDiaryCalendarKeydown);
 
   const dateMap = getDiaryChroniclesByDateMap();
   if (!diaryCalendarState.initialized || !diaryCalendarState.selectedDateKey || !dateMap.has(diaryCalendarState.selectedDateKey)) {
@@ -17461,7 +17485,10 @@ function closeDiaryCalendarModal() {
   const overlay = document.getElementById('diaryCalendarModalOverlay');
   if (modal) modal.style.display = 'none';
   if (overlay) overlay.style.display = 'none';
+  document.removeEventListener('keydown', handleDiaryCalendarKeydown);
 }
+window.openDiaryCalendarModal = openDiaryCalendarModal;
+window.closeDiaryCalendarModal = closeDiaryCalendarModal;
 
 function changeDiaryCalendarMonth(delta) {
   let nextMonth = diaryCalendarState.month + delta;
@@ -17879,6 +17906,13 @@ function renderDiaryCalendarModal() {
     </div>
 
     ${previewHtml}
+
+    <div style="display:flex; justify-content:center; padding-top:4px;">
+      <button type="button" onclick="closeDiaryCalendarModal()" style="padding:7px 18px; border-radius:99px; border:1px solid var(--border-subtle, rgba(148,163,184,0.35)); background:var(--bg-surface, #FFFFFF); color:var(--text-primary); font-size:12px; font-weight:800; cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+        <span>✕</span>
+        <span>Close Diary</span>
+      </button>
+    </div>
   `;
 
   root.scrollTop = prevModalScrollTop;
@@ -20929,7 +20963,7 @@ function syncInnerVoiceSubmodeUI() {
   const guideCard = document.getElementById('slantStructureGuideCard');
   const allowCommentsRow1 = document.getElementById('creatorAllowCommentsRow');
   const allowCommentsRow3 = document.getElementById('step3AllowCommentsRow');
-  if (allowCommentsRow1) allowCommentsRow1.style.display = isDailyChronicleMode ? 'none' : 'flex';
+  if (allowCommentsRow1) allowCommentsRow1.style.display = 'none';
   if (allowCommentsRow3) allowCommentsRow3.style.display = isDailyChronicleMode ? 'none' : 'flex';
   const seriesRow1 = document.getElementById('creatorSeriesRow');
   const seriesRow3 = document.getElementById('step3SeriesRow');
@@ -22988,23 +23022,13 @@ function slideAndGlowCreatorPromptField(explicitMode = null, options = {}) {
   }
 
   if (scrollTargetCard) {
-    const modalRect = modalCard.getBoundingClientRect();
-    const targetRect = scrollTargetCard.getBoundingClientRect();
-    const desiredScrollTop = Math.max(0, Math.round(modalCard.scrollTop + (targetRect.top - modalRect.top) - 10));
-
-    // Guarantee sufficient bottom scroll cushion so the prompt section can always slide to the top of the modal
+    // Keep modal scrolled to top (0) so the modal header and its close (×) button always remain visible
     const spacer = step1.querySelector('.creator-scroll-spacer');
     if (spacer) {
-      spacer.style.height = '24px';
-      const maxScrollNow = Math.max(0, modalCard.scrollHeight - modalCard.clientHeight);
-      if (desiredScrollTop > maxScrollNow) {
-        const extraRunway = (desiredScrollTop - maxScrollNow) + 32;
-        spacer.style.height = `${24 + extraRunway}px`;
-      }
+      spacer.style.height = '16px';
     }
-
     modalCard.scrollTo({
-      top: desiredScrollTop,
+      top: 0,
       behavior: 'smooth'
     });
   }
@@ -23299,7 +23323,7 @@ function setAnchorMode(mode, explicitSparkType = null) {
 
   const allowCommentsRow1 = document.getElementById('creatorAllowCommentsRow');
   const allowCommentsRow3 = document.getElementById('step3AllowCommentsRow');
-  if (allowCommentsRow1) allowCommentsRow1.style.display = isDiaryCategory ? 'none' : 'flex';
+  if (allowCommentsRow1) allowCommentsRow1.style.display = 'none';
   if (allowCommentsRow3) allowCommentsRow3.style.display = isDiaryCategory ? 'none' : 'flex';
   const seriesRow1 = document.getElementById('creatorSeriesRow');
   const seriesRow3 = document.getElementById('step3SeriesRow');

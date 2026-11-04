@@ -29,7 +29,7 @@
   <link rel="preconnect" href="https://fxfklefnkpmhofncqhfh.supabase.co" crossorigin>
   <link rel="preconnect" href="https://accounts.google.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Merriweather:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,400;1,600;1,700;1,900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261104_0840">
+  <link rel="stylesheet" href="style.css?v=20261104_1855">
   <!-- Favicon & Brand Icons -->
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
@@ -707,11 +707,11 @@
             <span class="slant-take-hint" id="slantAutosaveStatus" style="font-size: 10.5px;">✓ Auto-saves</span>
           </div>
 
-          <div class="slant-take-action-bar" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: nowrap; gap: 8px; margin-top: 0;">
-            <div class="slant-take-action-btns" style="flex-shrink: 0;">
-              <button type="button" class="slant-polish-action-btn" id="slantPolishActionBtn" onclick="polishUserTake()" style="white-space: nowrap;">
-                <span class="btn-spark-icon">✨</span>
-                <span class="btn-text">Review &amp; Polish</span>
+          <div class="slant-take-action-bar">
+            <div class="slant-take-action-btns">
+              <button type="button" class="slant-polish-action-btn" id="slantPolishActionBtn" onclick="polishUserTake()">
+                <span class="btn-spark-icon" id="slantPolishBtnIcon">✨</span>
+                <span class="btn-text" id="slantPolishBtnText">Review &amp; Polish</span>
               </button>
               <button type="button" class="slant-save-draft-btn" id="slantSaveDraftBtn" onclick="saveCreatorFormDraft(true)" style="display: none !important;" title="Save your written thought to Drafts to continue later">
                 <span class="btn-draft-icon">📝</span>
@@ -719,11 +719,11 @@
               </button>
             </div>
 
-            <!-- Compact Scope Toggle beside Review & Polish (No Extra Outer Border Frame) -->
-            <div class="creator-regen-scope-bar is-locked-fresh" id="creatorRegenScopeBar" style="margin: 0; padding: 0; border-radius: 0; display: inline-flex; align-items: center; gap: 6px; width: auto; flex-shrink: 0; background: transparent; border: none; box-shadow: none;">
+            <!-- Equal-Sized Visual / Text Scope Toggle beside Review & Polish -->
+            <div class="creator-regen-scope-bar is-locked-fresh" id="creatorRegenScopeBar">
               <span id="regenScopeModeLabel" style="display: none;"></span>
               <span id="regenScopeStatusHint" style="display: none;"></span>
-              <div class="regen-scope-track" id="regenScopeTrack" data-scope="both" role="radiogroup" aria-label="Generation Scope" style="margin: 0;">
+              <div class="regen-scope-track" id="regenScopeTrack" data-scope="both" role="radiogroup" aria-label="Generation Scope">
                 <div class="regen-scope-thumb" id="regenScopeThumb"></div>
                 <button type="button" class="regen-scope-option" id="regenScopeBtnText" data-scope="text_only" onclick="setCreatorRegenScope('text_only', true)" disabled aria-label="Text Only" title="Text Only — Regenerate text across slides and keep current poster artwork">
                   <span class="scope-opt-icon">📝</span>
@@ -1072,8 +1072,8 @@
             </div>
           </div>
 
-          <!-- Post Comment Permission Toggle (Compact single-line) -->
-          <div id="creatorAllowCommentsRow" style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 12px; margin-bottom: 10px; border-radius: 11px; background: var(--bg-surface, #F8FAFC); border: 1px solid var(--border-subtle, rgba(148,163,184,0.3));">
+          <!-- Post Comment Permission Toggle (Removed from Step 1 Creation Deck; shown only in Step 3 Preview Deck before publishing/saving) -->
+          <div id="creatorAllowCommentsRow" style="display: none !important;">
             <div style="display: flex; align-items: center; gap: 6px;">
               <span style="font-size: 13.5px;">💬</span>
               <span style="font-size: 11.2px; font-weight: 800; color: var(--text-primary);">Accept Comments</span>
@@ -2478,17 +2478,17 @@
   <div class="diary-calendar-modal-overlay" id="diaryCalendarModalOverlay" onclick="closeDiaryCalendarModal()" style="display: none;"></div>
   <div class="diary-calendar-modal" id="diaryCalendarModal" style="display: none;" role="dialog" aria-modal="true">
     <div class="diary-calendar-modal-header">
-      <div class="diary-calendar-title-wrap">
-        <span class="diary-calendar-icon">📔</span>
-        <div class="diary-calendar-title">Diary — Daily Chronicles</div>
-        <span style="display:inline-flex; align-items:center; gap:4px; padding:2px 8px; margin-left:6px; border-radius:99px; background:rgba(16,185,129,0.12); border:1px solid rgba(16,185,129,0.32); color:#34D399; font-size:10px; font-weight:800; white-space:nowrap;" title="Encrypted in your browser with AES-256-GCM — readable only by you">🔒 Encrypted</span>
+      <div class="diary-calendar-title-wrap" style="min-width: 0; flex: 1; overflow: hidden;">
+        <span class="diary-calendar-icon" style="flex-shrink: 0;">📔</span>
+        <div class="diary-calendar-title" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Daily Chronicles</div>
+        <span style="display:inline-flex; align-items:center; gap:3px; padding:2px 7px; border-radius:99px; background:rgba(16,185,129,0.12); border:1px solid rgba(16,185,129,0.32); color:#34D399; font-size:9.5px; font-weight:800; white-space:nowrap; flex-shrink:0;" title="Encrypted in your browser with AES-256-GCM — readable only by you">🔒 E2EE</span>
       </div>
-      <div style="display:inline-flex; align-items:center; gap:8px;">
-        <button type="button" onclick="openChronicleStudioFromDiary()" style="padding:6px 12px; border-radius:99px; border:none; background:#253833; color:#FFFFFF; font-size:11.5px; font-weight:800; cursor:pointer; display:inline-flex; align-items:center; gap:5px; white-space:nowrap;" title="Pen today's 2–3 daily moments">
+      <div style="display:inline-flex; align-items:center; gap:6px; flex-shrink: 0;">
+        <button type="button" onclick="openChronicleStudioFromDiary()" style="padding:6px 11px; border-radius:99px; border:none; background:#253833; color:#FFFFFF; font-size:11px; font-weight:800; cursor:pointer; display:inline-flex; align-items:center; gap:4px; white-space:nowrap;" title="Pen today's 2–3 daily moments">
           <span>＋</span>
           <span>Pen Today</span>
         </button>
-        <button type="button" class="diary-calendar-close-btn" onclick="closeDiaryCalendarModal()" aria-label="Close Diary Calendar">&times;</button>
+        <button type="button" class="diary-calendar-close-btn" onclick="closeDiaryCalendarModal(event)" aria-label="Close Diary Calendar" title="Close Diary">✕ Close</button>
       </div>
     </div>
 
@@ -2807,6 +2807,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261104_0840"></script>
+  <script src="app.js?v=20261104_1855"></script>
 </body>
 </html>

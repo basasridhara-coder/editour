@@ -28228,6 +28228,188 @@ mark.polish-mark:hover, mark.polish-mark.active {
   color: #6EE7B7;
 }
 
+/* ============================================================
+   EQUAL-SIZE REVIEW & POLISH + VISUAL SCOPE TOGGLE BAR,
+   SUBTLE REVIEW GLOW, IN-PLACE ROTATING SPINNER & STICKY HEADERS
+   ============================================================ */
+
+.creator-modal-header {
+  position: sticky;
+  top: -22px;
+  z-index: 30;
+  background: var(--bg-surface, #FAF8F5);
+  padding-top: 6px;
+}
+
+@media (max-width: 640px) {
+  .creator-modal-header {
+    top: -16px;
+  }
+}
+
+.diary-calendar-close-btn {
+  width: auto !important;
+  min-width: 32px;
+  height: 30px;
+  padding: 0 11px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.slant-take-action-bar {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+  margin-top: 8px;
+  box-sizing: border-box;
+}
+
+.slant-take-action-btns {
+  display: flex !important;
+  width: 100% !important;
+  min-width: 0;
+  margin: 0;
+}
+
+#slantPolishActionBtn.slant-polish-action-btn {
+  width: 100% !important;
+  min-width: 0;
+  height: 40px;
+  min-height: 40px;
+  max-height: 40px;
+  padding: 0 10px;
+  border-radius: 11px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-sizing: border-box;
+  position: relative;
+  transition: box-shadow 0.25s ease, border-color 0.25s ease, background 0.2s ease, transform 0.18s ease;
+}
+
+#slantPolishActionBtn.slant-polish-action-btn .btn-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Subtle breathing glow after user enters perspective to remind them to Review & Polish */
+@keyframes slantReviewSubtleGlow {
+  0%, 100% {
+    box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.35), 0 3px 12px rgba(37, 56, 51, 0.22), 0 0 14px rgba(16, 185, 129, 0.24);
+    border-color: rgba(16, 185, 129, 0.65);
+  }
+  50% {
+    box-shadow: 0 0 0 2.5px rgba(16, 185, 129, 0.55), 0 5px 18px rgba(16, 185, 129, 0.38), 0 0 22px rgba(52, 211, 153, 0.42);
+    border-color: #10B981;
+  }
+}
+
+#slantPolishActionBtn.slant-polish-action-btn.needs-review-glow {
+  animation: slantReviewSubtleGlow 2.4s ease-in-out infinite;
+}
+
+/* Small progressive glowing rotating circle inside Review & Polish button while in progress */
+@keyframes polishCircleSpin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.polish-glow-spinner {
+  width: 15px;
+  height: 15px;
+  min-width: 15px;
+  min-height: 15px;
+  border-radius: 50%;
+  border: 2.2px solid rgba(255, 255, 255, 0.24);
+  border-top-color: #34D399;
+  border-right-color: #60A5FA;
+  box-shadow: 0 0 8px rgba(52, 211, 153, 0.65);
+  display: inline-block;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  animation: polishCircleSpin 0.78s linear infinite;
+}
+
+#slantPolishActionBtn.slant-polish-action-btn.is-polishing {
+  opacity: 0.96 !important;
+  transform: none !important;
+  box-shadow: 0 0 0 1.5px rgba(52, 211, 153, 0.5), 0 0 14px rgba(52, 211, 153, 0.28);
+}
+
+#creatorRegenScopeBar.creator-regen-scope-bar {
+  display: flex !important;
+  align-items: center;
+  gap: 5px;
+  width: 100% !important;
+  min-width: 0;
+  height: 40px;
+  min-height: 40px;
+  max-height: 40px;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  box-sizing: border-box;
+}
+
+#creatorRegenScopeBar .regen-scope-track {
+  flex: 1 1 auto;
+  width: 100% !important;
+  min-width: 0;
+  height: 40px !important;
+  min-height: 40px !important;
+  max-height: 40px !important;
+  border-radius: 11px;
+  padding: 3px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  align-items: center;
+  box-sizing: border-box;
+}
+
+#creatorRegenScopeBar .regen-scope-thumb {
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  width: calc((100% - 6px) / 3) !important;
+  border-radius: 8px;
+}
+
+#creatorRegenScopeBar .regen-scope-track[data-scope="text_only"] .regen-scope-thumb {
+  transform: translateX(0%) !important;
+}
+
+#creatorRegenScopeBar .regen-scope-track[data-scope="both"] .regen-scope-thumb {
+  transform: translateX(100%) !important;
+}
+
+#creatorRegenScopeBar .regen-scope-track[data-scope="visuals_only"] .regen-scope-thumb {
+  transform: translateX(200%) !important;
+}
+
+#creatorRegenScopeBar .regen-scope-option {
+  width: 100% !important;
+  height: 32px !important;
+}
+
+
 
 
 
