@@ -484,6 +484,34 @@ function loadCreatorSeriesFromStorage() {
 }
 
 let creatorSeriesList = loadCreatorSeriesFromStorage();
+const DELETED_SERIES_STORAGE_KEY = 'slant_deleted_series_v1';
+let deletedSeriesTombstones = new Set((() => {
+  try {
+    const raw = localStorage.getItem(DELETED_SERIES_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (_) {
+    return [];
+  }
+})());
+
+function persistDeletedSeriesTombstones() {
+  try {
+    localStorage.setItem(DELETED_SERIES_STORAGE_KEY, JSON.stringify(Array.from(deletedSeriesTombstones)));
+  } catch (_) {}
+}
+
+function isSeriesTombstoned(id, title) {
+  if (id && deletedSeriesTombstones.has(String(id))) return true;
+  if (title && deletedSeriesTombstones.has('title:' + String(title).trim().toLowerCase())) return true;
+  return false;
+}
+
+function clearSeriesTombstone(id, title) {
+  let changed = false;
+  if (id && deletedSeriesTombstones.delete(String(id))) changed = true;
+  if (title && deletedSeriesTombstones.delete('title:' + String(title).trim().toLowerCase())) changed = true;
+  if (changed) persistDeletedSeriesTombstones();
+}
 
 function persistCreatorSeries(syncCloud = true) {
   try {
@@ -501,6 +529,7 @@ function mergeCloudCreatorSeries(cloudSeries) {
     if (!cs || typeof cs.title !== 'string' || !cs.title.trim()) return;
     const cleanTitle = cs.title.trim();
     const csId = String(cs.id || ('series_' + cleanTitle.toLowerCase().replace(/[^a-z0-9]+/g, '_')));
+    if (isSeriesTombstoned(csId, cleanTitle)) return;
     const exists = creatorSeriesList.find(s => s.id === csId || s.title.toLowerCase() === cleanTitle.toLowerCase());
     if (!exists) {
       creatorSeriesList.push({
@@ -535,6 +564,7 @@ function getPostSeriesInfo(post) {
   const sDesc = String(post.seriesDescription || post.generationInputs?.seriesDescription || '').trim();
   const sCover = String(post.seriesCoverImage || post.generationInputs?.seriesCoverImage || '').trim();
   if (!sId && !sTitle) return null;
+  if (isSeriesTombstoned(sId, sTitle)) return null;
   const matched = Array.isArray(creatorSeriesList)
     ? creatorSeriesList.find(s => (sId && s.id === sId) || (sTitle && s.title.toLowerCase() === sTitle.toLowerCase()))
     : null;
@@ -555,6 +585,7 @@ function syncSeriesFromLoadedPosts() {
     if (typeof isPostOwnedByCurrentUser === 'function' && !isPostOwnedByCurrentUser(p)) return;
     const info = getPostSeriesInfo(p);
     if (!info || !info.title) return;
+    if (isSeriesTombstoned(info.id, info.title)) return;
     const exists = creatorSeriesList.find(s => s.id === info.id || s.title.toLowerCase() === info.title.toLowerCase());
     if (!exists) {
       creatorSeriesList.push({
@@ -7383,6 +7414,7 @@ function renderSavedBucketsFilterBar(container) {
 
 let pendingNewSeriesCoverDataUrl = '';
 let editingSeriesNotebookId = null;
+let pendingDeleteSeriesConfirmId = null;
 let pendingEditSeriesCoverDataUrl = '';
 let newlyCreatedSeriesHighlightId = null;
 
@@ -7402,6 +7434,7 @@ function ensureValidActiveSeriesFilter() {
 
 function selectFeedSeriesFilter(seriesId) {
   editingSeriesNotebookId = null;
+  pendingDeleteSeriesConfirmId = null;
   activeFeedSeriesFilter = String(seriesId || '__new__');
   renderFeed();
 }
@@ -7410,6 +7443,7 @@ window.selectFeedSeriesFilter = selectFeedSeriesFilter;
 function openSeriesInFeed(seriesId) {
   if (!seriesId) return;
   editingSeriesNotebookId = null;
+  pendingDeleteSeriesConfirmId = null;
   activeFeedSeriesFilter = String(seriesId);
   currentFilter = 'series';
   document.querySelectorAll('.filter-pill').forEach(pill => {
@@ -7430,6 +7464,116 @@ function openCreatorForSeries(seriesId) {
   }
 }
 window.openCreatorForSeries = openCreatorForSeries;
+
+function promptDeleteSeriesNotebook(seriesId, showConfirm = true, event = null) {
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  pendingDeleteSeriesConfirmId = showConfirm ? seriesId : null;
+  renderFeed();
+}
+window.promptDeleteSeriesNotebook = promptDeleteSeriesNotebook;
+
+async function confirmDeleteSeriesNotebook(seriesId, event = null) {
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  const target = creatorSeriesList.find(s => s && s.id === seriesId);
+  if (!target) return;
+
+  const targetId = target.id;
+  const targetTitleLower = String(target.title || '').trim().toLowerCase();
+
+  // Record tombstone so syncSeriesFromLoadedPosts never recreates this deleted series
+  deletedSeriesTombstones.add(String(targetId));
+  if (targetTitleLower) {
+    deletedSeriesTombstones.add('title:' + targetTitleLower);
+  }
+  persistDeletedSeriesTombstones();
+
+  // Remove series from creatorSeriesList
+  creatorSeriesList = creatorSeriesList.filter(s => s && s.id !== targetId);
+  editingSeriesNotebookId = null;
+  pendingDeleteSeriesConfirmId = null;
+
+  // Unlink posts from this series WITHOUT deleting any post or changing its draft/published state
+  const affectedPosts = [];
+  if (Array.isArray(allPosts)) {
+    allPosts.forEach(p => {
+      if (!p) return;
+      const pSeriesId = String(p.seriesId || p.generationInputs?.seriesId || '').trim();
+      const pSeriesTitle = String(p.seriesTitle || p.generationInputs?.seriesTitle || '').trim().toLowerCase();
+      if (pSeriesId === targetId || (targetTitleLower && pSeriesTitle === targetTitleLower)) {
+        delete p.seriesId;
+        delete p.seriesTitle;
+        delete p.seriesDescription;
+        delete p.seriesCoverImage;
+        if (p.generationInputs) {
+          delete p.generationInputs.seriesId;
+          delete p.generationInputs.seriesTitle;
+          delete p.generationInputs.seriesDescription;
+          delete p.generationInputs.seriesCoverImage;
+        }
+        affectedPosts.push(p);
+      }
+    });
+  }
+
+  // Also unlink in localStorage user posts cache
+  try {
+    const cached = JSON.parse(localStorage.getItem('slant_user_posts_cache') || '[]');
+    if (Array.isArray(cached) && cached.length > 0) {
+      let cacheChanged = false;
+      cached.forEach(p => {
+        if (!p) return;
+        const pSeriesId = String(p.seriesId || p.generationInputs?.seriesId || '').trim();
+        const pSeriesTitle = String(p.seriesTitle || p.generationInputs?.seriesTitle || '').trim().toLowerCase();
+        if (pSeriesId === targetId || (targetTitleLower && pSeriesTitle === targetTitleLower)) {
+          delete p.seriesId;
+          delete p.seriesTitle;
+          delete p.seriesDescription;
+          delete p.seriesCoverImage;
+          if (p.generationInputs) {
+            delete p.generationInputs.seriesId;
+            delete p.generationInputs.seriesTitle;
+            delete p.generationInputs.seriesDescription;
+            delete p.generationInputs.seriesCoverImage;
+          }
+          cacheChanged = true;
+        }
+      });
+      if (cacheChanged) {
+        localStorage.setItem('slant_user_posts_cache', JSON.stringify(cached));
+      }
+    }
+  } catch (_) {}
+
+  if (activeCreatorSeriesId === targetId && typeof setCreatorSeries === 'function') {
+    setCreatorSeries(null);
+  } else if (typeof syncCreatorSeriesDropdowns === 'function') {
+    syncCreatorSeriesDropdowns();
+  }
+
+  persistCreatorSeries(true);
+  activeFeedSeriesFilter = creatorSeriesList.length > 0 ? creatorSeriesList[0].id : '__new__';
+  updateAuthUI();
+  renderFeed();
+  showTemporaryToast(`🗑️ Series "${target.title}" deleted. Your ${affectedPosts.length} ${affectedPosts.length === 1 ? 'post remains' : 'posts remain'} safe in Drafts/Feed.`);
+
+  // Persist unlinked posts in the background so the removed series tag stays removed across reloads
+  for (const post of affectedPosts) {
+    try {
+      await fetch('/api/posts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(post)
+      });
+    } catch (_) {}
+  }
+}
+window.confirmDeleteSeriesNotebook = confirmDeleteSeriesNotebook;
 
 function compressSeriesCoverFileToDataUrl(file) {
   return new Promise((resolve) => {
@@ -7589,6 +7733,7 @@ function createNewSeriesFromFeedBar(event, startSlantingImmediately = false) {
     return;
   }
 
+  clearSeriesTombstone(null, rawTitle);
   let existing = creatorSeriesList.find(s => s && s.title.toLowerCase() === rawTitle.toLowerCase());
   const coverToSave = pendingNewSeriesCoverDataUrl || '';
   if (!existing) {
@@ -7601,6 +7746,7 @@ function createNewSeriesFromFeedBar(event, startSlantingImmediately = false) {
       icon: '📚',
       createdAt: new Date().toISOString()
     };
+    clearSeriesTombstone(existing.id, existing.title);
     creatorSeriesList.unshift(existing);
   } else {
     if (rawDesc) existing.description = rawDesc;
@@ -7687,6 +7833,7 @@ function renderSeriesFilterBar(container) {
   const activeStats = activeSeriesObj ? getSeriesStats(activeSeriesObj.id) : null;
   const activeCoverUrl = activeSeriesObj ? (activeSeriesObj.customCoverImage || activeStats?.coverImage || '') : '';
   const isEditingNotebook = Boolean(activeSeriesObj && editingSeriesNotebookId === activeSeriesObj.id);
+  const isPendingDeleteConfirm = Boolean(activeSeriesObj && pendingDeleteSeriesConfirmId === activeSeriesObj.id);
   const isNewlyCreated = Boolean(activeSeriesObj && newlyCreatedSeriesHighlightId === activeSeriesObj.id);
 
   wrap.innerHTML = `
@@ -7695,11 +7842,7 @@ function renderSeriesFilterBar(container) {
     </div>
     ${isCreatingNew ? `
       <form class="series-create-studio-card" onsubmit="createNewSeriesFromFeedBar(event, false)">
-        <div class="series-create-studio-header">
-          <span class="series-notebook-kicker">✨ NEW SERIES NOTEBOOK</span>
-          <span class="series-create-studio-sub">Add a dedicated cover image, title, and brief description</span>
-        </div>
-        <div class="series-create-studio-body">
+        <div class="series-studio-top-row">
           <div class="series-cover-upload-slot" id="newSeriesCoverPreviewBox" onclick="document.getElementById('newSeriesCoverFileInput').click()" title="Tap to upload a dedicated Series cover image (4:5 poster ratio)">
             ${pendingNewSeriesCoverDataUrl
               ? `<img src="${escapeHtml(pendingNewSeriesCoverDataUrl)}" class="series-cover-upload-img" alt="Cover preview">
@@ -7708,11 +7851,15 @@ function renderSeriesFilterBar(container) {
                  <span class="series-cover-upload-label">Add Cover</span>`}
           </div>
           <input type="file" id="newSeriesCoverFileInput" accept="image/*" style="display:none;" onchange="handleNewSeriesCoverUpload(event)">
-          <div class="series-create-fields-col">
-            <input type="text" id="feedNewSeriesInput" class="series-inline-input" placeholder="Series Title (e.g. Slant steps, Rethinking AI)..." maxlength="52" autocomplete="off" required>
-            <textarea id="feedNewSeriesDescInput" class="series-inline-desc-input" rows="2" maxlength="180" placeholder="Brief description — what premise, question, or journey does this series explore?"></textarea>
+          <div class="series-studio-header-and-title-col">
+            <div class="series-create-studio-header">
+              <span class="series-notebook-kicker">✨ NEW SERIES NOTEBOOK</span>
+              <span class="series-create-studio-sub">Tap cover on left to add artwork</span>
+            </div>
+            <input type="text" id="feedNewSeriesInput" class="series-inline-input is-title-input" placeholder="Series Title (e.g. Slant steps, Rethinking AI)..." maxlength="52" autocomplete="off" required>
           </div>
         </div>
+        <textarea id="feedNewSeriesDescInput" class="series-inline-desc-input is-full-width-desc" rows="3" maxlength="240" placeholder="Brief description — what premise, question, or journey does this series explore?"></textarea>
         <div class="series-create-studio-footer">
           <button type="submit" class="series-create-secondary-btn">Save Series</button>
           <button type="button" class="series-start-slanting-cta-btn" onclick="createNewSeriesFromFeedBar(event, true)">
@@ -7722,7 +7869,7 @@ function renderSeriesFilterBar(container) {
       </form>
     ` : (activeSeriesObj ? `
       <div class="series-active-notebook-banner ${isNewlyCreated ? 'is-newly-created' : ''}">
-        <div class="series-notebook-main-row">
+        <div class="series-studio-top-row">
           <div class="series-notebook-cover-box" onclick="triggerEditSeriesCoverUpload('${escapeHtml(activeSeriesObj.id)}', event)" title="Tap to set or change dedicated Series cover image">
             ${activeCoverUrl
               ? `<img src="${escapeHtml(activeCoverUrl)}" class="series-notebook-cover-img" alt="">`
@@ -7730,39 +7877,58 @@ function renderSeriesFilterBar(container) {
             <span class="series-notebook-cover-cam-badge" title="Change Series Cover">📷</span>
           </div>
           <input type="file" id="editSeriesCoverFileInput_${escapeHtml(activeSeriesObj.id)}" accept="image/*" style="display:none;" onchange="handleEditSeriesCoverUpload('${escapeHtml(activeSeriesObj.id)}', event)">
-          <div class="series-notebook-info-col">
+          <div class="series-studio-header-and-title-col">
             <div class="series-notebook-top">
-              <div class="series-notebook-title-wrap">
-                <span class="series-notebook-kicker">📚 SERIES NOTEBOOK</span>
-                ${!isEditingNotebook ? `<h4 class="series-notebook-title">${escapeHtml(activeSeriesObj.title)}</h4>` : ''}
-              </div>
+              <span class="series-notebook-kicker">📚 SERIES NOTEBOOK</span>
               <div class="series-notebook-stats">
                 <span class="series-stat-pill is-public" title="Published to Public Feed">🌐 ${activeStats.pubCount}</span>
                 <span class="series-stat-pill is-private" title="Private in Series (Visible Only to You)">🔒 ${activeStats.privCount}</span>
                 ${!isEditingNotebook ? `
                   <button type="button" class="series-edit-meta-btn" onclick="toggleEditSeriesNotebook('${escapeHtml(activeSeriesObj.id)}', true)" title="Edit Series title, description, or cover">✏️ Edit</button>
+                  <button type="button" class="series-delete-icon-btn" onclick="promptDeleteSeriesNotebook('${escapeHtml(activeSeriesObj.id)}', true, event)" title="Delete Series (posts remain safe in Drafts/Feed)">🗑️</button>
                 ` : ''}
               </div>
             </div>
             ${isEditingNotebook ? `
-              <div class="series-notebook-inline-editor">
-                <input type="text" id="editSeriesNotebookTitleInput" class="series-inline-input" value="${escapeHtml(activeSeriesObj.title)}" placeholder="Series Title..." maxlength="52">
-                <textarea id="editSeriesNotebookDescInput" class="series-inline-desc-input" rows="2" maxlength="180" placeholder="Add a brief description for this series...">${escapeHtml(activeSeriesObj.description || '')}</textarea>
-                <div class="series-notebook-editor-actions">
-                  <button type="button" class="series-editor-photo-btn" onclick="triggerEditSeriesCoverUpload('${escapeHtml(activeSeriesObj.id)}', event)">📷 Change Cover</button>
-                  <div style="display:inline-flex; gap:6px;">
-                    <button type="button" class="series-editor-cancel-btn" onclick="toggleEditSeriesNotebook('${escapeHtml(activeSeriesObj.id)}', false)">Cancel</button>
-                    <button type="button" class="series-editor-save-btn" onclick="saveEditedSeriesNotebook('${escapeHtml(activeSeriesObj.id)}', event)">Save</button>
-                  </div>
-                </div>
-              </div>
+              <input type="text" id="editSeriesNotebookTitleInput" class="series-inline-input is-title-input" value="${escapeHtml(activeSeriesObj.title)}" placeholder="Series Title..." maxlength="52">
             ` : `
-              ${activeSeriesObj.description
-                ? `<p class="series-notebook-desc-text" onclick="toggleEditSeriesNotebook('${escapeHtml(activeSeriesObj.id)}', true)" title="Tap to edit description">${escapeHtml(activeSeriesObj.description)}</p>`
-                : `<button type="button" class="series-add-desc-prompt-btn" onclick="toggleEditSeriesNotebook('${escapeHtml(activeSeriesObj.id)}', true)">+ Add a brief description for this series...</button>`}
+              <h4 class="series-notebook-title">${escapeHtml(activeSeriesObj.title)}</h4>
             `}
           </div>
         </div>
+
+        ${isPendingDeleteConfirm ? `
+          <div class="series-delete-confirm-box">
+            <div class="series-delete-confirm-text">
+              <strong>Delete Series "${escapeHtml(activeSeriesObj.title)}"?</strong>
+              <span>Your ${activeStats.total} ${activeStats.total === 1 ? 'post' : 'posts'} will <u>not</u> be deleted — they will stay in Drafts or Feed as they were.</span>
+            </div>
+            <div class="series-delete-confirm-actions">
+              <button type="button" class="series-editor-cancel-btn" onclick="promptDeleteSeriesNotebook('${escapeHtml(activeSeriesObj.id)}', false, event)">Keep Series</button>
+              <button type="button" class="series-delete-confirm-btn" onclick="confirmDeleteSeriesNotebook('${escapeHtml(activeSeriesObj.id)}', event)">🗑️ Delete Series Only</button>
+            </div>
+          </div>
+        ` : ''}
+
+        ${isEditingNotebook ? `
+          <div class="series-notebook-inline-editor">
+            <textarea id="editSeriesNotebookDescInput" class="series-inline-desc-input is-full-width-desc" rows="3" maxlength="240" placeholder="Add a brief description for this series...">${escapeHtml(activeSeriesObj.description || '')}</textarea>
+            <div class="series-notebook-editor-actions">
+              <button type="button" class="series-editor-delete-btn" onclick="promptDeleteSeriesNotebook('${escapeHtml(activeSeriesObj.id)}', true, event)" title="Delete this Series without deleting its posts">🗑️ Delete Series</button>
+              <div class="series-editor-right-btns">
+                <button type="button" class="series-editor-cancel-btn" onclick="toggleEditSeriesNotebook('${escapeHtml(activeSeriesObj.id)}', false)">Cancel</button>
+                <button type="button" class="series-editor-save-btn" onclick="saveEditedSeriesNotebook('${escapeHtml(activeSeriesObj.id)}', event)">Save Changes</button>
+              </div>
+            </div>
+          </div>
+        ` : `
+          <div class="series-notebook-desc-wrap">
+            ${activeSeriesObj.description
+              ? `<p class="series-notebook-desc-text" onclick="toggleEditSeriesNotebook('${escapeHtml(activeSeriesObj.id)}', true)" title="Tap to edit description">${escapeHtml(activeSeriesObj.description)}</p>`
+              : `<button type="button" class="series-add-desc-prompt-btn" onclick="toggleEditSeriesNotebook('${escapeHtml(activeSeriesObj.id)}', true)">+ Add a brief description for this series...</button>`}
+          </div>
+        `}
+
         <div class="series-notebook-actions">
           <span class="series-notebook-hint">${isNewlyCreated ? '🎉 Series ready! Start slanting your first perspective in this series:' : 'Explore thoughts in this series privately, and publish only the ones you choose.'}</span>
           <button type="button" class="series-add-post-btn" onclick="openCreatorForSeries('${escapeHtml(activeSeriesObj.id)}')">
@@ -12087,6 +12253,7 @@ function createNewCreatorSeriesInline(stepNum = 1) {
     return;
   }
 
+  clearSeriesTombstone(null, rawTitle);
   let series = creatorSeriesList.find(s => s && s.title.toLowerCase() === rawTitle.toLowerCase());
   const isNew = !series;
   if (!series) {
@@ -12097,6 +12264,7 @@ function createNewCreatorSeriesInline(stepNum = 1) {
       icon: '📚',
       createdAt: new Date().toISOString()
     };
+    clearSeriesTombstone(series.id, series.title);
     creatorSeriesList.push(series);
     persistCreatorSeries(true);
     updateAuthUI();
@@ -12768,6 +12936,7 @@ async function createAndAssignPostSeriesFromCard(event, postId, index) {
   const rawTitle = inp ? inp.value.trim() : '';
   if (!rawTitle) return;
 
+  clearSeriesTombstone(null, rawTitle);
   let series = creatorSeriesList.find(s => s && s.title.toLowerCase() === rawTitle.toLowerCase());
   if (!series) {
     const slug = rawTitle.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || ('s_' + Date.now());
@@ -12777,6 +12946,7 @@ async function createAndAssignPostSeriesFromCard(event, postId, index) {
       icon: '📚',
       createdAt: new Date().toISOString()
     };
+    clearSeriesTombstone(series.id, series.title);
     creatorSeriesList.push(series);
     persistCreatorSeries(true);
   }
