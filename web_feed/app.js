@@ -10814,8 +10814,8 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0, isForShareE
 
         ${showShareAdPanel ? `
         <div class="slant-passing-clouds-panel" style="flex: 1 1 auto; display: flex; align-items: center; justify-content: center; padding: 6px 0; width: 100%; box-sizing: border-box;">
-          <div class="slant-passing-clouds-frame" style="width: 100%; max-width: 100%; aspect-ratio: 33 / 14; border-radius: 6px; overflow: hidden; display: flex; align-items: center; justify-content: center; margin: auto; box-sizing: border-box;">
-            <img src="/slant-passing-clouds-poster.jpg" class="slant-passing-clouds-svg-img" alt="Slant — Thoughts are passing clouds" style="width: 100%; height: 100%; object-fit: contain; display: block;">
+          <div class="slant-passing-clouds-frame" style="width: 100%; max-width: 100%; aspect-ratio: 7 / 3; border-radius: 0; overflow: visible; display: flex; align-items: center; justify-content: center; margin: auto; box-sizing: border-box;">
+            <img src="/slant-complete-statement-colour-frame.svg" class="slant-passing-clouds-svg-img" alt="Slant — Every thought deserves a frame" style="width: 100%; height: 100%; object-fit: contain; display: block; opacity: 0.93;">
           </div>
         </div>
         ` : ""}
@@ -14867,7 +14867,7 @@ async function capturePostSlidesAsFiles(post, index) {
           cloudsPanelEl.style.setProperty('padding', '6px 0', 'important');
 
           const colW = 414;
-          const maxExportSvgH = Math.round(colW * (14 / 33)); // 176px
+          const maxExportSvgH = Math.round(colW * (3 / 7)); // 177px (2688x1152 = 7:3)
           const minExportSvgH = 120;
           const minRequiredExportSpace = minExportSvgH + 16;
 
@@ -14898,7 +14898,7 @@ async function capturePostSlidesAsFiles(post, index) {
           if (cloudsFrameEl) {
             const spaceLeft = Math.max(minRequiredExportSpace, getExportSpaceLeft());
             const fitSvgH = Math.max(minExportSvgH, Math.min(maxExportSvgH, spaceLeft - 16));
-            const fitSvgW = Math.min(colW, Math.round(fitSvgH * (33 / 14)));
+            const fitSvgW = Math.min(colW, Math.round(fitSvgH * (7 / 3)));
             cloudsFrameEl.style.setProperty('width', `${fitSvgW}px`, 'important');
             cloudsFrameEl.style.setProperty('height', `${fitSvgH}px`, 'important');
             cloudsFrameEl.style.setProperty('margin', 'auto', 'important');
@@ -14927,7 +14927,7 @@ async function capturePostSlidesAsFiles(post, index) {
         }
       }
 
-      // Rasterize the scalable Passing Clouds SVG at 2x Retina into a PNG data URL so html2canvas renders every vector path crisply
+      // Rasterize the scalable Passing Clouds SVG at 2x Retina into a PNG data URL with newsprint ink blending so html2canvas renders every vector path crisply
       const cloudsSvgImgs = Array.from(container.querySelectorAll('.slant-passing-clouds-svg-img'));
       for (const svgImg of cloudsSvgImgs) {
         if (svgImg.complete && svgImg.naturalWidth > 0) {
@@ -14943,6 +14943,24 @@ async function capturePostSlidesAsFiles(post, index) {
               ctx.imageSmoothingEnabled = true;
               ctx.imageSmoothingQuality = 'high';
               ctx.drawImage(svgImg, 0, 0, offC.width, offC.height);
+              try {
+                const imgData = ctx.getImageData(0, 0, offC.width, offC.height);
+                const d = imgData.data;
+                for (let p = 0; p < d.length; p += 4) {
+                  const a = d[p + 3];
+                  if (a === 0) continue;
+                  const r = d[p], g = d[p + 1], b = d[p + 2];
+                  // Knock out neutral parchment letter-counter fills (#F7F5EE) to true transparent alpha
+                  if (r >= 242 && g >= 240 && b >= 232 && Math.abs(r - b) <= 18) {
+                    d[p + 3] = 0;
+                  } else {
+                    // Subtle newsprint ink absorption (93% ink opacity) so strokes blend into the broadsheet paper
+                    d[p + 3] = Math.round(a * 0.93);
+                  }
+                }
+                ctx.putImageData(imgData, 0, 0);
+              } catch (_) {}
+              svgImg.style.setProperty('opacity', '1', 'important');
               const pngUrl = offC.toDataURL('image/png');
               if (pngUrl && pngUrl.length > 100) {
                 await new Promise(res => {
