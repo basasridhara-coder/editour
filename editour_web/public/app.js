@@ -20975,13 +20975,12 @@ function syncInnerVoiceSubmodeUI() {
     renderDailyChronicleCards();
     syncChronicleMomentsToSlantInput();
   } else {
-    if (triggerPanel) triggerPanel.style.display = 'none';
+    if (triggerPanel) triggerPanel.style.display = '';
     if (secVoice) secVoice.style.display = 'none';
     if (singleSparkWrap) singleSparkWrap.style.display = 'none';
     if (chronBanner) chronBanner.style.display = 'none';
     if (slantTextarea) {
       slantTextarea.style.display = 'block';
-      slantTextarea.placeholder = 'This came from my own head or life (no link needed) — write your perspective or reflection here...';
     }
     if (chronDeck) chronDeck.style.display = 'none';
     if (guideBtn) guideBtn.style.display = 'inline-flex';
@@ -22758,8 +22757,10 @@ function openCreatorModal(resumeDraftId = null, forcedAnchorMode = null, options
   // Clean creator state first
   resetCreatorState();
 
-  // Sync anchor selection (default to forcedAnchorMode, digital_link, or active mode)
-  const initialMode = forcedAnchorMode || creatorSelectedSource || 'digital_link';
+  // Sync anchor selection (Main + Slant never opens in diary_chronicle unless explicitly forced from Diary corner)
+  const initialMode = (forcedAnchorMode === 'diary_chronicle')
+    ? 'diary_chronicle'
+    : (forcedAnchorMode || (creatorSelectedSource && !isDailyChronicleMode ? creatorSelectedSource : 'digital_link'));
   setAnchorMode(initialMode);
 
   // Reset to Step 1
@@ -22776,7 +22777,10 @@ function openCreatorModal(resumeDraftId = null, forcedAnchorMode = null, options
     try {
       const lastId = localStorage.getItem('slant_last_active_form_draft_id');
       if (lastId) {
-        draftToRestore = drafts.find(d => d.id === lastId) || null;
+        const cand = drafts.find(d => d.id === lastId) || null;
+        if (cand && !cand.isDailyChronicleMode) {
+          draftToRestore = cand;
+        }
       }
     } catch (_) {}
   } else {
@@ -23070,86 +23074,178 @@ function isVideoAudioUrl(url) {
   );
 }
 
-function updateWebLinkSubmode(isVideo) {
-  creatorSelectedSource = isVideo ? 'video_audio' : 'digital_link';
+let activeSlantSparkType = 'web';
 
-  const mentalPill = document.getElementById('anchorMentalModelPill');
-  const mentalText = document.getElementById('anchorMentalModelText');
-  const mentalBadge = document.getElementById('anchorMentalModelBadge');
-  const mentalCard = document.getElementById('anchorMentalModelCard');
+const SLANT_SPARK_TYPES = {
+  web: {
+    id: 'web',
+    sourceMode: 'digital_link',
+    inputType: 'url',
+    required: true,
+    icon: '🌐',
+    title: 'Web Article or Post Link',
+    subtleHint: 'Paste the web article, blog, or news link so Slant can pull its headline & context.',
+    inputPlaceholder: 'https://... (Paste web article, blog, or news URL)',
+    perspectivePlaceholder: 'What caught your attention in this article, why does it matter beneath the surface, and what is your conviction?'
+  },
+  youtube: {
+    id: 'youtube',
+    sourceMode: 'video_audio',
+    inputType: 'url',
+    required: true,
+    icon: '▶️',
+    title: 'YouTube or Podcast Link',
+    subtleHint: 'Paste the YouTube video, talk, or podcast link you watched or listened to.',
+    inputPlaceholder: 'https://youtube.com/watch?v=... (Paste video or podcast URL)',
+    perspectivePlaceholder: 'Which moment or quote in this video stood out, why does it matter, and what is your takeaway?'
+  },
+  substack: {
+    id: 'substack',
+    sourceMode: 'digital_link',
+    inputType: 'url',
+    required: true,
+    icon: '🧡',
+    title: 'Substack or Essay Link',
+    subtleHint: 'Paste the Substack newsletter or long-form essay URL you are responding to.',
+    inputPlaceholder: 'https://...substack.com/p/... (Paste Substack or essay URL)',
+    perspectivePlaceholder: 'What idea from this Substack essay sparked your reaction, where do you agree or push back, and what is your conviction?'
+  },
+  moment: {
+    id: 'moment',
+    sourceMode: 'inner_voice',
+    inputType: 'text',
+    required: false,
+    icon: '✨',
+    title: 'What Was the Moment?',
+    subtleHint: 'Briefly name the real-life scene or moment — or leave blank and write directly below.',
+    inputPlaceholder: 'e.g. Waiting at a traffic signal in Bengaluru, or a quiet evening conversation...',
+    perspectivePlaceholder: 'Paint the moment you witnessed, explain why it stayed with you, and share the deeper truth it revealed...'
+  },
+  book: {
+    id: 'book',
+    sourceMode: 'inner_voice',
+    inputType: 'text',
+    required: true,
+    icon: '📖',
+    title: 'Which Book or Author?',
+    subtleHint: 'Mention the book title, author, or chapter that sparked your reflection.',
+    inputPlaceholder: 'e.g. The Almanack of Naval Ravikant — Chapter on Judgment',
+    perspectivePlaceholder: 'Which passage or idea from this book hit you, how does it connect to real life, and what conviction does it leave you with?'
+  },
+  experience: {
+    id: 'experience',
+    sourceMode: 'inner_voice',
+    inputType: 'text',
+    required: false,
+    icon: '🧭',
+    title: 'What Experience Sparked This?',
+    subtleHint: 'Give a short label for your experience — or jump straight to your perspective below.',
+    inputPlaceholder: 'e.g. Building apps late through the night, or a parent-teacher meeting...',
+    perspectivePlaceholder: 'Share what you lived through, what shifted inside you because of this experience, and the life or principle you stand by now...'
+  },
+  free_slant: {
+    id: 'free_slant',
+    sourceMode: 'inner_voice',
+    inputType: 'text',
+    required: false,
+    icon: '✒️',
+    title: 'Topic or Headline Cue',
+    subtleHint: 'Optional 3–5 word topic if you have one — or jump straight to writing your slant below.',
+    inputPlaceholder: 'Optional topic or theme (or leave blank and write below)...',
+    perspectivePlaceholder: 'Unfiltered thought — start with the observation on your mind, why it matters deeply, and the conviction you stand by...'
+  }
+};
+
+function syncSlantSparkTypeUI(sparkId = activeSlantSparkType) {
+  const cfg = SLANT_SPARK_TYPES[sparkId] || SLANT_SPARK_TYPES.web;
+  activeSlantSparkType = cfg.id;
+
+  document.querySelectorAll('.spark-icon-chip').forEach(btn => {
+    btn.classList.toggle('active', btn.getAttribute('data-spark') === cfg.id);
+  });
+
+  const sparkIconsSec = document.getElementById('slantSparkIconsSection');
+  const secLink = document.getElementById('triggerWebSection');
+  if (isDailyChronicleMode) {
+    if (sparkIconsSec) sparkIconsSec.style.display = 'none';
+    if (secLink) secLink.style.display = 'none';
+    return;
+  }
+
+  if (sparkIconsSec) sparkIconsSec.style.display = 'flex';
+  if (secLink) secLink.style.display = 'flex';
 
   const linkIcon = document.getElementById('triggerLinkIcon');
   const linkTitle = document.getElementById('triggerLinkTitle');
-  const linkSub = document.getElementById('triggerLinkSub');
+  const linkBadge = document.getElementById('triggerLinkBadge');
+  const subtleHint = document.getElementById('sparkFieldSubtleHint');
   const urlInput = document.getElementById('creatorUrlInput');
+  const sparkInput = document.getElementById('creatorSparkInput');
+  const slantInput = document.getElementById('creatorSlantTakeInput');
+  const urlIndicator = document.getElementById('urlScrapeIndicator');
+  const ledgerCard = document.getElementById('sourceLedgerCard');
 
-  const label = document.getElementById('slantTakeLabel');
-  const badge = document.getElementById('slantTakeBadge');
-  const sub = document.getElementById('slantTakeSubtitle');
-  const input = document.getElementById('creatorSlantTakeInput');
-  const heroIcon = document.getElementById('slantHeroIcon');
-  const heroBox = document.getElementById('slantIconBox');
-  const webIconCircle = document.getElementById('anchorWebIconCircle');
+  if (linkIcon) linkIcon.textContent = cfg.icon;
+  if (linkTitle) linkTitle.textContent = cfg.title;
+  if (subtleHint) subtleHint.textContent = cfg.subtleHint;
 
-  if (badge) {
-    badge.textContent = 'Required';
-    badge.className = 'creator-tag-badge badge-required';
+  if (linkBadge) {
+    linkBadge.style.display = 'inline-block';
+    linkBadge.textContent = cfg.required ? 'Required' : 'Optional';
+    linkBadge.className = cfg.required ? 'creator-tag-badge badge-required' : 'creator-tag-badge badge-optional';
   }
 
-  if (isVideo) {
-    if (webIconCircle) webIconCircle.textContent = '🎬';
-    if (mentalPill) {
-      mentalPill.textContent = 'Perspective • Video / Audio';
-      mentalPill.style.background = '#FFFFFF';
-      mentalPill.style.color = '#253833';
+  if (cfg.inputType === 'url') {
+    if (urlInput) {
+      urlInput.style.display = 'block';
+      urlInput.placeholder = cfg.inputPlaceholder;
     }
-    if (mentalText) mentalText.textContent = '"I watched or listened to something that sparked a reaction."';
-    if (mentalBadge) mentalBadge.style.color = '#37534C';
-    if (mentalCard) {
-      mentalCard.style.background = '#F2F6F4';
-      mentalCard.style.borderColor = '#C8D9D3';
+    if (sparkInput) {
+      sparkInput.style.display = 'none';
     }
-
-    if (linkIcon) linkIcon.textContent = '🎬';
-    if (linkTitle) linkTitle.textContent = 'Video / Audio Link';
-    if (linkSub) linkSub.textContent = 'YouTube, Podcast Timestamps';
-    if (urlInput && !urlInput.value) urlInput.placeholder = 'Paste YouTube or podcast link (https://...)';
-
-    if (label) label.textContent = 'Your Perspective';
-    if (sub) sub.textContent = 'Frame your angle, counter-slant, or reaction to what you watched or listened to.';
-    if (input) input.placeholder = 'I watched or listened to something that sparked a reaction — write your perspective or takeaway here...';
-    if (heroIcon) heroIcon.textContent = '🎬';
-    if (heroBox) heroBox.style.color = '#253833';
   } else {
-    if (webIconCircle) webIconCircle.textContent = '🌐';
-    if (mentalPill) {
-      mentalPill.textContent = 'Perspective • Web Link';
-      mentalPill.style.background = '#FFFFFF';
-      mentalPill.style.color = '#253833';
+    if (urlInput) {
+      urlInput.style.display = 'none';
     }
-    if (mentalText) mentalText.textContent = '"I found an article, video, or podcast and have a perspective on it."';
-    if (mentalBadge) mentalBadge.style.color = '#37534C';
-    if (mentalCard) {
-      mentalCard.style.background = '#F2F6F4';
-      mentalCard.style.borderColor = '#C8D9D3';
+    if (urlIndicator) urlIndicator.style.display = 'none';
+    if (ledgerCard) ledgerCard.style.display = 'none';
+    if (sparkInput) {
+      sparkInput.style.display = 'block';
+      sparkInput.placeholder = cfg.inputPlaceholder;
     }
-
-    if (linkIcon) linkIcon.textContent = '🔗';
-    if (linkTitle) linkTitle.textContent = 'Source Link';
-    if (linkSub) linkSub.textContent = 'Articles, Videos, Podcasts, Newsletters';
-    if (urlInput && !urlInput.value) urlInput.placeholder = 'Paste article, YouTube, or podcast URL (https://...)';
-
-    if (label) label.textContent = 'Your Perspective';
-    if (sub) sub.textContent = 'A few sentences framing your angle, critique, or why this story matters.';
-    if (input) input.placeholder = 'I found an article, video, or podcast and have a perspective on it — write your perspective or take on this link...';
-    if (heroIcon) heroIcon.textContent = '📰';
-    if (heroBox) heroBox.style.color = '#253833';
   }
+
+  if (slantInput) {
+    slantInput.placeholder = cfg.perspectivePlaceholder;
+  }
+}
+
+function selectSlantSparkType(sparkId) {
+  const cfg = SLANT_SPARK_TYPES[sparkId] || SLANT_SPARK_TYPES.web;
+  activeSlantSparkType = cfg.id;
+  setAnchorMode(cfg.sourceMode, cfg.id);
+}
+window.selectSlantSparkType = selectSlantSparkType;
+window.syncSlantSparkTypeUI = syncSlantSparkTypeUI;
+
+function updateWebLinkSubmode(isVideo) {
+  if (isDailyChronicleMode) return;
+  const urlInput = document.getElementById('creatorUrlInput');
+  const currentVal = urlInput ? urlInput.value.trim().toLowerCase() : '';
+  if (currentVal.includes('substack.com')) {
+    activeSlantSparkType = 'substack';
+  } else if (isVideo) {
+    activeSlantSparkType = 'youtube';
+  } else if (!['web', 'youtube', 'substack'].includes(activeSlantSparkType)) {
+    activeSlantSparkType = 'web';
+  }
+  creatorSelectedSource = isVideo ? 'video_audio' : 'digital_link';
+  syncSlantSparkTypeUI(activeSlantSparkType);
 }
 
 window.lastPerspectiveSparkMode = 'digital_link';
 
-function setAnchorMode(mode) {
+function setAnchorMode(mode, explicitSparkType = null) {
   if (typeof clearMandatoryFieldPrompts === 'function') {
     clearMandatoryFieldPrompts();
   }
@@ -23161,6 +23257,19 @@ function setAnchorMode(mode) {
   if (!isDiaryCategory) {
     window.lastPerspectiveSparkMode = (normalizedSource === 'inner_voice') ? 'inner_voice' : 'digital_link';
   }
+
+  if (explicitSparkType && SLANT_SPARK_TYPES[explicitSparkType]) {
+    activeSlantSparkType = explicitSparkType;
+  } else if (!isDiaryCategory) {
+    if (normalizedSource === 'video_audio') {
+      activeSlantSparkType = 'youtube';
+    } else if (normalizedSource === 'digital_link' && !['web', 'youtube', 'substack'].includes(activeSlantSparkType)) {
+      activeSlantSparkType = 'web';
+    } else if (normalizedSource === 'inner_voice' && ['web', 'youtube', 'substack'].includes(activeSlantSparkType)) {
+      activeSlantSparkType = 'moment';
+    }
+  }
+
   const isSwitchingFamily = (creatorSelectedSource === 'inner_voice' && normalizedSource !== 'inner_voice') ||
                             (creatorSelectedSource !== 'inner_voice' && normalizedSource === 'inner_voice');
   if (isSwitchingFamily) {
@@ -23187,46 +23296,11 @@ function setAnchorMode(mode) {
     updateCreatorStudioCreditBadge();
   }
 
-  // 1. Highlight selected top-level pillar card (Perspective vs Diary Chronicle)
-  document.querySelectorAll('.anchor-card').forEach(card => {
-    const cardMode = card.getAttribute('data-mode');
-    let isActive = false;
-    if (isDiaryCategory) {
-      isActive = (cardMode === 'diary_chronicle');
-    } else if (cardMode === 'perspective') {
-      isActive = true;
-    } else if (normalizedSource === 'inner_voice') {
-      isActive = (cardMode === 'inner_voice');
-    } else {
-      isActive = (cardMode === effectiveMode) || ((effectiveMode === 'video_audio' || effectiveMode === 'digital_link') && cardMode === 'digital_link');
-    }
-    card.classList.toggle('active', isActive);
-  });
-
-  // 1b. Sync Perspective Spark Source switcher (Web Link vs Inner Voice)
-  const sparkToggleBar = document.getElementById('perspectiveSparkToggleBar');
-  const sparkWebBtn = document.getElementById('perspectiveSparkWebBtn');
-  const sparkVoiceBtn = document.getElementById('perspectiveSparkVoiceBtn');
-  const webIconCircle = document.getElementById('anchorWebIconCircle');
-  const webSub = document.getElementById('anchorWebSub');
-
-  if (sparkToggleBar) {
-    sparkToggleBar.style.display = isDiaryCategory ? 'none' : 'flex';
-  }
-  if (!isDiaryCategory) {
-    const isVoiceSpark = (normalizedSource === 'inner_voice');
-    if (sparkWebBtn) sparkWebBtn.classList.toggle('active', !isVoiceSpark);
-    if (sparkVoiceBtn) sparkVoiceBtn.classList.toggle('active', isVoiceSpark);
-    if (webIconCircle) webIconCircle.textContent = isVoiceSpark ? '💭' : '🌐';
-    if (webSub) webSub.textContent = isVoiceSpark ? 'Spark: 💭 Inner Voice' : 'Spark: 🌐 Web Link';
-  } else {
-    if (webSub) webSub.textContent = 'Web Link • Inner Voice';
+  const modalTitle = document.getElementById('creatorModalTitle');
+  if (modalTitle) {
+    modalTitle.textContent = isDiaryCategory ? 'Pen Daily Chronicle' : 'Create New Slant';
   }
 
-  // 2. Toggle trigger sections
-  const secLink = document.getElementById('triggerWebSection');
-  const secVoice = document.getElementById('triggerVoiceSection');
-  const linkBadge = document.getElementById('triggerLinkBadge');
   const allowCommentsRow1 = document.getElementById('creatorAllowCommentsRow');
   const allowCommentsRow3 = document.getElementById('step3AllowCommentsRow');
   if (allowCommentsRow1) allowCommentsRow1.style.display = isDiaryCategory ? 'none' : 'flex';
@@ -23236,82 +23310,11 @@ function setAnchorMode(mode) {
   if (seriesRow1) seriesRow1.style.display = isDiaryCategory ? 'none' : 'flex';
   if (seriesRow3) seriesRow3.style.display = isDiaryCategory ? 'none' : 'flex';
 
-  if (normalizedSource === 'inner_voice') {
-    renderSourceLedger(null);
-    if (secLink) secLink.style.display = 'none';
-    if (secVoice) secVoice.style.display = 'flex';
-    if (linkBadge) linkBadge.style.display = 'none';
+  syncInnerVoiceSubmodeUI();
+  syncSlantSparkTypeUI(activeSlantSparkType);
 
-    // Mental Model Banner
-    const mentalPill = document.getElementById('anchorMentalModelPill');
-    const mentalText = document.getElementById('anchorMentalModelText');
-    const mentalBadge = document.getElementById('anchorMentalModelBadge');
-    const mentalCard = document.getElementById('anchorMentalModelCard');
-    if (isDiaryCategory) {
-      if (mentalPill) {
-        mentalPill.textContent = 'Diary Chronicle';
-        mentalPill.style.background = '#FFFFFF';
-        mentalPill.style.color = '#253833';
-      }
-      if (mentalText) mentalText.textContent = '"Personal Diary Chronicle — strictly for you and will never go to people\'s feed."';
-      if (mentalBadge) mentalBadge.style.color = '#37534C';
-      if (mentalCard) {
-        mentalCard.style.background = '#F2F6F4';
-        mentalCard.style.borderColor = '#C8D9D3';
-      }
-    } else {
-      if (mentalPill) {
-        mentalPill.textContent = 'Perspective • Inner Voice';
-        mentalPill.style.background = '#FFFFFF';
-        mentalPill.style.color = '#253833';
-      }
-      if (mentalText) mentalText.textContent = '"This came from my own head/life; no link needed."';
-      if (mentalBadge) mentalBadge.style.color = '#37534C';
-      if (mentalCard) {
-        mentalCard.style.background = '#F2F6F4';
-        mentalCard.style.borderColor = '#C8D9D3';
-      }
-    }
-
-    // Hero Prompts
-    const label = document.getElementById('slantTakeLabel');
-    const badge = document.getElementById('slantTakeBadge');
-    const sub = document.getElementById('slantTakeSubtitle');
-    const input = document.getElementById('creatorSlantTakeInput');
-    const heroIcon = document.getElementById('slantHeroIcon');
-    const heroBox = document.getElementById('slantIconBox');
-    if (label) label.textContent = 'Your Perspective';
-    if (badge) {
-      badge.textContent = 'Required';
-      badge.className = 'creator-tag-badge badge-required';
-    }
-    if (sub) sub.textContent = 'Express your conviction or reflection freely. AI frames 100% of your voice into your 3-poster story.';
-    if (input) input.placeholder = 'This came from my own head or life (no link needed) — write your perspective or reflection here...';
-    if (heroIcon) heroIcon.textContent = '💭';
-    if (heroBox) heroBox.style.color = '#253833';
-    syncInnerVoiceSubmodeUI();
-  } else {
-    syncInnerVoiceSubmodeUI();
-    // Both video_audio and digital_link use Web Link input
-    if (secLink) secLink.style.display = 'flex';
-    if (secVoice) secVoice.style.display = 'none';
-    if (linkBadge) {
-      linkBadge.style.display = 'inline-block';
-      linkBadge.textContent = 'Required';
-      linkBadge.className = 'creator-tag-badge badge-required';
-    }
-
-    const urlInput = document.getElementById('creatorUrlInput');
-    const currentVal = urlInput ? urlInput.value.trim() : '';
-    const isVideo = (effectiveMode === 'video_audio') || isVideoAudioUrl(currentVal) || (currentScrapedArticle && currentScrapedArticle.isVideo);
-    updateWebLinkSubmode(isVideo);
-  }
-
-  const creatorModal = document.getElementById('creatorModal');
-  if (creatorModal && creatorModal.classList.contains('open') && typeof slideAndGlowCreatorPromptField === 'function') {
-    setTimeout(() => {
-      slideAndGlowCreatorPromptField(effectiveMode);
-    }, 40);
+  if (typeof updateLivePerspectiveDepthUI === 'function') {
+    updateLivePerspectiveDepthUI(false);
   }
 }
 
@@ -25769,12 +25772,21 @@ function validateCreatorStage1(showPrompt = true) {
         }
         return false;
       }
-    } else if (!slantTake) {
-      if (showPrompt) {
-        if (typeof updateLivePerspectiveDepthUI === 'function') updateLivePerspectiveDepthUI(true);
-        promptMandatoryField(slantTakeInput, 'Please share your slant or perspective to continue.');
+    } else {
+      const activeCfg = SLANT_SPARK_TYPES[activeSlantSparkType];
+      if (activeCfg && activeCfg.inputType === 'text' && activeCfg.required && !sparkTake) {
+        if (showPrompt) {
+          promptMandatoryField(sparkInput, 'Please mention the book title or author that sparked this Slant.');
+        }
+        return false;
       }
-      return false;
+      if (!slantTake) {
+        if (showPrompt) {
+          if (typeof updateLivePerspectiveDepthUI === 'function') updateLivePerspectiveDepthUI(true);
+          promptMandatoryField(slantTakeInput, 'Please share your slant or perspective to continue.');
+        }
+        return false;
+      }
     }
   } else {
     // Web link (digital_link or video_audio)

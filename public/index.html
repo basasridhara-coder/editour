@@ -29,7 +29,7 @@
   <link rel="preconnect" href="https://fxfklefnkpmhofncqhfh.supabase.co" crossorigin>
   <link rel="preconnect" href="https://accounts.google.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Merriweather:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,400;1,600;1,700;1,900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261104_0055">
+  <link rel="stylesheet" href="style.css?v=20261104_0835">
   <!-- Favicon & Brand Icons -->
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
@@ -318,35 +318,12 @@
           </div>
         </div>
         <div class="header-actions">
-          <!-- New Slant Creator Button (Header) with 3-Option Spread -->
+          <!-- New Slant Creator Button (Header - Direct Single Action) -->
           <div class="header-slant-spread-wrap" id="headerSlantSpreadWrap">
-            <button class="create-slant-header-btn" id="headerCreateBtn" onclick="toggleSlantSpreadMenu(event, 'header')" title="Create New Slant" aria-expanded="false">
+            <button class="create-slant-header-btn" id="headerCreateBtn" onclick="openCreatorModal()" title="Create New Slant">
               <span class="btn-sparkle">✨</span>
               <span class="create-btn-text">+ New Slant</span>
             </button>
-            <div class="header-spread-menu" id="headerSpreadMenu" role="menu" aria-label="Choose Slant Section">
-              <button type="button" class="slant-spread-btn spread-weblink" onclick="openCreatorModalForSection('digital_link')">
-                <span class="spread-btn-icon">🌐</span>
-                <span class="spread-btn-copy">
-                  <span class="spread-btn-kicker">SLANT ON</span>
-                  <span class="spread-btn-title">Web article, video, podcasts</span>
-                </span>
-              </button>
-              <button type="button" class="slant-spread-btn spread-innervoice" onclick="openCreatorModalForSection('inner_voice')">
-                <span class="spread-btn-icon">💭</span>
-                <span class="spread-btn-copy">
-                  <span class="spread-btn-kicker">SLANT ON</span>
-                  <span class="spread-btn-title">Some observation / reflection</span>
-                </span>
-              </button>
-              <button type="button" class="slant-spread-btn spread-diary" onclick="openCreatorModalForSection('diary_chronicle')">
-                <span class="spread-btn-icon">📔</span>
-                <span class="spread-btn-copy">
-                  <span class="spread-btn-kicker">SLANT ON</span>
-                  <span class="spread-btn-title">Your daily moments</span>
-                </span>
-              </button>
-            </div>
           </div>
           <!-- Auth Sign In / User Profile -->
           <button class="auth-btn" id="headerAuthBtn" onclick="openAuthModal()" title="Sign In to Slant">
@@ -435,33 +412,9 @@
       </div>
     </div>
 
-    <!-- Floating Action Button for Mobile / Quick Create with 3-Button Spread -->
-    <div class="fab-spread-backdrop" id="fabSpreadBackdrop" onclick="closeSlantSpreadMenu()"></div>
+    <!-- Floating Action Button for Mobile / Quick Create (Single Direct Action) -->
     <div class="fab-slant-speed-dial" id="fabSlantSpeedDial">
-      <div class="fab-spread-menu" id="fabSpreadMenu" role="menu" aria-label="Choose Slant Section">
-        <button type="button" class="slant-spread-btn fab-spread-item spread-weblink" onclick="openCreatorModalForSection('digital_link')">
-          <span class="spread-btn-icon">🌐</span>
-          <span class="spread-btn-copy">
-            <span class="spread-btn-kicker">SLANT ON</span>
-            <span class="spread-btn-title">Web article, video, podcasts</span>
-          </span>
-        </button>
-        <button type="button" class="slant-spread-btn fab-spread-item spread-innervoice" onclick="openCreatorModalForSection('inner_voice')">
-          <span class="spread-btn-icon">💭</span>
-          <span class="spread-btn-copy">
-            <span class="spread-btn-kicker">SLANT ON</span>
-            <span class="spread-btn-title">Some observation / reflection</span>
-          </span>
-        </button>
-        <button type="button" class="slant-spread-btn fab-spread-item spread-diary" onclick="openCreatorModalForSection('diary_chronicle')">
-          <span class="spread-btn-icon">📔</span>
-          <span class="spread-btn-copy">
-            <span class="spread-btn-kicker">SLANT ON</span>
-            <span class="spread-btn-title">Your daily moments</span>
-          </span>
-        </button>
-      </div>
-      <button class="fab-create-btn" id="fabCreateBtn" onclick="toggleSlantSpreadMenu(event, 'fab')" title="Create New Slant" aria-expanded="false">
+      <button class="fab-create-btn" id="fabCreateBtn" onclick="openCreatorModal()" title="Create New Slant">
         <span class="fab-icon">
           <img src="/slant-logo-divine-splash-transparent.svg?v=20261029_1755" alt="Slant Logo" class="fab-logo-img">
         </span>
@@ -526,32 +479,111 @@
           </div>
         </div>
 
-        <!-- 2. Dynamic Lower Panel (Trigger Panel & Source Ledger) -->
-        <div class="creator-trigger-panel">
-          <!-- Web & Video/Audio Anchor Trigger Panel -->
+        <!-- 2. "What sparked this slant?" Compact Icon Bar & Dynamic Context Field -->
+        <div class="creator-trigger-panel" id="creatorTriggerPanel">
+          <div class="slant-spark-icons-section" id="slantSparkIconsSection">
+            <div class="slant-spark-icons-label">What sparked this slant?</div>
+            <div class="slant-spark-icons-row" id="slantSparkIconsRow" role="radiogroup" aria-label="What sparked this slant">
+              <button type="button" class="spark-icon-chip active" data-spark="web" onclick="selectSlantSparkType('web')" title="World Web — Article, blog, or news link">
+                <span class="spark-chip-svg-wrap chip-web">
+                  <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="9.5"></circle>
+                    <path d="M2.5 12h19"></path>
+                    <path d="M12 2.5a14.5 14.5 0 0 1 0 19 14.5 14.5 0 0 1 0-19"></path>
+                  </svg>
+                </span>
+                <span class="spark-chip-text">World Web</span>
+              </button>
+
+              <button type="button" class="spark-icon-chip" data-spark="youtube" onclick="selectSlantSparkType('youtube')" title="YouTube — Video, talk, or podcast">
+                <span class="spark-chip-svg-wrap chip-youtube">
+                  <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="2" y="4.5" width="20" height="15" rx="4.5"></rect>
+                    <polygon points="10 9 15.5 12 10 15 10 9" fill="currentColor" stroke="none"></polygon>
+                  </svg>
+                </span>
+                <span class="spark-chip-text">YouTube</span>
+              </button>
+
+              <button type="button" class="spark-icon-chip" data-spark="substack" onclick="selectSlantSparkType('substack')" title="Substack — Newsletter or essay">
+                <span class="spark-chip-svg-wrap chip-substack">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                    <rect x="4" y="3.5" width="16" height="2.4" rx="1"></rect>
+                    <rect x="4" y="7.8" width="16" height="2.4" rx="1"></rect>
+                    <path d="M4 12.2h16v8.3a.6.6 0 0 1-.93.5L12 16.4l-7.07 4.6A.6.6 0 0 1 4 20.5v-8.3z"></path>
+                  </svg>
+                </span>
+                <span class="spark-chip-text">Substack</span>
+              </button>
+
+              <button type="button" class="spark-icon-chip" data-spark="moment" onclick="selectSlantSparkType('moment')" title="A Moment — Something you witnessed or noticed">
+                <span class="spark-chip-svg-wrap chip-moment">
+                  <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 2.5l2.4 6.1 6.1 2.4-6.1 2.4-2.4 6.1-2.4-6.1-6.1-2.4 6.1-2.4L12 2.5z"></path>
+                    <circle cx="19" cy="5" r="1.2" fill="currentColor" stroke="none"></circle>
+                  </svg>
+                </span>
+                <span class="spark-chip-text">Moment</span>
+              </button>
+
+              <button type="button" class="spark-icon-chip" data-spark="book" onclick="selectSlantSparkType('book')" title="Reading Book — A book, chapter, or page">
+                <span class="spark-chip-svg-wrap chip-book">
+                  <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M2 4.5h6.5a3.5 3.5 0 0 1 3.5 3.5v12.5a2.8 2.8 0 0 0-2.8-2.8H2V4.5z"></path>
+                    <path d="M22 4.5h-6.5A3.5 3.5 0 0 0 12 8v12.5a2.8 2.8 0 0 1 2.8-2.8H22V4.5z"></path>
+                  </svg>
+                </span>
+                <span class="spark-chip-text">Reading Book</span>
+              </button>
+
+              <button type="button" class="spark-icon-chip" data-spark="experience" onclick="selectSlantSparkType('experience')" title="An Experience — Something you lived through">
+                <span class="spark-chip-svg-wrap chip-experience">
+                  <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="9.5"></circle>
+                    <polygon points="15.8 8.2 13.7 13.7 8.2 15.8 10.3 10.3 15.8 8.2"></polygon>
+                  </svg>
+                </span>
+                <span class="spark-chip-text">An Experience</span>
+              </button>
+
+              <button type="button" class="spark-icon-chip" data-spark="free_slant" onclick="selectSlantSparkType('free_slant')" title="Let Me Slant — Jump straight into your thought">
+                <span class="spark-chip-svg-wrap chip-free">
+                  <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 19l7-7 3 3-7 7-3-3z"></path>
+                    <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path>
+                    <path d="M2 2l7.586 7.586"></path>
+                    <circle cx="11" cy="11" r="2"></circle>
+                  </svg>
+                </span>
+                <span class="spark-chip-text">Let Me Slant</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Dynamic Spark Field (Adapts Prompt, Subtle Hint & Required/Optional Status per Selected Icon) -->
           <div class="trigger-section" id="triggerWebSection">
             <div class="trigger-header">
               <div class="trigger-title-row" style="display:flex; align-items:center; gap:6px;">
-                <span class="trigger-icon" id="triggerLinkIcon">🔗</span>
-                <span class="trigger-title" id="triggerLinkTitle">Source Link</span>
-                <button type="button" class="ui-info-dot-btn" onclick="toggleInfoTip(event, 'webLinkFieldInfoTip')" title="About Source Link">i</button>
+                <span class="trigger-icon" id="triggerLinkIcon">🌐</span>
+                <span class="trigger-title" id="triggerLinkTitle">Web Article or Post Link</span>
               </div>
               <div class="trigger-header-right" style="display:flex; align-items:center; gap:8px;">
                 <span class="creator-tag-badge badge-required" id="triggerLinkBadge">Required</span>
                 <span class="trigger-sub" id="triggerLinkSub" style="display:none;">Paste &amp; Fetch</span>
               </div>
             </div>
-            <div class="ui-info-popover-box" id="webLinkFieldInfoTip" style="display:none;">
-              Paste any article, YouTube video, Substack, or podcast URL to ground your Slant.
+            <div class="spark-field-subtle-hint" id="sparkFieldSubtleHint">
+              Paste the web article, blog, or news link so Slant can pull its headline &amp; context.
             </div>
-            <input type="url" id="creatorUrlInput" class="creator-input" placeholder="Paste article, YouTube, or podcast URL (https://...)" autocomplete="off">
-            <!-- Scrape Status Indicator (Matches Mobile App Exactly) -->
+            <input type="url" id="creatorUrlInput" class="creator-input" placeholder="https://... (Paste web article or post link)" autocomplete="off">
+            <input type="text" id="creatorSparkInput" class="creator-input" placeholder="Briefly describe what sparked this thought..." autocomplete="off" style="display:none;">
+            <!-- Scrape Status Indicator -->
             <div id="urlScrapeIndicator" class="url-scrape-indicator" style="display:none;"></div>
             <!-- Objective Editorial Research Assistant Ledger Card -->
             <div id="sourceLedgerCard" class="source-ledger-card" style="display:none;"></div>
           </div>
 
-          <!-- Inner Voice & Diary Chronicle Trigger Panel (Hidden: Inner Voice goes straight to Perspective) -->
+          <!-- Legacy Inner Voice Submode Container (Hidden) -->
           <div class="trigger-section" id="triggerVoiceSection" style="display:none !important;">
             <div class="inner-voice-submode-bar" id="innerVoiceSubmodeBar" style="display:none !important;">
               <button type="button" class="inner-voice-submode-pill active" id="innerVoiceSubSingleBtn" onclick="setInnerVoiceSubmode('single')">
@@ -563,11 +595,6 @@
                 <span class="submode-label">Diary Chronicle</span>
               </button>
             </div>
-
-            <div id="innerVoiceSingleSparkWrap" style="display:none !important;">
-              <input type="text" id="creatorSparkInput" class="creator-input" style="display:none !important;">
-            </div>
-
             <div class="daily-chronicle-intro-banner" id="dailyChronicleIntroBanner" style="display:none !important;"></div>
           </div>
         </div>
@@ -2453,10 +2480,16 @@
     <div class="diary-calendar-modal-header">
       <div class="diary-calendar-title-wrap">
         <span class="diary-calendar-icon">📔</span>
-        <div class="diary-calendar-title">Diary — Daily Chronicles Calendar</div>
+        <div class="diary-calendar-title">Diary — Daily Chronicles</div>
         <span style="display:inline-flex; align-items:center; gap:4px; padding:2px 8px; margin-left:6px; border-radius:99px; background:rgba(16,185,129,0.12); border:1px solid rgba(16,185,129,0.32); color:#34D399; font-size:10px; font-weight:800; white-space:nowrap;" title="Encrypted in your browser with AES-256-GCM — readable only by you">🔒 Encrypted</span>
       </div>
-      <button type="button" class="diary-calendar-close-btn" onclick="closeDiaryCalendarModal()" aria-label="Close Diary Calendar">&times;</button>
+      <div style="display:inline-flex; align-items:center; gap:8px;">
+        <button type="button" onclick="openChronicleStudioFromDiary()" style="padding:6px 12px; border-radius:99px; border:none; background:#253833; color:#FFFFFF; font-size:11.5px; font-weight:800; cursor:pointer; display:inline-flex; align-items:center; gap:5px; white-space:nowrap;" title="Pen today's 2–3 daily moments">
+          <span>＋</span>
+          <span>Pen Today</span>
+        </button>
+        <button type="button" class="diary-calendar-close-btn" onclick="closeDiaryCalendarModal()" aria-label="Close Diary Calendar">&times;</button>
+      </div>
     </div>
 
     <div class="diary-calendar-modal-body" id="diaryCalendarModalRoot">
@@ -2774,6 +2807,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261104_0055"></script>
+  <script src="app.js?v=20261104_0835"></script>
 </body>
 </html>
