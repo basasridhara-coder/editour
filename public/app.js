@@ -472,6 +472,8 @@ function loadCreatorSeriesFromStorage() {
           .map(s => ({
             id: String(s.id || ('series_' + s.title.toLowerCase().replace(/[^a-z0-9]+/g, '_'))),
             title: String(s.title).trim(),
+            description: String(s.description || '').trim(),
+            customCoverImage: String(s.customCoverImage || '').trim(),
             icon: String(s.icon || '📚'),
             createdAt: s.createdAt || new Date().toISOString()
           }));
@@ -504,10 +506,21 @@ function mergeCloudCreatorSeries(cloudSeries) {
       creatorSeriesList.push({
         id: csId,
         title: cleanTitle,
+        description: String(cs.description || '').trim(),
+        customCoverImage: String(cs.customCoverImage || '').trim(),
         icon: String(cs.icon || '📚'),
         createdAt: cs.createdAt || new Date().toISOString()
       });
       changed = true;
+    } else {
+      if (!exists.description && cs.description) {
+        exists.description = String(cs.description).trim();
+        changed = true;
+      }
+      if (!exists.customCoverImage && cs.customCoverImage) {
+        exists.customCoverImage = String(cs.customCoverImage).trim();
+        changed = true;
+      }
     }
   });
   if (changed) {
@@ -519,6 +532,8 @@ function getPostSeriesInfo(post) {
   if (!post) return null;
   const sId = String(post.seriesId || post.generationInputs?.seriesId || '').trim();
   const sTitle = String(post.seriesTitle || post.generationInputs?.seriesTitle || '').trim();
+  const sDesc = String(post.seriesDescription || post.generationInputs?.seriesDescription || '').trim();
+  const sCover = String(post.seriesCoverImage || post.generationInputs?.seriesCoverImage || '').trim();
   if (!sId && !sTitle) return null;
   const matched = Array.isArray(creatorSeriesList)
     ? creatorSeriesList.find(s => (sId && s.id === sId) || (sTitle && s.title.toLowerCase() === sTitle.toLowerCase()))
@@ -526,6 +541,8 @@ function getPostSeriesInfo(post) {
   return {
     id: matched ? matched.id : (sId || ('series_' + sTitle.toLowerCase().replace(/[^a-z0-9]+/g, '_'))),
     title: matched ? matched.title : (sTitle || 'Untitled Series'),
+    description: matched ? (matched.description || sDesc) : sDesc,
+    customCoverImage: matched ? (matched.customCoverImage || sCover) : sCover,
     icon: matched ? (matched.icon || '📚') : '📚'
   };
 }
@@ -543,10 +560,21 @@ function syncSeriesFromLoadedPosts() {
       creatorSeriesList.push({
         id: info.id,
         title: info.title,
+        description: info.description || '',
+        customCoverImage: info.customCoverImage || '',
         icon: info.icon || '📚',
         createdAt: p.createdAt || new Date().toISOString()
       });
       changed = true;
+    } else {
+      if (!exists.description && info.description) {
+        exists.description = info.description;
+        changed = true;
+      }
+      if (!exists.customCoverImage && info.customCoverImage) {
+        exists.customCoverImage = info.customCoverImage;
+        changed = true;
+      }
     }
   });
   if (changed) {
@@ -2725,11 +2753,21 @@ async function initAuth() {
 function syncUserMetadataToCloud() {
   if (currentUser && supabaseClient && typeof supabaseClient.auth?.updateUser === 'function') {
     try {
+      const compactSeriesForJwt = Array.isArray(creatorSeriesList)
+        ? creatorSeriesList.map(s => ({
+            id: s.id,
+            title: s.title,
+            description: String(s.description || '').slice(0, 240),
+            customCoverImage: (s.customCoverImage && s.customCoverImage.length < 1800) ? s.customCoverImage : '',
+            icon: s.icon || '📚',
+            createdAt: s.createdAt
+          }))
+        : [];
       supabaseClient.auth.updateUser({
         data: {
           saved_posts: Array.from(savedPostIds),
           save_buckets: Array.isArray(saveBuckets) ? saveBuckets : [],
-          creator_series: Array.isArray(creatorSeriesList) ? creatorSeriesList : [],
+          creator_series: compactSeriesForJwt,
           my_posts: Array.from(myCreatedPostIds),
           deleted_posts: Array.from(deletedPostIds)
         }
@@ -7215,6 +7253,7 @@ function getFilteredPostsForFilter(posts, filter, query) {
     }
 
     if (filter === 'series') {
+      if (activeFeedSeriesFilter === '__new__') return false;
       const sInfo = getPostSeriesInfo(post);
       if (!sInfo) return false;
       // Only owner can see private series posts; other users only see public posts in a series
@@ -7228,9 +7267,6 @@ function getFilteredPostsForFilter(posts, filter, query) {
     if (filter === 'my_stories') {
       if (!isOwnedByMe) return false;
       const sInfo = getPostSeriesInfo(post);
-      if (activeFeedSeriesFilter && activeFeedSeriesFilter !== 'all') {
-        return Boolean(sInfo && sInfo.id === activeFeedSeriesFilter) && matchesQuery(post);
-      }
       // Show all published stories plus any private posts that belong to a Series
       return (!isPrivateDraft || Boolean(sInfo)) && matchesQuery(post);
     }
@@ -7345,14 +7381,35 @@ function renderSavedBucketsFilterBar(container) {
   container.appendChild(bar);
 }
 
+let pendingNewSeriesCoverDataUrl = '';
+let editingSeriesNotebookId = null;
+let pendingEditSeriesCoverDataUrl = '';
+let newlyCreatedSeriesHighlightId = null;
+
+function ensureValidActiveSeriesFilter() {
+  syncSeriesFromLoadedPosts();
+  if (activeFeedSeriesFilter === '__new__') return;
+  const matched = activeFeedSeriesFilter && activeFeedSeriesFilter !== 'all'
+    ? creatorSeriesList.find(s => s && s.id === activeFeedSeriesFilter)
+    : null;
+  if (matched) return;
+  if (creatorSeriesList.length > 0) {
+    activeFeedSeriesFilter = creatorSeriesList[0].id;
+  } else {
+    activeFeedSeriesFilter = '__new__';
+  }
+}
+
 function selectFeedSeriesFilter(seriesId) {
-  activeFeedSeriesFilter = String(seriesId || 'all');
+  editingSeriesNotebookId = null;
+  activeFeedSeriesFilter = String(seriesId || '__new__');
   renderFeed();
 }
 window.selectFeedSeriesFilter = selectFeedSeriesFilter;
 
 function openSeriesInFeed(seriesId) {
   if (!seriesId) return;
+  editingSeriesNotebookId = null;
   activeFeedSeriesFilter = String(seriesId);
   currentFilter = 'series';
   document.querySelectorAll('.filter-pill').forEach(pill => {
@@ -7367,81 +7424,248 @@ function openCreatorForSeries(seriesId) {
   if (seriesId && typeof setCreatorSeries === 'function') {
     setCreatorSeries(seriesId);
   }
-  openCreatorModalForSection('inner_voice', { preserveSeries: true, targetSeriesId: seriesId });
+  openCreatorModal(null, { preserveSeries: true, targetSeriesId: seriesId });
+  if (seriesId && typeof setCreatorSeries === 'function') {
+    setTimeout(() => setCreatorSeries(seriesId), 60);
+  }
 }
 window.openCreatorForSeries = openCreatorForSeries;
 
-function createNewSeriesFromFeedBar(event) {
+function compressSeriesCoverFileToDataUrl(file) {
+  return new Promise((resolve) => {
+    if (!file) return resolve('');
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const rawUrl = ev.target?.result;
+      if (!rawUrl) return resolve('');
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const targetW = 360;
+          const targetH = 450;
+          const canvas = document.createElement('canvas');
+          canvas.width = targetW;
+          canvas.height = targetH;
+          const ctx = canvas.getContext('2d');
+          const imgRatio = img.width / img.height;
+          const targetRatio = targetW / targetH;
+          let sx = 0, sy = 0, sw = img.width, sh = img.height;
+          if (imgRatio > targetRatio) {
+            sw = img.height * targetRatio;
+            sx = (img.width - sw) / 2;
+          } else {
+            sh = img.width / targetRatio;
+            sy = (img.height - sh) / 2;
+          }
+          ctx.drawImage(img, sx, sy, sw, sh, 0, 0, targetW, targetH);
+          const out = canvas.toDataURL('image/jpeg', 0.82);
+          resolve(out);
+        } catch (_) {
+          resolve(String(rawUrl));
+        }
+      };
+      img.onerror = () => resolve(String(rawUrl));
+      img.src = rawUrl;
+    };
+    reader.onerror = () => resolve('');
+    reader.readAsDataURL(file);
+  });
+}
+
+async function handleNewSeriesCoverUpload(event) {
+  const file = event?.target?.files?.[0];
+  if (!file) return;
+  const compressed = await compressSeriesCoverFileToDataUrl(file);
+  if (!compressed) return;
+  pendingNewSeriesCoverDataUrl = compressed;
+  const previewBox = document.getElementById('newSeriesCoverPreviewBox');
+  if (previewBox) {
+    previewBox.innerHTML = `
+      <img src="${escapeHtml(compressed)}" class="series-cover-upload-img" alt="Cover preview">
+      <button type="button" class="series-cover-clear-btn" onclick="clearNewSeriesCoverPreview(event)" title="Remove cover">✕</button>
+    `;
+  }
+}
+window.handleNewSeriesCoverUpload = handleNewSeriesCoverUpload;
+
+function clearNewSeriesCoverPreview(event) {
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  pendingNewSeriesCoverDataUrl = '';
+  const fileInp = document.getElementById('newSeriesCoverFileInput');
+  if (fileInp) fileInp.value = '';
+  const previewBox = document.getElementById('newSeriesCoverPreviewBox');
+  if (previewBox) {
+    previewBox.innerHTML = `
+      <span class="series-cover-upload-icon">📷</span>
+      <span class="series-cover-upload-label">Add Cover</span>
+    `;
+  }
+}
+window.clearNewSeriesCoverPreview = clearNewSeriesCoverPreview;
+
+function triggerEditSeriesCoverUpload(seriesId, event) {
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  const inp = document.getElementById(`editSeriesCoverFileInput_${seriesId}`);
+  if (inp) inp.click();
+}
+window.triggerEditSeriesCoverUpload = triggerEditSeriesCoverUpload;
+
+async function handleEditSeriesCoverUpload(seriesId, event) {
+  const file = event?.target?.files?.[0];
+  if (!file || !seriesId) return;
+  const compressed = await compressSeriesCoverFileToDataUrl(file);
+  if (!compressed) return;
+  const target = creatorSeriesList.find(s => s && s.id === seriesId);
+  if (target) {
+    target.customCoverImage = compressed;
+    persistCreatorSeries(true);
+    if (typeof uploadArtworkToSupabaseStorage === 'function') {
+      uploadArtworkToSupabaseStorage(`series_cover_${seriesId}`, compressed).then(publicUrl => {
+        if (publicUrl && target) {
+          target.customCoverImage = publicUrl;
+          persistCreatorSeries(true);
+        }
+      }).catch(() => {});
+    }
+    showTemporaryToast('🖼️ Series cover thumbnail updated!');
+    renderFeed();
+  }
+}
+window.handleEditSeriesCoverUpload = handleEditSeriesCoverUpload;
+
+function toggleEditSeriesNotebook(seriesId, open = true) {
+  editingSeriesNotebookId = open ? seriesId : null;
+  renderFeed();
+  if (open) {
+    setTimeout(() => {
+      const descInp = document.getElementById('editSeriesNotebookDescInput');
+      if (descInp) descInp.focus();
+    }, 50);
+  }
+}
+window.toggleEditSeriesNotebook = toggleEditSeriesNotebook;
+
+function saveEditedSeriesNotebook(seriesId, event) {
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  const target = creatorSeriesList.find(s => s && s.id === seriesId);
+  if (!target) return;
+  const titleInp = document.getElementById('editSeriesNotebookTitleInput');
+  const descInp = document.getElementById('editSeriesNotebookDescInput');
+  const nextTitle = titleInp ? titleInp.value.trim() : '';
+  const nextDesc = descInp ? descInp.value.trim() : '';
+  if (nextTitle) {
+    target.title = nextTitle;
+  }
+  target.description = nextDesc;
+  editingSeriesNotebookId = null;
+  persistCreatorSeries(true);
+  updateAuthUI();
+  showTemporaryToast(`📚 Series "${target.title}" updated!`);
+  renderFeed();
+}
+window.saveEditedSeriesNotebook = saveEditedSeriesNotebook;
+
+function createNewSeriesFromFeedBar(event, startSlantingImmediately = false) {
   if (event) {
     event.preventDefault();
     event.stopPropagation();
   }
   const inp = document.getElementById('feedNewSeriesInput');
+  const descInp = document.getElementById('feedNewSeriesDescInput');
   const rawTitle = inp ? inp.value.trim() : '';
-  if (!rawTitle) return;
+  const rawDesc = descInp ? descInp.value.trim() : '';
+  if (!rawTitle) {
+    if (inp) inp.focus();
+    showTemporaryToast('⚠️ Please enter a title for your Series.');
+    return;
+  }
 
   let existing = creatorSeriesList.find(s => s && s.title.toLowerCase() === rawTitle.toLowerCase());
+  const coverToSave = pendingNewSeriesCoverDataUrl || '';
   if (!existing) {
     const slug = rawTitle.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || ('s_' + Date.now());
     existing = {
       id: `series_${slug}_${Date.now().toString(36).slice(-3)}`,
       title: rawTitle,
+      description: rawDesc,
+      customCoverImage: coverToSave,
       icon: '📚',
       createdAt: new Date().toISOString()
     };
-    creatorSeriesList.push(existing);
-    persistCreatorSeries(true);
-    updateAuthUI();
+    creatorSeriesList.unshift(existing);
+  } else {
+    if (rawDesc) existing.description = rawDesc;
+    if (coverToSave) existing.customCoverImage = coverToSave;
   }
+
+  if (coverToSave && typeof uploadArtworkToSupabaseStorage === 'function') {
+    const targetRef = existing;
+    uploadArtworkToSupabaseStorage(`series_cover_${existing.id}`, coverToSave).then(publicUrl => {
+      if (publicUrl && targetRef) {
+        targetRef.customCoverImage = publicUrl;
+        persistCreatorSeries(true);
+      }
+    }).catch(() => {});
+  }
+
+  pendingNewSeriesCoverDataUrl = '';
+  newlyCreatedSeriesHighlightId = existing.id;
+  persistCreatorSeries(true);
+  updateAuthUI();
   activeFeedSeriesFilter = existing.id;
-  showTemporaryToast(`📚 Series "${existing.title}" ready!`);
+  showTemporaryToast(`📚 Series "${existing.title}" created!`);
   renderFeed();
+
+  if (startSlantingImmediately) {
+    openCreatorForSeries(existing.id);
+  }
 }
 window.createNewSeriesFromFeedBar = createNewSeriesFromFeedBar;
 
 function renderSeriesFilterBar(container) {
   if (!container) return;
-  syncSeriesFromLoadedPosts();
+  ensureValidActiveSeriesFilter();
 
   const wrap = document.createElement('div');
   wrap.className = 'series-feed-header-wrap';
 
-  const allSeriesPosts = Array.isArray(allPosts)
-    ? allPosts.filter(p => p && !p.deleted && !p.isDeleted && !deletedPostIds.has(p.id) && isPostOwnedByCurrentUser(p) && Boolean(getPostSeriesInfo(p)))
-    : [];
-  const allSeriesPostsCount = allSeriesPosts.length;
-  const allSeriesCoverImg = (allSeriesPosts.find(p => p.illustrationBase64 || p.illustrationUrl || p.aiIllustrationUrl) || {});
-  const allCoverUrl = allSeriesCoverImg.illustrationBase64 || allSeriesCoverImg.illustrationUrl || allSeriesCoverImg.aiIllustrationUrl || '';
-
-  const totalMyCount = document.getElementById('badgeMyCount')?.textContent || 0;
-  const allCardTitle = currentFilter === 'series' ? 'All Series' : 'All My Stories';
-  const allCardCount = currentFilter === 'series' ? `${allSeriesPostsCount} ${allSeriesPostsCount === 1 ? 'post' : 'posts'}` : `${totalMyCount} stories`;
+  const isCreatingNew = activeFeedSeriesFilter === '__new__';
 
   const thumbsHtml = [
-    `<button type="button" class="series-poster-thumb-card is-all-card ${activeFeedSeriesFilter === 'all' ? 'active' : ''}" onclick="selectFeedSeriesFilter('all')" title="View ${escapeHtml(allCardTitle)}">
-      ${allCoverUrl
-        ? `<img src="${escapeHtml(allCoverUrl)}" class="series-poster-thumb-img" alt="" loading="lazy">`
-        : `<div class="series-poster-thumb-fallback is-all-fallback"></div>`}
+    `<button type="button" class="series-poster-thumb-card is-new-series-card ${isCreatingNew ? 'active' : ''}" onclick="selectFeedSeriesFilter('__new__')" title="Create a new Series with a dedicated cover thumbnail & description">
+      <div class="series-poster-thumb-fallback is-new-fallback"></div>
       <div class="series-poster-thumb-scrim-top">
-        <span class="series-poster-thumb-icon">📚</span>
-        <span class="series-poster-thumb-count">${currentFilter === 'series' ? allSeriesPostsCount : totalMyCount}</span>
+        <span class="series-poster-thumb-icon">➕</span>
+        <span class="series-poster-thumb-count">NEW</span>
       </div>
       <div class="series-poster-thumb-scrim-bottom">
-        <div class="series-poster-thumb-kicker">${currentFilter === 'series' ? `${creatorSeriesList.length} ${creatorSeriesList.length === 1 ? 'SERIES' : 'SERIES'}` : 'COLLECTION'}</div>
-        <div class="series-poster-thumb-title">${escapeHtml(allCardTitle)}</div>
-        <div class="series-poster-thumb-sub">${escapeHtml(allCardCount)}</div>
+        <div class="series-poster-thumb-kicker">CREATE</div>
+        <div class="series-poster-thumb-title">+ New Series</div>
+        <div class="series-poster-thumb-sub">Cover &amp; Premise</div>
       </div>
     </button>`,
     ...creatorSeriesList.map((s, idx) => {
       const stats = getSeriesStats(s.id);
       const isAct = activeFeedSeriesFilter === s.id;
-      const subText = stats.total === 0
-        ? 'Empty • Tap to pen'
-        : (stats.privCount > 0 ? `🌐 ${stats.pubCount} • 🔒 ${stats.privCount}` : `${stats.total} ${stats.total === 1 ? 'story' : 'stories'}`);
+      const resolvedCover = s.customCoverImage || stats.coverImage || '';
+      const subText = s.description
+        ? s.description
+        : (stats.total === 0
+            ? 'Empty • Tap to pen'
+            : (stats.privCount > 0 ? `🌐 ${stats.pubCount} • 🔒 ${stats.privCount}` : `${stats.total} ${stats.total === 1 ? 'story' : 'stories'}`));
       return `
-        <button type="button" class="series-poster-thumb-card ${isAct ? 'active' : ''}" onclick="selectFeedSeriesFilter('${escapeHtml(s.id)}')" title="Series: ${escapeHtml(s.title)} (${stats.total} posts)">
-          ${stats.coverImage
-            ? `<img src="${escapeHtml(stats.coverImage)}" class="series-poster-thumb-img" alt="" loading="lazy">`
+        <button type="button" class="series-poster-thumb-card ${isAct ? 'active' : ''}" onclick="selectFeedSeriesFilter('${escapeHtml(s.id)}')" title="Series: ${escapeHtml(s.title)}${s.description ? ' — ' + escapeHtml(s.description) : ''} (${stats.total} posts)">
+          ${resolvedCover
+            ? `<img src="${escapeHtml(resolvedCover)}" class="series-poster-thumb-img" alt="" loading="lazy">`
             : `<div class="series-poster-thumb-fallback palette-${idx % 4}"></div>`}
           <div class="series-poster-thumb-scrim-top">
             <span class="series-poster-thumb-icon">${escapeHtml(s.icon || '📚')}</span>
@@ -7457,40 +7681,95 @@ function renderSeriesFilterBar(container) {
     })
   ].join('');
 
-  const activeSeriesObj = (activeFeedSeriesFilter && activeFeedSeriesFilter !== 'all')
+  const activeSeriesObj = (!isCreatingNew && activeFeedSeriesFilter)
     ? creatorSeriesList.find(s => s.id === activeFeedSeriesFilter)
     : null;
   const activeStats = activeSeriesObj ? getSeriesStats(activeSeriesObj.id) : null;
+  const activeCoverUrl = activeSeriesObj ? (activeSeriesObj.customCoverImage || activeStats?.coverImage || '') : '';
+  const isEditingNotebook = Boolean(activeSeriesObj && editingSeriesNotebookId === activeSeriesObj.id);
+  const isNewlyCreated = Boolean(activeSeriesObj && newlyCreatedSeriesHighlightId === activeSeriesObj.id);
 
   wrap.innerHTML = `
     <div class="series-poster-thumbnails-strip" role="region" aria-label="Series Poster Thumbnails">
       ${thumbsHtml}
     </div>
-    ${activeSeriesObj ? `
-      <div class="series-active-notebook-banner">
-        <div class="series-notebook-top">
-          <div class="series-notebook-title-wrap">
-            <span class="series-notebook-kicker">📚 SERIES NOTEBOOK</span>
-            <h4 class="series-notebook-title">${escapeHtml(activeSeriesObj.title)}</h4>
+    ${isCreatingNew ? `
+      <form class="series-create-studio-card" onsubmit="createNewSeriesFromFeedBar(event, false)">
+        <div class="series-create-studio-header">
+          <span class="series-notebook-kicker">✨ NEW SERIES NOTEBOOK</span>
+          <span class="series-create-studio-sub">Add a dedicated cover image, title, and brief description</span>
+        </div>
+        <div class="series-create-studio-body">
+          <div class="series-cover-upload-slot" id="newSeriesCoverPreviewBox" onclick="document.getElementById('newSeriesCoverFileInput').click()" title="Tap to upload a dedicated Series cover image (4:5 poster ratio)">
+            ${pendingNewSeriesCoverDataUrl
+              ? `<img src="${escapeHtml(pendingNewSeriesCoverDataUrl)}" class="series-cover-upload-img" alt="Cover preview">
+                 <button type="button" class="series-cover-clear-btn" onclick="clearNewSeriesCoverPreview(event)" title="Remove cover">✕</button>`
+              : `<span class="series-cover-upload-icon">📷</span>
+                 <span class="series-cover-upload-label">Add Cover</span>`}
           </div>
-          <div class="series-notebook-stats">
-            <span class="series-stat-pill is-public" title="Published to Public Feed">🌐 ${activeStats.pubCount} Public</span>
-            <span class="series-stat-pill is-private" title="Private in Series (Visible Only to You)">🔒 ${activeStats.privCount} Private</span>
+          <input type="file" id="newSeriesCoverFileInput" accept="image/*" style="display:none;" onchange="handleNewSeriesCoverUpload(event)">
+          <div class="series-create-fields-col">
+            <input type="text" id="feedNewSeriesInput" class="series-inline-input" placeholder="Series Title (e.g. Slant steps, Rethinking AI)..." maxlength="52" autocomplete="off" required>
+            <textarea id="feedNewSeriesDescInput" class="series-inline-desc-input" rows="2" maxlength="180" placeholder="Brief description — what premise, question, or journey does this series explore?"></textarea>
+          </div>
+        </div>
+        <div class="series-create-studio-footer">
+          <button type="submit" class="series-create-secondary-btn">Save Series</button>
+          <button type="button" class="series-start-slanting-cta-btn" onclick="createNewSeriesFromFeedBar(event, true)">
+            <span>✨ Create &amp; Start Slanting &rarr;</span>
+          </button>
+        </div>
+      </form>
+    ` : (activeSeriesObj ? `
+      <div class="series-active-notebook-banner ${isNewlyCreated ? 'is-newly-created' : ''}">
+        <div class="series-notebook-main-row">
+          <div class="series-notebook-cover-box" onclick="triggerEditSeriesCoverUpload('${escapeHtml(activeSeriesObj.id)}', event)" title="Tap to set or change dedicated Series cover image">
+            ${activeCoverUrl
+              ? `<img src="${escapeHtml(activeCoverUrl)}" class="series-notebook-cover-img" alt="">`
+              : `<div class="series-notebook-cover-fallback"><span>📚</span></div>`}
+            <span class="series-notebook-cover-cam-badge" title="Change Series Cover">📷</span>
+          </div>
+          <input type="file" id="editSeriesCoverFileInput_${escapeHtml(activeSeriesObj.id)}" accept="image/*" style="display:none;" onchange="handleEditSeriesCoverUpload('${escapeHtml(activeSeriesObj.id)}', event)">
+          <div class="series-notebook-info-col">
+            <div class="series-notebook-top">
+              <div class="series-notebook-title-wrap">
+                <span class="series-notebook-kicker">📚 SERIES NOTEBOOK</span>
+                ${!isEditingNotebook ? `<h4 class="series-notebook-title">${escapeHtml(activeSeriesObj.title)}</h4>` : ''}
+              </div>
+              <div class="series-notebook-stats">
+                <span class="series-stat-pill is-public" title="Published to Public Feed">🌐 ${activeStats.pubCount}</span>
+                <span class="series-stat-pill is-private" title="Private in Series (Visible Only to You)">🔒 ${activeStats.privCount}</span>
+                ${!isEditingNotebook ? `
+                  <button type="button" class="series-edit-meta-btn" onclick="toggleEditSeriesNotebook('${escapeHtml(activeSeriesObj.id)}', true)" title="Edit Series title, description, or cover">✏️ Edit</button>
+                ` : ''}
+              </div>
+            </div>
+            ${isEditingNotebook ? `
+              <div class="series-notebook-inline-editor">
+                <input type="text" id="editSeriesNotebookTitleInput" class="series-inline-input" value="${escapeHtml(activeSeriesObj.title)}" placeholder="Series Title..." maxlength="52">
+                <textarea id="editSeriesNotebookDescInput" class="series-inline-desc-input" rows="2" maxlength="180" placeholder="Add a brief description for this series...">${escapeHtml(activeSeriesObj.description || '')}</textarea>
+                <div class="series-notebook-editor-actions">
+                  <button type="button" class="series-editor-photo-btn" onclick="triggerEditSeriesCoverUpload('${escapeHtml(activeSeriesObj.id)}', event)">📷 Change Cover</button>
+                  <div style="display:inline-flex; gap:6px;">
+                    <button type="button" class="series-editor-cancel-btn" onclick="toggleEditSeriesNotebook('${escapeHtml(activeSeriesObj.id)}', false)">Cancel</button>
+                    <button type="button" class="series-editor-save-btn" onclick="saveEditedSeriesNotebook('${escapeHtml(activeSeriesObj.id)}', event)">Save</button>
+                  </div>
+                </div>
+              </div>
+            ` : `
+              ${activeSeriesObj.description
+                ? `<p class="series-notebook-desc-text" onclick="toggleEditSeriesNotebook('${escapeHtml(activeSeriesObj.id)}', true)" title="Tap to edit description">${escapeHtml(activeSeriesObj.description)}</p>`
+                : `<button type="button" class="series-add-desc-prompt-btn" onclick="toggleEditSeriesNotebook('${escapeHtml(activeSeriesObj.id)}', true)">+ Add a brief description for this series...</button>`}
+            `}
           </div>
         </div>
         <div class="series-notebook-actions">
-          <span class="series-notebook-hint">Explore thoughts in this series privately, and publish only the ones you choose.</span>
+          <span class="series-notebook-hint">${isNewlyCreated ? '🎉 Series ready! Start slanting your first perspective in this series:' : 'Explore thoughts in this series privately, and publish only the ones you choose.'}</span>
           <button type="button" class="series-add-post-btn" onclick="openCreatorForSeries('${escapeHtml(activeSeriesObj.id)}')">
-            <span>+ New Post in Series</span>
+            <span>✨ Start Slanting &rarr;</span>
           </button>
         </div>
       </div>
-    ` : (currentFilter === 'series' ? `
-      <form class="series-inline-create-bar" onsubmit="createNewSeriesFromFeedBar(event)">
-        <span class="series-inline-icon">📚</span>
-        <input type="text" id="feedNewSeriesInput" class="series-inline-input" placeholder="+ Start a new Series topic (e.g. Rethinking AI, Urban Life)..." maxlength="48" autocomplete="off">
-        <button type="submit" class="series-inline-btn">Create Series</button>
-      </form>
     ` : '')}
   `;
 
@@ -7505,6 +7784,10 @@ async function renderFeed(isInitial = false) {
   feedNextCardIndexSeq = 0;
   nextBatchPreloadPromise = null;
 
+  if (currentFilter === 'series') {
+    ensureValidActiveSeriesFilter();
+  }
+
   const filtered = getFilteredPostsForFilter(allPosts, currentFilter, searchQuery);
   currentBatchFilteredPosts = filtered;
 
@@ -7516,7 +7799,7 @@ async function renderFeed(isInitial = false) {
     renderSavedBucketsFilterBar(container);
   }
 
-  if (currentFilter === 'series' || currentFilter === 'my_stories') {
+  if (currentFilter === 'series') {
     renderSeriesFilterBar(container);
   }
 
@@ -7576,19 +7859,22 @@ async function renderFeed(isInitial = false) {
     }
 
     if (currentFilter === 'series') {
+      if (activeFeedSeriesFilter === '__new__') {
+        initialFeedBatchReady = true;
+        dismissInitialFeedLoader(true);
+        return;
+      }
       const emptyEl = document.createElement('div');
-      emptyEl.style.cssText = 'text-align:center; padding: 48px 16px; color: var(--text-muted);';
+      emptyEl.style.cssText = 'text-align:center; padding: 36px 16px; color: var(--text-muted);';
       emptyEl.innerHTML = `
-        <div style="font-size:42px; margin-bottom:12px;">📚</div>
-        <div style="font-weight:700; font-size:17px; color:var(--text-primary); letter-spacing:-0.3px;">${activeFeedSeriesFilter !== 'all' ? 'No posts in this Series yet' : 'No Series posts yet'}</div>
-        <div style="font-size:13px; margin-top:6px; max-width:360px; margin-left:auto; margin-right:auto; line-height:1.5;">
-          Create a Series to explore a larger topic over multiple posts. Keep posts private inside your Series or publish selected ones to the public feed.
+        <div style="font-size:38px; margin-bottom:10px;">📚</div>
+        <div style="font-weight:700; font-size:16.5px; color:var(--text-primary); letter-spacing:-0.3px;">No posts in this Series yet</div>
+        <div style="font-size:13px; margin-top:6px; max-width:350px; margin-left:auto; margin-right:auto; line-height:1.5;">
+          Pen your first perspective in this Series. Keep posts private inside your Series notebook or publish selected ones to the public feed.
         </div>
-        ${activeFeedSeriesFilter !== 'all' ? `
-          <button type="button" onclick="openCreatorForSeries('${escapeHtml(activeFeedSeriesFilter)}')" style="margin-top:14px; padding:9px 16px; border-radius:999px; border:none; background:#4F46E5; color:#FFFFFF; font-size:12.5px; font-weight:800; cursor:pointer;">
-            ✨ + Create First Post in This Series
-          </button>
-        ` : ''}
+        <button type="button" onclick="openCreatorForSeries('${escapeHtml(activeFeedSeriesFilter)}')" style="margin-top:14px; padding:10px 18px; border-radius:999px; border:none; background:linear-gradient(135deg, #253833 0%, #10B981 100%); color:#FFFFFF; font-size:12.5px; font-weight:800; cursor:pointer; box-shadow:0 6px 18px rgba(16,185,129,0.28);">
+          ✨ Start Slanting in This Series &rarr;
+        </button>
       `;
       container.appendChild(emptyEl);
       initialFeedBatchReady = true;
@@ -29087,6 +29373,12 @@ async function saveSynthesizedPost(options = {}) {
     if (!currentSynthesizedPost.generationInputs) currentSynthesizedPost.generationInputs = {};
     currentSynthesizedPost.generationInputs.seriesId = savedSeriesObj.id;
     currentSynthesizedPost.generationInputs.seriesTitle = savedSeriesObj.title;
+    if (savedSeriesObj.description) {
+      currentSynthesizedPost.generationInputs.seriesDescription = savedSeriesObj.description;
+    }
+    if (savedSeriesObj.customCoverImage && savedSeriesObj.customCoverImage.startsWith('http')) {
+      currentSynthesizedPost.generationInputs.seriesCoverImage = savedSeriesObj.customCoverImage;
+    }
   }
 
   // 1. Clean & compress payload: store lightweight CDN pointer so Supabase rows never trigger timeout
@@ -29325,6 +29617,12 @@ async function publishSynthesizedPost() {
     if (!currentSynthesizedPost.generationInputs) currentSynthesizedPost.generationInputs = {};
     currentSynthesizedPost.generationInputs.seriesId = publishedSeriesObj.id;
     currentSynthesizedPost.generationInputs.seriesTitle = publishedSeriesObj.title;
+    if (publishedSeriesObj.description) {
+      currentSynthesizedPost.generationInputs.seriesDescription = publishedSeriesObj.description;
+    }
+    if (publishedSeriesObj.customCoverImage && publishedSeriesObj.customCoverImage.startsWith('http')) {
+      currentSynthesizedPost.generationInputs.seriesCoverImage = publishedSeriesObj.customCoverImage;
+    }
   }
 
   // 1. Clean & compress payload: store crisp ~60KB WebP so Supabase rows never trigger timeout
