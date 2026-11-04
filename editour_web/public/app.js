@@ -22956,32 +22956,25 @@ function slideAndGlowCreatorPromptField(explicitMode = null, options = {}) {
     const momentTextareas = Array.from(step1.querySelectorAll('#dailyChronicleCardsList .chronicle-moment-textarea'));
     primaryInput = momentTextareas.find(ta => !(ta.value || '').trim()) || momentTextareas[0] || null;
     glowCard = (primaryInput && primaryInput.closest('.chronicle-moment-card')) || scrollTargetCard;
-    cueText = '✍️ Start writing your first moment of the day here ↓';
-  } else if (effectiveMode === 'inner_voice') {
-    scrollTargetCard = step1.querySelector('.creator-hero-slant-card');
-    primaryInput = document.getElementById('creatorSlantTakeInput');
-    glowCard = scrollTargetCard;
-    cueText = '✍️ Start writing your observation or reflection here ↓';
+    cueText = '';
   } else {
+    const activeCfg = SLANT_SPARK_TYPES[activeSlantSparkType] || SLANT_SPARK_TYPES.web;
     const urlInput = document.getElementById('creatorUrlInput');
+    const sparkInput = document.getElementById('creatorSparkInput');
     const slantInput = document.getElementById('creatorSlantTakeInput');
-    const hasUrl = Boolean(urlInput && (urlInput.value || '').trim().length > 5);
-    if (!hasUrl && urlInput) {
-      scrollTargetCard = document.getElementById('triggerWebSection') || step1.querySelector('.creator-hero-slant-card');
-      primaryInput = urlInput;
-      glowCard = scrollTargetCard;
-      cueText = '✨ Paste your link here — then write your perspective below ↓';
-      if (slantInput && !(slantInput.value || '').trim()) {
-        slantInput.classList.add('creator-prompt-secondary-glow');
-        const heroCard = slantInput.closest('.creator-hero-slant-card');
-        if (heroCard) heroCard.classList.add('creator-card-prompt-glow');
-      }
+    if (activeCfg.inputType === 'url') {
+      const hasUrl = Boolean(urlInput && (urlInput.value || '').trim().length > 5);
+      primaryInput = (!hasUrl && urlInput) ? urlInput : slantInput;
+      glowCard = (!hasUrl && urlInput) ? document.getElementById('triggerWebSection') : step1.querySelector('.creator-hero-slant-card');
+    } else if (activeCfg.required && sparkInput && !(sparkInput.value || '').trim()) {
+      primaryInput = sparkInput;
+      glowCard = document.getElementById('triggerWebSection');
     } else {
-      scrollTargetCard = step1.querySelector('.creator-hero-slant-card');
       primaryInput = slantInput;
-      glowCard = scrollTargetCard;
-      cueText = '✍️ Write your perspective or take on this link here ↓';
+      glowCard = step1.querySelector('.creator-hero-slant-card');
     }
+    scrollTargetCard = document.getElementById('slantSparkIconsSection') || glowCard;
+    cueText = '';
   }
 
   if (glowCard) {
@@ -23157,6 +23150,9 @@ const SLANT_SPARK_TYPES = {
 };
 
 function syncSlantSparkTypeUI(sparkId = activeSlantSparkType) {
+  if (typeof clearCreatorPromptReadyGlow === 'function') {
+    clearCreatorPromptReadyGlow();
+  }
   const cfg = SLANT_SPARK_TYPES[sparkId] || SLANT_SPARK_TYPES.web;
   activeSlantSparkType = cfg.id;
 
