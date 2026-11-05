@@ -13172,23 +13172,19 @@ function filterByCurator(curatorName, selectedSeriesId = 'all') {
           </div>
         ` : '';
 
-        const profileAvatarAndHandleHtml = typeof buildCreatorAvatarAndHandleHtml === 'function'
-          ? buildCreatorAvatarAndHandleHtml('@' + displayHandle, escapeHtml(avatarInitial), false, matched)
-          : `<div class="creator-avatar"><div class="avatar-inner">${escapeHtml(avatarInitial)}</div></div><span class="creator-handle">@${escapeHtml(displayHandle)}</span>`;
+        const wallHeaderHtml = typeof buildCuratorProfileWallHeaderHtml === 'function'
+          ? buildCuratorProfileWallHeaderHtml(displayHandle, avatarInitial, matched, sharedSeriesList)
+          : '';
 
         profileWrap.innerHTML = `
-          <div class="curator-profile-top-bar">
-            <div class="curator-profile-identity">
-              ${profileAvatarAndHandleHtml}
-              <div class="curator-profile-titles">
-                <div class="curator-profile-meta">${matched.length} ${matched.length === 1 ? 'Slant' : 'Slants'}${sharedSeriesList.length > 0 ? ` • ${sharedSeriesList.length} Series` : ''}</div>
-              </div>
-            </div>
-            <button type="button" class="curator-profile-close-btn" onclick="exitCuratorProfileView()">✕ All Stories</button>
-          </div>
+          ${wallHeaderHtml}
           ${seriesShelfHtml}
         `;
         container.appendChild(profileWrap);
+
+        if (typeof ensurePublicCuratorProfileLoaded === 'function') {
+          ensurePublicCuratorProfileLoaded(displayHandle);
+        }
       }
 
       renderBatchCards(visiblePosts.slice(0, FEED_BATCH_SIZE), 0);
@@ -18333,6 +18329,719 @@ function closeCuratorStyleModal() {
   if (modal) modal.style.display = 'none';
   if (overlay) overlay.style.display = 'none';
 }
+
+// ============================================================
+// CURATOR PUBLIC PROFILE & WALL QUOTE STUDIO (FUTURE PREMIUM ARCHITECTURE)
+// ============================================================
+// Toggle to true when ready to gate Studio & AI Wall Quote Themes behind Premium
+const ENFORCE_STUDIO_WALL_PAYWALL = false;
+
+const CURATOR_WALL_THEMES = {
+  parchment_broadsheet: {
+    id: 'parchment_broadsheet',
+    name: 'Broadsheet Parchment',
+    tier: 'standard',
+    badgeLabel: 'Free Classic',
+    bgGradient: 'linear-gradient(145deg, #FAF7F0 0%, #F1ECE0 100%)',
+    textColor: '#0F172A',
+    kickerColor: '#92400E',
+    borderColor: 'rgba(146, 64, 14, 0.28)',
+    glowShadow: '0 8px 24px -6px rgba(15, 23, 42, 0.08)',
+    watermarkGlyph: '❝',
+    isLight: true
+  },
+  midnight_ink: {
+    id: 'midnight_ink',
+    name: 'Midnight Ink',
+    tier: 'standard',
+    badgeLabel: 'Free Classic',
+    bgGradient: 'linear-gradient(135deg, #0B1120 0%, #1E293B 100%)',
+    textColor: '#F8FAFC',
+    kickerColor: '#94A3B8',
+    borderColor: 'rgba(148, 163, 184, 0.32)',
+    glowShadow: '0 10px 26px -6px rgba(15, 23, 42, 0.35)',
+    watermarkGlyph: '✦',
+    isLight: false
+  },
+  obsidian_gold: {
+    id: 'obsidian_gold',
+    name: 'Obsidian & Gilded Foil',
+    tier: 'studio_curated',
+    badgeLabel: '✦ Studio Preview',
+    bgGradient: 'radial-gradient(circle at 86% 18%, rgba(245, 158, 11, 0.25) 0%, transparent 54%), linear-gradient(135deg, #090C15 0%, #141927 55%, #1E1610 100%)',
+    textColor: '#FEF3C7',
+    kickerColor: '#FBBF24',
+    borderColor: 'rgba(245, 158, 11, 0.5)',
+    glowShadow: '0 12px 30px -8px rgba(245, 158, 11, 0.25)',
+    watermarkGlyph: '✦',
+    isLight: false
+  },
+  terracotta_atelier: {
+    id: 'terracotta_atelier',
+    name: 'Terracotta Atelier',
+    tier: 'studio_curated',
+    badgeLabel: '✦ Studio Preview',
+    bgGradient: 'radial-gradient(circle at 82% 20%, rgba(251, 146, 60, 0.28) 0%, transparent 55%), linear-gradient(135deg, #27120B 0%, #431D13 55%, #1F1210 100%)',
+    textColor: '#FFEDD5',
+    kickerColor: '#FB923C',
+    borderColor: 'rgba(251, 146, 60, 0.45)',
+    glowShadow: '0 12px 28px -8px rgba(234, 88, 12, 0.24)',
+    watermarkGlyph: '❂',
+    isLight: false
+  },
+  emerald_conservatory: {
+    id: 'emerald_conservatory',
+    name: 'Botanical Conservatory',
+    tier: 'studio_curated',
+    badgeLabel: '✦ Studio Preview',
+    bgGradient: 'radial-gradient(circle at 84% 22%, rgba(16, 185, 129, 0.25) 0%, transparent 55%), linear-gradient(135deg, #051B14 0%, #0A2E23 55%, #09191E 100%)',
+    textColor: '#ECFDF5',
+    kickerColor: '#34D399',
+    borderColor: 'rgba(16, 185, 129, 0.45)',
+    glowShadow: '0 12px 28px -8px rgba(16, 185, 129, 0.22)',
+    watermarkGlyph: '◈',
+    isLight: false
+  },
+  cosmic_indigo: {
+    id: 'cosmic_indigo',
+    name: 'Astral Observatory',
+    tier: 'studio_curated',
+    badgeLabel: '✦ Studio Preview',
+    bgGradient: 'radial-gradient(circle at 85% 18%, rgba(139, 92, 246, 0.28) 0%, transparent 55%), linear-gradient(135deg, #090A1A 0%, #171430 55%, #0F172A 100%)',
+    textColor: '#EDE9FE',
+    kickerColor: '#A78BFA',
+    borderColor: 'rgba(139, 92, 246, 0.45)',
+    glowShadow: '0 12px 28px -8px rgba(139, 92, 246, 0.24)',
+    watermarkGlyph: '☾',
+    isLight: false
+  }
+};
+
+const CURATOR_DOMAIN_OPTIONS = [
+  'Tech & AI',
+  'Product & Design',
+  'Economics & Markets',
+  'Governance & Policy',
+  'Philosophy & Mind',
+  'Science & Health',
+  'Culture & Cinema',
+  'Parenting & Life',
+  'History & Books'
+];
+
+const publicCuratorProfilesCache = new Map();
+const pendingCuratorProfileFetches = new Set();
+
+function normalizeCuratorProfileKey(rawHandle) {
+  return String(rawHandle || '').replace(/^@/, '').trim().toLowerCase();
+}
+
+function getLocalCuratorWallProfile(rawHandle) {
+  const key = normalizeCuratorProfileKey(rawHandle);
+  if (key && publicCuratorProfilesCache.has(key)) {
+    return publicCuratorProfilesCache.get(key);
+  }
+  try {
+    const mapRaw = localStorage.getItem('slant_public_curator_profiles_v1');
+    if (mapRaw) {
+      const parsed = JSON.parse(mapRaw);
+      if (parsed && key && parsed[key]) {
+        publicCuratorProfilesCache.set(key, parsed[key]);
+        return parsed[key];
+      }
+    }
+  } catch (_) {}
+  if (currentUser?.user_metadata?.slant_profile) {
+    const myHandleKey = normalizeCuratorProfileKey(getUserDisplayName());
+    if (!key || key === myHandleKey) {
+      return currentUser.user_metadata.slant_profile;
+    }
+  }
+  return null;
+}
+
+function saveLocalCuratorWallProfile(rawHandle, profileObj) {
+  const key = normalizeCuratorProfileKey(rawHandle);
+  if (!key || !profileObj) return;
+  publicCuratorProfilesCache.set(key, profileObj);
+  try {
+    const mapRaw = localStorage.getItem('slant_public_curator_profiles_v1');
+    const parsed = mapRaw ? (JSON.parse(mapRaw) || {}) : {};
+    parsed[key] = profileObj;
+    localStorage.setItem('slant_public_curator_profiles_v1', JSON.stringify(parsed));
+  } catch (_) {}
+}
+
+async function ensurePublicCuratorProfileLoaded(rawHandle) {
+  const key = normalizeCuratorProfileKey(rawHandle);
+  if (!key || pendingCuratorProfileFetches.has(key)) return;
+  pendingCuratorProfileFetches.add(key);
+  try {
+    const resp = await fetch('/api/synthesize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'get_public_curator_profile',
+        handle: key
+      })
+    });
+    const data = await resp.json();
+    if (resp.ok && data && data.profile) {
+      saveLocalCuratorWallProfile(key, data.profile);
+      // If currently viewing this curator's profile in the feed, refresh the header wall in place
+      if (activeCuratorFilter && normalizeCuratorProfileKey(activeCuratorFilter) === key) {
+        const headerEl = document.querySelector('.curator-profile-feed-header .curator-wall-masthead-wrap');
+        if (headerEl && Array.isArray(allPosts)) {
+          const matched = allPosts.filter(p => p && !p.deleted && !p.isDeleted && !isPostPrivateOrDraft(p) && normalizeCuratorProfileKey(p.creatorHandle) === key);
+          const avatarInitial = (String(rawHandle).replace(/^@/, '').trim().charAt(0) || 'S').toUpperCase();
+          const tempDiv = document.createElement('div');
+          tempDiv.innerHTML = buildCuratorProfileWallHeaderHtml(rawHandle, avatarInitial, matched, []);
+          const newWall = tempDiv.querySelector('.curator-wall-masthead-wrap');
+          if (newWall) headerEl.replaceWith(newWall);
+        }
+      }
+    }
+  } catch (_) {
+  } finally {
+    pendingCuratorProfileFetches.delete(key);
+  }
+}
+
+function computeCuratorAutoVoiceAndDomains(posts = []) {
+  const validPosts = Array.isArray(posts) ? posts.filter(p => p && !p.deleted && !p.isDeleted) : [];
+  if (validPosts.length === 0) {
+    return {
+      voiceLabel: 'First-Principles Thinker',
+      voiceIcon: '🧭',
+      voiceDesc: 'Synthesizing perspective from news & lived experience',
+      autoDomains: ['Tech & AI', 'Culture & Society'],
+      recentQuotes: []
+    };
+  }
+
+  const emoCounts = {};
+  const topicCounts = {};
+  const recentQuotes = [];
+
+  validPosts.forEach(post => {
+    const emo = classifyEmotionForPost(post);
+    if (emo && emo.id) {
+      emoCounts[emo.id] = (emoCounts[emo.id] || 0) + 1;
+    }
+    const top = classifyBroadTopicForPost(post);
+    if (top && top.id) {
+      topicCounts[top.id] = (topicCounts[top.id] || 0) + 1;
+    }
+    const rawTake = String(post.curatorTake || post.polishedCuratorTake || post.creatorOpinion || '').trim();
+    if (rawTake && rawTake.length >= 25 && rawTake.length <= 210 && recentQuotes.length < 4 && !recentQuotes.includes(rawTake)) {
+      recentQuotes.push(rawTake);
+    }
+  });
+
+  const VOICE_ARCHETYPES = {
+    pragmatic: { label: 'Analytical Realist', icon: '🧭', desc: 'Grounded, first-principles & solution-oriented synthesis' },
+    skeptical: { label: 'Contrarian Synthesizer', icon: '⚡', desc: 'Challenges mainstream hype & surfaces second-order truths' },
+    critique: { label: 'Incisive System Critic', icon: '🔥', desc: 'Dissects structural incentives & demands accountability' },
+    reflective: { label: 'Reflective Philosopher', icon: '🤔', desc: 'Connects fast-moving events to deeper human truths' },
+    hopeful: { label: 'Constructive Optimist', icon: '🌱', desc: 'Spots forward-looking builders & quiet progress' },
+    warmth: { label: 'Humanist Storyteller', icon: '💛', desc: 'Anchors ideas in lived warmth, family & human grace' }
+  };
+
+  const topEmoId = Object.keys(emoCounts).sort((a, b) => emoCounts[b] - emoCounts[a])[0] || 'pragmatic';
+  const voiceMeta = VOICE_ARCHETYPES[topEmoId] || VOICE_ARCHETYPES.pragmatic;
+
+  const TOPIC_LABEL_MAP = {
+    governance: 'Governance & Policy',
+    tech: 'Tech & AI',
+    culture: 'Culture & Society',
+    science: 'Science & Health',
+    family: 'Life & Reflections',
+    economy: 'Economics & Markets'
+  };
+  const topTopics = Object.keys(topicCounts)
+    .sort((a, b) => topicCounts[b] - topicCounts[a])
+    .slice(0, 3)
+    .map(id => TOPIC_LABEL_MAP[id] || 'Perspective');
+
+  return {
+    voiceLabel: voiceMeta.label,
+    voiceIcon: voiceMeta.icon,
+    voiceDesc: voiceMeta.desc,
+    autoDomains: topTopics.length > 0 ? topTopics : ['Perspective & Craft'],
+    recentQuotes
+  };
+}
+
+function isCuratorHandleCurrentUser(rawHandle) {
+  if (!currentUser) return false;
+  const targetKey = normalizeCuratorProfileKey(rawHandle);
+  const myDisplayKey = normalizeCuratorProfileKey(getUserDisplayName());
+  const myEmailPrefix = normalizeCuratorProfileKey((currentUser.email || '').split('@')[0]);
+  const isShridhar = (currentUser.email || '').toLowerCase().trim() === 'shridharoct16@gmail.com' && targetKey.includes('shridhar');
+  return Boolean(targetKey && (targetKey === myDisplayKey || targetKey === myEmailPrefix || isShridhar));
+}
+
+function resolveCuratorWallThemeConfig(profileObj, aura) {
+  if (profileObj && profileObj.wallThemeId === 'ai_custom' && profileObj.customAiTheme && profileObj.customAiTheme.bgGradient) {
+    return {
+      id: 'ai_custom',
+      name: profileObj.customAiTheme.themeName || 'AI Bespoke Canvas',
+      tier: 'studio_ai',
+      badgeLabel: '✨ AI Theme • Studio',
+      bgGradient: profileObj.customAiTheme.bgGradient,
+      textColor: profileObj.customAiTheme.textColor || '#FEF3C7',
+      kickerColor: profileObj.customAiTheme.kickerColor || '#FBBF24',
+      borderColor: profileObj.customAiTheme.borderColor || 'rgba(245, 158, 11, 0.48)',
+      glowShadow: profileObj.customAiTheme.glowShadow || '0 12px 30px -8px rgba(245, 158, 11, 0.25)',
+      watermarkGlyph: profileObj.customAiTheme.watermarkGlyph || '✦',
+      isLight: false
+    };
+  }
+  if (profileObj && profileObj.wallThemeId && CURATOR_WALL_THEMES[profileObj.wallThemeId]) {
+    return CURATOR_WALL_THEMES[profileObj.wallThemeId];
+  }
+  // Default theme based on conviction tier so high-conviction writers immediately look regal
+  if (aura && aura.unlocked && aura.tierMeta?.tierKey === 'tier3_piercing') {
+    return CURATOR_WALL_THEMES.obsidian_gold;
+  }
+  if (aura && aura.unlocked && aura.tierMeta?.tierKey === 'tier2_deep') {
+    return CURATOR_WALL_THEMES.emerald_conservatory;
+  }
+  return CURATOR_WALL_THEMES.parchment_broadsheet;
+}
+
+function buildCuratorProfileWallHeaderHtml(rawHandle, avatarInitial, matchedPosts = [], sharedSeriesList = []) {
+  const displayHandle = String(rawHandle || '').replace(/^@/, '').trim();
+  const savedProfile = getLocalCuratorWallProfile(displayHandle);
+  const autoInsights = computeCuratorAutoVoiceAndDomains(matchedPosts);
+  const aura = typeof computeCuratorRollingConvictionProfile === 'function'
+    ? computeCuratorRollingConvictionProfile(matchedPosts)
+    : null;
+
+  const themeCfg = resolveCuratorWallThemeConfig(savedProfile, aura);
+  const wallQuote = (savedProfile && savedProfile.wallQuote && savedProfile.wallQuote.trim())
+    ? savedProfile.wallQuote.trim()
+    : (autoInsights.recentQuotes[0] || 'Every passing headline is just noise until you challenge it through your own lens.');
+
+  const lensBio = (savedProfile && savedProfile.lensBio && savedProfile.lensBio.trim())
+    ? savedProfile.lensBio.trim()
+    : '';
+
+  const domains = (savedProfile && Array.isArray(savedProfile.domains) && savedProfile.domains.length > 0)
+    ? savedProfile.domains
+    : autoInsights.autoDomains;
+
+  const isOwnProfile = isCuratorHandleCurrentUser(displayHandle);
+  const profileAvatarAndHandleHtml = typeof buildCreatorAvatarAndHandleHtml === 'function'
+    ? buildCreatorAvatarAndHandleHtml('@' + displayHandle, escapeHtml(avatarInitial), false, matchedPosts)
+    : `<div class="creator-avatar"><div class="avatar-inner">${escapeHtml(avatarInitial)}</div></div><span class="creator-handle">@${escapeHtml(displayHandle)}</span>`;
+
+  return `
+    <div class="curator-wall-masthead-wrap">
+      <!-- Wall Quote Poster ("State of Mind" Banner) -->
+      <div class="curator-wall-quote-poster ${themeCfg.isLight ? 'is-light-wall' : 'is-dark-wall'}"
+           style="background: ${escapeHtml(themeCfg.bgGradient)}; border-color: ${escapeHtml(themeCfg.borderColor)}; box-shadow: ${escapeHtml(themeCfg.glowShadow)}; color: ${escapeHtml(themeCfg.textColor)};">
+        <span class="curator-wall-watermark" aria-hidden="true" style="color: ${escapeHtml(themeCfg.kickerColor)};">${escapeHtml(themeCfg.watermarkGlyph || '✦')}</span>
+        <div class="curator-wall-top-row">
+          <span class="curator-wall-kicker" style="color: ${escapeHtml(themeCfg.kickerColor)};">
+            <span>✦</span>
+            <span>STATE OF MIND • @${escapeHtml(displayHandle.toUpperCase())}</span>
+          </span>
+          <div class="curator-wall-top-actions">
+            ${isOwnProfile ? `
+              <button type="button" class="curator-wall-edit-btn" onclick="openCuratorWallProfileModal('${escapeHtml(displayHandle)}')" title="Customize your Wall Quote, AI Theme & Profile Lens">
+                <span>✨ Edit Wall &amp; Profile</span>
+              </button>
+            ` : ''}
+            <button type="button" class="curator-wall-close-btn" onclick="exitCuratorProfileView()" title="Back to All Stories">✕ All Stories</button>
+          </div>
+        </div>
+        <blockquote class="curator-wall-quote-text" style="color: ${escapeHtml(themeCfg.textColor)};">
+          &ldquo;${escapeHtml(wallQuote)}&rdquo;
+        </blockquote>
+      </div>
+
+      <!-- Curator Identity, Auto-Detected Voice Signature, Lens Bio & Domain Pills -->
+      <div class="curator-wall-identity-bar">
+        <div class="curator-wall-identity-main">
+          <div class="curator-profile-identity">
+            ${profileAvatarAndHandleHtml}
+            <div class="curator-profile-titles">
+              <div class="curator-profile-meta">${matchedPosts.length} ${matchedPosts.length === 1 ? 'Slant' : 'Slants'}${sharedSeriesList.length > 0 ? ` • ${sharedSeriesList.length} Series` : ''}</div>
+            </div>
+          </div>
+          <div class="curator-voice-signature-pill" title="Auto-detected by Slant from @${escapeHtml(displayHandle)}'s published perspectives (${escapeHtml(autoInsights.voiceDesc)})">
+            <span class="voice-sig-icon">${escapeHtml(autoInsights.voiceIcon)}</span>
+            <span class="voice-sig-label">${escapeHtml(autoInsights.voiceLabel)}</span>
+            <span class="voice-sig-tag">AUTO-VOICE</span>
+          </div>
+        </div>
+
+        ${lensBio ? `<p class="curator-wall-lens-bio">${escapeHtml(lensBio)}</p>` : (isOwnProfile ? `
+          <button type="button" class="curator-wall-add-lens-prompt" onclick="openCuratorWallProfileModal('${escapeHtml(displayHandle)}')">
+            + Add your 1-line "My Lens" bio &amp; customize your Wall Quote theme →
+          </button>
+        ` : '')}
+
+        <div class="curator-wall-domains-row">
+          ${domains.map(d => `<span class="curator-domain-pill">${escapeHtml(d)}</span>`).join('')}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+let wallStudioDraftState = {
+  handle: '',
+  wallQuote: '',
+  lensBio: '',
+  domains: [],
+  wallThemeId: 'obsidian_gold',
+  customAiTheme: null,
+  aiGenerationsUsed: 0,
+  isGeneratingAi: false
+};
+
+function openCuratorWallProfileModal(targetHandle = '') {
+  if (!currentUser) {
+    openAuthModal();
+    return;
+  }
+  const resolvedHandle = (targetHandle || getUserDisplayName() || 'curator').replace(/^@/, '').trim();
+  const saved = getLocalCuratorWallProfile(resolvedHandle) || {};
+  const ownedPosts = Array.isArray(allPosts)
+    ? allPosts.filter(p => p && !p.deleted && !p.isDeleted && isPostOwnedByCurrentUser(p))
+    : [];
+  const autoInsights = computeCuratorAutoVoiceAndDomains(ownedPosts);
+  const aura = typeof computeCuratorRollingConvictionProfile === 'function'
+    ? computeCuratorRollingConvictionProfile(ownedPosts)
+    : null;
+  const defaultTheme = resolveCuratorWallThemeConfig(saved, aura);
+
+  wallStudioDraftState = {
+    handle: resolvedHandle,
+    wallQuote: saved.wallQuote || autoInsights.recentQuotes[0] || 'Every passing headline is just noise until you challenge it through your own lens.',
+    lensBio: saved.lensBio || '',
+    domains: Array.isArray(saved.domains) && saved.domains.length > 0 ? [...saved.domains] : [...autoInsights.autoDomains],
+    wallThemeId: saved.wallThemeId || defaultTheme.id || 'obsidian_gold',
+    customAiTheme: saved.customAiTheme || null,
+    aiGenerationsUsed: Number(saved.aiGenerationsUsed) || 0,
+    isGeneratingAi: false,
+    recentQuotes: autoInsights.recentQuotes,
+    autoInsights
+  };
+
+  const modal = document.getElementById('curatorWallProfileModal');
+  const overlay = document.getElementById('curatorWallProfileModalOverlay');
+  if (modal) modal.style.display = 'flex';
+  if (overlay) overlay.style.display = 'block';
+
+  renderCuratorWallProfileModalContent();
+}
+window.openCuratorWallProfileModal = openCuratorWallProfileModal;
+
+function closeCuratorWallProfileModal() {
+  const modal = document.getElementById('curatorWallProfileModal');
+  const overlay = document.getElementById('curatorWallProfileModalOverlay');
+  if (modal) modal.style.display = 'none';
+  if (overlay) overlay.style.display = 'none';
+}
+window.closeCuratorWallProfileModal = closeCuratorWallProfileModal;
+
+function renderCuratorWallProfileModalContent() {
+  const bodyEl = document.getElementById('curatorWallProfileModalBody');
+  if (!bodyEl) return;
+
+  const st = wallStudioDraftState;
+  const activeTheme = resolveCuratorWallThemeConfig(st, null);
+  const auto = st.autoInsights || { voiceIcon: '🧭', voiceLabel: 'Analytical Realist', voiceDesc: '' };
+
+  const themeCardsHtml = Object.values(CURATOR_WALL_THEMES).map(t => {
+    const isSelected = st.wallThemeId === t.id;
+    const isStudio = t.tier !== 'standard';
+    return `
+      <button type="button"
+              class="wall-studio-theme-chip ${isSelected ? 'active' : ''}"
+              onclick="selectWallStudioTheme('${escapeHtml(t.id)}')"
+              style="background: ${escapeHtml(t.bgGradient)}; border-color: ${isSelected ? escapeHtml(t.kickerColor) : escapeHtml(t.borderColor)}; color: ${escapeHtml(t.textColor)};">
+        <div class="wall-theme-chip-top">
+          <span class="wall-theme-chip-glyph" style="color: ${escapeHtml(t.kickerColor)};">${escapeHtml(t.watermarkGlyph)}</span>
+          <span class="wall-theme-chip-tier ${isStudio ? 'is-studio' : 'is-free'}">${escapeHtml(t.badgeLabel)}</span>
+        </div>
+        <div class="wall-theme-chip-name">${escapeHtml(t.name)}</div>
+      </button>
+    `;
+  }).join('');
+
+  const customAiChipHtml = st.customAiTheme ? `
+    <button type="button"
+            class="wall-studio-theme-chip ${st.wallThemeId === 'ai_custom' ? 'active' : ''}"
+            onclick="selectWallStudioTheme('ai_custom')"
+            style="background: ${escapeHtml(st.customAiTheme.bgGradient)}; border-color: ${st.wallThemeId === 'ai_custom' ? escapeHtml(st.customAiTheme.kickerColor) : escapeHtml(st.customAiTheme.borderColor)}; color: ${escapeHtml(st.customAiTheme.textColor)};">
+      <div class="wall-theme-chip-top">
+        <span class="wall-theme-chip-glyph" style="color: ${escapeHtml(st.customAiTheme.kickerColor)};">${escapeHtml(st.customAiTheme.watermarkGlyph || '✦')}</span>
+        <span class="wall-theme-chip-tier is-studio">✨ AI Bespoke</span>
+      </div>
+      <div class="wall-theme-chip-name">${escapeHtml(st.customAiTheme.themeName || 'AI Quote Canvas')}</div>
+    </button>
+  ` : '';
+
+  const recentQuoteChipsHtml = (Array.isArray(st.recentQuotes) && st.recentQuotes.length > 0) ? `
+    <div class="wall-studio-recent-quotes">
+      <div class="wall-studio-sub-label">📌 Or pin a line from your recent Slants:</div>
+      <div class="wall-studio-quote-pills">
+        ${st.recentQuotes.slice(0, 3).map((q, i) => `
+          <button type="button" class="wall-studio-quote-pill" onclick="pickWallStudioRecentQuote(${i})">
+            &ldquo;${escapeHtml(q.length > 88 ? q.slice(0, 88) + '…' : q)}&rdquo;
+          </button>
+        `).join('')}
+      </div>
+    </div>
+  ` : '';
+
+  const domainPillsHtml = CURATOR_DOMAIN_OPTIONS.map(dom => {
+    const isSel = st.domains.includes(dom);
+    return `
+      <button type="button"
+              class="wall-studio-domain-chip ${isSel ? 'active' : ''}"
+              onclick="toggleWallStudioDomain('${escapeHtml(dom)}')">
+        <span>${isSel ? '✓ ' : '+ '}${escapeHtml(dom)}</span>
+      </button>
+    `;
+  }).join('');
+
+  bodyEl.innerHTML = `
+    <div class="wall-studio-container">
+      <!-- Live Wall Quote Poster Preview -->
+      <div class="wall-studio-preview-label-row">
+        <span class="wall-studio-section-kicker">LIVE WALL POSTER PREVIEW</span>
+        <span class="wall-studio-theme-tag">${escapeHtml(activeTheme.name)} (${escapeHtml(activeTheme.badgeLabel)})</span>
+      </div>
+      <div id="wallStudioLivePreviewCard"
+           class="curator-wall-quote-poster is-studio-preview ${activeTheme.isLight ? 'is-light-wall' : 'is-dark-wall'}"
+           style="background: ${escapeHtml(activeTheme.bgGradient)}; border-color: ${escapeHtml(activeTheme.borderColor)}; box-shadow: ${escapeHtml(activeTheme.glowShadow)}; color: ${escapeHtml(activeTheme.textColor)};">
+        <span class="curator-wall-watermark" aria-hidden="true" style="color: ${escapeHtml(activeTheme.kickerColor)};">${escapeHtml(activeTheme.watermarkGlyph || '✦')}</span>
+        <div class="curator-wall-top-row">
+          <span class="curator-wall-kicker" style="color: ${escapeHtml(activeTheme.kickerColor)};">
+            <span>✦</span>
+            <span>STATE OF MIND • @${escapeHtml(st.handle.toUpperCase())}</span>
+          </span>
+        </div>
+        <blockquote id="wallStudioLivePreviewQuote" class="curator-wall-quote-text" style="color: ${escapeHtml(activeTheme.textColor)};">
+          &ldquo;${escapeHtml(st.wallQuote || 'Write your State of Mind quote below...')}&rdquo;
+        </blockquote>
+      </div>
+
+      <!-- 1. Wall Quote Input -->
+      <div class="wall-studio-field-group">
+        <label class="wall-studio-label" for="wallStudioQuoteInput">1. Your Wall Quote ("Current State of Mind")</label>
+        <textarea id="wallStudioQuoteInput"
+                  class="creator-textarea wall-studio-quote-textarea"
+                  rows="2"
+                  maxlength="220"
+                  placeholder="Write a thought, aphorism, or question that represents your current state of mind..."
+                  oninput="handleWallStudioQuoteInput(this.value)">${escapeHtml(st.wallQuote)}</textarea>
+        ${recentQuoteChipsHtml}
+      </div>
+
+      <!-- 2. Wall Theme & AI Bespoke Theme Generator -->
+      <div class="wall-studio-field-group">
+        <div class="wall-studio-label-with-action">
+          <label class="wall-studio-label">2. Wall Canvas Theme <span class="studio-beta-tag">✦ Studio Themes Unlocked in Preview</span></label>
+          <button type="button"
+                  class="wall-studio-ai-gen-btn"
+                  id="wallStudioAiGenBtn"
+                  ${st.isGeneratingAi ? 'disabled' : ''}
+                  onclick="generateAiWallQuoteTheme()">
+            <span>${st.isGeneratingAi ? '⏳ Crafting AI Theme...' : '✨ Generate AI Theme from Quote'}</span>
+          </button>
+        </div>
+        <div class="wall-studio-themes-grid">
+          ${customAiChipHtml}
+          ${themeCardsHtml}
+        </div>
+      </div>
+
+      <!-- 3. My Lens (1-Line Perspective Bio) -->
+      <div class="wall-studio-field-group">
+        <label class="wall-studio-label" for="wallStudioLensInput">3. "My Lens" (1-Line Perspective Bio)</label>
+        <input type="text"
+               id="wallStudioLensInput"
+               class="creator-input"
+               maxlength="130"
+               placeholder="e.g., Builder exploring AI, product craft & second-order human habits."
+               value="${escapeHtml(st.lensBio)}"
+               oninput="wallStudioDraftState.lensBio = this.value">
+      </div>
+
+      <!-- 4. Core Interests / Domains & Auto-Detected Voice -->
+      <div class="wall-studio-field-group">
+        <label class="wall-studio-label">4. Core Obsessions / Domains (Pick up to 4)</label>
+        <div class="wall-studio-domains-wrap">
+          ${domainPillsHtml}
+        </div>
+        <div class="wall-studio-auto-voice-note">
+          <span class="voice-sig-icon">${escapeHtml(auto.voiceIcon)}</span>
+          <div>
+            <strong>Your Auto-Detected Voice: ${escapeHtml(auto.voiceLabel)}</strong>
+            <div style="font-size:11px; opacity:0.78;">Computed automatically from your published Slants — evolves naturally as you write.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Save & View Actions -->
+      <div class="wall-studio-footer-actions">
+        <button type="button" class="wall-studio-cancel-btn" onclick="closeCuratorWallProfileModal()">Cancel</button>
+        <button type="button" class="wall-studio-save-btn" id="wallStudioSaveBtn" onclick="saveCuratorWallProfile()">
+          <span>✦ Save Wall &amp; View My Profile</span>
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function handleWallStudioQuoteInput(val) {
+  wallStudioDraftState.wallQuote = String(val || '');
+  const qEl = document.getElementById('wallStudioLivePreviewQuote');
+  if (qEl) {
+    qEl.textContent = `“${wallStudioDraftState.wallQuote.trim() || 'Write your State of Mind quote below...'}”`;
+  }
+}
+window.handleWallStudioQuoteInput = handleWallStudioQuoteInput;
+
+function pickWallStudioRecentQuote(idx) {
+  const quote = wallStudioDraftState.recentQuotes?.[idx];
+  if (!quote) return;
+  wallStudioDraftState.wallQuote = quote;
+  const input = document.getElementById('wallStudioQuoteInput');
+  if (input) input.value = quote;
+  handleWallStudioQuoteInput(quote);
+}
+window.pickWallStudioRecentQuote = pickWallStudioRecentQuote;
+
+function selectWallStudioTheme(themeId) {
+  if (ENFORCE_STUDIO_WALL_PAYWALL) {
+    const t = CURATOR_WALL_THEMES[themeId];
+    if ((t && t.tier !== 'standard') || themeId === 'ai_custom') {
+      showTemporaryToast('✦ Studio & AI Wall Themes are part of Slant Studio.');
+      return;
+    }
+  }
+  wallStudioDraftState.wallThemeId = themeId;
+  renderCuratorWallProfileModalContent();
+}
+window.selectWallStudioTheme = selectWallStudioTheme;
+
+function toggleWallStudioDomain(domainName) {
+  const cur = wallStudioDraftState.domains || [];
+  const idx = cur.indexOf(domainName);
+  if (idx >= 0) {
+    cur.splice(idx, 1);
+  } else {
+    if (cur.length >= 4) {
+      showTemporaryToast('Pick up to 4 core domains.');
+      return;
+    }
+    cur.push(domainName);
+  }
+  wallStudioDraftState.domains = cur;
+  renderCuratorWallProfileModalContent();
+}
+window.toggleWallStudioDomain = toggleWallStudioDomain;
+
+async function generateAiWallQuoteTheme() {
+  const quote = (wallStudioDraftState.wallQuote || '').trim();
+  if (quote.length < 5) {
+    showTemporaryToast('Write or pick a Wall Quote first so AI can craft a theme around it.');
+    return;
+  }
+  wallStudioDraftState.isGeneratingAi = true;
+  renderCuratorWallProfileModalContent();
+
+  try {
+    const resp = await fetch('/api/synthesize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'generate_wall_quote_theme',
+        quote,
+        lens: wallStudioDraftState.lensBio || ''
+      })
+    });
+    const data = await resp.json();
+    if (!resp.ok || !data || !data.aiTheme) {
+      throw new Error(data?.error || 'Could not generate AI theme');
+    }
+    wallStudioDraftState.customAiTheme = data.aiTheme;
+    wallStudioDraftState.wallThemeId = 'ai_custom';
+    wallStudioDraftState.aiGenerationsUsed = (Number(wallStudioDraftState.aiGenerationsUsed) || 0) + 1;
+    showTemporaryToast(`✨ Crafted "${data.aiTheme.themeName}" from your quote!`);
+  } catch (err) {
+    showTemporaryToast('⚠️ ' + (err.message || 'Could not generate AI theme right now.'));
+  } finally {
+    wallStudioDraftState.isGeneratingAi = false;
+    renderCuratorWallProfileModalContent();
+  }
+}
+window.generateAiWallQuoteTheme = generateAiWallQuoteTheme;
+
+async function saveCuratorWallProfile() {
+  const st = wallStudioDraftState;
+  const selectedTheme = resolveCuratorWallThemeConfig(st, null);
+  const profilePayload = {
+    handle: st.handle,
+    email: getResolvedCreatorEmail(),
+    wallQuote: String(st.wallQuote || '').trim(),
+    lensBio: String(st.lensBio || '').trim(),
+    domains: Array.isArray(st.domains) ? st.domains.slice(0, 4) : [],
+    wallThemeId: st.wallThemeId || 'obsidian_gold',
+    wallThemeTier: selectedTheme.tier || 'standard',
+    customAiTheme: st.customAiTheme || null,
+    aiGenerationsUsed: Number(st.aiGenerationsUsed) || 0,
+    updatedAt: new Date().toISOString()
+  };
+
+  const saveBtn = document.getElementById('wallStudioSaveBtn');
+  if (saveBtn) {
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving Wall...';
+  }
+
+  // 1. Save locally immediately
+  saveLocalCuratorWallProfile(st.handle, profilePayload);
+
+  // 2. Sync to Supabase user_metadata
+  if (currentUser && supabaseClient && typeof supabaseClient.auth?.updateUser === 'function') {
+    try {
+      currentUser.user_metadata = {
+        ...(currentUser.user_metadata || {}),
+        slant_profile: profilePayload
+      };
+      supabaseClient.auth.updateUser({
+        data: { slant_profile: profilePayload }
+      }).catch(() => {});
+    } catch (_) {}
+  }
+
+  // 3. Persist to public curator profile registry in Supabase so all visitors see it
+  try {
+    await fetch('/api/synthesize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'save_public_curator_profile',
+        handle: st.handle,
+        email: getResolvedCreatorEmail(),
+        profile: profilePayload
+      })
+    });
+  } catch (_) {}
+
+  closeCuratorWallProfileModal();
+  showTemporaryToast('✨ Your Wall Quote & Profile are live!');
+  filterByCurator('@' + st.handle);
+}
+window.saveCuratorWallProfile = saveCuratorWallProfile;
 
 // ============================================================
 // PERSONAL DIARY — DAILY CHRONICLES CALENDAR MODAL

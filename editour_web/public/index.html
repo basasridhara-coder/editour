@@ -29,7 +29,7 @@
   <link rel="preconnect" href="https://fxfklefnkpmhofncqhfh.supabase.co" crossorigin>
   <link rel="preconnect" href="https://accounts.google.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Merriweather:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,400;1,600;1,700;1,900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261105_0557">
+  <link rel="stylesheet" href="style.css?v=20261105_0625">
   <!-- Favicon & Brand Icons -->
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
@@ -2342,6 +2342,11 @@
               <span class="row-label">Invite Friends to Slant</span>
               <span class="row-pill" style="background:rgba(245,158,11,0.18); color:#FBBF24; font-size:10px; font-weight:700; padding:2px 8px; border-radius:10px;">Share</span>
             </button>
+            <button class="drawer-menu-row" id="drawerPublicWallProfileRow" onclick="closeDrawer(); openCuratorWallProfileModal();">
+              <span class="row-icon">🏛️</span>
+              <span class="row-label">Public Profile &amp; Wall Quote</span>
+              <span class="row-pill" style="background:rgba(245,158,11,0.2); color:#FBBF24; font-size:10px; font-weight:800; padding:2px 8px; border-radius:10px;">✦ Wall</span>
+            </button>
             <button class="drawer-menu-row" id="drawerStyleProfileRow" onclick="closeDrawer(); openCuratorStyleModal();">
               <span class="row-icon">🧬</span>
               <span class="row-label">Curator Style &amp; Writing Growth</span>
@@ -2807,6 +2812,24 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261105_0557"></script>
+  <!-- Curator Public Profile & Wall Quote Studio Modal -->
+  <div class="creator-modal-overlay" id="curatorWallProfileModalOverlay" style="display:none; z-index: 1000010;" onclick="closeCuratorWallProfileModal()"></div>
+  <div class="creator-modal curator-wall-profile-modal" id="curatorWallProfileModal" style="display:none; z-index: 1000011;" role="dialog" aria-modal="true" aria-labelledby="curatorWallModalTitle">
+    <div class="creator-modal-header">
+      <div class="creator-modal-brand">
+        <span class="creator-modal-icon">🏛️</span>
+        <div>
+          <h3 id="curatorWallModalTitle" style="margin:0; font-size:16px; font-weight:800;">Profile &amp; Wall Quote Studio</h3>
+          <p style="margin:2px 0 0 0; font-size:11.5px; opacity:0.78;">Your State of Mind banner &amp; intellectual lens when readers visit your @handle</p>
+        </div>
+      </div>
+      <button type="button" class="creator-modal-close" onclick="closeCuratorWallProfileModal()" aria-label="Close">&times;</button>
+    </div>
+    <div class="creator-modal-body" id="curatorWallProfileModalBody" style="padding: 16px 18px 20px; overflow-y: auto; max-height: 78vh;">
+      <!-- Populated dynamically by renderCuratorWallProfileModalContent() -->
+    </div>
+  </div>
+
+  <script src="app.js?v=20261105_0625"></script>
 </body>
 </html>

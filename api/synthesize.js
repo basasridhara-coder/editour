@@ -1859,6 +1859,150 @@ STRICT RULES:
       }
     }
 
+    // Endpoint: Get or Save Public Curator Wall Quote & Profile (Visible to all readers visiting @handle)
+    if (body && body.action === 'get_public_curator_profile') {
+      const rawHandle = String(body.handle || '').replace(/^@/, '').trim().toLowerCase();
+      const rawEmail = String(body.email || '').trim().toLowerCase();
+      const slug = (rawHandle || rawEmail).replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+      if (!slug) {
+        return res.status(200).json({ success: true, profile: null });
+      }
+      const profileId = 'curator_public_profile_' + slug;
+      try {
+        const resp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.${encodeURIComponent(profileId)}&select=data`, {
+          headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+        });
+        if (resp.ok) {
+          const rows = await resp.json();
+          if (rows && rows[0] && rows[0].data) {
+            return res.status(200).json({ success: true, profile: rows[0].data });
+          }
+        }
+      } catch (err) {
+        console.warn('get_public_curator_profile error:', err.message);
+      }
+      return res.status(200).json({ success: true, profile: null });
+    }
+
+    if (body && body.action === 'save_public_curator_profile') {
+      const { handle = '', email = '', profile = {} } = body;
+      const cleanHandle = String(handle || profile.handle || '').replace(/^@/, '').trim().toLowerCase();
+      const cleanEmail = String(email || profile.email || '').trim().toLowerCase();
+      const handleSlug = cleanHandle.replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+      if (!handleSlug && !cleanEmail) {
+        return res.status(400).json({ success: false, error: 'Handle or email required to save profile' });
+      }
+      const savedProfile = {
+        ...profile,
+        handle: handle || profile.handle || '',
+        email: cleanEmail,
+        updatedAt: new Date().toISOString()
+      };
+      try {
+        if (handleSlug) {
+          await fetch(`${SUPABASE_URL}/rest/v1/posts`, {
+            method: 'POST',
+            headers: {
+              'apikey': SUPABASE_KEY,
+              'Authorization': `Bearer ${SUPABASE_KEY}`,
+              'Content-Type': 'application/json',
+              'Prefer': 'resolution=merge-duplicates'
+            },
+            body: JSON.stringify({ id: 'curator_public_profile_' + handleSlug, data: savedProfile })
+          });
+        }
+        if (cleanEmail) {
+          const emailSlug = cleanEmail.replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+          await fetch(`${SUPABASE_URL}/rest/v1/posts`, {
+            method: 'POST',
+            headers: {
+              'apikey': SUPABASE_KEY,
+              'Authorization': `Bearer ${SUPABASE_KEY}`,
+              'Content-Type': 'application/json',
+              'Prefer': 'resolution=merge-duplicates'
+            },
+            body: JSON.stringify({ id: 'curator_public_profile_' + emailSlug, data: savedProfile })
+          });
+        }
+        return res.status(200).json({ success: true, profile: savedProfile });
+      } catch (err) {
+        return res.status(500).json({ success: false, error: err.message });
+      }
+    }
+
+    // Endpoint: Generate AI Bespoke Wall Quote Theme based on the writer's State of Mind quote (Studio Feature)
+    if (body && body.action === 'generate_wall_quote_theme') {
+      const quoteText = String(body.quote || '').trim();
+      const lensText = String(body.lens || '').trim();
+      if (!quoteText || quoteText.length < 4) {
+        return res.status(400).json({ success: false, error: 'Write or pick a Wall Quote first so AI can craft a theme around it.' });
+      }
+      try {
+        const prompt = `You are a master editorial art director for Slant (an intellectual broadsheet & perspective platform).
+Analyze this writer's Wall Quote ("State of Mind") and craft a bespoke, museum-grade atmospheric CSS wall theme that matches its emotional and philosophical mood.
+
+Writer's Wall Quote: "${quoteText}"
+${lensText ? `Writer's Lens: "${lensText}"` : ''}
+
+Return ONLY valid JSON with these exact fields:
+{
+  "themeName": "2-3 word poetic editorial theme title (e.g., 'Amber Stoic Horizon', 'Velvet Midnight Study', 'Cypress & Brass')",
+  "moodNote": "Short 5-8 word note explaining why this atmosphere fits their quote",
+  "bgGradient": "Rich multi-stop CSS linear-gradient or radial-gradient (dark or deeply atmospheric so crisp light typography glows against it, e.g. 'radial-gradient(circle at 82% 18%, rgba(217, 119, 6, 0.28) 0%, transparent 55%), linear-gradient(135deg, #090D16 0%, #171324 52%, #1E1410 100%)')",
+  "textColor": "Hex color for main quote text with high contrast against bgGradient (e.g. '#FEF3C7' or '#F8FAFC')",
+  "kickerColor": "Hex color for the top kicker & accents (e.g. '#FBBF24', '#34D399', '#38BDF8', '#F472B6', '#A78BFA')",
+  "borderColor": "RGBA or hex border color matching kickerColor (e.g. 'rgba(245, 158, 11, 0.45)')",
+  "glowShadow": "Subtle outer box-shadow matching the mood (e.g. '0 10px 30px -8px rgba(245, 158, 11, 0.25)')",
+  "watermarkGlyph": "Single evocative unicode symbol or astronomical/literary glyph (e.g. '✦', '❂', '◈', '☾', '⚖', '🧭', '🕯')"
+}`;
+
+        const gemResp = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }],
+              generationConfig: {
+                temperature: 0.8,
+                responseMimeType: 'application/json'
+              }
+            })
+          }
+        );
+        let aiTheme = null;
+        if (gemResp.ok) {
+          const gemData = await gemResp.json();
+          const rawJson = gemData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          if (rawJson) {
+            aiTheme = JSON.parse(rawJson.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim());
+          }
+        }
+        if (!aiTheme || !aiTheme.bgGradient) {
+          aiTheme = {
+            themeName: 'Nocturne of First Principles',
+            moodNote: 'Deep midnight ink with warm amber illumination',
+            bgGradient: 'radial-gradient(circle at 85% 20%, rgba(245, 158, 11, 0.26) 0%, transparent 55%), linear-gradient(135deg, #090D16 0%, #131B2E 55%, #1F1712 100%)',
+            textColor: '#FEF3C7',
+            kickerColor: '#FBBF24',
+            borderColor: 'rgba(245, 158, 11, 0.48)',
+            glowShadow: '0 12px 30px -8px rgba(245, 158, 11, 0.25)',
+            watermarkGlyph: '✦'
+          };
+        }
+        return res.status(200).json({
+          success: true,
+          aiTheme: {
+            ...aiTheme,
+            tier: 'studio_ai',
+            generatedAt: new Date().toISOString()
+          }
+        });
+      } catch (err) {
+        return res.status(500).json({ success: false, error: err.message || 'Could not generate AI theme' });
+      }
+    }
+
     // Endpoint: Get Family Cast Vault Profile + Shared Family Group + Pending Family Approval Notifications
     if (body && (body.action === 'get_family_cast' || body.action === 'get_family_notifications')) {
       const { userIdentifier = '' } = body;
