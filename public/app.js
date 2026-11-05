@@ -18669,14 +18669,15 @@ function getConvictionTierMeta(score = 75) {
       tierKey: 'tier3_piercing',
       rangeLabel: '90–100%',
       stars: '✦✦✦',
-      flashTitle: 'PIERCING CONVICTION',
+      flashTitle: 'PIERCED CONVICTION',
       badgeTitle: 'Piercing Voice',
       icon: '🔥',
       score: num,
       flashMessage: 'Uncommon depth, vulnerability & clarity — the highest tier of Slant synthesis.',
       color: '#D97706',
       bgTint: 'rgba(245, 158, 11, 0.14)',
-      borderTint: 'rgba(245, 158, 11, 0.42)'
+      borderTint: 'rgba(245, 158, 11, 0.42)',
+      burstPalette: ['#FBBF24', '#FDE68A', '#F59E0B', '#FFFBEB', '#FB923C', '#FCD34D']
     };
   }
   if (num >= 80) {
@@ -18684,28 +18685,30 @@ function getConvictionTierMeta(score = 75) {
       tierKey: 'tier2_deep',
       rangeLabel: '80–89%',
       stars: '✦✦',
-      flashTitle: 'DEEP PERSPECTIVE',
+      flashTitle: 'DEEP CONVICTION',
       badgeTitle: 'Deep Slanter',
       icon: '✨',
       score: num,
       flashMessage: 'Richly reasoned shift and personal conviction — crafted with depth.',
       color: '#0D9488',
       bgTint: 'rgba(16, 185, 129, 0.13)',
-      borderTint: 'rgba(16, 185, 129, 0.38)'
+      borderTint: 'rgba(16, 185, 129, 0.38)',
+      burstPalette: ['#34D399', '#A7F3D0', '#FDE68A', '#10B981', '#6EE7B7', '#FBBF24']
     };
   }
   return {
     tierKey: 'tier1_sharp',
     rangeLabel: '70–79%',
     stars: '✦',
-    flashTitle: 'SHARP SPARK',
+    flashTitle: 'SHARP CONVICTION',
     badgeTitle: 'Sharp Voice',
     icon: '⚡',
     score: num,
     flashMessage: 'Clear editorial spark & grounded stance — framed and ready.',
     color: '#4F46E5',
     bgTint: 'rgba(99, 102, 241, 0.12)',
-    borderTint: 'rgba(99, 102, 241, 0.35)'
+    borderTint: 'rgba(99, 102, 241, 0.35)',
+    burstPalette: ['#818CF8', '#C7D2FE', '#FBBF24', '#A5B4FC', '#F472B6', '#E0E7FF']
   };
 }
 
@@ -18949,64 +18952,268 @@ function showSynthesisConvictionFlashOverlay(score, post = null) {
   const previewRoll = computeCuratorRollingConvictionProfile(null, tierMeta.score);
 
   const existing = document.getElementById('synthesisConvictionFlashOverlay');
-  if (existing) existing.remove();
+  if (existing) {
+    if (existing._cleanupBurstRaf) existing._cleanupBurstRaf();
+    existing.remove();
+  }
 
   const overlay = document.createElement('div');
   overlay.id = 'synthesisConvictionFlashOverlay';
   overlay.className = `synthesis-conviction-flash-overlay ${tierMeta.tierKey}`;
-  overlay.onclick = () => {
-    overlay.classList.add('is-dismissing');
-    setTimeout(() => overlay.remove(), 260);
-  };
+
+  // Build per-character shattering HTML for the standalone title (e.g. "PIERCED" / "CONVICTION")
+  const words = String(tierMeta.flashTitle || 'PIERCED CONVICTION').trim().split(/\s+/);
+  let globalCharIdx = 0;
+  const totalChars = words.reduce((acc, w) => acc + w.length, 0);
+
+  const wordsHtml = words.map((word) => {
+    const charsHtml = Array.from(word).map((ch) => {
+      const idx = globalCharIdx++;
+      const normPos = (idx / Math.max(1, totalChars - 1)) - 0.5; // -0.5 (left) to +0.5 (right)
+      const crackX = Math.round(normPos * 36 + (Math.random() - 0.5) * 18);
+      const crackY = Math.round((Math.random() - 0.5) * 20 - 6);
+      const crackRot = Math.round(normPos * 18 + (Math.random() - 0.5) * 16);
+      const fallX = Math.round(normPos * 220 + (Math.random() - 0.5) * 110);
+      const fallRot = Math.round((normPos >= 0 ? 1 : -1) * (35 + Math.random() * 95));
+      const fallDelay = Math.round(Math.random() * 170);
+      return `<span class="conv-char" style="--char-idx:${idx}; --crack-x:${crackX}px; --crack-y:${crackY}px; --crack-rot:${crackRot}deg; --fall-x:${fallX}px; --fall-rot:${fallRot}deg; --fall-delay:${fallDelay}ms;">${escapeHtml(ch)}</span>`;
+    }).join('');
+    return `<div class="conviction-standalone-word-line">${charsHtml}</div>`;
+  }).join('');
 
   const dotsRow = [];
   for (let i = 0; i < CONVICTION_AURA_REQUIRED_POSTS; i++) {
     const it = previewRoll.recentScores[i];
+    const fallX = Math.round((i - 2) * 55 + (Math.random() - 0.5) * 30);
+    const fallRot = Math.round((Math.random() - 0.5) * 110);
+    const fallDelay = Math.round(60 + Math.random() * 140);
     if (it) {
       const cls = it.score >= 90 ? 'is-tier3' : (it.score >= 80 ? 'is-tier2' : 'is-tier1');
-      dotsRow.push(`<span class="flash-5post-dot ${cls} ${i === 0 ? 'is-current-pop' : ''}">${it.meta.stars}</span>`);
+      dotsRow.push(`<span class="flash-5post-dot conv-fall-piece ${cls} ${i === 0 ? 'is-current-pop' : ''}" style="--fall-x:${fallX}px; --fall-rot:${fallRot}deg; --fall-delay:${fallDelay}ms;">${it.meta.stars}</span>`);
     } else {
-      dotsRow.push(`<span class="flash-5post-dot is-empty">○</span>`);
+      dotsRow.push(`<span class="flash-5post-dot conv-fall-piece is-empty" style="--fall-x:${fallX}px; --fall-rot:${fallRot}deg; --fall-delay:${fallDelay}ms;">○</span>`);
     }
   }
 
-  const profileNote = previewRoll.unlocked
-    ? `Profile Aura: <strong>${escapeHtml(previewRoll.tierMeta.badgeTitle)}</strong> (${previewRoll.avgScore}% rolling 5-post avg)`
-    : `Rolling Profile Aura: <strong>${previewRoll.windowCount} / ${CONVICTION_AURA_REQUIRED_POSTS}</strong> Slants toward unlocking your profile badge`;
-
   overlay.innerHTML = `
-    <div class="synthesis-conviction-flash-card ${tierMeta.tierKey}">
-      <div class="flash-sparkle-particles" aria-hidden="true">
-        <span class="sp-1">✦</span>
-        <span class="sp-2">✨</span>
-        <span class="sp-3">✦</span>
-        <span class="sp-4">★</span>
+    <canvas class="conviction-burst-canvas" id="convictionBurstCanvas"></canvas>
+    <div class="conviction-standalone-stage ${tierMeta.tierKey}">
+      <div class="conviction-burst-crest conv-fall-piece" style="--fall-x:0px; --fall-rot:-28deg; --fall-delay:0ms;">
+        <span class="conviction-crest-stars">${tierMeta.stars}</span>
+        <span class="conviction-crest-icon">${tierMeta.icon}</span>
+        <span class="conviction-crest-stars">${tierMeta.stars}</span>
       </div>
-      <div class="flash-tier-kicker">${tierMeta.stars} SYNTHESIS COMPLETE • ${tierMeta.rangeLabel} DEPTH ${tierMeta.stars}</div>
-      <div class="flash-tier-main-row">
-        <span class="flash-tier-icon">${tierMeta.icon}</span>
-        <span class="flash-tier-title">${escapeHtml(tierMeta.flashTitle)}</span>
-        <span class="flash-tier-score-pill">${tierMeta.score}%</span>
+      <div class="conviction-standalone-words" aria-label="${escapeHtml(tierMeta.flashTitle)}">
+        ${wordsHtml}
       </div>
-      <p class="flash-tier-desc">${escapeHtml(tierMeta.flashMessage)}</p>
-      <div class="flash-rolling-progress-box">
-        <div class="flash-rolling-dots">${dotsRow.join('')}</div>
-        <div class="flash-rolling-label">${profileNote}</div>
+      <div class="conviction-standalone-score-sub conv-fall-piece" style="--fall-x:18px; --fall-rot:16deg; --fall-delay:90ms;">
+        <span class="conviction-standalone-score-num">${tierMeta.score}% DEPTH</span>
+      </div>
+      <div class="conviction-standalone-dots-row">
+        ${dotsRow.join('')}
       </div>
     </div>
   `;
 
-  const step3El = document.getElementById('creatorStep3') || document.querySelector('.creator-modal-card') || document.body;
-  step3El.appendChild(overlay);
+  document.body.appendChild(overlay);
 
-  setTimeout(() => {
-    if (overlay && overlay.parentNode) {
-      overlay.classList.add('is-dismissing');
-      setTimeout(() => {
-        if (overlay && overlay.parentNode) overlay.remove();
-      }, 320);
+  // Full-Screen 60 FPS Canvas Particle Splash & Shatter Engine
+  const canvas = overlay.querySelector('#convictionBurstCanvas');
+  const ctx = canvas ? canvas.getContext('2d') : null;
+  const palette = Array.isArray(tierMeta.burstPalette)
+    ? tierMeta.burstPalette
+    : ['#FBBF24', '#FDE68A', '#F59E0B', '#FFFBEB', '#FB923C'];
+
+  let rafId = null;
+  let isDisposed = false;
+  let fallTriggered = false;
+  const particles = [];
+  const shockwaves = [];
+
+  const resizeCanvas = () => {
+    if (!canvas) return;
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    canvas.width = Math.floor(window.innerWidth * dpr);
+    canvas.height = Math.floor(window.innerHeight * dpr);
+    if (ctx) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  };
+  resizeCanvas();
+
+  const spawnSplashBurst = () => {
+    const cx = window.innerWidth / 2;
+    const cy = window.innerHeight * 0.46;
+
+    shockwaves.push(
+      { x: cx, y: cy, r: 10, maxR: Math.min(window.innerWidth, window.innerHeight) * 0.56, alpha: 0.9, color: palette[0], width: 5 },
+      { x: cx, y: cy, r: 4, maxR: Math.min(window.innerWidth, window.innerHeight) * 0.40, alpha: 0.7, color: palette[1], width: 2.5 }
+    );
+
+    const count = 135;
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.25;
+      const speed = 4.5 + Math.pow(Math.random(), 0.7) * 21;
+      const kindRoll = Math.random();
+      const kind = kindRoll < 0.34 ? 'star' : (kindRoll < 0.74 ? 'confetti' : 'ember');
+      particles.push({
+        x: cx + (Math.random() - 0.5) * 18,
+        y: cy + (Math.random() - 0.5) * 18,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - (1.5 + Math.random() * 2.5),
+        gravity: kind === 'confetti' ? 0.16 : 0.20,
+        drag: kind === 'confetti' ? 0.955 : 0.965,
+        size: kind === 'star' ? (6 + Math.random() * 8) : (kind === 'confetti' ? (6 + Math.random() * 7) : (3 + Math.random() * 4.5)),
+        color: palette[Math.floor(Math.random() * palette.length)],
+        rotation: Math.random() * Math.PI * 2,
+        rotSpeed: (Math.random() - 0.5) * 0.18,
+        tilt: Math.random() * Math.PI * 2,
+        tiltSpeed: 0.08 + Math.random() * 0.14,
+        alpha: 1,
+        decay: 0.0055 + Math.random() * 0.006,
+        kind
+      });
     }
-  }, 4200);
+  };
+
+  const spawnShatterCrumbleSparks = () => {
+    const cx = window.innerWidth / 2;
+    const cy = window.innerHeight * 0.46;
+    const spanW = Math.min(340, window.innerWidth * 0.78);
+    for (let i = 0; i < 75; i++) {
+      const px = cx + (Math.random() - 0.5) * spanW;
+      const py = cy + (Math.random() - 0.5) * 90;
+      const kind = Math.random() < 0.45 ? 'star' : (Math.random() < 0.8 ? 'confetti' : 'ember');
+      particles.push({
+        x: px,
+        y: py,
+        vx: (px - cx) * 0.035 + (Math.random() - 0.5) * 5.5,
+        vy: -1.5 + Math.random() * 4.5,
+        gravity: 0.34 + Math.random() * 0.14,
+        drag: 0.985,
+        size: kind === 'star' ? (5 + Math.random() * 6) : (4 + Math.random() * 6),
+        color: palette[Math.floor(Math.random() * palette.length)],
+        rotation: Math.random() * Math.PI * 2,
+        rotSpeed: (Math.random() - 0.5) * 0.22,
+        tilt: Math.random() * Math.PI * 2,
+        tiltSpeed: 0.1 + Math.random() * 0.16,
+        alpha: 1,
+        decay: 0.012 + Math.random() * 0.009,
+        kind
+      });
+    }
+  };
+
+  const drawFourPointStar = (c, x, y, r, rot) => {
+    c.save();
+    c.translate(x, y);
+    c.rotate(rot);
+    c.beginPath();
+    const inner = r * 0.32;
+    for (let i = 0; i < 8; i++) {
+      const rad = (i % 2 === 0) ? r : inner;
+      const a = (i * Math.PI) / 4;
+      const px = Math.cos(a) * rad;
+      const py = Math.sin(a) * rad;
+      if (i === 0) c.moveTo(px, py);
+      else c.lineTo(px, py);
+    }
+    c.closePath();
+    c.fill();
+    c.restore();
+  };
+
+  const renderLoop = () => {
+    if (isDisposed || !ctx || !canvas) return;
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    ctx.clearRect(0, 0, W, H);
+
+    // Draw expanding shockwaves
+    for (let i = shockwaves.length - 1; i >= 0; i--) {
+      const sw = shockwaves[i];
+      sw.r += (sw.maxR - sw.r) * 0.14;
+      sw.alpha *= 0.91;
+      if (sw.alpha <= 0.02) {
+        shockwaves.splice(i, 1);
+        continue;
+      }
+      ctx.save();
+      ctx.globalAlpha = sw.alpha;
+      ctx.strokeStyle = sw.color;
+      ctx.lineWidth = sw.width;
+      ctx.beginPath();
+      ctx.arc(sw.x, sw.y, sw.r, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Update & draw particles
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.vx *= p.drag;
+      p.vy = p.vy * p.drag + p.gravity;
+      p.x += p.vx;
+      p.y += p.vy;
+      p.rotation += p.rotSpeed;
+      p.tilt += p.tiltSpeed;
+      p.alpha -= p.decay;
+
+      if (p.alpha <= 0.01 || p.y > H + 60) {
+        particles.splice(i, 1);
+        continue;
+      }
+
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, Math.min(1, p.alpha));
+      ctx.fillStyle = p.color;
+
+      if (p.kind === 'star') {
+        ctx.shadowColor = p.color;
+        ctx.shadowBlur = 8;
+        drawFourPointStar(ctx, p.x, p.y, p.size, p.rotation);
+      } else if (p.kind === 'confetti') {
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rotation);
+        const w = p.size * 1.35;
+        const h = Math.max(1.8, p.size * Math.abs(Math.cos(p.tilt)));
+        ctx.fillRect(-w / 2, -h / 2, w, h);
+      } else {
+        ctx.shadowColor = p.color;
+        ctx.shadowBlur = 10;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    rafId = requestAnimationFrame(renderLoop);
+  };
+
+  spawnSplashBurst();
+  rafId = requestAnimationFrame(renderLoop);
+
+  const triggerFallApart = () => {
+    if (fallTriggered || isDisposed) return;
+    fallTriggered = true;
+    overlay.classList.add('is-falling-apart');
+    spawnShatterCrumbleSparks();
+    setTimeout(() => {
+      if (overlay._cleanupBurstRaf) overlay._cleanupBurstRaf();
+      if (overlay && overlay.parentNode) overlay.remove();
+    }, 1250);
+  };
+
+  overlay._cleanupBurstRaf = () => {
+    isDisposed = true;
+    if (rafId) cancelAnimationFrame(rafId);
+  };
+
+  overlay.onclick = () => {
+    triggerFallApart();
+  };
+
+  // Hold standalone title in center for 2.35s, then shatter & fall apart with gravity!
+  setTimeout(triggerFallApart, 2350);
 }
 window.showSynthesisConvictionFlashOverlay = showSynthesisConvictionFlashOverlay;
 

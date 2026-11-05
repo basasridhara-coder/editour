@@ -29895,178 +29895,277 @@ mark.polish-mark:hover, mark.polish-mark.active {
   color: var(--text-secondary, #64748B);
 }
 
-/* Sparkling Synthesis Conviction Celebration Flash Overlay */
+/* Full-Screen Particle Splash/Burst & Shattering Standalone Conviction Title */
 .synthesis-conviction-flash-overlay {
   position: fixed;
-  top: 18px;
-  left: 50%;
-  transform: translateX(-50%);
+  inset: 0;
   z-index: 10050;
-  width: calc(100% - 28px);
-  max-width: 410px;
-  pointer-events: auto;
-  cursor: pointer;
-  animation: synthFlashSlideIn 0.42s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-}
-
-.synthesis-conviction-flash-overlay.is-dismissing {
-  animation: synthFlashFadeOut 0.28s ease forwards;
-}
-
-.synthesis-conviction-flash-card {
-  position: relative;
-  overflow: hidden;
-  padding: 14px 16px;
-  border-radius: 18px;
-  background: rgba(15, 23, 42, 0.95);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border: 1.5px solid rgba(245, 158, 11, 0.6);
-  color: #FFFFFF;
-  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.42), 0 0 24px rgba(245, 158, 11, 0.28);
-  text-align: center;
-}
-
-.synthesis-conviction-flash-card.tier2_deep {
-  border-color: rgba(16, 185, 129, 0.65);
-  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.42), 0 0 24px rgba(16, 185, 129, 0.28);
-}
-
-.synthesis-conviction-flash-card.tier1_sharp {
-  border-color: rgba(99, 102, 241, 0.65);
-  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.42), 0 0 24px rgba(99, 102, 241, 0.26);
-}
-
-.flash-sparkle-particles span {
-  position: absolute;
-  font-size: 14px;
-  color: #FBBF24;
-  pointer-events: none;
-  animation: flashTwinkle 1.6s ease-in-out infinite;
-}
-
-.flash-sparkle-particles .sp-1 { top: 10px; left: 16px; animation-delay: 0s; }
-.flash-sparkle-particles .sp-2 { top: 12px; right: 18px; animation-delay: 0.3s; }
-.flash-sparkle-particles .sp-3 { bottom: 14px; left: 22px; animation-delay: 0.6s; }
-.flash-sparkle-particles .sp-4 { bottom: 12px; right: 20px; animation-delay: 0.9s; }
-
-.flash-tier-kicker {
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.1em;
-  color: #FCD34D;
-  margin-bottom: 4px;
-}
-
-.synthesis-conviction-flash-card.tier2_deep .flash-tier-kicker {
-  color: #6EE7B7;
-}
-
-.synthesis-conviction-flash-card.tier1_sharp .flash-tier-kicker {
-  color: #A5B4FC;
-}
-
-.flash-tier-main-row {
   display: flex;
   align-items: center;
   justify-content: center;
+  pointer-events: auto;
+  cursor: pointer;
+  overflow: hidden;
+  background: radial-gradient(circle at 50% 46%, rgba(15, 23, 42, 0.72) 0%, rgba(15, 23, 42, 0.42) 48%, rgba(15, 23, 42, 0.14) 100%);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  animation: convOverlayFadeIn 0.28s ease-out forwards;
+}
+
+.synthesis-conviction-flash-overlay.is-falling-apart {
+  background: radial-gradient(circle at 50% 46%, rgba(15, 23, 42, 0.35) 0%, rgba(15, 23, 42, 0.08) 65%, transparent 100%);
+  backdrop-filter: blur(0px);
+  -webkit-backdrop-filter: blur(0px);
+  transition: background 0.9s ease, backdrop-filter 0.9s ease;
+}
+
+.synthesis-conviction-flash-overlay.is-dismissing {
+  opacity: 0;
+  transition: opacity 0.32s ease;
+  pointer-events: none;
+}
+
+.conviction-burst-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.conviction-standalone-stage {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 24px 18px;
+  pointer-events: none;
+  user-select: none;
+  transform: translateY(-4%);
+}
+
+.conviction-standalone-crest {
+  display: inline-flex;
+  align-items: center;
   gap: 8px;
-  margin-bottom: 4px;
+  margin-bottom: 12px;
+  opacity: 0;
+  animation: convCrestPopIn 0.52s cubic-bezier(0.34, 1.56, 0.64, 1) 0.06s forwards;
 }
 
-.flash-tier-icon {
-  font-size: 18px;
+.conviction-standalone-icon {
+  font-size: 32px;
+  filter: drop-shadow(0 0 18px rgba(251, 191, 36, 0.95)) drop-shadow(0 4px 12px rgba(0, 0, 0, 0.65));
 }
 
-.flash-tier-title {
+.conviction-standalone-depth {
   font-family: 'Space Grotesk', 'Inter', sans-serif;
-  font-size: 16px;
+  font-size: 12px;
   font-weight: 900;
-  letter-spacing: 0.03em;
-  color: #FFFFFF;
+  letter-spacing: 0.16em;
+  color: #FEF3C7;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.88), 0 0 16px rgba(245, 158, 11, 0.85);
 }
 
-.flash-tier-score-pill {
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.16);
-  font-size: 11.5px;
-  font-weight: 800;
-  color: #FDE68A;
+.synthesis-conviction-flash-overlay.tier2_deep .conviction-standalone-depth {
+  color: #D1FAE5;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.88), 0 0 16px rgba(16, 185, 129, 0.85);
 }
 
-.flash-tier-desc {
-  margin: 0 0 9px 0;
-  font-size: 11.5px;
-  line-height: 1.4;
-  color: rgba(241, 245, 249, 0.88);
+.synthesis-conviction-flash-overlay.tier1_sharp .conviction-standalone-depth {
+  color: #E0E7FF;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.88), 0 0 16px rgba(99, 102, 241, 0.85);
 }
 
-.flash-rolling-progress-box {
-  padding-top: 8px;
-  border-top: 1px solid rgba(255, 255, 255, 0.14);
+.conviction-standalone-words {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 4px;
+  perspective: 800px;
 }
 
-.flash-rolling-dots {
+.conviction-standalone-word-line {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+  white-space: nowrap;
 }
 
-.flash-5post-dot {
-  padding: 2px 7px;
-  border-radius: 999px;
-  font-size: 10px;
-  font-weight: 800;
-  background: rgba(255, 255, 255, 0.1);
-  color: #CBD5E1;
+.conv-char {
+  display: inline-block;
+  font-family: 'Space Grotesk', 'Inter', system-ui, sans-serif;
+  font-size: clamp(2.15rem, 8.2vw, 3.85rem);
+  font-weight: 900;
+  line-height: 1.04;
+  letter-spacing: 0.06em;
+  color: #FFFBEB;
+  text-shadow:
+    0 2px 0 #D97706,
+    0 4px 0 #92400E,
+    0 8px 24px rgba(0, 0, 0, 0.85),
+    0 0 34px rgba(251, 191, 36, 0.92),
+    0 0 64px rgba(245, 158, 11, 0.55);
+  opacity: 0;
+  will-change: transform, opacity;
+  animation: convCharPopIn 0.56s cubic-bezier(0.22, 1.4, 0.36, 1) calc(var(--char-idx, 0) * 24ms + 60ms) forwards;
 }
 
-.flash-5post-dot.is-tier3 {
-  background: rgba(245, 158, 11, 0.28);
-  border: 1px solid rgba(251, 191, 36, 0.65);
+.synthesis-conviction-flash-overlay.tier2_deep .conv-char {
+  color: #ECFDF5;
+  text-shadow:
+    0 2px 0 #059669,
+    0 4px 0 #065F46,
+    0 8px 24px rgba(0, 0, 0, 0.85),
+    0 0 34px rgba(52, 211, 153, 0.9),
+    0 0 64px rgba(16, 185, 129, 0.55);
+}
+
+.synthesis-conviction-flash-overlay.tier1_sharp .conv-char {
+  color: #EEF2FF;
+  text-shadow:
+    0 2px 0 #4F46E5,
+    0 4px 0 #3730A3,
+    0 8px 24px rgba(0, 0, 0, 0.85),
+    0 0 34px rgba(129, 140, 248, 0.9),
+    0 0 64px rgba(99, 102, 241, 0.55);
+}
+
+.conviction-standalone-sub {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.conviction-standalone-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.conv-star-dot {
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.35);
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+  opacity: 0;
+  animation: convCrestPopIn 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) 0.35s forwards;
+}
+
+.conv-star-dot.is-tier3 {
   color: #FDE68A;
+  text-shadow: 0 0 14px rgba(251, 191, 36, 0.95), 0 2px 8px rgba(0, 0, 0, 0.85);
 }
 
-.flash-5post-dot.is-tier2 {
-  background: rgba(16, 185, 129, 0.26);
-  border: 1px solid rgba(52, 211, 153, 0.6);
-  color: #A7F3D0;
+.conv-star-dot.is-tier2 {
+  color: #6EE7B7;
+  text-shadow: 0 0 14px rgba(16, 185, 129, 0.95), 0 2px 8px rgba(0, 0, 0, 0.85);
 }
 
-.flash-5post-dot.is-tier1 {
-  background: rgba(99, 102, 241, 0.26);
-  border: 1px solid rgba(129, 140, 248, 0.6);
-  color: #C7D2FE;
+.conv-star-dot.is-tier1 {
+  color: #A5B4FC;
+  text-shadow: 0 0 14px rgba(99, 102, 241, 0.95), 0 2px 8px rgba(0, 0, 0, 0.85);
 }
 
-.flash-5post-dot.is-current-pop {
-  transform: scale(1.08);
-  box-shadow: 0 0 10px rgba(251, 191, 36, 0.45);
+.conv-star-dot.is-current-pop {
+  font-size: 20px;
 }
 
-.flash-rolling-label {
-  font-size: 10.5px;
-  color: #CBD5E1;
+.conviction-standalone-whisper {
+  font-family: 'Space Grotesk', 'Inter', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.92);
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.95);
+  opacity: 0;
+  animation: convCrestPopIn 0.48s ease-out 0.42s forwards;
 }
 
-@keyframes synthFlashSlideIn {
-  0% { opacity: 0; transform: translate(-50%, -18px) scale(0.94); }
-  100% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+/* SHATTER & FALL APART STATE (.is-falling-apart) */
+.synthesis-conviction-flash-overlay.is-falling-apart .conv-char {
+  animation: convCharFallApart 1.08s cubic-bezier(0.32, 0, 0.85, 0.36) var(--fall-delay, 0ms) forwards !important;
 }
 
-@keyframes synthFlashFadeOut {
-  0% { opacity: 1; transform: translate(-50%, 0) scale(1); }
-  100% { opacity: 0; transform: translate(-50%, -12px) scale(0.96); }
+.synthesis-conviction-flash-overlay.is-falling-apart .conv-fall-piece {
+  animation: convPieceFallApart 0.95s cubic-bezier(0.36, 0, 0.85, 0.38) var(--fall-delay, 0ms) forwards !important;
 }
 
-@keyframes flashTwinkle {
-  0%, 100% { opacity: 0.35; transform: scale(0.85) rotate(0deg); }
-  50% { opacity: 1; transform: scale(1.2) rotate(15deg); }
+@keyframes convOverlayFadeIn {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+@keyframes convCrestPopIn {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 14px, 0) scale(0.5);
+  }
+  70% {
+    opacity: 1;
+    transform: translate3d(0, -3px, 0) scale(1.08);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes convCharPopIn {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 26px, -60px) scale(0.28) rotate(-10deg);
+    filter: brightness(2.2);
+  }
+  65% {
+    opacity: 1;
+    transform: translate3d(0, -6px, 20px) scale(1.12) rotate(2deg);
+    filter: brightness(1.35);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1) rotate(0deg);
+    filter: brightness(1);
+  }
+}
+
+@keyframes convCharFallApart {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1) rotate(0deg);
+  }
+  18% {
+    opacity: 1;
+    /* Initial fracture crack outward before gravity pulls down */
+    transform: translate3d(var(--crack-x, 8px), var(--crack-y, -10px), 0) scale(1.05) rotate(var(--crack-rot, 8deg));
+    filter: brightness(1.4);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--fall-x, 45px), 340px, 0) scale(0.42) rotate(var(--fall-rot, 65deg));
+    filter: blur(2px);
+  }
+}
+
+@keyframes convPieceFallApart {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1) rotate(0deg);
+  }
+  16% {
+    opacity: 1;
+    transform: translate3d(var(--fall-x, 12px), -8px, 0) scale(1.04) rotate(6deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--fall-x, 24px), 290px, 0) scale(0.45) rotate(var(--fall-rot, 40deg));
+  }
 }
 
 /* ============================================================
