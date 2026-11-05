@@ -8349,7 +8349,7 @@ function renderSeriesFilterBar(container) {
             ? 'Empty • Tap to pen'
             : (stats.privCount > 0 ? `🌐 ${stats.pubCount} • 🔒 ${stats.privCount}` : `${stats.total} ${stats.total === 1 ? 'story' : 'stories'}`));
       return `
-        <div class="series-poster-thumb-card ${isAct ? 'active' : ''}" role="button" tabindex="0" onclick="selectFeedSeriesFilter('${escapeHtml(s.id)}')" title="Series: ${escapeHtml(s.title)}${s.description ? ' — ' + escapeHtml(s.description) : ''} (${stats.total} posts)">
+        <button type="button" class="series-poster-thumb-card ${isAct ? 'active' : ''}" onclick="selectFeedSeriesFilter('${escapeHtml(s.id)}')" title="Series: ${escapeHtml(s.title)}${s.description ? ' — ' + escapeHtml(s.description) : ''} (${stats.total} posts)">
           ${resolvedCover
             ? `<img src="${escapeHtml(resolvedCover)}" class="series-poster-thumb-img" alt="" loading="lazy">`
             : `<div class="series-poster-thumb-fallback palette-${idx % 4}"></div>`}
@@ -8360,18 +8360,9 @@ function renderSeriesFilterBar(container) {
           <div class="series-poster-thumb-scrim-bottom">
             <div class="series-poster-thumb-kicker">SERIES</div>
             <div class="series-poster-thumb-title">${escapeHtml(s.title)}</div>
-            <div class="series-poster-thumb-sub" style="padding-right: 24px;">${escapeHtml(subText)}</div>
+            <div class="series-poster-thumb-sub">${escapeHtml(subText)}</div>
           </div>
-          <button type="button" class="series-corner-share-icon-btn" onclick="shareSeriesNotebook('${escapeHtml(s.id)}', '', event)" title="Share Series" aria-label="Share Series" style="position:absolute; bottom:7px; right:7px; z-index:4; width:24px; height:24px; border-radius:50%; border:1px solid rgba(255,255,255,0.28); background:rgba(15,23,42,0.72); color:#F8FAFC; display:inline-flex; align-items:center; justify-content:center; padding:0; cursor:pointer; backdrop-filter:blur(4px);">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="18" cy="5" r="3"></circle>
-              <circle cx="6" cy="12" r="3"></circle>
-              <circle cx="18" cy="19" r="3"></circle>
-              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
-              <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
-            </svg>
-          </button>
-        </div>
+        </button>
       `;
     })
   ].join('');
@@ -8479,8 +8470,8 @@ function renderSeriesFilterBar(container) {
         `}
 
         <div class="series-notebook-actions">
-          <span class="series-notebook-hint">${isNewlyCreated ? '🎉 Series ready! Start slanting your first perspective in this series:' : 'Explore thoughts in this series privately, and publish only the ones you choose.'}</span>
-          <div style="display:flex; align-items:center; gap:8px;">
+          <span class="series-notebook-hint" style="flex:1 1 180px;">${isNewlyCreated ? '🎉 Series ready! Start slanting your first perspective in this series:' : 'Explore thoughts in this series privately, and publish only the ones you choose.'}</span>
+          <div style="display:flex; align-items:center; justify-content:flex-end; gap:8px; margin-left:auto; flex-shrink:0;">
             <button type="button" class="series-add-post-btn" onclick="openCreatorForSeries('${escapeHtml(activeSeriesObj.id)}')">
               <span>✨ Start Slanting &rarr;</span>
             </button>
@@ -14001,7 +13992,7 @@ function filterByCurator(curatorName, selectedSeriesId = 'all') {
                 const resolvedCover = s.customCoverImage || s.coverImage || '';
                 const subText = s.description ? s.description : `${s.count} ${s.count === 1 ? 'story' : 'stories'}`;
                 return `
-                  <div class="series-poster-thumb-card ${isAct ? 'active' : ''}" role="button" tabindex="0" onclick="selectCuratorProfileSeries('${escapeHtml(displayHandle)}', '${escapeHtml(s.id)}')">
+                  <button type="button" class="series-poster-thumb-card ${isAct ? 'active' : ''}" onclick="selectCuratorProfileSeries('${escapeHtml(displayHandle)}', '${escapeHtml(s.id)}')">
                     ${resolvedCover
                       ? `<img src="${escapeHtml(resolvedCover)}" class="series-poster-thumb-img" alt="" loading="lazy">`
                       : `<div class="series-poster-thumb-fallback palette-${idx % 4}"></div>`}
@@ -14012,23 +14003,14 @@ function filterByCurator(curatorName, selectedSeriesId = 'all') {
                     <div class="series-poster-thumb-scrim-bottom">
                       <div class="series-poster-thumb-kicker">SERIES</div>
                       <div class="series-poster-thumb-title">${escapeHtml(s.title)}</div>
-                      <div class="series-poster-thumb-sub" style="padding-right: 24px;">${escapeHtml(subText)}</div>
+                      <div class="series-poster-thumb-sub">${escapeHtml(subText)}</div>
                     </div>
-                    <button type="button" class="series-corner-share-icon-btn" onclick="shareSeriesNotebook('${escapeHtml(s.id)}', '${escapeHtml(displayHandle)}', event)" title="Share Series" aria-label="Share Series" style="position:absolute; bottom:7px; right:7px; z-index:4; width:24px; height:24px; border-radius:50%; border:1px solid rgba(255,255,255,0.28); background:rgba(15,23,42,0.72); color:#F8FAFC; display:inline-flex; align-items:center; justify-content:center; padding:0; cursor:pointer; backdrop-filter:blur(4px);">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="18" cy="5" r="3"></circle>
-                        <circle cx="6" cy="12" r="3"></circle>
-                        <circle cx="18" cy="19" r="3"></circle>
-                        <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
-                        <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
-                      </svg>
-                    </button>
-                  </div>
+                  </button>
                 `;
               }).join('')}
             </div>
             ${activeSeriesObj ? `
-              <div class="series-active-notebook-banner" style="margin-top:4px; position:relative; padding-bottom:14px;">
+              <div class="series-active-notebook-banner" style="margin-top:4px;">
                 <div class="series-studio-top-row">
                   <div class="series-notebook-cover-box" style="cursor:default;">
                     ${(activeSeriesObj.customCoverImage || activeSeriesObj.coverImage)
@@ -14040,23 +14022,36 @@ function filterByCurator(curatorName, selectedSeriesId = 'all') {
                       <span class="series-notebook-kicker">📚 SERIES BY @${escapeHtml(displayHandle.toUpperCase())}</span>
                       <span class="series-stat-pill is-public">🌐 ${activeSeriesObj.count} ${activeSeriesObj.count === 1 ? 'Post' : 'Posts'}</span>
                     </div>
-                    <h4 class="series-notebook-title">${escapeHtml(activeSeriesObj.title)}</h4>
+                    <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:10px; width:100%;">
+                      <h4 class="series-notebook-title" style="flex:1; min-width:0;">${escapeHtml(activeSeriesObj.title)}</h4>
+                      ${!activeSeriesObj.description ? `
+                        <button type="button" class="series-corner-share-icon-btn" onclick="shareSeriesNotebook('${escapeHtml(activeSeriesObj.id)}', '${escapeHtml(displayHandle)}', event)" title="Share Series" aria-label="Share Series" style="width:28px; height:28px; border-radius:50%; border:1px solid rgba(148,163,184,0.35); background:rgba(15,23,42,0.55); color:var(--text-primary, #F8FAFC); display:inline-flex; align-items:center; justify-content:center; padding:0; cursor:pointer; flex-shrink:0; margin-left:auto;">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="18" cy="5" r="3"></circle>
+                            <circle cx="6" cy="12" r="3"></circle>
+                            <circle cx="18" cy="19" r="3"></circle>
+                            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+                          </svg>
+                        </button>
+                      ` : ''}
+                    </div>
                   </div>
                 </div>
                 ${activeSeriesObj.description ? `
-                  <div class="series-notebook-desc-wrap" style="padding-right:36px;">
-                    <p class="series-notebook-desc-text" style="cursor:default;">${escapeHtml(activeSeriesObj.description)}</p>
+                  <div class="series-notebook-desc-wrap" style="display:flex; align-items:flex-end; justify-content:space-between; gap:10px; width:100%;">
+                    <p class="series-notebook-desc-text" style="cursor:default; flex:1; margin:0;">${escapeHtml(activeSeriesObj.description)}</p>
+                    <button type="button" class="series-corner-share-icon-btn" onclick="shareSeriesNotebook('${escapeHtml(activeSeriesObj.id)}', '${escapeHtml(displayHandle)}', event)" title="Share Series" aria-label="Share Series" style="width:28px; height:28px; border-radius:50%; border:1px solid rgba(148,163,184,0.35); background:rgba(15,23,42,0.55); color:var(--text-primary, #F8FAFC); display:inline-flex; align-items:center; justify-content:center; padding:0; cursor:pointer; flex-shrink:0; margin-left:auto;">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="18" cy="5" r="3"></circle>
+                        <circle cx="6" cy="12" r="3"></circle>
+                        <circle cx="18" cy="19" r="3"></circle>
+                        <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                        <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+                      </svg>
+                    </button>
                   </div>
                 ` : ''}
-                <button type="button" class="series-corner-share-icon-btn" onclick="shareSeriesNotebook('${escapeHtml(activeSeriesObj.id)}', '${escapeHtml(displayHandle)}', event)" title="Share Series" aria-label="Share Series" style="position:absolute; bottom:10px; right:12px; width:28px; height:28px; border-radius:50%; border:1px solid rgba(148,163,184,0.35); background:rgba(15,23,42,0.6); color:var(--text-primary, #F8FAFC); display:inline-flex; align-items:center; justify-content:center; padding:0; cursor:pointer;">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="18" cy="5" r="3"></circle>
-                    <circle cx="6" cy="12" r="3"></circle>
-                    <circle cx="18" cy="19" r="3"></circle>
-                    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
-                    <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
-                  </svg>
-                </button>
               </div>
             ` : ''}
           </div>
