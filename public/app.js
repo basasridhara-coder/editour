@@ -22224,15 +22224,14 @@ function renderCuratorStyleProfile() {
       rangeSlider.value = String(Math.round((barsScroller.scrollLeft / maxScroll) * 100));
     };
 
-    requestAnimationFrame(() => {
-      if (prevBarsScrollLeft !== null) {
-        barsScroller.scrollLeft = prevBarsScrollLeft;
-      } else {
-        // Default to showing the latest posts on the right edge of the slidable window
-        barsScroller.scrollLeft = barsScroller.scrollWidth;
-      }
-      syncSliderFromScroll();
-    });
+    // Restore scroll position synchronously (with scroll-behavior: auto) so clicking a candle
+    // never animates/sweeps from candle #1 across all candles to the selected candle.
+    if (prevBarsScrollLeft !== null) {
+      barsScroller.scrollLeft = prevBarsScrollLeft;
+    } else {
+      barsScroller.scrollLeft = barsScroller.scrollWidth;
+    }
+    syncSliderFromScroll();
 
     barsScroller.addEventListener('scroll', syncSliderFromScroll, { passive: true });
     if (rangeSlider) {
@@ -22248,7 +22247,6 @@ function renderCuratorStyleProfile() {
     let barDragScrollLeft = 0;
     barsScroller.addEventListener('mousedown', (e) => {
       isDraggingBars = true;
-      barsScroller.classList.add('is-dragging');
       barDragStartX = e.pageX - barsScroller.offsetLeft;
       barDragScrollLeft = barsScroller.scrollLeft;
     });
@@ -22262,9 +22260,11 @@ function renderCuratorStyleProfile() {
     });
     barsScroller.addEventListener('mousemove', (e) => {
       if (!isDraggingBars) return;
-      e.preventDefault();
       const x = e.pageX - barsScroller.offsetLeft;
-      const walk = (x - barDragStartX) * 1.35;
+      if (Math.abs(x - barDragStartX) < 5) return;
+      e.preventDefault();
+      barsScroller.classList.add('is-dragging');
+      const walk = (x - barDragStartX) * 1.25;
       barsScroller.scrollLeft = barDragScrollLeft - walk;
     });
   }

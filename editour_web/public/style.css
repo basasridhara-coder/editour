@@ -13630,25 +13630,25 @@ mark.polish-mark:hover, mark.polish-mark.active {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 90%;
-  max-width: 720px;
-  max-height: 88vh;
+  width: min(96vw, 900px);
+  max-width: 900px;
+  max-height: 92vh;
   background: #0B0F19;
-  border: 1px solid rgba(168, 85, 247, 0.35);
-  border-radius: 18px;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(168, 85, 247, 0.32);
+  border-radius: 16px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.65);
   z-index: 10001;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  animation: scaleUp 0.25s ease-out;
+  animation: scaleUp 0.22s ease-out;
 }
 
 .curator-style-modal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 18px 24px;
+  padding: 13px 18px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(15, 23, 42, 0.6);
 }
@@ -13656,24 +13656,24 @@ mark.polish-mark:hover, mark.polish-mark.active {
 .curator-style-title-wrap {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .curator-style-sparkle {
-  font-size: 26px;
+  font-size: 22px;
 }
 
 .curator-style-title {
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 800;
   color: #FFFFFF;
   letter-spacing: -0.2px;
 }
 
 .curator-style-subtitle {
-  font-size: 12px;
+  font-size: 11.5px;
   color: #94A3B8;
-  margin-top: 2px;
+  margin-top: 1px;
 }
 
 .curator-style-close-btn {
@@ -13694,28 +13694,28 @@ mark.polish-mark:hover, mark.polish-mark.active {
 }
 
 .curator-style-modal-body {
-  padding: 18px 22px 26px;
+  padding: 14px 18px 20px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 14px;
 }
 
 /* Curator 3-Graph Analytics Dashboard */
 .curator-kpi-strip {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 10px;
 }
 
 .curator-kpi-pill {
-  background: rgba(15, 23, 42, 0.72);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
-  padding: 10px 14px;
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 10px;
+  padding: 9px 12px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
 }
 
 .kpi-label {
@@ -13751,13 +13751,13 @@ mark.polish-mark:hover, mark.polish-mark.active {
 }
 
 .curator-graph-card {
-  background: rgba(15, 23, 42, 0.62);
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  border-radius: 14px;
-  padding: 16px 18px;
+  background: rgba(15, 23, 42, 0.42);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 12px;
+  padding: 14px 16px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
 }
 
 .graph-card-header {
@@ -13899,12 +13899,13 @@ mark.polish-mark:hover, mark.polish-mark.active {
   color: #94A3B8;
 }
 
-/* Graph 1: Stacked Bar Chart Stage */
+/* Graph 1: Stacked Bar Chart Stage (Flat, Full-Width — Zero Nested Box Frames) */
 .corr-chart-stage {
-  background: rgba(9, 13, 22, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 12px;
-  padding: 12px 14px;
+  background: transparent;
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0;
+  padding: 10px 0 0;
 }
 
 .corr-chart-header-row {
@@ -13912,11 +13913,11 @@ mark.polish-mark:hover, mark.polish-mark.active {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .corr-chart-caption {
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 700;
   color: #94A3B8;
   margin-bottom: 0;
@@ -13925,13 +13926,13 @@ mark.polish-mark:hover, mark.polish-mark.active {
 .corr-chart-slide-controls {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   flex-shrink: 0;
 }
 
 .corr-slide-nav-btn {
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
   border-radius: 6px;
   border: 1px solid rgba(148, 163, 184, 0.25);
   background: rgba(255, 255, 255, 0.05);
@@ -13960,30 +13961,30 @@ mark.polish-mark:hover, mark.polish-mark.active {
 
 .corr-bars-window-frame {
   width: 100%;
-  max-width: 440px;
-  margin: 0 auto;
-  padding: 8px 10px 6px;
-  border-radius: 10px;
-  background: rgba(15, 23, 42, 0.45);
-  border: 1px solid rgba(168, 85, 247, 0.22);
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  border: none;
   box-sizing: border-box;
 }
 
 [data-theme="daylight"] .corr-bars-window-frame {
-  background: #F8FAFC;
-  border-color: #CBD5E1;
+  background: transparent;
+  border: none;
 }
 
 .corr-bars-scroller {
   display: flex;
   flex-wrap: nowrap;
-  gap: 10px;
+  gap: 8px;
   align-items: flex-end;
-  min-height: 142px;
+  min-height: 162px;
   overflow-x: auto;
   overflow-y: hidden;
-  padding-bottom: 6px;
-  scroll-behavior: smooth;
+  padding: 4px 0 8px;
+  scroll-behavior: auto;
   -webkit-overflow-scrolling: touch;
   cursor: grab;
   user-select: none;
@@ -14011,37 +14012,37 @@ mark.polish-mark:hover, mark.polish-mark.active {
 }
 
 .corr-bar-col {
-  flex: 0 0 68px;
-  min-width: 68px;
+  flex: 0 0 82px;
+  min-width: 82px;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 4px;
   cursor: pointer;
   padding: 6px 4px;
-  border-radius: 9px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  background: rgba(255, 255, 255, 0.02);
-  transition: background 0.15s ease, border-color 0.15s ease;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  transition: background 0.15s ease;
 }
 
 [data-theme="daylight"] .corr-bar-col {
-  background: #FFFFFF;
-  border-color: #E2E8F0;
+  background: transparent;
+  border: none;
 }
 
 .corr-bar-seq {
-  font-size: 9px;
+  font-size: 9.5px;
   font-weight: 800;
   color: #94A3B8;
   letter-spacing: 0.3px;
 }
 
 .corr-bar-snippet {
-  font-size: 8.5px;
+  font-size: 9px;
   font-weight: 600;
   color: #64748B;
-  max-width: 62px;
+  max-width: 74px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -14051,10 +14052,9 @@ mark.polish-mark:hover, mark.polish-mark.active {
 .corr-bars-slider-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-top: 6px;
-  padding-top: 4px;
-  border-top: 1px dashed rgba(148, 163, 184, 0.18);
+  gap: 10px;
+  margin-top: 4px;
+  padding-top: 6px;
 }
 
 .corr-slider-edge-lbl {
@@ -14077,15 +14077,15 @@ mark.polish-mark:hover, mark.polish-mark.active {
 }
 
 .corr-bar-val {
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 800;
   color: #E2E8F0;
 }
 
 .corr-bar-track {
-  width: 22px;
-  height: 88px;
-  background: rgba(255, 255, 255, 0.04);
+  width: 28px;
+  height: 112px;
+  background: rgba(255, 255, 255, 0.05);
   border-radius: 6px;
   display: flex;
   flex-direction: column-reverse;
@@ -14101,7 +14101,7 @@ mark.polish-mark:hover, mark.polish-mark.active {
 .corr-bar-segment {
   width: 100%;
   border-radius: 3px;
-  transition: height 0.25s ease;
+  transition: height 0.2s ease;
 }
 
 .corr-bar-zero {
@@ -14118,12 +14118,13 @@ mark.polish-mark:hover, mark.polish-mark.active {
   white-space: nowrap;
 }
 
-/* Graph 1: Post Inspector */
+/* Graph 1: Post Inspector (Flat Top-Rule Strip Instead of Box-in-Box) */
 .corr-post-inspector {
-  background: rgba(15, 23, 42, 0.8);
-  border: 1px solid rgba(192, 132, 252, 0.3);
-  border-radius: 10px;
-  padding: 11px 13px;
+  background: transparent;
+  border: none;
+  border-top: 1px solid rgba(192, 132, 252, 0.22);
+  border-radius: 0;
+  padding: 10px 0 2px;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -14347,10 +14348,10 @@ mark.polish-mark:hover, mark.polish-mark.active {
 }
 
 .emotion-col-card {
-  background: rgba(9, 13, 22, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 11px;
-  padding: 10px 6px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  padding: 8px 4px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -14363,8 +14364,7 @@ mark.polish-mark:hover, mark.polish-mark.active {
 .emotion-col-card:hover,
 .emotion-col-card.active {
   border-color: var(--emo-color);
-  background: rgba(255, 255, 255, 0.06);
-  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .emotion-col-top {
@@ -14385,8 +14385,8 @@ mark.polish-mark:hover, mark.polish-mark.active {
 }
 
 .emotion-col-bar-wrap {
-  width: 24px;
-  height: 74px;
+  width: 28px;
+  height: 92px;
   background: rgba(255, 255, 255, 0.05);
   border-radius: 6px;
   display: flex;
@@ -14421,10 +14421,11 @@ mark.polish-mark:hover, mark.polish-mark.active {
 }
 
 .analytics-drilldown-box {
-  background: rgba(9, 13, 22, 0.65);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 10px;
-  padding: 10px 12px;
+  background: transparent;
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0;
+  padding: 10px 0 2px;
   display: flex;
   flex-direction: column;
   gap: 7px;
