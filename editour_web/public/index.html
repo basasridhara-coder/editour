@@ -40,7 +40,7 @@
   <link rel="preconnect" href="https://fxfklefnkpmhofncqhfh.supabase.co" crossorigin>
   <link rel="preconnect" href="https://accounts.google.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Merriweather:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,400;1,600;1,700;1,900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261106_0100">
+  <link rel="stylesheet" href="style.css?v=20261106_0118">
   <!-- Favicon & Brand Icons -->
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
@@ -896,7 +896,6 @@
             </button>
           </div>
 
-          <div class="creator-hero-slant-card">
           <!-- Auto-Identified Core Visual Subject / Per-Moment Scene Projection Picker -->
           <div class="polish-visual-subject-picker" id="polishVisualSubjectPicker" style="display: none;">
             <div class="polish-vs-header">
@@ -918,8 +917,8 @@
             </div>
           </div>
 
-          <!-- Unified Poster 1 Visual Source Selector Strip (Clear 3-Way Choice) -->
-          <div id="creatorPosterVisualSourceStrip" style="margin-top: 12px; padding: 11px 12px; border-radius: 14px; background: rgba(15, 23, 42, 0.035); border: 1.5px solid rgba(148, 163, 184, 0.32);">
+          <!-- Unified Poster 1 Visual Source Selector Strip (Clear 3-Way Choice — Flat Layout, No Outer Frame) -->
+          <div id="creatorPosterVisualSourceStrip" style="margin-top: 8px; padding: 4px 0; border-radius: 0; background: transparent; border: none;">
             <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; flex-wrap: wrap;">
               <div style="display: inline-flex; align-items: center; gap: 6px;">
                 <span style="font-size: 13.5px;">🖼️</span>
@@ -1121,8 +1120,8 @@
             </div>
           </div>
 
-          <!-- Slant Series Selector (Step 1 - Synchronized with Step 3) -->
-          <div id="creatorSeriesRow" class="creator-series-row">
+          <!-- Slant Series Selector (Step 1 - Synchronized with Step 3, Flat Top Divider) -->
+          <div id="creatorSeriesRow" class="creator-series-row" style="margin-top: 8px; padding: 10px 0 4px; background: transparent; border: none; border-top: 1px solid rgba(148, 163, 184, 0.25); border-radius: 0;">
             <div class="creator-series-title-wrap">
               <span class="creator-series-icon">📚</span>
               <span class="creator-series-label-title">Slant Series</span>
@@ -1153,8 +1152,6 @@
               <span id="creatorAllowCommentsBadge" style="font-size: 10.5px; font-weight: 800; color: #059669;">Allowed</span>
             </label>
           </div>
-
-        </div>
 
         <!-- 4. Bottom Navigation Bar (Stage 2 - Visual Selection & One-Click Synthesis with Optional Equalizer) -->
         <div class="creator-bottom-nav creator-step1-nav">
@@ -3053,6 +3050,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261106_0100"></script>
+  <script src="app.js?v=20261106_0118"></script>
 </body>
 </html>
