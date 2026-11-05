@@ -21784,6 +21784,17 @@ function selectCuratorCorrectionPost(idx) {
   renderCuratorStyleProfile();
 }
 
+function scrollCuratorCorrectionBars(dir) {
+  const scroller = document.getElementById('curatorCorrBarsScroller');
+  if (!scroller) return;
+  const step = Math.max(160, Math.round(scroller.clientWidth * 0.65));
+  try {
+    scroller.scrollBy({ left: dir * step, behavior: 'smooth' });
+  } catch (_) {
+    scroller.scrollLeft += dir * step;
+  }
+}
+
 function selectCuratorTopicCategory(topicId) {
   curatorAnalyticsState.selectedTopicId = (curatorAnalyticsState.selectedTopicId === topicId) ? null : topicId;
   renderCuratorStyleProfile();
@@ -21867,8 +21878,11 @@ function renderCuratorStyleProfile() {
     return;
   }
 
-  // Recent posts slice for Graph 1 bars (up to 12 most recent posts, ordered oldest -> newest)
-  const recentPostsForBars = data.analyzedPosts.slice(-12);
+  const existingScroller = document.getElementById('curatorCorrBarsScroller');
+  const prevBarsScrollLeft = existingScroller ? existingScroller.scrollLeft : null;
+
+  // Full series of analyzed posts for Graph 1 slidable candle window (ordered oldest -> newest)
+  const recentPostsForBars = data.analyzedPosts;
   if (
     curatorAnalyticsState.selectedPostIndex < 0 ||
     curatorAnalyticsState.selectedPostIndex >= recentPostsForBars.length
@@ -22106,10 +22120,16 @@ function renderCuratorStyleProfile() {
         ${corrCardsHtml}
       </div>
 
-      <!-- Post-by-Post Stacked Bar Chart -->
+      <!-- Post-by-Post Stacked Bar Chart (Slidable Candle Window) -->
       <div class="corr-chart-stage">
-        <div class="corr-chart-caption">Post-by-Post Correction Breakdown (Oldest &rarr; Latest · Tap any bar to inspect)</div>
-        <div class="corr-bars-scroller">
+        <div class="corr-chart-header-row">
+          <div class="corr-chart-caption">Post-by-Post Correction Breakdown (${recentPostsForBars.length} Posts &middot; Slide window or tap any candle)</div>
+          <div class="corr-chart-slide-controls">
+            <button type="button" class="corr-slide-nav-btn" onclick="scrollCuratorCorrectionBars(-1)" title="Slide Earlier Posts">&#x2039;</button>
+            <button type="button" class="corr-slide-nav-btn" onclick="scrollCuratorCorrectionBars(1)" title="Slide Later Posts">&#x203A;</button>
+          </div>
+        </div>
+        <div class="corr-bars-scroller" id="curatorCorrBarsScroller">
           ${postBarsHtml}
         </div>
       </div>
@@ -22175,6 +22195,44 @@ function renderCuratorStyleProfile() {
       ${emotionDrilldownHtml}
     </section>
   `;
+
+  const barsScroller = document.getElementById('curatorCorrBarsScroller');
+  if (barsScroller) {
+    requestAnimationFrame(() => {
+      if (prevBarsScrollLeft !== null) {
+        barsScroller.scrollLeft = prevBarsScrollLeft;
+      } else {
+        // Default to showing the latest posts on the right edge of the slidable window
+        barsScroller.scrollLeft = barsScroller.scrollWidth;
+      }
+    });
+
+    // Enable smooth mouse drag-to-slide on desktop/laptop in addition to touch/trackpad horizontal scroll
+    let isDraggingBars = false;
+    let barDragStartX = 0;
+    let barDragScrollLeft = 0;
+    barsScroller.addEventListener('mousedown', (e) => {
+      isDraggingBars = true;
+      barsScroller.classList.add('is-dragging');
+      barDragStartX = e.pageX - barsScroller.offsetLeft;
+      barDragScrollLeft = barsScroller.scrollLeft;
+    });
+    barsScroller.addEventListener('mouseleave', () => {
+      isDraggingBars = false;
+      barsScroller.classList.remove('is-dragging');
+    });
+    barsScroller.addEventListener('mouseup', () => {
+      isDraggingBars = false;
+      barsScroller.classList.remove('is-dragging');
+    });
+    barsScroller.addEventListener('mousemove', (e) => {
+      if (!isDraggingBars) return;
+      e.preventDefault();
+      const x = e.pageX - barsScroller.offsetLeft;
+      const walk = (x - barDragStartX) * 1.35;
+      barsScroller.scrollLeft = barDragScrollLeft - walk;
+    });
+  }
 }
 
 // ============================================================

@@ -13896,22 +13896,96 @@ mark.polish-mark:hover, mark.polish-mark.active {
   padding: 12px 14px;
 }
 
+.corr-chart-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
 .corr-chart-caption {
   font-size: 10.5px;
   font-weight: 700;
   color: #94A3B8;
-  margin-bottom: 10px;
+  margin-bottom: 0;
+}
+
+.corr-chart-slide-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.corr-slide-nav-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(255, 255, 255, 0.05);
+  color: #E2E8F0;
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.corr-slide-nav-btn:hover {
+  background: rgba(168, 85, 247, 0.2);
+  border-color: rgba(192, 132, 252, 0.5);
+  color: #FFFFFF;
+}
+
+[data-theme="daylight"] .corr-slide-nav-btn {
+  background: #F1F5F9;
+  border-color: #CBD5E1;
+  color: #0F172A;
 }
 
 .corr-bars-scroller {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(38px, 1fr));
+  display: flex;
+  flex-wrap: nowrap;
   gap: 8px;
-  align-items: end;
+  align-items: flex-end;
   min-height: 128px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 6px;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  cursor: grab;
+  user-select: none;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(168, 85, 247, 0.4) rgba(255, 255, 255, 0.04);
+}
+
+.corr-bars-scroller.is-dragging {
+  cursor: grabbing;
+  scroll-behavior: auto;
+}
+
+.corr-bars-scroller::-webkit-scrollbar {
+  height: 5px;
+}
+
+.corr-bars-scroller::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 99px;
+}
+
+.corr-bars-scroller::-webkit-scrollbar-thumb {
+  background: rgba(168, 85, 247, 0.45);
+  border-radius: 99px;
 }
 
 .corr-bar-col {
+  flex: 0 0 46px;
+  min-width: 46px;
   display: flex;
   flex-direction: column;
   align-items: center;
