@@ -29393,6 +29393,218 @@ mark.polish-mark:hover, mark.polish-mark.active {
   }
 }
 
+/* ============================================================
+   POSTER & SHARED EXPORTED POSTER CONVICTION AURA (@HANDLE & AVATAR)
+   (Uses solid colors + text-shadow / box-shadow so html2canvas exports crisply)
+   ============================================================ */
+.poster-corner-creator.has-conviction-aura,
+.receipt-creator-name.has-conviction-aura,
+.chronicle-signature-handle.has-conviction-aura {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.poster-conviction-star {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  font-size: 7.5px;
+  line-height: 1;
+  font-weight: 900;
+  flex-shrink: 0;
+}
+
+.poster-export-sandbox .poster-conviction-star {
+  width: 12px !important;
+  height: 12px !important;
+  font-size: 8px !important;
+}
+
+.poster-conviction-star.tier3_piercing.is-aura-glowing {
+  background: radial-gradient(circle at 35% 35%, #FEF08A 0%, #F59E0B 68%, #B45309 100%);
+  color: #FFFBEB;
+  border: 1px solid rgba(255, 255, 255, 0.92);
+  box-shadow: 0 0 7px rgba(245, 158, 11, 0.9), 0 0 12px rgba(251, 191, 36, 0.6);
+  text-shadow: 0 0 3px rgba(255, 255, 255, 0.95);
+}
+
+.poster-conviction-star.tier2_deep.is-aura-glowing {
+  background: radial-gradient(circle at 35% 35%, #A7F3D0 0%, #10B981 68%, #047857 100%);
+  color: #ECFDF5;
+  border: 1px solid rgba(255, 255, 255, 0.92);
+  box-shadow: 0 0 7px rgba(16, 185, 129, 0.85), 0 0 11px rgba(52, 211, 153, 0.55);
+  text-shadow: 0 0 3px rgba(255, 255, 255, 0.9);
+}
+
+.poster-conviction-star.tier1_sharp.is-aura-glowing {
+  background: radial-gradient(circle at 35% 35%, #C7D2FE 0%, #6366F1 68%, #3730A3 100%);
+  color: #EEF2FF;
+  border: 1px solid rgba(255, 255, 255, 0.92);
+  box-shadow: 0 0 6px rgba(99, 102, 241, 0.8);
+}
+
+.poster-conviction-star.is-aura-unlit {
+  background: rgba(148, 163, 184, 0.28);
+  color: #94A3B8;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  box-shadow: none !important;
+  text-shadow: none !important;
+  opacity: 0.6;
+}
+
+/* Slide 1 (Dark Hook Poster) Glowing @Handle */
+.poster-corner-creator.has-conviction-aura.tier3_piercing.is-aura-glowing .poster-creator-at {
+  color: #FBBF24 !important;
+  font-weight: 900;
+  text-shadow: 0 0 8px rgba(245, 158, 11, 0.95), 0 0 14px rgba(251, 191, 36, 0.65);
+}
+
+.poster-corner-creator.has-conviction-aura.tier3_piercing.is-aura-glowing .poster-creator-handle-text {
+  color: #FEF3C7 !important;
+  text-shadow: 0 0 9px rgba(245, 158, 11, 0.78), 0 1px 4px rgba(0, 0, 0, 0.85);
+}
+
+.poster-corner-creator.has-conviction-aura.tier2_deep.is-aura-glowing .poster-creator-at {
+  color: #34D399 !important;
+  font-weight: 900;
+  text-shadow: 0 0 8px rgba(16, 185, 129, 0.9), 0 0 13px rgba(52, 211, 153, 0.6);
+}
+
+.poster-corner-creator.has-conviction-aura.tier2_deep.is-aura-glowing .poster-creator-handle-text {
+  color: #D1FAE5 !important;
+  text-shadow: 0 0 9px rgba(16, 185, 129, 0.72), 0 1px 4px rgba(0, 0, 0, 0.85);
+}
+
+.poster-corner-creator.has-conviction-aura.tier1_sharp.is-aura-glowing .poster-creator-at {
+  color: #818CF8 !important;
+  font-weight: 900;
+  text-shadow: 0 0 7px rgba(99, 102, 241, 0.85);
+}
+
+.poster-corner-creator.has-conviction-aura.tier1_sharp.is-aura-glowing .poster-creator-handle-text {
+  color: #E0E7FF !important;
+  text-shadow: 0 0 8px rgba(99, 102, 241, 0.65), 0 1px 4px rgba(0, 0, 0, 0.85);
+}
+
+/* Slide 2 & Slide 3 (Broadsheet Newsprint Poster) Glowing @Handle */
+.receipt-creator-name.has-conviction-aura.tier3_piercing.is-aura-glowing .poster-creator-at,
+.chronicle-signature-handle.has-conviction-aura.tier3_piercing.is-aura-glowing .poster-creator-at,
+.signed-curator-title.has-conviction-aura.tier3_piercing.is-aura-glowing .poster-creator-at {
+  color: #D97706 !important;
+  font-weight: 900;
+  text-shadow: 0 0 7px rgba(245, 158, 11, 0.7), 0 0 12px rgba(251, 191, 36, 0.45);
+}
+
+.receipt-creator-name.has-conviction-aura.tier3_piercing.is-aura-glowing .poster-creator-handle-text,
+.chronicle-signature-handle.has-conviction-aura.tier3_piercing.is-aura-glowing .poster-creator-handle-text {
+  color: #92400E !important;
+  text-shadow: 0 0 8px rgba(245, 158, 11, 0.36);
+}
+
+.signed-curator-title.has-conviction-aura.tier3_piercing.is-aura-glowing .poster-creator-handle-text {
+  color: #92400E !important;
+  text-shadow: 0 0 8px rgba(245, 158, 11, 0.35);
+}
+
+.receipt-creator-name.has-conviction-aura.tier2_deep.is-aura-glowing .poster-creator-at,
+.chronicle-signature-handle.has-conviction-aura.tier2_deep.is-aura-glowing .poster-creator-at,
+.signed-curator-title.has-conviction-aura.tier2_deep.is-aura-glowing .poster-creator-at {
+  color: #059669 !important;
+  font-weight: 900;
+  text-shadow: 0 0 7px rgba(16, 185, 129, 0.62), 0 0 11px rgba(52, 211, 153, 0.38);
+}
+
+.receipt-creator-name.has-conviction-aura.tier2_deep.is-aura-glowing .poster-creator-handle-text,
+.chronicle-signature-handle.has-conviction-aura.tier2_deep.is-aura-glowing .poster-creator-handle-text {
+  color: #065F46 !important;
+  text-shadow: 0 0 8px rgba(16, 185, 129, 0.3);
+}
+
+.receipt-creator-name.has-conviction-aura.tier1_sharp.is-aura-glowing .poster-creator-at,
+.chronicle-signature-handle.has-conviction-aura.tier1_sharp.is-aura-glowing .poster-creator-at,
+.signed-curator-title.has-conviction-aura.tier1_sharp.is-aura-glowing .poster-creator-at {
+  color: #4F46E5 !important;
+  font-weight: 900;
+  text-shadow: 0 0 6px rgba(99, 102, 241, 0.52);
+}
+
+.receipt-creator-name.has-conviction-aura.tier1_sharp.is-aura-glowing .poster-creator-handle-text,
+.chronicle-signature-handle.has-conviction-aura.tier1_sharp.is-aura-glowing .poster-creator-handle-text {
+  color: #3730A3 !important;
+  text-shadow: 0 0 7px rgba(99, 102, 241, 0.25);
+}
+
+/* Poster Avatars (.slide-hook-curator-kicker-avatar & .signed-curator-avatar) + Mini Corner Star */
+.slide-hook-curator-kicker-avatar.has-conviction-aura,
+.signed-curator-avatar.has-conviction-aura {
+  position: relative;
+  overflow: visible !important;
+}
+
+.avatar-conviction-star.is-poster-mini-star {
+  right: -3.5px;
+  bottom: -3.5px;
+  width: 9.5px;
+  height: 9.5px;
+  font-size: 6.5px;
+  border-width: 1px;
+}
+
+.slide-hook-curator-kicker-avatar.has-conviction-aura.tier3_piercing.is-aura-glowing,
+.signed-curator-avatar.has-conviction-aura.tier3_piercing.is-aura-glowing {
+  border: 1.5px solid #F59E0B !important;
+  box-shadow: 0 0 0 1.5px rgba(254, 243, 199, 0.85), 0 0 9px rgba(245, 158, 11, 0.75) !important;
+}
+
+.slide-hook-curator-kicker-avatar.has-conviction-aura.tier2_deep.is-aura-glowing,
+.signed-curator-avatar.has-conviction-aura.tier2_deep.is-aura-glowing {
+  border: 1.5px solid #10B981 !important;
+  box-shadow: 0 0 0 1.5px rgba(209, 250, 229, 0.85), 0 0 8px rgba(16, 185, 129, 0.68) !important;
+}
+
+.slide-hook-curator-kicker-avatar.has-conviction-aura.tier1_sharp.is-aura-glowing,
+.signed-curator-avatar.has-conviction-aura.tier1_sharp.is-aura-glowing {
+  border: 1.5px solid #6366F1 !important;
+  box-shadow: 0 0 0 1.5px rgba(224, 231, 255, 0.85), 0 0 7px rgba(99, 102, 241, 0.6) !important;
+}
+
+.slide-hook-curator-kicker-avatar.has-conviction-aura.tier3_piercing.is-aura-glowing .avatar-conviction-star,
+.signed-curator-avatar.has-conviction-aura.tier3_piercing.is-aura-glowing .avatar-conviction-star {
+  background: radial-gradient(circle at 35% 35%, #FEF08A 0%, #F59E0B 65%, #B45309 100%);
+  color: #FFFBEB;
+  border: 1px solid #FFFFFF;
+  box-shadow: 0 0 6px rgba(245, 158, 11, 0.9);
+}
+
+.slide-hook-curator-kicker-avatar.has-conviction-aura.tier2_deep.is-aura-glowing .avatar-conviction-star,
+.signed-curator-avatar.has-conviction-aura.tier2_deep.is-aura-glowing .avatar-conviction-star {
+  background: radial-gradient(circle at 35% 35%, #A7F3D0 0%, #10B981 65%, #047857 100%);
+  color: #ECFDF5;
+  border: 1px solid #FFFFFF;
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.85);
+}
+
+.slide-hook-curator-kicker-avatar.has-conviction-aura.tier1_sharp.is-aura-glowing .avatar-conviction-star,
+.signed-curator-avatar.has-conviction-aura.tier1_sharp.is-aura-glowing .avatar-conviction-star {
+  background: radial-gradient(circle at 35% 35%, #C7D2FE 0%, #6366F1 65%, #3730A3 100%);
+  color: #EEF2FF;
+  border: 1px solid #FFFFFF;
+  box-shadow: 0 0 5px rgba(99, 102, 241, 0.8);
+}
+
+.slide-hook-curator-kicker-avatar.has-conviction-aura.is-aura-unlit .avatar-conviction-star,
+.signed-curator-avatar.has-conviction-aura.is-aura-unlit .avatar-conviction-star {
+  background: #E2E8F0;
+  color: #94A3B8;
+  border: 1px solid #FFFFFF;
+  box-shadow: none !important;
+  opacity: 0.6;
+}
+
 .curator-profile-handle-row {
   display: flex;
   align-items: center;

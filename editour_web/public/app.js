@@ -9167,9 +9167,10 @@ function buildSlide1Html(post, index, totalSlides = 2) {
   const isInnerVoice = isInnerVoicePost(post);
   const rawHandle = (post.creatorHandle || '@curator').trim();
   const initial = escapeHtml((rawHandle.replace('@', '').trim().charAt(0) || 'C').toUpperCase());
+  const posterAura = buildPosterCreatorAuraParts(rawHandle, initial);
   const curatorKickerHtml = (!isInnerVoice && !isChronicle) ? `
         <div class="slide-hook-curator-kicker">
-          <span class="slide-hook-curator-kicker-avatar">${initial}</span>
+          ${posterAura.kickerAvatarHtml}
           <span class="slide-hook-curator-kicker-text">My Perspective</span>
         </div>` : '';
 
@@ -9186,7 +9187,7 @@ function buildSlide1Html(post, index, totalSlides = 2) {
         </div>
         <!-- Top-Right (The Creator): @<curatorname> -->
         <div class="poster-brand-corner top-right">
-          <span class="poster-corner-creator">${handle}</span>
+          ${posterAura.posterCornerCreatorHtml}
           <span class="poster-corner-slide-num">${totalSlides === 3 ? '01 / 03' : '01 / 02'}</span>
         </div>
       </div>
@@ -10311,8 +10312,8 @@ function buildChronicleReflectionCenterpieceHtml(post, showInteractiveFeedback =
           `}
           <div class="chronicle-reflection-bottom-row">
             <div class="chronicle-reflection-signature">
-              <span class="signed-curator-avatar">${initial}</span>
-              <span class="chronicle-signature-handle">${handle}</span>
+              ${buildPosterCreatorAuraParts(rawHandle, initial).signedAvatarHtml}
+              ${buildPosterCreatorAuraParts(rawHandle, initial).chronicleSignatureHandleHtml}
             </div>
             ${showInteractiveFeedback ? `
             <div class="chronicle-reflection-feedback-bar" data-feedback-post="${feedbackPostId}" onclick="event.stopPropagation()">
@@ -10484,6 +10485,7 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0, isForShareE
   const rawHandle = (post.creatorHandle || "@curator").trim();
   const initial = escapeHtml((rawHandle.replace("@", "").trim().charAt(0) || "C").toUpperCase());
   const titleUpper = escapeHtml(`${rawHandle.toUpperCase()}'S SLANT`);
+  const posterAura = buildPosterCreatorAuraParts(rawHandle, initial);
   let pillIcon = "✍️";
   let pillLabel = "MY VIEW ON THIS SOURCE";
   if (isInnerVoice || tier === "tier3_opinion") {
@@ -10498,8 +10500,8 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0, isForShareE
     <div class="essay-highlight-pullquote signed-curator-note">
       <div class="signed-curator-header">
         <div class="signed-curator-identity">
-          <span class="signed-curator-avatar">${initial}</span>
-          <span class="signed-curator-title">${titleUpper}</span>
+          ${posterAura.signedAvatarHtml}
+          ${posterAura.signedTitleHtml}
         </div>
         <span class="signed-curator-badge-pill"><span class="signed-curator-pill-icon">${pillIcon}</span><span>${escapeHtml(pillLabel)}</span></span>
       </div>
@@ -10765,7 +10767,7 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0, isForShareE
             <span class="receipt-brand-text">${receiptBrandTitle}</span>
           </div>
           <div class="receipt-corner-creator">
-            <span class="receipt-creator-name ${isChronicle ? "is-chronicle-date-label" : ""}">${isChronicle ? escapeHtml(chronicleDateStr) : handle}</span>
+            ${isChronicle ? `<span class="receipt-creator-name is-chronicle-date-label">${escapeHtml(chronicleDateStr)}</span>` : posterAura.receiptCreatorNameHtml}
             <span class="receipt-corner-slide-num">${p1SlideBadge}</span>
           </div>
         </div>
@@ -10800,7 +10802,7 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0, isForShareE
             <span class="receipt-brand-text">${isChronicle ? receiptBrandTitle : `${receiptBrandTitle} ...`}</span>
           </div>
           <div class="receipt-corner-creator">
-            <span class="receipt-creator-name ${isChronicle ? "is-chronicle-date-label" : ""}">${isChronicle ? escapeHtml(chronicleDateStr) : handle}</span>
+            ${isChronicle ? `<span class="receipt-creator-name is-chronicle-date-label">${escapeHtml(chronicleDateStr)}</span>` : posterAura.receiptCreatorNameHtml}
             <span class="receipt-corner-slide-num">${p2SlideBadge}</span>
           </div>
         </div>
@@ -17295,6 +17297,45 @@ function buildCreatorAvatarAndHandleHtml(rawHandle, initial, skipAura = false, p
     </div>
     <span class="creator-handle has-conviction-aura ${escapeHtml(tierKey)} ${glowClass}" title="${escapeHtml(tooltip)}"><span class="creator-at-symbol">@</span><span class="creator-handle-name">${escapeHtml(bareName)}</span></span>
   `;
+}
+
+function buildPosterCreatorAuraParts(rawHandle, initial) {
+  const cleanHandleText = String(rawHandle || '@curator').trim();
+  const bareName = cleanHandleText.replace(/^@/, '');
+  const safeBareName = escapeHtml(bareName);
+  const safeHandle = escapeHtml(cleanHandleText.startsWith('@') ? cleanHandleText : `@${bareName}`);
+  const safeInitial = escapeHtml((bareName.charAt(0) || initial || 'C').toUpperCase());
+  const safeTitleUpper = escapeHtml(`${cleanHandleText.toUpperCase()}'S SLANT`);
+
+  const aura = getCachedCuratorConvictionAura(bareName);
+  if (!aura || !aura.unlocked) {
+    return {
+      isGlowing: false,
+      tierKey: '',
+      posterCornerCreatorHtml: `<span class="poster-corner-creator">${safeHandle}</span>`,
+      receiptCreatorNameHtml: `<span class="receipt-creator-name">${safeHandle}</span>`,
+      kickerAvatarHtml: `<span class="slide-hook-curator-kicker-avatar">${safeInitial}</span>`,
+      signedAvatarHtml: `<span class="signed-curator-avatar">${safeInitial}</span>`,
+      signedTitleHtml: `<span class="signed-curator-title">${safeTitleUpper}</span>`,
+      chronicleSignatureHandleHtml: `<span class="chronicle-signature-handle">${safeHandle}</span>`
+    };
+  }
+
+  const tierKey = escapeHtml(aura.tierMeta.tierKey);
+  const glowClass = aura.isGlowing ? 'is-aura-glowing' : 'is-aura-unlit';
+  const starHtml = `<span class="poster-conviction-star ${tierKey} ${glowClass}" aria-hidden="true">✦</span>`;
+  const miniAvatarStarHtml = `<span class="avatar-conviction-star is-poster-mini-star ${tierKey} ${glowClass}" aria-hidden="true">✦</span>`;
+
+  return {
+    isGlowing: Boolean(aura.isGlowing),
+    tierKey,
+    posterCornerCreatorHtml: `<span class="poster-corner-creator has-conviction-aura ${tierKey} ${glowClass}">${starHtml}<span class="poster-creator-at">@</span><span class="poster-creator-handle-text">${safeBareName}</span></span>`,
+    receiptCreatorNameHtml: `<span class="receipt-creator-name has-conviction-aura ${tierKey} ${glowClass}">${starHtml}<span class="poster-creator-at">@</span><span class="poster-creator-handle-text">${safeBareName}</span></span>`,
+    kickerAvatarHtml: `<span class="slide-hook-curator-kicker-avatar has-conviction-aura ${tierKey} ${glowClass}">${safeInitial}${miniAvatarStarHtml}</span>`,
+    signedAvatarHtml: `<span class="signed-curator-avatar has-conviction-aura ${tierKey} ${glowClass}">${safeInitial}${miniAvatarStarHtml}</span>`,
+    signedTitleHtml: `<span class="signed-curator-title has-conviction-aura ${tierKey} ${glowClass}"><span class="poster-creator-at">@</span><span class="poster-creator-handle-text">${escapeHtml(`${bareName.toUpperCase()}'S SLANT`)}</span></span>`,
+    chronicleSignatureHandleHtml: `<span class="chronicle-signature-handle has-conviction-aura ${tierKey} ${glowClass}">${starHtml}<span class="poster-creator-at">@</span><span class="poster-creator-handle-text">${safeBareName}</span></span>`
+  };
 }
 
 function getConvictionTierMeta(score = 75) {
