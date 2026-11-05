@@ -3899,14 +3899,7 @@ function setupLoginPillarsCarousel() {
       clearInterval(loginPillarAutoPlayTimer);
       return;
     }
-    if (currentLoginPillarIndex === 0 && currentLoginPerspectiveSpark === 'web') {
-      setLoginPerspectiveSpark('voice');
-    } else if (currentLoginPillarIndex === 0 && currentLoginPerspectiveSpark === 'voice') {
-      goToLoginPillarSlide(1);
-    } else {
-      setLoginPerspectiveSpark('web');
-      goToLoginPillarSlide(0);
-    }
+    stepLoginPillarSlide(1);
   }, 4500);
 }
 
