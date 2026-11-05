@@ -495,6 +495,20 @@
           </div>
         </div>
 
+        <!-- 2-Stage Creation Flow Bar: Stage 1 (Story & Conviction) -> Stage 2 (Photo & Visual Selection) -->
+        <div id="creatorSubStageBar" style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 4px; margin-bottom: 10px; border-radius: 11px; background: rgba(148, 163, 184, 0.14); border: 1px solid rgba(148, 163, 184, 0.25);">
+          <button type="button" id="subStageBtn1" onclick="backToCreatorStoryStage()" style="display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 7px 10px; border-radius: 8px; border: none; background: #253833; color: #FFFFFF; font-size: 11.2px; font-weight: 800; cursor: pointer; transition: all 0.15s ease;">
+            <span>①</span>
+            <span>Story &amp; Polish</span>
+          </button>
+          <button type="button" id="subStageBtn2" onclick="goToCreatorVisualSelectionStage()" style="display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 7px 10px; border-radius: 8px; border: none; background: transparent; color: var(--text-secondary); font-size: 11.2px; font-weight: 800; cursor: pointer; opacity: 0.65; transition: all 0.15s ease;" title="Unlocks after 3/3 story signals, 70%+ conviction depth, and Review & Polish confirmation">
+            <span id="subStageBtn2Icon">🔒</span>
+            <span id="subStageBtn2Label">Photo &amp; Visuals</span>
+          </button>
+        </div>
+
+        <!-- STAGE 1 WRAPPER: Spark + Perspective + Review & Polish Confirmation -->
+        <div id="creatorStage1StoryWrap">
         <!-- 2. "What sparked this slant?" Compact Icon Bar & Dynamic Context Field -->
         <div class="creator-trigger-panel" id="creatorTriggerPanel">
           <div class="slant-spark-icons-section" id="slantSparkIconsSection">
@@ -860,7 +874,34 @@
               <span class="review-tap-hint">Tap any highlighted word to inspect why it was polished</span>
             </div>
           </div>
+        </div>
 
+        <!-- Stage 1 Bottom Bar: Advances to Photo & Visual Selection ONLY when 3/3 Story Signals, 70%+ Conviction Depth & Review Confirmation are met -->
+        <div class="creator-bottom-nav creator-step1-nav" id="creatorStage1BottomNav" style="margin-top: 12px;">
+          <button type="button" class="creator-synthesize-btn creator-nav-main-btn" id="stage1NextToVisualsBtn" onclick="goToCreatorVisualSelectionStage()" style="width: 100%; justify-content: center; opacity: 0.65;">
+            <span class="btn-stars" id="stage1NextBtnIcon">🔒</span>
+            <span class="btn-text" id="stage1NextBtnText">Next: Photo &amp; Visual Selection →</span>
+          </button>
+        </div>
+        </div>
+
+        <!-- STAGE 2 WRAPPER: Photo & Visual Selection (Unlocked after Review & Polish confirmation + Conviction Depth & Key Story Elements met) -->
+        <div id="creatorStage2VisualsWrap" style="display: none;">
+          <!-- Confirmed Story Status Banner with Quick Back Button -->
+          <div id="stage2ConfirmedStoryBanner" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 12px; margin-bottom: 10px; border-radius: 12px; background: rgba(16, 185, 129, 0.08); border: 1.5px solid rgba(16, 185, 129, 0.32);">
+            <div style="display: flex; align-items: center; gap: 7px; min-width: 0;">
+              <span style="font-size: 14px; flex-shrink: 0;">✓</span>
+              <div style="display: flex; flex-direction: column; min-width: 0;">
+                <span style="font-size: 11px; font-weight: 900; color: #065F46; letter-spacing: 0.2px;">STORY &amp; CONVICTION CONFIRMED</span>
+                <span id="stage2ConfirmedDepthSummary" style="font-size: 10px; font-weight: 700; color: #047857; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">3/3 Key Elements • Ready for Visuals</span>
+              </div>
+            </div>
+            <button type="button" onclick="backToCreatorStoryStage()" style="flex-shrink: 0; padding: 5px 10px; border-radius: 8px; border: 1px solid rgba(15, 23, 42, 0.2); background: #FFFFFF; color: var(--text-primary); font-size: 10.5px; font-weight: 800; cursor: pointer;">
+              ← Edit Story
+            </button>
+          </div>
+
+          <div class="creator-hero-slant-card">
           <!-- Auto-Identified Core Visual Subject / Per-Moment Scene Projection Picker -->
           <div class="polish-visual-subject-picker" id="polishVisualSubjectPicker" style="display: none;">
             <div class="polish-vs-header">
@@ -974,11 +1015,11 @@
                 </div>
                 <div id="attachedSceneCanvasPreviewWrap" style="display: none; flex-direction: column; align-items: center; gap: 6px; padding: 4px 0 0; background: transparent; border: none;">
                   <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; max-width: 220px; gap: 4px;">
-                    <span style="font-size: 9.8px; font-weight: 700; color: var(--text-secondary);">🖐️ Drag photo in frame</span>
+                    <span style="font-size: 9.8px; font-weight: 700; color: var(--text-secondary);">🖐️ Drag photo or slide border</span>
                     <div style="display: inline-flex; align-items: center; gap: 3px;">
                       <button type="button" onclick="adjustCollageFrameZoom('attached', -0.15)" style="border: 1px solid rgba(148,163,184,0.4); background: #FFFFFF; color: var(--text-primary); border-radius: 5px; padding: 1px 6px; font-size: 10px; font-weight: 800; cursor: pointer;" title="Zoom out active photo">−</button>
                       <button type="button" onclick="adjustCollageFrameZoom('attached', 0.15)" style="border: 1px solid rgba(148,163,184,0.4); background: #FFFFFF; color: var(--text-primary); border-radius: 5px; padding: 1px 6px; font-size: 10px; font-weight: 800; cursor: pointer;" title="Zoom in active photo">+</button>
-                      <button type="button" onclick="resetCollageFramePan('attached')" style="border: 1px solid rgba(148,163,184,0.4); background: #FFFFFF; color: var(--text-secondary); border-radius: 5px; padding: 1px 5px; font-size: 9.5px; font-weight: 800; cursor: pointer;" title="Reset frame position">↺</button>
+                      <button type="button" onclick="resetCollageFramePan('attached')" style="border: 1px solid rgba(148,163,184,0.4); background: #FFFFFF; color: var(--text-secondary); border-radius: 5px; padding: 1px 5px; font-size: 9.5px; font-weight: 800; cursor: pointer;" title="Reset frame &amp; borders">↺</button>
                     </div>
                   </div>
                   <canvas id="attachedScenePreviewCanvas" width="800" height="1000" style="width: 100%; max-width: 220px; aspect-ratio: 4 / 5; border-radius: 8px; box-shadow: 0 3px 10px rgba(15,23,42,0.12); background: #18181B; cursor: grab; touch-action: none;"></canvas>
@@ -1055,11 +1096,11 @@
                 <!-- Live Canvas Preview (Auto-applied to Poster 1, Clean Edge-to-Edge without Extra Wrapper Box) -->
                 <div id="webCollageCanvasPreviewWrap" style="display: none; flex-direction: column; align-items: center; gap: 6px; padding: 4px 0 0; background: transparent; border: none;">
                   <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; max-width: 220px; gap: 4px;">
-                    <span style="font-size: 9.8px; font-weight: 700; color: var(--text-secondary);">🖐️ Drag photo in frame</span>
+                    <span style="font-size: 9.8px; font-weight: 700; color: var(--text-secondary);">🖐️ Drag photo or slide border</span>
                     <div style="display: inline-flex; align-items: center; gap: 3px;">
                       <button type="button" onclick="adjustCollageFrameZoom('web', -0.15)" style="border: 1px solid rgba(148,163,184,0.4); background: #FFFFFF; color: var(--text-primary); border-radius: 5px; padding: 1px 6px; font-size: 10px; font-weight: 800; cursor: pointer;" title="Zoom out active photo">−</button>
                       <button type="button" onclick="adjustCollageFrameZoom('web', 0.15)" style="border: 1px solid rgba(148,163,184,0.4); background: #FFFFFF; color: var(--text-primary); border-radius: 5px; padding: 1px 6px; font-size: 10px; font-weight: 800; cursor: pointer;" title="Zoom in active photo">+</button>
-                      <button type="button" onclick="resetCollageFramePan('web')" style="border: 1px solid rgba(148,163,184,0.4); background: #FFFFFF; color: var(--text-secondary); border-radius: 5px; padding: 1px 5px; font-size: 9.5px; font-weight: 800; cursor: pointer;" title="Reset frame position">↺</button>
+                      <button type="button" onclick="resetCollageFramePan('web')" style="border: 1px solid rgba(148,163,184,0.4); background: #FFFFFF; color: var(--text-secondary); border-radius: 5px; padding: 1px 5px; font-size: 9.5px; font-weight: 800; cursor: pointer;" title="Reset frame &amp; borders">↺</button>
                     </div>
                   </div>
                   <canvas id="webCollagePreviewCanvas" width="800" height="1000" style="width: 100%; max-width: 220px; aspect-ratio: 4 / 5; border-radius: 8px; box-shadow: 0 3px 10px rgba(15,23,42,0.12); background: #18181B; cursor: grab; touch-action: none;"></canvas>
@@ -1120,7 +1161,7 @@
 
         </div>
 
-        <!-- 4. Bottom Navigation Bar (Step 1 - Option A: One-Click Direct Synthesis with Optional Equalizer) -->
+        <!-- 4. Bottom Navigation Bar (Stage 2 - Visual Selection & One-Click Synthesis with Optional Equalizer) -->
         <div class="creator-bottom-nav creator-step1-nav">
           <button type="button" class="creator-equalizer-pill-btn" id="creatorEqualizerBtn" onclick="openCreatorEqualizer()" title="Tune Art Style, Family Cast & Regional Setting">
             <span class="equalizer-icon">🎚️</span>
@@ -1134,6 +1175,7 @@
             <span class="btn-stars">✨</span>
             <span class="btn-text">Synthesize Posters</span>
           </button>
+        </div>
         </div>
         <div class="creator-scroll-spacer"></div>
       </div>

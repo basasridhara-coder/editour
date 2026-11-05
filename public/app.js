@@ -1857,6 +1857,73 @@ async function toggleSelectCollageImage(encUrl, encThumb, encTitle, encSource) {
 }
 window.toggleSelectCollageImage = toggleSelectCollageImage;
 
+window._collageCustomSplits = {
+  main: null,
+  sub: null,
+  eq1: null,
+  eq2: null
+};
+
+function resetCollageCustomSplits() {
+  window._collageCustomSplits = {
+    main: null,
+    sub: null,
+    eq1: null,
+    eq2: null
+  };
+}
+window.resetCollageCustomSplits = resetCollageCustomSplits;
+
+function drawInteractiveCollageDividerHandles(ctx, dividers, activeId = null) {
+  if (!ctx || !Array.isArray(dividers) || dividers.length === 0) return;
+  ctx.save();
+  dividers.forEach((d) => {
+    if (!d) return;
+    const isActive = Boolean(activeId && d.id === activeId);
+    const mid = (d.start + d.end) / 2;
+    const cx = d.orientation === 'v' ? d.pos : mid;
+    const cy = d.orientation === 'h' ? d.pos : mid;
+    const pillW = d.orientation === 'h' ? 46 : 16;
+    const pillH = d.orientation === 'h' ? 16 : 46;
+    const rx = cx - pillW / 2;
+    const ry = cy - pillH / 2;
+    const rad = 8;
+
+    ctx.beginPath();
+    if (typeof ctx.roundRect === 'function') {
+      ctx.roundRect(rx, ry, pillW, pillH, rad);
+    } else {
+      ctx.rect(rx, ry, pillW, pillH);
+    }
+    ctx.fillStyle = isActive ? '#253833' : 'rgba(255, 255, 255, 0.94)';
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = isActive ? '#F59E0B' : 'rgba(15, 23, 42, 0.35)';
+    ctx.stroke();
+
+    // Subtle double-line grip inside the pill
+    ctx.strokeStyle = isActive ? '#FFFFFF' : '#334155';
+    ctx.lineWidth = 1.8;
+    ctx.lineCap = 'round';
+    if (d.orientation === 'h') {
+      ctx.beginPath();
+      ctx.moveTo(cx - 10, cy - 2.5);
+      ctx.lineTo(cx + 10, cy - 2.5);
+      ctx.moveTo(cx - 10, cy + 2.5);
+      ctx.lineTo(cx + 10, cy + 2.5);
+      ctx.stroke();
+    } else {
+      ctx.beginPath();
+      ctx.moveTo(cx - 2.5, cy - 10);
+      ctx.lineTo(cx - 2.5, cy + 10);
+      ctx.moveTo(cx + 2.5, cy - 10);
+      ctx.lineTo(cx + 2.5, cy + 10);
+      ctx.stroke();
+    }
+  });
+  ctx.restore();
+}
+
 async function setStarredWebCollageSlot(slotIndex) {
   const state = window._webCollageState;
   if (!state.selectedItems || !state.selectedItems[slotIndex]) return;
@@ -1880,6 +1947,7 @@ async function setStarredWebCollageSlot(slotIndex) {
     });
     state.activeSlotIndex = 0;
   }
+  resetCollageCustomSplits();
   renderWebCollageTabGrid();
   renderWebCollageSelectedSlotsUI();
   await renderWebCollageCanvas();
@@ -2006,6 +2074,7 @@ async function setCollageHeroComposition(comp, mode = 'web') {
   }
   window._attachedCollageComposition = normalized;
   window._attachedCollageCompositionManual = true;
+  resetCollageCustomSplits();
   updateCollageCompositionToggleUI('both');
   if (mode === 'attached') {
     renderAttachedScenePhotosUI();
@@ -2212,6 +2281,25 @@ function ensureInteractiveCollageCanvasBound(canvas, mode) {
     };
   };
 
+  const findDividerAt = (cx, cy) => {
+    const dividers = Array.isArray(canvas._collageDividers) ? canvas._collageDividers : [];
+    const hitTol = 32; // Generous 32px canvas radius (~9px CSS on preview) for touch & mouse
+    for (let i = 0; i < dividers.length; i++) {
+      const d = dividers[i];
+      if (!d) continue;
+      if (d.orientation === 'h') {
+        if (Math.abs(cy - d.pos) <= hitTol && cx >= d.start - 10 && cx <= d.end + 10) {
+          return d;
+        }
+      } else if (d.orientation === 'v') {
+        if (Math.abs(cx - d.pos) <= hitTol && cy >= d.start - 10 && cy <= d.end + 10) {
+          return d;
+        }
+      }
+    }
+    return null;
+  };
+
   const findCellAt = (cx, cy) => {
     const boxes = Array.isArray(canvas._collageCellBoxes) ? canvas._collageCellBoxes : [];
     for (let i = 0; i < boxes.length; i++) {
@@ -2241,6 +2329,22 @@ function ensureInteractiveCollageCanvasBound(canvas, mode) {
 
   canvas.addEventListener('pointerdown', (e) => {
     const pt = getCanvasPoint(e.clientX, e.clientY);
+    const divHit = findDividerAt(pt.cx, pt.cy);
+    if (divHit) {
+      e.preventDefault();
+      try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
+      canvas._activeDividerId = divHit.id;
+      canvas.style.cursor = divHit.orientation === 'h' ? 'ns-resize' : 'ew-resize';
+      dragState = {
+        type: 'divider',
+        pointerId: e.pointerId,
+        dividerId: divHit.id,
+        orientation: divHit.orientation
+      };
+      triggerRedraw(false);
+      return;
+    }
+
     const hit = findCellAt(pt.cx, pt.cy);
     if (!hit || !hit.box || !hit.box.item) return;
     e.preventDefault();
@@ -2253,6 +2357,7 @@ function ensureInteractiveCollageCanvasBound(canvas, mode) {
       window._attachedActiveSlotIndex = hit.index;
     }
     dragState = {
+      type: 'cell',
       pointerId: e.pointerId,
       cellIndex: hit.index,
       lastCx: pt.cx,
@@ -2261,13 +2366,45 @@ function ensureInteractiveCollageCanvasBound(canvas, mode) {
   });
 
   canvas.addEventListener('pointermove', (e) => {
-    if (!dragState || e.pointerId !== dragState.pointerId) return;
+    const pt = getCanvasPoint(e.clientX, e.clientY);
+    if (!dragState) {
+      const hoverDiv = findDividerAt(pt.cx, pt.cy);
+      if (hoverDiv) {
+        canvas.style.cursor = hoverDiv.orientation === 'h' ? 'ns-resize' : 'ew-resize';
+      } else {
+        canvas.style.cursor = 'grab';
+      }
+      return;
+    }
+    if (e.pointerId !== dragState.pointerId) return;
+    e.preventDefault();
+
+    if (dragState.type === 'divider') {
+      const W = canvas.width || 800;
+      const H = canvas.height || 1000;
+      if (!window._collageCustomSplits) resetCollageCustomSplits();
+      const splits = window._collageCustomSplits;
+      const rawRatio = dragState.orientation === 'h' ? (pt.cy / H) : (pt.cx / W);
+
+      if (dragState.dividerId === 'main') {
+        splits.main = Math.max(0.22, Math.min(0.78, rawRatio));
+      } else if (dragState.dividerId === 'sub') {
+        splits.sub = Math.max(0.22, Math.min(0.78, rawRatio));
+      } else if (dragState.dividerId === 'eq1') {
+        const curEq2 = typeof splits.eq2 === 'number' ? splits.eq2 : (2 / 3);
+        splits.eq1 = Math.max(0.18, Math.min(curEq2 - 0.18, rawRatio));
+      } else if (dragState.dividerId === 'eq2') {
+        const curEq1 = typeof splits.eq1 === 'number' ? splits.eq1 : (1 / 3);
+        splits.eq2 = Math.max(curEq1 + 0.18, Math.min(0.82, rawRatio));
+      }
+      triggerRedraw(false);
+      return;
+    }
+
     const boxes = Array.isArray(canvas._collageCellBoxes) ? canvas._collageCellBoxes : [];
     const cell = boxes[dragState.cellIndex];
     if (!cell || !cell.item) return;
-    e.preventDefault();
 
-    const pt = getCanvasPoint(e.clientX, e.clientY);
     const dx = pt.cx - dragState.lastCx;
     const dy = pt.cy - dragState.lastCy;
     dragState.lastCx = pt.cx;
@@ -2297,6 +2434,7 @@ function ensureInteractiveCollageCanvasBound(canvas, mode) {
     if (e && e.pointerId !== undefined && e.pointerId !== dragState.pointerId) return;
     try { canvas.releasePointerCapture(dragState.pointerId); } catch (_) {}
     dragState = null;
+    canvas._activeDividerId = null;
     canvas.style.cursor = 'grab';
     triggerRedraw(true);
   };
@@ -2327,6 +2465,7 @@ async function adjustCollageFrameZoom(mode, deltaZoom) {
 window.adjustCollageFrameZoom = adjustCollageFrameZoom;
 
 async function resetCollageFramePan(mode) {
+  resetCollageCustomSplits();
   if (mode === 'web') {
     const state = window._webCollageState;
     if (!state || !Array.isArray(state.selectedItems) || state.selectedItems.length === 0) return;
@@ -2357,6 +2496,7 @@ async function renderWebCollageCanvas(commitExport = true) {
   const state = window._webCollageState;
   if (!state.selectedItems || state.selectedItems.length === 0) {
     canvas._collageCellBoxes = [];
+    canvas._collageDividers = [];
     return null;
   }
 
@@ -2387,9 +2527,11 @@ async function renderWebCollageCanvas(commitExport = true) {
   updateCollageCompositionToggleUI('web');
   const isTallHero = state.heroComposition === 'tall';
   const isEqualSplit = Boolean(state.noHeroEqual);
+  const splits = window._collageCustomSplits || {};
 
   ctx.clearRect(0, 0, W, H);
   const cellBoxes = [];
+  const dividers = [];
 
   const uniqueSources = [...new Set(
     orderedItems
@@ -2398,7 +2540,7 @@ async function renderWebCollageCanvas(commitExport = true) {
   )];
   const creditText = `IMAGE SOURCE: ${uniqueSources.join(' • ').toUpperCase()}  |  EDITORIAL COMMENTARY (FAIR DEALING)`;
 
-  // Clean Edge-to-Edge Split Collage (Supports Wide Top Hero, Tall Left Hero, and Equal Prominence)
+  // Clean Edge-to-Edge Split Collage (Supports Wide Top Hero, Tall Left Hero, Equal Prominence & Slidable Borders)
   ctx.fillStyle = '#18181B';
   ctx.fillRect(0, 0, W, H);
   const div = 6;
@@ -2406,65 +2548,66 @@ async function renderWebCollageCanvas(commitExport = true) {
   if (loadedPairs.length === 1) {
     cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[0].img, 0, 0, W, H, 0, loadedPairs[0].item));
   } else if (loadedPairs.length === 2) {
-    if (isEqualSplit) {
-      if (isTallHero) {
-        const leftW = Math.round((W - div) * 0.50);
-        const rightW = W - div - leftW;
-        cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[0].img, 0, 0, leftW, H, 0, loadedPairs[0].item));
-        cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[1].img, leftW + div, 0, rightW, H, 0, loadedPairs[1].item));
-        ctx.fillStyle = '#FFFFFF';
-        ctx.fillRect(leftW, 0, div, H);
-      } else {
-        const topH = Math.round((H - div) * 0.50);
-        const botH = H - div - topH;
-        cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[0].img, 0, 0, W, topH, 0, loadedPairs[0].item));
-        cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[1].img, 0, topH + div, W, botH, 0, loadedPairs[1].item));
-        ctx.fillStyle = '#FFFFFF';
-        ctx.fillRect(0, topH, W, div);
-      }
-    } else if (isTallHero) {
-      // ◧ Tall Hero: Slot #1 occupies left 58% full-height vertical column, Slot #2 occupies right 42% full-height column
-      const leftW = Math.round((W - div) * 0.58);
+    const defaultMain = isEqualSplit ? 0.50 : (isTallHero ? 0.58 : 0.60);
+    const mainRatio = typeof splits.main === 'number' ? splits.main : defaultMain;
+    if (isTallHero) {
+      const leftW = Math.round((W - div) * mainRatio);
       const rightW = W - div - leftW;
       cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[0].img, 0, 0, leftW, H, 0, loadedPairs[0].item));
       cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[1].img, leftW + div, 0, rightW, H, 0, loadedPairs[1].item));
       ctx.fillStyle = '#FFFFFF';
       ctx.fillRect(leftW, 0, div, H);
+      dividers.push({ id: 'main', orientation: 'v', pos: leftW + div / 2, start: 0, end: H });
     } else {
-      // ⬒ Wide Hero: Slot #1 occupies top 60% wide banner, Slot #2 occupies bottom 40%
-      const topH = Math.round((H - div) * 0.60);
+      const topH = Math.round((H - div) * mainRatio);
       const botH = H - div - topH;
       cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[0].img, 0, 0, W, topH, 0, loadedPairs[0].item));
       cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[1].img, 0, topH + div, W, botH, 0, loadedPairs[1].item));
       ctx.fillStyle = '#FFFFFF';
       ctx.fillRect(0, topH, W, div);
+      dividers.push({ id: 'main', orientation: 'h', pos: topH + div / 2, start: 0, end: W });
     }
   } else {
     if (isEqualSplit) {
+      const r1 = typeof splits.eq1 === 'number' ? splits.eq1 : (1 / 3);
+      const r2 = typeof splits.eq2 === 'number' ? splits.eq2 : (2 / 3);
       if (isTallHero) {
-        const colW = Math.round((W - div * 2) / 3);
-        const lastColW = W - (colW + div) * 2;
-        cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[0].img, 0, 0, colW, H, 0, loadedPairs[0].item));
-        cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[1].img, colW + div, 0, colW, H, 0, loadedPairs[1].item));
-        cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[2].img, (colW + div) * 2, 0, lastColW, H, 0, loadedPairs[2].item));
+        const availW = W - div * 2;
+        const col1W = Math.round(availW * r1);
+        const col2W = Math.round(availW * (r2 - r1));
+        const col3W = availW - col1W - col2W;
+        const div1X = col1W;
+        const div2X = col1W + div + col2W;
+        cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[0].img, 0, 0, col1W, H, 0, loadedPairs[0].item));
+        cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[1].img, div1X + div, 0, col2W, H, 0, loadedPairs[1].item));
+        cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[2].img, div2X + div, 0, col3W, H, 0, loadedPairs[2].item));
         ctx.fillStyle = '#FFFFFF';
-        ctx.fillRect(colW, 0, div, H);
-        ctx.fillRect(colW * 2 + div, 0, div, H);
+        ctx.fillRect(div1X, 0, div, H);
+        ctx.fillRect(div2X, 0, div, H);
+        dividers.push({ id: 'eq1', orientation: 'v', pos: div1X + div / 2, start: 0, end: H });
+        dividers.push({ id: 'eq2', orientation: 'v', pos: div2X + div / 2, start: 0, end: H });
       } else {
-        const bandH = Math.round((H - div * 2) / 3);
-        const lastBandH = H - (bandH + div) * 2;
-        cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[0].img, 0, 0, W, bandH, 0, loadedPairs[0].item));
-        cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[1].img, 0, bandH + div, W, bandH, 0, loadedPairs[1].item));
-        cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[2].img, 0, (bandH + div) * 2, W, lastBandH, 0, loadedPairs[2].item));
+        const availH = H - div * 2;
+        const band1H = Math.round(availH * r1);
+        const band2H = Math.round(availH * (r2 - r1));
+        const band3H = availH - band1H - band2H;
+        const div1Y = band1H;
+        const div2Y = band1H + div + band2H;
+        cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[0].img, 0, 0, W, band1H, 0, loadedPairs[0].item));
+        cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[1].img, 0, div1Y + div, W, band2H, 0, loadedPairs[1].item));
+        cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[2].img, 0, div2Y + div, W, band3H, 0, loadedPairs[2].item));
         ctx.fillStyle = '#FFFFFF';
-        ctx.fillRect(0, bandH, W, div);
-        ctx.fillRect(0, bandH * 2 + div, W, div);
+        ctx.fillRect(0, div1Y, W, div);
+        ctx.fillRect(0, div2Y, W, div);
+        dividers.push({ id: 'eq1', orientation: 'h', pos: div1Y + div / 2, start: 0, end: W });
+        dividers.push({ id: 'eq2', orientation: 'h', pos: div2Y + div / 2, start: 0, end: W });
       }
     } else if (isTallHero) {
-      // ◧ Tall Hero (3 photos): Slot #1 occupies left 58% full-height vertical column; Slots #2 & #3 stack on the right 42%
-      const leftW = Math.round((W - div) * 0.58);
+      const mainRatio = typeof splits.main === 'number' ? splits.main : 0.58;
+      const subRatio = typeof splits.sub === 'number' ? splits.sub : 0.50;
+      const leftW = Math.round((W - div) * mainRatio);
       const rightW = W - div - leftW;
-      const topRightH = Math.round((H - div) * 0.5);
+      const topRightH = Math.round((H - div) * subRatio);
       const botRightH = H - div - topRightH;
       cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[0].img, 0, 0, leftW, H, 0, loadedPairs[0].item));
       cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[1].img, leftW + div, 0, rightW, topRightH, 0, loadedPairs[1].item));
@@ -2472,11 +2615,14 @@ async function renderWebCollageCanvas(commitExport = true) {
       ctx.fillStyle = '#FFFFFF';
       ctx.fillRect(leftW, 0, div, H);
       ctx.fillRect(leftW + div, topRightH, rightW, div);
+      dividers.push({ id: 'main', orientation: 'v', pos: leftW + div / 2, start: 0, end: H });
+      dividers.push({ id: 'sub', orientation: 'h', pos: topRightH + div / 2, start: leftW + div, end: W });
     } else {
-      // ⬒ Wide Hero (3 photos): Slot #1 occupies top 58% wide banner; Slots #2 & #3 sit side-by-side at bottom 42%
-      const topH = Math.round((H - div) * 0.58);
+      const mainRatio = typeof splits.main === 'number' ? splits.main : 0.58;
+      const subRatio = typeof splits.sub === 'number' ? splits.sub : 0.50;
+      const topH = Math.round((H - div) * mainRatio);
       const botH = H - div - topH;
-      const leftW = Math.round((W - div) * 0.5);
+      const leftW = Math.round((W - div) * subRatio);
       const rightW = W - div - leftW;
       cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[0].img, 0, 0, W, topH, 0, loadedPairs[0].item));
       cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[1].img, 0, topH + div, leftW, botH, 0, loadedPairs[1].item));
@@ -2484,6 +2630,8 @@ async function renderWebCollageCanvas(commitExport = true) {
       ctx.fillStyle = '#FFFFFF';
       ctx.fillRect(0, topH, W, div);
       ctx.fillRect(leftW, topH + div, div, botH);
+      dividers.push({ id: 'main', orientation: 'h', pos: topH + div / 2, start: 0, end: W });
+      dividers.push({ id: 'sub', orientation: 'v', pos: leftW + div / 2, start: topH + div, end: H });
     }
   }
 
@@ -2505,17 +2653,22 @@ async function renderWebCollageCanvas(commitExport = true) {
   ctx.restore();
 
   canvas._collageCellBoxes = cellBoxes.filter(Boolean);
+  canvas._collageDividers = dividers;
 
   if (!commitExport) {
+    drawInteractiveCollageDividerHandles(ctx, dividers, canvas._activeDividerId);
     return state.compositedDataUrl || null;
   }
 
   try {
+    // Capture clean exported JPEG BEFORE painting interactive slider pills onto the live preview canvas
     const dataUrl = canvas.toDataURL('image/jpeg', 0.90);
+    drawInteractiveCollageDividerHandles(ctx, dividers, canvas._activeDividerId);
     state.compositedDataUrl = dataUrl;
     applyWebCollageToPost(true);
     return dataUrl;
   } catch (err) {
+    drawInteractiveCollageDividerHandles(ctx, dividers, canvas._activeDividerId);
     console.warn('Collage canvas export warning:', err);
     return null;
   }
@@ -18917,6 +19070,7 @@ function updateLivePerspectiveDepthUI(highlightMissing = false) {
     bar.style.display = 'none';
     const synthBtn = document.getElementById('step1DirectSynthBtn');
     if (synthBtn) synthBtn.classList.remove('is-depth-locked');
+    updateCreatorSubStageUI();
     return;
   }
   bar.style.display = 'flex';
@@ -19040,7 +19194,141 @@ function updateLivePerspectiveDepthUI(highlightMissing = false) {
       hintEl.innerHTML = '';
     }
   }
+  updateCreatorSubStageUI();
 }
+
+let creatorActiveSubStage = 1; // 1 = Story & Polish, 2 = Photo & Visual Selection
+
+function isCreatorVisualSelectionStageUnlocked() {
+  const isChronicle = (creatorSelectedSource === 'inner_voice' && typeof isDailyChronicleMode !== 'undefined' && isDailyChronicleMode);
+  if (window._isCreatorRegenMode && (currentSynthesizedPost || window._regenBaselinePost)) {
+    return true;
+  }
+  if (isChronicle) {
+    const filledMoments = Array.isArray(dailyChronicleMoments)
+      ? dailyChronicleMoments.filter(m => m && String(m.text || '').trim().length >= 3)
+      : [];
+    return filledMoments.length >= 2 && Boolean(verifiedPolishDepthState && verifiedPolishDepthState.confirmed);
+  }
+  const slantInput = document.getElementById('creatorSlantTakeInput');
+  const sparkInput = document.getElementById('creatorSparkInput');
+  const rawText = slantInput ? slantInput.value : '';
+  const sparkText = sparkInput ? sparkInput.value : '';
+  const depth = evaluatePerspectiveDepth(rawText, sparkText);
+  return Boolean(depth.isReady && verifiedPolishDepthState && verifiedPolishDepthState.confirmed);
+}
+window.isCreatorVisualSelectionStageUnlocked = isCreatorVisualSelectionStageUnlocked;
+
+function updateCreatorSubStageUI() {
+  const stage1Wrap = document.getElementById('creatorStage1StoryWrap');
+  const stage2Wrap = document.getElementById('creatorStage2VisualsWrap');
+  const btn1 = document.getElementById('subStageBtn1');
+  const btn2 = document.getElementById('subStageBtn2');
+  const btn2Icon = document.getElementById('subStageBtn2Icon');
+  const nextBtn = document.getElementById('stage1NextToVisualsBtn');
+  const nextBtnIcon = document.getElementById('stage1NextBtnIcon');
+  const nextBtnText = document.getElementById('stage1NextBtnText');
+  const confirmedSummary = document.getElementById('stage2ConfirmedDepthSummary');
+
+  const unlocked = isCreatorVisualSelectionStageUnlocked();
+
+  // If currently on Stage 2 and user's text became unverified/locked, return to Stage 1
+  if (creatorActiveSubStage === 2 && !unlocked) {
+    creatorActiveSubStage = 1;
+  }
+
+  if (stage1Wrap && stage2Wrap) {
+    stage1Wrap.style.display = creatorActiveSubStage === 1 ? 'block' : 'none';
+    stage2Wrap.style.display = creatorActiveSubStage === 2 ? 'block' : 'none';
+  }
+
+  if (btn1) {
+    const isS1 = creatorActiveSubStage === 1;
+    btn1.style.background = isS1 ? '#253833' : 'transparent';
+    btn1.style.color = isS1 ? '#FFFFFF' : 'var(--text-primary)';
+  }
+  if (btn2) {
+    const isS2 = creatorActiveSubStage === 2;
+    btn2.style.background = isS2 ? '#253833' : (unlocked ? 'rgba(16, 185, 129, 0.12)' : 'transparent');
+    btn2.style.color = isS2 ? '#FFFFFF' : (unlocked ? '#047857' : 'var(--text-secondary)');
+    btn2.style.opacity = (unlocked || isS2) ? '1' : '0.6';
+  }
+  if (btn2Icon) {
+    btn2Icon.textContent = unlocked ? '✓' : '🔒';
+  }
+
+  if (nextBtn) {
+    nextBtn.style.opacity = unlocked ? '1' : '0.65';
+    nextBtn.classList.toggle('synthesize-ready', unlocked);
+  }
+  if (nextBtnIcon) {
+    nextBtnIcon.textContent = unlocked ? '✨' : '🔒';
+  }
+  if (nextBtnText) {
+    nextBtnText.textContent = unlocked
+      ? 'Next: Photo & Visual Selection →'
+      : 'Complete Story, 70%+ Depth & Confirm Polish →';
+  }
+
+  if (confirmedSummary) {
+    const isChronicle = (creatorSelectedSource === 'inner_voice' && typeof isDailyChronicleMode !== 'undefined' && isDailyChronicleMode);
+    if (isChronicle) {
+      const filledCount = Array.isArray(dailyChronicleMoments)
+        ? dailyChronicleMoments.filter(m => m && String(m.text || '').trim().length >= 3).length
+        : 2;
+      confirmedSummary.textContent = `✓ ${filledCount} Moments Polished & Confirmed • Ready for Visuals`;
+    } else {
+      const slantInput = document.getElementById('creatorSlantTakeInput');
+      const sparkInput = document.getElementById('creatorSparkInput');
+      const depth = evaluatePerspectiveDepth(slantInput ? slantInput.value : '', sparkInput ? sparkInput.value : '');
+      confirmedSummary.textContent = `✓ 3/3 Story Elements • Conviction Depth ${depth.depthScore}%`;
+    }
+  }
+}
+window.updateCreatorSubStageUI = updateCreatorSubStageUI;
+
+function goToCreatorVisualSelectionStage() {
+  if (!validateCreatorStage1(true)) {
+    return false;
+  }
+  if (!verifiedPolishDepthState || !verifiedPolishDepthState.confirmed) {
+    const reviewCard = document.getElementById('slantPolishReviewCard');
+    if (reviewCard && reviewCard.style.display !== 'none') {
+      reviewCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      showTemporaryToast('✨ Please confirm your polished take ("✓ Accept & Use" or "✕ Keep Original") to unlock Photo & Visual Selection!', 4000);
+    } else {
+      const polishBtn = document.getElementById('slantPolishActionBtn');
+      if (polishBtn) polishBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      showTemporaryToast('✨ Tap "Review & Polish" and confirm your take to unlock Photo & Visual Selection!', 4000);
+    }
+    return false;
+  }
+
+  creatorActiveSubStage = 2;
+  updateCreatorSubStageUI();
+  if (typeof updateUnifiedPosterVisualStripUI === 'function') {
+    try { updateUnifiedPosterVisualStripUI(); } catch (_) {}
+  }
+  if (typeof renderPolishVisualSubjects === 'function') {
+    try { renderPolishVisualSubjects(); } catch (_) {}
+  }
+  const modalCard = document.querySelector('#creatorModal .creator-modal-card');
+  if (modalCard) {
+    modalCard.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  return true;
+}
+window.goToCreatorVisualSelectionStage = goToCreatorVisualSelectionStage;
+
+function backToCreatorStoryStage() {
+  creatorActiveSubStage = 1;
+  updateCreatorSubStageUI();
+  const modalCard = document.querySelector('#creatorModal .creator-modal-card');
+  if (modalCard) {
+    modalCard.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+}
+window.backToCreatorStoryStage = backToCreatorStoryStage;
 
 window.showLiveDepthBeatHint = showLiveDepthBeatHint;
 window.insertDepthBeatStarter = insertDepthBeatStarter;
@@ -19063,15 +19351,31 @@ function renderPolishStructureBeatsUI(structureBeats, isChronicle = false, rawTe
   if (bar) {
     bar.style.display = 'none';
   }
-  if (isChronicle) return;
-
   const slantInput = document.getElementById('creatorSlantTakeInput');
   const currentRaw = String(rawText || (slantInput ? slantInput.value : '') || '').trim();
   const currentPolished = String(polishedText || currentRaw).trim();
+
+  if (isChronicle) {
+    verifiedPolishDepthState = {
+      verified: true,
+      confirmed: false,
+      rawFingerprint: currentRaw,
+      polishedFingerprint: currentPolished,
+      hasMoment: true,
+      hasWhyItMatters: true,
+      hasConviction: true,
+      depthScore: 85,
+      nudge: ''
+    };
+    updateCreatorSubStageUI();
+    return;
+  }
+
   const beats = structureBeats || { hasMoment: true, hasWhyItMatters: true, hasConviction: false, depthScore: 60, nudge: '' };
 
   verifiedPolishDepthState = {
     verified: true,
+    confirmed: false,
     rawFingerprint: currentRaw,
     polishedFingerprint: currentPolished,
     hasMoment: beats.hasMoment !== false,
@@ -24545,8 +24849,14 @@ function acceptPolishedTake() {
     if (typeof computeVisualsSourceFingerprint === 'function') {
       lastAiVisualsSourceFingerprint = computeVisualsSourceFingerprint();
     }
+    if (verifiedPolishDepthState) {
+      verifiedPolishDepthState.polishedFingerprint = input.value.trim();
+      verifiedPolishDepthState.confirmed = true;
+    }
     input.dispatchEvent(new Event('input', { bubbles: true }));
     renderPolishVisualSubjects();
+  } else if (verifiedPolishDepthState) {
+    verifiedPolishDepthState.confirmed = true;
   }
   if (reviewCard) {
     reviewCard.style.display = 'none';
@@ -24554,7 +24864,13 @@ function acceptPolishedTake() {
   if (typeof recordVisualConfidenceApproval === 'function') {
     recordVisualConfidenceApproval('polish_accept');
   }
-  showTemporaryToast('✓ Polished take & visual selection applied to your slant!');
+  updateLivePerspectiveDepthUI(true);
+  if (isCreatorVisualSelectionStageUnlocked()) {
+    goToCreatorVisualSelectionStage();
+    showTemporaryToast('✓ Story & Conviction confirmed! Now select your Poster 1 visual or collage.');
+  } else {
+    showTemporaryToast('✓ Polished take applied! Complete all 3 story signals & 70%+ depth to unlock Photo Selection.');
+  }
 }
 
 function rejectPolishedTake() {
@@ -24562,7 +24878,16 @@ function rejectPolishedTake() {
   if (reviewCard) {
     reviewCard.style.display = 'none';
   }
-  showTemporaryToast('Original take kept.');
+  if (verifiedPolishDepthState) {
+    verifiedPolishDepthState.confirmed = true;
+  }
+  updateLivePerspectiveDepthUI(true);
+  if (isCreatorVisualSelectionStageUnlocked()) {
+    goToCreatorVisualSelectionStage();
+    showTemporaryToast('✓ Original take & Conviction confirmed! Now select your Poster 1 visual or collage.');
+  } else {
+    showTemporaryToast('Original take kept — complete all 3 story signals & 70%+ depth to unlock Photo Selection.');
+  }
 }
 
 function toggleRefineCoreTake(val) {
@@ -26627,7 +26952,10 @@ async function compositeStarredScenePhotosToDataUrl(photosList, commitExport = t
     ensureInteractiveCollageCanvasBound(previewCanvas, 'attached');
   }
   if (validPhotos.length === 0) {
-    if (previewCanvas) previewCanvas._collageCellBoxes = [];
+    if (previewCanvas) {
+      previewCanvas._collageCellBoxes = [];
+      previewCanvas._collageDividers = [];
+    }
     updateCollageCompositionToggleUI('attached');
     return null;
   }
@@ -26672,74 +27000,80 @@ async function compositeStarredScenePhotosToDataUrl(photosList, commitExport = t
   updateCollageCompositionToggleUI('attached');
   const isTallHero = window._attachedCollageComposition === 'tall';
   const isEqualSplit = Boolean(window._attachedNoHeroEqual);
+  const splits = window._collageCustomSplits || {};
 
   ctx.clearRect(0, 0, W, H);
-  // Clean Edge-to-Edge Split Collage (Supports Wide Top Hero, Tall Left Hero, and Equal Prominence)
+  // Clean Edge-to-Edge Split Collage (Supports Wide Top Hero, Tall Left Hero, Equal Prominence & Slidable Borders)
   ctx.fillStyle = '#18181B';
   ctx.fillRect(0, 0, W, H);
 
   const div = 6;
   const cellBoxes = [];
+  const dividers = [];
 
   if (valid.length === 1) {
     cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[0].img, 0, 0, W, H, 0, valid[0].meta));
   } else if (valid.length === 2) {
-    if (isEqualSplit) {
-      if (isTallHero) {
-        const leftW = Math.round((W - div) * 0.50);
-        const rightW = W - div - leftW;
-        cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[0].img, 0, 0, leftW, H, 0, valid[0].meta));
-        cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[1].img, leftW + div, 0, rightW, H, 0, valid[1].meta));
-        ctx.fillStyle = '#FFFFFF';
-        ctx.fillRect(leftW, 0, div, H);
-      } else {
-        const topH = Math.round((H - div) * 0.50);
-        const botH = H - div - topH;
-        cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[0].img, 0, 0, W, topH, 0, valid[0].meta));
-        cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[1].img, 0, topH + div, W, botH, 0, valid[1].meta));
-        ctx.fillStyle = '#FFFFFF';
-        ctx.fillRect(0, topH, W, div);
-      }
-    } else if (isTallHero) {
-      const leftW = Math.round((W - div) * 0.58);
+    const defaultMain = isEqualSplit ? 0.50 : (isTallHero ? 0.58 : 0.60);
+    const mainRatio = typeof splits.main === 'number' ? splits.main : defaultMain;
+    if (isTallHero) {
+      const leftW = Math.round((W - div) * mainRatio);
       const rightW = W - div - leftW;
       cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[0].img, 0, 0, leftW, H, 0, valid[0].meta));
       cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[1].img, leftW + div, 0, rightW, H, 0, valid[1].meta));
       ctx.fillStyle = '#FFFFFF';
       ctx.fillRect(leftW, 0, div, H);
+      dividers.push({ id: 'main', orientation: 'v', pos: leftW + div / 2, start: 0, end: H });
     } else {
-      const topH = Math.round((H - div) * 0.60);
+      const topH = Math.round((H - div) * mainRatio);
       const botH = H - div - topH;
       cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[0].img, 0, 0, W, topH, 0, valid[0].meta));
       cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[1].img, 0, topH + div, W, botH, 0, valid[1].meta));
       ctx.fillStyle = '#FFFFFF';
       ctx.fillRect(0, topH, W, div);
+      dividers.push({ id: 'main', orientation: 'h', pos: topH + div / 2, start: 0, end: W });
     }
   } else {
     if (isEqualSplit) {
+      const r1 = typeof splits.eq1 === 'number' ? splits.eq1 : (1 / 3);
+      const r2 = typeof splits.eq2 === 'number' ? splits.eq2 : (2 / 3);
       if (isTallHero) {
-        const colW = Math.round((W - div * 2) / 3);
-        const lastColW = W - (colW + div) * 2;
-        cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[0].img, 0, 0, colW, H, 0, valid[0].meta));
-        cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[1].img, colW + div, 0, colW, H, 0, valid[1].meta));
-        cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[2].img, (colW + div) * 2, 0, lastColW, H, 0, valid[2].meta));
+        const availW = W - div * 2;
+        const col1W = Math.round(availW * r1);
+        const col2W = Math.round(availW * (r2 - r1));
+        const col3W = availW - col1W - col2W;
+        const div1X = col1W;
+        const div2X = col1W + div + col2W;
+        cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[0].img, 0, 0, col1W, H, 0, valid[0].meta));
+        cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[1].img, div1X + div, 0, col2W, H, 0, valid[1].meta));
+        cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[2].img, div2X + div, 0, col3W, H, 0, valid[2].meta));
         ctx.fillStyle = '#FFFFFF';
-        ctx.fillRect(colW, 0, div, H);
-        ctx.fillRect(colW * 2 + div, 0, div, H);
+        ctx.fillRect(div1X, 0, div, H);
+        ctx.fillRect(div2X, 0, div, H);
+        dividers.push({ id: 'eq1', orientation: 'v', pos: div1X + div / 2, start: 0, end: H });
+        dividers.push({ id: 'eq2', orientation: 'v', pos: div2X + div / 2, start: 0, end: H });
       } else {
-        const bandH = Math.round((H - div * 2) / 3);
-        const lastBandH = H - (bandH + div) * 2;
-        cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[0].img, 0, 0, W, bandH, 0, valid[0].meta));
-        cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[1].img, 0, bandH + div, W, bandH, 0, valid[1].meta));
-        cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[2].img, 0, (bandH + div) * 2, W, lastBandH, 0, valid[2].meta));
+        const availH = H - div * 2;
+        const band1H = Math.round(availH * r1);
+        const band2H = Math.round(availH * (r2 - r1));
+        const band3H = availH - band1H - band2H;
+        const div1Y = band1H;
+        const div2Y = band1H + div + band2H;
+        cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[0].img, 0, 0, W, band1H, 0, valid[0].meta));
+        cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[1].img, 0, div1Y + div, W, band2H, 0, valid[1].meta));
+        cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[2].img, 0, div2Y + div, W, band3H, 0, valid[2].meta));
         ctx.fillStyle = '#FFFFFF';
-        ctx.fillRect(0, bandH, W, div);
-        ctx.fillRect(0, bandH * 2 + div, W, div);
+        ctx.fillRect(0, div1Y, W, div);
+        ctx.fillRect(0, div2Y, W, div);
+        dividers.push({ id: 'eq1', orientation: 'h', pos: div1Y + div / 2, start: 0, end: W });
+        dividers.push({ id: 'eq2', orientation: 'h', pos: div2Y + div / 2, start: 0, end: W });
       }
     } else if (isTallHero) {
-      const leftW = Math.round((W - div) * 0.58);
+      const mainRatio = typeof splits.main === 'number' ? splits.main : 0.58;
+      const subRatio = typeof splits.sub === 'number' ? splits.sub : 0.50;
+      const leftW = Math.round((W - div) * mainRatio);
       const rightW = W - div - leftW;
-      const topRightH = Math.round((H - div) * 0.5);
+      const topRightH = Math.round((H - div) * subRatio);
       const botRightH = H - div - topRightH;
       cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[0].img, 0, 0, leftW, H, 0, valid[0].meta));
       cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[1].img, leftW + div, 0, rightW, topRightH, 0, valid[1].meta));
@@ -26747,10 +27081,14 @@ async function compositeStarredScenePhotosToDataUrl(photosList, commitExport = t
       ctx.fillStyle = '#FFFFFF';
       ctx.fillRect(leftW, 0, div, H);
       ctx.fillRect(leftW + div, topRightH, rightW, div);
+      dividers.push({ id: 'main', orientation: 'v', pos: leftW + div / 2, start: 0, end: H });
+      dividers.push({ id: 'sub', orientation: 'h', pos: topRightH + div / 2, start: leftW + div, end: W });
     } else {
-      const topH = Math.round((H - div) * 0.58);
+      const mainRatio = typeof splits.main === 'number' ? splits.main : 0.58;
+      const subRatio = typeof splits.sub === 'number' ? splits.sub : 0.50;
+      const topH = Math.round((H - div) * mainRatio);
       const botH = H - div - topH;
-      const halfW = Math.round((W - div) * 0.5);
+      const halfW = Math.round((W - div) * subRatio);
       const rightW = W - div - halfW;
       cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[0].img, 0, 0, W, topH, 0, valid[0].meta));
       cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[1].img, 0, topH + div, halfW, botH, 0, valid[1].meta));
@@ -26758,15 +27096,20 @@ async function compositeStarredScenePhotosToDataUrl(photosList, commitExport = t
       ctx.fillStyle = '#FFFFFF';
       ctx.fillRect(0, topH, W, div);
       ctx.fillRect(halfW, topH + div, div, botH);
+      dividers.push({ id: 'main', orientation: 'h', pos: topH + div / 2, start: 0, end: W });
+      dividers.push({ id: 'sub', orientation: 'v', pos: halfW + div / 2, start: topH + div, end: H });
     }
   }
 
   canvas._collageCellBoxes = cellBoxes.filter(Boolean);
+  canvas._collageDividers = dividers;
 
   if (!commitExport && window._lastAttachedCollageDataUrl) {
+    drawInteractiveCollageDividerHandles(ctx, dividers, canvas._activeDividerId);
     return window._lastAttachedCollageDataUrl;
   }
   const dataUrl = canvas.toDataURL('image/jpeg', 0.90);
+  drawInteractiveCollageDividerHandles(ctx, dividers, canvas._activeDividerId);
   window._lastAttachedCollageDataUrl = dataUrl;
   return dataUrl;
 }
@@ -26926,6 +27269,7 @@ async function setStarredAttachedScenePhoto(idx, event) {
     });
     window._attachedActiveSlotIndex = 0;
   }
+  resetCollageCustomSplits();
   await syncAttachedScenePhotosCollage(false, true);
 }
 window.setStarredAttachedScenePhoto = setStarredAttachedScenePhoto;
@@ -27268,9 +27612,25 @@ function enableCreatorRegenMode(baselinePost, reasonLabel = '') {
   window._regenAutoSwitchReason = reasonLabel ? `${reasonLabel} • Slide left for Text Only or right for Visuals Only` : '';
   creatorRegenScope = 'both';
   window._regenBaselineInputs = getCreatorRegenInputsSnapshot();
+  const slantInput = document.getElementById('creatorSlantTakeInput');
+  const currentRaw = String(slantInput ? slantInput.value : '').trim();
+  if (currentRaw) {
+    verifiedPolishDepthState = {
+      verified: true,
+      confirmed: true,
+      rawFingerprint: currentRaw,
+      polishedFingerprint: currentRaw,
+      hasMoment: true,
+      hasWhyItMatters: true,
+      hasConviction: true,
+      depthScore: Math.max(78, Number(verifiedPolishDepthState?.depthScore) || 82),
+      nudge: ''
+    };
+  }
   const bar = document.getElementById('creatorRegenScopeBar');
   if (bar) bar.style.display = 'inline-flex';
   updateCreatorRegenScopeUI();
+  updateCreatorSubStageUI();
 }
 
 function resetCreatorRegenModeToFresh() {
@@ -27351,6 +27711,7 @@ function backToStep1() {
     enableCreatorRegenMode(currentSynthesizedPost, 'Editing generated deck');
   } else {
     updateCreatorRegenScopeUI();
+    updateCreatorSubStageUI();
   }
 
   if (d1) { d1.className = 'creator-step-dot active'; }
@@ -27697,6 +28058,7 @@ function resetCreatorState() {
   selectedPolishVisualSubjectIdx = 0;
   verifiedPolishDepthState = {
     verified: false,
+    confirmed: false,
     rawFingerprint: '',
     polishedFingerprint: '',
     hasMoment: false,
@@ -27705,6 +28067,9 @@ function resetCreatorState() {
     depthScore: 0,
     nudge: ''
   };
+  creatorActiveSubStage = 1;
+  resetCollageCustomSplits();
+  updateCreatorSubStageUI();
   selectedPolishVisualSubject = null;
   currentChronicleMomentProjections = [];
   const polishVsPicker = document.getElementById('polishVisualSubjectPicker');
