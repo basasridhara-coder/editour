@@ -4566,7 +4566,7 @@ function openAuthModal(customDesc) {
   if (descEl && customDesc) {
     descEl.textContent = customDesc;
   } else if (descEl) {
-    descEl.textContent = 'Sign in to synthesize what you read, frame what you observe, and build your private chronicle.';
+    descEl.textContent = 'Sign in to turn your perspective into illustrated posters and keep related reflections in one series.';
   }
 
   const signedInView = document.getElementById('signedInAppView');
