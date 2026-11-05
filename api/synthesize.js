@@ -4386,6 +4386,19 @@ function buildHighlightedHtml(polished, corrections) {
 
 function formatCuratorTakeApt(text) {
   if (!text || typeof text !== 'string') return '';
+  const rawBlocks = text
+    .trim()
+    .split(/\n\s*\n|(?=(?:0?[1-9]\s*[·•.-]\s*)?Moment\s+\d+(?:\s*[·•.-]\s*[^:]{1,38})?:\s*)/i)
+    .map(b => b.trim())
+    .filter(Boolean);
+  if (rawBlocks.length > 1) {
+    return rawBlocks.map(b => formatCuratorTakeAptSingleBlock(b)).filter(Boolean).join('\n\n');
+  }
+  return formatCuratorTakeAptSingleBlock(text);
+}
+
+function formatCuratorTakeAptSingleBlock(text) {
+  if (!text || typeof text !== 'string') return '';
   let s = text.trim();
 
   // Strip wrapping quotes, markdown brackets, or label prefixes

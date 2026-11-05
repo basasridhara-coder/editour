@@ -6470,6 +6470,7 @@ async function encryptChroniclePostForCloud(postObj) {
       aiIllustrationUrl: copy.aiIllustrationUrl || '',
       contextBullets: Array.isArray(copy.contextBullets) ? copy.contextBullets : [],
       keyTakeaways: Array.isArray(copy.keyTakeaways) ? copy.keyTakeaways : [],
+      articleExcerpts: Array.isArray(copy.articleExcerpts) ? copy.articleExcerpts : [],
       resolvedArticleExcerpts: Array.isArray(copy.resolvedArticleExcerpts) ? copy.resolvedArticleExcerpts : [],
       chronicleMoments: Array.isArray(copy.chronicleMoments) ? copy.chronicleMoments : (copy.generationInputs?.chronicleMoments || []),
       chronicleReflections: Array.isArray(copy.chronicleReflections) ? copy.chronicleReflections : (copy.generationInputs?.chronicleReflections || []),
@@ -6513,6 +6514,7 @@ async function encryptChroniclePostForCloud(postObj) {
     copy.whyItMatters = '';
     copy.contextBullets = [];
     copy.keyTakeaways = [];
+    copy.articleExcerpts = [];
     copy.resolvedArticleExcerpts = [];
     copy.chronicleMoments = [];
     copy.chronicleReflections = [];
@@ -9845,7 +9847,33 @@ function getStartingLines(fullText) {
   return fullText.substring(0, 120);
 }
 
+function splitEditorialParagraphsOrMoments(input) {
+  const rawList = Array.isArray(input) ? input : [input];
+  const out = [];
+  for (const item of rawList) {
+    if (!item || typeof item !== 'string') continue;
+    const chunks = item
+      .trim()
+      .split(/\n\s*\n|(?=(?:0?[1-9]\s*[·•.-]\s*)?Moment\s+\d+(?:\s*[·•.-]\s*[^:]{1,38})?:\s*)/i)
+      .map(p => p.trim())
+      .filter(Boolean);
+    for (const c of chunks) {
+      out.push(c);
+    }
+  }
+  return out;
+}
+
 function formatCuratorTakeApt(text) {
+  if (!text || typeof text !== 'string') return '';
+  const rawBlocks = splitEditorialParagraphsOrMoments(text);
+  if (rawBlocks.length > 1) {
+    return rawBlocks.map(b => formatCuratorTakeAptSingleBlock(b)).filter(Boolean).join('\n\n');
+  }
+  return formatCuratorTakeAptSingleBlock(text);
+}
+
+function formatCuratorTakeAptSingleBlock(text) {
   if (!text || typeof text !== 'string') return '';
   let s = text.trim();
 
@@ -11079,10 +11107,10 @@ function evaluateEssayBifurcation(post, index) {
 
   let summaryParas = [];
   if (post.summary && typeof post.summary === "string") {
-    summaryParas = post.summary.split(/\n\s*\n/).map(p => cleanExcerpt(p)).filter(p => p.length > 5);
+    summaryParas = splitEditorialParagraphsOrMoments(post.summary).map(p => cleanExcerpt(p)).filter(p => p.length > 5);
   }
   if (summaryParas.length === 0 && post.broadsheetObservation && typeof post.broadsheetObservation === "string") {
-    summaryParas = post.broadsheetObservation.split(/\n\s*\n/).map(p => cleanExcerpt(p)).filter(p => p.length > 5);
+    summaryParas = splitEditorialParagraphsOrMoments(post.broadsheetObservation).map(p => cleanExcerpt(p)).filter(p => p.length > 5);
   }
   if (summaryParas.length === 0 && post.summary) {
     summaryParas = [cleanExcerpt(post.summary)];
@@ -11093,9 +11121,11 @@ function evaluateEssayBifurcation(post, index) {
     summaryParas = summaryParas.filter(p => !isDuplicateOfUserTake(p, post));
   }
 
-  let excerpts = post.resolvedArticleExcerpts || post.articleExcerpts || [];
+  let excerpts = (Array.isArray(post.resolvedArticleExcerpts) && post.resolvedArticleExcerpts.length > 0)
+    ? post.resolvedArticleExcerpts
+    : (post.articleExcerpts || []);
   if (Array.isArray(excerpts)) {
-    excerpts = excerpts.map(e => cleanExcerpt(e)).filter(Boolean);
+    excerpts = splitEditorialParagraphsOrMoments(excerpts).map(e => cleanExcerpt(e)).filter(Boolean);
     excerpts = excerpts.filter(e => !isDuplicateOfUserTake(e, post));
   } else {
     excerpts = [];
@@ -11120,7 +11150,7 @@ function evaluateEssayBifurcation(post, index) {
     });
   }
 
-  if (essayParas.length === 1 && essayParas[0].length > 220) {
+  if (!isPostChronicleDiary(post) && essayParas.length === 1 && essayParas[0].length > 220) {
     const sentences = essayParas[0].match(/[^.!?]+[.!?]+["']?|\s*[^.!?]+$/g) || [];
     if (sentences.length >= 3) {
       const mid = Math.ceil(sentences.length / 2);
@@ -32268,7 +32298,29 @@ function getEditedProseFields(filterTab = null) {
 function openEditPosterModal(initialTab = null) {
   if (!currentSynthesizedPost) return;
 
-  const tabToOpen = (typeof initialTab === 'number') ? initialTab : (currentPreviewSlide || 0);
+  const isChronicle = isChronicleModePost(currentSynthesizedPost);
+  const editTab0 = document.getElementById('editTab0');
+  const editTab1 = document.getElementById('editTab1');
+  const editTab2 = document.getElementById('editTab2');
+  if (editTab0) editTab0.textContent = isChronicle ? 'Poster 1: Cover' : 'Slide 1: Hook';
+  if (editTab1) editTab1.textContent = isChronicle ? 'Poster 3: Reflection' : 'Slide 2: Take';
+  if (editTab2) editTab2.textContent = isChronicle ? 'Poster 2: Moments ✏️' : 'Slide 3: Broadsheet & Essay ✏️';
+
+  let tabToOpen = 0;
+  if (typeof initialTab === 'number') {
+    tabToOpen = initialTab;
+  } else {
+    const curSlide = currentPreviewSlide || 0;
+    if (curSlide === 0) {
+      tabToOpen = 0;
+    } else if (curSlide === 1) {
+      // Poster 2 in both Daily Chronicle (Moments) and Regular Slant (The Essay) lives in editTabPane2
+      tabToOpen = 2;
+    } else if (curSlide === 2) {
+      // Poster 3 in Daily Chronicle (Reflection) lives in editTabPane1
+      tabToOpen = isChronicle ? 1 : 2;
+    }
+  }
   switchEditModalTab(tabToOpen);
 
   const catInput = document.getElementById('editModalCategory');
@@ -32309,12 +32361,6 @@ function openEditPosterModal(initialTab = null) {
     if (pillMet) pillMet.classList.toggle('active', !isUsingExact && currentSynthesizedPost.characterRepresentation !== 'likeness');
   }
 
-  // Slide 3 is fully editable for all sources
-  const editTab2 = document.getElementById('editTab2');
-  if (editTab2) {
-    editTab2.textContent = 'Slide 3: Broadsheet & Essay ✏️';
-  }
-
   if (s3Head) {
     s3Head.value = currentSynthesizedPost.broadsheetHeadline || currentSynthesizedPost.originalHeadline || currentSynthesizedPost.adaptedHeadline || '';
   }
@@ -32323,11 +32369,12 @@ function openEditPosterModal(initialTab = null) {
   }
   if (s3Obs) {
     const rawSum = String(currentSynthesizedPost.summary || currentSynthesizedPost.broadsheetObservation || '').trim();
-    const sumParas = rawSum ? rawSum.split(/\n\s*\n/).map(p => p.trim()).filter(Boolean) : [];
-    const exArr = Array.isArray(currentSynthesizedPost.resolvedArticleExcerpts) && currentSynthesizedPost.resolvedArticleExcerpts.length > 0
+    const sumParas = splitEditorialParagraphsOrMoments(rawSum);
+    const exArrRaw = Array.isArray(currentSynthesizedPost.resolvedArticleExcerpts) && currentSynthesizedPost.resolvedArticleExcerpts.length > 0
       ? currentSynthesizedPost.resolvedArticleExcerpts
       : (Array.isArray(currentSynthesizedPost.articleExcerpts) ? currentSynthesizedPost.articleExcerpts : []);
-    s3Obs.value = (exArr.length > sumParas.length) ? exArr.join('\n\n') : rawSum;
+    const exArr = splitEditorialParagraphsOrMoments(exArrRaw);
+    s3Obs.value = (exArr.length >= sumParas.length && exArr.length > 0) ? exArr.join('\n\n') : (sumParas.length > 0 ? sumParas.join('\n\n') : rawSum);
   }
   if (s3Ref) {
     s3Ref.value = currentSynthesizedPost.broadsheetReflection || currentSynthesizedPost.whyItMatters || '';
@@ -32355,7 +32402,14 @@ function closeEditPosterModal() {
 }
 
 function switchEditModalTab(tabIdx) {
-  currentPreviewSlide = tabIdx;
+  const isChronicle = isChronicleModePost(currentSynthesizedPost);
+  if (tabIdx === 0) {
+    currentPreviewSlide = 0;
+  } else if (tabIdx === 2) {
+    currentPreviewSlide = 1;
+  } else if (tabIdx === 1) {
+    currentPreviewSlide = isChronicle ? 2 : 1;
+  }
   for (let i = 0; i < 3; i++) {
     const tabBtn = document.getElementById(`editTab${i}`);
     const tabPane = document.getElementById(`editTabPane${i}`);
@@ -32709,13 +32763,20 @@ function applyEditModalFormValues() {
     currentSynthesizedPost.keyTakeaways[0] = s2TitleInput.value.trim();
   }
   if (opinionInput && opinionInput.value.trim()) {
-    currentSynthesizedPost.creatorOpinion = opinionInput.value.trim();
-    currentSynthesizedPost.curatorTake = opinionInput.value.trim();
+    const cleanOpinion = opinionInput.value.trim();
+    currentSynthesizedPost.creatorOpinion = cleanOpinion;
+    currentSynthesizedPost.curatorTake = cleanOpinion;
+    if (Array.isArray(currentSynthesizedPost.chronicleReflections) && currentSynthesizedPost.chronicleReflections.length > 0) {
+      currentSynthesizedPost.chronicleReflections[0].quote = cleanOpinion;
+    }
+    if (Array.isArray(currentSynthesizedPost.generationInputs?.chronicleReflections) && currentSynthesizedPost.generationInputs.chronicleReflections.length > 0) {
+      currentSynthesizedPost.generationInputs.chronicleReflections[0].quote = cleanOpinion;
+    }
   }
   if (whyInput && whyInput.value.trim()) currentSynthesizedPost.whyItMatters = whyInput.value.trim();
   if (metricInput && metricInput.value.trim()) currentSynthesizedPost.keyMetric = metricInput.value.trim();
 
-  // Slide 3: All content editable for all sources
+  // Slide 3 (or Poster 2 Moments in Daily Chronicle): All content editable for all sources
   if (s3Head) {
     const headVal = s3Head.value.trim();
     currentSynthesizedPost.broadsheetHeadline = headVal;
@@ -32727,12 +32788,32 @@ function applyEditModalFormValues() {
     currentSynthesizedPost.pullQuote = quoteVal;
   }
   if (s3Obs) {
-    const cleanObs = s3Obs.value.trim();
-    const obsParas = cleanObs ? cleanObs.split(/\n\s*\n/).map(p => p.trim()).filter(Boolean) : [];
+    const rawObs = s3Obs.value.trim();
+    const obsParas = splitEditorialParagraphsOrMoments(rawObs);
+    const cleanObs = obsParas.length > 0 ? obsParas.join('\n\n') : rawObs;
     currentSynthesizedPost.summary = cleanObs;
     currentSynthesizedPost.broadsheetObservation = cleanObs;
     currentSynthesizedPost.articleExcerpts = obsParas;
     currentSynthesizedPost.resolvedArticleExcerpts = obsParas;
+    if (isChronicleModePost(currentSynthesizedPost) && obsParas.length > 0) {
+      const existingMoments = Array.isArray(currentSynthesizedPost.chronicleMoments)
+        ? currentSynthesizedPost.chronicleMoments
+        : (Array.isArray(currentSynthesizedPost.generationInputs?.chronicleMoments) ? currentSynthesizedPost.generationInputs.chronicleMoments : []);
+      const updatedMoments = obsParas.map((pText, idx) => {
+        const prev = existingMoments[idx] || {};
+        const strippedText = String(pText || '').replace(/^(?:0?[1-9]\s*[·•.-]\s*)?Moment\s+\d+(?:\s*[·•.-]\s*[^:]{1,38})?:\s*/i, '').trim();
+        return {
+          ...prev,
+          index: idx + 1,
+          title: prev.title || `Moment ${String(idx + 1).padStart(2, '0')}`,
+          text: strippedText || pText
+        };
+      });
+      currentSynthesizedPost.chronicleMoments = updatedMoments;
+      if (currentSynthesizedPost.generationInputs && typeof currentSynthesizedPost.generationInputs === 'object') {
+        currentSynthesizedPost.generationInputs.chronicleMoments = updatedMoments;
+      }
+    }
   }
   if (s3Ref) {
     const refVal = s3Ref.value.trim();
@@ -32740,7 +32821,9 @@ function applyEditModalFormValues() {
     currentSynthesizedPost.whyItMatters = refVal;
   }
 
-  // Clear poster file caches so fresh edits render immediately
+  // Clear cached bifurcation and poster file caches so fresh edits render immediately
+  delete currentSynthesizedPost._cachedBifurcation;
+  delete currentSynthesizedPost._calibratedBifurcation;
   if (typeof posterFilesCache !== 'undefined' && posterFilesCache) {
     if (currentSynthesizedPost.id) posterFilesCache.delete(currentSynthesizedPost.id);
     posterFilesCache.delete('preview');
