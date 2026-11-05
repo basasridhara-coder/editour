@@ -29225,8 +29225,174 @@ mark.polish-mark:hover, mark.polish-mark.active {
 }
 
 /* ============================================================
-   CONVICTION TIER FLASH CELEBRATION & ROLLING 5-POST PROFILE AURA
+   CONVICTION TIER FLASH CELEBRATION & ROLLING 5-POST POST-HEADER AURA
    ============================================================ */
+/* Creator Avatar & @Handle on Every Post Card */
+.creator-avatar.has-conviction-aura {
+  position: relative;
+  overflow: visible !important;
+  transition: box-shadow 0.3s ease, border-color 0.3s ease, transform 0.25s ease;
+}
+
+/* Corner Star Jewel on the User Icon */
+.avatar-conviction-star {
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  line-height: 1;
+  font-weight: 900;
+  pointer-events: none;
+  z-index: 3;
+  transition: all 0.3s ease;
+}
+
+/* Tier 3 (90-100% Piercing Conviction): Radiant Gold Avatar Ring + Glowing Star + Glowing @ */
+.creator-avatar.has-conviction-aura.tier3_piercing.is-aura-glowing {
+  border: 2px solid #F59E0B !important;
+  box-shadow: 0 0 0 2px rgba(254, 243, 199, 0.9), 0 0 12px rgba(245, 158, 11, 0.65);
+  animation: avatarConvictionPulseGold 2.8s ease-in-out infinite;
+}
+
+.creator-avatar.has-conviction-aura.tier3_piercing.is-aura-glowing .avatar-conviction-star {
+  background: radial-gradient(circle at 35% 35%, #FEF08A 0%, #F59E0B 65%, #B45309 100%);
+  color: #FFFBEB;
+  border: 1.5px solid #FFFFFF;
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.9), 0 0 14px rgba(251, 191, 36, 0.65);
+  text-shadow: 0 0 4px rgba(255, 255, 255, 0.95);
+}
+
+/* Tier 2 (80-89% Deep Synthesis): Luminous Emerald Avatar Ring + Glowing Star + Glowing @ */
+.creator-avatar.has-conviction-aura.tier2_deep.is-aura-glowing {
+  border: 2px solid #10B981 !important;
+  box-shadow: 0 0 0 2px rgba(209, 250, 229, 0.9), 0 0 11px rgba(16, 185, 129, 0.55);
+  animation: avatarConvictionPulseEmerald 3s ease-in-out infinite;
+}
+
+.creator-avatar.has-conviction-aura.tier2_deep.is-aura-glowing .avatar-conviction-star {
+  background: radial-gradient(circle at 35% 35%, #A7F3D0 0%, #10B981 65%, #047857 100%);
+  color: #ECFDF5;
+  border: 1.5px solid #FFFFFF;
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.85), 0 0 13px rgba(52, 211, 153, 0.55);
+  text-shadow: 0 0 4px rgba(255, 255, 255, 0.9);
+}
+
+/* Tier 1 (70-79% Sharp Slant): Crisp Indigo Avatar Ring + Glowing Star + Glowing @ */
+.creator-avatar.has-conviction-aura.tier1_sharp.is-aura-glowing {
+  border: 2px solid #6366F1 !important;
+  box-shadow: 0 0 0 2px rgba(224, 231, 255, 0.85), 0 0 10px rgba(99, 102, 241, 0.48);
+}
+
+.creator-avatar.has-conviction-aura.tier1_sharp.is-aura-glowing .avatar-conviction-star {
+  background: radial-gradient(circle at 35% 35%, #C7D2FE 0%, #6366F1 65%, #3730A3 100%);
+  color: #EEF2FF;
+  border: 1.5px solid #FFFFFF;
+  box-shadow: 0 0 7px rgba(99, 102, 241, 0.8);
+}
+
+/* Unlit State (> 8 days without a post): No glow at all, quiet unlit star */
+.creator-avatar.has-conviction-aura.is-aura-unlit {
+  box-shadow: none !important;
+  animation: none !important;
+}
+
+.creator-avatar.has-conviction-aura.is-aura-unlit .avatar-conviction-star {
+  background: #E2E8F0;
+  color: #94A3B8;
+  border: 1.5px solid #FFFFFF;
+  box-shadow: none !important;
+  text-shadow: none !important;
+  opacity: 0.65;
+}
+
+/* Glowing @ Symbol & Handle Name on Post Cards */
+.creator-handle.has-conviction-aura .creator-at-symbol {
+  display: inline-block;
+  font-weight: 900;
+  margin-right: 0.5px;
+  transition: all 0.3s ease;
+}
+
+.creator-handle.has-conviction-aura.tier3_piercing.is-aura-glowing .creator-at-symbol {
+  color: #D97706;
+  text-shadow: 0 0 8px rgba(245, 158, 11, 0.68), 0 0 14px rgba(251, 191, 36, 0.42);
+}
+
+.creator-handle.has-conviction-aura.tier3_piercing.is-aura-glowing .creator-handle-name {
+  background: linear-gradient(90deg, #0F172A 0%, #92400E 55%, #B45309 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: 0 0 12px rgba(245, 158, 11, 0.22);
+}
+
+.creator-handle.has-conviction-aura.tier2_deep.is-aura-glowing .creator-at-symbol {
+  color: #059669;
+  text-shadow: 0 0 8px rgba(16, 185, 129, 0.6), 0 0 13px rgba(52, 211, 153, 0.35);
+}
+
+.creator-handle.has-conviction-aura.tier2_deep.is-aura-glowing .creator-handle-name {
+  background: linear-gradient(90deg, #0F172A 0%, #065F46 60%, #047857 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: 0 0 10px rgba(16, 185, 129, 0.18);
+}
+
+.creator-handle.has-conviction-aura.tier1_sharp.is-aura-glowing .creator-at-symbol {
+  color: #4F46E5;
+  text-shadow: 0 0 7px rgba(99, 102, 241, 0.52);
+}
+
+/* Dark theme adjustments for glowing handle name */
+[data-theme="obsidian"] .creator-handle.has-conviction-aura.tier3_piercing.is-aura-glowing .creator-handle-name {
+  background: linear-gradient(90deg, #FEF3C7 0%, #FBBF24 60%, #F59E0B 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+[data-theme="obsidian"] .creator-handle.has-conviction-aura.tier2_deep.is-aura-glowing .creator-handle-name {
+  background: linear-gradient(90deg, #D1FAE5 0%, #34D399 60%, #10B981 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Unlit Handle State (> 8 days without a post): Standard non-glowing handle */
+.creator-handle.has-conviction-aura.is-aura-unlit .creator-at-symbol,
+.creator-handle.has-conviction-aura.is-aura-unlit .creator-handle-name {
+  color: inherit;
+  background: none;
+  -webkit-background-clip: border-box;
+  background-clip: border-box;
+  text-shadow: none !important;
+}
+
+@keyframes avatarConvictionPulseGold {
+  0%, 100% {
+    box-shadow: 0 0 0 2px rgba(254, 243, 199, 0.85), 0 0 9px rgba(245, 158, 11, 0.48);
+  }
+  50% {
+    box-shadow: 0 0 0 2.5px rgba(253, 230, 138, 0.95), 0 0 15px rgba(245, 158, 11, 0.78);
+  }
+}
+
+@keyframes avatarConvictionPulseEmerald {
+  0%, 100% {
+    box-shadow: 0 0 0 2px rgba(209, 250, 229, 0.85), 0 0 8px rgba(16, 185, 129, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 2.5px rgba(167, 243, 208, 0.95), 0 0 14px rgba(16, 185, 129, 0.68);
+  }
+}
+
 .curator-profile-handle-row {
   display: flex;
   align-items: center;

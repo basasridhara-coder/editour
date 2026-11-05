@@ -3068,15 +3068,7 @@ function updateAuthUI() {
     if (userMenuWrap) userMenuWrap.style.display = 'block';
 
     const displayName = getUserDisplayName();
-    const myProfileAura = typeof computeCuratorRollingConvictionProfile === 'function'
-      ? computeCuratorRollingConvictionProfile(null)
-      : null;
-    const compactAuraHtml = (myProfileAura && myProfileAura.unlocked && typeof buildCuratorProfileAuraBadgeHtml === 'function')
-      ? buildCuratorProfileAuraBadgeHtml(myProfileAura, true)
-      : '';
-    if (userDropdownName) {
-      userDropdownName.innerHTML = `${escapeHtml(displayName)}${compactAuraHtml}`;
-    }
+    if (userDropdownName) userDropdownName.textContent = displayName;
     if (userDropdownEmail) userDropdownEmail.textContent = currentUser.email || '';
 
     const avatarUrl = getUserAvatarUrl();
@@ -3108,9 +3100,7 @@ function updateAuthUI() {
 
     if (drawerAuthGuest) drawerAuthGuest.style.display = 'none';
     if (drawerAuthUser) drawerAuthUser.style.display = 'flex';
-    if (drawerUserName) {
-      drawerUserName.innerHTML = `${escapeHtml(displayName)}${compactAuraHtml}`;
-    }
+    if (drawerUserName) drawerUserName.textContent = displayName;
     if (drawerUserEmail) drawerUserEmail.textContent = currentUser.email || '';
     if (drawerUserAvatar) drawerUserAvatar.textContent = (displayName[0] || 'U').toUpperCase();
     if (drawerSavedCount) drawerSavedCount.textContent = savedCount;
@@ -7986,10 +7976,6 @@ async function renderFeed(isInitial = false) {
     renderSeriesFilterBar(container);
   }
 
-  if (currentFilter === 'my_stories' && typeof renderMyStoriesConvictionAuraBanner === 'function') {
-    renderMyStoriesConvictionAuraBanner(container);
-  }
-
   if (currentFilter === 'drafts' && typeof renderFeedFormDraftsSection === 'function') {
     renderFeedFormDraftsSection(container, filtered.length);
   }
@@ -11653,10 +11639,9 @@ function createPostCardElement(post, index) {
   card.innerHTML = `
     <div class="post-header">
       <div class="creator-info" onclick="handleCreatorInfoClick(event, '${escapeHtml(handle)}')" style="cursor: pointer;">
-        <div class="creator-avatar">
-          <div class="avatar-inner">${initial}</div>
-        </div>
-        <span class="creator-handle">${escapeHtml(handle)}</span>
+        ${typeof buildCreatorAvatarAndHandleHtml === 'function'
+          ? buildCreatorAvatarAndHandleHtml(handle, initial, isLoginShowcaseOnlyPost(post))
+          : `<div class="creator-avatar"><div class="avatar-inner">${initial}</div></div><span class="creator-handle">${escapeHtml(handle)}</span>`}
         ${postSeries ? `
           <button type="button" class="post-header-series-pill" onclick="event.stopPropagation(); openSeriesInFeed('${escapeHtml(postSeries.id)}', '${escapeHtml(handle)}')" title="Part of Series: ${escapeHtml(postSeries.title)} — Tap to view Series">
             <span>📚</span>
@@ -13185,24 +13170,15 @@ function filterByCurator(curatorName, selectedSeriesId = 'all') {
           </div>
         ` : '';
 
-        const curatorProfileAura = typeof computeCuratorRollingConvictionProfile === 'function'
-          ? computeCuratorRollingConvictionProfile(matched)
-          : null;
-        const curatorAuraHtml = (curatorProfileAura && curatorProfileAura.unlocked && typeof buildCuratorProfileAuraBadgeHtml === 'function')
-          ? buildCuratorProfileAuraBadgeHtml(curatorProfileAura, false)
-          : '';
+        const profileAvatarAndHandleHtml = typeof buildCreatorAvatarAndHandleHtml === 'function'
+          ? buildCreatorAvatarAndHandleHtml('@' + displayHandle, escapeHtml(avatarInitial), false, matched)
+          : `<div class="creator-avatar"><div class="avatar-inner">${escapeHtml(avatarInitial)}</div></div><span class="creator-handle">@${escapeHtml(displayHandle)}</span>`;
 
         profileWrap.innerHTML = `
           <div class="curator-profile-top-bar">
             <div class="curator-profile-identity">
-              <div class="creator-avatar">
-                <div class="avatar-inner">${escapeHtml(avatarInitial)}</div>
-              </div>
+              ${profileAvatarAndHandleHtml}
               <div class="curator-profile-titles">
-                <div class="curator-profile-handle-row">
-                  <span class="curator-profile-handle">@${escapeHtml(displayHandle)}</span>
-                  ${curatorAuraHtml}
-                </div>
                 <div class="curator-profile-meta">${matched.length} ${matched.length === 1 ? 'Slant' : 'Slants'}${sharedSeriesList.length > 0 ? ` • ${sharedSeriesList.length} Series` : ''}</div>
               </div>
             </div>
@@ -17258,7 +17234,68 @@ function evaluatePerspectiveDepth(rawText = '', spark = '') {
    - Active Glow (<= 7 days since last post) vs Resting Matte (> 7 days, never wiped)
    ============================================================ */
 const CONVICTION_AURA_REQUIRED_POSTS = 5;
-const CONVICTION_AURA_ACTIVE_GLOW_DAYS = 7;
+const CONVICTION_AURA_ACTIVE_GLOW_DAYS = 8;
+let _curatorAuraCacheMap = new Map();
+let _curatorAuraCacheVersion = 0;
+
+function getCachedCuratorConvictionAura(rawHandle) {
+  const poolLen = (typeof allStories !== 'undefined' && Array.isArray(allStories) ? allStories.length : 0)
+    + (Array.isArray(allPosts) ? allPosts.length : 0);
+  if (_curatorAuraCacheVersion !== poolLen) {
+    _curatorAuraCacheMap.clear();
+    _curatorAuraCacheVersion = poolLen;
+  }
+  const key = String(rawHandle || '').replace(/^@/, '').toLowerCase().trim();
+  if (!key) return null;
+  if (_curatorAuraCacheMap.has(key)) {
+    return _curatorAuraCacheMap.get(key);
+  }
+  const computed = computeCuratorRollingConvictionProfile(key);
+  _curatorAuraCacheMap.set(key, computed);
+  return computed;
+}
+
+function buildCreatorAvatarAndHandleHtml(rawHandle, initial, skipAura = false, prefilteredPosts = null) {
+  const cleanHandleText = String(rawHandle || '@curator').trim();
+  const hasAtPrefix = cleanHandleText.startsWith('@');
+  const bareName = hasAtPrefix ? cleanHandleText.slice(1) : cleanHandleText;
+
+  if (skipAura) {
+    return `
+      <div class="creator-avatar">
+        <div class="avatar-inner">${initial}</div>
+      </div>
+      <span class="creator-handle">${escapeHtml(cleanHandleText)}</span>
+    `;
+  }
+
+  const aura = Array.isArray(prefilteredPosts)
+    ? computeCuratorRollingConvictionProfile(prefilteredPosts)
+    : getCachedCuratorConvictionAura(bareName);
+
+  if (!aura || !aura.unlocked) {
+    return `
+      <div class="creator-avatar">
+        <div class="avatar-inner">${initial}</div>
+      </div>
+      <span class="creator-handle">${escapeHtml(cleanHandleText)}</span>
+    `;
+  }
+
+  const tierKey = aura.tierMeta.tierKey;
+  const glowClass = aura.isGlowing ? 'is-aura-glowing' : 'is-aura-unlit';
+  const tooltip = aura.isGlowing
+    ? `${aura.tierMeta.badgeTitle} (${aura.avgScore}% rolling 5-Slant conviction) • Active Slanter`
+    : `${aura.tierMeta.badgeTitle} (${aura.avgScore}% rolling 5-Slant conviction) • Unlit after ${aura.daysSinceLatest}d break`;
+
+  return `
+    <div class="creator-avatar has-conviction-aura ${escapeHtml(tierKey)} ${glowClass}" title="${escapeHtml(tooltip)}">
+      <div class="avatar-inner">${initial}</div>
+      <span class="avatar-conviction-star ${escapeHtml(tierKey)} ${glowClass}" aria-hidden="true">✦</span>
+    </div>
+    <span class="creator-handle has-conviction-aura ${escapeHtml(tierKey)} ${glowClass}" title="${escapeHtml(tooltip)}"><span class="creator-at-symbol">@</span><span class="creator-handle-name">${escapeHtml(bareName)}</span></span>
+  `;
+}
 
 function getConvictionTierMeta(score = 75) {
   const num = Math.max(70, Math.min(100, Math.round(Number(score) || 75)));
