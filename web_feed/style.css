@@ -118,10 +118,12 @@ header {
   position: relative;
   width: 100%;
   max-width: 500px;
-  padding: 14px 18px;
+  padding: 14px 16px;
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 10px;
 }
 
 .brand {
@@ -180,7 +182,7 @@ header {
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   flex-shrink: 0;
 }
 
@@ -1491,22 +1493,29 @@ header {
   pointer-events: auto !important;
 }
 
-/* Header Diary Calendar Quick Access (All Users) */
+/* Header Diary & Feedback Quick Access (Icon-Only on Desktop & Mobile to Stay Within 500px Feed Alignment) */
 .header-diary-btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
   background: linear-gradient(135deg, #ECF2F0 0%, #FDF5EA 100%);
   border: 1.5px solid rgba(184, 125, 50, 0.42);
   color: #253833;
-  padding: 6px 12px;
-  border-radius: 9999px;
-  font-size: 12.5px;
+  border-radius: 50%;
+  font-size: 13px;
   font-weight: 800;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
+  flex-shrink: 0;
   box-shadow: 0 2px 8px rgba(37, 56, 51, 0.10);
+}
+
+.header-diary-btn-text {
+  display: none !important;
 }
 
 .header-diary-btn:hover {
@@ -1540,7 +1549,9 @@ header {
     display: none;
   }
   .header-diary-btn {
-    padding: 7px 10px;
+    width: 34px;
+    height: 34px;
+    padding: 0;
   }
 }
 
