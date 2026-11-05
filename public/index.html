@@ -344,6 +344,11 @@
             <span class="header-diary-icon">📔</span>
             <span class="header-diary-btn-text">Diary</span>
           </button>
+          <!-- Direct Founder Feedback Quick Action Button -->
+          <button class="header-diary-btn header-feedback-btn" id="headerFeedbackBtn" onclick="openUserFeedbackModal()" title="Send Feedback or Report a Bug to Founder" aria-label="Send Feedback">
+            <span class="header-diary-icon">💬</span>
+            <span class="header-diary-btn-text">Feedback</span>
+          </button>
           <!-- Options Drawer Button -->
           <button class="icon-btn drawer-toggle-btn" id="drawerToggleBtn" onclick="toggleDrawer(event)" title="Options & Settings" aria-label="Open Options Drawer">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -2179,18 +2184,34 @@
     </div>
   </div>
 
-  <!-- Admin Beta Access, Invites & Credit Manager Modal (Exclusive to Master Admin) -->
+  <!-- Admin Beta Access, Invites, Feedback & System Health Modal (Exclusive to Master Admin) -->
   <div class="modal-overlay" id="adminBetaModal" onclick="if(event.target===this) closeAdminBetaModal()">
-    <div class="modal-card" style="max-width: 580px; max-height: 88vh; display: flex; flex-direction: column; padding: 22px 24px; border-radius: 20px; text-align: left;" onclick="event.stopPropagation()">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--border-subtle, rgba(15,23,42,0.1));">
+    <div class="modal-card" style="max-width: 620px; max-height: 90vh; display: flex; flex-direction: column; padding: 20px 22px; border-radius: 20px; text-align: left;" onclick="event.stopPropagation()">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--border-subtle, rgba(15,23,42,0.1));">
         <div>
-          <div style="font-size: 10.5px; font-weight: 800; color: #818CF8; letter-spacing: 0.8px; text-transform: uppercase;">Curator Admin &amp; Credit Manager</div>
-          <h2 style="font-size: 18px; font-weight: 800; color: var(--text-primary); margin: 2px 0 0;">Community Roster &amp; Visual Credits</h2>
+          <div style="font-size: 10.5px; font-weight: 800; color: #818CF8; letter-spacing: 0.8px; text-transform: uppercase;">Founder Command Center</div>
+          <h2 style="font-size: 18px; font-weight: 800; color: var(--text-primary); margin: 2px 0 0;">Curators, Feedback &amp; System Health</h2>
         </div>
         <button class="modal-close" onclick="closeAdminBetaModal()" style="color:var(--text-primary); background:rgba(128,128,128,0.15); font-size:22px; cursor:pointer;" aria-label="Close">&times;</button>
       </div>
 
-      <div style="overflow-y: auto; flex: 1; padding-right: 4px; display: flex; flex-direction: column; gap: 16px;">
+      <!-- 3-Tab Switcher: Curators | User Feedback | Vercel & Supabase Health -->
+      <div class="admin-command-tabs" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 14px; background: rgba(148,163,184,0.08); padding: 4px; border-radius: 12px;">
+        <button type="button" id="adminTabBtnRoster" onclick="switchAdminCommandTab('roster')" style="padding: 8px 10px; border-radius: 9px; border: 1px solid rgba(99,102,241,0.4); background: rgba(99,102,241,0.18); color: #818CF8; font-size: 12px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+          <span>👥 Curators</span>
+        </button>
+        <button type="button" id="adminTabBtnFeedback" onclick="switchAdminCommandTab('feedback')" style="padding: 8px 10px; border-radius: 9px; border: 1px solid transparent; background: transparent; color: var(--text-secondary); font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+          <span>💬 Feedback</span>
+          <span id="adminTabFeedbackBadge" style="display:none; background:#F59E0B; color:#0F172A; font-size:10px; font-weight:900; padding:1px 6px; border-radius:99px;">0</span>
+        </button>
+        <button type="button" id="adminTabBtnHealth" onclick="switchAdminCommandTab('health')" style="padding: 8px 10px; border-radius: 9px; border: 1px solid transparent; background: transparent; color: var(--text-secondary); font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+          <span>🩺 Health &amp; Alerts</span>
+          <span id="adminTabHealthBadge" style="display:none; background:#EF4444; color:#FFF; font-size:10px; font-weight:900; padding:1px 6px; border-radius:99px;">!</span>
+        </button>
+      </div>
+
+      <!-- TAB PANE 1: Curators & Visual Credits -->
+      <div id="adminPaneRoster" style="overflow-y: auto; flex: 1; padding-right: 4px; display: flex; flex-direction: column; gap: 16px;">
         <!-- Live Beta Activity & Credits Summary -->
         <div id="adminStatsSummaryRow" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;">
           <div style="padding: 8px 8px; background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.2); border-radius: 10px; text-align: center;">
@@ -2277,6 +2298,78 @@
           </div>
         </div>
       </div>
+
+      <!-- TAB PANE 2: User Feedback & Post-Publish Micro-Pulse Inbox -->
+      <div id="adminPaneFeedback" style="overflow-y: auto; flex: 1; padding-right: 4px; display: none; flex-direction: column; gap: 14px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;">
+          <div>
+            <div style="font-size:12.5px; font-weight:800; color:var(--text-primary);">Direct User Feedback &amp; Micro-Pulse Log</div>
+            <div style="font-size:11px; color:var(--text-secondary);">Captures in-app notes, bug reports &amp; post-publish voice ratings</div>
+          </div>
+          <button type="button" onclick="loadAdminBetaData(true)" style="background:rgba(99,102,241,0.12); border:1px solid rgba(99,102,241,0.3); color:#818CF8; font-size:11.5px; font-weight:700; padding:5px 10px; border-radius:8px; cursor:pointer;">↻ Refresh</button>
+        </div>
+        <div id="adminFeedbackList" style="display:flex; flex-direction:column; gap:10px;">
+          <div style="font-size:12px; color:var(--text-secondary); padding:14px; text-align:center;">No user feedback submitted yet.</div>
+        </div>
+      </div>
+
+      <!-- TAB PANE 3: Vercel / Supabase / Gemini System Health & Instant Alert Webhook -->
+      <div id="adminPaneHealth" style="overflow-y: auto; flex: 1; padding-right: 4px; display: none; flex-direction: column; gap: 14px;">
+        <!-- Live Health Banner -->
+        <div id="adminHealthStatusCard" style="padding:14px 16px; border-radius:14px; background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.28);">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:6px;">
+            <strong id="adminHealthStatusTitle" style="font-size:14px; color:#34D399;">🟢 All Systems Nominal</strong>
+            <button type="button" onclick="loadAdminBetaData(true)" style="background:transparent; border:1px solid rgba(148,163,184,0.3); color:var(--text-primary); font-size:11px; font-weight:700; padding:3px 8px; border-radius:6px; cursor:pointer;">↻ Re-check</button>
+          </div>
+          <div id="adminHealthRecommendations" style="font-size:12px; color:var(--text-secondary); line-height:1.45;">
+            Checking Vercel, Supabase &amp; Gemini API status...
+          </div>
+        </div>
+
+        <!-- 4 Live Infrastructure Metrics -->
+        <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:8px;">
+          <div style="padding:9px 8px; background:rgba(56,189,248,0.08); border:1px solid rgba(56,189,248,0.24); border-radius:10px; text-align:center;">
+            <div style="font-size:9px; font-weight:800; color:#38BDF8; text-transform:uppercase;">Supabase Ping</div>
+            <div id="adminMetricSupabasePing" style="font-size:15px; font-weight:800; color:var(--text-primary); margin-top:2px;">- ms</div>
+          </div>
+          <div style="padding:9px 8px; background:rgba(245,158,11,0.08); border:1px solid rgba(245,158,11,0.24); border-radius:10px; text-align:center;">
+            <div style="font-size:9px; font-weight:800; color:#FBBF24; text-transform:uppercase;">24h 429 Quota</div>
+            <div id="adminMetric429Count" style="font-size:15px; font-weight:800; color:var(--text-primary); margin-top:2px;">0</div>
+          </div>
+          <div style="padding:9px 8px; background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.24); border-radius:10px; text-align:center;">
+            <div style="font-size:9px; font-weight:800; color:#F87171; text-transform:uppercase;">24h 504 Timeout</div>
+            <div id="adminMetric504Count" style="font-size:15px; font-weight:800; color:var(--text-primary); margin-top:2px;">0</div>
+          </div>
+          <div style="padding:9px 8px; background:rgba(168,85,247,0.08); border:1px solid rgba(168,85,247,0.24); border-radius:10px; text-align:center;">
+            <div style="font-size:9px; font-weight:800; color:#C084FC; text-transform:uppercase;">DB Post Rows</div>
+            <div id="adminMetricDbRows" style="font-size:15px; font-weight:800; color:var(--text-primary); margin-top:2px;">-</div>
+          </div>
+        </div>
+
+        <!-- Instant Phone / Slack / Discord / Webhook Alert Configuration -->
+        <div style="padding:12px 14px; background:rgba(99,102,241,0.06); border:1px solid rgba(99,102,241,0.2); border-radius:12px;">
+          <div style="font-size:12px; font-weight:800; color:var(--text-primary); margin-bottom:3px;">🔔 Instant Alert Webhook (Slack, Discord, or Custom URL)</div>
+          <div style="font-size:11px; color:var(--text-secondary); margin-bottom:8px;">
+            Get an instant alert on your phone whenever Vercel times out (504), Gemini hits rate limits (429), Supabase errors, or a user reports a bug.
+          </div>
+          <div style="display:flex; gap:6px; flex-wrap:wrap;">
+            <input type="url" id="adminAlertWebhookInput" placeholder="https://hooks.slack.com/... or Discord webhook URL" style="flex:1; min-width:190px; padding:8px 11px; border-radius:8px; border:1px solid var(--border-subtle, #CBD5E1); background:var(--bg-card, #FFF); color:var(--text-primary); font-size:12px;">
+            <button type="button" onclick="handleSaveAdminAlertWebhook(false)" style="background:#4F46E5; color:#FFF; border:none; padding:8px 12px; border-radius:8px; font-size:11.5px; font-weight:800; cursor:pointer;">Save URL</button>
+            <button type="button" onclick="handleSaveAdminAlertWebhook(true)" style="background:rgba(16,185,129,0.16); color:#34D399; border:1px solid rgba(16,185,129,0.4); padding:8px 11px; border-radius:8px; font-size:11.5px; font-weight:800; cursor:pointer;">Test Ping 🔔</button>
+          </div>
+        </div>
+
+        <!-- Recent Telemetry Error / Slow Call Log -->
+        <div>
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+            <span style="font-size:11.5px; font-weight:800; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.5px;">Recent API Errors, Quota Hits &amp; Slow Requests (&gt;25s)</span>
+            <button type="button" onclick="handleAdminClearTelemetry()" style="background:none; border:none; color:#F87171; font-size:11px; font-weight:700; cursor:pointer;">Clear Log</button>
+          </div>
+          <div id="adminTelemetryList" style="display:flex; flex-direction:column; gap:8px; max-height:240px; overflow-y:auto;">
+            <div style="font-size:12px; color:var(--text-secondary); padding:10px; text-align:center;">No API errors, 429 rate limits, or 504 timeouts recorded.</div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -2329,8 +2422,13 @@
           <div class="drawer-user-actions">
             <button class="drawer-menu-row drawer-admin-row" id="drawerAdminBetaRow" style="display:none;" onclick="openAdminBetaModal();">
               <span class="row-icon">🛡️</span>
-              <span class="row-label">Admin Credits &amp; Requests</span>
+              <span class="row-label">Admin, Feedback &amp; System Health</span>
               <span class="row-pill" id="drawerPendingBadge" style="background:#EF4444; color:#fff; display:none; padding:1px 7px; border-radius:10px; font-size:11px; font-weight:800;">0</span>
+            </button>
+            <button class="drawer-menu-row" id="drawerUserFeedbackRow" onclick="closeDrawer(); openUserFeedbackModal();">
+              <span class="row-icon">💬</span>
+              <span class="row-label">Send Feedback / Report Bug</span>
+              <span class="row-pill" style="background:rgba(56,189,248,0.18); color:#38BDF8; font-size:10px; font-weight:800; padding:2px 8px; border-radius:10px;">Direct</span>
             </button>
             <button class="drawer-menu-row" id="drawerUserCreditsRow" onclick="closeDrawer(); openUserCreditsAndInviteModal('credits');">
               <span class="row-icon">🎨</span>
@@ -2830,6 +2928,70 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261105_1154"></script>
+  <!-- User Feedback, Bug Report & Founder Direct Note Modal -->
+  <div class="modal-overlay" id="userFeedbackModal" style="display:none; z-index: 1000020;" onclick="if(event.target===this) closeUserFeedbackModal()">
+    <div class="modal-card" style="max-width: 480px; width: 92vw; padding: 20px 22px; border-radius: 20px; text-align: left;" onclick="event.stopPropagation()">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:12px;">
+        <div>
+          <div style="font-size:10.5px; font-weight:800; color:#F59E0B; letter-spacing:0.8px; text-transform:uppercase;">✦ Direct Line to Founder</div>
+          <h3 style="font-size:18px; font-weight:800; color:var(--text-primary); margin:2px 0 3px;">Share Feedback or Report a Hiccup</h3>
+          <p style="font-size:12px; color:var(--text-secondary); margin:0;">Your note goes directly to Shridhar to improve Slant's voice, visuals &amp; speed.</p>
+        </div>
+        <button class="modal-close" onclick="closeUserFeedbackModal()" style="color:var(--text-primary); background:rgba(128,128,128,0.15); font-size:22px; cursor:pointer;" aria-label="Close">&times;</button>
+      </div>
+
+      <!-- Category Selector Pills -->
+      <div style="margin-bottom:12px;">
+        <label style="font-size:11.5px; font-weight:800; color:var(--text-primary); display:block; margin-bottom:6px;">What is this about?</label>
+        <div id="userFeedbackCategoryRow" style="display:grid; grid-template-columns:repeat(3, 1fr); gap:6px;">
+          <button type="button" class="fb-cat-chip active" data-cat="voice_quality" onclick="selectUserFeedbackCategory('voice_quality')" style="padding:8px 6px; border-radius:10px; border:1.5px solid #F59E0B; background:rgba(245,158,11,0.14); color:#FBBF24; font-size:11.5px; font-weight:800; cursor:pointer;">🎯 Voice &amp; AI</button>
+          <button type="button" class="fb-cat-chip" data-cat="feature_idea" onclick="selectUserFeedbackCategory('feature_idea')" style="padding:8px 6px; border-radius:10px; border:1.5px solid rgba(148,163,184,0.28); background:transparent; color:var(--text-primary); font-size:11.5px; font-weight:700; cursor:pointer;">💡 Feature Idea</button>
+          <button type="button" class="fb-cat-chip" data-cat="bug_report" onclick="selectUserFeedbackCategory('bug_report')" style="padding:8px 6px; border-radius:10px; border:1.5px solid rgba(148,163,184,0.28); background:transparent; color:var(--text-primary); font-size:11.5px; font-weight:700; cursor:pointer;">🐛 Bug / Slow</button>
+        </div>
+      </div>
+
+      <!-- 1-Tap Experience Pulse -->
+      <div style="margin-bottom:12px;">
+        <label style="font-size:11.5px; font-weight:800; color:var(--text-primary); display:block; margin-bottom:6px;">How is Slant feeling right now?</label>
+        <div id="userFeedbackRatingRow" style="display:grid; grid-template-columns:repeat(3, 1fr); gap:6px;">
+          <button type="button" class="fb-rate-chip" data-rate="nailed_it" onclick="selectUserFeedbackRating('nailed_it')" style="padding:7px 6px; border-radius:9px; border:1px solid rgba(148,163,184,0.26); background:transparent; color:var(--text-primary); font-size:11px; font-weight:700; cursor:pointer;">😍 Nailed it</button>
+          <button type="button" class="fb-rate-chip active" data-rate="needed_tweaks" onclick="selectUserFeedbackRating('needed_tweaks')" style="padding:7px 6px; border-radius:9px; border:1.5px solid #818CF8; background:rgba(99,102,241,0.14); color:#818CF8; font-size:11px; font-weight:800; cursor:pointer;">✍️ Needs Polish</button>
+          <button type="button" class="fb-rate-chip" data-rate="missed_point" onclick="selectUserFeedbackRating('missed_point')" style="padding:7px 6px; border-radius:9px; border:1px solid rgba(148,163,184,0.26); background:transparent; color:var(--text-primary); font-size:11px; font-weight:700; cursor:pointer;">⚠️ Had a Hiccup</button>
+        </div>
+      </div>
+
+      <!-- Message Textarea -->
+      <div style="margin-bottom:12px;">
+        <label for="userFeedbackTextarea" style="font-size:11.5px; font-weight:800; color:var(--text-primary); display:block; margin-bottom:6px;">Your Note</label>
+        <textarea id="userFeedbackTextarea" rows="4" maxlength="1000" placeholder="Tell me what felt great, what needed tweaking, or what broke..." style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid var(--border-subtle, rgba(148,163,184,0.3)); background:var(--bg-card, rgba(15,23,42,0.4)); color:var(--text-primary); font-size:13px; line-height:1.45; resize:vertical;"></textarea>
+      </div>
+
+      <!-- Auto-Diagnostic Pill -->
+      <div id="userFeedbackDiagNote" style="font-size:10.5px; color:var(--text-secondary); margin-bottom:14px; padding:7px 10px; border-radius:8px; background:rgba(148,163,184,0.08); display:flex; align-items:center; gap:6px;">
+        <span>🛡️</span>
+        <span>Device &amp; recent error context attached automatically so you don't need to explain technical details.</span>
+      </div>
+
+      <div style="display:flex; justify-content:flex-end; gap:8px;">
+        <button type="button" onclick="closeUserFeedbackModal()" style="padding:10px 14px; border-radius:10px; border:1px solid rgba(148,163,184,0.3); background:transparent; color:var(--text-secondary); font-size:12.5px; font-weight:700; cursor:pointer;">Cancel</button>
+        <button type="button" id="userFeedbackSubmitBtn" onclick="submitUserFeedbackForm()" style="padding:10px 18px; border-radius:10px; border:none; background:linear-gradient(135deg, #F59E0B, #D97706); color:#0F172A; font-size:13px; font-weight:800; cursor:pointer;">Send to Founder ➔</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Post-Publish Contextual 1-Tap Micro-Pulse Banner -->
+  <div id="postPublishMicroPulseBar" style="display:none; position:fixed; bottom:22px; left:50%; transform:translateX(-50%); z-index:1000018; width:min(440px, 92vw); padding:12px 15px; border-radius:16px; background:rgba(15, 23, 42, 0.96); border:1.5px solid rgba(245, 158, 11, 0.55); box-shadow:0 16px 38px rgba(0,0,0,0.55); color:#F8FAFC; backdrop-filter:blur(12px);">
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px;">
+      <div style="font-size:12px; font-weight:800; color:#FBBF24;">✨ Published! Did Slant capture your voice today?</div>
+      <button type="button" onclick="dismissPostPublishMicroPulse()" style="background:none; border:none; color:#94A3B8; font-size:16px; cursor:pointer; line-height:1;">&times;</button>
+    </div>
+    <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:6px;">
+      <button type="button" onclick="handlePostPublishMicroPulseTap('nailed_it')" style="padding:8px 6px; border-radius:9px; border:1px solid rgba(16,185,129,0.45); background:rgba(16,185,129,0.16); color:#34D399; font-size:11.5px; font-weight:800; cursor:pointer;">🎯 Nailed it</button>
+      <button type="button" onclick="handlePostPublishMicroPulseTap('needed_tweaks')" style="padding:8px 6px; border-radius:9px; border:1px solid rgba(245,158,11,0.45); background:rgba(245,158,11,0.15); color:#FBBF24; font-size:11.5px; font-weight:800; cursor:pointer;">✍️ Needed tweaks</button>
+      <button type="button" onclick="handlePostPublishMicroPulseTap('missed_point')" style="padding:8px 6px; border-radius:9px; border:1px solid rgba(248,113,113,0.45); background:rgba(239,68,68,0.15); color:#F87171; font-size:11.5px; font-weight:800; cursor:pointer;">🐛 Had a hiccup</button>
+    </div>
+  </div>
+
+  <script src="app.js?v=20261105_1255"></script>
 </body>
 </html>

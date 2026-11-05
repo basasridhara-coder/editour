@@ -4807,7 +4807,32 @@ async function loadAdminBetaPendingCount() {
     if (resp.ok) {
       const data = await resp.json();
       const pending = Array.isArray(data.pendingRequests) ? data.pendingRequests : [];
-      const pendingCount = pending.length;
+      const feedbackList = Array.isArray(data.userFeedback) ? data.userFeedback : [];
+      const unreadFeedback = feedbackList.filter(f => f && f.status !== 'resolved');
+      const health = data.systemHealthSummary || {};
+      const criticalHealthCount = (Number(health.quota429Count24h) || 0) + (Number(health.timeout504Count24h) || 0) + (Number(health.supabaseErrorCount24h) || 0);
+      const pendingCount = pending.length + unreadFeedback.length + (health.status === 'critical' ? 1 : 0);
+
+      // Update Tab Badges inside Admin Modal
+      const fbTabBadge = document.getElementById('adminTabFeedbackBadge');
+      if (fbTabBadge) {
+        if (unreadFeedback.length > 0) {
+          fbTabBadge.textContent = unreadFeedback.length;
+          fbTabBadge.style.display = 'inline-block';
+        } else {
+          fbTabBadge.style.display = 'none';
+        }
+      }
+      const healthTabBadge = document.getElementById('adminTabHealthBadge');
+      if (healthTabBadge) {
+        if (health.status === 'critical' || criticalHealthCount > 0) {
+          healthTabBadge.textContent = criticalHealthCount > 0 ? criticalHealthCount : '!';
+          healthTabBadge.style.display = 'inline-block';
+          healthTabBadge.style.background = health.status === 'critical' ? '#EF4444' : '#F59E0B';
+        } else {
+          healthTabBadge.style.display = 'none';
+        }
+      }
 
       // 1. Update Drawer badge
       const drawerBadge = document.getElementById('drawerPendingBadge');
@@ -4833,18 +4858,45 @@ async function loadAdminBetaPendingCount() {
         }
       }
 
-      // 3. If pending access or credit requests exist, alert the admin with an interactive banner toast
-      if (pendingCount > 0 && !sessionStorage.getItem('admin_notified_' + pendingCount)) {
-        sessionStorage.setItem('admin_notified_' + pendingCount, 'true');
+      // 3. Alert admin on new pending access/credit requests
+      if (pending.length > 0 && !sessionStorage.getItem('admin_notified_req_' + pending.length)) {
+        sessionStorage.setItem('admin_notified_req_' + pending.length, 'true');
         const latestRequester = pending[0]?.email || 'A user';
         const isAccessReq = pending[0]?.type === 'access_request';
         const reqTypeLabel = isAccessReq ? 'access request' : 'access/credit request';
-        const alertMsg = pendingCount === 1
+        const alertMsg = pending.length === 1
           ? `🔔 <strong>1 ${reqTypeLabel} pending</strong> from <span style="color:#818CF8;">${escapeHtml(latestRequester)}</span>. Tap to review.`
-          : `🔔 <strong>${pendingCount} requests pending</strong> (including <span style="color:#818CF8;">${escapeHtml(latestRequester)}</span>). Tap to review.`;
+          : `🔔 <strong>${pending.length} requests pending</strong> (including <span style="color:#818CF8;">${escapeHtml(latestRequester)}</span>). Tap to review.`;
         showTemporaryToast(alertMsg, 8000, true, () => {
           openAdminBetaModal();
+          switchAdminCommandTab('roster');
         });
+      }
+
+      // 4. Alert admin on new unread user feedback
+      if (unreadFeedback.length > 0) {
+        const latestFb = unreadFeedback[0];
+        const fbKey = 'admin_notified_fb_' + (latestFb?.id || unreadFeedback.length);
+        if (!sessionStorage.getItem(fbKey)) {
+          sessionStorage.setItem(fbKey, 'true');
+          const sender = latestFb?.handle || latestFb?.email || 'a user';
+          showTemporaryToast(`💬 <strong>New User Feedback</strong> from <span style="color:#FBBF24;">${escapeHtml(sender)}</span>. Tap to read.`, 8000, true, () => {
+            openAdminBetaModal();
+            switchAdminCommandTab('feedback');
+          });
+        }
+      }
+
+      // 5. Alert admin on critical Vercel / Supabase / Gemini quota issues
+      if (health.status === 'critical') {
+        const healthKey = 'admin_notified_health_' + criticalHealthCount;
+        if (!sessionStorage.getItem(healthKey)) {
+          sessionStorage.setItem(healthKey, 'true');
+          showTemporaryToast(`🚨 <strong>System Quota/Timeout Alert:</strong> ${criticalHealthCount} error(s) in 24h (429/504/DB). Tap to inspect.`, 9500, true, () => {
+            openAdminBetaModal();
+            switchAdminCommandTab('health');
+          });
+        }
       }
     }
   } catch (_) {}
@@ -5046,12 +5098,440 @@ async function loadAdminBetaData(forceRefresh = false) {
       }
     }
 
+    renderAdminFeedbackInbox(Array.isArray(data.userFeedback) ? data.userFeedback : []);
+    renderAdminHealthDashboard(
+      data.systemHealthSummary || {},
+      Array.isArray(data.systemTelemetry) ? data.systemTelemetry : [],
+      data.alertWebhookUrl || ''
+    );
+
     loadAdminBetaPendingCount();
   } catch (err) {
     console.error('Error loading admin beta data:', err);
     if (allowedList) allowedList.innerHTML = '<div style="font-size:12px; color:#EF4444; padding:8px;">Error loading roster. Tap refresh.</div>';
   }
 }
+
+function switchAdminCommandTab(tabName = 'roster') {
+  const panes = {
+    roster: document.getElementById('adminPaneRoster'),
+    feedback: document.getElementById('adminPaneFeedback'),
+    health: document.getElementById('adminPaneHealth')
+  };
+  const btns = {
+    roster: document.getElementById('adminTabBtnRoster'),
+    feedback: document.getElementById('adminTabBtnFeedback'),
+    health: document.getElementById('adminTabBtnHealth')
+  };
+  Object.keys(panes).forEach(key => {
+    const isSel = key === tabName;
+    if (panes[key]) panes[key].style.display = isSel ? 'flex' : 'none';
+    if (btns[key]) {
+      btns[key].style.background = isSel ? 'rgba(99,102,241,0.18)' : 'transparent';
+      btns[key].style.borderColor = isSel ? 'rgba(99,102,241,0.4)' : 'transparent';
+      btns[key].style.color = isSel ? '#818CF8' : 'var(--text-secondary)';
+      btns[key].style.fontWeight = isSel ? '800' : '700';
+    }
+  });
+}
+window.switchAdminCommandTab = switchAdminCommandTab;
+
+function renderAdminFeedbackInbox(feedbackList = []) {
+  const container = document.getElementById('adminFeedbackList');
+  if (!container) return;
+  if (!Array.isArray(feedbackList) || feedbackList.length === 0) {
+    container.innerHTML = '<div style="font-size:12px; color:var(--text-secondary); padding:16px; text-align:center;">No user feedback or post-publish pulses submitted yet.</div>';
+    return;
+  }
+
+  const CAT_LABELS = {
+    voice_quality: { label: '🎯 Voice & AI Quality', color: '#FBBF24', bg: 'rgba(245,158,11,0.16)' },
+    feature_idea: { label: '💡 Feature Idea', color: '#38BDF8', bg: 'rgba(56,189,248,0.16)' },
+    bug_report: { label: '🐛 Bug / Slowness', color: '#F87171', bg: 'rgba(239,68,68,0.16)' },
+    post_pulse: { label: '✨ Post-Publish Pulse', color: '#34D399', bg: 'rgba(16,185,129,0.16)' }
+  };
+  const RATE_LABELS = {
+    nailed_it: '😍 Nailed it',
+    needed_tweaks: '✍️ Needed tweaks',
+    missed_point: '⚠️ Had a hiccup'
+  };
+
+  container.innerHTML = feedbackList.map(item => {
+    const catMeta = CAT_LABELS[item.category] || { label: '💬 Feedback', color: '#818CF8', bg: 'rgba(99,102,241,0.16)' };
+    const rateLabel = RATE_LABELS[item.rating] || '';
+    const isResolved = item.status === 'resolved';
+    const timeStr = item.createdAt ? new Date(item.createdAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+    const ctx = item.context || {};
+
+    return `
+      <div style="padding:11px 13px; border-radius:12px; background:var(--bg-card, rgba(255,255,255,0.04)); border:1px solid ${isResolved ? 'rgba(148,163,184,0.18)' : 'rgba(245,158,11,0.35)'}; opacity:${isResolved ? '0.68' : '1'}; display:flex; flex-direction:column; gap:6px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;">
+          <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+            <span style="font-size:10px; font-weight:800; padding:2px 7px; border-radius:6px; background:${catMeta.bg}; color:${catMeta.color};">${catMeta.label}</span>
+            ${rateLabel ? `<span style="font-size:10.5px; font-weight:700; color:var(--text-primary);">${rateLabel}</span>` : ''}
+            <strong style="font-size:12px; color:var(--text-primary);">${escapeHtml(item.handle || item.email)}</strong>
+            <span style="font-size:10.5px; color:var(--text-secondary);">(${escapeHtml(item.email || '')})</span>
+          </div>
+          <span style="font-size:10px; color:var(--text-secondary);">${escapeHtml(timeStr)}</span>
+        </div>
+        ${item.message ? `<div style="font-size:12.5px; color:var(--text-primary); line-height:1.45; padding:4px 0;">&ldquo;${escapeHtml(item.message)}&rdquo;</div>` : ''}
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; padding-top:4px; border-top:1px dashed rgba(148,163,184,0.16); font-size:10.5px; color:var(--text-secondary);">
+          <span>
+            ${ctx.postTitle ? `Post: <em>${escapeHtml(ctx.postTitle)}</em> · ` : ''}
+            ${ctx.viewport ? `Screen: ${escapeHtml(ctx.viewport)}` : ''}
+            ${ctx.lastError ? ` · <span style="color:#F87171;">Last Err: ${escapeHtml(ctx.lastError)}</span>` : ''}
+          </span>
+          <div style="display:flex; gap:6px;">
+            ${!isResolved ? `<button type="button" onclick="handleAdminFeedbackAction('${escapeHtml(item.id)}', 'resolve_feedback')" style="background:rgba(16,185,129,0.16); color:#34D399; border:1px solid rgba(16,185,129,0.4); border-radius:6px; padding:3px 8px; font-size:10.5px; font-weight:800; cursor:pointer;">✓ Mark Resolved</button>` : '<span style="color:#34D399; font-weight:700;">✓ Resolved</span>'}
+            <button type="button" onclick="handleAdminFeedbackAction('${escapeHtml(item.id)}', 'delete_feedback')" style="background:rgba(239,68,68,0.12); color:#F87171; border:none; border-radius:6px; padding:3px 7px; font-size:10.5px; font-weight:700; cursor:pointer;">✕</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderAdminHealthDashboard(health = {}, telemetryList = [], alertWebhookUrl = '') {
+  const card = document.getElementById('adminHealthStatusCard');
+  const titleEl = document.getElementById('adminHealthStatusTitle');
+  const recEl = document.getElementById('adminHealthRecommendations');
+  const pingEl = document.getElementById('adminMetricSupabasePing');
+  const q429El = document.getElementById('adminMetric429Count');
+  const t504El = document.getElementById('adminMetric504Count');
+  const dbRowsEl = document.getElementById('adminMetricDbRows');
+  const webhookInput = document.getElementById('adminAlertWebhookInput');
+  const telContainer = document.getElementById('adminTelemetryList');
+
+  if (pingEl) pingEl.textContent = `${health.supabaseLatencyMs || 0} ms`;
+  if (q429El) q429El.textContent = String(health.quota429Count24h || 0);
+  if (t504El) t504El.textContent = String(health.timeout504Count24h || 0);
+  if (dbRowsEl) dbRowsEl.textContent = String(health.totalDbPostsCount || 0);
+  if (webhookInput && document.activeElement !== webhookInput) {
+    webhookInput.value = alertWebhookUrl || '';
+  }
+
+  if (card && titleEl && recEl) {
+    const isCrit = health.status === 'critical';
+    const isWarn = health.status === 'warning';
+    card.style.background = isCrit ? 'rgba(239,68,68,0.1)' : (isWarn ? 'rgba(245,158,11,0.1)' : 'rgba(16,185,129,0.08)');
+    card.style.borderColor = isCrit ? 'rgba(239,68,68,0.4)' : (isWarn ? 'rgba(245,158,11,0.38)' : 'rgba(16,185,129,0.28)');
+    titleEl.style.color = isCrit ? '#F87171' : (isWarn ? '#FBBF24' : '#34D399');
+    titleEl.textContent = health.statusLabel || '🟢 All Systems Nominal';
+    const recs = Array.isArray(health.recommendations) ? health.recommendations : [];
+    recEl.innerHTML = recs.map(r => `<div style="margin-top:3px;">• ${escapeHtml(r)}</div>`).join('');
+  }
+
+  if (telContainer) {
+    if (!Array.isArray(telemetryList) || telemetryList.length === 0) {
+      telContainer.innerHTML = '<div style="font-size:12px; color:var(--text-secondary); padding:12px; text-align:center;">No API errors, 429 rate limits, or 504 timeouts recorded.</div>';
+    } else {
+      telContainer.innerHTML = telemetryList.slice(0, 40).map(ev => {
+        const isCrit = ev.severity === 'critical';
+        const timeStr = ev.createdAt ? new Date(ev.createdAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+        return `
+          <div style="padding:8px 11px; border-radius:9px; background:var(--bg-card, rgba(255,255,255,0.04)); border:1px solid ${isCrit ? 'rgba(239,68,68,0.35)' : 'rgba(245,158,11,0.28)'}; font-size:11.5px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:6px; flex-wrap:wrap;">
+              <strong style="color:${isCrit ? '#F87171' : '#FBBF24'};">${escapeHtml((ev.type || 'api_error').toUpperCase())} ${ev.statusCode ? `(HTTP ${ev.statusCode})` : ''}</strong>
+              <span style="font-size:10px; color:var(--text-secondary);">${escapeHtml(ev.endpoint || '')} · ${ev.durationMs || 0}ms · ${escapeHtml(timeStr)}</span>
+            </div>
+            <div style="color:var(--text-secondary); font-size:11px; margin-top:3px;">
+              User: <strong>${escapeHtml(ev.userEmail || 'anonymous')}</strong> — ${escapeHtml(ev.message || '')}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+  }
+}
+
+async function handleAdminFeedbackAction(feedbackId, actionName) {
+  const adminEmail = currentUser?.email || 'shridharoct16@gmail.com';
+  try {
+    const resp = await fetch('/api/whitelist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: actionName, adminEmail, feedbackId })
+    });
+    if (resp.ok) {
+      loadAdminBetaData(false);
+    }
+  } catch (_) {}
+}
+window.handleAdminFeedbackAction = handleAdminFeedbackAction;
+
+async function handleAdminClearTelemetry() {
+  const adminEmail = currentUser?.email || 'shridharoct16@gmail.com';
+  try {
+    const resp = await fetch('/api/whitelist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'clear_telemetry', adminEmail })
+    });
+    if (resp.ok) {
+      showTemporaryToast('🧹 System telemetry log cleared.');
+      loadAdminBetaData(false);
+    }
+  } catch (_) {}
+}
+window.handleAdminClearTelemetry = handleAdminClearTelemetry;
+
+async function handleSaveAdminAlertWebhook(testPing = false) {
+  const adminEmail = currentUser?.email || 'shridharoct16@gmail.com';
+  const input = document.getElementById('adminAlertWebhookInput');
+  const webhookUrl = (input?.value || '').trim();
+  try {
+    const resp = await fetch('/api/whitelist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'save_alert_webhook', adminEmail, webhookUrl, testPing })
+    });
+    if (resp.ok) {
+      const d = await resp.json();
+      if (testPing) {
+        showTemporaryToast(d.pingOk ? '🔔 Test alert sent to your webhook!' : '⚠️ Saved URL, but test ping did not get 200 OK — check URL.');
+      } else {
+        showTemporaryToast('✓ Alert webhook URL saved.');
+      }
+    }
+  } catch (_) {}
+}
+window.handleSaveAdminAlertWebhook = handleSaveAdminAlertWebhook;
+
+// ==========================================
+// USER FEEDBACK & POST-PUBLISH MICRO-PULSE
+// ==========================================
+let _activeFeedbackCategory = 'voice_quality';
+let _activeFeedbackRating = 'needed_tweaks';
+let _lastPublishedPostForPulse = null;
+
+function openUserFeedbackModal(initialCat = 'voice_quality', initialRating = 'needed_tweaks', prefillNote = '') {
+  const modal = document.getElementById('userFeedbackModal');
+  if (!modal) return;
+  selectUserFeedbackCategory(initialCat);
+  selectUserFeedbackRating(initialRating);
+  const ta = document.getElementById('userFeedbackTextarea');
+  if (ta) ta.value = prefillNote || '';
+  modal.style.display = 'flex';
+  modal.classList.add('open');
+  modal.classList.add('active');
+}
+window.openUserFeedbackModal = openUserFeedbackModal;
+
+function closeUserFeedbackModal() {
+  const modal = document.getElementById('userFeedbackModal');
+  if (!modal) return;
+  modal.classList.remove('open');
+  modal.classList.remove('active');
+  modal.style.display = 'none';
+}
+window.closeUserFeedbackModal = closeUserFeedbackModal;
+
+function selectUserFeedbackCategory(cat) {
+  _activeFeedbackCategory = cat || 'voice_quality';
+  const row = document.getElementById('userFeedbackCategoryRow');
+  if (!row) return;
+  row.querySelectorAll('.fb-cat-chip').forEach(btn => {
+    const isSel = btn.getAttribute('data-cat') === _activeFeedbackCategory;
+    btn.classList.toggle('active', isSel);
+    btn.style.borderColor = isSel ? '#F59E0B' : 'rgba(148,163,184,0.28)';
+    btn.style.background = isSel ? 'rgba(245,158,11,0.14)' : 'transparent';
+    btn.style.color = isSel ? '#FBBF24' : 'var(--text-primary)';
+    btn.style.fontWeight = isSel ? '800' : '700';
+  });
+}
+window.selectUserFeedbackCategory = selectUserFeedbackCategory;
+
+function selectUserFeedbackRating(rate) {
+  _activeFeedbackRating = rate || 'needed_tweaks';
+  const row = document.getElementById('userFeedbackRatingRow');
+  if (!row) return;
+  row.querySelectorAll('.fb-rate-chip').forEach(btn => {
+    const isSel = btn.getAttribute('data-rate') === _activeFeedbackRating;
+    btn.classList.toggle('active', isSel);
+    btn.style.borderColor = isSel ? '#818CF8' : 'rgba(148,163,184,0.26)';
+    btn.style.background = isSel ? 'rgba(99,102,241,0.14)' : 'transparent';
+    btn.style.color = isSel ? '#818CF8' : 'var(--text-primary)';
+    btn.style.fontWeight = isSel ? '800' : '700';
+  });
+}
+window.selectUserFeedbackRating = selectUserFeedbackRating;
+
+async function submitUserFeedbackForm() {
+  const ta = document.getElementById('userFeedbackTextarea');
+  const btn = document.getElementById('userFeedbackSubmitBtn');
+  const message = (ta?.value || '').trim();
+  if (!message && !_activeFeedbackRating) {
+    showTemporaryToast('Write a quick note so Shridhar knows what to look at.');
+    return;
+  }
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Sending...';
+  }
+  try {
+    const handle = typeof getUserDisplayName === 'function' ? ('@' + getUserDisplayName().replace(/^@/, '')) : '@reader';
+    const email = currentUser?.email || 'guest@slant.today';
+    await fetch('/api/whitelist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'submit_feedback',
+        email,
+        handle,
+        category: _activeFeedbackCategory,
+        rating: _activeFeedbackRating,
+        message,
+        context: {
+          screen: typeof currentCategory !== 'undefined' ? currentCategory : 'feed',
+          postTitle: _lastPublishedPostForPulse?.adaptedHeadline || currentSynthesizedPost?.adaptedHeadline || '',
+          sparkType: typeof activeSlantSparkType !== 'undefined' ? activeSlantSparkType : '',
+          viewport: `${window.innerWidth}x${window.innerHeight}`,
+          userAgent: navigator.userAgent || '',
+          lastError: window._lastSlantApiError || ''
+        }
+      })
+    });
+    closeUserFeedbackModal();
+    showTemporaryToast('🙏 Thank you! Your feedback was sent directly to Shridhar.');
+  } catch (_) {
+    showTemporaryToast('Could not send feedback right now — please try again.');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'Send to Founder ➔';
+    }
+  }
+}
+window.submitUserFeedbackForm = submitUserFeedbackForm;
+
+function maybeShowPostPublishMicroPulse(publishedPost = null) {
+  _lastPublishedPostForPulse = publishedPost;
+  const bar = document.getElementById('postPublishMicroPulseBar');
+  if (!bar) return;
+  bar.style.display = 'block';
+  if (window._microPulseHideTimer) clearTimeout(window._microPulseHideTimer);
+  window._microPulseHideTimer = setTimeout(() => {
+    dismissPostPublishMicroPulse();
+  }, 14000);
+}
+window.maybeShowPostPublishMicroPulse = maybeShowPostPublishMicroPulse;
+
+function dismissPostPublishMicroPulse() {
+  const bar = document.getElementById('postPublishMicroPulseBar');
+  if (bar) bar.style.display = 'none';
+}
+window.dismissPostPublishMicroPulse = dismissPostPublishMicroPulse;
+
+async function handlePostPublishMicroPulseTap(rating) {
+  dismissPostPublishMicroPulse();
+  const handle = typeof getUserDisplayName === 'function' ? ('@' + getUserDisplayName().replace(/^@/, '')) : '@curator';
+  const email = currentUser?.email || 'guest@slant.today';
+  if (rating === 'nailed_it') {
+    showTemporaryToast('🎯 Awesome! Glad Slant nailed your voice today.');
+    try {
+      await fetch('/api/whitelist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'submit_feedback',
+          email,
+          handle,
+          category: 'post_pulse',
+          rating: 'nailed_it',
+          message: 'Post-publish pulse: Nailed my voice!',
+          context: {
+            postTitle: _lastPublishedPostForPulse?.adaptedHeadline || '',
+            viewport: `${window.innerWidth}x${window.innerHeight}`
+          }
+        })
+      });
+    } catch (_) {}
+  } else {
+    // Open the feedback modal pre-selected so the user can tell us what felt off in 1 sentence
+    const cat = rating === 'missed_point' ? 'bug_report' : 'voice_quality';
+    openUserFeedbackModal(cat, rating, '');
+  }
+}
+window.handlePostPublishMicroPulseTap = handlePostPublishMicroPulseTap;
+
+// ==========================================
+// AUTOMATIC VERCEL / SUPABASE / GEMINI QUOTA & TIMEOUT MONITOR
+// ==========================================
+window._lastSlantApiError = '';
+function reportSlantSystemTelemetry(type, endpoint, statusCode, durationMs, message) {
+  window._lastSlantApiError = `${type} (${statusCode || 'ERR'}) on ${endpoint}: ${message || ''}`.slice(0, 200);
+  try {
+    const email = (typeof currentUser !== 'undefined' && currentUser?.email) ? currentUser.email : 'anonymous';
+    const origFetch = window._originalSlantFetch || window.fetch;
+    origFetch('/api/whitelist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'log_telemetry',
+        email,
+        type,
+        endpoint,
+        statusCode,
+        durationMs,
+        message
+      })
+    }).catch(() => {});
+  } catch (_) {}
+}
+
+(function installSlantTelemetryFetchMonitor() {
+  if (window._originalSlantFetch || typeof window.fetch !== 'function') return;
+  const origFetch = window.fetch.bind(window);
+  window._originalSlantFetch = origFetch;
+
+  window.fetch = async function monitoredSlantFetch(input, init) {
+    const urlStr = typeof input === 'string' ? input : (input?.url || '');
+    const isMonitoredApi = (
+      urlStr.includes('/api/synthesize') ||
+      urlStr.includes('/api/posts') ||
+      urlStr.includes('/api/cues') ||
+      urlStr.includes('/api/scrape') ||
+      urlStr.includes('/api/ledger') ||
+      urlStr.includes('supabase.co/rest/v1/')
+    ) && !urlStr.includes('/api/whitelist');
+
+    if (!isMonitoredApi) {
+      return origFetch(input, init);
+    }
+
+    const t0 = Date.now();
+    const shortEndpoint = urlStr.includes('supabase.co')
+      ? 'supabase/rest/v1/posts'
+      : (urlStr.split('?')[0] || '/api');
+
+    try {
+      const resp = await origFetch(input, init);
+      const durationMs = Date.now() - t0;
+
+      if (!resp.ok) {
+        const status = resp.status;
+        let eventType = 'api_500';
+        if (status === 429) eventType = 'gemini_quota_429';
+        else if (status === 504 || status === 502) eventType = 'vercel_timeout';
+        else if (urlStr.includes('supabase.co')) eventType = 'supabase_error';
+
+        if (status === 429 || status >= 500) {
+          reportSlantSystemTelemetry(eventType, shortEndpoint, status, durationMs, `HTTP ${status} returned from ${shortEndpoint}`);
+        }
+      } else if (durationMs > 25000) {
+        reportSlantSystemTelemetry('slow_response', shortEndpoint, resp.status, durationMs, `Slow execution (${Math.round(durationMs / 1000)}s) approaching Vercel timeout`);
+      }
+      return resp;
+    } catch (err) {
+      const durationMs = Date.now() - t0;
+      if (err && err.name !== 'AbortError') {
+        const eventType = urlStr.includes('supabase.co') ? 'supabase_error' : (durationMs > 25000 ? 'vercel_timeout' : 'network_error');
+        reportSlantSystemTelemetry(eventType, shortEndpoint, 0, durationMs, err.message || 'Network/Function error');
+      }
+      throw err;
+    }
+  };
+})();
 
 async function handleAdminAddEmail() {
   const input = document.getElementById('adminNewInviteEmail');
@@ -31496,11 +31976,17 @@ async function publishSynthesizedPost() {
   renderFeed();
 
   // 7. Close modal & reset state & show toast
+  const justPublishedPost = { ...currentSynthesizedPost };
   closeCreatorModal(true);
   resetCreatorState();
   showTemporaryToast(publishedSeriesObj
     ? `🚀 Published to Live Feed & Series "${publishedSeriesObj.title}"!`
     : '✨ Published! Your 3-poster Slant is live on slant.today');
+  setTimeout(() => {
+    if (typeof maybeShowPostPublishMicroPulse === 'function') {
+      maybeShowPostPublishMicroPulse(justPublishedPost);
+    }
+  }, 1600);
 
   // Scroll smoothly to top so user sees their new post
   window.scrollTo({ top: 0, behavior: 'smooth' });
