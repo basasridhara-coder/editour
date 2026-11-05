@@ -18422,6 +18422,7 @@ const CURATOR_DOMAIN_OPTIONS = [
   'Product & Design',
   'Economics & Markets',
   'Governance & Policy',
+  'Society & Culture',
   'Philosophy & Mind',
   'Science & Health',
   'Culture & Cinema',
@@ -18555,17 +18556,17 @@ function computeCuratorAutoVoiceAndDomains(posts = []) {
   const TOPIC_LABEL_MAP = {
     politics: 'Governance & Policy',
     governance: 'Governance & Policy',
-    society: 'Society & Civic Culture',
+    society: 'Society & Culture',
     tech: 'Tech & AI',
-    culture: 'Culture, Media & History',
+    culture: 'Culture & Cinema',
     science: 'Science & Health',
-    family: 'Life & Reflections',
+    family: 'Parenting & Life',
     economy: 'Economics & Markets'
   };
   const topTopics = Array.from(new Set(
     Object.keys(topicCounts)
       .sort((a, b) => topicCounts[b] - topicCounts[a])
-      .map(id => TOPIC_LABEL_MAP[id] || 'Perspective & Craft')
+      .map(id => TOPIC_LABEL_MAP[id] || 'Philosophy & Mind')
   )).slice(0, 3);
 
   return {
@@ -18723,11 +18724,18 @@ function openCuratorWallProfileModal(targetHandle = '') {
     : null;
   const defaultTheme = resolveCuratorWallThemeConfig(saved, aura);
 
+  const rawInitialDomains = Array.isArray(saved.domains) && saved.domains.length > 0
+    ? saved.domains
+    : autoInsights.autoDomains;
+  const sanitizedDomains = Array.from(new Set(
+    rawInitialDomains.filter(d => CURATOR_DOMAIN_OPTIONS.includes(d))
+  )).slice(0, 4);
+
   wallStudioDraftState = {
     handle: resolvedHandle,
     wallQuote: saved.wallQuote || autoInsights.recentQuotes[0] || 'Every passing headline is just noise until you challenge it through your own lens.',
     lensBio: saved.lensBio || '',
-    domains: Array.isArray(saved.domains) && saved.domains.length > 0 ? [...saved.domains] : [...autoInsights.autoDomains],
+    domains: sanitizedDomains,
     wallThemeId: saved.wallThemeId || defaultTheme.id || 'obsidian_gold',
     customAiTheme: saved.customAiTheme || null,
     aiGenerationsUsed: Number(saved.aiGenerationsUsed) || 0,
@@ -18918,7 +18926,7 @@ function renderCuratorWallProfileModalContent() {
 
       <!-- 4. Core Interests / Domains & Auto-Detected Voice -->
       <div class="wall-studio-field-group">
-        <label class="wall-studio-label">4. Core Obsessions / Domains (Pick up to 4)</label>
+        <label class="wall-studio-label">4. Core Obsessions / Domains <span class="studio-beta-tag">${st.domains.filter(d => CURATOR_DOMAIN_OPTIONS.includes(d)).length} / 4 Selected</span></label>
         <div class="wall-studio-domains-wrap">
           ${domainPillsHtml}
         </div>
@@ -18975,13 +18983,13 @@ function selectWallStudioTheme(themeId) {
 window.selectWallStudioTheme = selectWallStudioTheme;
 
 function toggleWallStudioDomain(domainName) {
-  const cur = wallStudioDraftState.domains || [];
+  const cur = (wallStudioDraftState.domains || []).filter(d => CURATOR_DOMAIN_OPTIONS.includes(d));
   const idx = cur.indexOf(domainName);
   if (idx >= 0) {
     cur.splice(idx, 1);
   } else {
     if (cur.length >= 4) {
-      showTemporaryToast('Pick up to 4 core domains.');
+      showTemporaryToast('You have 4 domains selected — tap a selected one to swap it.');
       return;
     }
     cur.push(domainName);
