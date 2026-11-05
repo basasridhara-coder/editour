@@ -3264,6 +3264,13 @@ Respond strictly with valid JSON with this exact structure:
       try {
         const parsedUrl = new URL(url);
         pubName = parsedUrl.hostname.replace(/^www\./, '');
+        const isTwitterXHost = parsedUrl.hostname === 'x.com' || parsedUrl.hostname === 'twitter.com' || parsedUrl.hostname.endsWith('.x.com') || parsedUrl.hostname.endsWith('.twitter.com');
+        if (isTwitterXHost) {
+          const mHandleUrl = parsedUrl.pathname.match(/^\/(?!i\/|intent\/|share|search|hashtag|home|explore)([A-Za-z0-9_]{1,25})\/status(?:es)?\//i);
+          const mHandleContent = (extractedContent || '').match(/\(@([A-Za-z0-9_]{1,25})\)/) || (extractedTitle || '').match(/^@([A-Za-z0-9_]{1,25})\b/);
+          const resolvedHandle = (mHandleUrl && mHandleUrl[1]) || (mHandleContent && mHandleContent[1]) || '';
+          pubName = resolvedHandle ? `@${resolvedHandle} • X` : 'X.com';
+        }
 
         if (!extractedTitle || extractedTitle.length < 5 || !sourceImageUrl || !sourceImageBase64) {
           const isYouTube = parsedUrl.hostname.includes('youtube.com') || parsedUrl.hostname.includes('youtu.be');
@@ -4180,12 +4187,16 @@ Respond strictly with valid JSON with this exact structure:
     }
 
     const id = 'slant-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7);
+    let finalPublicationName = parsed.publicationName || pubName || (sourceType === 'inner_voice' ? 'Inner Voice' : 'Curated Press');
+    if (pubName && pubName.startsWith('@') && !finalPublicationName.includes('@')) {
+      finalPublicationName = pubName;
+    }
     const postItem = {
       id,
       createdAt: new Date().toISOString(),
       sourceType,
       digitalLink: url || '',
-      publicationName: parsed.publicationName || pubName || (sourceType === 'inner_voice' ? 'Inner Voice' : 'Curated Press'),
+      publicationName: finalPublicationName,
       adaptedHeadline: parsed.adaptedHeadline || 'Perspectives in Flux',
       originalHeadline: isChronicle
         ? formatChronicleDateLabel(new Date())

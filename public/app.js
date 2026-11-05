@@ -1513,18 +1513,50 @@ window._webCollageState = {
   isLoading: false,
   activeTabIndex: 0, // 0, 1, 2 = Subject Tabs
   layoutStyle: 'archival', // 'archival' | 'bleed'
+  heroComposition: 'wide', // 'wide' (Top Horizontal Hero) | 'tall' (Left Vertical Hero for tall subjects)
+  heroCompositionManual: false,
   subjects: [
     { id: 'subj_1', label: 'Subject 1', query: '' },
     { id: 'subj_2', label: 'Subject 2', query: '' },
     { id: 'subj_3', label: 'Subject 3', query: '' }
   ],
   tabImagesMap: {}, // query -> array of image items
-  selectedItems: [], // up to 3 items: { url, thumbUrl, title, source, tabIndex, dataUrl }
+  selectedItems: [], // up to 3 items: { url, thumbUrl, title, source, tabIndex, dataUrl, isUploadedPhoto }
   compositedDataUrl: null
 };
+window._attachedCollageComposition = 'wide';
+window._attachedCollageCompositionManual = false;
 window._webCollageBase64Cache = new Map();
 window._webCollageImageElementCache = new Map();
 window._isWebCollageAttached = false;
+
+function syncUploadedScenePhotosIntoWebCollageTray() {
+  const state = window._webCollageState;
+  const photos = Array.isArray(window._attachedScenePhotos) ? window._attachedScenePhotos : [];
+  if (!state || photos.length === 0) return;
+  photos.forEach((p, idx) => {
+    if (!p || !p.base64) return;
+    const alreadyExists = state.selectedItems.some(it => it && (it.uploadedId === p.id || it.url === p.base64));
+    if (!alreadyExists && state.selectedItems.length < 3) {
+      state.selectedItems.push({
+        uploadedId: p.id,
+        url: p.base64,
+        thumbUrl: p.base64,
+        title: p.label || `My Photo ${idx + 1}`,
+        source: 'Curator Photo',
+        tabIndex: -1,
+        isUploadedPhoto: true,
+        isStarred: state.selectedItems.length === 0,
+        panX: typeof p.panX === 'number' ? p.panX : 0.5,
+        panY: typeof p.panY === 'number' ? p.panY : 0.35,
+        zoom: typeof p.zoom === 'number' ? p.zoom : 1.0
+      });
+    }
+  });
+  state.selectedItems.forEach((it, i) => {
+    it.isStarred = (i === 0);
+  });
+}
 
 function getCreatorWrittenContextForCollage() {
   const slantEl = document.getElementById('creatorSlantTakeInput');
@@ -1559,6 +1591,11 @@ async function openWebCollageBuilderFromContext() {
   window._selectedPosterVisualMode = 'web_collage';
   card.style.display = 'block';
   window._webCollageState.isOpen = true;
+  syncUploadedScenePhotosIntoWebCollageTray();
+  renderWebCollageSelectedSlotsUI();
+  if (window._webCollageState.selectedItems.length > 0) {
+    renderWebCollageCanvas(true);
+  }
   if (typeof updateUnifiedPosterVisualStripUI === 'function') {
     try { updateUnifiedPosterVisualStripUI(); } catch (_) {}
   }
@@ -1857,12 +1894,19 @@ window.moveWebCollageSlot = moveWebCollageSlot;
 function removeWebCollageSelectedSlot(slotIndex) {
   const state = window._webCollageState;
   if (slotIndex >= 0 && slotIndex < state.selectedItems.length) {
-    state.selectedItems.splice(slotIndex, 1);
+    const [removed] = state.selectedItems.splice(slotIndex, 1);
+    if (removed && removed.isUploadedPhoto && Array.isArray(window._attachedScenePhotos)) {
+      window._attachedScenePhotos = window._attachedScenePhotos.filter(p => p && p.id !== removed.uploadedId && p.base64 !== removed.url);
+      if (!state.selectedItems.some(it => it && it.isUploadedPhoto)) {
+        innerVoicePhotoBase64 = null;
+      }
+    }
     state.selectedItems.forEach((s, idx) => {
       s.isStarred = (idx === 0);
     });
     if (state.selectedItems.length === 0) {
       state.compositedDataUrl = null;
+      innerVoicePhotoBase64 = null;
       restoreOriginalScrapedSourcePhoto();
       const btnLabel = document.getElementById('slantWebCollageBtnLabel');
       if (btnLabel) btnLabel.textContent = 'Web Source (0⚡)';
@@ -1873,14 +1917,23 @@ function removeWebCollageSelectedSlot(slotIndex) {
     renderWebCollageTabGrid();
     renderWebCollageSelectedSlotsUI();
     renderWebCollageCanvas();
+    if (typeof updateUnifiedPosterVisualStripUI === 'function') {
+      try { updateUnifiedPosterVisualStripUI(); } catch (_) {}
+    }
   }
 }
 window.removeWebCollageSelectedSlot = removeWebCollageSelectedSlot;
 
 function clearWebCollageSelection() {
   const state = window._webCollageState;
+  const hadUploaded = state.selectedItems.some(it => it && it.isUploadedPhoto);
   state.selectedItems = [];
   state.compositedDataUrl = null;
+  state.heroCompositionManual = false;
+  if (hadUploaded) {
+    window._attachedScenePhotos = [];
+    innerVoicePhotoBase64 = null;
+  }
   restoreOriginalScrapedSourcePhoto();
   const btnLabel = document.getElementById('slantWebCollageBtnLabel');
   if (btnLabel) btnLabel.textContent = 'Web Source (0⚡)';
@@ -1890,8 +1943,72 @@ function clearWebCollageSelection() {
   renderWebCollageTabGrid();
   renderWebCollageSelectedSlotsUI();
   renderWebCollageCanvas();
+  if (typeof updateUnifiedPosterVisualStripUI === 'function') {
+    try { updateUnifiedPosterVisualStripUI(); } catch (_) {}
+  }
 }
 window.clearWebCollageSelection = clearWebCollageSelection;
+
+function updateCollageCompositionToggleUI(mode = 'both') {
+  if (mode === 'web' || mode === 'both') {
+    const state = window._webCollageState;
+    const count = state && Array.isArray(state.selectedItems) ? state.selectedItems.length : 0;
+    const rowEl = document.getElementById('webCollageCompositionToggleRow');
+    const wideBtn = document.getElementById('webCollageCompWideBtn');
+    const tallBtn = document.getElementById('webCollageCompTallBtn');
+    if (rowEl) {
+      rowEl.style.display = count >= 2 ? 'flex' : 'none';
+    }
+    const isTall = state && state.heroComposition === 'tall';
+    if (wideBtn && tallBtn) {
+      wideBtn.style.background = !isTall ? '#253833' : 'transparent';
+      wideBtn.style.color = !isTall ? '#FFFFFF' : 'var(--text-secondary)';
+      tallBtn.style.background = isTall ? '#253833' : 'transparent';
+      tallBtn.style.color = isTall ? '#FFFFFF' : 'var(--text-secondary)';
+    }
+  }
+  if (mode === 'attached' || mode === 'both') {
+    const count = Array.isArray(window._attachedScenePhotos) ? window._attachedScenePhotos.length : 0;
+    const rowEl = document.getElementById('attachedCollageCompositionToggleRow');
+    const wideBtn = document.getElementById('attachedCollageCompWideBtn');
+    const tallBtn = document.getElementById('attachedCollageCompTallBtn');
+    if (rowEl) {
+      rowEl.style.display = count >= 2 ? 'flex' : 'none';
+    }
+    const isTall = window._attachedCollageComposition === 'tall';
+    if (wideBtn && tallBtn) {
+      wideBtn.style.background = !isTall ? '#253833' : 'transparent';
+      wideBtn.style.color = !isTall ? '#FFFFFF' : 'var(--text-secondary)';
+      tallBtn.style.background = isTall ? '#253833' : 'transparent';
+      tallBtn.style.color = isTall ? '#FFFFFF' : 'var(--text-secondary)';
+    }
+  }
+}
+window.updateCollageCompositionToggleUI = updateCollageCompositionToggleUI;
+
+async function setCollageHeroComposition(comp, mode = 'web') {
+  const normalized = comp === 'tall' ? 'tall' : 'wide';
+  if (mode === 'attached') {
+    window._attachedCollageComposition = normalized;
+    window._attachedCollageCompositionManual = true;
+    if (window._webCollageState) {
+      window._webCollageState.heroComposition = normalized;
+      window._webCollageState.heroCompositionManual = true;
+    }
+    updateCollageCompositionToggleUI('both');
+    await syncAttachedScenePhotosCollage(true, true);
+  } else {
+    if (window._webCollageState) {
+      window._webCollageState.heroComposition = normalized;
+      window._webCollageState.heroCompositionManual = true;
+    }
+    window._attachedCollageComposition = normalized;
+    window._attachedCollageCompositionManual = true;
+    updateCollageCompositionToggleUI('both');
+    await renderWebCollageCanvas(true);
+  }
+}
+window.setCollageHeroComposition = setCollageHeroComposition;
 
 function setWebCollageLayoutStyle(style) {
   const state = window._webCollageState;
@@ -1958,11 +2075,12 @@ function renderWebCollageSelectedSlotsUI() {
             <button type="button" onclick="moveWebCollageSlot(${idx}, 1)" ${!canRight ? 'disabled' : ''} style="border: 1px solid rgba(148,163,184,0.35); background: #FFFFFF; color: var(--text-primary); width: 17px; height: 17px; border-radius: 4px; font-size: 9px; font-weight: 900; cursor: ${canRight ? 'pointer' : 'default'}; opacity: ${canRight ? '1' : '0.3'}; padding: 0; line-height: 1;" title="Move slot later">▶</button>
           </div>
         ` : ''}
-        <span style="font-size: 10px; font-weight: 700; color: var(--text-primary); max-width: 72px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(it.title || 'Photo')}</span>
+        <span style="font-size: 10px; font-weight: 700; color: var(--text-primary); max-width: 78px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${it.isUploadedPhoto ? '📷 ' : ''}${escapeHtml(it.title || 'Photo')}</span>
         <button type="button" onclick="removeWebCollageSelectedSlot(${idx})" style="border: none; background: rgba(239,68,68,0.12); color: #DC2626; width: 17px; height: 17px; border-radius: 50%; font-size: 10.5px; font-weight: 900; cursor: pointer; line-height: 1;">&times;</button>
       </div>
     `;
   }).join('');
+  updateCollageCompositionToggleUI('web');
 }
 
 async function loadCollageImageElementSafe(url, fallbackUrl = '') {
@@ -1973,24 +2091,29 @@ async function loadCollageImageElementSafe(url, fallbackUrl = '') {
 
   let dataUrl = window._webCollageBase64Cache.get(url);
   if (!dataUrl) {
-    try {
-      const resp = await fetch('/api/synthesize', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'fetch_image_base64',
-          imageUrl: url,
-          fallbackUrl: fallbackUrl || ''
-        })
-      });
-      if (resp.ok) {
-        const data = await resp.json();
-        if (data && data.success && data.dataUrl) {
-          dataUrl = data.dataUrl;
-          window._webCollageBase64Cache.set(url, dataUrl);
+    if (url.startsWith('data:') || url.startsWith('blob:')) {
+      dataUrl = url;
+      window._webCollageBase64Cache.set(url, dataUrl);
+    } else {
+      try {
+        const resp = await fetch('/api/synthesize', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'fetch_image_base64',
+            imageUrl: url,
+            fallbackUrl: fallbackUrl || ''
+          })
+        });
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data && data.success && data.dataUrl) {
+            dataUrl = data.dataUrl;
+            window._webCollageBase64Cache.set(url, dataUrl);
+          }
         }
-      }
-    } catch (_) {}
+      } catch (_) {}
+    }
   }
 
   const srcToLoad = dataUrl || fallbackUrl || url;
@@ -2248,6 +2371,14 @@ async function renderWebCollageCanvas(commitExport = true) {
 
   if (loadedPairs.length === 0) return null;
 
+  // Smart auto-detection for tall/portrait Hero #1 unless user manually clicked Wide / Tall toggle
+  if (loadedPairs.length >= 2 && !state.heroCompositionManual && loadedPairs[0].img) {
+    const heroImg = loadedPairs[0].img;
+    state.heroComposition = (heroImg.height > heroImg.width * 1.06) ? 'tall' : 'wide';
+  }
+  updateCollageCompositionToggleUI('web');
+  const isTallHero = state.heroComposition === 'tall';
+
   ctx.clearRect(0, 0, W, H);
   const cellBoxes = [];
 
@@ -2258,7 +2389,7 @@ async function renderWebCollageCanvas(commitExport = true) {
   )];
   const creditText = `IMAGE SOURCE: ${uniqueSources.join(' • ').toUpperCase()}  |  EDITORIAL COMMENTARY (FAIR DEALING)`;
 
-  // Clean Edge-to-Edge Split Collage (No nested outer/inner frames)
+  // Clean Edge-to-Edge Split Collage (Supports both Wide Top Hero & Tall Left Hero for vertical subjects)
   ctx.fillStyle = '#18181B';
   ctx.fillRect(0, 0, W, H);
   const div = 6;
@@ -2266,23 +2397,49 @@ async function renderWebCollageCanvas(commitExport = true) {
   if (loadedPairs.length === 1) {
     cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[0].img, 0, 0, W, H, 0, loadedPairs[0].item));
   } else if (loadedPairs.length === 2) {
-    const topH = Math.round((H - div) * 0.60);
-    const botH = H - div - topH;
-    cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[0].img, 0, 0, W, topH, 0, loadedPairs[0].item));
-    cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[1].img, 0, topH + div, W, botH, 0, loadedPairs[1].item));
-    ctx.fillStyle = '#FFFFFF';
-    ctx.fillRect(0, topH, W, div);
+    if (isTallHero) {
+      // ◧ Tall Hero: Slot #1 occupies left 58% full-height vertical column, Slot #2 occupies right 42% full-height column
+      const leftW = Math.round((W - div) * 0.58);
+      const rightW = W - div - leftW;
+      cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[0].img, 0, 0, leftW, H, 0, loadedPairs[0].item));
+      cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[1].img, leftW + div, 0, rightW, H, 0, loadedPairs[1].item));
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(leftW, 0, div, H);
+    } else {
+      // ⬒ Wide Hero: Slot #1 occupies top 60% wide banner, Slot #2 occupies bottom 40%
+      const topH = Math.round((H - div) * 0.60);
+      const botH = H - div - topH;
+      cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[0].img, 0, 0, W, topH, 0, loadedPairs[0].item));
+      cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[1].img, 0, topH + div, W, botH, 0, loadedPairs[1].item));
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, topH, W, div);
+    }
   } else {
-    const topH = Math.round((H - div) * 0.58);
-    const botH = H - div - topH;
-    const leftW = Math.round((W - div) * 0.5);
-    const rightW = W - div - leftW;
-    cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[0].img, 0, 0, W, topH, 0, loadedPairs[0].item));
-    cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[1].img, 0, topH + div, leftW, botH, 0, loadedPairs[1].item));
-    cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[2].img, leftW + div, topH + div, rightW, botH, 0, loadedPairs[2].item));
-    ctx.fillStyle = '#FFFFFF';
-    ctx.fillRect(0, topH, W, div);
-    ctx.fillRect(leftW, topH + div, div, botH);
+    if (isTallHero) {
+      // ◧ Tall Hero (3 photos): Slot #1 occupies left 58% full-height vertical column; Slots #2 & #3 stack on the right 42%
+      const leftW = Math.round((W - div) * 0.58);
+      const rightW = W - div - leftW;
+      const topRightH = Math.round((H - div) * 0.5);
+      const botRightH = H - div - topRightH;
+      cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[0].img, 0, 0, leftW, H, 0, loadedPairs[0].item));
+      cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[1].img, leftW + div, 0, rightW, topRightH, 0, loadedPairs[1].item));
+      cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[2].img, leftW + div, topRightH + div, rightW, botRightH, 0, loadedPairs[2].item));
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(leftW, 0, div, H);
+      ctx.fillRect(leftW + div, topRightH, rightW, div);
+    } else {
+      // ⬒ Wide Hero (3 photos): Slot #1 occupies top 58% wide banner; Slots #2 & #3 sit side-by-side at bottom 42%
+      const topH = Math.round((H - div) * 0.58);
+      const botH = H - div - topH;
+      const leftW = Math.round((W - div) * 0.5);
+      const rightW = W - div - leftW;
+      cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[0].img, 0, 0, W, topH, 0, loadedPairs[0].item));
+      cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[1].img, 0, topH + div, leftW, botH, 0, loadedPairs[1].item));
+      cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[2].img, leftW + div, topH + div, rightW, botH, 0, loadedPairs[2].item));
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, topH, W, div);
+      ctx.fillRect(leftW, topH + div, div, botH);
+    }
   }
 
   // Stamp translucent credit pill in bottom-right corner
@@ -2331,11 +2488,18 @@ function applyWebCollageToPost(silentAutoApply = false) {
   }
 
   const labelNames = state.selectedItems.map(it => it.title).filter(Boolean).slice(0, 3).join(' + ');
+  const hasUploadedInCollage = state.selectedItems.some(it => Boolean(it && it.isUploadedPhoto));
   creatorReferenceImageBase64 = dataUrl;
   creatorReferenceImageMimeType = 'image/jpeg';
   creatorReferenceImageSourceLabel = `Web Source (${state.selectedItems.length} image${state.selectedItems.length > 1 ? 's' : ''}: ${labelNames.slice(0, 45)})`;
-  window._isWebCollageAttached = true;
+  window._isWebCollageAttached = !hasUploadedInCollage;
   window._selectedPosterVisualMode = 'web_collage';
+  if (hasUploadedInCollage) {
+    innerVoicePhotoBase64 = dataUrl;
+    innerVoicePhotoMimeType = 'image/jpeg';
+  } else {
+    innerVoicePhotoBase64 = null;
+  }
 
   if (typeof isDailyChronicleMode !== 'undefined' && isDailyChronicleMode && Array.isArray(dailyChronicleMoments) && dailyChronicleMoments.length > 0) {
     const starredIdx = dailyChronicleMoments.findIndex(m => Boolean(m && m.isStarred));
@@ -9860,7 +10024,15 @@ function buildSlide1Html(post, index, totalSlides = 2) {
     sourceLabel = 'Chronicles';
     catBadge = diaryPenBadgeHtml;
   } else if (tier === 'tier2_web') {
-    sourceLabel = cleanHost || 'Web Commentary';
+    const rawLinkForOwner = String(post.digitalLink || post.generationInputs?.sourceUrl || '').trim();
+    const xHandleMatch = rawLinkForOwner.match(/(?:twitter\.com|x\.com)\/(?!i\/|intent\/|share|search|hashtag|home|explore)([A-Za-z0-9_]{1,25})\/status/i);
+    if (xHandleMatch && xHandleMatch[1]) {
+      sourceLabel = escapeHtml(`@${xHandleMatch[1]} • X.com`);
+    } else if (post.publicationName && post.publicationName.includes('@')) {
+      sourceLabel = pubName;
+    } else {
+      sourceLabel = cleanHost || 'Web Commentary';
+    }
   } else if (tier === 'tier3_opinion') {
     sourceLabel = 'Inner Voice';
     catBadge = `${slantIcon} OPINION`;
@@ -11290,12 +11462,23 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0, isForShareE
   const handle = escapeHtml(post.creatorHandle || "@curator");
   const slantIcon = (post.slantIcon && post.slantIcon !== "💭") ? post.slantIcon : (post.slantTone === "heart" ? "❤️" : "🧠");
 
+  const rawLinkForCredit = String(post.digitalLink || post.generationInputs?.sourceUrl || "").trim();
+  const xStatusHandleMatch = rawLinkForCredit.match(/(?:twitter\.com|x\.com)\/(?!i\/|intent\/|share|search|hashtag|home|explore)([A-Za-z0-9_]{1,25})\/status/i);
+  const extractedXHandle = xStatusHandleMatch && xStatusHandleMatch[1] ? `@${xStatusHandleMatch[1]}` : "";
+
   let pubName = post.publicationName || "THE FINANCIAL CHRONICLE";
   if (pubName.includes("•")) {
-    const parts = pubName.split("•");
-    pubName = parts[parts.length - 1].trim();
+    const parts = pubName.split("•").map(s => s.trim()).filter(Boolean);
+    if (parts.length >= 2 && /^(NEWSPAPER|ARTICLE|BOOK|MAGAZINE|PRESS|VIDEO|PODCAST|OPINION|REPORT|DISPATCH)$/i.test(parts[0])) {
+      pubName = parts[parts.length - 1];
+    } else {
+      pubName = parts.join(" • ");
+    }
   }
   pubName = pubName.replace(/^(NEWSPAPER|ARTICLE|BOOK|MAGAZINE|PRESS):\s*/i, "").trim();
+  if (extractedXHandle && !pubName.includes("@")) {
+    pubName = `${extractedXHandle} • X.COM`;
+  }
   if (!pubName) pubName = "THE NEW INDIAN EXPRESS";
   const cleanPubUpper = escapeHtml(pubName.toUpperCase());
 
@@ -11416,6 +11599,12 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0, isForShareE
     } else if (isFallbackToPosterPhoto) {
       captionIcon = "🎨";
       captionText = `EDITORIAL METAPHOR • ${cleanPubUpper || "DISPATCH"}`;
+    } else if (extractedXHandle || cleanPubUpper.includes("@") || (cleanHost && (cleanHost.includes("x.com") || cleanHost.includes("twitter.com")))) {
+      captionIcon = "📷";
+      captionText = `SOURCE VISUAL • ${cleanPubUpper || (extractedXHandle ? `${extractedXHandle.toUpperCase()} • X.COM` : "X.COM")}`;
+    } else if (tier === "tier2_web") {
+      captionIcon = "📷";
+      captionText = `SOURCE VISUAL • ${cleanPubUpper || (cleanHost ? cleanHost.toUpperCase() : "WEB DISPATCH")}`;
     }
 
     const isVideoOrWide = Boolean(
@@ -26299,8 +26488,19 @@ function removeSelectedImage(event) {
 
 window._attachedScenePhotos = [];
 
+function getActiveCollageTotalPhotoCount() {
+  const isWebCollageOpen = Boolean(
+    window._selectedPosterVisualMode === 'web_collage' ||
+    (window._webCollageState && window._webCollageState.isOpen)
+  );
+  if (isWebCollageOpen && window._webCollageState && Array.isArray(window._webCollageState.selectedItems)) {
+    return window._webCollageState.selectedItems.length;
+  }
+  return Array.isArray(window._attachedScenePhotos) ? window._attachedScenePhotos.length : 0;
+}
+
 function triggerInnerVoiceCamera() {
-  if (Array.isArray(window._attachedScenePhotos) && window._attachedScenePhotos.length >= 3) {
+  if (getActiveCollageTotalPhotoCount() >= 3) {
     showTemporaryToast('⚠️ Only maximum 3 photos are allowed.');
     return;
   }
@@ -26309,7 +26509,7 @@ function triggerInnerVoiceCamera() {
 }
 
 function triggerInnerVoiceUpload() {
-  if (Array.isArray(window._attachedScenePhotos) && window._attachedScenePhotos.length >= 3) {
+  if (getActiveCollageTotalPhotoCount() >= 3) {
     showTemporaryToast('⚠️ Only maximum 3 photos are allowed.');
     return;
   }
@@ -26325,6 +26525,7 @@ async function compositeStarredScenePhotosToDataUrl(photosList, commitExport = t
   }
   if (validPhotos.length === 0) {
     if (previewCanvas) previewCanvas._collageCellBoxes = [];
+    updateCollageCompositionToggleUI('attached');
     return null;
   }
 
@@ -26360,8 +26561,16 @@ async function compositeStarredScenePhotosToDataUrl(photosList, commitExport = t
   const valid = loadedImgs.filter(Boolean);
   if (valid.length === 0) return null;
 
+  // Smart auto-detection for tall/portrait Hero #1 unless user manually clicked Wide / Tall toggle
+  if (valid.length >= 2 && !window._attachedCollageCompositionManual && valid[0].img) {
+    const heroImg = valid[0].img;
+    window._attachedCollageComposition = (heroImg.height > heroImg.width * 1.06) ? 'tall' : 'wide';
+  }
+  updateCollageCompositionToggleUI('attached');
+  const isTallHero = window._attachedCollageComposition === 'tall';
+
   ctx.clearRect(0, 0, W, H);
-  // Clean Edge-to-Edge Split Collage (No nested outer/inner frames)
+  // Clean Edge-to-Edge Split Collage (Supports both Wide Top Hero & Tall Left Hero for vertical subjects)
   ctx.fillStyle = '#18181B';
   ctx.fillRect(0, 0, W, H);
 
@@ -26371,25 +26580,45 @@ async function compositeStarredScenePhotosToDataUrl(photosList, commitExport = t
   if (valid.length === 1) {
     cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[0].img, 0, 0, W, H, 0, valid[0].meta));
   } else if (valid.length === 2) {
-    // Slot #1 (valid[0]) gets 60% Hero Prominence on top, Slot #2 gets 40% on bottom
-    const topH = Math.round((H - div) * 0.60);
-    const botH = H - div - topH;
-    cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[0].img, 0, 0, W, topH, 0, valid[0].meta));
-    cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[1].img, 0, topH + div, W, botH, 0, valid[1].meta));
-    ctx.fillStyle = '#FFFFFF';
-    ctx.fillRect(0, topH, W, div);
+    if (isTallHero) {
+      const leftW = Math.round((W - div) * 0.58);
+      const rightW = W - div - leftW;
+      cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[0].img, 0, 0, leftW, H, 0, valid[0].meta));
+      cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[1].img, leftW + div, 0, rightW, H, 0, valid[1].meta));
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(leftW, 0, div, H);
+    } else {
+      const topH = Math.round((H - div) * 0.60);
+      const botH = H - div - topH;
+      cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[0].img, 0, 0, W, topH, 0, valid[0].meta));
+      cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[1].img, 0, topH + div, W, botH, 0, valid[1].meta));
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, topH, W, div);
+    }
   } else {
-    // 3 photos: Slot #1 gets 60% Hero Prominence on top, Slot #2 & Slot #3 share 40% on bottom
-    const topH = Math.round((H - div) * 0.58);
-    const botH = H - div - topH;
-    const halfW = Math.round((W - div) * 0.5);
-    const rightW = W - div - halfW;
-    cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[0].img, 0, 0, W, topH, 0, valid[0].meta));
-    cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[1].img, 0, topH + div, halfW, botH, 0, valid[1].meta));
-    cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[2].img, halfW + div, topH + div, rightW, botH, 0, valid[2].meta));
-    ctx.fillStyle = '#FFFFFF';
-    ctx.fillRect(0, topH, W, div);
-    ctx.fillRect(halfW, topH + div, div, botH);
+    if (isTallHero) {
+      const leftW = Math.round((W - div) * 0.58);
+      const rightW = W - div - leftW;
+      const topRightH = Math.round((H - div) * 0.5);
+      const botRightH = H - div - topRightH;
+      cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[0].img, 0, 0, leftW, H, 0, valid[0].meta));
+      cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[1].img, leftW + div, 0, rightW, topRightH, 0, valid[1].meta));
+      cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[2].img, leftW + div, topRightH + div, rightW, botRightH, 0, valid[2].meta));
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(leftW, 0, div, H);
+      ctx.fillRect(leftW + div, topRightH, rightW, div);
+    } else {
+      const topH = Math.round((H - div) * 0.58);
+      const botH = H - div - topH;
+      const halfW = Math.round((W - div) * 0.5);
+      const rightW = W - div - halfW;
+      cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[0].img, 0, 0, W, topH, 0, valid[0].meta));
+      cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[1].img, 0, topH + div, halfW, botH, 0, valid[1].meta));
+      cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[2].img, halfW + div, topH + div, rightW, botH, 0, valid[2].meta));
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, topH, W, div);
+      ctx.fillRect(halfW, topH + div, div, botH);
+    }
   }
 
   canvas._collageCellBoxes = cellBoxes.filter(Boolean);
@@ -26566,7 +26795,12 @@ window.moveAttachedScenePhoto = moveAttachedScenePhoto;
 async function removeAttachedScenePhotoAtIndex(idx, event) {
   if (event) event.stopPropagation();
   if (!Array.isArray(window._attachedScenePhotos)) return;
-  window._attachedScenePhotos.splice(idx, 1);
+  const [removed] = window._attachedScenePhotos.splice(idx, 1);
+  if (removed && window._webCollageState && Array.isArray(window._webCollageState.selectedItems)) {
+    window._webCollageState.selectedItems = window._webCollageState.selectedItems.filter(
+      it => !it || (it.uploadedId !== removed.id && it.url !== removed.base64)
+    );
+  }
   window._attachedScenePhotos.forEach((p, i) => {
     p.isStarred = (i === 0);
   });
@@ -26581,7 +26815,15 @@ function handleInnerVoicePhotoSelect(event) {
   if (!Array.isArray(window._attachedScenePhotos)) {
     window._attachedScenePhotos = [];
   }
-  const remainingSlots = Math.max(0, 3 - window._attachedScenePhotos.length);
+  const isWebCollageMode = Boolean(
+    window._selectedPosterVisualMode === 'web_collage' ||
+    (window._webCollageState && window._webCollageState.isOpen)
+  );
+  const currentTrayCount = isWebCollageMode
+    ? ((window._webCollageState && Array.isArray(window._webCollageState.selectedItems)) ? window._webCollageState.selectedItems.length : 0)
+    : window._attachedScenePhotos.length;
+
+  const remainingSlots = Math.max(0, 3 - currentTrayCount);
   if (remainingSlots <= 0) {
     showTemporaryToast('⚠️ Only maximum 3 photos are allowed.');
     event.target.value = '';
@@ -26597,10 +26839,13 @@ function handleInnerVoicePhotoSelect(event) {
   let processed = 0;
   filesToProcess.forEach((file) => {
     compressImage(file, 1200, 0.84, async function(base64Data, mimeType) {
+      const newSceneId = 'scene_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+      const uploadedNum = window._attachedScenePhotos.length + 1;
       if (window._attachedScenePhotos.length < 3) {
         const hasAnyStarred = window._attachedScenePhotos.some(p => p.isStarred);
         window._attachedScenePhotos.push({
-          id: 'scene_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+          id: newSceneId,
+          label: `My Photo ${uploadedNum}`,
           base64: base64Data,
           mimeType: mimeType || 'image/jpeg',
           isStarred: !hasAnyStarred && window._attachedScenePhotos.length === 0,
@@ -26609,13 +26854,46 @@ function handleInnerVoicePhotoSelect(event) {
           zoom: 1.0
         });
       }
+      if (window._webCollageState && Array.isArray(window._webCollageState.selectedItems) && window._webCollageState.selectedItems.length < 3) {
+        const alreadyInWeb = window._webCollageState.selectedItems.some(it => it && (it.uploadedId === newSceneId || it.url === base64Data));
+        if (!alreadyInWeb && (isWebCollageMode || window._webCollageState.selectedItems.length > 0)) {
+          window._webCollageState.selectedItems.push({
+            uploadedId: newSceneId,
+            url: base64Data,
+            thumbUrl: base64Data,
+            title: `My Photo ${uploadedNum}`,
+            source: 'Curator Photo',
+            tabIndex: -1,
+            isUploadedPhoto: true,
+            isStarred: window._webCollageState.selectedItems.length === 0,
+            panX: 0.5,
+            panY: 0.35,
+            zoom: 1.0
+          });
+          window._webCollageState.selectedItems.forEach((s, idx) => {
+            s.isStarred = (idx === 0);
+          });
+        }
+      }
       processed += 1;
       if (processed === filesToProcess.length) {
         event.target.value = '';
-        await syncAttachedScenePhotosCollage();
-        if (!attemptedOverLimit) {
-          const total = window._attachedScenePhotos.length;
-          showTemporaryToast(total > 1 ? `✓ ${total}/3 photos attached` : '✓ Photo attached (1/3)');
+        if (isWebCollageMode) {
+          renderWebCollageSelectedSlotsUI();
+          await renderWebCollageCanvas(true);
+          if (typeof updateUnifiedPosterVisualStripUI === 'function') {
+            try { updateUnifiedPosterVisualStripUI(); } catch (_) {}
+          }
+          if (!attemptedOverLimit) {
+            const total = window._webCollageState.selectedItems.length;
+            showTemporaryToast(`✓ Uploaded photo added to collage (${total}/3)!`);
+          }
+        } else {
+          await syncAttachedScenePhotosCollage();
+          if (!attemptedOverLimit) {
+            const total = window._attachedScenePhotos.length;
+            showTemporaryToast(total > 1 ? `✓ ${total}/3 photos attached` : '✓ Photo attached (1/3)');
+          }
         }
       }
     });
@@ -26625,8 +26903,12 @@ function handleInnerVoicePhotoSelect(event) {
 function removeInnerVoicePhoto(event) {
   if (event) event.stopPropagation();
   window._attachedScenePhotos = [];
+  window._attachedCollageCompositionManual = false;
   innerVoicePhotoBase64 = null;
   innerVoicePhotoMimeType = 'image/jpeg';
+  if (window._webCollageState && Array.isArray(window._webCollageState.selectedItems)) {
+    window._webCollageState.selectedItems = window._webCollageState.selectedItems.filter(it => !it || !it.isUploadedPhoto);
+  }
 
   const cam = document.getElementById('innerVoiceCameraInput');
   if (cam) cam.value = '';

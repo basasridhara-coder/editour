@@ -942,24 +942,28 @@
               <input type="file" id="innerVoiceCameraInput" accept="image/*" capture="environment" style="display:none;" onchange="handleInnerVoicePhotoSelect(event)">
               <input type="file" id="innerVoiceFileInput" accept="image/*" multiple style="display:none;" onchange="handleInnerVoicePhotoSelect(event)">
 
-              <!-- Aligned 2-Tap Buttons in Same Row: 1) Camera (Snap Scene) | 2) Multiple-Photo Carousel Icon (Upload Photos) -->
-              <div class="inner-voice-photo-empty" id="innerVoicePhotoEmpty" style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; align-items: center; margin-top: 0;">
-                <button type="button" class="inner-voice-photo-btn" id="attachedSnapSceneBtn" onclick="triggerInnerVoiceCamera()" style="height: 36px; min-height: 36px; max-height: 36px; padding: 0 8px; font-size: 11px; font-weight: 700; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; gap: 5px; border-radius: 9px; width: 100%; box-sizing: border-box;">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;">
+              <!-- Aligned 3-Tap Buttons in Same Row: 1) Camera (Snap Scene) | 2) Upload Photos | 3) + Web Photo -->
+              <div class="inner-voice-photo-empty" id="innerVoicePhotoEmpty" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; align-items: center; margin-top: 0;">
+                <button type="button" class="inner-voice-photo-btn" id="attachedSnapSceneBtn" onclick="triggerInnerVoiceCamera()" style="height: 36px; min-height: 36px; max-height: 36px; padding: 0 6px; font-size: 10.5px; font-weight: 700; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; gap: 4px; border-radius: 9px; width: 100%; box-sizing: border-box;">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;">
                     <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
                     <circle cx="12" cy="13" r="4"></circle>
                   </svg>
                   <span class="btn-label" id="attachedSnapBtnLabel" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Snap Scene</span>
                 </button>
-                <button type="button" class="inner-voice-photo-btn" id="attachedUploadPhotoBtn" onclick="triggerInnerVoiceUpload()" style="height: 36px; min-height: 36px; max-height: 36px; padding: 0 8px; font-size: 11px; font-weight: 700; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; gap: 5px; border-radius: 9px; width: 100%; box-sizing: border-box;">
+                <button type="button" class="inner-voice-photo-btn" id="attachedUploadPhotoBtn" onclick="triggerInnerVoiceUpload()" style="height: 36px; min-height: 36px; max-height: 36px; padding: 0 6px; font-size: 10.5px; font-weight: 700; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; gap: 4px; border-radius: 9px; width: 100%; box-sizing: border-box;">
                   <!-- Multi-Photo Carousel / Stack Icon -->
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;">
                     <rect x="2" y="6" width="15" height="15" rx="2.5"></rect>
                     <path d="M7 3h13a2 2 0 0 1 2 2v13"></path>
                     <circle cx="7" cy="11" r="1.5"></circle>
                     <path d="M17 16l-3.5-3.5L6 20"></path>
                   </svg>
                   <span class="btn-label" id="attachedUploadBtnLabel" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Upload Photos</span>
+                </button>
+                <button type="button" class="inner-voice-photo-btn" id="attachedAddWebPhotoBtn" onclick="selectUnifiedPosterVisualMode('web_collage')" style="height: 36px; min-height: 36px; max-height: 36px; padding: 0 6px; font-size: 10.5px; font-weight: 700; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; gap: 4px; border-radius: 9px; width: 100%; box-sizing: border-box;" title="Combine uploaded photos with web search photos (up to 3 total)">
+                  <span style="font-size: 12px; flex-shrink: 0;">🌐</span>
+                  <span class="btn-label" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">+ Web Photo</span>
                 </button>
               </div>
 
@@ -969,6 +973,13 @@
                   <!-- Populated dynamically by renderAttachedScenePhotosUI() -->
                 </div>
                 <div id="attachedSceneCanvasPreviewWrap" style="display: none; flex-direction: column; align-items: center; gap: 5px; padding: 4px 0 0; background: transparent; border: none;">
+                  <div id="attachedCollageCompositionToggleRow" style="display: none; align-items: center; justify-content: space-between; width: 100%; max-width: 220px; gap: 4px;">
+                    <span style="font-size: 9.5px; font-weight: 800; color: var(--text-secondary);">Hero Split</span>
+                    <div style="display: inline-flex; align-items: center; gap: 2px; background: rgba(148,163,184,0.14); padding: 2px; border-radius: 6px;">
+                      <button type="button" id="attachedCollageCompWideBtn" onclick="setCollageHeroComposition('wide', 'attached')" style="border: none; border-radius: 4px; padding: 2px 6px; font-size: 9.2px; font-weight: 800; cursor: pointer; background: #253833; color: #FFFFFF;" title="Wide horizontal Hero at top (best for landscape subjects)">⬒ Wide Hero</button>
+                      <button type="button" id="attachedCollageCompTallBtn" onclick="setCollageHeroComposition('tall', 'attached')" style="border: none; border-radius: 4px; padding: 2px 6px; font-size: 9.2px; font-weight: 800; cursor: pointer; background: transparent; color: var(--text-secondary);" title="Tall vertical Hero column on left (best for standing/portrait subjects)">◧ Tall Hero</button>
+                    </div>
+                  </div>
                   <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; max-width: 220px; gap: 4px;">
                     <span style="font-size: 9.8px; font-weight: 700; color: var(--text-secondary);">🖐️ Drag photo in frame</span>
                     <div style="display: inline-flex; align-items: center; gap: 3px;">
@@ -1027,12 +1038,14 @@
                     <span>Selected (<span id="webCollageSelectedCount">0</span>/3)</span>
                     <button type="button" class="ui-info-dot-btn" onclick="toggleInfoTip(event, 'webCollageInfoTip')" title="About Web Source">i</button>
                   </div>
-                  <div style="display: inline-flex; align-items: center; gap: 4px;">
+                  <div style="display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap;">
+                    <button type="button" onclick="triggerInnerVoiceCamera()" style="padding: 2px 7px; border-radius: 99px; border: 1px solid rgba(79,70,229,0.35); background: rgba(79,70,229,0.06); color: #4F46E5; font-size: 9.8px; font-weight: 800; cursor: pointer;" title="Snap a photo to mix into this 3-photo collage">📷 Snap</button>
+                    <button type="button" onclick="triggerInnerVoiceUpload()" style="padding: 2px 7px; border-radius: 99px; border: 1px solid rgba(79,70,229,0.35); background: rgba(79,70,229,0.06); color: #4F46E5; font-size: 9.8px; font-weight: 800; cursor: pointer;" title="Upload your own photo to mix with web photos (up to 3 total)">+ Upload</button>
                     <button type="button" onclick="clearWebCollageSelection()" style="padding: 2px 7px; border-radius: 99px; border: 1px solid rgba(220,38,38,0.3); background: transparent; color: #DC2626; font-size: 9.8px; font-weight: 800; cursor: pointer;">Clear</button>
                   </div>
                 </div>
                 <div class="ui-info-popover-box" id="webCollageInfoTip" style="display: none; margin-bottom: 6px;">
-                  Select up to 3 web photos. Use <strong>◀ ▶</strong> to swap slot positions, <strong>★</strong> for 60% hero prominence, and <strong>drag inside any photo frame</strong> to pan/crop.
+                  Combine up to 3 web &amp; uploaded photos. Use <strong>◀ ▶</strong> to swap slots, <strong>★</strong> for 60% hero prominence, <strong>⬒ Wide / ◧ Tall</strong> for hero split, and <strong>drag inside any photo frame</strong> to pan/crop.
                 </div>
 
                 <!-- Selected Slots Row -->
@@ -1042,6 +1055,13 @@
 
                 <!-- Live Canvas Preview (Auto-applied to Poster 1, Clean Edge-to-Edge without Extra Wrapper Box) -->
                 <div id="webCollageCanvasPreviewWrap" style="display: none; flex-direction: column; align-items: center; gap: 5px; padding: 4px 0 0; background: transparent; border: none;">
+                  <div id="webCollageCompositionToggleRow" style="display: none; align-items: center; justify-content: space-between; width: 100%; max-width: 220px; gap: 4px;">
+                    <span style="font-size: 9.5px; font-weight: 800; color: var(--text-secondary);">Hero Split</span>
+                    <div style="display: inline-flex; align-items: center; gap: 2px; background: rgba(148,163,184,0.14); padding: 2px; border-radius: 6px;">
+                      <button type="button" id="webCollageCompWideBtn" onclick="setCollageHeroComposition('wide', 'web')" style="border: none; border-radius: 4px; padding: 2px 6px; font-size: 9.2px; font-weight: 800; cursor: pointer; background: #253833; color: #FFFFFF;" title="Wide horizontal Hero at top (best for landscape subjects)">⬒ Wide Hero</button>
+                      <button type="button" id="webCollageCompTallBtn" onclick="setCollageHeroComposition('tall', 'web')" style="border: none; border-radius: 4px; padding: 2px 6px; font-size: 9.2px; font-weight: 800; cursor: pointer; background: transparent; color: var(--text-secondary);" title="Tall vertical Hero column on left (best for standing/portrait subjects)">◧ Tall Hero</button>
+                    </div>
+                  </div>
                   <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; max-width: 220px; gap: 4px;">
                     <span style="font-size: 9.8px; font-weight: 700; color: var(--text-secondary);">🖐️ Drag photo in frame</span>
                     <div style="display: inline-flex; align-items: center; gap: 3px;">
