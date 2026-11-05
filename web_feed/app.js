@@ -19602,6 +19602,15 @@ function renderPolishStructureBeatsUI(structureBeats, isChronicle = false, rawTe
     nudge: String(beats.nudge || '').trim()
   };
 
+  // Sync verifiedPolishDepthState.depthScore with the unified 3-beat evaluated score so Review & Polish and Post-Synthesis always match
+  const sparkInput = document.getElementById('creatorSparkInput');
+  const sparkVal = sparkInput ? sparkInput.value : '';
+  const unifiedEval = evaluatePerspectiveDepth(currentPolished || currentRaw, sparkVal);
+  if (unifiedEval && Number.isFinite(unifiedEval.depthScore)) {
+    verifiedPolishDepthState.depthScore = Math.max(verifiedPolishDepthState.depthScore, unifiedEval.depthScore);
+    window._lastConfirmedCreatorDepthScore = verifiedPolishDepthState.depthScore;
+  }
+
   activeDepthCoachBeat = null;
   updateLivePerspectiveDepthUI(false);
 }
@@ -25069,11 +25078,18 @@ function acceptPolishedTake() {
     if (verifiedPolishDepthState) {
       verifiedPolishDepthState.polishedFingerprint = input.value.trim();
       verifiedPolishDepthState.confirmed = true;
+      const sparkEl = document.getElementById('creatorSparkInput');
+      const evalD = evaluatePerspectiveDepth(input.value.trim(), sparkEl ? sparkEl.value : '');
+      if (evalD && Number.isFinite(evalD.depthScore)) {
+        verifiedPolishDepthState.depthScore = Math.max(Number(verifiedPolishDepthState.depthScore) || 0, evalD.depthScore);
+        window._lastConfirmedCreatorDepthScore = verifiedPolishDepthState.depthScore;
+      }
     }
     input.dispatchEvent(new Event('input', { bubbles: true }));
     renderPolishVisualSubjects();
   } else if (verifiedPolishDepthState) {
     verifiedPolishDepthState.confirmed = true;
+    window._lastConfirmedCreatorDepthScore = verifiedPolishDepthState.depthScore;
   }
   if (reviewCard) {
     reviewCard.style.display = 'none';
@@ -25097,6 +25113,13 @@ function rejectPolishedTake() {
   }
   if (verifiedPolishDepthState) {
     verifiedPolishDepthState.confirmed = true;
+    const input = document.getElementById('creatorSlantTakeInput');
+    const sparkEl = document.getElementById('creatorSparkInput');
+    const evalD = evaluatePerspectiveDepth(input ? input.value.trim() : '', sparkEl ? sparkEl.value : '');
+    if (evalD && Number.isFinite(evalD.depthScore)) {
+      verifiedPolishDepthState.depthScore = Math.max(Number(verifiedPolishDepthState.depthScore) || 0, evalD.depthScore);
+      window._lastConfirmedCreatorDepthScore = verifiedPolishDepthState.depthScore;
+    }
   }
   updateLivePerspectiveDepthUI(true);
   if (isCreatorVisualSelectionStageUnlocked()) {
@@ -27830,8 +27853,11 @@ function enableCreatorRegenMode(baselinePost, reasonLabel = '') {
   creatorRegenScope = 'both';
   window._regenBaselineInputs = getCreatorRegenInputsSnapshot();
   const slantInput = document.getElementById('creatorSlantTakeInput');
+  const sparkInput = document.getElementById('creatorSparkInput');
   const currentRaw = String(slantInput ? slantInput.value : '').trim();
+  const currentSpark = String(sparkInput ? sparkInput.value : '').trim();
   if (currentRaw) {
+    const baselineScore = Number(baselinePost?.convictionScore || baselinePost?.generationInputs?.convictionScore) || 0;
     verifiedPolishDepthState = {
       verified: true,
       confirmed: true,
@@ -27840,9 +27866,14 @@ function enableCreatorRegenMode(baselinePost, reasonLabel = '') {
       hasMoment: true,
       hasWhyItMatters: true,
       hasConviction: true,
-      depthScore: Math.max(78, Number(verifiedPolishDepthState?.depthScore) || 82),
+      depthScore: Math.max(78, Number(verifiedPolishDepthState?.depthScore) || 0, baselineScore || 82),
       nudge: ''
     };
+    const unifiedEval = evaluatePerspectiveDepth(currentRaw, currentSpark);
+    if (unifiedEval && Number.isFinite(unifiedEval.depthScore)) {
+      verifiedPolishDepthState.depthScore = Math.max(verifiedPolishDepthState.depthScore, unifiedEval.depthScore);
+      window._lastConfirmedCreatorDepthScore = verifiedPolishDepthState.depthScore;
+    }
   }
   const bar = document.getElementById('creatorRegenScopeBar');
   if (bar) bar.style.display = 'inline-flex';
@@ -31299,11 +31330,17 @@ async function startAiSynthesis() {
       currentSynthesizedPost.polishCorrections = Array.isArray(lastCorrectionsList) ? lastCorrectionsList.slice(0, 15) : [];
     }
     if (!isChronicleActive) {
-      const evalDepth = typeof evaluatePerspectiveDepth === 'function'
+      const evalInputDepth = typeof evaluatePerspectiveDepth === 'function'
+        ? (evaluatePerspectiveDepth(slantTake || effectiveSlantTake, spark)?.depthScore || 75)
+        : 75;
+      const evalEffectiveDepth = typeof evaluatePerspectiveDepth === 'function'
         ? (evaluatePerspectiveDepth(effectiveSlantTake, spark)?.depthScore || 75)
         : 75;
-      const verifiedDepth = Number(verifiedPolishDepthState?.depthScore) || 0;
-      const resolvedConviction = Math.max(70, Math.min(99, Math.round(Math.max(verifiedDepth, evalDepth))));
+      const verifiedDepth = Math.max(
+        Number(verifiedPolishDepthState?.depthScore) || 0,
+        Number(window._lastConfirmedCreatorDepthScore) || 0
+      );
+      const resolvedConviction = Math.max(70, Math.min(99, Math.round(Math.max(verifiedDepth, evalInputDepth, evalEffectiveDepth))));
       currentSynthesizedPost.convictionScore = resolvedConviction;
       if (currentSynthesizedPost.generationInputs) {
         currentSynthesizedPost.generationInputs.convictionScore = resolvedConviction;
