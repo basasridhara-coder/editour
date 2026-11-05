@@ -3267,6 +3267,7 @@ Respond strictly with valid JSON with this exact structure:
 
         if (!extractedTitle || extractedTitle.length < 5 || !sourceImageUrl || !sourceImageBase64) {
           const isYouTube = parsedUrl.hostname.includes('youtube.com') || parsedUrl.hostname.includes('youtu.be');
+          const isTwitterX = parsedUrl.hostname === 'x.com' || parsedUrl.hostname === 'twitter.com' || parsedUrl.hostname.endsWith('.x.com') || parsedUrl.hostname.endsWith('.twitter.com');
           if (isYouTube) {
             const ytVideoId = extractYouTubeVideoId(url);
             if (ytVideoId) {
@@ -3280,6 +3281,43 @@ Respond strictly with valid JSON with this exact structure:
                   if (!sourceImageBase64 && ytData.imageBase64) {
                     sourceImageBase64 = ytData.imageBase64;
                     sourceImageMimeType = ytData.imageMimeType || 'image/jpeg';
+                  }
+                }
+              } catch (_) {}
+            }
+          } else if (isTwitterX) {
+            const mStatus = parsedUrl.pathname.match(/\/status(?:es)?\/(\d{5,25})/i);
+            if (mStatus && mStatus[1]) {
+              try {
+                const fxCtrl = new AbortController();
+                const fxTimer = setTimeout(() => fxCtrl.abort(), 3000);
+                const fxResp = await fetch(`https://api.fxtwitter.com/i/status/${encodeURIComponent(mStatus[1])}`, {
+                  signal: fxCtrl.signal,
+                  headers: { 'User-Agent': 'SlantEditorial/2.0', 'Accept': 'application/json' }
+                });
+                clearTimeout(fxTimer);
+                if (fxResp.ok) {
+                  const fxJson = await fxResp.json();
+                  const tw = fxJson && fxJson.tweet;
+                  if (tw) {
+                    const twText = tw.text || (tw.raw_text && tw.raw_text.text) || '';
+                    const twAuthor = tw.author?.screen_name ? `@${tw.author.screen_name}` : (tw.author?.name || 'X.com');
+                    if (twText && (!extractedContent || extractedContent.length < 40)) {
+                      extractedContent = twText;
+                    }
+                    if (twText && (!extractedTitle || extractedTitle.length < 5)) {
+                      extractedTitle = `${twAuthor}: "${twText.slice(0, 90)}"`;
+                    }
+                    pubName = `${twAuthor} • X`;
+                    if (!sourceImageUrl) {
+                      const twMediaUrl = (tw.media?.photos?.[0]?.url)
+                        || (tw.media?.videos?.[0]?.thumbnail_url)
+                        || (tw.article?.cover_media?.media_info?.original_img_url)
+                        || (tw.quote?.media?.photos?.[0]?.url)
+                        || (tw.quote?.media?.videos?.[0]?.thumbnail_url)
+                        || null;
+                      if (twMediaUrl) sourceImageUrl = twMediaUrl;
+                    }
                   }
                 }
               } catch (_) {}

@@ -24785,18 +24785,7 @@ function openCreatorEqualizer() {
       return;
     }
 
-    const checkedMode = window._selectedPosterVisualMode
-      || ((window._isWebCollageAttached || (window._webCollageState && window._webCollageState.isOpen))
-        ? 'web_collage'
-        : (creatorCharacterRepresentation === 'exact' ? 'original_photo' : 'ai_art'));
-
-    if (checkedMode !== 'ai_art') {
-      showTemporaryToast('💡 Check "AI Illustration" in Poster 1 Visual Mode above to tune AI Image Portrayals & Settings!');
-      return;
-    }
-
-    // Default to Editorial Realism ('realistic') when opening Settings for AI Illustrated posters if still on 'exact'
-    if (!creatorCharacterRepresentation || creatorCharacterRepresentation === 'exact') {
+    if (!creatorCharacterRepresentation) {
       const isChron = typeof isDailyChronicleMode !== 'undefined' && Boolean(isDailyChronicleMode);
       creatorCharacterRepresentation = isChron ? 'watercolor' : 'realistic';
     }
@@ -24888,29 +24877,36 @@ function setEqualizerPerspectiveMode(mode, fromUser = true) {
 }
 
 function selectEqualizerPortrayal(style) {
+  if (style === 'exact') {
+    window._selectedPosterVisualMode = window._isWebCollageAttached ? 'web_collage' : 'original_photo';
+  } else {
+    window._selectedPosterVisualMode = 'ai_art';
+  }
   selectCharacterRepresentation(style);
   updateEqualizerPortrayalUI();
+  if (typeof updateUnifiedPosterVisualStripUI === 'function') {
+    try { updateUnifiedPosterVisualStripUI(); } catch (_) {}
+  }
 }
 
 function updateEqualizerPortrayalUI() {
   const hasChroniclePhotos = typeof isDailyChronicleMode !== 'undefined' && isDailyChronicleMode && Array.isArray(dailyChronicleMoments) && dailyChronicleMoments.some(m => Boolean(m && m.imageBase64));
   const zeroCredits = typeof isZeroVisualCreditsForActivePillar === 'function' && isZeroVisualCreditsForActivePillar();
+  const urlEl = document.getElementById('creatorUrlInput');
+  const hasLinkInput = Boolean(urlEl && urlEl.value && urlEl.value.trim().length > 4);
   const hasPhoto = Boolean(
     creatorReferenceImageBase64 ||
     (typeof innerVoicePhotoBase64 !== 'undefined' && innerVoicePhotoBase64) ||
     hasChroniclePhotos ||
     currentScrapedArticle?.imageBase64 ||
     currentScrapedArticle?.imageUrl ||
+    hasLinkInput ||
     zeroCredits
   );
 
-  if (!hasPhoto && creatorCharacterRepresentation === 'exact') {
-    creatorCharacterRepresentation = 'realistic';
-  }
-
   const normalizedVal = (creatorCharacterRepresentation === 'likeness') ? 'cinematic' : creatorCharacterRepresentation;
 
-  // Toggle "Exact Original Photo" option in dropdowns
+  // Keep "Authentic Source Photo" option visible in dropdown whenever a photo or source link is present
   const eqSelectOptExact = document.getElementById('eqSelectOptExact');
   if (eqSelectOptExact) eqSelectOptExact.style.display = hasPhoto ? '' : 'none';
 
