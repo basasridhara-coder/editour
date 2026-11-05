@@ -1930,30 +1930,45 @@ STRICT RULES:
       }
     }
 
-    // Endpoint: Generate AI Bespoke Wall Quote Theme based on the writer's State of Mind quote (Studio Feature)
+    // Endpoint: Generate AI Bespoke Wall Quote Theme + Illustrated Ghibli/Anime/Watercolor Scene based on the writer's State of Mind quote (Studio Feature)
     if (body && body.action === 'generate_wall_quote_theme') {
       const quoteText = String(body.quote || '').trim();
       const lensText = String(body.lens || '').trim();
+      const artStyleKey = String(body.artStyle || 'ghibli_sky').trim();
       if (!quoteText || quoteText.length < 4) {
-        return res.status(400).json({ success: false, error: 'Write or pick a Wall Quote first so AI can craft a theme around it.' });
+        return res.status(400).json({ success: false, error: 'Write or pick a Wall Quote first so AI can paint a backdrop around it.' });
       }
+
+      const ART_STYLE_DIRECTIVES = {
+        ghibli_sky: 'Studio Ghibli hand-painted gouache and watercolor background art style (inspired by Kazuo Oga and Hayao Miyazaki environmental backgrounds), lush atmospheric depth, warm nostalgic lighting, poetic clouds and natural textures',
+        anime_nocturne: 'Makoto Shinkai cinematic anime environment art style, breathtaking luminous twilight/midnight sky, glowing starlight, warm interior lantern/desk light contrasting with deep cobalt and amber horizon reflections',
+        watercolor_wash: 'Loose expressive editorial watercolor and ink wash on textured cotton paper, poetic atmospheric landscape and symbolic objects, soft feathered edges and rich pigment blooms',
+        ukiyo_woodblock: 'Modern Japanese Ukiyo-e woodblock print and mineral pigment landscape style (inspired by Hasui Kawase and Yoshida Hiroshi), serene architectural and natural horizon, dramatic light and timeless stillness'
+      };
+      const chosenStyleDirective = ART_STYLE_DIRECTIVES[artStyleKey] || ART_STYLE_DIRECTIVES.ghibli_sky;
+
       try {
-        const prompt = `You are a master editorial art director for Slant (an intellectual broadsheet & perspective platform).
-Analyze this writer's Wall Quote ("State of Mind") and craft a bespoke, museum-grade atmospheric CSS wall theme that matches its emotional and philosophical mood.
+        const prompt = `You are a master editorial art director for Slant.
+Analyze this writer's Wall Quote ("State of Mind") and design:
+1) A vivid, poetic SCENIC ENVIRONMENT / VISUAL METAPHOR prompt that visually embodies the meaning and mood of the quote (e.g., if the quote is about staying up at midnight building and seeking freedom, describe a warm lamplit wooden desk by an open window overlooking a vast starlit valley and drifting midnight clouds; if about truth/storms, a serene coastal lighthouse above glowing indigo waves; if about patience/growth, a quiet sunlit conservatory or mountain trail).
+CRITICAL RULE FOR SCENE PROMPT: Strictly NO human characters, NO people, NO faces, NO silhouettes of people, and NO text/letters — purely environment, architecture, objects, nature, sky, and light!
+2) Matching accent colors so the highlighted white/ivory quote text in the foreground reads with 100% clarity.
 
 Writer's Wall Quote: "${quoteText}"
 ${lensText ? `Writer's Lens: "${lensText}"` : ''}
+Chosen Art Style: ${chosenStyleDirective}
 
 Return ONLY valid JSON with these exact fields:
 {
-  "themeName": "2-3 word poetic editorial theme title (e.g., 'Amber Stoic Horizon', 'Velvet Midnight Study', 'Cypress & Brass')",
-  "moodNote": "Short 5-8 word note explaining why this atmosphere fits their quote",
-  "bgGradient": "Rich multi-stop CSS linear-gradient or radial-gradient (dark or deeply atmospheric so crisp light typography glows against it, e.g. 'radial-gradient(circle at 82% 18%, rgba(217, 119, 6, 0.28) 0%, transparent 55%), linear-gradient(135deg, #090D16 0%, #171324 52%, #1E1410 100%)')",
-  "textColor": "Hex color for main quote text with high contrast against bgGradient (e.g. '#FEF3C7' or '#F8FAFC')",
-  "kickerColor": "Hex color for the top kicker & accents (e.g. '#FBBF24', '#34D399', '#38BDF8', '#F472B6', '#A78BFA')",
-  "borderColor": "RGBA or hex border color matching kickerColor (e.g. 'rgba(245, 158, 11, 0.45)')",
-  "glowShadow": "Subtle outer box-shadow matching the mood (e.g. '0 10px 30px -8px rgba(245, 158, 11, 0.25)')",
-  "watermarkGlyph": "Single evocative unicode symbol or astronomical/literary glyph (e.g. '✦', '❂', '◈', '☾', '⚖', '🧭', '🕯')"
+  "themeName": "2-3 word poetic title for this scene (e.g., 'Midnight Builder’s Window', 'Ghibli Starlight Valley', 'Lantern & Horizon')",
+  "moodNote": "Short 6-10 word description of how this visual scene connects to their quote",
+  "scenePrompt": "Detailed 45-65 word visual prompt describing ONLY the environment, symbolic objects, lighting, sky, and atmosphere in the requested art style. Strictly NO people, NO human figures, NO faces, NO text.",
+  "bgGradient": "Fallback multi-stop dark CSS gradient matching the scene's palette",
+  "textColor": "#FEF3C7",
+  "kickerColor": "Bright warm hex accent color for the top kicker (e.g. '#FBBF24', '#34D399', '#38BDF8', '#F472B6')",
+  "borderColor": "RGBA border color matching kickerColor (e.g. 'rgba(245, 158, 11, 0.55)')",
+  "glowShadow": "Outer box-shadow matching the scene's glow",
+  "watermarkGlyph": "Single evocative symbol (e.g. '✦', '❂', '◈', '☾')"
 }`;
 
         const gemResp = await fetch(
@@ -1964,7 +1979,7 @@ Return ONLY valid JSON with these exact fields:
             body: JSON.stringify({
               contents: [{ parts: [{ text: prompt }] }],
               generationConfig: {
-                temperature: 0.8,
+                temperature: 0.75,
                 responseMimeType: 'application/json'
               }
             })
@@ -1980,26 +1995,61 @@ Return ONLY valid JSON with these exact fields:
         }
         if (!aiTheme || !aiTheme.bgGradient) {
           aiTheme = {
-            themeName: 'Nocturne of First Principles',
-            moodNote: 'Deep midnight ink with warm amber illumination',
+            themeName: 'Midnight Builder’s Horizon',
+            moodNote: 'Warm lamplit study overlooking a vast starlit valley',
+            scenePrompt: 'A warm lamplit wooden study desk with a glowing fountain pen and notebook beside a wide open window at midnight, overlooking a vast tranquil valley, drifting clouds, and a star-filled indigo sky',
             bgGradient: 'radial-gradient(circle at 85% 20%, rgba(245, 158, 11, 0.26) 0%, transparent 55%), linear-gradient(135deg, #090D16 0%, #131B2E 55%, #1F1712 100%)',
             textColor: '#FEF3C7',
             kickerColor: '#FBBF24',
-            borderColor: 'rgba(245, 158, 11, 0.48)',
-            glowShadow: '0 12px 30px -8px rgba(245, 158, 11, 0.25)',
+            borderColor: 'rgba(245, 158, 11, 0.52)',
+            glowShadow: '0 12px 30px -8px rgba(245, 158, 11, 0.28)',
             watermarkGlyph: '✦'
           };
         }
+
+        // Now generate the actual 16:9 wide environmental illustration via gemini-2.5-flash-image
+        let bgImageDataUrl = '';
+        try {
+          const fullImagePrompt = `${aiTheme.scenePrompt}. Rendered in ${chosenStyleDirective}. Wide 16:9 panoramic environmental composition, rich atmospheric lighting, masterwork background art. STRICTLY NO human characters, NO people, NO faces, NO typography, NO letters, NO words.`;
+          const imgResp = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${GEMINI_API_KEY}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [{ parts: [{ text: fullImagePrompt }] }],
+                generationConfig: {
+                  responseModalities: ['IMAGE'],
+                  imageConfig: {
+                    aspectRatio: '16:9'
+                  }
+                }
+              })
+            }
+          );
+          if (imgResp.ok) {
+            const imgData = await imgResp.json();
+            const inlinePart = imgData?.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
+            if (inlinePart?.inlineData?.data) {
+              bgImageDataUrl = `data:${inlinePart.inlineData.mimeType || 'image/png'};base64,${inlinePart.inlineData.data}`;
+            }
+          }
+        } catch (imgErr) {
+          console.warn('Wall quote image generation fallback to gradient:', imgErr.message);
+        }
+
         return res.status(200).json({
           success: true,
           aiTheme: {
             ...aiTheme,
+            artStyle: artStyleKey,
+            bgImageDataUrl,
             tier: 'studio_ai',
             generatedAt: new Date().toISOString()
           }
         });
       } catch (err) {
-        return res.status(500).json({ success: false, error: err.message || 'Could not generate AI theme' });
+        return res.status(500).json({ success: false, error: err.message || 'Could not generate AI wall backdrop' });
       }
     }
 

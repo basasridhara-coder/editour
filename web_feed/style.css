@@ -30044,12 +30044,73 @@ mark.polish-mark:hover, mark.polish-mark.active {
 .curator-wall-quote-poster {
   position: relative;
   width: 100%;
-  padding: 16px 18px 18px;
+  padding: 18px 20px 20px;
   border-radius: 16px;
   border: 1.5px solid rgba(245, 158, 11, 0.45);
   overflow: hidden;
   box-sizing: border-box;
   transition: all 0.3s ease;
+}
+
+.curator-wall-scene-bg-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  z-index: 0;
+  filter: blur(1.2px) saturate(1.12);
+  transform: scale(1.03);
+}
+
+.curator-wall-scene-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: radial-gradient(circle at 50% 54%, rgba(9, 13, 22, 0.58) 0%, rgba(9, 13, 22, 0.42) 62%, rgba(9, 13, 22, 0.68) 100%);
+}
+
+.curator-wall-quote-focus-frame {
+  position: relative;
+  z-index: 2;
+}
+
+.curator-wall-quote-focus-frame.is-frosted-quote {
+  padding: 11px 14px;
+  border-radius: 12px;
+  background: rgba(9, 13, 22, 0.46);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.28);
+}
+
+.curator-wall-scene-caption {
+  position: relative;
+  z-index: 2;
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: rgba(248, 250, 252, 0.88);
+}
+
+.scene-cap-badge {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.72);
+  border: 1px solid rgba(251, 191, 36, 0.45);
+  color: #FDE68A;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.scene-cap-text {
+  font-style: italic;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
 }
 
 .curator-wall-watermark {
@@ -30068,8 +30129,8 @@ mark.polish-mark:hover, mark.polish-mark.active {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 10px;
+  gap: 10px;
+  margin-bottom: 12px;
   position: relative;
   z-index: 2;
   flex-wrap: wrap;
@@ -30080,43 +30141,54 @@ mark.polish-mark:hover, mark.polish-mark.active {
   align-items: center;
   gap: 5px;
   font-family: 'Space Grotesk', 'Inter', sans-serif;
-  font-size: 10px;
+  font-size: 10.5px;
   font-weight: 800;
   letter-spacing: 0.1em;
   text-transform: uppercase;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.65);
 }
 
 .curator-wall-top-actions {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .curator-wall-edit-btn,
 .curator-wall-close-btn {
-  padding: 4px 10px;
+  padding: 7px 14px;
+  min-height: 34px;
   border-radius: 999px;
-  font-size: 11px;
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 800;
   cursor: pointer;
-  border: 1px solid rgba(255, 255, 255, 0.24);
-  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: rgba(15, 23, 42, 0.68);
   color: #F8FAFC;
   backdrop-filter: blur(6px);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   transition: all 0.2s ease;
+}
+
+.curator-wall-edit-btn {
+  border-color: rgba(251, 191, 36, 0.55);
+  color: #FEF3C7;
 }
 
 .curator-wall-quote-poster.is-light-wall .curator-wall-edit-btn,
 .curator-wall-quote-poster.is-light-wall .curator-wall-close-btn {
-  background: rgba(255, 255, 255, 0.85);
-  border-color: rgba(15, 23, 42, 0.18);
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(15, 23, 42, 0.2);
   color: #0F172A;
 }
 
 .curator-wall-edit-btn:hover,
 .curator-wall-close-btn:hover {
   transform: translateY(-1px);
-  border-color: rgba(245, 158, 11, 0.7);
+  border-color: rgba(245, 158, 11, 0.85);
 }
 
 .curator-wall-quote-text {
@@ -30129,13 +30201,18 @@ mark.polish-mark:hover, mark.polish-mark.active {
   letter-spacing: 0.01em;
   position: relative;
   z-index: 2;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+}
+
+.curator-wall-quote-poster.is-light-wall .curator-wall-quote-text {
+  text-shadow: none;
 }
 
 .curator-wall-identity-bar {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 11px 14px;
+  gap: 10px;
+  padding: 13px 15px;
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.85);
   border: 1px solid rgba(15, 23, 42, 0.09);
@@ -30158,12 +30235,12 @@ mark.polish-mark:hover, mark.polish-mark.active {
 .curator-voice-signature-pill {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 3.5px 10px;
+  gap: 6px;
+  padding: 5px 12px;
   border-radius: 999px;
   background: linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(99, 102, 241, 0.12) 100%);
   border: 1px solid rgba(245, 158, 11, 0.35);
-  font-size: 11px;
+  font-size: 11.5px;
   font-weight: 800;
   color: var(--text-primary, #0F172A);
 }
@@ -30184,35 +30261,35 @@ mark.polish-mark:hover, mark.polish-mark.active {
 
 .curator-wall-lens-bio {
   margin: 0;
-  font-size: 12.5px;
-  line-height: 1.45;
+  font-size: 13px;
+  line-height: 1.48;
   color: var(--text-secondary, #334155);
   font-weight: 500;
 }
 
 .curator-wall-add-lens-prompt {
   align-self: flex-start;
-  background: none;
-  border: 1px dashed rgba(245, 158, 11, 0.5);
+  background: rgba(245, 158, 11, 0.06);
+  border: 1.5px dashed rgba(245, 158, 11, 0.55);
   color: #D97706;
-  padding: 4px 10px;
-  border-radius: 8px;
-  font-size: 11.5px;
-  font-weight: 700;
+  padding: 8px 13px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 800;
   cursor: pointer;
 }
 
 .curator-wall-domains-row {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
 .curator-domain-pill {
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 700;
-  padding: 2.5px 9px;
+  padding: 4px 11px;
   border-radius: 999px;
   background: rgba(148, 163, 184, 0.15);
   color: var(--text-secondary, #475569);
@@ -30225,7 +30302,7 @@ mark.polish-mark:hover, mark.polish-mark.active {
   top: 50% !important;
   left: 50% !important;
   transform: translate(-50%, -50%) !important;
-  max-width: 540px !important;
+  max-width: 560px !important;
   width: 94vw !important;
   max-height: 88vh !important;
   background: #0B0F19 !important;
@@ -30242,8 +30319,9 @@ mark.polish-mark:hover, mark.polish-mark.active {
   background: rgba(15, 23, 42, 0.9) !important;
   border: 1px solid rgba(148, 163, 184, 0.35) !important;
   color: #F8FAFC !important;
-  border-radius: 10px !important;
-  padding: 9px 12px !important;
+  border-radius: 11px !important;
+  padding: 11px 13px !important;
+  font-size: 13.5px !important;
   width: 100% !important;
   box-sizing: border-box !important;
 }
@@ -30257,14 +30335,14 @@ mark.polish-mark:hover, mark.polish-mark.active {
 .wall-studio-container {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
 }
 
 .wall-studio-preview-label-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.06em;
   color: #94A3B8;
@@ -30273,23 +30351,23 @@ mark.polish-mark:hover, mark.polish-mark.active {
 .wall-studio-field-group {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
 .wall-studio-label {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 800;
   color: #F8FAFC;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   flex-wrap: wrap;
 }
 
 .studio-beta-tag {
-  font-size: 10px;
+  font-size: 10.5px;
   font-weight: 800;
-  padding: 1.5px 7px;
+  padding: 2px 8px;
   border-radius: 999px;
   background: rgba(245, 158, 11, 0.2);
   color: #FBBF24;
@@ -30298,32 +30376,33 @@ mark.polish-mark:hover, mark.polish-mark.active {
 
 .wall-studio-quote-textarea {
   font-family: 'Playfair Display', Georgia, serif !important;
-  font-size: 14px !important;
-  line-height: 1.45 !important;
-  min-height: 62px !important;
+  font-size: 14.5px !important;
+  line-height: 1.48 !important;
+  min-height: 70px !important;
 }
 
 .wall-studio-sub-label {
-  font-size: 11px;
+  font-size: 11.5px;
   font-weight: 700;
   color: #94A3B8;
-  margin-bottom: 4px;
+  margin-bottom: 5px;
 }
 
 .wall-studio-quote-pills {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 7px;
 }
 
 .wall-studio-quote-pill {
   text-align: left;
-  padding: 6px 10px;
-  border-radius: 9px;
+  padding: 9px 13px;
+  border-radius: 10px;
   background: rgba(30, 41, 59, 0.78);
-  border: 1px solid rgba(148, 163, 184, 0.28);
+  border: 1px solid rgba(148, 163, 184, 0.3);
   color: #E2E8F0;
-  font-size: 11.5px;
+  font-size: 12px;
+  line-height: 1.4;
   font-style: italic;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -30334,87 +30413,134 @@ mark.polish-mark:hover, mark.polish-mark.active {
   background: rgba(245, 158, 11, 0.14);
 }
 
-.wall-studio-label-with-action {
+/* AI Scene Generator Box & Art Style Pills */
+.wall-studio-ai-box {
+  padding: 13px 14px;
+  border-radius: 14px;
+  background: linear-gradient(145deg, rgba(30, 41, 59, 0.65) 0%, rgba(15, 23, 42, 0.85) 100%);
+  border: 1px solid rgba(245, 158, 11, 0.38);
+  gap: 10px;
+}
+
+.wall-studio-ai-sub {
+  margin: 3px 0 0 0;
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: #CBD5E1;
+}
+
+.wall-studio-art-style-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.wall-studio-art-style-pill {
+  padding: 9px 12px;
+  min-height: 38px;
+  border-radius: 10px;
+  border: 1.5px solid rgba(148, 163, 184, 0.32);
+  background: rgba(15, 23, 42, 0.75);
+  color: #E2E8F0;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  flex-wrap: wrap;
+  justify-content: center;
+  transition: all 0.18s ease;
+}
+
+.wall-studio-art-style-pill.active {
+  background: rgba(245, 158, 11, 0.22);
+  border-color: #F59E0B;
+  color: #FEF3C7;
+  box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.35);
 }
 
 .wall-studio-ai-gen-btn {
-  padding: 5px 11px;
-  border-radius: 999px;
+  width: 100%;
+  padding: 11px 16px;
+  min-height: 44px;
+  border-radius: 12px;
   background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
-  color: #FFFBEB;
+  color: #0F172A;
   border: none;
-  font-size: 11px;
-  font-weight: 800;
+  font-size: 13px;
+  font-weight: 900;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+  box-shadow: 0 6px 16px rgba(245, 158, 11, 0.32);
   transition: all 0.2s ease;
 }
 
 .wall-studio-ai-gen-btn:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(245, 158, 11, 0.45);
+  box-shadow: 0 8px 20px rgba(245, 158, 11, 0.48);
+}
+
+.wall-studio-ai-gen-btn:disabled {
+  opacity: 0.75;
+  cursor: wait;
 }
 
 .wall-studio-themes-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(145px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
 }
 
 .wall-studio-theme-chip {
-  padding: 9px 10px;
-  border-radius: 11px;
+  padding: 11px 12px;
+  min-height: 56px;
+  border-radius: 12px;
   border: 1.5px solid rgba(148, 163, 184, 0.3);
   text-align: left;
   cursor: pointer;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  justify-content: space-between;
+  gap: 5px;
   transition: all 0.2s ease;
 }
 
 .wall-studio-theme-chip.active {
   transform: translateY(-1px);
-  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.55);
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.65);
 }
 
 .wall-theme-chip-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .wall-theme-chip-tier {
-  font-size: 9px;
+  font-size: 9.5px;
   font-weight: 800;
-  padding: 1px 5px;
+  padding: 2px 6px;
   border-radius: 6px;
-  background: rgba(0, 0, 0, 0.28);
+  background: rgba(0, 0, 0, 0.38);
 }
 
 .wall-theme-chip-name {
-  font-size: 11.5px;
+  font-size: 12.5px;
   font-weight: 800;
 }
 
 .wall-studio-domains-wrap {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
 }
 
 .wall-studio-domain-chip {
-  padding: 4.5px 10px;
+  padding: 8px 13px;
+  min-height: 36px;
   border-radius: 999px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
-  border: 1px solid rgba(148, 163, 184, 0.35);
+  border: 1.5px solid rgba(148, 163, 184, 0.35);
   background: rgba(15, 23, 42, 0.65);
   color: #CBD5E1;
   cursor: pointer;
@@ -30429,14 +30555,14 @@ mark.polish-mark:hover, mark.polish-mark.active {
 
 .wall-studio-auto-voice-note {
   margin-top: 4px;
-  padding: 9px 12px;
-  border-radius: 11px;
+  padding: 11px 13px;
+  border-radius: 12px;
   background: rgba(99, 102, 241, 0.14);
   border: 1px solid rgba(99, 102, 241, 0.35);
   display: flex;
   align-items: center;
-  gap: 9px;
-  font-size: 12px;
+  gap: 10px;
+  font-size: 12.5px;
   color: #F8FAFC;
 }
 
@@ -30444,32 +30570,34 @@ mark.polish-mark:hover, mark.polish-mark.active {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
-  padding-top: 8px;
+  gap: 10px;
+  padding-top: 10px;
   border-top: 1px solid rgba(148, 163, 184, 0.2);
 }
 
 .wall-studio-cancel-btn {
-  padding: 8px 14px;
-  border-radius: 10px;
-  border: 1px solid rgba(148, 163, 184, 0.35);
+  padding: 10px 18px;
+  min-height: 42px;
+  border-radius: 11px;
+  border: 1.5px solid rgba(148, 163, 184, 0.38);
   background: transparent;
   color: #CBD5E1;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   cursor: pointer;
 }
 
 .wall-studio-save-btn {
-  padding: 8px 16px;
-  border-radius: 10px;
+  padding: 10px 20px;
+  min-height: 42px;
+  border-radius: 11px;
   border: none;
   background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
   color: #0F172A;
-  font-size: 12.5px;
-  font-weight: 800;
+  font-size: 13.5px;
+  font-weight: 900;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.25);
+  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.3);
 }
 
 

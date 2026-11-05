@@ -18587,17 +18587,27 @@ function isCuratorHandleCurrentUser(rawHandle) {
   return Boolean(targetKey && (targetKey === myDisplayKey || targetKey === myEmailPrefix || isShridhar));
 }
 
+const WALL_AI_ART_STYLES = [
+  { id: 'ghibli_sky', label: '🌿 Studio Ghibli', desc: 'Hand-painted gouache clouds, warm lamplight & nostalgic horizon' },
+  { id: 'anime_nocturne', label: '🌌 Anime Starlight', desc: 'Makoto Shinkai luminous twilight sky & glowing reflections' },
+  { id: 'watercolor_wash', label: '🎨 Watercolor Wash', desc: 'Expressive cotton-paper pigment wash & poetic landscape' },
+  { id: 'ukiyo_woodblock', label: '🖋️ Ukiyo-e Woodblock', desc: 'Serene Japanese woodblock horizon & timeless stillness' }
+];
+
 function resolveCuratorWallThemeConfig(profileObj, aura) {
-  if (profileObj && profileObj.wallThemeId === 'ai_custom' && profileObj.customAiTheme && profileObj.customAiTheme.bgGradient) {
+  if (profileObj && profileObj.wallThemeId === 'ai_custom' && profileObj.customAiTheme && (profileObj.customAiTheme.bgGradient || profileObj.customAiTheme.bgImageDataUrl)) {
     return {
       id: 'ai_custom',
-      name: profileObj.customAiTheme.themeName || 'AI Bespoke Canvas',
+      name: profileObj.customAiTheme.themeName || 'AI Painted Scene',
+      moodNote: profileObj.customAiTheme.moodNote || '',
+      artStyle: profileObj.customAiTheme.artStyle || 'ghibli_sky',
+      bgImageDataUrl: profileObj.customAiTheme.bgImageDataUrl || '',
       tier: 'studio_ai',
-      badgeLabel: '✨ AI Theme • Studio',
-      bgGradient: profileObj.customAiTheme.bgGradient,
+      badgeLabel: '✨ AI Scene • Studio',
+      bgGradient: profileObj.customAiTheme.bgGradient || 'linear-gradient(135deg, #090D16 0%, #131B2E 55%, #1F1712 100%)',
       textColor: profileObj.customAiTheme.textColor || '#FEF3C7',
       kickerColor: profileObj.customAiTheme.kickerColor || '#FBBF24',
-      borderColor: profileObj.customAiTheme.borderColor || 'rgba(245, 158, 11, 0.48)',
+      borderColor: profileObj.customAiTheme.borderColor || 'rgba(245, 158, 11, 0.52)',
       glowShadow: profileObj.customAiTheme.glowShadow || '0 12px 30px -8px rgba(245, 158, 11, 0.25)',
       watermarkGlyph: profileObj.customAiTheme.watermarkGlyph || '✦',
       isLight: false
@@ -18642,12 +18652,20 @@ function buildCuratorProfileWallHeaderHtml(rawHandle, avatarInitial, matchedPost
     ? buildCreatorAvatarAndHandleHtml('@' + displayHandle, escapeHtml(avatarInitial), false, matchedPosts)
     : `<div class="creator-avatar"><div class="avatar-inner">${escapeHtml(avatarInitial)}</div></div><span class="creator-handle">@${escapeHtml(displayHandle)}</span>`;
 
+  const hasAiSceneBg = Boolean(themeCfg.bgImageDataUrl);
+  const styleLabelObj = WALL_AI_ART_STYLES.find(s => s.id === themeCfg.artStyle);
+
   return `
     <div class="curator-wall-masthead-wrap">
       <!-- Wall Quote Poster ("State of Mind" Banner) -->
-      <div class="curator-wall-quote-poster ${themeCfg.isLight ? 'is-light-wall' : 'is-dark-wall'}"
+      <div class="curator-wall-quote-poster ${themeCfg.isLight ? 'is-light-wall' : 'is-dark-wall'} ${hasAiSceneBg ? 'has-ai-scene-bg' : ''}"
            style="background: ${escapeHtml(themeCfg.bgGradient)}; border-color: ${escapeHtml(themeCfg.borderColor)}; box-shadow: ${escapeHtml(themeCfg.glowShadow)}; color: ${escapeHtml(themeCfg.textColor)};">
-        <span class="curator-wall-watermark" aria-hidden="true" style="color: ${escapeHtml(themeCfg.kickerColor)};">${escapeHtml(themeCfg.watermarkGlyph || '✦')}</span>
+        ${hasAiSceneBg ? `
+          <img src="${escapeHtml(themeCfg.bgImageDataUrl)}" class="curator-wall-scene-bg-img" alt="" loading="eager">
+          <div class="curator-wall-scene-scrim"></div>
+        ` : `
+          <span class="curator-wall-watermark" aria-hidden="true" style="color: ${escapeHtml(themeCfg.kickerColor)};">${escapeHtml(themeCfg.watermarkGlyph || '✦')}</span>
+        `}
         <div class="curator-wall-top-row">
           <span class="curator-wall-kicker" style="color: ${escapeHtml(themeCfg.kickerColor)};">
             <span>✦</span>
@@ -18655,16 +18673,24 @@ function buildCuratorProfileWallHeaderHtml(rawHandle, avatarInitial, matchedPost
           </span>
           <div class="curator-wall-top-actions">
             ${isOwnProfile ? `
-              <button type="button" class="curator-wall-edit-btn" onclick="openCuratorWallProfileModal('${escapeHtml(displayHandle)}')" title="Customize your Wall Quote, AI Theme & Profile Lens">
+              <button type="button" class="curator-wall-edit-btn" onclick="openCuratorWallProfileModal('${escapeHtml(displayHandle)}')" title="Customize your Wall Quote, AI Scene Backdrop & Profile Lens">
                 <span>✨ Edit Wall &amp; Profile</span>
               </button>
             ` : ''}
             <button type="button" class="curator-wall-close-btn" onclick="exitCuratorProfileView()" title="Back to All Stories">✕ All Stories</button>
           </div>
         </div>
-        <blockquote class="curator-wall-quote-text" style="color: ${escapeHtml(themeCfg.textColor)};">
-          &ldquo;${escapeHtml(wallQuote)}&rdquo;
-        </blockquote>
+        <div class="curator-wall-quote-focus-frame ${hasAiSceneBg ? 'is-frosted-quote' : ''}">
+          <blockquote class="curator-wall-quote-text" style="color: ${escapeHtml(themeCfg.textColor)};">
+            &ldquo;${escapeHtml(wallQuote)}&rdquo;
+          </blockquote>
+        </div>
+        ${hasAiSceneBg && (themeCfg.name || themeCfg.moodNote) ? `
+          <div class="curator-wall-scene-caption">
+            <span class="scene-cap-badge">${escapeHtml(styleLabelObj ? styleLabelObj.label : '✨ AI Scene')}</span>
+            <span class="scene-cap-text">${escapeHtml(themeCfg.name)}${themeCfg.moodNote ? ` — ${escapeHtml(themeCfg.moodNote)}` : ''}</span>
+          </div>
+        ` : ''}
       </div>
 
       <!-- Curator Identity, Auto-Detected Voice Signature, Lens Bio & Domain Pills -->
@@ -18685,7 +18711,7 @@ function buildCuratorProfileWallHeaderHtml(rawHandle, avatarInitial, matchedPost
 
         ${lensBio ? `<p class="curator-wall-lens-bio">${escapeHtml(lensBio)}</p>` : (isOwnProfile ? `
           <button type="button" class="curator-wall-add-lens-prompt" onclick="openCuratorWallProfileModal('${escapeHtml(displayHandle)}')">
-            + Add your 1-line "My Lens" bio &amp; customize your Wall Quote theme →
+            + Add your 1-line "My Lens" bio &amp; paint a Ghibli/Anime Wall Quote scene →
           </button>
         ` : '')}
 
@@ -18703,6 +18729,7 @@ let wallStudioDraftState = {
   lensBio: '',
   domains: [],
   wallThemeId: 'obsidian_gold',
+  artStyle: 'ghibli_sky',
   customAiTheme: null,
   aiGenerationsUsed: 0,
   isGeneratingAi: false
@@ -18737,6 +18764,7 @@ function openCuratorWallProfileModal(targetHandle = '') {
     lensBio: saved.lensBio || '',
     domains: sanitizedDomains,
     wallThemeId: saved.wallThemeId || defaultTheme.id || 'obsidian_gold',
+    artStyle: saved.customAiTheme?.artStyle || 'ghibli_sky',
     customAiTheme: saved.customAiTheme || null,
     aiGenerationsUsed: Number(saved.aiGenerationsUsed) || 0,
     isGeneratingAi: false,
@@ -18805,6 +18833,20 @@ function renderCuratorWallProfileModalContent() {
   const st = wallStudioDraftState;
   const activeTheme = resolveCuratorWallThemeConfig(st, null);
   const auto = st.autoInsights || { voiceIcon: '🧭', voiceLabel: 'Analytical Realist', voiceDesc: '' };
+  const hasAiSceneBg = Boolean(activeTheme.bgImageDataUrl);
+  const activeArtStyleObj = WALL_AI_ART_STYLES.find(s => s.id === (st.artStyle || 'ghibli_sky')) || WALL_AI_ART_STYLES[0];
+
+  const artStylePillsHtml = WALL_AI_ART_STYLES.map(styleItem => {
+    const isSel = (st.artStyle || 'ghibli_sky') === styleItem.id;
+    return `
+      <button type="button"
+              class="wall-studio-art-style-pill ${isSel ? 'active' : ''}"
+              onclick="selectWallStudioArtStyle('${escapeHtml(styleItem.id)}')"
+              title="${escapeHtml(styleItem.desc)}">
+        <span>${escapeHtml(styleItem.label)}</span>
+      </button>
+    `;
+  }).join('');
 
   const themeCardsHtml = Object.values(CURATOR_WALL_THEMES).map(t => {
     const isSelected = st.wallThemeId === t.id;
@@ -18825,24 +18867,24 @@ function renderCuratorWallProfileModalContent() {
 
   const customAiChipHtml = st.customAiTheme ? `
     <button type="button"
-            class="wall-studio-theme-chip ${st.wallThemeId === 'ai_custom' ? 'active' : ''}"
+            class="wall-studio-theme-chip is-ai-scene-chip ${st.wallThemeId === 'ai_custom' ? 'active' : ''}"
             onclick="selectWallStudioTheme('ai_custom')"
-            style="background: ${escapeHtml(st.customAiTheme.bgGradient)}; border-color: ${st.wallThemeId === 'ai_custom' ? escapeHtml(st.customAiTheme.kickerColor) : escapeHtml(st.customAiTheme.borderColor)}; color: ${escapeHtml(st.customAiTheme.textColor)};">
+            style="background: ${st.customAiTheme.bgImageDataUrl ? `linear-gradient(rgba(9,13,22,0.55), rgba(9,13,22,0.75)), url('${escapeHtml(st.customAiTheme.bgImageDataUrl)}') center/cover no-repeat` : escapeHtml(st.customAiTheme.bgGradient)}; border-color: ${st.wallThemeId === 'ai_custom' ? escapeHtml(st.customAiTheme.kickerColor) : escapeHtml(st.customAiTheme.borderColor)}; color: ${escapeHtml(st.customAiTheme.textColor)};">
       <div class="wall-theme-chip-top">
         <span class="wall-theme-chip-glyph" style="color: ${escapeHtml(st.customAiTheme.kickerColor)};">${escapeHtml(st.customAiTheme.watermarkGlyph || '✦')}</span>
-        <span class="wall-theme-chip-tier is-studio">✨ AI Bespoke</span>
+        <span class="wall-theme-chip-tier is-studio">✨ AI Painted Scene</span>
       </div>
-      <div class="wall-theme-chip-name">${escapeHtml(st.customAiTheme.themeName || 'AI Quote Canvas')}</div>
+      <div class="wall-theme-chip-name">${escapeHtml(st.customAiTheme.themeName || 'AI Quote Scene')}</div>
     </button>
   ` : '';
 
   const recentQuoteChipsHtml = (Array.isArray(st.recentQuotes) && st.recentQuotes.length > 0) ? `
     <div class="wall-studio-recent-quotes">
-      <div class="wall-studio-sub-label">📌 Or pin a line from your recent Slants:</div>
+      <div class="wall-studio-sub-label">📌 Or tap to pin a line from your recent Slants:</div>
       <div class="wall-studio-quote-pills">
         ${st.recentQuotes.slice(0, 3).map((q, i) => `
           <button type="button" class="wall-studio-quote-pill" onclick="pickWallStudioRecentQuote(${i})">
-            &ldquo;${escapeHtml(q.length > 88 ? q.slice(0, 88) + '…' : q)}&rdquo;
+            &ldquo;${escapeHtml(q.length > 95 ? q.slice(0, 95) + '…' : q)}&rdquo;
           </button>
         `).join('')}
       </div>
@@ -18868,18 +18910,31 @@ function renderCuratorWallProfileModalContent() {
         <span class="wall-studio-theme-tag">${escapeHtml(activeTheme.name)} (${escapeHtml(activeTheme.badgeLabel)})</span>
       </div>
       <div id="wallStudioLivePreviewCard"
-           class="curator-wall-quote-poster is-studio-preview ${activeTheme.isLight ? 'is-light-wall' : 'is-dark-wall'}"
+           class="curator-wall-quote-poster is-studio-preview ${activeTheme.isLight ? 'is-light-wall' : 'is-dark-wall'} ${hasAiSceneBg ? 'has-ai-scene-bg' : ''}"
            style="background: ${escapeHtml(activeTheme.bgGradient)}; border-color: ${escapeHtml(activeTheme.borderColor)}; box-shadow: ${escapeHtml(activeTheme.glowShadow)}; color: ${escapeHtml(activeTheme.textColor)};">
-        <span class="curator-wall-watermark" aria-hidden="true" style="color: ${escapeHtml(activeTheme.kickerColor)};">${escapeHtml(activeTheme.watermarkGlyph || '✦')}</span>
+        ${hasAiSceneBg ? `
+          <img src="${escapeHtml(activeTheme.bgImageDataUrl)}" class="curator-wall-scene-bg-img" alt="" loading="eager">
+          <div class="curator-wall-scene-scrim"></div>
+        ` : `
+          <span class="curator-wall-watermark" aria-hidden="true" style="color: ${escapeHtml(activeTheme.kickerColor)};">${escapeHtml(activeTheme.watermarkGlyph || '✦')}</span>
+        `}
         <div class="curator-wall-top-row">
           <span class="curator-wall-kicker" style="color: ${escapeHtml(activeTheme.kickerColor)};">
             <span>✦</span>
             <span>STATE OF MIND • @${escapeHtml(st.handle.toUpperCase())}</span>
           </span>
         </div>
-        <blockquote id="wallStudioLivePreviewQuote" class="curator-wall-quote-text" style="color: ${escapeHtml(activeTheme.textColor)};">
-          &ldquo;${escapeHtml(st.wallQuote || 'Write your State of Mind quote below...')}&rdquo;
-        </blockquote>
+        <div class="curator-wall-quote-focus-frame ${hasAiSceneBg ? 'is-frosted-quote' : ''}">
+          <blockquote id="wallStudioLivePreviewQuote" class="curator-wall-quote-text" style="color: ${escapeHtml(activeTheme.textColor)};">
+            &ldquo;${escapeHtml(st.wallQuote || 'Write your State of Mind quote below...')}&rdquo;
+          </blockquote>
+        </div>
+        ${hasAiSceneBg && (activeTheme.name || activeTheme.moodNote) ? `
+          <div class="curator-wall-scene-caption">
+            <span class="scene-cap-badge">${escapeHtml(activeArtStyleObj.label)}</span>
+            <span class="scene-cap-text">${escapeHtml(activeTheme.name)}${activeTheme.moodNote ? ` — ${escapeHtml(activeTheme.moodNote)}` : ''}</span>
+          </div>
+        ` : ''}
       </div>
 
       <!-- 1. Wall Quote Input -->
@@ -18887,32 +18942,41 @@ function renderCuratorWallProfileModalContent() {
         <label class="wall-studio-label" for="wallStudioQuoteInput">1. Your Wall Quote ("Current State of Mind")</label>
         <textarea id="wallStudioQuoteInput"
                   class="creator-textarea wall-studio-quote-textarea"
-                  rows="2"
+                  rows="3"
                   maxlength="220"
                   placeholder="Write a thought, aphorism, or question that represents your current state of mind..."
                   oninput="handleWallStudioQuoteInput(this.value)">${escapeHtml(st.wallQuote)}</textarea>
         ${recentQuoteChipsHtml}
       </div>
 
-      <!-- 2. Wall Theme & AI Bespoke Theme Generator -->
-      <div class="wall-studio-field-group">
-        <div class="wall-studio-label-with-action">
-          <label class="wall-studio-label">2. Wall Canvas Theme <span class="studio-beta-tag">✦ Studio Themes Unlocked in Preview</span></label>
-          <button type="button"
-                  class="wall-studio-ai-gen-btn"
-                  id="wallStudioAiGenBtn"
-                  ${st.isGeneratingAi ? 'disabled' : ''}
-                  onclick="generateAiWallQuoteTheme()">
-            <span>${st.isGeneratingAi ? '⏳ Crafting AI Theme...' : '✨ Generate AI Theme from Quote'}</span>
-          </button>
+      <!-- 2. AI Painted Scene Backdrop (Ghibli / Anime / Watercolor) -->
+      <div class="wall-studio-field-group wall-studio-ai-box">
+        <div class="wall-studio-ai-header">
+          <label class="wall-studio-label">2. Paint AI Scene Backdrop from Your Quote <span class="studio-beta-tag">✦ Studio Feature</span></label>
+          <p class="wall-studio-ai-sub">Paints a character-free atmospheric landscape inspired by the meaning of your quote, softly blurred behind your highlighted words.</p>
         </div>
+        <div class="wall-studio-art-style-row">
+          ${artStylePillsHtml}
+        </div>
+        <button type="button"
+                class="wall-studio-ai-gen-btn"
+                id="wallStudioAiGenBtn"
+                ${st.isGeneratingAi ? 'disabled' : ''}
+                onclick="generateAiWallQuoteTheme()">
+          <span>${st.isGeneratingAi ? `🎨 Painting ${activeArtStyleObj.label} Scene from Your Quote...` : `✨ Paint ${activeArtStyleObj.label} Backdrop for This Quote`}</span>
+        </button>
+      </div>
+
+      <!-- 3. Classic & Studio Solid Themes -->
+      <div class="wall-studio-field-group">
+        <label class="wall-studio-label">Or Choose a Classic / Studio Editorial Canvas</label>
         <div class="wall-studio-themes-grid">
           ${customAiChipHtml}
           ${themeCardsHtml}
         </div>
       </div>
 
-      <!-- 3. My Lens (1-Line Perspective Bio) -->
+      <!-- 4. My Lens (1-Line Perspective Bio) -->
       <div class="wall-studio-field-group">
         <label class="wall-studio-label" for="wallStudioLensInput">3. "My Lens" (1-Line Perspective Bio)</label>
         <input type="text"
@@ -18924,7 +18988,7 @@ function renderCuratorWallProfileModalContent() {
                oninput="wallStudioDraftState.lensBio = this.value">
       </div>
 
-      <!-- 4. Core Interests / Domains & Auto-Detected Voice -->
+      <!-- 5. Core Interests / Domains & Auto-Detected Voice -->
       <div class="wall-studio-field-group">
         <label class="wall-studio-label">4. Core Obsessions / Domains <span class="studio-beta-tag">${st.domains.filter(d => CURATOR_DOMAIN_OPTIONS.includes(d)).length} / 4 Selected</span></label>
         <div class="wall-studio-domains-wrap">
@@ -18934,7 +18998,7 @@ function renderCuratorWallProfileModalContent() {
           <span class="voice-sig-icon">${escapeHtml(auto.voiceIcon)}</span>
           <div>
             <strong>Your Auto-Detected Voice: ${escapeHtml(auto.voiceLabel)}</strong>
-            <div style="font-size:11px; opacity:0.78;">Computed automatically from your published Slants — evolves naturally as you write.</div>
+            <div style="font-size:11.5px; opacity:0.82;">Computed automatically from your published Slants — evolves naturally as you write.</div>
           </div>
         </div>
       </div>
@@ -18948,6 +19012,46 @@ function renderCuratorWallProfileModalContent() {
       </div>
     </div>
   `;
+}
+
+function selectWallStudioArtStyle(styleId) {
+  wallStudioDraftState.artStyle = styleId;
+  renderCuratorWallProfileModalContent();
+}
+window.selectWallStudioArtStyle = selectWallStudioArtStyle;
+
+function compressWallBackdropDataUrl(rawDataUrl) {
+  if (!rawDataUrl || !rawDataUrl.startsWith('data:image')) return Promise.resolve('');
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const targetW = 640;
+        const targetH = 340;
+        const canvas = document.createElement('canvas');
+        canvas.width = targetW;
+        canvas.height = targetH;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return resolve(rawDataUrl);
+        const rImg = img.naturalWidth / img.naturalHeight;
+        const rBox = targetW / targetH;
+        let sx = 0, sy = 0, sw = img.naturalWidth, sh = img.naturalHeight;
+        if (rImg > rBox) {
+          sw = img.naturalHeight * rBox;
+          sx = (img.naturalWidth - sw) / 2;
+        } else if (rImg < rBox) {
+          sh = img.naturalWidth / rBox;
+          sy = (img.naturalHeight - sh) / 2;
+        }
+        ctx.drawImage(img, sx, sy, sw, sh, 0, 0, targetW, targetH);
+        resolve(canvas.toDataURL('image/jpeg', 0.80));
+      } catch (_) {
+        resolve(rawDataUrl);
+      }
+    };
+    img.onerror = () => resolve('');
+    img.src = rawDataUrl;
+  });
 }
 
 function handleWallStudioQuoteInput(val) {
@@ -19002,7 +19106,7 @@ window.toggleWallStudioDomain = toggleWallStudioDomain;
 async function generateAiWallQuoteTheme() {
   const quote = (wallStudioDraftState.wallQuote || '').trim();
   if (quote.length < 5) {
-    showTemporaryToast('Write or pick a Wall Quote first so AI can craft a theme around it.');
+    showTemporaryToast('Write or pick a Wall Quote first so AI can paint a scene around it.');
     return;
   }
   wallStudioDraftState.isGeneratingAi = true;
@@ -19015,19 +19119,23 @@ async function generateAiWallQuoteTheme() {
       body: JSON.stringify({
         action: 'generate_wall_quote_theme',
         quote,
-        lens: wallStudioDraftState.lensBio || ''
+        lens: wallStudioDraftState.lensBio || '',
+        artStyle: wallStudioDraftState.artStyle || 'ghibli_sky'
       })
     });
     const data = await resp.json();
     if (!resp.ok || !data || !data.aiTheme) {
-      throw new Error(data?.error || 'Could not generate AI theme');
+      throw new Error(data?.error || 'Could not generate AI scene backdrop');
+    }
+    if (data.aiTheme.bgImageDataUrl) {
+      data.aiTheme.bgImageDataUrl = await compressWallBackdropDataUrl(data.aiTheme.bgImageDataUrl);
     }
     wallStudioDraftState.customAiTheme = data.aiTheme;
     wallStudioDraftState.wallThemeId = 'ai_custom';
     wallStudioDraftState.aiGenerationsUsed = (Number(wallStudioDraftState.aiGenerationsUsed) || 0) + 1;
-    showTemporaryToast(`✨ Crafted "${data.aiTheme.themeName}" from your quote!`);
+    showTemporaryToast(`✨ Painted "${data.aiTheme.themeName}" from your quote!`);
   } catch (err) {
-    showTemporaryToast('⚠️ ' + (err.message || 'Could not generate AI theme right now.'));
+    showTemporaryToast('⚠️ ' + (err.message || 'Could not generate AI scene right now.'));
   } finally {
     wallStudioDraftState.isGeneratingAi = false;
     renderCuratorWallProfileModalContent();
