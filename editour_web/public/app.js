@@ -5836,6 +5836,16 @@ function reportSlantSystemTelemetry(type, endpoint, statusCode, durationMs, mess
   if (window._originalSlantFetch || typeof window.fetch !== 'function') return;
   const origFetch = window.fetch.bind(window);
   window._originalSlantFetch = origFetch;
+  window._isSlantPageUnloading = false;
+  window._lastSlantHiddenAt = 0;
+
+  window.addEventListener('beforeunload', () => { window._isSlantPageUnloading = true; });
+  window.addEventListener('pagehide', () => { window._isSlantPageUnloading = true; });
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      window._lastSlantHiddenAt = Date.now();
+    }
+  });
 
   window.fetch = async function monitoredSlantFetch(input, init) {
     const urlStr = typeof input === 'string' ? input : (input?.url || '');
@@ -5853,6 +5863,7 @@ function reportSlantSystemTelemetry(type, endpoint, statusCode, durationMs, mess
     }
 
     const t0 = Date.now();
+    const wasHiddenAtStart = document.visibilityState === 'hidden';
     const shortEndpoint = urlStr.includes('supabase.co')
       ? 'supabase/rest/v1/posts'
       : (urlStr.split('?')[0] || '/api');
@@ -5860,26 +5871,32 @@ function reportSlantSystemTelemetry(type, endpoint, statusCode, durationMs, mess
     try {
       const resp = await origFetch(input, init);
       const durationMs = Date.now() - t0;
+      const sleptDuringRequest = wasHiddenAtStart || document.visibilityState === 'hidden' || (window._lastSlantHiddenAt >= t0);
 
       if (!resp.ok) {
         const status = resp.status;
         let eventType = 'api_500';
         if (status === 429) eventType = 'gemini_quota_429';
         else if (status === 504 || status === 502) eventType = 'vercel_timeout';
-        else if (urlStr.includes('supabase.co')) eventType = 'supabase_error';
+        else if (urlStr.includes('supabase.co') && status >= 500) eventType = 'supabase_error';
 
         if (status === 429 || status >= 500) {
           reportSlantSystemTelemetry(eventType, shortEndpoint, status, durationMs, `HTTP ${status} returned from ${shortEndpoint}`);
         }
-      } else if (durationMs > 25000) {
+      } else if (durationMs > 25000 && durationMs < 65000 && !sleptDuringRequest && !urlStr.includes('supabase.co')) {
         reportSlantSystemTelemetry('slow_response', shortEndpoint, resp.status, durationMs, `Slow execution (${Math.round(durationMs / 1000)}s) approaching Vercel timeout`);
       }
       return resp;
     } catch (err) {
       const durationMs = Date.now() - t0;
-      if (err && err.name !== 'AbortError') {
-        const eventType = urlStr.includes('supabase.co') ? 'supabase_error' : (durationMs > 25000 ? 'vercel_timeout' : 'network_error');
-        reportSlantSystemTelemetry(eventType, shortEndpoint, 0, durationMs, err.message || 'Network/Function error');
+      const sleptDuringRequest = wasHiddenAtStart || document.visibilityState === 'hidden' || (window._lastSlantHiddenAt >= t0);
+      const isOnline = typeof navigator === 'undefined' ? true : navigator.onLine !== false;
+      const errMsg = String(err?.message || '');
+      const isClientCancelOrFetchDrop = window._isSlantPageUnloading || sleptDuringRequest || !isOnline || err?.name === 'AbortError' || /failed to fetch|networkerror|load failed/i.test(errMsg);
+
+      // Only log genuine function timeouts when active & online; ignore client navigation/sleep/abort drops
+      if (!isClientCancelOrFetchDrop && durationMs >= 28000 && durationMs <= 65000 && !urlStr.includes('supabase.co')) {
+        reportSlantSystemTelemetry('vercel_timeout', shortEndpoint, 504, durationMs, errMsg || 'Function timeout');
       }
       throw err;
     }

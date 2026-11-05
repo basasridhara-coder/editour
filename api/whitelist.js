@@ -225,12 +225,16 @@ function buildSystemHealthSummary(ftData, supabaseLatencyMs = 0, totalDbPostsCou
 
   const recent24h = events.filter(e => {
     const t = Date.parse(e?.createdAt || '');
-    return Number.isFinite(t) && t >= dayAgoMs;
+    if (!Number.isFinite(t) || t < dayAgoMs) return false;
+    // Ignore client-side network abort / page unload / tab-sleep artifacts (statusCode 0 or >65s wall-clock sleep)
+    if (Number(e.statusCode) === 0 && /failed to fetch|networkerror|load failed/i.test(String(e.message || ''))) return false;
+    if (e.type === 'slow_response' && Number(e.durationMs) > 65000) return false;
+    return true;
   });
 
   const quota429Count24h = recent24h.filter(e => e.type === 'gemini_quota_429' || Number(e.statusCode) === 429).length;
   const timeout504Count24h = recent24h.filter(e => e.type === 'vercel_timeout' || Number(e.statusCode) === 504 || Number(e.statusCode) === 502).length;
-  const supabaseErrorCount24h = recent24h.filter(e => e.type === 'supabase_error').length;
+  const supabaseErrorCount24h = recent24h.filter(e => e.type === 'supabase_error' && Number(e.statusCode) >= 500).length;
   const slowRequestCount24h = recent24h.filter(e => e.type === 'slow_response').length;
   const unreadFeedbackCount = feedback.filter(f => f.status !== 'resolved').length;
 
@@ -540,14 +544,22 @@ module.exports = async function handler(req, res) {
 
     // ACTION: Client or API logs a telemetry event (429 rate limit, 504 timeout, Supabase error, or slow >25s call)
     if (action === 'log_telemetry') {
-      const ftData = await getFeedbackAndTelemetryData();
-      const todayKey = getTodayDateKeyIST();
       const eventType = String(body.type || 'api_error').trim().slice(0, 50);
       const statusCode = Number(body.statusCode) || 0;
       const durationMs = Math.max(0, Math.round(Number(body.durationMs) || 0));
       const endpoint = String(body.endpoint || '/api/synthesize').trim().slice(0, 80);
       const errMessage = String(body.message || '').trim().slice(0, 320);
-      const severity = (statusCode === 429 || statusCode === 504 || statusCode === 502 || eventType === 'gemini_quota_429' || eventType === 'vercel_timeout' || eventType === 'supabase_error')
+
+      // Ignore client-side network abort / page unload / tab-sleep artifacts
+      if ((statusCode === 0 && /failed to fetch|networkerror|load failed/i.test(errMessage)) || (eventType === 'slow_response' && durationMs > 65000)) {
+        const out = { success: true, ignoredClientArtifact: true };
+        if (res.status) return res.status(200).json ? res.status(200).json(out) : res.status(200).end(JSON.stringify(out));
+        return res.end(JSON.stringify(out));
+      }
+
+      const ftData = await getFeedbackAndTelemetryData();
+      const todayKey = getTodayDateKeyIST();
+      const severity = (statusCode === 429 || statusCode === 504 || statusCode === 502 || eventType === 'gemini_quota_429' || eventType === 'vercel_timeout' || (eventType === 'supabase_error' && statusCode >= 500))
         ? 'critical'
         : 'warning';
 
