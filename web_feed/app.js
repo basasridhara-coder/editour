@@ -9889,6 +9889,24 @@ function getVimeoEmbedUrl(url) {
   return (m && m[1]) ? `https://player.vimeo.com/video/${m[1]}` : null;
 }
 
+function getTwitterXEmbedUrl(url) {
+  if (!url) return null;
+  const str = String(url).trim();
+  const m = str.match(/(?:twitter\.com|x\.com)\/(?:[A-Za-z0-9_]+\/status(?:es)?|i\/web\/status|i\/status)\/(\d{5,25})/i);
+  if (!m || !m[1]) return null;
+  const isDark = typeof document !== 'undefined' && document.documentElement && document.documentElement.getAttribute('data-theme') === 'obsidian';
+  return `https://platform.twitter.com/embed/Tweet.html?id=${encodeURIComponent(m[1])}&theme=${isDark ? 'dark' : 'light'}&dnt=true&chrome=nofooter`;
+}
+
+function getInstagramEmbedUrl(url) {
+  if (!url) return null;
+  const str = String(url).trim();
+  const m = str.match(/(?:www\.)?instagram\.com\/(?:[A-Za-z0-9_.]+\/)?(p|reel|reels|tv)\/([A-Za-z0-9_-]+)/i);
+  if (!m || !m[1] || !m[2]) return null;
+  const kind = m[1].toLowerCase() === 'reels' ? 'reel' : m[1].toLowerCase();
+  return `https://www.instagram.com/${kind}/${encodeURIComponent(m[2])}/embed/`;
+}
+
 function isInnerVoicePost(post) {
   if (!post) return false;
   // If it has an external link, video, or physical paper cut, it HAS an external source!
@@ -12410,7 +12428,9 @@ function toggleInlineSourceDrawer(event, index) {
   const sourceTitle = post.originalHeadline || post.sourceHeadline || post.spark || post.adaptedHeadline || 'Original Source';
   const ytEmbed = getYouTubeEmbedUrl(rawLink);
   const vimeoEmbed = getVimeoEmbedUrl(rawLink);
-  const isVideo = Boolean(ytEmbed || vimeoEmbed || post.sourceType === 'youtube' || post.sourceType === 'video' || post.sourceType === 'video_audio' || (rawLink && /\.(mp4|webm|mov)(\?.*)?$/i.test(rawLink)));
+  const twitterEmbed = getTwitterXEmbedUrl(rawLink);
+  const instagramEmbed = getInstagramEmbedUrl(rawLink);
+  const isVideo = Boolean(ytEmbed || vimeoEmbed || twitterEmbed || instagramEmbed || post.sourceType === 'youtube' || post.sourceType === 'video' || post.sourceType === 'video_audio' || (rawLink && /\.(mp4|webm|mov)(\?.*)?$/i.test(rawLink)));
 
   let mediaBlockHtml = '';
   if (isVideo) {
@@ -12442,6 +12462,30 @@ function toggleInlineSourceDrawer(event, index) {
           <video src="${escapeHtml(rawLink)}" controls playsinline></video>
         </div>
       `;
+    } else if (twitterEmbed) {
+      mediaBlockHtml = `
+        <div class="inline-source-social-embed-box">
+          <iframe
+            src="${twitterEmbed}"
+            title="Embedded X Post"
+            allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
+            allowfullscreen
+            loading="lazy">
+          </iframe>
+        </div>
+      `;
+    } else if (instagramEmbed) {
+      mediaBlockHtml = `
+        <div class="inline-source-social-embed-box">
+          <iframe
+            src="${instagramEmbed}"
+            title="Embedded Instagram Post"
+            allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+            allowfullscreen
+            loading="lazy">
+          </iframe>
+        </div>
+      `;
     }
   }
 
@@ -12456,12 +12500,6 @@ function toggleInlineSourceDrawer(event, index) {
           <div class="inline-source-headline">${escapeHtml(sourceTitle)}</div>
         </div>
         <div class="inline-source-drawer-actions">
-          ${rawLink && /^https?:\/\//i.test(rawLink) ? `
-            <a href="${escapeHtml(rawLink)}" target="_blank" rel="noopener noreferrer" class="inline-source-ext-link" onclick="event.stopPropagation()" title="Open original source link">
-              <span>Source</span>
-              <span>&nearr;</span>
-            </a>
-          ` : ''}
           <button type="button" class="inline-source-collapse-btn" onclick="toggleInlineSourceDrawer(event, '${index}')" title="Collapse Source">
             <span>&#x25B4; Hide</span>
           </button>
@@ -12471,6 +12509,14 @@ function toggleInlineSourceDrawer(event, index) {
       <div class="inline-source-scroll-summary" id="inline-source-summary-${index}">
         ${summaryHtml}
       </div>
+      ${rawLink && /^https?:\/\//i.test(rawLink) ? `
+        <div class="inline-source-footer-citation">
+          <span>Verified source: <strong>${escapeHtml(pubName || cleanHost || 'Original Source')}</strong></span>
+          <a href="${escapeHtml(rawLink)}" target="_blank" rel="noopener noreferrer" class="inline-source-footer-link" onclick="event.stopPropagation()" title="View original source in a new tab">
+            <span>View original externally &nearr;</span>
+          </a>
+        </div>
+      ` : ''}
     </div>
   `;
 
@@ -14518,7 +14564,9 @@ function openDetailModal(index) {
   // 3. Video Embed & Paper Cut Sections (TOP)
   const ytEmbed = getYouTubeEmbedUrl(rawLink);
   const vimeoEmbed = getVimeoEmbedUrl(rawLink);
-  const isVideo = !!ytEmbed || !!vimeoEmbed || post.sourceType === 'youtube' || post.sourceType === 'video' || post.sourceType === 'video_audio' || !!post.videoUrl || (rawLink && /\.(mp4|webm|mov)(\?.*)?$/i.test(rawLink));
+  const twitterEmbed = getTwitterXEmbedUrl(rawLink);
+  const instagramEmbed = getInstagramEmbedUrl(rawLink);
+  const isVideo = !!ytEmbed || !!vimeoEmbed || !!twitterEmbed || !!instagramEmbed || post.sourceType === 'youtube' || post.sourceType === 'video' || post.sourceType === 'video_audio' || !!post.videoUrl || (rawLink && /\.(mp4|webm|mov)(\?.*)?$/i.test(rawLink));
 
   const hasPaper = !isVideo && (post.sourceType === 'photo' 
     || !!post.paperCutImage 
@@ -14556,6 +14604,16 @@ function openDetailModal(index) {
       } else if (rawLink && /\.(mp4|webm|mov)(\?.*)?$/i.test(rawLink) && videoEmbedWrap) {
         videoEmbedWrap.innerHTML = `
           <video src="${escapeHtml(rawLink)}" controls playsinline style="width:100%; height:100%; max-height:480px; background:#000; border-radius:6px;"></video>
+        `;
+      } else if ((twitterEmbed || instagramEmbed) && videoEmbedWrap) {
+        videoEmbedWrap.innerHTML = `
+          <iframe 
+            src="${twitterEmbed || instagramEmbed}" 
+            title="Embedded Social Post" 
+            style="width:100%; min-height:380px; height:100%; border:none; background:#fff; border-radius:8px;" 
+            allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; fullscreen; web-share" 
+            allowfullscreen>
+          </iframe>
         `;
       } else if (videoEmbedWrap) {
         videoEmbedWrap.innerHTML = `
