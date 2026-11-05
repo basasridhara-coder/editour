@@ -1832,22 +1832,23 @@ async function toggleSelectCollageImage(encUrl, encThumb, encTitle, encSource) {
       return;
     }
     const hasAnyStarred = state.selectedItems.some(s => Boolean(s.isStarred));
+    const isEqualMode = state.heroComposition === 'equal';
     const newItem = {
       url,
       thumbUrl,
       title,
       source,
       tabIndex: state.activeTabIndex,
-      isStarred: !hasAnyStarred,
+      isStarred: !isEqualMode && !hasAnyStarred && state.selectedItems.length === 0,
       panX: 0.5,
       panY: 0.35,
       zoom: 1.0
     };
     state.selectedItems.push(newItem);
   }
-  state.selectedItems.forEach((s, idx) => {
-    s.isStarred = (idx === 0);
-  });
+  if (state.heroComposition !== 'equal' && state.selectedItems.length > 0 && !state.selectedItems.some(s => Boolean(s.isStarred))) {
+    state.selectedItems[0].isStarred = true;
+  }
 
   renderWebCollageSubjectTabs();
   renderWebCollageTabGrid();
@@ -1859,14 +1860,32 @@ window.toggleSelectCollageImage = toggleSelectCollageImage;
 async function setStarredWebCollageSlot(slotIndex) {
   const state = window._webCollageState;
   if (!state.selectedItems || !state.selectedItems[slotIndex]) return;
-  if (slotIndex > 0) {
-    const [picked] = state.selectedItems.splice(slotIndex, 1);
-    state.selectedItems.unshift(picked);
+  const target = state.selectedItems[slotIndex];
+  if (target.isStarred && state.selectedItems.length > 1) {
+    // Tapping an already-starred ★ Hero removes the Hero mark -> Equal Prominence!
+    state.selectedItems.forEach((it) => {
+      it.isStarred = false;
+    });
+    state.heroComposition = 'equal';
+    state.heroCompositionManual = true;
+    window._attachedCollageComposition = 'equal';
+    window._attachedCollageCompositionManual = true;
+  } else {
+    if (slotIndex > 0) {
+      const [picked] = state.selectedItems.splice(slotIndex, 1);
+      state.selectedItems.unshift(picked);
+    }
+    state.selectedItems.forEach((it, idx) => {
+      it.isStarred = (idx === 0);
+    });
+    if (state.heroComposition === 'equal') {
+      state.heroComposition = 'wide';
+      state.heroCompositionManual = false;
+      window._attachedCollageComposition = 'wide';
+      window._attachedCollageCompositionManual = false;
+    }
+    state.activeSlotIndex = 0;
   }
-  state.selectedItems.forEach((it, idx) => {
-    it.isStarred = (idx === 0);
-  });
-  state.activeSlotIndex = 0;
   renderWebCollageTabGrid();
   renderWebCollageSelectedSlotsUI();
   await renderWebCollageCanvas();
@@ -1878,11 +1897,12 @@ async function moveWebCollageSlot(slotIndex, delta) {
   if (!state.selectedItems) return;
   const targetIdx = slotIndex + delta;
   if (targetIdx < 0 || targetIdx >= state.selectedItems.length) return;
+  const hadStarred = state.selectedItems.some(it => Boolean(it.isStarred)) && state.heroComposition !== 'equal';
   const temp = state.selectedItems[slotIndex];
   state.selectedItems[slotIndex] = state.selectedItems[targetIdx];
   state.selectedItems[targetIdx] = temp;
   state.selectedItems.forEach((it, idx) => {
-    it.isStarred = (idx === 0);
+    it.isStarred = hadStarred ? (idx === 0) : false;
   });
   state.activeSlotIndex = targetIdx;
   renderWebCollageTabGrid();
@@ -1950,61 +1970,68 @@ function clearWebCollageSelection() {
 window.clearWebCollageSelection = clearWebCollageSelection;
 
 function updateCollageCompositionToggleUI(mode = 'both') {
+  const styleBtn = (btn, isActive) => {
+    if (!btn) return;
+    btn.style.background = isActive ? '#253833' : 'transparent';
+    btn.style.color = isActive ? '#FFFFFF' : 'var(--text-secondary)';
+  };
   if (mode === 'web' || mode === 'both') {
     const state = window._webCollageState;
     const count = state && Array.isArray(state.selectedItems) ? state.selectedItems.length : 0;
     const rowEl = document.getElementById('webCollageCompositionToggleRow');
     const wideBtn = document.getElementById('webCollageCompWideBtn');
     const tallBtn = document.getElementById('webCollageCompTallBtn');
+    const equalBtn = document.getElementById('webCollageCompEqualBtn');
     if (rowEl) {
       rowEl.style.display = count >= 2 ? 'flex' : 'none';
     }
-    const isTall = state && state.heroComposition === 'tall';
-    if (wideBtn && tallBtn) {
-      wideBtn.style.background = !isTall ? '#253833' : 'transparent';
-      wideBtn.style.color = !isTall ? '#FFFFFF' : 'var(--text-secondary)';
-      tallBtn.style.background = isTall ? '#253833' : 'transparent';
-      tallBtn.style.color = isTall ? '#FFFFFF' : 'var(--text-secondary)';
-    }
+    const comp = (state && state.heroComposition) || 'wide';
+    styleBtn(wideBtn, comp === 'wide');
+    styleBtn(tallBtn, comp === 'tall');
+    styleBtn(equalBtn, comp === 'equal');
   }
   if (mode === 'attached' || mode === 'both') {
     const count = Array.isArray(window._attachedScenePhotos) ? window._attachedScenePhotos.length : 0;
     const rowEl = document.getElementById('attachedCollageCompositionToggleRow');
     const wideBtn = document.getElementById('attachedCollageCompWideBtn');
     const tallBtn = document.getElementById('attachedCollageCompTallBtn');
+    const equalBtn = document.getElementById('attachedCollageCompEqualBtn');
     if (rowEl) {
       rowEl.style.display = count >= 2 ? 'flex' : 'none';
     }
-    const isTall = window._attachedCollageComposition === 'tall';
-    if (wideBtn && tallBtn) {
-      wideBtn.style.background = !isTall ? '#253833' : 'transparent';
-      wideBtn.style.color = !isTall ? '#FFFFFF' : 'var(--text-secondary)';
-      tallBtn.style.background = isTall ? '#253833' : 'transparent';
-      tallBtn.style.color = isTall ? '#FFFFFF' : 'var(--text-secondary)';
-    }
+    const comp = window._attachedCollageComposition || 'wide';
+    styleBtn(wideBtn, comp === 'wide');
+    styleBtn(tallBtn, comp === 'tall');
+    styleBtn(equalBtn, comp === 'equal');
   }
 }
 window.updateCollageCompositionToggleUI = updateCollageCompositionToggleUI;
 
 async function setCollageHeroComposition(comp, mode = 'web') {
-  const normalized = comp === 'tall' ? 'tall' : 'wide';
-  if (mode === 'attached') {
-    window._attachedCollageComposition = normalized;
-    window._attachedCollageCompositionManual = true;
-    if (window._webCollageState) {
-      window._webCollageState.heroComposition = normalized;
-      window._webCollageState.heroCompositionManual = true;
+  const normalized = (comp === 'tall' || comp === 'equal') ? comp : 'wide';
+  const state = window._webCollageState;
+  if (state) {
+    state.heroComposition = normalized;
+    state.heroCompositionManual = true;
+    if (Array.isArray(state.selectedItems)) {
+      state.selectedItems.forEach((it, idx) => {
+        if (it) it.isStarred = (normalized !== 'equal' && idx === 0);
+      });
     }
-    updateCollageCompositionToggleUI('both');
+  }
+  window._attachedCollageComposition = normalized;
+  window._attachedCollageCompositionManual = true;
+  if (Array.isArray(window._attachedScenePhotos)) {
+    window._attachedScenePhotos.forEach((p, idx) => {
+      if (p) p.isStarred = (normalized !== 'equal' && idx === 0);
+    });
+  }
+  updateCollageCompositionToggleUI('both');
+  if (mode === 'attached') {
+    renderAttachedScenePhotosUI();
     await syncAttachedScenePhotosCollage(true, true);
   } else {
-    if (window._webCollageState) {
-      window._webCollageState.heroComposition = normalized;
-      window._webCollageState.heroCompositionManual = true;
-    }
-    window._attachedCollageComposition = normalized;
-    window._attachedCollageCompositionManual = true;
-    updateCollageCompositionToggleUI('both');
+    renderWebCollageSelectedSlotsUI();
     await renderWebCollageCanvas(true);
   }
 }
@@ -2053,20 +2080,21 @@ function renderWebCollageSelectedSlotsUI() {
     return;
   }
 
+  const isEqualMode = state.heroComposition === 'equal';
   state.selectedItems.forEach((s, idx) => {
-    s.isStarred = (idx === 0);
+    s.isStarred = !isEqualMode && (idx === 0);
   });
 
   if (previewWrap) previewWrap.style.display = 'flex';
   const total = state.selectedItems.length;
   slotsRow.innerHTML = state.selectedItems.map((it, idx) => {
-    const isStar = idx === 0;
+    const isStar = Boolean(it.isStarred);
     const canLeft = idx > 0;
     const canRight = idx < total - 1;
     return `
       <div style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 6px 3px 4px; border-radius: 8px; background: ${isStar ? '#FFFBEB' : '#FFFFFF'}; border: ${isStar ? '1.5px solid #D97706' : '1px solid rgba(16,185,129,0.4)'}; box-shadow: 0 2px 5px rgba(15,23,42,0.04);">
-        <img src="${escapeHtml(it.thumbUrl || it.url)}" alt="" onclick="setStarredWebCollageSlot(${idx})" style="width: 26px; height: 26px; border-radius: 5px; object-fit: cover; cursor: pointer;" title="Tap to move to #1 Hero slot">
-        <button type="button" onclick="setStarredWebCollageSlot(${idx})" style="border: none; background: ${isStar ? '#FEF3C7' : 'rgba(15,23,42,0.07)'}; color: ${isStar ? '#B45309' : 'var(--text-secondary)'}; padding: 2px 5px; border-radius: 99px; font-size: 9.5px; font-weight: 800; cursor: pointer;" title="Move to #1 Hero slot (60%)">
+        <img src="${escapeHtml(it.thumbUrl || it.url)}" alt="" onclick="setStarredWebCollageSlot(${idx})" style="width: 26px; height: 26px; border-radius: 5px; object-fit: cover; cursor: pointer;" title="${isStar ? 'Tap to remove Hero mark (equal prominence)' : 'Tap to mark as #1 Hero'}">
+        <button type="button" onclick="setStarredWebCollageSlot(${idx})" style="border: none; background: ${isStar ? '#FEF3C7' : 'rgba(15,23,42,0.07)'}; color: ${isStar ? '#B45309' : 'var(--text-secondary)'}; padding: 2px 5px; border-radius: 99px; font-size: 9.5px; font-weight: 800; cursor: pointer;" title="${isStar ? 'Tap to remove Hero mark (equal prominence)' : 'Mark as #1 Hero (60%)'}">
           ${isStar ? '★ #1 Hero' : `☆ #${idx + 1}`}
         </button>
         ${total > 1 ? `
@@ -2356,9 +2384,9 @@ async function renderWebCollageCanvas(commitExport = true) {
   const W = canvas.width || 800;
   const H = canvas.height || 1000;
 
-  // Keep exact user-selected slot order: index 0 = #1 Hero (60%), index 1 = #2, index 2 = #3
+  const isEqualHero = state.heroComposition === 'equal';
   state.selectedItems.forEach((s, idx) => {
-    s.isStarred = (idx === 0);
+    s.isStarred = !isEqualHero && (idx === 0);
   });
   const orderedItems = state.selectedItems.slice(0, 3);
 
@@ -2371,13 +2399,14 @@ async function renderWebCollageCanvas(commitExport = true) {
 
   if (loadedPairs.length === 0) return null;
 
-  // Smart auto-detection for tall/portrait Hero #1 unless user manually clicked Wide / Tall toggle
+  // Smart auto-detection for tall/portrait Hero #1 unless user manually clicked Wide / Tall / Equal toggle
   if (loadedPairs.length >= 2 && !state.heroCompositionManual && loadedPairs[0].img) {
     const heroImg = loadedPairs[0].img;
     state.heroComposition = (heroImg.height > heroImg.width * 1.06) ? 'tall' : 'wide';
   }
   updateCollageCompositionToggleUI('web');
   const isTallHero = state.heroComposition === 'tall';
+  const isEqualSplit = state.heroComposition === 'equal';
 
   ctx.clearRect(0, 0, W, H);
   const cellBoxes = [];
@@ -2389,7 +2418,7 @@ async function renderWebCollageCanvas(commitExport = true) {
   )];
   const creditText = `IMAGE SOURCE: ${uniqueSources.join(' • ').toUpperCase()}  |  EDITORIAL COMMENTARY (FAIR DEALING)`;
 
-  // Clean Edge-to-Edge Split Collage (Supports both Wide Top Hero & Tall Left Hero for vertical subjects)
+  // Clean Edge-to-Edge Split Collage (Supports Wide Top Hero, Tall Left Hero, and Equal Prominence)
   ctx.fillStyle = '#18181B';
   ctx.fillRect(0, 0, W, H);
   const div = 6;
@@ -2397,7 +2426,15 @@ async function renderWebCollageCanvas(commitExport = true) {
   if (loadedPairs.length === 1) {
     cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[0].img, 0, 0, W, H, 0, loadedPairs[0].item));
   } else if (loadedPairs.length === 2) {
-    if (isTallHero) {
+    if (isEqualSplit) {
+      // ⚖️ Equal Prominence (2 photos): 50% / 50% equal split
+      const topH = Math.round((H - div) * 0.50);
+      const botH = H - div - topH;
+      cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[0].img, 0, 0, W, topH, 0, loadedPairs[0].item));
+      cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[1].img, 0, topH + div, W, botH, 0, loadedPairs[1].item));
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, topH, W, div);
+    } else if (isTallHero) {
       // ◧ Tall Hero: Slot #1 occupies left 58% full-height vertical column, Slot #2 occupies right 42% full-height column
       const leftW = Math.round((W - div) * 0.58);
       const rightW = W - div - leftW;
@@ -2415,7 +2452,17 @@ async function renderWebCollageCanvas(commitExport = true) {
       ctx.fillRect(0, topH, W, div);
     }
   } else {
-    if (isTallHero) {
+    if (isEqualSplit) {
+      // ⚖️ Equal Prominence (3 photos): 3 equal 33.3% horizontal bands
+      const bandH = Math.round((H - div * 2) / 3);
+      const lastBandH = H - (bandH + div) * 2;
+      cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[0].img, 0, 0, W, bandH, 0, loadedPairs[0].item));
+      cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[1].img, 0, bandH + div, W, bandH, 0, loadedPairs[1].item));
+      cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[2].img, 0, (bandH + div) * 2, W, lastBandH, 0, loadedPairs[2].item));
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, bandH, W, div);
+      ctx.fillRect(0, bandH * 2 + div, W, div);
+    } else if (isTallHero) {
       // ◧ Tall Hero (3 photos): Slot #1 occupies left 58% full-height vertical column; Slots #2 & #3 stack on the right 42%
       const leftW = Math.round((W - div) * 0.58);
       const rightW = W - div - leftW;
@@ -26587,9 +26634,9 @@ async function compositeStarredScenePhotosToDataUrl(photosList, commitExport = t
     return null;
   }
 
-  // Keep exact user-selected slot order: index 0 = #1 Hero (60%), index 1 = #2, index 2 = #3
+  const isEqualAttached = window._attachedCollageComposition === 'equal';
   validPhotos.forEach((p, idx) => {
-    p.isStarred = (idx === 0);
+    p.isStarred = !isEqualAttached && (idx === 0);
   });
   const ordered = validPhotos.slice(0, 3);
 
@@ -26619,16 +26666,17 @@ async function compositeStarredScenePhotosToDataUrl(photosList, commitExport = t
   const valid = loadedImgs.filter(Boolean);
   if (valid.length === 0) return null;
 
-  // Smart auto-detection for tall/portrait Hero #1 unless user manually clicked Wide / Tall toggle
+  // Smart auto-detection for tall/portrait Hero #1 unless user manually clicked Wide / Tall / Equal toggle
   if (valid.length >= 2 && !window._attachedCollageCompositionManual && valid[0].img) {
     const heroImg = valid[0].img;
     window._attachedCollageComposition = (heroImg.height > heroImg.width * 1.06) ? 'tall' : 'wide';
   }
   updateCollageCompositionToggleUI('attached');
   const isTallHero = window._attachedCollageComposition === 'tall';
+  const isEqualSplit = window._attachedCollageComposition === 'equal';
 
   ctx.clearRect(0, 0, W, H);
-  // Clean Edge-to-Edge Split Collage (Supports both Wide Top Hero & Tall Left Hero for vertical subjects)
+  // Clean Edge-to-Edge Split Collage (Supports Wide Top Hero, Tall Left Hero, and Equal Prominence)
   ctx.fillStyle = '#18181B';
   ctx.fillRect(0, 0, W, H);
 
@@ -26638,7 +26686,14 @@ async function compositeStarredScenePhotosToDataUrl(photosList, commitExport = t
   if (valid.length === 1) {
     cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[0].img, 0, 0, W, H, 0, valid[0].meta));
   } else if (valid.length === 2) {
-    if (isTallHero) {
+    if (isEqualSplit) {
+      const topH = Math.round((H - div) * 0.50);
+      const botH = H - div - topH;
+      cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[0].img, 0, 0, W, topH, 0, valid[0].meta));
+      cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[1].img, 0, topH + div, W, botH, 0, valid[1].meta));
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, topH, W, div);
+    } else if (isTallHero) {
       const leftW = Math.round((W - div) * 0.58);
       const rightW = W - div - leftW;
       cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[0].img, 0, 0, leftW, H, 0, valid[0].meta));
@@ -26654,7 +26709,16 @@ async function compositeStarredScenePhotosToDataUrl(photosList, commitExport = t
       ctx.fillRect(0, topH, W, div);
     }
   } else {
-    if (isTallHero) {
+    if (isEqualSplit) {
+      const bandH = Math.round((H - div * 2) / 3);
+      const lastBandH = H - (bandH + div) * 2;
+      cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[0].img, 0, 0, W, bandH, 0, valid[0].meta));
+      cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[1].img, 0, bandH + div, W, bandH, 0, valid[1].meta));
+      cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[2].img, 0, (bandH + div) * 2, W, lastBandH, 0, valid[2].meta));
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, bandH, W, div);
+      ctx.fillRect(0, bandH * 2 + div, W, div);
+    } else if (isTallHero) {
       const leftW = Math.round((W - div) * 0.58);
       const rightW = W - div - leftW;
       const topRightH = Math.round((H - div) * 0.5);
@@ -26739,14 +26803,15 @@ function renderAttachedScenePhotosUI() {
     if (count === 0) {
       gridEl.innerHTML = '';
     } else {
+      const isEqualAttached = window._attachedCollageComposition === 'equal';
       gridEl.innerHTML = photos.map((p, idx) => {
-        const isStar = idx === 0;
+        const isStar = !isEqualAttached && Boolean(p.isStarred);
         const canLeft = idx > 0;
         const canRight = idx < count - 1;
         return `
           <div style="position: relative; border-radius: 9px; overflow: hidden; border: ${isStar ? '2px solid #D97706' : '1.5px solid rgba(148,163,184,0.4)'}; background: #F8FAFC; aspect-ratio: 4 / 3; box-shadow: ${isStar ? '0 3px 10px rgba(217,119,6,0.2)' : 'none'};">
-            <img src="${p.base64}" alt="Photo ${idx + 1}" onclick="setStarredAttachedScenePhoto(${idx}, event)" style="width: 100%; height: 100%; object-fit: cover; display: block; cursor: pointer;" title="Tap to move to #1 Hero slot">
-            <button type="button" onclick="setStarredAttachedScenePhoto(${idx}, event)" style="position: absolute; top: 4px; left: 4px; padding: 2px 6px; border-radius: 99px; border: 1px solid ${isStar ? '#F59E0B' : 'rgba(255,255,255,0.65)'}; background: ${isStar ? '#FEF3C7' : 'rgba(15,23,42,0.72)'}; color: ${isStar ? '#B45309' : '#FFFFFF'}; font-size: 9px; font-weight: 800; cursor: pointer; line-height: 1.2; box-shadow: 0 2px 5px rgba(0,0,0,0.2);" title="Move to #1 Hero slot (60%)">
+            <img src="${p.base64}" alt="Photo ${idx + 1}" onclick="setStarredAttachedScenePhoto(${idx}, event)" style="width: 100%; height: 100%; object-fit: cover; display: block; cursor: pointer;" title="${isStar ? 'Tap to remove Hero mark (equal prominence)' : 'Tap to mark as #1 Hero'}">
+            <button type="button" onclick="setStarredAttachedScenePhoto(${idx}, event)" style="position: absolute; top: 4px; left: 4px; padding: 2px 6px; border-radius: 99px; border: 1px solid ${isStar ? '#F59E0B' : 'rgba(255,255,255,0.65)'}; background: ${isStar ? '#FEF3C7' : 'rgba(15,23,42,0.72)'}; color: ${isStar ? '#B45309' : '#FFFFFF'}; font-size: 9px; font-weight: 800; cursor: pointer; line-height: 1.2; box-shadow: 0 2px 5px rgba(0,0,0,0.2);" title="${isStar ? 'Tap to remove Hero mark (equal prominence)' : 'Mark as #1 Hero (60%)'}">
               ${isStar ? '★ #1 Hero' : `☆ #${idx + 1}`}
             </button>
             <button type="button" onclick="removeAttachedScenePhotoAtIndex(${idx}, event)" style="position: absolute; top: 4px; right: 4px; width: 19px; height: 19px; border-radius: 50%; border: none; background: rgba(15,23,42,0.75); color: #FFFFFF; font-size: 10.5px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1;" title="Remove photo">✕</button>
@@ -26769,8 +26834,9 @@ async function syncAttachedScenePhotosCollage(silent = false, commitExport = tru
     window._attachedScenePhotos = [];
   }
   const photos = window._attachedScenePhotos;
+  const isEqualAttached = window._attachedCollageComposition === 'equal';
   photos.forEach((p, idx) => {
-    p.isStarred = (idx === 0);
+    p.isStarred = !isEqualAttached && (idx === 0);
   });
 
   if (photos.length === 0) {
@@ -26822,14 +26888,36 @@ window.syncAttachedScenePhotosCollage = syncAttachedScenePhotosCollage;
 async function setStarredAttachedScenePhoto(idx, event) {
   if (event) event.stopPropagation();
   if (!Array.isArray(window._attachedScenePhotos) || !window._attachedScenePhotos[idx]) return;
-  if (idx > 0) {
-    const [picked] = window._attachedScenePhotos.splice(idx, 1);
-    window._attachedScenePhotos.unshift(picked);
+  const target = window._attachedScenePhotos[idx];
+  if (target.isStarred && window._attachedScenePhotos.length > 1) {
+    // Tapping an already-starred ★ Hero removes the Hero mark -> Equal Prominence!
+    window._attachedScenePhotos.forEach((p) => {
+      p.isStarred = false;
+    });
+    window._attachedCollageComposition = 'equal';
+    window._attachedCollageCompositionManual = true;
+    if (window._webCollageState) {
+      window._webCollageState.heroComposition = 'equal';
+      window._webCollageState.heroCompositionManual = true;
+    }
+  } else {
+    if (idx > 0) {
+      const [picked] = window._attachedScenePhotos.splice(idx, 1);
+      window._attachedScenePhotos.unshift(picked);
+    }
+    window._attachedScenePhotos.forEach((p, i) => {
+      p.isStarred = (i === 0);
+    });
+    if (window._attachedCollageComposition === 'equal') {
+      window._attachedCollageComposition = 'wide';
+      window._attachedCollageCompositionManual = false;
+      if (window._webCollageState) {
+        window._webCollageState.heroComposition = 'wide';
+        window._webCollageState.heroCompositionManual = false;
+      }
+    }
+    window._attachedActiveSlotIndex = 0;
   }
-  window._attachedScenePhotos.forEach((p, i) => {
-    p.isStarred = (i === 0);
-  });
-  window._attachedActiveSlotIndex = 0;
   await syncAttachedScenePhotosCollage(false, true);
 }
 window.setStarredAttachedScenePhoto = setStarredAttachedScenePhoto;
@@ -26839,11 +26927,12 @@ async function moveAttachedScenePhoto(idx, delta, event) {
   if (!Array.isArray(window._attachedScenePhotos)) return;
   const targetIdx = idx + delta;
   if (targetIdx < 0 || targetIdx >= window._attachedScenePhotos.length) return;
+  const isEqualAttached = window._attachedCollageComposition === 'equal';
   const temp = window._attachedScenePhotos[idx];
   window._attachedScenePhotos[idx] = window._attachedScenePhotos[targetIdx];
   window._attachedScenePhotos[targetIdx] = temp;
   window._attachedScenePhotos.forEach((p, i) => {
-    p.isStarred = (i === 0);
+    p.isStarred = !isEqualAttached && (i === 0);
   });
   window._attachedActiveSlotIndex = targetIdx;
   await syncAttachedScenePhotosCollage(false, true);
