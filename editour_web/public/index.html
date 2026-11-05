@@ -972,15 +972,7 @@
                 <div id="attachedScenePhotosGrid" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px;">
                   <!-- Populated dynamically by renderAttachedScenePhotosUI() -->
                 </div>
-                <div id="attachedSceneCanvasPreviewWrap" style="display: none; flex-direction: column; align-items: center; gap: 5px; padding: 4px 0 0; background: transparent; border: none;">
-                  <div id="attachedCollageCompositionToggleRow" style="display: none; align-items: center; justify-content: space-between; width: 100%; max-width: 220px; gap: 4px;">
-                    <span style="font-size: 9.2px; font-weight: 800; color: var(--text-secondary);">Layout</span>
-                    <div style="display: inline-flex; align-items: center; gap: 2px; background: rgba(148,163,184,0.14); padding: 2px; border-radius: 6px;">
-                      <button type="button" id="attachedCollageCompWideBtn" onclick="setCollageHeroComposition('wide', 'attached')" style="border: none; border-radius: 4px; padding: 2px 5px; font-size: 9px; font-weight: 800; cursor: pointer; background: #253833; color: #FFFFFF;" title="Wide horizontal Hero at top (best for landscape subjects)">⬒ Wide</button>
-                      <button type="button" id="attachedCollageCompTallBtn" onclick="setCollageHeroComposition('tall', 'attached')" style="border: none; border-radius: 4px; padding: 2px 5px; font-size: 9px; font-weight: 800; cursor: pointer; background: transparent; color: var(--text-secondary);" title="Tall vertical Hero column on left (best for standing/portrait subjects)">◧ Tall</button>
-                      <button type="button" id="attachedCollageCompEqualBtn" onclick="setCollageHeroComposition('equal', 'attached')" style="border: none; border-radius: 4px; padding: 2px 5px; font-size: 9px; font-weight: 800; cursor: pointer; background: transparent; color: var(--text-secondary);" title="Equal prominence across all photos (no Hero)">⚖️ Equal</button>
-                    </div>
-                  </div>
+                <div id="attachedSceneCanvasPreviewWrap" style="display: none; flex-direction: column; align-items: center; gap: 6px; padding: 4px 0 0; background: transparent; border: none;">
                   <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; max-width: 220px; gap: 4px;">
                     <span style="font-size: 9.8px; font-weight: 700; color: var(--text-secondary);">🖐️ Drag photo in frame</span>
                     <div style="display: inline-flex; align-items: center; gap: 3px;">
@@ -990,6 +982,12 @@
                     </div>
                   </div>
                   <canvas id="attachedScenePreviewCanvas" width="800" height="1000" style="width: 100%; max-width: 220px; aspect-ratio: 4 / 5; border-radius: 8px; box-shadow: 0 3px 10px rgba(15,23,42,0.12); background: #18181B; cursor: grab; touch-action: none;"></canvas>
+                  <div id="attachedCollageCompositionToggleRow" style="display: none; align-items: center; justify-content: center; width: 100%; max-width: 220px; margin-top: 2px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; width: 100%; gap: 4px; background: rgba(148,163,184,0.16); padding: 3px; border-radius: 9px;">
+                      <button type="button" id="attachedCollageCompWideBtn" onclick="setCollageHeroComposition('wide', 'attached')" style="border: none; border-radius: 7px; padding: 6px 10px; font-size: 11px; font-weight: 800; cursor: pointer; background: #253833; color: #FFFFFF; transition: all 0.15s ease;" title="Wide horizontal split">⬒ Wide</button>
+                      <button type="button" id="attachedCollageCompTallBtn" onclick="setCollageHeroComposition('tall', 'attached')" style="border: none; border-radius: 7px; padding: 6px 10px; font-size: 11px; font-weight: 800; cursor: pointer; background: transparent; color: var(--text-secondary); transition: all 0.15s ease;" title="Tall vertical split">◧ Tall</button>
+                    </div>
+                  </div>
                 </div>
                 <div style="display: flex; align-items: center; justify-content: flex-end; gap: 6px;">
                   <button type="button" class="ui-info-dot-btn" onclick="toggleInfoTip(event, 'attachedPhotoStarInfoTip')" title="About Collage Controls">i</button>
@@ -1055,15 +1053,7 @@
                 </div>
 
                 <!-- Live Canvas Preview (Auto-applied to Poster 1, Clean Edge-to-Edge without Extra Wrapper Box) -->
-                <div id="webCollageCanvasPreviewWrap" style="display: none; flex-direction: column; align-items: center; gap: 5px; padding: 4px 0 0; background: transparent; border: none;">
-                  <div id="webCollageCompositionToggleRow" style="display: none; align-items: center; justify-content: space-between; width: 100%; max-width: 220px; gap: 4px;">
-                    <span style="font-size: 9.2px; font-weight: 800; color: var(--text-secondary);">Layout</span>
-                    <div style="display: inline-flex; align-items: center; gap: 2px; background: rgba(148,163,184,0.14); padding: 2px; border-radius: 6px;">
-                      <button type="button" id="webCollageCompWideBtn" onclick="setCollageHeroComposition('wide', 'web')" style="border: none; border-radius: 4px; padding: 2px 5px; font-size: 9px; font-weight: 800; cursor: pointer; background: #253833; color: #FFFFFF;" title="Wide horizontal Hero at top (best for landscape subjects)">⬒ Wide</button>
-                      <button type="button" id="webCollageCompTallBtn" onclick="setCollageHeroComposition('tall', 'web')" style="border: none; border-radius: 4px; padding: 2px 5px; font-size: 9px; font-weight: 800; cursor: pointer; background: transparent; color: var(--text-secondary);" title="Tall vertical Hero column on left (best for standing/portrait subjects)">◧ Tall</button>
-                      <button type="button" id="webCollageCompEqualBtn" onclick="setCollageHeroComposition('equal', 'web')" style="border: none; border-radius: 4px; padding: 2px 5px; font-size: 9px; font-weight: 800; cursor: pointer; background: transparent; color: var(--text-secondary);" title="Equal prominence across all photos (no Hero)">⚖️ Equal</button>
-                    </div>
-                  </div>
+                <div id="webCollageCanvasPreviewWrap" style="display: none; flex-direction: column; align-items: center; gap: 6px; padding: 4px 0 0; background: transparent; border: none;">
                   <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; max-width: 220px; gap: 4px;">
                     <span style="font-size: 9.8px; font-weight: 700; color: var(--text-secondary);">🖐️ Drag photo in frame</span>
                     <div style="display: inline-flex; align-items: center; gap: 3px;">
@@ -1073,6 +1063,12 @@
                     </div>
                   </div>
                   <canvas id="webCollagePreviewCanvas" width="800" height="1000" style="width: 100%; max-width: 220px; aspect-ratio: 4 / 5; border-radius: 8px; box-shadow: 0 3px 10px rgba(15,23,42,0.12); background: #18181B; cursor: grab; touch-action: none;"></canvas>
+                  <div id="webCollageCompositionToggleRow" style="display: none; align-items: center; justify-content: center; width: 100%; max-width: 220px; margin-top: 2px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; width: 100%; gap: 4px; background: rgba(148,163,184,0.16); padding: 3px; border-radius: 9px;">
+                      <button type="button" id="webCollageCompWideBtn" onclick="setCollageHeroComposition('wide', 'web')" style="border: none; border-radius: 7px; padding: 6px 10px; font-size: 11px; font-weight: 800; cursor: pointer; background: #253833; color: #FFFFFF; transition: all 0.15s ease;" title="Wide horizontal split">⬒ Wide</button>
+                      <button type="button" id="webCollageCompTallBtn" onclick="setCollageHeroComposition('tall', 'web')" style="border: none; border-radius: 7px; padding: 6px 10px; font-size: 11px; font-weight: 800; cursor: pointer; background: transparent; color: var(--text-secondary); transition: all 0.15s ease;" title="Tall vertical split">◧ Tall</button>
+                    </div>
+                  </div>
                   <div id="webCollageAppliedStatus" style="display: none; font-size: 10.5px; font-weight: 800; color: #059669; text-align: center;">
                     ✓ Ready for Poster 1 (0⚡ Free)
                   </div>
