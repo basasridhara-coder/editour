@@ -18643,9 +18643,10 @@ function buildCuratorProfileWallHeaderHtml(rawHandle, avatarInitial, matchedPost
     ? savedProfile.lensBio.trim()
     : '';
 
-  const domains = (savedProfile && Array.isArray(savedProfile.domains) && savedProfile.domains.length > 0)
+  const rawDomains = (savedProfile && Array.isArray(savedProfile.domains) && savedProfile.domains.length > 0)
     ? savedProfile.domains
     : autoInsights.autoDomains;
+  const domains = Array.from(new Set(rawDomains));
 
   const isOwnProfile = isCuratorHandleCurrentUser(displayHandle);
   const profileAvatarAndHandleHtml = typeof buildCreatorAvatarAndHandleHtml === 'function'
@@ -18671,26 +18672,19 @@ function buildCuratorProfileWallHeaderHtml(rawHandle, avatarInitial, matchedPost
             <span>✦</span>
             <span>STATE OF MIND • @${escapeHtml(displayHandle.toUpperCase())}</span>
           </span>
-          <div class="curator-wall-top-actions">
-            ${isOwnProfile ? `
+          ${isOwnProfile ? `
+            <div class="curator-wall-top-actions">
               <button type="button" class="curator-wall-edit-btn" onclick="openCuratorWallProfileModal('${escapeHtml(displayHandle)}')" title="Customize your Wall Quote, AI Scene Backdrop & Profile Lens">
                 <span>✨ Edit Wall &amp; Profile</span>
               </button>
-            ` : ''}
-            <button type="button" class="curator-wall-close-btn" onclick="exitCuratorProfileView()" title="Back to All Stories">✕ All Stories</button>
-          </div>
+            </div>
+          ` : ''}
         </div>
         <div class="curator-wall-quote-focus-frame ${hasAiSceneBg ? 'is-frosted-quote' : ''}">
           <blockquote class="curator-wall-quote-text" style="color: ${escapeHtml(themeCfg.textColor)};">
             &ldquo;${escapeHtml(wallQuote)}&rdquo;
           </blockquote>
         </div>
-        ${hasAiSceneBg && (themeCfg.name || themeCfg.moodNote) ? `
-          <div class="curator-wall-scene-caption">
-            <span class="scene-cap-badge">${escapeHtml(styleLabelObj ? styleLabelObj.label : '✨ AI Scene')}</span>
-            <span class="scene-cap-text">${escapeHtml(themeCfg.name)}${themeCfg.moodNote ? ` — ${escapeHtml(themeCfg.moodNote)}` : ''}</span>
-          </div>
-        ` : ''}
       </div>
 
       <!-- Curator Identity, Auto-Detected Voice Signature, Lens Bio & Domain Pills -->
@@ -18907,7 +18901,6 @@ function renderCuratorWallProfileModalContent() {
       <!-- Live Wall Quote Poster Preview -->
       <div class="wall-studio-preview-label-row">
         <span class="wall-studio-section-kicker">LIVE WALL POSTER PREVIEW</span>
-        <span class="wall-studio-theme-tag">${escapeHtml(activeTheme.name)} (${escapeHtml(activeTheme.badgeLabel)})</span>
       </div>
       <div id="wallStudioLivePreviewCard"
            class="curator-wall-quote-poster is-studio-preview ${activeTheme.isLight ? 'is-light-wall' : 'is-dark-wall'} ${hasAiSceneBg ? 'has-ai-scene-bg' : ''}"
@@ -18929,12 +18922,6 @@ function renderCuratorWallProfileModalContent() {
             &ldquo;${escapeHtml(st.wallQuote || 'Write your State of Mind quote below...')}&rdquo;
           </blockquote>
         </div>
-        ${hasAiSceneBg && (activeTheme.name || activeTheme.moodNote) ? `
-          <div class="curator-wall-scene-caption">
-            <span class="scene-cap-badge">${escapeHtml(activeArtStyleObj.label)}</span>
-            <span class="scene-cap-text">${escapeHtml(activeTheme.name)}${activeTheme.moodNote ? ` — ${escapeHtml(activeTheme.moodNote)}` : ''}</span>
-          </div>
-        ` : ''}
       </div>
 
       <!-- 1. Wall Quote Input -->
