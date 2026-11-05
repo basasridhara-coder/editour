@@ -2337,10 +2337,6 @@ function applyWebCollageToPost(silentAutoApply = false) {
   window._isWebCollageAttached = true;
   window._selectedPosterVisualMode = 'web_collage';
 
-  if (typeof creatorSelectedSource !== 'undefined' && creatorSelectedSource === 'inner_voice') {
-    innerVoicePhotoBase64 = dataUrl;
-    innerVoicePhotoMimeType = 'image/jpeg';
-  }
   if (typeof isDailyChronicleMode !== 'undefined' && isDailyChronicleMode && Array.isArray(dailyChronicleMoments) && dailyChronicleMoments.length > 0) {
     const starredIdx = dailyChronicleMoments.findIndex(m => Boolean(m && m.isStarred));
     const targetIdx = starredIdx >= 0 ? starredIdx : 0;
@@ -12377,13 +12373,15 @@ function createPostCardElement(post, index) {
   const isClean = !!cleanViewState[index];
   const isSaved = savedPostIds.has(post.id);
   const canDelete = canDeletePost(post);
-  const hasPaperCut = post.sourceType === 'photo' 
+  const hasPaperCut = !post.isWebCollage && (
+    post.sourceType === 'photo' 
     || !!post.paperCutImage 
     || !!post.hasPaperCut
     || (post.originalPhotoUrl && (post.originalPhotoUrl.includes('clipping') || post.sourceType === 'photo'))
     || (post.originalPhotoBase64 && post.originalPhotoBase64.length > 50)
     || (post.originalPhotoPath && !post.originalPhotoPath.startsWith('http') && post.originalPhotoPath !== post.digitalLink)
-    || (tier === 'tier1_press' && (post.originalPhotoUrl || post.originalPhotoBase64 || post.originalPhotoPath));
+    || (tier === 'tier1_press' && (post.originalPhotoUrl || post.originalPhotoBase64 || post.originalPhotoPath))
+  );
 
   // Determine Tab 3 label and icon based on tier
   let tab3Icon = '📰';
@@ -29879,7 +29877,13 @@ async function startAiSynthesis() {
       if (spark) currentSynthesizedPost.spark = spark;
       if (cleanSourceImgUrl) currentSynthesizedPost.sourceImageUrl = cleanSourceImgUrl;
       if (effectiveImageBase64) currentSynthesizedPost.sourceImageBase64 = effectiveImageBase64;
-      if (creatorSelectedSource === 'inner_voice' && innerVoicePhotoBase64) {
+      if (window._isWebCollageAttached) {
+        currentSynthesizedPost.isWebCollage = true;
+        currentSynthesizedPost.hasPaperCut = false;
+        delete currentSynthesizedPost.originalPhotoBase64;
+        delete currentSynthesizedPost.catalystPhoto;
+        delete currentSynthesizedPost.catalystPhotoBase64;
+      } else if (creatorSelectedSource === 'inner_voice' && innerVoicePhotoBase64) {
         currentSynthesizedPost.catalystPhoto = innerVoicePhotoBase64;
         currentSynthesizedPost.catalystPhotoBase64 = innerVoicePhotoBase64;
         currentSynthesizedPost.originalPhotoBase64 = innerVoicePhotoBase64;
@@ -30082,9 +30086,9 @@ async function startAiSynthesis() {
     sourceImageMimeType: (window._isWebCollageAttached && creatorReferenceImageBase64?.startsWith('data:'))
       ? (creatorReferenceImageMimeType || 'image/jpeg')
       : ((isLink && currentScrapedArticle) ? (currentScrapedArticle.imageMimeType || 'image/jpeg') : (creatorReferenceImageMimeType || 'image/jpeg')),
-    imageBase64: effectiveImageBase64 || (creatorSelectedSource === 'inner_voice' ? innerVoicePhotoBase64 : null),
+    imageBase64: effectiveImageBase64 || (creatorSelectedSource === 'inner_voice' && !window._isWebCollageAttached ? innerVoicePhotoBase64 : null),
     imageMimeType: effectiveImageMime || innerVoicePhotoMimeType || 'image/jpeg',
-    innerVoiceImageBase64: (creatorSelectedSource === 'inner_voice') ? innerVoicePhotoBase64 : null,
+    innerVoiceImageBase64: (creatorSelectedSource === 'inner_voice' && !window._isWebCollageAttached) ? innerVoicePhotoBase64 : null,
     innerVoiceImageMimeType: innerVoicePhotoMimeType || 'image/jpeg',
     targetAudience: 'General Public',
     slantTone: (creatorSelectedSource === 'inner_voice' || /\b(family|child|love|heart|trip|vacation|weekend|pack|burnout|unplug|memoir|personal)\b/i.test(`${slantTake} ${spark}`)) ? 'heart' : 'mind',
@@ -30184,7 +30188,13 @@ async function startAiSynthesis() {
         setCachedYouTubeChannelLogo(url, currentSynthesizedPost.sourceLogoUrl);
       }
     }
-    if (creatorSelectedSource === 'inner_voice' && innerVoicePhotoBase64) {
+    if (window._isWebCollageAttached) {
+      currentSynthesizedPost.isWebCollage = true;
+      currentSynthesizedPost.hasPaperCut = false;
+      delete currentSynthesizedPost.originalPhotoBase64;
+      delete currentSynthesizedPost.catalystPhoto;
+      delete currentSynthesizedPost.catalystPhotoBase64;
+    } else if (creatorSelectedSource === 'inner_voice' && innerVoicePhotoBase64) {
       currentSynthesizedPost.catalystPhoto = innerVoicePhotoBase64;
       currentSynthesizedPost.catalystPhotoBase64 = innerVoicePhotoBase64;
       currentSynthesizedPost.originalPhotoBase64 = innerVoicePhotoBase64;
@@ -30193,7 +30203,8 @@ async function startAiSynthesis() {
     let refPhotoCandidate = currentSynthesizedPost.referencePhotoUrl
       || currentSynthesizedPost.sourceImageUrl
       || (currentSynthesizedPost.sourceImageBase64 ? (currentSynthesizedPost.sourceImageBase64.startsWith('data:') ? currentSynthesizedPost.sourceImageBase64 : `data:${currentSynthesizedPost.sourceImageMimeType || 'image/jpeg'};base64,${currentSynthesizedPost.sourceImageBase64}`) : null)
-      || (creatorSelectedSource === 'inner_voice' && innerVoicePhotoBase64 ? (innerVoicePhotoBase64.startsWith('data:') ? innerVoicePhotoBase64 : `data:${innerVoicePhotoMimeType || 'image/jpeg'};base64,${innerVoicePhotoBase64}`) : null)
+      || (window._isWebCollageAttached && creatorReferenceImageBase64 ? creatorReferenceImageBase64 : null)
+      || (creatorSelectedSource === 'inner_voice' && !window._isWebCollageAttached && innerVoicePhotoBase64 ? (innerVoicePhotoBase64.startsWith('data:') ? innerVoicePhotoBase64 : `data:${innerVoicePhotoMimeType || 'image/jpeg'};base64,${innerVoicePhotoBase64}`) : null)
       || null;
     if (refPhotoCandidate && typeof refPhotoCandidate === 'string' && refPhotoCandidate.startsWith('http')) {
       refPhotoCandidate = refPhotoCandidate.replace(/&amp;/g, '&');
@@ -30202,10 +30213,11 @@ async function startAiSynthesis() {
 
     if (creatorCharacterRepresentation === 'exact' && currentSynthesizedPost.referencePhotoUrl) {
       currentSynthesizedPost.illustrationUrl = currentSynthesizedPost.referencePhotoUrl;
-      if (creatorSelectedSource === 'inner_voice' && innerVoicePhotoBase64 && !currentSynthesizedPost.illustrationBase64) {
-        currentSynthesizedPost.illustrationBase64 = innerVoicePhotoBase64.startsWith('data:')
-          ? innerVoicePhotoBase64.split(',')[1]
-          : innerVoicePhotoBase64;
+      const exactFallbackSource = (window._isWebCollageAttached && creatorReferenceImageBase64) ? creatorReferenceImageBase64 : (creatorSelectedSource === 'inner_voice' ? innerVoicePhotoBase64 : null);
+      if (exactFallbackSource && !currentSynthesizedPost.illustrationBase64) {
+        currentSynthesizedPost.illustrationBase64 = exactFallbackSource.startsWith('data:')
+          ? exactFallbackSource.split(',')[1]
+          : exactFallbackSource;
       }
       currentSynthesizedPost.artworkPending = false;
     }
