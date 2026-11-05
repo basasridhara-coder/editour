@@ -61,6 +61,7 @@ function applyAtmosphere(pref) {
 }
 
 function openDrawer() {
+  document.getElementById('drawerPublicWallProfileRow')?.remove();
   if (typeof syncDrawerDiaryCounts === 'function') {
     syncDrawerDiaryCounts();
   }
@@ -21952,13 +21953,22 @@ function renderCuratorStyleProfile() {
       return `<div class="corr-bar-segment" style="height:${heightPct}%; background:${t.color};" title="${t.shortLabel}: ${val}"></div>`;
     }).join('');
 
+    const shortTitleWords = String(item.headline || 'Slant')
+      .replace(/^🔒\s*/g, '')
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .join(' ');
+
     return `
-      <div class="corr-bar-col ${isSelected ? 'selected' : ''}" onclick="selectCuratorCorrectionPost(${idx})" title="${escapeHtml(item.headline)} (${displayedTotal} corrections)">
+      <div class="corr-bar-col ${isSelected ? 'selected' : ''}" onclick="selectCuratorCorrectionPost(${idx})" title="#${idx + 1} · ${escapeHtml(item.headline)} (${displayedTotal} corrections)">
+        <div class="corr-bar-seq">#${idx + 1}</div>
         <div class="corr-bar-val">${displayedTotal}</div>
         <div class="corr-bar-track">
           ${stacksHtml || `<div class="corr-bar-zero"></div>`}
         </div>
         <div class="corr-bar-date">${escapeHtml(item.shortDate)}</div>
+        <div class="corr-bar-snippet">${escapeHtml(shortTitleWords)}</div>
       </div>
     `;
   }).join('');
@@ -22123,14 +22133,23 @@ function renderCuratorStyleProfile() {
       <!-- Post-by-Post Stacked Bar Chart (Slidable Candle Window) -->
       <div class="corr-chart-stage">
         <div class="corr-chart-header-row">
-          <div class="corr-chart-caption">Post-by-Post Correction Breakdown (${recentPostsForBars.length} Posts &middot; Slide window or tap any candle)</div>
+          <div class="corr-chart-caption">Post-by-Post Correction Breakdown (${recentPostsForBars.length} Posts &middot; Slide candles or tap any post)</div>
           <div class="corr-chart-slide-controls">
             <button type="button" class="corr-slide-nav-btn" onclick="scrollCuratorCorrectionBars(-1)" title="Slide Earlier Posts">&#x2039;</button>
             <button type="button" class="corr-slide-nav-btn" onclick="scrollCuratorCorrectionBars(1)" title="Slide Later Posts">&#x203A;</button>
           </div>
         </div>
-        <div class="corr-bars-scroller" id="curatorCorrBarsScroller">
-          ${postBarsHtml}
+        <div class="corr-bars-window-frame">
+          <div class="corr-bars-scroller" id="curatorCorrBarsScroller">
+            ${postBarsHtml}
+          </div>
+          ${recentPostsForBars.length > 5 ? `
+            <div class="corr-bars-slider-row">
+              <span class="corr-slider-edge-lbl">Oldest (#1)</span>
+              <input type="range" id="curatorCorrBarsRangeSlider" class="corr-bars-range-slider" min="0" max="100" value="100" aria-label="Slide through posts">
+              <span class="corr-slider-edge-lbl">Latest (#${recentPostsForBars.length})</span>
+            </div>
+          ` : ''}
         </div>
       </div>
 
@@ -22197,7 +22216,14 @@ function renderCuratorStyleProfile() {
   `;
 
   const barsScroller = document.getElementById('curatorCorrBarsScroller');
+  const rangeSlider = document.getElementById('curatorCorrBarsRangeSlider');
   if (barsScroller) {
+    const syncSliderFromScroll = () => {
+      if (!rangeSlider) return;
+      const maxScroll = Math.max(1, barsScroller.scrollWidth - barsScroller.clientWidth);
+      rangeSlider.value = String(Math.round((barsScroller.scrollLeft / maxScroll) * 100));
+    };
+
     requestAnimationFrame(() => {
       if (prevBarsScrollLeft !== null) {
         barsScroller.scrollLeft = prevBarsScrollLeft;
@@ -22205,7 +22231,16 @@ function renderCuratorStyleProfile() {
         // Default to showing the latest posts on the right edge of the slidable window
         barsScroller.scrollLeft = barsScroller.scrollWidth;
       }
+      syncSliderFromScroll();
     });
+
+    barsScroller.addEventListener('scroll', syncSliderFromScroll, { passive: true });
+    if (rangeSlider) {
+      rangeSlider.addEventListener('input', () => {
+        const maxScroll = Math.max(0, barsScroller.scrollWidth - barsScroller.clientWidth);
+        barsScroller.scrollLeft = (Number(rangeSlider.value) / 100) * maxScroll;
+      });
+    }
 
     // Enable smooth mouse drag-to-slide on desktop/laptop in addition to touch/trackpad horizontal scroll
     let isDraggingBars = false;

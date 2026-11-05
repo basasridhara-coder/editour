@@ -13958,12 +13958,28 @@ mark.polish-mark:hover, mark.polish-mark.active {
   color: #0F172A;
 }
 
+.corr-bars-window-frame {
+  width: 100%;
+  max-width: 440px;
+  margin: 0 auto;
+  padding: 8px 10px 6px;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.45);
+  border: 1px solid rgba(168, 85, 247, 0.22);
+  box-sizing: border-box;
+}
+
+[data-theme="daylight"] .corr-bars-window-frame {
+  background: #F8FAFC;
+  border-color: #CBD5E1;
+}
+
 .corr-bars-scroller {
   display: flex;
   flex-wrap: nowrap;
-  gap: 8px;
+  gap: 10px;
   align-items: flex-end;
-  min-height: 128px;
+  min-height: 142px;
   overflow-x: auto;
   overflow-y: hidden;
   padding-bottom: 6px;
@@ -13995,16 +14011,64 @@ mark.polish-mark:hover, mark.polish-mark.active {
 }
 
 .corr-bar-col {
-  flex: 0 0 46px;
-  min-width: 46px;
+  flex: 0 0 68px;
+  min-width: 68px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   cursor: pointer;
-  padding: 4px 2px;
-  border-radius: 8px;
-  transition: background 0.15s ease;
+  padding: 6px 4px;
+  border-radius: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.02);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+[data-theme="daylight"] .corr-bar-col {
+  background: #FFFFFF;
+  border-color: #E2E8F0;
+}
+
+.corr-bar-seq {
+  font-size: 9px;
+  font-weight: 800;
+  color: #94A3B8;
+  letter-spacing: 0.3px;
+}
+
+.corr-bar-snippet {
+  font-size: 8.5px;
+  font-weight: 600;
+  color: #64748B;
+  max-width: 62px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
+}
+
+.corr-bars-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  padding-top: 4px;
+  border-top: 1px dashed rgba(148, 163, 184, 0.18);
+}
+
+.corr-slider-edge-lbl {
+  font-size: 9.5px;
+  font-weight: 700;
+  color: #94A3B8;
+  white-space: nowrap;
+}
+
+.corr-bars-range-slider {
+  flex: 1;
+  height: 5px;
+  accent-color: #A855F7;
+  cursor: pointer;
 }
 
 .corr-bar-col:hover,

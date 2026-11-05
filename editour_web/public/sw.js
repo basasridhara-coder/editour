@@ -1,5 +1,5 @@
 // Slant PWA Service Worker (Enables Web Share Target & Native Installability)
-const CACHE_NAME = 'slant-pwa-v1';
+const CACHE_NAME = 'slant-pwa-v20261106';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
