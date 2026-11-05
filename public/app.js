@@ -299,7 +299,8 @@ async function init() {
     openPrivatePreviewGateModal(gateEmail);
   }
   const deepPostId = typeof getDeepLinkedPostId === 'function' ? getDeepLinkedPostId() : null;
-  if (!currentUser && !deepPostId) {
+  const hasPublicDeepLink = typeof hasPublicDeepLinkInUrl === 'function' ? hasPublicDeepLinkInUrl() : Boolean(deepPostId);
+  if (!currentUser && !hasPublicDeepLink) {
     dismissInitialFeedLoader(true);
     renderLoginPostsPreview();
   }
@@ -3127,7 +3128,8 @@ function updateAuthUI() {
       maybeShowFirstLoginSlantDictionaryModal();
     }
   } else {
-    if (deepPostId) {
+    const hasPublicDeepLink = typeof hasPublicDeepLinkInUrl === 'function' ? hasPublicDeepLinkInUrl() : Boolean(deepPostId);
+    if (hasPublicDeepLink) {
       if (signedInView) signedInView.style.display = 'flex';
       if (signedOutView) signedOutView.style.display = 'none';
       document.body.classList.remove('signed-out-active');
@@ -6486,6 +6488,42 @@ function getPostShareUrl(post) {
   return `${window.location.origin}/?p=${encodeURIComponent(post.id)}`;
 }
 
+function getDeepLinkedSeriesInfo() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const seriesId = (params.get('series') || params.get('seriesId') || '').trim();
+    const curator = (params.get('curator') || params.get('author') || params.get('creator') || '').trim().replace(/^@/, '');
+    if (seriesId) {
+      return {
+        seriesId: decodeURIComponent(seriesId),
+        curator: curator ? decodeURIComponent(curator) : ''
+      };
+    }
+  } catch (_) {}
+  return null;
+}
+
+function hasPublicDeepLinkInUrl() {
+  try {
+    if (getDeepLinkedPostId() || getDeepLinkedSeriesInfo()) return true;
+    const params = new URLSearchParams(window.location.search);
+    const c = params.get('curator') || params.get('author') || params.get('creator');
+    return Boolean(c && c.trim());
+  } catch (_) {
+    return false;
+  }
+}
+
+function getSeriesShareUrl(seriesId, authorHandle = '') {
+  const cleanSeriesId = String(seriesId || '').trim();
+  const cleanHandle = String(authorHandle || (typeof getUserDisplayName === 'function' ? getUserDisplayName() : '') || '').replace(/^@/, '').trim();
+  if (!cleanSeriesId) return window.location.origin;
+  if (cleanHandle) {
+    return `${window.location.origin}/?curator=${encodeURIComponent(cleanHandle)}&series=${encodeURIComponent(cleanSeriesId)}`;
+  }
+  return `${window.location.origin}/?series=${encodeURIComponent(cleanSeriesId)}`;
+}
+
 function getSourceHeadline(post) {
   if (!post) return 'this topic';
   let title = (
@@ -7245,19 +7283,34 @@ async function checkDeepLink() {
     (window.location.pathname && window.location.pathname.endsWith('/login'));
 
   const curatorParam = params.get('curator') || params.get('author') || params.get('creator');
-  if (curatorParam && curatorParam.trim()) {
-    const cleanCurator = decodeURIComponent(curatorParam.trim()).replace(/^@/, '');
-    if (!currentUser) {
-      sessionStorage.setItem('slant_redirect_curator', cleanCurator);
+  const seriesParam = params.get('series') || params.get('seriesId');
+  if ((curatorParam && curatorParam.trim()) || (seriesParam && seriesParam.trim())) {
+    let cleanCurator = curatorParam ? decodeURIComponent(curatorParam.trim()).replace(/^@/, '') : '';
+    const cleanSeriesId = seriesParam ? decodeURIComponent(seriesParam.trim()) : 'all';
+
+    // If only ?series= was provided without ?curator=, infer curator from the matching post in allPosts
+    if (!cleanCurator && cleanSeriesId && cleanSeriesId !== 'all' && Array.isArray(allPosts)) {
+      const matchedSeriesPost = allPosts.find(p => {
+        if (!p || p.deleted || p.isDeleted) return false;
+        const sInfo = typeof getPostSeriesInfo === 'function' ? getPostSeriesInfo(p) : null;
+        return sInfo && sInfo.id === cleanSeriesId;
+      });
+      if (matchedSeriesPost) {
+        cleanCurator = String(matchedSeriesPost.creatorHandle || matchedSeriesPost.userEmail || '').replace(/^@/, '').trim();
+      }
+    }
+
+    if (cleanCurator) {
+      dismissInitialFeedLoader(true);
+      updateAuthUI();
       setTimeout(() => {
-        if (!currentUser) {
-          openAuthModal(`Sign in to explore all opinions and slants by @${cleanCurator}.`);
+        filterByCurator(cleanCurator, cleanSeriesId || 'all');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        if (cleanSeriesId && cleanSeriesId !== 'all') {
+          showTemporaryToast('📚 Viewing shared Series');
         }
-      }, 250);
-    } else {
-      setTimeout(() => {
-        filterByCurator(cleanCurator);
-      }, 350);
+      }, 260);
+      return;
     }
   }
 
@@ -8371,6 +8424,7 @@ function renderSeriesFilterBar(container) {
                 <span class="series-stat-pill is-public" title="Published to Public Feed">🌐 ${activeStats.pubCount}</span>
                 <span class="series-stat-pill is-private" title="Private in Series (Visible Only to You)">🔒 ${activeStats.privCount}</span>
                 ${!isEditingNotebook ? `
+                  <button type="button" class="series-edit-meta-btn" onclick="shareSeriesNotebook('${escapeHtml(activeSeriesObj.id)}', '', event)" style="background:rgba(245,158,11,0.16); border-color:rgba(245,158,11,0.45); color:#FBBF24;" title="Share this Series with thumbnail image, message & direct link">📤 Share</button>
                   <button type="button" class="series-edit-meta-btn" onclick="toggleEditSeriesNotebook('${escapeHtml(activeSeriesObj.id)}', true)" title="Edit Series title, description, or cover">✏️ Edit</button>
                   <button type="button" class="series-delete-icon-btn" onclick="promptDeleteSeriesNotebook('${escapeHtml(activeSeriesObj.id)}', true, event)" title="Delete Series (posts remain safe in Drafts/Feed)">🗑️</button>
                 ` : ''}
@@ -8418,9 +8472,14 @@ function renderSeriesFilterBar(container) {
 
         <div class="series-notebook-actions">
           <span class="series-notebook-hint">${isNewlyCreated ? '🎉 Series ready! Start slanting your first perspective in this series:' : 'Explore thoughts in this series privately, and publish only the ones you choose.'}</span>
-          <button type="button" class="series-add-post-btn" onclick="openCreatorForSeries('${escapeHtml(activeSeriesObj.id)}')">
-            <span>✨ Start Slanting &rarr;</span>
-          </button>
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <button type="button" class="series-create-secondary-btn" onclick="shareSeriesNotebook('${escapeHtml(activeSeriesObj.id)}', '', event)" style="display:inline-flex; align-items:center; gap:5px; padding:8px 13px; border-radius:10px; border:1px solid rgba(245,158,11,0.45); background:rgba(245,158,11,0.14); color:#FBBF24; font-size:12px; font-weight:800; cursor:pointer;" title="Share Series thumbnail image, message & direct link">
+              <span>📤 Share Series</span>
+            </button>
+            <button type="button" class="series-add-post-btn" onclick="openCreatorForSeries('${escapeHtml(activeSeriesObj.id)}')">
+              <span>✨ Start Slanting &rarr;</span>
+            </button>
+          </div>
         </div>
       </div>
     ` : '')}
@@ -8428,6 +8487,321 @@ function renderSeriesFilterBar(container) {
 
   container.appendChild(wrap);
 }
+
+function resolveSeriesMetadataForShare(seriesId, authorHandle = '') {
+  const sId = String(seriesId || '').trim();
+  if (!sId) return null;
+
+  const ownedSeries = Array.isArray(creatorSeriesList) ? creatorSeriesList.find(s => s && s.id === sId) : null;
+  const stats = typeof getSeriesStats === 'function' ? getSeriesStats(sId) : { total: 0, pubCount: 0, coverImage: '' };
+
+  let title = ownedSeries?.title || '';
+  let description = ownedSeries?.description || '';
+  let icon = ownedSeries?.icon || '📚';
+  let coverImage = ownedSeries?.customCoverImage || stats.coverImage || '';
+  let handle = String(authorHandle || '').replace(/^@/, '').trim();
+  let pubCount = stats.pubCount || 0;
+
+  if (Array.isArray(allPosts)) {
+    const matchingPosts = allPosts.filter(p => {
+      if (!p || p.deleted || p.isDeleted || isPostPrivateOrDraft(p)) return false;
+      const sInfo = typeof getPostSeriesInfo === 'function' ? getPostSeriesInfo(p) : null;
+      return sInfo && sInfo.id === sId;
+    });
+    if (matchingPosts.length > 0) {
+      pubCount = Math.max(pubCount, matchingPosts.length);
+      const first = matchingPosts[0];
+      const sInfo = getPostSeriesInfo(first);
+      if (!title && sInfo?.title) title = sInfo.title;
+      if (!description) {
+        description = sInfo?.description || String(first.seriesDescription || first.generationInputs?.seriesDescription || '').trim();
+      }
+      if (!coverImage) {
+        coverImage = sInfo?.customCoverImage
+          || String(first.seriesCoverImage || first.generationInputs?.seriesCoverImage || '').trim()
+          || first.illustrationBase64
+          || first.illustrationUrl
+          || first.aiIllustrationUrl
+          || '';
+      }
+      if (!handle) {
+        handle = String(first.creatorHandle || first.userEmail || '').replace(/^@/, '').trim();
+      }
+    }
+  }
+
+  if (!handle && typeof getUserDisplayName === 'function') {
+    handle = String(getUserDisplayName() || 'curator').replace(/^@/, '').trim();
+  }
+
+  return {
+    id: sId,
+    title: title || 'Editorial Series',
+    description: description || 'A curated collection of perspectives on Slant.',
+    icon,
+    coverImage,
+    handle: handle || 'curator',
+    pubCount: Math.max(1, pubCount || stats.total || 1)
+  };
+}
+
+function wrapCanvasTextLines(ctx, text, maxWidth, maxLines = 3) {
+  const words = String(text || '').trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return [];
+  const lines = [];
+  let currentLine = words[0];
+
+  for (let i = 1; i < words.length; i++) {
+    const testLine = currentLine + ' ' + words[i];
+    if (ctx.measureText(testLine).width <= maxWidth) {
+      currentLine = testLine;
+    } else {
+      lines.push(currentLine);
+      currentLine = words[i];
+      if (lines.length === maxLines - 1) {
+        for (let j = i + 1; j < words.length; j++) {
+          const nextTry = currentLine + ' ' + words[j];
+          if (ctx.measureText(nextTry + '…').width <= maxWidth) {
+            currentLine = nextTry;
+          } else {
+            currentLine += '…';
+            break;
+          }
+        }
+        break;
+      }
+    }
+  }
+  if (lines.length < maxLines && currentLine) {
+    lines.push(currentLine);
+  }
+  return lines;
+}
+
+async function generateSeriesThumbnailShareFile(seriesMeta) {
+  const W = 1080;
+  const H = 1350;
+  const canvas = document.createElement('canvas');
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+
+  // 1. Base Obsidian & Gold Editorial Gradient
+  const baseGrad = ctx.createLinearGradient(0, 0, W, H);
+  baseGrad.addColorStop(0, '#090D16');
+  baseGrad.addColorStop(0.55, '#131C31');
+  baseGrad.addColorStop(1, '#1A130B');
+  ctx.fillStyle = baseGrad;
+  ctx.fillRect(0, 0, W, H);
+
+  // 2. Draw Series Cover Image (Full-bleed Cover Fit) if available
+  if (seriesMeta.coverImage) {
+    try {
+      const img = await new Promise((resolve, reject) => {
+        const im = new Image();
+        im.crossOrigin = 'anonymous';
+        im.onload = () => resolve(im);
+        im.onerror = reject;
+        im.src = seriesMeta.coverImage;
+      });
+      const rImg = img.naturalWidth / img.naturalHeight;
+      const rCan = W / H;
+      let sx = 0, sy = 0, sw = img.naturalWidth, sh = img.naturalHeight;
+      if (rImg > rCan) {
+        sw = img.naturalHeight * rCan;
+        sx = (img.naturalWidth - sw) / 2;
+      } else if (rImg < rCan) {
+        sh = img.naturalWidth / rCan;
+        sy = (img.naturalHeight - sh) / 2;
+      }
+      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, W, H);
+    } catch (_) {}
+  }
+
+  // 3. Top & Bottom Editorial Scrims for Contrast
+  const topScrim = ctx.createLinearGradient(0, 0, 0, 280);
+  topScrim.addColorStop(0, 'rgba(6, 10, 18, 0.85)');
+  topScrim.addColorStop(1, 'rgba(6, 10, 18, 0)');
+  ctx.fillStyle = topScrim;
+  ctx.fillRect(0, 0, W, 280);
+
+  const botScrim = ctx.createLinearGradient(0, H * 0.42, 0, H);
+  botScrim.addColorStop(0, 'rgba(6, 10, 18, 0)');
+  botScrim.addColorStop(0.35, 'rgba(8, 12, 22, 0.84)');
+  botScrim.addColorStop(1, 'rgba(6, 9, 16, 0.97)');
+  ctx.fillStyle = botScrim;
+  ctx.fillRect(0, H * 0.42, W, H * 0.58);
+
+  // 4. Outer Subtle Gold Editorial Border
+  ctx.strokeStyle = 'rgba(245, 158, 11, 0.45)';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(36, 36, W - 72, H - 72);
+
+  // 5. Top-Left Brand Pill ("SLANT • EDITORIAL SERIES")
+  ctx.fillStyle = 'rgba(15, 23, 42, 0.82)';
+  ctx.beginPath();
+  ctx.roundRect(68, 68, 360, 56, 28);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.22)';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  ctx.fillStyle = '#F8FAFC';
+  ctx.font = '800 22px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  ctx.fillText('📚 SLANT • SERIES', 96, 104);
+
+  // 6. Top-Right Glowing Gold @Curator Badge
+  const handleText = `✦ @${seriesMeta.handle}`;
+  ctx.font = '800 23px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  const handleW = Math.min(440, ctx.measureText(handleText).width + 54);
+  const pillX = W - 68 - handleW;
+
+  ctx.save();
+  ctx.shadowColor = 'rgba(245, 158, 11, 0.55)';
+  ctx.shadowBlur = 18;
+  ctx.fillStyle = 'rgba(20, 15, 8, 0.88)';
+  ctx.beginPath();
+  ctx.roundRect(pillX, 68, handleW, 56, 28);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(251, 191, 36, 0.85)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.fillStyle = '#FDE68A';
+  ctx.fillText(handleText, pillX + 26, 104);
+
+  // 7. Bottom Series Title, Description & Callout Plaque
+  const padX = 76;
+  const maxTextW = W - padX * 2;
+
+  ctx.font = '700 26px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  const descLines = wrapCanvasTextLines(ctx, seriesMeta.description, maxTextW, 3);
+
+  ctx.font = 'italic 800 62px Georgia, "Playfair Display", serif';
+  const titleLines = wrapCanvasTextLines(ctx, `“${seriesMeta.title}”`, maxTextW, 3);
+
+  const footerY = H - 84;
+  const descLineH = 38;
+  const titleLineH = 74;
+  const descBlockH = descLines.length * descLineH;
+  const titleBlockH = titleLines.length * titleLineH;
+
+  let curY = footerY - 68 - descBlockH - 26 - titleBlockH;
+
+  // Kicker Pill above Title
+  ctx.fillStyle = '#FBBF24';
+  ctx.font = '800 21px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  const countLabel = `${seriesMeta.pubCount} ${seriesMeta.pubCount === 1 ? 'PUBLISHED SLANT' : 'PUBLISHED SLANTS'} • CURATED BY @${seriesMeta.handle.toUpperCase()}`;
+  ctx.fillText(`✦ ${countLabel}`, padX, curY - 26);
+
+  // Series Title
+  ctx.fillStyle = '#FEF3C7';
+  ctx.font = 'italic 800 62px Georgia, "Playfair Display", serif';
+  titleLines.forEach(line => {
+    ctx.fillText(line, padX, curY + 42);
+    curY += titleLineH;
+  });
+
+  // Series Description
+  curY += 16;
+  ctx.fillStyle = '#E2E8F0';
+  ctx.font = '500 27px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  descLines.forEach(line => {
+    ctx.fillText(line, padX, curY + 28);
+    curY += descLineH;
+  });
+
+  // Divider & Footer
+  ctx.strokeStyle = 'rgba(245, 158, 11, 0.35)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(padX, footerY - 38);
+  ctx.lineTo(W - padX, footerY - 38);
+  ctx.stroke();
+
+  ctx.fillStyle = '#FBBF24';
+  ctx.font = '800 22px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  ctx.fillText('🌐 slant.today', padX, footerY);
+
+  const ctaRight = 'Tap link to read all posts in this series →';
+  ctx.fillStyle = '#CBD5E1';
+  ctx.font = '600 21px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  const ctaW = ctx.measureText(ctaRight).width;
+  ctx.fillText(ctaRight, W - padX - ctaW, footerY);
+
+  return new Promise(resolve => {
+    canvas.toBlob(blob => {
+      if (!blob) return resolve(null);
+      const safeSlug = seriesMeta.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'series';
+      resolve(new File([blob], `slant-series-${safeSlug}.png`, { type: 'image/png' }));
+    }, 'image/png', 0.94);
+  });
+}
+
+async function shareSeriesNotebook(seriesId, authorHandle = '', event = null) {
+  if (event && typeof event.stopPropagation === 'function') {
+    event.stopPropagation();
+  }
+  const seriesMeta = resolveSeriesMetadataForShare(seriesId, authorHandle);
+  if (!seriesMeta) {
+    showTemporaryToast('Could not locate Series details to share.');
+    return;
+  }
+
+  showTemporaryToast(`🎨 Preparing Series cover & link for "${seriesMeta.title}"...`, 2800);
+
+  const seriesUrl = getSeriesShareUrl(seriesMeta.id, seriesMeta.handle);
+  const descSnippet = seriesMeta.description && seriesMeta.description !== 'A curated collection of perspectives on Slant.'
+    ? ` — "${seriesMeta.description}"`
+    : '';
+  const shareMessage = `📚 Explore the Series "${seriesMeta.title}"${descSnippet} (${seriesMeta.pubCount} ${seriesMeta.pubCount === 1 ? 'Slant' : 'Slants'} by @${seriesMeta.handle}) on Slant:\n${seriesUrl}`;
+
+  // Always copy the share message & link to clipboard so it's ready to paste anywhere
+  if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+    try {
+      await navigator.clipboard.writeText(shareMessage);
+    } catch (_) {}
+  }
+
+  const thumbFile = await generateSeriesThumbnailShareFile(seriesMeta);
+
+  if (navigator.share) {
+    try {
+      if (thumbFile && navigator.canShare && navigator.canShare({ files: [thumbFile], title: seriesMeta.title, text: shareMessage })) {
+        await navigator.share({
+          files: [thumbFile],
+          title: `${seriesMeta.title} • Slant Series`,
+          text: shareMessage
+        });
+        showTemporaryToast('✨ Series thumbnail, message & link shared!');
+        return;
+      }
+      if (thumbFile && navigator.canShare && navigator.canShare({ files: [thumbFile] })) {
+        showTemporaryToast('📋 Series message & link copied! Paste into caption bar.', 4500);
+        await navigator.share({ files: [thumbFile] });
+        return;
+      }
+      await navigator.share({
+        title: `${seriesMeta.title} • Slant Series`,
+        text: shareMessage,
+        url: seriesUrl
+      });
+      showTemporaryToast('✨ Series link shared!');
+      return;
+    } catch (err) {
+      if (err && err.name === 'AbortError') return;
+      console.warn('Series native share fallback:', err);
+    }
+  }
+
+  if (thumbFile && typeof downloadSingleFile === 'function') {
+    downloadSingleFile(thumbFile);
+  }
+  showTemporaryToast('📥 Series cover downloaded & share link copied to clipboard!', 4500);
+}
+window.shareSeriesNotebook = shareSeriesNotebook;
 
 async function renderFeed(isInitial = false) {
   const container = document.getElementById('feedContainer');
@@ -13567,13 +13941,17 @@ function filterByCurator(curatorName, selectedSeriesId = 'all') {
       const allProfileCover = firstCoverPost.illustrationBase64 || firstCoverPost.illustrationUrl || firstCoverPost.aiIllustrationUrl || '';
 
       const activeSeriesObj = (activeCuratorSeriesFilter && activeCuratorSeriesFilter !== 'all')
-        ? sharedSeriesList.find(s => s.id === activeCuratorSeriesFilter)
+        ? sharedSeriesList.find(s => s.id === activeCuratorSeriesFilter || String(s.title || '').toLowerCase() === activeCuratorSeriesFilter.toLowerCase())
         : null;
+
+      if (activeSeriesObj) {
+        document.title = `${activeSeriesObj.title} • Series by @${displayHandle} • Slant`;
+      }
 
       const visiblePosts = activeSeriesObj
         ? matched.filter(p => {
             const sInfo = getPostSeriesInfo(p);
-            return sInfo && sInfo.id === activeSeriesObj.id;
+            return sInfo && (sInfo.id === activeSeriesObj.id || String(sInfo.title || '').toLowerCase() === String(activeSeriesObj.title || '').toLowerCase());
           })
         : matched;
 
@@ -13637,7 +14015,10 @@ function filterByCurator(curatorName, selectedSeriesId = 'all') {
                   <div class="series-studio-header-and-title-col">
                     <div class="series-notebook-top">
                       <span class="series-notebook-kicker">📚 SERIES BY @${escapeHtml(displayHandle.toUpperCase())}</span>
-                      <span class="series-stat-pill is-public">🌐 ${activeSeriesObj.count} ${activeSeriesObj.count === 1 ? 'Post' : 'Posts'}</span>
+                      <div style="display:flex; align-items:center; gap:6px;">
+                        <span class="series-stat-pill is-public">🌐 ${activeSeriesObj.count} ${activeSeriesObj.count === 1 ? 'Post' : 'Posts'}</span>
+                        <button type="button" class="series-edit-meta-btn" onclick="shareSeriesNotebook('${escapeHtml(activeSeriesObj.id)}', '${escapeHtml(displayHandle)}', event)" style="background:rgba(245,158,11,0.16); border-color:rgba(245,158,11,0.45); color:#FBBF24;" title="Share this Series with thumbnail image, message & direct link">📤 Share Series</button>
+                      </div>
                     </div>
                     <h4 class="series-notebook-title">${escapeHtml(activeSeriesObj.title)}</h4>
                   </div>
