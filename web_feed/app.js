@@ -18508,7 +18508,9 @@ async function ensurePublicCuratorProfileLoaded(rawHandle) {
 }
 
 function computeCuratorAutoVoiceAndDomains(posts = []) {
-  const validPosts = Array.isArray(posts) ? posts.filter(p => p && !p.deleted && !p.isDeleted) : [];
+  const validPosts = Array.isArray(posts)
+    ? posts.filter(p => p && !p.deleted && !p.isDeleted && !isPostChronicleDiary(p) && !isPostPrivateOrDraft(p))
+    : [];
   if (validPosts.length === 0) {
     return {
       voiceLabel: 'First-Principles Thinker',
@@ -18551,17 +18553,20 @@ function computeCuratorAutoVoiceAndDomains(posts = []) {
   const voiceMeta = VOICE_ARCHETYPES[topEmoId] || VOICE_ARCHETYPES.pragmatic;
 
   const TOPIC_LABEL_MAP = {
+    politics: 'Governance & Policy',
     governance: 'Governance & Policy',
+    society: 'Society & Civic Culture',
     tech: 'Tech & AI',
-    culture: 'Culture & Society',
+    culture: 'Culture, Media & History',
     science: 'Science & Health',
     family: 'Life & Reflections',
     economy: 'Economics & Markets'
   };
-  const topTopics = Object.keys(topicCounts)
-    .sort((a, b) => topicCounts[b] - topicCounts[a])
-    .slice(0, 3)
-    .map(id => TOPIC_LABEL_MAP[id] || 'Perspective');
+  const topTopics = Array.from(new Set(
+    Object.keys(topicCounts)
+      .sort((a, b) => topicCounts[b] - topicCounts[a])
+      .map(id => TOPIC_LABEL_MAP[id] || 'Perspective & Craft')
+  )).slice(0, 3);
 
   return {
     voiceLabel: voiceMeta.label,
@@ -18731,10 +18736,47 @@ function openCuratorWallProfileModal(targetHandle = '') {
     autoInsights
   };
 
-  const modal = document.getElementById('curatorWallProfileModal');
-  const overlay = document.getElementById('curatorWallProfileModalOverlay');
-  if (modal) modal.style.display = 'flex';
-  if (overlay) overlay.style.display = 'block';
+  let overlay = document.getElementById('curatorWallProfileModalOverlay');
+  let modal = document.getElementById('curatorWallProfileModal');
+
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'curatorWallProfileModalOverlay';
+    overlay.className = 'curator-style-modal-overlay';
+    overlay.style.cssText = 'display:none; z-index: 1000010;';
+    overlay.onclick = closeCuratorWallProfileModal;
+    document.body.appendChild(overlay);
+  } else {
+    overlay.className = 'curator-style-modal-overlay';
+  }
+
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'curatorWallProfileModal';
+    modal.className = 'curator-style-modal curator-wall-profile-modal';
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.style.cssText = 'display:none; z-index: 1000011;';
+    modal.innerHTML = `
+      <div class="curator-style-modal-header">
+        <div class="curator-style-title-wrap">
+          <span class="curator-style-sparkle">🏛️</span>
+          <div>
+            <div class="curator-style-title" id="curatorWallModalTitle">Profile &amp; Wall Quote Studio</div>
+            <div class="curator-style-subtitle">Your State of Mind banner &amp; intellectual lens when readers visit your @handle</div>
+          </div>
+        </div>
+        <button type="button" class="curator-style-close-btn" onclick="closeCuratorWallProfileModal()" aria-label="Close">&times;</button>
+      </div>
+      <div class="curator-style-modal-body" id="curatorWallProfileModalBody" style="padding: 16px 18px 20px; overflow-y: auto; max-height: 78vh;"></div>
+    `;
+    document.body.appendChild(modal);
+  } else {
+    modal.className = 'curator-style-modal curator-wall-profile-modal';
+  }
+
+  overlay.style.display = 'block';
+  modal.style.display = 'flex';
 
   renderCuratorWallProfileModalContent();
 }
