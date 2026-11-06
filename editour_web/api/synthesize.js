@@ -795,9 +795,10 @@ function extractKeyVisualSubjectsZeroCost(contextText = '', scrapedTitle = '') {
   return subjects.slice(0, 3);
 }
 
-async function searchWebImagesForSubject(rawQuery = '', sourceImageUrl = '', sourceTitle = '') {
+async function searchWebImagesForSubject(rawQuery = '', sourceImageUrl = '', sourceTitle = '', pageOffset = 0) {
   const q = String(rawQuery || '').trim();
   if (!q) return [];
+  const safePage = Math.max(0, parseInt(pageOffset, 10) || 0);
   const results = [];
   const seenUrls = new Set();
 
@@ -811,7 +812,7 @@ async function searchWebImagesForSubject(rawQuery = '', sourceImageUrl = '', sou
     if (seenUrls.has(cleanUrl)) return;
     seenUrls.add(cleanUrl);
     targetArr.push({
-      id: item.id || `img_${targetArr.length + 1}_${Math.random().toString(36).slice(2, 6)}`,
+      id: item.id || `img_${safePage}_${targetArr.length + 1}_${Math.random().toString(36).slice(2, 6)}`,
       url: cleanUrl,
       thumbUrl: String(item.thumbUrl || cleanUrl).trim(),
       title: String(item.title || q).replace(/^(?:File|Image):/i, '').replace(/\.[a-z]{3,4}$/i, '').replace(/_/g, ' ').slice(0, 75),
@@ -820,8 +821,8 @@ async function searchWebImagesForSubject(rawQuery = '', sourceImageUrl = '', sou
     });
   };
 
-  // If a scraped source image exists and matches the first query context, include it at the top as a verified option
-  if (sourceImageUrl && /^https?:\/\//i.test(sourceImageUrl)) {
+  // If a scraped source image exists and matches the first query context on page 0, include it at the top as a verified option
+  if (safePage === 0 && sourceImageUrl && /^https?:\/\//i.test(sourceImageUrl)) {
     pushImage({
       id: 'source_hero_img',
       url: sourceImageUrl,
@@ -846,7 +847,8 @@ async function searchWebImagesForSubject(rawQuery = '', sourceImageUrl = '', sou
   // Query 0 (Primary): Live Full-Web Image Search (News sites, articles, editorial photography across the web)
   const webImagesTask = (async () => {
     try {
-      const webUrl = `https://www.bing.com/images/async?q=${encodeURIComponent(q)}&first=0&count=14&mmasync=1`;
+      const bingFirst = safePage * 14;
+      const webUrl = `https://www.bing.com/images/async?q=${encodeURIComponent(q)}&first=${bingFirst}&count=16&mmasync=1`;
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), 4500);
       const resp = await fetch(webUrl, { headers: browserHeaders, signal: ctrl.signal });
@@ -889,7 +891,8 @@ async function searchWebImagesForSubject(rawQuery = '', sourceImageUrl = '', sou
   // Query 1: Wikipedia PageImages API (Best for public figures, places, companies, books, events, concepts)
   const wikiTask = (async () => {
     try {
-      const wikiUrl = `https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(q)}&gsrlimit=6&prop=pageimages|description&piprop=thumbnail|original&pithumbsize=720&format=json&origin=*`;
+      const wikiOffset = safePage * 6;
+      const wikiUrl = `https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(q)}&gsrlimit=6&gsroffset=${wikiOffset}&prop=pageimages|description&piprop=thumbnail|original&pithumbsize=720&format=json&origin=*`;
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), 4500);
       const resp = await fetch(wikiUrl, { headers: uaHeaders, signal: ctrl.signal });
@@ -923,7 +926,8 @@ async function searchWebImagesForSubject(rawQuery = '', sourceImageUrl = '', sou
   // Query 2: Wikimedia Commons Bitmap Search API (Secondary archival photography)
   const commonsTask = (async () => {
     try {
-      const commonsUrl = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(`filetype:bitmap ${q}`)}&gsrnamespace=6&gsrlimit=6&prop=imageinfo&iiprop=url|dimensions|mime&iiurlwidth=720&format=json&origin=*`;
+      const commonsOffset = safePage * 6;
+      const commonsUrl = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(`filetype:bitmap ${q}`)}&gsrnamespace=6&gsrlimit=6&gsroffset=${commonsOffset}&prop=imageinfo&iiprop=url|dimensions|mime&iiurlwidth=720&format=json&origin=*`;
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), 4500);
       const resp = await fetch(commonsUrl, { headers: uaHeaders, signal: ctrl.signal });
@@ -1162,7 +1166,8 @@ module.exports = async function handler(req, res) {
         scrapedTitle = '',
         sourceImageUrl = '',
         extractSubjects = false,
-        includeSlantCommons = false
+        includeSlantCommons = false,
+        pageOffset = 0
       } = body;
 
       try {
@@ -1182,7 +1187,8 @@ module.exports = async function handler(req, res) {
             const imgs = await searchWebImagesForSubject(
               qStr,
               sourceImageUrl,
-              scrapedTitle
+              scrapedTitle,
+              pageOffset
             );
             tabResults[qStr] = imgs;
           })

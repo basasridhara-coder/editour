@@ -1514,6 +1514,9 @@ window.updateUnifiedPosterVisualStripUI = updateUnifiedPosterVisualStripUI;
 window._webCollageState = {
   isOpen: false,
   isLoading: false,
+  isLoadingMore: false,
+  sourceThumbExtracted: false,
+  isExtractingSourceThumb: false,
   activeTabIndex: 0, // 0, 1, 2 = Subject Tabs
   layoutStyle: 'archival', // 'archival' | 'bleed'
   heroComposition: 'wide', // 'wide' (Top Horizontal Hero) | 'tall' (Left Vertical Hero for tall subjects)
@@ -1524,6 +1527,7 @@ window._webCollageState = {
     { id: 'subj_3', label: 'Subject 3', query: '' }
   ],
   tabImagesMap: {}, // query -> array of image items
+  tabPageMap: {}, // query -> current pageOffset
   selectedItems: [], // up to 3 items: { url, thumbUrl, title, source, tabIndex, dataUrl, isUploadedPhoto }
   compositedDataUrl: null
 };
@@ -1750,14 +1754,14 @@ async function runActiveTabWebImageSearch() {
 }
 window.runActiveTabWebImageSearch = runActiveTabWebImageSearch;
 
-async function fetchWebImagesForQuery(queryStr) {
+async function fetchWebImagesForQuery(queryStr, pageOffset = 0, appendMode = false) {
   const q = String(queryStr || '').trim();
   if (!q) return;
   const state = window._webCollageState;
   const statusEl = document.getElementById('webCollageResultsStatus');
-  if (statusEl) {
+  if (statusEl && !appendMode) {
     statusEl.style.display = 'block';
-    statusEl.textContent = `🔍 Searching Wikipedia, Wikimedia Commons & Openverse for "${q}"...`;
+    statusEl.textContent = `🔍 Searching web images for "${q}"...`;
   }
   try {
     const { scrapedTitle, sourceImageUrl } = getCreatorWrittenContextForCollage();
@@ -1768,39 +1772,175 @@ async function fetchWebImagesForQuery(queryStr) {
         action: 'search_collage_images',
         query: q,
         scrapedTitle,
-        sourceImageUrl
+        sourceImageUrl,
+        pageOffset
       })
     });
     if (resp.ok) {
       const data = await resp.json();
       if (data && data.success) {
-        state.tabImagesMap[q] = Array.isArray(data.images) ? data.images : [];
+        const incoming = Array.isArray(data.images) ? data.images : [];
+        if (appendMode && Array.isArray(state.tabImagesMap[q])) {
+          const existingUrls = new Set(state.tabImagesMap[q].map(it => it && it.url));
+          const freshItems = incoming.filter(it => it && it.url && !existingUrls.has(it.url));
+          state.tabImagesMap[q] = [...state.tabImagesMap[q], ...freshItems];
+        } else {
+          state.tabImagesMap[q] = incoming;
+          state.tabPageMap[q] = 0;
+        }
       }
     }
   } catch (err) {
     console.warn('fetchWebImagesForQuery error:', err);
   } finally {
-    if (statusEl) statusEl.style.display = 'none';
+    if (statusEl && !appendMode) statusEl.style.display = 'none';
   }
 }
+
+async function loadMoreWebImagesForActiveTab() {
+  const state = window._webCollageState;
+  if (!state || state.isLoading || state.isLoadingMore) return;
+  const subj = state.subjects[state.activeTabIndex];
+  const q = subj ? String(subj.query || subj.label || '').trim() : '';
+  if (!q) return;
+
+  const gridEl = document.getElementById('webCollageResultsGrid');
+  const prevScrollTop = gridEl ? gridEl.scrollTop : 0;
+
+  state.isLoadingMore = true;
+  renderWebCollageTabGrid();
+  if (gridEl && prevScrollTop > 0) gridEl.scrollTop = prevScrollTop;
+
+  const nextPage = ((state.tabPageMap && typeof state.tabPageMap[q] === 'number') ? state.tabPageMap[q] : 0) + 1;
+  if (!state.tabPageMap) state.tabPageMap = {};
+  state.tabPageMap[q] = nextPage;
+
+  try {
+    await fetchWebImagesForQuery(q, nextPage, true);
+  } finally {
+    state.isLoadingMore = false;
+    renderWebCollageTabGrid();
+    if (gridEl && prevScrollTop > 0) gridEl.scrollTop = prevScrollTop;
+  }
+}
+window.loadMoreWebImagesForActiveTab = loadMoreWebImagesForActiveTab;
+
+async function extractAndUnblurSourceThumbnailTile(event, forceRefresh = false) {
+  if (event && typeof event.stopPropagation === 'function') {
+    event.stopPropagation();
+  }
+  const state = window._webCollageState;
+  if (!state || state.isExtractingSourceThumb) return;
+
+  const urlEl = document.getElementById('creatorUrlInput');
+  const rawUrl = urlEl ? urlEl.value.trim() : '';
+  let { scrapedTitle, sourceImageUrl } = getCreatorWrittenContextForCollage();
+
+  if ((forceRefresh || !sourceImageUrl) && rawUrl && typeof handleUrlInput === 'function') {
+    state.isExtractingSourceThumb = true;
+    renderWebCollageTabGrid();
+    try {
+      await handleUrlInput(rawUrl);
+    } catch (_) {}
+    state.isExtractingSourceThumb = false;
+    const updated = getCreatorWrittenContextForCollage();
+    scrapedTitle = updated.scrapedTitle;
+    sourceImageUrl = updated.sourceImageUrl;
+  }
+
+  if (!sourceImageUrl) {
+    if (typeof showTemporaryToast === 'function') {
+      showTemporaryToast('⚠️ Could not extract a thumbnail from this source link.');
+    }
+    renderWebCollageTabGrid();
+    return;
+  }
+
+  state.sourceThumbExtracted = true;
+  const alreadySelected = state.selectedItems.some(s => s.url === sourceImageUrl);
+  if (!alreadySelected && state.selectedItems.length < 3) {
+    await toggleSelectCollageImage(
+      encodeURIComponent(sourceImageUrl),
+      encodeURIComponent(sourceImageUrl),
+      encodeURIComponent(scrapedTitle ? `Source: ${scrapedTitle}` : 'Extracted Source Thumbnail'),
+      encodeURIComponent('Source Link')
+    );
+    return;
+  }
+  renderWebCollageTabGrid();
+}
+window.extractAndUnblurSourceThumbnailTile = extractAndUnblurSourceThumbnailTile;
 
 function renderWebCollageTabGrid() {
   const gridEl = document.getElementById('webCollageResultsGrid');
   if (!gridEl) return;
   const state = window._webCollageState;
 
+  if (!gridEl.dataset.infiniteScrollBound) {
+    gridEl.dataset.infiniteScrollBound = 'true';
+    gridEl.addEventListener('scroll', () => {
+      if (state.isLoading || state.isLoadingMore) return;
+      if (gridEl.scrollTop + gridEl.clientHeight >= gridEl.scrollHeight - 48) {
+        loadMoreWebImagesForActiveTab();
+      }
+    });
+  }
+
   const subj = state.subjects[state.activeTabIndex];
   const q = subj ? (subj.query || subj.label || '') : '';
-  const items = (q && state.tabImagesMap[q]) ? state.tabImagesMap[q] : [];
+  const rawItems = (q && state.tabImagesMap[q]) ? state.tabImagesMap[q] : [];
 
-  if (!items || items.length === 0) {
+  const { scrapedTitle, sourceImageUrl } = getCreatorWrittenContextForCollage();
+  const hasExtractableSourcePhoto = Boolean(sourceImageUrl && /^https?:\/\//i.test(sourceImageUrl));
+
+  // Filter out the auto-injected source_hero_img from regular items so we render it cleanly as Tile #1
+  const items = rawItems.filter(it => it && it.id !== 'source_hero_img' && (!hasExtractableSourcePhoto || it.url !== sourceImageUrl));
+
+  if (!hasExtractableSourcePhoto && (!items || items.length === 0)) {
     gridEl.innerHTML = `<div style="grid-column: 1 / -1; padding: 18px 12px; text-align: center; color: var(--text-secondary); font-size: 11.5px; background: rgba(148,163,184,0.08); border-radius: 10px;">
       ${state.isLoading ? 'Searching web images...' : 'No images found for this phrase. Type a simpler noun or person name above and tap <strong>🔍 Search</strong>!'}
     </div>`;
     return;
   }
 
-  gridEl.innerHTML = items.map((item) => {
+  let sourceTileHtml = '';
+  if (hasExtractableSourcePhoto) {
+    const selIdx = state.selectedItems.findIndex(s => s.url === sourceImageUrl);
+    const isSelected = selIdx >= 0;
+    const isUnlocked = Boolean(state.sourceThumbExtracted || isSelected);
+    const encUrl = encodeURIComponent(sourceImageUrl);
+    const encThumb = encodeURIComponent(sourceImageUrl);
+    const encTitle = encodeURIComponent(scrapedTitle ? `Source: ${scrapedTitle}` : 'Extracted Source Thumbnail');
+    const encSource = encodeURIComponent('Source Link');
+
+    if (!isUnlocked) {
+      sourceTileHtml = `<div onclick="extractAndUnblurSourceThumbnailTile(event, false)" title="Tap to extract & use source thumbnail photo" style="position: relative; border-radius: 9px; overflow: hidden; border: 1.5px dashed #4F46E5; background: #0F172A; cursor: pointer; aspect-ratio: 1 / 1; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(79,70,229,0.18);">
+        <img src="${escapeHtml(sourceImageUrl)}" alt="Source Thumbnail" loading="lazy" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: blur(6px) brightness(0.68); transform: scale(1.12); transition: filter 0.22s ease;">
+        <div style="position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 6px; text-align: center;">
+          <span style="width: 28px; height: 28px; border-radius: 50%; background: rgba(79, 70, 229, 0.92); color: #FFFFFF; font-size: 14px; font-weight: 900; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 3px 10px rgba(0,0,0,0.35); border: 1.5px solid rgba(255,255,255,0.85);">
+            ${state.isExtractingSourceThumb ? '⏳' : '↻'}
+          </span>
+          <span style="font-size: 9.5px; font-weight: 800; color: #FFFFFF; line-height: 1.15; text-shadow: 0 1px 3px rgba(0,0,0,0.85); background: rgba(15,23,42,0.72); padding: 2px 6px; border-radius: 99px;">
+            ${state.isExtractingSourceThumb ? 'Extracting...' : 'Extract Thumbnail'}
+          </span>
+        </div>
+        <div style="position: absolute; bottom: 0; inset-inline: 0; z-index: 1; background: linear-gradient(to top, rgba(15,23,42,0.92), rgba(15,23,42,0.0)); padding: 10px 5px 4px; color: #E2E8F0; font-size: 8.8px; font-weight: 700; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+          🔗 Source Photo
+        </div>
+      </div>`;
+    } else {
+      sourceTileHtml = `<div onclick="toggleSelectCollageImage('${encUrl}', '${encThumb}', '${encTitle}', '${encSource}')" style="position: relative; border-radius: 9px; overflow: hidden; border: ${isSelected ? '2.5px solid #059669' : '1.5px solid #4F46E5'}; background: #0F172A; cursor: pointer; aspect-ratio: 1 / 1; display: flex; flex-direction: column; justify-content: flex-end; box-shadow: ${isSelected ? '0 0 0 2px rgba(16,185,129,0.28)' : 'none'}; transition: transform 0.15s ease;">
+        <img src="${escapeHtml(sourceImageUrl)}" alt="Source Thumbnail" loading="lazy" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;">
+        <button type="button" onclick="extractAndUnblurSourceThumbnailTile(event, true)" title="Re-extract thumbnail from source link" style="position: absolute; top: 5px; left: 5px; z-index: 3; width: 22px; height: 22px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.75); background: rgba(15,23,42,0.78); color: #FFFFFF; font-size: 11px; font-weight: 900; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0;">↻</button>
+        ${isSelected ? `<div style="position: absolute; top: 5px; right: 5px; z-index: 2; width: 22px; height: 22px; border-radius: 50%; background: #059669; color: #FFFFFF; font-size: 11px; font-weight: 900; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,0.35);">✓${selIdx + 1}</div>` : ''}
+        <div style="position: relative; z-index: 1; background: linear-gradient(to top, rgba(15,23,42,0.88), rgba(15,23,42,0.0)); padding: 14px 5px 4px; color: #F8FAFC; font-size: 9.5px; font-weight: 700; line-height: 1.18; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+          🔗 ${escapeHtml(scrapedTitle || 'Source Thumbnail')}
+        </div>
+      </div>`;
+    }
+  }
+
+  const webTilesHtml = items.map((item) => {
     const selIdx = state.selectedItems.findIndex(s => s.url === item.url);
     const isSelected = selIdx >= 0;
     const encUrl = encodeURIComponent(item.url);
@@ -1816,6 +1956,13 @@ function renderWebCollageTabGrid() {
       </div>
     </div>`;
   }).join('');
+
+  const loadMoreTileHtml = q ? `<button type="button" onclick="loadMoreWebImagesForActiveTab()" style="position: relative; border-radius: 9px; border: 1.5px dashed rgba(79,70,229,0.45); background: rgba(79,70,229,0.06); color: #4F46E5; cursor: pointer; aspect-ratio: 1 / 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 6px; text-align: center; font-family: inherit;">
+    <span style="font-size: 16px; font-weight: 900; line-height: 1;">${state.isLoadingMore ? '⏳' : '＋'}</span>
+    <span style="font-size: 10px; font-weight: 800; line-height: 1.2;">${state.isLoadingMore ? 'Loading...' : 'More Photos'}</span>
+  </button>` : '';
+
+  gridEl.innerHTML = sourceTileHtml + webTilesHtml + loadMoreTileHtml;
 }
 
 async function toggleSelectCollageImage(encUrl, encThumb, encTitle, encSource) {
@@ -19509,33 +19656,25 @@ function updateLivePerspectiveDepthUI(highlightMissing = false) {
   }
 
   const wordPill = document.getElementById('slantDepthWordPill');
+  const hasEnoughDepth = depth.depthScore >= PERSPECTIVE_MIN_DEPTH_SCORE;
   if (wordPill) {
-    if (!depth.isVerifiedByPolish) {
-      wordPill.classList.remove('is-met');
-      wordPill.classList.add('is-pending');
-      wordPill.textContent = '✨ Review to measure depth';
-      wordPill.title = 'Tap "Review & Polish" below to fix punctuation and measure your perspective depth';
+    wordPill.classList.toggle('is-met', hasEnoughDepth && depth.hasAllThreeBeats);
+    wordPill.classList.toggle('is-pending', !(hasEnoughDepth && depth.hasAllThreeBeats));
+    if (depth.wordCount === 0) {
+      wordPill.textContent = 'Depth 0%';
+    } else if (hasEnoughDepth && depth.hasAllThreeBeats) {
+      wordPill.textContent = `✓ Depth ${depth.depthScore}%`;
     } else {
-      const hasEnoughDepth = depth.depthScore >= PERSPECTIVE_MIN_DEPTH_SCORE;
-      wordPill.classList.toggle('is-met', hasEnoughDepth);
-      wordPill.classList.toggle('is-pending', !hasEnoughDepth);
-      wordPill.textContent = hasEnoughDepth
-        ? `✓ Depth ${depth.depthScore}%`
-        : `Depth ${depth.depthScore}% (70%+ req)`;
-      wordPill.title = 'Perspective depth measured on your punctuated thought (70%+ & 3/3 signals required)';
+      wordPill.textContent = `Depth ${depth.depthScore}%`;
     }
+    wordPill.title = 'Live perspective depth (70%+ & 3/3 signals required)';
   }
 
-  // Depth bar MUST NOT grow or highlight while writing — only fills after Review & Polish measures depth!
+  // Live depth progress bar fills dynamically as the creator types
   const progressFill = document.getElementById('slantDepthProgressFill');
   if (progressFill) {
-    if (!depth.isVerifiedByPolish) {
-      progressFill.style.width = '0%';
-      progressFill.classList.remove('is-ready');
-    } else {
-      progressFill.style.width = `${depth.depthScore}%`;
-      progressFill.classList.toggle('is-ready', depth.isReady);
-    }
+    progressFill.style.width = `${depth.depthScore}%`;
+    progressFill.classList.toggle('is-ready', Boolean(depth.hasAllThreeBeats && hasEnoughDepth));
   }
 
   const hintEl = document.getElementById('slantDepthCoachHint');
@@ -26844,40 +26983,12 @@ function openCreatorModal(resumeDraftId = null, forcedAnchorMode = null, options
   // Reset to Step 1
   backToStep1();
 
-  // Restore requested draft OR most recent active draft so accidental close never loses flow
+  // Only restore a draft when the user explicitly clicks a saved draft from the Drafts menu (resumeDraftId)
+  // Tapping + Slant always opens a fresh, blank composer without any old draft data.
   const drafts = getSavedFormDrafts();
   let draftToRestore = null;
-  if (options && options.targetSeriesId) {
-    draftToRestore = null;
-  } else if (resumeDraftId && typeof resumeDraftId === 'string') {
+  if (resumeDraftId && typeof resumeDraftId === 'string') {
     draftToRestore = drafts.find(d => d.id === resumeDraftId) || null;
-  } else if (!forcedAnchorMode) {
-    try {
-      const lastId = localStorage.getItem('slant_last_active_form_draft_id');
-      if (lastId) {
-        const cand = drafts.find(d => d.id === lastId) || null;
-        if (cand && !cand.isDailyChronicleMode) {
-          draftToRestore = cand;
-        }
-      }
-    } catch (_) {}
-  } else {
-    // When user explicitly selected a spread button (Web Link, Inner Voice, or Diary Chronicle),
-    // only restore the last active draft if its anchor mode matches the chosen section
-    try {
-      const lastId = localStorage.getItem('slant_last_active_form_draft_id');
-      if (lastId) {
-        const candidate = drafts.find(d => d.id === lastId) || null;
-        if (candidate) {
-          const candMode = candidate.isDailyChronicleMode
-            ? 'diary_chronicle'
-            : (candidate.selectedSource === 'inner_voice' ? 'inner_voice' : 'digital_link');
-          if (candMode === forcedAnchorMode) {
-            draftToRestore = candidate;
-          }
-        }
-      }
-    } catch (_) {}
   }
 
   if (draftToRestore) {
@@ -26887,6 +26998,9 @@ function openCreatorModal(resumeDraftId = null, forcedAnchorMode = null, options
     }
   } else {
     currentActiveFormDraftId = null;
+    try {
+      localStorage.removeItem('slant_last_active_form_draft_id');
+    } catch (_) {}
     renderCreatorFormDraftsBar();
     if (forcedAnchorMode) {
       setAnchorMode(forcedAnchorMode);
@@ -27036,22 +27150,11 @@ function slideAndGlowCreatorPromptField(explicitMode = null, options = {}) {
     glowCard = (primaryInput && primaryInput.closest('.chronicle-moment-card')) || scrollTargetCard;
     cueText = '';
   } else {
-    const activeCfg = SLANT_SPARK_TYPES[activeSlantSparkType] || SLANT_SPARK_TYPES.web;
-    const urlInput = document.getElementById('creatorUrlInput');
-    const sparkInput = document.getElementById('creatorSparkInput');
+    // Always open directly onto the Your Perspective prompt field at the top so the creator can write immediately
     const slantInput = document.getElementById('creatorSlantTakeInput');
-    if (activeCfg.inputType === 'url') {
-      const hasUrl = Boolean(urlInput && (urlInput.value || '').trim().length > 5);
-      primaryInput = (!hasUrl && urlInput) ? urlInput : slantInput;
-      glowCard = (!hasUrl && urlInput) ? document.getElementById('triggerWebSection') : step1.querySelector('.creator-hero-slant-card');
-    } else if (activeCfg.required && sparkInput && !(sparkInput.value || '').trim()) {
-      primaryInput = sparkInput;
-      glowCard = document.getElementById('triggerWebSection');
-    } else {
-      primaryInput = slantInput;
-      glowCard = step1.querySelector('.creator-hero-slant-card');
-    }
-    scrollTargetCard = document.getElementById('slantSparkIconsSection') || glowCard;
+    primaryInput = slantInput;
+    glowCard = step1.querySelector('.creator-hero-slant-card');
+    scrollTargetCard = glowCard;
     cueText = '';
   }
 
@@ -27137,13 +27240,39 @@ function isVideoAudioUrl(url) {
 
 let activeSlantSparkType = 'web';
 
+function getSourceLinkPlatformIconSvg(platformKey, size = 18) {
+  switch (platformKey) {
+    case 'youtube':
+      return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none"><rect x="2" y="4.5" width="20" height="15" rx="4.2" fill="#EF4444"/><polygon points="10,8.8 10,15.2 15.8,12" fill="#FFFFFF"/></svg>`;
+    case 'instagram':
+      return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none"><defs><linearGradient id="igGrad_${size}" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" stop-color="#F58529"/><stop offset="50%" stop-color="#DD2A7B"/><stop offset="100%" stop-color="#8134AF"/></linearGradient></defs><rect x="2.5" y="2.5" width="19" height="19" rx="5.2" fill="url(#igGrad_${size})"/><circle cx="12" cy="12" r="4.2" stroke="#FFFFFF" stroke-width="2"/><circle cx="17.2" cy="6.8" r="1.3" fill="#FFFFFF"/></svg>`;
+    case 'x':
+      return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none"><rect x="2.5" y="2.5" width="19" height="19" rx="4.5" fill="#0F172A"/><path d="M15.4 6.8h2.1l-4.6 5.2 5.4 5.2h-4.2l-3.3-3.4-3 3.4H5.7l4.9-5.6-5.1-4.8h4.3l3 3.1 2.6-3.1z" fill="#FFFFFF"/></svg>`;
+    case 'substack':
+      return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none"><rect x="3" y="3" width="18" height="18" rx="4" fill="#FF6719"/><path d="M6.8 7.2h10.4v1.8H6.8V7.2zm0 3.2h10.4v1.8H6.8v-1.8zm0 3.2h10.4v4.6L12 15.6l-5.2 2.6v-4.6z" fill="#FFFFFF"/></svg>`;
+    case 'linkedin':
+      return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none"><rect x="2.5" y="2.5" width="19" height="19" rx="4" fill="#0A66C2"/><path d="M8.2 10.2v6.8H6V10.2h2.2zm-1.1-3.4c.75 0 1.3.55 1.3 1.25S7.85 9.3 7.1 9.3 5.8 8.75 5.8 8.05 6.35 6.8 7.1 6.8zm4.8 3.4v.95c.45-.7 1.25-1.15 2.3-1.15 1.9 0 2.8 1.2 2.8 3.2v3.8h-2.2v-3.4c0-1.1-.4-1.65-1.25-1.65-.9 0-1.45.6-1.45 1.65v3.4H9.9v-6.8h2z" fill="#FFFFFF"/></svg>`;
+    case 'reddit':
+      return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none"><circle cx="12" cy="12" r="9.5" fill="#FF4500"/><ellipse cx="12" cy="13.5" rx="5.5" ry="3.8" fill="#FFFFFF"/><circle cx="9.8" cy="13" r="1" fill="#FF4500"/><circle cx="14.2" cy="13" r="1" fill="#FF4500"/></svg>`;
+    case 'podcast':
+      return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="#7C3AED" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="11" rx="3" fill="rgba(124,58,237,0.15)"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>`;
+    case 'web':
+      return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="#2563EB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5" fill="rgba(37,99,235,0.10)"/><line x1="2.5" y1="12" x2="21.5" y2="12"/><path d="M12 2.5a14.5 14.5 0 0 1 3.8 9.5 14.5 14.5 0 0 1-3.8 9.5 14.5 14.5 0 0 1-3.8-9.5 14.5 14.5 0 0 1 3.8-9.5z"/></svg>`;
+    case 'composite':
+    default:
+      return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="8.5" cy="8.5" r="6"/><path d="M2.5 8.5h12"/><path d="M8.5 2.5a9.2 9.2 0 0 1 2.4 6 9.2 9.2 0 0 1-2.4 6 9.2 9.2 0 0 1-2.4-6 9.2 9.2 0 0 1 2.4-6z"/><rect x="11.5" y="13" width="10.5" height="7.5" rx="2.2" fill="#EF4444" stroke="#FFFFFF" stroke-width="1.2"/><polygon points="15.5,15.1 15.5,18.4 18.6,16.75" fill="#FFFFFF" stroke="none"/><rect x="15" y="2.2" width="6.8" height="6.8" rx="2" fill="#E1306C" stroke="#FFFFFF" stroke-width="1"/><circle cx="18.4" cy="5.6" r="1.4" fill="none" stroke="#FFFFFF" stroke-width="1.2"/></svg>`;
+  }
+}
+
 function detectSourceLinkPlatform(url) {
   const lower = String(url || '').toLowerCase().trim();
   const defaultHint = 'Adding the source gives Slant the context that sparked your thought, helping frame your perspective with sharper depth.';
   if (!lower) {
     return {
-      icon: '🔗',
-      title: 'Source Link (Web, YouTube, Substack, X, IG)',
+      platformKey: 'composite',
+      chipLabel: 'Web Link',
+      iconSvg: getSourceLinkPlatformIconSvg('composite', 18),
+      title: 'Web Link (Web, YouTube, Instagram, X, Substack)',
       badgeLabel: 'Required',
       subtleHint: defaultHint,
       perspectivePlaceholder: 'What caught your attention in this source, why does it matter beneath the surface, and what is your conviction?'
@@ -27151,7 +27280,9 @@ function detectSourceLinkPlatform(url) {
   }
   if (lower.includes('youtube.com') || lower.includes('youtu.be') || lower.includes('vimeo.com') || lower.includes('ted.com/talks')) {
     return {
-      icon: '▶️',
+      platformKey: 'youtube',
+      chipLabel: 'YouTube',
+      iconSvg: getSourceLinkPlatformIconSvg('youtube', 18),
       title: 'YouTube / Video Source Detected',
       badgeLabel: 'YouTube Video',
       subtleHint: defaultHint,
@@ -27160,7 +27291,9 @@ function detectSourceLinkPlatform(url) {
   }
   if (lower.includes('substack.com')) {
     return {
-      icon: '🧡',
+      platformKey: 'substack',
+      chipLabel: 'Substack',
+      iconSvg: getSourceLinkPlatformIconSvg('substack', 18),
       title: 'Substack Essay Detected',
       badgeLabel: 'Substack Essay',
       subtleHint: defaultHint,
@@ -27169,7 +27302,9 @@ function detectSourceLinkPlatform(url) {
   }
   if (lower.includes('instagram.com') || lower.includes('instagr.am')) {
     return {
-      icon: '📸',
+      platformKey: 'instagram',
+      chipLabel: 'Instagram',
+      iconSvg: getSourceLinkPlatformIconSvg('instagram', 18),
       title: 'Instagram Post / Reel Detected',
       badgeLabel: 'Instagram',
       subtleHint: defaultHint,
@@ -27178,16 +27313,42 @@ function detectSourceLinkPlatform(url) {
   }
   if (lower.includes('x.com/') || lower.includes('twitter.com/')) {
     return {
-      icon: '𝕏',
+      platformKey: 'x',
+      chipLabel: 'X Post',
+      iconSvg: getSourceLinkPlatformIconSvg('x', 18),
       title: 'X / Social Post Detected',
       badgeLabel: 'X Post',
       subtleHint: defaultHint,
       perspectivePlaceholder: 'What point or debate in this X post stood out to you, and where do you stand?'
     };
   }
+  if (lower.includes('linkedin.com')) {
+    return {
+      platformKey: 'linkedin',
+      chipLabel: 'LinkedIn',
+      iconSvg: getSourceLinkPlatformIconSvg('linkedin', 18),
+      title: 'LinkedIn Post / Article Detected',
+      badgeLabel: 'LinkedIn',
+      subtleHint: defaultHint,
+      perspectivePlaceholder: 'What insight or debate in this LinkedIn post stood out to you, and what is your conviction?'
+    };
+  }
+  if (lower.includes('reddit.com') || lower.includes('redd.it')) {
+    return {
+      platformKey: 'reddit',
+      chipLabel: 'Reddit',
+      iconSvg: getSourceLinkPlatformIconSvg('reddit', 18),
+      title: 'Reddit Thread Detected',
+      badgeLabel: 'Reddit',
+      subtleHint: defaultHint,
+      perspectivePlaceholder: 'What observation in this thread caught your attention, and what is your perspective?'
+    };
+  }
   if (lower.includes('spotify.com') || lower.includes('podcasts.apple.com') || lower.includes('soundcloud.com')) {
     return {
-      icon: '🎙️',
+      platformKey: 'podcast',
+      chipLabel: 'Podcast',
+      iconSvg: getSourceLinkPlatformIconSvg('podcast', 18),
       title: 'Podcast / Audio Source Detected',
       badgeLabel: 'Podcast',
       subtleHint: defaultHint,
@@ -27195,7 +27356,9 @@ function detectSourceLinkPlatform(url) {
     };
   }
   return {
-    icon: '🌐',
+    platformKey: 'web',
+    chipLabel: 'Web Link',
+    iconSvg: getSourceLinkPlatformIconSvg('web', 18),
     title: 'Web Article / Report Detected',
     badgeLabel: 'Web Article',
     subtleHint: defaultHint,
@@ -27209,8 +27372,8 @@ const SLANT_SPARK_TYPES = {
     sourceMode: 'digital_link',
     inputType: 'url',
     required: true,
-    icon: '🔗',
-    title: 'Source Link (Web, YouTube, Substack, X, IG)',
+    icon: '🌐',
+    title: 'Web Link (Web, YouTube, Instagram, X, Substack)',
     subtleHint: 'Adding the source gives Slant the context that sparked your thought, helping frame your perspective with sharper depth.',
     inputPlaceholder: 'https://... (Paste article, YouTube, Substack, X, or Instagram link)',
     perspectivePlaceholder: 'What caught your attention in this source, why does it matter beneath the surface, and what is your conviction?'
@@ -27237,17 +27400,6 @@ const SLANT_SPARK_TYPES = {
     inputPlaceholder: 'https://... (Paste article, YouTube, Substack, X, or Instagram link)',
     perspectivePlaceholder: 'What idea from this Substack essay sparked your reaction, where do you agree or push back, and what is your conviction?'
   },
-  moment: {
-    id: 'moment',
-    sourceMode: 'inner_voice',
-    inputType: 'text',
-    required: false,
-    icon: '✨',
-    title: 'What Was the Moment?',
-    subtleHint: 'Briefly name the real-life scene or moment — or leave blank and write directly below.',
-    inputPlaceholder: 'e.g. Waiting at a traffic signal in Bengaluru, or a quiet evening conversation...',
-    perspectivePlaceholder: 'Paint the moment you witnessed, explain why it stayed with you, and share the deeper truth it revealed...'
-  },
   book: {
     id: 'book',
     sourceMode: 'inner_voice',
@@ -27259,6 +27411,17 @@ const SLANT_SPARK_TYPES = {
     inputPlaceholder: 'e.g. The Almanack of Naval Ravikant — Chapter on Judgment',
     perspectivePlaceholder: 'Which passage or idea from this book hit you, how does it connect to real life, and what conviction does it leave you with?'
   },
+  moment: {
+    id: 'moment',
+    sourceMode: 'inner_voice',
+    inputType: 'text',
+    required: false,
+    icon: '👁️',
+    title: 'What Was the Observation?',
+    subtleHint: 'Briefly name what you observed or noticed — or leave blank if you already wrote it in your perspective above.',
+    inputPlaceholder: 'e.g. Waiting at a traffic signal in Bengaluru, or a quiet evening conversation...',
+    perspectivePlaceholder: 'Paint what you observed, explain why it stayed with you, and share the deeper truth it revealed...'
+  },
   experience: {
     id: 'experience',
     sourceMode: 'inner_voice',
@@ -27266,20 +27429,20 @@ const SLANT_SPARK_TYPES = {
     required: false,
     icon: '🧭',
     title: 'What Experience Sparked This?',
-    subtleHint: 'Give a short label for your experience — or jump straight to your perspective below.',
+    subtleHint: 'Give a short label for your experience — or leave blank if you already described it above.',
     inputPlaceholder: 'e.g. Building apps late through the night, or a parent-teacher meeting...',
     perspectivePlaceholder: 'Share what you lived through, what shifted inside you because of this experience, and the life or principle you stand by now...'
   },
   free_slant: {
-    id: 'free_slant',
+    id: 'moment',
     sourceMode: 'inner_voice',
     inputType: 'text',
     required: false,
-    icon: '✒️',
-    title: 'Topic or Headline Cue',
-    subtleHint: 'Optional 3–5 word topic if you have one — or jump straight to writing your slant below.',
-    inputPlaceholder: 'Optional topic or theme (or leave blank and write below)...',
-    perspectivePlaceholder: 'Unfiltered thought — start with the observation on your mind, why it matters deeply, and the conviction you stand by...'
+    icon: '👁️',
+    title: 'What Was the Observation?',
+    subtleHint: 'Briefly name what you observed or noticed — or leave blank if you already wrote it in your perspective above.',
+    inputPlaceholder: 'e.g. Waiting at a traffic signal in Bengaluru, or a quiet evening conversation...',
+    perspectivePlaceholder: 'Paint what you observed, explain why it stayed with you, and share the deeper truth it revealed...'
   }
 };
 
@@ -27287,7 +27450,8 @@ function syncSlantSparkTypeUI(sparkId = activeSlantSparkType) {
   if (typeof clearCreatorPromptReadyGlow === 'function') {
     clearCreatorPromptReadyGlow();
   }
-  const cfg = SLANT_SPARK_TYPES[sparkId] || SLANT_SPARK_TYPES.web;
+  const normalizedId = (sparkId === 'free_slant') ? 'moment' : sparkId;
+  const cfg = SLANT_SPARK_TYPES[normalizedId] || SLANT_SPARK_TYPES.web;
   activeSlantSparkType = cfg.id;
 
   document.querySelectorAll('.spark-icon-chip').forEach(btn => {
@@ -27314,11 +27478,27 @@ function syncSlantSparkTypeUI(sparkId = activeSlantSparkType) {
   const slantInput = document.getElementById('creatorSlantTakeInput');
   const urlIndicator = document.getElementById('urlScrapeIndicator');
   const ledgerCard = document.getElementById('sourceLedgerCard');
+  const webChipSvgWrap = document.getElementById('sparkWebChipSvgWrap');
+  const webChipText = document.getElementById('sparkWebChipText');
 
-  const currentUrlVal = (cfg.inputType === 'url' && urlInput) ? (urlInput.value || '').trim() : '';
-  const detectedPlatform = (cfg.inputType === 'url') ? detectSourceLinkPlatform(currentUrlVal) : null;
+  const currentUrlVal = urlInput ? (urlInput.value || '').trim() : '';
+  const detectedForChip = detectSourceLinkPlatform(currentUrlVal);
+  if (webChipSvgWrap && detectedForChip) {
+    webChipSvgWrap.innerHTML = detectedForChip.iconSvg;
+  }
+  if (webChipText && detectedForChip) {
+    webChipText.textContent = detectedForChip.chipLabel || 'Web Link';
+  }
 
-  if (linkIcon) linkIcon.textContent = detectedPlatform ? detectedPlatform.icon : cfg.icon;
+  const detectedPlatform = (cfg.inputType === 'url') ? detectedForChip : null;
+
+  if (linkIcon) {
+    if (detectedPlatform && detectedPlatform.iconSvg) {
+      linkIcon.innerHTML = detectedPlatform.iconSvg;
+    } else {
+      linkIcon.textContent = cfg.icon;
+    }
+  }
   if (linkTitle) linkTitle.textContent = detectedPlatform ? detectedPlatform.title : cfg.title;
   if (subtleHint) subtleHint.textContent = detectedPlatform ? detectedPlatform.subtleHint : cfg.subtleHint;
 
@@ -27337,6 +27517,16 @@ function syncSlantSparkTypeUI(sparkId = activeSlantSparkType) {
     if (urlInput) {
       urlInput.style.display = 'block';
       urlInput.placeholder = cfg.inputPlaceholder;
+    }
+    if (!currentUrlVal) {
+      if (urlIndicator) {
+        urlIndicator.style.display = 'none';
+        urlIndicator.innerHTML = '';
+      }
+      if (ledgerCard) {
+        ledgerCard.style.display = 'none';
+        ledgerCard.innerHTML = '';
+      }
     }
     if (sparkInput) {
       sparkInput.style.display = 'none';
@@ -28673,10 +28863,30 @@ function resetCreatorState() {
   if (typeof clearMandatoryFieldPrompts === 'function') {
     clearMandatoryFieldPrompts();
   }
+  clearTimeout(scrapeDebounceTimer);
+  isScrapingUrl = false;
   activeScrapePromise = null;
   currentScrapedArticle = null;
   currentSourceLedger = null;
+  isSourceLedgerExpanded = false;
   renderSourceLedger(null);
+  const urlIndicatorEl = document.getElementById('urlScrapeIndicator');
+  if (urlIndicatorEl) {
+    urlIndicatorEl.style.display = 'none';
+    urlIndicatorEl.innerHTML = '';
+    urlIndicatorEl.onclick = null;
+  }
+  const ledgerCardEl = document.getElementById('sourceLedgerCard');
+  if (ledgerCardEl) {
+    ledgerCardEl.style.display = 'none';
+    ledgerCardEl.innerHTML = '';
+  }
+  if (window._webCollageState) {
+    window._webCollageState.sourceThumbExtracted = false;
+    window._webCollageState.isExtractingSourceThumb = false;
+    window._webCollageState.tabPageMap = {};
+    window._webCollageState.tabImagesMap = {};
+  }
   removeInnerVoicePhoto();
   currentSynthesizedPost = null;
   window._regeneratingExistingPostId = null;
@@ -28782,6 +28992,10 @@ function resetCreatorState() {
   }
   const urlInput = document.getElementById('creatorUrlInput');
   if (urlInput) urlInput.value = '';
+  activeSlantSparkType = 'web';
+  if (typeof syncSlantSparkTypeUI === 'function') {
+    try { syncSlantSparkTypeUI('web'); } catch (_) {}
+  }
   const fileInput = document.getElementById('creatorFileInput');
   if (fileInput) fileInput.value = '';
   const cameraInput = document.getElementById('creatorCameraInput');
@@ -28940,6 +29154,13 @@ function toggleSourceLedgerDropdown(forceState) {
 function renderUrlScrapeSuccessIndicator(siteName, title, hasLedger, isFull = true) {
   const indicator = document.getElementById('urlScrapeIndicator');
   if (!indicator) return;
+  const urlInput = document.getElementById('creatorUrlInput');
+  const activeUrlVal = urlInput ? (urlInput.value || '').trim() : '';
+  if (!activeUrlVal) {
+    indicator.style.display = 'none';
+    indicator.innerHTML = '';
+    return;
+  }
 
   const cleanSite = siteName || 'Web';
   const cleanTitle = (title && title.toLowerCase() !== cleanSite.toLowerCase()) ? title : '';
@@ -28954,7 +29175,7 @@ function renderUrlScrapeSuccessIndicator(siteName, title, hasLedger, isFull = tr
       <span class="scrape-icon">✓</span>
       <div class="scrape-text-wrap">
         <span class="scrape-title">Source link attached (${escapeHtml(cleanSite)})</span>
-        <span class="scrape-sub">${escapeHtml(cleanTitle || 'Write your perspective on this post below ↓')}</span>
+        <span class="scrape-sub">${escapeHtml(cleanTitle || 'Source context linked to your Slant')}</span>
       </div>
     `;
     indicator.onclick = null;
@@ -29037,7 +29258,21 @@ async function handleUrlInput(val) {
       if (!resp.ok) throw new Error('Scrape request failed');
       const data = await resp.json();
 
+      // Guard against stale scrape completing after modal reset or URL field cleared
+      const liveUrlInput = document.getElementById('creatorUrlInput');
+      const liveUrlVal = liveUrlInput ? (liveUrlInput.value || '').trim() : '';
+      if (!liveUrlVal || liveUrlVal !== clean) {
+        if (!liveUrlVal && indicator) {
+          indicator.style.display = 'none';
+          indicator.innerHTML = '';
+        }
+        return;
+      }
+
       if (data && data.success) {
+        if (window._webCollageState) {
+          window._webCollageState.sourceThumbExtracted = false;
+        }
         if (typeof data.imageUrl === 'string') {
           data.imageUrl = data.imageUrl.replace(/&amp;/g, '&');
         } else if (instantYtThumb && !data.imageUrl) {
@@ -29081,6 +29316,15 @@ async function handleUrlInput(val) {
       }
     } catch (err) {
       console.warn('URL scrape error:', err.message);
+      const liveUrlInput = document.getElementById('creatorUrlInput');
+      const liveUrlVal = liveUrlInput ? (liveUrlInput.value || '').trim() : '';
+      if (!liveUrlVal || liveUrlVal !== clean) {
+        if (!liveUrlVal && indicator) {
+          indicator.style.display = 'none';
+          indicator.innerHTML = '';
+        }
+        return;
+      }
       const slugTitle = extractHeadlineFromUrl(clean);
       currentScrapedArticle = {
         url: clean,
@@ -29098,7 +29342,7 @@ async function handleUrlInput(val) {
           <span class="scrape-icon">✓</span>
           <div class="scrape-text-wrap">
             <span class="scrape-title">Source link attached (${escapeHtml(currentScrapedArticle.siteName)})</span>
-            <span class="scrape-sub">${escapeHtml(slugTitle || 'Write your perspective below ↓')}</span>
+            <span class="scrape-sub">${escapeHtml(slugTitle || 'Source context linked to your Slant')}</span>
           </div>
         `;
         indicator.style.display = 'flex';

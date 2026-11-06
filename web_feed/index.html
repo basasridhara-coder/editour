@@ -40,7 +40,7 @@
   <link rel="preconnect" href="https://fxfklefnkpmhofncqhfh.supabase.co" crossorigin>
   <link rel="preconnect" href="https://accounts.google.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Merriweather:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,400;1,600;1,700;1,900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261106_1240">
+  <link rel="stylesheet" href="style.css?v=20261106_1335">
   <!-- Favicon & Brand Icons -->
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
@@ -502,107 +502,9 @@
           </button>
         </div>
 
-        <!-- STAGE 1 WRAPPER: Spark + Perspective + Review & Polish Confirmation -->
+        <!-- STAGE 1 WRAPPER: Perspective First + Live Conviction Bar Above Prompt + Spark Below -->
         <div id="creatorStage1StoryWrap">
-        <!-- 2. "What sparked this slant?" Compact Icon Bar & Dynamic Context Field -->
-        <div class="creator-trigger-panel" id="creatorTriggerPanel">
-          <div class="slant-spark-icons-section" id="slantSparkIconsSection">
-            <div class="slant-spark-icons-label">What sparked this slant?</div>
-            <div class="slant-spark-icons-row" id="slantSparkIconsRow" role="radiogroup" aria-label="What sparked this slant">
-              <button type="button" class="spark-icon-chip active" data-spark="web" onclick="selectSlantSparkType('web')" title="Source Link — Auto-detects Web, YouTube, Substack, X, or Instagram">
-                <span class="spark-chip-svg-wrap chip-web">
-                  <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
-                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
-                  </svg>
-                </span>
-                <span class="spark-chip-text">Source Link</span>
-              </button>
-
-              <button type="button" class="spark-icon-chip" data-spark="moment" onclick="selectSlantSparkType('moment')" title="A Moment — Something you witnessed or noticed">
-                <span class="spark-chip-svg-wrap chip-moment">
-                  <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M12 2.5l2.4 6.1 6.1 2.4-6.1 2.4-2.4 6.1-2.4-6.1-6.1-2.4 6.1-2.4L12 2.5z"></path>
-                    <circle cx="19" cy="5" r="1.2" fill="currentColor" stroke="none"></circle>
-                  </svg>
-                </span>
-                <span class="spark-chip-text">Moment</span>
-              </button>
-
-              <button type="button" class="spark-icon-chip" data-spark="book" onclick="selectSlantSparkType('book')" title="Reading Book — A book, chapter, or page">
-                <span class="spark-chip-svg-wrap chip-book">
-                  <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M2 4.5h6.5a3.5 3.5 0 0 1 3.5 3.5v12.5a2.8 2.8 0 0 0-2.8-2.8H2V4.5z"></path>
-                    <path d="M22 4.5h-6.5A3.5 3.5 0 0 0 12 8v12.5a2.8 2.8 0 0 1 2.8-2.8H22V4.5z"></path>
-                  </svg>
-                </span>
-                <span class="spark-chip-text">Reading Book</span>
-              </button>
-
-              <button type="button" class="spark-icon-chip" data-spark="experience" onclick="selectSlantSparkType('experience')" title="An Experience — Something you lived through">
-                <span class="spark-chip-svg-wrap chip-experience">
-                  <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="12" r="9.5"></circle>
-                    <polygon points="15.8 8.2 13.7 13.7 8.2 15.8 10.3 10.3 15.8 8.2"></polygon>
-                  </svg>
-                </span>
-                <span class="spark-chip-text">An Experience</span>
-              </button>
-
-              <button type="button" class="spark-icon-chip" data-spark="free_slant" onclick="selectSlantSparkType('free_slant')" title="Let Me Slant — Jump straight into your thought">
-                <span class="spark-chip-svg-wrap chip-free">
-                  <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M12 19l7-7 3 3-7 7-3-3z"></path>
-                    <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path>
-                    <path d="M2 2l7.586 7.586"></path>
-                    <circle cx="11" cy="11" r="2"></circle>
-                  </svg>
-                </span>
-                <span class="spark-chip-text">Let Me Slant</span>
-              </button>
-            </div>
-          </div>
-
-          <!-- Dynamic Spark Field (Adapts Prompt, Subtle Hint & Required/Optional Status per Selected Icon) -->
-          <div class="trigger-section" id="triggerWebSection">
-            <div class="trigger-header">
-              <div class="trigger-title-row" style="display:flex; align-items:center; gap:6px;">
-                <span class="trigger-icon" id="triggerLinkIcon">🔗</span>
-                <span class="trigger-title" id="triggerLinkTitle">Source Link (Web, YouTube, Substack, X, IG)</span>
-              </div>
-              <div class="trigger-header-right" style="display:flex; align-items:center; gap:8px;">
-                <span class="creator-tag-badge badge-required" id="triggerLinkBadge">Required</span>
-                <span class="trigger-sub" id="triggerLinkSub" style="display:none;">Paste &amp; Fetch</span>
-              </div>
-            </div>
-            <div class="spark-field-subtle-hint" id="sparkFieldSubtleHint">
-              Adding the source gives Slant the context that sparked your thought, helping frame your perspective with sharper depth.
-            </div>
-            <input type="url" id="creatorUrlInput" class="creator-input" placeholder="https://... (Paste article, YouTube, Substack, X, or Instagram link)" autocomplete="off">
-            <input type="text" id="creatorSparkInput" class="creator-input" placeholder="Briefly describe what sparked this thought..." autocomplete="off" style="display:none;">
-            <!-- Scrape Status Indicator -->
-            <div id="urlScrapeIndicator" class="url-scrape-indicator" style="display:none;"></div>
-            <!-- Objective Editorial Research Assistant Ledger Card -->
-            <div id="sourceLedgerCard" class="source-ledger-card" style="display:none;"></div>
-          </div>
-
-          <!-- Legacy Inner Voice Submode Container (Hidden) -->
-          <div class="trigger-section" id="triggerVoiceSection" style="display:none !important;">
-            <div class="inner-voice-submode-bar" id="innerVoiceSubmodeBar" style="display:none !important;">
-              <button type="button" class="inner-voice-submode-pill active" id="innerVoiceSubSingleBtn" onclick="setInnerVoiceSubmode('single')">
-                <span class="submode-icon">💭</span>
-                <span class="submode-label">Single Reflection</span>
-              </button>
-              <button type="button" class="inner-voice-submode-pill" id="innerVoiceSubChronicleBtn" onclick="setInnerVoiceSubmode('chronicle')">
-                <span class="submode-icon">📔</span>
-                <span class="submode-label">Diary Chronicle</span>
-              </button>
-            </div>
-            <div class="daily-chronicle-intro-banner" id="dailyChronicleIntroBanner" style="display:none !important;"></div>
-          </div>
-        </div>
-
-        <!-- 3. Slant Reaction Section: The Slant / Take -->
+        <!-- 1. Slant Reaction Section: Your Perspective (Opened directly at top) -->
         <div class="creator-hero-slant-card">
           <div class="creator-card-header">
             <div class="creator-card-title-row">
@@ -660,12 +562,10 @@
             </div>
           </div>
 
-          <textarea id="creatorSlantTakeInput" class="creator-textarea hero-textarea" rows="4" placeholder="Write your perspective, reaction, or takeaway here..."></textarea>
-
-          <!-- Live Perspective Depth Bar (Requires >= 25 Words + at least 2 of 3 Signals: Moment, Why It Matters, Conviction) -->
-          <div class="slant-live-depth-bar" id="slantLiveDepthBar">
+          <!-- Live Conviction Indicators & Depth Progress Bar (Directly OVER the prompt field so changes are visible while typing) -->
+          <div class="slant-live-depth-bar" id="slantLiveDepthBar" style="margin-bottom: 8px; margin-top: 2px;">
             <div class="slant-depth-top-row">
-              <div class="slant-depth-signals-group" role="group" aria-label="Perspective depth signals (at least 2 of 3 required)">
+              <div class="slant-depth-signals-group" role="group" aria-label="Perspective depth signals (all 3 required)">
                 <button type="button" class="depth-beat-pill is-pending" id="liveBeatMoment" onclick="showLiveDepthBeatHint('moment', event)" title="Signal 1: The concrete observation, trigger, or scene (Tap for tip)">
                   <span class="beat-check" id="liveBeatMomentCheck">○</span>
                   <span>Moment</span>
@@ -681,7 +581,7 @@
               </div>
               <div class="slant-depth-meters-right">
                 <span class="depth-signals-count-pill" id="slantDepthSignalsCountPill" title="All 3 signals (Moment, Why It Matters, Conviction) required">0/3 signals</span>
-                <span class="depth-word-pill" id="slantDepthWordPill" title="Tap Review & Polish to punctuate your thought and measure depth">✨ Review to measure depth</span>
+                <span class="depth-word-pill" id="slantDepthWordPill" title="Live perspective depth meter">Depth 0%</span>
               </div>
             </div>
             <div class="slant-depth-progress-track" aria-hidden="true">
@@ -689,6 +589,8 @@
             </div>
             <div class="slant-depth-coach-hint" id="slantDepthCoachHint" style="display: none;"></div>
           </div>
+
+          <textarea id="creatorSlantTakeInput" class="creator-textarea hero-textarea" rows="4" placeholder="Write your perspective, reaction, or takeaway here..."></textarea>
 
           <!-- Daily Chronicle Multi-Moment Cards Deck (Option B) -->
           <div class="daily-chronicle-deck-wrap" id="dailyChronicleDeckWrap" style="display: none;">
@@ -705,11 +607,108 @@
             </div>
           </div>
 
-          <!-- Auto-save status line directly above Review & Polish + Scope Toggle -->
-          <div style="display: flex; align-items: center; justify-content: flex-end; margin: 4px 0 6px;">
+          <!-- Auto-save status line -->
+          <div style="display: flex; align-items: center; justify-content: flex-end; margin: 4px 0 2px;">
             <span class="slant-take-hint" id="slantAutosaveStatus" style="font-size: 10.5px;">✓ Auto-saves</span>
           </div>
+        </div>
 
+        <!-- 2. "What sparked this slant?" 4-Icon Bar & Dynamic Context Field (Below Perspective Prompt) -->
+        <div class="creator-trigger-panel" id="creatorTriggerPanel" style="margin-top: 10px;">
+          <div class="slant-spark-icons-section" id="slantSparkIconsSection">
+            <div class="slant-spark-icons-label">What sparked this slant?</div>
+            <div class="slant-spark-icons-row" id="slantSparkIconsRow" role="radiogroup" aria-label="What sparked this slant">
+              <button type="button" class="spark-icon-chip active" data-spark="web" onclick="selectSlantSparkType('web')" title="Web Link — Auto-detects Web, YouTube, Instagram, X, or Substack">
+                <span class="spark-chip-svg-wrap chip-web" id="sparkWebChipSvgWrap">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <!-- Globe (Top-Left) -->
+                    <circle cx="8.5" cy="8.5" r="6"></circle>
+                    <path d="M2.5 8.5h12"></path>
+                    <path d="M8.5 2.5a9.2 9.2 0 0 1 2.4 6 9.2 9.2 0 0 1-2.4 6 9.2 9.2 0 0 1-2.4-6 9.2 9.2 0 0 1 2.4-6z"></path>
+                    <!-- YouTube Play Badge (Bottom-Right) -->
+                    <rect x="11.5" y="13" width="10.5" height="7.5" rx="2.2" fill="#EF4444" stroke="#FFFFFF" stroke-width="1.2"></rect>
+                    <polygon points="15.5,15.1 15.5,18.4 18.6,16.75" fill="#FFFFFF" stroke="none"></polygon>
+                    <!-- Instagram / Social Spark Dot (Top-Right) -->
+                    <rect x="15" y="2.2" width="6.8" height="6.8" rx="2" fill="#E1306C" stroke="#FFFFFF" stroke-width="1"></rect>
+                    <circle cx="18.4" cy="5.6" r="1.4" fill="none" stroke="#FFFFFF" stroke-width="1.2"></circle>
+                  </svg>
+                </span>
+                <span class="spark-chip-text" id="sparkWebChipText">Web Link</span>
+              </button>
+
+              <button type="button" class="spark-icon-chip" data-spark="book" onclick="selectSlantSparkType('book')" title="Reading Book — A book, chapter, or page">
+                <span class="spark-chip-svg-wrap chip-book">
+                  <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M2 4.5h6.5a3.5 3.5 0 0 1 3.5 3.5v12.5a2.8 2.8 0 0 0-2.8-2.8H2V4.5z"></path>
+                    <path d="M22 4.5h-6.5A3.5 3.5 0 0 0 12 8v12.5a2.8 2.8 0 0 1 2.8-2.8H22V4.5z"></path>
+                  </svg>
+                </span>
+                <span class="spark-chip-text">Reading Book</span>
+              </button>
+
+              <button type="button" class="spark-icon-chip" data-spark="moment" onclick="selectSlantSparkType('moment')" title="Observation — Something you witnessed or noticed">
+                <span class="spark-chip-svg-wrap chip-moment">
+                  <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                  </svg>
+                </span>
+                <span class="spark-chip-text">Observation</span>
+              </button>
+
+              <button type="button" class="spark-icon-chip" data-spark="experience" onclick="selectSlantSparkType('experience')" title="Experience — Something you lived through">
+                <span class="spark-chip-svg-wrap chip-experience">
+                  <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="9.5"></circle>
+                    <polygon points="15.8 8.2 13.7 13.7 8.2 15.8 10.3 10.3 15.8 8.2"></polygon>
+                  </svg>
+                </span>
+                <span class="spark-chip-text">Experience</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Dynamic Spark Field (Adapts Prompt, Subtle Hint & Platform Icon per Selected Option / Pasted Link) -->
+          <div class="trigger-section" id="triggerWebSection">
+            <div class="trigger-header">
+              <div class="trigger-title-row" style="display:flex; align-items:center; gap:6px;">
+                <span class="trigger-icon" id="triggerLinkIcon" style="display:inline-flex; align-items:center; justify-content:center;">🔗</span>
+                <span class="trigger-title" id="triggerLinkTitle">Web Link (Web, YouTube, Instagram, X, Substack)</span>
+              </div>
+              <div class="trigger-header-right" style="display:flex; align-items:center; gap:8px;">
+                <span class="creator-tag-badge badge-required" id="triggerLinkBadge">Required</span>
+                <span class="trigger-sub" id="triggerLinkSub" style="display:none;">Paste &amp; Fetch</span>
+              </div>
+            </div>
+            <div class="spark-field-subtle-hint" id="sparkFieldSubtleHint">
+              Adding the source gives Slant the context that sparked your thought, helping frame your perspective with sharper depth.
+            </div>
+            <input type="url" id="creatorUrlInput" class="creator-input" placeholder="https://... (Paste article, YouTube, Substack, X, or Instagram link)" autocomplete="off">
+            <input type="text" id="creatorSparkInput" class="creator-input" placeholder="Briefly describe what sparked this thought..." autocomplete="off" style="display:none;">
+            <!-- Scrape Status Indicator -->
+            <div id="urlScrapeIndicator" class="url-scrape-indicator" style="display:none;"></div>
+            <!-- Objective Editorial Research Assistant Ledger Card -->
+            <div id="sourceLedgerCard" class="source-ledger-card" style="display:none;"></div>
+          </div>
+
+          <!-- Legacy Inner Voice Submode Container (Hidden) -->
+          <div class="trigger-section" id="triggerVoiceSection" style="display:none !important;">
+            <div class="inner-voice-submode-bar" id="innerVoiceSubmodeBar" style="display:none !important;">
+              <button type="button" class="inner-voice-submode-pill active" id="innerVoiceSubSingleBtn" onclick="setInnerVoiceSubmode('single')">
+                <span class="submode-icon">💭</span>
+                <span class="submode-label">Single Reflection</span>
+              </button>
+              <button type="button" class="inner-voice-submode-pill" id="innerVoiceSubChronicleBtn" onclick="setInnerVoiceSubmode('chronicle')">
+                <span class="submode-icon">📔</span>
+                <span class="submode-label">Diary Chronicle</span>
+              </button>
+            </div>
+            <div class="daily-chronicle-intro-banner" id="dailyChronicleIntroBanner" style="display:none !important;"></div>
+          </div>
+        </div>
+
+        <!-- 3. Review & Polish Action Bar + Coaching Review Card -->
+        <div class="creator-polish-stage-footer" style="margin-top: 10px;">
           <div class="slant-take-action-bar">
             <div class="slant-take-action-btns">
               <button type="button" class="slant-polish-action-btn" id="slantPolishActionBtn" onclick="polishUserTake()">
@@ -3084,6 +3083,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261106_1240"></script>
+  <script src="app.js?v=20261106_1335"></script>
 </body>
 </html>
