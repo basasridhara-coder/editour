@@ -30889,6 +30889,306 @@ mark.polish-mark:hover, mark.polish-mark.active {
   box-shadow: 0 4px 14px rgba(245, 158, 11, 0.3);
 }
 
+/* ============================================================
+   FIRST-TIME DIARY WELCOME BRIEFING CARD
+   ============================================================ */
+.diary-welcome-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  background: rgba(10, 15, 28, 0.78);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.diary-welcome-card {
+  position: relative;
+  width: 100%;
+  max-width: 580px;
+  border-radius: 22px;
+  background: linear-gradient(165deg, #1E1B4B 0%, #0F172A 52%, #06281E 100%);
+  border: 1.5px solid rgba(245, 158, 11, 0.42);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+  padding: 24px 22px 20px;
+  color: #F8FAFC;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  animation: diaryWelcomePopIn 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+[data-theme="daylight"] .diary-welcome-card {
+  background: linear-gradient(165deg, #FFFBEB 0%, #FFFFFF 50%, #ECFDF5 100%);
+  border: 1.5px solid rgba(217, 119, 6, 0.38);
+  box-shadow: 0 22px 54px rgba(15, 23, 42, 0.22);
+  color: #0F172A;
+}
+
+@keyframes diaryWelcomePopIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.diary-welcome-close-btn {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 32px;
+  height: 32px;
+  border-radius: 99px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.08);
+  color: #E2E8F0;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.16s ease;
+}
+
+.diary-welcome-close-btn:hover {
+  background: rgba(255, 255, 255, 0.18);
+  transform: scale(1.05);
+}
+
+[data-theme="daylight"] .diary-welcome-close-btn {
+  border-color: rgba(15, 23, 42, 0.15);
+  background: rgba(15, 23, 42, 0.06);
+  color: #1E293B;
+}
+
+.diary-welcome-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding-right: 28px;
+}
+
+.diary-welcome-badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.diary-welcome-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 99px;
+  font-size: 10.5px;
+  font-weight: 900;
+  letter-spacing: 0.5px;
+  background: linear-gradient(135deg, #F59E0B 0%, #EA580C 100%);
+  color: #FFFFFF;
+  box-shadow: 0 3px 10px rgba(245, 158, 11, 0.32);
+}
+
+.diary-welcome-lock-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 99px;
+  font-size: 10.5px;
+  font-weight: 800;
+  background: rgba(16, 185, 129, 0.18);
+  border: 1px solid rgba(16, 185, 129, 0.45);
+  color: #34D399;
+}
+
+[data-theme="daylight"] .diary-welcome-lock-pill {
+  background: rgba(5, 150, 105, 0.12);
+  border-color: rgba(5, 150, 105, 0.35);
+  color: #047857;
+}
+
+.diary-welcome-title {
+  margin: 4px 0 0;
+  font-size: 21px;
+  font-weight: 900;
+  line-height: 1.22;
+  letter-spacing: -0.3px;
+  background: linear-gradient(95deg, #FEF3C7 0%, #FDE68A 45%, #6EE7B7 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+[data-theme="daylight"] .diary-welcome-title {
+  background: linear-gradient(95deg, #92400E 0%, #B45309 48%, #065F46 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.diary-welcome-sub {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #CBD5E1;
+  font-weight: 500;
+}
+
+[data-theme="daylight"] .diary-welcome-sub {
+  color: #334155;
+}
+
+.diary-welcome-pillars {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.diary-welcome-pillar {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid transparent;
+}
+
+.diary-welcome-pillar.pillar-amber {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.16) 0%, rgba(217, 119, 6, 0.08) 100%);
+  border-color: rgba(245, 158, 11, 0.38);
+}
+
+.diary-welcome-pillar.pillar-emerald {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.16) 0%, rgba(5, 150, 105, 0.08) 100%);
+  border-color: rgba(16, 185, 129, 0.38);
+}
+
+.diary-welcome-pillar.pillar-violet {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.18) 0%, rgba(79, 70, 229, 0.09) 100%);
+  border-color: rgba(139, 92, 246, 0.42);
+}
+
+[data-theme="daylight"] .diary-welcome-pillar.pillar-amber {
+  background: linear-gradient(135deg, #FEF3C7 0%, #FFFBEB 100%);
+  border-color: rgba(217, 119, 6, 0.35);
+}
+
+[data-theme="daylight"] .diary-welcome-pillar.pillar-emerald {
+  background: linear-gradient(135deg, #D1FAE5 0%, #ECFDF5 100%);
+  border-color: rgba(5, 150, 105, 0.35);
+}
+
+[data-theme="daylight"] .diary-welcome-pillar.pillar-violet {
+  background: linear-gradient(135deg, #EDE9FE 0%, #F5F3FF 100%);
+  border-color: rgba(109, 40, 217, 0.32);
+}
+
+.diary-pillar-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+[data-theme="daylight"] .diary-pillar-icon {
+  background: rgba(255, 255, 255, 0.85);
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06);
+}
+
+.diary-pillar-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.diary-pillar-title {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #FFFFFF;
+}
+
+[data-theme="daylight"] .diary-pillar-title {
+  color: #0F172A;
+}
+
+.diary-pillar-desc {
+  font-size: 12px;
+  line-height: 1.45;
+  color: #E2E8F0;
+}
+
+[data-theme="daylight"] .diary-pillar-desc {
+  color: #334155;
+}
+
+.diary-welcome-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 4px;
+  flex-wrap: wrap;
+}
+
+.diary-welcome-vault-btn {
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1.5px solid rgba(167, 139, 250, 0.5);
+  background: rgba(139, 92, 246, 0.18);
+  color: #DDD6FE;
+  font-size: 12.5px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.16s ease;
+}
+
+.diary-welcome-vault-btn:hover {
+  background: rgba(139, 92, 246, 0.28);
+  transform: translateY(-1px);
+}
+
+[data-theme="daylight"] .diary-welcome-vault-btn {
+  border-color: rgba(109, 40, 217, 0.4);
+  background: #EDE9FE;
+  color: #5B21B6;
+}
+
+.diary-welcome-start-btn {
+  flex: 1;
+  min-width: 190px;
+  padding: 11px 18px;
+  border-radius: 12px;
+  border: none;
+  background: linear-gradient(135deg, #F59E0B 0%, #D97706 55%, #059669 100%);
+  color: #FFFFFF;
+  font-size: 13.5px;
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(245, 158, 11, 0.35);
+  transition: all 0.16s ease;
+}
+
+.diary-welcome-start-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 22px rgba(245, 158, 11, 0.45);
+}
+
+
 
 
 

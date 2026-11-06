@@ -1264,9 +1264,11 @@ function updateUnifiedPosterVisualStripUI() {
         ? `✓ ${attachedSceneCount}/3 (${attachedSceneCount > 1 ? '★ Collage' : 'Ready'})`
         : (hasInnerVoicePhoto ? '✓ Photo attached' : 'Snap / upload 1–3');
     } else {
-      origIcon.textContent = '📷';
-      origTitle.textContent = 'Moment Photos';
-      origSub.textContent = hasChroniclePhotos ? '✓ ★ Starred prominence' : 'Attach to moment';
+      origIcon.textContent = (zeroCredits && !hasChroniclePhotos) ? '📔' : '📷';
+      origTitle.textContent = (zeroCredits && !hasChroniclePhotos) ? 'Moments & Reflection' : 'Moment Photos';
+      origSub.textContent = hasChroniclePhotos
+        ? '✓ ★ Starred prominence'
+        : (zeroCredits ? '✓ 2 Cards Only (No Watercolor)' : 'Attach to moment');
     }
   }
 
@@ -3198,6 +3200,28 @@ function isPostChronicleDiary(post) {
     || /(?:\b01\s*[·•.-]\s*[^:]{1,38}:|\bMoment\s+0?1\s*:)/i.test(String(post.summary || post.broadsheetObservation || ''))
   );
 }
+
+function isChronicleWithoutWatercolorPoster(post) {
+  if (!post) return false;
+  const isChronicle = isPostChronicleDiary(post) || (typeof isChronicleModePost === 'function' && isChronicleModePost(post));
+  if (!isChronicle) return false;
+  const hasArt = Boolean(
+    (post.illustrationBase64 && String(post.illustrationBase64).trim().length > 20)
+    || (post.posterBase64 && String(post.posterBase64).trim().length > 20)
+    || (post.illustrationUrl && String(post.illustrationUrl).trim().length > 4)
+    || (post.aiIllustrationUrl && String(post.aiIllustrationUrl).trim().length > 4)
+    || post.artworkPending
+  );
+  if (hasArt) return false;
+  if (Boolean(post.noWatercolorPoster || post.generationInputs?.noWatercolorPoster || post.usedFreeChronicleCardsOnly)) {
+    return true;
+  }
+  if (post.isEncryptedDiary && !post._decryptedInSession) {
+    return false;
+  }
+  return Boolean(!post.illustrationPrompt && !post.generationInputs?.illustrationPrompt);
+}
+window.isChronicleWithoutWatercolorPoster = isChronicleWithoutWatercolorPoster;
 
 function isPostPrivateOrDraft(post) {
   if (!post) return false;
@@ -12047,13 +12071,21 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0, isForShareE
     });
   }
 
+  const isChronicleCardsOnly = isChronicle && isChronicleWithoutWatercolorPoster(post);
   const p1SlideBadge = isChronicle
-    ? (forExportPage > 0 ? "02 / 03 • MOMENTS" : "02 / 03")
+    ? (isChronicleCardsOnly
+        ? (forExportPage > 0 ? "01 / 02 • MOMENTS" : "01 / 02")
+        : (forExportPage > 0 ? "02 / 03 • MOMENTS" : "02 / 03"))
     : (bifurcation.isBifurcated ? (forExportPage > 0 ? "02 / 03 • ESSAY P1" : "PAGE 1 / 2") : (forExportPage > 0 ? "02 / 02 • ESSAY" : "02 / 02"));
   const p2SlideBadge = isChronicle
-    ? (forExportPage > 0 ? "03 / 03 • REFLECTION" : "03 / 03")
+    ? (isChronicleCardsOnly
+        ? (forExportPage > 0 ? "02 / 02 • REFLECTION" : "02 / 02")
+        : (forExportPage > 0 ? "03 / 03 • REFLECTION" : "03 / 03"))
     : (forExportPage > 0 ? "03 / 03 • ESSAY P2" : "PAGE 2 / 2");
-  const folioRightP2 = (forExportPage > 0 || isChronicle) ? "Every thought deserves a frame • 03 / 03" : "Every thought deserves a frame • 02 / 02";
+  const folioRightP1 = isChronicle ? (isChronicleCardsOnly ? "01 / 02" : "02 / 03") : "02 / 02";
+  const folioRightP2 = isChronicle
+    ? (isChronicleCardsOnly ? "Every thought deserves a frame • 02 / 02" : "Every thought deserves a frame • 03 / 03")
+    : ((forExportPage > 0) ? "Every thought deserves a frame • 03 / 03" : "Every thought deserves a frame • 02 / 02");
   const receiptBrandTitle = isChronicle ? "SLANT MOMENTS" : "SLANT MINUTES";
   const chronicleDateStr = isChronicle ? formatChronicleDateDisplay(post.createdAt || post.date) : "";
 
@@ -12087,7 +12119,7 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0, isForShareE
           <div class="receipt-folio-rule"></div>
           <div class="receipt-folio-text">
             <span class="receipt-folio-left"><span class="poster-web-globe-icon" aria-hidden="true">🌐</span>slant.today</span>
-            <span class="receipt-folio-right">Every thought deserves a frame • ${isChronicle ? "02 / 03" : "02 / 02"}</span>
+            <span class="receipt-folio-right">Every thought deserves a frame • ${folioRightP1}</span>
           </div>
         </div>
         ` : ""}
@@ -12892,12 +12924,21 @@ function createPostCardElement(post, index) {
   }
 
   const isInnerVoice = isInnerVoicePost(post);
-  const cardSlideCount = isChronicle ? 3 : 2;
+  const isChronicleCardsOnly = isChronicle && isChronicleWithoutWatercolorPoster(post);
+  const cardSlideCount = isChronicle ? (isChronicleCardsOnly ? 2 : 3) : 2;
 
-  // Carousel Frame in 3:4 Aspect Ratio (3-Slide for Daily Chronicle; 2-Slide for Standard Slants)
+  // Carousel Frame in 3:4 Aspect Ratio (3-Slide for Daily Chronicle with Watercolor; 2-Slide for Moments+Reflection Cards Only or Standard Slants)
   const visualSectionHtml = `
     <div class="carousel-view ${isClean ? 'clean-view' : ''}" id="carousel-${index}" data-post-index="${index}" data-current-slide="0" data-slide-count="${cardSlideCount}">
       <div class="carousel-track" id="track-${index}">
+        ${isChronicleCardsOnly ? `
+        <div class="carousel-slide slide-receipt" style="cursor: default;">
+          ${buildUnifiedEssayPosterHtml(post, index, 1)}
+        </div>
+        <div class="carousel-slide slide-receipt" style="cursor: default;">
+          ${buildUnifiedEssayPosterHtml(post, index, 2)}
+        </div>
+        ` : `
         <div class="carousel-slide slide-hook" onclick="handleSlide1PosterTap(event, '${index}')" style="cursor: default;">
           ${buildSlide1Html(post, index, cardSlideCount)}
         </div>
@@ -12909,6 +12950,7 @@ function createPostCardElement(post, index) {
           ${buildUnifiedEssayPosterHtml(post, index, 2)}
         </div>
         ` : ''}
+        `}
       </div>
 
       <!-- Navigation Buttons -->
@@ -12919,7 +12961,7 @@ function createPostCardElement(post, index) {
       <div class="carousel-dots" id="dots-${index}">
         <span class="carousel-dot active" onclick="goToSlide(event, '${index}', 0)"></span>
         <span class="carousel-dot" onclick="goToSlide(event, '${index}', 1)"></span>
-        ${isChronicle ? `<span class="carousel-dot" onclick="goToSlide(event, '${index}', 2)"></span>` : ''}
+        ${(isChronicle && !isChronicleCardsOnly) ? `<span class="carousel-dot" onclick="goToSlide(event, '${index}', 2)"></span>` : ''}
       </div>
     </div>
   `;
@@ -21184,12 +21226,62 @@ function handleDiaryCalendarKeydown(e) {
   }
 }
 
+function getDiaryWelcomeSeenStorageKey() {
+  const email = (typeof getResolvedCreatorEmail === 'function' ? getResolvedCreatorEmail() : '') || 'guest';
+  return `slant_diary_welcome_seen_v1_${email}`;
+}
+
+function hasSeenDiaryWelcomeBriefing() {
+  try {
+    return localStorage.getItem(getDiaryWelcomeSeenStorageKey()) === '1';
+  } catch (_) {
+    return false;
+  }
+}
+
+function markDiaryWelcomeBriefingSeen() {
+  try {
+    localStorage.setItem(getDiaryWelcomeSeenStorageKey(), '1');
+  } catch (_) {}
+}
+
+function openDiaryWelcomeBriefingModal(force = false) {
+  if (!force && hasSeenDiaryWelcomeBriefing()) return;
+  const overlay = document.getElementById('diaryWelcomeBriefingOverlay');
+  if (overlay) {
+    overlay.style.display = 'flex';
+  }
+  markDiaryWelcomeBriefingSeen();
+}
+
+function dismissDiaryWelcomeBriefing() {
+  markDiaryWelcomeBriefingSeen();
+  const overlay = document.getElementById('diaryWelcomeBriefingOverlay');
+  if (overlay) {
+    overlay.style.display = 'none';
+  }
+}
+
+function openFamilyVaultFromDiaryWelcome() {
+  dismissDiaryWelcomeBriefing();
+  if (typeof openFamilyCastModal === 'function') {
+    openFamilyCastModal();
+  }
+}
+window.openDiaryWelcomeBriefingModal = openDiaryWelcomeBriefingModal;
+window.dismissDiaryWelcomeBriefing = dismissDiaryWelcomeBriefing;
+window.openFamilyVaultFromDiaryWelcome = openFamilyVaultFromDiaryWelcome;
+
 function openDiaryCalendarModal() {
   const modal = document.getElementById('diaryCalendarModal');
   const overlay = document.getElementById('diaryCalendarModalOverlay');
   if (modal) modal.style.display = 'flex';
   if (overlay) overlay.style.display = 'block';
   document.addEventListener('keydown', handleDiaryCalendarKeydown);
+
+  if (!hasSeenDiaryWelcomeBriefing()) {
+    openDiaryWelcomeBriefingModal(true);
+  }
 
   const dateMap = getDiaryChroniclesByDateMap();
   if (!diaryCalendarState.initialized || !diaryCalendarState.selectedDateKey || !dateMap.has(diaryCalendarState.selectedDateKey)) {
@@ -21268,10 +21360,19 @@ let diaryTrainProgrammaticScrollUntil = 0;
 function buildDiarySelectedPosterCarouselHtml(p) {
   if (!p) return '';
   const isChronicle = isPostChronicleDiary(p);
-  const cardSlideCount = isChronicle ? 3 : 2;
+  const isChronicleCardsOnly = isChronicle && isChronicleWithoutWatercolorPoster(p);
+  const cardSlideCount = isChronicle ? (isChronicleCardsOnly ? 2 : 3) : 2;
   return `
     <div class="diary-cal-poster-frame carousel-view" id="carousel-diary_preview" data-post-index="diary_preview" data-current-slide="0" data-slide-count="${cardSlideCount}">
       <div class="carousel-track" id="track-diary_preview">
+        ${isChronicleCardsOnly ? `
+        <div class="carousel-slide slide-receipt" style="cursor: default;">
+          ${buildUnifiedEssayPosterHtml(p, 'diary_preview', 1)}
+        </div>
+        <div class="carousel-slide slide-receipt" style="cursor: default;">
+          ${buildUnifiedEssayPosterHtml(p, 'diary_preview', 2)}
+        </div>
+        ` : `
         <div class="carousel-slide slide-hook" onclick="handleSlide1PosterTap(event, 'diary_preview')" style="cursor: default;">
           ${buildSlide1Html(p, 'diary_preview', cardSlideCount)}
         </div>
@@ -21283,6 +21384,7 @@ function buildDiarySelectedPosterCarouselHtml(p) {
           ${buildUnifiedEssayPosterHtml(p, 'diary_preview', 2)}
         </div>
         ` : ''}
+        `}
       </div>
 
       <!-- Navigation Buttons -->
@@ -21293,7 +21395,7 @@ function buildDiarySelectedPosterCarouselHtml(p) {
       <div class="carousel-dots" id="dots-diary_preview">
         <span class="carousel-dot active" onclick="goToSlide(event, 'diary_preview', 0)"></span>
         <span class="carousel-dot" onclick="goToSlide(event, 'diary_preview', 1)"></span>
-        ${isChronicle ? `<span class="carousel-dot" onclick="goToSlide(event, 'diary_preview', 2)"></span>` : ''}
+        ${(isChronicle && !isChronicleCardsOnly) ? `<span class="carousel-dot" onclick="goToSlide(event, 'diary_preview', 2)"></span>` : ''}
       </div>
     </div>
   `;
@@ -27169,6 +27271,9 @@ function setAnchorMode(mode, explicitSparkType = null) {
   }
   creatorSelectedSource = normalizedSource;
   isDailyChronicleMode = isDiaryCategory;
+  if (isDiaryCategory && typeof hasSeenDiaryWelcomeBriefing === 'function' && !hasSeenDiaryWelcomeBriefing()) {
+    openDiaryWelcomeBriefingModal(true);
+  }
   if (typeof updateCreatorStudioCreditBadge === 'function') {
     updateCreatorStudioCreditBadge();
   }
@@ -30853,20 +30958,17 @@ async function startAiSynthesis() {
   // or prompt them to attach a photo for Inner Voice / Chronicle before leaving Step 1
   const isRegenWithBaselineCheck = Boolean(window._isCreatorRegenMode && (currentSynthesizedPost || window._regenBaselinePost));
   const activeRegenScopeCheck = isRegenWithBaselineCheck ? (creatorRegenScope || 'both') : 'both';
+  let forceChronicleNoWatercolor = false;
   if (activeRegenScopeCheck !== 'text_only' && typeof isZeroVisualCreditsForActivePillar === 'function' && isZeroVisualCreditsForActivePillar()) {
     const isChronicleCheck = (creatorSelectedSource === 'inner_voice' && isDailyChronicleMode);
     if (isChronicleCheck) {
       const hasAnyMomentPhoto = Array.isArray(dailyChronicleMoments) && dailyChronicleMoments.some(m => Boolean(m && m.imageBase64));
-      if (!hasAnyMomentPhoto) {
-        const banner = document.getElementById('creatorZeroCreditsFreeBanner');
-        if (banner) banner.style.display = 'block';
-        if (typeof openWebCollageBuilderFromContext === 'function') {
-          openWebCollageBuilderFromContext();
-        }
-        showTemporaryToast('🖼️ 0 AI art credits left today — pick 1–3 web images in the Collage Studio above OR attach a photo to your moment(s) to post for FREE (Text generation is free)!');
-        return;
+      if (!hasAnyMomentPhoto && !window._isWebCollageAttached) {
+        // 0 Daily Chronicle credits and no attached photos -> create Moments & Reflection cards only (no watercolor poster)
+        forceChronicleNoWatercolor = true;
+      } else {
+        creatorCharacterRepresentation = 'exact';
       }
-      creatorCharacterRepresentation = 'exact';
     } else if (creatorSelectedSource === 'inner_voice') {
       if (!innerVoicePhotoBase64 && !creatorReferenceImageBase64) {
         const banner = document.getElementById('creatorZeroCreditsFreeBanner');
@@ -31231,6 +31333,7 @@ async function startAiSynthesis() {
   const payload = {
     sourceType: creatorSelectedSource,
     chronicleMode: isChronicleActive,
+    noWatercolorPoster: Boolean(forceChronicleNoWatercolor),
     simulateZeroCredits: Boolean(window._masterSimulateZeroCredits),
     regenScope: activeRegenScope,
     reflectionFeedbackHistory: isChronicleActive ? getReflectionFeedbackHistory() : null,
@@ -31337,7 +31440,15 @@ async function startAiSynthesis() {
     }
 
     currentSynthesizedPost = data.post;
-    if (data.usedFreeExactPhotoFallback) {
+    if (data.usedFreeChronicleCardsOnly || forceChronicleNoWatercolor || currentSynthesizedPost.noWatercolorPoster) {
+      currentSynthesizedPost.noWatercolorPoster = true;
+      currentSynthesizedPost.artworkPending = false;
+      currentSynthesizedPost.illustrationPrompt = '';
+      if (currentSynthesizedPost.generationInputs) {
+        currentSynthesizedPost.generationInputs.noWatercolorPoster = true;
+      }
+      showTemporaryToast('📔 Created your Moments & Reflection cards (0⚡ Free • No watercolor poster)!');
+    } else if (data.usedFreeExactPhotoFallback) {
       creatorCharacterRepresentation = 'exact';
       currentSynthesizedPost.characterRepresentation = 'exact';
       showTemporaryToast('✨ Generated your 3-poster Slant for FREE using your Original / Attached Photo (Text generation is always free)!');
@@ -31963,20 +32074,29 @@ function syncStep3SaveButtonLabel(post = currentSynthesizedPost) {
   if (saveLbl && saveLbl.textContent !== 'Saved') {
     saveLbl.textContent = (!isChronicle && matchedSeries) ? 'In Series' : 'Save';
   }
+  const prevTab0 = document.getElementById('prevTab0');
   const prevTab1 = document.getElementById('prevTab1');
   const prevTab2 = document.getElementById('prevTab2');
+  const isChronicleCardsOnly = isChronicle && isChronicleWithoutWatercolorPoster(post);
   const momentCount = (Array.isArray(post?.chronicleMoments) && post.chronicleMoments.length > 0)
     ? post.chronicleMoments.length
     : ((Array.isArray(post?.generationInputs?.chronicleMoments) && post.generationInputs.chronicleMoments.length > 0)
       ? post.generationInputs.chronicleMoments.length
       : 3);
+  if (prevTab0) {
+    prevTab0.innerHTML = isChronicleCardsOnly
+      ? `<span>📓</span> Card 1: ${momentCount} Moment${momentCount === 1 ? '' : 's'}`
+      : (isChronicle ? '<span>🎨</span> Poster 1: Moments Art' : '<span>🎨</span> Poster 1: The Hook');
+  }
   if (prevTab1) {
-    prevTab1.innerHTML = isChronicle
-      ? `<span>📓</span> Poster 2: ${momentCount} Moment${momentCount === 1 ? '' : 's'}`
-      : '<span>📜</span> Poster 2: The Essay';
+    prevTab1.innerHTML = isChronicleCardsOnly
+      ? '<span>✨</span> Card 2: Reflection'
+      : (isChronicle
+          ? `<span>📓</span> Poster 2: ${momentCount} Moment${momentCount === 1 ? '' : 's'}`
+          : '<span>📜</span> Poster 2: The Essay');
   }
   if (prevTab2) {
-    if (isChronicle) {
+    if (isChronicle && !isChronicleCardsOnly) {
       prevTab2.style.display = 'inline-flex';
       prevTab2.innerHTML = '<span>✨</span> Poster 3: Reflection';
     } else {
@@ -32068,7 +32188,9 @@ function setPreviewArtworkSource(source) {
 }
 
 function switchPreviewSlide(slideIdx) {
-  const maxIdx = isChronicleModePost(currentSynthesizedPost) ? 2 : 1;
+  const isChronicle = isChronicleModePost(currentSynthesizedPost);
+  const isChronicleCardsOnly = isChronicle && isChronicleWithoutWatercolorPoster(currentSynthesizedPost);
+  const maxIdx = (isChronicle && !isChronicleCardsOnly) ? 2 : 1;
   currentPreviewSlide = Math.max(0, Math.min(maxIdx, slideIdx));
   goToSlide(null, 'preview', currentPreviewSlide);
 
@@ -32145,12 +32267,21 @@ function openWholePosterModal(slideIdx) {
 
   isWholePosterClean = false;
   const isChronicleWhole = isChronicleModePost(currentSynthesizedPost);
-  const wholeSlideCount = isChronicleWhole ? 3 : 2;
+  const isChronicleCardsOnly = isChronicleWhole && isChronicleWithoutWatercolorPoster(currentSynthesizedPost);
+  const wholeSlideCount = (isChronicleWhole && !isChronicleCardsOnly) ? 3 : 2;
 
   // Build the complete carousel inside the whole poster frame
   frame.innerHTML = `
     <div class="carousel-view ${isWholePosterClean ? 'clean-view' : ''}" id="carousel-whole" data-post-index="whole" data-current-slide="${currentWholePosterSlide}" data-slide-count="${wholeSlideCount}">
       <div class="carousel-track" id="track-whole">
+        ${isChronicleCardsOnly ? `
+        <div class="carousel-slide slide-receipt" style="cursor: default;">
+          ${buildUnifiedEssayPosterHtml(currentSynthesizedPost, 'whole', 1)}
+        </div>
+        <div class="carousel-slide slide-receipt" style="cursor: default;">
+          ${buildUnifiedEssayPosterHtml(currentSynthesizedPost, 'whole', 2)}
+        </div>
+        ` : `
         <div class="carousel-slide slide-hook">
           ${buildSlide1Html(currentSynthesizedPost, 'whole', wholeSlideCount)}
         </div>
@@ -32162,6 +32293,7 @@ function openWholePosterModal(slideIdx) {
           ${buildUnifiedEssayPosterHtml(currentSynthesizedPost, 'whole', 2)}
         </div>
         ` : ''}
+        `}
       </div>
     </div>
   `;
@@ -32214,7 +32346,8 @@ function handleWholePosterKeydown(e) {
 
 function switchWholePosterSlide(slideIdx) {
   const isChronicleWhole = isChronicleModePost(currentSynthesizedPost);
-  const maxIdx = isChronicleWhole ? 2 : 1;
+  const isChronicleCardsOnly = isChronicleWhole && isChronicleWithoutWatercolorPoster(currentSynthesizedPost);
+  const maxIdx = (isChronicleWhole && !isChronicleCardsOnly) ? 2 : 1;
   currentWholePosterSlide = Math.max(0, Math.min(maxIdx, slideIdx));
 
   goToSlide(null, 'whole', currentWholePosterSlide);
@@ -32225,28 +32358,35 @@ function switchWholePosterSlide(slideIdx) {
   if (p0) p0.classList.toggle('active', currentWholePosterSlide === 0);
   if (p1) p1.classList.toggle('active', currentWholePosterSlide === 1);
   if (p2) {
-    p2.style.display = isChronicleWhole ? 'inline-flex' : 'none';
+    p2.style.display = (isChronicleWhole && !isChronicleCardsOnly) ? 'inline-flex' : 'none';
     p2.classList.toggle('active', currentWholePosterSlide === 2);
   }
 
   const titleEl = document.getElementById('wholePosterSlideTitle');
   if (titleEl) {
-    const titles = isChronicleWhole
+    const titles = isChronicleCardsOnly
       ? [
-          'Poster 1: Daily Moments Montage',
-          'Poster 2: The 3 Moments',
-          'Poster 3: Reflection of the Day'
+          'Card 1: Moments of the Day',
+          'Card 2: Reflection of the Day'
         ]
-      : [
-          'Poster 1: The Visual Hook',
-          'Poster 2: Unified Essay & Slant'
-        ];
+      : (isChronicleWhole
+          ? [
+              'Poster 1: Daily Moments Montage',
+              'Poster 2: The 3 Moments',
+              'Poster 3: Reflection of the Day'
+            ]
+          : [
+              'Poster 1: The Visual Hook',
+              'Poster 2: Unified Essay & Slant'
+            ]);
     titleEl.textContent = titles[currentWholePosterSlide] || 'Whole Poster';
   }
 }
 
 function changeWholePosterSlide(delta) {
-  const count = isChronicleModePost(currentSynthesizedPost) ? 3 : 2;
+  const isChronicleWhole = isChronicleModePost(currentSynthesizedPost);
+  const isChronicleCardsOnly = isChronicleWhole && isChronicleWithoutWatercolorPoster(currentSynthesizedPost);
+  const count = (isChronicleWhole && !isChronicleCardsOnly) ? 3 : 2;
   const nextSlide = (currentWholePosterSlide + delta + count) % count;
   switchWholePosterSlide(nextSlide);
 }
@@ -32392,19 +32532,28 @@ function openEditPosterModal(initialTab = null) {
   if (!currentSynthesizedPost) return;
 
   const isChronicle = isChronicleModePost(currentSynthesizedPost);
+  const isChronicleCardsOnly = isChronicle && isChronicleWithoutWatercolorPoster(currentSynthesizedPost);
   const editTab0 = document.getElementById('editTab0');
   const editTab1 = document.getElementById('editTab1');
   const editTab2 = document.getElementById('editTab2');
-  if (editTab0) editTab0.textContent = isChronicle ? 'Poster 1: Cover' : 'Slide 1: Hook';
-  if (editTab1) editTab1.textContent = isChronicle ? 'Poster 3: Reflection' : 'Slide 2: Take';
-  if (editTab2) editTab2.textContent = isChronicle ? 'Poster 2: Moments ✏️' : 'Slide 3: Broadsheet & Essay ✏️';
+  if (editTab0) {
+    editTab0.textContent = isChronicleCardsOnly ? 'Title & Header' : (isChronicle ? 'Poster 1: Cover' : 'Slide 1: Hook');
+  }
+  if (editTab1) {
+    editTab1.textContent = isChronicleCardsOnly ? 'Card 2: Reflection' : (isChronicle ? 'Poster 3: Reflection' : 'Slide 2: Take');
+  }
+  if (editTab2) {
+    editTab2.textContent = isChronicleCardsOnly ? 'Card 1: Moments ✏️' : (isChronicle ? 'Poster 2: Moments ✏️' : 'Slide 3: Broadsheet & Essay ✏️');
+  }
 
   let tabToOpen = 0;
   if (typeof initialTab === 'number') {
     tabToOpen = initialTab;
   } else {
     const curSlide = currentPreviewSlide || 0;
-    if (curSlide === 0) {
+    if (isChronicleCardsOnly) {
+      tabToOpen = (curSlide === 0) ? 2 : 1;
+    } else if (curSlide === 0) {
       tabToOpen = 0;
     } else if (curSlide === 1) {
       // Poster 2 in both Daily Chronicle (Moments) and Regular Slant (The Essay) lives in editTabPane2
@@ -32496,7 +32645,10 @@ function closeEditPosterModal() {
 
 function switchEditModalTab(tabIdx) {
   const isChronicle = isChronicleModePost(currentSynthesizedPost);
-  if (tabIdx === 0) {
+  const isChronicleCardsOnly = isChronicle && isChronicleWithoutWatercolorPoster(currentSynthesizedPost);
+  if (isChronicleCardsOnly) {
+    currentPreviewSlide = (tabIdx === 1) ? 1 : 0;
+  } else if (tabIdx === 0) {
     currentPreviewSlide = 0;
   } else if (tabIdx === 2) {
     currentPreviewSlide = 1;

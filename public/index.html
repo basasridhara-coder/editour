@@ -40,7 +40,7 @@
   <link rel="preconnect" href="https://fxfklefnkpmhofncqhfh.supabase.co" crossorigin>
   <link rel="preconnect" href="https://accounts.google.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Merriweather:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,400;1,600;1,700;1,900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261106_0118">
+  <link rel="stylesheet" href="style.css?v=20261106_0855">
   <!-- Favicon & Brand Icons -->
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
@@ -2645,6 +2645,10 @@
         <span style="display:inline-flex; align-items:center; gap:3px; padding:2px 7px; border-radius:99px; background:rgba(16,185,129,0.12); border:1px solid rgba(16,185,129,0.32); color:#34D399; font-size:9.5px; font-weight:800; white-space:nowrap; flex-shrink:0;" title="Encrypted in your browser with AES-256-GCM — readable only by you">🔒 E2EE</span>
       </div>
       <div style="display:inline-flex; align-items:center; gap:6px; flex-shrink: 0;">
+        <button type="button" onclick="openDiaryWelcomeBriefingModal(true)" style="padding:5px 9px; border-radius:99px; border:1px solid rgba(245,158,11,0.4); background:rgba(245,158,11,0.12); color:#FBBF24; font-size:10.5px; font-weight:800; cursor:pointer; display:inline-flex; align-items:center; gap:4px; white-space:nowrap;" title="Why Daily Chronicles, Privacy &amp; Family Vault">
+          <span>✨</span>
+          <span>Guide</span>
+        </button>
         <button type="button" onclick="openChronicleStudioFromDiary()" style="padding:6px 11px; border-radius:99px; border:none; background:#253833; color:#FFFFFF; font-size:11px; font-weight:800; cursor:pointer; display:inline-flex; align-items:center; gap:4px; white-space:nowrap;" title="Pen today's 2–3 daily moments">
           <span>＋</span>
           <span>Pen Today</span>
@@ -2655,6 +2659,58 @@
 
     <div class="diary-calendar-modal-body" id="diaryCalendarModalRoot">
       <!-- Rendered dynamically by renderDiaryCalendarModal() in app.js -->
+    </div>
+  </div>
+
+  <!-- First-Time Colorful Daily Chronicles Welcome Briefing Card Modal -->
+  <div class="diary-welcome-modal-overlay" id="diaryWelcomeBriefingOverlay" style="display: none;" onclick="dismissDiaryWelcomeBriefing()">
+    <div class="diary-welcome-card" onclick="event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="diaryWelcomeTitle">
+      <div class="diary-welcome-hero">
+        <div class="diary-welcome-top-row">
+          <span class="diary-welcome-pill">📔 PERSONAL DAILY CHRONICLES</span>
+          <button type="button" class="diary-welcome-close-btn" onclick="dismissDiaryWelcomeBriefing()" aria-label="Close">&times;</button>
+        </div>
+        <h2 class="diary-welcome-title" id="diaryWelcomeTitle">Your Days Deserve to Be Remembered</h2>
+        <p class="diary-welcome-subtitle">A private visual life journal that turns 2–3 daily moments and one honest reflection into lasting memory.</p>
+      </div>
+
+      <div class="diary-welcome-pillars">
+        <!-- Pillar 1: Why Writing Moments & Reflection Matters -->
+        <div class="diary-welcome-pillar pillar-amber">
+          <div class="diary-pillar-icon-box">🌟</div>
+          <div class="diary-pillar-content">
+            <div class="diary-pillar-heading">Why Moments &amp; Reflection Matter</div>
+            <div class="diary-pillar-desc">Capturing <strong>2–3 key moments</strong> from your day alongside a <strong>personal reflection</strong> preserves small victories, family milestones, and quiet lessons before they fade — building self-clarity and a living memoir over time.</div>
+          </div>
+        </div>
+
+        <!-- Pillar 2: End-to-End Encrypted Privacy -->
+        <div class="diary-welcome-pillar pillar-emerald">
+          <div class="diary-pillar-icon-box">🔒</div>
+          <div class="diary-pillar-content">
+            <div class="diary-pillar-heading">100% Protected &amp; Private to You</div>
+            <div class="diary-pillar-desc">Your moments are <strong>strictly for your eyes only</strong>. Every diary entry is locked in your browser with <strong>AES-256-GCM End-to-End Encryption</strong> — never shown on the public feed and unreadable by anyone else.</div>
+          </div>
+        </div>
+
+        <!-- Pillar 3: Family Vault Integration -->
+        <div class="diary-welcome-pillar pillar-violet">
+          <div class="diary-pillar-icon-box">👨‍👩‍👦‍👦</div>
+          <div class="diary-pillar-content">
+            <div class="diary-pillar-heading">Family Vault Portrays You &amp; Your Family</div>
+            <div class="diary-pillar-desc">Add your <strong>Self</strong> photo and family members in the <strong>Reference &amp; Family Vault</strong>. When Slant paints your Daily Chronicle watercolor poster, it portrays <em>you and your real family</em> authentically with zero public digital footprint.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="diary-welcome-footer">
+        <button type="button" class="diary-welcome-vault-btn" onclick="openFamilyVaultFromDiaryWelcome()">
+          <span>👥 Set Up Family Vault</span>
+        </button>
+        <button type="button" class="diary-welcome-start-btn" onclick="dismissDiaryWelcomeBriefing()">
+          <span>📔 Continue to My Diary &rarr;</span>
+        </button>
+      </div>
     </div>
   </div>
 
@@ -3050,6 +3106,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261106_0118"></script>
+  <script src="app.js?v=20261106_0855"></script>
 </body>
 </html>

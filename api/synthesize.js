@@ -3224,7 +3224,8 @@ Respond strictly with valid JSON with this exact structure:
     }
 
     let usedFreeExactPhotoFallback = false;
-    if (wantsVisualCredit) {
+    let usedFreeChronicleCardsOnly = Boolean(isChronicle && body.noWatercolorPoster);
+    if (wantsVisualCredit && !usedFreeChronicleCardsOnly) {
       if (creditCheck.hasCredits) {
         creditCheck = await verifyAndConsumeUserCredit(userEmail, true, Boolean(isChronicle), Boolean(body.simulateZeroCredits));
       } else if (hasOriginalOrAttachedPhoto) {
@@ -3235,13 +3236,15 @@ Respond strictly with valid JSON with this exact structure:
         if (sourceType === 'digital_link' || sourceType === 'video_audio') {
           perspectiveMode = 'source';
         }
+      } else if (isChronicle) {
+        // User has 0 Daily Chronicle credits left and no attached photos -> synthesize Moments + Reflection cards for FREE without a watercolor poster!
+        usedFreeChronicleCardsOnly = true;
+        isExactPhotoOnly = true;
       } else {
         return res.status(429).json({
-          error: isChronicle
-            ? '⚡ 0 Daily Chronicle AI art credits left today — but Text Generation is FREE! Attach a photo to your moment(s) to post for free, or tap "Request More Credits".'
-            : (sourceType === 'inner_voice'
-                ? '⚡ 0 AI art credits left today — but Text Generation is FREE! For Inner Voice, attach a photo (Snap Scene / Upload Photo) to post for free, or switch to a Web Link with its original source photo!'
-                : '⚡ 0 AI art credits left today — but Text Generation is FREE! You can still post using Source Grounded with the original source photo, or attach your own photo in Inner Voice!'),
+          error: (sourceType === 'inner_voice'
+            ? '⚡ 0 AI art credits left today — but Text Generation is FREE! For Inner Voice, attach a photo (Snap Scene / Upload Photo) to post for free, or switch to a Web Link with its original source photo!'
+            : '⚡ 0 AI art credits left today — but Text Generation is FREE! You can still post using Source Grounded with the original source photo, or attach your own photo in Inner Voice!'),
           creditsExhausted: true,
           credits: creditCheck.credits
         });
@@ -4181,8 +4184,8 @@ Respond strictly with valid JSON with this exact structure:
       cleanedExcerpts = summarySplitParas;
     }
 
-    let effectiveIllustrationPrompt = parsed.illustrationPrompt || concisePrompt || '';
-    if (countryContext && countryContext !== 'Global' && !effectiveIllustrationPrompt.toLowerCase().includes(countryContext.toLowerCase())) {
+    let effectiveIllustrationPrompt = usedFreeChronicleCardsOnly ? '' : (parsed.illustrationPrompt || concisePrompt || '');
+    if (effectiveIllustrationPrompt && countryContext && countryContext !== 'Global' && !effectiveIllustrationPrompt.toLowerCase().includes(countryContext.toLowerCase())) {
       effectiveIllustrationPrompt = `${countryContext} setting, ${effectiveIllustrationPrompt}`;
     }
 
@@ -4224,10 +4227,11 @@ Respond strictly with valid JSON with this exact structure:
       characterRepresentation,
       hookCues: `#1 [HERO]: ${parsed.heroCue || (cues && cues[0]) || 'Central subject'}\n#2 [MOTIF]: ${parsed.motifCue || (cues && cues[1]) || 'Metaphor'}\n#3 [TENSION]: ${parsed.tensionCue || (cues && cues[2]) || 'Conflict'}\n#4 [ATMOSPHERE]: ${parsed.atmosphereCue || (cues && cues[3]) || 'Setting'}\n#5 [LIGHTING]: ${parsed.lightingCue || (cues && cues[4]) || 'Atmospheric light'}\n#6 [STYLE]: ${parsed.styleCue || (cues && cues[5]) || 'Editorial illustration'}`,
       illustrationPrompt: effectiveIllustrationPrompt,
-      artworkPending: (!hasExactPhoto && !finalIllustrationBase64),
-      illustrationUrl: finalIllustrationBase64 ? '' : finalIllustrationUrl,
-      illustrationBase64: finalIllustrationBase64,
-      aiIllustrationUrl: finalIllustrationBase64 ? '' : finalIllustrationUrl,
+      noWatercolorPoster: Boolean(usedFreeChronicleCardsOnly),
+      artworkPending: (!usedFreeChronicleCardsOnly && !hasExactPhoto && !finalIllustrationBase64),
+      illustrationUrl: usedFreeChronicleCardsOnly ? '' : (finalIllustrationBase64 ? '' : finalIllustrationUrl),
+      illustrationBase64: usedFreeChronicleCardsOnly ? null : finalIllustrationBase64,
+      aiIllustrationUrl: usedFreeChronicleCardsOnly ? '' : (finalIllustrationBase64 ? '' : finalIllustrationUrl),
       creatorHandle: creatorHandle || '@curator',
       slantTone: slantTone || 'mind',
       slantIcon: slantTone === 'heart' ? '❤️' : '🧠',
@@ -4263,6 +4267,7 @@ Respond strictly with valid JSON with this exact structure:
         sourceUrl: url || '',
         sourceType: sourceType,
         chronicleMode: Boolean(isChronicle),
+        noWatercolorPoster: Boolean(usedFreeChronicleCardsOnly),
         chronicleMoments: isChronicle ? validChronicleMoments : undefined,
         chronicleReflections: isChronicle ? normalizedChronicleReflections : undefined,
         perspectiveMode: perspectiveMode || 'source',
@@ -4301,7 +4306,8 @@ Respond strictly with valid JSON with this exact structure:
       success: true,
       post: postItem,
       credits: creditCheck.credits,
-      usedFreeExactPhotoFallback: Boolean(usedFreeExactPhotoFallback)
+      usedFreeExactPhotoFallback: Boolean(usedFreeExactPhotoFallback),
+      usedFreeChronicleCardsOnly: Boolean(usedFreeChronicleCardsOnly)
     });
   } catch (error) {
     console.error('Server error in /api/synthesize:', error);
