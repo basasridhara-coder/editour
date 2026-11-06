@@ -13087,10 +13087,10 @@ function createPostCardElement(post, index) {
                 <span>${postSeries ? 'Make Private (Keep in Series Only)' : 'Make Private (Move to Drafts)'}</span>
               </button>
             ` : ''}
-            ${!isChronicle ? `
+            ${(!isChronicle && !postSeries) ? `
               <button type="button" class="post-menu-item" onclick="event.stopPropagation(); toggleCardSeriesAssignSubmenu(event, '${post.id}', '${index}')">
                 <span>📚</span>
-                <span>${postSeries ? `Series: ${escapeHtml(postSeries.title)}` : 'Add to a Series...'}</span>
+                <span>Add to a Series...</span>
               </button>
               <div class="card-series-submenu" id="card-series-submenu-${index}" style="display:none;"></div>
             ` : ''}
@@ -13120,16 +13120,6 @@ function createPostCardElement(post, index) {
               <span>Delete Slant</span>
             </button>
           ` : ''}
-          <button type="button" class="post-menu-item" onclick="event.stopPropagation(); closeAllPostMenus(); sharePosters('${index}')">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="18" cy="5" r="3"></circle>
-              <circle cx="6" cy="12" r="3"></circle>
-              <circle cx="18" cy="19" r="3"></circle>
-              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
-              <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
-            </svg>
-            <span>Share Slant</span>
-          </button>
           <button type="button" class="post-menu-item" onclick="event.stopPropagation(); closeAllPostMenus(); copyCardShareLink('${post.id}')">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
@@ -14829,15 +14819,15 @@ function renderProofSummarySections(post, ledger) {
         </div>
       `;
     } else {
-      // Clean, honest notice when a social/video/web link has no extractable text transcript
+      // Clean, concise notice when a social/video/web link has no extractable text transcript (without prompting users to leave via external link)
       const rawLink = post.digitalLink || post.videoUrl || post.sourceUrl || post.webUrl || post.generationInputs?.sourceUrl || '';
       const hostName = getCleanDomain(rawLink) || post.publicationName || 'the source platform';
       paragraphsHtml += `
         <div class="unbiased-summary-section" style="padding: 12px 14px; background: rgba(148, 163, 184, 0.08); border: 1px dashed rgba(148, 163, 184, 0.35); border-radius: 10px;">
           <div style="display:flex; align-items:flex-start; gap:10px;">
-            <span style="font-size:15px; line-height:1.2; flex-shrink:0;">🔗</span>
+            <span style="font-size:15px; line-height:1.2; flex-shrink:0;">ℹ</span>
             <p class="unbiased-text" style="margin:0; font-size:12.5px; line-height:1.45; color:#475569;">
-              Text summary could not be extracted automatically from <strong>${escapeHtml(hostName)}</strong>. Please view the embedded post above or open the original source link below.
+              Text summary could not be extracted automatically from <strong>${escapeHtml(hostName)}</strong>.
             </p>
           </div>
         </div>
@@ -14845,7 +14835,7 @@ function renderProofSummarySections(post, ledger) {
     }
   }
 
-  return paragraphsHtml || '<div class="unbiased-summary-section"><p class="unbiased-text">View the original linked source below for full context.</p></div>';
+  return paragraphsHtml || '<div class="unbiased-summary-section"><p class="unbiased-text">Text summary could not be extracted automatically.</p></div>';
 }
 
 function openDetailModal(index) {
