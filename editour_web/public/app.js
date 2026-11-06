@@ -12782,15 +12782,12 @@ function toggleInlineSourceDrawer(event, index) {
         </div>
       </div>
       ${mediaBlockHtml}
-      <div class="inline-source-scroll-summary" id="inline-source-summary-${index}">
+      <div class="inline-source-scroll-summary" id="inline-source-summary-${index}" style="display:${summaryHtml ? 'block' : 'none'};">
         ${summaryHtml}
       </div>
       ${rawLink && /^https?:\/\//i.test(rawLink) ? `
         <div class="inline-source-footer-citation">
           <span>Verified source: <strong>${escapeHtml(pubName || cleanHost || 'Original Source')}</strong></span>
-          <a href="${escapeHtml(rawLink)}" target="_blank" rel="noopener noreferrer" class="inline-source-footer-link" onclick="event.stopPropagation()" title="View original source in a new tab">
-            <span>View original externally &nearr;</span>
-          </a>
         </div>
       ` : ''}
     </div>
@@ -12836,7 +12833,9 @@ function toggleInlineSourceDrawer(event, index) {
           if (post.generationInputs) post.generationInputs.sourceLedger = data.ledger;
           const summaryBox = document.getElementById(`inline-source-summary-${index}`);
           if (summaryBox) {
-            summaryBox.innerHTML = renderProofSummarySections(post, data.ledger);
+            const newSummaryHtml = renderProofSummarySections(post, data.ledger);
+            summaryBox.innerHTML = newSummaryHtml;
+            summaryBox.style.display = newSummaryHtml ? 'block' : 'none';
           }
         }
       })
@@ -14818,24 +14817,10 @@ function renderProofSummarySections(post, ledger) {
           </div>
         </div>
       `;
-    } else {
-      // Clean, concise notice when a social/video/web link has no extractable text transcript (without prompting users to leave via external link)
-      const rawLink = post.digitalLink || post.videoUrl || post.sourceUrl || post.webUrl || post.generationInputs?.sourceUrl || '';
-      const hostName = getCleanDomain(rawLink) || post.publicationName || 'the source platform';
-      paragraphsHtml += `
-        <div class="unbiased-summary-section" style="padding: 12px 14px; background: rgba(148, 163, 184, 0.08); border: 1px dashed rgba(148, 163, 184, 0.35); border-radius: 10px;">
-          <div style="display:flex; align-items:flex-start; gap:10px;">
-            <span style="font-size:15px; line-height:1.2; flex-shrink:0;">ℹ</span>
-            <p class="unbiased-text" style="margin:0; font-size:12.5px; line-height:1.45; color:#475569;">
-              Text summary could not be extracted automatically from <strong>${escapeHtml(hostName)}</strong>.
-            </p>
-          </div>
-        </div>
-      `;
     }
   }
 
-  return paragraphsHtml || '<div class="unbiased-summary-section"><p class="unbiased-text">Text summary could not be extracted automatically.</p></div>';
+  return paragraphsHtml;
 }
 
 function openDetailModal(index) {
@@ -15000,10 +14985,9 @@ function openDetailModal(index) {
         `;
       } else if (videoEmbedWrap) {
         videoEmbedWrap.innerHTML = `
-          <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:160px; color:#CBD5E1; text-align:center; padding:16px;">
-            <span style="font-size:30px; margin-bottom:6px;">▶</span>
-            <span style="font-weight:700;">Broadcast / Video Source</span>
-            <a href="${escapeHtml(rawLink)}" target="_blank" rel="noopener noreferrer" style="margin-top:6px; color:#818CF8; text-decoration:underline; font-size:12px;">Watch on host platform &nearr;</a>
+          <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:140px; color:#CBD5E1; text-align:center; padding:16px;">
+            <span style="font-size:28px; margin-bottom:6px;">▶</span>
+            <span style="font-weight:700;">Broadcast / Video Source (${escapeHtml(cleanHost || pubName)})</span>
           </div>
         `;
       }
@@ -15047,17 +15031,23 @@ function openDetailModal(index) {
   }
 
   // 4. Primary Unbiased 1-Minute Read Sections (Pure Source Summary)
+  const proofExcerptsBoxEl = document.getElementById('proofExcerptsBox');
   const proofParagraphsEl = document.getElementById('proofParagraphs');
   const readTimeEl = document.getElementById('proofReadTime');
 
   if (proofParagraphsEl) {
-    proofParagraphsEl.innerHTML = renderProofSummarySections(post, ledger);
+    const summaryMarkup = renderProofSummarySections(post, ledger);
+    proofParagraphsEl.innerHTML = summaryMarkup;
+    if (proofExcerptsBoxEl) {
+      proofExcerptsBoxEl.style.display = summaryMarkup ? 'block' : 'none';
+    }
 
     // Word count & read time indicator
     const rawText = proofParagraphsEl.innerText || proofParagraphsEl.textContent || '';
     const wordCount = rawText.trim().split(/\s+/).filter(Boolean).length;
     if (readTimeEl) {
-      readTimeEl.textContent = `⏱️ 1-MIN READ (${wordCount} words)`;
+      readTimeEl.textContent = wordCount > 0 ? `⏱️ 1-MIN READ (${wordCount} words)` : '';
+      readTimeEl.style.display = wordCount > 0 ? 'inline-flex' : 'none';
     }
   }
 
@@ -15094,11 +15084,16 @@ function openDetailModal(index) {
               starsBadge.style.display = 'inline-flex';
             }
             if (proofParagraphsEl) {
-              proofParagraphsEl.innerHTML = renderProofSummarySections(post, data.ledger);
+              const updatedMarkup = renderProofSummarySections(post, data.ledger);
+              proofParagraphsEl.innerHTML = updatedMarkup;
+              if (proofExcerptsBoxEl) {
+                proofExcerptsBoxEl.style.display = updatedMarkup ? 'block' : 'none';
+              }
               const rawText = proofParagraphsEl.innerText || proofParagraphsEl.textContent || '';
               const wordCount = rawText.trim().split(/\s+/).filter(Boolean).length;
               if (readTimeEl) {
-                readTimeEl.textContent = `⏱️ 1-MIN READ (${wordCount} words)`;
+                readTimeEl.textContent = wordCount > 0 ? `⏱️ 1-MIN READ (${wordCount} words)` : '';
+                readTimeEl.style.display = wordCount > 0 ? 'inline-flex' : 'none';
               }
             }
           }
@@ -15122,37 +15117,21 @@ function openDetailModal(index) {
     }
   }
 
-  // 6. Actual Source Link Towards End
+  // 6. Hide External Exit Link Cards so users stay in-app
   const sourceAnchorCard = document.getElementById('proofSourceAnchorCard');
   if (sourceAnchorCard) {
-    if (rawLink && !rawLink.startsWith('blob:') && !rawLink.startsWith('data:')) {
-      sourceAnchorCard.style.display = 'flex';
-      const hostEl = document.getElementById('proofSourceAnchorHost');
-      if (hostEl) hostEl.textContent = (cleanHost || pubName).toUpperCase();
-      const urlEl = document.getElementById('proofSourceAnchorUrl');
-      if (urlEl) urlEl.textContent = rawLink;
-      const btnEl = document.getElementById('proofSourceAnchorBtn');
-      if (btnEl) btnEl.href = rawLink;
-    } else {
-      sourceAnchorCard.style.display = 'none';
-    }
+    sourceAnchorCard.style.display = 'none';
   }
 
-  // 7. Footer Actions
+  // 7. Footer Attribution (No outbound exit button)
   const archivedByEl = document.getElementById('proofArchivedBy');
   if (archivedByEl) {
-    archivedByEl.textContent = `Archived by ${handle}`;
+    archivedByEl.textContent = `Archived by ${handle} • Verified source: ${(cleanHost || pubName)}`;
   }
 
   const extLink = document.getElementById('proofExternalLink');
   if (extLink) {
-    if (rawLink && !rawLink.startsWith('blob:') && !rawLink.startsWith('data:')) {
-      extLink.href = rawLink;
-      extLink.innerHTML = '<span>🌐 Open Original Source &nearr;</span>';
-      extLink.style.display = 'inline-flex';
-    } else {
-      extLink.style.display = 'none';
-    }
+    extLink.style.display = 'none';
   }
 
   // Update browser URL query without reload
@@ -27160,12 +27139,13 @@ let activeSlantSparkType = 'web';
 
 function detectSourceLinkPlatform(url) {
   const lower = String(url || '').toLowerCase().trim();
+  const defaultHint = 'Adding the source gives Slant the context that sparked your thought, helping frame your perspective with sharper depth.';
   if (!lower) {
     return {
       icon: '🔗',
       title: 'Source Link (Web, YouTube, Substack, X, IG)',
       badgeLabel: 'Required',
-      subtleHint: 'Paste any article, YouTube video, Substack essay, or social link — Slant auto-identifies the source & context.',
+      subtleHint: defaultHint,
       perspectivePlaceholder: 'What caught your attention in this source, why does it matter beneath the surface, and what is your conviction?'
     };
   }
@@ -27174,7 +27154,7 @@ function detectSourceLinkPlatform(url) {
       icon: '▶️',
       title: 'YouTube / Video Source Detected',
       badgeLabel: 'YouTube Video',
-      subtleHint: 'Video identified — Slant pulls the speaker, transcript & key talking points.',
+      subtleHint: defaultHint,
       perspectivePlaceholder: 'Which moment or argument in this video stood out, why does it matter, and what is your takeaway?'
     };
   }
@@ -27183,7 +27163,7 @@ function detectSourceLinkPlatform(url) {
       icon: '🧡',
       title: 'Substack Essay Detected',
       badgeLabel: 'Substack Essay',
-      subtleHint: 'Substack newsletter identified — Slant extracts the essay headline & core thesis.',
+      subtleHint: defaultHint,
       perspectivePlaceholder: 'What idea from this Substack essay sparked your reaction, where do you agree or push back, and what is your conviction?'
     };
   }
@@ -27192,7 +27172,7 @@ function detectSourceLinkPlatform(url) {
       icon: '📸',
       title: 'Instagram Post / Reel Detected',
       badgeLabel: 'Instagram',
-      subtleHint: 'Instagram link attached — share the context or moment from this post and your perspective below.',
+      subtleHint: defaultHint,
       perspectivePlaceholder: 'What moment, message, or event in this Instagram post caught your attention, and what is your perspective on it?'
     };
   }
@@ -27201,7 +27181,7 @@ function detectSourceLinkPlatform(url) {
       icon: '𝕏',
       title: 'X / Social Post Detected',
       badgeLabel: 'X Post',
-      subtleHint: 'X post identified — Slant links the post and author context to your perspective.',
+      subtleHint: defaultHint,
       perspectivePlaceholder: 'What point or debate in this X post stood out to you, and where do you stand?'
     };
   }
@@ -27210,7 +27190,7 @@ function detectSourceLinkPlatform(url) {
       icon: '🎙️',
       title: 'Podcast / Audio Source Detected',
       badgeLabel: 'Podcast',
-      subtleHint: 'Audio episode identified — share the key idea that stayed with you below.',
+      subtleHint: defaultHint,
       perspectivePlaceholder: 'Which insight from this episode stood out, why does it matter, and what is your conviction?'
     };
   }
@@ -27218,7 +27198,7 @@ function detectSourceLinkPlatform(url) {
     icon: '🌐',
     title: 'Web Article / Report Detected',
     badgeLabel: 'Web Article',
-    subtleHint: 'Web article identified — Slant extracts the headline, summary & key facts.',
+    subtleHint: defaultHint,
     perspectivePlaceholder: 'What caught your attention in this article, why does it matter beneath the surface, and what is your conviction?'
   };
 }
@@ -27231,7 +27211,7 @@ const SLANT_SPARK_TYPES = {
     required: true,
     icon: '🔗',
     title: 'Source Link (Web, YouTube, Substack, X, IG)',
-    subtleHint: 'Paste any article, YouTube video, Substack essay, or social link — Slant auto-identifies the source & context.',
+    subtleHint: 'Adding the source gives Slant the context that sparked your thought, helping frame your perspective with sharper depth.',
     inputPlaceholder: 'https://... (Paste article, YouTube, Substack, X, or Instagram link)',
     perspectivePlaceholder: 'What caught your attention in this source, why does it matter beneath the surface, and what is your conviction?'
   },
@@ -27242,7 +27222,7 @@ const SLANT_SPARK_TYPES = {
     required: true,
     icon: '▶️',
     title: 'YouTube / Video Source Detected',
-    subtleHint: 'Paste any article, YouTube video, Substack essay, or social link — Slant auto-identifies the source & context.',
+    subtleHint: 'Adding the source gives Slant the context that sparked your thought, helping frame your perspective with sharper depth.',
     inputPlaceholder: 'https://... (Paste article, YouTube, Substack, X, or Instagram link)',
     perspectivePlaceholder: 'Which moment or quote in this video stood out, why does it matter, and what is your takeaway?'
   },
@@ -27253,7 +27233,7 @@ const SLANT_SPARK_TYPES = {
     required: true,
     icon: '🧡',
     title: 'Substack Essay Detected',
-    subtleHint: 'Paste any article, YouTube video, Substack essay, or social link — Slant auto-identifies the source & context.',
+    subtleHint: 'Adding the source gives Slant the context that sparked your thought, helping frame your perspective with sharper depth.',
     inputPlaceholder: 'https://... (Paste article, YouTube, Substack, X, or Instagram link)',
     perspectivePlaceholder: 'What idea from this Substack essay sparked your reaction, where do you agree or push back, and what is your conviction?'
   },
