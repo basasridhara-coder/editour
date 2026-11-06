@@ -357,6 +357,71 @@ async function saveRawUserFamilyCast(email, cast) {
   return await saveSystemDoc(profileId, cast);
 }
 
+function normalizeCuratorHandleKey(rawHandle) {
+  return String(rawHandle || '').replace(/^@+/, '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+async function resolveAndClaimUniqueCuratorHandle(email, requestedHandle) {
+  const cleanEmail = String(email || '').trim().toLowerCase();
+  let raw = String(requestedHandle || '').trim();
+  if (!raw || raw.toLowerCase() === '@curator' || raw.toLowerCase() === 'curator') {
+    const fallbackFromEmail = cleanEmail.includes('@')
+      ? cleanEmail.split('@')[0].replace(/[._-]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase()).trim()
+      : 'Curator';
+    raw = '@' + fallbackFromEmail;
+  }
+  if (!raw.startsWith('@')) raw = '@' + raw;
+  if (!cleanEmail || !cleanEmail.includes('@')) return { handle: raw, wasDisambiguated: false };
+
+  try {
+    const dir = await getSystemDoc('system_user_directory', { users: {} });
+    if (!dir.users || typeof dir.users !== 'object') dir.users = {};
+
+    const takenByOther = new Set();
+    for (const [uEmail, uObj] of Object.entries(dir.users)) {
+      const em = String(uEmail || '').trim().toLowerCase();
+      if (!em || em === cleanEmail || !uObj) continue;
+      if (uObj.curatorHandle) takenByOther.add(normalizeCuratorHandleKey(uObj.curatorHandle));
+      if (uObj.handle) takenByOther.add(normalizeCuratorHandleKey(uObj.handle));
+      if (uObj.name) takenByOther.add(normalizeCuratorHandleKey(uObj.name));
+    }
+
+    let candidate = raw;
+    let wasDisambiguated = false;
+    if (takenByOther.has(normalizeCuratorHandleKey(candidate))) {
+      wasDisambiguated = true;
+      const emailPrefix = cleanEmail.split('@')[0].replace(/[^a-zA-Z0-9]/g, '').slice(0, 6);
+      const baseClean = raw.replace(/^@+/, '').trim();
+      const withPrefix = `@${baseClean} (${emailPrefix})`;
+      if (emailPrefix && !takenByOther.has(normalizeCuratorHandleKey(withPrefix))) {
+        candidate = withPrefix;
+      } else {
+        let counter = 2;
+        while (takenByOther.has(normalizeCuratorHandleKey(`@${baseClean} ${counter}`))) {
+          counter++;
+        }
+        candidate = `@${baseClean} ${counter}`;
+      }
+    }
+
+    const existing = dir.users[cleanEmail] || { email: cleanEmail };
+    if (existing.curatorHandle !== candidate) {
+      dir.users[cleanEmail] = {
+        ...existing,
+        email: cleanEmail,
+        curatorHandle: candidate,
+        name: existing.name || candidate.replace(/^@+/, '').trim(),
+        handle: existing.handle || ('@' + candidate.replace(/^@+/, '').trim().toLowerCase().replace(/[^a-z0-9_]/g, '')),
+        updatedAt: new Date().toISOString()
+      };
+      await saveSystemDoc('system_user_directory', dir);
+    }
+    return { handle: candidate, wasDisambiguated };
+  } catch (_) {
+    return { handle: raw, wasDisambiguated: false };
+  }
+}
+
 async function syncUserSelfToDirectory(email, cast) {
   const cleanEmail = String(email || '').trim().toLowerCase();
   if (!cleanEmail || !cleanEmail.includes('@')) return;
@@ -368,10 +433,13 @@ async function syncUserSelfToDirectory(email, cast) {
   if (!dir.users || typeof dir.users !== 'object') dir.users = {};
   const existing = dir.users[cleanEmail] || {};
   const primaryPhoto = selfMember.stylizedAvatarUrl || selfMember.photoBase64 || (selfMember.photos && selfMember.photos.frontal) || existing.avatarUrl || '';
+  const rawSelfName = String(selfMember.name).replace(/^(Father|Mother|Self)\s*\(([^)]+)\)$/i, '$2').trim();
+  const claimed = await resolveAndClaimUniqueCuratorHandle(cleanEmail, existing.curatorHandle || ('@' + rawSelfName));
   dir.users[cleanEmail] = {
     email: cleanEmail,
-    name: String(selfMember.name).trim(),
-    handle: existing.handle || ('@' + String(selfMember.name).trim().toLowerCase().replace(/[^a-z0-9_]/g, '')),
+    name: rawSelfName,
+    curatorHandle: claimed.handle,
+    handle: existing.handle || ('@' + claimed.handle.replace(/^@+/, '').trim().toLowerCase().replace(/[^a-z0-9_]/g, '')),
     age: selfMember.age || existing.age || null,
     heightCm: selfMember.heightCm || existing.heightCm || null,
     avatarUrl: (typeof primaryPhoto === 'string' && primaryPhoto.startsWith('http')) ? primaryPhoto : (existing.avatarUrl || ''),
@@ -3180,6 +3248,13 @@ Respond strictly with valid JSON with this exact structure:
       reflectionFeedbackHistory = null,
       preferredVisualSubject = null
     } = body || {};
+
+    if (creatorEmail && creatorEmail.includes('@')) {
+      const resolvedCurator = await resolveAndClaimUniqueCuratorHandle(creatorEmail, creatorHandle);
+      if (resolvedCurator && resolvedCurator.handle) {
+        creatorHandle = resolvedCurator.handle;
+      }
+    }
 
     const validChronicleMoments = Array.isArray(chronicleMoments)
       ? chronicleMoments.filter(m => m && String(m.text || '').trim().length >= 2)

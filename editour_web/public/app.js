@@ -3293,6 +3293,52 @@ function getResolvedCreatorEmail() {
   return '';
 }
 
+function normalizeClientCuratorKey(rawHandle) {
+  return String(rawHandle || '').replace(/^@+/, '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function resolveUniqueClientCuratorHandle(requestedHandle, userEmail) {
+  const cleanEmail = String(userEmail || '').trim().toLowerCase();
+  let raw = String(requestedHandle || '').trim();
+  if (!raw || raw.toLowerCase() === '@curator' || raw.toLowerCase() === 'curator') {
+    const fallback = cleanEmail.includes('@')
+      ? cleanEmail.split('@')[0].replace(/[._-]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase()).trim()
+      : 'Curator';
+    raw = '@' + fallback;
+  }
+  if (!raw.startsWith('@')) raw = '@' + raw;
+  if (!cleanEmail || typeof allPosts === 'undefined' || !Array.isArray(allPosts)) return raw;
+
+  const takenByOther = new Set();
+  for (const p of allPosts) {
+    if (!p || p.deleted || p.isDeleted || !p.creatorHandle) continue;
+    const postEmail = String(p.userEmail || '').trim().toLowerCase();
+    // If the post belongs to another email (or is a known Shridhar post when current user is not Shridhar)
+    const isOtherOwner = postEmail
+      ? (postEmail !== cleanEmail)
+      : (normalizeClientCuratorKey(p.creatorHandle) === 'shridhar reddy' && cleanEmail !== 'shridharoct16@gmail.com');
+    if (isOtherOwner) {
+      takenByOther.add(normalizeClientCuratorKey(p.creatorHandle));
+    }
+  }
+
+  if (!takenByOther.has(normalizeClientCuratorKey(raw))) {
+    return raw;
+  }
+
+  const baseClean = raw.replace(/^@+/, '').trim();
+  const emailPrefix = cleanEmail.split('@')[0].replace(/[^a-zA-Z0-9]/g, '').slice(0, 6);
+  const withPrefix = `@${baseClean} (${emailPrefix})`;
+  if (emailPrefix && !takenByOther.has(normalizeClientCuratorKey(withPrefix))) {
+    return withPrefix;
+  }
+  let counter = 2;
+  while (takenByOther.has(normalizeClientCuratorKey(`@${baseClean} ${counter}`))) {
+    counter++;
+  }
+  return `@${baseClean} ${counter}`;
+}
+
 function isPostChronicleDiary(post) {
   if (!post) return false;
   return Boolean(
@@ -31457,10 +31503,12 @@ async function startAiSynthesis() {
     }, 4200));
   }
 
-  // Author handle
+  // Author handle (Enforce uniqueness against existing curators from other accounts)
   let userHandle = '@curator';
   if (currentUser) {
-    userHandle = '@' + (currentUser.user_metadata?.user_name || currentUser.user_metadata?.name || currentUser.email.split('@')[0]);
+    const myEmail = String(currentUser.email || '').trim().toLowerCase();
+    const rawName = (currentUser.user_metadata?.user_name || currentUser.user_metadata?.name || currentUser.email.split('@')[0]).trim();
+    userHandle = resolveUniqueClientCuratorHandle('@' + rawName, myEmail);
   }
 
   // If URL scrape is in flight, await it so lead image and title are ready
@@ -33360,7 +33408,16 @@ function applyEditModalFormValues() {
     currentSynthesizedPost.newsprintExcerpt = val;
     currentSynthesizedPost.hook = val;
   }
-  if (handleInput && handleInput.value.trim()) currentSynthesizedPost.creatorHandle = handleInput.value.trim();
+  if (handleInput && handleInput.value.trim()) {
+    const myEmail = currentUser?.email ? String(currentUser.email).trim().toLowerCase() : (currentSynthesizedPost.userEmail || '');
+    const requestedHandle = handleInput.value.trim();
+    const uniqueHandle = resolveUniqueClientCuratorHandle(requestedHandle, myEmail);
+    if (uniqueHandle.toLowerCase() !== (requestedHandle.startsWith('@') ? requestedHandle : '@' + requestedHandle).toLowerCase()) {
+      showTemporaryToast(`ℹ️ Curator name "${requestedHandle}" is already taken — updated to "${uniqueHandle}" to keep your profile unique.`);
+      handleInput.value = uniqueHandle;
+    }
+    currentSynthesizedPost.creatorHandle = uniqueHandle;
+  }
 
   // Slide 2
   if (s2TitleInput && s2TitleInput.value.trim()) {

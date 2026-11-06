@@ -537,6 +537,66 @@ module.exports = async function handler(req, res) {
         postData.createdAt = new Date().toISOString();
       }
 
+      // Enforce unique curator handle across accounts via system_user_directory
+      if (postData.userEmail && String(postData.userEmail).includes('@') && postData.creatorHandle) {
+        try {
+          const cleanEmail = String(postData.userEmail).trim().toLowerCase();
+          const normKey = (h) => String(h || '').replace(/^@+/, '').trim().toLowerCase().replace(/\s+/g, ' ');
+          const dirResp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.system_user_directory&select=data`, {
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+          });
+          if (dirResp.ok) {
+            const dirRows = await dirResp.json();
+            const dir = (dirRows && dirRows[0] && dirRows[0].data) || { users: {} };
+            if (!dir.users || typeof dir.users !== 'object') dir.users = {};
+            const takenByOther = new Set();
+            for (const [uEmail, uObj] of Object.entries(dir.users)) {
+              const em = String(uEmail || '').trim().toLowerCase();
+              if (!em || em === cleanEmail || !uObj) continue;
+              if (uObj.curatorHandle) takenByOther.add(normKey(uObj.curatorHandle));
+              if (uObj.handle) takenByOther.add(normKey(uObj.handle));
+              if (uObj.name) takenByOther.add(normKey(uObj.name));
+            }
+            let rawHandle = String(postData.creatorHandle).trim();
+            if (!rawHandle.startsWith('@')) rawHandle = '@' + rawHandle;
+            if (takenByOther.has(normKey(rawHandle))) {
+              const emailPrefix = cleanEmail.split('@')[0].replace(/[^a-zA-Z0-9]/g, '').slice(0, 6);
+              const baseClean = rawHandle.replace(/^@+/, '').trim();
+              const withPrefix = `@${baseClean} (${emailPrefix})`;
+              if (emailPrefix && !takenByOther.has(normKey(withPrefix))) {
+                rawHandle = withPrefix;
+              } else {
+                let counter = 2;
+                while (takenByOther.has(normKey(`@${baseClean} ${counter}`))) counter++;
+                rawHandle = `@${baseClean} ${counter}`;
+              }
+            }
+            postData.creatorHandle = rawHandle;
+            const existing = dir.users[cleanEmail] || { email: cleanEmail };
+            if (existing.curatorHandle !== rawHandle) {
+              dir.users[cleanEmail] = {
+                ...existing,
+                email: cleanEmail,
+                curatorHandle: rawHandle,
+                name: existing.name || rawHandle.replace(/^@+/, '').trim(),
+                handle: existing.handle || ('@' + rawHandle.replace(/^@+/, '').trim().toLowerCase().replace(/[^a-z0-9_]/g, '')),
+                updatedAt: new Date().toISOString()
+              };
+              await fetch(`${SUPABASE_URL}/rest/v1/posts`, {
+                method: 'POST',
+                headers: {
+                  'apikey': SUPABASE_KEY,
+                  'Authorization': `Bearer ${SUPABASE_KEY}`,
+                  'Content-Type': 'application/json',
+                  'Prefer': 'resolution=merge-duplicates'
+                },
+                body: JSON.stringify({ id: 'system_user_directory', data: dir })
+              }).catch(() => {});
+            }
+          }
+        } catch (_) {}
+      }
+
       // Automatically persist poster to Supabase Storage if illustrationBase64 or posterBase64 is provided
       let rawPoster = postData.illustrationBase64 || postData.posterBase64;
       if (rawPoster && typeof rawPoster === 'string' && rawPoster.length > 50) {
