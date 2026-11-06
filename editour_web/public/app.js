@@ -12760,7 +12760,12 @@ function toggleInlineSourceDrawer(event, index) {
     }
   }
 
-  let ledger = post.sourceLedger || post.generationInputs?.sourceLedger;
+  let rawLedger = post.sourceLedger || post.generationInputs?.sourceLedger;
+  let ledger = (rawLedger && !isUnextractedOrBoilerplateLedger(rawLedger)) ? rawLedger : null;
+  if (rawLedger && !ledger) {
+    post.sourceLedger = null;
+    if (post.generationInputs) post.generationInputs.sourceLedger = null;
+  }
   const summaryHtml = renderProofSummarySections(post, ledger);
 
   drawer.innerHTML = `
@@ -12806,23 +12811,27 @@ function toggleInlineSourceDrawer(event, index) {
     try { observer.observe(drawer); } catch (_) {}
   }
 
-  // Asynchronous on-demand ledger fetch if missing
-  if (!ledger && rawLink && !post._isFetchingLedger) {
+  // Asynchronous on-demand ledger fetch ONLY if substantive source text exists
+  const candidateTitle = post.originalHeadline || post.adaptedHeadline || '';
+  const candidateContent = post.sourceContext || post.generationInputs?.scrapedContent || '';
+  const canGenerateSubstantiveLedger = hasSubstantiveClientSourceText(candidateTitle, candidateContent, cleanHost || pubName);
+
+  if (!ledger && rawLink && canGenerateSubstantiveLedger && !post._isFetchingLedger) {
     post._isFetchingLedger = true;
     fetch('/api/ledger', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         url: rawLink,
-        title: post.originalHeadline || post.adaptedHeadline || '',
-        content: post.sourceContext || post.generationInputs?.scrapedContent || '',
+        title: candidateTitle,
+        content: candidateContent,
         siteName: cleanHost || pubName
       })
     })
       .then(r => r.json())
       .then(data => {
         post._isFetchingLedger = false;
-        if (data && data.ledger) {
+        if (data && data.ledger && !isUnextractedOrBoilerplateLedger(data.ledger)) {
           post.sourceLedger = data.ledger;
           if (post.generationInputs) post.generationInputs.sourceLedger = data.ledger;
           const summaryBox = document.getElementById(`inline-source-summary-${index}`);
@@ -14629,7 +14638,16 @@ function isBoilerplateNoSubstanceText(str) {
     lower.includes('lacks a textual body') ||
     lower.includes('only provides a reference url') ||
     lower.includes('no central thesis extracted from source') ||
-    lower.includes('source does not provide detailed empirical evidence')
+    lower.includes('source does not provide detailed empirical evidence') ||
+    lower.includes('presents reporting and ongoing context regarding') ||
+    lower.includes('presents reporting and contextual developments surrounding') ||
+    lower.includes('examines principal announcements and policy implications concerning') ||
+    lower.includes('details primary events and ongoing policy or market dynamics regarding') ||
+    lower.includes('details the foundational timeline and primary stakeholder statements') ||
+    lower.includes('outlines practical ramifications and observable real-world shifts') ||
+    lower.includes('highlights developments regarding') ||
+    lower.includes('stakeholders navigate the shifting balance between current actions') ||
+    lower.includes('balancing immediate policy implementation with broader long-term')
   );
 }
 
@@ -14811,19 +14829,17 @@ function renderProofSummarySections(post, ledger) {
         </div>
       `;
     } else {
-      // General Post Context fallback (e.g. for "Shaurya Diwas" or visual Instagram/X/YouTube links without transcripts)
-      const postHeadline = cleanSourceExcerpt(post.adaptedHeadline || post.originalHeadline || post.spark || '');
-      const postSub = cleanSourceExcerpt(post.subheadline || post.curatorStance || '');
+      // Clean, honest notice when a social/video/web link has no extractable text transcript
       const rawLink = post.digitalLink || post.videoUrl || post.sourceUrl || post.webUrl || post.generationInputs?.sourceUrl || '';
-      const hostName = getCleanDomain(rawLink) || post.publicationName || 'Direct Media Link';
+      const hostName = getCleanDomain(rawLink) || post.publicationName || 'the source platform';
       paragraphsHtml += `
-        <div class="unbiased-summary-section">
-          <div class="unbiased-section-label">
-            <span>📌</span> POST OVERVIEW & SOURCE CONTEXT
+        <div class="unbiased-summary-section" style="padding: 12px 14px; background: rgba(148, 163, 184, 0.08); border: 1px dashed rgba(148, 163, 184, 0.35); border-radius: 10px;">
+          <div style="display:flex; align-items:flex-start; gap:10px;">
+            <span style="font-size:15px; line-height:1.2; flex-shrink:0;">🔗</span>
+            <p class="unbiased-text" style="margin:0; font-size:12.5px; line-height:1.45; color:#475569;">
+              Text summary could not be extracted automatically from <strong>${escapeHtml(hostName)}</strong>. Please view the embedded post above or open the original source link below.
+            </p>
           </div>
-          <p class="unbiased-text">
-            ${postHeadline ? `<strong>${escapeHtml(postHeadline)}</strong> — ` : ''}This perspective is anchored to a direct media post on <strong>${escapeHtml(hostName)}</strong>.${postSub ? ` ${escapeHtml(postSub)}` : ' View the embedded media above or open the original source link below for the full visual post.'}
-          </p>
         </div>
       `;
     }
@@ -29406,17 +29422,9 @@ async function triggerSourceLedgerGeneration(articleData) {
     }
   } catch (err) {
     console.warn('Objective ledger generation notice:', err.message);
-    if (hasSubstantiveClientSourceText(title, content, siteName) && (content || '').length > 120) {
-      const fallbackLedger = buildClientFallbackLedger(title, content, siteName);
-      currentSourceLedger = fallbackLedger;
-      currentLedgerViewMode = 'summary';
-      renderSourceLedger(fallbackLedger);
-      renderUrlScrapeSuccessIndicator(siteName || 'Web', title || '', true, true);
-    } else {
-      currentSourceLedger = null;
-      renderSourceLedger(null);
-      renderUrlScrapeSuccessIndicator(siteName || 'Web', title || '', false, false);
-    }
+    currentSourceLedger = null;
+    renderSourceLedger(null);
+    renderUrlScrapeSuccessIndicator(siteName || 'Web', title || '', false, false);
   } finally {
     isGeneratingLedger = false;
   }

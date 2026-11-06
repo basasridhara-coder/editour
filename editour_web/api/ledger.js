@@ -21,7 +21,13 @@ function isBoilerplateNoSubstanceText(str) {
     lower.includes('contains no verifiable text') ||
     lower.includes('no extractable text') ||
     lower.includes('lacks a textual body') ||
-    lower.includes('only provides a reference url')
+    lower.includes('only provides a reference url') ||
+    lower.includes('presents reporting and ongoing context regarding') ||
+    lower.includes('presents reporting and contextual developments surrounding') ||
+    lower.includes('examines principal announcements and policy implications concerning') ||
+    lower.includes('details primary events and ongoing policy or market dynamics regarding') ||
+    lower.includes('details the foundational timeline and primary stakeholder statements') ||
+    lower.includes('outlines practical ramifications and observable real-world shifts')
   );
 }
 
@@ -196,9 +202,8 @@ Return pure valid JSON matching this schema:
 
     return evaluateLedgerCompleteness(ledger, defaultScope);
   } catch (err) {
-    console.warn('Gemini ledger error, building fallback ledger:', err.message);
-    const fallbackLedger = buildFallbackLedger(cleanTitle, cleanContent, siteName, defaultScope);
-    return evaluateLedgerCompleteness(fallbackLedger, defaultScope);
+    console.warn('Gemini ledger error, returning null instead of generic fallback:', err.message);
+    return null;
   }
 }
 
