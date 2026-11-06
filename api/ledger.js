@@ -8,12 +8,81 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY || Buffer.from(DEFAULT_KEY_B64
 const PRIMARY_MODEL = 'gemini-3.5-flash-lite';
 const FALLBACK_MODEL = 'gemini-3.8-flash';
 
+function isBoilerplateNoSubstanceText(str) {
+  if (!str) return false;
+  const lower = String(str).toLowerCase();
+  return (
+    lower.includes('contains no substantive textual body') ||
+    lower.includes('no substantive textual body') ||
+    lower.includes('absence of article text') ||
+    lower.includes('presents no central thesis') ||
+    lower.includes('no verifiable analytical argument') ||
+    lower.includes('beyond the platform name') ||
+    lower.includes('contains no verifiable text') ||
+    lower.includes('no extractable text') ||
+    lower.includes('lacks a textual body') ||
+    lower.includes('only provides a reference url')
+  );
+}
+
+function hasSubstantiveSourceText(title = '', content = '', siteName = '') {
+  const genericPlatformNames = new Set([
+    'instagram', 'instagram.com', 'x', 'x.com', 'twitter', 'twitter.com',
+    'youtube', 'youtube.com', 'facebook', 'facebook.com', 'threads', 'threads.net',
+    'linkedin', 'linkedin.com', 'tiktok', 'tiktok.com', 'reddit', 'reddit.com',
+    'curated web article', 'source article / video', 'web source', 'youtube video',
+    'login • instagram', 'sign in', 'just a moment...'
+  ]);
+
+  const rawTitle = String(title || '').trim();
+  const lowerTitle = rawTitle.toLowerCase();
+  const isGenericTitle = !rawTitle || rawTitle.length < 15 || genericPlatformNames.has(lowerTitle) || lowerTitle === String(siteName || '').trim().toLowerCase();
+
+  const strippedContent = String(content || '')
+    .replace(/^Title:\s*.*$/gim, '')
+    .replace(/^Channel \/ Speaker:\s*.*$/gim, '')
+    .replace(/^Author:\s*.*$/gim, '')
+    .replace(/^Platform:\s*.*$/gim, '')
+    .replace(/^Video Duration:\s*.*$/gim, '')
+    .replace(/^Creator Published Description & Notes:\s*$/gim, '')
+    .replace(/^===.*===$/gim, '')
+    .replace(/https?:\/\/\S+/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const lowerContent = strippedContent.toLowerCase();
+  const isBoilerplateWall = (
+    lowerContent.includes('create an account or log in to instagram') ||
+    lowerContent.includes('log in to continue') ||
+    lowerContent.includes('javascript is not available') ||
+    lowerContent.includes('enable javascript and cookies to continue')
+  );
+
+  if (isBoilerplateWall && isGenericTitle) {
+    return false;
+  }
+
+  if (strippedContent.length < 55 && isGenericTitle) {
+    return false;
+  }
+
+  if (strippedContent.length < 35 && rawTitle.length < 30) {
+    return false;
+  }
+
+  return true;
+}
+
 async function generateLedgerForSource(title = '', content = '', url = '', siteName = '') {
   const cleanTitle = (title || '').trim();
   const cleanContent = (content || '').trim().slice(0, 36000);
   const cleanUrl = (url || '').trim();
 
   if (!cleanTitle && !cleanContent && !cleanUrl) {
+    return null;
+  }
+
+  if (!hasSubstantiveSourceText(cleanTitle, cleanContent, siteName)) {
     return null;
   }
 
@@ -57,7 +126,7 @@ STRICT CONSTRAINTS:
 1. ABSOLUTE NEUTRALITY: Do not take a side, endorse, or debunk any claim.
 2. NO EVALUATIVE ADJECTIVES: Never use judgmental terms such as "insightful", "biased", "compelling", "flawed", "failed", or "brilliant". Use neutral descriptive verbs ("examines", "asserts", "reports", "questions", "outlines", "articulates").
 3. ATTRIBUTION RULE: Every claim, assertion, or opinion must be explicitly attributed to the creator/author (e.g., "The creator contends that...", "The speaker notes...", "The author cites...").
-4. ZERO HALLUCINATION: Only include information, data points, or tensions that exist directly within the supplied text.
+4. ZERO HALLUCINATION & NO META-COMPLAINTS: Only include information, data points, or tensions that exist directly within the supplied text. NEVER output meta-complaints stating that "the provided source contains no substantive textual body" or "due to the absence of article text".
 5. MANDATORY COMPLETION OF ALL SECTIONS: Both Summary Mode ('subject_and_thesis', 'core_claims_and_evidence', 'underlying_tensions') AND Detailed Mode ('detailed.key_facts', 'detailed.detailed_claims') MUST be fully populated with substantive text. Never return empty arrays or empty strings for core_claims_and_evidence or underlying_tensions.
 
 OUTPUT FORMAT:
@@ -158,9 +227,17 @@ async function handler(req, res) {
     siteName = ''
   } = body || {};
 
+  if (!url && !title && !content) {
+    return res.status(400).json({ error: 'Source URL, title, or content is required' });
+  }
+
   const evaluated = await generateLedgerForSource(title, content, url, siteName);
   if (!evaluated) {
-    return res.status(400).json({ error: 'Source URL, title, or content is required' });
+    return res.status(200).json({
+      success: true,
+      unextracted: true,
+      ledger: null
+    });
   }
 
   return res.status(200).json({
@@ -228,6 +305,10 @@ function evaluateLedgerCompleteness(ledger, defaultScope = 'Curated Source') {
       context: '',
       thesis: ledger.subject_and_thesis.trim()
     };
+  }
+
+  if (isBoilerplateNoSubstanceText(subject_and_thesis.context) || isBoilerplateNoSubstanceText(subject_and_thesis.thesis)) {
+    return null;
   }
 
   let core_claims_and_evidence = [];

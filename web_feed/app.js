@@ -14614,93 +14614,176 @@ function cleanSourceParagraphs(rawText) {
     .slice(0, 4);
 }
 
+function isBoilerplateNoSubstanceText(str) {
+  if (!str) return false;
+  const lower = String(str).toLowerCase();
+  return (
+    lower.includes('contains no substantive textual body') ||
+    lower.includes('no substantive textual body') ||
+    lower.includes('absence of article text') ||
+    lower.includes('presents no central thesis') ||
+    lower.includes('no verifiable analytical argument') ||
+    lower.includes('beyond the platform name') ||
+    lower.includes('contains no verifiable text') ||
+    lower.includes('no extractable text') ||
+    lower.includes('lacks a textual body') ||
+    lower.includes('only provides a reference url') ||
+    lower.includes('no central thesis extracted from source') ||
+    lower.includes('source does not provide detailed empirical evidence')
+  );
+}
+
+function isUnextractedOrBoilerplateLedger(ledger) {
+  if (!ledger || typeof ledger !== 'object') return true;
+  if (ledger.unextracted) return true;
+  let contextText = '';
+  let thesisText = '';
+  if (ledger.subject_and_thesis && typeof ledger.subject_and_thesis === 'object') {
+    contextText = String(ledger.subject_and_thesis.context || '').trim();
+    thesisText = String(ledger.subject_and_thesis.thesis || '').trim();
+  } else if (typeof ledger.subject_and_thesis === 'string') {
+    thesisText = ledger.subject_and_thesis.trim();
+  }
+  if (isBoilerplateNoSubstanceText(contextText) || isBoilerplateNoSubstanceText(thesisText)) {
+    return true;
+  }
+  const claims = Array.isArray(ledger.core_claims_and_evidence) ? ledger.core_claims_and_evidence : [];
+  if (claims.some(c => isBoilerplateNoSubstanceText(typeof c === 'object' ? (c.evidence || c.title || '') : String(c)))) {
+    return true;
+  }
+  if (!contextText && !thesisText && claims.length === 0) {
+    return true;
+  }
+  return false;
+}
+
+function hasSubstantiveClientSourceText(title = '', content = '', siteName = '') {
+  const genericNames = new Set([
+    'instagram', 'instagram.com', 'x', 'x.com', 'twitter', 'twitter.com',
+    'youtube', 'youtube.com', 'facebook', 'facebook.com', 'threads', 'threads.net',
+    'linkedin', 'linkedin.com', 'tiktok', 'tiktok.com', 'reddit', 'reddit.com',
+    'curated web article', 'source article / video', 'web source', 'youtube video',
+    'login • instagram', 'sign in', 'just a moment...'
+  ]);
+  const rawTitle = String(title || '').trim();
+  const lowerTitle = rawTitle.toLowerCase();
+  const isGenericTitle = !rawTitle || rawTitle.length < 15 || genericNames.has(lowerTitle) || lowerTitle === String(siteName || '').trim().toLowerCase();
+
+  const strippedContent = String(content || '')
+    .replace(/^Title:\s*.*$/gim, '')
+    .replace(/^Channel \/ Speaker:\s*.*$/gim, '')
+    .replace(/^Author:\s*.*$/gim, '')
+    .replace(/^Platform:\s*.*$/gim, '')
+    .replace(/^Video Duration:\s*.*$/gim, '')
+    .replace(/^Creator Published Description & Notes:\s*$/gim, '')
+    .replace(/^===.*===$/gim, '')
+    .replace(/https?:\/\/\S+/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (isBoilerplateNoSubstanceText(strippedContent)) return false;
+  if (strippedContent.length < 55 && isGenericTitle) return false;
+  if (strippedContent.length < 35 && rawTitle.length < 30) return false;
+  return true;
+}
+
 function renderProofSummarySections(post, ledger) {
   let paragraphsHtml = '';
+  const validLedger = (ledger && !isUnextractedOrBoilerplateLedger(ledger)) ? ledger : null;
 
-  if (ledger) {
-    // Section 1: Subject & Central Thesis
+  if (validLedger) {
+    // Unified Section 1: Summary & Key Facts (Combining Thesis + Claims + Key Facts into one crisp short read)
     let thesisText = '';
     let contextText = '';
-    if (ledger.subject_and_thesis && typeof ledger.subject_and_thesis === 'object') {
-      contextText = cleanSourceExcerpt(ledger.subject_and_thesis.context || '');
-      thesisText = cleanSourceExcerpt(ledger.subject_and_thesis.thesis || '');
-    } else if (ledger.subject_and_thesis) {
-      thesisText = cleanSourceExcerpt(String(ledger.subject_and_thesis));
+    if (validLedger.subject_and_thesis && typeof validLedger.subject_and_thesis === 'object') {
+      contextText = cleanSourceExcerpt(validLedger.subject_and_thesis.context || '');
+      thesisText = cleanSourceExcerpt(validLedger.subject_and_thesis.thesis || '');
+    } else if (validLedger.subject_and_thesis) {
+      thesisText = cleanSourceExcerpt(String(validLedger.subject_and_thesis));
     }
 
-    if (thesisText || contextText) {
+    const ledgerClaims = (Array.isArray(validLedger.core_claims_and_evidence) && validLedger.core_claims_and_evidence.length > 0)
+      ? validLedger.core_claims_and_evidence
+      : (Array.isArray(validLedger.detailed?.detailed_claims) ? validLedger.detailed.detailed_claims : []);
+    const keyFacts = Array.isArray(validLedger.detailed?.key_facts)
+      ? validLedger.detailed.key_facts.filter(f => f && !isBoilerplateNoSubstanceText(f)).slice(0, 4)
+      : [];
+
+    if (thesisText || contextText || ledgerClaims.length > 0 || keyFacts.length > 0) {
+      const claimsBulletsHtml = ledgerClaims.slice(0, 4).map(claim => {
+        let title = '';
+        let evidence = '';
+        let quote = '';
+        if (claim && typeof claim === 'object') {
+          title = claim.title || '';
+          evidence = claim.evidence || claim.text || '';
+          quote = claim.quote || '';
+        } else {
+          const str = String(claim || '');
+          const colonIdx = str.indexOf(':');
+          if (colonIdx > 0 && colonIdx < 45) {
+            title = str.slice(0, colonIdx).trim();
+            evidence = str.slice(colonIdx + 1).trim();
+          } else {
+            evidence = str;
+          }
+        }
+        if (isBoilerplateNoSubstanceText(evidence)) return '';
+        return `
+          <div class="unbiased-claim-item">
+            <span class="claim-bullet">▪</span>
+            <div class="claim-content">
+              ${title ? `<strong>${escapeHtml(title)}:</strong> ` : ''}${escapeHtml(evidence)}
+              ${quote ? `<div style="margin-top:4px; font-style:italic; color:#475569; font-size:12px;">“${escapeHtml(quote)}”</div>` : ''}
+            </div>
+          </div>
+        `;
+      }).filter(Boolean).join('');
+
+      const extraFactsHtml = (claimsBulletsHtml ? '' : keyFacts.map(f => `
+        <div class="unbiased-claim-item">
+          <span class="claim-bullet">▪</span>
+          <div class="claim-content">${escapeHtml(f)}</div>
+        </div>
+      `).join(''));
+
       paragraphsHtml += `
         <div class="unbiased-summary-section">
           <div class="unbiased-section-label">
-            <span>🎯</span> § 1 • SUBJECT & CENTRAL THESIS
+            <span>📰</span> SUMMARY & KEY FACTS
           </div>
-          <p class="unbiased-text">
-            ${contextText ? `<strong>${escapeHtml(contextText)}</strong> ` : ''}${escapeHtml(thesisText)}
-          </p>
+          ${(contextText || thesisText) ? `
+            <p class="unbiased-text" style="margin-bottom:${(claimsBulletsHtml || extraFactsHtml) ? '10px' : '0'};">
+              ${contextText ? `<strong>${escapeHtml(contextText)}</strong> ` : ''}${escapeHtml(thesisText)}
+            </p>
+          ` : ''}
+          ${(claimsBulletsHtml || extraFactsHtml) ? `
+            <div class="unbiased-claims-list">
+              ${claimsBulletsHtml || extraFactsHtml}
+            </div>
+          ` : ''}
         </div>
       `;
     }
 
-    // Section 2: Core Claims & Verified Evidence
-    const ledgerClaims = (Array.isArray(ledger.core_claims_and_evidence) && ledger.core_claims_and_evidence.length > 0)
-      ? ledger.core_claims_and_evidence
-      : (Array.isArray(ledger.detailed?.detailed_claims) ? ledger.detailed.detailed_claims : []);
-    if (ledgerClaims.length > 0) {
-      paragraphsHtml += `
-        <div class="unbiased-summary-section">
-          <div class="unbiased-section-label">
-            <span>📊</span> § 2 • CORE CLAIMS & EVIDENCE
-          </div>
-          <div class="unbiased-claims-list">
-            ${ledgerClaims.map((claim, idx) => {
-              let title = '';
-              let evidence = '';
-              if (claim && typeof claim === 'object') {
-                title = claim.title || '';
-                evidence = claim.evidence || claim.text || '';
-              } else {
-                const str = String(claim || '');
-                const colonIdx = str.indexOf(':');
-                if (colonIdx > 0 && colonIdx < 45) {
-                  title = str.slice(0, colonIdx).trim();
-                  evidence = str.slice(colonIdx + 1).trim();
-                } else {
-                  evidence = str;
-                }
-              }
-              return `
-                <div class="unbiased-claim-item">
-                  <span class="claim-bullet">▪</span>
-                  <div class="claim-content">
-                    ${title ? `<strong>${escapeHtml(title)}:</strong> ` : ''}${escapeHtml(evidence)}
-                  </div>
-                </div>
-              `;
-            }).join('')}
-          </div>
-        </div>
-      `;
-    }
-
-    // Section 3: Central Conflict & Trade-offs
+    // Unified Section 2: Underlying Friction & Open Question
     let tensionText = '';
     let counterQuestions = '';
-    if (ledger.underlying_tensions && typeof ledger.underlying_tensions === 'object') {
-      tensionText = cleanSourceExcerpt([ledger.underlying_tensions.primary_conflict, ledger.underlying_tensions.tradeoffs].filter(Boolean).join(' '));
-      counterQuestions = cleanSourceExcerpt(ledger.underlying_tensions.counter_questions || '');
-    } else if (ledger.underlying_tensions) {
-      tensionText = cleanSourceExcerpt(String(ledger.underlying_tensions));
+    if (validLedger.underlying_tensions && typeof validLedger.underlying_tensions === 'object') {
+      tensionText = cleanSourceExcerpt([validLedger.underlying_tensions.primary_conflict, validLedger.underlying_tensions.tradeoffs].filter(Boolean).join(' '));
+      counterQuestions = cleanSourceExcerpt(validLedger.underlying_tensions.counter_questions || '');
+    } else if (validLedger.underlying_tensions) {
+      tensionText = cleanSourceExcerpt(String(validLedger.underlying_tensions));
     }
 
-    if (!tensionText && (thesisText || ledgerClaims.length > 0)) {
-      tensionText = 'Balancing immediate practical adoption with broader systemic and long-term implications.';
-    }
+    if (isBoilerplateNoSubstanceText(tensionText)) tensionText = '';
+    if (isBoilerplateNoSubstanceText(counterQuestions)) counterQuestions = '';
 
     if (tensionText || counterQuestions) {
       paragraphsHtml += `
         <div class="unbiased-summary-section">
           <div class="unbiased-section-label">
-            <span>⚖️</span> § 3 • CENTRAL CONFLICT & TRADE-OFFS
+            <span>⚖️</span> UNDERLYING FRICTION & OPEN QUESTION
           </div>
           ${tensionText ? `<p class="unbiased-text">${escapeHtml(tensionText)}</p>` : ''}
           ${counterQuestions ? `
@@ -14712,15 +14795,15 @@ function renderProofSummarySections(post, ledger) {
       `;
     }
   } else {
-    // Pure source context fallback (Strictly NO curator broadsheet essay!)
+    // Pure source context or General Post Context when social media link (Instagram/X/YouTube) has no text transcript
     const rawSourceText = post.sourceContext || post.generationInputs?.scrapedContent || post.newsExcerpt || '';
-    const sourceParas = cleanSourceParagraphs(rawSourceText);
+    const sourceParas = cleanSourceParagraphs(rawSourceText).filter(p => !isBoilerplateNoSubstanceText(p));
 
     if (sourceParas.length > 0) {
       paragraphsHtml += `
         <div class="unbiased-summary-section">
           <div class="unbiased-section-label">
-            <span>📰</span> PRIMARY SOURCE RECORD
+            <span>📰</span> SUMMARY & KEY FACTS
           </div>
           <div style="display:flex; flex-direction:column; gap:8px;">
             ${sourceParas.map(p => `<p class="unbiased-text">${escapeHtml(cleanSourceExcerpt(p))}</p>`).join('')}
@@ -14728,18 +14811,25 @@ function renderProofSummarySections(post, ledger) {
         </div>
       `;
     } else {
+      // General Post Context fallback (e.g. for "Shaurya Diwas" or visual Instagram/X/YouTube links without transcripts)
+      const postHeadline = cleanSourceExcerpt(post.adaptedHeadline || post.originalHeadline || post.spark || '');
+      const postSub = cleanSourceExcerpt(post.subheadline || post.curatorStance || '');
+      const rawLink = post.digitalLink || post.videoUrl || post.sourceUrl || post.webUrl || post.generationInputs?.sourceUrl || '';
+      const hostName = getCleanDomain(rawLink) || post.publicationName || 'Direct Media Link';
       paragraphsHtml += `
-        <div class="unbiased-summary-section" style="padding: 16px; background: rgba(99, 102, 241, 0.05); border-radius: 8px;">
-          <div style="display:flex; align-items:center; gap:10px; color: #6366F1; font-weight:700; font-size:13px;">
-            <div class="ledger-loading-spinner" style="width:16px; height:16px; border:2px solid #6366F1; border-top-color:transparent; border-radius:50%; animation:spin 0.8s linear infinite;"></div>
-            <span>Analyzing primary source to generate objective summary...</span>
+        <div class="unbiased-summary-section">
+          <div class="unbiased-section-label">
+            <span>📌</span> POST OVERVIEW & SOURCE CONTEXT
           </div>
+          <p class="unbiased-text">
+            ${postHeadline ? `<strong>${escapeHtml(postHeadline)}</strong> — ` : ''}This perspective is anchored to a direct media post on <strong>${escapeHtml(hostName)}</strong>.${postSub ? ` ${escapeHtml(postSub)}` : ' View the embedded media above or open the original source link below for the full visual post.'}
+          </p>
         </div>
       `;
     }
   }
 
-  return paragraphsHtml || '<div class="unbiased-summary-section"><p class="unbiased-text">Original source text confirmed by archival records.</p></div>';
+  return paragraphsHtml || '<div class="unbiased-summary-section"><p class="unbiased-text">View the original linked source below for full context.</p></div>';
 }
 
 function openDetailModal(index) {
@@ -14768,7 +14858,13 @@ function openDetailModal(index) {
   const rawLink = post.digitalLink || post.videoUrl || post.sourceUrl || post.webUrl || post.generationInputs?.sourceUrl || '';
   const cleanHost = getCleanDomain(rawLink);
   const handle = escapeHtml(post.creatorHandle || '@curator');
-  let ledger = post.sourceLedger || post.generationInputs?.sourceLedger;
+  let rawLedger = post.sourceLedger || post.generationInputs?.sourceLedger;
+  let ledger = (rawLedger && !isUnextractedOrBoilerplateLedger(rawLedger)) ? rawLedger : null;
+  if (rawLedger && !ledger) {
+    // Strip any previously saved boilerplate "no substantive text" ledger so it never reappears
+    post.sourceLedger = null;
+    if (post.generationInputs) post.generationInputs.sourceLedger = null;
+  }
 
   // 1. Stars Badge (Top Banner)
   const starsBadge = document.getElementById('proofStarsBadge');
@@ -14959,23 +15055,27 @@ function openDetailModal(index) {
     }
   }
 
-  // Asynchronous on-demand ledger fetch if missing
-  if (!ledger && rawLink && !post._isFetchingLedger) {
+  // Asynchronous on-demand ledger fetch ONLY if substantive source text exists
+  const candidateTitle = post.originalHeadline || post.adaptedHeadline || '';
+  const candidateContent = post.sourceContext || post.generationInputs?.scrapedContent || '';
+  const canGenerateSubstantiveLedger = hasSubstantiveClientSourceText(candidateTitle, candidateContent, cleanHost || pubName);
+
+  if (!ledger && rawLink && canGenerateSubstantiveLedger && !post._isFetchingLedger) {
     post._isFetchingLedger = true;
     fetch('/api/ledger', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         url: rawLink,
-        title: post.originalHeadline || post.adaptedHeadline || '',
-        content: post.sourceContext || post.generationInputs?.scrapedContent || '',
+        title: candidateTitle,
+        content: candidateContent,
         siteName: cleanHost || pubName
       })
     })
       .then(r => r.json())
       .then(data => {
         post._isFetchingLedger = false;
-        if (data && data.success && data.ledger) {
+        if (data && data.success && data.ledger && !isUnextractedOrBoilerplateLedger(data.ledger)) {
           post.sourceLedger = data.ledger;
           if (post.generationInputs) post.generationInputs.sourceLedger = data.ledger;
 
@@ -27052,38 +27152,103 @@ function isVideoAudioUrl(url) {
 
 let activeSlantSparkType = 'web';
 
+function detectSourceLinkPlatform(url) {
+  const lower = String(url || '').toLowerCase().trim();
+  if (!lower) {
+    return {
+      icon: '🔗',
+      title: 'Source Link (Web, YouTube, Substack, X, IG)',
+      badgeLabel: 'Required',
+      subtleHint: 'Paste any article, YouTube video, Substack essay, or social link — Slant auto-identifies the source & context.',
+      perspectivePlaceholder: 'What caught your attention in this source, why does it matter beneath the surface, and what is your conviction?'
+    };
+  }
+  if (lower.includes('youtube.com') || lower.includes('youtu.be') || lower.includes('vimeo.com') || lower.includes('ted.com/talks')) {
+    return {
+      icon: '▶️',
+      title: 'YouTube / Video Source Detected',
+      badgeLabel: 'YouTube Video',
+      subtleHint: 'Video identified — Slant pulls the speaker, transcript & key talking points.',
+      perspectivePlaceholder: 'Which moment or argument in this video stood out, why does it matter, and what is your takeaway?'
+    };
+  }
+  if (lower.includes('substack.com')) {
+    return {
+      icon: '🧡',
+      title: 'Substack Essay Detected',
+      badgeLabel: 'Substack Essay',
+      subtleHint: 'Substack newsletter identified — Slant extracts the essay headline & core thesis.',
+      perspectivePlaceholder: 'What idea from this Substack essay sparked your reaction, where do you agree or push back, and what is your conviction?'
+    };
+  }
+  if (lower.includes('instagram.com') || lower.includes('instagr.am')) {
+    return {
+      icon: '📸',
+      title: 'Instagram Post / Reel Detected',
+      badgeLabel: 'Instagram',
+      subtleHint: 'Instagram link attached — share the context or moment from this post and your perspective below.',
+      perspectivePlaceholder: 'What moment, message, or event in this Instagram post caught your attention, and what is your perspective on it?'
+    };
+  }
+  if (lower.includes('x.com/') || lower.includes('twitter.com/')) {
+    return {
+      icon: '𝕏',
+      title: 'X / Social Post Detected',
+      badgeLabel: 'X Post',
+      subtleHint: 'X post identified — Slant links the post and author context to your perspective.',
+      perspectivePlaceholder: 'What point or debate in this X post stood out to you, and where do you stand?'
+    };
+  }
+  if (lower.includes('spotify.com') || lower.includes('podcasts.apple.com') || lower.includes('soundcloud.com')) {
+    return {
+      icon: '🎙️',
+      title: 'Podcast / Audio Source Detected',
+      badgeLabel: 'Podcast',
+      subtleHint: 'Audio episode identified — share the key idea that stayed with you below.',
+      perspectivePlaceholder: 'Which insight from this episode stood out, why does it matter, and what is your conviction?'
+    };
+  }
+  return {
+    icon: '🌐',
+    title: 'Web Article / Report Detected',
+    badgeLabel: 'Web Article',
+    subtleHint: 'Web article identified — Slant extracts the headline, summary & key facts.',
+    perspectivePlaceholder: 'What caught your attention in this article, why does it matter beneath the surface, and what is your conviction?'
+  };
+}
+
 const SLANT_SPARK_TYPES = {
   web: {
     id: 'web',
     sourceMode: 'digital_link',
     inputType: 'url',
     required: true,
-    icon: '🌐',
-    title: 'Web Article or Post Link',
-    subtleHint: 'Paste the web article, blog, or news link so Slant can pull its headline & context.',
-    inputPlaceholder: 'https://... (Paste web article, blog, or news URL)',
-    perspectivePlaceholder: 'What caught your attention in this article, why does it matter beneath the surface, and what is your conviction?'
+    icon: '🔗',
+    title: 'Source Link (Web, YouTube, Substack, X, IG)',
+    subtleHint: 'Paste any article, YouTube video, Substack essay, or social link — Slant auto-identifies the source & context.',
+    inputPlaceholder: 'https://... (Paste article, YouTube, Substack, X, or Instagram link)',
+    perspectivePlaceholder: 'What caught your attention in this source, why does it matter beneath the surface, and what is your conviction?'
   },
   youtube: {
-    id: 'youtube',
+    id: 'web',
     sourceMode: 'video_audio',
     inputType: 'url',
     required: true,
     icon: '▶️',
-    title: 'YouTube or Podcast Link',
-    subtleHint: 'Paste the YouTube video, talk, or podcast link you watched or listened to.',
-    inputPlaceholder: 'https://youtube.com/watch?v=... (Paste video or podcast URL)',
+    title: 'YouTube / Video Source Detected',
+    subtleHint: 'Paste any article, YouTube video, Substack essay, or social link — Slant auto-identifies the source & context.',
+    inputPlaceholder: 'https://... (Paste article, YouTube, Substack, X, or Instagram link)',
     perspectivePlaceholder: 'Which moment or quote in this video stood out, why does it matter, and what is your takeaway?'
   },
   substack: {
-    id: 'substack',
+    id: 'web',
     sourceMode: 'digital_link',
     inputType: 'url',
     required: true,
     icon: '🧡',
-    title: 'Substack or Essay Link',
-    subtleHint: 'Paste the Substack newsletter or long-form essay URL you are responding to.',
-    inputPlaceholder: 'https://...substack.com/p/... (Paste Substack or essay URL)',
+    title: 'Substack Essay Detected',
+    subtleHint: 'Paste any article, YouTube video, Substack essay, or social link — Slant auto-identifies the source & context.',
+    inputPlaceholder: 'https://... (Paste article, YouTube, Substack, X, or Instagram link)',
     perspectivePlaceholder: 'What idea from this Substack essay sparked your reaction, where do you agree or push back, and what is your conviction?'
   },
   moment: {
@@ -27164,14 +27329,22 @@ function syncSlantSparkTypeUI(sparkId = activeSlantSparkType) {
   const urlIndicator = document.getElementById('urlScrapeIndicator');
   const ledgerCard = document.getElementById('sourceLedgerCard');
 
-  if (linkIcon) linkIcon.textContent = cfg.icon;
-  if (linkTitle) linkTitle.textContent = cfg.title;
-  if (subtleHint) subtleHint.textContent = cfg.subtleHint;
+  const currentUrlVal = (cfg.inputType === 'url' && urlInput) ? (urlInput.value || '').trim() : '';
+  const detectedPlatform = (cfg.inputType === 'url') ? detectSourceLinkPlatform(currentUrlVal) : null;
+
+  if (linkIcon) linkIcon.textContent = detectedPlatform ? detectedPlatform.icon : cfg.icon;
+  if (linkTitle) linkTitle.textContent = detectedPlatform ? detectedPlatform.title : cfg.title;
+  if (subtleHint) subtleHint.textContent = detectedPlatform ? detectedPlatform.subtleHint : cfg.subtleHint;
 
   if (linkBadge) {
     linkBadge.style.display = 'inline-block';
-    linkBadge.textContent = cfg.required ? 'Required' : 'Optional';
-    linkBadge.className = cfg.required ? 'creator-tag-badge badge-required' : 'creator-tag-badge badge-optional';
+    if (detectedPlatform && currentUrlVal) {
+      linkBadge.textContent = detectedPlatform.badgeLabel;
+      linkBadge.className = 'creator-tag-badge badge-required';
+    } else {
+      linkBadge.textContent = cfg.required ? 'Required' : 'Optional';
+      linkBadge.className = cfg.required ? 'creator-tag-badge badge-required' : 'creator-tag-badge badge-optional';
+    }
   }
 
   if (cfg.inputType === 'url') {
@@ -27195,12 +27368,13 @@ function syncSlantSparkTypeUI(sparkId = activeSlantSparkType) {
   }
 
   if (slantInput) {
-    slantInput.placeholder = cfg.perspectivePlaceholder;
+    slantInput.placeholder = detectedPlatform ? detectedPlatform.perspectivePlaceholder : cfg.perspectivePlaceholder;
   }
 }
 
 function selectSlantSparkType(sparkId) {
-  const cfg = SLANT_SPARK_TYPES[sparkId] || SLANT_SPARK_TYPES.web;
+  const normalizedId = (sparkId === 'youtube' || sparkId === 'substack') ? 'web' : sparkId;
+  const cfg = SLANT_SPARK_TYPES[normalizedId] || SLANT_SPARK_TYPES.web;
   activeSlantSparkType = cfg.id;
   setAnchorMode(cfg.sourceMode, cfg.id);
 }
@@ -27209,17 +27383,9 @@ window.syncSlantSparkTypeUI = syncSlantSparkTypeUI;
 
 function updateWebLinkSubmode(isVideo) {
   if (isDailyChronicleMode) return;
-  const urlInput = document.getElementById('creatorUrlInput');
-  const currentVal = urlInput ? urlInput.value.trim().toLowerCase() : '';
-  if (currentVal.includes('substack.com')) {
-    activeSlantSparkType = 'substack';
-  } else if (isVideo) {
-    activeSlantSparkType = 'youtube';
-  } else if (!['web', 'youtube', 'substack'].includes(activeSlantSparkType)) {
-    activeSlantSparkType = 'web';
-  }
+  activeSlantSparkType = 'web';
   creatorSelectedSource = isVideo ? 'video_audio' : 'digital_link';
-  syncSlantSparkTypeUI(activeSlantSparkType);
+  syncSlantSparkTypeUI('web');
 }
 
 window.lastPerspectiveSparkMode = 'digital_link';
@@ -28789,16 +28955,37 @@ function renderUrlScrapeSuccessIndicator(siteName, title, hasLedger, isFull = tr
   const indicator = document.getElementById('urlScrapeIndicator');
   if (!indicator) return;
 
+  const cleanSite = siteName || 'Web';
+  const cleanTitle = (title && title.toLowerCase() !== cleanSite.toLowerCase()) ? title : '';
+
+  if (!hasLedger) {
+    isSourceLedgerExpanded = false;
+    indicator.className = 'url-scrape-indicator success';
+    indicator.style.display = 'flex';
+    indicator.style.cursor = 'default';
+    indicator.title = 'Source link attached';
+    indicator.innerHTML = `
+      <span class="scrape-icon">✓</span>
+      <div class="scrape-text-wrap">
+        <span class="scrape-title">Source link attached (${escapeHtml(cleanSite)})</span>
+        <span class="scrape-sub">${escapeHtml(cleanTitle || 'Write your perspective on this post below ↓')}</span>
+      </div>
+    `;
+    indicator.onclick = null;
+    return;
+  }
+
   const isExpanded = Boolean(isSourceLedgerExpanded);
   indicator.className = 'url-scrape-indicator success is-dropdown' + (isExpanded ? ' is-expanded' : '');
   indicator.style.display = 'flex';
+  indicator.style.cursor = 'pointer';
   indicator.title = 'Click to expand or collapse source summary';
 
   indicator.innerHTML = `
     <span class="scrape-icon">${isFull ? '✓' : 'ℹ'}</span>
     <div class="scrape-text-wrap">
-      <span class="scrape-title">${isFull ? 'Full article retrieved' : 'Headline extracted'} (${escapeHtml(siteName || 'Web')})</span>
-      <span class="scrape-sub">${escapeHtml(title || '')}</span>
+      <span class="scrape-title">${isFull ? 'Full source retrieved' : 'Source context extracted'} (${escapeHtml(cleanSite)})</span>
+      <span class="scrape-sub">${escapeHtml(cleanTitle || cleanSite)}</span>
     </div>
     <button type="button" class="scrape-dropdown-pill" aria-label="Toggle Source Summary">
       <span class="scrape-dropdown-label">${isExpanded ? 'Hide' : 'Summary'}</span>
@@ -28887,14 +29074,20 @@ async function handleUrlInput(val) {
         }
         const isFull = (data.content && data.content.length > 200) || (!data.fallback);
         isSourceLedgerExpanded = false; // Start collapsed in dropdown per user request!
+        const validScrapedLedger = (data && data.ledger && !isUnextractedOrBoilerplateLedger(data.ledger)) ? data.ledger : null;
+        const canGenerateLedger = hasSubstantiveClientSourceText(data.title || '', data.content || '', data.siteName || '');
 
-        if (data && data.ledger) {
-          currentSourceLedger = data.ledger;
-          renderSourceLedger(data.ledger);
+        if (validScrapedLedger) {
+          currentSourceLedger = validScrapedLedger;
+          renderSourceLedger(validScrapedLedger);
           renderUrlScrapeSuccessIndicator(data.siteName || 'Web', data.title || clean, true, isFull);
-        } else {
-          renderUrlScrapeSuccessIndicator(data.siteName || 'Web', data.title || clean, false, isFull);
+        } else if (canGenerateLedger) {
+          renderUrlScrapeSuccessIndicator(data.siteName || 'Web', data.title || clean, true, isFull);
           triggerSourceLedgerGeneration(data);
+        } else {
+          currentSourceLedger = null;
+          renderSourceLedger(null);
+          renderUrlScrapeSuccessIndicator(data.siteName || 'Web', data.title || '', false, false);
         }
         if (typeof autoIdentifyVisualProjectionsFromInput === 'function') {
           autoIdentifyVisualProjectionsFromInput(false);
@@ -28916,15 +29109,20 @@ async function handleUrlInput(val) {
         indicator.onclick = null;
         indicator.style.cursor = 'default';
         indicator.innerHTML = `
-          <span class="scrape-icon">ℹ</span>
+          <span class="scrape-icon">✓</span>
           <div class="scrape-text-wrap">
-            <span class="scrape-title">Citation link saved (${escapeHtml(currentScrapedArticle.siteName)})</span>
-            <span class="scrape-sub">${escapeHtml(slugTitle || clean)}</span>
+            <span class="scrape-title">Source link attached (${escapeHtml(currentScrapedArticle.siteName)})</span>
+            <span class="scrape-sub">${escapeHtml(slugTitle || 'Write your perspective below ↓')}</span>
           </div>
         `;
         indicator.style.display = 'flex';
       }
-      triggerSourceLedgerGeneration(currentScrapedArticle);
+      if (hasSubstantiveClientSourceText(slugTitle, '', currentScrapedArticle.siteName)) {
+        triggerSourceLedgerGeneration(currentScrapedArticle);
+      } else {
+        currentSourceLedger = null;
+        renderSourceLedger(null);
+      }
     } finally {
       isScrapingUrl = false;
       activeScrapePromise = null;
@@ -28985,10 +29183,10 @@ function renderSourceLedgerLoading() {
   `;
 }
 
-function renderSourceLedger(ledger, activeTabOverride) {
+function renderSourceLedger(ledger) {
   const card = document.getElementById('sourceLedgerCard');
   if (!card) return;
-  if (!ledger) {
+  if (!ledger || isUnextractedOrBoilerplateLedger(ledger)) {
     card.style.display = 'none';
     card.innerHTML = '';
     currentLedgerActiveTab = 'thesis';
@@ -28998,8 +29196,6 @@ function renderSourceLedger(ledger, activeTabOverride) {
   }
 
   currentSourceLedger = ledger;
-  currentLedgerActiveTab = activeTabOverride || currentLedgerActiveTab || 'thesis';
-  const isDetailed = (currentLedgerViewMode === 'detailed');
   card.style.display = isSourceLedgerExpanded ? 'block' : 'none';
   card.className = 'source-ledger-card';
 
@@ -29018,28 +29214,7 @@ function renderSourceLedger(ledger, activeTabOverride) {
     scopeClean = scopeClean.slice(0, 18) + '…';
   }
 
-  // Detailed facts and claims extraction
-  const detailedData = ledger.detailed || null;
-  const keyFactsList = (detailedData && Array.isArray(detailedData.key_facts)) ? detailedData.key_facts : [];
-  const detailedClaimsList = (detailedData && Array.isArray(detailedData.detailed_claims)) ? detailedData.detailed_claims : [];
-
-  // Mode Switcher Bar HTML (⚡ Summary vs 🔍 Detailed Facts)
-  const switcherBarHtml = `
-    <div class="ledger-mode-switcher-bar">
-      <div class="ledger-mode-toggle-group" role="group" aria-label="Summary granularity">
-        <button type="button" class="ledger-mode-toggle-btn ${!isDetailed ? 'active' : ''}" onclick="switchLedgerViewMode('summary')">
-          <span>⚡ Summary</span>
-        </button>
-        <button type="button" class="ledger-mode-toggle-btn ${isDetailed ? 'active' : ''}" onclick="switchLedgerViewMode('detailed')">
-          <span>🔍 Detailed Facts</span>
-          ${keyFactsList.length > 0 ? `<span class="mode-btn-pill">${keyFactsList.length}</span>` : ''}
-        </button>
-      </div>
-      <span class="ledger-mode-hint">${isDetailed ? 'Deep-dive with spoken details, quotes & key arguments' : 'Calibrated fast read'}</span>
-    </div>
-  `;
-
-  // 1. Thesis extraction (support both object and legacy string)
+  // 1. Unified Summary & Key Facts (Combining Thesis + Claims/Facts into one cohesive short read)
   let contextText = '';
   let thesisText = '';
   if (ledger.subject_and_thesis && typeof ledger.subject_and_thesis === 'object') {
@@ -29049,134 +29224,65 @@ function renderSourceLedger(ledger, activeTabOverride) {
     thesisText = ledger.subject_and_thesis;
   }
 
-  // Key Facts HTML (shown in Detailed mode)
-  let keyFactsHtml = '';
-  if (isDetailed && keyFactsList.length > 0) {
-    keyFactsHtml = `
-      <div class="ledger-detailed-facts-box">
-        <div class="detailed-facts-header">
-          <span>📌</span>
-          <span>Key Facts, Entities & Spoken Disclosures</span>
-        </div>
-        <div class="detailed-facts-grid">
-          ${keyFactsList.map(fact => `
-            <div class="detailed-fact-item">
-              <span class="fact-bullet">▪</span>
-              <span>${escapeHtml(fact)}</span>
+  const detailedData = ledger.detailed || null;
+  const keyFactsList = (detailedData && Array.isArray(detailedData.key_facts))
+    ? detailedData.key_facts.filter(f => f && !isBoilerplateNoSubstanceText(f))
+    : [];
+  const claimsList = Array.isArray(ledger.core_claims_and_evidence) && ledger.core_claims_and_evidence.length > 0
+    ? ledger.core_claims_and_evidence
+    : ((detailedData && Array.isArray(detailedData.detailed_claims)) ? detailedData.detailed_claims : []);
+
+  const claimsBulletsHtml = claimsList.slice(0, 4).map((claim, idx) => {
+    let title = '';
+    let evidence = '';
+    let quote = '';
+    if (claim && typeof claim === 'object') {
+      title = claim.title || '';
+      evidence = claim.evidence || claim.text || '';
+      quote = claim.quote || '';
+    } else {
+      const str = String(claim || '');
+      const colonIdx = str.indexOf(':');
+      if (colonIdx > 0 && colonIdx < 60) {
+        title = str.slice(0, colonIdx).trim();
+        evidence = str.slice(colonIdx + 1).trim();
+      } else {
+        evidence = str;
+      }
+    }
+    if (isBoilerplateNoSubstanceText(evidence)) return '';
+    return `
+      <div class="ledger-claim-card" style="padding:10px 12px; margin-bottom:6px;">
+        <div class="ledger-claim-badge">${idx + 1}</div>
+        <div class="ledger-claim-content">
+          <p class="ledger-claim-text" style="margin:0;">
+            ${title ? `<strong style="color:var(--text-primary);">${escapeHtml(title)}:</strong> ` : ''}${escapeHtml(evidence)}
+          </p>
+          ${quote ? `
+            <div class="ledger-claim-quote" style="margin-top:5px;">
+              <span class="quote-mark">“</span>
+              <span>${escapeHtml(quote)}</span>
             </div>
-          `).join('')}
+          ` : ''}
         </div>
       </div>
     `;
-  }
+  }).filter(Boolean).join('');
 
-  // 2. Claims & Evidence extraction (switch between detailed deep-dive claims with quotes and summary claims)
-  const claimsList = Array.isArray(ledger.core_claims_and_evidence) ? ledger.core_claims_and_evidence : [];
-  const activeClaimsList = (isDetailed && detailedClaimsList.length > 0) ? detailedClaimsList : claimsList;
-  const claimsCount = activeClaimsList.length;
-
-  // Spoken Sections Index in Tab 1 when in detailed mode
-  let spokenIndexHtml = '';
-  if (isDetailed && activeClaimsList.length > 0) {
-    spokenIndexHtml = `
-      <div class="ledger-spoken-index-card">
-        <div class="ledger-spoken-index-header">
-          <span class="ledger-spoken-index-title">🎙️ Spoken Sections in this Talk (${claimsCount})</span>
-          <button type="button" class="ledger-tab-nav-btn" onclick="switchLedgerTab('claims')">
-            <span>Read All Sections →</span>
-          </button>
-        </div>
-        <div class="ledger-spoken-pill-list">
-          ${activeClaimsList.map((c, idx) => `
-            <button type="button" class="ledger-spoken-pill-btn" onclick="switchLedgerTab('claims')">
-              <span><strong>Section ${idx + 1}:</strong> ${escapeHtml(c.title || `Discussion point ${idx + 1}`)}</span>
-              <span style="opacity:0.6; font-size:10px;">Read →</span>
-            </button>
-          `).join('')}
-        </div>
+  const compactFactsHtml = (!claimsBulletsHtml && keyFactsList.length > 0)
+    ? `
+      <div class="detailed-facts-grid" style="margin-top:8px;">
+        ${keyFactsList.slice(0, 5).map(fact => `
+          <div class="detailed-fact-item">
+            <span class="fact-bullet">▪</span>
+            <span>${escapeHtml(fact)}</span>
+          </div>
+        `).join('')}
       </div>
-    `;
-  }
+    `
+    : '';
 
-  let thesisHtml = '';
-  if (contextText || thesisText || keyFactsHtml) {
-    thesisHtml = `
-      <div class="ledger-thesis-unified">
-        ${contextText ? `
-          <div class="ledger-sub-card">
-            <div class="ledger-sub-card-header">
-              <span class="ledger-sub-card-icon">📌</span>
-              <span class="ledger-sub-card-title">Context</span>
-            </div>
-            <p class="ledger-sub-card-text">${escapeHtml(contextText)}</p>
-          </div>
-        ` : ''}
-        ${thesisText ? `
-          <div class="ledger-sub-card highlight">
-            <div class="ledger-sub-card-header">
-              <span class="ledger-sub-card-icon">🎯</span>
-              <span class="ledger-sub-card-title">Central Thesis</span>
-            </div>
-            <p class="ledger-sub-card-text">${escapeHtml(thesisText)}</p>
-          </div>
-        ` : ''}
-        ${keyFactsHtml}
-        ${spokenIndexHtml}
-      </div>
-    `;
-  } else {
-    thesisHtml = `
-      <div class="ledger-sub-card">
-        <p class="ledger-sub-card-text">No central thesis extracted from source.</p>
-      </div>
-    `;
-  }
-
-  const claimsCardsHtml = activeClaimsList.length > 0
-    ? activeClaimsList.map((claim, idx) => {
-        let title = '';
-        let evidence = '';
-        let quote = '';
-        if (claim && typeof claim === 'object') {
-          title = claim.title || '';
-          evidence = claim.evidence || claim.text || '';
-          quote = claim.quote || '';
-        } else {
-          const str = String(claim || '');
-          const colonIdx = str.indexOf(':');
-          if (colonIdx > 0 && colonIdx < 60) {
-            title = str.slice(0, colonIdx).trim();
-            evidence = str.slice(colonIdx + 1).trim();
-          } else {
-            evidence = str;
-          }
-        }
-        return `
-          <div class="ledger-claim-card ${isDetailed ? 'detailed-claim' : ''}">
-            <div class="ledger-claim-badge">${idx + 1}</div>
-            <div class="ledger-claim-content">
-              ${title ? `<div class="ledger-claim-title">${escapeHtml(title)}</div>` : `<div class="ledger-claim-title">Section ${idx + 1}</div>`}
-              <p class="ledger-claim-text">${escapeHtml(evidence)}</p>
-              ${quote ? `
-                <div class="ledger-claim-quote">
-                  <span class="quote-mark">“</span>
-                  <span>${escapeHtml(quote)}</span>
-                </div>
-              ` : ''}
-            </div>
-          </div>
-        `;
-      }).join('')
-    : `
-        <div class="ledger-claim-card">
-          <div class="ledger-claim-badge">ℹ</div>
-          <div class="ledger-claim-content">
-            <p class="ledger-claim-text">Source does not provide detailed empirical evidence or cited data.</p>
-          </div>
-        </div>
-      `;
-
-  // 3. Tension & Tradeoffs extraction
+  // 2. Underlying Friction & Open Question (Preserved directly below)
   let primaryConflict = '';
   let tradeoffs = '';
   let counterQuestions = '';
@@ -29189,56 +29295,32 @@ function renderSourceLedger(ledger, activeTabOverride) {
     primaryConflict = ledger.underlying_tension_or_question;
   }
 
-  let tensionHtml = '';
-  if (primaryConflict || tradeoffs || counterQuestions) {
-    tensionHtml = `
-      <div class="ledger-tension-stack">
-        ${primaryConflict ? `
-          <div class="ledger-tension-card">
-            <div class="ledger-tension-card-header">
-              <span class="ledger-tension-badge badge-conflict">⚡ Friction</span>
-            </div>
-            <p class="ledger-tension-text">${escapeHtml(primaryConflict)}</p>
-          </div>
-        ` : ''}
-        ${tradeoffs ? `
-          <div class="ledger-tension-card">
-            <div class="ledger-tension-card-header">
-              <span class="ledger-tension-badge badge-tradeoffs">⚖️ Tradeoffs</span>
-            </div>
-            <p class="ledger-tension-text">${escapeHtml(tradeoffs)}</p>
-          </div>
-        ` : ''}
-        ${counterQuestions ? `
-          <div class="ledger-tension-card">
-            <div class="ledger-tension-card-header">
-              <span class="ledger-tension-badge badge-questions">❓ Counter-Perspective</span>
-            </div>
-            <p class="ledger-tension-text">${escapeHtml(counterQuestions)}</p>
-          </div>
-        ` : ''}
-      </div>
-    `;
-  } else {
-    tensionHtml = `
-      <div class="ledger-tension-card">
-        <p class="ledger-tension-text">No explicit tension or counter-perspective highlighted.</p>
-      </div>
-    `;
-  }
+  const combinedFriction = [primaryConflict, tradeoffs].filter(s => s && !isBoilerplateNoSubstanceText(s)).join(' ');
+  const cleanCounterQuestion = (!isBoilerplateNoSubstanceText(counterQuestions)) ? counterQuestions : '';
 
-  const activeTab = currentLedgerActiveTab || 'thesis';
+  const frictionSectionHtml = (combinedFriction || cleanCounterQuestion)
+    ? `
+      <div class="ledger-sub-card" style="margin-top:10px; border-left:3px solid #F59E0B; background:rgba(245, 158, 11, 0.06);">
+        <div class="ledger-sub-card-header" style="margin-bottom:4px;">
+          <span class="ledger-sub-card-icon">⚖️</span>
+          <span class="ledger-sub-card-title">Underlying Friction &amp; Open Question</span>
+        </div>
+        ${combinedFriction ? `<p class="ledger-sub-card-text" style="margin:0 0 6px 0;">${escapeHtml(combinedFriction)}</p>` : ''}
+        ${cleanCounterQuestion ? `<p class="ledger-sub-card-text" style="margin:0; font-style:italic; opacity:0.9;">❓ ${escapeHtml(cleanCounterQuestion)}</p>` : ''}
+      </div>
+    `
+    : '';
 
   card.innerHTML = `
     <div class="ledger-header">
       <div class="ledger-header-left">
-        <span class="ledger-header-icon">⚖️</span>
+        <span class="ledger-header-icon">📰</span>
         <div class="ledger-header-meta">
           <div class="ledger-title-line">
-            <span class="ledger-title">Source Summary</span>
+            <span class="ledger-title">Source Summary &amp; Key Facts</span>
             <span class="ledger-scope-pill">${escapeHtml(scopeClean)}</span>
           </div>
-          <span class="ledger-sub-meta">Neutral Editorial Ledger</span>
+          <span class="ledger-sub-meta">Quick 1-Minute Read • Neutral Source Breakdown</span>
         </div>
       </div>
       <div class="ledger-substance-badge" title="${escapeHtml(starsLabel)}">
@@ -29247,69 +29329,31 @@ function renderSourceLedger(ledger, activeTabOverride) {
       </div>
     </div>
 
-    <!-- Mode Switcher (⚡ Summary vs 🔍 Detailed Facts) -->
-    ${switcherBarHtml}
-
-    <!-- 3-Category Tabs Bar -->
-    <div class="ledger-tabs-bar" role="tablist">
-      <button type="button" class="ledger-tab-btn ${activeTab === 'thesis' ? 'active' : ''}" data-ledger-tab="thesis" onclick="switchLedgerTab('thesis')">
-        <span class="ledger-tab-icon">${isDetailed ? '📌' : '🎯'}</span>
-        <span class="ledger-tab-label">${isDetailed ? 'Key Facts & Thesis' : 'Thesis'}</span>
-        ${(isDetailed && keyFactsList.length > 0) ? `<span class="ledger-tab-count">${keyFactsList.length}</span>` : ''}
-      </button>
-      <button type="button" class="ledger-tab-btn ${activeTab === 'claims' ? 'active' : ''}" data-ledger-tab="claims" onclick="switchLedgerTab('claims')">
-        <span class="ledger-tab-icon">${isDetailed ? '📖' : '📊'}</span>
-        <span class="ledger-tab-label">${isDetailed ? 'Spoken Sections' : 'Claims'}</span>
-        <span class="ledger-tab-count">${claimsCount}</span>
-      </button>
-      <button type="button" class="ledger-tab-btn ${activeTab === 'tension' ? 'active' : ''}" data-ledger-tab="tension" onclick="switchLedgerTab('tension')">
-        <span class="ledger-tab-icon">⚖️</span>
-        <span class="ledger-tab-label">Tensions</span>
-      </button>
-    </div>
-
-    <!-- Tab 1: Subject & Thesis / Key Facts -->
-    <div class="ledger-tab-panel ${activeTab === 'thesis' ? 'active' : ''}" id="ledgerPanel_thesis" style="display:${activeTab === 'thesis' ? 'block' : 'none'};">
-      ${thesisHtml}
-      <div class="ledger-panel-nav">
-        <span></span>
-        <button type="button" class="ledger-tab-nav-btn" onclick="switchLedgerTab('claims')">
-          <span>${isDetailed ? 'Spoken Sections' : 'Claims'} (${claimsCount}) →</span>
-        </button>
-      </div>
-    </div>
-
-    <!-- Tab 2: Core Claims / Spoken Sections -->
-    <div class="ledger-tab-panel ${activeTab === 'claims' ? 'active' : ''}" id="ledgerPanel_claims" style="display:${activeTab === 'claims' ? 'block' : 'none'};">
-      <div class="ledger-claims-container">
-        ${claimsCardsHtml}
-      </div>
-      <div class="ledger-panel-nav">
-        <button type="button" class="ledger-tab-nav-btn" onclick="switchLedgerTab('thesis')">
-          <span>← ${isDetailed ? 'Key Facts' : 'Thesis'}</span>
-        </button>
-        <button type="button" class="ledger-tab-nav-btn" onclick="switchLedgerTab('tension')">
-          <span>Tensions →</span>
-        </button>
-      </div>
-    </div>
-
-    <!-- Tab 3: Underlying Tension or Question -->
-    <div class="ledger-tab-panel ${activeTab === 'tension' ? 'active' : ''}" id="ledgerPanel_tension" style="display:${activeTab === 'tension' ? 'block' : 'none'};">
-      ${tensionHtml}
-      <div class="ledger-panel-nav">
-        <button type="button" class="ledger-tab-nav-btn" onclick="switchLedgerTab('claims')">
-          <span>← ${isDetailed ? 'Spoken Sections' : 'Claims'}</span>
-        </button>
-        <button type="button" class="ledger-tab-nav-btn" onclick="switchLedgerTab('thesis')">
-          <span>${isDetailed ? 'Key Facts' : 'Thesis'} ↺</span>
-        </button>
+    <div class="ledger-tab-panel active" style="display:block; padding-top:10px;">
+      <div class="ledger-thesis-unified">
+        ${(contextText || thesisText) ? `
+          <div class="ledger-sub-card highlight" style="margin-bottom:8px;">
+            <div class="ledger-sub-card-header">
+              <span class="ledger-sub-card-icon">🎯</span>
+              <span class="ledger-sub-card-title">Summary</span>
+            </div>
+            <p class="ledger-sub-card-text">
+              ${contextText ? `<strong>${escapeHtml(contextText)}</strong> ` : ''}${escapeHtml(thesisText)}
+            </p>
+          </div>
+        ` : ''}
+        ${claimsBulletsHtml ? `
+          <div class="ledger-claims-container" style="margin-top:6px;">
+            ${claimsBulletsHtml}
+          </div>
+        ` : compactFactsHtml}
+        ${frictionSectionHtml}
       </div>
     </div>
 
     <div class="ledger-footer-tip">
       <span class="tip-icon">💡</span>
-      <span class="tip-text">Ground your unique slant below using this factual breakdown ↓</span>
+      <span class="tip-text">Ground your unique slant below using this summary &amp; friction ↓</span>
     </div>
 
     <!-- Pullback button to collapse summary back up -->
@@ -29321,7 +29365,6 @@ function renderSourceLedger(ledger, activeTabOverride) {
       </button>
     </div>
   `;
-  switchLedgerTab(activeTab);
 }
 
 async function triggerSourceLedgerGeneration(articleData) {
@@ -29331,7 +29374,12 @@ async function triggerSourceLedgerGeneration(articleData) {
   const content = articleData.content || '';
   const siteName = articleData.siteName || '';
 
-  if (!url && !title && !content) return;
+  if (!hasSubstantiveClientSourceText(title, content, siteName)) {
+    currentSourceLedger = null;
+    renderSourceLedger(null);
+    renderUrlScrapeSuccessIndicator(siteName || 'Web', title || '', false, false);
+    return;
+  }
 
   renderSourceLedgerLoading();
   isGeneratingLedger = true;
@@ -29346,21 +29394,29 @@ async function triggerSourceLedgerGeneration(articleData) {
     if (!resp.ok) throw new Error('Ledger endpoint returned ' + resp.status);
     const data = await resp.json();
 
-    if (data && data.success && data.ledger) {
+    if (data && data.success && data.ledger && !isUnextractedOrBoilerplateLedger(data.ledger)) {
       currentSourceLedger = data.ledger;
       currentLedgerViewMode = 'summary';
-      renderSourceLedger(data.ledger, 'thesis');
+      renderSourceLedger(data.ledger);
       renderUrlScrapeSuccessIndicator(siteName || 'Web', title || '', true, true);
     } else {
-      throw new Error('Ledger data invalid');
+      currentSourceLedger = null;
+      renderSourceLedger(null);
+      renderUrlScrapeSuccessIndicator(siteName || 'Web', title || '', false, false);
     }
   } catch (err) {
-    console.warn('Objective ledger generation error, using fallback:', err.message);
-    const fallbackLedger = buildClientFallbackLedger(title, content, siteName);
-    currentSourceLedger = fallbackLedger;
-    currentLedgerViewMode = 'summary';
-    renderSourceLedger(fallbackLedger, 'thesis');
-    renderUrlScrapeSuccessIndicator(siteName || 'Web', title || '', true, true);
+    console.warn('Objective ledger generation notice:', err.message);
+    if (hasSubstantiveClientSourceText(title, content, siteName) && (content || '').length > 120) {
+      const fallbackLedger = buildClientFallbackLedger(title, content, siteName);
+      currentSourceLedger = fallbackLedger;
+      currentLedgerViewMode = 'summary';
+      renderSourceLedger(fallbackLedger);
+      renderUrlScrapeSuccessIndicator(siteName || 'Web', title || '', true, true);
+    } else {
+      currentSourceLedger = null;
+      renderSourceLedger(null);
+      renderUrlScrapeSuccessIndicator(siteName || 'Web', title || '', false, false);
+    }
   } finally {
     isGeneratingLedger = false;
   }
