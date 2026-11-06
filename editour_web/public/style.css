@@ -11462,7 +11462,8 @@ header {
 }
 
 .cues-add-input {
-  flex: 1;
+  flex: 1 1 0%;
+  min-width: 0;
   background: transparent;
   border: none;
   outline: none;
@@ -11472,6 +11473,7 @@ header {
 }
 
 .cues-add-btn {
+  flex-shrink: 0;
   background: var(--primary);
   color: #FFFFFF;
   border: none;
@@ -27626,11 +27628,15 @@ mark.polish-mark:hover, mark.polish-mark.active {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .vault-link-search-input {
-  flex: 1;
-  min-width: 180px;
+  flex: 1 1 140px;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
   padding: 8px 12px;
   border-radius: 10px;
   border: 1px solid rgba(148, 163, 184, 0.3);
@@ -27646,6 +27652,9 @@ mark.polish-mark:hover, mark.polish-mark.active {
 }
 
 .vault-link-relation-select {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
   padding: 8px 10px;
   border-radius: 10px;
   border: 1px solid rgba(56, 189, 248, 0.4);
@@ -27809,7 +27818,8 @@ mark.polish-mark:hover, mark.polish-mark.active {
   align-items: center;
   flex: 1 1 auto;
   justify-content: flex-end;
-  min-width: 210px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .creator-series-select-group,
@@ -27818,13 +27828,14 @@ mark.polish-mark:hover, mark.polish-mark.active {
   align-items: center;
   gap: 7px;
   width: 100%;
+  min-width: 0;
   justify-content: flex-end;
 }
 
 .creator-series-dropdown {
   flex: 1 1 auto;
   max-width: 240px;
-  min-width: 150px;
+  min-width: 0;
   height: 38px;
   padding: 0 32px 0 12px;
   border-radius: 9px;
@@ -27882,9 +27893,11 @@ mark.polish-mark:hover, mark.polish-mark.active {
 }
 
 .creator-series-new-input {
-  flex: 1 1 auto;
-  min-width: 130px;
+  flex: 1 1 0%;
+  min-width: 0;
   max-width: 210px;
+  width: 100%;
+  box-sizing: border-box;
   height: 38px;
   padding: 0 11px;
   border-radius: 9px;
@@ -31044,6 +31057,7 @@ mark.polish-mark:hover, mark.polish-mark.active {
   gap: 10px;
   padding-top: 10px;
   border-top: 1px solid rgba(148, 163, 184, 0.2);
+  flex-wrap: wrap;
 }
 
 .wall-studio-cancel-btn {
@@ -31056,9 +31070,13 @@ mark.polish-mark:hover, mark.polish-mark.active {
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
+  box-sizing: border-box;
 }
 
 .wall-studio-save-btn {
+  flex: 1 1 auto;
+  max-width: 100%;
+  box-sizing: border-box;
   padding: 10px 20px;
   min-height: 42px;
   border-radius: 11px;
@@ -31351,8 +31369,10 @@ mark.polish-mark:hover, mark.polish-mark.active {
 }
 
 .diary-welcome-start-btn {
-  flex: 1;
-  min-width: 190px;
+  flex: 1 1 140px;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
   padding: 11px 18px;
   border-radius: 12px;
   border: none;
@@ -31369,6 +31389,35 @@ mark.polish-mark:hover, mark.polish-mark.active {
   transform: translateY(-1px);
   box-shadow: 0 8px 22px rgba(245, 158, 11, 0.45);
 }
+
+/* ============================================================
+   GLOBAL FORM & MODAL FLEX OVERFLOW GUARD
+   Ensures inputs, selects, and action buttons stay strictly inside
+   their parent card frame across all mobile and desktop viewports
+   ============================================================ */
+.modal-card,
+.curator-style-modal,
+.diary-calendar-modal,
+.diary-welcome-card,
+.vault-screen-window {
+  box-sizing: border-box;
+  max-width: calc(100vw - 20px);
+}
+
+.modal-card input[type="text"],
+.modal-card input[type="email"],
+.modal-card input[type="url"],
+.modal-card input[type="search"],
+.modal-card select,
+.modal-card textarea,
+.creator-step-content input[type="text"],
+.creator-step-content input[type="url"],
+.creator-step-content select {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
 
 
 

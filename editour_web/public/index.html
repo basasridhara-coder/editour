@@ -40,7 +40,7 @@
   <link rel="preconnect" href="https://fxfklefnkpmhofncqhfh.supabase.co" crossorigin>
   <link rel="preconnect" href="https://accounts.google.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Merriweather:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,400;1,600;1,700;1,900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261106_1510">
+  <link rel="stylesheet" href="style.css?v=20261106_1610">
   <!-- Favicon & Brand Icons -->
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
@@ -2288,9 +2288,9 @@
         <!-- 1. Add New Email Form -->
         <div>
           <label style="font-size: 12px; font-weight: 700; color: var(--text-primary); display: block; margin-bottom: 6px;">Invite Whitelisted Curator / Grant Bonus Credits by Email</label>
-          <div style="display: flex; gap: 8px;">
-            <input type="email" id="adminNewInviteEmail" placeholder="member@gmail.com" style="flex: 1; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--border-subtle, #CBD5E1); background: var(--bg-card, #FFF); color: var(--text-primary, #0F172A); font-size: 13.5px;" onkeydown="if(event.key==='Enter') handleAdminAddEmail()">
-            <button type="button" class="creator-publish-btn" style="padding: 10px 18px; font-size: 13px; white-space: nowrap;" onclick="handleAdminAddEmail()">
+          <div style="display: flex; gap: 8px; width: 100%; box-sizing: border-box; flex-wrap: wrap;">
+            <input type="email" id="adminNewInviteEmail" placeholder="member@gmail.com" style="flex: 1 1 150px; min-width: 0; width: 100%; box-sizing: border-box; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border-subtle, #CBD5E1); background: var(--bg-card, #FFF); color: var(--text-primary, #0F172A); font-size: 13px;" onkeydown="if(event.key==='Enter') handleAdminAddEmail()">
+            <button type="button" class="creator-publish-btn" style="flex-shrink: 0; padding: 10px 14px; font-size: 12.5px; white-space: nowrap;" onclick="handleAdminAddEmail()">
               + Whitelist &amp; Grant
             </button>
           </div>
@@ -2392,10 +2392,10 @@
           <div style="font-size:11px; color:var(--text-secondary); margin-bottom:8px;">
             Get an instant alert on your phone whenever Vercel times out (504), Gemini hits rate limits (429), Supabase errors, or a user reports a bug.
           </div>
-          <div style="display:flex; gap:6px; flex-wrap:wrap;">
-            <input type="url" id="adminAlertWebhookInput" placeholder="https://hooks.slack.com/... or Discord webhook URL" style="flex:1; min-width:190px; padding:8px 11px; border-radius:8px; border:1px solid var(--border-subtle, #CBD5E1); background:var(--bg-card, #FFF); color:var(--text-primary); font-size:12px;">
-            <button type="button" onclick="handleSaveAdminAlertWebhook(false)" style="background:#4F46E5; color:#FFF; border:none; padding:8px 12px; border-radius:8px; font-size:11.5px; font-weight:800; cursor:pointer;">Save URL</button>
-            <button type="button" onclick="handleSaveAdminAlertWebhook(true)" style="background:rgba(16,185,129,0.16); color:#34D399; border:1px solid rgba(16,185,129,0.4); padding:8px 11px; border-radius:8px; font-size:11.5px; font-weight:800; cursor:pointer;">Test Ping 🔔</button>
+          <div style="display:flex; gap:6px; flex-wrap:wrap; width:100%; box-sizing:border-box;">
+            <input type="url" id="adminAlertWebhookInput" placeholder="https://hooks.slack.com/... or Discord webhook URL" style="flex:1 1 140px; min-width:0; width:100%; box-sizing:border-box; padding:8px 11px; border-radius:8px; border:1px solid var(--border-subtle, #CBD5E1); background:var(--bg-card, #FFF); color:var(--text-primary); font-size:12px;">
+            <button type="button" onclick="handleSaveAdminAlertWebhook(false)" style="flex-shrink:0; background:#4F46E5; color:#FFF; border:none; padding:8px 12px; border-radius:8px; font-size:11.5px; font-weight:800; cursor:pointer; white-space:nowrap;">Save URL</button>
+            <button type="button" onclick="handleSaveAdminAlertWebhook(true)" style="flex-shrink:0; background:rgba(16,185,129,0.16); color:#34D399; border:1px solid rgba(16,185,129,0.4); padding:8px 11px; border-radius:8px; font-size:11.5px; font-weight:800; cursor:pointer; white-space:nowrap;">Test Ping 🔔</button>
           </div>
         </div>
 
@@ -2847,9 +2847,9 @@
 
   <!-- User Visual Credits, Request More Credits & Community Invite Modal -->
   <div class="modal-overlay" id="userCreditsModal" style="display:none; z-index:11500;" onclick="if(event.target===this) closeUserCreditsAndInviteModal()">
-    <div class="modal-card" style="max-width: 460px; padding: 22px 22px 20px; border-radius: 20px; text-align: left; display: flex; flex-direction: column; gap: 14px;" onclick="event.stopPropagation()">
+    <div class="modal-card" style="max-width: 460px; width: min(460px, calc(100vw - 24px)); box-sizing: border-box; overflow-x: hidden; padding: 20px 18px; border-radius: 20px; text-align: left; display: flex; flex-direction: column; gap: 14px;" onclick="event.stopPropagation()">
       <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 10px; border-bottom: 1px solid var(--border-subtle, rgba(15,23,42,0.1));">
-        <div>
+        <div style="min-width: 0; padding-right: 36px;">
           <div style="font-size: 10px; font-weight: 800; color: #10B981; letter-spacing: 0.8px; text-transform: uppercase;">Slant Studio &bull; Open Community</div>
           <h2 style="font-size: 18px; font-weight: 800; color: var(--text-primary); margin: 2px 0 0;">Visual Credits &amp; Community</h2>
         </div>
@@ -2878,12 +2878,12 @@
       </div>
 
       <!-- Request More Credits Section -->
-      <div style="padding: 12px; border-radius: 14px; background: var(--bg-card, rgba(15,23,42,0.03)); border: 1px solid var(--border-subtle, rgba(15,23,42,0.1)); display: flex; flex-direction: column; gap: 8px;">
+      <div style="padding: 12px; border-radius: 14px; background: var(--bg-card, rgba(15,23,42,0.03)); border: 1px solid var(--border-subtle, rgba(15,23,42,0.1)); display: flex; flex-direction: column; gap: 8px; width: 100%; box-sizing: border-box;">
         <div style="font-size: 12.5px; font-weight: 800; color: var(--text-primary);">⚡ Need More AI Concept Credits?</div>
         <div style="font-size: 11.5px; color: var(--text-secondary); line-height: 1.38;">Working on abstract visual thoughts that need AI illustration? Tap <strong>Request +Credits</strong> below — our curator admin is notified immediately and grants bonus credits to your account.</div>
-        <div style="display: flex; gap: 8px;">
-          <input type="text" id="userCreditRequestReasonInput" placeholder="Optional note (e.g. Working on a series of perspectives)" style="flex: 1; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--border-subtle, #CBD5E1); background: #FFFFFF; color: #0F172A; font-size: 12.5px;">
-          <button type="button" id="userCreditRequestSubmitBtn" onclick="submitUserCreditRequest()" style="padding: 9px 14px; border-radius: 10px; border: none; background: #253833; color: #FFFFFF; font-size: 12px; font-weight: 800; cursor: pointer; white-space: nowrap;">
+        <div style="display: flex; align-items: stretch; gap: 8px; width: 100%; box-sizing: border-box;">
+          <input type="text" id="userCreditRequestReasonInput" placeholder="Optional note (e.g. series idea)..." style="flex: 1 1 0%; min-width: 0; width: 100%; box-sizing: border-box; padding: 9px 11px; border-radius: 10px; border: 1px solid var(--border-subtle, #CBD5E1); background: #FFFFFF; color: #0F172A; font-size: 12.5px;">
+          <button type="button" id="userCreditRequestSubmitBtn" onclick="submitUserCreditRequest()" style="flex-shrink: 0; padding: 9px 13px; border-radius: 10px; border: none; background: #253833; color: #FFFFFF; font-size: 12px; font-weight: 800; cursor: pointer; white-space: nowrap;">
             Request +Credits
           </button>
         </div>
@@ -2891,25 +2891,25 @@
       </div>
 
       <!-- First-Time Start Slanting CTA Button -->
-      <button type="button" id="userCreditsFirstTimeGotItBtn" onclick="closeUserCreditsAndInviteModal()" style="display: none; width: 100%; padding: 11px 16px; border-radius: 12px; border: none; background: linear-gradient(135deg, #059669, #10B981); color: #FFFFFF; font-size: 13px; font-weight: 800; cursor: pointer; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 4px 12px rgba(16,185,129,0.25);">
+      <button type="button" id="userCreditsFirstTimeGotItBtn" onclick="closeUserCreditsAndInviteModal()" style="display: none; width: 100%; box-sizing: border-box; padding: 11px 16px; border-radius: 12px; border: none; background: linear-gradient(135deg, #059669, #10B981); color: #FFFFFF; font-size: 13px; font-weight: 800; cursor: pointer; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 4px 12px rgba(16,185,129,0.25);">
         <span>Got It — Start Slanting ✨</span>
       </button>
 
       <!-- Invite Others to Slant Community Section -->
-      <div id="userInviteCommunitySection" style="padding: 12px; border-radius: 14px; background: linear-gradient(135deg, rgba(245,158,11,0.10), rgba(99,102,241,0.08)); border: 1px solid rgba(217,119,6,0.3); display: flex; flex-direction: column; gap: 8px;">
+      <div id="userInviteCommunitySection" style="padding: 12px; border-radius: 14px; background: linear-gradient(135deg, rgba(245,158,11,0.10), rgba(99,102,241,0.08)); border: 1px solid rgba(217,119,6,0.3); display: flex; flex-direction: column; gap: 8px; width: 100%; box-sizing: border-box;">
         <div style="display: flex; align-items: center; gap: 10px;">
           <img src="/slant_logo_animated.gif" alt="Slant" style="width: 48px; height: 48px; object-fit: cover; border-radius: 10px; border: 1px solid rgba(15,23,42,0.14); flex-shrink: 0; background: #F1EBDD;">
-          <div>
+          <div style="min-width: 0;">
             <div style="font-size: 12.5px; font-weight: 800; color: var(--text-primary);">💌 Invite Friends to the Slant Community</div>
             <div style="font-size: 11.5px; color: var(--text-secondary); line-height: 1.38;">Sends the animated Slant logo along with your invite link to <strong>slant.today</strong>.</div>
           </div>
         </div>
-        <div style="display: flex; gap: 8px;">
-          <button type="button" onclick="shareSlantCommunityInvite()" style="flex: 1; padding: 10px 12px; border-radius: 10px; border: none; background: linear-gradient(135deg, #0F172A, #1E293B); color: #FFFFFF; font-size: 12px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 100%; box-sizing: border-box;">
+          <button type="button" onclick="shareSlantCommunityInvite()" style="min-width: 0; width: 100%; box-sizing: border-box; padding: 10px 10px; border-radius: 10px; border: none; background: linear-gradient(135deg, #0F172A, #1E293B); color: #FFFFFF; font-size: 12px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 5px; white-space: nowrap;">
             <span>📤</span>
             <span>Share Invite</span>
           </button>
-          <button type="button" onclick="copyPersonalInviteMessage()" style="padding: 10px 14px; border-radius: 10px; border: 1px solid rgba(15,23,42,0.2); background: #FFFFFF; color: #0F172A; font-size: 12px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 5px;">
+          <button type="button" onclick="copyPersonalInviteMessage()" style="min-width: 0; width: 100%; box-sizing: border-box; padding: 10px 10px; border-radius: 10px; border: 1px solid rgba(15,23,42,0.2); background: #FFFFFF; color: #0F172A; font-size: 12px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 5px; white-space: nowrap;">
             <span>📋</span>
             <span>Copy Link</span>
           </button>
@@ -3073,6 +3073,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261106_1510"></script>
+  <script src="app.js?v=20261106_1610"></script>
 </body>
 </html>
