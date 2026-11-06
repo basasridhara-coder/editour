@@ -33755,6 +33755,29 @@ async function saveSynthesizedPost(options = {}) {
   delete postToSave.originalPhotoBase64;
   delete postToSave.sourceImageBase64;
   delete postToSave.catalystPhotoBase64;
+  if (typeof postToSave.referencePhotoUrl === 'string' && postToSave.referencePhotoUrl.startsWith('data:image/')) {
+    if (postToSave.illustrationUrl && postToSave.illustrationUrl.startsWith('http')) {
+      postToSave.referencePhotoUrl = postToSave.illustrationUrl;
+    } else {
+      try {
+        const refCompressed = await compressImageForCloud(postToSave.referencePhotoUrl, 960, 0.85);
+        const refPublicUrl = await uploadArtworkToSupabaseStorage(`${postToSave.id}_ref`, refCompressed);
+        if (refPublicUrl) {
+          postToSave.referencePhotoUrl = refPublicUrl;
+        } else {
+          delete postToSave.referencePhotoUrl;
+        }
+      } catch (_) {
+        delete postToSave.referencePhotoUrl;
+      }
+    }
+    currentSynthesizedPost.referencePhotoUrl = postToSave.referencePhotoUrl || null;
+  }
+  if (typeof postToSave.sourceImageUrl === 'string' && postToSave.sourceImageUrl.startsWith('data:image/')) {
+    postToSave.sourceImageUrl = (postToSave.referencePhotoUrl && postToSave.referencePhotoUrl.startsWith('http'))
+      ? postToSave.referencePhotoUrl
+      : (postToSave.illustrationUrl && postToSave.illustrationUrl.startsWith('http') ? postToSave.illustrationUrl : undefined);
+  }
   if (typeof postToSave.catalystPhoto === 'string' && postToSave.catalystPhoto.startsWith('data:image/')) {
     delete postToSave.catalystPhoto;
   }
@@ -33766,7 +33789,11 @@ async function saveSynthesizedPost(options = {}) {
       delete postToSave.generationInputs.catalystPhoto;
     }
     if (typeof postToSave.generationInputs.referencePhotoUrl === 'string' && postToSave.generationInputs.referencePhotoUrl.startsWith('data:image/')) {
-      delete postToSave.generationInputs.referencePhotoUrl;
+      if (postToSave.referencePhotoUrl && postToSave.referencePhotoUrl.startsWith('http')) {
+        postToSave.generationInputs.referencePhotoUrl = postToSave.referencePhotoUrl;
+      } else {
+        delete postToSave.generationInputs.referencePhotoUrl;
+      }
     }
   }
 
@@ -33995,6 +34022,29 @@ async function publishSynthesizedPost() {
   delete postToSave.originalPhotoBase64;
   delete postToSave.sourceImageBase64;
   delete postToSave.catalystPhotoBase64;
+  if (typeof postToSave.referencePhotoUrl === 'string' && postToSave.referencePhotoUrl.startsWith('data:image/')) {
+    if (postToSave.illustrationUrl && postToSave.illustrationUrl.startsWith('http')) {
+      postToSave.referencePhotoUrl = postToSave.illustrationUrl;
+    } else {
+      try {
+        const refCompressed = await compressImageForCloud(postToSave.referencePhotoUrl, 960, 0.85);
+        const refPublicUrl = await uploadArtworkToSupabaseStorage(`${postToSave.id}_ref`, refCompressed);
+        if (refPublicUrl) {
+          postToSave.referencePhotoUrl = refPublicUrl;
+        } else {
+          delete postToSave.referencePhotoUrl;
+        }
+      } catch (_) {
+        delete postToSave.referencePhotoUrl;
+      }
+    }
+    currentSynthesizedPost.referencePhotoUrl = postToSave.referencePhotoUrl || null;
+  }
+  if (typeof postToSave.sourceImageUrl === 'string' && postToSave.sourceImageUrl.startsWith('data:image/')) {
+    postToSave.sourceImageUrl = (postToSave.referencePhotoUrl && postToSave.referencePhotoUrl.startsWith('http'))
+      ? postToSave.referencePhotoUrl
+      : (postToSave.illustrationUrl && postToSave.illustrationUrl.startsWith('http') ? postToSave.illustrationUrl : undefined);
+  }
   if (typeof postToSave.catalystPhoto === 'string' && postToSave.catalystPhoto.startsWith('data:image/')) {
     delete postToSave.catalystPhoto;
   }
@@ -34006,7 +34056,11 @@ async function publishSynthesizedPost() {
       delete postToSave.generationInputs.catalystPhoto;
     }
     if (typeof postToSave.generationInputs.referencePhotoUrl === 'string' && postToSave.generationInputs.referencePhotoUrl.startsWith('data:image/')) {
-      delete postToSave.generationInputs.referencePhotoUrl;
+      if (postToSave.referencePhotoUrl && postToSave.referencePhotoUrl.startsWith('http')) {
+        postToSave.generationInputs.referencePhotoUrl = postToSave.referencePhotoUrl;
+      } else {
+        delete postToSave.generationInputs.referencePhotoUrl;
+      }
     }
   }
 

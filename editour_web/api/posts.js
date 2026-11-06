@@ -590,6 +590,42 @@ module.exports = async function handler(req, res) {
       delete postData.originalPhotoBase64;
       delete postData.sourceImageBase64;
       delete postData.catalystPhotoBase64;
+      if (typeof postData.referencePhotoUrl === 'string' && postData.referencePhotoUrl.startsWith('data:image/')) {
+        if (postData.illustrationUrl && postData.illustrationUrl.startsWith('http')) {
+          postData.referencePhotoUrl = postData.illustrationUrl;
+        } else {
+          try {
+            const refMatch = postData.referencePhotoUrl.match(/^data:(image\/[^;]+);base64,/);
+            const refMime = refMatch ? refMatch[1] : 'image/jpeg';
+            const refExt = refMime.includes('png') ? 'png' : (refMime.includes('webp') ? 'webp' : 'jpg');
+            const refCleanB64 = refMatch ? postData.referencePhotoUrl.slice(refMatch[0].length) : postData.referencePhotoUrl.replace(/^data:image\/[^;]+;base64,/, '');
+            const refBuf = Buffer.from(refCleanB64, 'base64');
+            const refFileName = `${postData.id}_ref.${refExt}`;
+            const refUpResp = await fetch(`${SUPABASE_URL}/storage/v1/object/posters/${refFileName}`, {
+              method: 'POST',
+              headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': `Bearer ${SUPABASE_KEY}`,
+                'Content-Type': refMime,
+                'x-upsert': 'true'
+              },
+              body: refBuf
+            });
+            if (refUpResp.ok) {
+              postData.referencePhotoUrl = `${SUPABASE_URL}/storage/v1/object/public/posters/${refFileName}`;
+            } else {
+              delete postData.referencePhotoUrl;
+            }
+          } catch (_) {
+            delete postData.referencePhotoUrl;
+          }
+        }
+      }
+      if (typeof postData.sourceImageUrl === 'string' && postData.sourceImageUrl.startsWith('data:image/')) {
+        postData.sourceImageUrl = (postData.referencePhotoUrl && postData.referencePhotoUrl.startsWith('http'))
+          ? postData.referencePhotoUrl
+          : (postData.illustrationUrl && postData.illustrationUrl.startsWith('http') ? postData.illustrationUrl : undefined);
+      }
       if (typeof postData.catalystPhoto === 'string' && postData.catalystPhoto.startsWith('data:image/')) {
         delete postData.catalystPhoto;
       }
@@ -601,7 +637,11 @@ module.exports = async function handler(req, res) {
           delete postData.generationInputs.catalystPhoto;
         }
         if (typeof postData.generationInputs.referencePhotoUrl === 'string' && postData.generationInputs.referencePhotoUrl.startsWith('data:image/')) {
-          delete postData.generationInputs.referencePhotoUrl;
+          if (postData.referencePhotoUrl && postData.referencePhotoUrl.startsWith('http')) {
+            postData.generationInputs.referencePhotoUrl = postData.referencePhotoUrl;
+          } else {
+            delete postData.generationInputs.referencePhotoUrl;
+          }
         }
       }
 
