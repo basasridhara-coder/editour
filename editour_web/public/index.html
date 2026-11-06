@@ -40,7 +40,7 @@
   <link rel="preconnect" href="https://fxfklefnkpmhofncqhfh.supabase.co" crossorigin>
   <link rel="preconnect" href="https://accounts.google.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Merriweather:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,400;1,600;1,700;1,900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261106_1440">
+  <link rel="stylesheet" href="style.css?v=20261106_1510">
   <!-- Favicon & Brand Icons -->
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
@@ -907,19 +907,19 @@
               </div>
             </div>
 
-            <!-- 3 Clear Options with Explicit Checkmarks: 1) Original / Attached Photo (0⚡), 2) Web Source (0⚡), 3) AI Illustration (1⚡) -->
+            <!-- 3 Clear Options with Explicit Checkmarks: 1) Original / Attached Photo (0⚡ Default), 2) Web Source (0⚡), 3) AI Concept Art (1⚡) -->
             <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; margin-bottom: 9px;">
-              <!-- Card 1: Original / Attached Photo (Free 0⚡) -->
-              <button type="button" id="posterModeCardOriginal" onclick="selectUnifiedPosterVisualMode('original_photo')" style="display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; gap: 5px; padding: 8px 9px; border-radius: 11px; border: 1.5px solid rgba(148,163,184,0.35); background: #FFFFFF; color: var(--text-primary); text-align: left; cursor: pointer; transition: all 0.15s ease;">
+              <!-- Card 1: Original / Attached Photo (Free 0⚡ Default) -->
+              <button type="button" id="posterModeCardOriginal" onclick="selectUnifiedPosterVisualMode('original_photo')" style="display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; gap: 5px; padding: 8px 9px; border-radius: 11px; border: 2px solid #059669; background: rgba(16,185,129,0.06); color: var(--text-primary); text-align: left; cursor: pointer; transition: all 0.15s ease;">
                 <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 4px;">
                   <div style="display: inline-flex; align-items: center; gap: 5px;">
-                    <span id="posterModeCheckOriginal" style="width: 16px; height: 16px; border-radius: 5px; border: 1.5px solid rgba(148,163,184,0.55); background: #FFFFFF; color: #FFFFFF; display: inline-flex; align-items: center; justify-content: center; font-size: 10.5px; font-weight: 900; line-height: 1; flex-shrink: 0;"></span>
+                    <span id="posterModeCheckOriginal" style="width: 16px; height: 16px; border-radius: 5px; border: 1.5px solid #059669; background: #059669; color: #FFFFFF; display: inline-flex; align-items: center; justify-content: center; font-size: 10.5px; font-weight: 900; line-height: 1; flex-shrink: 0;">✓</span>
                     <span id="posterModeOrigIcon" style="font-size: 13.5px;">📸</span>
                   </div>
                   <span style="font-size: 9px; font-weight: 900; padding: 1px 5px; border-radius: 99px; background: rgba(16,185,129,0.14); color: #059669;">0⚡ Free</span>
                 </div>
                 <div id="posterModeOrigTitle" style="font-size: 11px; font-weight: 800; line-height: 1.2; color: var(--text-primary);">Original Photo</div>
-                <div id="posterModeOrigSub" style="font-size: 9.8px; font-weight: 600; color: var(--text-secondary); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%;">From source link</div>
+                <div id="posterModeOrigSub" style="font-size: 9.8px; font-weight: 600; color: var(--text-secondary); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%;">Snap / upload 1–3</div>
               </button>
 
               <!-- Card 2: Web Source (Free 0⚡) -->
@@ -935,17 +935,17 @@
                 <div id="posterModeCollageSub" style="font-size: 9.8px; font-weight: 600; color: var(--text-secondary); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%;">Pick 1–3 web photos</div>
               </button>
 
-              <!-- Card 3: AI Editorial Illustration (1⚡ Credit — Disabled when 0 Credits) -->
-              <button type="button" id="posterModeCardAiArt" onclick="selectUnifiedPosterVisualMode('ai_art')" style="display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; gap: 5px; padding: 8px 9px; border-radius: 11px; border: 2px solid #4F46E5; background: rgba(79,70,229,0.06); color: var(--text-primary); text-align: left; cursor: pointer; transition: all 0.15s ease;">
+              <!-- Card 3: AI Concept Art (1⚡ Credit — Disabled when 0 Credits) -->
+              <button type="button" id="posterModeCardAiArt" onclick="selectUnifiedPosterVisualMode('ai_art')" style="display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; gap: 5px; padding: 8px 9px; border-radius: 11px; border: 1.5px solid rgba(148,163,184,0.35); background: #FFFFFF; color: var(--text-primary); text-align: left; cursor: pointer; transition: all 0.15s ease;">
                 <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 4px;">
                   <div style="display: inline-flex; align-items: center; gap: 5px;">
-                    <span id="posterModeCheckAiArt" style="width: 16px; height: 16px; border-radius: 5px; border: 1.5px solid #4F46E5; background: #4F46E5; color: #FFFFFF; display: inline-flex; align-items: center; justify-content: center; font-size: 10.5px; font-weight: 900; line-height: 1; flex-shrink: 0;">✓</span>
+                    <span id="posterModeCheckAiArt" style="width: 16px; height: 16px; border-radius: 5px; border: 1.5px solid rgba(148,163,184,0.55); background: #FFFFFF; color: #FFFFFF; display: inline-flex; align-items: center; justify-content: center; font-size: 10.5px; font-weight: 900; line-height: 1; flex-shrink: 0;"></span>
                     <span style="font-size: 13.5px;">🎨</span>
                   </div>
                   <span id="posterModeAiBadge" style="font-size: 9px; font-weight: 900; padding: 1px 5px; border-radius: 99px; background: rgba(79,70,229,0.16); color: #4F46E5;">1⚡ Credit</span>
                 </div>
-                <div id="posterModeAiTitle" style="font-size: 11px; font-weight: 800; line-height: 1.2; color: var(--text-primary);">AI Illustration</div>
-                <div id="posterModeAiSub" style="font-size: 9.8px; font-weight: 600; color: var(--text-secondary); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%;">Editorial Realism</div>
+                <div id="posterModeAiTitle" style="font-size: 11px; font-weight: 800; line-height: 1.2; color: var(--text-primary);">AI Concept Art</div>
+                <div id="posterModeAiSub" style="font-size: 9.8px; font-weight: 600; color: var(--text-secondary); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%;">For abstract thoughts</div>
               </button>
             </div>
 
@@ -2858,34 +2858,29 @@
 
       <!-- Welcome Intro Banner (Shown automatically the first time a user starts Slanting) -->
       <div id="userCreditsFirstTimeWelcomeBanner" style="display: none; padding: 10px 12px; border-radius: 12px; background: linear-gradient(135deg, rgba(16,185,129,0.12), rgba(99,102,241,0.08)); border: 1px solid rgba(16,185,129,0.35); font-size: 12px; color: var(--text-primary); line-height: 1.42;">
-        👋 <strong>Welcome to Slant Studio!</strong> Here is a quick guide to how your free visual illustration credits work and how to request a top-up anytime:
+        👋 <strong>Welcome to Slant Studio!</strong> Publishing with your own photos or Web Search is always <strong>0⚡ Free</strong>. Here is how your AI Concept Art credits work:
       </div>
 
-      <!-- Credit Breakdown Cards -->
+      <!-- Credit Breakdown Card -->
       <div id="userModalCreditsSection" style="display: grid; grid-template-columns: 1fr; gap: 10px;">
-        <div style="padding: 12px; border-radius: 14px; background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.28);">
-          <div style="font-size: 10px; font-weight: 800; color: #059669; text-transform: uppercase; letter-spacing: 0.5px;">🌐💭 Perspective Art</div>
-          <div id="userModalPerspectiveCreditsText" style="font-size: 17px; font-weight: 900; color: var(--text-primary); margin-top: 4px;">5 Free Left</div>
-          <div id="userModalPerspectiveSubText" style="font-size: 11px; color: var(--text-secondary); margin-top: 2px; line-height: 1.35;">First 5 free &bull; then 1/day</div>
-        </div>
-        <div style="display: none; padding: 12px; border-radius: 14px; background: rgba(245,158,11,0.09); border: 1px solid rgba(245,158,11,0.3);">
-          <div style="font-size: 10px; font-weight: 800; color: #B45309; text-transform: uppercase; letter-spacing: 0.5px;">📔 Daily Chronicle Art</div>
-          <div id="userModalChronicleCreditsText" style="font-size: 17px; font-weight: 900; color: var(--text-primary); margin-top: 4px;">1 / 1 Today</div>
-          <div style="font-size: 11px; color: var(--text-secondary); margin-top: 2px; line-height: 1.35;">1 visual/day always free</div>
+        <div style="padding: 12px 14px; border-radius: 14px; background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.28);">
+          <div style="font-size: 10px; font-weight: 800; color: #059669; text-transform: uppercase; letter-spacing: 0.5px;">🎨 AI Concept Art Credits</div>
+          <div id="userModalPerspectiveCreditsText" style="font-size: 17px; font-weight: 900; color: var(--text-primary); margin-top: 4px;">3 Starter Free</div>
+          <div id="userModalPerspectiveSubText" style="font-size: 11.5px; color: var(--text-secondary); margin-top: 3px; line-height: 1.4;">3 starter credits &bull; then 1/day + instant Request top-up anytime</div>
         </div>
       </div>
 
-      <div style="padding: 10px 12px; border-radius: 12px; background: rgba(16,185,129,0.09); border: 1px solid rgba(16,185,129,0.32); font-size: 11.8px; color: var(--text-secondary); line-height: 1.45;">
-        <div style="font-weight: 800; color: var(--text-primary); margin-bottom: 4px;">✨ Text Generation is Free — You Can Always Post Even at 0 Credits:</div>
-        <div><strong>1. 🌐 Web Link:</strong> Post with <strong>Source Grounded + Original Photo</strong> from the source link (0 credits).</div>
-        <div style="margin-top: 2px;"><strong>2. 💭 Inner Voice:</strong> Post by <strong>attaching your own photo(s)</strong> (0 credits).</div>
-        <div style="margin-top: 3px; font-size: 11px; opacity: 0.9;">Only generating AI-illustrated poster artwork uses a visual credit.</div>
+      <div style="padding: 11px 13px; border-radius: 12px; background: rgba(16,185,129,0.09); border: 1px solid rgba(16,185,129,0.32); font-size: 11.8px; color: var(--text-secondary); line-height: 1.45;">
+        <div style="font-weight: 800; color: var(--text-primary); margin-bottom: 5px;">✨ Real &amp; Web Photo Slants Are Always 0⚡ Free:</div>
+        <div><strong>1. 📸 Snap / Upload Photos (0⚡ Free):</strong> Attach 1–3 personal or camera photos directly to your Slant.</div>
+        <div style="margin-top: 3px;"><strong>2. 🖼️ Web Source &amp; Link Thumbnail (0⚡ Free):</strong> Extract the photo from your pasted link or pick 1–3 photos via Web Search.</div>
+        <div style="margin-top: 4px; font-size: 11px; opacity: 0.92;"><strong>🎨 AI Concept Art (1⚡ Credit):</strong> Only needed when expressing an abstract visual thought with no real reference image.</div>
       </div>
 
       <!-- Request More Credits Section -->
       <div style="padding: 12px; border-radius: 14px; background: var(--bg-card, rgba(15,23,42,0.03)); border: 1px solid var(--border-subtle, rgba(15,23,42,0.1)); display: flex; flex-direction: column; gap: 8px;">
-        <div style="font-size: 12.5px; font-weight: 800; color: var(--text-primary);">⚡ How to Request More Visual Credits</div>
-        <div style="font-size: 11.5px; color: var(--text-secondary); line-height: 1.38;">Need extra visual illustrations today? Tap <strong>Request +Credits</strong> below — our curator admin gets notified immediately and grants bonus credits (+5 / +15) to your account.</div>
+        <div style="font-size: 12.5px; font-weight: 800; color: var(--text-primary);">⚡ Need More AI Concept Credits?</div>
+        <div style="font-size: 11.5px; color: var(--text-secondary); line-height: 1.38;">Working on abstract visual thoughts that need AI illustration? Tap <strong>Request +Credits</strong> below — our curator admin is notified immediately and grants bonus credits to your account.</div>
         <div style="display: flex; gap: 8px;">
           <input type="text" id="userCreditRequestReasonInput" placeholder="Optional note (e.g. Working on a series of perspectives)" style="flex: 1; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--border-subtle, #CBD5E1); background: #FFFFFF; color: #0F172A; font-size: 12.5px;">
           <button type="button" id="userCreditRequestSubmitBtn" onclick="submitUserCreditRequest()" style="padding: 9px 14px; border-radius: 10px; border: none; background: #253833; color: #FFFFFF; font-size: 12px; font-weight: 800; cursor: pointer; white-space: nowrap;">
@@ -3078,6 +3073,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261106_1440"></script>
+  <script src="app.js?v=20261106_1510"></script>
 </body>
 </html>

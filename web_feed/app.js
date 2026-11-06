@@ -790,16 +790,16 @@ function updateCreatorStudioCreditBadge(creditsObj) {
 
   const isChronicleActive = typeof isDailyChronicleMode !== 'undefined' && Boolean(isDailyChronicleMode);
   const isInnerVoiceActive = !isChronicleActive && (typeof creatorSelectedSource !== 'undefined' && creatorSelectedSource === 'inner_voice');
-  const activePerspectiveLabel = isInnerVoiceActive ? 'Inner Voice Visuals' : 'Web Link Visuals';
-  const activePerspectiveEmoji = isInnerVoiceActive ? '💭' : '🌐';
+  const activePerspectiveLabel = 'AI Concept Art';
+  const activePerspectiveEmoji = '🎨';
 
-  const starterRemaining = simZeroActive ? 0 : (currentUserCredits ? Number(currentUserCredits.starterRemaining ?? 5) : 5);
-  const starterTotal = currentUserCredits ? Number(currentUserCredits.starterTotal ?? 5) : 5;
+  const starterRemaining = simZeroActive ? 0 : (currentUserCredits ? Number(currentUserCredits.starterRemaining ?? 3) : 3);
+  const starterTotal = currentUserCredits ? Number(currentUserCredits.starterTotal ?? 3) : 3;
   const perspLeft = simZeroActive
     ? 0
     : (currentUserCredits
-        ? Number(currentUserCredits.perspectiveRemainingToday ?? currentUserCredits.remainingToday ?? 5)
-        : 5);
+        ? Number(currentUserCredits.perspectiveRemainingToday ?? currentUserCredits.remainingToday ?? 3)
+        : 3);
   const chronFreeLeft = simZeroActive
     ? 0
     : (currentUserCredits
@@ -849,29 +849,17 @@ function updateCreatorStudioCreditBadge(creditsObj) {
 
   if (activeModeIcon && activeModeSummary && secondarySummary) {
     if (isMaster) {
-      activeModeIcon.textContent = isChronicleActive ? '📔' : activePerspectiveEmoji;
-      activeModeSummary.textContent = isChronicleActive
-        ? 'Diary Chronicle Visuals: ⚡ ∞ Unlimited'
-        : `${activePerspectiveLabel}: ⚡ ∞ Unlimited`;
-      secondarySummary.textContent = isChronicleActive
-        ? '🌐💭 Perspective: ∞'
-        : '📔 Chronicle: ∞';
-    } else if (isChronicleActive) {
-      activeModeIcon.textContent = '📔';
-      activeModeSummary.textContent = chronFreeLeft > 0
-        ? `Diary Chronicle Visuals: ${chronFreeLeft}/1 Free Left Today`
-        : (chronTotalLeft > 0 ? `Diary Chronicle Visuals: ${chronTotalLeft} Bonus Left` : '0 AI Art Credits • Attach Photos to Post Free (Text Free)');
-      secondarySummary.textContent = `🌐💭 Perspective: ${perspLeft} Left`;
+      activeModeIcon.textContent = activePerspectiveEmoji;
+      activeModeSummary.textContent = `${activePerspectiveLabel}: ⚡ ∞ Unlimited`;
+      secondarySummary.textContent = '📸🖼️ Real & Web Photos: 0⚡ Free';
     } else {
       activeModeIcon.textContent = activePerspectiveEmoji;
       activeModeSummary.textContent = starterRemaining > 0
         ? `${activePerspectiveLabel}: ${perspLeft} Free Left (${starterRemaining}/${starterTotal} Starter)`
         : (perspLeft > 0
             ? `${activePerspectiveLabel}: ${perspLeft} Left Today`
-            : (isInnerVoiceActive
-                ? '0 AI Art Credits • Attach Photo to Post Free (Text Free)'
-                : '0 AI Art Credits • Post Free w/ Original Photo (Text Free)'));
-      secondarySummary.textContent = `📔 Chronicle: ${chronFreeLeft}/1 Free Today`;
+            : '0 AI Concept Credits • Use Upload / Web Photos (0⚡ Free)');
+      secondarySummary.textContent = '📸🖼️ Real & Web Photos: 0⚡ Free';
     }
   }
 
@@ -893,14 +881,11 @@ function updateCreatorStudioCreditBadge(creditsObj) {
       creatorCharacterRepresentation = 'exact';
     }
   } else if (window._wasForcedZeroCreditsMode) {
-    // User just regained credits (or Master Admin toggled 0⚡ simulation OFF) -> restore AI Illustration (Editorial Realism default)
+    // User regained credits -> keep default 0⚡ Free photo mode unless user taps AI Concept Art
     window._wasForcedZeroCreditsMode = false;
-    window._selectedPosterVisualMode = 'ai_art';
-    if (typeof closeWebCollageBuilder === 'function') {
-      try { closeWebCollageBuilder(); } catch (_) {}
+    if (!window._selectedPosterVisualMode) {
+      window._selectedPosterVisualMode = window._isWebCollageAttached ? 'web_collage' : 'original_photo';
     }
-    restoreOriginalScrapedSourcePhoto();
-    creatorCharacterRepresentation = isChronicleActive ? 'watercolor' : 'realistic';
   }
   if (typeof updateEqualizerSummary === 'function') {
     try { updateEqualizerSummary(); } catch (_) {}
@@ -924,16 +909,9 @@ function updateCreatorStudioCreditBadge(creditsObj) {
   }
   if (perspSubEl) {
     if (starterRemaining > 0) {
-      perspSubEl.innerHTML = `You have <strong>${starterRemaining} of ${starterTotal} starter visual credits</strong> remaining. Once used, you receive <strong>${dailyLimit} free visual credit per day</strong>.`;
+      perspSubEl.innerHTML = `You have <strong>${starterRemaining} of ${starterTotal} starter AI Concept Art credits</strong> remaining. Once used, you receive <strong>${dailyLimit} free AI credit per day</strong> (+ instant Request top-up anytime).`;
     } else {
-      perspSubEl.innerHTML = `Starter pack completed · <strong>${dailyLimit}/day</strong> daily visual credit${bonus > 0 ? ` + <strong>${bonus} bonus credits</strong>` : ''}. Need more today? Request a top-up below!`;
-    }
-  }
-  if (chronTextEl) {
-    if (isMaster) {
-      chronTextEl.textContent = '⚡ ∞ Always Free';
-    } else {
-      chronTextEl.textContent = chronFreeLeft > 0 ? `📔 ${chronFreeLeft}/1 Free Today` : (chronTotalLeft > 0 ? `📔 ${chronTotalLeft} Bonus Left` : '📔 Used Today (Resets Tomorrow)');
+      perspSubEl.innerHTML = `Starter pack completed · <strong>${dailyLimit}/day</strong> daily AI Concept Art credit${bonus > 0 ? ` + <strong>${bonus} bonus credits</strong>` : ''}. Need more today? Request a top-up below!`;
     }
   }
 
@@ -941,7 +919,7 @@ function updateCreatorStudioCreditBadge(creditsObj) {
     if (isMaster) {
       drawerPill.textContent = '⚡ ∞';
     } else {
-      drawerPill.textContent = `${perspLeft} 🎨 · ${chronFreeLeft}/1 📔`;
+      drawerPill.textContent = `🎨 ${perspLeft} AI`;
     }
   }
 
@@ -949,28 +927,11 @@ function updateCreatorStudioCreditBadge(creditsObj) {
   badge.style.display = 'inline-flex';
 
   if (isMaster) {
-    badge.textContent = isChronicleActive ? '📔 ⚡ ∞' : `${activePerspectiveEmoji} ⚡ ∞`;
+    badge.textContent = `${activePerspectiveEmoji} ⚡ ∞`;
     badge.style.background = 'rgba(99,102,241,0.15)';
     badge.style.color = '#818CF8';
     badge.style.borderColor = 'rgba(99,102,241,0.38)';
     badge.title = 'Unlimited Master Admin Credits · Tap to open Credit Manager';
-    return;
-  }
-
-  if (isChronicleActive) {
-    if (chronTotalLeft <= 0) {
-      badge.textContent = '📔 0 left · Request +';
-      badge.style.background = 'rgba(239,68,68,0.16)';
-      badge.style.color = '#F87171';
-      badge.style.borderColor = 'rgba(239,68,68,0.45)';
-      badge.title = 'Your free Daily Chronicle visual credit is used for today (text edits & rethinking reflection remain free). Tap to request more credits!';
-    } else {
-      badge.textContent = chronFreeLeft > 0 ? `📔 ${chronFreeLeft}/1 Free Today` : `📔 ${chronTotalLeft} left`;
-      badge.style.background = 'rgba(16,185,129,0.14)';
-      badge.style.color = '#34D399';
-      badge.style.borderColor = 'rgba(16,185,129,0.35)';
-      badge.title = '1 Daily Chronicle visual illustration is always free every day (text-only & reflection rethink are always free). Tap for details.';
-    }
     return;
   }
 
@@ -979,21 +940,21 @@ function updateCreatorStudioCreditBadge(creditsObj) {
     badge.style.background = 'rgba(239,68,68,0.16)';
     badge.style.color = '#F87171';
     badge.style.borderColor = 'rgba(239,68,68,0.45)';
-    badge.title = 'Perspective visual credits used for today (Text-Only mode & Daily Chronicle remain free). Tap to request more credits from Admin!';
+    badge.title = 'AI Concept Art credits used for today (Uploaded & Web Source photos remain 0⚡ Free). Tap to request more credits!';
   } else if (starterRemaining > 0) {
     badge.textContent = `${activePerspectiveEmoji} ${perspLeft} free left`;
     badge.style.background = 'rgba(16,185,129,0.14)';
     badge.style.color = '#34D399';
     badge.style.borderColor = 'rgba(16,185,129,0.35)';
-    badge.title = `${starterRemaining}/${starterTotal} free starter Perspective visual credits remaining (Text-Only & Daily Chronicle are always free). Tap for details or to request more.`;
+    badge.title = `${starterRemaining}/${starterTotal} free starter AI Concept Art credits remaining (Uploaded & Web Source photos are always 0⚡ Free). Tap for details or to request more.`;
   } else {
     badge.textContent = `${activePerspectiveEmoji} ${perspLeft} left`;
     badge.style.background = 'rgba(16,185,129,0.14)';
     badge.style.color = '#34D399';
     badge.style.borderColor = 'rgba(16,185,129,0.35)';
     badge.title = bonus > 0
-      ? `${perspLeft} Perspective visual credits available today (includes +${bonus} bonus credits). Tap to request more.`
-      : `${perspLeft} daily Perspective visual credit available today. Tap to request more.`;
+      ? `${perspLeft} AI Concept Art credits available today (includes +${bonus} bonus credits). Tap to request more.`
+      : `${perspLeft} daily AI Concept Art credit available today. Tap to request more.`;
   }
 }
 
@@ -1011,7 +972,7 @@ function isZeroVisualCreditsForActivePillar() {
     const chronTotalLeft = Number(currentUserCredits.chronicleRemainingToday ?? 1);
     return chronTotalLeft <= 0;
   }
-  const perspLeft = Number(currentUserCredits.perspectiveRemainingToday ?? currentUserCredits.remainingToday ?? 5);
+  const perspLeft = Number(currentUserCredits.perspectiveRemainingToday ?? currentUserCredits.remainingToday ?? 3);
   return perspLeft <= 0;
 }
 
@@ -1201,16 +1162,15 @@ function updateUnifiedPosterVisualStripUI() {
   const attachedSceneCount = Array.isArray(window._attachedScenePhotos) ? window._attachedScenePhotos.length : 0;
   const hasInnerVoicePhoto = Boolean(innerVoicePhotoBase64) || attachedSceneCount > 0;
 
-  // Resolve explicit checked mode (only 1 mode can be checked at a time)
+  // Resolve explicit checked mode (only 1 mode can be checked at a time; defaults to 0⚡ Free Original/Attached Photo)
   let checkedMode = window._selectedPosterVisualMode;
   if (!checkedMode) {
     if (window._isWebCollageAttached || (window._webCollageState && window._webCollageState.isOpen)) {
       checkedMode = 'web_collage';
-    } else if (zeroCredits || creatorCharacterRepresentation === 'exact') {
-      checkedMode = 'original_photo';
     } else {
-      checkedMode = 'ai_art';
+      checkedMode = 'original_photo';
     }
+    window._selectedPosterVisualMode = checkedMode;
   }
   // If user has 0 credits, AI Illustration MUST be disabled and cannot be checked
   if (zeroCredits && checkedMode === 'ai_art') {
@@ -1299,8 +1259,8 @@ function updateUnifiedPosterVisualStripUI() {
   };
   const currentStyleLabel = styleNames[creatorCharacterRepresentation] || (isChronicleActive ? 'Watercolor Art' : 'Editorial Realism');
   if (aiTitle && aiSub && aiBadge) {
-    aiTitle.textContent = isChronicleActive ? 'AI Watercolor' : 'AI Illustration';
-    aiSub.textContent = zeroCredits ? '🔒 Needs Credits' : currentStyleLabel;
+    aiTitle.textContent = isChronicleActive ? 'AI Watercolor' : 'AI Concept Art';
+    aiSub.textContent = zeroCredits ? '🔒 Needs Credits' : (isAiArtMode ? currentStyleLabel : 'For abstract thoughts');
     if (zeroCredits) {
       aiBadge.textContent = '🔒 0⚡';
       aiBadge.style.background = 'rgba(148,163,184,0.22)';
@@ -5519,15 +5479,15 @@ async function loadAdminBetaData(forceRefresh = false) {
 
         const cInfo = userCreditsMap[cleanEmail] || {
           isUnlimited: isMaster,
-          starterRemaining: 5,
-          starterTotal: 5,
+          starterRemaining: 3,
+          starterTotal: 3,
           dailyLimit: defaultDailyLimit,
           usedToday: 0,
           dailyRemaining: defaultDailyLimit,
           bonusCredits: 0,
-          perspectiveRemainingToday: isMaster ? 9999 : 5,
+          perspectiveRemainingToday: isMaster ? 9999 : 3,
           chronicleFreeRemainingToday: 1,
-          remainingToday: isMaster ? 9999 : 5,
+          remainingToday: isMaster ? 9999 : 3,
           totalUsed: 0
         };
 
@@ -5542,17 +5502,17 @@ async function loadAdminBetaData(forceRefresh = false) {
 
         // Credit status badge
         let creditBadgeHtml = '';
-        const perspLeft = cInfo.perspectiveRemainingToday ?? cInfo.remainingToday ?? 5;
-        const starterRem = cInfo.starterRemaining ?? 5;
-        const chronLeft = cInfo.chronicleFreeRemainingToday ?? 1;
+        const perspLeft = cInfo.perspectiveRemainingToday ?? cInfo.remainingToday ?? 3;
+        const starterRem = cInfo.starterRemaining ?? 3;
+        const starterTot = cInfo.starterTotal ?? 3;
         if (isMaster) {
           creditBadgeHtml = `<span style="font-size:10.5px; font-weight:700; color:#818CF8; background:rgba(99,102,241,0.14); border:1px solid rgba(99,102,241,0.3); padding:2px 7px; border-radius:6px;">⚡ ∞ Unlimited · ${cInfo.usedToday || 0} used today</span>`;
         } else if (perspLeft <= 0) {
-          creditBadgeHtml = `<span style="font-size:10.5px; font-weight:800; color:#F87171; background:rgba(239,68,68,0.16); border:1px solid rgba(239,68,68,0.4); padding:2px 7px; border-radius:6px;">🚨 0 Perspective Left Today · 📔 ${chronLeft}/1 Chronicle</span>`;
+          creditBadgeHtml = `<span style="font-size:10.5px; font-weight:800; color:#F87171; background:rgba(239,68,68,0.16); border:1px solid rgba(239,68,68,0.4); padding:2px 7px; border-radius:6px;">🚨 0 AI Concept Credits Left Today</span>`;
         } else {
-          const starterOrDailyTag = starterRem > 0 ? `${starterRem}/5 Starter` : `${cInfo.dailyRemaining ?? 1}/${cInfo.dailyLimit || 1} Daily`;
+          const starterOrDailyTag = starterRem > 0 ? `${starterRem}/${starterTot} Starter` : `${cInfo.dailyRemaining ?? 1}/${cInfo.dailyLimit || 1} Daily`;
           const bonusTag = cInfo.bonusCredits > 0 ? ` +${cInfo.bonusCredits} Bonus` : '';
-          creditBadgeHtml = `<span style="font-size:10.5px; font-weight:800; color:#34D399; background:rgba(16,185,129,0.14); border:1px solid rgba(16,185,129,0.35); padding:2px 7px; border-radius:6px;">🎨 ${perspLeft} Left (${starterOrDailyTag}${bonusTag}) · 📔 ${chronLeft}/1</span>`;
+          creditBadgeHtml = `<span style="font-size:10.5px; font-weight:800; color:#34D399; background:rgba(16,185,129,0.14); border:1px solid rgba(16,185,129,0.35); padding:2px 7px; border-radius:6px;">🎨 ${perspLeft} AI Left (${starterOrDailyTag}${bonusTag})</span>`;
         }
 
         const row = document.createElement('div');
@@ -17927,7 +17887,7 @@ function renderChronicleMomentVisualDropdowns() {
   const checkedMode = window._selectedPosterVisualMode
     || ((window._isWebCollageAttached || (window._webCollageState && window._webCollageState.isOpen))
       ? 'web_collage'
-      : ((zeroCredits || creatorCharacterRepresentation === 'exact') ? 'original_photo' : 'ai_art'));
+      : 'original_photo');
   const learningProfile = getVisualConfidenceLearningProfile();
   const totalLearned = Number(learningProfile.totalApprovals) || 0;
 
@@ -18031,7 +17991,7 @@ function renderPolishVisualSubjects() {
   const checkedMode = window._selectedPosterVisualMode
     || ((window._isWebCollageAttached || (window._webCollageState && window._webCollageState.isOpen))
       ? 'web_collage'
-      : ((zeroCredits || creatorCharacterRepresentation === 'exact') ? 'original_photo' : 'ai_art'));
+      : 'original_photo');
 
   const isChronicle = (creatorSelectedSource === 'inner_voice' && typeof isDailyChronicleMode !== 'undefined' && isDailyChronicleMode);
   const learningProfile = getVisualConfidenceLearningProfile();
@@ -29016,7 +28976,8 @@ function resetCreatorState() {
   creatorCountryContext = null;
   currentPreviewSlide = 0;
   setPerspectiveMode('source');
-  creatorCharacterRepresentation = 'realistic';
+  window._selectedPosterVisualMode = 'original_photo';
+  creatorCharacterRepresentation = 'exact';
   creatorSettingsGenerated = false;
   resetCreatorRegenModeToFresh();
   resetStage1ActionBtn();
@@ -31226,7 +31187,7 @@ function updateReferencePhotoUI() {
     optExact.style.display = hasPhoto ? 'flex' : 'none';
   }
 
-  if (!hasPhoto && creatorCharacterRepresentation === 'exact') {
+  if (!hasPhoto && creatorCharacterRepresentation === 'exact' && window._selectedPosterVisualMode === 'ai_art') {
     creatorCharacterRepresentation = 'painting';
   }
 
@@ -31322,34 +31283,37 @@ async function startAiSynthesis() {
     }
   }
 
-  // If user has 0 AI visual credits for the active mode, enforce free Original / Attached Photo mode
-  // or prompt them to attach a photo for Inner Voice / Chronicle before leaving Step 1
+  // If user selected 0⚡ Free mode (Original Photo or Web Source) OR has 0 AI credits, enforce exact photo portrayal (0⚡ Free)
   const isRegenWithBaselineCheck = Boolean(window._isCreatorRegenMode && (currentSynthesizedPost || window._regenBaselinePost));
   const activeRegenScopeCheck = isRegenWithBaselineCheck ? (creatorRegenScope || 'both') : 'both';
   let forceChronicleNoWatercolor = false;
-  if (activeRegenScopeCheck !== 'text_only' && typeof isZeroVisualCreditsForActivePillar === 'function' && isZeroVisualCreditsForActivePillar()) {
+  const isZeroCreditsNow = typeof isZeroVisualCreditsForActivePillar === 'function' && isZeroVisualCreditsForActivePillar();
+  const isFreePhotoModeSelected = (window._selectedPosterVisualMode && window._selectedPosterVisualMode !== 'ai_art') || isZeroCreditsNow;
+  if (activeRegenScopeCheck !== 'text_only' && isFreePhotoModeSelected) {
     const isChronicleCheck = (creatorSelectedSource === 'inner_voice' && isDailyChronicleMode);
+    const hasAnyAttachedOrScrapedPhoto = Boolean(
+      innerVoicePhotoBase64 ||
+      creatorReferenceImageBase64 ||
+      currentScrapedArticle?.imageBase64 ||
+      currentScrapedArticle?.imageUrl ||
+      (isLink && extractInstantYouTubeThumbnailUrl(url))
+    );
     if (isChronicleCheck) {
       const hasAnyMomentPhoto = Array.isArray(dailyChronicleMoments) && dailyChronicleMoments.some(m => Boolean(m && m.imageBase64));
       if (!hasAnyMomentPhoto && !window._isWebCollageAttached) {
-        // 0 Daily Chronicle credits and no attached photos -> create Moments & Reflection cards only (no watercolor poster)
         forceChronicleNoWatercolor = true;
       } else {
         creatorCharacterRepresentation = 'exact';
       }
-    } else if (creatorSelectedSource === 'inner_voice') {
-      if (!innerVoicePhotoBase64 && !creatorReferenceImageBase64) {
-        const banner = document.getElementById('creatorZeroCreditsFreeBanner');
-        if (banner) banner.style.display = 'block';
-        if (typeof openWebCollageBuilderFromContext === 'function') {
-          openWebCollageBuilderFromContext();
-        }
-        showTemporaryToast('🖼️ 0 AI art credits left — pick 1–3 web images in the Collage Studio above OR attach your own photo to publish for FREE (Text generation is free)!');
-        return;
+    } else if (!hasAnyAttachedOrScrapedPhoto) {
+      if (typeof openWebCollageBuilderFromContext === 'function') {
+        openWebCollageBuilderFromContext();
       }
-      creatorCharacterRepresentation = 'exact';
+      showTemporaryToast(isZeroCreditsNow
+        ? '🖼️ 0 AI credits left — pick 1–3 web photos above OR attach your own photo (0⚡ Free)!'
+        : '🖼️ Pick 1–3 web photos above, attach a photo (0⚡ Free), or select 🎨 AI Concept Art (1⚡)!');
+      return;
     } else {
-      // Web Link: automatically switch to Source Grounded + Original Photo / Web Collage (Free)
       creatorPerspectiveMode = 'source';
       creatorCharacterRepresentation = 'exact';
     }

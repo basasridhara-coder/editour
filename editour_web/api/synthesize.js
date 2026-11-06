@@ -9,7 +9,7 @@ const GEMINI_MODEL = 'gemini-3.8-flash';
 const SUPABASE_URL = 'https://fxfklefnkpmhofncqhfh.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ4ZmtsZWZua3BtaG9mbmNxaGZoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI0NzM4NzYsImV4cCI6MjEwODA0OTg3Nn0.0nw5ZDvlEsYal6EYXcqyaAPRHoxkXxZgDsNQDppEYgM';
 const MASTER_ADMINS = ['shridharoct16@gmail.com'];
-const STARTER_PERSPECTIVE_CREDITS = 5;
+const STARTER_PERSPECTIVE_CREDITS = 3;
 const DEFAULT_DAILY_CREDIT_LIMIT = 1;
 const DAILY_CHRONICLE_FREE_LIMIT = 1;
 
