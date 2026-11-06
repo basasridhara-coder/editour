@@ -3536,9 +3536,9 @@ header {
 
 [data-theme="obsidian"] .essay-highlight-pullquote,
 [data-theme="obsidian"] .essay-highlight-pullquote.signed-curator-note {
-  background: rgba(245, 158, 11, 0.12);
-  border-color: rgba(245, 158, 11, 0.28);
-  border-left-color: #F59E0B;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.11) 0%, rgba(254, 243, 199, 0.45) 100%);
+  border-color: rgba(217, 119, 6, 0.28);
+  border-left-color: #D97706;
 }
 
 .poster-export-sandbox .essay-highlight-pullquote.signed-curator-note {
@@ -3579,8 +3579,8 @@ header {
 }
 
 [data-theme="obsidian"] .signed-curator-avatar {
-  background: #F59E0B;
-  color: #0F172A;
+  background: #0F172A;
+  color: #F8FAFC;
 }
 
 .poster-export-sandbox .signed-curator-avatar {
@@ -3598,7 +3598,7 @@ header {
 }
 
 [data-theme="obsidian"] .signed-curator-title {
-  color: #FBBF24;
+  color: #92400E;
 }
 
 .poster-export-sandbox .signed-curator-title {
@@ -3629,8 +3629,8 @@ header {
 }
 
 [data-theme="obsidian"] .signed-curator-badge-pill {
-  color: #FDE68A;
-  background: rgba(245, 158, 11, 0.2);
+  color: #B45309;
+  background: rgba(217, 119, 6, 0.14);
 }
 
 .poster-export-sandbox .signed-curator-header {
@@ -3671,7 +3671,7 @@ header {
 }
 
 [data-theme="obsidian"] .essay-pullquote-label {
-  color: #F59E0B;
+  color: #B45309;
 }
 
 .essay-pullquote-text,
@@ -3687,7 +3687,7 @@ header {
 
 [data-theme="obsidian"] .essay-pullquote-text,
 [data-theme="obsidian"] .essay-highlight-pullquote.signed-curator-note .essay-pullquote-text {
-  color: #F8FAFC;
+  color: #0F172A;
 }
 
 .poster-export-sandbox .essay-pullquote-text,
