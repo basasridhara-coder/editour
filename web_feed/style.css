@@ -13755,72 +13755,87 @@ mark.polish-mark:hover, mark.polish-mark.active {
   background: rgba(15, 23, 42, 0.42);
   border: 1px solid rgba(255, 255, 255, 0.07);
   border-radius: 12px;
-  padding: 14px 16px;
+  padding: 12px 14px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 9px;
 }
 
 .graph-card-header {
   display: flex;
-  align-items: flex-start;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 3px;
+  width: 100%;
+}
+
+.graph-header-top-row {
+  display: flex;
+  align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
+  width: 100%;
+  margin-bottom: 1px;
 }
 
 .graph-step-badge {
-  display: inline-block;
-  font-size: 9.5px;
+  display: inline-flex;
+  align-items: center;
+  font-size: 9px;
   font-weight: 800;
-  letter-spacing: 0.7px;
-  padding: 2px 8px;
-  border-radius: 6px;
-  margin-bottom: 4px;
+  letter-spacing: 0.65px;
+  padding: 2px 7px;
+  border-radius: 5px;
+  white-space: nowrap;
+  margin-bottom: 0;
 }
 
 .graph-card-title {
   margin: 0;
-  font-size: 15px;
+  font-size: 14.5px;
   font-weight: 800;
   color: #F8FAFC;
   letter-spacing: -0.2px;
+  line-height: 1.25;
 }
 
 .graph-card-subtitle {
-  margin: 3px 0 0;
-  font-size: 11.5px;
+  margin: 0;
+  font-size: 11px;
   color: #94A3B8;
-  line-height: 1.4;
+  line-height: 1.35;
 }
 
 .graph-total-pill {
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 700;
   color: #CBD5E1;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  padding: 4px 10px;
+  padding: 2px 9px;
   border-radius: 99px;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .graph-reset-filter-btn {
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 700;
   color: #F8FAFC;
   background: rgba(168, 85, 247, 0.22);
   border: 1px solid rgba(168, 85, 247, 0.5);
-  padding: 4px 10px;
+  padding: 2px 9px;
   border-radius: 99px;
   cursor: pointer;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 /* Proportion Strip */
 .corr-prop-bar {
   display: flex;
   width: 100%;
-  height: 10px;
+  height: 8px;
   border-radius: 99px;
   overflow: hidden;
   background: rgba(255, 255, 255, 0.06);
@@ -13836,20 +13851,20 @@ mark.polish-mark:hover, mark.polish-mark.active {
 .corr-type-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
+  gap: 6px;
 }
 
 .corr-type-pill {
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 10px;
-  padding: 9px 10px;
+  border-radius: 9px;
+  padding: 7px 9px;
   text-align: left;
   cursor: pointer;
   transition: all 0.18s ease;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 }
 
 .corr-type-pill:hover,
@@ -13979,12 +13994,12 @@ mark.polish-mark:hover, mark.polish-mark.active {
 .corr-bars-scroller {
   display: flex;
   flex-wrap: nowrap;
-  gap: 8px;
+  gap: 6px;
   align-items: flex-end;
-  min-height: 162px;
+  min-height: 128px;
   overflow-x: auto;
   overflow-y: hidden;
-  padding: 4px 0 8px;
+  padding: 2px 0 6px;
   scroll-behavior: auto;
   -webkit-overflow-scrolling: touch;
   cursor: grab;
@@ -14013,14 +14028,14 @@ mark.polish-mark:hover, mark.polish-mark.active {
 }
 
 .corr-bar-col {
-  flex: 0 0 82px;
-  min-width: 82px;
+  flex: 0 0 64px;
+  min-width: 64px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   cursor: pointer;
-  padding: 6px 4px;
+  padding: 4px 3px;
   border-radius: 8px;
   border: none;
   background: transparent;
@@ -14033,17 +14048,17 @@ mark.polish-mark:hover, mark.polish-mark.active {
 }
 
 .corr-bar-seq {
-  font-size: 9.5px;
+  font-size: 9px;
   font-weight: 800;
   color: #94A3B8;
   letter-spacing: 0.3px;
 }
 
 .corr-bar-snippet {
-  font-size: 9px;
+  font-size: 8.5px;
   font-weight: 600;
   color: #64748B;
-  max-width: 74px;
+  max-width: 60px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -14054,8 +14069,8 @@ mark.polish-mark:hover, mark.polish-mark.active {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-top: 4px;
-  padding-top: 6px;
+  margin-top: 2px;
+  padding-top: 4px;
 }
 
 .corr-slider-edge-lbl {
@@ -14078,16 +14093,16 @@ mark.polish-mark:hover, mark.polish-mark.active {
 }
 
 .corr-bar-val {
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 800;
   color: #E2E8F0;
 }
 
 .corr-bar-track {
-  width: 28px;
-  height: 112px;
+  width: 24px;
+  height: 78px;
   background: rgba(255, 255, 255, 0.05);
-  border-radius: 6px;
+  border-radius: 5px;
   display: flex;
   flex-direction: column-reverse;
   overflow: hidden;
@@ -14231,15 +14246,15 @@ mark.polish-mark:hover, mark.polish-mark.active {
 /* Graph 2: Broad Topic Donut + Horizontal Bars */
 .topic-graph-layout {
   display: grid;
-  grid-template-columns: 156px 1fr;
-  gap: 18px;
+  grid-template-columns: 132px 1fr;
+  gap: 14px;
   align-items: center;
 }
 
 .curator-donut-wrap {
   position: relative;
-  width: 148px;
-  height: 148px;
+  width: 128px;
+  height: 128px;
   margin: 0 auto;
   display: flex;
   align-items: center;
@@ -14257,29 +14272,30 @@ mark.polish-mark:hover, mark.polish-mark.active {
 }
 
 .donut-center-num {
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 900;
   color: #F8FAFC;
   line-height: 1;
 }
 
 .donut-center-label {
-  font-size: 9px;
+  font-size: 8.5px;
   font-weight: 800;
-  letter-spacing: 0.8px;
+  letter-spacing: 0.7px;
   color: #94A3B8;
-  margin-top: 3px;
+  margin-top: 2px;
 }
 
 .topic-bars-column {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 5px;
+  min-width: 0;
 }
 
 .analytics-hbar-row {
-  padding: 6px 9px;
-  border-radius: 8px;
+  padding: 5px 8px;
+  border-radius: 7px;
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid transparent;
   cursor: pointer;
@@ -14296,40 +14312,42 @@ mark.polish-mark:hover, mark.polish-mark.active {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 5px;
-  font-size: 12px;
+  margin-bottom: 4px;
+  font-size: 11.5px;
 }
 
 .hbar-left {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 6px;
   font-weight: 700;
   color: #E2E8F0;
+  min-width: 0;
 }
 
 .hbar-color-dot {
-  width: 9px;
-  height: 9px;
+  width: 8px;
+  height: 8px;
   border-radius: 3px;
   flex-shrink: 0;
 }
 
 .hbar-right {
-  font-size: 12px;
+  font-size: 11.5px;
   display: flex;
   align-items: center;
   gap: 4px;
+  flex-shrink: 0;
 }
 
 .hbar-pct {
   color: #94A3B8;
-  font-size: 11px;
+  font-size: 10.5px;
 }
 
 .hbar-track {
   width: 100%;
-  height: 7px;
+  height: 6px;
   background: rgba(255, 255, 255, 0.06);
   border-radius: 99px;
   overflow: hidden;
@@ -14345,18 +14363,18 @@ mark.polish-mark:hover, mark.polish-mark.active {
 .emotion-columns-grid {
   display: grid;
   grid-template-columns: repeat(6, 1fr);
-  gap: 8px;
+  gap: 6px;
 }
 
 .emotion-col-card {
   background: transparent;
   border: 1px solid transparent;
-  border-radius: 10px;
-  padding: 8px 4px;
+  border-radius: 9px;
+  padding: 6px 4px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   cursor: pointer;
   transition: all 0.18s ease;
   text-align: center;
@@ -14375,21 +14393,21 @@ mark.polish-mark:hover, mark.polish-mark.active {
 }
 
 .emotion-col-count {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 800;
 }
 
 .emotion-col-pct {
-  font-size: 9.5px;
+  font-size: 9px;
   color: #94A3B8;
   font-weight: 700;
 }
 
 .emotion-col-bar-wrap {
-  width: 28px;
-  height: 92px;
+  width: 24px;
+  height: 54px;
   background: rgba(255, 255, 255, 0.05);
-  border-radius: 6px;
+  border-radius: 5px;
   display: flex;
   align-items: flex-end;
   padding: 2px;
@@ -14397,20 +14415,20 @@ mark.polish-mark:hover, mark.polish-mark.active {
 
 .emotion-col-bar {
   width: 100%;
-  border-radius: 4px;
+  border-radius: 3px;
   transition: height 0.25s ease;
 }
 
 .emotion-col-icon {
-  font-size: 16px;
+  font-size: 15px;
   line-height: 1;
 }
 
 .emotion-col-label {
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 700;
   color: #CBD5E1;
-  line-height: 1.25;
+  line-height: 1.2;
 }
 
 /* Drilldown & Tap Hint */
@@ -14482,14 +14500,41 @@ mark.polish-mark:hover, mark.polish-mark.active {
 }
 
 @media (max-width: 640px) {
+  .curator-style-modal-body {
+    padding: 10px 12px 16px;
+    gap: 10px;
+  }
+  .curator-kpi-strip {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+  }
+  .curator-kpi-pill:last-child {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .curator-kpi-pill {
+    padding: 7px 10px;
+  }
   .corr-type-grid {
     grid-template-columns: repeat(2, 1fr);
+    gap: 5px;
+  }
+  .corr-type-pill {
+    padding: 6px 8px;
   }
   .topic-graph-layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: 112px 1fr;
+    gap: 10px;
+  }
+  .curator-donut-wrap {
+    width: 108px;
+    height: 108px;
   }
   .emotion-columns-grid {
     grid-template-columns: repeat(3, 1fr);
+    gap: 5px;
   }
 }
 
@@ -15401,11 +15446,21 @@ mark.polish-mark:hover, mark.polish-mark.active {
   color: #0F172A;
 }
 
+[data-theme="daylight"] .graph-total-pill {
+  color: #334155;
+  background: #F1F5F9;
+  border-color: #CBD5E1;
+}
+
 [data-theme="daylight"] .corr-chart-stage,
 [data-theme="daylight"] .corr-post-inspector,
-[data-theme="daylight"] .emotion-col-card,
 [data-theme="daylight"] .analytics-drilldown-box {
-  background: #FFFFFF;
+  background: transparent;
+  border-color: #E2E8F0;
+}
+
+[data-theme="daylight"] .emotion-col-card {
+  background: rgba(255, 255, 255, 0.7);
   border-color: #E2E8F0;
 }
 

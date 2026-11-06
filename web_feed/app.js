@@ -22436,12 +22436,12 @@ function renderCuratorStyleProfile() {
     <!-- GRAPH 1: CORRECTIONS CAUGHT IN SLANT TAKE -->
     <section class="curator-graph-card">
       <div class="graph-card-header">
-        <div>
+        <div class="graph-header-top-row">
           <div class="graph-step-badge" style="color:#C084FC; background:rgba(192,132,252,0.14);">GRAPH 1 · WRITING CRAFT</div>
-          <h3 class="graph-card-title">Corrections Caught When Writing &ldquo;Slant Take&rdquo;</h3>
-          <p class="graph-card-subtitle">Each color represents a specific correction type caught during ✨ Polish across your posts</p>
+          ${activeFilter !== 'all' ? `<button type="button" class="graph-reset-filter-btn" onclick="setCuratorCorrectionFilter('all')">Show All Colors</button>` : `<span class="graph-total-pill">${data.totalCorrections.grandTotal} Total Notes</span>`}
         </div>
-        ${activeFilter !== 'all' ? `<button type="button" class="graph-reset-filter-btn" onclick="setCuratorCorrectionFilter('all')">Show All Colors</button>` : `<span class="graph-total-pill">${data.totalCorrections.grandTotal} Total Notes</span>`}
+        <h3 class="graph-card-title">Corrections Caught in &ldquo;Slant Take&rdquo;</h3>
+        <p class="graph-card-subtitle">Correction types caught during ✨ Polish across your posts</p>
       </div>
 
       <!-- Multi-Color Proportion Strip -->
@@ -22455,7 +22455,7 @@ function renderCuratorStyleProfile() {
       <!-- Post-by-Post Stacked Bar Chart (Slidable Candle Window) -->
       <div class="corr-chart-stage">
         <div class="corr-chart-header-row">
-          <div class="corr-chart-caption">Post-by-Post Correction Breakdown (${recentPostsForBars.length} Posts &middot; Slide candles or tap any post)</div>
+          <div class="corr-chart-caption">Post-by-Post Breakdown (${recentPostsForBars.length} Posts &middot; Tap or slide)</div>
           <div class="corr-chart-slide-controls">
             <button type="button" class="corr-slide-nav-btn" onclick="scrollCuratorCorrectionBars(-1)" title="Slide Earlier Posts">&#x2039;</button>
             <button type="button" class="corr-slide-nav-btn" onclick="scrollCuratorCorrectionBars(1)" title="Slide Later Posts">&#x203A;</button>
@@ -22496,12 +22496,12 @@ function renderCuratorStyleProfile() {
     <!-- GRAPH 2: BROAD LEVEL TOPICS PICKED -->
     <section class="curator-graph-card">
       <div class="graph-card-header">
-        <div>
+        <div class="graph-header-top-row">
           <div class="graph-step-badge" style="color:#38BDF8; background:rgba(56,189,248,0.14);">GRAPH 2 · THEMATIC BREADTH</div>
-          <h3 class="graph-card-title">Broad Level Topics Picked</h3>
-          <p class="graph-card-subtitle">Each broad topic category is color-coded to show where your curiosity and commentary gravitate</p>
+          <span class="graph-total-pill">${data.topicsRanked.filter(t => t.count > 0).length} Active Categories</span>
         </div>
-        <span class="graph-total-pill">${data.topicsRanked.filter(t => t.count > 0).length} Active Categories</span>
+        <h3 class="graph-card-title">Broad Topics Picked</h3>
+        <p class="graph-card-subtitle">Color-coded categories showing where your curiosity gravitates</p>
       </div>
 
       <div class="topic-graph-layout">
@@ -22517,12 +22517,12 @@ function renderCuratorStyleProfile() {
     <!-- GRAPH 3: IDENTIFIED EMOTION IN POST -->
     <section class="curator-graph-card">
       <div class="graph-card-header">
-        <div>
+        <div class="graph-header-top-row">
           <div class="graph-step-badge" style="color:#FBBF24; background:rgba(251,191,36,0.14);">GRAPH 3 · EMOTIONAL SPECTRUM</div>
-          <h3 class="graph-card-title">Identified Emotion in Posts</h3>
-          <p class="graph-card-subtitle">Dominant emotional register and conviction tone detected across your Slants</p>
+          <span class="graph-total-pill">Top: ${topEmotion.icon} ${escapeHtml(topEmotion.label.split('&')[0].trim())}</span>
         </div>
-        <span class="graph-total-pill">Top: ${topEmotion.icon} ${escapeHtml(topEmotion.label)}</span>
+        <h3 class="graph-card-title">Identified Emotion in Posts</h3>
+        <p class="graph-card-subtitle">Dominant emotional register and conviction tone across your Slants</p>
       </div>
 
       <!-- Emotion Spectrum Proportion Strip -->
